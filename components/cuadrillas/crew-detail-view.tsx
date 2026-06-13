@@ -1,0 +1,166 @@
+"use client"
+
+import Link from "next/link"
+import { ArrowLeft, Car, MoreHorizontal, User, Users } from "lucide-react"
+
+import { CrewDetailStats } from "@/components/cuadrillas/crew-detail-stats"
+import { CrewStatusBadge } from "@/components/cuadrillas/crew-badges"
+import { CrewActivityTab } from "@/components/cuadrillas/crew-tabs/activity-tab"
+import { CrewMembersTab } from "@/components/cuadrillas/crew-tabs/members-tab"
+import { CrewPerformanceTab } from "@/components/cuadrillas/crew-tabs/performance-tab"
+import { CrewProjectsTab } from "@/components/cuadrillas/crew-tabs/projects-tab"
+import { CrewTasksTab } from "@/components/cuadrillas/crew-tabs/tasks-tab"
+import { useOperationalData } from "@/components/cuadrillas/use-operational-data"
+import { getCrewDetail } from "@/lib/data/crews"
+import type { Crew, CrewDetail } from "@/lib/types/crews"
+import { Button } from "@/components/ui/button"
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Separator } from "@/components/ui/separator"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+
+type CrewDetailViewProps = {
+  crew: Crew
+  detail: CrewDetail
+}
+
+export function CrewDetailView({ crew, detail }: CrewDetailViewProps) {
+  const { tasks, projects } = useOperationalData()
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="space-y-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="-ml-2 h-8 gap-1.5 text-muted-foreground"
+            asChild
+          >
+            <Link href="/cuadrillas">
+              <ArrowLeft className="size-4" />
+              Volver a cuadrillas
+            </Link>
+          </Button>
+
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <CrewStatusBadge status={crew.status} />
+              <span className="rounded-md border bg-muted/40 px-2 py-0.5 text-xs text-muted-foreground">
+                {crew.specialty}
+              </span>
+            </div>
+            <h2 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+              {crew.name}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Supervisión: {crew.supervisor}
+            </p>
+          </div>
+        </div>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-1.5 self-start">
+              Acciones
+              <MoreHorizontal className="size-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem>Reasignar tareas</DropdownMenuItem>
+            <DropdownMenuItem>Actualizar disponibilidad</DropdownMenuItem>
+            <DropdownMenuItem>Exportar reporte</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      <Card className="shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-base">Información de la cuadrilla</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="flex gap-3">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/8">
+              <Users className="size-4 text-primary" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Nombre</p>
+              <p className="text-sm font-medium">{crew.name}</p>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-violet-50">
+              <User className="size-4 text-violet-600" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Supervisor</p>
+              <p className="text-sm font-medium">{crew.supervisor}</p>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-blue-50">
+              <Users className="size-4 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Integrantes</p>
+              <p className="text-sm font-medium">
+                {crew.members.length} técnicos
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-amber-50">
+              <Car className="size-4 text-amber-600" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Vehículo asignado</p>
+              <p className="text-sm font-medium">{crew.vehicle}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <CrewDetailStats stats={detail.stats} />
+
+      <Separator />
+
+      <Tabs defaultValue="members" className="space-y-4">
+        <div className="overflow-x-auto">
+          <TabsList variant="line" className="w-full min-w-max justify-start">
+            <TabsTrigger value="members">Integrantes</TabsTrigger>
+            <TabsTrigger value="tasks">Tareas</TabsTrigger>
+            <TabsTrigger value="projects">Proyectos</TabsTrigger>
+            <TabsTrigger value="activity">Actividad</TabsTrigger>
+            <TabsTrigger value="performance">Desempeño</TabsTrigger>
+          </TabsList>
+        </div>
+
+        <TabsContent value="members">
+          <CrewMembersTab crew={crew} />
+        </TabsContent>
+        <TabsContent value="tasks">
+          <CrewTasksTab crew={crew} tasks={tasks} />
+        </TabsContent>
+        <TabsContent value="projects">
+          <CrewProjectsTab crew={crew} tasks={tasks} projects={projects} />
+        </TabsContent>
+        <TabsContent value="activity">
+          <CrewActivityTab activity={detail.activity} />
+        </TabsContent>
+        <TabsContent value="performance">
+          <CrewPerformanceTab performance={detail.performance} />
+        </TabsContent>
+      </Tabs>
+    </div>
+  )
+}
