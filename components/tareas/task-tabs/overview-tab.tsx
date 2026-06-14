@@ -13,6 +13,7 @@ import { mockProjects } from "@/lib/data/projects"
 import type { Task } from "@/lib/types/tasks"
 import { formatTaskDate } from "@/lib/tasks/constants"
 import { TaskEvidenceSummary } from "@/components/evidencias/task-evidence-summary"
+import { TaskMaterialsPanel } from "@/components/materiales/task-materials-panel"
 import { Progress } from "@/components/ui/progress"
 import {
   Card,
@@ -155,6 +156,7 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
         </Card>
 
         <TaskEvidenceSummary taskId={task.id} />
+        <TaskMaterialsPanel taskId={task.id} />
       </div>
     </div>
   )

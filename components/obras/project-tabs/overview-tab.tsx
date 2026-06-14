@@ -8,6 +8,7 @@ import {
 import type { Project } from "@/lib/types/projects"
 import { formatDate } from "@/lib/projects/constants"
 import { ProjectEvidenceSummary } from "@/components/evidencias/project-evidence-summary"
+import { ProjectMaterialsSummary } from "@/components/materiales/project-materials-summary"
 import { Progress } from "@/components/ui/progress"
 import {
   Card,
@@ -113,6 +114,7 @@ export function ProjectOverviewTab({ project }: ProjectOverviewTabProps) {
         </Card>
 
         <ProjectEvidenceSummary projectId={project.id} />
+        <ProjectMaterialsSummary projectId={project.id} />
       </div>
     </div>
   )

@@ -4,6 +4,7 @@ import {
   HardHat,
   History,
   LayoutDashboard,
+  Package,
   Settings,
   Users,
   type LucideIcon,
@@ -40,6 +41,12 @@ export const mainNavItems: NavItem[] = [
     href: "/cuadrillas",
     icon: Users,
     description: "Equipos de trabajo",
+  },
+  {
+    title: "Materiales",
+    href: "/materiales",
+    icon: Package,
+    description: "Inventario y asignaciones",
   },
   {
     title: "Evidencias",

@@ -1,0 +1,36 @@
+import type { NewProjectInput, ProjectStatus, ProjectType } from "@/lib/types/projects"
+
+export type CreateProjectPayload = NewProjectInput & {
+  status?: ProjectStatus
+  progress?: number
+}
+
+export type UpdateProjectPayload = Partial<{
+  code: string
+  name: string
+  client: string
+  type: ProjectType
+  status: ProjectStatus
+  progress: number
+  startDate: string
+  endDate: string
+  supervisor: string
+  location: string
+  description: string
+}>
+
+export type ProjectsRepositoryErrorCode =
+  | "NOT_FOUND"
+  | "DUPLICATE_CODE"
+  | "VALIDATION"
+  | "UNKNOWN"
+
+export type ProjectsRepositoryResult<T> =
+  | { data: T; error: null }
+  | {
+      data: null
+      error: {
+        code: ProjectsRepositoryErrorCode
+        message: string
+      }
+    }

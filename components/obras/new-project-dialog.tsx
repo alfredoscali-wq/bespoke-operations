@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Plus } from "lucide-react"
 
-import type { NewProjectInput, ProjectType } from "@/lib/types/projects"
+import type { NewProjectInput, Project, ProjectType } from "@/lib/types/projects"
 import {
   PROJECT_TYPE_OPTIONS,
   SUPERVISORS,
@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/select"
 
 type NewProjectDialogProps = {
-  onSubmit: (input: NewProjectInput) => void
+  onSubmit: (input: NewProjectInput) => void | Promise<void> | Promise<Project>
 }
 
 const emptyForm: NewProjectInput = {
@@ -56,9 +56,9 @@ export function NewProjectDialog({ onSubmit }: NewProjectDialogProps) {
     setForm((current) => ({ ...current, [key]: value }))
   }
 
-  function handleSubmit(event: React.FormEvent) {
+  async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
-    onSubmit(form)
+    await onSubmit(form)
     setForm(emptyForm)
     setOpen(false)
   }

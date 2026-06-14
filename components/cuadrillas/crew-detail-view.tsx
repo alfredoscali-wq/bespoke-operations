@@ -6,6 +6,7 @@ import { ArrowLeft, Car, MoreHorizontal, User, Users } from "lucide-react"
 import { CrewDetailStats } from "@/components/cuadrillas/crew-detail-stats"
 import { CrewStatusBadge } from "@/components/cuadrillas/crew-badges"
 import { CrewActivityTab } from "@/components/cuadrillas/crew-tabs/activity-tab"
+import { CrewMaterialsTab } from "@/components/cuadrillas/crew-tabs/materials-tab"
 import { CrewMembersTab } from "@/components/cuadrillas/crew-tabs/members-tab"
 import { CrewPerformanceTab } from "@/components/cuadrillas/crew-tabs/performance-tab"
 import { CrewProjectsTab } from "@/components/cuadrillas/crew-tabs/projects-tab"
@@ -140,6 +141,7 @@ export function CrewDetailView({ crew, detail }: CrewDetailViewProps) {
             <TabsTrigger value="members">Integrantes</TabsTrigger>
             <TabsTrigger value="tasks">Tareas</TabsTrigger>
             <TabsTrigger value="projects">Proyectos</TabsTrigger>
+            <TabsTrigger value="materials">Materiales</TabsTrigger>
             <TabsTrigger value="activity">Actividad</TabsTrigger>
             <TabsTrigger value="performance">Desempeño</TabsTrigger>
           </TabsList>
@@ -153,6 +155,9 @@ export function CrewDetailView({ crew, detail }: CrewDetailViewProps) {
         </TabsContent>
         <TabsContent value="projects">
           <CrewProjectsTab crew={crew} tasks={tasks} projects={projects} />
+        </TabsContent>
+        <TabsContent value="materials">
+          <CrewMaterialsTab crew={crew} />
         </TabsContent>
         <TabsContent value="activity">
           <CrewActivityTab activity={detail.activity} />
