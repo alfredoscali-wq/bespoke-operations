@@ -1,5 +1,7 @@
-import type { TaskPriority, TaskStatus, TaskType } from "@/lib/types/tasks"
+import type { Task, TaskPriority, TaskStatus, TaskType } from "@/lib/types/tasks"
 import {
+  TASK_OPERATION_LABELS,
+  TASK_OPERATION_STYLES,
   TASK_PRIORITY_LABELS,
   TASK_PRIORITY_STYLES,
   TASK_STATUS_LABELS,
@@ -7,6 +9,7 @@ import {
   TASK_TYPE_LABELS,
   TASK_TYPE_STYLES,
 } from "@/lib/tasks/constants"
+import { isFieldServiceTask } from "@/lib/tasks/utils"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 
@@ -57,6 +60,25 @@ export function TaskPriorityBadge({
       className={cn("font-medium", TASK_PRIORITY_STYLES[priority], className)}
     >
       {TASK_PRIORITY_LABELS[priority]}
+    </Badge>
+  )
+}
+
+export function TaskOperationBadge({
+  task,
+  className,
+}: {
+  task: Pick<Task, "projectId">
+  className?: string
+}) {
+  const mode = isFieldServiceTask(task) ? "servicio" : "obra"
+
+  return (
+    <Badge
+      variant="outline"
+      className={cn("font-medium", TASK_OPERATION_STYLES[mode], className)}
+    >
+      {TASK_OPERATION_LABELS[mode]}
     </Badge>
   )
 }

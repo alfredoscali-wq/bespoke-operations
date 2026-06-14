@@ -12,6 +12,7 @@ import { TaskEvidenceTab } from "@/components/tareas/task-tabs/evidence-tab"
 import { TaskCommentsTab } from "@/components/tareas/task-tabs/comments-tab"
 import { TaskHistoryTab } from "@/components/tareas/task-tabs/history-tab"
 import {
+  TaskOperationBadge,
   TaskPriorityBadge,
   TaskStatusBadge,
   TaskTypeBadge,
@@ -20,7 +21,7 @@ import type { Task, TaskDetail, TaskStatus } from "@/lib/types/tasks"
 import {
   TASK_STATUS_OPTIONS,
 } from "@/lib/tasks/constants"
-import { canMoveToStatus } from "@/lib/tasks/utils"
+import { canMoveToStatus, isFieldServiceTask } from "@/lib/tasks/utils"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
@@ -102,6 +103,7 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
               <span className="font-mono text-xs font-medium text-primary">
                 {task.code}
               </span>
+              <TaskOperationBadge task={task} />
               <TaskTypeBadge type={task.type} />
               <TaskStatusBadge status={task.status} />
               <TaskPriorityBadge priority={task.priority} />
@@ -110,8 +112,20 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
               {task.title}
             </h2>
             <p className="text-sm text-muted-foreground">
-              {task.projectCode}
-              {task.crew ? ` · ${task.crew}` : " · Sin cuadrilla"}
+              {isFieldServiceTask(task)
+                ? [
+                    task.customerCompany,
+                    task.workOrderNumber,
+                    task.crew || "Sin cuadrilla",
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")
+                : [
+                    task.projectCode,
+                    task.crew || "Sin cuadrilla",
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
             </p>
           </div>
         </div>

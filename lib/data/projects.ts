@@ -400,6 +400,10 @@ function createDefaultDetail(project: Project): ProjectDetail {
   const stored = projectDetails[project.id]
   if (stored) return stored
 
+  const today = new Date().toISOString().slice(0, 10)
+  const fallbackDueDate = project.endDate ?? today
+  const fallbackStartDate = project.startDate ?? today
+
   return {
     stats: {
       activeTasks: Math.max(1, Math.round((100 - project.progress) / 15)),
@@ -412,7 +416,7 @@ function createDefaultDetail(project: Project): ProjectDetail {
         id: "t-default-1",
         title: "Levantamiento inicial de sitio",
         assignee: "Cuadrilla asignada",
-        dueDate: project.endDate,
+        dueDate: fallbackDueDate,
         priority: "media",
         status: project.progress > 50 ? "completada" : "en-curso",
       },
@@ -420,7 +424,7 @@ function createDefaultDetail(project: Project): ProjectDetail {
         id: "t-default-2",
         title: "Documentación de avance semanal",
         assignee: project.supervisor,
-        dueDate: project.endDate,
+        dueDate: fallbackDueDate,
         priority: "baja",
         status: "pendiente",
       },
@@ -431,7 +435,7 @@ function createDefaultDetail(project: Project): ProjectDetail {
         title: "Evidencia de inicio de obra",
         type: "photo",
         uploadedBy: project.supervisor,
-        uploadedAt: project.startDate,
+        uploadedAt: fallbackStartDate,
         category: "General",
       },
     ],
@@ -441,7 +445,7 @@ function createDefaultDetail(project: Project): ProjectDetail {
         name: `Expediente técnico — ${project.code}`,
         type: "pdf",
         size: "2.4 MB",
-        uploadedAt: project.startDate,
+        uploadedAt: fallbackStartDate,
       },
     ],
     history: [
@@ -450,7 +454,7 @@ function createDefaultDetail(project: Project): ProjectDetail {
         title: "Obra registrada",
         description: project.description,
         user: project.supervisor,
-        timestamp: `${project.startDate}T09:00:00`,
+        timestamp: `${fallbackStartDate}T09:00:00`,
       },
     ],
     costs: {
@@ -562,8 +566,8 @@ export function createProjectFromInput(input: NewProjectInput): Project {
     type: input.type,
     status: "planned",
     progress: 0,
-    startDate: input.startDate,
-    endDate: input.endDate,
+    startDate: input.startDate || undefined,
+    endDate: input.endDate || undefined,
     supervisor: input.supervisor,
     location: input.location,
     description: input.description,

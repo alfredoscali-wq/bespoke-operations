@@ -68,8 +68,6 @@ export function NewProjectDialog({ onSubmit }: NewProjectDialogProps) {
     form.code.trim() !== "" &&
     form.client.trim() !== "" &&
     form.location.trim() !== "" &&
-    form.startDate !== "" &&
-    form.endDate !== "" &&
     form.supervisor !== ""
 
   return (
@@ -185,7 +183,7 @@ export function NewProjectDialog({ onSubmit }: NewProjectDialogProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="startDate">Fecha de inicio</Label>
+              <Label htmlFor="startDate">Fecha de inicio (opcional)</Label>
               <Input
                 id="startDate"
                 type="date"
@@ -197,7 +195,7 @@ export function NewProjectDialog({ onSubmit }: NewProjectDialogProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="endDate">Fecha estimada de fin</Label>
+              <Label htmlFor="endDate">Fecha estimada de fin (opcional)</Label>
               <Input
                 id="endDate"
                 type="date"

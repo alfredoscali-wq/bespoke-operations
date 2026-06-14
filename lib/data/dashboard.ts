@@ -250,7 +250,9 @@ export function buildRecentActivity(
   const events: Array<ActivityItem & { sortAt: number }> = []
 
   projects.forEach((project) => {
-    const timestamp = project.createdAt ?? `${project.startDate}T08:00:00`
+    const timestamp =
+      project.createdAt ??
+      (project.startDate ? `${project.startDate}T08:00:00` : new Date().toISOString())
     events.push({
       id: `act-project-${project.id}`,
       title: "Obra registrada",

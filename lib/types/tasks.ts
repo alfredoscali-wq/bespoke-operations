@@ -23,6 +23,8 @@ export type ChecklistItem = {
   required: boolean
 }
 
+export type TaskOperationMode = "obra" | "servicio"
+
 export type Task = {
   id: string
   code: string
@@ -31,6 +33,13 @@ export type Task = {
   projectId?: string
   projectCode: string
   projectName: string
+  customerCompany?: string
+  customerName?: string
+  customerPhone?: string
+  serviceAddress?: string
+  latitude?: number
+  longitude?: number
+  workOrderNumber?: string
   type: TaskType
   status: TaskStatus
   priority: TaskPriority

@@ -14,8 +14,8 @@ export function mapProjectRowToProject(row: ProjectRow): Project {
     type: row.type,
     status: row.status,
     progress: row.progress,
-    startDate: row.start_date,
-    endDate: row.end_date,
+    startDate: row.start_date ?? undefined,
+    endDate: row.end_date ?? undefined,
     supervisor: row.supervisor,
     location: row.location,
     description: row.description,
@@ -33,8 +33,8 @@ export function mapCreatePayloadToInsert(
     type: payload.type,
     status: payload.status ?? "planned",
     progress: payload.progress ?? 0,
-    start_date: payload.startDate,
-    end_date: payload.endDate,
+    start_date: payload.startDate?.trim() || null,
+    end_date: payload.endDate?.trim() || null,
     supervisor: payload.supervisor.trim(),
     location: payload.location.trim(),
     description: payload.description.trim(),
@@ -52,8 +52,12 @@ export function mapUpdatePayloadToUpdate(
   if (payload.type !== undefined) update.type = payload.type
   if (payload.status !== undefined) update.status = payload.status
   if (payload.progress !== undefined) update.progress = payload.progress
-  if (payload.startDate !== undefined) update.start_date = payload.startDate
-  if (payload.endDate !== undefined) update.end_date = payload.endDate
+  if (payload.startDate !== undefined) {
+    update.start_date = payload.startDate?.trim() || null
+  }
+  if (payload.endDate !== undefined) {
+    update.end_date = payload.endDate?.trim() || null
+  }
   if (payload.supervisor !== undefined) {
     update.supervisor = payload.supervisor.trim()
   }

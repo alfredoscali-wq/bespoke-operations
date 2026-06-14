@@ -59,8 +59,8 @@ export type Database = {
           type: ProjectType
           status: ProjectStatus
           progress: number
-          start_date: string
-          end_date: string
+          start_date: string | null
+          end_date: string | null
           supervisor: string
           location: string
           description: string
@@ -77,8 +77,8 @@ export type Database = {
           type: ProjectType
           status?: ProjectStatus
           progress?: number
-          start_date: string
-          end_date: string
+          start_date?: string | null
+          end_date?: string | null
           supervisor: string
           location: string
           description?: string
@@ -95,8 +95,8 @@ export type Database = {
           type?: ProjectType
           status?: ProjectStatus
           progress?: number
-          start_date?: string
-          end_date?: string
+          start_date?: string | null
+          end_date?: string | null
           supervisor?: string
           location?: string
           description?: string
@@ -191,6 +191,13 @@ export type Database = {
           project_id: string | null
           project_code: string
           project_name: string
+          customer_company: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          service_address: string | null
+          latitude: number | null
+          longitude: number | null
+          work_order_number: string | null
           type: TaskType
           status: TaskStatus
           priority: TaskPriority
@@ -215,6 +222,13 @@ export type Database = {
           project_id?: string | null
           project_code: string
           project_name: string
+          customer_company?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          service_address?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          work_order_number?: string | null
           type: TaskType
           status?: TaskStatus
           priority?: TaskPriority
@@ -239,6 +253,13 @@ export type Database = {
           project_id?: string | null
           project_code?: string
           project_name?: string
+          customer_company?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          service_address?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          work_order_number?: string | null
           type?: TaskType
           status?: TaskStatus
           priority?: TaskPriority

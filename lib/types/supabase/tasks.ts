@@ -18,6 +18,13 @@ export type UpdateTaskPayload = Partial<{
   projectId: string | null
   projectCode: string
   projectName: string
+  customerCompany: string | null
+  customerName: string | null
+  customerPhone: string | null
+  serviceAddress: string | null
+  latitude: number | null
+  longitude: number | null
+  workOrderNumber: string | null
   type: TaskType
   status: TaskStatus
   priority: TaskPriority

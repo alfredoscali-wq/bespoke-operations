@@ -19,6 +19,10 @@ function parseChecklist(value: unknown): ChecklistItem[] {
   )
 }
 
+function mapNullableNumber(value: number | null | undefined): number | undefined {
+  return value === null || value === undefined ? undefined : Number(value)
+}
+
 export function mapTaskRowToTask(row: TaskRow): Task {
   return {
     id: row.id,
@@ -28,6 +32,13 @@ export function mapTaskRowToTask(row: TaskRow): Task {
     projectId: row.project_id ?? undefined,
     projectCode: row.project_code,
     projectName: row.project_name,
+    customerCompany: row.customer_company ?? undefined,
+    customerName: row.customer_name ?? undefined,
+    customerPhone: row.customer_phone ?? undefined,
+    serviceAddress: row.service_address ?? undefined,
+    latitude: mapNullableNumber(row.latitude),
+    longitude: mapNullableNumber(row.longitude),
+    workOrderNumber: row.work_order_number ?? undefined,
     type: row.type,
     status: row.status,
     priority: row.priority,
@@ -51,6 +62,13 @@ export function mapCreatePayloadToInsert(payload: CreateTaskPayload): TaskInsert
     project_id: payload.projectId ?? null,
     project_code: payload.projectCode.trim(),
     project_name: payload.projectName.trim(),
+    customer_company: payload.customerCompany?.trim() || null,
+    customer_name: payload.customerName?.trim() || null,
+    customer_phone: payload.customerPhone?.trim() || null,
+    service_address: payload.serviceAddress?.trim() || null,
+    latitude: payload.latitude ?? null,
+    longitude: payload.longitude ?? null,
+    work_order_number: payload.workOrderNumber?.trim() || null,
     type: payload.type,
     status: payload.status ?? "pendiente",
     priority: payload.priority ?? "media",
@@ -79,6 +97,23 @@ export function mapUpdatePayloadToUpdate(payload: UpdateTaskPayload): TaskUpdate
   }
   if (payload.projectName !== undefined) {
     update.project_name = payload.projectName.trim()
+  }
+  if (payload.customerCompany !== undefined) {
+    update.customer_company = payload.customerCompany?.trim() || null
+  }
+  if (payload.customerName !== undefined) {
+    update.customer_name = payload.customerName?.trim() || null
+  }
+  if (payload.customerPhone !== undefined) {
+    update.customer_phone = payload.customerPhone?.trim() || null
+  }
+  if (payload.serviceAddress !== undefined) {
+    update.service_address = payload.serviceAddress?.trim() || null
+  }
+  if (payload.latitude !== undefined) update.latitude = payload.latitude
+  if (payload.longitude !== undefined) update.longitude = payload.longitude
+  if (payload.workOrderNumber !== undefined) {
+    update.work_order_number = payload.workOrderNumber?.trim() || null
   }
   if (payload.type !== undefined) update.type = payload.type
   if (payload.status !== undefined) update.status = payload.status

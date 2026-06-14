@@ -2,10 +2,13 @@
 
 import Link from "next/link"
 import {
+  Building2,
   Calendar,
   Clock,
+  FileText,
   FolderKanban,
   MapPin,
+  Phone,
   User,
   Users,
 } from "lucide-react"
@@ -14,6 +17,7 @@ import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { useProjects } from "@/components/obras/projects-provider"
 import type { Task } from "@/lib/types/tasks"
 import { formatTaskDate } from "@/lib/tasks/constants"
+import { isFieldServiceTask } from "@/lib/tasks/utils"
 import { TaskEvidenceSummary } from "@/components/evidencias/task-evidence-summary"
 import { TaskMaterialsPanel } from "@/components/materiales/task-materials-panel"
 import { Progress } from "@/components/ui/progress"
@@ -25,6 +29,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import {
+  TaskOperationBadge,
   TaskPriorityBadge,
   TaskStatusBadge,
   TaskTypeBadge,
@@ -37,6 +42,7 @@ type TaskOverviewTabProps = {
 export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
   const { projects } = useProjects()
   const { getCrew } = useCrews()
+  const isService = isFieldServiceTask(task)
 
   const relatedProject = projects.find(
     (project) =>
@@ -46,17 +52,7 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
     ? getCrew(task.crewId)
     : undefined
 
-  const infoItems = [
-    {
-      icon: FolderKanban,
-      label: "Proyecto",
-      value: (
-        <div>
-          <p className="font-mono text-xs text-primary">{task.projectCode}</p>
-          <p className="text-sm">{task.projectName}</p>
-        </div>
-      ),
-    },
+  const sharedInfoItems = [
     { icon: User, label: "Supervisor", value: task.supervisor },
     {
       icon: Users,
@@ -91,6 +87,51 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
     },
   ]
 
+  const obraInfoItems = [
+    {
+      icon: FolderKanban,
+      label: "Proyecto",
+      value: (
+        <div>
+          <p className="font-mono text-xs text-primary">{task.projectCode}</p>
+          <p className="text-sm">{task.projectName}</p>
+        </div>
+      ),
+    },
+    ...sharedInfoItems,
+  ]
+
+  const serviceInfoItems = [
+    {
+      icon: Building2,
+      label: "Cliente Operativo",
+      value: task.customerCompany || "—",
+    },
+    {
+      icon: User,
+      label: "Cliente Final",
+      value: task.customerName || "—",
+    },
+    {
+      icon: Phone,
+      label: "Teléfono",
+      value: task.customerPhone || "—",
+    },
+    {
+      icon: MapPin,
+      label: "Dirección",
+      value: task.serviceAddress || "—",
+    },
+    {
+      icon: FileText,
+      label: "Número de Orden",
+      value: task.workOrderNumber || "—",
+    },
+    ...sharedInfoItems,
+  ]
+
+  const infoItems = isService ? serviceInfoItems : obraInfoItems
+
   return (
     <div className="grid gap-6 lg:grid-cols-3">
       <Card className="shadow-sm lg:col-span-2">
@@ -99,6 +140,7 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
             <span className="font-mono text-sm font-semibold text-primary">
               {task.code}
             </span>
+            <TaskOperationBadge task={task} />
             <TaskTypeBadge type={task.type} />
             <TaskStatusBadge status={task.status} />
             <TaskPriorityBadge priority={task.priority} />
@@ -129,18 +171,20 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
             })}
           </div>
 
-          <div className="mt-4 rounded-lg border bg-muted/20 p-3 text-sm">
-            <p className="text-xs text-muted-foreground">Obra relacionada</p>
-            <Link
-              href={
-                relatedProject ? `/obras/${relatedProject.id}` : "/obras"
-              }
-              className="mt-1 inline-flex items-center gap-1 font-medium text-primary hover:underline"
-            >
-              <MapPin className="size-3.5" />
-              Ver proyecto {task.projectCode}
-            </Link>
-          </div>
+          {!isService && (
+            <div className="mt-4 rounded-lg border bg-muted/20 p-3 text-sm">
+              <p className="text-xs text-muted-foreground">Obra relacionada</p>
+              <Link
+                href={
+                  relatedProject ? `/obras/${relatedProject.id}` : "/obras"
+                }
+                className="mt-1 inline-flex items-center gap-1 font-medium text-primary hover:underline"
+              >
+                <MapPin className="size-3.5" />
+                Ver proyecto {task.projectCode}
+              </Link>
+            </div>
+          )}
         </CardContent>
       </Card>
 

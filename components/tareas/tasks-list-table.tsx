@@ -5,10 +5,12 @@ import Link from "next/link"
 import type { Task } from "@/lib/types/tasks"
 import { formatTaskDate } from "@/lib/tasks/constants"
 import {
+  TaskOperationBadge,
   TaskPriorityBadge,
   TaskStatusBadge,
   TaskTypeBadge,
 } from "@/components/tareas/task-badges"
+import { isFieldServiceTask } from "@/lib/tasks/utils"
 import { Progress } from "@/components/ui/progress"
 import {
   Table,
@@ -53,7 +55,8 @@ export function TasksListTable({ tasks }: TasksListTableProps) {
               <TableRow className="hover:bg-transparent">
                 <TableHead className="w-[90px]">Código</TableHead>
                 <TableHead>Tarea</TableHead>
-                <TableHead>Proyecto</TableHead>
+                <TableHead>Modelo</TableHead>
+                <TableHead>Proyecto / Cliente</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead>Prioridad</TableHead>
@@ -77,14 +80,28 @@ export function TasksListTable({ tasks }: TasksListTableProps) {
                     </Link>
                   </TableCell>
                   <TableCell>
-                    <div className="min-w-0">
-                      <p className="font-mono text-xs text-muted-foreground">
-                        {task.projectCode}
-                      </p>
-                      <p className="max-w-[180px] truncate text-xs">
-                        {task.projectName}
-                      </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      <TaskOperationBadge task={task} />
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    {isFieldServiceTask(task) ? (
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium">{task.customerCompany}</p>
+                        <p className="max-w-[180px] truncate text-xs text-muted-foreground">
+                          {task.customerName}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="min-w-0">
+                        <p className="font-mono text-xs text-muted-foreground">
+                          {task.projectCode}
+                        </p>
+                        <p className="max-w-[180px] truncate text-xs">
+                          {task.projectName}
+                        </p>
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell>
                     <TaskTypeBadge type={task.type} />
@@ -130,10 +147,15 @@ export function TasksListTable({ tasks }: TasksListTableProps) {
                       {task.title}
                     </CardTitle>
                     <CardDescription className="font-mono text-[11px]">
-                      {task.projectCode}
+                      {isFieldServiceTask(task)
+                        ? task.workOrderNumber ?? task.customerCompany
+                        : task.projectCode}
                     </CardDescription>
                   </div>
-                  <TaskPriorityBadge priority={task.priority} />
+                  <div className="flex flex-col items-end gap-1.5">
+                    <TaskOperationBadge task={task} className="text-[10px]" />
+                    <TaskPriorityBadge priority={task.priority} />
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">

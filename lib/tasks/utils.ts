@@ -46,6 +46,24 @@ export function getTasksForProject(project: Project, tasks: Task[]): Task[] {
   )
 }
 
+export function isFieldServiceTask(task: Pick<Task, "projectId">): boolean {
+  return !task.projectId
+}
+
+export function generateFieldServiceTaskCode(tasks: Task[]): string {
+  const prefix = "TSK-SRV-"
+  const serviceTasks = tasks.filter((task) => isFieldServiceTask(task))
+  let counter = serviceTasks.length + 1
+  let code = `${prefix}${String(counter).padStart(3, "0")}`
+
+  while (tasks.some((task) => task.code === code)) {
+    counter += 1
+    code = `${prefix}${String(counter).padStart(3, "0")}`
+  }
+
+  return code
+}
+
 export function generateTaskCode(projectCode: string, tasks: Task[]): string {
   const sanitized = projectCode.replace(/[^a-zA-Z0-9]/g, "").toUpperCase()
   const prefix = `TSK-${sanitized}-`

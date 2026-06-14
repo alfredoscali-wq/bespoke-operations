@@ -12,8 +12,8 @@ export type UpdateProjectPayload = Partial<{
   type: ProjectType
   status: ProjectStatus
   progress: number
-  startDate: string
-  endDate: string
+  startDate?: string | null
+  endDate?: string | null
   supervisor: string
   location: string
   description: string

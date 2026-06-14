@@ -47,7 +47,9 @@ export const PROJECT_STATUS_OPTIONS = Object.entries(PROJECT_STATUS_LABELS).map(
   ([value, label]) => ({ value: value as ProjectStatus, label })
 )
 
-export function formatDate(date: string) {
+export function formatDate(date?: string | null) {
+  if (!date) return "Sin definir"
+
   return new Intl.DateTimeFormat("es-MX", {
     day: "2-digit",
     month: "short",

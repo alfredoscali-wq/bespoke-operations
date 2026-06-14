@@ -90,3 +90,13 @@ export function formatTaskDateTime(date: string) {
     minute: "2-digit",
   }).format(new Date(date))
 }
+
+export const TASK_OPERATION_LABELS = {
+  obra: "OBRA",
+  servicio: "SERVICIO",
+} as const
+
+export const TASK_OPERATION_STYLES = {
+  obra: "bg-sky-50 text-sky-700 border-sky-100",
+  servicio: "bg-orange-50 text-orange-700 border-orange-100",
+} as const

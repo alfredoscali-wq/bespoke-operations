@@ -20,8 +20,8 @@ export type Project = {
   type: ProjectType
   status: ProjectStatus
   progress: number
-  startDate: string
-  endDate: string
+  startDate?: string
+  endDate?: string
   supervisor: string
   location: string
   description: string
@@ -90,7 +90,7 @@ export type NewProjectInput = {
   type: ProjectType
   location: string
   description: string
-  startDate: string
-  endDate: string
+  startDate?: string
+  endDate?: string
   supervisor: string
 }

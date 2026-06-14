@@ -36,7 +36,7 @@ export async function fetchProjects(
     .from("projects")
     .select("*")
     .is("deleted_at", null)
-    .order("start_date", { ascending: false })
+    .order("created_at", { ascending: false })
 
   if (error) {
     return { data: null, error: mapSupabaseError(error) }

@@ -155,6 +155,39 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       ...(payload.crewId !== undefined ? { crewId: payload.crewId ?? undefined } : {}),
       ...(payload.startDate !== undefined ? { startDate: payload.startDate } : {}),
       ...(payload.type !== undefined ? { type: payload.type } : {}),
+      ...(payload.projectId !== undefined
+        ? { projectId: payload.projectId ?? undefined }
+        : {}),
+      ...(payload.projectCode !== undefined
+        ? { projectCode: payload.projectCode }
+        : {}),
+      ...(payload.projectName !== undefined
+        ? { projectName: payload.projectName }
+        : {}),
+      ...(payload.customerCompany !== undefined
+        ? { customerCompany: payload.customerCompany ?? undefined }
+        : {}),
+      ...(payload.customerName !== undefined
+        ? { customerName: payload.customerName ?? undefined }
+        : {}),
+      ...(payload.customerPhone !== undefined
+        ? { customerPhone: payload.customerPhone ?? undefined }
+        : {}),
+      ...(payload.serviceAddress !== undefined
+        ? { serviceAddress: payload.serviceAddress ?? undefined }
+        : {}),
+      ...(payload.latitude !== undefined
+        ? { latitude: payload.latitude ?? undefined }
+        : {}),
+      ...(payload.longitude !== undefined
+        ? { longitude: payload.longitude ?? undefined }
+        : {}),
+      ...(payload.workOrderNumber !== undefined
+        ? { workOrderNumber: payload.workOrderNumber ?? undefined }
+        : {}),
+      ...(payload.estimatedDuration !== undefined
+        ? { estimatedDuration: payload.estimatedDuration }
+        : {}),
       ...(payload.checklist !== undefined ? { checklist: payload.checklist } : {}),
       ...(payload.progress !== undefined ? { progress: payload.progress } : {}),
     })
