@@ -15,22 +15,40 @@ import {
   getProjectDetail,
   mockProjects,
 } from "@/lib/data/projects"
+import { canTransitionProjectStatus } from "@/lib/projects/utils"
 import {
   createBrowserProjectsClient,
   createProject,
   listProjects,
+  updateProject as updateProjectInSupabase,
 } from "@/lib/supabase/projects.browser"
+import type { UpdateProjectPayload } from "@/lib/types/supabase/projects"
 import type {
   NewProjectInput,
   Project,
   ProjectDetail,
+  ProjectStatus,
 } from "@/lib/types/projects"
+
+type ProjectMutationResult = {
+  success: boolean
+  message?: string
+  project?: Project
+}
 
 type ProjectsContextValue = {
   projects: Project[]
   isProjectsReady: boolean
   usesSupabase: boolean
   addProject: (input: NewProjectInput) => Promise<Project>
+  updateProject: (
+    id: string,
+    payload: UpdateProjectPayload
+  ) => Promise<ProjectMutationResult>
+  transitionProjectStatus: (
+    id: string,
+    newStatus: ProjectStatus
+  ) => Promise<ProjectMutationResult>
   getProject: (id: string) => Project | undefined
   getDetail: (id: string) => ProjectDetail | undefined
 }
@@ -43,6 +61,29 @@ function cacheProjectDetail(project: Project) {
   const detail = createProjectDetail(project)
   detailCache.set(project.id, detail)
   return detail
+}
+
+function mergeProjectUpdate(project: Project, payload: UpdateProjectPayload): Project {
+  return {
+    ...project,
+    ...(payload.code !== undefined ? { code: payload.code } : {}),
+    ...(payload.name !== undefined ? { name: payload.name } : {}),
+    ...(payload.client !== undefined ? { client: payload.client } : {}),
+    ...(payload.type !== undefined ? { type: payload.type } : {}),
+    ...(payload.status !== undefined ? { status: payload.status } : {}),
+    ...(payload.progress !== undefined ? { progress: payload.progress } : {}),
+    ...(payload.startDate !== undefined
+      ? { startDate: payload.startDate ?? undefined }
+      : {}),
+    ...(payload.endDate !== undefined
+      ? { endDate: payload.endDate ?? undefined }
+      : {}),
+    ...(payload.supervisor !== undefined ? { supervisor: payload.supervisor } : {}),
+    ...(payload.location !== undefined ? { location: payload.location } : {}),
+    ...(payload.description !== undefined
+      ? { description: payload.description }
+      : {}),
+  }
 }
 
 export function ProjectsProvider({ children }: { children: React.ReactNode }) {
@@ -112,6 +153,73 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
     [usesSupabase]
   )
 
+  const updateProject = useCallback(
+    async (
+      id: string,
+      payload: UpdateProjectPayload
+    ): Promise<ProjectMutationResult> => {
+      const existing = projects.find((project) => project.id === id)
+      if (!existing) {
+        return { success: false, message: "Obra no encontrada." }
+      }
+
+      if (usesSupabase) {
+        try {
+          const client = createBrowserProjectsClient()
+          const result = await updateProjectInSupabase(id, payload, client)
+
+          if (result.data) {
+            cacheProjectDetail(result.data)
+            setProjects((current) =>
+              current.map((project) =>
+                project.id === id ? result.data! : project
+              )
+            )
+            return { success: true, project: result.data }
+          }
+
+          if (result.error) {
+            return { success: false, message: result.error.message }
+          }
+        } catch {
+          // Fall through to in-memory update for this session.
+        }
+      }
+
+      const updatedProject = mergeProjectUpdate(existing, payload)
+      cacheProjectDetail(updatedProject)
+      setProjects((current) =>
+        current.map((project) => (project.id === id ? updatedProject : project))
+      )
+
+      return { success: true, project: updatedProject }
+    },
+    [projects, usesSupabase]
+  )
+
+  const transitionProjectStatus = useCallback(
+    async (
+      id: string,
+      newStatus: ProjectStatus
+    ): Promise<ProjectMutationResult> => {
+      const existing = projects.find((project) => project.id === id)
+      if (!existing) {
+        return { success: false, message: "Obra no encontrada." }
+      }
+
+      const validation = canTransitionProjectStatus(existing.status, newStatus)
+      if (!validation.allowed) {
+        return {
+          success: false,
+          message: validation.message ?? "Transición no permitida.",
+        }
+      }
+
+      return updateProject(id, { status: newStatus })
+    },
+    [projects, updateProject]
+  )
+
   const getProject = useCallback(
     (id: string) => projects.find((project) => project.id === id),
     [projects]
@@ -141,10 +249,21 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
       isProjectsReady,
       usesSupabase,
       addProject,
+      updateProject,
+      transitionProjectStatus,
       getProject,
       getDetail,
     }),
-    [projects, isProjectsReady, usesSupabase, addProject, getProject, getDetail]
+    [
+      projects,
+      isProjectsReady,
+      usesSupabase,
+      addProject,
+      updateProject,
+      transitionProjectStatus,
+      getProject,
+      getDetail,
+    ]
   )
 
   return (
