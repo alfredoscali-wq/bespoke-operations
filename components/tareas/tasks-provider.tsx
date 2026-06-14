@@ -4,16 +4,29 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react"
 
-import { getTaskDetail, mockTasks } from "@/lib/data/tasks"
+import {
+  createTaskFromInput,
+  getTaskDetail,
+  mockTasks,
+} from "@/lib/data/tasks"
+import {
+  createBrowserTasksClient,
+  createTask,
+  listTasks,
+  updateTask,
+} from "@/lib/supabase/tasks.browser"
+import { mapTaskToUpdatePayload } from "@/lib/supabase/tasks.mapper"
 import {
   canMoveToStatus,
-  getChecklistProgress,
   syncTaskProgress,
 } from "@/lib/tasks/utils"
+import type { CreateTaskPayload } from "@/lib/types/supabase/tasks"
 import type { Task, TaskDetail, TaskStatus } from "@/lib/types/tasks"
 
 type UpdateStatusResult = {
@@ -23,9 +36,12 @@ type UpdateStatusResult = {
 
 type TasksContextValue = {
   tasks: Task[]
+  isTasksReady: boolean
+  usesSupabase: boolean
   detailVersion: number
   getTask: (id: string) => Task | undefined
   getDetail: (id: string) => TaskDetail | undefined
+  addTask: (input: CreateTaskPayload) => Promise<Task>
   updateTaskStatus: (id: string, status: TaskStatus) => UpdateStatusResult
   toggleChecklistItem: (taskId: string, itemId: string) => void
   addComment: (
@@ -50,8 +66,88 @@ function cacheDetail(id: string, detail: TaskDetail) {
 }
 
 export function TasksProvider({ children }: { children: React.ReactNode }) {
-  const [tasks, setTasks] = useState<Task[]>(mockTasks)
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [isTasksReady, setIsTasksReady] = useState(false)
+  const [usesSupabase, setUsesSupabase] = useState(false)
   const [detailVersion, setDetailVersion] = useState(0)
+  const usesSupabaseRef = useRef(false)
+
+  useEffect(() => {
+    usesSupabaseRef.current = usesSupabase
+  }, [usesSupabase])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadTasksFromSupabase() {
+      try {
+        const client = createBrowserTasksClient()
+        const result = await listTasks(client)
+
+        if (cancelled) return
+
+        if (result.error || result.data === null) {
+          setTasks(mockTasks)
+          setUsesSupabase(false)
+          return
+        }
+
+        setTasks(result.data)
+        setUsesSupabase(true)
+      } catch {
+        if (!cancelled) {
+          setTasks(mockTasks)
+          setUsesSupabase(false)
+        }
+      } finally {
+        if (!cancelled) {
+          setIsTasksReady(true)
+        }
+      }
+    }
+
+    void loadTasksFromSupabase()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const persistTaskUpdate = useCallback(async (task: Task) => {
+    if (!usesSupabaseRef.current) return
+
+    try {
+      const client = createBrowserTasksClient()
+      await updateTask(task.id, mapTaskToUpdatePayload(task), client)
+    } catch {
+      // Keep optimistic local state if persistence fails.
+    }
+  }, [])
+
+  const addTask = useCallback(
+    async (input: CreateTaskPayload): Promise<Task> => {
+      if (usesSupabase) {
+        try {
+          const client = createBrowserTasksClient()
+          const result = await createTask(input, client)
+
+          if (result.data) {
+            cacheDetail(result.data.id, getTaskDetail(result.data))
+            setTasks((current) => [result.data!, ...current])
+            return result.data
+          }
+        } catch {
+          // Fall through to in-memory mock create for this session.
+        }
+      }
+
+      const task = createTaskFromInput(input)
+      cacheDetail(task.id, getTaskDetail(task))
+      setTasks((current) => [task, ...current])
+      return task
+    },
+    [usesSupabase]
+  )
 
   const getTask = useCallback(
     (id: string) => tasks.find((task) => task.id === id),
@@ -86,10 +182,10 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         return { success: false, message: validation.message }
       }
 
+      const updatedTask = syncTaskProgress({ ...task, status })
+
       setTasks((current) =>
-        current.map((item) =>
-          item.id === id ? syncTaskProgress({ ...item, status }) : item
-        )
+        current.map((item) => (item.id === id ? updatedTask : item))
       )
 
       const detail = detailCache.get(id)
@@ -119,24 +215,36 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         setDetailVersion((version) => version + 1)
       }
 
+      void persistTaskUpdate(updatedTask)
+
       return { success: true }
     },
-    [tasks]
+    [tasks, persistTaskUpdate]
   )
 
-  const toggleChecklistItem = useCallback((taskId: string, itemId: string) => {
-    setTasks((current) =>
-      current.map((task) => {
-        if (task.id !== taskId) return task
+  const toggleChecklistItem = useCallback(
+    (taskId: string, itemId: string) => {
+      let updatedTask: Task | undefined
 
-        const checklist = task.checklist.map((item) =>
-          item.id === itemId ? { ...item, completed: !item.completed } : item
-        )
+      setTasks((current) =>
+        current.map((task) => {
+          if (task.id !== taskId) return task
 
-        return syncTaskProgress({ ...task, checklist })
-      })
-    )
-  }, [])
+          const checklist = task.checklist.map((item) =>
+            item.id === itemId ? { ...item, completed: !item.completed } : item
+          )
+
+          updatedTask = syncTaskProgress({ ...task, checklist })
+          return updatedTask
+        })
+      )
+
+      if (updatedTask) {
+        void persistTaskUpdate(updatedTask)
+      }
+    },
+    [persistTaskUpdate]
+  )
 
   const addComment = useCallback(
     (
@@ -206,19 +314,36 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo(
     () => ({
       tasks,
+      isTasksReady,
+      usesSupabase,
       detailVersion,
       getTask,
       getDetail,
+      addTask,
       updateTaskStatus,
       toggleChecklistItem,
       addComment,
       addEvidence,
     }),
-    [tasks, detailVersion, getTask, getDetail, updateTaskStatus, toggleChecklistItem, addComment, addEvidence]
+    [
+      tasks,
+      isTasksReady,
+      usesSupabase,
+      detailVersion,
+      getTask,
+      getDetail,
+      addTask,
+      updateTaskStatus,
+      toggleChecklistItem,
+      addComment,
+      addEvidence,
+    ]
   )
 
   return (
-    <TasksContext.Provider value={value}>{children}</TasksContext.Provider>
+    <TasksContext.Provider value={value}>
+      {isTasksReady ? children : null}
+    </TasksContext.Provider>
   )
 }
 
@@ -230,4 +355,4 @@ export function useTasks() {
   return context
 }
 
-export { getChecklistProgress }
+export { getChecklistProgress } from "@/lib/tasks/utils"

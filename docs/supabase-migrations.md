@@ -4,6 +4,12 @@
 
 Archivo: `supabase/migrations/20260613000000_create_projects.sql`
 
+## Fase 2B: tabla `tasks`
+
+Archivo: `supabase/migrations/20260614000000_create_tasks.sql`
+
+Ejecuta esta migración **después** de `projects` (FK opcional `project_id`).
+
 ### Aplicar en Supabase Dashboard
 
 1. Abre tu proyecto en [Supabase Dashboard](https://supabase.com/dashboard)

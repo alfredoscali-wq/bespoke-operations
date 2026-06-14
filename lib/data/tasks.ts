@@ -603,3 +603,12 @@ export function getTasksSummary(tasks: Task[]) {
     ).length,
   }
 }
+
+export function createTaskFromInput(
+  input: Omit<Task, "id" | "progress"> & { progress?: number }
+): Task {
+  return buildTask({
+    id: `task-${Date.now()}`,
+    ...input,
+  })
+}
