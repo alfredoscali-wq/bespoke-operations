@@ -10,6 +10,18 @@ Archivo: `supabase/migrations/20260614000000_create_tasks.sql`
 
 Ejecuta esta migración **después** de `projects` (FK opcional `project_id`).
 
+## Fase 2C: tabla `evidences` + bucket Storage
+
+Archivo: `supabase/migrations/20260615000000_create_evidences.sql`
+
+Ejecuta esta migración **después** de `projects` y `tasks` (FKs opcionales `project_id`, `task_id`).
+
+Incluye:
+
+- Tabla `evidences` con metadatos, comentarios e historial en JSONB
+- Bucket privado `evidences` (50 MB por archivo)
+- Políticas RLS de desarrollo para tabla y Storage
+
 ### Aplicar en Supabase Dashboard
 
 1. Abre tu proyecto en [Supabase Dashboard](https://supabase.com/dashboard)

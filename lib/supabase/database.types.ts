@@ -1,3 +1,8 @@
+import type {
+  EvidenceCategoryType,
+  EvidenceFileType,
+  EvidenceStatus,
+} from "@/lib/types/evidence"
 import type { ProjectStatus, ProjectType } from "@/lib/types/projects"
 import type {
   TaskPriority,
@@ -139,6 +144,93 @@ export type Database = {
         }
         Relationships: []
       }
+      evidences: {
+        Row: {
+          id: string
+          file_name: string
+          file_type: EvidenceFileType
+          evidence_type: EvidenceCategoryType
+          storage_bucket: string
+          storage_path: string | null
+          mime_type: string | null
+          file_size_bytes: number | null
+          preview_url: string | null
+          project_id: string | null
+          project_code: string
+          project_name: string
+          task_id: string | null
+          task_code: string
+          task_title: string
+          crew: string
+          worker: string
+          uploaded_at: string
+          status: EvidenceStatus
+          description: string
+          category: string
+          comments: Json
+          upload_history: Json
+          created_at: string
+          updated_at: string
+          deleted_at: string | null
+        }
+        Insert: {
+          id?: string
+          file_name: string
+          file_type: EvidenceFileType
+          evidence_type?: EvidenceCategoryType
+          storage_bucket?: string
+          storage_path?: string | null
+          mime_type?: string | null
+          file_size_bytes?: number | null
+          preview_url?: string | null
+          project_id?: string | null
+          project_code: string
+          project_name: string
+          task_id?: string | null
+          task_code: string
+          task_title: string
+          crew: string
+          worker: string
+          uploaded_at?: string
+          status?: EvidenceStatus
+          description?: string
+          category?: string
+          comments?: Json
+          upload_history?: Json
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Update: {
+          id?: string
+          file_name?: string
+          file_type?: EvidenceFileType
+          evidence_type?: EvidenceCategoryType
+          storage_bucket?: string
+          storage_path?: string | null
+          mime_type?: string | null
+          file_size_bytes?: number | null
+          preview_url?: string | null
+          project_id?: string | null
+          project_code?: string
+          project_name?: string
+          task_id?: string | null
+          task_code?: string
+          task_title?: string
+          crew?: string
+          worker?: string
+          uploaded_at?: string
+          status?: EvidenceStatus
+          description?: string
+          category?: string
+          comments?: Json
+          upload_history?: Json
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
@@ -148,6 +240,9 @@ export type Database = {
       task_type: TaskType
       task_status: TaskStatus
       task_priority: TaskPriority
+      evidence_file_type: EvidenceFileType
+      evidence_category_type: EvidenceCategoryType
+      evidence_status: EvidenceStatus
     }
     CompositeTypes: Record<string, never>
   }
@@ -159,3 +254,8 @@ export type ProjectUpdate = Database["public"]["Tables"]["projects"]["Update"]
 export type TaskRow = Database["public"]["Tables"]["tasks"]["Row"]
 export type TaskInsert = Database["public"]["Tables"]["tasks"]["Insert"]
 export type TaskUpdate = Database["public"]["Tables"]["tasks"]["Update"]
+export type EvidenceRow = Database["public"]["Tables"]["evidences"]["Row"]
+export type EvidenceInsert =
+  Database["public"]["Tables"]["evidences"]["Insert"]
+export type EvidenceUpdate =
+  Database["public"]["Tables"]["evidences"]["Update"]

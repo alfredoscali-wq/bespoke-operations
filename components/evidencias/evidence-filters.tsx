@@ -89,7 +89,9 @@ export function EvidenceFiltersBar({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos los proyectos</SelectItem>
-            {projects.map((project) => (
+            {projects
+              .filter((project) => project.id !== "")
+              .map((project) => (
               <SelectItem key={project.id} value={project.id}>
                 {project.code}
               </SelectItem>
@@ -106,7 +108,9 @@ export function EvidenceFiltersBar({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas las tareas</SelectItem>
-            {tasks.map((task) => (
+            {tasks
+              .filter((task) => task.id !== "")
+              .map((task) => (
               <SelectItem key={task.id} value={task.id}>
                 {task.code}
               </SelectItem>

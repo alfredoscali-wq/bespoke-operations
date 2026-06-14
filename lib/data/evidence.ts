@@ -7,7 +7,10 @@ import type {
   TaskEvidenceStats,
 } from "@/lib/types/evidence"
 import { isDocumentType } from "@/lib/evidence/constants"
-import { enrichEvidenceRecords, type BaseEvidenceRecord } from "@/lib/data/evidence-enrichment"
+import {
+  enrichEvidenceRecords,
+  type BaseEvidenceRecord,
+} from "@/lib/data/evidence-enrichment"
 
 const baseEvidence: BaseEvidenceRecord[] = [
   {
@@ -362,6 +365,31 @@ const baseEvidence: BaseEvidenceRecord[] = [
 
 export const mockEvidence: EvidenceRecord[] = enrichEvidenceRecords(baseEvidence)
 
+export function createEvidenceFromInput(
+  input: Omit<BaseEvidenceRecord, "id"> & { id?: string }
+): EvidenceRecord {
+  return enrichEvidenceRecords([
+    {
+      id: input.id ?? `ev-${Date.now()}`,
+      fileName: input.fileName,
+      type: input.type,
+      projectId: input.projectId,
+      projectCode: input.projectCode,
+      projectName: input.projectName,
+      taskId: input.taskId,
+      taskCode: input.taskCode,
+      taskTitle: input.taskTitle,
+      crew: input.crew,
+      worker: input.worker,
+      uploadedAt: input.uploadedAt,
+      status: input.status,
+      description: input.description,
+      category: input.category,
+      comments: input.comments,
+    },
+  ])[0]
+}
+
 export function getEvidenceSummary(
   evidence: EvidenceRecord[]
 ): EvidenceSummary {
@@ -439,6 +467,14 @@ export const defaultEvidenceFilters: EvidenceFilters = {
   evidenceType: "all",
 }
 
+export function getEvidenceProjectKey(item: Pick<EvidenceRecord, "projectId" | "projectCode">) {
+  return item.projectId || `code:${item.projectCode}`
+}
+
+export function getEvidenceTaskKey(item: Pick<EvidenceRecord, "taskId" | "taskCode">) {
+  return item.taskId || `code:${item.taskCode}`
+}
+
 export function filterEvidence(
   evidence: EvidenceRecord[],
   filters: EvidenceFilters
@@ -456,10 +492,11 @@ export function filterEvidence(
       item.worker.toLowerCase().includes(query)
 
     const matchesProject =
-      filters.projectId === "all" || item.projectId === filters.projectId
+      filters.projectId === "all" ||
+      getEvidenceProjectKey(item) === filters.projectId
 
     const matchesTask =
-      filters.taskId === "all" || item.taskId === filters.taskId
+      filters.taskId === "all" || getEvidenceTaskKey(item) === filters.taskId
 
     const matchesCrew =
       filters.crew === "all" || item.crew === filters.crew
@@ -501,13 +538,16 @@ export function getEvidenceFilterOptions(evidence: EvidenceRecord[]) {
   const tasks = new Map<string, { id: string; code: string; title: string }>()
 
   evidence.forEach((item) => {
-    projects.set(item.projectId, {
-      id: item.projectId,
+    const projectKey = getEvidenceProjectKey(item)
+    const taskKey = getEvidenceTaskKey(item)
+
+    projects.set(projectKey, {
+      id: projectKey,
       code: item.projectCode,
       name: item.projectName,
     })
-    tasks.set(item.taskId, {
-      id: item.taskId,
+    tasks.set(taskKey, {
+      id: taskKey,
       code: item.taskCode,
       title: item.taskTitle,
     })
