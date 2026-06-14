@@ -21,9 +21,37 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      companies: {
+        Row: {
+          id: string
+          name: string
+          slug: string
+          created_at: string
+          updated_at: string
+          deleted_at: string | null
+        }
+        Insert: {
+          id?: string
+          name: string
+          slug: string
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          slug?: string
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Relationships: []
+      }
       projects: {
         Row: {
           id: string
+          company_id: string
           code: string
           name: string
           client: string
@@ -41,6 +69,7 @@ export type Database = {
         }
         Insert: {
           id?: string
+          company_id?: string
           code: string
           name: string
           client: string
@@ -58,6 +87,7 @@ export type Database = {
         }
         Update: {
           id?: string
+          company_id?: string
           code?: string
           name?: string
           client?: string
@@ -78,6 +108,7 @@ export type Database = {
       tasks: {
         Row: {
           id: string
+          company_id: string
           code: string
           title: string
           description: string
@@ -100,6 +131,7 @@ export type Database = {
         }
         Insert: {
           id?: string
+          company_id?: string
           code: string
           title: string
           description?: string
@@ -122,6 +154,7 @@ export type Database = {
         }
         Update: {
           id?: string
+          company_id?: string
           code?: string
           title?: string
           description?: string
@@ -147,6 +180,7 @@ export type Database = {
       evidences: {
         Row: {
           id: string
+          company_id: string
           file_name: string
           file_type: EvidenceFileType
           evidence_type: EvidenceCategoryType
@@ -175,6 +209,7 @@ export type Database = {
         }
         Insert: {
           id?: string
+          company_id?: string
           file_name: string
           file_type: EvidenceFileType
           evidence_type?: EvidenceCategoryType
@@ -203,6 +238,7 @@ export type Database = {
         }
         Update: {
           id?: string
+          company_id?: string
           file_name?: string
           file_type?: EvidenceFileType
           evidence_type?: EvidenceCategoryType
@@ -248,6 +284,9 @@ export type Database = {
   }
 }
 
+export type CompanyRow = Database["public"]["Tables"]["companies"]["Row"]
+export type CompanyInsert = Database["public"]["Tables"]["companies"]["Insert"]
+export type CompanyUpdate = Database["public"]["Tables"]["companies"]["Update"]
 export type ProjectRow = Database["public"]["Tables"]["projects"]["Row"]
 export type ProjectInsert = Database["public"]["Tables"]["projects"]["Insert"]
 export type ProjectUpdate = Database["public"]["Tables"]["projects"]["Update"]

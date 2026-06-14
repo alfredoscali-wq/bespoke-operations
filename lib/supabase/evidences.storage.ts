@@ -1,6 +1,27 @@
 export const EVIDENCES_STORAGE_BUCKET = "evidences"
 
+export const EVIDENCE_IMAGE_MIME_TYPES = [
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+] as const
+
+export const EVIDENCE_MAX_FILE_SIZE_BYTES = 52428800
+
 const MAX_FILE_NAME_LENGTH = 180
+
+export function getStorageSegmentProjectId(
+  projectId: string,
+  projectCode: string
+): string {
+  return projectId || `code:${projectCode}`
+}
+
+export function getStorageSegmentTaskId(taskId: string, taskCode: string): string {
+  return taskId || `code:${taskCode}`
+}
 
 export type EvidenceStoragePathInput = {
   projectId: string

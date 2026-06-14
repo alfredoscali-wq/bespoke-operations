@@ -11,13 +11,18 @@ import {
 } from "react"
 
 import { appendUploadHistoryEvent } from "@/lib/data/evidence-enrichment"
-import { mockEvidence } from "@/lib/data/evidence"
+import { createEvidenceFromInput, mockEvidence } from "@/lib/data/evidence"
 import {
   createBrowserEvidencesClient,
   listEvidences,
   updateEvidence,
+  uploadEvidenceWithFile,
 } from "@/lib/supabase/evidences.browser"
 import type { EvidenceRecord, EvidenceStatus } from "@/lib/types/evidence"
+import type {
+  UploadEvidenceInput,
+  UploadEvidenceResult,
+} from "@/lib/types/supabase/evidences"
 
 type ReviewActionResult = {
   success: boolean
@@ -29,6 +34,7 @@ type EvidenceContextValue = {
   isEvidenceReady: boolean
   usesSupabase: boolean
   getEvidence: (id: string) => EvidenceRecord | undefined
+  uploadEvidence: (input: UploadEvidenceInput) => Promise<UploadEvidenceResult>
   approveEvidence: (id: string) => ReviewActionResult
   rejectEvidence: (id: string, comment: string) => ReviewActionResult
 }
@@ -93,6 +99,62 @@ export function EvidenceProvider({ children }: { children: React.ReactNode }) {
         await updateEvidence(id, { status }, client)
       } catch {
         // Keep optimistic local state if persistence fails.
+      }
+    },
+    []
+  )
+
+  const uploadEvidence = useCallback(
+    async (input: UploadEvidenceInput): Promise<UploadEvidenceResult> => {
+      if (usesSupabaseRef.current) {
+        try {
+          const client = createBrowserEvidencesClient()
+          const result = await uploadEvidenceWithFile(input, client)
+
+          if (result.error || !result.data) {
+            return {
+              success: false,
+              message: result.error?.message ?? "No se pudo subir la evidencia.",
+            }
+          }
+
+          setEvidence((current) => [result.data!, ...current])
+
+          return {
+            success: true,
+            data: result.data,
+            message: "Evidencia subida correctamente.",
+          }
+        } catch {
+          // Fall through to in-memory mock upload for this session.
+        }
+      }
+
+      const uploadedAt = new Date().toISOString()
+      const record = createEvidenceFromInput({
+        fileName: input.file.name,
+        type: "photo",
+        projectId: input.projectId,
+        projectCode: input.projectCode,
+        projectName: input.projectName,
+        taskId: input.taskId,
+        taskCode: input.taskCode,
+        taskTitle: input.taskTitle,
+        crew: input.crew,
+        worker: input.worker,
+        uploadedAt,
+        status: "pending-review",
+        description: input.description ?? "",
+        category: input.category ?? "Campo",
+        comments: [],
+      })
+
+      setEvidence((current) => [record, ...current])
+
+      return {
+        success: true,
+        data: record,
+        message: "Evidencia registrada localmente.",
       }
     },
     []
@@ -214,6 +276,7 @@ export function EvidenceProvider({ children }: { children: React.ReactNode }) {
       isEvidenceReady,
       usesSupabase,
       getEvidence,
+      uploadEvidence,
       approveEvidence,
       rejectEvidence,
     }),
@@ -222,6 +285,7 @@ export function EvidenceProvider({ children }: { children: React.ReactNode }) {
       isEvidenceReady,
       usesSupabase,
       getEvidence,
+      uploadEvidence,
       approveEvidence,
       rejectEvidence,
     ]

@@ -9,6 +9,7 @@ import {
   patchEvidence,
   removeEvidenceFile,
   uploadEvidenceFile,
+  uploadEvidenceWithFile as uploadEvidenceWithFileQuery,
   type SupabaseEvidencesClient,
 } from "@/lib/supabase/evidences.queries"
 import type { EvidenceRecord } from "@/lib/types/evidence"
@@ -16,6 +17,7 @@ import type {
   CreateEvidencePayload,
   EvidencesRepositoryResult,
   UpdateEvidencePayload,
+  UploadEvidenceInput,
 } from "@/lib/types/supabase/evidences"
 
 export function createBrowserEvidencesClient(): SupabaseEvidencesClient {
@@ -62,6 +64,13 @@ export async function updateEvidence(
   client: SupabaseEvidencesClient = createBrowserEvidencesClient()
 ): Promise<EvidencesRepositoryResult<EvidenceRecord>> {
   return patchEvidence(client, id, payload)
+}
+
+export async function uploadEvidenceWithFile(
+  input: UploadEvidenceInput,
+  client: SupabaseEvidencesClient = createBrowserEvidencesClient()
+): Promise<EvidencesRepositoryResult<EvidenceRecord>> {
+  return uploadEvidenceWithFileQuery(client, input)
 }
 
 export {

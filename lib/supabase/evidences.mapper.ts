@@ -43,21 +43,32 @@ function parseUploadHistory(value: unknown): EvidenceUploadEvent[] {
   )
 }
 
-function resolvePreviewUrl(row: EvidenceRow): string {
-  if (row.preview_url) return row.preview_url
+function resolvePlaceholderPreviewUrl(row: EvidenceRow): string {
   if (row.file_type === "photo") return PREVIEW_IMAGES.fiber
   if (row.file_type === "video") return PREVIEW_IMAGES.video
   if (row.file_type === "plan") return PREVIEW_IMAGES.plan
   return PREVIEW_IMAGES.document
 }
 
-export function mapEvidenceRowToRecord(row: EvidenceRow): EvidenceRecord {
+export function resolveEvidencePreviewUrl(
+  row: EvidenceRow,
+  signedUrl?: string | null
+): string {
+  if (signedUrl) return signedUrl
+  if (row.preview_url) return row.preview_url
+  return resolvePlaceholderPreviewUrl(row)
+}
+
+export function mapEvidenceRowToRecord(
+  row: EvidenceRow,
+  signedUrl?: string | null
+): EvidenceRecord {
   return {
     id: row.id,
     fileName: row.file_name,
     type: row.file_type,
     evidenceType: row.evidence_type,
-    previewUrl: resolvePreviewUrl(row),
+    previewUrl: resolveEvidencePreviewUrl(row, signedUrl),
     projectId: row.project_id ?? "",
     projectCode: row.project_code,
     projectName: row.project_name,

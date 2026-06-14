@@ -9,7 +9,7 @@ import type {
 
 export type CreateEvidencePayload = Omit<
   EvidenceRecord,
-  "id" | "previewUrl" | "uploadHistory"
+  "id" | "previewUrl" | "uploadHistory" | "projectId" | "taskId"
 > & {
   projectId?: string | null
   taskId?: string | null
@@ -59,3 +59,24 @@ export type EvidencesRepositoryResult<T> =
         message: string
       }
     }
+
+export type UploadEvidenceInput = {
+  file: File
+  projectId: string
+  projectCode: string
+  projectName: string
+  taskId: string
+  taskCode: string
+  taskTitle: string
+  crew: string
+  worker: string
+  description?: string
+  category?: string
+  evidenceType?: EvidenceCategoryType
+}
+
+export type UploadEvidenceResult = {
+  success: boolean
+  data?: EvidenceRecord
+  message?: string
+}

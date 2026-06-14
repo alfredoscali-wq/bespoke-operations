@@ -1,30 +1,64 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
-import type { Database } from "@/lib/supabase/database.types"
+import type { Database, EvidenceRow } from "@/lib/supabase/database.types"
 import {
   mapCreatePayloadToInsert,
   mapEvidenceRowToRecord,
   mapUpdatePayloadToUpdate,
 } from "@/lib/supabase/evidences.mapper"
 import {
+  EVIDENCE_IMAGE_MIME_TYPES,
+  EVIDENCE_MAX_FILE_SIZE_BYTES,
   EVIDENCES_STORAGE_BUCKET,
   buildEvidenceStoragePath,
+  getStorageSegmentProjectId,
+  getStorageSegmentTaskId,
 } from "@/lib/supabase/evidences.storage"
 import type { EvidenceRecord } from "@/lib/types/evidence"
 import type {
   CreateEvidencePayload,
   EvidencesRepositoryResult,
   UpdateEvidencePayload,
+  UploadEvidenceInput,
 } from "@/lib/types/supabase/evidences"
 
 export type SupabaseEvidencesClient = SupabaseClient<Database>
 
 const SIGNED_URL_TTL_SECONDS = 3600
 
-function mapRowsToRecords(
-  rows: Parameters<typeof mapEvidenceRowToRecord>[0][]
-): EvidenceRecord[] {
-  return rows.map((row) => mapEvidenceRowToRecord(row))
+async function mapRowsToRecordsWithSignedUrls(
+  client: SupabaseEvidencesClient,
+  rows: EvidenceRow[]
+): Promise<EvidenceRecord[]> {
+  if (rows.length === 0) return []
+
+  const pathsToSign = rows
+    .filter((row) => row.storage_path)
+    .map((row) => row.storage_path as string)
+
+  const signedUrlMap = new Map<string, string>()
+
+  if (pathsToSign.length > 0) {
+    const { data, error } = await client.storage
+      .from(EVIDENCES_STORAGE_BUCKET)
+      .createSignedUrls(pathsToSign, SIGNED_URL_TTL_SECONDS)
+
+    if (!error && data) {
+      data.forEach((item) => {
+        if (item.path && item.signedUrl && !item.error) {
+          signedUrlMap.set(item.path, item.signedUrl)
+        }
+      })
+    }
+  }
+
+  return rows.map((row) => {
+    const signedUrl = row.storage_path
+      ? signedUrlMap.get(row.storage_path) ?? null
+      : null
+
+    return mapEvidenceRowToRecord(row, signedUrl)
+  })
 }
 
 export function mapSupabaseEvidenceError(error: {
@@ -44,6 +78,36 @@ export function mapSupabaseEvidenceError(error: {
   }
 }
 
+function validateEvidenceImageFile(
+  file: File
+): EvidencesRepositoryResult<EvidenceRecord> | null {
+  if (
+    !EVIDENCE_IMAGE_MIME_TYPES.includes(
+      file.type as (typeof EVIDENCE_IMAGE_MIME_TYPES)[number]
+    )
+  ) {
+    return {
+      data: null,
+      error: {
+        code: "VALIDATION",
+        message: "Solo se permiten imágenes JPEG, PNG, WebP o HEIC.",
+      },
+    }
+  }
+
+  if (file.size > EVIDENCE_MAX_FILE_SIZE_BYTES) {
+    return {
+      data: null,
+      error: {
+        code: "VALIDATION",
+        message: "La imagen supera el límite de 50 MB.",
+      },
+    }
+  }
+
+  return null
+}
+
 export async function fetchEvidences(
   client: SupabaseEvidencesClient
 ): Promise<EvidencesRepositoryResult<EvidenceRecord[]>> {
@@ -58,7 +122,7 @@ export async function fetchEvidences(
   }
 
   return {
-    data: mapRowsToRecords(data ?? []),
+    data: await mapRowsToRecordsWithSignedUrls(client, data ?? []),
     error: null,
   }
 }
@@ -88,8 +152,10 @@ export async function fetchEvidenceById(
     }
   }
 
+  const [record] = await mapRowsToRecordsWithSignedUrls(client, [data])
+
   return {
-    data: mapEvidenceRowToRecord(data),
+    data: record,
     error: null,
   }
 }
@@ -110,7 +176,7 @@ export async function fetchEvidencesByProjectId(
   }
 
   return {
-    data: mapRowsToRecords(data ?? []),
+    data: await mapRowsToRecordsWithSignedUrls(client, data ?? []),
     error: null,
   }
 }
@@ -131,7 +197,7 @@ export async function fetchEvidencesByTaskId(
   }
 
   return {
-    data: mapRowsToRecords(data ?? []),
+    data: await mapRowsToRecordsWithSignedUrls(client, data ?? []),
     error: null,
   }
 }
@@ -150,8 +216,10 @@ export async function insertEvidence(
     return { data: null, error: mapSupabaseEvidenceError(error) }
   }
 
+  const [record] = await mapRowsToRecordsWithSignedUrls(client, [data])
+
   return {
-    data: mapEvidenceRowToRecord(data),
+    data: record,
     error: null,
   }
 }
@@ -195,8 +263,10 @@ export async function patchEvidence(
     }
   }
 
+  const [record] = await mapRowsToRecordsWithSignedUrls(client, [data])
+
   return {
-    data: mapEvidenceRowToRecord(data),
+    data: record,
     error: null,
   }
 }
@@ -240,6 +310,81 @@ export async function uploadEvidenceFile(
     },
     error: null,
   }
+}
+
+export async function uploadEvidenceWithFile(
+  client: SupabaseEvidencesClient,
+  input: UploadEvidenceInput
+): Promise<EvidencesRepositoryResult<EvidenceRecord>> {
+  const validationError = validateEvidenceImageFile(input.file)
+  if (validationError) return validationError
+
+  const uploadedAt = new Date().toISOString()
+  const metadata: CreateEvidencePayload = {
+    fileName: input.file.name,
+    type: "photo",
+    evidenceType: input.evidenceType ?? "progress-photo",
+    projectId: input.projectId || null,
+    projectCode: input.projectCode,
+    projectName: input.projectName,
+    taskId: input.taskId || null,
+    taskCode: input.taskCode,
+    taskTitle: input.taskTitle,
+    crew: input.crew,
+    worker: input.worker,
+    uploadedAt,
+    status: "pending-review",
+    description: input.description ?? "",
+    category: input.category ?? "Campo",
+    comments: [],
+    uploadHistory: [
+      {
+        id: `ev-h-upload-${Date.now()}`,
+        action: "Archivo cargado",
+        user: input.worker,
+        timestamp: uploadedAt,
+        note: input.file.name,
+      },
+    ],
+  }
+
+  const insertResult = await insertEvidence(client, metadata)
+  if (insertResult.error || !insertResult.data) {
+    return insertResult
+  }
+
+  const evidenceId = insertResult.data.id
+  const projectSegment = getStorageSegmentProjectId(
+    input.projectId,
+    input.projectCode
+  )
+  const taskSegment = getStorageSegmentTaskId(input.taskId, input.taskCode)
+
+  const uploadResult = await uploadEvidenceFile(client, {
+    projectId: projectSegment,
+    taskId: taskSegment,
+    evidenceId,
+    fileName: input.file.name,
+    file: input.file,
+    contentType: input.file.type,
+  })
+
+  if (uploadResult.error || !uploadResult.data) {
+    return {
+      data: null,
+      error:
+        uploadResult.error ?? {
+          code: "STORAGE",
+          message: "No se pudo subir el archivo al bucket.",
+        },
+    }
+  }
+
+  return patchEvidence(client, evidenceId, {
+    storagePath: uploadResult.data.path,
+    mimeType: input.file.type,
+    fileSizeBytes: input.file.size,
+  })
 }
 
 export async function getEvidenceSignedUrl(

@@ -6,6 +6,7 @@ import { useEvidence } from "@/components/evidencias/evidence-provider"
 import { EvidenceFiltersBar } from "@/components/evidencias/evidence-filters"
 import { EvidenceSummaryCards } from "@/components/evidencias/evidence-summary-cards"
 import { EvidenceTable } from "@/components/evidencias/evidence-table"
+import { EvidenceUploadDialog } from "@/components/evidencias/evidence-upload-dialog"
 import {
   defaultEvidenceFilters,
   filterEvidence,
@@ -24,7 +25,7 @@ type EvidenceModuleProps = {
 }
 
 export function EvidenceModule({ initialFilters }: EvidenceModuleProps) {
-  const { evidence } = useEvidence()
+  const { evidence, uploadEvidence } = useEvidence()
   const [filters, setFilters] = useState<EvidenceFilters>(
     initialFilters ?? defaultEvidenceFilters
   )
@@ -44,8 +45,9 @@ export function EvidenceModule({ initialFilters }: EvidenceModuleProps) {
       <EvidenceSummaryCards evidence={evidence} />
 
       <Card className="shadow-sm">
-        <CardHeader className="border-b">
+        <CardHeader className="flex flex-row items-center justify-between gap-4 border-b">
           <CardTitle className="text-base">Expediente de evidencias</CardTitle>
+          <EvidenceUploadDialog onSubmit={uploadEvidence} />
         </CardHeader>
         <CardContent className="space-y-4 pt-4">
           <EvidenceFiltersBar
