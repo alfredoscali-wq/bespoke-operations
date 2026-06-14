@@ -4,7 +4,7 @@ import {
   TaskPriorityBadge,
   TaskStatusBadge,
 } from "@/components/tareas/task-badges"
-import { getCrewTasks } from "@/lib/data/crews"
+import { getCrewTasks } from "@/lib/crews/utils"
 import { formatTaskDate } from "@/lib/tasks/constants"
 import type { Crew } from "@/lib/types/crews"
 import type { Task } from "@/lib/types/tasks"
@@ -30,7 +30,7 @@ type CrewTasksTabProps = {
 }
 
 export function CrewTasksTab({ crew, tasks }: CrewTasksTabProps) {
-  const crewTasks = getCrewTasks(crew.name, tasks)
+  const crewTasks = getCrewTasks(crew, tasks)
 
   if (crewTasks.length === 0) {
     return (

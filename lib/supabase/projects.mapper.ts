@@ -19,6 +19,7 @@ export function mapProjectRowToProject(row: ProjectRow): Project {
     supervisor: row.supervisor,
     location: row.location,
     description: row.description,
+    createdAt: row.created_at,
   }
 }
 

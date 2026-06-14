@@ -6,6 +6,7 @@ import { Upload } from "lucide-react"
 import { useProjects } from "@/components/obras/projects-provider"
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { EVIDENCE_WORKERS } from "@/lib/evidence/constants"
+import { getTasksForProject } from "@/lib/tasks/utils"
 import type { UploadEvidenceInput } from "@/lib/types/supabase/evidences"
 import { Button } from "@/components/ui/button"
 import {
@@ -50,10 +51,7 @@ export function EvidenceUploadDialog({ onSubmit }: EvidenceUploadDialogProps) {
 
   const selectedProject = projects.find((project) => project.id === projectId)
   const tasksForProject = useMemo(
-    () =>
-      selectedProject
-        ? tasks.filter((task) => task.projectCode === selectedProject.code)
-        : [],
+    () => (selectedProject ? getTasksForProject(selectedProject, tasks) : []),
     [selectedProject, tasks]
   )
   const selectedTask = tasksForProject.find((task) => task.id === taskId)
@@ -72,7 +70,7 @@ export function EvidenceUploadDialog({ onSubmit }: EvidenceUploadDialogProps) {
     event.preventDefault()
 
     if (!file || !selectedProject || !selectedTask) {
-      setError("Seleccione proyecto, tarea e imagen.")
+      setError("Seleccione obra, tarea e imagen.")
       return
     }
 
@@ -124,7 +122,7 @@ export function EvidenceUploadDialog({ onSubmit }: EvidenceUploadDialogProps) {
         <DialogHeader>
           <DialogTitle>Subir evidencia</DialogTitle>
           <DialogDescription>
-            Cargue una imagen de campo vinculada a una obra y tarea.
+            Cargue una imagen de campo vinculada a una obra y tarea existentes.
           </DialogDescription>
         </DialogHeader>
 
@@ -143,7 +141,7 @@ export function EvidenceUploadDialog({ onSubmit }: EvidenceUploadDialogProps) {
           </div>
 
           <div className="space-y-2">
-            <Label>Proyecto</Label>
+            <Label>Obra</Label>
             <Select
               value={projectId}
               onValueChange={(value) => {
@@ -152,14 +150,20 @@ export function EvidenceUploadDialog({ onSubmit }: EvidenceUploadDialogProps) {
               }}
             >
               <SelectTrigger className="bg-background">
-                <SelectValue placeholder="Seleccionar proyecto" />
+                <SelectValue placeholder="Seleccionar obra" />
               </SelectTrigger>
               <SelectContent>
-                {projects.map((project) => (
-                  <SelectItem key={project.id} value={project.id}>
-                    {project.code}
+                {projects.length === 0 ? (
+                  <SelectItem value="__empty" disabled>
+                    No hay obras registradas
                   </SelectItem>
-                ))}
+                ) : (
+                  projects.map((project) => (
+                    <SelectItem key={project.id} value={project.id}>
+                      {project.code} — {project.name}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -172,14 +176,30 @@ export function EvidenceUploadDialog({ onSubmit }: EvidenceUploadDialogProps) {
               disabled={!selectedProject}
             >
               <SelectTrigger className="bg-background">
-                <SelectValue placeholder="Seleccionar tarea" />
+                <SelectValue
+                  placeholder={
+                    selectedProject
+                      ? tasksForProject.length === 0
+                        ? "Sin tareas para esta obra"
+                        : "Seleccionar tarea"
+                      : "Seleccione una obra primero"
+                  }
+                />
               </SelectTrigger>
               <SelectContent>
-                {tasksForProject.map((task) => (
-                  <SelectItem key={task.id} value={task.id}>
-                    {task.code}
+                {tasksForProject.length === 0 ? (
+                  <SelectItem value="__empty" disabled>
+                    {selectedProject
+                      ? "No hay tareas para esta obra"
+                      : "Seleccione una obra primero"}
                   </SelectItem>
-                ))}
+                ) : (
+                  tasksForProject.map((task) => (
+                    <SelectItem key={task.id} value={task.id}>
+                      {task.code} — {task.title}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>

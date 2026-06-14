@@ -61,9 +61,9 @@ export const TASK_PRIORITY_STYLES: Record<TaskPriority, string> = {
   baja: "bg-slate-100 text-slate-600 border-slate-200",
 }
 
-import { CREW_NAMES } from "@/lib/crews/constants"
-
-export const TASK_CREWS = CREW_NAMES
+export const TASK_PRIORITY_OPTIONS = Object.entries(TASK_PRIORITY_LABELS).map(
+  ([value, label]) => ({ value: value as TaskPriority, label })
+)
 
 export const TASK_STATUS_OPTIONS = Object.entries(TASK_STATUS_LABELS).map(
   ([value, label]) => ({ value: value as TaskStatus, label })
@@ -71,10 +71,6 @@ export const TASK_STATUS_OPTIONS = Object.entries(TASK_STATUS_LABELS).map(
 
 export const TASK_TYPE_OPTIONS = Object.entries(TASK_TYPE_LABELS).map(
   ([value, label]) => ({ value: value as TaskType, label })
-)
-
-export const TASK_PRIORITY_OPTIONS = Object.entries(TASK_PRIORITY_LABELS).map(
-  ([value, label]) => ({ value: value as TaskPriority, label })
 )
 
 export function formatTaskDate(date: string) {

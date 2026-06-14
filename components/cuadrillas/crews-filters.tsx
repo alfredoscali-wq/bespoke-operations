@@ -3,6 +3,7 @@
 import { Search, X } from "lucide-react"
 
 import { CREW_STATUS_OPTIONS } from "@/lib/crews/constants"
+import { defaultCrewFilters } from "@/lib/crews/utils"
 import type { CrewFilters } from "@/lib/types/crews"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -18,30 +19,26 @@ type CrewsFiltersBarProps = {
   filters: CrewFilters
   onChange: (filters: CrewFilters) => void
   resultCount: number
-  specialties: string[]
+  supervisors: string[]
 }
 
 export function CrewsFiltersBar({
   filters,
   onChange,
   resultCount,
-  specialties,
+  supervisors,
 }: CrewsFiltersBarProps) {
   const hasActiveFilters =
     filters.search !== "" ||
     filters.status !== "all" ||
-    filters.specialty !== "all"
+    filters.supervisor !== "all"
 
   function update<K extends keyof CrewFilters>(key: K, value: CrewFilters[K]) {
     onChange({ ...filters, [key]: value })
   }
 
   function clearFilters() {
-    onChange({
-      search: "",
-      status: "all",
-      specialty: "all",
-    })
+    onChange(defaultCrewFilters)
   }
 
   return (
@@ -51,7 +48,7 @@ export function CrewsFiltersBar({
         <Input
           value={filters.search}
           onChange={(event) => update("search", event.target.value)}
-          placeholder="Buscar por cuadrilla, especialidad, supervisor o integrante..."
+          placeholder="Buscar por cuadrilla, descripción, supervisor o integrante..."
           className="h-9 bg-background pl-8"
         />
       </div>
@@ -77,17 +74,17 @@ export function CrewsFiltersBar({
         </Select>
 
         <Select
-          value={filters.specialty}
-          onValueChange={(value) => update("specialty", value)}
+          value={filters.supervisor}
+          onValueChange={(value) => update("supervisor", value)}
         >
           <SelectTrigger className="h-9 w-full bg-background">
-            <SelectValue placeholder="Especialidad" />
+            <SelectValue placeholder="Supervisor" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todas las especialidades</SelectItem>
-            {specialties.map((specialty) => (
-              <SelectItem key={specialty} value={specialty}>
-                {specialty}
+            <SelectItem value="all">Todos los supervisores</SelectItem>
+            {supervisors.map((supervisor) => (
+              <SelectItem key={supervisor} value={supervisor}>
+                {supervisor}
               </SelectItem>
             ))}
           </SelectContent>

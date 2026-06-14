@@ -1,3 +1,5 @@
+"use client"
+
 import Link from "next/link"
 import {
   Calendar,
@@ -8,8 +10,8 @@ import {
   Users,
 } from "lucide-react"
 
-import { getCrewByName } from "@/lib/data/crews"
-import { mockProjects } from "@/lib/data/projects"
+import { useCrews } from "@/components/cuadrillas/crews-provider"
+import { useProjects } from "@/components/obras/projects-provider"
 import type { Task } from "@/lib/types/tasks"
 import { formatTaskDate } from "@/lib/tasks/constants"
 import { TaskEvidenceSummary } from "@/components/evidencias/task-evidence-summary"
@@ -33,10 +35,16 @@ type TaskOverviewTabProps = {
 }
 
 export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
-  const relatedProject = mockProjects.find(
-    (project) => project.code === task.projectCode
+  const { projects } = useProjects()
+  const { getCrew } = useCrews()
+
+  const relatedProject = projects.find(
+    (project) =>
+      project.id === task.projectId || project.code === task.projectCode
   )
-  const relatedCrew = getCrewByName(task.crew)
+  const relatedCrew = task.crewId
+    ? getCrew(task.crewId)
+    : undefined
 
   const infoItems = [
     {
@@ -60,8 +68,10 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
         >
           {task.crew}
         </Link>
-      ) : (
+      ) : task.crew ? (
         task.crew
+      ) : (
+        "Sin cuadrilla asignada"
       ),
     },
     {
@@ -77,7 +87,7 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
     {
       icon: Clock,
       label: "Duración estimada",
-      value: task.estimatedDuration,
+      value: task.estimatedDuration || "—",
     },
   ]
 

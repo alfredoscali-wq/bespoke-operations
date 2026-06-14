@@ -137,3 +137,20 @@ export async function patchTask(
 
   return { data: mapTaskRowToTask(data), error: null }
 }
+
+export async function softDeleteTask(
+  client: SupabaseTasksClient,
+  id: string
+): Promise<TasksRepositoryResult<void>> {
+  const { error } = await client
+    .from("tasks")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", id)
+    .is("deleted_at", null)
+
+  if (error) {
+    return { data: null, error: mapSupabaseTaskError(error) }
+  }
+
+  return { data: undefined, error: null }
+}

@@ -28,18 +28,21 @@ export type Task = {
   code: string
   title: string
   description: string
+  projectId?: string
   projectCode: string
   projectName: string
   type: TaskType
   status: TaskStatus
   priority: TaskPriority
   supervisor: string
+  crewId?: string
   crew: string
   startDate: string
   dueDate: string
   estimatedDuration: string
   checklist: ChecklistItem[]
   progress: number
+  createdAt?: string
 }
 
 export type TaskEvidence = {

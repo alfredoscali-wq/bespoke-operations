@@ -1,12 +1,12 @@
-export type CrewStatus = "disponible" | "en-campo" | "fuera-de-servicio"
-
-export type MemberStatus = "disponible" | "en-campo" | "fuera-de-servicio"
+export type CrewStatus = "activa" | "inactiva" | "en-campo"
 
 export type CrewMember = {
   id: string
+  crewId: string
   name: string
-  position: string
-  status: MemberStatus
+  role: string
+  phone?: string
+  active: boolean
 }
 
 export type CrewActivityType =
@@ -36,10 +36,10 @@ export type CrewPerformance = {
 export type Crew = {
   id: string
   name: string
-  specialty: string
+  description: string
   supervisor: string
-  vehicle: string
   status: CrewStatus
+  notes: string
   members: CrewMember[]
 }
 
@@ -70,5 +70,20 @@ export type CrewSummary = {
 export type CrewFilters = {
   search: string
   status: CrewStatus | "all"
-  specialty: string | "all"
+  supervisor: string | "all"
+}
+
+export type NewCrewInput = {
+  name: string
+  description: string
+  supervisor: string
+  status: CrewStatus
+  notes: string
+}
+
+export type NewCrewMemberInput = {
+  name: string
+  role: string
+  phone?: string
+  active: boolean
 }

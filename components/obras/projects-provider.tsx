@@ -126,11 +126,13 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
         return detailCache.get(id)
       }
 
-      const detail = getProjectDetail(project)
+      const detail = usesSupabase
+        ? createProjectDetail(project)
+        : getProjectDetail(project)
       detailCache.set(id, detail)
       return detail
     },
-    [projects]
+    [projects, usesSupabase]
   )
 
   const value = useMemo(

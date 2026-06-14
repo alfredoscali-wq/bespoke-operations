@@ -5,7 +5,7 @@ import {
   Users,
 } from "lucide-react"
 
-import { getCrewsSummary } from "@/lib/data/crews"
+import { getCrewsSummary } from "@/lib/crews/utils"
 import type { Crew, CrewSummary } from "@/lib/types/crews"
 import type { Project } from "@/lib/types/projects"
 import type { Task } from "@/lib/types/tasks"

@@ -1,18 +1,16 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { Camera, FileText } from "lucide-react"
 
-import { useEvidenceOptional } from "@/components/evidencias/evidence-provider"
+import { useEvidence } from "@/components/evidencias/evidence-provider"
 import {
   EvidenceStatusBadge,
   EvidenceTypeBadge,
 } from "@/components/evidencias/evidence-badges"
 import { formatEvidenceDateTime } from "@/lib/evidence/constants"
-import {
-  getEvidenceByProjectId,
-  mockEvidence,
-} from "@/lib/data/evidence"
+import { getEvidenceByProjectId } from "@/lib/data/evidence"
 import { Badge } from "@/components/ui/badge"
 import {
   Card,
@@ -27,11 +25,10 @@ type ProjectEvidenceTabProps = {
 }
 
 export function ProjectEvidenceTab({ projectId }: ProjectEvidenceTabProps) {
-  const evidenceContext = useEvidenceOptional()
-  const allEvidence = evidenceContext?.evidence ?? mockEvidence
-  const evidence = getEvidenceByProjectId(projectId, allEvidence)
+  const { evidence } = useEvidence()
+  const projectEvidence = getEvidenceByProjectId(projectId, evidence)
 
-  if (evidence.length === 0) {
+  if (projectEvidence.length === 0) {
     return (
       <Card className="border-dashed shadow-sm">
         <CardContent className="py-12 text-center text-sm text-muted-foreground">
@@ -43,14 +40,24 @@ export function ProjectEvidenceTab({ projectId }: ProjectEvidenceTabProps) {
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      {evidence.map((item) => {
+      {projectEvidence.map((item) => {
         const Icon = item.type === "photo" ? Camera : FileText
 
         return (
           <Link key={item.id} href={`/evidencias/${item.id}`}>
             <Card className="h-full overflow-hidden shadow-sm transition-colors hover:bg-muted/30">
-              <div className="flex aspect-video items-center justify-center bg-muted/40">
-                <Icon className="size-10 text-muted-foreground/50" />
+              <div className="relative flex aspect-video items-center justify-center bg-muted/40">
+                {item.previewUrl ? (
+                  <Image
+                    src={item.previewUrl}
+                    alt={item.fileName}
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 768px) 100vw, 33vw"
+                  />
+                ) : (
+                  <Icon className="size-10 text-muted-foreground/50" />
+                )}
               </div>
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between gap-2">

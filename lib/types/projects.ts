@@ -25,6 +25,7 @@ export type Project = {
   supervisor: string
   location: string
   description: string
+  createdAt?: string
 }
 
 export type ProjectTask = {

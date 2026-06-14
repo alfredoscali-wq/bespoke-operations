@@ -35,6 +35,11 @@ export function UpcomingTasks({ tasks }: UpcomingTasksProps) {
       </CardHeader>
       <CardContent className="flex-1 pt-0">
         <ScrollArea className="h-[420px] pr-3">
+          {tasks.length === 0 ? (
+            <div className="flex h-full items-center justify-center py-16 text-center text-sm text-muted-foreground">
+              No hay tareas próximas con fecha límite.
+            </div>
+          ) : (
           <div className="space-y-3">
             {tasks.map((task) => (
               <Link
@@ -78,6 +83,7 @@ export function UpcomingTasks({ tasks }: UpcomingTasksProps) {
               </Link>
             ))}
           </div>
+          )}
         </ScrollArea>
       </CardContent>
     </Card>

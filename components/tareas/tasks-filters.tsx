@@ -10,7 +10,6 @@ import type {
   TaskType,
 } from "@/lib/types/tasks"
 import {
-  TASK_CREWS,
   TASK_PRIORITY_OPTIONS,
   TASK_STATUS_OPTIONS,
   TASK_TYPE_OPTIONS,
@@ -50,6 +49,7 @@ type TasksFiltersProps = {
   onChange: (filters: TaskFilters) => void
   resultCount: number
   showSort?: boolean
+  crewOptions?: string[]
 }
 
 const sortOptions: { value: TaskSortField; label: string }[] = [
@@ -80,6 +80,7 @@ export function TasksFiltersBar({
   onChange,
   resultCount,
   showSort = true,
+  crewOptions = [],
 }: TasksFiltersProps) {
   const hasActiveFilters =
     filters.search !== "" ||
@@ -172,7 +173,7 @@ export function TasksFiltersBar({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todas</SelectItem>
-              {TASK_CREWS.map((crew) => (
+              {crewOptions.map((crew) => (
                 <SelectItem key={crew} value={crew}>
                   {crew}
                 </SelectItem>

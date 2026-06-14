@@ -1,10 +1,14 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
-import { Users } from "lucide-react"
+import { MoreHorizontal, Pencil, Trash2, Users } from "lucide-react"
 
+import { useCrews } from "@/components/cuadrillas/crews-provider"
+import { CrewFormDialog } from "@/components/cuadrillas/crew-form-dialog"
 import { CrewStatusBadge } from "@/components/cuadrillas/crew-badges"
-import type { CrewListItem } from "@/lib/types/crews"
+import type { CrewListItem, NewCrewInput } from "@/lib/types/crews"
+import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
@@ -12,6 +16,20 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
   Table,
   TableBody,
@@ -26,16 +44,64 @@ type CrewsTableProps = {
 }
 
 export function CrewsTable({ crews }: CrewsTableProps) {
+  const { editCrew, removeCrew } = useCrews()
+  const [editTarget, setEditTarget] = useState<CrewListItem | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<CrewListItem | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  async function handleEdit(input: NewCrewInput) {
+    if (!editTarget) return
+    const result = await editCrew(editTarget.id, input)
+    if (!result.success) {
+      throw new Error(result.message ?? "No se pudo actualizar la cuadrilla.")
+    }
+  }
+
+  async function handleConfirmDelete() {
+    if (!deleteTarget) return
+    setIsDeleting(true)
+    const result = await removeCrew(deleteTarget.id)
+    setIsDeleting(false)
+    if (!result.success) return
+    setDeleteTarget(null)
+  }
+
   if (crews.length === 0) {
     return (
       <div className="rounded-xl border border-dashed bg-muted/20 px-6 py-16 text-center">
         <p className="text-sm font-medium text-foreground">
-          No se encontraron cuadrillas
+          No hay cuadrillas registradas
         </p>
         <p className="mt-1 text-sm text-muted-foreground">
-          Ajusta los filtros para ver más resultados.
+          Cree una cuadrilla para comenzar a asignar tareas.
         </p>
       </div>
+    )
+  }
+
+  function renderActions(crew: CrewListItem) {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="size-8">
+            <MoreHorizontal className="size-4" />
+            <span className="sr-only">Acciones</span>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => setEditTarget(crew)}>
+            <Pencil className="size-4" />
+            Editar
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            variant="destructive"
+            onClick={() => setDeleteTarget(crew)}
+          >
+            <Trash2 className="size-4" />
+            Eliminar
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     )
   }
 
@@ -47,11 +113,12 @@ export function CrewsTable({ crews }: CrewsTableProps) {
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead>Cuadrilla</TableHead>
-                <TableHead>Especialidad</TableHead>
+                <TableHead>Descripción</TableHead>
                 <TableHead>Integrantes</TableHead>
                 <TableHead>Tareas Activas</TableHead>
                 <TableHead>Proyectos Activos</TableHead>
                 <TableHead>Estado</TableHead>
+                <TableHead className="w-[60px]" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -68,8 +135,8 @@ export function CrewsTable({ crews }: CrewsTableProps) {
                       {crew.supervisor}
                     </p>
                   </TableCell>
-                  <TableCell className="max-w-[200px] text-sm text-muted-foreground">
-                    {crew.specialty}
+                  <TableCell className="max-w-[220px] truncate text-sm text-muted-foreground">
+                    {crew.description || "—"}
                   </TableCell>
                   <TableCell>
                     <span className="inline-flex items-center gap-1.5 tabular-nums">
@@ -86,6 +153,7 @@ export function CrewsTable({ crews }: CrewsTableProps) {
                   <TableCell>
                     <CrewStatusBadge status={crew.status} />
                   </TableCell>
+                  <TableCell>{renderActions(crew)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -95,43 +163,100 @@ export function CrewsTable({ crews }: CrewsTableProps) {
 
       <div className="grid gap-3 sm:grid-cols-2 lg:hidden">
         {crews.map((crew) => (
-          <Link key={crew.id} href={`/cuadrillas/${crew.id}`}>
-            <Card className="h-full shadow-sm transition-colors hover:bg-muted/30">
-              <CardHeader className="pb-2">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <CardTitle className="text-base">{crew.name}</CardTitle>
-                    <CardDescription className="line-clamp-2">
-                      {crew.specialty}
-                    </CardDescription>
-                  </div>
+          <Card key={crew.id} className="h-full shadow-sm">
+            <CardHeader className="pb-2">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <Link href={`/cuadrillas/${crew.id}`}>
+                    <CardTitle className="text-base hover:text-primary">
+                      {crew.name}
+                    </CardTitle>
+                  </Link>
+                  <CardDescription className="line-clamp-2">
+                    {crew.description || crew.supervisor}
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-1">
                   <CrewStatusBadge status={crew.status} />
+                  {renderActions(crew)}
                 </div>
-              </CardHeader>
-              <CardContent className="grid grid-cols-3 gap-2 text-center text-xs">
-                <div className="rounded-lg border bg-muted/20 p-2">
-                  <p className="font-semibold tabular-nums text-foreground">
-                    {crew.memberCount}
-                  </p>
-                  <p className="text-muted-foreground">Integrantes</p>
-                </div>
-                <div className="rounded-lg border bg-muted/20 p-2">
-                  <p className="font-semibold tabular-nums text-foreground">
-                    {crew.activeTasks}
-                  </p>
-                  <p className="text-muted-foreground">Tareas</p>
-                </div>
-                <div className="rounded-lg border bg-muted/20 p-2">
-                  <p className="font-semibold tabular-nums text-foreground">
-                    {crew.activeProjects}
-                  </p>
-                  <p className="text-muted-foreground">Proyectos</p>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
+              </div>
+            </CardHeader>
+            <CardContent className="grid grid-cols-3 gap-2 text-center text-xs">
+              <div className="rounded-lg border bg-muted/20 p-2">
+                <p className="font-semibold tabular-nums text-foreground">
+                  {crew.memberCount}
+                </p>
+                <p className="text-muted-foreground">Integrantes</p>
+              </div>
+              <div className="rounded-lg border bg-muted/20 p-2">
+                <p className="font-semibold tabular-nums text-foreground">
+                  {crew.activeTasks}
+                </p>
+                <p className="text-muted-foreground">Tareas</p>
+              </div>
+              <div className="rounded-lg border bg-muted/20 p-2">
+                <p className="font-semibold tabular-nums text-foreground">
+                  {crew.activeProjects}
+                </p>
+                <p className="text-muted-foreground">Proyectos</p>
+              </div>
+            </CardContent>
+          </Card>
         ))}
       </div>
+
+      <CrewFormDialog
+        open={editTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditTarget(null)
+        }}
+        mode="edit"
+        crew={editTarget ?? undefined}
+        onSubmit={handleEdit}
+      />
+
+      <Dialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null)
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Eliminar cuadrilla</DialogTitle>
+            <DialogDescription>
+              ¿Desea eliminar esta cuadrilla?
+              {deleteTarget ? (
+                <>
+                  {" "}
+                  <span className="font-medium text-foreground">
+                    {deleteTarget.name}
+                  </span>
+                </>
+              ) : null}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeleteTarget(null)}
+              disabled={isDeleting}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleConfirmDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting ? "Eliminando..." : "Eliminar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

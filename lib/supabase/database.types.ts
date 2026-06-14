@@ -1,3 +1,4 @@
+import type { CrewStatus } from "@/lib/types/crews"
 import type {
   EvidenceCategoryType,
   EvidenceFileType,
@@ -105,6 +106,81 @@ export type Database = {
         }
         Relationships: []
       }
+      crews: {
+        Row: {
+          id: string
+          company_id: string
+          name: string
+          description: string
+          supervisor: string
+          status: CrewStatus
+          notes: string
+          created_at: string
+          updated_at: string
+          deleted_at: string | null
+        }
+        Insert: {
+          id?: string
+          company_id?: string
+          name: string
+          description?: string
+          supervisor: string
+          status?: CrewStatus
+          notes?: string
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          name?: string
+          description?: string
+          supervisor?: string
+          status?: CrewStatus
+          notes?: string
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Relationships: []
+      }
+      crew_members: {
+        Row: {
+          id: string
+          crew_id: string
+          name: string
+          role: string
+          phone: string | null
+          active: boolean
+          created_at: string
+          updated_at: string
+          deleted_at: string | null
+        }
+        Insert: {
+          id?: string
+          crew_id: string
+          name: string
+          role: string
+          phone?: string | null
+          active?: boolean
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Update: {
+          id?: string
+          crew_id?: string
+          name?: string
+          role?: string
+          phone?: string | null
+          active?: boolean
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Relationships: []
+      }
       tasks: {
         Row: {
           id: string
@@ -119,6 +195,7 @@ export type Database = {
           status: TaskStatus
           priority: TaskPriority
           supervisor: string
+          crew_id: string | null
           crew: string
           start_date: string
           due_date: string
@@ -142,6 +219,7 @@ export type Database = {
           status?: TaskStatus
           priority?: TaskPriority
           supervisor: string
+          crew_id?: string | null
           crew: string
           start_date: string
           due_date: string
@@ -165,6 +243,7 @@ export type Database = {
           status?: TaskStatus
           priority?: TaskPriority
           supervisor?: string
+          crew_id?: string | null
           crew?: string
           start_date?: string
           due_date?: string
@@ -279,6 +358,7 @@ export type Database = {
       evidence_file_type: EvidenceFileType
       evidence_category_type: EvidenceCategoryType
       evidence_status: EvidenceStatus
+      crew_status: CrewStatus
     }
     CompositeTypes: Record<string, never>
   }
@@ -298,3 +378,11 @@ export type EvidenceInsert =
   Database["public"]["Tables"]["evidences"]["Insert"]
 export type EvidenceUpdate =
   Database["public"]["Tables"]["evidences"]["Update"]
+export type CrewRow = Database["public"]["Tables"]["crews"]["Row"]
+export type CrewInsert = Database["public"]["Tables"]["crews"]["Insert"]
+export type CrewUpdate = Database["public"]["Tables"]["crews"]["Update"]
+export type CrewMemberRow = Database["public"]["Tables"]["crew_members"]["Row"]
+export type CrewMemberInsert =
+  Database["public"]["Tables"]["crew_members"]["Insert"]
+export type CrewMemberUpdate =
+  Database["public"]["Tables"]["crew_members"]["Update"]

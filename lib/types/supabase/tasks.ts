@@ -22,6 +22,7 @@ export type UpdateTaskPayload = Partial<{
   status: TaskStatus
   priority: TaskPriority
   supervisor: string
+  crewId?: string | null
   crew: string
   startDate: string
   dueDate: string

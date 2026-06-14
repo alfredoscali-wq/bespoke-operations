@@ -25,18 +25,21 @@ export function mapTaskRowToTask(row: TaskRow): Task {
     code: row.code,
     title: row.title,
     description: row.description,
+    projectId: row.project_id ?? undefined,
     projectCode: row.project_code,
     projectName: row.project_name,
     type: row.type,
     status: row.status,
     priority: row.priority,
     supervisor: row.supervisor,
+    crewId: row.crew_id ?? undefined,
     crew: row.crew,
     startDate: row.start_date,
     dueDate: row.due_date,
     estimatedDuration: row.estimated_duration,
     checklist: parseChecklist(row.checklist),
     progress: row.progress,
+    createdAt: row.created_at,
   }
 }
 
@@ -52,6 +55,7 @@ export function mapCreatePayloadToInsert(payload: CreateTaskPayload): TaskInsert
     status: payload.status ?? "pendiente",
     priority: payload.priority ?? "media",
     supervisor: payload.supervisor.trim(),
+    crew_id: payload.crewId ?? null,
     crew: payload.crew.trim(),
     start_date: payload.startDate,
     due_date: payload.dueDate,
@@ -82,6 +86,7 @@ export function mapUpdatePayloadToUpdate(payload: UpdateTaskPayload): TaskUpdate
   if (payload.supervisor !== undefined) {
     update.supervisor = payload.supervisor.trim()
   }
+  if (payload.crewId !== undefined) update.crew_id = payload.crewId
   if (payload.crew !== undefined) update.crew = payload.crew.trim()
   if (payload.startDate !== undefined) update.start_date = payload.startDate
   if (payload.dueDate !== undefined) update.due_date = payload.dueDate

@@ -4,6 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { AlertTriangle, ArrowLeft, MoreHorizontal } from "lucide-react"
 
+import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { TaskOverviewTab } from "@/components/tareas/task-tabs/overview-tab"
 import { TaskChecklistTab } from "@/components/tareas/task-tabs/checklist-tab"
@@ -43,8 +44,11 @@ type TaskDetailViewProps = {
 }
 
 export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
-  const { updateTaskStatus } = useTasks()
+  const { crews } = useCrews()
+  const { updateTaskStatus, assignCrew } = useTasks()
   const [statusError, setStatusError] = useState<string | null>(null)
+  const [crewError, setCrewError] = useState<string | null>(null)
+  const [isAssigningCrew, setIsAssigningCrew] = useState(false)
 
   function handleStatusChange(newStatus: TaskStatus) {
     const result = updateTaskStatus(task.id, newStatus)
@@ -53,6 +57,28 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
       return
     }
     setStatusError(null)
+  }
+
+  async function handleCrewChange(value: string) {
+    setCrewError(null)
+    setIsAssigningCrew(true)
+
+    if (value === "none") {
+      const result = await assignCrew(task.id, null, "")
+      setIsAssigningCrew(false)
+      if (!result.success) {
+        setCrewError(result.message ?? "No se pudo quitar la cuadrilla.")
+      }
+      return
+    }
+
+    const crew = crews.find((item) => item.id === value)
+    const result = await assignCrew(task.id, value, crew?.name ?? "")
+    setIsAssigningCrew(false)
+
+    if (!result.success) {
+      setCrewError(result.message ?? "No se pudo asignar la cuadrilla.")
+    }
   }
 
   return (
@@ -84,12 +110,31 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
               {task.title}
             </h2>
             <p className="text-sm text-muted-foreground">
-              {task.projectCode} · {task.crew}
+              {task.projectCode}
+              {task.crew ? ` · ${task.crew}` : " · Sin cuadrilla"}
             </p>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <Select
+            value={task.crewId ?? "none"}
+            onValueChange={handleCrewChange}
+            disabled={isAssigningCrew}
+          >
+            <SelectTrigger className="h-9 w-[200px] bg-background">
+              <SelectValue placeholder="Cuadrilla" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Sin cuadrilla</SelectItem>
+              {crews.map((crew) => (
+                <SelectItem key={crew.id} value={crew.id}>
+                  {crew.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           <Select value={task.status} onValueChange={handleStatusChange}>
             <SelectTrigger className="h-9 w-[180px] bg-background">
               <SelectValue placeholder="Estado" />
@@ -127,6 +172,13 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
           </DropdownMenu>
         </div>
       </div>
+
+      {crewError && (
+        <Alert variant="destructive">
+          <AlertTriangle className="size-4" />
+          <AlertDescription>{crewError}</AlertDescription>
+        </Alert>
+      )}
 
       {statusError && (
         <Alert variant="destructive">

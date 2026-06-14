@@ -18,20 +18,27 @@ import {
 import {
   createBrowserTasksClient,
   createTask,
+  deleteTask as deleteTaskInSupabase,
   listTasks,
-  updateTask,
+  updateTask as updateTaskInSupabase,
 } from "@/lib/supabase/tasks.browser"
 import { mapTaskToUpdatePayload } from "@/lib/supabase/tasks.mapper"
 import {
   canMoveToStatus,
   syncTaskProgress,
 } from "@/lib/tasks/utils"
-import type { CreateTaskPayload } from "@/lib/types/supabase/tasks"
+import type { CreateTaskPayload, UpdateTaskPayload } from "@/lib/types/supabase/tasks"
 import type { Task, TaskDetail, TaskStatus } from "@/lib/types/tasks"
 
 type UpdateStatusResult = {
   success: boolean
   message?: string
+}
+
+type TaskMutationResult = {
+  success: boolean
+  message?: string
+  task?: Task
 }
 
 type TasksContextValue = {
@@ -42,6 +49,13 @@ type TasksContextValue = {
   getTask: (id: string) => Task | undefined
   getDetail: (id: string) => TaskDetail | undefined
   addTask: (input: CreateTaskPayload) => Promise<Task>
+  editTask: (id: string, payload: UpdateTaskPayload) => Promise<TaskMutationResult>
+  assignCrew: (
+    id: string,
+    crewId: string | null,
+    crewName?: string
+  ) => Promise<TaskMutationResult>
+  deleteTask: (id: string) => Promise<TaskMutationResult>
   updateTaskStatus: (id: string, status: TaskStatus) => UpdateStatusResult
   toggleChecklistItem: (taskId: string, itemId: string) => void
   addComment: (
@@ -118,10 +132,32 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const client = createBrowserTasksClient()
-      await updateTask(task.id, mapTaskToUpdatePayload(task), client)
+      await updateTaskInSupabase(task.id, mapTaskToUpdatePayload(task), client)
     } catch {
       // Keep optimistic local state if persistence fails.
     }
+  }, [])
+
+  const mergeTaskUpdate = useCallback((task: Task, payload: UpdateTaskPayload): Task => {
+    return syncTaskProgress({
+      ...task,
+      ...(payload.title !== undefined ? { title: payload.title } : {}),
+      ...(payload.description !== undefined
+        ? { description: payload.description }
+        : {}),
+      ...(payload.priority !== undefined ? { priority: payload.priority } : {}),
+      ...(payload.status !== undefined ? { status: payload.status } : {}),
+      ...(payload.dueDate !== undefined ? { dueDate: payload.dueDate } : {}),
+      ...(payload.supervisor !== undefined
+        ? { supervisor: payload.supervisor }
+        : {}),
+      ...(payload.crew !== undefined ? { crew: payload.crew } : {}),
+      ...(payload.crewId !== undefined ? { crewId: payload.crewId ?? undefined } : {}),
+      ...(payload.startDate !== undefined ? { startDate: payload.startDate } : {}),
+      ...(payload.type !== undefined ? { type: payload.type } : {}),
+      ...(payload.checklist !== undefined ? { checklist: payload.checklist } : {}),
+      ...(payload.progress !== undefined ? { progress: payload.progress } : {}),
+    })
   }, [])
 
   const addTask = useCallback(
@@ -147,6 +183,96 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       return task
     },
     [usesSupabase]
+  )
+
+  const editTask = useCallback(
+    async (id: string, payload: UpdateTaskPayload): Promise<TaskMutationResult> => {
+      const existing = tasks.find((item) => item.id === id)
+      if (!existing) {
+        return { success: false, message: "Tarea no encontrada." }
+      }
+
+      if (usesSupabase) {
+        try {
+          const client = createBrowserTasksClient()
+          const result = await updateTaskInSupabase(id, payload, client)
+
+          if (result.data) {
+            cacheDetail(result.data.id, getTaskDetail(result.data))
+            setTasks((current) =>
+              current.map((item) => (item.id === id ? result.data! : item))
+            )
+            setDetailVersion((version) => version + 1)
+            return { success: true, task: result.data }
+          }
+
+          if (result.error) {
+            return { success: false, message: result.error.message }
+          }
+        } catch {
+          // Fall through to in-memory update for this session.
+        }
+      }
+
+      const updatedTask = mergeTaskUpdate(existing, payload)
+      setTasks((current) =>
+        current.map((item) => (item.id === id ? updatedTask : item))
+      )
+
+      const detail = detailCache.get(id)
+      if (detail) {
+        cacheDetail(id, detail)
+        setDetailVersion((version) => version + 1)
+      }
+
+      void persistTaskUpdate(updatedTask)
+
+      return { success: true, task: updatedTask }
+    },
+    [tasks, usesSupabase, mergeTaskUpdate, persistTaskUpdate]
+  )
+
+  const assignCrew = useCallback(
+    async (
+      id: string,
+      crewId: string | null,
+      crewName = ""
+    ): Promise<TaskMutationResult> => {
+      return editTask(id, {
+        crewId,
+        crew: crewName,
+      })
+    },
+    [editTask]
+  )
+
+  const deleteTask = useCallback(
+    async (id: string): Promise<TaskMutationResult> => {
+      const existing = tasks.find((item) => item.id === id)
+      if (!existing) {
+        return { success: false, message: "Tarea no encontrada." }
+      }
+
+      if (usesSupabase) {
+        try {
+          const client = createBrowserTasksClient()
+          const result = await deleteTaskInSupabase(id, client)
+
+          if (result.error) {
+            return { success: false, message: result.error.message }
+          }
+        } catch {
+          // Fall through to local removal for this session.
+        }
+      }
+
+      setTasks((current) => current.filter((item) => item.id !== id))
+      detailCache.delete(id)
+      setDetailVersion((version) => version + 1)
+
+      return { success: true }
+    },
+    [tasks, usesSupabase]
   )
 
   const getTask = useCallback(
@@ -320,6 +446,9 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       getTask,
       getDetail,
       addTask,
+      editTask,
+      assignCrew,
+      deleteTask,
       updateTaskStatus,
       toggleChecklistItem,
       addComment,
@@ -333,6 +462,9 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       getTask,
       getDetail,
       addTask,
+      editTask,
+      assignCrew,
+      deleteTask,
       updateTaskStatus,
       toggleChecklistItem,
       addComment,

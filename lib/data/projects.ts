@@ -510,18 +510,35 @@ function enrichProjectDetail(
   const completedTasks = linkedTasks.filter(
     (task) => task.status === "completada"
   ).length
+  const hasStoredDetail = Boolean(projectDetails[project.id])
 
   return {
     ...base,
-    tasks: linkedTasks.length > 0 ? linkedTasks : base.tasks,
+    tasks:
+      linkedTasks.length > 0
+        ? linkedTasks
+        : hasStoredDetail
+          ? base.tasks
+          : [],
     stats: {
-      activeTasks: linkedTasks.length > 0 ? activeTasks : base.stats.activeTasks,
+      activeTasks:
+        linkedTasks.length > 0
+          ? activeTasks
+          : hasStoredDetail
+            ? base.stats.activeTasks
+            : 0,
       completedTasks:
-        linkedTasks.length > 0 ? completedTasks : base.stats.completedTasks,
+        linkedTasks.length > 0
+          ? completedTasks
+          : hasStoredDetail
+            ? base.stats.completedTasks
+            : 0,
       evidenceFiles:
         linkedEvidence.length > 0
           ? linkedEvidence.length
-          : base.stats.evidenceFiles,
+          : hasStoredDetail
+            ? base.stats.evidenceFiles
+            : 0,
       progress: project.progress,
     },
   }
@@ -532,7 +549,7 @@ export function getProjectDetail(
   tasks = mockTasks,
   evidence = mockEvidence
 ): ProjectDetail {
-  const base = projectDetails[project.id] ?? createDefaultDetail(project)
+  const base = projectDetails[project.id] ?? createEmptyDetail(project)
   return enrichProjectDetail(project, base, tasks, evidence)
 }
 

@@ -1,4 +1,4 @@
-export default function TareasLayout({
+export default function CuadrillasLayout({
   children,
 }: {
   children: React.ReactNode

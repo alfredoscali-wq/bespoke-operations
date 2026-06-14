@@ -94,7 +94,7 @@ export function ProjectDetailView({ project, detail }: ProjectDetailViewProps) {
           <ProjectOverviewTab project={project} />
         </TabsContent>
         <TabsContent value="tasks">
-          <ProjectTasksTab tasks={detail.tasks} />
+          <ProjectTasksTab project={project} />
         </TabsContent>
         <TabsContent value="evidence">
           <ProjectEvidenceTab projectId={project.id} />

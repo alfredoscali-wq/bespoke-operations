@@ -2,10 +2,17 @@ import Link from "next/link"
 import {
   ArrowDownRight,
   ArrowUpRight,
+  Camera,
+  CheckCircle2,
   CircleDot,
+  ClipboardList,
+  HardHat,
   Minus,
   Radio,
+  ShieldCheck,
+  ShieldX,
   TowerControl,
+  Users,
   type LucideIcon,
 } from "lucide-react"
 
@@ -20,6 +27,16 @@ import {
 } from "@/components/ui/card"
 
 const kpiIcons: Record<string, LucideIcon> = {
+  "projects-active": TowerControl,
+  "projects-closed": CheckCircle2,
+  "tasks-pending": CircleDot,
+  "tasks-in-progress": ClipboardList,
+  "tasks-completed": CheckCircle2,
+  "evidence-pending": Camera,
+  "evidence-approved": ShieldCheck,
+  "evidence-rejected": ShieldX,
+  "crews-active": Users,
+  "crews-field": HardHat,
   "active-projects": TowerControl,
   "pending-tasks": CircleDot,
   "active-crews": Radio,
@@ -82,7 +99,7 @@ export function KpiCard({ metric }: KpiCardProps) {
 
 export function KpiGrid({ metrics }: { metrics: KpiMetric[] }) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
       {metrics.map((metric) => (
         <KpiCard key={metric.id} metric={metric} />
       ))}

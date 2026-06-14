@@ -443,9 +443,11 @@ export function getTaskEvidenceStats(
 
 export function getEvidenceByProjectId(
   projectId: string,
-  evidence = mockEvidence
+  evidence: EvidenceRecord[] = []
 ): EvidenceRecord[] {
-  return evidence.filter((item) => item.projectId === projectId)
+  return evidence.filter(
+    (item) => item.projectId === projectId || getEvidenceProjectKey(item) === projectId
+  )
 }
 
 export function getEvidenceByTaskId(

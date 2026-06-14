@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { LayoutGrid, List } from "lucide-react"
 
+import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { TasksSummaryCards } from "@/components/tareas/tasks-summary-cards"
 import {
@@ -32,6 +33,11 @@ function getInitialViewMode(): ViewMode {
 
 export function TasksModule() {
   const { tasks } = useTasks()
+  const { crews } = useCrews()
+  const crewOptions = useMemo(
+    () => crews.map((crew) => crew.name).sort((a, b) => a.localeCompare(b, "es")),
+    [crews]
+  )
   const [view, setView] = useState<ViewMode>("kanban")
   const [viewInitialized, setViewInitialized] = useState(false)
   const [filters, setFilters] = useState(defaultTaskFilters)
@@ -88,6 +94,7 @@ export function TasksModule() {
             onChange={setFilters}
             resultCount={filteredTasks.length}
             showSort={view === "list"}
+            crewOptions={crewOptions}
           />
 
           {view === "kanban" ? (

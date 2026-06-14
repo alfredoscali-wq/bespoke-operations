@@ -1,7 +1,7 @@
 import Link from "next/link"
 
 import { ProjectStatusBadge } from "@/components/obras/project-badges"
-import { getCrewProjects } from "@/lib/data/crews"
+import { getCrewProjects } from "@/lib/crews/utils"
 import type { Crew } from "@/lib/types/crews"
 import type { Project } from "@/lib/types/projects"
 import type { Task } from "@/lib/types/tasks"
@@ -33,7 +33,7 @@ export function CrewProjectsTab({
   tasks,
   projects,
 }: CrewProjectsTabProps) {
-  const crewProjects = getCrewProjects(crew.name, tasks, projects)
+  const crewProjects = getCrewProjects(crew, tasks, projects)
 
   if (crewProjects.length === 0) {
     return (

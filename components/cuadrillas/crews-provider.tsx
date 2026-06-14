@@ -1,0 +1,415 @@
+"use client"
+
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react"
+
+import {
+  createBrowserCrewsClient,
+  createCrew,
+  createCrewMember,
+  deleteCrew,
+  deleteCrewMember,
+  listCrews,
+  updateCrew,
+  updateCrewMember,
+} from "@/lib/supabase/crews.browser"
+import type {
+  Crew,
+  CrewMember,
+  NewCrewInput,
+  NewCrewMemberInput,
+} from "@/lib/types/crews"
+import type {
+  CreateCrewMemberPayload,
+  UpdateCrewMemberPayload,
+  UpdateCrewPayload,
+} from "@/lib/types/supabase/crews"
+
+type CrewMutationResult = {
+  success: boolean
+  message?: string
+}
+
+type CrewsContextValue = {
+  crews: Crew[]
+  isCrewsReady: boolean
+  usesSupabase: boolean
+  getCrew: (id: string) => Crew | undefined
+  addCrew: (input: NewCrewInput) => Promise<CrewMutationResult & { crew?: Crew }>
+  editCrew: (
+    id: string,
+    input: UpdateCrewPayload
+  ) => Promise<CrewMutationResult & { crew?: Crew }>
+  removeCrew: (id: string) => Promise<CrewMutationResult>
+  addMember: (
+    crewId: string,
+    input: NewCrewMemberInput
+  ) => Promise<CrewMutationResult & { member?: CrewMember }>
+  editMember: (
+    crewId: string,
+    memberId: string,
+    input: UpdateCrewMemberPayload
+  ) => Promise<CrewMutationResult & { member?: CrewMember }>
+  removeMember: (
+    crewId: string,
+    memberId: string
+  ) => Promise<CrewMutationResult>
+}
+
+const CrewsContext = createContext<CrewsContextValue | null>(null)
+
+function replaceCrewInList(crews: Crew[], crew: Crew): Crew[] {
+  return crews.map((item) => (item.id === crew.id ? crew : item))
+}
+
+export function CrewsProvider({ children }: { children: React.ReactNode }) {
+  const [crews, setCrews] = useState<Crew[]>([])
+  const [isCrewsReady, setIsCrewsReady] = useState(false)
+  const [usesSupabase, setUsesSupabase] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadCrewsFromSupabase() {
+      try {
+        const client = createBrowserCrewsClient()
+        const result = await listCrews(client)
+
+        if (cancelled) return
+
+        if (result.error || result.data === null) {
+          setCrews([])
+          setUsesSupabase(false)
+          return
+        }
+
+        setCrews(result.data)
+        setUsesSupabase(true)
+      } catch {
+        if (!cancelled) {
+          setCrews([])
+          setUsesSupabase(false)
+        }
+      } finally {
+        if (!cancelled) {
+          setIsCrewsReady(true)
+        }
+      }
+    }
+
+    void loadCrewsFromSupabase()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const getCrew = useCallback(
+    (id: string) => crews.find((crew) => crew.id === id),
+    [crews]
+  )
+
+  const addCrew = useCallback(
+    async (input: NewCrewInput) => {
+      if (!usesSupabase) {
+        return {
+          success: false,
+          message: "Supabase no está disponible. No se pudo crear la cuadrilla.",
+        }
+      }
+
+      try {
+        const client = createBrowserCrewsClient()
+        const result = await createCrew(
+          {
+            name: input.name,
+            description: input.description,
+            supervisor: input.supervisor,
+            status: input.status,
+            notes: input.notes,
+          },
+          client
+        )
+
+        if (result.data) {
+          setCrews((current) =>
+            [...current, result.data!].sort((a, b) =>
+              a.name.localeCompare(b.name, "es")
+            )
+          )
+          return { success: true, crew: result.data }
+        }
+
+        return {
+          success: false,
+          message: result.error?.message ?? "No se pudo crear la cuadrilla.",
+        }
+      } catch {
+        return {
+          success: false,
+          message: "No se pudo crear la cuadrilla.",
+        }
+      }
+    },
+    [usesSupabase]
+  )
+
+  const editCrew = useCallback(
+    async (id: string, input: UpdateCrewPayload) => {
+      if (!usesSupabase) {
+        return {
+          success: false,
+          message: "Supabase no está disponible. No se pudo actualizar.",
+        }
+      }
+
+      try {
+        const client = createBrowserCrewsClient()
+        const result = await updateCrew(id, input, client)
+
+        if (result.data) {
+          setCrews((current) => replaceCrewInList(current, result.data!))
+          return { success: true, crew: result.data }
+        }
+
+        return {
+          success: false,
+          message: result.error?.message ?? "No se pudo actualizar la cuadrilla.",
+        }
+      } catch {
+        return {
+          success: false,
+          message: "No se pudo actualizar la cuadrilla.",
+        }
+      }
+    },
+    [usesSupabase]
+  )
+
+  const removeCrew = useCallback(
+    async (id: string) => {
+      if (!usesSupabase) {
+        return {
+          success: false,
+          message: "Supabase no está disponible. No se pudo eliminar.",
+        }
+      }
+
+      try {
+        const client = createBrowserCrewsClient()
+        const result = await deleteCrew(id, client)
+
+        if (result.error) {
+          return {
+            success: false,
+            message: result.error.message,
+          }
+        }
+
+        setCrews((current) => current.filter((crew) => crew.id !== id))
+        return { success: true }
+      } catch {
+        return {
+          success: false,
+          message: "No se pudo eliminar la cuadrilla.",
+        }
+      }
+    },
+    [usesSupabase]
+  )
+
+  const addMember = useCallback(
+    async (crewId: string, input: NewCrewMemberInput) => {
+      if (!usesSupabase) {
+        return {
+          success: false,
+          message: "Supabase no está disponible. No se pudo agregar el integrante.",
+        }
+      }
+
+      const payload: CreateCrewMemberPayload = {
+        crewId,
+        name: input.name,
+        role: input.role,
+        phone: input.phone ?? null,
+        active: input.active,
+      }
+
+      try {
+        const client = createBrowserCrewsClient()
+        const result = await createCrewMember(payload, client)
+
+        if (result.data) {
+          setCrews((current) =>
+            current.map((crew) =>
+              crew.id === crewId
+                ? {
+                    ...crew,
+                    members: [...crew.members, result.data!].sort((a, b) =>
+                      a.name.localeCompare(b.name, "es")
+                    ),
+                  }
+                : crew
+            )
+          )
+          return { success: true, member: result.data }
+        }
+
+        return {
+          success: false,
+          message: result.error?.message ?? "No se pudo agregar el integrante.",
+        }
+      } catch {
+        return {
+          success: false,
+          message: "No se pudo agregar el integrante.",
+        }
+      }
+    },
+    [usesSupabase]
+  )
+
+  const editMember = useCallback(
+    async (
+      crewId: string,
+      memberId: string,
+      input: UpdateCrewMemberPayload
+    ) => {
+      if (!usesSupabase) {
+        return {
+          success: false,
+          message: "Supabase no está disponible. No se pudo actualizar.",
+        }
+      }
+
+      try {
+        const client = createBrowserCrewsClient()
+        const result = await updateCrewMember(memberId, input, client)
+
+        if (result.data) {
+          setCrews((current) =>
+            current.map((crew) =>
+              crew.id === crewId
+                ? {
+                    ...crew,
+                    members: crew.members
+                      .map((member) =>
+                        member.id === memberId ? result.data! : member
+                      )
+                      .sort((a, b) => a.name.localeCompare(b.name, "es")),
+                  }
+                : crew
+            )
+          )
+          return { success: true, member: result.data }
+        }
+
+        return {
+          success: false,
+          message: result.error?.message ?? "No se pudo actualizar el integrante.",
+        }
+      } catch {
+        return {
+          success: false,
+          message: "No se pudo actualizar el integrante.",
+        }
+      }
+    },
+    [usesSupabase]
+  )
+
+  const removeMember = useCallback(
+    async (crewId: string, memberId: string) => {
+      if (!usesSupabase) {
+        return {
+          success: false,
+          message: "Supabase no está disponible. No se pudo eliminar.",
+        }
+      }
+
+      try {
+        const client = createBrowserCrewsClient()
+        const result = await deleteCrewMember(memberId, client)
+
+        if (result.error) {
+          return {
+            success: false,
+            message: result.error.message,
+          }
+        }
+
+        setCrews((current) =>
+          current.map((crew) =>
+            crew.id === crewId
+              ? {
+                  ...crew,
+                  members: crew.members.filter(
+                    (member) => member.id !== memberId
+                  ),
+                }
+              : crew
+          )
+        )
+
+        return { success: true }
+      } catch {
+        return {
+          success: false,
+          message: "No se pudo eliminar el integrante.",
+        }
+      }
+    },
+    [usesSupabase]
+  )
+
+  const value = useMemo(
+    () => ({
+      crews,
+      isCrewsReady,
+      usesSupabase,
+      getCrew,
+      addCrew,
+      editCrew,
+      removeCrew,
+      addMember,
+      editMember,
+      removeMember,
+    }),
+    [
+      crews,
+      isCrewsReady,
+      usesSupabase,
+      getCrew,
+      addCrew,
+      editCrew,
+      removeCrew,
+      addMember,
+      editMember,
+      removeMember,
+    ]
+  )
+
+  return (
+    <CrewsContext.Provider value={value}>
+      {isCrewsReady ? children : null}
+    </CrewsContext.Provider>
+  )
+}
+
+export function useCrews() {
+  const context = useContext(CrewsContext)
+  if (!context) {
+    throw new Error("useCrews must be used within CrewsProvider")
+  }
+  return context
+}
+
+export function useCrewsOptional() {
+  return useContext(CrewsContext)
+}

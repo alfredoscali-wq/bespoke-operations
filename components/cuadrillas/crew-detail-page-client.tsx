@@ -4,16 +4,18 @@ import { useMemo } from "react"
 import { notFound } from "next/navigation"
 
 import { CrewDetailView } from "@/components/cuadrillas/crew-detail-view"
+import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { useOperationalData } from "@/components/cuadrillas/use-operational-data"
-import { getCrewById, getCrewDetail } from "@/lib/data/crews"
+import { getCrewDetail } from "@/lib/crews/utils"
 
 type CrewDetailPageClientProps = {
   id: string
 }
 
 export function CrewDetailPageClient({ id }: CrewDetailPageClientProps) {
+  const { getCrew } = useCrews()
   const { tasks, projects, evidence } = useOperationalData()
-  const crew = getCrewById(id)
+  const crew = getCrew(id)
 
   const detail = useMemo(
     () => (crew ? getCrewDetail(crew, tasks, projects, evidence) : null),

@@ -1,12 +1,8 @@
-import { getCrewsSummary, mockCrews } from "@/lib/data/crews"
-import { getEvidenceSummary, mockEvidence } from "@/lib/data/evidence"
-import { mockProjects } from "@/lib/data/projects"
-import { getTasksSummary, mockTasks } from "@/lib/data/tasks"
-import { getCrewIdByName } from "@/lib/crews/constants"
-import { TASK_STATUS_LABELS, formatTaskDate } from "@/lib/tasks/constants"
+import type { Crew } from "@/lib/types/crews"
 import type { EvidenceRecord } from "@/lib/types/evidence"
 import type { Project, ProjectType } from "@/lib/types/projects"
 import type { Task, TaskStatus, TaskType } from "@/lib/types/tasks"
+import { TASK_STATUS_LABELS, formatTaskDate } from "@/lib/tasks/constants"
 
 export type KpiMetric = {
   id: string
@@ -45,7 +41,7 @@ export type OperationsSegment = {
   color: string
 }
 
-const ACTIVE_TASK_STATUSES: TaskStatus[] = [
+const UPCOMING_TASK_STATUSES: TaskStatus[] = [
   "pendiente",
   "asignada",
   "en-curso",
@@ -68,9 +64,11 @@ const TYPE_COLORS: Record<ProjectType, string> = {
   maintenance: "bg-teal-500",
 }
 
-function formatRelativeTime(date: string): string {
+export function formatRelativeTime(date: string): string {
   const diffMs = Date.now() - new Date(date).getTime()
-  const minutes = Math.max(1, Math.floor(diffMs / 60000))
+  if (Number.isNaN(diffMs)) return "Reciente"
+
+  const minutes = Math.max(1, Math.floor(Math.abs(diffMs) / 60000))
 
   if (minutes < 60) {
     return `Hace ${minutes} min`
@@ -85,163 +83,254 @@ function formatRelativeTime(date: string): string {
   return `Hace ${days} d`
 }
 
+function mapProjectTypeToActivity(type: ProjectType): ActivityItem["type"] {
+  if (type === "maintenance") return "general"
+  return type
+}
+
 function mapTaskTypeToActivityType(type: TaskType): ActivityItem["type"] {
   if (type === "inspection" || type === "maintenance") return "general"
   return type
 }
 
 function mapEvidenceToActivityType(
-  record: EvidenceRecord
+  record: EvidenceRecord,
+  projects: Project[]
 ): ActivityItem["type"] {
   if (record.category.toLowerCase().includes("poste")) return "pole"
   if (record.type === "photo" && record.evidenceType === "otdr-certification") {
     return "fiber"
   }
 
-  const project = mockProjects.find((item) => item.id === record.projectId)
+  const project = projects.find(
+    (item) =>
+      item.id === record.projectId || item.code === record.projectCode
+  )
   if (!project) return "general"
-  if (project.type === "maintenance") return "general"
-  return project.type
+  return mapProjectTypeToActivity(project.type)
+}
+
+function countTasksByStatuses(tasks: Task[], statuses: TaskStatus[]): number {
+  return tasks.filter((task) => statuses.includes(task.status)).length
 }
 
 export function buildKpiMetrics(
-  projects = mockProjects,
-  tasks = mockTasks,
-  crews = mockCrews
+  projects: Project[],
+  tasks: Task[],
+  evidence: EvidenceRecord[],
+  crews: Crew[]
 ): KpiMetric[] {
   const activeProjects = projects.filter(
-    (project) => project.status === "active"
+    (project) =>
+      project.status === "active" || project.status === "pending-closure"
   ).length
-  const taskSummary = getTasksSummary(tasks)
-  const pendingTasks = tasks.filter((task) =>
-    ACTIVE_TASK_STATUSES.includes(task.status)
+  const closedProjects = projects.filter(
+    (project) => project.status === "closed"
   ).length
-  const crewSummary = getCrewsSummary(crews, tasks, projects)
-  const activeProjectList = projects.filter(
-    (project) => project.status === "active" || project.status === "pending-closure"
-  )
-  const overallProgress =
-    activeProjectList.length === 0
-      ? 0
-      : Math.round(
-          activeProjectList.reduce((sum, project) => sum + project.progress, 0) /
-            activeProjectList.length
-        )
+
+  const pendingTasks = countTasksByStatuses(tasks, ["pendiente", "asignada"])
+  const inProgressTasks = countTasksByStatuses(tasks, [
+    "en-curso",
+    "en-aprobacion",
+  ])
+  const completedTasks = countTasksByStatuses(tasks, ["finalizada", "cerrada"])
+
+  const pendingEvidence = evidence.filter(
+    (item) => item.status === "pending-review"
+  ).length
+  const approvedEvidence = evidence.filter(
+    (item) => item.status === "approved"
+  ).length
+  const rejectedEvidence = evidence.filter(
+    (item) => item.status === "rejected"
+  ).length
+
+  const activeCrews = crews.filter((crew) => crew.status === "activa").length
+  const fieldCrews = crews.filter((crew) => crew.status === "en-campo").length
 
   return [
     {
-      id: "active-projects",
+      id: "projects-active",
       label: "Obras Activas",
       value: String(activeProjects),
       change: `${projects.length} obras registradas`,
       trend: "neutral",
-      description: "Despliegues de fibra, cámaras y wireless",
+      description: "Obras en ejecución o pendientes de cierre",
       href: "/obras",
     },
     {
-      id: "pending-tasks",
+      id: "projects-closed",
+      label: "Obras Finalizadas",
+      value: String(closedProjects),
+      change: `${closedProjects} cerradas`,
+      trend: "neutral",
+      description: "Obras completadas en el sistema",
+      href: "/obras",
+    },
+    {
+      id: "tasks-pending",
       label: "Tareas Pendientes",
       value: String(pendingTasks),
-      change: `${taskSummary.total} tareas en sistema`,
+      change: `${tasks.length} tareas totales`,
       trend: "neutral",
-      description: "Actividades sin completar en campo",
+      description: "Pendientes o asignadas sin iniciar",
       href: "/tareas",
     },
     {
-      id: "active-crews",
-      label: "Cuadrillas Activas",
-      value: String(crewSummary.activeCrews),
-      change: `${crewSummary.totalCrews} cuadrillas registradas`,
+      id: "tasks-in-progress",
+      label: "Tareas en Curso",
+      value: String(inProgressTasks),
+      change: `${completedTasks} finalizadas`,
       trend: "neutral",
-      description: "Equipos operando hoy",
+      description: "En ejecución o en aprobación",
+      href: "/tareas",
+    },
+    {
+      id: "tasks-completed",
+      label: "Tareas Finalizadas",
+      value: String(completedTasks),
+      change: `${inProgressTasks} en curso`,
+      trend: "neutral",
+      description: "Tareas cerradas o finalizadas",
+      href: "/tareas",
+    },
+    {
+      id: "evidence-pending",
+      label: "Evidencias Pendientes",
+      value: String(pendingEvidence),
+      change: `${evidence.length} evidencias totales`,
+      trend: pendingEvidence > 0 ? "up" : "neutral",
+      description: "Pendientes de revisión",
+      href: "/evidencias",
+    },
+    {
+      id: "evidence-approved",
+      label: "Evidencias Aprobadas",
+      value: String(approvedEvidence),
+      change: `${approvedEvidence} validadas`,
+      trend: "up",
+      description: "Evidencias aprobadas por supervisión",
+      href: "/evidencias",
+    },
+    {
+      id: "evidence-rejected",
+      label: "Evidencias Rechazadas",
+      value: String(rejectedEvidence),
+      change: `${rejectedEvidence} rechazadas`,
+      trend: rejectedEvidence > 0 ? "down" : "neutral",
+      description: "Evidencias devueltas a campo",
+      href: "/evidencias",
+    },
+    {
+      id: "crews-active",
+      label: "Cuadrillas Activas",
+      value: String(activeCrews),
+      change: `${crews.length} cuadrillas registradas`,
+      trend: "neutral",
+      description: "Cuadrillas disponibles para asignación",
       href: "/cuadrillas",
     },
     {
-      id: "overall-progress",
-      label: "Avance General",
-      value: `${overallProgress}%`,
-      change: `${getEvidenceSummary(mockEvidence).total} evidencias cargadas`,
-      trend: overallProgress >= 70 ? "up" : "neutral",
-      description: "Promedio de avance en obras activas",
-      href: "/obras",
+      id: "crews-field",
+      label: "Cuadrillas en Campo",
+      value: String(fieldCrews),
+      change: `${fieldCrews} operando`,
+      trend: "neutral",
+      description: "Cuadrillas reportadas en sitio",
+      href: "/cuadrillas",
     },
   ]
 }
 
 export function buildRecentActivity(
-  tasks = mockTasks,
-  evidence = mockEvidence
+  projects: Project[],
+  tasks: Task[],
+  evidence: EvidenceRecord[]
 ): ActivityItem[] {
   const events: Array<ActivityItem & { sortAt: number }> = []
 
-  evidence.forEach((record) => {
+  projects.forEach((project) => {
+    const timestamp = project.createdAt ?? `${project.startDate}T08:00:00`
     events.push({
-      id: `act-ev-${record.id}`,
-      title: "Evidencia cargada",
-      description: `${record.fileName} — ${record.description}`,
-      project: record.projectName,
-      crew: record.crew,
-      timestamp: formatRelativeTime(record.uploadedAt),
-      type: mapEvidenceToActivityType(record),
-      href: `/evidencias/${record.id}`,
-      sortAt: new Date(record.uploadedAt).getTime(),
+      id: `act-project-${project.id}`,
+      title: "Obra registrada",
+      description: `${project.code} — ${project.name}`,
+      project: project.name,
+      crew: project.supervisor,
+      timestamp: formatRelativeTime(timestamp),
+      type: mapProjectTypeToActivity(project.type),
+      href: `/obras/${project.id}`,
+      sortAt: new Date(timestamp).getTime(),
     })
   })
 
-  tasks
-    .filter(
-      (task) => task.status === "finalizada" || task.status === "cerrada"
-    )
-    .forEach((task) => {
-      events.push({
-        id: `act-task-${task.id}`,
-        title: "Tarea completada",
-        description: `${task.code} — ${task.title}`,
-        project: task.projectName,
-        crew: task.crew,
-        timestamp: formatRelativeTime(`${task.dueDate}T17:00:00`),
-        type: mapTaskTypeToActivityType(task.type),
-        href: `/tareas/${task.id}`,
-        sortAt: new Date(`${task.dueDate}T17:00:00`).getTime(),
-      })
+  tasks.forEach((task) => {
+    const timestamp = task.createdAt ?? `${task.startDate}T08:00:00`
+    events.push({
+      id: `act-task-created-${task.id}`,
+      title: "Tarea creada",
+      description: `${task.code} — ${task.title}`,
+      project: task.projectName,
+      crew: task.crew || "Sin cuadrilla",
+      timestamp: formatRelativeTime(timestamp),
+      type: mapTaskTypeToActivityType(task.type),
+      href: `/tareas/${task.id}`,
+      sortAt: new Date(timestamp).getTime(),
+    })
+  })
+
+  evidence.forEach((record) => {
+    events.push({
+      id: `act-evidence-${record.id}`,
+      title: "Evidencia cargada",
+      description: `${record.fileName} — ${record.description || record.category}`,
+      project: record.projectName,
+      crew: record.crew || record.worker,
+      timestamp: formatRelativeTime(record.uploadedAt),
+      type: mapEvidenceToActivityType(record, projects),
+      href: `/evidencias/${record.id}`,
+      sortAt: new Date(record.uploadedAt).getTime(),
     })
 
-  tasks
-    .filter((task) => task.status === "en-curso")
-    .forEach((task) => {
-      const crewId = getCrewIdByName(task.crew)
+    record.uploadHistory.forEach((event) => {
+      const isReviewAction =
+        event.action.toLowerCase().includes("aprobada") ||
+        event.action.toLowerCase().includes("rechazada")
+
+      if (!isReviewAction) return
+
       events.push({
-        id: `act-crew-${task.id}`,
-        title: "Trabajo iniciado",
-        description: `${task.crew} reportó inicio en ${task.code}.`,
-        project: task.projectName,
-        crew: task.crew,
-        timestamp: formatRelativeTime(`${task.startDate}T09:30:00`),
-        type: mapTaskTypeToActivityType(task.type),
-        href: crewId ? `/cuadrillas/${crewId}` : `/tareas/${task.id}`,
-        sortAt: new Date(`${task.startDate}T09:30:00`).getTime(),
+        id: `act-evidence-history-${record.id}-${event.id}`,
+        title: event.action,
+        description: event.note ?? record.fileName,
+        project: record.projectName,
+        crew: record.crew || record.worker,
+        timestamp: formatRelativeTime(event.timestamp),
+        type: mapEvidenceToActivityType(record, projects),
+        href: `/evidencias/${record.id}`,
+        sortAt: new Date(event.timestamp).getTime(),
       })
     })
+  })
 
   return events
     .sort((a, b) => b.sortAt - a.sortAt)
-    .slice(0, 6)
+    .slice(0, 8)
     .map(({ sortAt: _sortAt, ...event }) => event)
 }
 
-export function buildUpcomingTasks(tasks = mockTasks): UpcomingTask[] {
+export function buildUpcomingTasks(tasks: Task[]): UpcomingTask[] {
   return tasks
-    .filter((task) => ACTIVE_TASK_STATUSES.includes(task.status))
+    .filter((task) => UPCOMING_TASK_STATUSES.includes(task.status))
     .sort(
-      (a, b) =>
-        new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
+      (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
     )
-    .slice(0, 6)
+    .slice(0, 8)
     .map((task) => ({
       id: task.id,
       title: task.title,
       project: task.projectName,
-      crew: task.crew,
+      crew: task.crew || "Sin cuadrilla",
       dueDate: formatTaskDate(task.dueDate),
       priority: task.priority,
       status: task.status,
@@ -249,7 +338,7 @@ export function buildUpcomingTasks(tasks = mockTasks): UpcomingTask[] {
 }
 
 export function buildOperationsSegments(
-  projects = mockProjects
+  projects: Project[]
 ): OperationsSegment[] {
   const activeProjects = projects.filter(
     (project) =>
@@ -269,7 +358,8 @@ export function buildOperationsSegments(
     .map((type) => {
       const values = grouped.get(type) ?? []
       const average = Math.round(
-        values.reduce((sum, value) => sum + value, 0) / Math.max(values.length, 1)
+        values.reduce((sum, value) => sum + value, 0) /
+          Math.max(values.length, 1)
       )
 
       return {
@@ -283,12 +373,3 @@ export function buildOperationsSegments(
 export function getUpcomingTaskStatusLabel(status: TaskStatus): string {
   return TASK_STATUS_LABELS[status]
 }
-
-/** @deprecated Use buildKpiMetrics() */
-export const kpiMetrics = buildKpiMetrics()
-
-/** @deprecated Use buildRecentActivity() */
-export const recentActivity = buildRecentActivity()
-
-/** @deprecated Use buildUpcomingTasks() */
-export const upcomingTasks = buildUpcomingTasks()

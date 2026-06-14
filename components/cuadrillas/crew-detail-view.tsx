@@ -1,8 +1,11 @@
 "use client"
 
+import { useMemo, useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, Car, MoreHorizontal, User, Users } from "lucide-react"
+import { ArrowLeft, FileText, MoreHorizontal, Pencil, Trash2, User, Users } from "lucide-react"
 
+import { useCrews } from "@/components/cuadrillas/crews-provider"
+import { CrewFormDialog } from "@/components/cuadrillas/crew-form-dialog"
 import { CrewDetailStats } from "@/components/cuadrillas/crew-detail-stats"
 import { CrewStatusBadge } from "@/components/cuadrillas/crew-badges"
 import { CrewActivityTab } from "@/components/cuadrillas/crew-tabs/activity-tab"
@@ -12,8 +15,7 @@ import { CrewPerformanceTab } from "@/components/cuadrillas/crew-tabs/performanc
 import { CrewProjectsTab } from "@/components/cuadrillas/crew-tabs/projects-tab"
 import { CrewTasksTab } from "@/components/cuadrillas/crew-tabs/tasks-tab"
 import { useOperationalData } from "@/components/cuadrillas/use-operational-data"
-import { getCrewDetail } from "@/lib/data/crews"
-import type { Crew, CrewDetail } from "@/lib/types/crews"
+import type { Crew, CrewDetail, NewCrewInput } from "@/lib/types/crews"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -21,6 +23,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,6 +47,31 @@ type CrewDetailViewProps = {
 
 export function CrewDetailView({ crew, detail }: CrewDetailViewProps) {
   const { tasks, projects } = useOperationalData()
+  const { editCrew, removeCrew } = useCrews()
+  const [editOpen, setEditOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  const activeMembers = useMemo(
+    () => crew.members.filter((member) => member.active).length,
+    [crew.members]
+  )
+
+  async function handleEdit(input: NewCrewInput) {
+    const result = await editCrew(crew.id, input)
+    if (!result.success) {
+      throw new Error(result.message ?? "No se pudo actualizar la cuadrilla.")
+    }
+  }
+
+  async function handleDelete() {
+    setIsDeleting(true)
+    const result = await removeCrew(crew.id)
+    setIsDeleting(false)
+    if (result.success) {
+      window.location.href = "/cuadrillas"
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -57,9 +92,6 @@ export function CrewDetailView({ crew, detail }: CrewDetailViewProps) {
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <CrewStatusBadge status={crew.status} />
-              <span className="rounded-md border bg-muted/40 px-2 py-0.5 text-xs text-muted-foreground">
-                {crew.specialty}
-              </span>
             </div>
             <h2 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
               {crew.name}
@@ -78,9 +110,17 @@ export function CrewDetailView({ crew, detail }: CrewDetailViewProps) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem>Reasignar tareas</DropdownMenuItem>
-            <DropdownMenuItem>Actualizar disponibilidad</DropdownMenuItem>
-            <DropdownMenuItem>Exportar reporte</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setEditOpen(true)}>
+              <Pencil className="size-4" />
+              Editar cuadrilla
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => setDeleteOpen(true)}
+            >
+              <Trash2 className="size-4" />
+              Eliminar cuadrilla
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -113,22 +153,30 @@ export function CrewDetailView({ crew, detail }: CrewDetailViewProps) {
               <Users className="size-4 text-blue-600" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Integrantes</p>
+              <p className="text-xs text-muted-foreground">Integrantes activos</p>
               <p className="text-sm font-medium">
-                {crew.members.length} técnicos
+                {activeMembers} de {crew.members.length}
               </p>
             </div>
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-3 sm:col-span-2 lg:col-span-1">
             <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-amber-50">
-              <Car className="size-4 text-amber-600" />
+              <FileText className="size-4 text-amber-600" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Vehículo asignado</p>
-              <p className="text-sm font-medium">{crew.vehicle}</p>
+              <p className="text-xs text-muted-foreground">Descripción</p>
+              <p className="text-sm font-medium">
+                {crew.description || "Sin descripción"}
+              </p>
             </div>
           </div>
         </CardContent>
+        {crew.notes && (
+          <CardContent className="border-t pt-4">
+            <p className="text-xs text-muted-foreground">Observaciones</p>
+            <p className="mt-1 text-sm">{crew.notes}</p>
+          </CardContent>
+        )}
       </Card>
 
       <CrewDetailStats stats={detail.stats} />
@@ -166,6 +214,34 @@ export function CrewDetailView({ crew, detail }: CrewDetailViewProps) {
           <CrewPerformanceTab performance={detail.performance} />
         </TabsContent>
       </Tabs>
+
+      <CrewFormDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        mode="edit"
+        crew={crew}
+        onSubmit={handleEdit}
+      />
+
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Eliminar cuadrilla</DialogTitle>
+            <DialogDescription>
+              ¿Desea eliminar esta cuadrilla? Las tareas asociadas conservarán el
+              nombre pero perderán la referencia.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={isDeleting}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
+              {isDeleting ? "Eliminando..." : "Eliminar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

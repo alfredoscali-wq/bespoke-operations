@@ -7,11 +7,13 @@ import { EvidenceFiltersBar } from "@/components/evidencias/evidence-filters"
 import { EvidenceSummaryCards } from "@/components/evidencias/evidence-summary-cards"
 import { EvidenceTable } from "@/components/evidencias/evidence-table"
 import { EvidenceUploadDialog } from "@/components/evidencias/evidence-upload-dialog"
+import { useProjects } from "@/components/obras/projects-provider"
+import { useTasks } from "@/components/tareas/tasks-provider"
 import {
   defaultEvidenceFilters,
   filterEvidence,
-  getEvidenceFilterOptions,
 } from "@/lib/data/evidence"
+import { getTasksForProject } from "@/lib/tasks/utils"
 import type { EvidenceFilters } from "@/lib/types/evidence"
 import {
   Card,
@@ -26,14 +28,71 @@ type EvidenceModuleProps = {
 
 export function EvidenceModule({ initialFilters }: EvidenceModuleProps) {
   const { evidence, uploadEvidence } = useEvidence()
+  const { projects } = useProjects()
+  const { tasks } = useTasks()
   const [filters, setFilters] = useState<EvidenceFilters>(
     initialFilters ?? defaultEvidenceFilters
   )
 
-  const filterOptions = useMemo(
-    () => getEvidenceFilterOptions(evidence),
-    [evidence]
+  const projectOptions = useMemo(
+    () =>
+      projects.map((project) => ({
+        id: project.id,
+        code: project.code,
+        name: project.name,
+      })),
+    [projects]
   )
+
+  const taskOptions = useMemo(() => {
+    if (filters.projectId === "all") {
+      return tasks.map((task) => ({
+        id: task.id,
+        code: task.code,
+        title: task.title,
+      }))
+    }
+
+    const project = projects.find((item) => item.id === filters.projectId)
+    if (!project) {
+      return tasks.map((task) => ({
+        id: task.id,
+        code: task.code,
+        title: task.title,
+      }))
+    }
+
+    return getTasksForProject(project, tasks).map((task) => ({
+      id: task.id,
+      code: task.code,
+      title: task.title,
+    }))
+  }, [filters.projectId, projects, tasks])
+
+  function handleFiltersChange(nextFilters: EvidenceFilters) {
+    if (
+      nextFilters.projectId !== filters.projectId &&
+      nextFilters.taskId !== "all"
+    ) {
+      const project =
+        nextFilters.projectId === "all"
+          ? undefined
+          : projects.find((item) => item.id === nextFilters.projectId)
+      const taskStillValid =
+        !project ||
+        getTasksForProject(project, tasks).some(
+          (task) => task.id === nextFilters.taskId
+        )
+
+      setFilters({
+        ...nextFilters,
+        taskId: taskStillValid ? nextFilters.taskId : "all",
+      })
+      return
+    }
+
+    setFilters(nextFilters)
+  }
 
   const filteredEvidence = useMemo(
     () => filterEvidence(evidence, filters),
@@ -52,10 +111,10 @@ export function EvidenceModule({ initialFilters }: EvidenceModuleProps) {
         <CardContent className="space-y-4 pt-4">
           <EvidenceFiltersBar
             filters={filters}
-            onChange={setFilters}
+            onChange={handleFiltersChange}
             resultCount={filteredEvidence.length}
-            projects={filterOptions.projects}
-            tasks={filterOptions.tasks}
+            projects={projectOptions}
+            tasks={taskOptions}
           />
           <EvidenceTable evidence={filteredEvidence} />
         </CardContent>

@@ -4,6 +4,7 @@ import {
   fetchTasks,
   insertTask,
   patchTask,
+  softDeleteTask,
   type SupabaseTasksClient,
 } from "@/lib/supabase/tasks.queries"
 import type { Task } from "@/lib/types/tasks"
@@ -47,6 +48,13 @@ export async function updateTask(
     id,
     payload
   )
+}
+
+export async function deleteTask(
+  id: string,
+  client?: SupabaseTasksClient
+): Promise<TasksRepositoryResult<void>> {
+  return softDeleteTask(client ?? (await createServerTasksClient()), id)
 }
 
 export { createBrowserTasksClient } from "@/lib/supabase/tasks.browser"

@@ -1,7 +1,8 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useRef, useState, type ChangeEvent } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { notFound } from "next/navigation"
 import {
   AlertTriangle,
@@ -9,12 +10,15 @@ import {
   Camera,
   CheckCircle2,
   ClipboardCheck,
+  Loader2,
   MessageSquarePlus,
   Play,
 } from "lucide-react"
 
+import { useEvidence } from "@/components/evidencias/evidence-provider"
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { useOperario } from "@/components/operario/operario-provider"
+import { getEvidenceTaskKey } from "@/lib/data/evidence"
 import { getWorkerTasks } from "@/lib/data/operario"
 import {
   TASK_PRIORITY_LABELS,
@@ -37,8 +41,11 @@ type OperarioTaskDetailScreenProps = {
   id: string
 }
 
+type UploadState = "idle" | "uploading" | "success" | "error"
+
 export function OperarioTaskDetailScreen({ id }: OperarioTaskDetailScreenProps) {
   const { worker } = useOperario()
+  const { evidence, uploadEvidence } = useEvidence()
   const {
     tasks,
     detailVersion,
@@ -47,11 +54,12 @@ export function OperarioTaskDetailScreen({ id }: OperarioTaskDetailScreenProps) 
     updateTaskStatus,
     toggleChecklistItem,
     addComment,
-    addEvidence,
   } = useTasks()
 
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [actionMessage, setActionMessage] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [uploadState, setUploadState] = useState<UploadState>("idle")
   const [observation, setObservation] = useState("")
   const [showObservationForm, setShowObservationForm] = useState(false)
 
@@ -61,6 +69,19 @@ export function OperarioTaskDetailScreen({ id }: OperarioTaskDetailScreenProps) 
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [getDetail, id, tasks, detailVersion]
   )
+
+  const taskEvidence = useMemo(() => {
+    if (!task) return []
+
+    const taskKey = getEvidenceTaskKey({
+      taskId: task.id,
+      taskCode: task.code,
+    })
+
+    return evidence.filter(
+      (item) => getEvidenceTaskKey(item) === taskKey
+    )
+  }, [evidence, task])
 
   if (!task || !detail) {
     notFound()
@@ -73,6 +94,50 @@ export function OperarioTaskDetailScreen({ id }: OperarioTaskDetailScreenProps) 
 
   const activeTask = task as NonNullable<typeof task>
   const activeDetail = detail as NonNullable<typeof detail>
+  const isUploading = uploadState === "uploading"
+
+  function openFilePicker() {
+    if (isUploading) return
+    fileInputRef.current?.click()
+  }
+
+  async function handleFileSelected(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ""
+
+    if (!file) return
+
+    setUploadState("uploading")
+    setActionError(null)
+    setActionMessage(null)
+
+    const result = await uploadEvidence({
+      file,
+      projectId: activeTask.projectId ?? "",
+      projectCode: activeTask.projectCode,
+      projectName: activeTask.projectName,
+      taskId: activeTask.id,
+      taskCode: activeTask.code,
+      taskTitle: activeTask.title,
+      crew: activeTask.crew,
+      worker: worker.name,
+      description: `Evidencia de campo — ${activeTask.code}`,
+      category: "Campo",
+      evidenceType: "progress-photo",
+    })
+
+    if (result.success) {
+      setUploadState("success")
+      setActionMessage(result.message ?? "Evidencia subida correctamente.")
+      return
+    }
+
+    setUploadState("error")
+    setActionError(
+      result.message ??
+        "No se pudo subir la evidencia. Verifique su conexión e intente de nuevo."
+    )
+  }
 
   function handleStartWork() {
     setActionError(null)
@@ -94,16 +159,6 @@ export function OperarioTaskDetailScreen({ id }: OperarioTaskDetailScreenProps) 
     }
 
     setActionError("Esta tarea no puede iniciarse en su estado actual.")
-  }
-
-  function handleUploadEvidence() {
-    setActionError(null)
-    addEvidence(
-      activeTask.id,
-      `Evidencia de campo — ${activeTask.code}`,
-      worker.name
-    )
-    setActionMessage("Evidencia subida correctamente.")
   }
 
   function handleAddObservation() {
@@ -138,6 +193,16 @@ export function OperarioTaskDetailScreen({ id }: OperarioTaskDetailScreenProps) 
 
   return (
     <div className="space-y-5 px-4 pt-4 pb-6">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="sr-only"
+        onChange={handleFileSelected}
+        disabled={isUploading}
+      />
+
       <Button
         variant="ghost"
         size="sm"
@@ -239,10 +304,15 @@ export function OperarioTaskDetailScreen({ id }: OperarioTaskDetailScreenProps) 
           size="lg"
           variant="secondary"
           className="h-16 gap-2 rounded-2xl text-base font-semibold"
-          onClick={handleUploadEvidence}
+          onClick={openFilePicker}
+          disabled={isUploading}
         >
-          <Camera className="size-5 shrink-0" />
-          Subir Evidencias
+          {isUploading ? (
+            <Loader2 className="size-5 shrink-0 animate-spin" />
+          ) : (
+            <Camera className="size-5 shrink-0" />
+          )}
+          {isUploading ? "Subiendo..." : "Subir Evidencias"}
         </Button>
 
         <Button
@@ -350,30 +420,47 @@ export function OperarioTaskDetailScreen({ id }: OperarioTaskDetailScreenProps) 
             variant="outline"
             size="sm"
             className="h-9 rounded-xl"
-            onClick={handleUploadEvidence}
+            onClick={openFilePicker}
+            disabled={isUploading}
           >
-            <Camera className="size-4" />
-            Subir foto
+            {isUploading ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Camera className="size-4" />
+            )}
+            {isUploading ? "Subiendo..." : "Subir foto"}
           </Button>
         </div>
 
-        {activeDetail.evidence.length === 0 ? (
+        {taskEvidence.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">
             Sin evidencias cargadas
           </p>
         ) : (
           <div className="grid grid-cols-2 gap-3">
-            {activeDetail.evidence.map((item) => (
+            {taskEvidence.map((item) => (
               <div
                 key={item.id}
                 className="overflow-hidden rounded-xl border bg-muted/20"
               >
-                <div className="flex aspect-square items-center justify-center bg-muted/50">
-                  <Camera className="size-8 text-muted-foreground/40" />
+                <div className="relative aspect-square bg-muted/50">
+                  {item.previewUrl ? (
+                    <Image
+                      src={item.previewUrl}
+                      alt={item.fileName}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 512px) 50vw, 240px"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center">
+                      <Camera className="size-8 text-muted-foreground/40" />
+                    </div>
+                  )}
                 </div>
                 <div className="p-2.5">
                   <p className="line-clamp-2 text-xs font-medium leading-snug">
-                    {item.title}
+                    {item.fileName}
                   </p>
                   <p className="mt-1 text-[10px] text-muted-foreground">
                     {formatTaskDateTime(item.uploadedAt)}
