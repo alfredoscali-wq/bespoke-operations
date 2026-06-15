@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { AlertTriangle, ArrowLeft, MoreHorizontal } from "lucide-react"
+import { AlertTriangle, ArrowLeft, CheckCircle2, MoreHorizontal } from "lucide-react"
 
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { useTasks } from "@/components/tareas/tasks-provider"
@@ -54,6 +54,7 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
   const [crewError, setCrewError] = useState<string | null>(null)
   const [isAssigningCrew, setIsAssigningCrew] = useState(false)
   const [isWorkflowActionPending, setIsWorkflowActionPending] = useState(false)
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null)
 
   async function handleCrewChange(value: string) {
     setCrewError(null)
@@ -79,35 +80,47 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
 
   async function handleApprove() {
     setActionError(null)
+    setActionSuccess(null)
     setIsWorkflowActionPending(true)
     const result = await approveTask(task.id)
     setIsWorkflowActionPending(false)
 
     if (!result.success) {
       setActionError(result.message ?? "No se pudo aprobar la tarea.")
+      return
     }
+
+    setActionSuccess("Tarea aprobada. Ya puede cerrarla administrativamente.")
   }
 
   async function handleReject() {
     setActionError(null)
+    setActionSuccess(null)
     setIsWorkflowActionPending(true)
     const result = await rejectTask(task.id)
     setIsWorkflowActionPending(false)
 
     if (!result.success) {
       setActionError(result.message ?? "No se pudo rechazar la tarea.")
+      return
     }
+
+    setActionSuccess("Tarea devuelta a en curso para correcciones.")
   }
 
   async function handleClose() {
     setActionError(null)
+    setActionSuccess(null)
     setIsWorkflowActionPending(true)
     const result = await closeTask(task.id)
     setIsWorkflowActionPending(false)
 
     if (!result.success) {
       setActionError(result.message ?? "No se pudo cerrar la tarea.")
+      return
     }
+
+    setActionSuccess("Tarea cerrada correctamente.")
   }
 
   const submitValidation = canPerformTaskAction(task, "submit-for-approval")
@@ -189,36 +202,6 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
             </SelectContent>
           </Select>
 
-          {task.status === "en-aprobacion" && (
-            <>
-              <Button
-                size="sm"
-                onClick={handleApprove}
-                disabled={isWorkflowActionPending}
-              >
-                Aprobar
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleReject}
-                disabled={isWorkflowActionPending}
-              >
-                Rechazar
-              </Button>
-            </>
-          )}
-
-          {task.status === "finalizada" && (
-            <Button
-              size="sm"
-              onClick={handleClose}
-              disabled={isWorkflowActionPending}
-            >
-              Cerrar
-            </Button>
-          )}
-
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="gap-1.5">
@@ -246,6 +229,60 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
         <Alert variant="destructive">
           <AlertTriangle className="size-4" />
           <AlertDescription>{actionError}</AlertDescription>
+        </Alert>
+      )}
+
+      {actionSuccess && (
+        <Alert>
+          <CheckCircle2 className="size-4" />
+          <AlertDescription>{actionSuccess}</AlertDescription>
+        </Alert>
+      )}
+
+      {task.status === "en-aprobacion" && (
+        <Alert className="border-orange-200 bg-orange-50/60">
+          <AlertTriangle className="size-4 text-orange-700" />
+          <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <span className="text-sm text-foreground">
+              Esta tarea requiere revisión de supervisión antes de continuar.
+            </span>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                onClick={handleApprove}
+                disabled={isWorkflowActionPending}
+              >
+                Aprobar
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleReject}
+                disabled={isWorkflowActionPending}
+              >
+                Rechazar
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {task.status === "finalizada" && (
+        <Alert className="border-violet-200 bg-violet-50/60">
+          <CheckCircle2 className="size-4 text-violet-700" />
+          <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <span className="text-sm text-foreground">
+              La tarea fue aprobada. Cierre administrativo para completar el
+              ciclo operativo.
+            </span>
+            <Button
+              size="sm"
+              onClick={handleClose}
+              disabled={isWorkflowActionPending}
+            >
+              Cerrar Tarea
+            </Button>
+          </AlertDescription>
         </Alert>
       )}
 

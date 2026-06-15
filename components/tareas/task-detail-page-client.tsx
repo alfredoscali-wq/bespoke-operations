@@ -1,5 +1,6 @@
 "use client"
 
+import { useMemo } from "react"
 import { notFound } from "next/navigation"
 
 import { TaskDetailView } from "@/components/tareas/task-detail-view"
@@ -10,9 +11,16 @@ type TaskDetailPageClientProps = {
 }
 
 export function TaskDetailPageClient({ id }: TaskDetailPageClientProps) {
-  const { getTask, getDetail } = useTasks()
-  const task = getTask(id)
-  const detail = getDetail(id)
+  const { getTask, getDetail, detailVersion } = useTasks()
+
+  const task = useMemo(
+    () => getTask(id),
+    [getTask, id, detailVersion]
+  )
+  const detail = useMemo(
+    () => getDetail(id),
+    [getDetail, id, detailVersion]
+  )
 
   if (!task || !detail) {
     notFound()
