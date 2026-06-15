@@ -10,8 +10,10 @@ import {
   removeEvidenceFile,
   uploadEvidenceFile,
   uploadEvidenceWithFile as uploadEvidenceWithFileQuery,
+  softVoidEvidence as voidEvidenceQuery,
   type SupabaseEvidencesClient,
 } from "@/lib/supabase/evidences.queries"
+import type { AppUserRole } from "@/lib/auth/current-user"
 import type { EvidenceRecord } from "@/lib/types/evidence"
 import type {
   CreateEvidencePayload,
@@ -71,6 +73,19 @@ export async function uploadEvidenceWithFile(
   client: SupabaseEvidencesClient = createBrowserEvidencesClient()
 ): Promise<EvidencesRepositoryResult<EvidenceRecord>> {
   return uploadEvidenceWithFileQuery(client, input)
+}
+
+export async function voidEvidence(
+  id: string,
+  input: {
+    reason: string
+    voidedBy: string
+    voidedByRole: AppUserRole
+    uploadHistory: EvidenceRecord["uploadHistory"]
+  },
+  client: SupabaseEvidencesClient = createBrowserEvidencesClient()
+): Promise<EvidencesRepositoryResult<EvidenceRecord>> {
+  return voidEvidenceQuery(client, id, input)
 }
 
 export {

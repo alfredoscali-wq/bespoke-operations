@@ -7,6 +7,7 @@ import type {
   TaskEvidenceStats,
 } from "@/lib/types/evidence"
 import { isDocumentType } from "@/lib/evidence/constants"
+import { getActiveEvidence, isActiveEvidence } from "@/lib/evidence/utils"
 import {
   enrichEvidenceRecords,
   type BaseEvidenceRecord,
@@ -393,11 +394,13 @@ export function createEvidenceFromInput(
 export function getEvidenceSummary(
   evidence: EvidenceRecord[]
 ): EvidenceSummary {
+  const activeEvidence = getActiveEvidence(evidence)
+
   return {
-    total: evidence.length,
-    photos: evidence.filter((item) => item.type === "photo").length,
-    documents: evidence.filter((item) => isDocumentType(item.type)).length,
-    pendingReview: evidence.filter(
+    total: activeEvidence.length,
+    photos: activeEvidence.filter((item) => item.type === "photo").length,
+    documents: activeEvidence.filter((item) => isDocumentType(item.type)).length,
+    pendingReview: activeEvidence.filter(
       (item) => item.status === "pending-review"
     ).length,
   }
@@ -414,7 +417,9 @@ export function getProjectEvidenceStats(
   projectId: string,
   evidence = mockEvidence
 ): ProjectEvidenceStats {
-  const items = evidence.filter((item) => item.projectId === projectId)
+  const items = getActiveEvidence(evidence).filter(
+    (item) => item.projectId === projectId
+  )
   const sorted = [...items].sort(
     (a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
   )
@@ -430,7 +435,9 @@ export function getTaskEvidenceStats(
   taskId: string,
   evidence = mockEvidence
 ): TaskEvidenceStats {
-  const items = evidence.filter((item) => item.taskId === taskId)
+  const items = getActiveEvidence(evidence).filter(
+    (item) => item.taskId === taskId
+  )
   const sorted = [...items].sort(
     (a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
   )
@@ -445,7 +452,7 @@ export function getEvidenceByProjectId(
   projectId: string,
   evidence: EvidenceRecord[] = []
 ): EvidenceRecord[] {
-  return evidence.filter(
+  return getActiveEvidence(evidence).filter(
     (item) => item.projectId === projectId || getEvidenceProjectKey(item) === projectId
   )
 }
@@ -454,7 +461,7 @@ export function getEvidenceByTaskId(
   taskId: string,
   evidence = mockEvidence
 ): EvidenceRecord[] {
-  return evidence.filter((item) => item.taskId === taskId)
+  return getActiveEvidence(evidence).filter((item) => item.taskId === taskId)
 }
 
 export const defaultEvidenceFilters: EvidenceFilters = {
@@ -467,6 +474,7 @@ export const defaultEvidenceFilters: EvidenceFilters = {
   dateTo: "",
   fileType: "all",
   evidenceType: "all",
+  includeVoided: false,
 }
 
 export function getEvidenceProjectKey(item: Pick<EvidenceRecord, "projectId" | "projectCode">) {
@@ -521,6 +529,9 @@ export function filterEvidence(
       filters.evidenceType === "all" ||
       item.evidenceType === filters.evidenceType
 
+    const matchesVoided =
+      filters.includeVoided || isActiveEvidence(item)
+
     return (
       matchesSearch &&
       matchesProject &&
@@ -530,7 +541,8 @@ export function filterEvidence(
       matchesDateFrom &&
       matchesDateTo &&
       matchesType &&
-      matchesEvidenceType
+      matchesEvidenceType &&
+      matchesVoided
     )
   })
 }

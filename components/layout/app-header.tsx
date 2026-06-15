@@ -2,6 +2,8 @@
 
 import { Bell, Menu, Search } from "lucide-react"
 
+import { DASHBOARD_USER } from "@/lib/auth/current-user"
+
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -78,14 +80,16 @@ export function AppHeader({
 
         <div className="hidden items-center gap-2 sm:flex">
           <div className="hidden text-right lg:block">
-            <p className="text-xs font-medium text-foreground">María González</p>
+            <p className="text-xs font-medium text-foreground">
+              {DASHBOARD_USER.name}
+            </p>
             <p className="text-[11px] text-muted-foreground">
-              Coordinadora de Operaciones
+              {DASHBOARD_USER.roleLabel}
             </p>
           </div>
           <Avatar size="sm">
             <AvatarFallback className="bg-primary/10 text-xs font-medium text-primary">
-              MG
+              {DASHBOARD_USER.initials}
             </AvatarFallback>
           </Avatar>
         </div>

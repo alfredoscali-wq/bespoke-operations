@@ -11,7 +11,6 @@ import type {
   TaskPriority,
   TaskType,
 } from "@/lib/types/tasks"
-import { SUPERVISORS } from "@/lib/projects/constants"
 import {
   TASK_PRIORITY_OPTIONS,
   TASK_TYPE_OPTIONS,
@@ -19,6 +18,7 @@ import {
 import {
   generateFieldServiceTaskCode,
   generateTaskCode,
+  resolveSupervisorFromCrew,
 } from "@/lib/tasks/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -79,7 +79,6 @@ type TaskFormState = {
   workOrderNumber: string
   type: TaskType
   priority: TaskPriority
-  supervisor: string
   crew: string
   startDate: string
   dueDate: string
@@ -101,7 +100,6 @@ function buildDefaultForm(): TaskFormState {
     workOrderNumber: "",
     type: "maintenance",
     priority: "media",
-    supervisor: SUPERVISORS[0] ?? "",
     crew: "",
     startDate: today,
     dueDate: today,
@@ -125,6 +123,10 @@ export function TaskFormDialog({
     () => projects.find((project) => project.id === form.projectId),
     [form.projectId, projects]
   )
+  const selectedCrew = useMemo(
+    () => crews.find((crew) => crew.name === form.crew),
+    [crews, form.crew]
+  )
 
   useEffect(() => {
     if (!open) return
@@ -133,7 +135,6 @@ export function TaskFormDialog({
     setForm({
       ...buildDefaultForm(),
       projectId: projects[0]?.id ?? "",
-      supervisor: projects[0]?.supervisor ?? SUPERVISORS[0] ?? "",
       crew: crews[0]?.name ?? "",
       dueDate: projects[0]?.endDate ?? new Date().toISOString().slice(0, 10),
     })
@@ -146,7 +147,6 @@ export function TaskFormDialog({
 
     setForm((current) => ({
       ...current,
-      supervisor: selectedProject.supervisor,
       dueDate: selectedProject.endDate || today,
       type: selectedProject.type,
     }))
@@ -212,6 +212,7 @@ export function TaskFormDialog({
       const code = isObra
         ? generateTaskCode(selectedProject!.code, existingTasks)
         : generateFieldServiceTaskCode(existingTasks)
+      const supervisor = resolveSupervisorFromCrew(selectedCrew)
 
       await onSubmit({
         operationMode: form.operationMode,
@@ -230,7 +231,7 @@ export function TaskFormDialog({
         workOrderNumber: isObra ? undefined : form.workOrderNumber.trim(),
         type: form.type,
         priority: form.priority,
-        supervisor: form.supervisor,
+        supervisor,
         crew: form.crew,
         startDate: form.startDate,
         dueDate: form.dueDate,
@@ -251,7 +252,6 @@ export function TaskFormDialog({
 
   const isValid =
     form.title.trim() !== "" &&
-    form.supervisor !== "" &&
     form.crew !== "" &&
     form.startDate !== "" &&
     form.dueDate !== "" &&
@@ -453,44 +453,35 @@ export function TaskFormDialog({
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Supervisor</Label>
-              <Select
-                value={form.supervisor}
-                onValueChange={(value) => updateField("supervisor", value)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {SUPERVISORS.map((supervisor) => (
-                    <SelectItem key={supervisor} value={supervisor}>
-                      {supervisor}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Cuadrilla</Label>
-              <Select
-                value={form.crew}
-                onValueChange={(value) => updateField("crew", value)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {crews.map((crew) => (
-                    <SelectItem key={crew.id} value={crew.name}>
-                      {crew.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-2">
+            <Label>Cuadrilla</Label>
+            <Select
+              value={form.crew}
+              onValueChange={(value) => updateField("crew", value)}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {crews.map((crew) => (
+                  <SelectItem key={crew.id} value={crew.name}>
+                    {crew.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedCrew ? (
+              <p className="text-xs text-muted-foreground">
+                Supervisor asignado por cuadrilla:{" "}
+                <span className="font-medium text-foreground">
+                  {selectedCrew.supervisor}
+                </span>
+              </p>
+            ) : form.crew ? null : (
+              <p className="text-xs text-muted-foreground">
+                Seleccione una cuadrilla para asignar supervisor automáticamente.
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">

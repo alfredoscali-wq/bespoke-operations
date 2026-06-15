@@ -13,6 +13,7 @@ import {
   defaultEvidenceFilters,
   filterEvidence,
 } from "@/lib/data/evidence"
+import { getActiveEvidence } from "@/lib/evidence/utils"
 import { getTasksForProject } from "@/lib/tasks/utils"
 import type { EvidenceFilters } from "@/lib/types/evidence"
 import {
@@ -101,7 +102,7 @@ export function EvidenceModule({ initialFilters }: EvidenceModuleProps) {
 
   return (
     <div className="space-y-6">
-      <EvidenceSummaryCards evidence={evidence} />
+      <EvidenceSummaryCards evidence={getActiveEvidence(evidence)} />
 
       <Card className="shadow-sm">
         <CardHeader className="flex flex-row items-center justify-between gap-4 border-b">

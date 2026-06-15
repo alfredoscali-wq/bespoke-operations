@@ -52,8 +52,18 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
     ? getCrew(task.crewId)
     : undefined
 
+  const supervisorValue =
+    task.supervisor || "Sin supervisor asignado"
+  const supervisorHint =
+    task.crew && task.supervisor ? "Asignado por cuadrilla" : undefined
+
   const sharedInfoItems = [
-    { icon: User, label: "Supervisor", value: task.supervisor },
+    {
+      icon: User,
+      label: "Supervisor",
+      value: supervisorValue,
+      hint: supervisorHint,
+    },
     {
       icon: Users,
       label: "Cuadrilla",
@@ -165,6 +175,11 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
                     <div className="text-sm font-medium text-foreground">
                       {typeof item.value === "string" ? item.value : item.value}
                     </div>
+                    {"hint" in item && item.hint ? (
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {item.hint}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
               )

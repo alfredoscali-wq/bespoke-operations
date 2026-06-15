@@ -5,7 +5,6 @@ import { Upload } from "lucide-react"
 
 import { useProjects } from "@/components/obras/projects-provider"
 import { useTasks } from "@/components/tareas/tasks-provider"
-import { EVIDENCE_WORKERS } from "@/lib/evidence/constants"
 import type { EvidenceUploadOrigin } from "@/lib/evidence/upload-origin"
 import { getTasksForProject } from "@/lib/tasks/utils"
 import type { UploadEvidenceInput } from "@/lib/types/supabase/evidences"
@@ -71,7 +70,6 @@ export function EvidenceUploadDialog({
   const [file, setFile] = useState<File | null>(null)
   const [projectId, setProjectId] = useState("")
   const [taskId, setTaskId] = useState("")
-  const [worker, setWorker] = useState<string>(EVIDENCE_WORKERS[0])
   const [description, setDescription] = useState("")
   const [category, setCategory] = useState("Campo")
   const [submitting, setSubmitting] = useState(false)
@@ -79,6 +77,7 @@ export function EvidenceUploadDialog({
 
   const isProjectLocked = Boolean(lockedProject)
   const isTaskLocked = Boolean(lockedTask)
+  const isFullyContextual = isProjectLocked && isTaskLocked
 
   const selectedProject = useMemo(() => {
     if (lockedProject) {
@@ -152,7 +151,6 @@ export function EvidenceUploadDialog({
           ? PROJECT_ONLY_TASK_VALUE
           : "")
     )
-    setWorker(EVIDENCE_WORKERS[0])
     setDescription("")
     setCategory("Campo")
     setError(null)
@@ -193,7 +191,6 @@ export function EvidenceUploadDialog({
       taskCode: selectedTask?.code,
       taskTitle: selectedTask?.title,
       crew: selectedTask?.crew,
-      worker,
       description,
       category,
       origin,
@@ -214,7 +211,6 @@ export function EvidenceUploadDialog({
   const isValid =
     file !== null &&
     selectedProject !== undefined &&
-    worker !== "" &&
     (isTaskLocked ||
       projectOnlyMode ||
       selectedTask !== undefined ||
@@ -238,11 +234,13 @@ export function EvidenceUploadDialog({
         <DialogHeader>
           <DialogTitle>Subir evidencia</DialogTitle>
           <DialogDescription>
-            {isTaskLocked
-              ? "Cargue una imagen vinculada a la tarea seleccionada."
-              : isProjectLocked
-                ? "Cargue una imagen vinculada a esta obra."
-                : "Cargue una imagen de campo vinculada a una obra y tarea existentes."}
+            {isFullyContextual
+              ? "Cargue una imagen para esta tarea."
+              : isTaskLocked
+                ? "Cargue una imagen vinculada a la tarea seleccionada."
+                : isProjectLocked
+                  ? "Cargue una imagen vinculada a esta obra."
+                  : "Cargue una imagen de campo vinculada a una obra y tarea existentes."}
           </DialogDescription>
         </DialogHeader>
 
@@ -260,7 +258,7 @@ export function EvidenceUploadDialog({
             />
           </div>
 
-          {isProjectLocked && selectedProject ? (
+          {isFullyContextual ? null : isProjectLocked && selectedProject ? (
             <div className="rounded-lg border bg-muted/30 px-3 py-2 text-sm">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Obra
@@ -299,7 +297,7 @@ export function EvidenceUploadDialog({
             </div>
           )}
 
-          {isTaskLocked && lockedTask ? (
+          {isTaskLocked && lockedTask && !isFullyContextual ? (
             <div className="rounded-lg border bg-muted/30 px-3 py-2 text-sm">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Tarea
@@ -308,7 +306,7 @@ export function EvidenceUploadDialog({
                 {lockedTask.code} — {lockedTask.title}
               </p>
             </div>
-          ) : showTaskSelector ? (
+          ) : isFullyContextual ? null : showTaskSelector ? (
             <div className="space-y-2">
               <Label>Tarea</Label>
               <Select value={taskId} onValueChange={setTaskId}>
@@ -335,27 +333,11 @@ export function EvidenceUploadDialog({
                 </SelectContent>
               </Select>
             </div>
-          ) : projectOnlyMode ? (
+          ) : projectOnlyMode && !isFullyContextual ? (
             <div className="rounded-lg border border-dashed bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
               Esta evidencia quedará vinculada solo a la obra.
             </div>
           ) : null}
-
-          <div className="space-y-2">
-            <Label>Operario</Label>
-            <Select value={worker} onValueChange={setWorker}>
-              <SelectTrigger className="bg-background">
-                <SelectValue placeholder="Seleccionar operario" />
-              </SelectTrigger>
-              <SelectContent>
-                {EVIDENCE_WORKERS.map((name) => (
-                  <SelectItem key={name} value={name}>
-                    {name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
 
           <div className="space-y-2">
             <Label htmlFor="evidence-category">Categoría</Label>

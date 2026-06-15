@@ -6,6 +6,7 @@ import {
   EvidenceCategoryBadge,
   EvidenceStatusBadge,
   EvidenceTypeBadge,
+  EvidenceVoidedBadge,
 } from "@/components/evidencias/evidence-badges"
 import { formatEvidenceDateTime } from "@/lib/evidence/constants"
 import type { EvidenceRecord } from "@/lib/types/evidence"
@@ -94,7 +95,10 @@ export function EvidenceTable({ evidence }: EvidenceTableProps) {
                     {item.worker}
                   </TableCell>
                   <TableCell>
-                    <EvidenceStatusBadge status={item.status} />
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <EvidenceStatusBadge status={item.status} />
+                      {item.deletedAt ? <EvidenceVoidedBadge /> : null}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -117,7 +121,10 @@ export function EvidenceTable({ evidence }: EvidenceTableProps) {
                       {formatEvidenceDateTime(item.uploadedAt)}
                     </CardDescription>
                   </div>
-                  <EvidenceStatusBadge status={item.status} />
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <EvidenceStatusBadge status={item.status} />
+                    {item.deletedAt ? <EvidenceVoidedBadge /> : null}
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="flex flex-wrap gap-2">

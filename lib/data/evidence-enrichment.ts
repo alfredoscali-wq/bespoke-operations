@@ -68,6 +68,7 @@ function buildUploadHistory(record: BaseEvidenceRecord): EvidenceUploadEvent[] {
       user: record.worker,
       timestamp: record.uploadedAt,
       note: record.fileName,
+      ...(record.uploadedByRole ? { role: record.uploadedByRole } : {}),
     },
     {
       id: `${record.id}-queue`,
@@ -132,6 +133,7 @@ export function enrichEvidenceRecords(
           : "progress-photo"),
     previewUrl: resolvePreviewUrl(record),
     uploadHistory: buildUploadHistory(record),
+    uploadedByRole: record.uploadedByRole,
   }))
 }
 

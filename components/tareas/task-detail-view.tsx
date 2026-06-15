@@ -61,7 +61,7 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
     setIsAssigningCrew(true)
 
     if (value === "none") {
-      const result = await assignCrew(task.id, null, "")
+      const result = await assignCrew(task.id, null, "", "")
       setIsAssigningCrew(false)
       if (!result.success) {
         setCrewError(result.message ?? "No se pudo quitar la cuadrilla.")
@@ -70,7 +70,12 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
     }
 
     const crew = crews.find((item) => item.id === value)
-    const result = await assignCrew(task.id, value, crew?.name ?? "")
+    const result = await assignCrew(
+      task.id,
+      value,
+      crew?.name ?? "",
+      crew?.supervisor ?? ""
+    )
     setIsAssigningCrew(false)
 
     if (!result.success) {

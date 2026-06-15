@@ -6,6 +6,7 @@ import type {
   EvidenceStatus,
   EvidenceUploadEvent,
 } from "@/lib/types/evidence"
+import type { AppUserRole } from "@/lib/auth/current-user"
 import type { EvidenceUploadOrigin } from "@/lib/evidence/upload-origin"
 
 export type CreateEvidencePayload = Omit<
@@ -43,6 +44,7 @@ export type UpdateEvidencePayload = Partial<{
   category: string
   comments: EvidenceComment[]
   uploadHistory: EvidenceUploadEvent[]
+  deletedAt?: string | null
 }>
 
 export type EvidencesRepositoryErrorCode =
@@ -70,7 +72,9 @@ export type UploadEvidenceInput = {
   taskCode?: string
   taskTitle?: string
   crew?: string
-  worker: string
+  /** Legacy field name — persisted as evidences.worker (uploadedBy). */
+  worker?: string
+  uploadedByRole?: AppUserRole
   description?: string
   category?: string
   evidenceType?: EvidenceCategoryType

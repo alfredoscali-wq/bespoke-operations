@@ -1,5 +1,6 @@
 import type { Crew } from "@/lib/types/crews"
 import type { EvidenceRecord } from "@/lib/types/evidence"
+import { isActiveEvidence } from "@/lib/evidence/utils"
 import type { Project, ProjectType } from "@/lib/types/projects"
 import type { Task, TaskStatus, TaskType } from "@/lib/types/tasks"
 import { TASK_STATUS_LABELS, formatTaskDate } from "@/lib/tasks/constants"
@@ -141,13 +142,13 @@ export function buildKpiMetrics(
   const closedTasks = countTasksByStatuses(tasks, ["cerrada"])
 
   const pendingEvidence = evidence.filter(
-    (item) => item.status === "pending-review"
+    (item) => isActiveEvidence(item) && item.status === "pending-review"
   ).length
   const approvedEvidence = evidence.filter(
-    (item) => item.status === "approved"
+    (item) => isActiveEvidence(item) && item.status === "approved"
   ).length
   const rejectedEvidence = evidence.filter(
-    (item) => item.status === "rejected"
+    (item) => isActiveEvidence(item) && item.status === "rejected"
   ).length
 
   const activeCrews = crews.filter((crew) => crew.status === "activa").length
@@ -331,7 +332,7 @@ export function buildRecentActivity(
     })
   })
 
-  evidence.forEach((record) => {
+  evidence.filter(isActiveEvidence).forEach((record) => {
     events.push({
       id: `act-evidence-${record.id}`,
       title: "Evidencia cargada",

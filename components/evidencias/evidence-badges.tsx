@@ -64,3 +64,17 @@ export function EvidenceCategoryBadge({
     </Badge>
   )
 }
+
+export function EvidenceVoidedBadge({ className }: { className?: string }) {
+  return (
+    <Badge
+      variant="outline"
+      className={cn(
+        "font-medium border-slate-200 bg-slate-100 text-slate-700",
+        className
+      )}
+    >
+      Anulada
+    </Badge>
+  )
+}

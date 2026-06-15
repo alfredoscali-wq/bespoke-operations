@@ -55,7 +55,8 @@ type TasksContextValue = {
   assignCrew: (
     id: string,
     crewId: string | null,
-    crewName?: string
+    crewName?: string,
+    supervisor?: string
   ) => Promise<TaskMutationResult>
   deleteTask: (id: string) => Promise<TaskMutationResult>
   startTask: (id: string) => Promise<TaskMutationResult>
@@ -374,7 +375,8 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     async (
       id: string,
       crewId: string | null,
-      crewName = ""
+      crewName = "",
+      supervisor = ""
     ): Promise<TaskMutationResult> => {
       const existing = tasks.find((item) => item.id === id)
       if (!existing) {
@@ -384,6 +386,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       const payload: UpdateTaskPayload = {
         crewId,
         crew: crewName,
+        supervisor: crewId ? supervisor : "",
       }
 
       const nextStatus = resolveStatusAfterCrewAssignment(

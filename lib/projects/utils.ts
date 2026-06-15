@@ -1,6 +1,7 @@
 import { PROJECT_STATUS_LABELS } from "@/lib/projects/constants"
 import { getTasksForProject } from "@/lib/tasks/utils"
 import type { EvidenceRecord } from "@/lib/types/evidence"
+import { getActiveEvidence } from "@/lib/evidence/utils"
 import type { Project, ProjectStatus } from "@/lib/types/projects"
 import type { Task, TaskStatus } from "@/lib/types/tasks"
 
@@ -26,7 +27,7 @@ export function getProjectOperationalStats(
   evidence: EvidenceRecord[]
 ): ProjectOperationalStats {
   const projectTasks = getTasksForProject(project as Project, tasks)
-  const projectEvidence = evidence.filter(
+  const projectEvidence = getActiveEvidence(evidence).filter(
     (item) =>
       item.projectId === project.id || item.projectCode === project.code
   )

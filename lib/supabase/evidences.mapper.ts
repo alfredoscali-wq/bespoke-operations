@@ -1,4 +1,5 @@
 import { PREVIEW_IMAGES } from "@/lib/evidence/constants"
+import { resolveEvidenceUploadedByRole } from "@/lib/auth/evidence-uploader"
 import type {
   EvidenceInsert,
   EvidenceRow,
@@ -63,6 +64,8 @@ export function mapEvidenceRowToRecord(
   row: EvidenceRow,
   signedUrl?: string | null
 ): EvidenceRecord {
+  const uploadHistory = parseUploadHistory(row.upload_history)
+
   return {
     id: row.id,
     fileName: row.file_name,
@@ -77,12 +80,14 @@ export function mapEvidenceRowToRecord(
     taskTitle: row.task_title,
     crew: row.crew,
     worker: row.worker,
+    uploadedByRole: resolveEvidenceUploadedByRole({ uploadHistory }),
+    deletedAt: row.deleted_at,
     uploadedAt: row.uploaded_at,
     status: row.status,
     description: row.description,
     category: row.category,
     comments: parseComments(row.comments),
-    uploadHistory: parseUploadHistory(row.upload_history),
+    uploadHistory,
   }
 }
 
@@ -155,6 +160,9 @@ export function mapUpdatePayloadToUpdate(
   if (payload.comments !== undefined) update.comments = payload.comments
   if (payload.uploadHistory !== undefined) {
     update.upload_history = payload.uploadHistory
+  }
+  if (payload.deletedAt !== undefined) {
+    update.deleted_at = payload.deletedAt
   }
 
   return update

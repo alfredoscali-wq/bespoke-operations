@@ -2,20 +2,28 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, CheckCircle2, XCircle } from "lucide-react"
+import { AlertTriangle, ArrowLeft, Ban, CheckCircle2, XCircle } from "lucide-react"
 
 import { EvidenceChecklistPanel } from "@/components/evidencias/evidence-checklist-panel"
 import { EvidenceNavigationBar } from "@/components/evidencias/evidence-navigation"
 import { EvidencePreview } from "@/components/evidencias/evidence-preview"
 import { EvidenceRejectDialog } from "@/components/evidencias/evidence-reject-dialog"
+import { EvidenceVoidDialog } from "@/components/evidencias/evidence-void-dialog"
 import { EvidenceUploadHistory } from "@/components/evidencias/evidence-upload-history"
 import { useEvidence } from "@/components/evidencias/evidence-provider"
 import {
   EvidenceCategoryBadge,
   EvidenceStatusBadge,
   EvidenceTypeBadge,
+  EvidenceVoidedBadge,
 } from "@/components/evidencias/evidence-badges"
 import { formatEvidenceDateTime } from "@/lib/evidence/constants"
+import { DASHBOARD_USER, formatAppUserRole } from "@/lib/auth/current-user"
+import { resolveEvidenceUploadedByRole } from "@/lib/auth/evidence-uploader"
+import {
+  canVoidEvidence,
+  resolveEvidenceVoidDetails,
+} from "@/lib/evidence/utils"
 import type { EvidenceNavigation, EvidenceRecord } from "@/lib/types/evidence"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -37,10 +45,16 @@ export function EvidenceDetailView({
   record,
   navigation,
 }: EvidenceDetailViewProps) {
-  const { approveEvidence, rejectEvidence } = useEvidence()
+  const { approveEvidence, rejectEvidence, voidEvidence } = useEvidence()
   const [actionMessage, setActionMessage] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [rejectOpen, setRejectOpen] = useState(false)
+  const [voidOpen, setVoidOpen] = useState(false)
+  const uploadedByRole = resolveEvidenceUploadedByRole(record)
+  const voidDetails = resolveEvidenceVoidDetails(record)
+  const isVoided = Boolean(record.deletedAt)
+  const canVoid =
+    !isVoided && canVoidEvidence(DASHBOARD_USER.role)
 
   function handleApprove() {
     const result = approveEvidence(record.id)
@@ -60,6 +74,17 @@ export function EvidenceDetailView({
       setActionError(null)
     } else {
       setActionError(result.message ?? "No se pudo rechazar la evidencia.")
+      setActionMessage(null)
+    }
+  }
+
+  function handleVoid(reason: string) {
+    const result = voidEvidence(record.id, reason)
+    if (result.success) {
+      setActionMessage(result.message ?? null)
+      setActionError(null)
+    } else {
+      setActionError(result.message ?? "No se pudo anular la evidencia.")
       setActionMessage(null)
     }
   }
@@ -89,6 +114,7 @@ export function EvidenceDetailView({
             <EvidenceCategoryBadge evidenceType={record.evidenceType} />
             <EvidenceTypeBadge type={record.type} />
             <EvidenceStatusBadge status={record.status} />
+            {isVoided && <EvidenceVoidedBadge />}
           </div>
           <h2 className="text-xl font-semibold tracking-tight break-all sm:text-2xl">
             {record.fileName}
@@ -96,26 +122,57 @@ export function EvidenceDetailView({
           <p className="text-sm text-muted-foreground">{record.description}</p>
         </div>
 
-        {record.status === "pending-review" && (
+        {canVoid && (
           <div className="flex flex-wrap gap-2">
+            {record.status === "pending-review" && (
+              <>
+                <Button
+                  className="gap-1.5 bg-emerald-600 hover:bg-emerald-700"
+                  onClick={handleApprove}
+                >
+                  <CheckCircle2 className="size-4" />
+                  Aprobar
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="gap-1.5"
+                  onClick={() => setRejectOpen(true)}
+                >
+                  <XCircle className="size-4" />
+                  Rechazar
+                </Button>
+              </>
+            )}
             <Button
-              className="gap-1.5 bg-emerald-600 hover:bg-emerald-700"
-              onClick={handleApprove}
+              variant="outline"
+              className="gap-1.5 border-destructive/30 text-destructive hover:bg-destructive/5"
+              onClick={() => setVoidOpen(true)}
             >
-              <CheckCircle2 className="size-4" />
-              Aprobar
-            </Button>
-            <Button
-              variant="destructive"
-              className="gap-1.5"
-              onClick={() => setRejectOpen(true)}
-            >
-              <XCircle className="size-4" />
-              Rechazar
+              <Ban className="size-4" />
+              Anular evidencia
             </Button>
           </div>
         )}
       </div>
+
+      {isVoided && (
+        <Alert variant="destructive">
+          <AlertTriangle className="size-4" />
+          <AlertDescription>
+            Evidencia anulada el{" "}
+            {voidDetails.voidedAt
+              ? formatEvidenceDateTime(voidDetails.voidedAt)
+              : "—"}{" "}
+            por {voidDetails.voidedBy ?? "—"}.
+            {voidDetails.voidReason ? (
+              <>
+                {" "}
+                Motivo: {voidDetails.voidReason}
+              </>
+            ) : null}
+          </AlertDescription>
+        </Alert>
+      )}
 
       {actionMessage && (
         <Alert>
@@ -188,13 +245,20 @@ export function EvidenceDetailView({
             <Separator />
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <p className="text-xs text-muted-foreground">Operario</p>
+                <p className="text-xs text-muted-foreground">Subido por</p>
                 <p className="font-medium">{record.worker}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Cuadrilla</p>
-                <p className="font-medium">{record.crew}</p>
+                <p className="text-xs text-muted-foreground">Rol</p>
+                <p className="font-medium">
+                  {uploadedByRole ? formatAppUserRole(uploadedByRole) : "—"}
+                </p>
               </div>
+            </div>
+            <Separator />
+            <div>
+              <p className="text-xs text-muted-foreground">Cuadrilla</p>
+              <p className="font-medium">{record.crew}</p>
             </div>
             <Separator />
             <div>
@@ -204,6 +268,29 @@ export function EvidenceDetailView({
               </p>
             </div>
             <Separator />
+            {isVoided && (
+              <>
+                <div>
+                  <p className="text-xs text-muted-foreground">Anulada por</p>
+                  <p className="font-medium">{voidDetails.voidedBy ?? "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">
+                    Fecha de anulación
+                  </p>
+                  <p className="font-medium">
+                    {voidDetails.voidedAt
+                      ? formatEvidenceDateTime(voidDetails.voidedAt)
+                      : "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Motivo</p>
+                  <p className="font-medium">{voidDetails.voidReason ?? "—"}</p>
+                </div>
+                <Separator />
+              </>
+            )}
             <div>
               <p className="text-xs text-muted-foreground">Estado de aprobación</p>
               <div className="mt-1">
@@ -252,6 +339,13 @@ export function EvidenceDetailView({
         open={rejectOpen}
         onOpenChange={setRejectOpen}
         onConfirm={handleReject}
+        fileName={record.fileName}
+      />
+
+      <EvidenceVoidDialog
+        open={voidOpen}
+        onOpenChange={setVoidOpen}
+        onConfirm={handleVoid}
         fileName={record.fileName}
       />
     </div>

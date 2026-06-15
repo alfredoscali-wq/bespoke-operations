@@ -5,12 +5,15 @@ import { useEffect, useState } from "react"
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import type { Project } from "@/lib/types/projects"
 import type { Task, TaskPriority, TaskType } from "@/lib/types/tasks"
-import { SUPERVISORS } from "@/lib/projects/constants"
 import {
   TASK_PRIORITY_OPTIONS,
   TASK_TYPE_OPTIONS,
 } from "@/lib/tasks/constants"
-import { generateTaskCode } from "@/lib/tasks/utils"
+import {
+  generateTaskCode,
+  resolveSupervisorFromCrew,
+  resolveTaskSupervisorForCrewChange,
+} from "@/lib/tasks/utils"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -69,7 +72,6 @@ type TaskFormState = {
   description: string
   type: TaskType
   priority: TaskPriority
-  supervisor: string
   crew: string
   startDate: string
   dueDate: string
@@ -88,7 +90,6 @@ function buildCreateForm(project: Project): TaskFormState {
     description: "",
     type: projectTypeToTaskType(project.type),
     priority: "media",
-    supervisor: project.supervisor,
     crew: "",
     startDate: today,
     dueDate: project.endDate || today,
@@ -102,7 +103,6 @@ function buildEditForm(task: Task): TaskFormState {
     description: task.description,
     type: task.type,
     priority: task.priority,
-    supervisor: task.supervisor,
     crew: task.crew,
     startDate: task.startDate,
     dueDate: task.dueDate,
@@ -123,6 +123,17 @@ export function ProjectTaskDialog({
   const [form, setForm] = useState<TaskFormState>(() => buildCreateForm(project))
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const selectedCrew = crews.find((crew) => crew.name === form.crew)
+  const inheritedSupervisor =
+    mode === "edit" && task
+      ? resolveTaskSupervisorForCrewChange(
+          form.crew,
+          crews,
+          task.crew,
+          task.supervisor
+        )
+      : resolveSupervisorFromCrew(selectedCrew)
 
   useEffect(() => {
     if (!open) return
@@ -178,7 +189,7 @@ export function ProjectTaskDialog({
         description: form.description.trim(),
         type: form.type,
         priority: form.priority,
-        supervisor: form.supervisor,
+        supervisor: inheritedSupervisor,
         crew: form.crew,
         startDate: form.startDate,
         dueDate: form.dueDate,
@@ -199,7 +210,6 @@ export function ProjectTaskDialog({
 
   const isValid =
     form.title.trim() !== "" &&
-    form.supervisor !== "" &&
     form.crew !== "" &&
     form.startDate !== "" &&
     form.dueDate !== ""
@@ -296,44 +306,31 @@ export function ProjectTaskDialog({
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Supervisor</Label>
-              <Select
-                value={form.supervisor}
-                onValueChange={(value) => updateField("supervisor", value)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {SUPERVISORS.map((supervisor) => (
-                    <SelectItem key={supervisor} value={supervisor}>
-                      {supervisor}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Cuadrilla</Label>
-              <Select
-                value={form.crew}
-                onValueChange={(value) => updateField("crew", value)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {crews.map((crew) => (
-                    <SelectItem key={crew.id} value={crew.name}>
-                      {crew.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-2">
+            <Label>Cuadrilla</Label>
+            <Select
+              value={form.crew}
+              onValueChange={(value) => updateField("crew", value)}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {crews.map((crew) => (
+                  <SelectItem key={crew.id} value={crew.name}>
+                    {crew.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {form.crew && inheritedSupervisor ? (
+              <p className="text-xs text-muted-foreground">
+                Supervisor asignado por cuadrilla:{" "}
+                <span className="font-medium text-foreground">
+                  {inheritedSupervisor}
+                </span>
+              </p>
+            ) : null}
           </div>
 
           {mode === "create" && (

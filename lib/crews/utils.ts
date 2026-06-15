@@ -6,6 +6,7 @@ import type {
   CrewSummary,
 } from "@/lib/types/crews"
 import type { EvidenceRecord } from "@/lib/types/evidence"
+import { getActiveEvidence } from "@/lib/evidence/utils"
 import type { Project, ProjectStatus } from "@/lib/types/projects"
 import type { Task, TaskStatus } from "@/lib/types/tasks"
 
@@ -187,7 +188,9 @@ export function getCrewDetail(
     performance: {
       completedTasks,
       averageCompletionDays: 0,
-      approvedEvidence: evidence.filter((item) => item.crew === crew.name).length,
+      approvedEvidence: getActiveEvidence(evidence).filter(
+        (item) => item.crew === crew.name
+      ).length,
       productivityScore: 0,
     },
     stats: {

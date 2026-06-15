@@ -1,4 +1,5 @@
 import type { ChecklistItem, Task, TaskStatus } from "@/lib/types/tasks"
+import type { Crew } from "@/lib/types/crews"
 import type { Project } from "@/lib/types/projects"
 import {
   canPerformTaskAction,
@@ -46,6 +47,42 @@ export function getTasksForProject(project: Project, tasks: Task[]): Task[] {
 
 export function isFieldServiceTask(task: Pick<Task, "projectId">): boolean {
   return !task.projectId
+}
+
+export function resolveSupervisorFromCrew(
+  crew: Pick<Crew, "supervisor"> | null | undefined
+): string {
+  return crew?.supervisor.trim() ?? ""
+}
+
+/**
+ * Derives task supervisor from crew selection.
+ * Preserves existing supervisor when the crew name is unchanged (edit compatibility).
+ */
+export function resolveTaskSupervisorForCrewChange(
+  crewName: string,
+  crews: Pick<Crew, "name" | "supervisor">[],
+  previousCrewName?: string,
+  existingSupervisor?: string
+): string {
+  if (!crewName.trim()) {
+    return ""
+  }
+
+  const crew = crews.find((item) => item.name === crewName)
+  if (!crew) {
+    return existingSupervisor ?? ""
+  }
+
+  if (
+    previousCrewName !== undefined &&
+    previousCrewName === crewName &&
+    existingSupervisor !== undefined
+  ) {
+    return existingSupervisor
+  }
+
+  return resolveSupervisorFromCrew(crew)
 }
 
 export function generateFieldServiceTaskCode(tasks: Task[]): string {

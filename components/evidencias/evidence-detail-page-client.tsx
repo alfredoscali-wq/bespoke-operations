@@ -26,7 +26,7 @@ export function EvidenceDetailPageClient({ id }: EvidenceDetailPageClientProps) 
 
   return (
     <EvidenceDetailView
-      key={`${record.id}-${record.status}-${record.comments.length}`}
+      key={`${record.id}-${record.status}-${record.comments.length}-${record.deletedAt ?? "active"}`}
       record={record}
       navigation={navigation}
     />

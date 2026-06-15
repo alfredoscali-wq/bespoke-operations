@@ -15,6 +15,9 @@ import {
   getStorageSegmentTaskId,
 } from "@/lib/supabase/evidences.storage"
 import { resolveEvidenceStatusForOrigin } from "@/lib/evidence/upload-origin"
+import { normalizeUploadEvidenceInput } from "@/lib/auth/evidence-uploader"
+import type { AppUserRole } from "@/lib/auth/current-user"
+import { EVIDENCE_VOID_HISTORY_ACTION } from "@/lib/evidence/utils"
 import type { EvidenceRecord } from "@/lib/types/evidence"
 import type {
   CreateEvidencePayload,
@@ -115,7 +118,6 @@ export async function fetchEvidences(
   const { data, error } = await client
     .from("evidences")
     .select("*")
-    .is("deleted_at", null)
     .order("uploaded_at", { ascending: false })
 
   if (error) {
@@ -136,7 +138,6 @@ export async function fetchEvidenceById(
     .from("evidences")
     .select("*")
     .eq("id", id)
-    .is("deleted_at", null)
     .maybeSingle()
 
   if (error) {
@@ -317,35 +318,37 @@ export async function uploadEvidenceWithFile(
   client: SupabaseEvidencesClient,
   input: UploadEvidenceInput
 ): Promise<EvidencesRepositoryResult<EvidenceRecord>> {
-  const validationError = validateEvidenceImageFile(input.file)
+  const normalized = normalizeUploadEvidenceInput(input)
+  const validationError = validateEvidenceImageFile(normalized.file)
   if (validationError) return validationError
 
   const uploadedAt = new Date().toISOString()
-  const status = resolveEvidenceStatusForOrigin(input.origin ?? "dashboard")
+  const status = resolveEvidenceStatusForOrigin(normalized.origin ?? "dashboard")
   const metadata: CreateEvidencePayload = {
-    fileName: input.file.name,
+    fileName: normalized.file.name,
     type: "photo",
-    evidenceType: input.evidenceType ?? "progress-photo",
-    projectId: input.projectId || null,
-    projectCode: input.projectCode,
-    projectName: input.projectName,
-    taskId: input.taskId ?? null,
-    taskCode: input.taskCode?.trim() || "OBRA",
-    taskTitle: input.taskTitle?.trim() || "Evidencia general de obra",
-    crew: input.crew?.trim() || "—",
-    worker: input.worker,
+    evidenceType: normalized.evidenceType ?? "progress-photo",
+    projectId: normalized.projectId || null,
+    projectCode: normalized.projectCode,
+    projectName: normalized.projectName,
+    taskId: normalized.taskId ?? null,
+    taskCode: normalized.taskCode?.trim() || "OBRA",
+    taskTitle: normalized.taskTitle?.trim() || "Evidencia general de obra",
+    crew: normalized.crew?.trim() || "—",
+    worker: normalized.worker,
     uploadedAt,
     status,
-    description: input.description ?? "",
-    category: input.category ?? "Campo",
+    description: normalized.description ?? "",
+    category: normalized.category ?? "Campo",
     comments: [],
     uploadHistory: [
       {
         id: `ev-h-upload-${Date.now()}`,
         action: "Archivo cargado",
-        user: input.worker,
+        user: normalized.worker,
         timestamp: uploadedAt,
-        note: input.file.name,
+        note: normalized.file.name,
+        role: normalized.uploadedByRole,
       },
       ...(status === "approved"
         ? [
@@ -368,18 +371,18 @@ export async function uploadEvidenceWithFile(
 
   const evidenceId = insertResult.data.id
   const projectSegment = getStorageSegmentProjectId(
-    input.projectId,
-    input.projectCode
+    normalized.projectId,
+    normalized.projectCode
   )
-  const taskSegment = getStorageSegmentTaskId(input.taskId, input.taskCode)
+  const taskSegment = getStorageSegmentTaskId(normalized.taskId, normalized.taskCode)
 
   const uploadResult = await uploadEvidenceFile(client, {
     projectId: projectSegment,
     taskId: taskSegment,
     evidenceId,
-    fileName: input.file.name,
-    file: input.file,
-    contentType: input.file.type,
+    fileName: normalized.file.name,
+    file: normalized.file,
+    contentType: normalized.file.type,
   })
 
   if (uploadResult.error || !uploadResult.data) {
@@ -395,9 +398,87 @@ export async function uploadEvidenceWithFile(
 
   return patchEvidence(client, evidenceId, {
     storagePath: uploadResult.data.path,
-    mimeType: input.file.type,
-    fileSizeBytes: input.file.size,
+    mimeType: normalized.file.type,
+    fileSizeBytes: normalized.file.size,
   })
+}
+
+export async function softVoidEvidence(
+  client: SupabaseEvidencesClient,
+  id: string,
+  input: {
+    reason: string
+    voidedBy: string
+    voidedByRole: AppUserRole
+    uploadHistory: EvidenceRecord["uploadHistory"]
+  }
+): Promise<EvidencesRepositoryResult<EvidenceRecord>> {
+  const existing = await fetchEvidenceById(client, id)
+
+  if (existing.error || !existing.data) {
+    return {
+      data: null,
+      error: existing.error ?? {
+        code: "NOT_FOUND",
+        message: "Evidencia no encontrada.",
+      },
+    }
+  }
+
+  if (existing.data.deletedAt) {
+    return {
+      data: null,
+      error: {
+        code: "VALIDATION",
+        message: "Esta evidencia ya fue anulada.",
+      },
+    }
+  }
+
+  const voidedAt = new Date().toISOString()
+  const uploadHistory: EvidenceRecord["uploadHistory"] = [
+    {
+      id: `ev-h-void-${Date.now()}`,
+      action: EVIDENCE_VOID_HISTORY_ACTION,
+      user: input.voidedBy,
+      timestamp: voidedAt,
+      note: input.reason.trim(),
+      role: input.voidedByRole,
+    },
+    ...input.uploadHistory,
+  ]
+
+  const { data, error } = await client
+    .from("evidences")
+    .update({
+      deleted_at: voidedAt,
+      upload_history: uploadHistory,
+    })
+    .eq("id", id)
+    .is("deleted_at", null)
+    .select("*")
+    .maybeSingle()
+
+  if (error) {
+    return { data: null, error: mapSupabaseEvidenceError(error) }
+  }
+
+  if (!data) {
+    return {
+      data: null,
+      error: {
+        code: "NOT_FOUND",
+        message: "Evidencia no encontrada o ya anulada.",
+      },
+    }
+  }
+
+  const [record] = await mapRowsToRecordsWithSignedUrls(client, [data])
+
+  return {
+    data: record,
+    error: null,
+  }
 }
 
 export async function getEvidenceSignedUrl(

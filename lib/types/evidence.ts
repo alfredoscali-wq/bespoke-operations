@@ -1,3 +1,5 @@
+import type { AppUserRole } from "@/lib/auth/current-user"
+
 export type EvidenceStatus = "pending-review" | "approved" | "rejected"
 
 export type EvidenceFileType = "photo" | "pdf" | "plan" | "video"
@@ -24,6 +26,7 @@ export type EvidenceUploadEvent = {
   user: string
   timestamp: string
   note?: string
+  role?: AppUserRole
 }
 
 export type EvidenceRecord = {
@@ -40,6 +43,8 @@ export type EvidenceRecord = {
   taskTitle: string
   crew: string
   worker: string
+  uploadedByRole?: AppUserRole
+  deletedAt?: string | null
   uploadedAt: string
   status: EvidenceStatus
   description: string
@@ -58,6 +63,7 @@ export type EvidenceFilters = {
   dateTo: string
   fileType: EvidenceFileType | "document" | "all"
   evidenceType: EvidenceCategoryType | "all"
+  includeVoided: boolean
 }
 
 export type EvidenceSummary = {

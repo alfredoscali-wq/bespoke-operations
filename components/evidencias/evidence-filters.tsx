@@ -44,7 +44,8 @@ export function EvidenceFiltersBar({
     filters.dateFrom !== "" ||
     filters.dateTo !== "" ||
     filters.fileType !== "all" ||
-    filters.evidenceType !== "all"
+    filters.evidenceType !== "all" ||
+    filters.includeVoided
 
   function update<K extends keyof EvidenceFilters>(
     key: K,
@@ -64,6 +65,7 @@ export function EvidenceFiltersBar({
       dateTo: "",
       fileType: "all",
       evidenceType: "all",
+      includeVoided: false,
     })
   }
 
@@ -210,6 +212,16 @@ export function EvidenceFiltersBar({
           </div>
         </div>
       </div>
+
+      <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
+        <input
+          type="checkbox"
+          checked={filters.includeVoided}
+          onChange={(event) => update("includeVoided", event.target.checked)}
+          className="size-4 rounded border border-input accent-primary"
+        />
+        Mostrar evidencias anuladas
+      </label>
 
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
         <span>

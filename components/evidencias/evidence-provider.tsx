@@ -12,12 +12,16 @@ import {
 
 import { appendUploadHistoryEvent } from "@/lib/data/evidence-enrichment"
 import { createEvidenceFromInput, mockEvidence } from "@/lib/data/evidence"
+import { DASHBOARD_USER } from "@/lib/auth/current-user"
+import { normalizeUploadEvidenceInput } from "@/lib/auth/evidence-uploader"
+import { EVIDENCE_VOID_HISTORY_ACTION } from "@/lib/evidence/utils"
 import { resolveEvidenceStatusForOrigin } from "@/lib/evidence/upload-origin"
 import {
   createBrowserEvidencesClient,
   listEvidences,
   updateEvidence,
   uploadEvidenceWithFile,
+  voidEvidence as voidEvidenceInSupabase,
 } from "@/lib/supabase/evidences.browser"
 import type { EvidenceRecord, EvidenceStatus } from "@/lib/types/evidence"
 import type {
@@ -38,6 +42,7 @@ type EvidenceContextValue = {
   uploadEvidence: (input: UploadEvidenceInput) => Promise<UploadEvidenceResult>
   approveEvidence: (id: string) => ReviewActionResult
   rejectEvidence: (id: string, comment: string) => ReviewActionResult
+  voidEvidence: (id: string, reason: string) => ReviewActionResult
 }
 
 const EvidenceContext = createContext<EvidenceContextValue | null>(null)
@@ -107,10 +112,12 @@ export function EvidenceProvider({ children }: { children: React.ReactNode }) {
 
   const uploadEvidence = useCallback(
     async (input: UploadEvidenceInput): Promise<UploadEvidenceResult> => {
+      const normalized = normalizeUploadEvidenceInput(input)
+
       if (usesSupabaseRef.current) {
         try {
           const client = createBrowserEvidencesClient()
-          const result = await uploadEvidenceWithFile(input, client)
+          const result = await uploadEvidenceWithFile(normalized, client)
 
           if (result.error || !result.data) {
             return {
@@ -132,22 +139,23 @@ export function EvidenceProvider({ children }: { children: React.ReactNode }) {
       }
 
       const uploadedAt = new Date().toISOString()
-      const status = resolveEvidenceStatusForOrigin(input.origin ?? "dashboard")
+      const status = resolveEvidenceStatusForOrigin(normalized.origin ?? "dashboard")
       const record = createEvidenceFromInput({
-        fileName: input.file.name,
+        fileName: normalized.file.name,
         type: "photo",
-        projectId: input.projectId ?? "",
-        projectCode: input.projectCode,
-        projectName: input.projectName,
-        taskId: input.taskId ?? "",
-        taskCode: input.taskCode ?? "OBRA",
-        taskTitle: input.taskTitle ?? "Evidencia general de obra",
-        crew: input.crew ?? "—",
-        worker: input.worker,
+        projectId: normalized.projectId ?? "",
+        projectCode: normalized.projectCode,
+        projectName: normalized.projectName,
+        taskId: normalized.taskId ?? "",
+        taskCode: normalized.taskCode ?? "OBRA",
+        taskTitle: normalized.taskTitle ?? "Evidencia general de obra",
+        crew: normalized.crew ?? "—",
+        worker: normalized.worker,
+        uploadedByRole: normalized.uploadedByRole,
         uploadedAt,
         status,
-        description: input.description ?? "",
-        category: input.category ?? "Campo",
+        description: normalized.description ?? "",
+        category: normalized.category ?? "Campo",
         comments: [],
       })
 
@@ -181,6 +189,10 @@ export function EvidenceProvider({ children }: { children: React.ReactNode }) {
           if (item.id !== id) return item
 
           if (item.status !== "pending-review") {
+            return item
+          }
+
+          if (item.deletedAt) {
             return item
           }
 
@@ -234,6 +246,10 @@ export function EvidenceProvider({ children }: { children: React.ReactNode }) {
             return item
           }
 
+          if (item.deletedAt) {
+            return item
+          }
+
           updated = true
           const timestamp = new Date().toISOString()
 
@@ -277,6 +293,70 @@ export function EvidenceProvider({ children }: { children: React.ReactNode }) {
     [persistEvidenceStatus]
   )
 
+  const voidEvidence = useCallback(
+    (id: string, reason: string): ReviewActionResult => {
+      const trimmed = reason.trim()
+      if (!trimmed) {
+        return {
+          success: false,
+          message: "Debe indicar el motivo de la anulación.",
+        }
+      }
+
+      const existing = evidence.find((item) => item.id === id)
+      if (!existing) {
+        return { success: false, message: "Evidencia no encontrada." }
+      }
+
+      if (existing.deletedAt) {
+        return {
+          success: false,
+          message: "Esta evidencia ya fue anulada.",
+        }
+      }
+
+      const voidedAt = new Date().toISOString()
+      let updatedRecord: EvidenceRecord | undefined
+
+      setEvidence((current) =>
+        current.map((item) => {
+          if (item.id !== id) return item
+
+          updatedRecord = {
+            ...item,
+            deletedAt: voidedAt,
+            uploadHistory: appendUploadHistoryEvent(item, {
+              action: EVIDENCE_VOID_HISTORY_ACTION,
+              user: DASHBOARD_USER.name,
+              timestamp: voidedAt,
+              note: trimmed,
+              role: DASHBOARD_USER.role,
+            }),
+          }
+
+          return updatedRecord
+        })
+      )
+
+      if (usesSupabaseRef.current && updatedRecord) {
+        void voidEvidenceInSupabase(id, {
+          reason: trimmed,
+          voidedBy: DASHBOARD_USER.name,
+          voidedByRole: DASHBOARD_USER.role,
+          uploadHistory: updatedRecord.uploadHistory,
+        }).catch(() => {
+          // Keep optimistic local state if persistence fails.
+        })
+      }
+
+      return {
+        success: true,
+        message: "Evidencia anulada correctamente.",
+      }
+    },
+    [evidence]
+  )
+
   const value = useMemo(
     () => ({
       evidence,
@@ -286,6 +366,7 @@ export function EvidenceProvider({ children }: { children: React.ReactNode }) {
       uploadEvidence,
       approveEvidence,
       rejectEvidence,
+      voidEvidence,
     }),
     [
       evidence,
@@ -295,6 +376,7 @@ export function EvidenceProvider({ children }: { children: React.ReactNode }) {
       uploadEvidence,
       approveEvidence,
       rejectEvidence,
+      voidEvidence,
     ]
   )
 

@@ -19,6 +19,7 @@ import { useEvidence } from "@/components/evidencias/evidence-provider"
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { useOperario } from "@/components/operario/operario-provider"
 import { getEvidenceTaskKey } from "@/lib/data/evidence"
+import { isActiveEvidence } from "@/lib/evidence/utils"
 import { getWorkerTasks } from "@/lib/data/operario"
 import {
   TASK_PRIORITY_LABELS,
@@ -80,7 +81,8 @@ export function OperarioTaskDetailScreen({ id }: OperarioTaskDetailScreenProps) 
     })
 
     return evidence.filter(
-      (item) => getEvidenceTaskKey(item) === taskKey
+      (item) =>
+        isActiveEvidence(item) && getEvidenceTaskKey(item) === taskKey
     )
   }, [evidence, task])
 
@@ -121,7 +123,6 @@ export function OperarioTaskDetailScreen({ id }: OperarioTaskDetailScreenProps) 
       taskCode: activeTask.code,
       taskTitle: activeTask.title,
       crew: activeTask.crew,
-      worker: worker.name,
       description: `Evidencia de campo — ${activeTask.code}`,
       category: "Campo",
       evidenceType: "progress-photo",

@@ -101,6 +101,8 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
     estimatedDuration: string
   }) {
     if (dialogMode === "edit" && selectedTask) {
+      const selectedCrew = crews.find((crew) => crew.name === payload.crew)
+
       const result = await editTask(selectedTask.id, {
         title: payload.title,
         description: payload.description,
@@ -108,6 +110,7 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
         dueDate: payload.dueDate,
         startDate: payload.startDate,
         supervisor: payload.supervisor,
+        crewId: selectedCrew?.id ?? null,
         crew: payload.crew,
         estimatedDuration: payload.estimatedDuration,
       })
