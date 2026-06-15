@@ -17,11 +17,9 @@ import {
   TaskStatusBadge,
   TaskTypeBadge,
 } from "@/components/tareas/task-badges"
-import type { Task, TaskDetail, TaskStatus } from "@/lib/types/tasks"
-import {
-  TASK_STATUS_OPTIONS,
-} from "@/lib/tasks/constants"
-import { canMoveToStatus, isFieldServiceTask } from "@/lib/tasks/utils"
+import type { Task, TaskDetail } from "@/lib/types/tasks"
+import { canPerformTaskAction } from "@/lib/tasks/task-status-workflow"
+import { isFieldServiceTask } from "@/lib/tasks/utils"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
@@ -46,19 +44,11 @@ type TaskDetailViewProps = {
 
 export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
   const { crews } = useCrews()
-  const { updateTaskStatus, assignCrew } = useTasks()
-  const [statusError, setStatusError] = useState<string | null>(null)
+  const { assignCrew, approveTask, rejectTask, closeTask } = useTasks()
+  const [actionError, setActionError] = useState<string | null>(null)
   const [crewError, setCrewError] = useState<string | null>(null)
   const [isAssigningCrew, setIsAssigningCrew] = useState(false)
-
-  function handleStatusChange(newStatus: TaskStatus) {
-    const result = updateTaskStatus(task.id, newStatus)
-    if (!result.success) {
-      setStatusError(result.message ?? "No se pudo actualizar el estado.")
-      return
-    }
-    setStatusError(null)
-  }
+  const [isWorkflowActionPending, setIsWorkflowActionPending] = useState(false)
 
   async function handleCrewChange(value: string) {
     setCrewError(null)
@@ -81,6 +71,41 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
       setCrewError(result.message ?? "No se pudo asignar la cuadrilla.")
     }
   }
+
+  async function handleApprove() {
+    setActionError(null)
+    setIsWorkflowActionPending(true)
+    const result = await approveTask(task.id)
+    setIsWorkflowActionPending(false)
+
+    if (!result.success) {
+      setActionError(result.message ?? "No se pudo aprobar la tarea.")
+    }
+  }
+
+  async function handleReject() {
+    setActionError(null)
+    setIsWorkflowActionPending(true)
+    const result = await rejectTask(task.id)
+    setIsWorkflowActionPending(false)
+
+    if (!result.success) {
+      setActionError(result.message ?? "No se pudo rechazar la tarea.")
+    }
+  }
+
+  async function handleClose() {
+    setActionError(null)
+    setIsWorkflowActionPending(true)
+    const result = await closeTask(task.id)
+    setIsWorkflowActionPending(false)
+
+    if (!result.success) {
+      setActionError(result.message ?? "No se pudo cerrar la tarea.")
+    }
+  }
+
+  const submitValidation = canPerformTaskAction(task, "submit-for-approval")
 
   return (
     <div className="space-y-6">
@@ -134,7 +159,7 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
           <Select
             value={task.crewId ?? "none"}
             onValueChange={handleCrewChange}
-            disabled={isAssigningCrew}
+            disabled={isAssigningCrew || task.status === "cerrada"}
           >
             <SelectTrigger className="h-9 w-[200px] bg-background">
               <SelectValue placeholder="Cuadrilla" />
@@ -149,27 +174,35 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
             </SelectContent>
           </Select>
 
-          <Select value={task.status} onValueChange={handleStatusChange}>
-            <SelectTrigger className="h-9 w-[180px] bg-background">
-              <SelectValue placeholder="Estado" />
-            </SelectTrigger>
-            <SelectContent>
-              {TASK_STATUS_OPTIONS.map((option) => {
-                const validation = canMoveToStatus(task, option.value)
-                return (
-                  <SelectItem
-                    key={option.value}
-                    value={option.value}
-                    disabled={
-                      !validation.allowed && option.value !== task.status
-                    }
-                  >
-                    {option.label}
-                  </SelectItem>
-                )
-              })}
-            </SelectContent>
-          </Select>
+          {task.status === "en-aprobacion" && (
+            <>
+              <Button
+                size="sm"
+                onClick={handleApprove}
+                disabled={isWorkflowActionPending}
+              >
+                Aprobar
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleReject}
+                disabled={isWorkflowActionPending}
+              >
+                Rechazar
+              </Button>
+            </>
+          )}
+
+          {task.status === "finalizada" && (
+            <Button
+              size="sm"
+              onClick={handleClose}
+              disabled={isWorkflowActionPending}
+            >
+              Cerrar
+            </Button>
+          )}
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -194,19 +227,17 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
         </Alert>
       )}
 
-      {statusError && (
+      {actionError && (
         <Alert variant="destructive">
           <AlertTriangle className="size-4" />
-          <AlertDescription>{statusError}</AlertDescription>
+          <AlertDescription>{actionError}</AlertDescription>
         </Alert>
       )}
 
-      {!canMoveToStatus(task, "finalizada").allowed && task.status !== "cerrada" && (
+      {task.status === "en-curso" && !submitValidation.allowed && (
         <Alert>
           <AlertTriangle className="size-4" />
-          <AlertDescription>
-            {canMoveToStatus(task, "finalizada").message}
-          </AlertDescription>
+          <AlertDescription>{submitValidation.message}</AlertDescription>
         </Alert>
       )}
 

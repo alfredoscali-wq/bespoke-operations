@@ -4,24 +4,11 @@ import { useState } from "react"
 import Link from "next/link"
 import { AlertTriangle } from "lucide-react"
 
-import { useTasks } from "@/components/tareas/tasks-provider"
-import { TaskOperationBadge, TaskPriorityBadge } from "@/components/tareas/task-badges"
+import { TaskOperationBadge, TaskPriorityBadge, TaskStatusBadge } from "@/components/tareas/task-badges"
 import { isFieldServiceTask } from "@/lib/tasks/utils"
-import {
-  TASK_STATUS_LABELS,
-  formatTaskDate,
-} from "@/lib/tasks/constants"
-import { canMoveToStatus } from "@/lib/tasks/utils"
-import type { Task, TaskStatus } from "@/lib/types/tasks"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { formatTaskDate } from "@/lib/tasks/constants"
+import type { Task } from "@/lib/types/tasks"
 import { Progress } from "@/components/ui/progress"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 
 type TaskKanbanCardProps = {
@@ -29,18 +16,6 @@ type TaskKanbanCardProps = {
 }
 
 export function TaskKanbanCard({ task }: TaskKanbanCardProps) {
-  const { updateTaskStatus } = useTasks()
-  const [error, setError] = useState<string | null>(null)
-
-  function handleStatusChange(newStatus: TaskStatus) {
-    const result = updateTaskStatus(task.id, newStatus)
-    if (!result.success) {
-      setError(result.message ?? "No se pudo actualizar el estado.")
-      return
-    }
-    setError(null)
-  }
-
   return (
     <Card className="gap-0 py-0 shadow-sm transition-shadow hover:shadow-md">
       <CardHeader className="gap-2 px-3 pt-3 pb-2">
@@ -65,6 +40,10 @@ export function TaskKanbanCard({ task }: TaskKanbanCardProps) {
       </CardHeader>
 
       <CardContent className="space-y-3 px-3 pb-3">
+        <div className="flex items-center justify-between gap-2">
+          <TaskStatusBadge status={task.status} className="text-[10px]" />
+        </div>
+
         <div className="space-y-1 text-[11px] text-muted-foreground">
           <p className="font-mono">
             {isFieldServiceTask(task)
@@ -86,45 +65,6 @@ export function TaskKanbanCard({ task }: TaskKanbanCardProps) {
           </div>
           <Progress value={task.progress} className="h-1.5" />
         </div>
-
-        {error && (
-          <Alert variant="destructive" className="py-2">
-            <AlertTriangle className="size-3.5" />
-            <AlertDescription className="text-[11px]">{error}</AlertDescription>
-          </Alert>
-        )}
-
-        <Select value={task.status} onValueChange={handleStatusChange}>
-          <SelectTrigger
-            className="h-7 w-full text-xs"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {(
-              [
-                "pendiente",
-                "asignada",
-                "en-curso",
-                "finalizada",
-                "en-aprobacion",
-                "cerrada",
-              ] as TaskStatus[]
-            ).map((status) => {
-              const validation = canMoveToStatus(task, status)
-              return (
-                <SelectItem
-                  key={status}
-                  value={status}
-                  disabled={!validation.allowed && status !== task.status}
-                >
-                  {TASK_STATUS_LABELS[status]}
-                </SelectItem>
-              )
-            })}
-          </SelectContent>
-        </Select>
       </CardContent>
     </Card>
   )

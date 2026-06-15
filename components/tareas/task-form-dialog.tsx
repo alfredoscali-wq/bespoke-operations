@@ -9,13 +9,11 @@ import type {
   Task,
   TaskOperationMode,
   TaskPriority,
-  TaskStatus,
   TaskType,
 } from "@/lib/types/tasks"
 import { SUPERVISORS } from "@/lib/projects/constants"
 import {
   TASK_PRIORITY_OPTIONS,
-  TASK_STATUS_OPTIONS,
   TASK_TYPE_OPTIONS,
 } from "@/lib/tasks/constants"
 import {
@@ -60,7 +58,6 @@ type TaskFormDialogProps = {
     serviceAddress?: string
     workOrderNumber?: string
     type: TaskType
-    status: TaskStatus
     priority: TaskPriority
     supervisor: string
     crew: string
@@ -81,7 +78,6 @@ type TaskFormState = {
   serviceAddress: string
   workOrderNumber: string
   type: TaskType
-  status: TaskStatus
   priority: TaskPriority
   supervisor: string
   crew: string
@@ -104,7 +100,6 @@ function buildDefaultForm(): TaskFormState {
     serviceAddress: "",
     workOrderNumber: "",
     type: "maintenance",
-    status: "pendiente",
     priority: "media",
     supervisor: SUPERVISORS[0] ?? "",
     crew: "",
@@ -234,7 +229,6 @@ export function TaskFormDialog({
         serviceAddress: isObra ? undefined : form.serviceAddress.trim(),
         workOrderNumber: isObra ? undefined : form.workOrderNumber.trim(),
         type: form.type,
-        status: form.status,
         priority: form.priority,
         supervisor: form.supervisor,
         crew: form.crew,
@@ -426,27 +420,6 @@ export function TaskFormDialog({
                 </SelectTrigger>
                 <SelectContent>
                   {TASK_PRIORITY_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Estado</Label>
-              <Select
-                value={form.status}
-                onValueChange={(value) =>
-                  updateField("status", value as TaskStatus)
-                }
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {TASK_STATUS_OPTIONS.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
                     </SelectItem>

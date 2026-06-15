@@ -27,7 +27,7 @@ import {
   formatTaskDate,
   formatTaskDateTime,
 } from "@/lib/tasks/constants"
-import { canMoveToStatus } from "@/lib/tasks/utils"
+import { canPerformTaskAction } from "@/lib/tasks/task-status-workflow"
 import { cn } from "@/lib/utils"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -51,7 +51,8 @@ export function OperarioTaskDetailScreen({ id }: OperarioTaskDetailScreenProps) 
     detailVersion,
     getTask,
     getDetail,
-    updateTaskStatus,
+    startTask,
+    submitTaskForApproval,
     toggleChecklistItem,
     addComment,
   } = useTasks()
@@ -139,12 +140,12 @@ export function OperarioTaskDetailScreen({ id }: OperarioTaskDetailScreenProps) 
     )
   }
 
-  function handleStartWork() {
+  async function handleStartWork() {
     setActionError(null)
     setActionMessage(null)
 
-    if (activeTask.status === "pendiente" || activeTask.status === "asignada") {
-      const result = updateTaskStatus(activeTask.id, "en-curso")
+    if (activeTask.status === "asignada") {
+      const result = await startTask(activeTask.id)
       if (result.success) {
         setActionMessage("Trabajo iniciado.")
       } else {
@@ -171,25 +172,28 @@ export function OperarioTaskDetailScreen({ id }: OperarioTaskDetailScreenProps) 
     setActionError(null)
   }
 
-  function handleRequestClosure() {
+  async function handleRequestClosure() {
     setActionError(null)
     setActionMessage(null)
 
-    const validation = canMoveToStatus(activeTask, "finalizada")
+    const validation = canPerformTaskAction(activeTask, "submit-for-approval")
     if (!validation.allowed) {
       setActionError(validation.message ?? "Checklist incompleto.")
       return
     }
 
-    const result = updateTaskStatus(activeTask.id, "finalizada")
+    const result = await submitTaskForApproval(activeTask.id)
     if (result.success) {
-      setActionMessage("Cierre solicitado. Enviado a supervisión.")
+      setActionMessage("Trabajo finalizado. Enviado a supervisión.")
     } else {
-      setActionError(result.message ?? "No se pudo solicitar cierre.")
+      setActionError(result.message ?? "No se pudo enviar a aprobación.")
     }
   }
 
-  const closureBlocked = !canMoveToStatus(activeTask, "finalizada").allowed
+  const closureBlocked = !canPerformTaskAction(
+    activeTask,
+    "submit-for-approval"
+  ).allowed
 
   return (
     <div className="space-y-5 px-4 pt-4 pb-6">
@@ -280,7 +284,7 @@ export function OperarioTaskDetailScreen({ id }: OperarioTaskDetailScreenProps) 
         <Alert>
           <AlertTriangle className="size-4" />
           <AlertDescription>
-            {canMoveToStatus(activeTask, "finalizada").message}
+            {canPerformTaskAction(activeTask, "submit-for-approval").message}
           </AlertDescription>
         </Alert>
       )}
@@ -291,7 +295,6 @@ export function OperarioTaskDetailScreen({ id }: OperarioTaskDetailScreenProps) 
           className="h-16 gap-2 rounded-2xl text-base font-semibold"
           onClick={handleStartWork}
           disabled={
-            activeTask.status !== "pendiente" &&
             activeTask.status !== "asignada" &&
             activeTask.status !== "en-curso"
           }

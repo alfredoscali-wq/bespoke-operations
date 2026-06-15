@@ -14,7 +14,7 @@ import {
 } from "@/components/tareas/tasks-filters"
 import { TasksKanban } from "@/components/tareas/tasks-kanban"
 import { TasksListTable } from "@/components/tareas/tasks-list-table"
-import type { TaskPriority, TaskStatus, TaskType } from "@/lib/types/tasks"
+import type { TaskPriority, TaskType } from "@/lib/types/tasks"
 import {
   Card,
   CardContent,
@@ -70,7 +70,6 @@ export function TasksModule() {
     serviceAddress?: string
     workOrderNumber?: string
     type: TaskType
-    status: TaskStatus
     priority: TaskPriority
     supervisor: string
     crew: string
@@ -93,7 +92,6 @@ export function TasksModule() {
       serviceAddress: payload.serviceAddress,
       workOrderNumber: payload.workOrderNumber,
       type: payload.type,
-      status: payload.status,
       priority: payload.priority,
       supervisor: payload.supervisor,
       crewId: selectedCrew?.id,

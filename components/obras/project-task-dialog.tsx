@@ -4,11 +4,10 @@ import { useEffect, useState } from "react"
 
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import type { Project } from "@/lib/types/projects"
-import type { Task, TaskPriority, TaskStatus, TaskType } from "@/lib/types/tasks"
+import type { Task, TaskPriority, TaskType } from "@/lib/types/tasks"
 import { SUPERVISORS } from "@/lib/projects/constants"
 import {
   TASK_PRIORITY_OPTIONS,
-  TASK_STATUS_OPTIONS,
   TASK_TYPE_OPTIONS,
 } from "@/lib/tasks/constants"
 import { generateTaskCode } from "@/lib/tasks/utils"
@@ -56,7 +55,6 @@ type ProjectTaskDialogProps = {
     title: string
     description: string
     type: TaskType
-    status: TaskStatus
     priority: TaskPriority
     supervisor: string
     crew: string
@@ -70,7 +68,6 @@ type TaskFormState = {
   title: string
   description: string
   type: TaskType
-  status: TaskStatus
   priority: TaskPriority
   supervisor: string
   crew: string
@@ -90,7 +87,6 @@ function buildCreateForm(project: Project): TaskFormState {
     title: "",
     description: "",
     type: projectTypeToTaskType(project.type),
-    status: "pendiente",
     priority: "media",
     supervisor: project.supervisor,
     crew: "",
@@ -105,7 +101,6 @@ function buildEditForm(task: Task): TaskFormState {
     title: task.title,
     description: task.description,
     type: task.type,
-    status: task.status,
     priority: task.priority,
     supervisor: task.supervisor,
     crew: task.crew,
@@ -182,7 +177,6 @@ export function ProjectTaskDialog({
         title: form.title.trim(),
         description: form.description.trim(),
         type: form.type,
-        status: form.status,
         priority: form.priority,
         supervisor: form.supervisor,
         crew: form.crew,
@@ -269,27 +263,6 @@ export function ProjectTaskDialog({
                 </SelectTrigger>
                 <SelectContent>
                   {TASK_PRIORITY_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Estado</Label>
-              <Select
-                value={form.status}
-                onValueChange={(value) =>
-                  updateField("status", value as TaskStatus)
-                }
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {TASK_STATUS_OPTIONS.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
                     </SelectItem>

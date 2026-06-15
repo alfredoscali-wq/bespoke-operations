@@ -24,16 +24,18 @@ import {
 } from "@/lib/supabase/tasks.browser"
 import { mapTaskToUpdatePayload } from "@/lib/supabase/tasks.mapper"
 import {
-  canMoveToStatus,
+  canPerformTaskAction,
+  getInitialTaskStatus,
+  getTransitionForAction,
+  getWorkflowHistoryEntry,
+  resolveStatusAfterCrewAssignment,
+  type TaskWorkflowAction,
+} from "@/lib/tasks/task-status-workflow"
+import {
   syncTaskProgress,
 } from "@/lib/tasks/utils"
 import type { CreateTaskPayload, UpdateTaskPayload } from "@/lib/types/supabase/tasks"
-import type { Task, TaskDetail, TaskStatus } from "@/lib/types/tasks"
-
-type UpdateStatusResult = {
-  success: boolean
-  message?: string
-}
+import type { Task, TaskDetail } from "@/lib/types/tasks"
 
 type TaskMutationResult = {
   success: boolean
@@ -56,7 +58,11 @@ type TasksContextValue = {
     crewName?: string
   ) => Promise<TaskMutationResult>
   deleteTask: (id: string) => Promise<TaskMutationResult>
-  updateTaskStatus: (id: string, status: TaskStatus) => UpdateStatusResult
+  startTask: (id: string) => Promise<TaskMutationResult>
+  submitTaskForApproval: (id: string) => Promise<TaskMutationResult>
+  approveTask: (id: string) => Promise<TaskMutationResult>
+  rejectTask: (id: string) => Promise<TaskMutationResult>
+  closeTask: (id: string) => Promise<TaskMutationResult>
   toggleChecklistItem: (taskId: string, itemId: string) => void
   addComment: (
     taskId: string,
@@ -195,10 +201,18 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
 
   const addTask = useCallback(
     async (input: CreateTaskPayload): Promise<Task> => {
+      const status =
+        input.status ??
+        getInitialTaskStatus({ crewId: input.crewId, crew: input.crew })
+      const payload: CreateTaskPayload = {
+        ...input,
+        status,
+      }
+
       if (usesSupabase) {
         try {
           const client = createBrowserTasksClient()
-          const result = await createTask(input, client)
+          const result = await createTask(payload, client)
 
           if (result.data) {
             cacheDetail(result.data.id, getTaskDetail(result.data))
@@ -206,11 +220,11 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
             return result.data
           }
         } catch {
-          // Fall through to in-memory mock create for this session.
+          // Fall through to local task creation for this session.
         }
       }
 
-      const task = createTaskFromInput(input)
+      const task = createTaskFromInput({ ...payload, status })
       cacheDetail(task.id, getTaskDetail(task))
       setTasks((current) => [task, ...current])
       return task
@@ -218,8 +232,12 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     [usesSupabase]
   )
 
-  const editTask = useCallback(
-    async (id: string, payload: UpdateTaskPayload): Promise<TaskMutationResult> => {
+  const updateTaskFields = useCallback(
+    async (
+      id: string,
+      payload: UpdateTaskPayload,
+      workflowAction?: TaskWorkflowAction
+    ): Promise<TaskMutationResult> => {
       const existing = tasks.find((item) => item.id === id)
       if (!existing) {
         return { success: false, message: "Tarea no encontrada." }
@@ -231,7 +249,25 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
           const result = await updateTaskInSupabase(id, payload, client)
 
           if (result.data) {
-            cacheDetail(result.data.id, getTaskDetail(result.data))
+            if (workflowAction) {
+              const detail = detailCache.get(id) ?? getTaskDetail(result.data)
+              const historyEntry = getWorkflowHistoryEntry(workflowAction)
+
+              cacheDetail(id, {
+                ...detail,
+                history: [
+                  {
+                    id: `h-${Date.now()}`,
+                    action: historyEntry.action,
+                    description: historyEntry.description,
+                    user: "Usuario",
+                    timestamp: new Date().toISOString(),
+                  },
+                  ...detail.history,
+                ],
+              })
+            }
+
             setTasks((current) =>
               current.map((item) => (item.id === id ? result.data! : item))
             )
@@ -252,17 +288,86 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         current.map((item) => (item.id === id ? updatedTask : item))
       )
 
-      const detail = detailCache.get(id)
-      if (detail) {
+      const detail = detailCache.get(id) ?? getTaskDetail(updatedTask)
+      if (workflowAction) {
+        const historyEntry = getWorkflowHistoryEntry(workflowAction)
+        cacheDetail(id, {
+          ...detail,
+          history: [
+            {
+              id: `h-${Date.now()}`,
+              action: historyEntry.action,
+              description: historyEntry.description,
+              user: "Usuario",
+              timestamp: new Date().toISOString(),
+            },
+            ...detail.history,
+          ],
+        })
+      } else if (detailCache.has(id)) {
         cacheDetail(id, detail)
-        setDetailVersion((version) => version + 1)
       }
 
+      setDetailVersion((version) => version + 1)
       void persistTaskUpdate(updatedTask)
 
       return { success: true, task: updatedTask }
     },
     [tasks, usesSupabase, mergeTaskUpdate, persistTaskUpdate]
+  )
+
+  const editTask = useCallback(
+    async (id: string, payload: UpdateTaskPayload): Promise<TaskMutationResult> => {
+      const { status: _status, ...fieldsOnly } = payload
+      return updateTaskFields(id, fieldsOnly)
+    },
+    [updateTaskFields]
+  )
+
+  const applyWorkflowTransition = useCallback(
+    async (
+      id: string,
+      workflowAction: TaskWorkflowAction
+    ): Promise<TaskMutationResult> => {
+      const task = tasks.find((item) => item.id === id)
+      if (!task) {
+        return { success: false, message: "Tarea no encontrada." }
+      }
+
+      const validation = canPerformTaskAction(task, workflowAction)
+      if (!validation.allowed) {
+        return { success: false, message: validation.message }
+      }
+
+      const { to } = getTransitionForAction(workflowAction)
+      return updateTaskFields(id, { status: to }, workflowAction)
+    },
+    [tasks, updateTaskFields]
+  )
+
+  const startTask = useCallback(
+    (id: string) => applyWorkflowTransition(id, "start"),
+    [applyWorkflowTransition]
+  )
+
+  const submitTaskForApproval = useCallback(
+    (id: string) => applyWorkflowTransition(id, "submit-for-approval"),
+    [applyWorkflowTransition]
+  )
+
+  const approveTask = useCallback(
+    (id: string) => applyWorkflowTransition(id, "approve"),
+    [applyWorkflowTransition]
+  )
+
+  const rejectTask = useCallback(
+    (id: string) => applyWorkflowTransition(id, "reject"),
+    [applyWorkflowTransition]
+  )
+
+  const closeTask = useCallback(
+    (id: string) => applyWorkflowTransition(id, "close"),
+    [applyWorkflowTransition]
   )
 
   const assignCrew = useCallback(
@@ -271,12 +376,38 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       crewId: string | null,
       crewName = ""
     ): Promise<TaskMutationResult> => {
-      return editTask(id, {
+      const existing = tasks.find((item) => item.id === id)
+      if (!existing) {
+        return { success: false, message: "Tarea no encontrada." }
+      }
+
+      const payload: UpdateTaskPayload = {
         crewId,
         crew: crewName,
-      })
+      }
+
+      const nextStatus = resolveStatusAfterCrewAssignment(
+        existing.status,
+        crewId,
+        crewName
+      )
+
+      if (nextStatus) {
+        const validation = canPerformTaskAction(existing, "assign-crew")
+        if (!validation.allowed) {
+          return { success: false, message: validation.message }
+        }
+
+        return updateTaskFields(
+          id,
+          { ...payload, status: nextStatus },
+          "assign-crew"
+        )
+      }
+
+      return updateTaskFields(id, payload)
     },
-    [editTask]
+    [tasks, updateTaskFields]
   )
 
   const deleteTask = useCallback(
@@ -327,58 +458,6 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       return detail
     },
     [tasks]
-  )
-
-  const updateTaskStatus = useCallback(
-    (id: string, status: TaskStatus): UpdateStatusResult => {
-      const task = tasks.find((item) => item.id === id)
-      if (!task) {
-        return { success: false, message: "Tarea no encontrada." }
-      }
-
-      const validation = canMoveToStatus(task, status)
-      if (!validation.allowed) {
-        return { success: false, message: validation.message }
-      }
-
-      const updatedTask = syncTaskProgress({ ...task, status })
-
-      setTasks((current) =>
-        current.map((item) => (item.id === id ? updatedTask : item))
-      )
-
-      const detail = detailCache.get(id)
-      if (detail) {
-        const statusLabels: Record<TaskStatus, string> = {
-          pendiente: "Pendiente",
-          asignada: "Asignada",
-          "en-curso": "En Curso",
-          finalizada: "Finalizada",
-          "en-aprobacion": "En Aprobación",
-          cerrada: "Cerrada",
-        }
-
-        cacheDetail(id, {
-          ...detail,
-          history: [
-            {
-              id: `h-${Date.now()}`,
-              action: "Estado actualizado",
-              description: `Estado cambiado a ${statusLabels[status]}.`,
-              user: "Usuario",
-              timestamp: new Date().toISOString(),
-            },
-            ...detail.history,
-          ],
-        })
-        setDetailVersion((version) => version + 1)
-      }
-
-      void persistTaskUpdate(updatedTask)
-
-      return { success: true }
-    },
-    [tasks, persistTaskUpdate]
   )
 
   const toggleChecklistItem = useCallback(
@@ -482,7 +561,11 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       editTask,
       assignCrew,
       deleteTask,
-      updateTaskStatus,
+      startTask,
+      submitTaskForApproval,
+      approveTask,
+      rejectTask,
+      closeTask,
       toggleChecklistItem,
       addComment,
       addEvidence,
@@ -498,7 +581,11 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       editTask,
       assignCrew,
       deleteTask,
-      updateTaskStatus,
+      startTask,
+      submitTaskForApproval,
+      approveTask,
+      rejectTask,
+      closeTask,
       toggleChecklistItem,
       addComment,
       addEvidence,

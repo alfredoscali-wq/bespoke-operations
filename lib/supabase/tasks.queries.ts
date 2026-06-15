@@ -83,9 +83,11 @@ export async function insertTask(
   client: SupabaseTasksClient,
   payload: CreateTaskPayload
 ): Promise<TasksRepositoryResult<Task>> {
+  const insertPayload = mapCreatePayloadToInsert(payload)
+
   const { data, error } = await client
     .from("tasks")
-    .insert(mapCreatePayloadToInsert(payload))
+    .insert(insertPayload)
     .select("*")
     .single()
 

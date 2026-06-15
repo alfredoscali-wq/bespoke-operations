@@ -6,9 +6,10 @@ import type {
   TaskType,
 } from "@/lib/types/tasks"
 
-export type CreateTaskPayload = Omit<Task, "id" | "progress"> & {
+export type CreateTaskPayload = Omit<Task, "id" | "progress" | "status"> & {
   progress?: number
   projectId?: string | null
+  status?: TaskStatus
 }
 
 export type UpdateTaskPayload = Partial<{

@@ -1,4 +1,5 @@
 import type { TaskInsert, TaskRow, TaskUpdate } from "@/lib/supabase/database.types"
+import { getInitialTaskStatus } from "@/lib/tasks/task-status-workflow"
 import type { ChecklistItem, Task } from "@/lib/types/tasks"
 import type {
   CreateTaskPayload,
@@ -70,7 +71,9 @@ export function mapCreatePayloadToInsert(payload: CreateTaskPayload): TaskInsert
     longitude: payload.longitude ?? null,
     work_order_number: payload.workOrderNumber?.trim() || null,
     type: payload.type,
-    status: payload.status ?? "pendiente",
+    status:
+      payload.status ??
+      getInitialTaskStatus({ crewId: payload.crewId, crew: payload.crew }),
     priority: payload.priority ?? "media",
     supervisor: payload.supervisor.trim(),
     crew_id: payload.crewId ?? null,

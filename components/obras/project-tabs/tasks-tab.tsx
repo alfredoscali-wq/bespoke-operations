@@ -93,7 +93,6 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
     title: string
     description: string
     type: Task["type"]
-    status: Task["status"]
     priority: Task["priority"]
     supervisor: string
     crew: string
@@ -106,7 +105,6 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
         title: payload.title,
         description: payload.description,
         priority: payload.priority,
-        status: payload.status,
         dueDate: payload.dueDate,
         startDate: payload.startDate,
         supervisor: payload.supervisor,
@@ -135,7 +133,6 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
       projectCode: project.code,
       projectName: project.name,
       type: payload.type,
-      status: payload.status,
       priority: payload.priority,
       supervisor: payload.supervisor,
       crewId: selectedCrew?.id,

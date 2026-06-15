@@ -1,5 +1,9 @@
 import type { ChecklistItem, Task, TaskStatus } from "@/lib/types/tasks"
 import type { Project } from "@/lib/types/projects"
+import {
+  canPerformTaskAction,
+  getWorkflowActionForTargetStatus,
+} from "@/lib/tasks/task-status-workflow"
 
 export function getChecklistProgress(checklist: ChecklistItem[]): number {
   if (checklist.length === 0) return 0
@@ -19,18 +23,12 @@ export function canMoveToStatus(
   task: Task,
   newStatus: TaskStatus
 ): { allowed: boolean; message?: string } {
-  if (newStatus === "finalizada" && !getRequiredChecklistComplete(task.checklist)) {
-    const missing = getIncompleteRequiredItems(task.checklist)
-      .map((item) => item.label)
-      .join(", ")
-
-    return {
-      allowed: false,
-      message: `No se puede marcar como Finalizada. Complete los elementos obligatorios: ${missing}.`,
-    }
+  const action = getWorkflowActionForTargetStatus(task.status, newStatus)
+  if (!action) {
+    return { allowed: false, message: "Transición no permitida." }
   }
 
-  return { allowed: true }
+  return canPerformTaskAction(task, action)
 }
 
 export function syncTaskProgress(task: Task): Task {
