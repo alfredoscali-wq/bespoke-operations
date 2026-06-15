@@ -13,14 +13,17 @@ export const EVIDENCE_MAX_FILE_SIZE_BYTES = 52428800
 const MAX_FILE_NAME_LENGTH = 180
 
 export function getStorageSegmentProjectId(
-  projectId: string,
+  projectId: string | null | undefined,
   projectCode: string
 ): string {
   return projectId || `code:${projectCode}`
 }
 
-export function getStorageSegmentTaskId(taskId: string, taskCode: string): string {
-  return taskId || `code:${taskCode}`
+export function getStorageSegmentTaskId(
+  taskId: string | null | undefined,
+  taskCode?: string
+): string {
+  return taskId || `code:${taskCode?.trim() || "OBRA"}`
 }
 
 export type EvidenceStoragePathInput = {

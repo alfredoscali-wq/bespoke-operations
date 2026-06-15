@@ -14,13 +14,18 @@ import { TaskHistoryTab } from "@/components/tareas/task-tabs/history-tab"
 import {
   TaskOperationBadge,
   TaskPriorityBadge,
-  TaskStatusBadge,
   TaskTypeBadge,
 } from "@/components/tareas/task-badges"
-import type { Task, TaskDetail } from "@/lib/types/tasks"
+import {
+  TASK_STATUS_LABELS,
+  TASK_STATUS_STYLES,
+} from "@/lib/tasks/constants"
 import { canPerformTaskAction } from "@/lib/tasks/task-status-workflow"
 import { isFieldServiceTask } from "@/lib/tasks/utils"
+import type { Task, TaskDetail } from "@/lib/types/tasks"
+import { cn } from "@/lib/utils"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -130,12 +135,22 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
               </span>
               <TaskOperationBadge task={task} />
               <TaskTypeBadge type={task.type} />
-              <TaskStatusBadge status={task.status} />
               <TaskPriorityBadge priority={task.priority} />
             </div>
             <h2 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
               {task.title}
             </h2>
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <Badge
+                variant="outline"
+                className={cn(
+                  "rounded-md px-3 py-1 text-sm font-semibold uppercase tracking-wide",
+                  TASK_STATUS_STYLES[task.status]
+                )}
+              >
+                {TASK_STATUS_LABELS[task.status]}
+              </Badge>
+            </div>
             <p className="text-sm text-muted-foreground">
               {isFieldServiceTask(task)
                 ? [
@@ -259,7 +274,7 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
           <TaskChecklistTab task={task} />
         </TabsContent>
         <TabsContent value="evidence">
-          <TaskEvidenceTab taskId={task.id} />
+          <TaskEvidenceTab task={task} />
         </TabsContent>
         <TabsContent value="comments">
           <TaskCommentsTab comments={detail.comments} />

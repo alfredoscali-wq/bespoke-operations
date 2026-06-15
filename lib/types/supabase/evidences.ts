@@ -62,13 +62,13 @@ export type EvidencesRepositoryResult<T> =
 
 export type UploadEvidenceInput = {
   file: File
-  projectId: string
+  projectId?: string | null
   projectCode: string
   projectName: string
-  taskId: string
-  taskCode: string
-  taskTitle: string
-  crew: string
+  taskId?: string | null
+  taskCode?: string
+  taskTitle?: string
+  crew?: string
   worker: string
   description?: string
   category?: string

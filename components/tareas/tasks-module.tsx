@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { LayoutGrid, List, Plus } from "lucide-react"
+import { LayoutGrid, Layers, List, Plus } from "lucide-react"
 
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { useTasks } from "@/components/tareas/tasks-provider"
@@ -12,6 +12,7 @@ import {
   defaultTaskFilters,
   filterAndSortTasks,
 } from "@/components/tareas/tasks-filters"
+import { TasksGroupedList } from "@/components/tareas/tasks-grouped-list"
 import { TasksKanban } from "@/components/tareas/tasks-kanban"
 import { TasksListTable } from "@/components/tareas/tasks-list-table"
 import type { TaskPriority, TaskType } from "@/lib/types/tasks"
@@ -23,14 +24,14 @@ import {
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 
-type ViewMode = "kanban" | "list"
+type ViewMode = "grouped" | "kanban" | "list"
 
 function getInitialViewMode(): ViewMode {
   if (typeof window === "undefined") {
-    return "kanban"
+    return "grouped"
   }
 
-  return window.matchMedia("(max-width: 1023px)").matches ? "list" : "kanban"
+  return window.matchMedia("(max-width: 1023px)").matches ? "list" : "grouped"
 }
 
 export function TasksModule() {
@@ -40,7 +41,7 @@ export function TasksModule() {
     () => crews.map((crew) => crew.name).sort((a, b) => a.localeCompare(b, "es")),
     [crews]
   )
-  const [view, setView] = useState<ViewMode>("kanban")
+  const [view, setView] = useState<ViewMode>("grouped")
   const [viewInitialized, setViewInitialized] = useState(false)
   const [filters, setFilters] = useState(defaultTaskFilters)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
@@ -138,10 +139,23 @@ export function TasksModule() {
       <Card className="shadow-sm">
         <CardHeader className="gap-4 border-b sm:flex-row sm:items-center sm:justify-between">
           <CardTitle className="text-base">
-            {view === "kanban" ? "Tablero Kanban" : "Listado de tareas"}
+            {view === "grouped"
+              ? "Tareas por estado"
+              : view === "kanban"
+                ? "Tablero Kanban"
+                : "Listado de tareas"}
           </CardTitle>
 
           <div className="flex rounded-lg border bg-muted/40 p-0.5">
+            <Button
+              variant={view === "grouped" ? "secondary" : "ghost"}
+              size="sm"
+              className="h-7 gap-1.5 px-2.5"
+              onClick={() => setView("grouped")}
+            >
+              <Layers className="size-3.5" />
+              Agrupado
+            </Button>
             <Button
               variant={view === "kanban" ? "secondary" : "ghost"}
               size="sm"
@@ -172,7 +186,9 @@ export function TasksModule() {
             crewOptions={crewOptions}
           />
 
-          {view === "kanban" ? (
+          {view === "grouped" ? (
+            <TasksGroupedList tasks={filteredTasks} />
+          ) : view === "kanban" ? (
             <TasksKanban tasks={filteredTasks} />
           ) : (
             <TasksListTable tasks={filteredTasks} />

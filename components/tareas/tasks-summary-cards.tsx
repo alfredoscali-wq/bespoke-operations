@@ -1,8 +1,9 @@
 import {
   CheckCircle2,
   CircleDot,
-  ClipboardList,
+  ClipboardCheck,
   Clock,
+  UserCheck,
 } from "lucide-react"
 
 import { getTasksSummary } from "@/lib/data/tasks"
@@ -21,28 +22,34 @@ type TasksSummaryCardsProps = {
 
 const cards = [
   {
-    key: "total" as const,
-    label: "Total de Tareas",
-    icon: ClipboardList,
-    color: "text-primary bg-primary/8",
-  },
-  {
-    key: "pending" as const,
-    label: "Tareas Pendientes",
+    key: "pendiente" as const,
+    label: "Pendientes",
     icon: CircleDot,
     color: "text-slate-600 bg-slate-100",
   },
   {
-    key: "inProgress" as const,
-    label: "En Progreso",
+    key: "asignada" as const,
+    label: "Asignadas",
+    icon: UserCheck,
+    color: "text-blue-700 bg-blue-50",
+  },
+  {
+    key: "enCurso" as const,
+    label: "En Curso",
     icon: Clock,
     color: "text-amber-600 bg-amber-50",
   },
   {
-    key: "awaitingApproval" as const,
+    key: "enAprobacion" as const,
     label: "En Aprobación",
-    icon: CheckCircle2,
+    icon: ClipboardCheck,
     color: "text-orange-600 bg-orange-50",
+  },
+  {
+    key: "finalizada" as const,
+    label: "Finalizadas",
+    icon: CheckCircle2,
+    color: "text-violet-700 bg-violet-50",
   },
 ]
 
@@ -50,7 +57,7 @@ export function TasksSummaryCards({ tasks }: TasksSummaryCardsProps) {
   const summary = getTasksSummary(tasks)
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
       {cards.map((card) => {
         const Icon = card.icon
         const value = summary[card.key]

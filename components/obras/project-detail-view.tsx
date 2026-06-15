@@ -157,7 +157,7 @@ export function ProjectDetailView({ project: initialProject, detail }: ProjectDe
           <ProjectTasksTab project={project} />
         </TabsContent>
         <TabsContent value="evidence">
-          <ProjectEvidenceTab projectId={project.id} />
+          <ProjectEvidenceTab project={project} />
         </TabsContent>
         <TabsContent value="documents">
           <ProjectDocumentsTab documents={detail.documents} />

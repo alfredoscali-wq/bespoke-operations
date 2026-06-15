@@ -593,14 +593,12 @@ export function getTaskDetail(task: Task): TaskDetail {
 
 export function getTasksSummary(tasks: Task[]) {
   return {
-    total: tasks.length,
-    pending: tasks.filter(
-      (task) => task.status === "pendiente" || task.status === "asignada"
-    ).length,
-    inProgress: tasks.filter((task) => task.status === "en-curso").length,
-    awaitingApproval: tasks.filter(
-      (task) => task.status === "en-aprobacion"
-    ).length,
+    pendiente: tasks.filter((task) => task.status === "pendiente").length,
+    asignada: tasks.filter((task) => task.status === "asignada").length,
+    enCurso: tasks.filter((task) => task.status === "en-curso").length,
+    enAprobacion: tasks.filter((task) => task.status === "en-aprobacion").length,
+    finalizada: tasks.filter((task) => task.status === "finalizada").length,
+    cerrada: tasks.filter((task) => task.status === "cerrada").length,
   }
 }
 

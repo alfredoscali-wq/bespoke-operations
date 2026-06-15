@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Upload } from "lucide-react"
 
 import { useProjects } from "@/components/obras/projects-provider"
@@ -29,14 +29,39 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
+const PROJECT_ONLY_TASK_VALUE = "__project_only__"
+
+type EvidenceUploadProjectContext = {
+  id?: string | null
+  code: string
+  name: string
+}
+
+type EvidenceUploadTaskContext = {
+  id: string
+  code: string
+  title: string
+  crew: string
+}
+
 type EvidenceUploadDialogProps = {
   onSubmit: (input: UploadEvidenceInput) => Promise<{
     success: boolean
     message?: string
   }>
+  project?: EvidenceUploadProjectContext
+  task?: EvidenceUploadTaskContext
+  allowProjectOnly?: boolean
+  onUploaded?: () => void
 }
 
-export function EvidenceUploadDialog({ onSubmit }: EvidenceUploadDialogProps) {
+export function EvidenceUploadDialog({
+  onSubmit,
+  project: lockedProject,
+  task: lockedTask,
+  allowProjectOnly = false,
+  onUploaded,
+}: EvidenceUploadDialogProps) {
   const { projects } = useProjects()
   const { tasks } = useTasks()
   const [open, setOpen] = useState(false)
@@ -49,17 +74,81 @@ export function EvidenceUploadDialog({ onSubmit }: EvidenceUploadDialogProps) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const selectedProject = projects.find((project) => project.id === projectId)
-  const tasksForProject = useMemo(
-    () => (selectedProject ? getTasksForProject(selectedProject, tasks) : []),
-    [selectedProject, tasks]
-  )
-  const selectedTask = tasksForProject.find((task) => task.id === taskId)
+  const isProjectLocked = Boolean(lockedProject)
+  const isTaskLocked = Boolean(lockedTask)
+
+  const selectedProject = useMemo(() => {
+    if (lockedProject) {
+      return {
+        id: lockedProject.id ?? null,
+        code: lockedProject.code,
+        name: lockedProject.name,
+      }
+    }
+
+    return projects.find((project) => project.id === projectId)
+  }, [lockedProject, projects, projectId])
+
+  const tasksForProject = useMemo(() => {
+    if (!selectedProject) return []
+
+    if (lockedProject) {
+      return getTasksForProject(
+        {
+          id: lockedProject.id ?? "",
+          code: lockedProject.code,
+          name: lockedProject.name,
+        } as Parameters<typeof getTasksForProject>[0],
+        tasks
+      )
+    }
+
+    const project = projects.find((item) => item.id === projectId)
+    return project ? getTasksForProject(project, tasks) : []
+  }, [lockedProject, selectedProject, projectId, projects, tasks])
+
+  const selectedTask = useMemo(() => {
+    if (lockedTask) return lockedTask
+    if (taskId === PROJECT_ONLY_TASK_VALUE) return null
+    return tasksForProject.find((task) => task.id === taskId)
+  }, [lockedTask, taskId, tasksForProject])
+
+  const showTaskSelector =
+    !isTaskLocked &&
+    Boolean(selectedProject) &&
+    (tasksForProject.length > 0 || !allowProjectOnly)
+
+  const projectOnlyMode =
+    allowProjectOnly &&
+    !isTaskLocked &&
+    (tasksForProject.length === 0 || taskId === PROJECT_ONLY_TASK_VALUE)
+
+  useEffect(() => {
+    if (!open) return
+
+    if (lockedProject) {
+      setProjectId(lockedProject.id ?? "")
+    }
+
+    if (lockedTask) {
+      setTaskId(lockedTask.id)
+      return
+    }
+
+    if (allowProjectOnly && tasksForProject.length === 0) {
+      setTaskId(PROJECT_ONLY_TASK_VALUE)
+    }
+  }, [open, lockedProject, lockedTask, allowProjectOnly, tasksForProject.length])
 
   function resetForm() {
     setFile(null)
-    setProjectId("")
-    setTaskId("")
+    setProjectId(lockedProject?.id ?? "")
+    setTaskId(
+      lockedTask?.id ??
+        (allowProjectOnly && tasksForProject.length === 0
+          ? PROJECT_ONLY_TASK_VALUE
+          : "")
+    )
     setWorker(EVIDENCE_WORKERS[0])
     setDescription("")
     setCategory("Campo")
@@ -69,8 +158,23 @@ export function EvidenceUploadDialog({ onSubmit }: EvidenceUploadDialogProps) {
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
 
-    if (!file || !selectedProject || !selectedTask) {
-      setError("Seleccione obra, tarea e imagen.")
+    if (!file || !selectedProject) {
+      setError("Seleccione una imagen y confirme la obra.")
+      return
+    }
+
+    if (!allowProjectOnly && !selectedTask) {
+      setError("Seleccione una tarea.")
+      return
+    }
+
+    if (
+      allowProjectOnly &&
+      tasksForProject.length > 0 &&
+      !selectedTask &&
+      taskId !== PROJECT_ONLY_TASK_VALUE
+    ) {
+      setError("Seleccione una tarea o suba la evidencia solo a la obra.")
       return
     }
 
@@ -82,10 +186,10 @@ export function EvidenceUploadDialog({ onSubmit }: EvidenceUploadDialogProps) {
       projectId: selectedProject.id,
       projectCode: selectedProject.code,
       projectName: selectedProject.name,
-      taskId: selectedTask.id,
-      taskCode: selectedTask.code,
-      taskTitle: selectedTask.title,
-      crew: selectedTask.crew,
+      taskId: selectedTask?.id ?? null,
+      taskCode: selectedTask?.code,
+      taskTitle: selectedTask?.title,
+      crew: selectedTask?.crew,
       worker,
       description,
       category,
@@ -100,9 +204,17 @@ export function EvidenceUploadDialog({ onSubmit }: EvidenceUploadDialogProps) {
 
     resetForm()
     setOpen(false)
+    onUploaded?.()
   }
 
-  const isValid = file !== null && projectId !== "" && taskId !== "" && worker !== ""
+  const isValid =
+    file !== null &&
+    selectedProject !== undefined &&
+    worker !== "" &&
+    (isTaskLocked ||
+      projectOnlyMode ||
+      selectedTask !== undefined ||
+      (!allowProjectOnly && taskId !== ""))
 
   return (
     <Dialog
@@ -122,7 +234,11 @@ export function EvidenceUploadDialog({ onSubmit }: EvidenceUploadDialogProps) {
         <DialogHeader>
           <DialogTitle>Subir evidencia</DialogTitle>
           <DialogDescription>
-            Cargue una imagen de campo vinculada a una obra y tarea existentes.
+            {isTaskLocked
+              ? "Cargue una imagen vinculada a la tarea seleccionada."
+              : isProjectLocked
+                ? "Cargue una imagen vinculada a esta obra."
+                : "Cargue una imagen de campo vinculada a una obra y tarea existentes."}
           </DialogDescription>
         </DialogHeader>
 
@@ -140,69 +256,86 @@ export function EvidenceUploadDialog({ onSubmit }: EvidenceUploadDialogProps) {
             />
           </div>
 
-          <div className="space-y-2">
-            <Label>Obra</Label>
-            <Select
-              value={projectId}
-              onValueChange={(value) => {
-                setProjectId(value)
-                setTaskId("")
-              }}
-            >
-              <SelectTrigger className="bg-background">
-                <SelectValue placeholder="Seleccionar obra" />
-              </SelectTrigger>
-              <SelectContent>
-                {projects.length === 0 ? (
-                  <SelectItem value="__empty" disabled>
-                    No hay obras registradas
-                  </SelectItem>
-                ) : (
-                  projects.map((project) => (
-                    <SelectItem key={project.id} value={project.id}>
-                      {project.code} — {project.name}
+          {isProjectLocked && selectedProject ? (
+            <div className="rounded-lg border bg-muted/30 px-3 py-2 text-sm">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Obra
+              </p>
+              <p className="font-medium">
+                {selectedProject.code} — {selectedProject.name}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label>Obra</Label>
+              <Select
+                value={projectId}
+                onValueChange={(value) => {
+                  setProjectId(value)
+                  setTaskId("")
+                }}
+              >
+                <SelectTrigger className="bg-background">
+                  <SelectValue placeholder="Seleccionar obra" />
+                </SelectTrigger>
+                <SelectContent>
+                  {projects.length === 0 ? (
+                    <SelectItem value="__empty" disabled>
+                      No hay obras registradas
                     </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
-          </div>
+                  ) : (
+                    projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.code} — {project.name}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
-          <div className="space-y-2">
-            <Label>Tarea</Label>
-            <Select
-              value={taskId}
-              onValueChange={setTaskId}
-              disabled={!selectedProject}
-            >
-              <SelectTrigger className="bg-background">
-                <SelectValue
-                  placeholder={
-                    selectedProject
-                      ? tasksForProject.length === 0
+          {isTaskLocked && lockedTask ? (
+            <div className="rounded-lg border bg-muted/30 px-3 py-2 text-sm">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Tarea
+              </p>
+              <p className="font-medium">
+                {lockedTask.code} — {lockedTask.title}
+              </p>
+            </div>
+          ) : showTaskSelector ? (
+            <div className="space-y-2">
+              <Label>Tarea</Label>
+              <Select value={taskId} onValueChange={setTaskId}>
+                <SelectTrigger className="bg-background">
+                  <SelectValue
+                    placeholder={
+                      tasksForProject.length === 0
                         ? "Sin tareas para esta obra"
                         : "Seleccionar tarea"
-                      : "Seleccione una obra primero"
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {tasksForProject.length === 0 ? (
-                  <SelectItem value="__empty" disabled>
-                    {selectedProject
-                      ? "No hay tareas para esta obra"
-                      : "Seleccione una obra primero"}
-                  </SelectItem>
-                ) : (
-                  tasksForProject.map((task) => (
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {allowProjectOnly && (
+                    <SelectItem value={PROJECT_ONLY_TASK_VALUE}>
+                      Solo obra (sin tarea)
+                    </SelectItem>
+                  )}
+                  {tasksForProject.map((task) => (
                     <SelectItem key={task.id} value={task.id}>
                       {task.code} — {task.title}
                     </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
-          </div>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : projectOnlyMode ? (
+            <div className="rounded-lg border border-dashed bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
+              Esta evidencia quedará vinculada solo a la obra.
+            </div>
+          ) : null}
 
           <div className="space-y-2">
             <Label>Operario</Label>
