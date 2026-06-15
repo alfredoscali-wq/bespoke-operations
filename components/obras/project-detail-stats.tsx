@@ -1,3 +1,6 @@
+"use client"
+
+import { useMemo } from "react"
 import {
   Camera,
   CheckCircle2,
@@ -5,7 +8,10 @@ import {
   TrendingUp,
 } from "lucide-react"
 
-import type { ProjectDetail } from "@/lib/types/projects"
+import { useEvidence } from "@/components/evidencias/evidence-provider"
+import { useTasks } from "@/components/tareas/tasks-provider"
+import { getProjectOperationalStats } from "@/lib/projects/utils"
+import type { Project } from "@/lib/types/projects"
 import { cn } from "@/lib/utils"
 import {
   Card,
@@ -15,7 +21,7 @@ import {
 } from "@/components/ui/card"
 
 type ProjectDetailStatsProps = {
-  stats: ProjectDetail["stats"]
+  project: Project
 }
 
 const statItems = [
@@ -46,7 +52,15 @@ const statItems = [
   },
 ]
 
-export function ProjectDetailStats({ stats }: ProjectDetailStatsProps) {
+export function ProjectDetailStats({ project }: ProjectDetailStatsProps) {
+  const { tasks } = useTasks()
+  const { evidence } = useEvidence()
+
+  const stats = useMemo(
+    () => getProjectOperationalStats(project, tasks, evidence),
+    [project, tasks, evidence]
+  )
+
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {statItems.map((item) => {

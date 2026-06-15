@@ -1,5 +1,47 @@
 import { PROJECT_STATUS_LABELS } from "@/lib/projects/constants"
-import type { ProjectStatus } from "@/lib/types/projects"
+import { getTasksForProject } from "@/lib/tasks/utils"
+import type { EvidenceRecord } from "@/lib/types/evidence"
+import type { Project, ProjectStatus } from "@/lib/types/projects"
+import type { Task, TaskStatus } from "@/lib/types/tasks"
+
+const ACTIVE_TASK_STATUSES: TaskStatus[] = [
+  "pendiente",
+  "asignada",
+  "en-curso",
+  "en-aprobacion",
+]
+
+const COMPLETED_TASK_STATUSES: TaskStatus[] = ["finalizada", "cerrada"]
+
+export type ProjectOperationalStats = {
+  activeTasks: number
+  completedTasks: number
+  evidenceFiles: number
+  progress: number
+}
+
+export function getProjectOperationalStats(
+  project: Pick<Project, "id" | "code" | "progress">,
+  tasks: Task[],
+  evidence: EvidenceRecord[]
+): ProjectOperationalStats {
+  const projectTasks = getTasksForProject(project as Project, tasks)
+  const projectEvidence = evidence.filter(
+    (item) =>
+      item.projectId === project.id || item.projectCode === project.code
+  )
+
+  return {
+    activeTasks: projectTasks.filter((task) =>
+      ACTIVE_TASK_STATUSES.includes(task.status)
+    ).length,
+    completedTasks: projectTasks.filter((task) =>
+      COMPLETED_TASK_STATUSES.includes(task.status)
+    ).length,
+    evidenceFiles: projectEvidence.length,
+    progress: project.progress,
+  }
+}
 
 const ALLOWED_TRANSITIONS: Record<ProjectStatus, ProjectStatus[]> = {
   planned: ["active"],

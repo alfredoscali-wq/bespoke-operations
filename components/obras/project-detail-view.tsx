@@ -136,7 +136,7 @@ export function ProjectDetailView({ project: initialProject, detail }: ProjectDe
         </Alert>
       )}
 
-      <ProjectDetailStats stats={detail.stats} />
+      <ProjectDetailStats project={project} />
 
       <Tabs defaultValue="overview" className="space-y-4">
         <div className="overflow-x-auto">
