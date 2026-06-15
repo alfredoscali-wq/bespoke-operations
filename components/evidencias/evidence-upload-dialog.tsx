@@ -6,6 +6,7 @@ import { Upload } from "lucide-react"
 import { useProjects } from "@/components/obras/projects-provider"
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { EVIDENCE_WORKERS } from "@/lib/evidence/constants"
+import type { EvidenceUploadOrigin } from "@/lib/evidence/upload-origin"
 import { getTasksForProject } from "@/lib/tasks/utils"
 import type { UploadEvidenceInput } from "@/lib/types/supabase/evidences"
 import { Button } from "@/components/ui/button"
@@ -52,6 +53,7 @@ type EvidenceUploadDialogProps = {
   project?: EvidenceUploadProjectContext
   task?: EvidenceUploadTaskContext
   allowProjectOnly?: boolean
+  origin?: EvidenceUploadOrigin
   onUploaded?: () => void
 }
 
@@ -60,6 +62,7 @@ export function EvidenceUploadDialog({
   project: lockedProject,
   task: lockedTask,
   allowProjectOnly = false,
+  origin = "dashboard",
   onUploaded,
 }: EvidenceUploadDialogProps) {
   const { projects } = useProjects()
@@ -193,6 +196,7 @@ export function EvidenceUploadDialog({
       worker,
       description,
       category,
+      origin,
     })
 
     setSubmitting(false)

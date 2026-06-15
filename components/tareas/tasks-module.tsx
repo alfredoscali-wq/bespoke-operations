@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { LayoutGrid, Layers, List, Plus } from "lucide-react"
 
 import { useCrews } from "@/components/cuadrillas/crews-provider"
@@ -16,6 +17,7 @@ import { TasksGroupedList } from "@/components/tareas/tasks-grouped-list"
 import { TasksKanban } from "@/components/tareas/tasks-kanban"
 import { TasksListTable } from "@/components/tareas/tasks-list-table"
 import type { TaskPriority, TaskType } from "@/lib/types/tasks"
+import { parseTaskStatusQuery } from "@/lib/navigation/query-filters"
 import {
   Card,
   CardContent,
@@ -35,6 +37,7 @@ function getInitialViewMode(): ViewMode {
 }
 
 export function TasksModule() {
+  const searchParams = useSearchParams()
   const { tasks, addTask } = useTasks()
   const { crews } = useCrews()
   const crewOptions = useMemo(
@@ -47,10 +50,23 @@ export function TasksModule() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [feedback, setFeedback] = useState<string | null>(null)
 
+  const focusedStatus = useMemo(
+    () => parseTaskStatusQuery(searchParams.get("status")),
+    [searchParams]
+  )
+
   useEffect(() => {
     setView(getInitialViewMode())
     setViewInitialized(true)
   }, [])
+
+  useEffect(() => {
+    const status = parseTaskStatusQuery(searchParams.get("status"))
+    if (status !== "all") {
+      setFilters((current) => ({ ...current, status }))
+      setView("grouped")
+    }
+  }, [searchParams])
 
   const filteredTasks = useMemo(
     () => filterAndSortTasks(tasks, filters),
@@ -187,7 +203,10 @@ export function TasksModule() {
           />
 
           {view === "grouped" ? (
-            <TasksGroupedList tasks={filteredTasks} />
+            <TasksGroupedList
+              tasks={filteredTasks}
+              focusedStatus={focusedStatus === "all" ? null : focusedStatus}
+            />
           ) : view === "kanban" ? (
             <TasksKanban tasks={filteredTasks} />
           ) : (

@@ -14,6 +14,7 @@ import {
   getStorageSegmentProjectId,
   getStorageSegmentTaskId,
 } from "@/lib/supabase/evidences.storage"
+import { resolveEvidenceStatusForOrigin } from "@/lib/evidence/upload-origin"
 import type { EvidenceRecord } from "@/lib/types/evidence"
 import type {
   CreateEvidencePayload,
@@ -320,6 +321,7 @@ export async function uploadEvidenceWithFile(
   if (validationError) return validationError
 
   const uploadedAt = new Date().toISOString()
+  const status = resolveEvidenceStatusForOrigin(input.origin ?? "dashboard")
   const metadata: CreateEvidencePayload = {
     fileName: input.file.name,
     type: "photo",
@@ -333,7 +335,7 @@ export async function uploadEvidenceWithFile(
     crew: input.crew?.trim() || "—",
     worker: input.worker,
     uploadedAt,
-    status: "pending-review",
+    status,
     description: input.description ?? "",
     category: input.category ?? "Campo",
     comments: [],
@@ -345,6 +347,17 @@ export async function uploadEvidenceWithFile(
         timestamp: uploadedAt,
         note: input.file.name,
       },
+      ...(status === "approved"
+        ? [
+            {
+              id: `ev-h-auto-${Date.now()}`,
+              action: "Evidencia aprobada",
+              user: "Gestión",
+              timestamp: uploadedAt,
+              note: "Aprobación automática desde panel de gestión",
+            },
+          ]
+        : []),
     ],
   }
 

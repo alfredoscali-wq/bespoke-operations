@@ -121,19 +121,24 @@ export function buildKpiMetrics(
   crews: Crew[]
 ): KpiMetric[] {
   const activeProjects = projects.filter(
-    (project) =>
-      project.status === "active" || project.status === "pending-closure"
+    (project) => project.status === "active"
+  ).length
+  const plannedProjects = projects.filter(
+    (project) => project.status === "planned"
+  ).length
+  const pendingClosureProjects = projects.filter(
+    (project) => project.status === "pending-closure"
   ).length
   const closedProjects = projects.filter(
     (project) => project.status === "closed"
   ).length
 
-  const pendingTasks = countTasksByStatuses(tasks, ["pendiente", "asignada"])
-  const inProgressTasks = countTasksByStatuses(tasks, [
-    "en-curso",
-    "en-aprobacion",
-  ])
-  const completedTasks = countTasksByStatuses(tasks, ["finalizada", "cerrada"])
+  const pendingTasks = countTasksByStatuses(tasks, ["pendiente"])
+  const assignedTasks = countTasksByStatuses(tasks, ["asignada"])
+  const inProgressTasks = countTasksByStatuses(tasks, ["en-curso"])
+  const approvalTasks = countTasksByStatuses(tasks, ["en-aprobacion"])
+  const completedTasks = countTasksByStatuses(tasks, ["finalizada"])
+  const closedTasks = countTasksByStatuses(tasks, ["cerrada"])
 
   const pendingEvidence = evidence.filter(
     (item) => item.status === "pending-review"
@@ -155,8 +160,8 @@ export function buildKpiMetrics(
       value: String(activeProjects),
       change: `${projects.length} obras registradas`,
       trend: "neutral",
-      description: "Obras en ejecución o pendientes de cierre",
-      href: "/obras",
+      description: "Obras en ejecución",
+      href: "/obras?status=active",
     },
     {
       id: "projects-closed",
@@ -165,7 +170,25 @@ export function buildKpiMetrics(
       change: `${closedProjects} cerradas`,
       trend: "neutral",
       description: "Obras completadas en el sistema",
-      href: "/obras",
+      href: "/obras?status=closed",
+    },
+    {
+      id: "projects-planned",
+      label: "Obras Planificadas",
+      value: String(plannedProjects),
+      change: `${plannedProjects} planificadas`,
+      trend: "neutral",
+      description: "Obras registradas sin iniciar",
+      href: "/obras?status=planned",
+    },
+    {
+      id: "projects-pending-closure",
+      label: "Pendientes de Cierre",
+      value: String(pendingClosureProjects),
+      change: `${pendingClosureProjects} en cierre`,
+      trend: pendingClosureProjects > 0 ? "up" : "neutral",
+      description: "Obras solicitadas para cierre",
+      href: "/obras?status=pending-closure",
     },
     {
       id: "tasks-pending",
@@ -173,26 +196,53 @@ export function buildKpiMetrics(
       value: String(pendingTasks),
       change: `${tasks.length} tareas totales`,
       trend: "neutral",
-      description: "Pendientes o asignadas sin iniciar",
-      href: "/tareas",
+      description: "Sin cuadrilla asignada o sin iniciar",
+      href: "/tareas?status=pendiente",
+    },
+    {
+      id: "tasks-assigned",
+      label: "Tareas Asignadas",
+      value: String(assignedTasks),
+      change: `${assignedTasks} asignadas`,
+      trend: "neutral",
+      description: "Con cuadrilla, pendientes de inicio",
+      href: "/tareas?status=asignada",
     },
     {
       id: "tasks-in-progress",
       label: "Tareas en Curso",
       value: String(inProgressTasks),
-      change: `${completedTasks} finalizadas`,
+      change: `${inProgressTasks} en ejecución`,
       trend: "neutral",
-      description: "En ejecución o en aprobación",
-      href: "/tareas",
+      description: "Trabajo activo en campo",
+      href: "/tareas?status=en-curso",
+    },
+    {
+      id: "tasks-approval",
+      label: "En Aprobación",
+      value: String(approvalTasks),
+      change: `${approvalTasks} por revisar`,
+      trend: approvalTasks > 0 ? "up" : "neutral",
+      description: "Finalizadas por operario, pendientes de supervisor",
+      href: "/tareas?status=en-aprobacion",
     },
     {
       id: "tasks-completed",
       label: "Tareas Finalizadas",
       value: String(completedTasks),
-      change: `${inProgressTasks} en curso`,
+      change: `${completedTasks} finalizadas`,
       trend: "neutral",
-      description: "Tareas cerradas o finalizadas",
-      href: "/tareas",
+      description: "Aprobadas por supervisión",
+      href: "/tareas?status=finalizada",
+    },
+    {
+      id: "tasks-closed",
+      label: "Tareas Cerradas",
+      value: String(closedTasks),
+      change: `${closedTasks} cerradas`,
+      trend: "neutral",
+      description: "Ciclo operativo completado",
+      href: "/tareas?status=cerrada",
     },
     {
       id: "evidence-pending",

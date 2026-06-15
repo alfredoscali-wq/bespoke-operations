@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { ChevronDown } from "lucide-react"
 
@@ -21,6 +21,7 @@ import { Progress } from "@/components/ui/progress"
 
 type TasksGroupedListProps = {
   tasks: Task[]
+  focusedStatus?: TaskStatus | null
 }
 
 const GROUP_ORDER: TaskStatus[] = [
@@ -39,7 +40,30 @@ const DEFAULT_EXPANDED: TaskStatus[] = [
   "en-aprobacion",
 ]
 
-export function TasksGroupedList({ tasks }: TasksGroupedListProps) {
+function buildExpandedGroups(focusedStatus?: TaskStatus | null) {
+  if (focusedStatus) {
+    return GROUP_ORDER.reduce(
+      (accumulator, status) => ({
+        ...accumulator,
+        [status]: status === focusedStatus,
+      }),
+      {} as Record<TaskStatus, boolean>
+    )
+  }
+
+  return GROUP_ORDER.reduce(
+    (accumulator, status) => ({
+      ...accumulator,
+      [status]: DEFAULT_EXPANDED.includes(status),
+    }),
+    {} as Record<TaskStatus, boolean>
+  )
+}
+
+export function TasksGroupedList({
+  tasks,
+  focusedStatus = null,
+}: TasksGroupedListProps) {
   const groupedTasks = useMemo(() => {
     return GROUP_ORDER.map((status) => ({
       status,
@@ -49,15 +73,12 @@ export function TasksGroupedList({ tasks }: TasksGroupedListProps) {
   }, [tasks])
 
   const [expandedGroups, setExpandedGroups] = useState<Record<TaskStatus, boolean>>(
-    () =>
-      GROUP_ORDER.reduce(
-        (accumulator, status) => ({
-          ...accumulator,
-          [status]: DEFAULT_EXPANDED.includes(status),
-        }),
-        {} as Record<TaskStatus, boolean>
-      )
+    () => buildExpandedGroups(focusedStatus)
   )
+
+  useEffect(() => {
+    setExpandedGroups(buildExpandedGroups(focusedStatus))
+  }, [focusedStatus])
 
   function toggleGroup(status: TaskStatus) {
     setExpandedGroups((current) => ({

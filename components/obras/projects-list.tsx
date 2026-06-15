@@ -1,6 +1,7 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
+import { useSearchParams } from "next/navigation"
 
 import {
   defaultProjectFilters,
@@ -10,11 +11,20 @@ import {
 import { NewProjectDialog } from "@/components/obras/new-project-dialog"
 import { useProjects } from "@/components/obras/projects-provider"
 import { ProjectsTable } from "@/components/obras/projects-table"
+import { parseProjectStatusQuery } from "@/lib/navigation/query-filters"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 export function ProjectsList() {
+  const searchParams = useSearchParams()
   const { projects, addProject } = useProjects()
   const [filters, setFilters] = useState(defaultProjectFilters)
+
+  useEffect(() => {
+    const status = parseProjectStatusQuery(searchParams.get("status"))
+    if (status !== "all") {
+      setFilters((current) => ({ ...current, status }))
+    }
+  }, [searchParams])
 
   const filteredProjects = useMemo(
     () => filterProjects(projects, filters),

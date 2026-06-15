@@ -12,6 +12,7 @@ import {
 
 import { appendUploadHistoryEvent } from "@/lib/data/evidence-enrichment"
 import { createEvidenceFromInput, mockEvidence } from "@/lib/data/evidence"
+import { resolveEvidenceStatusForOrigin } from "@/lib/evidence/upload-origin"
 import {
   createBrowserEvidencesClient,
   listEvidences,
@@ -131,6 +132,7 @@ export function EvidenceProvider({ children }: { children: React.ReactNode }) {
       }
 
       const uploadedAt = new Date().toISOString()
+      const status = resolveEvidenceStatusForOrigin(input.origin ?? "dashboard")
       const record = createEvidenceFromInput({
         fileName: input.file.name,
         type: "photo",
@@ -143,7 +145,7 @@ export function EvidenceProvider({ children }: { children: React.ReactNode }) {
         crew: input.crew ?? "—",
         worker: input.worker,
         uploadedAt,
-        status: "pending-review",
+        status,
         description: input.description ?? "",
         category: input.category ?? "Campo",
         comments: [],
@@ -151,10 +153,15 @@ export function EvidenceProvider({ children }: { children: React.ReactNode }) {
 
       setEvidence((current) => [record, ...current])
 
+      const message =
+        status === "approved"
+          ? "Evidencia subida y aprobada automáticamente."
+          : "Evidencia registrada localmente."
+
       return {
         success: true,
         data: record,
-        message: "Evidencia registrada localmente.",
+        message,
       }
     },
     []

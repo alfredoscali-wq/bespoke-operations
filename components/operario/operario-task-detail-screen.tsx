@@ -125,6 +125,7 @@ export function OperarioTaskDetailScreen({ id }: OperarioTaskDetailScreenProps) 
       description: `Evidencia de campo — ${activeTask.code}`,
       category: "Campo",
       evidenceType: "progress-photo",
+      origin: "operario",
     })
 
     if (result.success) {

@@ -6,6 +6,7 @@ import type {
   EvidenceStatus,
   EvidenceUploadEvent,
 } from "@/lib/types/evidence"
+import type { EvidenceUploadOrigin } from "@/lib/evidence/upload-origin"
 
 export type CreateEvidencePayload = Omit<
   EvidenceRecord,
@@ -73,6 +74,7 @@ export type UploadEvidenceInput = {
   description?: string
   category?: string
   evidenceType?: EvidenceCategoryType
+  origin?: EvidenceUploadOrigin
 }
 
 export type UploadEvidenceResult = {
