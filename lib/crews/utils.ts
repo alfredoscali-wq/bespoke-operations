@@ -105,9 +105,7 @@ export function getCrewsSummary(
   tasks: Task[],
   projects: Project[]
 ): CrewSummary {
-  const activeCrews = crews.filter(
-    (crew) => crew.status === "activa" || crew.status === "en-campo"
-  ).length
+  const activeCrews = crews.filter((crew) => crew.status === "activa").length
 
   const assignedTasks = tasks.filter(
     (task) =>

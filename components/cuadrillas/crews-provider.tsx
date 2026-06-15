@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react"
 
@@ -19,6 +20,11 @@ import {
   updateCrew,
   updateCrewMember,
 } from "@/lib/supabase/crews.browser"
+import { useTasks } from "@/components/tareas/tasks-provider"
+import {
+  shouldPersistCrewStatusSync,
+  withResolvedCrewStatuses,
+} from "@/lib/crews/status-workflow"
 import type {
   Crew,
   CrewMember,
@@ -44,7 +50,7 @@ type CrewsContextValue = {
   addCrew: (input: NewCrewInput) => Promise<CrewMutationResult & { crew?: Crew }>
   editCrew: (
     id: string,
-    input: UpdateCrewPayload
+    input: UpdateCrewPayload | NewCrewInput
   ) => Promise<CrewMutationResult & { crew?: Crew }>
   removeCrew: (id: string) => Promise<CrewMutationResult>
   addMember: (
@@ -69,9 +75,16 @@ function replaceCrewInList(crews: Crew[], crew: Crew): Crew[] {
 }
 
 export function CrewsProvider({ children }: { children: React.ReactNode }) {
+  const { tasks, isTasksReady } = useTasks()
   const [crews, setCrews] = useState<Crew[]>([])
   const [isCrewsReady, setIsCrewsReady] = useState(false)
   const [usesSupabase, setUsesSupabase] = useState(false)
+  const syncInFlightRef = useRef(false)
+
+  const resolvedCrews = useMemo(
+    () => withResolvedCrewStatuses(crews, tasks),
+    [crews, tasks]
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -110,9 +123,51 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
+  useEffect(() => {
+    if (!isCrewsReady || !isTasksReady || !usesSupabase || syncInFlightRef.current) {
+      return
+    }
+
+    const pendingUpdates = crews
+      .map((crew) => {
+        const nextStatus = shouldPersistCrewStatusSync(crew, tasks)
+        return nextStatus ? { id: crew.id, status: nextStatus } : null
+      })
+      .filter(
+        (update): update is { id: string; status: Crew["status"] } =>
+          update !== null
+      )
+
+    if (pendingUpdates.length === 0) {
+      return
+    }
+
+    syncInFlightRef.current = true
+
+    void (async () => {
+      try {
+        const client = createBrowserCrewsClient()
+
+        for (const update of pendingUpdates) {
+          const result = await updateCrew(
+            update.id,
+            { status: update.status },
+            client
+          )
+
+          if (result.data) {
+            setCrews((current) => replaceCrewInList(current, result.data!))
+          }
+        }
+      } finally {
+        syncInFlightRef.current = false
+      }
+    })()
+  }, [crews, tasks, isCrewsReady, isTasksReady, usesSupabase])
+
   const getCrew = useCallback(
-    (id: string) => crews.find((crew) => crew.id === id),
-    [crews]
+    (id: string) => resolvedCrews.find((crew) => crew.id === id),
+    [resolvedCrews]
   )
 
   const addCrew = useCallback(
@@ -131,7 +186,7 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
             name: input.name,
             description: input.description,
             supervisor: input.supervisor,
-            status: input.status,
+            status: "activa",
             notes: input.notes,
           },
           client
@@ -161,7 +216,7 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
   )
 
   const editCrew = useCallback(
-    async (id: string, input: UpdateCrewPayload) => {
+    async (id: string, input: UpdateCrewPayload | NewCrewInput) => {
       if (!usesSupabase) {
         return {
           success: false,
@@ -169,9 +224,20 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
+      const payload: UpdateCrewPayload =
+        "manuallyInactive" in input
+          ? {
+              name: input.name,
+              description: input.description,
+              supervisor: input.supervisor,
+              notes: input.notes,
+              status: input.manuallyInactive ? "inactiva" : "activa",
+            }
+          : input
+
       try {
         const client = createBrowserCrewsClient()
-        const result = await updateCrew(id, input, client)
+        const result = await updateCrew(id, payload, client)
 
         if (result.data) {
           setCrews((current) => replaceCrewInList(current, result.data!))
@@ -370,7 +436,7 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo(
     () => ({
-      crews,
+      crews: resolvedCrews,
       isCrewsReady,
       usesSupabase,
       getCrew,
@@ -382,7 +448,7 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
       removeMember,
     }),
     [
-      crews,
+      resolvedCrews,
       isCrewsReady,
       usesSupabase,
       getCrew,

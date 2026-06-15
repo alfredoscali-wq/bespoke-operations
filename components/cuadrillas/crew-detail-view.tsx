@@ -15,6 +15,10 @@ import { CrewPerformanceTab } from "@/components/cuadrillas/crew-tabs/performanc
 import { CrewProjectsTab } from "@/components/cuadrillas/crew-tabs/projects-tab"
 import { CrewTasksTab } from "@/components/cuadrillas/crew-tabs/tasks-tab"
 import { useOperationalData } from "@/components/cuadrillas/use-operational-data"
+import {
+  isCrewManuallyInactive,
+  resolveAutomaticCrewStatus,
+} from "@/lib/crews/status-workflow"
 import type { Crew, CrewDetail, NewCrewInput } from "@/lib/types/crews"
 import { Button } from "@/components/ui/button"
 import {
@@ -57,6 +61,17 @@ export function CrewDetailView({ crew, detail }: CrewDetailViewProps) {
     [crew.members]
   )
 
+  const statusHint = useMemo(() => {
+    if (isCrewManuallyInactive(crew)) {
+      return "Marcada manualmente como inactiva."
+    }
+
+    const automaticStatus = resolveAutomaticCrewStatus(crew, tasks)
+    return automaticStatus === "en-campo"
+      ? "En campo por tareas activas (automático)."
+      : "Disponible sin tareas en campo (automático)."
+  }, [crew, tasks])
+
   async function handleEdit(input: NewCrewInput) {
     const result = await editCrew(crew.id, input)
     if (!result.success) {
@@ -92,6 +107,7 @@ export function CrewDetailView({ crew, detail }: CrewDetailViewProps) {
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <CrewStatusBadge status={crew.status} />
+              <span className="text-xs text-muted-foreground">{statusHint}</span>
             </div>
             <h2 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
               {crew.name}

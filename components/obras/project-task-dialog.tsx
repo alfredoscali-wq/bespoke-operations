@@ -1,8 +1,12 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 
 import { useCrews } from "@/components/cuadrillas/crews-provider"
+import {
+  getCrewsForTaskSelection,
+  validateCrewAssignment,
+} from "@/lib/crews/status-workflow"
 import type { Project } from "@/lib/types/projects"
 import type { Task, TaskPriority, TaskType } from "@/lib/types/tasks"
 import {
@@ -120,6 +124,14 @@ export function ProjectTaskDialog({
   onSubmit,
 }: ProjectTaskDialogProps) {
   const { crews } = useCrews()
+  const crewOptions = useMemo(
+    () => getCrewsForTaskSelection(crews, task?.crewId),
+    [crews, task?.crewId]
+  )
+  const assignableCrews = useMemo(
+    () => getCrewsForTaskSelection(crews),
+    [crews]
+  )
   const [form, setForm] = useState<TaskFormState>(() => buildCreateForm(project))
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -144,10 +156,10 @@ export function ProjectTaskDialog({
         ? buildEditForm(task)
         : {
             ...buildCreateForm(project),
-            crew: crews[0]?.name ?? "",
+            crew: assignableCrews[0]?.name ?? "",
           }
     )
-  }, [open, mode, project, task, crews])
+  }, [open, mode, project, task, assignableCrews])
 
   function updateField<K extends keyof TaskFormState>(
     key: K,
@@ -173,6 +185,15 @@ export function ProjectTaskDialog({
     if (form.dueDate < form.startDate) {
       setError("La fecha límite no puede ser anterior a la fecha de inicio.")
       return
+    }
+
+    const isSameCrew = mode === "edit" && task && task.crew === form.crew
+    if (!isSameCrew) {
+      const crewValidation = validateCrewAssignment(selectedCrew)
+      if (!crewValidation.allowed) {
+        setError(crewValidation.message ?? "Cuadrilla no disponible.")
+        return
+      }
     }
 
     setIsSubmitting(true)
@@ -316,9 +337,14 @@ export function ProjectTaskDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {crews.map((crew) => (
-                  <SelectItem key={crew.id} value={crew.name}>
+                {crewOptions.map((crew) => (
+                  <SelectItem
+                    key={crew.id}
+                    value={crew.name}
+                    disabled={crew.status === "inactiva"}
+                  >
                     {crew.name}
+                    {crew.status === "inactiva" ? " (inactiva)" : ""}
                   </SelectItem>
                 ))}
               </SelectContent>

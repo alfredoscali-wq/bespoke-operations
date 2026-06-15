@@ -16,6 +16,10 @@ import {
   TASK_TYPE_OPTIONS,
 } from "@/lib/tasks/constants"
 import {
+  getAssignableCrews,
+  validateCrewAssignment,
+} from "@/lib/crews/status-workflow"
+import {
   generateFieldServiceTaskCode,
   generateTaskCode,
   resolveSupervisorFromCrew,
@@ -115,6 +119,7 @@ export function TaskFormDialog({
 }: TaskFormDialogProps) {
   const { projects } = useProjects()
   const { crews } = useCrews()
+  const assignableCrews = useMemo(() => getAssignableCrews(crews), [crews])
   const [form, setForm] = useState<TaskFormState>(buildDefaultForm)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -135,10 +140,10 @@ export function TaskFormDialog({
     setForm({
       ...buildDefaultForm(),
       projectId: projects[0]?.id ?? "",
-      crew: crews[0]?.name ?? "",
+      crew: assignableCrews[0]?.name ?? "",
       dueDate: projects[0]?.endDate ?? new Date().toISOString().slice(0, 10),
     })
-  }, [open, projects, crews])
+  }, [open, projects, assignableCrews])
 
   useEffect(() => {
     if (form.operationMode !== "obra" || !selectedProject) return
@@ -203,6 +208,12 @@ export function TaskFormDialog({
         setError("El número de orden es obligatorio.")
         return
       }
+    }
+
+    const crewValidation = validateCrewAssignment(selectedCrew)
+    if (!crewValidation.allowed) {
+      setError(crewValidation.message ?? "Cuadrilla no disponible.")
+      return
     }
 
     setIsSubmitting(true)
@@ -463,7 +474,7 @@ export function TaskFormDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {crews.map((crew) => (
+                {assignableCrews.map((crew) => (
                   <SelectItem key={crew.id} value={crew.name}>
                     {crew.name}
                   </SelectItem>

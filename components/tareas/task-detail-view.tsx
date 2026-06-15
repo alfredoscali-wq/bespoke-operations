@@ -1,11 +1,16 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import Link from "next/link"
 import { AlertTriangle, ArrowLeft, CheckCircle2, MoreHorizontal } from "lucide-react"
 
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { useTasks } from "@/components/tareas/tasks-provider"
+import {
+  getCrewsForTaskSelection,
+  isCrewAssignable,
+  validateCrewAssignment,
+} from "@/lib/crews/status-workflow"
 import { TaskOverviewTab } from "@/components/tareas/task-tabs/overview-tab"
 import { TaskChecklistTab } from "@/components/tareas/task-tabs/checklist-tab"
 import { TaskEvidenceTab } from "@/components/tareas/task-tabs/evidence-tab"
@@ -50,6 +55,10 @@ type TaskDetailViewProps = {
 export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
   const { crews } = useCrews()
   const { assignCrew, approveTask, rejectTask, closeTask } = useTasks()
+  const crewOptions = useMemo(
+    () => getCrewsForTaskSelection(crews, task.crewId),
+    [crews, task.crewId]
+  )
   const [actionError, setActionError] = useState<string | null>(null)
   const [crewError, setCrewError] = useState<string | null>(null)
   const [isAssigningCrew, setIsAssigningCrew] = useState(false)
@@ -70,6 +79,13 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
     }
 
     const crew = crews.find((item) => item.id === value)
+    const validation = validateCrewAssignment(crew)
+    if (!validation.allowed) {
+      setIsAssigningCrew(false)
+      setCrewError(validation.message ?? "No se pudo asignar la cuadrilla.")
+      return
+    }
+
     const result = await assignCrew(
       task.id,
       value,
@@ -199,9 +215,16 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">Sin cuadrilla</SelectItem>
-              {crews.map((crew) => (
-                <SelectItem key={crew.id} value={crew.id}>
+              {crewOptions.map((crew) => (
+                <SelectItem
+                  key={crew.id}
+                  value={crew.id}
+                  disabled={
+                    !isCrewAssignable(crew) && crew.id !== task.crewId
+                  }
+                >
                   {crew.name}
+                  {!isCrewAssignable(crew) ? " (inactiva)" : ""}
                 </SelectItem>
               ))}
             </SelectContent>

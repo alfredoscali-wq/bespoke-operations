@@ -153,6 +153,7 @@ export function buildKpiMetrics(
 
   const activeCrews = crews.filter((crew) => crew.status === "activa").length
   const fieldCrews = crews.filter((crew) => crew.status === "en-campo").length
+  const inactiveCrews = crews.filter((crew) => crew.status === "inactiva").length
 
   return [
     {
@@ -288,6 +289,15 @@ export function buildKpiMetrics(
       change: `${fieldCrews} operando`,
       trend: "neutral",
       description: "Cuadrillas reportadas en sitio",
+      href: "/cuadrillas",
+    },
+    {
+      id: "crews-inactive",
+      label: "Cuadrillas Inactivas",
+      value: String(inactiveCrews),
+      change: `${inactiveCrews} fuera de servicio`,
+      trend: inactiveCrews > 0 ? "down" : "neutral",
+      description: "Vacaciones, licencia o deshabilitadas",
       href: "/cuadrillas",
     },
   ]

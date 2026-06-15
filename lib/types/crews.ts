@@ -77,8 +77,9 @@ export type NewCrewInput = {
   name: string
   description: string
   supervisor: string
-  status: CrewStatus
   notes: string
+  /** Manual override — only used when editing a crew. */
+  manuallyInactive?: boolean
 }
 
 export type NewCrewMemberInput = {
