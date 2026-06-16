@@ -9,6 +9,8 @@ import type {
   TaskStatus,
   TaskType,
 } from "@/lib/types/tasks"
+import type { CrewFilterOption } from "@/lib/tasks/crew-relation"
+import { taskMatchesCrewFilter } from "@/lib/tasks/crew-relation"
 import {
   TASK_PRIORITY_OPTIONS,
   TASK_STATUS_OPTIONS,
@@ -49,7 +51,7 @@ type TasksFiltersProps = {
   onChange: (filters: TaskFilters) => void
   resultCount: number
   showSort?: boolean
-  crewOptions?: string[]
+  crewOptions?: CrewFilterOption[]
 }
 
 const sortOptions: { value: TaskSortField; label: string }[] = [
@@ -174,8 +176,8 @@ export function TasksFiltersBar({
             <SelectContent>
               <SelectItem value="all">Todas</SelectItem>
               {crewOptions.map((crew) => (
-                <SelectItem key={crew} value={crew}>
-                  {crew}
+                <SelectItem key={crew.id} value={crew.id}>
+                  {crew.name}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -254,10 +256,15 @@ export function filterAndSortTasks<
     type: TaskType
     priority: TaskPriority
     crew: string
+    crewId?: string
     dueDate: string
     progress: number
   },
->(tasks: T[], filters: TaskFilters): T[] {
+>(
+  tasks: T[],
+  filters: TaskFilters,
+  crews: Pick<{ id: string; name: string }, "id" | "name">[] = []
+): T[] {
   const query = filters.search.trim().toLowerCase()
 
   const filtered = tasks.filter((task) => {
@@ -273,7 +280,7 @@ export function filterAndSortTasks<
       (filters.status === "all" || task.status === filters.status) &&
       (filters.type === "all" || task.type === filters.type) &&
       (filters.priority === "all" || task.priority === filters.priority) &&
-      (filters.crew === "all" || task.crew === filters.crew)
+      taskMatchesCrewFilter(task, filters.crew, crews)
     )
   })
 

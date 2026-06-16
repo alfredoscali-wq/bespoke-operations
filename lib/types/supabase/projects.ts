@@ -17,6 +17,10 @@ export type UpdateProjectPayload = Partial<{
   supervisor: string
   location: string
   description: string
+  pauseReason?: string | null
+  pauseNotes?: string | null
+  pausedAt?: string | null
+  deletedAt?: string | null
 }>
 
 export type ProjectsRepositoryErrorCode =

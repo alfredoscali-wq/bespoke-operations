@@ -22,6 +22,7 @@ export function mapCrewMemberRowToMember(row: CrewMemberRow): CrewMember {
   return {
     id: row.id,
     crewId: row.crew_id,
+    employeeId: row.employee_id,
     name: row.name,
     role: row.role,
     phone: row.phone ?? undefined,
@@ -40,6 +41,7 @@ export function mapCrewRowToCrew(row: CrewRowWithMembers): Crew {
     name: row.name,
     description: row.description,
     supervisor: row.supervisor,
+    supervisorEmployeeId: row.supervisor_employee_id,
     status: row.status,
     notes: row.notes,
     members,
@@ -51,6 +53,7 @@ export function mapCreatePayloadToInsert(payload: CreateCrewPayload): CrewInsert
     name: payload.name.trim(),
     description: payload.description?.trim() ?? "",
     supervisor: payload.supervisor.trim(),
+    supervisor_employee_id: payload.supervisorEmployeeId ?? null,
     status: payload.status ?? "activa",
     notes: payload.notes?.trim() ?? "",
   }
@@ -66,6 +69,9 @@ export function mapUpdatePayloadToUpdate(payload: UpdateCrewPayload): CrewUpdate
   if (payload.supervisor !== undefined) {
     update.supervisor = payload.supervisor.trim()
   }
+  if (payload.supervisorEmployeeId !== undefined) {
+    update.supervisor_employee_id = payload.supervisorEmployeeId
+  }
   if (payload.status !== undefined) update.status = payload.status
   if (payload.notes !== undefined) update.notes = payload.notes.trim()
 
@@ -77,6 +83,7 @@ export function mapCreateMemberPayloadToInsert(
 ): CrewMemberInsert {
   return {
     crew_id: payload.crewId,
+    employee_id: payload.employeeId ?? null,
     name: payload.name.trim(),
     role: payload.role.trim(),
     phone: payload.phone?.trim() || null,
@@ -89,6 +96,9 @@ export function mapUpdateMemberPayloadToUpdate(
 ): CrewMemberUpdate {
   const update: CrewMemberUpdate = {}
 
+  if (payload.employeeId !== undefined) {
+    update.employee_id = payload.employeeId
+  }
   if (payload.name !== undefined) update.name = payload.name.trim()
   if (payload.role !== undefined) update.role = payload.role.trim()
   if (payload.phone !== undefined) {

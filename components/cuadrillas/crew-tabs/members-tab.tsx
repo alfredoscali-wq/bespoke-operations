@@ -1,11 +1,14 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react"
 
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { MemberFormDialog } from "@/components/cuadrillas/member-form-dialog"
-import { MemberActiveBadge } from "@/components/cuadrillas/crew-badges"
+import { MemberOperationalStatus } from "@/components/cuadrillas/member-operational-status"
+import { useEmployees } from "@/components/rrhh/employees-provider"
+import { useAvailability } from "@/components/disponibilidad/availability-provider"
+import { resolveCrewMemberDisplay } from "@/lib/crews/utils"
 import type { Crew, CrewMember, NewCrewMemberInput } from "@/lib/types/crews"
 import { Button } from "@/components/ui/button"
 import {
@@ -44,11 +47,22 @@ type CrewMembersTabProps = {
 
 export function CrewMembersTab({ crew }: CrewMembersTabProps) {
   const { addMember, editMember, removeMember } = useCrews()
+  const { getEmployee } = useEmployees()
+  const { records: availabilityRecords } = useAvailability()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogMode, setDialogMode] = useState<"create" | "edit">("create")
   const [selectedMember, setSelectedMember] = useState<CrewMember | undefined>()
   const [deleteTarget, setDeleteTarget] = useState<CrewMember | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+
+  const memberRows = useMemo(
+    () =>
+      crew.members.map((member) => ({
+        member,
+        display: resolveCrewMemberDisplay(member, getEmployee),
+      })),
+    [crew.members, getEmployee]
+  )
 
   function openCreateDialog() {
     setDialogMode("create")
@@ -111,6 +125,10 @@ export function CrewMembersTab({ crew }: CrewMembersTabProps) {
     )
   }
 
+  const deleteTargetDisplay = deleteTarget
+    ? resolveCrewMemberDisplay(deleteTarget, getEmployee)
+    : null
+
   return (
     <Card className="shadow-sm">
       <CardHeader className="flex flex-row items-start justify-between gap-4">
@@ -136,25 +154,35 @@ export function CrewMembersTab({ crew }: CrewMembersTabProps) {
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead>Nombre</TableHead>
-                    <TableHead>Rol</TableHead>
-                    <TableHead>Teléfono</TableHead>
-                    <TableHead>Estado</TableHead>
+                    <TableHead>Código empleado</TableHead>
+                    <TableHead>Nombre completo</TableHead>
+                    <TableHead>Rol en cuadrilla</TableHead>
+                    <TableHead>Estado Operativo</TableHead>
                     <TableHead className="w-[60px]" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {crew.members.map((member) => (
+                  {memberRows.map(({ member, display }) => (
                     <TableRow key={member.id}>
-                      <TableCell className="font-medium">{member.name}</TableCell>
+                      <TableCell className="font-mono text-sm text-muted-foreground">
+                        {display.employeeCode ?? "—"}
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {display.fullName}
+                        {display.isLegacy && (
+                          <p className="text-xs font-normal text-muted-foreground">
+                            Registro legacy
+                          </p>
+                        )}
+                      </TableCell>
                       <TableCell className="text-muted-foreground">
                         {member.role}
                       </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {member.phone || "—"}
-                      </TableCell>
                       <TableCell>
-                        <MemberActiveBadge active={member.active} />
+                        <MemberOperationalStatus
+                          employeeId={member.employeeId}
+                          records={availabilityRecords}
+                        />
                       </TableCell>
                       <TableCell>{renderActions(member)}</TableCell>
                     </TableRow>
@@ -164,22 +192,31 @@ export function CrewMembersTab({ crew }: CrewMembersTabProps) {
             </div>
 
             <div className="space-y-3 lg:hidden">
-              {crew.members.map((member) => (
+              {memberRows.map(({ member, display }) => (
                 <div
                   key={member.id}
                   className="flex items-start justify-between gap-3 rounded-lg border bg-muted/20 p-3"
                 >
                   <div>
-                    <p className="font-medium">{member.name}</p>
+                    {display.employeeCode && (
+                      <p className="font-mono text-xs text-muted-foreground">
+                        {display.employeeCode}
+                      </p>
+                    )}
+                    <p className="font-medium">{display.fullName}</p>
                     <p className="text-sm text-muted-foreground">{member.role}</p>
-                    {member.phone && (
+                    {display.isLegacy && (
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {member.phone}
+                        Registro legacy
                       </p>
                     )}
                   </div>
-                  <div className="flex items-center gap-1">
-                    <MemberActiveBadge active={member.active} />
+                  <div className="flex flex-col items-end gap-2">
+                    <MemberOperationalStatus
+                      employeeId={member.employeeId}
+                      records={availabilityRecords}
+                      className="items-end text-right"
+                    />
                     {renderActions(member)}
                   </div>
                 </div>
@@ -193,6 +230,7 @@ export function CrewMembersTab({ crew }: CrewMembersTabProps) {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         mode={dialogMode}
+        crew={crew}
         member={selectedMember}
         onSubmit={handleSubmit}
       />
@@ -207,7 +245,8 @@ export function CrewMembersTab({ crew }: CrewMembersTabProps) {
           <DialogHeader>
             <DialogTitle>Eliminar integrante</DialogTitle>
             <DialogDescription>
-              ¿Desea eliminar a {deleteTarget?.name} de la cuadrilla?
+              ¿Desea eliminar a {deleteTargetDisplay?.fullName ?? deleteTarget?.name}{" "}
+              de la cuadrilla?
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">

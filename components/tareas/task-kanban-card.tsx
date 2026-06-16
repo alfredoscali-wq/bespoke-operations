@@ -1,11 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo } from "react"
 import Link from "next/link"
 import { AlertTriangle } from "lucide-react"
 
+import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { TaskOperationBadge, TaskPriorityBadge, TaskStatusBadge } from "@/components/tareas/task-badges"
 import { isFieldServiceTask } from "@/lib/tasks/utils"
+import { resolveTaskCrewDisplayName } from "@/lib/tasks/crew-relation"
 import { formatTaskDate } from "@/lib/tasks/constants"
 import type { Task } from "@/lib/types/tasks"
 import { Progress } from "@/components/ui/progress"
@@ -16,6 +18,12 @@ type TaskKanbanCardProps = {
 }
 
 export function TaskKanbanCard({ task }: TaskKanbanCardProps) {
+  const { getCrew } = useCrews()
+  const crewDisplayName = useMemo(
+    () => resolveTaskCrewDisplayName(task, getCrew),
+    [task, getCrew]
+  )
+
   return (
     <Card className="gap-0 py-0 shadow-sm transition-shadow hover:shadow-md">
       <CardHeader className="gap-2 px-3 pt-3 pb-2">
@@ -53,7 +61,7 @@ export function TaskKanbanCard({ task }: TaskKanbanCardProps) {
           <p>
             {isFieldServiceTask(task)
               ? task.customerCompany ?? task.customerName
-              : task.crew}
+              : crewDisplayName}
           </p>
           <p>{formatTaskDate(task.dueDate)}</p>
         </div>

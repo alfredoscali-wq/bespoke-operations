@@ -24,6 +24,7 @@ import {
   generateTaskCode,
   resolveSupervisorFromCrew,
 } from "@/lib/tasks/utils"
+import { resolveCrewSnapshotsForAssignment } from "@/lib/tasks/crew-relation"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -64,6 +65,7 @@ type TaskFormDialogProps = {
     type: TaskType
     priority: TaskPriority
     supervisor: string
+    crewId: string
     crew: string
     startDate: string
     dueDate: string
@@ -83,7 +85,7 @@ type TaskFormState = {
   workOrderNumber: string
   type: TaskType
   priority: TaskPriority
-  crew: string
+  crewId: string
   startDate: string
   dueDate: string
   estimatedDuration: string
@@ -104,7 +106,7 @@ function buildDefaultForm(): TaskFormState {
     workOrderNumber: "",
     type: "maintenance",
     priority: "media",
-    crew: "",
+    crewId: "",
     startDate: today,
     dueDate: today,
     estimatedDuration: "",
@@ -129,8 +131,8 @@ export function TaskFormDialog({
     [form.projectId, projects]
   )
   const selectedCrew = useMemo(
-    () => crews.find((crew) => crew.name === form.crew),
-    [crews, form.crew]
+    () => crews.find((crew) => crew.id === form.crewId),
+    [crews, form.crewId]
   )
 
   useEffect(() => {
@@ -140,7 +142,7 @@ export function TaskFormDialog({
     setForm({
       ...buildDefaultForm(),
       projectId: projects[0]?.id ?? "",
-      crew: assignableCrews[0]?.name ?? "",
+      crewId: assignableCrews[0]?.id ?? "",
       dueDate: projects[0]?.endDate ?? new Date().toISOString().slice(0, 10),
     })
   }, [open, projects, assignableCrews])
@@ -224,6 +226,7 @@ export function TaskFormDialog({
         ? generateTaskCode(selectedProject!.code, existingTasks)
         : generateFieldServiceTaskCode(existingTasks)
       const supervisor = resolveSupervisorFromCrew(selectedCrew)
+      const snapshots = resolveCrewSnapshotsForAssignment(selectedCrew)
 
       await onSubmit({
         operationMode: form.operationMode,
@@ -242,8 +245,9 @@ export function TaskFormDialog({
         workOrderNumber: isObra ? undefined : form.workOrderNumber.trim(),
         type: form.type,
         priority: form.priority,
-        supervisor,
-        crew: form.crew,
+        supervisor: supervisor || snapshots.supervisor,
+        crewId: snapshots.crewId ?? form.crewId,
+        crew: snapshots.crew,
         startDate: form.startDate,
         dueDate: form.dueDate,
         estimatedDuration: form.estimatedDuration.trim(),
@@ -263,7 +267,7 @@ export function TaskFormDialog({
 
   const isValid =
     form.title.trim() !== "" &&
-    form.crew !== "" &&
+    form.crewId !== "" &&
     form.startDate !== "" &&
     form.dueDate !== "" &&
     (form.operationMode === "obra"
@@ -467,15 +471,15 @@ export function TaskFormDialog({
           <div className="space-y-2">
             <Label>Cuadrilla</Label>
             <Select
-              value={form.crew}
-              onValueChange={(value) => updateField("crew", value)}
+              value={form.crewId}
+              onValueChange={(value) => updateField("crewId", value)}
             >
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {assignableCrews.map((crew) => (
-                  <SelectItem key={crew.id} value={crew.name}>
+                  <SelectItem key={crew.id} value={crew.id}>
                     {crew.name}
                   </SelectItem>
                 ))}
@@ -488,7 +492,7 @@ export function TaskFormDialog({
                   {selectedCrew.supervisor}
                 </span>
               </p>
-            ) : form.crew ? null : (
+            ) : form.crewId ? null : (
               <p className="text-xs text-muted-foreground">
                 Seleccione una cuadrilla para asignar supervisor automáticamente.
               </p>

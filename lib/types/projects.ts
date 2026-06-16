@@ -4,6 +4,16 @@ export type ProjectStatus =
   | "paused"
   | "pending-closure"
   | "closed"
+  | "cancelled"
+
+export type ProjectPauseReason =
+  | "climatic"
+  | "materials"
+  | "client"
+  | "permits"
+  | "resources"
+  | "safety"
+  | "other"
 
 export type ProjectType =
   | "fiber"
@@ -11,6 +21,17 @@ export type ProjectType =
   | "wireless"
   | "pole"
   | "maintenance"
+
+export type ProjectHistoryEventType =
+  | "created"
+  | "updated"
+  | "status_changed"
+  | "paused"
+  | "resumed"
+  | "finalized"
+  | "archived"
+  | "reopened"
+  | "cancelled"
 
 export type Project = {
   id: string
@@ -25,6 +46,9 @@ export type Project = {
   supervisor: string
   location: string
   description: string
+  pauseReason?: ProjectPauseReason
+  pauseNotes?: string
+  pausedAt?: string
   createdAt?: string
 }
 
@@ -56,10 +80,12 @@ export type ProjectDocument = {
 
 export type ProjectHistoryEvent = {
   id: string
+  eventType: ProjectHistoryEventType
   title: string
   description: string
   user: string
   timestamp: string
+  metadata?: Record<string, string>
 }
 
 export type ProjectCosts = {
@@ -93,4 +119,9 @@ export type NewProjectInput = {
   startDate?: string
   endDate?: string
   supervisor: string
+}
+
+export type PauseProjectInput = {
+  reason: ProjectPauseReason
+  notes?: string
 }

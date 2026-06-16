@@ -1,4 +1,5 @@
 import type { ProjectHistoryEvent } from "@/lib/types/projects"
+import { getHistoryTitleForEvent } from "@/lib/projects/utils"
 import {
   Card,
   CardContent,
@@ -27,6 +28,19 @@ export function ProjectHistoryTab({ history }: ProjectHistoryTabProps) {
     (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
   )
 
+  if (sortedHistory.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed bg-muted/20 px-6 py-16 text-center">
+        <p className="text-sm font-medium text-foreground">
+          Sin eventos registrados
+        </p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Los cambios de estado, pausas y ediciones aparecerán aquí.
+        </p>
+      </div>
+    )
+  }
+
   return (
     <Card className="shadow-sm">
       <CardHeader>
@@ -49,7 +63,7 @@ export function ProjectHistoryTab({ history }: ProjectHistoryTabProps) {
                 <div className="min-w-0 flex-1 space-y-1 pb-2">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="text-sm font-medium text-foreground">
-                      {event.title}
+                      {event.title || getHistoryTitleForEvent(event.eventType)}
                     </p>
                     <span className="text-[11px] text-muted-foreground">
                       {formatHistoryDate(event.timestamp)}

@@ -1,5 +1,5 @@
 import type { CrewActivityType, CrewStatus } from "@/lib/types/crews"
-import { SUPERVISORS } from "@/lib/projects/constants"
+import { STATUS_TONE_STYLES } from "@/lib/ui/visual-tokens"
 
 export const CREW_ACTIVITY_LABELS: Record<CrewActivityType, string> = {
   "task-assigned": "Tarea asignada",
@@ -16,18 +16,28 @@ export const CREW_STATUS_LABELS: Record<CrewStatus, string> = {
 }
 
 export const CREW_STATUS_STYLES: Record<CrewStatus, string> = {
-  activa: "bg-emerald-50 text-emerald-700 border-emerald-100",
-  inactiva: "bg-slate-100 text-slate-600 border-slate-200",
-  "en-campo": "bg-blue-50 text-blue-700 border-blue-100",
+  activa: STATUS_TONE_STYLES.green,
+  inactiva: STATUS_TONE_STYLES.gray,
+  "en-campo": STATUS_TONE_STYLES.blue,
 }
 
 export const MEMBER_ACTIVE_LABEL = "Activo"
 export const MEMBER_INACTIVE_LABEL = "Inactivo"
 
-export const MEMBER_ACTIVE_STYLES =
-  "bg-emerald-50 text-emerald-700 border-emerald-100"
-export const MEMBER_INACTIVE_STYLES =
-  "bg-slate-100 text-slate-600 border-slate-200"
+export const MEMBER_ACTIVE_STYLES = STATUS_TONE_STYLES.green
+export const MEMBER_INACTIVE_STYLES = STATUS_TONE_STYLES.gray
+
+export const CREW_AVAILABILITY_STATUS_LABELS = {
+  OPERATIONAL: "Operativa",
+  REDUCED_CAPACITY: "Capacidad reducida",
+  NOT_OPERATIONAL: "No operativa",
+} as const
+
+export const CREW_AVAILABILITY_STATUS_STYLES = {
+  OPERATIONAL: STATUS_TONE_STYLES.green,
+  REDUCED_CAPACITY: STATUS_TONE_STYLES.yellow,
+  NOT_OPERATIONAL: STATUS_TONE_STYLES.red,
+} as const
 
 export const CREW_STATUS_OPTIONS = Object.entries(CREW_STATUS_LABELS).map(
   ([value, label]) => ({
@@ -36,7 +46,8 @@ export const CREW_STATUS_OPTIONS = Object.entries(CREW_STATUS_LABELS).map(
   })
 )
 
-export const CREW_SUPERVISOR_OPTIONS = SUPERVISORS
+/** @deprecated Use getSupervisorEmployees from lib/employees/utils */
+export const CREW_SUPERVISOR_OPTIONS: readonly string[] = []
 
 /** @deprecated Use crew names from CrewsProvider instead */
 export const CREW_NAMES: readonly string[] = []

@@ -1,4 +1,7 @@
+import type { AvailabilityType } from "@/lib/types/availability"
 import type { CrewStatus } from "@/lib/types/crews"
+import type { EmploymentStatus } from "@/lib/types/employees"
+import type { EmployeeType } from "@/lib/types/employees"
 import type {
   EvidenceCategoryType,
   EvidenceFileType,
@@ -64,6 +67,9 @@ export type Database = {
           supervisor: string
           location: string
           description: string
+          pause_reason: string | null
+          pause_notes: string | null
+          paused_at: string | null
           created_at: string
           updated_at: string
           deleted_at: string | null
@@ -82,6 +88,9 @@ export type Database = {
           supervisor: string
           location: string
           description?: string
+          pause_reason?: string | null
+          pause_notes?: string | null
+          paused_at?: string | null
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
@@ -100,9 +109,48 @@ export type Database = {
           supervisor?: string
           location?: string
           description?: string
+          pause_reason?: string | null
+          pause_notes?: string | null
+          paused_at?: string | null
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
+        }
+        Relationships: []
+      }
+      project_history: {
+        Row: {
+          id: string
+          company_id: string
+          project_id: string
+          event_type: string
+          title: string
+          description: string
+          metadata: Record<string, unknown>
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          company_id?: string
+          project_id: string
+          event_type: string
+          title: string
+          description?: string
+          metadata?: Record<string, unknown>
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          project_id?: string
+          event_type?: string
+          title?: string
+          description?: string
+          metadata?: Record<string, unknown>
+          created_by?: string | null
+          created_at?: string
         }
         Relationships: []
       }
@@ -113,6 +161,7 @@ export type Database = {
           name: string
           description: string
           supervisor: string
+          supervisor_employee_id: string | null
           status: CrewStatus
           notes: string
           created_at: string
@@ -125,6 +174,7 @@ export type Database = {
           name: string
           description?: string
           supervisor: string
+          supervisor_employee_id?: string | null
           status?: CrewStatus
           notes?: string
           created_at?: string
@@ -137,6 +187,7 @@ export type Database = {
           name?: string
           description?: string
           supervisor?: string
+          supervisor_employee_id?: string | null
           status?: CrewStatus
           notes?: string
           created_at?: string
@@ -149,6 +200,7 @@ export type Database = {
         Row: {
           id: string
           crew_id: string
+          employee_id: string | null
           name: string
           role: string
           phone: string | null
@@ -160,6 +212,7 @@ export type Database = {
         Insert: {
           id?: string
           crew_id: string
+          employee_id?: string | null
           name: string
           role: string
           phone?: string | null
@@ -171,10 +224,122 @@ export type Database = {
         Update: {
           id?: string
           crew_id?: string
+          employee_id?: string | null
           name?: string
           role?: string
           phone?: string | null
           active?: boolean
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Relationships: []
+      }
+      employees: {
+        Row: {
+          id: string
+          company_id: string
+          employee_code: string
+          first_name: string
+          last_name: string
+          preferred_name: string | null
+          national_id: string | null
+          birth_date: string | null
+          email: string | null
+          phone: string | null
+          job_title: string
+          department: string
+          employee_type: EmployeeType
+          employment_status: EmploymentStatus
+          hire_date: string | null
+          termination_date: string | null
+          notes: string
+          app_user_id: string | null
+          created_at: string
+          updated_at: string
+          deleted_at: string | null
+        }
+        Insert: {
+          id?: string
+          company_id?: string
+          employee_code: string
+          first_name: string
+          last_name: string
+          preferred_name?: string | null
+          national_id?: string | null
+          birth_date?: string | null
+          email?: string | null
+          phone?: string | null
+          job_title?: string
+          department?: string
+          employee_type?: EmployeeType
+          employment_status?: EmploymentStatus
+          hire_date?: string | null
+          termination_date?: string | null
+          notes?: string
+          app_user_id?: string | null
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          employee_code?: string
+          first_name?: string
+          last_name?: string
+          preferred_name?: string | null
+          national_id?: string | null
+          birth_date?: string | null
+          email?: string | null
+          phone?: string | null
+          job_title?: string
+          department?: string
+          employee_type?: EmployeeType
+          employment_status?: EmploymentStatus
+          hire_date?: string | null
+          termination_date?: string | null
+          notes?: string
+          app_user_id?: string | null
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Relationships: []
+      }
+      employee_availability: {
+        Row: {
+          id: string
+          company_id: string
+          employee_id: string
+          start_date: string
+          end_date: string
+          availability_type: AvailabilityType
+          reason: string | null
+          created_at: string
+          updated_at: string
+          deleted_at: string | null
+        }
+        Insert: {
+          id?: string
+          company_id?: string
+          employee_id: string
+          start_date: string
+          end_date: string
+          availability_type: AvailabilityType
+          reason?: string | null
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          employee_id?: string
+          start_date?: string
+          end_date?: string
+          availability_type?: AvailabilityType
+          reason?: string | null
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
@@ -380,6 +545,7 @@ export type Database = {
       evidence_category_type: EvidenceCategoryType
       evidence_status: EvidenceStatus
       crew_status: CrewStatus
+      employment_status: EmploymentStatus
     }
     CompositeTypes: Record<string, never>
   }
@@ -391,6 +557,11 @@ export type CompanyUpdate = Database["public"]["Tables"]["companies"]["Update"]
 export type ProjectRow = Database["public"]["Tables"]["projects"]["Row"]
 export type ProjectInsert = Database["public"]["Tables"]["projects"]["Insert"]
 export type ProjectUpdate = Database["public"]["Tables"]["projects"]["Update"]
+export type ProjectHistoryRow = Database["public"]["Tables"]["project_history"]["Row"]
+export type ProjectHistoryInsert =
+  Database["public"]["Tables"]["project_history"]["Insert"]
+export type ProjectHistoryUpdate =
+  Database["public"]["Tables"]["project_history"]["Update"]
 export type TaskRow = Database["public"]["Tables"]["tasks"]["Row"]
 export type TaskInsert = Database["public"]["Tables"]["tasks"]["Insert"]
 export type TaskUpdate = Database["public"]["Tables"]["tasks"]["Update"]
@@ -407,3 +578,14 @@ export type CrewMemberInsert =
   Database["public"]["Tables"]["crew_members"]["Insert"]
 export type CrewMemberUpdate =
   Database["public"]["Tables"]["crew_members"]["Update"]
+export type EmployeeRow = Database["public"]["Tables"]["employees"]["Row"]
+export type EmployeeInsert =
+  Database["public"]["Tables"]["employees"]["Insert"]
+export type EmployeeUpdate =
+  Database["public"]["Tables"]["employees"]["Update"]
+export type EmployeeAvailabilityRow =
+  Database["public"]["Tables"]["employee_availability"]["Row"]
+export type EmployeeAvailabilityInsert =
+  Database["public"]["Tables"]["employee_availability"]["Insert"]
+export type EmployeeAvailabilityUpdate =
+  Database["public"]["Tables"]["employee_availability"]["Update"]

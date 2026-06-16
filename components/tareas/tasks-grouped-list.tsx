@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { ChevronDown } from "lucide-react"
 
+import { useCrews } from "@/components/cuadrillas/crews-provider"
 import {
   TaskOperationBadge,
   TaskPriorityBadge,
@@ -13,6 +14,7 @@ import {
   TASK_STATUS_LABELS,
   formatTaskDate,
 } from "@/lib/tasks/constants"
+import { resolveTaskCrewDisplayName } from "@/lib/tasks/crew-relation"
 import type { Task, TaskStatus } from "@/lib/types/tasks"
 import { isFieldServiceTask } from "@/lib/tasks/utils"
 import { cn } from "@/lib/utils"
@@ -64,6 +66,7 @@ export function TasksGroupedList({
   tasks,
   focusedStatus = null,
 }: TasksGroupedListProps) {
+  const { getCrew } = useCrews()
   const groupedTasks = useMemo(() => {
     return GROUP_ORDER.map((status) => ({
       status,
@@ -158,7 +161,7 @@ export function TasksGroupedList({
                             ]
                               .filter(Boolean)
                               .join(" · ")
-                          : [task.projectCode, task.crew || "Sin cuadrilla"]
+                          : [task.projectCode, resolveTaskCrewDisplayName(task, getCrew)]
                               .filter(Boolean)
                               .join(" · ")}
                       </p>

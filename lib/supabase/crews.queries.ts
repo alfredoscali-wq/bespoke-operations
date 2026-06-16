@@ -28,9 +28,25 @@ export function mapSupabaseCrewError(error: {
   message: string
 }) {
   if (error.code === "23505") {
+    const message = error.message.toLowerCase()
+
+    if (message.includes("crew_members_crew_employee_unique")) {
+      return {
+        code: "DUPLICATE_EMPLOYEE" as const,
+        message: "Este empleado ya está asignado a la cuadrilla.",
+      }
+    }
+
+    if (message.includes("crews_company_name")) {
+      return {
+        code: "DUPLICATE_NAME" as const,
+        message: "Ya existe una cuadrilla con ese nombre.",
+      }
+    }
+
     return {
       code: "DUPLICATE_NAME" as const,
-      message: "Ya existe una cuadrilla con ese nombre.",
+      message: "Ya existe un registro duplicado.",
     }
   }
 

@@ -1,20 +1,44 @@
-import type { ProjectStatus, ProjectType } from "@/lib/types/projects"
+import type {
+  ProjectPauseReason,
+  ProjectStatus,
+  ProjectType,
+} from "@/lib/types/projects"
+import { STATUS_TONE_STYLES } from "@/lib/ui/visual-tokens"
 
 export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
   planned: "Planificada",
   active: "Activa",
   paused: "Pausada",
-  "pending-closure": "Pendiente de Cierre",
-  closed: "Cerrada",
+  "pending-closure": "Pendiente de cierre",
+  closed: "Finalizada",
+  cancelled: "Cancelada",
 }
 
 export const PROJECT_STATUS_STYLES: Record<ProjectStatus, string> = {
-  planned: "bg-slate-100 text-slate-700 border-slate-200",
-  active: "bg-emerald-50 text-emerald-700 border-emerald-100",
-  paused: "bg-amber-50 text-amber-700 border-amber-100",
-  "pending-closure": "bg-violet-50 text-violet-700 border-violet-100",
-  closed: "bg-neutral-100 text-neutral-600 border-neutral-200",
+  planned: STATUS_TONE_STYLES.gray,
+  active: STATUS_TONE_STYLES.green,
+  paused: STATUS_TONE_STYLES.yellow,
+  "pending-closure": STATUS_TONE_STYLES.violet,
+  closed: STATUS_TONE_STYLES.neutral,
+  cancelled: STATUS_TONE_STYLES.red,
 }
+
+export const PROJECT_PAUSE_REASON_LABELS: Record<ProjectPauseReason, string> = {
+  climatic: "Climático",
+  materials: "Falta de materiales",
+  client: "Cliente",
+  permits: "Permisos",
+  resources: "Recursos",
+  safety: "Seguridad",
+  other: "Otro",
+}
+
+export const PROJECT_PAUSE_REASON_OPTIONS = Object.entries(
+  PROJECT_PAUSE_REASON_LABELS
+).map(([value, label]) => ({
+  value: value as ProjectPauseReason,
+  label,
+}))
 
 export const PROJECT_TYPE_LABELS: Record<ProjectType, string> = {
   fiber: "Fibra Óptica",

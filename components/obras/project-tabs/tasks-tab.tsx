@@ -18,6 +18,7 @@ import type { Project } from "@/lib/types/projects"
 import type { Task } from "@/lib/types/tasks"
 import { formatTaskDate } from "@/lib/tasks/constants"
 import { getTasksForProject } from "@/lib/tasks/utils"
+import { resolveCrewSnapshotsForAssignment } from "@/lib/tasks/crew-relation"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -95,13 +96,15 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
     type: Task["type"]
     priority: Task["priority"]
     supervisor: string
+    crewId: string
     crew: string
     startDate: string
     dueDate: string
     estimatedDuration: string
   }) {
     if (dialogMode === "edit" && selectedTask) {
-      const selectedCrew = crews.find((crew) => crew.name === payload.crew)
+      const selectedCrew = crews.find((crew) => crew.id === payload.crewId)
+      const snapshots = resolveCrewSnapshotsForAssignment(selectedCrew)
 
       const result = await editTask(selectedTask.id, {
         title: payload.title,
@@ -109,9 +112,9 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
         priority: payload.priority,
         dueDate: payload.dueDate,
         startDate: payload.startDate,
-        supervisor: payload.supervisor,
-        crewId: selectedCrew?.id ?? null,
-        crew: payload.crew,
+        supervisor: payload.supervisor || snapshots.supervisor,
+        crewId: snapshots.crewId,
+        crew: snapshots.crew || payload.crew,
         estimatedDuration: payload.estimatedDuration,
       })
 
@@ -126,7 +129,8 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
       return
     }
 
-    const selectedCrew = crews.find((crew) => crew.name === payload.crew)
+    const selectedCrew = crews.find((crew) => crew.id === payload.crewId)
+    const snapshots = resolveCrewSnapshotsForAssignment(selectedCrew)
 
     await addTask({
       code: payload.code,
@@ -137,9 +141,9 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
       projectName: project.name,
       type: payload.type,
       priority: payload.priority,
-      supervisor: payload.supervisor,
-      crewId: selectedCrew?.id,
-      crew: payload.crew,
+      supervisor: payload.supervisor || snapshots.supervisor,
+      crewId: snapshots.crewId ?? undefined,
+      crew: snapshots.crew || payload.crew,
       startDate: payload.startDate,
       dueDate: payload.dueDate,
       estimatedDuration: payload.estimatedDuration,

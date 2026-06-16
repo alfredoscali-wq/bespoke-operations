@@ -2,11 +2,14 @@ import { createClient } from "@/lib/supabase/client"
 import {
   fetchProjectById,
   fetchProjects,
+  fetchProjectHistory,
   insertProject,
+  insertProjectHistoryEvent,
+  archiveProjectRecord,
   patchProject,
   type SupabaseProjectsClient,
 } from "@/lib/supabase/projects.queries"
-import type { Project } from "@/lib/types/projects"
+import type { Project, ProjectHistoryEvent } from "@/lib/types/projects"
 import type {
   CreateProjectPayload,
   ProjectsRepositoryResult,
@@ -43,4 +46,26 @@ export async function updateProject(
   client: SupabaseProjectsClient = createBrowserProjectsClient()
 ): Promise<ProjectsRepositoryResult<Project>> {
   return patchProject(client, id, payload)
+}
+
+export async function archiveProject(
+  id: string,
+  client: SupabaseProjectsClient = createBrowserProjectsClient()
+): Promise<ProjectsRepositoryResult<Project>> {
+  return archiveProjectRecord(client, id)
+}
+
+export async function getProjectHistory(
+  projectId: string,
+  client: SupabaseProjectsClient = createBrowserProjectsClient()
+): Promise<ProjectsRepositoryResult<ProjectHistoryEvent[]>> {
+  return fetchProjectHistory(client, projectId)
+}
+
+export async function createProjectHistoryEvent(
+  projectId: string,
+  event: ProjectHistoryEvent,
+  client: SupabaseProjectsClient = createBrowserProjectsClient()
+): Promise<ProjectsRepositoryResult<ProjectHistoryEvent>> {
+  return insertProjectHistoryEvent(client, projectId, event)
 }

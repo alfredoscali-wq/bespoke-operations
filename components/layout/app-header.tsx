@@ -21,7 +21,7 @@ export function AppHeader({
   onOpenMobileMenu,
 }: AppHeaderProps) {
   return (
-    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:px-6">
+    <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-3 border-b border-border bg-background/95 px-5 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:px-8">
       <Button
         variant="ghost"
         size="icon-sm"
@@ -33,11 +33,11 @@ export function AppHeader({
       </Button>
 
       <div className="min-w-0 flex-1">
-        <h1 className="truncate text-sm font-semibold tracking-tight text-foreground sm:text-base">
+        <h1 className="truncate text-base font-semibold tracking-tight text-foreground sm:text-lg">
           {title}
         </h1>
         {subtitle && (
-          <p className="hidden truncate text-xs text-muted-foreground sm:block">
+          <p className="hidden truncate text-sm text-muted-foreground sm:block">
             {subtitle}
           </p>
         )}

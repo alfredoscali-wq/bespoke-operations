@@ -6,7 +6,11 @@ import {
   mapProjectRowToProject,
   mapUpdatePayloadToUpdate,
 } from "@/lib/supabase/projects.mapper"
-import type { Project } from "@/lib/types/projects"
+import {
+  mapProjectHistoryEventToInsert,
+  mapProjectHistoryRowToEvent,
+} from "@/lib/supabase/project-history.mapper"
+import type { Project, ProjectHistoryEvent } from "@/lib/types/projects"
 import type {
   CreateProjectPayload,
   ProjectsRepositoryResult,
@@ -133,4 +137,51 @@ export async function patchProject(
   }
 
   return { data: mapProjectRowToProject(data), error: null }
+}
+
+export async function archiveProjectRecord(
+  client: SupabaseProjectsClient,
+  id: string
+): Promise<ProjectsRepositoryResult<Project>> {
+  return patchProject(client, id, {
+    deletedAt: new Date().toISOString(),
+  })
+}
+
+export async function fetchProjectHistory(
+  client: SupabaseProjectsClient,
+  projectId: string
+): Promise<ProjectsRepositoryResult<ProjectHistoryEvent[]>> {
+  const { data, error } = await client
+    .from("project_history")
+    .select("*")
+    .eq("project_id", projectId)
+    .order("created_at", { ascending: false })
+
+  if (error) {
+    return { data: null, error: mapSupabaseError(error) }
+  }
+
+  return {
+    data: (data ?? []).map(mapProjectHistoryRowToEvent),
+    error: null,
+  }
+}
+
+export async function insertProjectHistoryEvent(
+  client: SupabaseProjectsClient,
+  projectId: string,
+  event: ProjectHistoryEvent
+): Promise<ProjectsRepositoryResult<ProjectHistoryEvent>> {
+  const { data, error } = await client
+    .from("project_history")
+    .insert(mapProjectHistoryEventToInsert(projectId, event))
+    .select("*")
+    .single()
+
+  if (error) {
+    return { data: null, error: mapSupabaseError(error) }
+  }
+
+  return { data: mapProjectHistoryRowToEvent(data), error: null }
 }

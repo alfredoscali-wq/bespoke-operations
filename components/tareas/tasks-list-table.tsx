@@ -2,7 +2,9 @@
 
 import Link from "next/link"
 
+import { useCrews } from "@/components/cuadrillas/crews-provider"
 import type { Task } from "@/lib/types/tasks"
+import { resolveTaskCrewDisplayName } from "@/lib/tasks/crew-relation"
 import { formatTaskDate } from "@/lib/tasks/constants"
 import {
   TaskOperationBadge,
@@ -33,6 +35,8 @@ type TasksListTableProps = {
 }
 
 export function TasksListTable({ tasks }: TasksListTableProps) {
+  const { getCrew } = useCrews()
+
   if (tasks.length === 0) {
     return (
       <div className="rounded-xl border border-dashed bg-muted/20 px-6 py-16 text-center">
@@ -113,7 +117,7 @@ export function TasksListTable({ tasks }: TasksListTableProps) {
                     <TaskPriorityBadge priority={task.priority} />
                   </TableCell>
                   <TableCell className="max-w-[140px] truncate text-muted-foreground">
-                    {task.crew}
+                    {resolveTaskCrewDisplayName(task, getCrew)}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {formatTaskDate(task.dueDate)}
@@ -164,7 +168,7 @@ export function TasksListTable({ tasks }: TasksListTableProps) {
                   <TaskStatusBadge status={task.status} />
                 </div>
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
-                  <span>{task.crew}</span>
+                  <span>{resolveTaskCrewDisplayName(task, getCrew)}</span>
                   <span>{formatTaskDate(task.dueDate)}</span>
                 </div>
                 <div className="space-y-1">

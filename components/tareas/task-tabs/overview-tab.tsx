@@ -16,6 +16,7 @@ import {
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { useProjects } from "@/components/obras/projects-provider"
 import type { Task } from "@/lib/types/tasks"
+import { resolveTaskCrewDisplayName, taskHasCrew } from "@/lib/tasks/crew-relation"
 import { formatTaskDate } from "@/lib/tasks/constants"
 import { isFieldServiceTask } from "@/lib/tasks/utils"
 import { TaskEvidenceSummary } from "@/components/evidencias/task-evidence-summary"
@@ -51,11 +52,12 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
   const relatedCrew = task.crewId
     ? getCrew(task.crewId)
     : undefined
+  const crewDisplayName = resolveTaskCrewDisplayName(task, getCrew)
 
   const supervisorValue =
     task.supervisor || "Sin supervisor asignado"
   const supervisorHint =
-    task.crew && task.supervisor ? "Asignado por cuadrilla" : undefined
+    taskHasCrew(task) && task.supervisor ? "Asignado por cuadrilla" : undefined
 
   const sharedInfoItems = [
     {
@@ -72,10 +74,10 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
           href={`/cuadrillas/${relatedCrew.id}`}
           className="font-medium text-primary hover:underline"
         >
-          {task.crew}
+          {crewDisplayName}
         </Link>
-      ) : task.crew ? (
-        task.crew
+      ) : taskHasCrew(task) ? (
+        crewDisplayName
       ) : (
         "Sin cuadrilla asignada"
       ),

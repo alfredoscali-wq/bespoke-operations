@@ -57,26 +57,26 @@ export function resolveSupervisorFromCrew(
 
 /**
  * Derives task supervisor from crew selection.
- * Preserves existing supervisor when the crew name is unchanged (edit compatibility).
+ * Preserves existing supervisor when the crew is unchanged (edit compatibility).
  */
 export function resolveTaskSupervisorForCrewChange(
-  crewName: string,
-  crews: Pick<Crew, "name" | "supervisor">[],
-  previousCrewName?: string,
+  crewId: string | null | undefined,
+  crews: Pick<Crew, "id" | "name" | "supervisor">[],
+  previousCrewId?: string | null,
   existingSupervisor?: string
 ): string {
-  if (!crewName.trim()) {
+  if (!crewId) {
     return ""
   }
 
-  const crew = crews.find((item) => item.name === crewName)
+  const crew = crews.find((item) => item.id === crewId)
   if (!crew) {
     return existingSupervisor ?? ""
   }
 
   if (
-    previousCrewName !== undefined &&
-    previousCrewName === crewName &&
+    previousCrewId !== undefined &&
+    previousCrewId === crewId &&
     existingSupervisor !== undefined
   ) {
     return existingSupervisor

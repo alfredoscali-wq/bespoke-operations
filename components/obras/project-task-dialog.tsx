@@ -18,6 +18,11 @@ import {
   resolveSupervisorFromCrew,
   resolveTaskSupervisorForCrewChange,
 } from "@/lib/tasks/utils"
+import {
+  isSameTaskCrewAssignment,
+  resolveCrewSnapshotsForAssignment,
+  resolveTaskCrewId,
+} from "@/lib/tasks/crew-relation"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -64,6 +69,7 @@ type ProjectTaskDialogProps = {
     type: TaskType
     priority: TaskPriority
     supervisor: string
+    crewId: string
     crew: string
     startDate: string
     dueDate: string
@@ -76,7 +82,7 @@ type TaskFormState = {
   description: string
   type: TaskType
   priority: TaskPriority
-  crew: string
+  crewId: string
   startDate: string
   dueDate: string
   estimatedDuration: string
@@ -94,20 +100,20 @@ function buildCreateForm(project: Project): TaskFormState {
     description: "",
     type: projectTypeToTaskType(project.type),
     priority: "media",
-    crew: "",
+    crewId: "",
     startDate: today,
     dueDate: project.endDate || today,
     estimatedDuration: "",
   }
 }
 
-function buildEditForm(task: Task): TaskFormState {
+function buildEditForm(task: Task, crews: { id: string; name: string }[]): TaskFormState {
   return {
     title: task.title,
     description: task.description,
     type: task.type,
     priority: task.priority,
-    crew: task.crew,
+    crewId: resolveTaskCrewId(task, crews) ?? "",
     startDate: task.startDate,
     dueDate: task.dueDate,
     estimatedDuration: task.estimatedDuration,
@@ -136,13 +142,13 @@ export function ProjectTaskDialog({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const selectedCrew = crews.find((crew) => crew.name === form.crew)
+  const selectedCrew = crews.find((crew) => crew.id === form.crewId)
   const inheritedSupervisor =
     mode === "edit" && task
       ? resolveTaskSupervisorForCrewChange(
-          form.crew,
+          form.crewId,
           crews,
-          task.crew,
+          task.crewId ?? resolveTaskCrewId(task, crews) ?? null,
           task.supervisor
         )
       : resolveSupervisorFromCrew(selectedCrew)
@@ -153,13 +159,13 @@ export function ProjectTaskDialog({
     setError(null)
     setForm(
       mode === "edit" && task
-        ? buildEditForm(task)
+        ? buildEditForm(task, crews)
         : {
             ...buildCreateForm(project),
-            crew: assignableCrews[0]?.name ?? "",
+            crewId: assignableCrews[0]?.id ?? "",
           }
     )
-  }, [open, mode, project, task, assignableCrews])
+  }, [open, mode, project, task, assignableCrews, crews])
 
   function updateField<K extends keyof TaskFormState>(
     key: K,
@@ -187,7 +193,8 @@ export function ProjectTaskDialog({
       return
     }
 
-    const isSameCrew = mode === "edit" && task && task.crew === form.crew
+    const isSameCrew =
+      mode === "edit" && task && isSameTaskCrewAssignment(task, form.crewId)
     if (!isSameCrew) {
       const crewValidation = validateCrewAssignment(selectedCrew)
       if (!crewValidation.allowed) {
@@ -204,14 +211,17 @@ export function ProjectTaskDialog({
           ? task.code
           : generateTaskCode(project.code, existingTasks)
 
+      const snapshots = resolveCrewSnapshotsForAssignment(selectedCrew)
+
       await onSubmit({
         code,
         title: form.title.trim(),
         description: form.description.trim(),
         type: form.type,
         priority: form.priority,
-        supervisor: inheritedSupervisor,
-        crew: form.crew,
+        supervisor: inheritedSupervisor || snapshots.supervisor,
+        crewId: snapshots.crewId ?? form.crewId,
+        crew: snapshots.crew,
         startDate: form.startDate,
         dueDate: form.dueDate,
         estimatedDuration: form.estimatedDuration.trim(),
@@ -231,7 +241,7 @@ export function ProjectTaskDialog({
 
   const isValid =
     form.title.trim() !== "" &&
-    form.crew !== "" &&
+    form.crewId !== "" &&
     form.startDate !== "" &&
     form.dueDate !== ""
 
@@ -330,8 +340,8 @@ export function ProjectTaskDialog({
           <div className="space-y-2">
             <Label>Cuadrilla</Label>
             <Select
-              value={form.crew}
-              onValueChange={(value) => updateField("crew", value)}
+              value={form.crewId}
+              onValueChange={(value) => updateField("crewId", value)}
             >
               <SelectTrigger className="w-full">
                 <SelectValue />
@@ -340,7 +350,7 @@ export function ProjectTaskDialog({
                 {crewOptions.map((crew) => (
                   <SelectItem
                     key={crew.id}
-                    value={crew.name}
+                    value={crew.id}
                     disabled={crew.status === "inactiva"}
                   >
                     {crew.name}
@@ -349,7 +359,7 @@ export function ProjectTaskDialog({
                 ))}
               </SelectContent>
             </Select>
-            {form.crew && inheritedSupervisor ? (
+            {form.crewId && inheritedSupervisor ? (
               <p className="text-xs text-muted-foreground">
                 Supervisor asignado por cuadrilla:{" "}
                 <span className="font-medium text-foreground">

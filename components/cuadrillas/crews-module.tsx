@@ -4,6 +4,7 @@ import { useMemo, useState } from "react"
 import { Plus } from "lucide-react"
 
 import { useCrews } from "@/components/cuadrillas/crews-provider"
+import { useEmployees } from "@/components/rrhh/employees-provider"
 import { CrewFormDialog } from "@/components/cuadrillas/crew-form-dialog"
 import { CrewsFiltersBar } from "@/components/cuadrillas/crews-filters"
 import { CrewsSummaryCards } from "@/components/cuadrillas/crews-summary-cards"
@@ -26,6 +27,7 @@ import {
 
 export function CrewsModule() {
   const { crews, addCrew } = useCrews()
+  const { getEmployee } = useEmployees()
   const { tasks, projects } = useOperationalData()
   const [filters, setFilters] = useState<CrewFilters>(defaultCrewFilters)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -36,11 +38,14 @@ export function CrewsModule() {
     [crews, tasks, projects]
   )
 
-  const supervisors = useMemo(() => getSupervisorOptions(crews), [crews])
+  const supervisors = useMemo(
+    () => getSupervisorOptions(crews, getEmployee),
+    [crews, getEmployee]
+  )
 
   const filteredCrews = useMemo(
-    () => filterCrews(listItems, filters),
-    [listItems, filters]
+    () => filterCrews(listItems, filters, getEmployee),
+    [listItems, filters, getEmployee]
   )
 
   async function handleCreateCrew(input: Parameters<typeof addCrew>[0]) {
@@ -52,7 +57,7 @@ export function CrewsModule() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           {feedback && (

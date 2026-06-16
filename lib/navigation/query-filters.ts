@@ -7,6 +7,7 @@ const PROJECT_STATUS_VALUES: ProjectStatus[] = [
   "paused",
   "pending-closure",
   "closed",
+  "cancelled",
 ]
 
 const TASK_STATUS_VALUES: TaskStatus[] = [

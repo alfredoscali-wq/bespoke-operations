@@ -1,12 +1,19 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import Link from "next/link"
 import { MoreHorizontal, Pencil, Trash2, Users } from "lucide-react"
 
+import { useAvailability } from "@/components/disponibilidad/availability-provider"
 import { useCrews } from "@/components/cuadrillas/crews-provider"
+import { useEmployees } from "@/components/rrhh/employees-provider"
 import { CrewFormDialog } from "@/components/cuadrillas/crew-form-dialog"
-import { CrewStatusBadge } from "@/components/cuadrillas/crew-badges"
+import {
+  CrewAvailabilityBadge,
+  CrewStatusBadge,
+} from "@/components/cuadrillas/crew-badges"
+import { getCrewAvailability } from "@/lib/crews/availability"
+import { resolveCrewSupervisorDisplay } from "@/lib/crews/supervisor"
 import type { CrewListItem, NewCrewInput } from "@/lib/types/crews"
 import { Button } from "@/components/ui/button"
 import {
@@ -31,6 +38,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import {
   Table,
   TableBody,
   TableCell,
@@ -45,6 +57,15 @@ type CrewsTableProps = {
 
 export function CrewsTable({ crews }: CrewsTableProps) {
   const { editCrew, removeCrew } = useCrews()
+  const { getEmployee } = useEmployees()
+  const { records: availabilityRecords } = useAvailability()
+  const availabilityContext = useMemo(
+    () => ({
+      availabilityRecords,
+      getEmployee,
+    }),
+    [availabilityRecords, getEmployee]
+  )
   const [editTarget, setEditTarget] = useState<CrewListItem | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<CrewListItem | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -81,27 +102,41 @@ export function CrewsTable({ crews }: CrewsTableProps) {
 
   function renderActions(crew: CrewListItem) {
     return (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="size-8">
-            <MoreHorizontal className="size-4" />
-            <span className="sr-only">Acciones</span>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => setEditTarget(crew)}>
-            <Pencil className="size-4" />
-            Editar
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            variant="destructive"
-            onClick={() => setDeleteTarget(crew)}
-          >
-            <Trash2 className="size-4" />
-            Eliminar
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <div className="flex items-center justify-end gap-1">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" className="size-8" asChild>
+              <Link href={`/cuadrillas/${crew.id}?tab=members`}>
+                <Users className="size-4" />
+                <span className="sr-only">Integrantes</span>
+              </Link>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Integrantes</TooltipContent>
+        </Tooltip>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="size-8">
+              <MoreHorizontal className="size-4" />
+              <span className="sr-only">Acciones</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => setEditTarget(crew)}>
+              <Pencil className="size-4" />
+              Editar
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => setDeleteTarget(crew)}
+            >
+              <Trash2 className="size-4" />
+              Eliminar
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     )
   }
 
@@ -117,12 +152,17 @@ export function CrewsTable({ crews }: CrewsTableProps) {
                 <TableHead>Integrantes</TableHead>
                 <TableHead>Tareas Activas</TableHead>
                 <TableHead>Proyectos Activos</TableHead>
+                <TableHead>Disponibilidad</TableHead>
                 <TableHead>Estado</TableHead>
-                <TableHead className="w-[60px]" />
+                <TableHead className="w-[88px]" />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {crews.map((crew) => (
+              {crews.map((crew) => {
+                const supervisor = resolveCrewSupervisorDisplay(crew, getEmployee)
+                const availability = getCrewAvailability(crew, availabilityContext)
+
+                return (
                 <TableRow key={crew.id}>
                   <TableCell>
                     <Link
@@ -132,7 +172,12 @@ export function CrewsTable({ crews }: CrewsTableProps) {
                       {crew.name}
                     </Link>
                     <p className="text-xs text-muted-foreground">
-                      {crew.supervisor}
+                      {supervisor.displayName}
+                      {supervisor.employeeCode
+                        ? ` · ${supervisor.employeeCode}`
+                        : supervisor.isLegacy
+                          ? " · legacy"
+                          : ""}
                     </p>
                   </TableCell>
                   <TableCell className="max-w-[220px] truncate text-sm text-muted-foreground">
@@ -151,18 +196,25 @@ export function CrewsTable({ crews }: CrewsTableProps) {
                     {crew.activeProjects}
                   </TableCell>
                   <TableCell>
+                    <CrewAvailabilityBadge status={availability.status} />
+                  </TableCell>
+                  <TableCell>
                     <CrewStatusBadge status={crew.status} />
                   </TableCell>
                   <TableCell>{renderActions(crew)}</TableCell>
                 </TableRow>
-              ))}
+              )})}
             </TableBody>
           </Table>
         </div>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:hidden">
-        {crews.map((crew) => (
+        {crews.map((crew) => {
+          const supervisor = resolveCrewSupervisorDisplay(crew, getEmployee)
+          const availability = getCrewAvailability(crew, availabilityContext)
+
+          return (
           <Card key={crew.id} className="h-full shadow-sm">
             <CardHeader className="pb-2">
               <div className="flex items-start justify-between gap-2">
@@ -173,12 +225,15 @@ export function CrewsTable({ crews }: CrewsTableProps) {
                     </CardTitle>
                   </Link>
                   <CardDescription className="line-clamp-2">
-                    {crew.description || crew.supervisor}
+                    {crew.description || supervisor.displayName}
                   </CardDescription>
                 </div>
-                <div className="flex items-center gap-1">
-                  <CrewStatusBadge status={crew.status} />
-                  {renderActions(crew)}
+                <div className="flex flex-col items-end gap-1.5">
+                  <CrewAvailabilityBadge status={availability.status} />
+                  <div className="flex items-center gap-1">
+                    <CrewStatusBadge status={crew.status} />
+                    {renderActions(crew)}
+                  </div>
                 </div>
               </div>
             </CardHeader>
@@ -203,7 +258,7 @@ export function CrewsTable({ crews }: CrewsTableProps) {
               </div>
             </CardContent>
           </Card>
-        ))}
+        )})}
       </div>
 
       <CrewFormDialog

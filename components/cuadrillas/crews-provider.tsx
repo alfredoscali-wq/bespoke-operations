@@ -10,6 +10,12 @@ import {
   useState,
 } from "react"
 
+import { useEmployees } from "@/components/rrhh/employees-provider"
+import {
+  resolveSupervisorAssignment,
+  validateMemberNotSupervisor,
+  validateSupervisorNotMember,
+} from "@/lib/crews/supervisor"
 import {
   createBrowserCrewsClient,
   createCrew,
@@ -76,6 +82,7 @@ function replaceCrewInList(crews: Crew[], crew: Crew): Crew[] {
 
 export function CrewsProvider({ children }: { children: React.ReactNode }) {
   const { tasks, isTasksReady } = useTasks()
+  const { getEmployee } = useEmployees()
   const [crews, setCrews] = useState<Crew[]>([])
   const [isCrewsReady, setIsCrewsReady] = useState(false)
   const [usesSupabase, setUsesSupabase] = useState(false)
@@ -180,12 +187,29 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
       }
 
       try {
+        const employee = getEmployee(input.supervisorEmployeeId)
+        if (!employee) {
+          return {
+            success: false,
+            message: "El supervisor seleccionado no está disponible.",
+          }
+        }
+
+        const supervisorValidation = resolveSupervisorAssignment(employee)
+        if (!supervisorValidation.ok) {
+          return {
+            success: false,
+            message: supervisorValidation.message,
+          }
+        }
+
         const client = createBrowserCrewsClient()
         const result = await createCrew(
           {
             name: input.name,
             description: input.description,
-            supervisor: input.supervisor,
+            supervisor: supervisorValidation.supervisorName,
+            supervisorEmployeeId: employee.id,
             status: "activa",
             notes: input.notes,
           },
@@ -212,7 +236,7 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
         }
       }
     },
-    [usesSupabase]
+    [usesSupabase, getEmployee]
   )
 
   const editCrew = useCallback(
@@ -224,16 +248,51 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
+      const existingCrew = crews.find((crew) => crew.id === id)
+
       const payload: UpdateCrewPayload =
         "manuallyInactive" in input
           ? {
               name: input.name,
               description: input.description,
-              supervisor: input.supervisor,
               notes: input.notes,
+              supervisorEmployeeId: input.supervisorEmployeeId,
               status: input.manuallyInactive ? "inactiva" : "activa",
             }
           : input
+
+      if (payload.supervisorEmployeeId) {
+        const employee = getEmployee(payload.supervisorEmployeeId)
+        if (!employee) {
+          return {
+            success: false,
+            message: "El supervisor seleccionado no está disponible.",
+          }
+        }
+
+        const supervisorValidation = resolveSupervisorAssignment(employee)
+        if (!supervisorValidation.ok) {
+          return {
+            success: false,
+            message: supervisorValidation.message,
+          }
+        }
+
+        if (existingCrew) {
+          const memberValidation = validateSupervisorNotMember(
+            existingCrew,
+            payload.supervisorEmployeeId
+          )
+          if (!memberValidation.ok) {
+            return {
+              success: false,
+              message: memberValidation.message,
+            }
+          }
+        }
+
+        payload.supervisor = supervisorValidation.supervisorName
+      }
 
       try {
         const client = createBrowserCrewsClient()
@@ -255,7 +314,7 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
         }
       }
     },
-    [usesSupabase]
+    [usesSupabase, crews, getEmployee]
   )
 
   const removeCrew = useCallback(
@@ -299,8 +358,23 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
+      const crew = crews.find((item) => item.id === crewId)
+      if (crew) {
+        const memberValidation = validateMemberNotSupervisor(
+          crew,
+          input.employeeId
+        )
+        if (!memberValidation.ok) {
+          return {
+            success: false,
+            message: memberValidation.message,
+          }
+        }
+      }
+
       const payload: CreateCrewMemberPayload = {
         crewId,
+        employeeId: input.employeeId ?? null,
         name: input.name,
         role: input.role,
         phone: input.phone ?? null,
@@ -338,7 +412,7 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
         }
       }
     },
-    [usesSupabase]
+    [usesSupabase, crews]
   )
 
   const editMember = useCallback(
@@ -351,6 +425,20 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
         return {
           success: false,
           message: "Supabase no está disponible. No se pudo actualizar.",
+        }
+      }
+
+      const crew = crews.find((item) => item.id === crewId)
+      if (crew && input.employeeId) {
+        const memberValidation = validateMemberNotSupervisor(
+          crew,
+          input.employeeId
+        )
+        if (!memberValidation.ok) {
+          return {
+            success: false,
+            message: memberValidation.message,
+          }
         }
       }
 
@@ -387,7 +475,7 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
         }
       }
     },
-    [usesSupabase]
+    [usesSupabase, crews]
   )
 
   const removeMember = useCallback(

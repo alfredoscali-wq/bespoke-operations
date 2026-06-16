@@ -2,17 +2,22 @@
 
 import { useEffect, useMemo, useState } from "react"
 
+import { useEmployees } from "@/components/rrhh/employees-provider"
 import { useTasks } from "@/components/tareas/tasks-provider"
-import type { Crew, NewCrewInput } from "@/lib/types/crews"
 import {
   CREW_STATUS_LABELS,
-  CREW_SUPERVISOR_OPTIONS,
 } from "@/lib/crews/constants"
 import {
   isCrewManuallyInactive,
   resolveAutomaticCrewStatus,
   resolveCrewStatus,
 } from "@/lib/crews/status-workflow"
+import { resolveCrewSupervisorDisplay } from "@/lib/crews/supervisor"
+import {
+  getEmployeeFullName,
+  getSupervisorEmployees,
+} from "@/lib/employees/utils"
+import type { Crew, NewCrewInput } from "@/lib/types/crews"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -44,7 +49,7 @@ type CrewFormDialogProps = {
 type CrewFormState = {
   name: string
   description: string
-  supervisor: string
+  supervisorEmployeeId: string
   notes: string
   manuallyInactive: boolean
 }
@@ -52,7 +57,7 @@ type CrewFormState = {
 const emptyForm: CrewFormState = {
   name: "",
   description: "",
-  supervisor: CREW_SUPERVISOR_OPTIONS[0],
+  supervisorEmployeeId: "",
   notes: "",
   manuallyInactive: false,
 }
@@ -65,9 +70,20 @@ export function CrewFormDialog({
   onSubmit,
 }: CrewFormDialogProps) {
   const { tasks } = useTasks()
+  const { employees, getEmployee } = useEmployees()
   const [form, setForm] = useState<CrewFormState>(emptyForm)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const supervisorOptions = useMemo(
+    () => getSupervisorEmployees(employees),
+    [employees]
+  )
+
+  const legacySupervisorDisplay = useMemo(() => {
+    if (!crew) return null
+    return resolveCrewSupervisorDisplay(crew, getEmployee)
+  }, [crew, getEmployee])
 
   const operationalStatus = useMemo(() => {
     if (!crew) return "activa" as const
@@ -88,7 +104,7 @@ export function CrewFormDialog({
         ? {
             name: crew.name,
             description: crew.description,
-            supervisor: crew.supervisor,
+            supervisorEmployeeId: crew.supervisorEmployeeId ?? "",
             notes: crew.notes,
             manuallyInactive: isCrewManuallyInactive(crew),
           }
@@ -112,13 +128,18 @@ export function CrewFormDialog({
       return
     }
 
+    if (!form.supervisorEmployeeId) {
+      setError("Seleccione un supervisor.")
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
       await onSubmit({
         name: form.name.trim(),
         description: form.description.trim(),
-        supervisor: form.supervisor,
+        supervisorEmployeeId: form.supervisorEmployeeId,
         notes: form.notes.trim(),
         manuallyInactive:
           mode === "edit" ? form.manuallyInactive : undefined,
@@ -135,7 +156,8 @@ export function CrewFormDialog({
     }
   }
 
-  const isValid = form.name.trim() !== "" && form.supervisor !== ""
+  const isValid =
+    form.name.trim() !== "" && form.supervisorEmployeeId !== ""
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -177,19 +199,35 @@ export function CrewFormDialog({
 
           <div className="space-y-2">
             <Label>Supervisor</Label>
+            {mode === "edit" &&
+              legacySupervisorDisplay?.isLegacy &&
+              !form.supervisorEmployeeId && (
+                <p className="text-xs text-amber-700">
+                  Supervisor legacy: {legacySupervisorDisplay.displayName}.
+                  Seleccione un empleado tipo Supervisor para vincularlo.
+                </p>
+              )}
             <Select
-              value={form.supervisor}
-              onValueChange={(value) => updateField("supervisor", value)}
+              value={form.supervisorEmployeeId || undefined}
+              onValueChange={(value) =>
+                updateField("supervisorEmployeeId", value)
+              }
             >
               <SelectTrigger className="w-full">
-                <SelectValue />
+                <SelectValue placeholder="Seleccione supervisor" />
               </SelectTrigger>
               <SelectContent>
-                {CREW_SUPERVISOR_OPTIONS.map((supervisor) => (
-                  <SelectItem key={supervisor} value={supervisor}>
-                    {supervisor}
+                {supervisorOptions.length === 0 ? (
+                  <SelectItem value="__none__" disabled>
+                    No hay supervisores activos en RRHH
                   </SelectItem>
-                ))}
+                ) : (
+                  supervisorOptions.map((employee) => (
+                    <SelectItem key={employee.id} value={employee.id}>
+                      {employee.employeeCode} · {getEmployeeFullName(employee)}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>

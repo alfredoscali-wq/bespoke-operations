@@ -3,8 +3,12 @@ import type {
   CrewDetail,
   CrewFilters,
   CrewListItem,
+  CrewMember,
   CrewSummary,
 } from "@/lib/types/crews"
+import type { Employee } from "@/lib/types/employees"
+import { getEmployeeFullName } from "@/lib/employees/utils"
+import { resolveCrewSupervisorDisplay } from "@/lib/crews/supervisor"
 import type { EvidenceRecord } from "@/lib/types/evidence"
 import { getActiveEvidence } from "@/lib/evidence/utils"
 import type { Project, ProjectStatus } from "@/lib/types/projects"
@@ -27,6 +31,47 @@ export const defaultCrewFilters: CrewFilters = {
   supervisor: "all",
 }
 
+export type CrewMemberDisplay = {
+  employeeCode: string | null
+  fullName: string
+  isLegacy: boolean
+}
+
+export function resolveCrewMemberDisplay(
+  member: CrewMember,
+  getEmployee?: (id: string) => Employee | undefined
+): CrewMemberDisplay {
+  if (member.employeeId && getEmployee) {
+    const employee = getEmployee(member.employeeId)
+    if (employee) {
+      return {
+        employeeCode: employee.employeeCode,
+        fullName: getEmployeeFullName(employee),
+        isLegacy: false,
+      }
+    }
+  }
+
+  return {
+    employeeCode: null,
+    fullName: member.name,
+    isLegacy: true,
+  }
+}
+
+export function getAssignedEmployeeIds(
+  members: CrewMember[],
+  excludeMemberId?: string
+): string[] {
+  return members
+    .filter(
+      (member) =>
+        member.employeeId &&
+        member.id !== excludeMemberId
+    )
+    .map((member) => member.employeeId!)
+}
+
 export function getCrewById(id: string, crews: Crew[]): Crew | undefined {
   return crews.find((crew) => crew.id === id)
 }
@@ -44,7 +89,11 @@ export function taskMatchesCrew(
   task: Task,
   crew: Pick<Crew, "id" | "name">
 ): boolean {
-  return task.crewId === crew.id || task.crew === crew.name
+  if (task.crewId) {
+    return task.crewId === crew.id
+  }
+
+  return Boolean(task.crew?.trim() && task.crew === crew.name)
 }
 
 export function getCrewTasks(
@@ -137,22 +186,37 @@ export function getCrewsSummary(
   }
 }
 
-export function getSupervisorOptions(crews: Crew[]): string[] {
-  return Array.from(new Set(crews.map((crew) => crew.supervisor))).sort()
+export function getSupervisorOptions(
+  crews: Crew[],
+  getEmployee?: (id: string) => Employee | undefined
+): string[] {
+  return Array.from(
+    new Set(
+      crews.map(
+        (crew) => resolveCrewSupervisorDisplay(crew, getEmployee).displayName
+      )
+    )
+  ).sort((a, b) => a.localeCompare(b, "es"))
 }
 
 export function filterCrews(
   crews: CrewListItem[],
-  filters: CrewFilters
+  filters: CrewFilters,
+  getEmployee?: (id: string) => Employee | undefined
 ): CrewListItem[] {
   const query = filters.search.trim().toLowerCase()
 
   return crews.filter((crew) => {
+    const supervisorDisplay = resolveCrewSupervisorDisplay(
+      crew,
+      getEmployee
+    ).displayName
+
     const matchesSearch =
       query === "" ||
       crew.name.toLowerCase().includes(query) ||
       crew.description.toLowerCase().includes(query) ||
-      crew.supervisor.toLowerCase().includes(query) ||
+      supervisorDisplay.toLowerCase().includes(query) ||
       crew.notes.toLowerCase().includes(query) ||
       crew.members.some(
         (member) =>
@@ -164,7 +228,8 @@ export function filterCrews(
       filters.status === "all" || crew.status === filters.status
 
     const matchesSupervisor =
-      filters.supervisor === "all" || crew.supervisor === filters.supervisor
+      filters.supervisor === "all" ||
+      supervisorDisplay === filters.supervisor
 
     return matchesSearch && matchesStatus && matchesSupervisor
   })

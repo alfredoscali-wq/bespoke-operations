@@ -1,0 +1,102 @@
+"use client"
+
+import { useMemo, useState } from "react"
+import { Plus } from "lucide-react"
+
+import { EmployeeFormDialog } from "@/components/rrhh/employee-form-dialog"
+import { EmployeesFiltersBar } from "@/components/rrhh/employees-filters"
+import { useEmployees } from "@/components/rrhh/employees-provider"
+import { EmployeesSummaryCards } from "@/components/rrhh/employees-summary-cards"
+import { EmployeesTable } from "@/components/rrhh/employees-table"
+import {
+  buildEmployeeListItems,
+  defaultEmployeeFilters,
+  filterEmployees,
+  getDepartmentOptions,
+} from "@/lib/employees/utils"
+import type { EmployeeFilters } from "@/lib/types/employees"
+import { Button } from "@/components/ui/button"
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+
+export function EmployeesModule() {
+  const { employees, addEmployee } = useEmployees()
+  const [filters, setFilters] = useState<EmployeeFilters>(defaultEmployeeFilters)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [feedback, setFeedback] = useState<string | null>(null)
+
+  const listItems = useMemo(
+    () => buildEmployeeListItems(employees),
+    [employees]
+  )
+
+  const departments = useMemo(
+    () => getDepartmentOptions(employees),
+    [employees]
+  )
+
+  const filteredEmployees = useMemo(
+    () => filterEmployees(listItems, filters),
+    [listItems, filters]
+  )
+
+  async function handleCreateEmployee(
+    input: Parameters<typeof addEmployee>[0]
+  ) {
+    const result = await addEmployee(input)
+    if (!result.success) {
+      throw new Error(result.message ?? "No se pudo registrar al empleado.")
+    }
+    setFeedback("Empleado registrado correctamente.")
+  }
+
+  return (
+    <div className="space-y-8">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          {feedback && (
+            <p className="text-sm text-emerald-700" role="status">
+              {feedback}
+            </p>
+          )}
+        </div>
+        <Button
+          size="sm"
+          className="gap-1.5 self-start"
+          onClick={() => setDialogOpen(true)}
+        >
+          <Plus className="size-4" />
+          Nuevo empleado
+        </Button>
+      </div>
+
+      <EmployeesSummaryCards employees={employees} />
+
+      <Card className="shadow-sm">
+        <CardHeader className="border-b">
+          <CardTitle className="text-base">Personal registrado</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 pt-4">
+          <EmployeesFiltersBar
+            filters={filters}
+            onChange={setFilters}
+            resultCount={filteredEmployees.length}
+            departments={departments}
+          />
+          <EmployeesTable employees={filteredEmployees} />
+        </CardContent>
+      </Card>
+
+      <EmployeeFormDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        mode="create"
+        onSubmit={handleCreateEmployee}
+      />
+    </div>
+  )
+}

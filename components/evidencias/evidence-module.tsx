@@ -101,7 +101,7 @@ export function EvidenceModule({ initialFilters }: EvidenceModuleProps) {
   )
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <EvidenceSummaryCards evidence={getActiveEvidence(evidence)} />
 
       <Card className="shadow-sm">

@@ -1,5 +1,5 @@
 import type { ProjectInsert, ProjectRow, ProjectUpdate } from "@/lib/supabase/database.types"
-import type { Project } from "@/lib/types/projects"
+import type { ProjectPauseReason, Project } from "@/lib/types/projects"
 import type {
   CreateProjectPayload,
   UpdateProjectPayload,
@@ -19,6 +19,9 @@ export function mapProjectRowToProject(row: ProjectRow): Project {
     supervisor: row.supervisor,
     location: row.location,
     description: row.description,
+    pauseReason: (row.pause_reason as ProjectPauseReason | null) ?? undefined,
+    pauseNotes: row.pause_notes ?? undefined,
+    pausedAt: row.paused_at ?? undefined,
     createdAt: row.created_at,
   }
 }
@@ -64,6 +67,18 @@ export function mapUpdatePayloadToUpdate(
   if (payload.location !== undefined) update.location = payload.location.trim()
   if (payload.description !== undefined) {
     update.description = payload.description.trim()
+  }
+  if (payload.pauseReason !== undefined) {
+    update.pause_reason = payload.pauseReason
+  }
+  if (payload.pauseNotes !== undefined) {
+    update.pause_notes = payload.pauseNotes
+  }
+  if (payload.pausedAt !== undefined) {
+    update.paused_at = payload.pausedAt
+  }
+  if (payload.deletedAt !== undefined) {
+    update.deleted_at = payload.deletedAt
   }
 
   return update

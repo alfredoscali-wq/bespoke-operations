@@ -17,6 +17,7 @@ import { TasksGroupedList } from "@/components/tareas/tasks-grouped-list"
 import { TasksKanban } from "@/components/tareas/tasks-kanban"
 import { TasksListTable } from "@/components/tareas/tasks-list-table"
 import type { TaskPriority, TaskType } from "@/lib/types/tasks"
+import { buildCrewFilterOptions, resolveCrewSnapshotsForAssignment } from "@/lib/tasks/crew-relation"
 import { parseTaskStatusQuery } from "@/lib/navigation/query-filters"
 import {
   Card,
@@ -40,10 +41,7 @@ export function TasksModule() {
   const searchParams = useSearchParams()
   const { tasks, addTask } = useTasks()
   const { crews } = useCrews()
-  const crewOptions = useMemo(
-    () => crews.map((crew) => crew.name).sort((a, b) => a.localeCompare(b, "es")),
-    [crews]
-  )
+  const crewOptions = useMemo(() => buildCrewFilterOptions(crews), [crews])
   const [view, setView] = useState<ViewMode>("grouped")
   const [viewInitialized, setViewInitialized] = useState(false)
   const [filters, setFilters] = useState(defaultTaskFilters)
@@ -69,8 +67,8 @@ export function TasksModule() {
   }, [searchParams])
 
   const filteredTasks = useMemo(
-    () => filterAndSortTasks(tasks, filters),
-    [tasks, filters]
+    () => filterAndSortTasks(tasks, filters, crews),
+    [tasks, filters, crews]
   )
 
   async function handleCreateTask(payload: {
@@ -89,12 +87,14 @@ export function TasksModule() {
     type: TaskType
     priority: TaskPriority
     supervisor: string
+    crewId: string
     crew: string
     startDate: string
     dueDate: string
     estimatedDuration: string
   }) {
-    const selectedCrew = crews.find((crew) => crew.name === payload.crew)
+    const selectedCrew = crews.find((crew) => crew.id === payload.crewId)
+    const snapshots = resolveCrewSnapshotsForAssignment(selectedCrew)
 
     await addTask({
       code: payload.code,
@@ -110,9 +110,9 @@ export function TasksModule() {
       workOrderNumber: payload.workOrderNumber,
       type: payload.type,
       priority: payload.priority,
-      supervisor: payload.supervisor,
-      crewId: selectedCrew?.id,
-      crew: payload.crew,
+      supervisor: payload.supervisor || snapshots.supervisor,
+      crewId: snapshots.crewId ?? undefined,
+      crew: snapshots.crew || payload.crew,
       startDate: payload.startDate,
       dueDate: payload.dueDate,
       estimatedDuration: payload.estimatedDuration,
@@ -131,7 +131,7 @@ export function TasksModule() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           {feedback && (

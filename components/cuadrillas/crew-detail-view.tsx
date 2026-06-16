@@ -1,11 +1,15 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 import { ArrowLeft, FileText, MoreHorizontal, Pencil, Trash2, User, Users } from "lucide-react"
 
+import { useAvailability } from "@/components/disponibilidad/availability-provider"
 import { useCrews } from "@/components/cuadrillas/crews-provider"
+import { useEmployees } from "@/components/rrhh/employees-provider"
 import { CrewFormDialog } from "@/components/cuadrillas/crew-form-dialog"
+import { CrewAvailabilityStats } from "@/components/cuadrillas/crew-availability-stats"
 import { CrewDetailStats } from "@/components/cuadrillas/crew-detail-stats"
 import { CrewStatusBadge } from "@/components/cuadrillas/crew-badges"
 import { CrewActivityTab } from "@/components/cuadrillas/crew-tabs/activity-tab"
@@ -19,6 +23,8 @@ import {
   isCrewManuallyInactive,
   resolveAutomaticCrewStatus,
 } from "@/lib/crews/status-workflow"
+import { getCrewAvailability } from "@/lib/crews/availability"
+import { resolveCrewSupervisorDisplay } from "@/lib/crews/supervisor"
 import type { Crew, CrewDetail, NewCrewInput } from "@/lib/types/crews"
 import { Button } from "@/components/ui/button"
 import {
@@ -49,16 +55,58 @@ type CrewDetailViewProps = {
   detail: CrewDetail
 }
 
+const CREW_DETAIL_TABS = [
+  "members",
+  "tasks",
+  "projects",
+  "materials",
+  "activity",
+  "performance",
+] as const
+
+type CrewDetailTab = (typeof CREW_DETAIL_TABS)[number]
+
+function isCrewDetailTab(value: string | null): value is CrewDetailTab {
+  return CREW_DETAIL_TABS.includes(value as CrewDetailTab)
+}
+
 export function CrewDetailView({ crew, detail }: CrewDetailViewProps) {
+  const searchParams = useSearchParams()
+  const tabParam = searchParams.get("tab")
+  const [activeTab, setActiveTab] = useState<CrewDetailTab>(
+    isCrewDetailTab(tabParam) ? tabParam : "members"
+  )
   const { tasks, projects } = useOperationalData()
   const { editCrew, removeCrew } = useCrews()
+  const { getEmployee } = useEmployees()
+  const { records: availabilityRecords } = useAvailability()
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
+  useEffect(() => {
+    if (isCrewDetailTab(tabParam)) {
+      setActiveTab(tabParam)
+    }
+  }, [tabParam])
+
   const activeMembers = useMemo(
     () => crew.members.filter((member) => member.active).length,
     [crew.members]
+  )
+
+  const supervisorDisplay = useMemo(
+    () => resolveCrewSupervisorDisplay(crew, getEmployee),
+    [crew, getEmployee]
+  )
+
+  const crewAvailability = useMemo(
+    () =>
+      getCrewAvailability(crew, {
+        availabilityRecords,
+        getEmployee,
+      }),
+    [crew, availabilityRecords, getEmployee]
   )
 
   const statusHint = useMemo(() => {
@@ -113,7 +161,12 @@ export function CrewDetailView({ crew, detail }: CrewDetailViewProps) {
               {crew.name}
             </h2>
             <p className="text-sm text-muted-foreground">
-              Supervisión: {crew.supervisor}
+              Supervisión: {supervisorDisplay.displayName}
+              {supervisorDisplay.employeeCode
+                ? ` · ${supervisorDisplay.employeeCode}`
+                : supervisorDisplay.isLegacy
+                  ? " · legacy"
+                  : ""}
             </p>
           </div>
         </div>
@@ -161,7 +214,12 @@ export function CrewDetailView({ crew, detail }: CrewDetailViewProps) {
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Supervisor</p>
-              <p className="text-sm font-medium">{crew.supervisor}</p>
+              <p className="text-sm font-medium">{supervisorDisplay.displayName}</p>
+              {supervisorDisplay.employeeCode && (
+                <p className="text-xs text-muted-foreground">
+                  {supervisorDisplay.employeeCode}
+                </p>
+              )}
             </div>
           </div>
           <div className="flex gap-3">
@@ -195,11 +253,17 @@ export function CrewDetailView({ crew, detail }: CrewDetailViewProps) {
         )}
       </Card>
 
+      <CrewAvailabilityStats availability={crewAvailability} />
+
       <CrewDetailStats stats={detail.stats} />
 
       <Separator />
 
-      <Tabs defaultValue="members" className="space-y-4">
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => setActiveTab(value as CrewDetailTab)}
+        className="space-y-4"
+      >
         <div className="overflow-x-auto">
           <TabsList variant="line" className="w-full min-w-max justify-start">
             <TabsTrigger value="members">Integrantes</TabsTrigger>

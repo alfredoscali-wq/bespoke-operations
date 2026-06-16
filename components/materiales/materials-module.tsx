@@ -32,7 +32,7 @@ export function MaterialsModule() {
   )
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <MaterialsSummaryCards />
 
       <Card className="shadow-sm">

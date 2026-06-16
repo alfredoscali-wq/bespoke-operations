@@ -4,6 +4,7 @@ export type CreateCrewPayload = {
   name: string
   description?: string
   supervisor: string
+  supervisorEmployeeId?: string | null
   status?: CrewStatus
   notes?: string
 }
@@ -12,12 +13,14 @@ export type UpdateCrewPayload = Partial<{
   name: string
   description: string
   supervisor: string
+  supervisorEmployeeId: string | null
   status: CrewStatus
   notes: string
 }>
 
 export type CreateCrewMemberPayload = {
   crewId: string
+  employeeId?: string | null
   name: string
   role: string
   phone?: string | null
@@ -25,6 +28,7 @@ export type CreateCrewMemberPayload = {
 }
 
 export type UpdateCrewMemberPayload = Partial<{
+  employeeId: string | null
   name: string
   role: string
   phone: string | null
@@ -34,6 +38,7 @@ export type UpdateCrewMemberPayload = Partial<{
 export type CrewsRepositoryErrorCode =
   | "NOT_FOUND"
   | "DUPLICATE_NAME"
+  | "DUPLICATE_EMPLOYEE"
   | "VALIDATION"
   | "UNKNOWN"
 

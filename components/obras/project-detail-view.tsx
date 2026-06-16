@@ -1,12 +1,20 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
-import { AlertTriangle, ArrowLeft, MoreHorizontal } from "lucide-react"
+import { useRouter } from "next/navigation"
+import {
+  AlertTriangle,
+  ArrowLeft,
+  CalendarDays,
+  MoreHorizontal,
+} from "lucide-react"
 
 import { useProjects } from "@/components/obras/projects-provider"
-import type { Project, ProjectDetail } from "@/lib/types/projects"
-import { getProjectLifecycleAction } from "@/lib/projects/utils"
+import { ProjectEditDialog } from "@/components/obras/project-edit-dialog"
+import { ProjectPauseDialog } from "@/components/obras/project-pause-dialog"
+import type { PauseProjectInput, Project, ProjectDetail } from "@/lib/types/projects"
+import { getProjectActions } from "@/lib/projects/utils"
 import { PROJECT_STATUS_LABELS } from "@/lib/projects/constants"
 import { ProjectDetailStats } from "@/components/obras/project-detail-stats"
 import { ProjectOverviewTab } from "@/components/obras/project-tabs/overview-tab"
@@ -15,6 +23,8 @@ import { ProjectEvidenceTab } from "@/components/obras/project-tabs/evidence-tab
 import { ProjectDocumentsTab } from "@/components/obras/project-tabs/documents-tab"
 import { ProjectHistoryTab } from "@/components/obras/project-tabs/history-tab"
 import { ProjectCostsTab } from "@/components/obras/project-tabs/costs-tab"
+import { ProjectCrewsTab } from "@/components/obras/project-tabs/crews-tab"
+import { ProjectMaterialsTab } from "@/components/obras/project-tabs/materials-tab"
 import {
   ProjectStatusBadge,
   ProjectTypeBadge,
@@ -22,9 +32,18 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -34,37 +53,175 @@ type ProjectDetailViewProps = {
   detail: ProjectDetail
 }
 
-export function ProjectDetailView({ project: initialProject, detail }: ProjectDetailViewProps) {
-  const { getProject, transitionProjectStatus } = useProjects()
+export function ProjectDetailView({
+  project: initialProject,
+  detail: initialDetail,
+}: ProjectDetailViewProps) {
+  const router = useRouter()
+  const {
+    getProject,
+    updateProject,
+    transitionProjectStatus,
+    pauseProject,
+    resumeProject,
+    finalizeProject,
+    archiveProject,
+    reopenProject,
+    loadHistory,
+    getHistory,
+  } = useProjects()
+
   const project = getProject(initialProject.id) ?? initialProject
-  const lifecycleAction = getProjectLifecycleAction(project.status)
-  const [isTransitioning, setIsTransitioning] = useState(false)
-  const [statusError, setStatusError] = useState<string | null>(null)
-  const [statusFeedback, setStatusFeedback] = useState<string | null>(null)
+  const actions = getProjectActions(project.status)
 
-  async function handleLifecycleAction() {
-    if (!lifecycleAction) return
+  const [history, setHistory] = useState(initialDetail.history)
+  const [feedback, setFeedback] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [isBusy, setIsBusy] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
+  const [pauseOpen, setPauseOpen] = useState(false)
+  const [archiveOpen, setArchiveOpen] = useState(false)
 
-    setStatusError(null)
-    setStatusFeedback(null)
-    setIsTransitioning(true)
+  useEffect(() => {
+    let cancelled = false
 
-    const result = await transitionProjectStatus(
-      project.id,
-      lifecycleAction.nextStatus
-    )
+    async function load() {
+      const loaded = await loadHistory(project.id)
+      if (!cancelled) {
+        setHistory(loaded.length > 0 ? loaded : getHistory(project.id))
+      }
+    }
 
-    setIsTransitioning(false)
+    void load()
+
+    return () => {
+      cancelled = true
+    }
+  }, [project.id, loadHistory, getHistory])
+
+  async function runAction(
+    action: () => Promise<{ success: boolean; message?: string }>,
+    successMessage: string
+  ) {
+    setError(null)
+    setFeedback(null)
+    setIsBusy(true)
+
+    const result = await action()
+    setIsBusy(false)
 
     if (!result.success) {
-      setStatusError(result.message ?? "No se pudo actualizar el estado de la obra.")
+      setError(result.message ?? "No se pudo completar la acción.")
       return
     }
 
-    setStatusFeedback(
-      `Obra actualizada a ${PROJECT_STATUS_LABELS[lifecycleAction.nextStatus]}.`
-    )
+    setFeedback(successMessage)
+    const loaded = await loadHistory(project.id)
+    setHistory(loaded)
   }
+
+  async function handleEdit(form: {
+    name: string
+    code: string
+    client: string
+    type: Project["type"]
+    location: string
+    description: string
+    startDate?: string
+    endDate?: string
+    supervisor: string
+  }) {
+    setIsBusy(true)
+    const result = await updateProject(project.id, {
+      name: form.name,
+      code: form.code,
+      client: form.client,
+      type: form.type,
+      location: form.location,
+      description: form.description,
+      startDate: form.startDate || null,
+      endDate: form.endDate || null,
+      supervisor: form.supervisor,
+    })
+    setIsBusy(false)
+
+    if (!result.success) {
+      setError(result.message ?? "No se pudo actualizar la obra.")
+      return
+    }
+
+    setEditOpen(false)
+    setFeedback("Obra actualizada correctamente.")
+    const loaded = await loadHistory(project.id)
+    setHistory(loaded)
+  }
+
+  async function handlePause(input: PauseProjectInput) {
+    await runAction(
+      () => pauseProject(project.id, input),
+      "Obra pausada correctamente."
+    )
+    setPauseOpen(false)
+  }
+
+  async function handleArchive() {
+    await runAction(
+      () => archiveProject(project.id),
+      "Obra archivada correctamente."
+    )
+    setArchiveOpen(false)
+    router.push("/obras")
+  }
+
+  function handleAction(actionId: (typeof actions)[number]["id"]) {
+    switch (actionId) {
+      case "edit":
+        setEditOpen(true)
+        break
+      case "start":
+        void runAction(
+          () => transitionProjectStatus(project.id, "active"),
+          `Obra actualizada a ${PROJECT_STATUS_LABELS.active}.`
+        )
+        break
+      case "pause":
+        setPauseOpen(true)
+        break
+      case "resume":
+        void runAction(
+          () => resumeProject(project.id),
+          `Obra actualizada a ${PROJECT_STATUS_LABELS.active}.`
+        )
+        break
+      case "finalize":
+        void runAction(
+          () => finalizeProject(project.id),
+          `Obra actualizada a ${PROJECT_STATUS_LABELS.closed}.`
+        )
+        break
+      case "archive":
+        setArchiveOpen(true)
+        break
+      case "reopen":
+        void runAction(
+          () => reopenProject(project.id),
+          `Obra actualizada a ${PROJECT_STATUS_LABELS.active}.`
+        )
+        break
+      case "view_planning":
+        router.push(`/operations/calendar?projectId=${project.id}`)
+        break
+    }
+  }
+
+  const primaryActions = actions.filter((action) =>
+    ["start", "resume", "finalize", "reopen"].includes(action.id)
+  )
+  const secondaryActions = actions.filter(
+    (action) =>
+      !primaryActions.some((item) => item.id === action.id) &&
+      action.id !== "view_planning"
+  )
 
   return (
     <div className="space-y-6">
@@ -98,41 +255,72 @@ export function ProjectDetailView({ project: initialProject, detail }: ProjectDe
         </div>
 
         <div className="flex flex-wrap items-center gap-2 self-start">
-          {lifecycleAction && (
-            <Button
-              size="sm"
-              onClick={handleLifecycleAction}
-              disabled={isTransitioning}
-            >
-              {isTransitioning ? "Actualizando..." : lifecycleAction.label}
-            </Button>
-          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => handleAction("view_planning")}
+            disabled={isBusy}
+          >
+            <CalendarDays className="size-4" />
+            Ver planificación
+          </Button>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-1.5">
-                Acciones
-                <MoreHorizontal className="size-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem disabled>Editar obra</DropdownMenuItem>
-              <DropdownMenuItem disabled>Exportar expediente</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {primaryActions.map((action) => (
+            <Button
+              key={action.id}
+              size="sm"
+              variant={action.variant ?? "default"}
+              onClick={() => handleAction(action.id)}
+              disabled={isBusy}
+            >
+              {action.label}
+            </Button>
+          ))}
+
+          {secondaryActions.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1.5">
+                  Acciones
+                  <MoreHorizontal className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {secondaryActions.map((action, index) => (
+                  <div key={action.id}>
+                    {action.variant === "destructive" && index > 0 && (
+                      <DropdownMenuSeparator />
+                    )}
+                    <DropdownMenuItem
+                      variant={
+                        action.variant === "destructive"
+                          ? "destructive"
+                          : "default"
+                      }
+                      onClick={() => handleAction(action.id)}
+                      disabled={isBusy}
+                    >
+                      {action.label}
+                    </DropdownMenuItem>
+                  </div>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </div>
 
-      {statusFeedback && (
+      {feedback && (
         <Alert>
-          <AlertDescription>{statusFeedback}</AlertDescription>
+          <AlertDescription>{feedback}</AlertDescription>
         </Alert>
       )}
 
-      {statusError && (
+      {error && (
         <Alert variant="destructive">
           <AlertTriangle className="size-4" />
-          <AlertDescription>{statusError}</AlertDescription>
+          <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
 
@@ -143,6 +331,8 @@ export function ProjectDetailView({ project: initialProject, detail }: ProjectDe
           <TabsList variant="line" className="w-full min-w-max justify-start">
             <TabsTrigger value="overview">Resumen</TabsTrigger>
             <TabsTrigger value="tasks">Tareas</TabsTrigger>
+            <TabsTrigger value="crews">Cuadrillas</TabsTrigger>
+            <TabsTrigger value="materials">Materiales</TabsTrigger>
             <TabsTrigger value="evidence">Evidencias</TabsTrigger>
             <TabsTrigger value="documents">Documentos</TabsTrigger>
             <TabsTrigger value="history">Historial</TabsTrigger>
@@ -156,19 +346,64 @@ export function ProjectDetailView({ project: initialProject, detail }: ProjectDe
         <TabsContent value="tasks">
           <ProjectTasksTab project={project} />
         </TabsContent>
+        <TabsContent value="crews">
+          <ProjectCrewsTab project={project} />
+        </TabsContent>
+        <TabsContent value="materials">
+          <ProjectMaterialsTab projectId={project.id} />
+        </TabsContent>
         <TabsContent value="evidence">
           <ProjectEvidenceTab project={project} />
         </TabsContent>
         <TabsContent value="documents">
-          <ProjectDocumentsTab documents={detail.documents} />
+          <ProjectDocumentsTab documents={initialDetail.documents} />
         </TabsContent>
         <TabsContent value="history">
-          <ProjectHistoryTab history={detail.history} />
+          <ProjectHistoryTab history={history} />
         </TabsContent>
         <TabsContent value="costs">
-          <ProjectCostsTab costs={detail.costs} />
+          <ProjectCostsTab costs={initialDetail.costs} />
         </TabsContent>
       </Tabs>
+
+      <ProjectEditDialog
+        project={project}
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        onSubmit={handleEdit}
+        isSubmitting={isBusy}
+      />
+
+      <ProjectPauseDialog
+        open={pauseOpen}
+        onOpenChange={setPauseOpen}
+        onConfirm={handlePause}
+        isSubmitting={isBusy}
+      />
+
+      <Dialog open={archiveOpen} onOpenChange={setArchiveOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Archivar obra</DialogTitle>
+            <DialogDescription>
+              La obra se ocultará de operaciones activas pero conservará su
+              historial. Esta acción no elimina datos físicamente.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setArchiveOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => void handleArchive()}
+              disabled={isBusy}
+            >
+              {isBusy ? "Archivando..." : "Archivar obra"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

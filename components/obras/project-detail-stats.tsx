@@ -5,20 +5,17 @@ import {
   Camera,
   CheckCircle2,
   CircleDot,
+  HardHat,
   TrendingUp,
+  Users,
 } from "lucide-react"
 
+import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { useEvidence } from "@/components/evidencias/evidence-provider"
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { getProjectOperationalStats } from "@/lib/projects/utils"
 import type { Project } from "@/lib/types/projects"
-import { cn } from "@/lib/utils"
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { KpiCard } from "@/components/ui/kpi-card"
 
 type ProjectDetailStatsProps = {
   project: Project
@@ -26,28 +23,40 @@ type ProjectDetailStatsProps = {
 
 const statItems = [
   {
+    key: "assignedCrews" as const,
+    label: "Cuadrillas asignadas",
+    icon: HardHat,
+    tone: "blue" as const,
+  },
+  {
+    key: "assignedPersonnel" as const,
+    label: "Personal asignado",
+    icon: Users,
+    tone: "violet" as const,
+  },
+  {
     key: "activeTasks" as const,
-    label: "Tareas Activas",
+    label: "Tareas activas",
     icon: CircleDot,
-    color: "text-blue-600 bg-blue-50",
+    tone: "blue" as const,
   },
   {
     key: "completedTasks" as const,
-    label: "Tareas Completadas",
+    label: "Tareas completadas",
     icon: CheckCircle2,
-    color: "text-emerald-600 bg-emerald-50",
+    tone: "green" as const,
   },
   {
     key: "evidenceFiles" as const,
     label: "Evidencias",
     icon: Camera,
-    color: "text-violet-600 bg-violet-50",
+    tone: "violet" as const,
   },
   {
     key: "progress" as const,
-    label: "Avance del Proyecto",
+    label: "Avance",
     icon: TrendingUp,
-    color: "text-primary bg-primary/8",
+    tone: "neutral" as const,
     suffix: "%",
   },
 ]
@@ -55,42 +64,27 @@ const statItems = [
 export function ProjectDetailStats({ project }: ProjectDetailStatsProps) {
   const { tasks } = useTasks()
   const { evidence } = useEvidence()
+  const { crews } = useCrews()
 
   const stats = useMemo(
-    () => getProjectOperationalStats(project, tasks, evidence),
-    [project, tasks, evidence]
+    () => getProjectOperationalStats(project, tasks, evidence, crews),
+    [project, tasks, evidence, crews]
   )
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
       {statItems.map((item) => {
         const Icon = item.icon
         const value = stats[item.key]
 
         return (
-          <Card key={item.key} className="shadow-sm">
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  {item.label}
-                </CardTitle>
-                <div
-                  className={cn(
-                    "flex size-8 items-center justify-center rounded-lg",
-                    item.color
-                  )}
-                >
-                  <Icon className="size-4" />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-semibold tracking-tight tabular-nums">
-                {value}
-                {item.suffix ?? ""}
-              </p>
-            </CardContent>
-          </Card>
+          <KpiCard
+            key={item.key}
+            label={item.label}
+            value={`${value}${item.suffix ?? ""}`}
+            icon={Icon}
+            tone={item.tone}
+          />
         )
       })}
     </div>

@@ -11,6 +11,7 @@ import {
   isCrewAssignable,
   validateCrewAssignment,
 } from "@/lib/crews/status-workflow"
+import { resolveTaskCrewDisplayName } from "@/lib/tasks/crew-relation"
 import { TaskOverviewTab } from "@/components/tareas/task-tabs/overview-tab"
 import { TaskChecklistTab } from "@/components/tareas/task-tabs/checklist-tab"
 import { TaskEvidenceTab } from "@/components/tareas/task-tabs/evidence-tab"
@@ -53,8 +54,12 @@ type TaskDetailViewProps = {
 }
 
 export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
-  const { crews } = useCrews()
+  const { crews, getCrew } = useCrews()
   const { assignCrew, approveTask, rejectTask, closeTask } = useTasks()
+  const crewDisplayName = useMemo(
+    () => resolveTaskCrewDisplayName(task, getCrew),
+    [task, getCrew]
+  )
   const crewOptions = useMemo(
     () => getCrewsForTaskSelection(crews, task.crewId),
     [crews, task.crewId]
@@ -190,13 +195,13 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
                 ? [
                     task.customerCompany,
                     task.workOrderNumber,
-                    task.crew || "Sin cuadrilla",
+                    crewDisplayName,
                   ]
                     .filter(Boolean)
                     .join(" · ")
                 : [
                     task.projectCode,
-                    task.crew || "Sin cuadrilla",
+                    crewDisplayName,
                   ]
                     .filter(Boolean)
                     .join(" · ")}

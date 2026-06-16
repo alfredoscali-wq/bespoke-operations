@@ -11,7 +11,7 @@ import {
 } from "@/lib/tasks/constants"
 import { isFieldServiceTask } from "@/lib/tasks/utils"
 import { cn } from "@/lib/utils"
-import { Badge } from "@/components/ui/badge"
+import { StatusBadge } from "@/components/ui/status-badge"
 
 export function TaskStatusBadge({
   status,
@@ -21,12 +21,9 @@ export function TaskStatusBadge({
   className?: string
 }) {
   return (
-    <Badge
-      variant="outline"
-      className={cn("font-medium", TASK_STATUS_STYLES[status], className)}
-    >
+    <StatusBadge className={cn(TASK_STATUS_STYLES[status], className)}>
       {TASK_STATUS_LABELS[status]}
-    </Badge>
+    </StatusBadge>
   )
 }
 
@@ -38,12 +35,9 @@ export function TaskTypeBadge({
   className?: string
 }) {
   return (
-    <Badge
-      variant="outline"
-      className={cn("font-medium", TASK_TYPE_STYLES[type], className)}
-    >
+    <StatusBadge className={cn(TASK_TYPE_STYLES[type], className)}>
       {TASK_TYPE_LABELS[type]}
-    </Badge>
+    </StatusBadge>
   )
 }
 
@@ -55,12 +49,9 @@ export function TaskPriorityBadge({
   className?: string
 }) {
   return (
-    <Badge
-      variant="outline"
-      className={cn("font-medium", TASK_PRIORITY_STYLES[priority], className)}
-    >
+    <StatusBadge className={cn(TASK_PRIORITY_STYLES[priority], className)}>
       {TASK_PRIORITY_LABELS[priority]}
-    </Badge>
+    </StatusBadge>
   )
 }
 
@@ -74,11 +65,8 @@ export function TaskOperationBadge({
   const mode = isFieldServiceTask(task) ? "servicio" : "obra"
 
   return (
-    <Badge
-      variant="outline"
-      className={cn("font-medium", TASK_OPERATION_STYLES[mode], className)}
-    >
+    <StatusBadge className={cn(TASK_OPERATION_STYLES[mode], className)}>
       {TASK_OPERATION_LABELS[mode]}
-    </Badge>
+    </StatusBadge>
   )
 }

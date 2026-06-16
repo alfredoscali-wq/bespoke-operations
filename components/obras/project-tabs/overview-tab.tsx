@@ -7,6 +7,7 @@ import {
 
 import type { Project } from "@/lib/types/projects"
 import { formatDate } from "@/lib/projects/constants"
+import { ProjectStatusSummary } from "@/components/obras/project-status-summary"
 import { ProjectEvidenceSummary } from "@/components/evidencias/project-evidence-summary"
 import { ProjectMaterialsSummary } from "@/components/materiales/project-materials-summary"
 import { Progress } from "@/components/ui/progress"
@@ -87,6 +88,8 @@ export function ProjectOverviewTab({ project }: ProjectOverviewTabProps) {
       </Card>
 
       <div className="space-y-6">
+        <ProjectStatusSummary project={project} />
+
         <Card className="shadow-sm">
           <CardHeader>
             <CardTitle>Avance general</CardTitle>

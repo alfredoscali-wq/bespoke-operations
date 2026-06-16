@@ -2,11 +2,22 @@ import type {
   NewProjectInput,
   Project,
   ProjectDetail,
+  ProjectHistoryEvent,
+  ProjectHistoryEventType,
   ProjectTask,
 } from "@/lib/types/projects"
 import type { Task, TaskStatus } from "@/lib/types/tasks"
 import { getEvidenceByProjectId, mockEvidence } from "@/lib/data/evidence"
 import { mockTasks } from "@/lib/data/tasks"
+
+function mockHistoryEvent(
+  event: Omit<ProjectHistoryEvent, "eventType"> & {
+    eventType?: ProjectHistoryEventType
+  }
+): ProjectHistoryEvent {
+  const { eventType = "updated", ...rest } = event
+  return { eventType, ...rest }
+}
 
 export const mockProjects: Project[] = [
   {
@@ -68,6 +79,9 @@ export const mockProjects: Project[] = [
     location: "Puebla, Pue. — Carretera Federal 190",
     description:
       "Instalación de 86 postes metálicos de 12 m, anclajes, plataformas de trabajo y señalización de seguridad.",
+    pauseReason: "client",
+    pauseNotes: "Esperando aprobación interna.",
+    pausedAt: "2026-06-15T10:00:00.000Z",
   },
   {
     id: "proj-005",
@@ -269,34 +283,38 @@ const projectDetails: Record<string, ProjectDetail> = {
       },
     ],
     history: [
-      {
+      mockHistoryEvent({
         id: "h1",
+        eventType: "updated",
         title: "Tramo B-14 certificado",
         description: "Certificación OTDR aprobada con pérdida máxima 0.18 dB.",
         user: "Ing. Roberto Méndez",
         timestamp: "2026-06-12T11:00:00",
-      },
-      {
+      }),
+      mockHistoryEvent({
         id: "h2",
+        eventType: "updated",
         title: "Avance actualizado al 78%",
         description: "Se completó tendido de 2.4 km adicionales en Sector B.",
         user: "Sistema",
         timestamp: "2026-06-11T18:30:00",
-      },
-      {
+      }),
+      mockHistoryEvent({
         id: "h3",
+        eventType: "updated",
         title: "Cuadrilla Alpha asignada",
         description: "Cuadrilla Alpha reasignada al tramo B-14 por prioridad.",
         user: "Ing. Ana Torres",
         timestamp: "2026-06-10T08:00:00",
-      },
-      {
+      }),
+      mockHistoryEvent({
         id: "h4",
+        eventType: "status_changed",
         title: "Obra iniciada",
         description: "Inicio formal de obra con kick-off en sitio.",
         user: "Ing. Roberto Méndez",
         timestamp: "2026-01-15T09:00:00",
-      },
+      }),
     ],
     costs: {
       materials: 2840000,
@@ -350,13 +368,14 @@ const projectDetails: Record<string, ProjectDetail> = {
       },
     ],
     history: [
-      {
+      mockHistoryEvent({
         id: "h1",
+        eventType: "updated",
         title: "16 cámaras configuradas",
         description: "Primer lote de cámaras IP conectadas al NVR central.",
         user: "Ing. Ana Torres",
         timestamp: "2026-06-11T15:00:00",
-      },
+      }),
     ],
     costs: {
       materials: 980000,
@@ -379,13 +398,14 @@ function createEmptyDetail(project: Project): ProjectDetail {
     evidence: [],
     documents: [],
     history: [
-      {
+      mockHistoryEvent({
         id: "h-new",
+        eventType: "created",
         title: "Proyecto registrado",
         description: "Obra creada en el sistema de operaciones.",
         user: project.supervisor,
         timestamp: new Date().toISOString(),
-      },
+      }),
     ],
     costs: {
       materials: 0,
@@ -449,13 +469,14 @@ function createDefaultDetail(project: Project): ProjectDetail {
       },
     ],
     history: [
-      {
+      mockHistoryEvent({
         id: "h-default-1",
+        eventType: "created",
         title: "Obra registrada",
         description: project.description,
         user: project.supervisor,
         timestamp: `${fallbackStartDate}T09:00:00`,
-      },
+      }),
     ],
     costs: {
       materials: Math.round(project.progress * 25000),

@@ -8,48 +8,48 @@ import {
 
 import { getTasksSummary } from "@/lib/data/tasks"
 import type { Task } from "@/lib/types/tasks"
-import { cn } from "@/lib/utils"
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import type { VisualTone } from "@/lib/ui/visual-tokens"
+import { KpiCard } from "@/components/ui/kpi-card"
 
 type TasksSummaryCardsProps = {
   tasks: Task[]
 }
 
-const cards = [
+const cards: {
+  key: "pendiente" | "asignada" | "enCurso" | "enAprobacion" | "finalizada"
+  label: string
+  icon: typeof CircleDot
+  tone: VisualTone
+}[] = [
   {
-    key: "pendiente" as const,
+    key: "pendiente",
     label: "Pendientes",
     icon: CircleDot,
-    color: "text-slate-600 bg-slate-100",
+    tone: "gray",
   },
   {
-    key: "asignada" as const,
+    key: "asignada",
     label: "Asignadas",
     icon: UserCheck,
-    color: "text-blue-700 bg-blue-50",
+    tone: "blue",
   },
   {
-    key: "enCurso" as const,
+    key: "enCurso",
     label: "En Curso",
     icon: Clock,
-    color: "text-amber-600 bg-amber-50",
+    tone: "yellow",
   },
   {
-    key: "enAprobacion" as const,
+    key: "enAprobacion",
     label: "En Aprobación",
     icon: ClipboardCheck,
-    color: "text-orange-600 bg-orange-50",
+    tone: "yellow",
   },
   {
-    key: "finalizada" as const,
+    key: "finalizada",
     label: "Finalizadas",
     icon: CheckCircle2,
-    color: "text-violet-700 bg-violet-50",
+    tone: "violet",
   },
 ]
 
@@ -57,36 +57,16 @@ export function TasksSummaryCards({ tasks }: TasksSummaryCardsProps) {
   const summary = getTasksSummary(tasks)
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-      {cards.map((card) => {
-        const Icon = card.icon
-        const value = summary[card.key]
-
-        return (
-          <Card key={card.key} className="shadow-sm">
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  {card.label}
-                </CardTitle>
-                <div
-                  className={cn(
-                    "flex size-8 items-center justify-center rounded-lg",
-                    card.color
-                  )}
-                >
-                  <Icon className="size-4" />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-semibold tracking-tight tabular-nums">
-                {value}
-              </p>
-            </CardContent>
-          </Card>
-        )
-      })}
+    <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-5">
+      {cards.map((card) => (
+        <KpiCard
+          key={card.key}
+          label={card.label}
+          value={summary[card.key]}
+          icon={card.icon}
+          tone={card.tone}
+        />
+      ))}
     </div>
   )
 }
