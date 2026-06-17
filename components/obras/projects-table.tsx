@@ -1,16 +1,40 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
-import { ArrowUpRight, MoreHorizontal } from "lucide-react"
+import {
+  Archive,
+  ArrowUpRight,
+  Eye,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+} from "lucide-react"
 
-import type { Project } from "@/lib/types/projects"
+import { useProjects } from "@/components/obras/projects-provider"
+import { ProjectEditDialog } from "@/components/obras/project-edit-dialog"
+import {
+  ProjectStatusBadge,
+  ProjectTypeBadge,
+} from "@/components/obras/project-badges"
+import type { NewProjectInput, Project } from "@/lib/types/projects"
 import { formatDate } from "@/lib/projects/constants"
+import { EntityActionFeedback } from "@/components/ui/entity-action-feedback"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
@@ -21,16 +45,126 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import {
-  ProjectStatusBadge,
-  ProjectTypeBadge,
-} from "@/components/obras/project-badges"
 
 type ProjectsTableProps = {
   projects: Project[]
 }
 
+type DestructiveAction = "archive" | "delete"
+
 export function ProjectsTable({ projects }: ProjectsTableProps) {
+  const { updateProject, archiveProject } = useProjects()
+  const [editTarget, setEditTarget] = useState<Project | null>(null)
+  const [destructiveTarget, setDestructiveTarget] = useState<Project | null>(
+    null
+  )
+  const [destructiveAction, setDestructiveAction] =
+    useState<DestructiveAction>("archive")
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [feedback, setFeedback] = useState<{
+    variant: "success" | "error"
+    message: string
+  } | null>(null)
+
+  async function handleEdit(input: NewProjectInput) {
+    if (!editTarget) return
+
+    const result = await updateProject(editTarget.id, {
+      name: input.name,
+      code: input.code,
+      client: input.client,
+      type: input.type,
+      location: input.location,
+      description: input.description,
+      startDate: input.startDate || null,
+      endDate: input.endDate || null,
+      supervisor: input.supervisor,
+    })
+
+    if (!result.success) {
+      throw new Error(result.message ?? "No se pudo actualizar la obra.")
+    }
+
+    setEditTarget(null)
+    setFeedback({
+      variant: "success",
+      message: "Obra actualizada correctamente.",
+    })
+  }
+
+  function openDestructiveDialog(project: Project, action: DestructiveAction) {
+    setDestructiveAction(action)
+    setDestructiveTarget(project)
+  }
+
+  async function handleConfirmDestructive() {
+    if (!destructiveTarget) return
+
+    setIsSubmitting(true)
+    const result = await archiveProject(destructiveTarget.id)
+    setIsSubmitting(false)
+
+    if (!result.success) {
+      setFeedback({
+        variant: "error",
+        message: result.message ?? "No se pudo completar la acción.",
+      })
+      return
+    }
+
+    setDestructiveTarget(null)
+    setFeedback({
+      variant: "success",
+      message:
+        destructiveAction === "archive"
+          ? "Obra archivada correctamente."
+          : "Obra eliminada del listado operativo.",
+    })
+  }
+
+  function renderActions(project: Project) {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100"
+          >
+            <MoreHorizontal className="size-4" />
+            <span className="sr-only">Acciones</span>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem asChild>
+            <Link href={`/obras/${project.id}`}>
+              <Eye className="size-4" />
+              Ver detalle
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setEditTarget(project)}>
+            <Pencil className="size-4" />
+            Editar obra
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={() => openDestructiveDialog(project, "archive")}
+          >
+            <Archive className="size-4" />
+            Archivar obra
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            variant="destructive"
+            onClick={() => openDestructiveDialog(project, "delete")}
+          >
+            <Trash2 className="size-4" />
+            Eliminar obra
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    )
+  }
+
   if (projects.length === 0) {
     return (
       <div className="rounded-xl border border-dashed bg-muted/20 px-6 py-16 text-center">
@@ -46,6 +180,11 @@ export function ProjectsTable({ projects }: ProjectsTableProps) {
 
   return (
     <>
+      <EntityActionFeedback
+        message={feedback?.message ?? null}
+        variant={feedback?.variant ?? "success"}
+      />
+
       <div className="hidden overflow-hidden rounded-xl border bg-card shadow-sm lg:block">
         <div className="overflow-x-auto">
           <Table>
@@ -103,26 +242,7 @@ export function ProjectsTable({ projects }: ProjectsTableProps) {
                   <TableCell className="max-w-[160px] truncate text-muted-foreground">
                     {project.supervisor}
                   </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          className="opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100"
-                        >
-                          <MoreHorizontal className="size-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem asChild>
-                          <Link href={`/obras/${project.id}`}>
-                            Ver detalle
-                          </Link>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+                  <TableCell>{renderActions(project)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -132,13 +252,12 @@ export function ProjectsTable({ projects }: ProjectsTableProps) {
 
       <div className="grid gap-3 lg:hidden">
         {projects.map((project) => (
-          <Link
+          <div
             key={project.id}
-            href={`/obras/${project.id}`}
-            className="block rounded-xl border bg-card p-4 shadow-sm transition-colors hover:bg-muted/30"
+            className="rounded-xl border bg-card p-4 shadow-sm"
           >
             <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0 space-y-1">
+              <Link href={`/obras/${project.id}`} className="min-w-0 flex-1">
                 <p className="font-mono text-xs font-medium text-primary">
                   {project.code}
                 </p>
@@ -146,8 +265,13 @@ export function ProjectsTable({ projects }: ProjectsTableProps) {
                   {project.name}
                 </p>
                 <p className="text-xs text-muted-foreground">{project.client}</p>
+              </Link>
+              <div className="flex shrink-0 items-center gap-1">
+                {renderActions(project)}
+                <Link href={`/obras/${project.id}`}>
+                  <ArrowUpRight className="size-4 text-muted-foreground" />
+                </Link>
               </div>
-              <ArrowUpRight className="size-4 shrink-0 text-muted-foreground" />
             </div>
 
             <div className="mt-3 flex flex-wrap gap-2">
@@ -168,9 +292,72 @@ export function ProjectsTable({ projects }: ProjectsTableProps) {
               <span>Fin: {formatDate(project.endDate)}</span>
               <span className="col-span-2 truncate">{project.supervisor}</span>
             </div>
-          </Link>
+          </div>
         ))}
       </div>
+
+      {editTarget && (
+        <ProjectEditDialog
+          project={editTarget}
+          open={editTarget !== null}
+          onOpenChange={(open) => {
+            if (!open) setEditTarget(null)
+          }}
+          onSubmit={handleEdit}
+        />
+      )}
+
+      <Dialog
+        open={destructiveTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDestructiveTarget(null)
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {destructiveAction === "archive"
+                ? "Archivar obra"
+                : "Eliminar obra"}
+            </DialogTitle>
+            <DialogDescription>
+              {destructiveAction === "archive"
+                ? "La obra dejará de aparecer en operaciones activas. Los datos se conservan en archivo lógico."
+                : "La obra se eliminará del listado operativo (archivo lógico). Esta acción no borra datos históricos."}
+              {destructiveTarget ? (
+                <>
+                  {" "}
+                  <span className="font-medium text-foreground">
+                    {destructiveTarget.name}
+                  </span>
+                </>
+              ) : null}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDestructiveTarget(null)}
+              disabled={isSubmitting}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleConfirmDestructive}
+              disabled={isSubmitting}
+            >
+              {isSubmitting
+                ? "Procesando..."
+                : destructiveAction === "archive"
+                  ? "Archivar"
+                  : "Eliminar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

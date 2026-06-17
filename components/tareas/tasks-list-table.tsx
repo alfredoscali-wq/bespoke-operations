@@ -1,18 +1,21 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
 
 import { useCrews } from "@/components/cuadrillas/crews-provider"
+import { TaskRowActions } from "@/components/tareas/task-row-actions"
 import type { Task } from "@/lib/types/tasks"
 import { resolveTaskCrewDisplayName } from "@/lib/tasks/crew-relation"
 import { formatTaskDate } from "@/lib/tasks/constants"
+import { isFieldServiceTask } from "@/lib/tasks/utils"
 import {
   TaskOperationBadge,
   TaskPriorityBadge,
   TaskStatusBadge,
   TaskTypeBadge,
 } from "@/components/tareas/task-badges"
-import { isFieldServiceTask } from "@/lib/tasks/utils"
+import { EntityActionFeedback } from "@/components/ui/entity-action-feedback"
 import { Progress } from "@/components/ui/progress"
 import {
   Table,
@@ -36,6 +39,10 @@ type TasksListTableProps = {
 
 export function TasksListTable({ tasks }: TasksListTableProps) {
   const { getCrew } = useCrews()
+  const [feedback, setFeedback] = useState<{
+    variant: "success" | "error"
+    message: string
+  } | null>(null)
 
   if (tasks.length === 0) {
     return (
@@ -52,6 +59,11 @@ export function TasksListTable({ tasks }: TasksListTableProps) {
 
   return (
     <>
+      <EntityActionFeedback
+        message={feedback?.message ?? null}
+        variant={feedback?.variant ?? "success"}
+      />
+
       <div className="hidden overflow-hidden rounded-xl border bg-card shadow-sm lg:block">
         <div className="overflow-x-auto">
           <Table>
@@ -67,6 +79,7 @@ export function TasksListTable({ tasks }: TasksListTableProps) {
                 <TableHead>Cuadrilla</TableHead>
                 <TableHead>Fecha límite</TableHead>
                 <TableHead className="min-w-[120px]">Progreso</TableHead>
+                <TableHead className="w-[50px]" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -130,6 +143,13 @@ export function TasksListTable({ tasks }: TasksListTableProps) {
                       </span>
                     </div>
                   </TableCell>
+                  <TableCell>
+                    <TaskRowActions
+                      task={task}
+                      onFeedback={setFeedback}
+                      triggerClassName="size-8 opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100"
+                    />
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -139,48 +159,45 @@ export function TasksListTable({ tasks }: TasksListTableProps) {
 
       <div className="space-y-3 lg:hidden">
         {tasks.map((task) => (
-          <Link key={task.id} href={`/tareas/${task.id}`}>
-            <Card className="shadow-sm transition-colors hover:bg-muted/30">
-              <CardHeader className="pb-2">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 space-y-1">
-                    <p className="font-mono text-xs font-medium text-primary">
-                      {task.code}
-                    </p>
-                    <CardTitle className="text-sm leading-snug">
-                      {task.title}
-                    </CardTitle>
-                    <CardDescription className="font-mono text-[11px]">
-                      {isFieldServiceTask(task)
-                        ? task.workOrderNumber ?? task.customerCompany
-                        : task.projectCode}
-                    </CardDescription>
-                  </div>
-                  <div className="flex flex-col items-end gap-1.5">
-                    <TaskOperationBadge task={task} className="text-[10px]" />
-                    <TaskPriorityBadge priority={task.priority} />
-                  </div>
+          <Card key={task.id} className="shadow-sm">
+            <CardHeader className="pb-2">
+              <div className="flex items-start justify-between gap-2">
+                <Link href={`/tareas/${task.id}`} className="min-w-0 flex-1">
+                  <p className="font-mono text-xs font-medium text-primary">
+                    {task.code}
+                  </p>
+                  <CardTitle className="text-sm leading-snug">{task.title}</CardTitle>
+                  <CardDescription className="font-mono text-[11px]">
+                    {isFieldServiceTask(task)
+                      ? task.workOrderNumber ?? task.customerCompany
+                      : task.projectCode}
+                  </CardDescription>
+                </Link>
+                <div className="flex flex-col items-end gap-1.5">
+                  <TaskOperationBadge task={task} className="text-[10px]" />
+                  <TaskPriorityBadge priority={task.priority} />
+                  <TaskRowActions task={task} onFeedback={setFeedback} />
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex flex-wrap gap-2">
-                  <TaskTypeBadge type={task.type} />
-                  <TaskStatusBadge status={task.status} />
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex flex-wrap gap-2">
+                <TaskTypeBadge type={task.type} />
+                <TaskStatusBadge status={task.status} />
+              </div>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+                <span>{resolveTaskCrewDisplayName(task, getCrew)}</span>
+                <span>{formatTaskDate(task.dueDate)}</span>
+              </div>
+              <div className="space-y-1">
+                <div className="flex justify-between text-[11px]">
+                  <span className="text-muted-foreground">Progreso</span>
+                  <span className="font-medium">{task.progress}%</span>
                 </div>
-                <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
-                  <span>{resolveTaskCrewDisplayName(task, getCrew)}</span>
-                  <span>{formatTaskDate(task.dueDate)}</span>
-                </div>
-                <div className="space-y-1">
-                  <div className="flex justify-between text-[11px]">
-                    <span className="text-muted-foreground">Progreso</span>
-                    <span className="font-medium">{task.progress}%</span>
-                  </div>
-                  <Progress value={task.progress} className="h-1.5" />
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
+                <Progress value={task.progress} className="h-1.5" />
+              </div>
+            </CardContent>
+          </Card>
         ))}
       </div>
     </>

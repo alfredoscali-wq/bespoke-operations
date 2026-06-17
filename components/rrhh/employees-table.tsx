@@ -2,11 +2,13 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { MoreHorizontal, Pencil, Trash2 } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { Eye, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
 
 import { EmployeeTypeBadge, EmploymentStatusBadge } from "@/components/rrhh/employee-badges"
 import { EmployeeFormDialog } from "@/components/rrhh/employee-form-dialog"
 import { useEmployees } from "@/components/rrhh/employees-provider"
+import { EntityActionFeedback } from "@/components/ui/entity-action-feedback"
 import type { EmployeeListItem, NewEmployeeInput } from "@/lib/types/employees"
 import { Button } from "@/components/ui/button"
 import {
@@ -28,6 +30,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
@@ -43,12 +46,18 @@ type EmployeesTableProps = {
   employees: EmployeeListItem[]
 }
 
+type Feedback = {
+  variant: "success" | "error"
+  message: string
+} | null
+
 export function EmployeesTable({ employees }: EmployeesTableProps) {
+  const router = useRouter()
   const { editEmployee, removeEmployee } = useEmployees()
   const [editTarget, setEditTarget] = useState<EmployeeListItem | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<EmployeeListItem | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [feedback, setFeedback] = useState<Feedback>(null)
 
   async function handleEdit(input: NewEmployeeInput) {
     if (!editTarget) return
@@ -56,22 +65,31 @@ export function EmployeesTable({ employees }: EmployeesTableProps) {
     if (!result.success) {
       throw new Error(result.message ?? "No se pudo actualizar al empleado.")
     }
+    setFeedback({
+      variant: "success",
+      message: "Empleado actualizado correctamente.",
+    })
   }
 
   async function handleConfirmDelete() {
     if (!deleteTarget) return
-    setDeleteError(null)
+    setFeedback(null)
     setIsDeleting(true)
 
     try {
       const result = await removeEmployee(deleteTarget.id)
       if (!result.success) {
-        setDeleteError(
-          result.message ?? "No se pudo eliminar al empleado."
-        )
+        setFeedback({
+          variant: "error",
+          message: result.message ?? "No se pudo eliminar al empleado.",
+        })
         return
       }
       setDeleteTarget(null)
+      setFeedback({
+        variant: "success",
+        message: `Empleado "${deleteTarget.displayName}" eliminado.`,
+      })
     } finally {
       setIsDeleting(false)
     }
@@ -100,10 +118,17 @@ export function EmployeesTable({ employees }: EmployeesTableProps) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          <DropdownMenuItem
+            onClick={() => router.push(`/rrhh/${employee.id}`)}
+          >
+            <Eye className="size-4" />
+            Ver detalle
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setEditTarget(employee)}>
             <Pencil className="size-4" />
             Editar
           </DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuItem
             variant="destructive"
             onClick={() => setDeleteTarget(employee)}
@@ -118,6 +143,11 @@ export function EmployeesTable({ employees }: EmployeesTableProps) {
 
   return (
     <>
+      <EntityActionFeedback
+        message={feedback?.message ?? null}
+        variant={feedback?.variant ?? "success"}
+      />
+
       <div className="hidden overflow-hidden rounded-xl border bg-card shadow-sm lg:block">
         <div className="overflow-x-auto">
           <Table>
@@ -233,9 +263,8 @@ export function EmployeesTable({ employees }: EmployeesTableProps) {
       <Dialog
         open={deleteTarget !== null}
         onOpenChange={(open) => {
-          if (!open) {
+          if (!open && !isDeleting) {
             setDeleteTarget(null)
-            setDeleteError(null)
           }
         }}
       >
@@ -243,7 +272,7 @@ export function EmployeesTable({ employees }: EmployeesTableProps) {
           <DialogHeader>
             <DialogTitle>Eliminar empleado</DialogTitle>
             <DialogDescription>
-              ¿Desea eliminar este registro?
+              ¿Desea eliminar este registro? Esta acción no se puede deshacer.
               {deleteTarget ? (
                 <>
                   {" "}
@@ -254,11 +283,6 @@ export function EmployeesTable({ employees }: EmployeesTableProps) {
               ) : null}
             </DialogDescription>
           </DialogHeader>
-          {deleteError && (
-            <p className="text-sm text-destructive" role="alert">
-              {deleteError}
-            </p>
-          )}
           <DialogFooter className="gap-2 sm:gap-0">
             <Button
               type="button"

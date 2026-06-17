@@ -2,7 +2,15 @@
 
 import { useMemo, useState } from "react"
 import Link from "next/link"
-import { MoreHorizontal, Pencil, Trash2, Users } from "lucide-react"
+import { useRouter } from "next/navigation"
+import {
+  Archive,
+  Eye,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+  Users,
+} from "lucide-react"
 
 import { useAvailability } from "@/components/disponibilidad/availability-provider"
 import { useCrews } from "@/components/cuadrillas/crews-provider"
@@ -12,6 +20,7 @@ import {
   CrewAvailabilityBadge,
   CrewStatusBadge,
 } from "@/components/cuadrillas/crew-badges"
+import { EntityActionFeedback } from "@/components/ui/entity-action-feedback"
 import { getCrewAvailability } from "@/lib/crews/availability"
 import { resolveCrewSupervisorDisplay } from "@/lib/crews/supervisor"
 import type { CrewListItem, NewCrewInput } from "@/lib/types/crews"
@@ -35,6 +44,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
@@ -55,7 +65,13 @@ type CrewsTableProps = {
   crews: CrewListItem[]
 }
 
+type Feedback = {
+  variant: "success" | "error"
+  message: string
+} | null
+
 export function CrewsTable({ crews }: CrewsTableProps) {
+  const router = useRouter()
   const { editCrew, removeCrew } = useCrews()
   const { getEmployee } = useEmployees()
   const { records: availabilityRecords } = useAvailability()
@@ -67,8 +83,11 @@ export function CrewsTable({ crews }: CrewsTableProps) {
     [availabilityRecords, getEmployee]
   )
   const [editTarget, setEditTarget] = useState<CrewListItem | null>(null)
+  const [archiveTarget, setArchiveTarget] = useState<CrewListItem | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<CrewListItem | null>(null)
+  const [isArchiving, setIsArchiving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [feedback, setFeedback] = useState<Feedback>(null)
 
   async function handleEdit(input: NewCrewInput) {
     if (!editTarget) return
@@ -76,15 +95,64 @@ export function CrewsTable({ crews }: CrewsTableProps) {
     if (!result.success) {
       throw new Error(result.message ?? "No se pudo actualizar la cuadrilla.")
     }
+    setFeedback({
+      variant: "success",
+      message: "Cuadrilla actualizada correctamente.",
+    })
+  }
+
+  async function handleConfirmArchive() {
+    if (!archiveTarget) return
+    setIsArchiving(true)
+    setFeedback(null)
+
+    const result = await editCrew(archiveTarget.id, {
+      name: archiveTarget.name,
+      description: archiveTarget.description,
+      supervisorEmployeeId: archiveTarget.supervisorEmployeeId ?? "",
+      notes: archiveTarget.notes,
+      manuallyInactive: true,
+    })
+
+    setIsArchiving(false)
+
+    if (!result.success) {
+      setFeedback({
+        variant: "error",
+        message: result.message ?? "No se pudo archivar la cuadrilla.",
+      })
+      return
+    }
+
+    setArchiveTarget(null)
+    setFeedback({
+      variant: "success",
+      message: `Cuadrilla "${archiveTarget.name}" archivada.`,
+    })
   }
 
   async function handleConfirmDelete() {
     if (!deleteTarget) return
     setIsDeleting(true)
+    setFeedback(null)
+
     const result = await removeCrew(deleteTarget.id)
+
     setIsDeleting(false)
-    if (!result.success) return
+
+    if (!result.success) {
+      setFeedback({
+        variant: "error",
+        message: result.message ?? "No se pudo eliminar la cuadrilla.",
+      })
+      return
+    }
+
     setDeleteTarget(null)
+    setFeedback({
+      variant: "success",
+      message: `Cuadrilla "${deleteTarget.name}" eliminada.`,
+    })
   }
 
   if (crews.length === 0) {
@@ -123,10 +191,21 @@ export function CrewsTable({ crews }: CrewsTableProps) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              onClick={() => router.push(`/cuadrillas/${crew.id}`)}
+            >
+              <Eye className="size-4" />
+              Ver detalle
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setEditTarget(crew)}>
               <Pencil className="size-4" />
               Editar
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setArchiveTarget(crew)}>
+              <Archive className="size-4" />
+              Archivar
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem
               variant="destructive"
               onClick={() => setDeleteTarget(crew)}
@@ -142,6 +221,11 @@ export function CrewsTable({ crews }: CrewsTableProps) {
 
   return (
     <>
+      <EntityActionFeedback
+        message={feedback?.message ?? null}
+        variant={feedback?.variant ?? "success"}
+      />
+
       <div className="hidden overflow-hidden rounded-xl border bg-card shadow-sm lg:block">
         <div className="overflow-x-auto">
           <Table>
@@ -272,16 +356,57 @@ export function CrewsTable({ crews }: CrewsTableProps) {
       />
 
       <Dialog
+        open={archiveTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !isArchiving) setArchiveTarget(null)
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Archivar cuadrilla</DialogTitle>
+            <DialogDescription>
+              La cuadrilla quedará inactiva y no podrá recibir nuevas tareas.
+              {archiveTarget ? (
+                <>
+                  {" "}
+                  <span className="font-medium text-foreground">
+                    {archiveTarget.name}
+                  </span>
+                </>
+              ) : null}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setArchiveTarget(null)}
+              disabled={isArchiving}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={handleConfirmArchive}
+              disabled={isArchiving}
+            >
+              {isArchiving ? "Archivando..." : "Archivar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
         open={deleteTarget !== null}
         onOpenChange={(open) => {
-          if (!open) setDeleteTarget(null)
+          if (!open && !isDeleting) setDeleteTarget(null)
         }}
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Eliminar cuadrilla</DialogTitle>
             <DialogDescription>
-              ¿Desea eliminar esta cuadrilla?
+              ¿Desea eliminar esta cuadrilla? Esta acción no se puede deshacer.
               {deleteTarget ? (
                 <>
                   {" "}
