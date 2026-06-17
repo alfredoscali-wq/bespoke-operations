@@ -102,7 +102,7 @@ export function ProjectDetailView({
   async function runAction(
     action: () => Promise<{ success: boolean; message?: string }>,
     successMessage: string
-  ) {
+  ): Promise<boolean> {
     setError(null)
     setFeedback(null)
     setIsBusy(true)
@@ -112,12 +112,13 @@ export function ProjectDetailView({
 
     if (!result.success) {
       setError(result.message ?? "No se pudo completar la acción.")
-      return
+      return false
     }
 
     setFeedback(successMessage)
     const loaded = await loadHistory(project.id)
     setHistory(loaded)
+    return true
   }
 
   async function handleEdit(form: {
@@ -157,18 +158,25 @@ export function ProjectDetailView({
   }
 
   async function handlePause(input: PauseProjectInput) {
-    await runAction(
+    const success = await runAction(
       () => pauseProject(project.id, input),
       "Obra pausada correctamente."
     )
-    setPauseOpen(false)
+    if (success) {
+      setPauseOpen(false)
+    }
   }
 
   async function handleArchive() {
-    await runAction(
+    const success = await runAction(
       () => archiveProject(project.id),
       "Obra archivada correctamente."
     )
+
+    if (!success) {
+      return
+    }
+
     setArchiveOpen(false)
     router.push("/obras")
   }

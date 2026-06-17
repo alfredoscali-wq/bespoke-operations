@@ -51,7 +51,7 @@ export async function updateProject(
 export async function archiveProject(
   id: string,
   client: SupabaseProjectsClient = createBrowserProjectsClient()
-): Promise<ProjectsRepositoryResult<Project>> {
+): Promise<ProjectsRepositoryResult<void>> {
   return archiveProjectRecord(client, id)
 }
 

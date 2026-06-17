@@ -2,6 +2,7 @@ import {
   PROJECT_PAUSE_REASON_LABELS,
   PROJECT_STATUS_LABELS,
 } from "@/lib/projects/constants"
+import { resolveTaskCrewId } from "@/lib/tasks/crew-relation"
 import { getTasksForProject } from "@/lib/tasks/utils"
 import type { EvidenceRecord } from "@/lib/types/evidence"
 import { getActiveEvidence } from "@/lib/evidence/utils"
@@ -32,16 +33,26 @@ export type ProjectOperationalStats = {
   progress: number
 }
 
-export function getProjectCrewIds(
+export function getActiveTasksForProject(
   project: Pick<Project, "id" | "code">,
   tasks: Task[]
+): Task[] {
+  return getTasksForProject(project as Project, tasks).filter((task) =>
+    ACTIVE_TASK_STATUSES.includes(task.status)
+  )
+}
+
+export function getProjectCrewIds(
+  project: Pick<Project, "id" | "code">,
+  tasks: Task[],
+  crews: Pick<Crew, "id" | "name">[] = []
 ): string[] {
-  const projectTasks = getTasksForProject(project as Project, tasks)
   const crewIds = new Set<string>()
 
-  for (const task of projectTasks) {
-    if (task.crewId) {
-      crewIds.add(task.crewId)
+  for (const task of getActiveTasksForProject(project, tasks)) {
+    const crewId = resolveTaskCrewId(task, crews)
+    if (crewId && crews.some((crew) => crew.id === crewId)) {
+      crewIds.add(crewId)
     }
   }
 
@@ -53,7 +64,7 @@ export function getProjectCrews(
   tasks: Task[],
   crews: Crew[]
 ): Crew[] {
-  const crewIds = new Set(getProjectCrewIds(project, tasks))
+  const crewIds = new Set(getProjectCrewIds(project, tasks, crews))
   return crews.filter((crew) => crewIds.has(crew.id))
 }
 
@@ -63,17 +74,17 @@ export function getProjectAssignedPersonnelCount(
   crews: Crew[]
 ): number {
   const projectCrews = getProjectCrews(project, tasks, crews)
-  const employeeIds = new Set<string>()
+  const personnelKeys = new Set<string>()
 
   for (const crew of projectCrews) {
     for (const member of crew.members) {
-      if (member.active && member.employeeId) {
-        employeeIds.add(member.employeeId)
-      }
+      if (!member.active) continue
+
+      personnelKeys.add(member.employeeId ?? `member:${member.id}`)
     }
   }
 
-  return employeeIds.size
+  return personnelKeys.size
 }
 
 export function getProjectOperationalStats(
@@ -89,7 +100,7 @@ export function getProjectOperationalStats(
   )
 
   return {
-    assignedCrews: getProjectCrewIds(project, tasks).length,
+    assignedCrews: getProjectCrewIds(project, tasks, crews).length,
     assignedPersonnel: getProjectAssignedPersonnelCount(project, tasks, crews),
     activeTasks: projectTasks.filter((task) =>
       ACTIVE_TASK_STATUSES.includes(task.status)

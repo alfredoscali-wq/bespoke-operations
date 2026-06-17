@@ -71,6 +71,18 @@ export const PROJECT_STATUS_OPTIONS = Object.entries(PROJECT_STATUS_LABELS).map(
   ([value, label]) => ({ value: value as ProjectStatus, label })
 )
 
+/** Explicación operativa de cada KPI en el detalle de obra. */
+export const PROJECT_OPERATIONAL_KPI_HINTS = {
+  assignedCrews:
+    "Cuadrillas activas con al menos una tarea activa asignada en esta obra.",
+  assignedPersonnel:
+    "Integrantes activos en esas cuadrillas. Incluye registros legacy sin vínculo RRHH; deduplica por empleado cuando aplica.",
+  activeTasks: "Tareas en curso operativo (pendiente, asignada, en curso o en aprobación).",
+  completedTasks: "Tareas finalizadas o cerradas vinculadas a la obra.",
+  evidenceFiles: "Evidencias activas registradas para la obra.",
+  progress: "Avance acumulado reportado en la ficha de la obra.",
+} as const
+
 export function formatDate(date?: string | null) {
   if (!date) return "Sin definir"
 

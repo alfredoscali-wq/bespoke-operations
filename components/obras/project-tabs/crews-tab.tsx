@@ -13,7 +13,10 @@ import {
 } from "@/components/cuadrillas/crew-badges"
 import { getCrewAvailability } from "@/lib/crews/availability"
 import { resolveCrewSupervisorDisplay } from "@/lib/crews/supervisor"
-import { getProjectCrews } from "@/lib/projects/utils"
+import {
+  getActiveTasksForProject,
+  getProjectCrews,
+} from "@/lib/projects/utils"
 import type { Project } from "@/lib/types/projects"
 import {
   Card,
@@ -49,19 +52,26 @@ export function ProjectCrewsTab({ project }: ProjectCrewsTabProps) {
     [availabilityRecords, getEmployee]
   )
 
+  const activeProjectTasks = useMemo(
+    () => getActiveTasksForProject(project, tasks),
+    [project, tasks]
+  )
+
   const projectCrews = useMemo(
     () => getProjectCrews(project, tasks, crews),
     [project, tasks, crews]
   )
 
-  if (projectCrews.length === 0) {
+  if (activeProjectTasks.length === 0 || projectCrews.length === 0) {
     return (
       <div className="rounded-xl border border-dashed bg-muted/20 px-6 py-16 text-center">
         <p className="text-sm font-medium text-foreground">
           Sin cuadrillas asignadas
         </p>
         <p className="mt-1 text-sm text-muted-foreground">
-          Asigne tareas con cuadrilla para ver su disponibilidad operativa aquí.
+          {activeProjectTasks.length === 0
+            ? "No hay tareas activas en esta obra."
+            : "Asigne cuadrilla en las tareas activas para ver su disponibilidad operativa aquí."}
         </p>
       </div>
     )
@@ -72,7 +82,9 @@ export function ProjectCrewsTab({ project }: ProjectCrewsTabProps) {
       <CardHeader>
         <CardTitle>Cuadrillas asignadas</CardTitle>
         <CardDescription>
-          Disponibilidad operativa calculada con el motor de cuadrillas existente
+          Cuadrillas derivadas de tareas activas de la obra (
+          {activeProjectTasks.length}{" "}
+          {activeProjectTasks.length === 1 ? "tarea" : "tareas"})
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -82,6 +94,7 @@ export function ProjectCrewsTab({ project }: ProjectCrewsTabProps) {
               <TableHead>Nombre</TableHead>
               <TableHead>Supervisor</TableHead>
               <TableHead>Estado operativo</TableHead>
+              <TableHead className="text-right">Integrantes</TableHead>
               <TableHead className="text-right">Disponibles</TableHead>
               <TableHead className="text-right">Ausentes</TableHead>
             </TableRow>
@@ -108,6 +121,9 @@ export function ProjectCrewsTab({ project }: ProjectCrewsTabProps) {
                   </TableCell>
                   <TableCell>
                     <CrewAvailabilityBadge status={availability.status} />
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {availability.totalMembers}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
                     {availability.availableMembers}

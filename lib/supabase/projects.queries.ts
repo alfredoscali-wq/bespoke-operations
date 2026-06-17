@@ -142,10 +142,18 @@ export async function patchProject(
 export async function archiveProjectRecord(
   client: SupabaseProjectsClient,
   id: string
-): Promise<ProjectsRepositoryResult<Project>> {
-  return patchProject(client, id, {
-    deletedAt: new Date().toISOString(),
-  })
+): Promise<ProjectsRepositoryResult<void>> {
+  const { error } = await client
+    .from("projects")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", id)
+    .is("deleted_at", null)
+
+  if (error) {
+    return { data: null, error: mapSupabaseError(error) }
+  }
+
+  return { data: undefined, error: null }
 }
 
 export async function fetchProjectHistory(

@@ -23,7 +23,14 @@ export function taskMatchesCrewId(
     return task.crewId === crew.id
   }
 
-  return Boolean(task.crew?.trim() && task.crew === crew.name)
+  return Boolean(
+    task.crew?.trim() &&
+      normalizeCrewName(task.crew) === normalizeCrewName(crew.name)
+  )
+}
+
+function normalizeCrewName(value: string): string {
+  return value.trim().toLocaleLowerCase("es")
 }
 
 export function resolveTaskCrewId(
@@ -38,7 +45,11 @@ export function resolveTaskCrewId(
     return undefined
   }
 
-  return crews.find((crew) => crew.name === task.crew)?.id
+  const taskCrewName = normalizeCrewName(task.crew)
+
+  return crews.find(
+    (crew) => normalizeCrewName(crew.name) === taskCrewName
+  )?.id
 }
 
 export function resolveTaskCrewDisplayName(
@@ -53,6 +64,27 @@ export function resolveTaskCrewDisplayName(
   }
 
   return task.crew?.trim() || "Sin cuadrilla"
+}
+
+/** True when crew_id is set but the crew is not in the active crews catalog (archived or missing). */
+export function isTaskCrewArchived(
+  task: TaskCrewFields,
+  getCrew?: (id: string) => Pick<Crew, "name"> | undefined
+): boolean {
+  if (!task.crewId || !getCrew) {
+    return false
+  }
+
+  return !getCrew(task.crewId)
+}
+
+export function getTaskCrewArchiveWarning(task: TaskCrewFields): string {
+  const snapshot = task.crew?.trim()
+  if (snapshot) {
+    return `La cuadrilla "${snapshot}" fue archivada. Reasigne la tarea a una cuadrilla activa.`
+  }
+
+  return "La cuadrilla asignada fue archivada. Reasigne la tarea a una cuadrilla activa."
 }
 
 export function isSameTaskCrewAssignment(
@@ -93,7 +125,7 @@ export function taskMatchesCrewFilter(
   }
 
   if (!task.crewId && task.crew?.trim()) {
-    return task.crew === filterCrew.name
+    return normalizeCrewName(task.crew) === normalizeCrewName(filterCrew.name)
   }
 
   return false

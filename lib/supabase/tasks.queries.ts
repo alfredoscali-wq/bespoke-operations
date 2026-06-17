@@ -12,12 +12,22 @@ import type {
   TasksRepositoryResult,
   UpdateTaskPayload,
 } from "@/lib/types/supabase/tasks"
+import {
+  buildTaskSoftDeleteRequestUrl,
+  formatTaskDeleteErrorMessage,
+  logTaskSoftDeleteAttempt,
+  logTaskSoftDeleteResult,
+  serializeTaskDeleteError,
+} from "@/lib/supabase/tasks-delete-diagnostics"
+import { getSupabaseEnv } from "@/lib/supabase/env"
 
 export type SupabaseTasksClient = SupabaseClient<Database>
 
 export function mapSupabaseTaskError(error: {
   code?: string
   message: string
+  details?: string | null
+  hint?: string | null
 }) {
   if (error.code === "23505") {
     return {
@@ -26,9 +36,11 @@ export function mapSupabaseTaskError(error: {
     }
   }
 
+  const serialized = serializeTaskDeleteError(error)
+
   return {
     code: "UNKNOWN" as const,
-    message: error.message,
+    message: formatTaskDeleteErrorMessage(serialized),
   }
 }
 
@@ -144,13 +156,35 @@ export async function softDeleteTask(
   client: SupabaseTasksClient,
   id: string
 ): Promise<TasksRepositoryResult<void>> {
-  const { error } = await client
+  const payload = { deleted_at: new Date().toISOString() }
+
+  logTaskSoftDeleteAttempt({ taskId: id, payload })
+
+  const { error, status, statusText } = await client
     .from("tasks")
-    .update({ deleted_at: new Date().toISOString() })
+    .update(payload)
     .eq("id", id)
     .is("deleted_at", null)
 
+  const serializedError = error ? serializeTaskDeleteError(error) : null
+
+  logTaskSoftDeleteResult({
+    taskId: id,
+    error: serializedError,
+    status,
+    statusText,
+  })
+
   if (error) {
+    const { url } = getSupabaseEnv()
+    if (url) {
+      console.error("[TASKS DELETE DIAG] request", {
+        table: "tasks",
+        url: buildTaskSoftDeleteRequestUrl(url, id),
+        payload,
+      })
+    }
+
     return { data: null, error: mapSupabaseTaskError(error) }
   }
 

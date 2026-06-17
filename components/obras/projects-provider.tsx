@@ -399,10 +399,17 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
           const result = await archiveProjectInSupabase(id, client)
 
           if (result.error) {
-            return { success: false, message: result.error.message }
+            return {
+              success: false,
+              message: result.error.message ?? "No se pudo archivar la obra.",
+            }
           }
-        } catch {
-          return { success: false, message: "No se pudo archivar la obra." }
+        } catch (error) {
+          const message =
+            error instanceof Error
+              ? error.message
+              : "No se pudo archivar la obra."
+          return { success: false, message }
         }
       }
 

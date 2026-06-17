@@ -2,10 +2,11 @@
 
 import { useMemo, useState } from "react"
 import Link from "next/link"
-import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react"
+import { AlertTriangle, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react"
 
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { useCrews } from "@/components/cuadrillas/crews-provider"
+import { TaskCrewAssignmentCell } from "@/components/obras/task-crew-assignment-cell"
 import {
   defaultChecklist,
   ProjectTaskDialog,
@@ -18,7 +19,8 @@ import type { Project } from "@/lib/types/projects"
 import type { Task } from "@/lib/types/tasks"
 import { formatTaskDate } from "@/lib/tasks/constants"
 import { getTasksForProject } from "@/lib/tasks/utils"
-import { resolveCrewSnapshotsForAssignment } from "@/lib/tasks/crew-relation"
+import { resolveCrewSnapshotsForAssignment, isTaskCrewArchived } from "@/lib/tasks/crew-relation"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -58,7 +60,7 @@ type DialogMode = "create" | "edit"
 
 export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
   const { tasks, addTask, editTask, deleteTask } = useTasks()
-  const { crews } = useCrews()
+  const { getCrew } = useCrews()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogMode, setDialogMode] = useState<DialogMode>("create")
   const [selectedTask, setSelectedTask] = useState<Task | undefined>()
@@ -75,6 +77,11 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
         (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
       ),
     [project, tasks]
+  )
+
+  const archivedCrewTaskCount = useMemo(
+    () => projectTasks.filter((task) => isTaskCrewArchived(task, getCrew)).length,
+    [projectTasks, getCrew]
   )
 
   function openCreateDialog() {
@@ -103,7 +110,7 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
     estimatedDuration: string
   }) {
     if (dialogMode === "edit" && selectedTask) {
-      const selectedCrew = crews.find((crew) => crew.id === payload.crewId)
+      const selectedCrew = getCrew(payload.crewId)
       const snapshots = resolveCrewSnapshotsForAssignment(selectedCrew)
 
       const result = await editTask(selectedTask.id, {
@@ -129,7 +136,7 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
       return
     }
 
-    const selectedCrew = crews.find((crew) => crew.id === payload.crewId)
+    const selectedCrew = getCrew(payload.crewId)
     const snapshots = resolveCrewSnapshotsForAssignment(selectedCrew)
 
     await addTask({
@@ -222,6 +229,19 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
         </Button>
       </div>
 
+      {archivedCrewTaskCount > 0 && (
+        <Alert className="border-amber-200 bg-amber-50/80 text-amber-900">
+          <AlertTriangle className="size-4 text-amber-700" />
+          <AlertDescription>
+            {archivedCrewTaskCount === 1
+              ? "1 tarea referencia una cuadrilla archivada."
+              : `${archivedCrewTaskCount} tareas referencian cuadrillas archivadas.`}{" "}
+            Edite la tarea y reasigne una cuadrilla activa para corregir la
+            inconsistencia operativa.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {feedback && (
         <p
           className={
@@ -276,8 +296,8 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
                         {task.title}
                       </Link>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {task.crew}
+                    <TableCell>
+                      <TaskCrewAssignmentCell task={task} getCrew={getCrew} />
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {formatTaskDate(task.dueDate)}
@@ -309,7 +329,13 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
                           {task.title}
                         </Link>
                       </CardTitle>
-                      <CardDescription>{task.crew}</CardDescription>
+                      <CardDescription>
+                        <TaskCrewAssignmentCell
+                          task={task}
+                          getCrew={getCrew}
+                          compact
+                        />
+                      </CardDescription>
                     </div>
                     {renderActions(task)}
                   </div>

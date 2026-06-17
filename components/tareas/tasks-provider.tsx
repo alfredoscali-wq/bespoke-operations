@@ -426,10 +426,20 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
           const result = await deleteTaskInSupabase(id, client)
 
           if (result.error) {
-            return { success: false, message: result.error.message }
+            return {
+              success: false,
+              message: result.error.message ?? "No se pudo eliminar la tarea.",
+            }
           }
-        } catch {
-          // Fall through to local removal for this session.
+        } catch (error) {
+          console.error("[TASKS DELETE DIAG] deleteTask unexpected error", error)
+          return {
+            success: false,
+            message:
+              error instanceof Error
+                ? error.message
+                : "No se pudo eliminar la tarea.",
+          }
         }
       }
 
