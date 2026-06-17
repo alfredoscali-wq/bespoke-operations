@@ -16,7 +16,7 @@ import {
 } from "@/components/evidencias/evidence-badges"
 import { EvidenceUploadDialog } from "@/components/evidencias/evidence-upload-dialog"
 import { formatEvidenceDateTime } from "@/lib/evidence/constants"
-import { getEvidenceByTaskId, mockEvidence } from "@/lib/data/evidence"
+import { getEvidenceByTaskId } from "@/lib/data/evidence"
 import type { EvidenceFileType } from "@/lib/types/evidence"
 import type { Task } from "@/lib/types/tasks"
 import {
@@ -43,7 +43,7 @@ const evidenceConfig: Record<
 
 export function TaskEvidenceTab({ task }: TaskEvidenceTabProps) {
   const evidenceContext = useEvidenceOptional()
-  const allEvidence = evidenceContext?.evidence ?? mockEvidence
+  const allEvidence = evidenceContext?.evidence ?? []
   const evidence = getEvidenceByTaskId(task.id, allEvidence)
 
   return (

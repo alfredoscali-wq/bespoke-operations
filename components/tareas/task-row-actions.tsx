@@ -13,6 +13,7 @@ import {
 
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { useTasks } from "@/components/tareas/tasks-provider"
+import { TASK_DELETE_USER_MESSAGE } from "@/lib/operations/user-messages"
 import {
   TaskCrewAssignDialog,
   TaskEditDialog,
@@ -136,7 +137,7 @@ export function TaskRowActions({
     if (!result.success) {
       onFeedback({
         variant: "error",
-        message: result.message ?? "No se pudo eliminar la tarea.",
+        message: TASK_DELETE_USER_MESSAGE,
       })
       return
     }

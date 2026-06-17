@@ -147,7 +147,7 @@ export function TasksListTable({ tasks }: TasksListTableProps) {
                     <TaskRowActions
                       task={task}
                       onFeedback={setFeedback}
-                      triggerClassName="size-8 opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100"
+                      triggerClassName="size-8 hover:bg-muted"
                     />
                   </TableCell>
                 </TableRow>

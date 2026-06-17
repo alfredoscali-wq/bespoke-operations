@@ -3,7 +3,8 @@
 import Link from "next/link"
 import { CheckCircle2, Circle, ExternalLink } from "lucide-react"
 
-import { getTaskDetail, mockTasks } from "@/lib/data/tasks"
+import { useTasks } from "@/components/tareas/tasks-provider"
+import { getTaskDetail } from "@/lib/data/tasks"
 import {
   getIncompleteRequiredItems,
   getRequiredChecklistComplete,
@@ -31,7 +32,8 @@ export function EvidenceChecklistPanel({
   taskTitle,
   evidenceCount,
 }: EvidenceChecklistPanelProps) {
-  const task = mockTasks.find((item) => item.id === taskId)
+  const { getTask } = useTasks()
+  const task = getTask(taskId)
 
   if (!task) {
     return (

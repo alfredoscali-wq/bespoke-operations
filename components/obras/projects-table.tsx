@@ -20,6 +20,7 @@ import {
 import type { NewProjectInput, Project } from "@/lib/types/projects"
 import { formatDate } from "@/lib/projects/constants"
 import { EntityActionFeedback } from "@/components/ui/entity-action-feedback"
+import { PROJECT_DELETE_USER_MESSAGE } from "@/lib/operations/user-messages"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import {
@@ -107,7 +108,7 @@ export function ProjectsTable({ projects }: ProjectsTableProps) {
     if (!result.success) {
       setFeedback({
         variant: "error",
-        message: result.message ?? "No se pudo completar la acción.",
+        message: PROJECT_DELETE_USER_MESSAGE,
       })
       return
     }
@@ -129,7 +130,7 @@ export function ProjectsTable({ projects }: ProjectsTableProps) {
           <Button
             variant="ghost"
             size="icon-sm"
-            className="opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100"
+            className="hover:bg-muted"
           >
             <MoreHorizontal className="size-4" />
             <span className="sr-only">Acciones</span>

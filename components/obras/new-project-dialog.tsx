@@ -3,11 +3,9 @@
 import { useState } from "react"
 import { Plus } from "lucide-react"
 
+import { ProjectSupervisorSelect } from "@/components/obras/project-supervisor-select"
 import type { NewProjectInput, Project, ProjectType } from "@/lib/types/projects"
-import {
-  PROJECT_TYPE_OPTIONS,
-  SUPERVISORS,
-} from "@/lib/projects/constants"
+import { PROJECT_TYPE_OPTIONS } from "@/lib/projects/constants"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -42,7 +40,7 @@ const emptyForm: NewProjectInput = {
   description: "",
   startDate: "",
   endDate: "",
-  supervisor: SUPERVISORS[0],
+  supervisor: "",
 }
 
 export function NewProjectDialog({ onSubmit }: NewProjectDialogProps) {
@@ -58,9 +56,13 @@ export function NewProjectDialog({ onSubmit }: NewProjectDialogProps) {
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
-    await onSubmit(form)
-    setForm(emptyForm)
-    setOpen(false)
+    try {
+      await onSubmit(form)
+      setForm(emptyForm)
+      setOpen(false)
+    } catch (error) {
+      console.error("[PROJECT CREATE]", error)
+    }
   }
 
   const isValid =
@@ -68,7 +70,7 @@ export function NewProjectDialog({ onSubmit }: NewProjectDialogProps) {
     form.code.trim() !== "" &&
     form.client.trim() !== "" &&
     form.location.trim() !== "" &&
-    form.supervisor !== ""
+    form.supervisor.trim() !== ""
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -115,7 +117,7 @@ export function NewProjectDialog({ onSubmit }: NewProjectDialogProps) {
                 id="client"
                 value={form.client}
                 onChange={(event) => updateField("client", event.target.value)}
-                placeholder="TeleRed México"
+                placeholder="Nombre del cliente"
               />
             </div>
 
@@ -140,24 +142,11 @@ export function NewProjectDialog({ onSubmit }: NewProjectDialogProps) {
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="supervisor">Supervisor responsable</Label>
-              <Select
-                value={form.supervisor}
-                onValueChange={(value) => updateField("supervisor", value)}
-              >
-                <SelectTrigger id="supervisor" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {SUPERVISORS.map((supervisor) => (
-                    <SelectItem key={supervisor} value={supervisor}>
-                      {supervisor}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <ProjectSupervisorSelect
+              id="supervisor"
+              value={form.supervisor}
+              onValueChange={(value) => updateField("supervisor", value)}
+            />
 
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="location">Ubicación</Label>

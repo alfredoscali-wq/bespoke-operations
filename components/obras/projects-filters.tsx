@@ -1,15 +1,21 @@
 "use client"
 
+import { useMemo } from "react"
 import { Search, X } from "lucide-react"
 
+import { useProjectSupervisorOptions } from "@/components/obras/project-supervisor-select"
 import type { ProjectStatus, ProjectType } from "@/lib/types/projects"
+import {
+  getEmployeeFullName,
+  resolveSupervisorDisplayName,
+} from "@/lib/employees/utils"
 import {
   PROJECT_STATUS_OPTIONS,
   PROJECT_TYPE_OPTIONS,
-  SUPERVISORS,
 } from "@/lib/projects/constants"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   Select,
   SelectContent,
@@ -43,6 +49,17 @@ export function ProjectsFilters({
   onChange,
   resultCount,
 }: ProjectsFiltersProps) {
+  const supervisorOptions = useProjectSupervisorOptions()
+
+  const supervisorFilterOptions = useMemo(
+    () =>
+      supervisorOptions.map((employee) => ({
+        value: resolveSupervisorDisplayName(employee),
+        label: `${employee.employeeCode} · ${getEmployeeFullName(employee)}`,
+      })),
+    [supervisorOptions]
+  )
+
   const hasActiveFilters =
     filters.search !== "" ||
     filters.status !== "all" ||
@@ -112,22 +129,40 @@ export function ProjectsFilters({
             </SelectContent>
           </Select>
 
-          <Select
-            value={filters.supervisor}
-            onValueChange={(value) => update("supervisor", value)}
-          >
-            <SelectTrigger className="h-9 w-full bg-background">
-              <SelectValue placeholder="Supervisor" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos los supervisores</SelectItem>
-              {SUPERVISORS.map((supervisor) => (
-                <SelectItem key={supervisor} value={supervisor}>
-                  {supervisor}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="space-y-1">
+            <Label htmlFor="filter-supervisor" className="sr-only">
+              Supervisor
+            </Label>
+            <Select
+              value={filters.supervisor}
+              onValueChange={(value) => update("supervisor", value)}
+              disabled={supervisorFilterOptions.length === 0}
+            >
+              <SelectTrigger id="filter-supervisor" className="h-9 w-full bg-background">
+                <SelectValue
+                  placeholder={
+                    supervisorFilterOptions.length === 0
+                      ? "Sin supervisores disponibles"
+                      : "Supervisor"
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los supervisores</SelectItem>
+                {supervisorFilterOptions.length === 0 ? (
+                  <SelectItem value="__none__" disabled>
+                    Sin supervisores disponibles
+                  </SelectItem>
+                ) : (
+                  supervisorFilterOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 

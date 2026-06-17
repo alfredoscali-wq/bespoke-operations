@@ -11,11 +11,10 @@ import {
 } from "react"
 
 import { appendUploadHistoryEvent } from "@/lib/data/evidence-enrichment"
-import { createEvidenceFromInput, mockEvidence } from "@/lib/data/evidence"
 import { DASHBOARD_USER } from "@/lib/auth/current-user"
 import { normalizeUploadEvidenceInput } from "@/lib/auth/evidence-uploader"
 import { EVIDENCE_VOID_HISTORY_ACTION } from "@/lib/evidence/utils"
-import { resolveEvidenceStatusForOrigin } from "@/lib/evidence/upload-origin"
+import { logOperationError } from "@/lib/operations/user-messages"
 import {
   createBrowserEvidencesClient,
   listEvidences,
@@ -70,16 +69,18 @@ export function EvidenceProvider({ children }: { children: React.ReactNode }) {
         if (cancelled) return
 
         if (result.error || result.data === null) {
-          setEvidence(mockEvidence)
+          console.error("[EVIDENCE LOAD]", result.error)
+          setEvidence([])
           setUsesSupabase(false)
           return
         }
 
         setEvidence(result.data)
         setUsesSupabase(true)
-      } catch {
+      } catch (error) {
         if (!cancelled) {
-          setEvidence(mockEvidence)
+          console.error("[EVIDENCE LOAD]", error)
+          setEvidence([])
           setUsesSupabase(false)
         }
       } finally {
@@ -114,62 +115,38 @@ export function EvidenceProvider({ children }: { children: React.ReactNode }) {
     async (input: UploadEvidenceInput): Promise<UploadEvidenceResult> => {
       const normalized = normalizeUploadEvidenceInput(input)
 
-      if (usesSupabaseRef.current) {
-        try {
-          const client = createBrowserEvidencesClient()
-          const result = await uploadEvidenceWithFile(normalized, client)
-
-          if (result.error || !result.data) {
-            return {
-              success: false,
-              message: result.error?.message ?? "No se pudo subir la evidencia.",
-            }
-          }
-
-          setEvidence((current) => [result.data!, ...current])
-
-          return {
-            success: true,
-            data: result.data,
-            message: "Evidencia subida correctamente.",
-          }
-        } catch {
-          // Fall through to in-memory mock upload for this session.
+      if (!usesSupabaseRef.current) {
+        return {
+          success: false,
+          message: "No se pudo subir la evidencia. Intente nuevamente.",
         }
       }
 
-      const uploadedAt = new Date().toISOString()
-      const status = resolveEvidenceStatusForOrigin(normalized.origin ?? "dashboard")
-      const record = createEvidenceFromInput({
-        fileName: normalized.file.name,
-        type: "photo",
-        projectId: normalized.projectId ?? "",
-        projectCode: normalized.projectCode,
-        projectName: normalized.projectName,
-        taskId: normalized.taskId ?? "",
-        taskCode: normalized.taskCode ?? "OBRA",
-        taskTitle: normalized.taskTitle ?? "Evidencia general de obra",
-        crew: normalized.crew ?? "—",
-        worker: normalized.worker,
-        uploadedByRole: normalized.uploadedByRole,
-        uploadedAt,
-        status,
-        description: normalized.description ?? "",
-        category: normalized.category ?? "Campo",
-        comments: [],
-      })
+      try {
+        const client = createBrowserEvidencesClient()
+        const result = await uploadEvidenceWithFile(normalized, client)
 
-      setEvidence((current) => [record, ...current])
+        if (result.error || !result.data) {
+          logOperationError("EVIDENCE UPLOAD", result.error)
+          return {
+            success: false,
+            message: "No se pudo subir la evidencia. Intente nuevamente.",
+          }
+        }
 
-      const message =
-        status === "approved"
-          ? "Evidencia subida y aprobada automáticamente."
-          : "Evidencia registrada localmente."
+        setEvidence((current) => [result.data!, ...current])
 
-      return {
-        success: true,
-        data: record,
-        message,
+        return {
+          success: true,
+          data: result.data,
+          message: "Evidencia subida correctamente.",
+        }
+      } catch (error) {
+        logOperationError("EVIDENCE UPLOAD", error)
+        return {
+          success: false,
+          message: "No se pudo subir la evidencia. Intente nuevamente.",
+        }
       }
     },
     []

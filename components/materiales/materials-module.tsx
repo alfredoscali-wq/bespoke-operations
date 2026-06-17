@@ -9,7 +9,6 @@ import {
   defaultMaterialFilters,
   filterMaterials,
   getWarehouseOptions,
-  mockMaterials,
 } from "@/lib/data/materials"
 import type { MaterialFilters } from "@/lib/types/materials"
 import {
@@ -27,7 +26,7 @@ export function MaterialsModule() {
   const warehouses = useMemo(() => getWarehouseOptions(), [])
 
   const filteredMaterials = useMemo(
-    () => filterMaterials(mockMaterials, filters),
+    () => filterMaterials([], filters),
     [filters]
   )
 

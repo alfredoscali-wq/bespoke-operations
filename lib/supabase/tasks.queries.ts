@@ -14,11 +14,11 @@ import type {
 } from "@/lib/types/supabase/tasks"
 import {
   buildTaskSoftDeleteRequestUrl,
-  formatTaskDeleteErrorMessage,
   logTaskSoftDeleteAttempt,
   logTaskSoftDeleteResult,
   serializeTaskDeleteError,
 } from "@/lib/supabase/tasks-delete-diagnostics"
+import { TASK_DELETE_USER_MESSAGE } from "@/lib/operations/user-messages"
 import { getSupabaseEnv } from "@/lib/supabase/env"
 
 export type SupabaseTasksClient = SupabaseClient<Database>
@@ -40,7 +40,7 @@ export function mapSupabaseTaskError(error: {
 
   return {
     code: "UNKNOWN" as const,
-    message: formatTaskDeleteErrorMessage(serialized),
+    message: serialized.message,
   }
 }
 
@@ -178,14 +178,21 @@ export async function softDeleteTask(
   if (error) {
     const { url } = getSupabaseEnv()
     if (url) {
-      console.error("[TASKS DELETE DIAG] request", {
+      console.error("[TASK DELETE]", {
         table: "tasks",
         url: buildTaskSoftDeleteRequestUrl(url, id),
         payload,
+        error: serializedError,
       })
     }
 
-    return { data: null, error: mapSupabaseTaskError(error) }
+    return {
+      data: null,
+      error: {
+        code: "UNKNOWN",
+        message: TASK_DELETE_USER_MESSAGE,
+      },
+    }
   }
 
   return { data: undefined, error: null }

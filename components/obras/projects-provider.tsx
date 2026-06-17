@@ -11,9 +11,6 @@ import {
 
 import {
   createProjectDetail,
-  createProjectFromInput,
-  getProjectDetail,
-  mockProjects,
 } from "@/lib/data/projects"
 import {
   appendHistoryEvent,
@@ -22,7 +19,6 @@ import {
   buildProjectUpdatePayloadForResume,
   buildStatusChangeHistory,
   createHistoryEvent,
-  mergeProjectPauseFields,
 } from "@/lib/projects/history"
 import { canTransitionProjectStatus } from "@/lib/projects/utils"
 import { PROJECT_STATUS_LABELS } from "@/lib/projects/constants"
@@ -35,6 +31,7 @@ import {
   listProjects,
   updateProject as updateProjectInSupabase,
 } from "@/lib/supabase/projects.browser"
+import { PROJECT_DELETE_USER_MESSAGE, logOperationError } from "@/lib/operations/user-messages"
 import type { UpdateProjectPayload } from "@/lib/types/supabase/projects"
 import type {
   NewProjectInput,
@@ -92,30 +89,6 @@ function cacheProjectDetail(project: Project) {
   return detail
 }
 
-function mergeProjectUpdate(project: Project, payload: UpdateProjectPayload): Project {
-  const merged = mergeProjectPauseFields(project, payload)
-
-  return {
-    ...merged,
-    ...(payload.code !== undefined ? { code: payload.code } : {}),
-    ...(payload.name !== undefined ? { name: payload.name } : {}),
-    ...(payload.client !== undefined ? { client: payload.client } : {}),
-    ...(payload.type !== undefined ? { type: payload.type } : {}),
-    ...(payload.progress !== undefined ? { progress: payload.progress } : {}),
-    ...(payload.startDate !== undefined
-      ? { startDate: payload.startDate ?? undefined }
-      : {}),
-    ...(payload.endDate !== undefined
-      ? { endDate: payload.endDate ?? undefined }
-      : {}),
-    ...(payload.supervisor !== undefined ? { supervisor: payload.supervisor } : {}),
-    ...(payload.location !== undefined ? { location: payload.location } : {}),
-    ...(payload.description !== undefined
-      ? { description: payload.description }
-      : {}),
-  }
-}
-
 export function ProjectsProvider({ children }: { children: React.ReactNode }) {
   const [projects, setProjects] = useState<Project[]>([])
   const [isProjectsReady, setIsProjectsReady] = useState(false)
@@ -132,16 +105,18 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
         if (cancelled) return
 
         if (result.error || result.data === null) {
-          setProjects(mockProjects)
+          console.error("[PROJECTS LOAD]", result.error)
+          setProjects([])
           setUsesSupabase(false)
           return
         }
 
         setProjects(result.data)
         setUsesSupabase(true)
-      } catch {
+      } catch (error) {
         if (!cancelled) {
-          setProjects(mockProjects)
+          console.error("[PROJECTS LOAD]", error)
+          setProjects([])
           setUsesSupabase(false)
         }
       } finally {
@@ -187,25 +162,19 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
 
   const addProject = useCallback(
     async (input: NewProjectInput): Promise<Project> => {
-      let project: Project
-
-      if (usesSupabase) {
-        try {
-          const client = createBrowserProjectsClient()
-          const result = await createProject(input, client)
-
-          if (result.data) {
-            project = result.data
-          } else {
-            project = createProjectFromInput(input)
-          }
-        } catch {
-          project = createProjectFromInput(input)
-        }
-      } else {
-        project = createProjectFromInput(input)
+      if (!usesSupabase) {
+        throw new Error("No fue posible crear la obra. Intente nuevamente.")
       }
 
+      const client = createBrowserProjectsClient()
+      const result = await createProject(input, client)
+
+      if (!result.data) {
+        logOperationError("PROJECT CREATE", result.error)
+        throw new Error("No fue posible crear la obra. Intente nuevamente.")
+      }
+
+      const project = result.data
       cacheProjectDetail(project)
       setProjects((current) => [project, ...current])
 
@@ -232,57 +201,49 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
         return { success: false, message: "Obra no encontrada." }
       }
 
-      if (usesSupabase) {
-        try {
-          const client = createBrowserProjectsClient()
-          const result = await updateProjectInSupabase(id, payload, client)
-
-          if (result.data) {
-            cacheProjectDetail(result.data)
-            setProjects((current) =>
-              current.map((project) =>
-                project.id === id ? result.data! : project
-              )
-            )
-
-            if (payload.status === undefined) {
-              await persistHistoryEvent(
-                id,
-                createHistoryEvent({
-                  eventType: "updated",
-                  description: "Se actualizaron los datos operativos de la obra.",
-                })
-              )
-            }
-
-            return { success: true, project: result.data }
-          }
-
-          if (result.error) {
-            return { success: false, message: result.error.message }
-          }
-        } catch {
-          // Fall through to in-memory update for this session.
+      if (!usesSupabase) {
+        return {
+          success: false,
+          message: "No fue posible actualizar la obra. Intente nuevamente.",
         }
       }
 
-      const updatedProject = mergeProjectUpdate(existing, payload)
-      cacheProjectDetail(updatedProject)
-      setProjects((current) =>
-        current.map((project) => (project.id === id ? updatedProject : project))
-      )
+      try {
+        const client = createBrowserProjectsClient()
+        const result = await updateProjectInSupabase(id, payload, client)
 
-      if (payload.status === undefined) {
-        await persistHistoryEvent(
-          id,
-          createHistoryEvent({
-            eventType: "updated",
-            description: "Se actualizaron los datos operativos de la obra.",
-          })
-        )
+        if (result.data) {
+          cacheProjectDetail(result.data)
+          setProjects((current) =>
+            current.map((project) =>
+              project.id === id ? result.data! : project
+            )
+          )
+
+          if (payload.status === undefined) {
+            await persistHistoryEvent(
+              id,
+              createHistoryEvent({
+                eventType: "updated",
+                description: "Se actualizaron los datos operativos de la obra.",
+              })
+            )
+          }
+
+          return { success: true, project: result.data }
+        }
+
+        if (result.error) {
+          logOperationError("PROJECT UPDATE", result.error)
+        }
+      } catch (error) {
+        logOperationError("PROJECT UPDATE", error)
       }
 
-      return { success: true, project: updatedProject }
+      return {
+        success: false,
+        message: "No fue posible actualizar la obra. Intente nuevamente.",
+      }
     },
     [projects, usesSupabase, persistHistoryEvent]
   )
@@ -393,24 +354,24 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
         return { success: false, message: "Obra no encontrada." }
       }
 
-      if (usesSupabase) {
-        try {
-          const client = createBrowserProjectsClient()
-          const result = await archiveProjectInSupabase(id, client)
+      if (!usesSupabase) {
+        return { success: false, message: PROJECT_DELETE_USER_MESSAGE }
+      }
 
-          if (result.error) {
-            return {
-              success: false,
-              message: result.error.message ?? "No se pudo archivar la obra.",
-            }
+      try {
+        const client = createBrowserProjectsClient()
+        const result = await archiveProjectInSupabase(id, client)
+
+        if (result.error) {
+          console.error("[PROJECT DELETE]", result.error)
+          return {
+            success: false,
+            message: PROJECT_DELETE_USER_MESSAGE,
           }
-        } catch (error) {
-          const message =
-            error instanceof Error
-              ? error.message
-              : "No se pudo archivar la obra."
-          return { success: false, message }
         }
+      } catch (error) {
+        console.error("[PROJECT DELETE]", error)
+        return { success: false, message: PROJECT_DELETE_USER_MESSAGE }
       }
 
       await persistHistoryEvent(
@@ -443,16 +404,16 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
             historyCache.set(id, result.data)
             return result.data
           }
-        } catch {
-          // Fall through to mock detail history.
+        } catch (error) {
+          console.error("[PROJECT HISTORY LOAD]", error)
         }
       }
 
       const project = projects.find((item) => item.id === id)
       if (!project) return []
 
-      const detail = usesSupabase ? createProjectDetail(project) : getProjectDetail(project)
-      const history = detail?.history ?? []
+      const detail = createProjectDetail(project)
+      const history = detail.history ?? []
       historyCache.set(id, history)
       return history
     },
@@ -482,13 +443,11 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      const detail = usesSupabase
-        ? createProjectDetail(project)
-        : getProjectDetail(project)
+      const detail = createProjectDetail(project)
       detailCache.set(id, detail)
       return detail
     },
-    [projects, usesSupabase]
+    [projects]
   )
 
   const value = useMemo(

@@ -70,29 +70,7 @@ export function logTaskSoftDeleteResult(input: {
 export function formatTaskDeleteErrorMessage(
   error: TaskDeleteSupabaseError
 ): string {
-  const parts = [error.message]
-
-  if (error.code) {
-    parts.push(`Código: ${error.code}`)
-  }
-  if (error.details) {
-    parts.push(`Detalle: ${error.details}`)
-  }
-  if (error.hint) {
-    parts.push(`Hint: ${error.hint}`)
-  }
-
-  if (
-    error.code === "42501" &&
-    error.message.toLowerCase().includes("row-level security") &&
-    error.message.toLowerCase().includes("tasks")
-  ) {
-    parts.push(
-      "Verifique que la migración 20260728000100_fix_tasks_soft_delete_rls.sql esté aplicada (tasks_update_policy WITH CHECK true)."
-    )
-  }
-
-  return parts.join(" · ")
+  return error.message
 }
 
 export function buildTaskSoftDeleteRequestUrl(

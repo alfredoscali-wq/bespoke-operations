@@ -5,7 +5,7 @@ import { Camera, Upload } from "lucide-react"
 
 import { useEvidenceOptional } from "@/components/evidencias/evidence-provider"
 import { formatEvidenceDateTime } from "@/lib/evidence/constants"
-import { getTaskEvidenceStats, mockEvidence } from "@/lib/data/evidence"
+import { getTaskEvidenceStats } from "@/lib/data/evidence"
 import {
   Card,
   CardContent,
@@ -19,7 +19,7 @@ type TaskEvidenceSummaryProps = {
 
 export function TaskEvidenceSummary({ taskId }: TaskEvidenceSummaryProps) {
   const evidenceContext = useEvidenceOptional()
-  const evidence = evidenceContext?.evidence ?? mockEvidence
+  const evidence = evidenceContext?.evidence ?? []
   const stats = getTaskEvidenceStats(taskId, evidence)
 
   return (

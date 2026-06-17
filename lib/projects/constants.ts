@@ -56,13 +56,6 @@ export const PROJECT_TYPE_STYLES: Record<ProjectType, string> = {
   maintenance: "bg-teal-50 text-teal-700 border-teal-100",
 }
 
-export const SUPERVISORS = [
-  "Ing. Roberto Méndez",
-  "Ing. Ana Torres",
-  "Ing. Carlos Ruiz",
-  "Ing. Patricia Vega",
-] as const
-
 export const PROJECT_TYPE_OPTIONS = Object.entries(PROJECT_TYPE_LABELS).map(
   ([value, label]) => ({ value: value as ProjectType, label })
 )

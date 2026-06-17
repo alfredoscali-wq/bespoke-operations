@@ -11,9 +11,7 @@ import {
 } from "react"
 
 import {
-  createTaskFromInput,
   getTaskDetail,
-  mockTasks,
 } from "@/lib/data/tasks"
 import {
   createBrowserTasksClient,
@@ -22,6 +20,7 @@ import {
   listTasks,
   updateTask as updateTaskInSupabase,
 } from "@/lib/supabase/tasks.browser"
+import { TASK_DELETE_USER_MESSAGE, logOperationError } from "@/lib/operations/user-messages"
 import { mapTaskToUpdatePayload } from "@/lib/supabase/tasks.mapper"
 import {
   canPerformTaskAction,
@@ -108,16 +107,18 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         if (cancelled) return
 
         if (result.error || result.data === null) {
-          setTasks(mockTasks)
+          console.error("[TASKS LOAD]", result.error)
+          setTasks([])
           setUsesSupabase(false)
           return
         }
 
         setTasks(result.data)
         setUsesSupabase(true)
-      } catch {
+      } catch (error) {
         if (!cancelled) {
-          setTasks(mockTasks)
+          console.error("[TASKS LOAD]", error)
+          setTasks([])
           setUsesSupabase(false)
         }
       } finally {
@@ -210,25 +211,21 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         status,
       }
 
-      if (usesSupabase) {
-        try {
-          const client = createBrowserTasksClient()
-          const result = await createTask(payload, client)
-
-          if (result.data) {
-            cacheDetail(result.data.id, getTaskDetail(result.data))
-            setTasks((current) => [result.data!, ...current])
-            return result.data
-          }
-        } catch {
-          // Fall through to local task creation for this session.
-        }
+      if (!usesSupabase) {
+        throw new Error("No fue posible crear la tarea. Intente nuevamente.")
       }
 
-      const task = createTaskFromInput({ ...payload, status })
-      cacheDetail(task.id, getTaskDetail(task))
-      setTasks((current) => [task, ...current])
-      return task
+      const client = createBrowserTasksClient()
+      const result = await createTask(payload, client)
+
+      if (!result.data) {
+        logOperationError("TASK CREATE", result.error)
+        throw new Error("No fue posible crear la tarea. Intente nuevamente.")
+      }
+
+      cacheDetail(result.data.id, getTaskDetail(result.data))
+      setTasks((current) => [result.data!, ...current])
+      return result.data
     },
     [usesSupabase]
   )
@@ -244,77 +241,57 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         return { success: false, message: "Tarea no encontrada." }
       }
 
-      if (usesSupabase) {
-        try {
-          const client = createBrowserTasksClient()
-          const result = await updateTaskInSupabase(id, payload, client)
-
-          if (result.data) {
-            if (workflowAction) {
-              const detail = detailCache.get(id) ?? getTaskDetail(result.data)
-              const historyEntry = getWorkflowHistoryEntry(workflowAction)
-
-              cacheDetail(id, {
-                ...detail,
-                history: [
-                  {
-                    id: `h-${Date.now()}`,
-                    action: historyEntry.action,
-                    description: historyEntry.description,
-                    user: "Usuario",
-                    timestamp: new Date().toISOString(),
-                  },
-                  ...detail.history,
-                ],
-              })
-            }
-
-            setTasks((current) =>
-              current.map((item) => (item.id === id ? result.data! : item))
-            )
-            setDetailVersion((version) => version + 1)
-            return { success: true, task: result.data }
-          }
-
-          if (result.error) {
-            return { success: false, message: result.error.message }
-          }
-        } catch {
-          // Fall through to in-memory update for this session.
+      if (!usesSupabase) {
+        return {
+          success: false,
+          message: "No fue posible actualizar la tarea. Intente nuevamente.",
         }
       }
 
-      const updatedTask = mergeTaskUpdate(existing, payload)
-      setTasks((current) =>
-        current.map((item) => (item.id === id ? updatedTask : item))
-      )
+      try {
+        const client = createBrowserTasksClient()
+        const result = await updateTaskInSupabase(id, payload, client)
 
-      const detail = detailCache.get(id) ?? getTaskDetail(updatedTask)
-      if (workflowAction) {
-        const historyEntry = getWorkflowHistoryEntry(workflowAction)
-        cacheDetail(id, {
-          ...detail,
-          history: [
-            {
-              id: `h-${Date.now()}`,
-              action: historyEntry.action,
-              description: historyEntry.description,
-              user: "Usuario",
-              timestamp: new Date().toISOString(),
-            },
-            ...detail.history,
-          ],
-        })
-      } else if (detailCache.has(id)) {
-        cacheDetail(id, detail)
+        if (result.data) {
+          if (workflowAction) {
+            const detail = detailCache.get(id) ?? getTaskDetail(result.data)
+            const historyEntry = getWorkflowHistoryEntry(workflowAction)
+
+            cacheDetail(id, {
+              ...detail,
+              history: [
+                {
+                  id: `h-${Date.now()}`,
+                  action: historyEntry.action,
+                  description: historyEntry.description,
+                  user: "Usuario",
+                  timestamp: new Date().toISOString(),
+                },
+                ...detail.history,
+              ],
+            })
+          }
+
+          setTasks((current) =>
+            current.map((item) => (item.id === id ? result.data! : item))
+          )
+          setDetailVersion((version) => version + 1)
+          return { success: true, task: result.data }
+        }
+
+        if (result.error) {
+          logOperationError("TASK UPDATE", result.error)
+        }
+      } catch (error) {
+        logOperationError("TASK UPDATE", error)
       }
 
-      setDetailVersion((version) => version + 1)
-      void persistTaskUpdate(updatedTask)
-
-      return { success: true, task: updatedTask }
+      return {
+        success: false,
+        message: "No fue posible actualizar la tarea. Intente nuevamente.",
+      }
     },
-    [tasks, usesSupabase, mergeTaskUpdate, persistTaskUpdate]
+    [tasks, usesSupabase]
   )
 
   const editTask = useCallback(
@@ -420,26 +397,26 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         return { success: false, message: "Tarea no encontrada." }
       }
 
-      if (usesSupabase) {
-        try {
-          const client = createBrowserTasksClient()
-          const result = await deleteTaskInSupabase(id, client)
+      if (!usesSupabase) {
+        return { success: false, message: TASK_DELETE_USER_MESSAGE }
+      }
 
-          if (result.error) {
-            return {
-              success: false,
-              message: result.error.message ?? "No se pudo eliminar la tarea.",
-            }
-          }
-        } catch (error) {
-          console.error("[TASKS DELETE DIAG] deleteTask unexpected error", error)
+      try {
+        const client = createBrowserTasksClient()
+        const result = await deleteTaskInSupabase(id, client)
+
+        if (result.error) {
+          console.error("[TASK DELETE]", result.error)
           return {
             success: false,
-            message:
-              error instanceof Error
-                ? error.message
-                : "No se pudo eliminar la tarea.",
+            message: TASK_DELETE_USER_MESSAGE,
           }
+        }
+      } catch (error) {
+        console.error("[TASK DELETE]", error)
+        return {
+          success: false,
+          message: TASK_DELETE_USER_MESSAGE,
         }
       }
 

@@ -5,6 +5,7 @@ import Link from "next/link"
 import { AlertTriangle, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react"
 
 import { useTasks } from "@/components/tareas/tasks-provider"
+import { TASK_DELETE_USER_MESSAGE } from "@/lib/operations/user-messages"
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { TaskCrewAssignmentCell } from "@/components/obras/task-crew-assignment-cell"
 import {
@@ -175,7 +176,7 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
     if (!result.success) {
       setFeedback({
         type: "error",
-        message: result.message ?? "No se pudo eliminar la tarea.",
+        message: TASK_DELETE_USER_MESSAGE,
       })
       return
     }

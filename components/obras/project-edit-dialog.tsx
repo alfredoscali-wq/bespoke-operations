@@ -2,11 +2,9 @@
 
 import { useEffect, useState } from "react"
 
+import { ProjectSupervisorSelect } from "@/components/obras/project-supervisor-select"
 import type { NewProjectInput, Project, ProjectType } from "@/lib/types/projects"
-import {
-  PROJECT_TYPE_OPTIONS,
-  SUPERVISORS,
-} from "@/lib/projects/constants"
+import { PROJECT_TYPE_OPTIONS } from "@/lib/projects/constants"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -81,7 +79,7 @@ export function ProjectEditDialog({
     form.code.trim() !== "" &&
     form.client.trim() !== "" &&
     form.location.trim() !== "" &&
-    form.supervisor !== ""
+    form.supervisor.trim() !== ""
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -144,24 +142,12 @@ export function ProjectEditDialog({
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="edit-supervisor">Supervisor responsable</Label>
-              <Select
-                value={form.supervisor}
-                onValueChange={(value) => updateField("supervisor", value)}
-              >
-                <SelectTrigger id="edit-supervisor" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {SUPERVISORS.map((supervisor) => (
-                    <SelectItem key={supervisor} value={supervisor}>
-                      {supervisor}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <ProjectSupervisorSelect
+              id="edit-supervisor"
+              value={form.supervisor}
+              onValueChange={(value) => updateField("supervisor", value)}
+              showLegacyHint
+            />
 
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="edit-location">Ubicación</Label>
