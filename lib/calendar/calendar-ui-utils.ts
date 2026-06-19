@@ -17,6 +17,7 @@ import type { CalendarEvent, CalendarWeekSummary } from "@/lib/types/calendar"
 import type { Crew, CrewAvailabilityStatus } from "@/lib/types/crews"
 import type { Employee } from "@/lib/types/employees"
 import type { Task } from "@/lib/types/tasks"
+import { FINAL_TASK_STATUSES } from "@/lib/tasks/status-groups"
 
 const ABSENCE_TYPES: AvailabilityType[] = [
   "VACATION",
@@ -25,8 +26,6 @@ const ABSENCE_TYPES: AvailabilityType[] = [
   "LICENSE",
   "OTHER",
 ]
-
-const CLOSED_TASK_STATUSES: Task["status"][] = ["finalizada", "cerrada"]
 
 export type CalendarViewMode = "all" | "operations" | "rrhh" | "projects"
 
@@ -264,7 +263,7 @@ export function getOperationalAlerts(input: {
 
   const tasksDueThisWeek = input.tasks.filter(
     (task) =>
-      !CLOSED_TASK_STATUSES.includes(task.status) &&
+      !FINAL_TASK_STATUSES.includes(task.status) &&
       task.dueDate >= input.weekStart &&
       task.dueDate <= weekEnd
   ).length

@@ -21,6 +21,7 @@ import type { NewProjectInput, Project } from "@/lib/types/projects"
 import { formatDate } from "@/lib/projects/constants"
 import { EntityActionFeedback } from "@/components/ui/entity-action-feedback"
 import { PROJECT_DELETE_USER_MESSAGE } from "@/lib/operations/user-messages"
+import { logDeleteTrace } from "@/lib/supabase/delete-trace"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import {
@@ -101,6 +102,12 @@ export function ProjectsTable({ projects }: ProjectsTableProps) {
   async function handleConfirmDestructive() {
     if (!destructiveTarget) return
 
+    logDeleteTrace("ui.projects-table.handleConfirmDestructive", {
+      entity: "project",
+      id: destructiveTarget.id,
+      code: destructiveTarget.code,
+    })
+
     setIsSubmitting(true)
     const result = await archiveProject(destructiveTarget.id)
     setIsSubmitting(false)
@@ -108,7 +115,7 @@ export function ProjectsTable({ projects }: ProjectsTableProps) {
     if (!result.success) {
       setFeedback({
         variant: "error",
-        message: PROJECT_DELETE_USER_MESSAGE,
+        message: result.message ?? PROJECT_DELETE_USER_MESSAGE,
       })
       return
     }

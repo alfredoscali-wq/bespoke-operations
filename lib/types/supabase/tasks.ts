@@ -43,6 +43,7 @@ export type TasksRepositoryErrorCode =
   | "NOT_FOUND"
   | "DUPLICATE_CODE"
   | "VALIDATION"
+  | "ACTIVE_TASK"
   | "UNKNOWN"
 
 export type TasksRepositoryResult<T> =

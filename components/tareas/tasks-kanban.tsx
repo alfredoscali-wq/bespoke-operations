@@ -1,11 +1,14 @@
 "use client"
 
+import { useState } from "react"
+
 import type { Task } from "@/lib/types/tasks"
 import {
   KANBAN_COLUMNS,
   TASK_STATUS_LABELS,
 } from "@/lib/tasks/constants"
 import { TaskKanbanCard } from "@/components/tareas/task-kanban-card"
+import { EntityActionFeedback } from "@/components/ui/entity-action-feedback"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 
@@ -14,8 +17,19 @@ type TasksKanbanProps = {
 }
 
 export function TasksKanban({ tasks }: TasksKanbanProps) {
+  const [feedback, setFeedback] = useState<{
+    variant: "success" | "error"
+    message: string
+  } | null>(null)
+
   return (
-    <ScrollArea className="w-full whitespace-nowrap">
+    <>
+      <EntityActionFeedback
+        message={feedback?.message ?? null}
+        variant={feedback?.variant ?? "success"}
+      />
+
+      <ScrollArea className="w-full whitespace-nowrap">
       <div className="flex gap-4 pb-4">
         {KANBAN_COLUMNS.map((status) => {
           const columnTasks = tasks.filter((task) => task.status === status)
@@ -42,7 +56,11 @@ export function TasksKanban({ tasks }: TasksKanbanProps) {
                     </div>
                   ) : (
                     columnTasks.map((task) => (
-                      <TaskKanbanCard key={task.id} task={task} />
+                      <TaskKanbanCard
+                        key={task.id}
+                        task={task}
+                        onFeedback={setFeedback}
+                      />
                     ))
                   )}
                 </div>
@@ -53,5 +71,6 @@ export function TasksKanban({ tasks }: TasksKanbanProps) {
       </div>
       <ScrollBar orientation="horizontal" />
     </ScrollArea>
+    </>
   )
 }

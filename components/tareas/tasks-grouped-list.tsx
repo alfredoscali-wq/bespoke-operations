@@ -5,11 +5,13 @@ import Link from "next/link"
 import { ChevronDown } from "lucide-react"
 
 import { useCrews } from "@/components/cuadrillas/crews-provider"
+import { TaskRowActions } from "@/components/tareas/task-row-actions"
 import {
   TaskOperationBadge,
   TaskPriorityBadge,
   TaskStatusBadge,
 } from "@/components/tareas/task-badges"
+import { EntityActionFeedback } from "@/components/ui/entity-action-feedback"
 import {
   TASK_STATUS_LABELS,
   formatTaskDate,
@@ -33,6 +35,7 @@ const GROUP_ORDER: TaskStatus[] = [
   "en-aprobacion",
   "finalizada",
   "cerrada",
+  "cancelada",
 ]
 
 const DEFAULT_EXPANDED: TaskStatus[] = [
@@ -67,6 +70,10 @@ export function TasksGroupedList({
   focusedStatus = null,
 }: TasksGroupedListProps) {
   const { getCrew } = useCrews()
+  const [feedback, setFeedback] = useState<{
+    variant: "success" | "error"
+    message: string
+  } | null>(null)
   const groupedTasks = useMemo(() => {
     return GROUP_ORDER.map((status) => ({
       status,
@@ -104,7 +111,13 @@ export function TasksGroupedList({
   }
 
   return (
-    <div className="space-y-3">
+    <>
+      <EntityActionFeedback
+        message={feedback?.message ?? null}
+        variant={feedback?.variant ?? "success"}
+      />
+
+      <div className="space-y-3">
       {groupedTasks.map((group) => {
         const isExpanded = expandedGroups[group.status]
 
@@ -138,12 +151,14 @@ export function TasksGroupedList({
             {isExpanded && group.tasks.length > 0 && (
               <div className="divide-y border-t">
                 {group.tasks.map((task) => (
-                  <Link
+                  <div
                     key={task.id}
-                    href={`/tareas/${task.id}`}
                     className="flex flex-col gap-3 px-4 py-4 transition-colors hover:bg-muted/20 sm:flex-row sm:items-center sm:justify-between"
                   >
-                    <div className="min-w-0 space-y-2">
+                    <Link
+                      href={`/tareas/${task.id}`}
+                      className="min-w-0 flex-1 space-y-2"
+                    >
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-mono text-xs font-semibold text-primary">
                           {task.code}
@@ -165,16 +180,23 @@ export function TasksGroupedList({
                               .filter(Boolean)
                               .join(" · ")}
                       </p>
-                    </div>
+                    </Link>
 
-                    <div className="flex w-full flex-col gap-2 sm:w-56">
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>Vence {formatTaskDate(task.dueDate)}</span>
-                        <span className="tabular-nums">{task.progress}%</span>
+                    <div className="flex w-full items-start justify-between gap-2 sm:w-auto sm:flex-col sm:items-end">
+                      <div className="flex w-full flex-col gap-2 sm:w-56">
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <span>Vence {formatTaskDate(task.dueDate)}</span>
+                          <span className="tabular-nums">{task.progress}%</span>
+                        </div>
+                        <Progress value={task.progress} className="h-1.5" />
                       </div>
-                      <Progress value={task.progress} className="h-1.5" />
+                      <TaskRowActions
+                        task={task}
+                        onFeedback={setFeedback}
+                        triggerClassName="size-8 hover:bg-muted"
+                      />
                     </div>
-                  </Link>
+                  </div>
                 ))}
               </div>
             )}
@@ -187,6 +209,7 @@ export function TasksGroupedList({
           </section>
         )
       })}
-    </div>
+      </div>
+    </>
   )
 }

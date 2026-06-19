@@ -97,7 +97,8 @@ export function groupWorkerTasks(tasks: Task[]) {
       (task) =>
         task.status === "finalizada" ||
         task.status === "en-aprobacion" ||
-        task.status === "cerrada"
+        task.status === "cerrada" ||
+        task.status === "cancelada"
     ),
     all: workerTasks,
   }

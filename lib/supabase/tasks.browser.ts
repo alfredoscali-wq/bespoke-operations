@@ -7,6 +7,7 @@ import {
   softDeleteTask,
   type SupabaseTasksClient,
 } from "@/lib/supabase/tasks.queries"
+import { logDeleteTrace } from "@/lib/supabase/delete-trace"
 import type { Task } from "@/lib/types/tasks"
 import type {
   CreateTaskPayload,
@@ -50,5 +51,6 @@ export async function deleteTask(
   id: string,
   client: SupabaseTasksClient = createBrowserTasksClient()
 ): Promise<TasksRepositoryResult<void>> {
+  logDeleteTrace("browser.deleteTask", { entity: "task", id })
   return softDeleteTask(client, id)
 }

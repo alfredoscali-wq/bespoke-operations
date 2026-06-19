@@ -20,7 +20,9 @@ import {
   listTasks,
   updateTask as updateTaskInSupabase,
 } from "@/lib/supabase/tasks.browser"
-import { TASK_DELETE_USER_MESSAGE, logOperationError } from "@/lib/operations/user-messages"
+import { canArchiveTaskByStatus } from "@/lib/tasks/status-groups"
+import { TASK_DELETE_USER_MESSAGE, TASK_ARCHIVE_BLOCKED_ACTIVE_MESSAGE, logOperationError } from "@/lib/operations/user-messages"
+import { logDeleteTrace } from "@/lib/supabase/delete-trace"
 import { mapTaskToUpdatePayload } from "@/lib/supabase/tasks.mapper"
 import {
   canPerformTaskAction,
@@ -63,6 +65,7 @@ type TasksContextValue = {
   approveTask: (id: string) => Promise<TaskMutationResult>
   rejectTask: (id: string) => Promise<TaskMutationResult>
   closeTask: (id: string) => Promise<TaskMutationResult>
+  cancelTask: (id: string) => Promise<TaskMutationResult>
   toggleChecklistItem: (taskId: string, itemId: string) => void
   addComment: (
     taskId: string,
@@ -348,6 +351,11 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     [applyWorkflowTransition]
   )
 
+  const cancelTask = useCallback(
+    (id: string) => applyWorkflowTransition(id, "cancel"),
+    [applyWorkflowTransition]
+  )
+
   const assignCrew = useCallback(
     async (
       id: string,
@@ -397,6 +405,19 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         return { success: false, message: "Tarea no encontrada." }
       }
 
+      logDeleteTrace("provider.deleteTask", {
+        entity: "task",
+        id,
+        code: existing.code,
+      })
+
+      if (!canArchiveTaskByStatus(existing.status)) {
+        return {
+          success: false,
+          message: TASK_ARCHIVE_BLOCKED_ACTIVE_MESSAGE,
+        }
+      }
+
       if (!usesSupabase) {
         return { success: false, message: TASK_DELETE_USER_MESSAGE }
       }
@@ -409,7 +430,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
           console.error("[TASK DELETE]", result.error)
           return {
             success: false,
-            message: TASK_DELETE_USER_MESSAGE,
+            message: result.error.message ?? TASK_DELETE_USER_MESSAGE,
           }
         }
       } catch (error) {
@@ -556,6 +577,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       approveTask,
       rejectTask,
       closeTask,
+      cancelTask,
       toggleChecklistItem,
       addComment,
       addEvidence,
@@ -576,6 +598,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       approveTask,
       rejectTask,
       closeTask,
+      cancelTask,
       toggleChecklistItem,
       addComment,
       addEvidence,

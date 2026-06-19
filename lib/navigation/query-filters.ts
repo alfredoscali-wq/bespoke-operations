@@ -17,6 +17,7 @@ const TASK_STATUS_VALUES: TaskStatus[] = [
   "en-aprobacion",
   "finalizada",
   "cerrada",
+  "cancelada",
 ]
 
 export function parseProjectStatusQuery(

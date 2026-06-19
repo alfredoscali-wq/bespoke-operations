@@ -32,6 +32,7 @@ import {
   updateProject as updateProjectInSupabase,
 } from "@/lib/supabase/projects.browser"
 import { PROJECT_DELETE_USER_MESSAGE, logOperationError } from "@/lib/operations/user-messages"
+import { logDeleteTrace } from "@/lib/supabase/delete-trace"
 import type { UpdateProjectPayload } from "@/lib/types/supabase/projects"
 import type {
   NewProjectInput,
@@ -354,6 +355,12 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
         return { success: false, message: "Obra no encontrada." }
       }
 
+      logDeleteTrace("provider.archiveProject", {
+        entity: "project",
+        id,
+        code: existing.code,
+      })
+
       if (!usesSupabase) {
         return { success: false, message: PROJECT_DELETE_USER_MESSAGE }
       }
@@ -366,7 +373,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
           console.error("[PROJECT DELETE]", result.error)
           return {
             success: false,
-            message: PROJECT_DELETE_USER_MESSAGE,
+            message: result.error.message ?? PROJECT_DELETE_USER_MESSAGE,
           }
         }
       } catch (error) {

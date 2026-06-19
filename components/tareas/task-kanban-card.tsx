@@ -2,9 +2,9 @@
 
 import { useMemo } from "react"
 import Link from "next/link"
-import { AlertTriangle } from "lucide-react"
 
 import { useCrews } from "@/components/cuadrillas/crews-provider"
+import { TaskRowActions } from "@/components/tareas/task-row-actions"
 import { TaskOperationBadge, TaskPriorityBadge, TaskStatusBadge } from "@/components/tareas/task-badges"
 import { isFieldServiceTask } from "@/lib/tasks/utils"
 import { resolveTaskCrewDisplayName } from "@/lib/tasks/crew-relation"
@@ -15,9 +15,13 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card"
 
 type TaskKanbanCardProps = {
   task: Task
+  onFeedback: (input: {
+    variant: "success" | "error"
+    message: string
+  }) => void
 }
 
-export function TaskKanbanCard({ task }: TaskKanbanCardProps) {
+export function TaskKanbanCard({ task, onFeedback }: TaskKanbanCardProps) {
   const { getCrew } = useCrews()
   const crewDisplayName = useMemo(
     () => resolveTaskCrewDisplayName(task, getCrew),
@@ -37,7 +41,14 @@ export function TaskKanbanCard({ task }: TaskKanbanCardProps) {
             </Link>
             <TaskOperationBadge task={task} className="w-fit text-[10px]" />
           </div>
-          <TaskPriorityBadge priority={task.priority} className="text-[10px]" />
+          <div className="flex shrink-0 items-start gap-1">
+            <TaskPriorityBadge priority={task.priority} className="text-[10px]" />
+            <TaskRowActions
+              task={task}
+              onFeedback={onFeedback}
+              triggerClassName="size-7 hover:bg-muted"
+            />
+          </div>
         </div>
         <Link
           href={`/tareas/${task.id}`}

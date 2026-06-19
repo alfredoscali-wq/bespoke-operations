@@ -14,15 +14,10 @@ import type {
   ProjectStatus,
 } from "@/lib/types/projects"
 import type { Task, TaskStatus } from "@/lib/types/tasks"
-
-const ACTIVE_TASK_STATUSES: TaskStatus[] = [
-  "pendiente",
-  "asignada",
-  "en-curso",
-  "en-aprobacion",
-]
-
-const COMPLETED_TASK_STATUSES: TaskStatus[] = ["finalizada", "cerrada"]
+import {
+  ACTIVE_TASK_STATUSES,
+  FINAL_TASK_STATUSES,
+} from "@/lib/tasks/status-groups"
 
 export type ProjectOperationalStats = {
   assignedCrews: number
@@ -106,7 +101,7 @@ export function getProjectOperationalStats(
       ACTIVE_TASK_STATUSES.includes(task.status)
     ).length,
     completedTasks: projectTasks.filter((task) =>
-      COMPLETED_TASK_STATUSES.includes(task.status)
+      FINAL_TASK_STATUSES.includes(task.status)
     ).length,
     evidenceFiles: projectEvidence.length,
     progress: project.progress,

@@ -16,6 +16,7 @@ import { ProjectPauseDialog } from "@/components/obras/project-pause-dialog"
 import type { PauseProjectInput, Project, ProjectDetail } from "@/lib/types/projects"
 import { getProjectActions } from "@/lib/projects/utils"
 import { PROJECT_STATUS_LABELS } from "@/lib/projects/constants"
+import { logDeleteTrace } from "@/lib/supabase/delete-trace"
 import { ProjectDetailStats } from "@/components/obras/project-detail-stats"
 import { ProjectOverviewTab } from "@/components/obras/project-tabs/overview-tab"
 import { ProjectTasksTab } from "@/components/obras/project-tabs/tasks-tab"
@@ -168,6 +169,12 @@ export function ProjectDetailView({
   }
 
   async function handleArchive() {
+    logDeleteTrace("ui.project-detail-view.handleArchive", {
+      entity: "project",
+      id: project.id,
+      code: project.code,
+    })
+
     const success = await runAction(
       () => archiveProject(project.id),
       "Obra archivada correctamente."

@@ -3,6 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import {
+  Ban,
   Eye,
   MoreHorizontal,
   Pencil,
@@ -13,7 +14,12 @@ import {
 
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { useTasks } from "@/components/tareas/tasks-provider"
-import { TASK_DELETE_USER_MESSAGE } from "@/lib/operations/user-messages"
+import { ACTIVE_TASK_STATUSES, canArchiveTaskByStatus } from "@/lib/tasks/status-groups"
+import {
+  TASK_ARCHIVE_BLOCKED_ACTIVE_MESSAGE,
+  TASK_DELETE_USER_MESSAGE,
+} from "@/lib/operations/user-messages"
+import { logDeleteTrace } from "@/lib/supabase/delete-trace"
 import {
   TaskCrewAssignDialog,
   TaskEditDialog,
@@ -54,13 +60,17 @@ export function TaskRowActions({
   onFeedback,
   triggerClassName,
 }: TaskRowActionsProps) {
-  const { editTask, deleteTask, assignCrew } = useTasks()
+  const { editTask, deleteTask, assignCrew, cancelTask } = useTasks()
   const { getCrew } = useCrews()
   const [editOpen, setEditOpen] = useState(false)
   const [statusOpen, setStatusOpen] = useState(false)
   const [crewOpen, setCrewOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isCancelling, setIsCancelling] = useState(false)
+
+  const canCancel = ACTIVE_TASK_STATUSES.includes(task.status)
+  const canArchive = canArchiveTaskByStatus(task.status)
 
   async function handleEdit(payload: {
     title: string
@@ -129,7 +139,32 @@ export function TaskRowActions({
     })
   }
 
+  async function handleCancelTask() {
+    setIsCancelling(true)
+    const result = await cancelTask(task.id)
+    setIsCancelling(false)
+
+    if (!result.success) {
+      onFeedback({
+        variant: "error",
+        message: result.message ?? "No se pudo cancelar la tarea.",
+      })
+      return
+    }
+
+    onFeedback({
+      variant: "success",
+      message: "Tarea cancelada correctamente.",
+    })
+  }
+
   async function handleConfirmDelete() {
+    logDeleteTrace("ui.task-row-actions.handleConfirmDelete", {
+      entity: "task",
+      id: task.id,
+      code: task.code,
+    })
+
     setIsDeleting(true)
     const result = await deleteTask(task.id)
     setIsDeleting(false)
@@ -137,7 +172,7 @@ export function TaskRowActions({
     if (!result.success) {
       onFeedback({
         variant: "error",
-        message: TASK_DELETE_USER_MESSAGE,
+        message: result.message ?? TASK_DELETE_USER_MESSAGE,
       })
       return
     }
@@ -181,8 +216,21 @@ export function TaskRowActions({
             <Users className="size-4" />
             Reasignar cuadrilla
           </DropdownMenuItem>
+          {canCancel && (
+            <DropdownMenuItem
+              onClick={handleCancelTask}
+              disabled={isCancelling}
+            >
+              <Ban className="size-4" />
+              Cancelar tarea
+            </DropdownMenuItem>
+          )}
           <DropdownMenuSeparator />
-          <DropdownMenuItem variant="destructive" onClick={() => setDeleteOpen(true)}>
+          <DropdownMenuItem
+            variant="destructive"
+            onClick={() => setDeleteOpen(true)}
+            disabled={!canArchive}
+          >
             <Trash2 className="size-4" />
             Eliminar tarea
           </DropdownMenuItem>
@@ -217,6 +265,11 @@ export function TaskRowActions({
             <DialogDescription>
               ¿Desea eliminar esta tarea?
               <span className="font-medium text-foreground"> {task.title}</span>
+              {!canArchive && (
+                <span className="mt-2 block text-destructive">
+                  {TASK_ARCHIVE_BLOCKED_ACTIVE_MESSAGE}
+                </span>
+              )}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
@@ -232,7 +285,7 @@ export function TaskRowActions({
               type="button"
               variant="destructive"
               onClick={handleConfirmDelete}
-              disabled={isDeleting}
+              disabled={isDeleting || !canArchive}
             >
               {isDeleting ? "Eliminando..." : "Eliminar"}
             </Button>

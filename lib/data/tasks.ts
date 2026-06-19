@@ -599,6 +599,7 @@ export function getTasksSummary(tasks: Task[]) {
     enAprobacion: tasks.filter((task) => task.status === "en-aprobacion").length,
     finalizada: tasks.filter((task) => task.status === "finalizada").length,
     cerrada: tasks.filter((task) => task.status === "cerrada").length,
+    cancelada: tasks.filter((task) => task.status === "cancelada").length,
   }
 }
 

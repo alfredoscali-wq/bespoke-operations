@@ -12,6 +12,7 @@ export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   finalizada: "Finalizada",
   "en-aprobacion": "En Aprobación",
   cerrada: "Cerrada",
+  cancelada: "Cancelada",
 }
 
 export const TASK_STATUS_STYLES: Record<TaskStatus, string> = {
@@ -21,6 +22,7 @@ export const TASK_STATUS_STYLES: Record<TaskStatus, string> = {
   finalizada: STATUS_TONE_STYLES.violet,
   "en-aprobacion": STATUS_TONE_STYLES.yellow,
   cerrada: STATUS_TONE_STYLES.green,
+  cancelada: STATUS_TONE_STYLES.red,
 }
 
 export const KANBAN_COLUMNS: TaskStatus[] = [
@@ -30,7 +32,16 @@ export const KANBAN_COLUMNS: TaskStatus[] = [
   "finalizada",
   "en-aprobacion",
   "cerrada",
+  "cancelada",
 ]
+
+export {
+  ACTIVE_TASK_STATUSES,
+  FINAL_TASK_STATUSES,
+  canArchiveTaskByStatus,
+  isActiveTaskStatus,
+  isFinalTaskStatus,
+} from "@/lib/tasks/status-groups"
 
 export const TASK_TYPE_LABELS: Record<TaskType, string> = {
   fiber: "Fibra Óptica",

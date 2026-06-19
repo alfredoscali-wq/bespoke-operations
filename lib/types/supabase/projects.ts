@@ -27,6 +27,7 @@ export type ProjectsRepositoryErrorCode =
   | "NOT_FOUND"
   | "DUPLICATE_CODE"
   | "VALIDATION"
+  | "ACTIVE_TASKS"
   | "UNKNOWN"
 
 export type ProjectsRepositoryResult<T> =

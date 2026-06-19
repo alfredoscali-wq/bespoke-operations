@@ -48,6 +48,7 @@ export function logTaskSoftDeleteResult(input: {
   error: TaskDeleteSupabaseError | null
   status?: number
   statusText?: string
+  affectedIds?: string[]
 }) {
   if (input.error) {
     console.error(`${DIAG_PREFIX} softDeleteTask failed`, {
@@ -60,11 +61,16 @@ export function logTaskSoftDeleteResult(input: {
       hint: input.error.hint,
       httpStatus: input.status,
       httpStatusText: input.statusText,
+      affectedIds: input.affectedIds ?? [],
     })
     return
   }
 
-  console.info(`${DIAG_PREFIX} softDeleteTask success`, { taskId: input.taskId })
+  console.info(`${DIAG_PREFIX} softDeleteTask success`, {
+    taskId: input.taskId,
+    affectedIds: input.affectedIds ?? [],
+    affectedCount: input.affectedIds?.length ?? 0,
+  })
 }
 
 export function formatTaskDeleteErrorMessage(

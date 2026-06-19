@@ -13,15 +13,10 @@ import type { EvidenceRecord } from "@/lib/types/evidence"
 import { getActiveEvidence } from "@/lib/evidence/utils"
 import type { Project, ProjectStatus } from "@/lib/types/projects"
 import type { Task, TaskStatus } from "@/lib/types/tasks"
-
-const ACTIVE_TASK_STATUSES: TaskStatus[] = [
-  "pendiente",
-  "asignada",
-  "en-curso",
-  "en-aprobacion",
-]
-
-const COMPLETED_TASK_STATUSES: TaskStatus[] = ["finalizada", "cerrada"]
+import {
+  ACTIVE_TASK_STATUSES,
+  FINAL_TASK_STATUSES,
+} from "@/lib/tasks/status-groups"
 
 const ACTIVE_PROJECT_STATUSES: ProjectStatus[] = ["active", "pending-closure"]
 
@@ -243,7 +238,7 @@ export function getCrewDetail(
 ): CrewDetail {
   const crewTasks = getCrewTasks(crew, tasks)
   const completedTasks = crewTasks.filter((task) =>
-    COMPLETED_TASK_STATUSES.includes(task.status)
+    FINAL_TASK_STATUSES.includes(task.status)
   ).length
 
   return {

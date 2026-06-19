@@ -8,6 +8,7 @@ export type TaskWorkflowAction =
   | "approve"
   | "reject"
   | "close"
+  | "cancel"
 
 function getRequiredChecklistComplete(checklist: ChecklistItem[]): boolean {
   return checklist
@@ -29,6 +30,10 @@ const WORKFLOW_TRANSITIONS: Record<
   approve: { from: ["en-aprobacion"], to: "finalizada" },
   reject: { from: ["en-aprobacion"], to: "en-curso" },
   close: { from: ["finalizada"], to: "cerrada" },
+  cancel: {
+    from: ["pendiente", "asignada", "en-curso", "en-aprobacion"],
+    to: "cancelada",
+  },
 }
 
 export function getInitialTaskStatus(input: {
@@ -119,6 +124,7 @@ export function getWorkflowHistoryEntry(action: TaskWorkflowAction): {
     approve: "Tarea aprobada",
     reject: "Tarea rechazada",
     close: "Tarea cerrada",
+    cancel: "Tarea cancelada",
   }
 
   return {

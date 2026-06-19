@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import Link from "next/link"
-import { AlertTriangle, ArrowLeft, CheckCircle2, MoreHorizontal } from "lucide-react"
+import { AlertTriangle, ArrowLeft, Ban, CheckCircle2, MoreHorizontal } from "lucide-react"
 
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { useTasks } from "@/components/tareas/tasks-provider"
@@ -27,6 +27,7 @@ import {
   TASK_STATUS_STYLES,
 } from "@/lib/tasks/constants"
 import { canPerformTaskAction } from "@/lib/tasks/task-status-workflow"
+import { ACTIVE_TASK_STATUSES, isFinalTaskStatus } from "@/lib/tasks/status-groups"
 import { isFieldServiceTask } from "@/lib/tasks/utils"
 import type { Task, TaskDetail } from "@/lib/types/tasks"
 import { cn } from "@/lib/utils"
@@ -55,7 +56,7 @@ type TaskDetailViewProps = {
 
 export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
   const { crews, getCrew } = useCrews()
-  const { assignCrew, approveTask, rejectTask, closeTask } = useTasks()
+  const { assignCrew, approveTask, rejectTask, closeTask, cancelTask } = useTasks()
   const crewDisplayName = useMemo(
     () => resolveTaskCrewDisplayName(task, getCrew),
     [task, getCrew]
@@ -149,7 +150,23 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
     setActionSuccess("Tarea cerrada correctamente.")
   }
 
+  async function handleCancel() {
+    setActionError(null)
+    setActionSuccess(null)
+    setIsWorkflowActionPending(true)
+    const result = await cancelTask(task.id)
+    setIsWorkflowActionPending(false)
+
+    if (!result.success) {
+      setActionError(result.message ?? "No se pudo cancelar la tarea.")
+      return
+    }
+
+    setActionSuccess("Tarea cancelada correctamente.")
+  }
+
   const submitValidation = canPerformTaskAction(task, "submit-for-approval")
+  const canCancel = ACTIVE_TASK_STATUSES.includes(task.status)
 
   return (
     <div className="space-y-6">
@@ -213,7 +230,7 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
           <Select
             value={task.crewId ?? "none"}
             onValueChange={handleCrewChange}
-            disabled={isAssigningCrew || task.status === "cerrada"}
+            disabled={isAssigningCrew || isFinalTaskStatus(task.status)}
           >
             <SelectTrigger className="h-9 w-[200px] bg-background">
               <SelectValue placeholder="Cuadrilla" />
@@ -314,6 +331,25 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
               disabled={isWorkflowActionPending}
             >
               Cerrar Tarea
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {canCancel && (
+        <Alert className="border-red-200 bg-red-50/60">
+          <Ban className="size-4 text-red-700" />
+          <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <span className="text-sm text-foreground">
+              Puede cancelar esta tarea si ya no debe ejecutarse en operaciones.
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleCancel}
+              disabled={isWorkflowActionPending}
+            >
+              Cancelar tarea
             </Button>
           </AlertDescription>
         </Alert>

@@ -6,6 +6,7 @@ import { AlertTriangle, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-reac
 
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { TASK_DELETE_USER_MESSAGE } from "@/lib/operations/user-messages"
+import { logDeleteTrace } from "@/lib/supabase/delete-trace"
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { TaskCrewAssignmentCell } from "@/components/obras/task-crew-assignment-cell"
 import {
@@ -167,6 +168,12 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
   async function handleConfirmDelete() {
     if (!deleteTarget) return
 
+    logDeleteTrace("ui.project-tabs.tasks-tab.handleConfirmDelete", {
+      entity: "task",
+      id: deleteTarget.id,
+      code: deleteTarget.code,
+    })
+
     setIsDeleting(true)
 
     const result = await deleteTask(deleteTarget.id)
@@ -176,7 +183,7 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
     if (!result.success) {
       setFeedback({
         type: "error",
-        message: TASK_DELETE_USER_MESSAGE,
+        message: result.message ?? TASK_DELETE_USER_MESSAGE,
       })
       return
     }

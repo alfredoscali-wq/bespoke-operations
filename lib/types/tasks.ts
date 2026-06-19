@@ -5,6 +5,7 @@ export type TaskStatus =
   | "finalizada"
   | "en-aprobacion"
   | "cerrada"
+  | "cancelada"
 
 export type TaskType =
   | "fiber"

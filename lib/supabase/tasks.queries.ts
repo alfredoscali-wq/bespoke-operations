@@ -18,8 +18,11 @@ import {
   logTaskSoftDeleteResult,
   serializeTaskDeleteError,
 } from "@/lib/supabase/tasks-delete-diagnostics"
-import { TASK_DELETE_USER_MESSAGE } from "@/lib/operations/user-messages"
+import { TASK_DELETE_USER_MESSAGE, TASK_ARCHIVE_BLOCKED_ACTIVE_MESSAGE } from "@/lib/operations/user-messages"
+import { logDeleteTrace } from "@/lib/supabase/delete-trace"
 import { getSupabaseEnv } from "@/lib/supabase/env"
+import { ACTIVE_TASK_STATUSES, canArchiveTaskByStatus } from "@/lib/tasks/status-groups"
+import type { TaskStatus } from "@/lib/types/tasks"
 
 export type SupabaseTasksClient = SupabaseClient<Database>
 
@@ -156,8 +159,46 @@ export async function softDeleteTask(
   client: SupabaseTasksClient,
   id: string
 ): Promise<TasksRepositoryResult<void>> {
+  const { data: existingTask, error: fetchError } = await client
+    .from("tasks")
+    .select("status")
+    .eq("id", id)
+    .is("deleted_at", null)
+    .maybeSingle()
+
+  if (fetchError) {
+    return {
+      data: null,
+      error: {
+        code: "UNKNOWN",
+        message: TASK_DELETE_USER_MESSAGE,
+      },
+    }
+  }
+
+  if (!existingTask) {
+    return {
+      data: null,
+      error: {
+        code: "NOT_FOUND",
+        message: "Tarea no encontrada.",
+      },
+    }
+  }
+
+  if (!canArchiveTaskByStatus(existingTask.status)) {
+    return {
+      data: null,
+      error: {
+        code: "ACTIVE_TASK",
+        message: TASK_ARCHIVE_BLOCKED_ACTIVE_MESSAGE,
+      },
+    }
+  }
+
   const payload = { deleted_at: new Date().toISOString() }
 
+  logDeleteTrace("queries.softDeleteTask", { entity: "task", id })
   logTaskSoftDeleteAttempt({ taskId: id, payload })
 
   const { error, status, statusText } = await client
@@ -167,6 +208,13 @@ export async function softDeleteTask(
     .is("deleted_at", null)
 
   const serializedError = error ? serializeTaskDeleteError(error) : null
+
+  console.info("[TASK DELETE]", {
+    table: "tasks",
+    taskId: id,
+    message: "UPDATE executed",
+    error: serializedError ?? null,
+  })
 
   logTaskSoftDeleteResult({
     taskId: id,
@@ -196,4 +244,65 @@ export async function softDeleteTask(
   }
 
   return { data: undefined, error: null }
+}
+
+export async function findActiveTasksForProject(
+  client: SupabaseTasksClient,
+  projectId: string,
+  projectCode?: string
+): Promise<
+  TasksRepositoryResult<{
+    tasks: { id: string; status: TaskStatus }[]
+  }>
+> {
+  const { data: tasksByProjectId, error: fetchByIdError } = await client
+    .from("tasks")
+    .select("id, status")
+    .eq("project_id", projectId)
+    .is("deleted_at", null)
+    .in("status", ACTIVE_TASK_STATUSES)
+
+  if (fetchByIdError) {
+    return {
+      data: null,
+      error: {
+        code: "UNKNOWN",
+        message: TASK_DELETE_USER_MESSAGE,
+      },
+    }
+  }
+
+  const activeTasks = [...(tasksByProjectId ?? [])]
+
+  if (projectCode) {
+    const { data: orphanTasks, error: orphanFetchError } = await client
+      .from("tasks")
+      .select("id, status")
+      .eq("project_code", projectCode)
+      .is("project_id", null)
+      .is("deleted_at", null)
+      .in("status", ACTIVE_TASK_STATUSES)
+
+    if (orphanFetchError) {
+      return {
+        data: null,
+        error: {
+          code: "UNKNOWN",
+          message: TASK_DELETE_USER_MESSAGE,
+        },
+      }
+    }
+
+    const seenIds = new Set(activeTasks.map((task) => task.id))
+    for (const task of orphanTasks ?? []) {
+      if (!seenIds.has(task.id)) {
+        activeTasks.push(task)
+      }
+    }
+  }
+
+  return {
+    data: { tasks: activeTasks },
+    error: null,
+  }
 }
