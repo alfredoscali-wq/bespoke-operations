@@ -40,6 +40,7 @@ import {
   sortCalendarEvents,
 } from "@/lib/calendar/calendar-utils"
 import type { CalendarEvent } from "@/lib/types/calendar"
+import { filterCalendarOperationalTasks } from "@/lib/tasks/status-groups"
 
 type CalendarUIContextValue = {
   viewMode: CalendarViewMode
@@ -72,6 +73,10 @@ export function CalendarUIProvider({ children }: { children: React.ReactNode }) 
   const projectIdFilter = searchParams.get("projectId")
   const { eventsByDate, summary, weekStart, setFilters } = useCalendar()
   const { tasks } = useTasks()
+  const operationalTasks = useMemo(
+    () => filterCalendarOperationalTasks(tasks),
+    [tasks]
+  )
   const { records: availabilityRecords } = useAvailability()
   const { crews } = useCrews()
   const { employees, getEmployee } = useEmployees()
@@ -114,20 +119,25 @@ export function CalendarUIProvider({ children }: { children: React.ReactNode }) 
     let events = flatEvents
 
     if (viewMode === "projects") {
-      events = filterEventsForProjectsView(events, tasks)
+      events = filterEventsForProjectsView(events, operationalTasks)
     }
 
     events = filterEventsByQuickFilters(
       events,
       quickFilters,
-      tasks,
+      operationalTasks,
       crews
     )
 
-    events = filterEventsByProjectId(events, projectIdFilter, tasks, crews)
+    events = filterEventsByProjectId(
+      events,
+      projectIdFilter,
+      operationalTasks,
+      crews
+    )
 
     return groupEventsByDate(sortCalendarEvents(events))
-  }, [flatEvents, viewMode, quickFilters, tasks, crews, projectIdFilter])
+  }, [flatEvents, viewMode, quickFilters, operationalTasks, crews, projectIdFilter])
 
   const projectFilterLabel = useMemo(() => {
     if (!projectIdFilter) return null
@@ -136,8 +146,8 @@ export function CalendarUIProvider({ children }: { children: React.ReactNode }) 
   }, [projectIdFilter, getProject])
 
   const alerts = useMemo(
-    () => getOperationalAlerts({ summary, tasks, weekStart }),
-    [summary, tasks, weekStart]
+    () => getOperationalAlerts({ summary, tasks: operationalTasks, weekStart }),
+    [summary, operationalTasks, weekStart]
   )
 
   const absenceDetails = useMemo(
@@ -185,8 +195,8 @@ export function CalendarUIProvider({ children }: { children: React.ReactNode }) 
   )
 
   const weekTaskDetails = useMemo(
-    () => getWeekTaskDetails({ tasks, weekStart }),
-    [tasks, weekStart]
+    () => getWeekTaskDetails({ tasks: operationalTasks, weekStart }),
+    [operationalTasks, weekStart]
   )
 
   const getAbsenceImpact = useCallback(

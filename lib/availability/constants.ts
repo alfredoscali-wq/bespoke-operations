@@ -1,3 +1,4 @@
+import { formatDateOnly } from "@/lib/dates/date-only"
 import type { AvailabilityType } from "@/lib/types/availability"
 import { STATUS_TONE_STYLES } from "@/lib/ui/visual-tokens"
 
@@ -50,16 +51,7 @@ export const AVAILABILITY_PERIOD_STATUS_STYLES = {
 } as const
 
 export function formatAvailabilityDate(value: string): string {
-  if (!value) return "—"
-
-  const date = new Date(`${value}T12:00:00`)
-  if (Number.isNaN(date.getTime())) return value
-
-  return date.toLocaleDateString("es-AR", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  })
+  return formatDateOnly(value, { locale: "es-AR" })
 }
 
 export function formatAvailabilityDateRange(

@@ -22,6 +22,7 @@ import {
   shiftWeek,
   sortCalendarEvents,
 } from "@/lib/calendar/calendar-utils"
+import { filterCalendarOperationalTasks } from "@/lib/tasks/status-groups"
 import type {
   CalendarEvent,
   CalendarFilters,
@@ -63,6 +64,11 @@ export function CalendarProvider({ children }: { children: React.ReactNode }) {
     [availabilityRecords, getEmployee]
   )
 
+  const operationalTasks = useMemo(
+    () => filterCalendarOperationalTasks(tasks),
+    [tasks]
+  )
+
   const weekDays = useMemo(
     () => buildCalendarWeekDays(weekStart),
     [weekStart]
@@ -72,7 +78,7 @@ export function CalendarProvider({ children }: { children: React.ReactNode }) {
     const events = sortCalendarEvents(
       filterCalendarEvents(
         buildCalendarEvents({
-          tasks,
+          tasks: operationalTasks,
           availabilityRecords,
           employees,
           crews,
@@ -85,7 +91,7 @@ export function CalendarProvider({ children }: { children: React.ReactNode }) {
 
     return groupEventsByDate(events)
   }, [
-    tasks,
+    operationalTasks,
     availabilityRecords,
     employees,
     crews,
@@ -97,13 +103,13 @@ export function CalendarProvider({ children }: { children: React.ReactNode }) {
   const summary = useMemo(
     () =>
       getCalendarWeekSummary({
-        tasks,
+        tasks: operationalTasks,
         availabilityRecords,
         crews,
         crewAvailabilityContext,
         weekStart,
       }),
-    [tasks, availabilityRecords, crews, crewAvailabilityContext, weekStart]
+    [operationalTasks, availabilityRecords, crews, crewAvailabilityContext, weekStart]
   )
 
   const goToPreviousWeek = useCallback(() => {

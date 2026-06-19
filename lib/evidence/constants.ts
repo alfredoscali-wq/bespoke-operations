@@ -3,6 +3,7 @@ import type {
   EvidenceFileType,
   EvidenceStatus,
 } from "@/lib/types/evidence"
+import { formatDateOnly, formatDateOnlyDateTime } from "@/lib/dates/date-only"
 import { CREW_NAMES } from "@/lib/crews/constants"
 
 export const EVIDENCE_STATUS_LABELS: Record<EvidenceStatus, string> = {
@@ -88,21 +89,11 @@ export const EVIDENCE_FILE_TYPE_OPTIONS = [
 ]
 
 export function formatEvidenceDate(date: string) {
-  return new Intl.DateTimeFormat("es-MX", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(date))
+  return formatDateOnly(date)
 }
 
 export function formatEvidenceDateTime(date: string) {
-  return new Intl.DateTimeFormat("es-MX", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(date))
+  return formatDateOnlyDateTime(date)
 }
 
 export function isDocumentType(type: EvidenceFileType) {

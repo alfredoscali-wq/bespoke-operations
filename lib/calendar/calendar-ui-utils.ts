@@ -17,7 +17,7 @@ import type { CalendarEvent, CalendarWeekSummary } from "@/lib/types/calendar"
 import type { Crew, CrewAvailabilityStatus } from "@/lib/types/crews"
 import type { Employee } from "@/lib/types/employees"
 import type { Task } from "@/lib/types/tasks"
-import { FINAL_TASK_STATUSES } from "@/lib/tasks/status-groups"
+import { FINAL_TASK_STATUSES, isCalendarOperationalTask } from "@/lib/tasks/status-groups"
 
 const ABSENCE_TYPES: AvailabilityType[] = [
   "VACATION",
@@ -212,8 +212,10 @@ export function getWeekTaskDetails(input: {
   weekStart: string
 }): CalendarTaskDetail[] {
   return input.tasks
-    .filter((task) =>
-      rangesOverlapWeek(task.startDate, task.dueDate, input.weekStart)
+    .filter(
+      (task) =>
+        isCalendarOperationalTask(task.status) &&
+        rangesOverlapWeek(task.startDate, task.dueDate, input.weekStart)
     )
     .map((task) => ({
       taskId: task.id,

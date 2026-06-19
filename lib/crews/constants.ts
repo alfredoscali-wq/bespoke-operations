@@ -1,4 +1,5 @@
 import type { CrewActivityType, CrewStatus } from "@/lib/types/crews"
+import { formatDateOnly, formatDateOnlyDateTime } from "@/lib/dates/date-only"
 import { STATUS_TONE_STYLES } from "@/lib/ui/visual-tokens"
 
 export const CREW_ACTIVITY_LABELS: Record<CrewActivityType, string> = {
@@ -53,19 +54,9 @@ export const CREW_SUPERVISOR_OPTIONS: readonly string[] = []
 export const CREW_NAMES: readonly string[] = []
 
 export function formatCrewDate(date: string) {
-  return new Intl.DateTimeFormat("es-MX", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(date))
+  return formatDateOnly(date)
 }
 
 export function formatCrewDateTime(date: string) {
-  return new Intl.DateTimeFormat("es-MX", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(date))
+  return formatDateOnlyDateTime(date)
 }

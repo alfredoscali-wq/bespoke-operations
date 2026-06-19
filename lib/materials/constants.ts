@@ -4,6 +4,7 @@ import type {
   MaterialStatus,
   MovementType,
 } from "@/lib/types/materials"
+import { formatDateOnly, formatDateOnlyDateTime } from "@/lib/dates/date-only"
 
 export const MATERIAL_CATEGORY_LABELS: Record<MaterialCategory, string> = {
   "fiber-optic": "Fibra Óptica",
@@ -90,21 +91,11 @@ export const MATERIAL_WAREHOUSES = [
 ] as const
 
 export function formatMaterialDate(date: string) {
-  return new Intl.DateTimeFormat("es-MX", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(date))
+  return formatDateOnly(date)
 }
 
 export function formatMaterialDateTime(date: string) {
-  return new Intl.DateTimeFormat("es-MX", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(date))
+  return formatDateOnlyDateTime(date)
 }
 
 export function resolveMaterialStatus(

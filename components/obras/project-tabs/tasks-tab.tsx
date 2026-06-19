@@ -20,6 +20,7 @@ import {
 import type { Project } from "@/lib/types/projects"
 import type { Task } from "@/lib/types/tasks"
 import { formatTaskDate } from "@/lib/tasks/constants"
+import { compareDateOnly } from "@/lib/dates/date-only"
 import { getTasksForProject } from "@/lib/tasks/utils"
 import { resolveCrewSnapshotsForAssignment, isTaskCrewArchived } from "@/lib/tasks/crew-relation"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -75,8 +76,8 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
 
   const projectTasks = useMemo(
     () =>
-      getTasksForProject(project, tasks).sort(
-        (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
+      getTasksForProject(project, tasks).sort((a, b) =>
+        compareDateOnly(a.dueDate, b.dueDate)
       ),
     [project, tasks]
   )

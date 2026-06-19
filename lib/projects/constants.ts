@@ -1,3 +1,4 @@
+import { formatDateOnly } from "@/lib/dates/date-only"
 import type {
   ProjectPauseReason,
   ProjectStatus,
@@ -77,13 +78,7 @@ export const PROJECT_OPERATIONAL_KPI_HINTS = {
 } as const
 
 export function formatDate(date?: string | null) {
-  if (!date) return "Sin definir"
-
-  return new Intl.DateTimeFormat("es-MX", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(date))
+  return formatDateOnly(date, { emptyLabel: "Sin definir" })
 }
 
 export function formatCurrency(amount: number) {

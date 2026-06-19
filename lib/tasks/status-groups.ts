@@ -1,4 +1,4 @@
-import type { TaskStatus } from "@/lib/types/tasks"
+import type { Task, TaskStatus } from "@/lib/types/tasks"
 
 export const ACTIVE_TASK_STATUSES: TaskStatus[] = [
   "pendiente",
@@ -23,4 +23,18 @@ export function isFinalTaskStatus(status: TaskStatus): boolean {
 
 export function canArchiveTaskByStatus(status: TaskStatus): boolean {
   return isFinalTaskStatus(status)
+}
+
+/** Terminal statuses excluded from calendar views. */
+export const CALENDAR_HIDDEN_TASK_STATUSES: TaskStatus[] = [
+  "cancelada",
+  "cerrada",
+]
+
+export function isCalendarOperationalTask(status: TaskStatus): boolean {
+  return !CALENDAR_HIDDEN_TASK_STATUSES.includes(status)
+}
+
+export function filterCalendarOperationalTasks(tasks: Task[]): Task[] {
+  return tasks.filter((task) => isCalendarOperationalTask(task.status))
 }

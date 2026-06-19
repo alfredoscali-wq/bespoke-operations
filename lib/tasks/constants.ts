@@ -3,6 +3,10 @@ import type {
   TaskStatus,
   TaskType,
 } from "@/lib/types/tasks"
+import {
+  formatDateOnly,
+  formatDateOnlyDateTime,
+} from "@/lib/dates/date-only"
 import { STATUS_TONE_STYLES } from "@/lib/ui/visual-tokens"
 
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
@@ -86,21 +90,11 @@ export const TASK_TYPE_OPTIONS = Object.entries(TASK_TYPE_LABELS).map(
 )
 
 export function formatTaskDate(date: string) {
-  return new Intl.DateTimeFormat("es-MX", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(date))
+  return formatDateOnly(date)
 }
 
 export function formatTaskDateTime(date: string) {
-  return new Intl.DateTimeFormat("es-MX", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(date))
+  return formatDateOnlyDateTime(date)
 }
 
 export const TASK_OPERATION_LABELS = {

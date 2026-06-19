@@ -4,6 +4,7 @@ import { isActiveEvidence } from "@/lib/evidence/utils"
 import type { Project, ProjectType } from "@/lib/types/projects"
 import type { Task, TaskStatus, TaskType } from "@/lib/types/tasks"
 import { TASK_STATUS_LABELS, formatTaskDate } from "@/lib/tasks/constants"
+import { compareDateOnly } from "@/lib/dates/date-only"
 
 export type KpiMetric = {
   id: string
@@ -385,9 +386,7 @@ export function buildRecentActivity(
 export function buildUpcomingTasks(tasks: Task[]): UpcomingTask[] {
   return tasks
     .filter((task) => UPCOMING_TASK_STATUSES.includes(task.status))
-    .sort(
-      (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
-    )
+    .sort((a, b) => compareDateOnly(a.dueDate, b.dueDate))
     .slice(0, 8)
     .map((task) => ({
       id: task.id,

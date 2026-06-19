@@ -13,6 +13,7 @@ import type {
 import type { Crew } from "@/lib/types/crews"
 import type { Employee } from "@/lib/types/employees"
 import type { Task } from "@/lib/types/tasks"
+import { isCalendarOperationalTask } from "@/lib/tasks/status-groups"
 
 const ABSENCE_TYPES: AvailabilityType[] = [
   "VACATION",
@@ -126,6 +127,10 @@ export function buildTaskCalendarEvents(
   >()
 
   for (const task of tasks) {
+    if (!isCalendarOperationalTask(task.status)) {
+      continue
+    }
+
     if (!rangesOverlapWeek(task.startDate, task.dueDate, weekStart)) {
       continue
     }
@@ -327,8 +332,10 @@ export function getCalendarWeekSummary(input: {
   const weekDays = getWeekDays(input.weekStart)
   const referenceDate = getWeekSummaryReferenceDate(input.weekStart)
 
-  const tasksInWeek = input.tasks.filter((task) =>
-    rangesOverlapWeek(task.startDate, task.dueDate, input.weekStart)
+  const tasksInWeek = input.tasks.filter(
+    (task) =>
+      isCalendarOperationalTask(task.status) &&
+      rangesOverlapWeek(task.startDate, task.dueDate, input.weekStart)
   ).length
 
   const activeAbsences = input.availabilityRecords.filter(

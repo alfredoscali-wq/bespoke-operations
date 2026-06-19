@@ -1,3 +1,4 @@
+import { formatDateOnly, formatDateOnlyDateTime } from "@/lib/dates/date-only"
 import type { EmploymentStatus } from "@/lib/types/employees"
 import type { EmployeeType } from "@/lib/types/employees"
 
@@ -57,23 +58,9 @@ export const EMPLOYEE_TYPE_OPTIONS = Object.entries(EMPLOYEE_TYPE_LABELS).map(
 )
 
 export function formatEmployeeDate(date?: string | null) {
-  if (!date) return "—"
-
-  return new Intl.DateTimeFormat("es-MX", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(date))
+  return formatDateOnly(date)
 }
 
 export function formatEmployeeDateTime(date?: string | null) {
-  if (!date) return "—"
-
-  return new Intl.DateTimeFormat("es-MX", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(date))
+  return formatDateOnlyDateTime(date)
 }

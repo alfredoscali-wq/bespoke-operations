@@ -16,6 +16,7 @@ import {
   TASK_STATUS_OPTIONS,
   TASK_TYPE_OPTIONS,
 } from "@/lib/tasks/constants"
+import { compareDateOnly } from "@/lib/dates/date-only"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -290,10 +291,7 @@ export function filterAndSortTasks<
   return [...filtered].sort((a, b) => {
     switch (filters.sortField) {
       case "dueDate":
-        return (
-          direction *
-          (new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
-        )
+        return direction * compareDateOnly(a.dueDate, b.dueDate)
       case "priority":
         return direction * (priorityOrder[a.priority] - priorityOrder[b.priority])
       case "status":
