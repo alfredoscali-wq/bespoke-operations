@@ -37,6 +37,7 @@ export type Task = {
   customerCompany?: string
   customerName?: string
   customerPhone?: string
+  customerId?: string
   serviceAddress?: string
   latitude?: number
   longitude?: number
@@ -53,6 +54,11 @@ export type Task = {
   checklist: ChecklistItem[]
   progress: number
   createdAt?: string
+  completedAt?: string | null
+  closedAt?: string | null
+  serviceType?: string | null
+  locality?: string | null
+  taskMetadata?: Record<string, unknown>
 }
 
 export type TaskEvidence = {

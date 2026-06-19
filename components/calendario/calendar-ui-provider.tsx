@@ -25,16 +25,15 @@ import {
   getActiveAbsenceDetails,
   getCalendarViewFilters,
   getCrewDetailsByStatus,
-  getOperationalAlerts,
   getWeekTaskDetails,
   type CalendarAbsenceDetail,
   type CalendarCrewDetail,
   type CalendarKpiKey,
-  type CalendarOperationalAlert,
   type CalendarQuickFilters,
   type CalendarTaskDetail,
   type CalendarViewMode,
 } from "@/lib/calendar/calendar-ui-utils"
+import { getCriticalPendingTasks, type CriticalPendingTask } from "@/lib/calendar/critical-pending"
 import {
   groupEventsByDate,
   sortCalendarEvents,
@@ -55,7 +54,10 @@ type CalendarUIContextValue = {
   closeKpiPanel: () => void
   legendVisible: boolean
   setLegendVisible: (visible: boolean) => void
-  alerts: CalendarOperationalAlert[]
+  criticalPendingTasks: CriticalPendingTask[]
+  criticalPendingPanelOpen: boolean
+  openCriticalPendingPanel: () => void
+  closeCriticalPendingPanel: () => void
   absenceDetails: CalendarAbsenceDetail[]
   operationalCrewDetails: CalendarCrewDetail[]
   reducedCrewDetails: CalendarCrewDetail[]
@@ -71,7 +73,7 @@ const CalendarUIContext = createContext<CalendarUIContextValue | null>(null)
 export function CalendarUIProvider({ children }: { children: React.ReactNode }) {
   const searchParams = useSearchParams()
   const projectIdFilter = searchParams.get("projectId")
-  const { eventsByDate, summary, weekStart, setFilters } = useCalendar()
+  const { eventsByDate, weekStart, setFilters } = useCalendar()
   const { tasks } = useTasks()
   const operationalTasks = useMemo(
     () => filterCalendarOperationalTasks(tasks),
@@ -87,6 +89,7 @@ export function CalendarUIProvider({ children }: { children: React.ReactNode }) 
     useState<CalendarQuickFilters>(defaultCalendarQuickFilters)
   const [selectedKpi, setSelectedKpi] = useState<CalendarKpiKey | null>(null)
   const [legendVisible, setLegendVisible] = useState(true)
+  const [criticalPendingPanelOpen, setCriticalPendingPanelOpen] = useState(false)
 
   const crewAvailabilityContext = useMemo(
     () => ({
@@ -145,9 +148,12 @@ export function CalendarUIProvider({ children }: { children: React.ReactNode }) 
     return project ? `${project.code} — ${project.name}` : projectIdFilter
   }, [projectIdFilter, getProject])
 
-  const alerts = useMemo(
-    () => getOperationalAlerts({ summary, tasks: operationalTasks, weekStart }),
-    [summary, operationalTasks, weekStart]
+  const criticalPendingTasks = useMemo(
+    () =>
+      getCriticalPendingTasks(tasks, {
+        projectId: projectIdFilter,
+      }),
+    [tasks, projectIdFilter]
   )
 
   const absenceDetails = useMemo(
@@ -217,6 +223,14 @@ export function CalendarUIProvider({ children }: { children: React.ReactNode }) 
     setSelectedKpi(null)
   }, [])
 
+  const openCriticalPendingPanel = useCallback(() => {
+    setCriticalPendingPanelOpen(true)
+  }, [])
+
+  const closeCriticalPendingPanel = useCallback(() => {
+    setCriticalPendingPanelOpen(false)
+  }, [])
+
   const value = useMemo(
     () => ({
       viewMode,
@@ -231,7 +245,10 @@ export function CalendarUIProvider({ children }: { children: React.ReactNode }) 
       closeKpiPanel,
       legendVisible,
       setLegendVisible,
-      alerts,
+      criticalPendingTasks,
+      criticalPendingPanelOpen,
+      openCriticalPendingPanel,
+      closeCriticalPendingPanel,
       absenceDetails,
       operationalCrewDetails,
       reducedCrewDetails,
@@ -249,7 +266,10 @@ export function CalendarUIProvider({ children }: { children: React.ReactNode }) 
       openKpiPanel,
       closeKpiPanel,
       legendVisible,
-      alerts,
+      criticalPendingTasks,
+      criticalPendingPanelOpen,
+      openCriticalPendingPanel,
+      closeCriticalPendingPanel,
       absenceDetails,
       operationalCrewDetails,
       reducedCrewDetails,

@@ -1,4 +1,4 @@
-import type { TaskInsert, TaskRow, TaskUpdate } from "@/lib/supabase/database.types"
+import type { Json, TaskInsert, TaskRow, TaskUpdate } from "@/lib/supabase/database.types"
 import { getInitialTaskStatus } from "@/lib/tasks/task-status-workflow"
 import type { ChecklistItem, Task } from "@/lib/types/tasks"
 import type {
@@ -24,6 +24,14 @@ function mapNullableNumber(value: number | null | undefined): number | undefined
   return value === null || value === undefined ? undefined : Number(value)
 }
 
+function parseTaskMetadata(value: unknown): Record<string, unknown> {
+  if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+    return value as Record<string, unknown>
+  }
+
+  return {}
+}
+
 export function mapTaskRowToTask(row: TaskRow): Task {
   return {
     id: row.id,
@@ -36,6 +44,7 @@ export function mapTaskRowToTask(row: TaskRow): Task {
     customerCompany: row.customer_company ?? undefined,
     customerName: row.customer_name ?? undefined,
     customerPhone: row.customer_phone ?? undefined,
+    customerId: row.customer_id ?? undefined,
     serviceAddress: row.service_address ?? undefined,
     latitude: mapNullableNumber(row.latitude),
     longitude: mapNullableNumber(row.longitude),
@@ -52,6 +61,11 @@ export function mapTaskRowToTask(row: TaskRow): Task {
     checklist: parseChecklist(row.checklist),
     progress: row.progress,
     createdAt: row.created_at,
+    completedAt: row.completed_at,
+    closedAt: row.closed_at,
+    serviceType: row.service_type,
+    locality: row.locality,
+    taskMetadata: parseTaskMetadata(row.task_metadata),
   }
 }
 
@@ -66,6 +80,7 @@ export function mapCreatePayloadToInsert(payload: CreateTaskPayload): TaskInsert
     customer_company: payload.customerCompany?.trim() || null,
     customer_name: payload.customerName?.trim() || null,
     customer_phone: payload.customerPhone?.trim() || null,
+    customer_id: payload.customerId ?? null,
     service_address: payload.serviceAddress?.trim() || null,
     latitude: payload.latitude ?? null,
     longitude: payload.longitude ?? null,
@@ -83,6 +98,9 @@ export function mapCreatePayloadToInsert(payload: CreateTaskPayload): TaskInsert
     estimated_duration: payload.estimatedDuration.trim(),
     checklist: payload.checklist,
     progress: payload.progress ?? 0,
+    service_type: payload.serviceType ?? null,
+    locality: payload.locality ?? null,
+    task_metadata: (payload.taskMetadata ?? {}) as Json,
   }
 }
 
@@ -110,6 +128,9 @@ export function mapUpdatePayloadToUpdate(payload: UpdateTaskPayload): TaskUpdate
   if (payload.customerPhone !== undefined) {
     update.customer_phone = payload.customerPhone?.trim() || null
   }
+  if (payload.customerId !== undefined) {
+    update.customer_id = payload.customerId
+  }
   if (payload.serviceAddress !== undefined) {
     update.service_address = payload.serviceAddress?.trim() || null
   }
@@ -133,6 +154,13 @@ export function mapUpdatePayloadToUpdate(payload: UpdateTaskPayload): TaskUpdate
   }
   if (payload.checklist !== undefined) update.checklist = payload.checklist
   if (payload.progress !== undefined) update.progress = payload.progress
+  if (payload.serviceType !== undefined) {
+    update.service_type = payload.serviceType
+  }
+  if (payload.locality !== undefined) update.locality = payload.locality
+  if (payload.taskMetadata !== undefined) {
+    update.task_metadata = payload.taskMetadata as Json
+  }
 
   return update
 }

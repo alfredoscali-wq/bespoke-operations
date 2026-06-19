@@ -20,6 +20,7 @@ import {
   TASK_DELETE_USER_MESSAGE,
 } from "@/lib/operations/user-messages"
 import { logDeleteTrace } from "@/lib/supabase/delete-trace"
+import { isWorkOrderTask } from "@/lib/tasks/work-order"
 import {
   TaskCrewAssignDialog,
   TaskEditDialog,
@@ -53,14 +54,17 @@ type TaskRowActionsProps = {
     message: string
   }) => void
   triggerClassName?: string
+  operationalMode?: boolean
 }
 
 export function TaskRowActions({
   task,
   onFeedback,
   triggerClassName,
+  operationalMode = false,
 }: TaskRowActionsProps) {
-  const { editTask, deleteTask, assignCrew, cancelTask } = useTasks()
+  const { editTask, changeTaskStatus, deleteTask, assignCrew, cancelTask } =
+    useTasks()
   const { getCrew } = useCrews()
   const [editOpen, setEditOpen] = useState(false)
   const [statusOpen, setStatusOpen] = useState(false)
@@ -71,6 +75,8 @@ export function TaskRowActions({
 
   const canCancel = ACTIVE_TASK_STATUSES.includes(task.status)
   const canArchive = canArchiveTaskByStatus(task.status)
+  const hideInternalStatusActions =
+    operationalMode || isWorkOrderTask(task)
 
   async function handleEdit(payload: {
     title: string
@@ -111,7 +117,7 @@ export function TaskRowActions({
   }
 
   async function handleStatusChange(status: Task["status"]) {
-    const result = await editTask(task.id, { status })
+    const result = await changeTaskStatus(task.id, status)
     if (!result.success) {
       throw new Error(result.message ?? "No se pudo cambiar el estado.")
     }
@@ -206,12 +212,14 @@ export function TaskRowActions({
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setEditOpen(true)}>
             <Pencil className="size-4" />
-            Editar tarea
+            {hideInternalStatusActions ? "Editar orden" : "Editar tarea"}
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setStatusOpen(true)}>
-            <RefreshCw className="size-4" />
-            Cambiar estado
-          </DropdownMenuItem>
+          {!hideInternalStatusActions && (
+            <DropdownMenuItem onClick={() => setStatusOpen(true)}>
+              <RefreshCw className="size-4" />
+              Cambiar estado
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onClick={() => setCrewOpen(true)}>
             <Users className="size-4" />
             Reasignar cuadrilla

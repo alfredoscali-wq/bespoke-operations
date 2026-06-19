@@ -53,12 +53,20 @@ type TasksFiltersProps = {
   resultCount: number
   showSort?: boolean
   crewOptions?: CrewFilterOption[]
+  operationalMode?: boolean
 }
 
 const sortOptions: { value: TaskSortField; label: string }[] = [
   { value: "dueDate", label: "Fecha límite" },
   { value: "priority", label: "Prioridad" },
   { value: "status", label: "Estado" },
+  { value: "progress", label: "Progreso" },
+  { value: "code", label: "Código" },
+]
+
+const operationalSortOptions: { value: TaskSortField; label: string }[] = [
+  { value: "dueDate", label: "Fecha programada" },
+  { value: "priority", label: "Prioridad" },
   { value: "progress", label: "Progreso" },
   { value: "code", label: "Código" },
 ]
@@ -85,10 +93,13 @@ export function TasksFiltersBar({
   resultCount,
   showSort = true,
   crewOptions = [],
+  operationalMode = false,
 }: TasksFiltersProps) {
+  const visibleSortOptions = operationalMode ? operationalSortOptions : sortOptions
+
   const hasActiveFilters =
     filters.search !== "" ||
-    filters.status !== "all" ||
+    (!operationalMode && filters.status !== "all") ||
     filters.type !== "all" ||
     filters.priority !== "all" ||
     filters.crew !== "all"
@@ -105,30 +116,42 @@ export function TasksFiltersBar({
           <Input
             value={filters.search}
             onChange={(event) => update("search", event.target.value)}
-            placeholder="Buscar por código, tarea o proyecto..."
+            placeholder={
+              operationalMode
+                ? "Buscar por código, cliente o dirección..."
+                : "Buscar por código, tarea o proyecto..."
+            }
             className="h-9 bg-background pl-8"
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:w-auto xl:min-w-[640px]">
-          <Select
-            value={filters.status}
-            onValueChange={(value) =>
-              update("status", value as TaskFilters["status"])
-            }
-          >
-            <SelectTrigger className="h-9 w-full bg-background">
-              <SelectValue placeholder="Estado" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              {TASK_STATUS_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div
+          className={
+            operationalMode
+              ? "grid grid-cols-2 gap-2 sm:grid-cols-3 xl:w-auto xl:min-w-[480px]"
+              : "grid grid-cols-2 gap-2 sm:grid-cols-4 xl:w-auto xl:min-w-[640px]"
+          }
+        >
+          {!operationalMode && (
+            <Select
+              value={filters.status}
+              onValueChange={(value) =>
+                update("status", value as TaskFilters["status"])
+              }
+            >
+              <SelectTrigger className="h-9 w-full bg-background">
+                <SelectValue placeholder="Estado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {TASK_STATUS_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
 
           <Select
             value={filters.type}
@@ -190,7 +213,13 @@ export function TasksFiltersBar({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-xs text-muted-foreground">
           {resultCount}{" "}
-          {resultCount === 1 ? "tarea encontrada" : "tareas encontradas"}
+          {operationalMode
+            ? resultCount === 1
+              ? "orden encontrada"
+              : "órdenes encontradas"
+            : resultCount === 1
+              ? "tarea encontrada"
+              : "tareas encontradas"}
         </span>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -206,7 +235,7 @@ export function TasksFiltersBar({
                   <SelectValue placeholder="Ordenar por" />
                 </SelectTrigger>
                 <SelectContent>
-                  {sortOptions.map((option) => (
+                  {visibleSortOptions.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
                     </SelectItem>
@@ -270,12 +299,21 @@ export function filterAndSortTasks<
   const query = filters.search.trim().toLowerCase()
 
   const filtered = tasks.filter((task) => {
+    const searchableTask = task as T & {
+      customerName?: string
+      serviceAddress?: string
+      locality?: string
+    }
+
     const matchesSearch =
       query === "" ||
       task.code.toLowerCase().includes(query) ||
       task.title.toLowerCase().includes(query) ||
       task.projectCode.toLowerCase().includes(query) ||
-      task.projectName.toLowerCase().includes(query)
+      task.projectName.toLowerCase().includes(query) ||
+      searchableTask.customerName?.toLowerCase().includes(query) ||
+      searchableTask.serviceAddress?.toLowerCase().includes(query) ||
+      searchableTask.locality?.toLowerCase().includes(query)
 
     return (
       matchesSearch &&

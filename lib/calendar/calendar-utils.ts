@@ -286,16 +286,6 @@ export function buildCalendarEvents(input: {
       input.crews,
       input.crewAvailabilityContext
     ),
-    ...buildAvailabilityCalendarEvents(
-      input.availabilityRecords,
-      input.employees,
-      input.weekStart
-    ),
-    ...buildCrewStatusCalendarEvents(
-      input.crews,
-      input.crewAvailabilityContext,
-      input.weekStart
-    ),
   ]
 }
 

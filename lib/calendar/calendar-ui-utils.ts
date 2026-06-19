@@ -17,7 +17,7 @@ import type { CalendarEvent, CalendarWeekSummary } from "@/lib/types/calendar"
 import type { Crew, CrewAvailabilityStatus } from "@/lib/types/crews"
 import type { Employee } from "@/lib/types/employees"
 import type { Task } from "@/lib/types/tasks"
-import { FINAL_TASK_STATUSES, isCalendarOperationalTask } from "@/lib/tasks/status-groups"
+import { isCalendarOperationalTask } from "@/lib/tasks/status-groups"
 
 const ABSENCE_TYPES: AvailabilityType[] = [
   "VACATION",
@@ -71,11 +71,6 @@ export type CalendarTaskDetail = {
   status: Task["status"]
   priority: Task["priority"]
   crewName: string
-}
-
-export type CalendarOperationalAlert = {
-  id: string
-  message: string
 }
 
 export type AbsenceOperationalImpact = {
@@ -226,60 +221,6 @@ export function getWeekTaskDetails(input: {
       crewName: task.crew || "—",
     }))
     .sort((a, b) => a.code.localeCompare(b.code, "es"))
-}
-
-export function getOperationalAlerts(input: {
-  summary: CalendarWeekSummary
-  tasks: Task[]
-  weekStart: string
-}): CalendarOperationalAlert[] {
-  const alerts: CalendarOperationalAlert[] = []
-  const weekEnd = getWeekEnd(input.weekStart)
-
-  if (input.summary.reducedCrews > 0) {
-    alerts.push({
-      id: "reduced-crews",
-      message: `${input.summary.reducedCrews} cuadrilla${
-        input.summary.reducedCrews === 1 ? "" : "s"
-      } con capacidad reducida`,
-    })
-  }
-
-  if (input.summary.notOperationalCrews > 0) {
-    alerts.push({
-      id: "not-operational-crews",
-      message: `${input.summary.notOperationalCrews} cuadrilla${
-        input.summary.notOperationalCrews === 1 ? "" : "s"
-      } no operativa${input.summary.notOperationalCrews === 1 ? "" : "s"}`,
-    })
-  }
-
-  if (input.summary.activeAbsences > 0) {
-    alerts.push({
-      id: "active-absences",
-      message: `${input.summary.activeAbsences} ausencia${
-        input.summary.activeAbsences === 1 ? "" : "s"
-      } activa${input.summary.activeAbsences === 1 ? "" : "s"}`,
-    })
-  }
-
-  const tasksDueThisWeek = input.tasks.filter(
-    (task) =>
-      !FINAL_TASK_STATUSES.includes(task.status) &&
-      task.dueDate >= input.weekStart &&
-      task.dueDate <= weekEnd
-  ).length
-
-  if (tasksDueThisWeek > 0) {
-    alerts.push({
-      id: "tasks-due",
-      message: `${tasksDueThisWeek} tarea${
-        tasksDueThisWeek === 1 ? "" : "s"
-      } vence${tasksDueThisWeek === 1 ? "" : "n"} esta semana`,
-    })
-  }
-
-  return alerts
 }
 
 export function filterEventsForProjectsView(

@@ -29,12 +29,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { TaskOperationalCategoryBadge } from "@/components/tareas/task-operational-badge"
 import {
   TaskOperationBadge,
   TaskPriorityBadge,
   TaskStatusBadge,
   TaskTypeBadge,
 } from "@/components/tareas/task-badges"
+import { isWorkOrderTask } from "@/lib/tasks/work-order"
 
 type TaskOverviewTabProps = {
   task: Task
@@ -154,7 +156,11 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
             </span>
             <TaskOperationBadge task={task} />
             <TaskTypeBadge type={task.type} />
-            <TaskStatusBadge status={task.status} />
+            {isWorkOrderTask(task) ? (
+              <TaskOperationalCategoryBadge task={task} />
+            ) : (
+              <TaskStatusBadge status={task.status} />
+            )}
             <TaskPriorityBadge priority={task.priority} />
           </div>
           <CardTitle className="text-lg">{task.title}</CardTitle>

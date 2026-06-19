@@ -1,0 +1,30 @@
+export interface Customer {
+  id: string
+  customerNumber: string
+
+  name: string
+  phone?: string
+  email?: string
+
+  address?: string
+  locality?: string
+
+  technology?: string
+
+  status: string
+
+  createdAt: string
+  updatedAt: string
+}
+
+export type NewCustomerInput = {
+  name: string
+  phone?: string
+  email?: string
+  address?: string
+  locality?: string
+  technology?: string
+  status?: string
+}
+
+export type UpdateCustomerInput = Partial<NewCustomerInput>

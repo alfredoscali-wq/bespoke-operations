@@ -22,10 +22,12 @@ import {
   TaskPriorityBadge,
   TaskTypeBadge,
 } from "@/components/tareas/task-badges"
+import { TaskOperationalCategoryBadge } from "@/components/tareas/task-operational-badge"
 import {
   TASK_STATUS_LABELS,
   TASK_STATUS_STYLES,
 } from "@/lib/tasks/constants"
+import { isWorkOrderTask } from "@/lib/tasks/work-order"
 import { canPerformTaskAction } from "@/lib/tasks/task-status-workflow"
 import { ACTIVE_TASK_STATUSES, isFinalTaskStatus } from "@/lib/tasks/status-groups"
 import { isFieldServiceTask } from "@/lib/tasks/utils"
@@ -197,15 +199,22 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
               {task.title}
             </h2>
             <div className="flex flex-wrap items-center gap-2 pt-1">
-              <Badge
-                variant="outline"
-                className={cn(
-                  "rounded-md px-3 py-1 text-sm font-semibold uppercase tracking-wide",
-                  TASK_STATUS_STYLES[task.status]
-                )}
-              >
-                {TASK_STATUS_LABELS[task.status]}
-              </Badge>
+              {isWorkOrderTask(task) ? (
+                <TaskOperationalCategoryBadge
+                  task={task}
+                  className="px-3 py-1 text-sm"
+                />
+              ) : (
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "rounded-md px-3 py-1 text-sm font-semibold uppercase tracking-wide",
+                    TASK_STATUS_STYLES[task.status]
+                  )}
+                >
+                  {TASK_STATUS_LABELS[task.status]}
+                </Badge>
+              )}
             </div>
             <p className="text-sm text-muted-foreground">
               {isFieldServiceTask(task)

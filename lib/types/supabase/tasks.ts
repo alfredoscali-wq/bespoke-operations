@@ -22,6 +22,7 @@ export type UpdateTaskPayload = Partial<{
   customerCompany: string | null
   customerName: string | null
   customerPhone: string | null
+  customerId?: string | null
   serviceAddress: string | null
   latitude: number | null
   longitude: number | null
@@ -37,6 +38,9 @@ export type UpdateTaskPayload = Partial<{
   estimatedDuration: string
   checklist: ChecklistItem[]
   progress: number
+  serviceType?: string | null
+  locality?: string | null
+  taskMetadata?: Record<string, unknown>
 }>
 
 export type TasksRepositoryErrorCode =

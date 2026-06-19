@@ -1,18 +1,13 @@
 "use client"
 
 import { AVAILABILITY_TYPE_LABELS } from "@/lib/availability/constants"
-import { CALENDAR_TASK_ALERT_LABELS } from "@/lib/calendar/calendar-labels"
 import { getEventSubtitleLabel } from "@/lib/calendar/calendar-ui-utils"
-import { CREW_AVAILABILITY_STATUS_LABELS } from "@/lib/crews/constants"
 import {
-  TASK_PRIORITY_LABELS,
-  TASK_STATUS_LABELS,
-} from "@/lib/tasks/constants"
-import type {
-  CalendarEvent,
-  CalendarTaskAlert,
-  CalendarTaskAlertSeverity,
-} from "@/lib/types/calendar"
+  countOperationalIncidents,
+  resolveTaskOperationalTone,
+} from "@/lib/calendar/task-alerts"
+import { CREW_AVAILABILITY_STATUS_LABELS } from "@/lib/crews/constants"
+import type { CalendarEvent } from "@/lib/types/calendar"
 import { CALENDAR_EVENT_TONE_STYLES } from "@/lib/ui/visual-tokens"
 import { cn } from "@/lib/utils"
 
@@ -21,15 +16,11 @@ type CalendarEventCardProps = {
   onClick: (event: CalendarEvent) => void
 }
 
-const ALERT_BADGE_STYLES: Record<CalendarTaskAlertSeverity, string> = {
-  info: "border-sky-200 bg-sky-50 text-sky-800",
-  warning: "border-amber-200 bg-amber-50 text-amber-900",
-  critical: "border-red-200 bg-red-50 text-red-800",
-}
-
 function getEventStyles(event: CalendarEvent): string {
   if (event.type === "TASK") {
-    return CALENDAR_EVENT_TONE_STYLES.blue
+    return CALENDAR_EVENT_TONE_STYLES[
+      resolveTaskOperationalTone(event.payload.alerts)
+    ]
   }
 
   if (event.type === "AVAILABILITY") {
@@ -56,45 +47,23 @@ function getEventStyles(event: CalendarEvent): string {
 }
 
 function getEventMeta(event: CalendarEvent): string {
-  if (event.type === "TASK") {
-    const { status, priority } = event.payload
-    return `${TASK_STATUS_LABELS[status]} · ${TASK_PRIORITY_LABELS[priority]}`
-  }
-
   if (event.type === "AVAILABILITY") {
     return AVAILABILITY_TYPE_LABELS[event.payload.availabilityType]
   }
 
-  return CREW_AVAILABILITY_STATUS_LABELS[event.payload.status]
-}
-
-function TaskAlertBadges({ alerts }: { alerts: CalendarTaskAlert[] }) {
-  if (alerts.length === 0) {
-    return null
+  if (event.type === "CREW_STATUS") {
+    return CREW_AVAILABILITY_STATUS_LABELS[event.payload.status]
   }
 
-  return (
-    <div className="mt-2 flex flex-wrap gap-1">
-      {alerts.map((alert) => (
-        <span
-          key={alert.kind}
-          className={cn(
-            "inline-flex max-w-full items-center rounded-md border px-1.5 py-0.5 text-[10px] font-medium leading-tight",
-            ALERT_BADGE_STYLES[alert.severity]
-          )}
-        >
-          <span aria-hidden className="mr-0.5 shrink-0">
-            ⚠
-          </span>
-          <span className="truncate">{CALENDAR_TASK_ALERT_LABELS[alert.kind]}</span>
-        </span>
-      ))}
-    </div>
-  )
+  return ""
 }
 
 export function CalendarEventCard({ event, onClick }: CalendarEventCardProps) {
-  const subtitle = getEventSubtitleLabel(event)
+  const isTask = event.type === "TASK"
+  const subtitle = !isTask ? getEventSubtitleLabel(event) : undefined
+  const alertCount = isTask
+    ? countOperationalIncidents(event.payload.alerts)
+    : 0
 
   return (
     <button
@@ -105,16 +74,27 @@ export function CalendarEventCard({ event, onClick }: CalendarEventCardProps) {
         getEventStyles(event)
       )}
     >
-      <p className="truncate text-xs font-semibold leading-snug">{event.title}</p>
+      <div className="flex items-start justify-between gap-2">
+        <p className="min-w-0 flex-1 truncate text-xs font-semibold leading-snug">
+          {event.title}
+        </p>
+        {isTask && alertCount > 0 ? (
+          <span
+            className="shrink-0 text-[11px] font-semibold tabular-nums"
+            aria-label={`${alertCount} incidencias operativas`}
+          >
+            ⚠ {alertCount}
+          </span>
+        ) : null}
+      </div>
       {subtitle ? (
         <p className="mt-0.5 truncate text-[11px] opacity-85">{subtitle}</p>
       ) : null}
-      {event.type === "TASK" ? (
-        <TaskAlertBadges alerts={event.payload.alerts} />
+      {!isTask ? (
+        <p className="mt-1.5 truncate text-[10px] font-medium uppercase tracking-wide opacity-75">
+          {getEventMeta(event)}
+        </p>
       ) : null}
-      <p className="mt-1.5 truncate text-[10px] font-medium uppercase tracking-wide opacity-75">
-        {getEventMeta(event)}
-      </p>
     </button>
   )
 }

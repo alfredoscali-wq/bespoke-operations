@@ -1,24 +1,22 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { useSearchParams } from "next/navigation"
-import { LayoutGrid, Layers, List, Plus } from "lucide-react"
+import { FileSpreadsheet, Plus } from "lucide-react"
 
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { useTasks } from "@/components/tareas/tasks-provider"
-import { TaskFormDialog, taskDefaultChecklist } from "@/components/tareas/task-form-dialog"
-import { TasksSummaryCards } from "@/components/tareas/tasks-summary-cards"
+import { TaskWorkOrderDialog } from "@/components/tareas/task-work-order-dialog"
+import { TasksOperationalList } from "@/components/tareas/tasks-operational-list"
+import { TasksOperationalSummary } from "@/components/tareas/tasks-operational-summary"
+import { TasksUIProvider, useTasksUI } from "@/components/tareas/tasks-ui-provider"
+import { WorkOrderImportDialog } from "@/components/tareas/work-order-import-dialog"
 import {
   TasksFiltersBar,
   defaultTaskFilters,
   filterAndSortTasks,
 } from "@/components/tareas/tasks-filters"
-import { TasksGroupedList } from "@/components/tareas/tasks-grouped-list"
-import { TasksKanban } from "@/components/tareas/tasks-kanban"
-import { TasksListTable } from "@/components/tareas/tasks-list-table"
-import type { TaskPriority, TaskType } from "@/lib/types/tasks"
-import { buildCrewFilterOptions, resolveCrewSnapshotsForAssignment } from "@/lib/tasks/crew-relation"
-import { parseTaskStatusQuery } from "@/lib/navigation/query-filters"
+import type { CreateTaskPayload } from "@/lib/types/supabase/tasks"
+import { buildCrewFilterOptions } from "@/lib/tasks/crew-relation"
 import {
   Card,
   CardContent,
@@ -27,107 +25,38 @@ import {
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 
-type ViewMode = "grouped" | "kanban" | "list"
-
-function getInitialViewMode(): ViewMode {
-  if (typeof window === "undefined") {
-    return "grouped"
-  }
-
-  return window.matchMedia("(max-width: 1023px)").matches ? "list" : "grouped"
+export function TasksModule() {
+  return (
+    <TasksUIProvider>
+      <TasksModuleContent />
+    </TasksUIProvider>
+  )
 }
 
-export function TasksModule() {
-  const searchParams = useSearchParams()
+function TasksModuleContent() {
   const { tasks, addTask } = useTasks()
+  const { filteredTasks: categoryFilteredTasks, selectedCategory } = useTasksUI()
   const { crews } = useCrews()
   const crewOptions = useMemo(() => buildCrewFilterOptions(crews), [crews])
-  const [view, setView] = useState<ViewMode>("grouped")
-  const [viewInitialized, setViewInitialized] = useState(false)
   const [filters, setFilters] = useState(defaultTaskFilters)
-  const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [workOrderOpen, setWorkOrderOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [feedback, setFeedback] = useState<string | null>(null)
 
-  const focusedStatus = useMemo(
-    () => parseTaskStatusQuery(searchParams.get("status")),
-    [searchParams]
-  )
-
   useEffect(() => {
-    setView(getInitialViewMode())
-    setViewInitialized(true)
-  }, [])
-
-  useEffect(() => {
-    const status = parseTaskStatusQuery(searchParams.get("status"))
-    if (status !== "all") {
-      setFilters((current) => ({ ...current, status }))
-      setView("grouped")
+    if (selectedCategory) {
+      setFilters((current) => ({ ...current, status: "all" }))
     }
-  }, [searchParams])
+  }, [selectedCategory])
 
-  const filteredTasks = useMemo(
-    () => filterAndSortTasks(tasks, filters, crews),
-    [tasks, filters, crews]
+  const displayedTasks = useMemo(
+    () => filterAndSortTasks(categoryFilteredTasks, filters, crews),
+    [categoryFilteredTasks, filters, crews]
   )
 
-  async function handleCreateTask(payload: {
-    operationMode: "obra" | "servicio"
-    code: string
-    title: string
-    description: string
-    projectId?: string | null
-    projectCode: string
-    projectName: string
-    customerCompany?: string
-    customerName?: string
-    customerPhone?: string
-    serviceAddress?: string
-    workOrderNumber?: string
-    type: TaskType
-    priority: TaskPriority
-    supervisor: string
-    crewId: string
-    crew: string
-    startDate: string
-    dueDate: string
-    estimatedDuration: string
-  }) {
-    const selectedCrew = crews.find((crew) => crew.id === payload.crewId)
-    const snapshots = resolveCrewSnapshotsForAssignment(selectedCrew)
-
-    await addTask({
-      code: payload.code,
-      title: payload.title,
-      description: payload.description,
-      projectId: payload.projectId ?? undefined,
-      projectCode: payload.projectCode,
-      projectName: payload.projectName,
-      customerCompany: payload.customerCompany,
-      customerName: payload.customerName,
-      customerPhone: payload.customerPhone,
-      serviceAddress: payload.serviceAddress,
-      workOrderNumber: payload.workOrderNumber,
-      type: payload.type,
-      priority: payload.priority,
-      supervisor: payload.supervisor || snapshots.supervisor,
-      crewId: snapshots.crewId ?? undefined,
-      crew: snapshots.crew || payload.crew,
-      startDate: payload.startDate,
-      dueDate: payload.dueDate,
-      estimatedDuration: payload.estimatedDuration,
-      checklist: taskDefaultChecklist,
-    })
-
-    setFeedback(
-      payload.operationMode === "servicio"
-        ? "Servicio de campo creado correctamente."
-        : "Tarea de obra creada correctamente."
-    )
-  }
-
-  if (!viewInitialized) {
-    return null
+  async function handleCreateWorkOrder(payload: CreateTaskPayload) {
+    await addTask(payload)
+    setFeedback("Orden de trabajo creada correctamente.")
   }
 
   return (
@@ -140,86 +69,59 @@ export function TasksModule() {
             </p>
           )}
         </div>
-        <Button
-          size="sm"
-          className="gap-1.5 self-start"
-          onClick={() => setCreateDialogOpen(true)}
-        >
-          <Plus className="size-4" />
-          Nueva tarea
-        </Button>
+        <div className="flex flex-wrap gap-2 self-start">
+          <Button
+            size="sm"
+            className="gap-1.5"
+            onClick={() => setWorkOrderOpen(true)}
+          >
+            <Plus className="size-4" />
+            Nueva Orden de Trabajo
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            onClick={() => setImportOpen(true)}
+          >
+            <FileSpreadsheet className="size-4" />
+            Importar Excel
+          </Button>
+        </div>
       </div>
 
-      <TasksSummaryCards tasks={tasks} />
+      <TasksOperationalSummary />
 
       <Card className="shadow-sm">
-        <CardHeader className="gap-4 border-b sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle className="text-base">
-            {view === "grouped"
-              ? "Tareas por estado"
-              : view === "kanban"
-                ? "Tablero Kanban"
-                : "Listado de tareas"}
-          </CardTitle>
-
-          <div className="flex rounded-lg border bg-muted/40 p-0.5">
-            <Button
-              variant={view === "grouped" ? "secondary" : "ghost"}
-              size="sm"
-              className="h-7 gap-1.5 px-2.5"
-              onClick={() => setView("grouped")}
-            >
-              <Layers className="size-3.5" />
-              Agrupado
-            </Button>
-            <Button
-              variant={view === "kanban" ? "secondary" : "ghost"}
-              size="sm"
-              className="h-7 gap-1.5 px-2.5"
-              onClick={() => setView("kanban")}
-            >
-              <LayoutGrid className="size-3.5" />
-              Kanban
-            </Button>
-            <Button
-              variant={view === "list" ? "secondary" : "ghost"}
-              size="sm"
-              className="h-7 gap-1.5 px-2.5"
-              onClick={() => setView("list")}
-            >
-              <List className="size-3.5" />
-              Lista
-            </Button>
-          </div>
+        <CardHeader className="gap-4 border-b">
+          <CardTitle className="text-base">Órdenes de trabajo</CardTitle>
         </CardHeader>
 
         <CardContent className="space-y-4 pt-4">
           <TasksFiltersBar
             filters={filters}
             onChange={setFilters}
-            resultCount={filteredTasks.length}
-            showSort={view === "list"}
+            resultCount={displayedTasks.length}
+            showSort
             crewOptions={crewOptions}
+            operationalMode
           />
 
-          {view === "grouped" ? (
-            <TasksGroupedList
-              tasks={filteredTasks}
-              focusedStatus={focusedStatus === "all" ? null : focusedStatus}
-            />
-          ) : view === "kanban" ? (
-            <TasksKanban tasks={filteredTasks} />
-          ) : (
-            <TasksListTable tasks={filteredTasks} />
-          )}
+          <TasksOperationalList tasks={displayedTasks} />
         </CardContent>
       </Card>
 
-      <TaskFormDialog
-        open={createDialogOpen}
-        onOpenChange={setCreateDialogOpen}
+      <TaskWorkOrderDialog
+        open={workOrderOpen}
+        onOpenChange={setWorkOrderOpen}
         existingTasks={tasks}
-        onSubmit={handleCreateTask}
+        onSubmit={handleCreateWorkOrder}
+      />
+
+      <WorkOrderImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onImported={(message) => setFeedback(message)}
       />
     </div>
   )

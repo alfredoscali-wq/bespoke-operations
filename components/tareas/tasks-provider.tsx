@@ -28,6 +28,7 @@ import {
   canPerformTaskAction,
   getInitialTaskStatus,
   getTransitionForAction,
+  getWorkflowActionForTargetStatus,
   getWorkflowHistoryEntry,
   resolveStatusAfterCrewAssignment,
   type TaskWorkflowAction,
@@ -36,7 +37,7 @@ import {
   syncTaskProgress,
 } from "@/lib/tasks/utils"
 import type { CreateTaskPayload, UpdateTaskPayload } from "@/lib/types/supabase/tasks"
-import type { Task, TaskDetail } from "@/lib/types/tasks"
+import type { Task, TaskDetail, TaskStatus } from "@/lib/types/tasks"
 
 type TaskMutationResult = {
   success: boolean
@@ -53,6 +54,7 @@ type TasksContextValue = {
   getDetail: (id: string) => TaskDetail | undefined
   addTask: (input: CreateTaskPayload) => Promise<Task>
   editTask: (id: string, payload: UpdateTaskPayload) => Promise<TaskMutationResult>
+  changeTaskStatus: (id: string, targetStatus: TaskStatus) => Promise<TaskMutationResult>
   assignCrew: (
     id: string,
     crewId: string | null,
@@ -326,6 +328,27 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     [tasks, updateTaskFields]
   )
 
+  const changeTaskStatus = useCallback(
+    async (id: string, targetStatus: TaskStatus): Promise<TaskMutationResult> => {
+      const task = tasks.find((item) => item.id === id)
+      if (!task) {
+        return { success: false, message: "Tarea no encontrada." }
+      }
+
+      if (targetStatus === task.status) {
+        return { success: false, message: "La tarea ya está en ese estado." }
+      }
+
+      const action = getWorkflowActionForTargetStatus(task.status, targetStatus)
+      if (!action) {
+        return { success: false, message: "Transición no permitida." }
+      }
+
+      return applyWorkflowTransition(id, action)
+    },
+    [tasks, applyWorkflowTransition]
+  )
+
   const startTask = useCallback(
     (id: string) => applyWorkflowTransition(id, "start"),
     [applyWorkflowTransition]
@@ -570,6 +593,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       getDetail,
       addTask,
       editTask,
+      changeTaskStatus,
       assignCrew,
       deleteTask,
       startTask,
@@ -591,6 +615,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       getDetail,
       addTask,
       editTask,
+      changeTaskStatus,
       assignCrew,
       deleteTask,
       startTask,

@@ -4,10 +4,11 @@ import { Suspense } from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import Link from "next/link"
 
+import { CalendarCriticalPendingBanner } from "@/components/calendario/calendar-critical-pending-banner"
+import { CalendarCriticalPendingSheet } from "@/components/calendario/calendar-critical-pending-sheet"
 import { CalendarEventDetailSheet } from "@/components/calendario/calendar-event-detail-sheet"
 import { CalendarKpiSheet } from "@/components/calendario/calendar-kpi-sheet"
 import { CalendarLegend } from "@/components/calendario/calendar-legend"
-import { CalendarOperationalAlerts } from "@/components/calendario/calendar-operational-alerts"
 import { CalendarQuickFiltersBar } from "@/components/calendario/calendar-quick-filters"
 import {
   CalendarProvider,
@@ -60,7 +61,7 @@ function CalendarModuleContent() {
         </div>
       )}
 
-      <CalendarOperationalAlerts />
+      <CalendarCriticalPendingBanner />
 
       <CalendarSummaryCards summary={summary} />
 
@@ -115,6 +116,7 @@ function CalendarModuleContent() {
       </Card>
 
       <CalendarEventDetailSheet />
+      <CalendarCriticalPendingSheet />
       <CalendarKpiSheet />
     </div>
   )

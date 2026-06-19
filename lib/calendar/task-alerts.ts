@@ -161,3 +161,28 @@ export function buildTaskAlertsForDate(input: {
 
   return alerts
 }
+
+/** Alerts that affect TASK card color and incident counter (excludes informational). */
+export function getOperationalIncidentAlerts(
+  alerts: CalendarTaskAlert[]
+): CalendarTaskAlert[] {
+  return alerts.filter((alert) => alert.kind !== "DUE_THIS_WEEK")
+}
+
+export function resolveTaskOperationalTone(
+  alerts: CalendarTaskAlert[]
+): "green" | "yellow" | "red" {
+  const operational = getOperationalIncidentAlerts(alerts)
+
+  if (operational.some((alert) => alert.severity === "critical")) {
+    return "red"
+  }
+  if (operational.length > 0) {
+    return "yellow"
+  }
+  return "green"
+}
+
+export function countOperationalIncidents(alerts: CalendarTaskAlert[]): number {
+  return getOperationalIncidentAlerts(alerts).length
+}

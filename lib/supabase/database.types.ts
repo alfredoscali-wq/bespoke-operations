@@ -52,6 +52,48 @@ export type Database = {
         }
         Relationships: []
       }
+      customers: {
+        Row: {
+          id: string
+          customer_number: string
+          name: string
+          phone: string | null
+          email: string | null
+          address: string | null
+          locality: string | null
+          technology: string | null
+          status: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          customer_number: string
+          name: string
+          phone?: string | null
+          email?: string | null
+          address?: string | null
+          locality?: string | null
+          technology?: string | null
+          status?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          customer_number?: string
+          name?: string
+          phone?: string | null
+          email?: string | null
+          address?: string | null
+          locality?: string | null
+          technology?: string | null
+          status?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       projects: {
         Row: {
           id: string
@@ -359,6 +401,7 @@ export type Database = {
           customer_company: string | null
           customer_name: string | null
           customer_phone: string | null
+          customer_id: string | null
           service_address: string | null
           latitude: number | null
           longitude: number | null
@@ -376,7 +419,12 @@ export type Database = {
           progress: number
           created_at: string
           updated_at: string
+          completed_at: string | null
+          closed_at: string | null
           deleted_at: string | null
+          service_type: string | null
+          locality: string | null
+          task_metadata: Json
         }
         Insert: {
           id?: string
@@ -390,6 +438,7 @@ export type Database = {
           customer_company?: string | null
           customer_name?: string | null
           customer_phone?: string | null
+          customer_id?: string | null
           service_address?: string | null
           latitude?: number | null
           longitude?: number | null
@@ -407,7 +456,12 @@ export type Database = {
           progress?: number
           created_at?: string
           updated_at?: string
+          completed_at?: string | null
+          closed_at?: string | null
           deleted_at?: string | null
+          service_type?: string | null
+          locality?: string | null
+          task_metadata?: Json
         }
         Update: {
           id?: string
@@ -421,6 +475,7 @@ export type Database = {
           customer_company?: string | null
           customer_name?: string | null
           customer_phone?: string | null
+          customer_id?: string | null
           service_address?: string | null
           latitude?: number | null
           longitude?: number | null
@@ -438,7 +493,12 @@ export type Database = {
           progress?: number
           created_at?: string
           updated_at?: string
+          completed_at?: string | null
+          closed_at?: string | null
           deleted_at?: string | null
+          service_type?: string | null
+          locality?: string | null
+          task_metadata?: Json
         }
         Relationships: []
       }
@@ -554,6 +614,9 @@ export type Database = {
 export type CompanyRow = Database["public"]["Tables"]["companies"]["Row"]
 export type CompanyInsert = Database["public"]["Tables"]["companies"]["Insert"]
 export type CompanyUpdate = Database["public"]["Tables"]["companies"]["Update"]
+export type CustomerRow = Database["public"]["Tables"]["customers"]["Row"]
+export type CustomerInsert = Database["public"]["Tables"]["customers"]["Insert"]
+export type CustomerUpdate = Database["public"]["Tables"]["customers"]["Update"]
 export type ProjectRow = Database["public"]["Tables"]["projects"]["Row"]
 export type ProjectInsert = Database["public"]["Tables"]["projects"]["Insert"]
 export type ProjectUpdate = Database["public"]["Tables"]["projects"]["Update"]

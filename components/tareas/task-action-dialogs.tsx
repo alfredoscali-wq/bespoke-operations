@@ -13,9 +13,8 @@ import {
   TASK_STATUS_OPTIONS,
   TASK_TYPE_OPTIONS,
 } from "@/lib/tasks/constants"
-import {
-  resolveTaskSupervisorForCrewChange,
-} from "@/lib/tasks/utils"
+import { getWorkflowActionForTargetStatus } from "@/lib/tasks/task-status-workflow"
+import { resolveTaskSupervisorForCrewChange } from "@/lib/tasks/utils"
 import {
   isSameTaskCrewAssignment,
   resolveCrewSnapshotsForAssignment,
@@ -332,6 +331,19 @@ export function TaskStatusDialog({
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  const allowedStatusOptions = useMemo(
+    () =>
+      TASK_STATUS_OPTIONS.filter((option) => {
+        if (option.value === task.status) {
+          return false
+        }
+
+        const action = getWorkflowActionForTargetStatus(task.status, option.value)
+        return action !== null && action !== "assign-crew"
+      }),
+    [task]
+  )
+
   useEffect(() => {
     if (open) {
       setStatus(task.status)
@@ -377,11 +389,17 @@ export function TaskStatusDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {TASK_STATUS_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
+                {allowedStatusOptions.length === 0 ? (
+                  <SelectItem value={task.status} disabled>
+                    Sin transiciones disponibles
                   </SelectItem>
-                ))}
+                ) : (
+                  allowedStatusOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -399,7 +417,14 @@ export function TaskStatusDialog({
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button
+              type="submit"
+              disabled={
+                isSubmitting ||
+                status === task.status ||
+                allowedStatusOptions.length === 0
+              }
+            >
               {isSubmitting ? "Guardando..." : "Actualizar estado"}
             </Button>
           </DialogFooter>
