@@ -4,6 +4,23 @@ import type { Task, TaskPriority, TaskStatus } from "@/lib/types/tasks"
 
 export type CalendarEventType = "TASK" | "AVAILABILITY" | "CREW_STATUS"
 
+export type CalendarTaskAlertKind =
+  | "CREW_REDUCED_CAPACITY"
+  | "CREW_NOT_OPERATIONAL"
+  | "MEMBER_ABSENT"
+  | "DUE_THIS_WEEK"
+  | "OVERDUE"
+
+export type CalendarTaskAlertSeverity = "info" | "warning" | "critical"
+
+export type CalendarTaskAlert = {
+  kind: CalendarTaskAlertKind
+  severity: CalendarTaskAlertSeverity
+  message: string
+  relatedCrewId?: string
+  relatedEmployeeIds?: string[]
+}
+
 export type CalendarTaskPayload = {
   taskId: string
   code: string
@@ -17,6 +34,7 @@ export type CalendarTaskPayload = {
   priority: TaskPriority
   startDate: string
   dueDate: string
+  alerts: CalendarTaskAlert[]
 }
 
 export type CalendarAvailabilityPayload = {

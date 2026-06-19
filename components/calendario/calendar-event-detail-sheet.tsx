@@ -9,6 +9,7 @@ import { CrewAvailabilityBadge } from "@/components/cuadrillas/crew-badges"
 import {
   CALENDAR_AVAILABILITY_LABELS,
   CALENDAR_CREW_STATUS_LABELS,
+  CALENDAR_TASK_ALERT_LABELS,
 } from "@/lib/calendar/calendar-labels"
 import { formatAvailabilityDate } from "@/lib/availability/constants"
 import {
@@ -19,6 +20,7 @@ import {
 import type {
   CalendarAvailabilityPayload,
   CalendarCrewStatusPayload,
+  CalendarTaskAlert,
   CalendarTaskPayload,
 } from "@/lib/types/calendar"
 import {
@@ -41,6 +43,46 @@ function DetailRow({
     <div className="space-y-1">
       <p className="text-xs text-muted-foreground">{label}</p>
       <div className="text-sm font-medium text-foreground">{value}</div>
+    </div>
+  )
+}
+
+function TaskOperationalIncidents({
+  alerts,
+}: {
+  alerts: CalendarTaskAlert[]
+}) {
+  if (alerts.length === 0) {
+    return (
+      <div className="rounded-xl border bg-muted/20 p-4">
+        <p className="text-sm font-semibold text-foreground">
+          Incidencias operativas
+        </p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          No se detectaron incidencias para este día.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-3 rounded-xl border bg-muted/20 p-4">
+      <p className="text-sm font-semibold text-foreground">
+        Incidencias operativas
+      </p>
+      <div className="space-y-3">
+        {alerts.map((alert) => (
+          <div
+            key={alert.kind}
+            className="rounded-lg border bg-background px-3 py-2.5"
+          >
+            <p className="text-sm font-medium text-foreground">
+              ⚠ {CALENDAR_TASK_ALERT_LABELS[alert.kind]}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">{alert.message}</p>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -70,6 +112,7 @@ function TaskEventDetail({ payload }: { payload: CalendarTaskPayload }) {
         value={formatTaskDate(payload.startDate)}
       />
       <DetailRow label="Fecha fin" value={formatTaskDate(payload.dueDate)} />
+      <TaskOperationalIncidents alerts={payload.alerts} />
       <Button asChild variant="outline" size="sm" className="w-fit">
         <Link href={`/tareas/${payload.taskId}`}>Ver tarea</Link>
       </Button>

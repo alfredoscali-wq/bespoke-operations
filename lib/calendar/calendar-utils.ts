@@ -1,3 +1,4 @@
+import { buildTaskAlertsForDate } from "@/lib/calendar/task-alerts"
 import { getCrewAvailability } from "@/lib/crews/availability"
 import type { CrewAvailabilityContext } from "@/lib/crews/availability"
 import { isDateWithinRange, toDateOnly } from "@/lib/availability/utils"
@@ -112,10 +113,17 @@ function expandRangeToWeekDays(
 
 export function buildTaskCalendarEvents(
   tasks: Task[],
-  weekStart: string
+  weekStart: string,
+  crews: Crew[],
+  crewAvailabilityContext: CrewAvailabilityContext
 ): CalendarEvent[] {
   const weekDays = getWeekDays(weekStart)
+  const weekEnd = getWeekEnd(weekStart)
   const events: CalendarEvent[] = []
+  const crewAvailabilityCache = new Map<
+    string,
+    ReturnType<typeof getCrewAvailability>
+  >()
 
   for (const task of tasks) {
     if (!rangesOverlapWeek(task.startDate, task.dueDate, weekStart)) {
@@ -125,6 +133,16 @@ export function buildTaskCalendarEvents(
     const days = expandRangeToWeekDays(task.startDate, task.dueDate, weekDays)
 
     for (const date of days) {
+      const alerts = buildTaskAlertsForDate({
+        task,
+        date,
+        weekStart,
+        weekEnd,
+        crews,
+        crewAvailabilityContext,
+        crewAvailabilityCache,
+      })
+
       events.push({
         id: `task-${task.id}-${date}`,
         type: "TASK",
@@ -146,6 +164,7 @@ export function buildTaskCalendarEvents(
           priority: task.priority,
           startDate: task.startDate,
           dueDate: task.dueDate,
+          alerts,
         },
       })
     }
@@ -256,7 +275,12 @@ export function buildCalendarEvents(input: {
   weekStart: string
 }): CalendarEvent[] {
   return [
-    ...buildTaskCalendarEvents(input.tasks, input.weekStart),
+    ...buildTaskCalendarEvents(
+      input.tasks,
+      input.weekStart,
+      input.crews,
+      input.crewAvailabilityContext
+    ),
     ...buildAvailabilityCalendarEvents(
       input.availabilityRecords,
       input.employees,
