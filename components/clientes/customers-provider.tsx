@@ -12,6 +12,7 @@ import {
 import {
   createBrowserCustomersClient,
   createCustomer as createCustomerInSupabase,
+  deleteCustomer as deleteCustomerInSupabase,
   getCustomers as listCustomers,
   searchCustomers as searchCustomersInSupabase,
   updateCustomer as updateCustomerInSupabase,
@@ -39,6 +40,7 @@ type CustomersContextValue = {
     id: string,
     input: UpdateCustomerInput
   ) => Promise<CustomerMutationResult>
+  deleteCustomer: (id: string) => Promise<CustomerMutationResult>
 }
 
 const CustomersContext = createContext<CustomersContextValue | null>(null)
@@ -111,6 +113,9 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
           if (!normalizedQuery) return true
           return (
             customer.customerNumber.toLowerCase().includes(normalizedQuery) ||
+            customer.externalCustomerCode
+              ?.toLowerCase()
+              .includes(normalizedQuery) ||
             customer.name.toLowerCase().includes(normalizedQuery) ||
             customer.phone?.includes(normalizedQuery) ||
             customer.address?.toLowerCase().includes(normalizedQuery)
@@ -145,6 +150,7 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
         const result = await createCustomerInSupabase(
           {
             name: input.name,
+            externalCustomerCode: input.externalCustomerCode ?? null,
             phone: input.phone ?? null,
             email: input.email ?? null,
             address: input.address ?? null,
@@ -191,6 +197,18 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
         const client = createBrowserCustomersClient()
         const result = await updateCustomerInSupabase(id, input, client)
 
+        if (result.error) {
+          return {
+            success: false,
+            message: result.error.message ?? "No se pudo actualizar al cliente.",
+          }
+        }
+
+        if ("ok" in result && result.ok) {
+          setCustomers((current) => current.filter((customer) => customer.id !== id))
+          return { success: true }
+        }
+
         if (result.data) {
           setCustomers((current) =>
             sortCustomers(replaceCustomerInList(current, result.data!))
@@ -200,12 +218,52 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
 
         return {
           success: false,
-          message: result.error?.message ?? "No se pudo actualizar al cliente.",
+          message: "No se pudo actualizar al cliente.",
         }
       } catch {
         return {
           success: false,
           message: "No se pudo actualizar al cliente.",
+        }
+      }
+    },
+    [usesSupabase]
+  )
+
+  const deleteCustomer = useCallback(
+    async (id: string): Promise<CustomerMutationResult> => {
+      if (!usesSupabase) {
+        return {
+          success: false,
+          message:
+            "Supabase no está disponible. No se pudo eliminar al cliente.",
+        }
+      }
+
+      try {
+        const client = createBrowserCustomersClient()
+        const result = await deleteCustomerInSupabase(id, client)
+
+        if (result.error) {
+          return {
+            success: false,
+            message: result.error.message ?? "No se pudo eliminar al cliente.",
+          }
+        }
+
+        if ("ok" in result && result.ok) {
+          setCustomers((current) => current.filter((customer) => customer.id !== id))
+          return { success: true }
+        }
+
+        return {
+          success: false,
+          message: "No se pudo eliminar al cliente.",
+        }
+      } catch {
+        return {
+          success: false,
+          message: "No se pudo eliminar al cliente.",
         }
       }
     },
@@ -221,6 +279,7 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
       searchCustomers,
       createCustomer,
       updateCustomer,
+      deleteCustomer,
     }),
     [
       customers,
@@ -230,6 +289,7 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
       searchCustomers,
       createCustomer,
       updateCustomer,
+      deleteCustomer,
     ]
   )
 

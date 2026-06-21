@@ -26,11 +26,13 @@ export type UpdateCustomerPayload = Partial<{
 export type CustomersRepositoryErrorCode =
   | "NOT_FOUND"
   | "DUPLICATE_NUMBER"
+  | "HAS_ASSOCIATED_TASKS"
   | "VALIDATION"
   | "UNKNOWN"
 
 export type CustomersRepositoryResult<T> =
   | { data: T; error: null }
+  | { data: null; error: null; ok: true }
   | {
       data: null
       error: {

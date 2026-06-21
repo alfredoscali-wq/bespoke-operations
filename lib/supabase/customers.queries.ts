@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import { generateCustomerNumber } from "@/lib/customers/customer-number"
+import { CUSTOMER_DELETE_BLOCKED_MESSAGE } from "@/lib/customers/customer-delete"
 import type { Database } from "@/lib/supabase/database.types"
 import {
   mapCustomerInsert,
@@ -164,6 +165,23 @@ export async function updateCustomer(
     }
   }
 
+  const isSoftDelete =
+    payload.deletedAt !== undefined && payload.deletedAt !== null
+
+  if (isSoftDelete) {
+    const { error } = await client
+      .from("customers")
+      .update(update)
+      .eq("id", id)
+      .is("deleted_at", null)
+
+    if (error) {
+      return { data: null, error: mapSupabaseCustomerError(error) }
+    }
+
+    return { data: null, error: null, ok: true }
+  }
+
   const { data, error } = await client
     .from("customers")
     .update(update)
@@ -189,4 +207,54 @@ export async function updateCustomer(
     data: mapCustomerRowToCustomer(data),
     error: null,
   }
+}
+
+async function countCustomerTasks(
+  client: SupabaseCustomersClient,
+  customerId: string
+): Promise<{ count: number; error: ReturnType<typeof mapSupabaseCustomerError> | null }> {
+  const { count, error } = await client
+    .from("tasks")
+    .select("id", { count: "exact", head: true })
+    .eq("customer_id", customerId)
+    .is("deleted_at", null)
+
+  if (error) {
+    return { count: 0, error: mapSupabaseCustomerError(error) }
+  }
+
+  return { count: count ?? 0, error: null }
+}
+
+export async function deleteCustomer(
+  client: SupabaseCustomersClient,
+  id: string
+): Promise<CustomersRepositoryResult<void>> {
+  const { count, error: countError } = await countCustomerTasks(client, id)
+
+  if (countError) {
+    return { data: null, error: countError }
+  }
+
+  if (count > 0) {
+    return {
+      data: null,
+      error: {
+        code: "HAS_ASSOCIATED_TASKS",
+        message: CUSTOMER_DELETE_BLOCKED_MESSAGE,
+      },
+    }
+  }
+
+  const { error } = await client
+    .from("customers")
+    .delete()
+    .eq("id", id)
+    .is("deleted_at", null)
+
+  if (error) {
+    return { data: null, error: mapSupabaseCustomerError(error) }
+  }
+
+  return { data: null, error: null, ok: true }
 }

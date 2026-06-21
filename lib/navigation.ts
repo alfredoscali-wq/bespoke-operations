@@ -4,6 +4,7 @@ import {
   CalendarClock,
   CalendarRange,
   Camera,
+  Contact,
   History,
   LayoutDashboard,
   ListChecks,
@@ -35,7 +36,7 @@ export const dashboardNavItem: NavItem = {
   description: "Resumen operativo del día para coordinación y supervisión.",
 }
 
-export const operationsNavItems: NavItem[] = [
+export const coreOperationsNavItems: NavItem[] = [
   {
     title: "Calendario",
     href: "/operations/calendar",
@@ -59,6 +60,20 @@ export const operationsNavItems: NavItem[] = [
     pageTitle: "Gestión de Tareas",
     description: "Planificar, asignar y dar seguimiento a actividades de campo.",
   },
+]
+
+export const customersNavItems: NavItem[] = [
+  {
+    title: "Clientes",
+    href: "/clientes",
+    icon: Contact,
+    pageTitle: "Gestión de Clientes",
+    description:
+      "Directorio de abonados y suscriptores para operaciones de campo.",
+  },
+]
+
+export const fieldOperationsNavItems: NavItem[] = [
   {
     title: "Cuadrillas",
     href: "/cuadrillas",
@@ -80,6 +95,12 @@ export const operationsNavItems: NavItem[] = [
     pageTitle: "Evidencias de Campo",
     description: "Registro fotográfico y documental de trabajos realizados.",
   },
+]
+
+/** @deprecated Use coreOperationsNavItems + fieldOperationsNavItems. */
+export const operationsNavItems: NavItem[] = [
+  ...coreOperationsNavItems,
+  ...fieldOperationsNavItems,
 ]
 
 export const rrhhNavItems: NavItem[] = [
@@ -130,7 +151,13 @@ export const systemNavItems: NavItem[] = [
 
 export const navGroups: NavGroup[] = [
   { id: "dashboard", items: [dashboardNavItem] },
-  { id: "operations", label: "Operaciones", items: operationsNavItems },
+  { id: "operations", label: "Operaciones", items: coreOperationsNavItems },
+  { id: "customers", label: "Clientes", items: customersNavItems },
+  {
+    id: "field",
+    label: "Operaciones de campo",
+    items: fieldOperationsNavItems,
+  },
   { id: "analysis", label: "Análisis", items: analysisNavItems },
   { id: "rrhh", label: "RRHH", items: rrhhNavItems },
   { id: "system", label: "Sistema", items: systemNavItems },

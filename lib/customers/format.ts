@@ -26,3 +26,21 @@ export function formatCustomerAddressLabel(customer: {
 
   return address || locality || null
 }
+
+export function formatCustomerStatusLabel(status: string): string {
+  const normalized = status.trim().toLowerCase()
+
+  if (normalized === "activo") {
+    return "Activo"
+  }
+
+  if (normalized === "inactivo") {
+    return "Inactivo"
+  }
+
+  return status.trim() || "Sin estado"
+}
+
+export function isCustomerStatusActive(status: string): boolean {
+  return status.trim().toLowerCase() === "activo"
+}

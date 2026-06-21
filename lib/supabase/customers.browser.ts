@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/client"
 import {
   createCustomer as insertCustomer,
+  deleteCustomer as removeCustomer,
   getCustomers as fetchCustomers,
   searchCustomers as querySearchCustomers,
   updateCustomer as patchCustomer,
@@ -46,4 +47,11 @@ export async function updateCustomer(
   client: SupabaseCustomersClient = createBrowserCustomersClient()
 ): Promise<CustomersRepositoryResult<Customer>> {
   return patchCustomer(client, id, payload)
+}
+
+export async function deleteCustomer(
+  id: string,
+  client: SupabaseCustomersClient = createBrowserCustomersClient()
+): Promise<CustomersRepositoryResult<void>> {
+  return removeCustomer(client, id)
 }

@@ -30,4 +30,6 @@ export type NewCustomerInput = {
   status?: string
 }
 
-export type UpdateCustomerInput = Partial<NewCustomerInput>
+export type UpdateCustomerInput = Partial<NewCustomerInput> & {
+  deletedAt?: string | null
+}
