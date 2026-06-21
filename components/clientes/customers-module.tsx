@@ -1,11 +1,12 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { Plus } from "lucide-react"
+import { FileSpreadsheet, Plus } from "lucide-react"
 
 import { CustomerArchiveDialog } from "@/components/clientes/customer-archive-dialog"
 import { CustomerDeleteDialog } from "@/components/clientes/customer-delete-dialog"
 import { CustomerFormDialog } from "@/components/clientes/customer-form-dialog"
+import { CustomerImportDialog } from "@/components/clientes/customer-import-dialog"
 import { useCustomers } from "@/components/clientes/customers-provider"
 import {
   CustomersFilters,
@@ -50,6 +51,7 @@ function CustomersModuleContent() {
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
   const [archiveTarget, setArchiveTarget] = useState<Customer | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null)
+  const [importOpen, setImportOpen] = useState(false)
 
   const refreshSearchIfNeeded = useCallback(async () => {
     const query = filters.search.trim()
@@ -140,14 +142,25 @@ function CustomersModuleContent() {
         <p className="max-w-2xl text-sm text-muted-foreground">
           Directorio de abonados y suscriptores para operaciones de campo.
         </p>
-        <Button
-          size="sm"
-          className="gap-1.5 self-start"
-          onClick={openCreateDialog}
-        >
-          <Plus className="size-4" />
-          Nuevo Cliente
-        </Button>
+        <div className="flex flex-wrap gap-2 self-start">
+          <Button
+            size="sm"
+            className="gap-1.5"
+            onClick={openCreateDialog}
+          >
+            <Plus className="size-4" />
+            Nuevo Cliente
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            onClick={() => setImportOpen(true)}
+          >
+            <FileSpreadsheet className="size-4" />
+            Importar Excel
+          </Button>
+        </div>
       </div>
 
       <EntityActionFeedback message={feedback} />
@@ -213,6 +226,12 @@ function CustomersModuleContent() {
           }
         }}
         onSuccess={handleMutationSuccess}
+      />
+
+      <CustomerImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onImported={handleMutationSuccess}
       />
     </div>
   )

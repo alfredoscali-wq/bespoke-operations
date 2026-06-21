@@ -1,87 +1,214 @@
 "use client"
 
 import { useMemo } from "react"
-import Link from "next/link"
+import {
+  Ban,
+  Building2,
+  CheckCircle2,
+  CircleDot,
+  ClipboardCheck,
+  Clock,
+  HardHat,
+  ListChecks,
+  PauseCircle,
+  Radio,
+  UserCheck,
+  Users,
+} from "lucide-react"
 
+import { useAvailability } from "@/components/disponibilidad/availability-provider"
+import { DashboardDayOperations } from "@/components/dashboard/dashboard-day-operations"
+import { DashboardExecutiveSummary } from "@/components/dashboard/dashboard-executive-summary"
+import { DashboardOperationalAlerts } from "@/components/dashboard/dashboard-operational-alerts"
+import { DashboardOperationalHeader } from "@/components/dashboard/dashboard-operational-header"
+import { DashboardRecentActivity } from "@/components/dashboard/dashboard-recent-activity"
+import { DashboardStatusSection } from "@/components/dashboard/dashboard-status-section"
 import { useCrews } from "@/components/cuadrillas/crews-provider"
-import { KpiGrid } from "@/components/dashboard/kpi-card"
-import { OperationsOverview } from "@/components/dashboard/operations-overview"
-import { RecentActivity } from "@/components/dashboard/recent-activity"
-import { UpcomingTasks } from "@/components/dashboard/upcoming-tasks"
 import { useEvidence } from "@/components/evidencias/evidence-provider"
 import { useProjects } from "@/components/obras/projects-provider"
+import { useEmployees } from "@/components/rrhh/employees-provider"
 import { useTasks } from "@/components/tareas/tasks-provider"
 import {
-  buildKpiMetrics,
-  buildOperationsSegments,
-  buildRecentActivity,
-  buildUpcomingTasks,
+  buildCrewsStatusKpis,
+  buildDayOperations,
+  buildExecutiveSummary,
+  buildOperationalAlerts,
+  buildProjectsStatusKpis,
+  buildRecentOperationalActivity,
+  buildTasksStatusKpis,
+  countOperationalIncidents,
 } from "@/lib/data/dashboard"
-import { Button } from "@/components/ui/button"
+
+const PROJECT_ICONS = {
+  active: Building2,
+  planned: ListChecks,
+  "pending-closure": PauseCircle,
+  closed: CheckCircle2,
+} as const
+
+const PROJECT_TONES = {
+  active: "green",
+  planned: "blue",
+  "pending-closure": "yellow",
+  closed: "yellow",
+} as const
+
+const TASK_ICONS = {
+  pendiente: CircleDot,
+  asignada: UserCheck,
+  "en-curso": Clock,
+  "en-aprobacion": ClipboardCheck,
+  finalizada: CheckCircle2,
+  cerrada: Ban,
+} as const
+
+const TASK_TONES = {
+  pendiente: "gray",
+  asignada: "blue",
+  "en-curso": "yellow",
+  "en-aprobacion": "yellow",
+  finalizada: "violet",
+  cerrada: "neutral",
+} as const
+
+const CREW_ICONS = {
+  active: Users,
+  field: HardHat,
+  reduced: Radio,
+  "not-operational": Ban,
+} as const
+
+const CREW_TONES = {
+  active: "green",
+  field: "blue",
+  reduced: "yellow",
+  "not-operational": "red",
+} as const
 
 export function DashboardPageClient() {
   const { projects } = useProjects()
   const { tasks } = useTasks()
   const { evidence } = useEvidence()
   const { crews } = useCrews()
+  const { records: availabilityRecords } = useAvailability()
+  const { getEmployee } = useEmployees()
 
-  const kpiMetrics = useMemo(
-    () => buildKpiMetrics(projects, tasks, evidence, crews),
-    [projects, tasks, evidence, crews]
+  const crewAvailabilityContext = useMemo(
+    () => ({
+      availabilityRecords,
+      getEmployee,
+    }),
+    [availabilityRecords, getEmployee]
   )
 
-  const recentActivity = useMemo(
-    () => buildRecentActivity(projects, tasks, evidence),
-    [projects, tasks, evidence]
+  const alerts = useMemo(
+    () =>
+      buildOperationalAlerts({
+        projects,
+        tasks,
+        crews,
+        crewAvailabilityContext,
+      }),
+    [projects, tasks, crews, crewAvailabilityContext]
   )
 
-  const upcomingTasks = useMemo(
-    () => buildUpcomingTasks(tasks),
-    [tasks]
+  const incidentsCount = useMemo(
+    () => countOperationalIncidents(alerts),
+    [alerts]
   )
 
-  const operationsSegments = useMemo(
-    () => buildOperationsSegments(projects),
+  const executiveSummary = useMemo(
+    () =>
+      buildExecutiveSummary({
+        projects,
+        tasks,
+        crews,
+        alertsCount: incidentsCount,
+        crewAvailabilityContext,
+      }),
+    [projects, tasks, crews, incidentsCount, crewAvailabilityContext]
+  )
+
+  const dayOperations = useMemo(
+    () => buildDayOperations({ tasks, evidence }),
+    [tasks, evidence]
+  )
+
+  const projectsStatus = useMemo(
+    () => buildProjectsStatusKpis(projects),
     [projects]
   )
 
+  const tasksStatus = useMemo(
+    () => buildTasksStatusKpis(tasks),
+    [tasks]
+  )
+
+  const crewsStatus = useMemo(
+    () =>
+      buildCrewsStatusKpis({
+        crews,
+        tasks,
+        crewAvailabilityContext,
+      }),
+    [crews, tasks, crewAvailabilityContext]
+  )
+
+  const recentActivity = useMemo(
+    () =>
+      buildRecentOperationalActivity({
+        projects,
+        tasks,
+        evidence,
+        crews,
+        crewAvailabilityContext,
+      }),
+    [projects, tasks, evidence, crews, crewAvailabilityContext]
+  )
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="space-y-1">
-          <p className="text-sm font-medium text-muted-foreground">
-            Resumen del día
-          </p>
-          <h2 className="text-xl font-semibold tracking-tight text-foreground">
-            Operaciones en campo
-          </h2>
-          <p className="max-w-2xl text-sm text-muted-foreground">
-            Monitoreo en tiempo real de obras, tareas, cuadrillas y evidencias
-            registradas en Supabase.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/tareas">Ver tareas</Link>
-          </Button>
-          <Button size="sm" asChild>
-            <Link href="/obras">Nueva obra</Link>
-          </Button>
-        </div>
-      </div>
+    <div className="space-y-8">
+      <DashboardOperationalHeader />
 
-      <KpiGrid metrics={kpiMetrics} />
-
-      <div className="grid gap-6 xl:grid-cols-3">
-        <div className="xl:col-span-2">
-          <RecentActivity items={recentActivity} />
+      <section className="space-y-3">
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">
+            Resumen Ejecutivo
+          </h3>
         </div>
-        <div className="space-y-6">
-          <OperationsOverview segments={operationsSegments} />
-        </div>
-      </div>
+        <DashboardExecutiveSummary kpis={executiveSummary} />
+      </section>
 
-      <UpcomingTasks tasks={upcomingTasks} />
+      <DashboardOperationalAlerts alerts={alerts} />
+
+      <DashboardDayOperations metrics={dayOperations} />
+
+      <DashboardStatusSection
+        title="Estado de Obras"
+        description="Distribución operativa del portafolio de obras"
+        kpis={projectsStatus}
+        icons={PROJECT_ICONS}
+        tones={PROJECT_TONES}
+      />
+
+      <DashboardStatusSection
+        title="Estado de Tareas"
+        description="Seguimiento operativo por estado de ciclo de vida"
+        kpis={tasksStatus}
+        icons={TASK_ICONS}
+        tones={TASK_TONES}
+        columnsClassName="sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6"
+      />
+
+      <DashboardStatusSection
+        title="Estado de Cuadrillas"
+        description="Disponibilidad y despliegue operativo de cuadrillas"
+        kpis={crewsStatus}
+        icons={CREW_ICONS}
+        tones={CREW_TONES}
+      />
+
+      <DashboardRecentActivity items={recentActivity} />
     </div>
   )
 }

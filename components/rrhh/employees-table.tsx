@@ -14,7 +14,6 @@ import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -153,7 +152,6 @@ export function EmployeesTable({ employees }: EmployeesTableProps) {
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead>Código</TableHead>
                 <TableHead>Nombre</TableHead>
                 <TableHead>Cargo</TableHead>
                 <TableHead>Tipo</TableHead>
@@ -166,14 +164,6 @@ export function EmployeesTable({ employees }: EmployeesTableProps) {
             <TableBody>
               {employees.map((employee) => (
                 <TableRow key={employee.id}>
-                  <TableCell className="font-mono text-sm">
-                    <Link
-                      href={`/rrhh/${employee.id}`}
-                      className="font-medium hover:text-primary"
-                    >
-                      {employee.employeeCode}
-                    </Link>
-                  </TableCell>
                   <TableCell>
                     <Link
                       href={`/rrhh/${employee.id}`}
@@ -181,11 +171,6 @@ export function EmployeesTable({ employees }: EmployeesTableProps) {
                     >
                       {employee.displayName}
                     </Link>
-                    <p className="text-xs text-muted-foreground">
-                      {[employee.firstName, employee.lastName]
-                        .filter(Boolean)
-                        .join(" ")}
-                    </p>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {employee.jobTitle || "—"}
@@ -221,9 +206,6 @@ export function EmployeesTable({ employees }: EmployeesTableProps) {
                       {employee.displayName}
                     </CardTitle>
                   </Link>
-                  <CardDescription className="font-mono">
-                    {employee.employeeCode}
-                  </CardDescription>
                 </div>
                 <div className="flex items-center gap-1">
                   <EmployeeTypeBadge employeeType={employee.employeeType} />

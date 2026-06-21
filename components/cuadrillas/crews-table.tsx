@@ -255,14 +255,11 @@ export function CrewsTable({ crews }: CrewsTableProps) {
                     >
                       {crew.name}
                     </Link>
-                    <p className="text-xs text-muted-foreground">
-                      {supervisor.displayName}
-                      {supervisor.employeeCode
-                        ? ` · ${supervisor.employeeCode}`
-                        : supervisor.isLegacy
-                          ? " · legacy"
-                          : ""}
-                    </p>
+                    {supervisor.displayName !== "Sin supervisor asignado" && (
+                      <p className="text-xs text-muted-foreground">
+                        Supervisor: {supervisor.displayName}
+                      </p>
+                    )}
                   </TableCell>
                   <TableCell className="max-w-[220px] truncate text-sm text-muted-foreground">
                     {crew.description || "—"}
@@ -309,7 +306,10 @@ export function CrewsTable({ crews }: CrewsTableProps) {
                     </CardTitle>
                   </Link>
                   <CardDescription className="line-clamp-2">
-                    {crew.description || supervisor.displayName}
+                    {crew.description ||
+                      (supervisor.displayName !== "Sin supervisor asignado"
+                        ? `Supervisor: ${supervisor.displayName}`
+                        : "")}
                   </CardDescription>
                 </div>
                 <div className="flex flex-col items-end gap-1.5">

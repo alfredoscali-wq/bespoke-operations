@@ -13,6 +13,7 @@ import type {
   EmploymentStatus,
   NewEmployeeInput,
 } from "@/lib/types/employees"
+import { useEmployees } from "@/components/rrhh/employees-provider"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -77,6 +78,18 @@ const emptyForm: EmployeeFormState = {
   notes: "",
 }
 
+function buildNextEmployeeCode(existingCodes: string[]): string {
+  let max = 0
+
+  for (const code of existingCodes) {
+    const match = code.match(/-(\d+)$/)
+    if (!match) continue
+    max = Math.max(max, Number.parseInt(match[1], 10))
+  }
+
+  return `EMP-${String(max + 1).padStart(4, "0")}`
+}
+
 export function EmployeeFormDialog({
   open,
   onOpenChange,
@@ -84,6 +97,7 @@ export function EmployeeFormDialog({
   employee,
   onSubmit,
 }: EmployeeFormDialogProps) {
+  const { employees } = useEmployees()
   const [form, setForm] = useState<EmployeeFormState>(emptyForm)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -132,11 +146,6 @@ export function EmployeeFormDialog({
     event.preventDefault()
     setError(null)
 
-    if (!form.employeeCode.trim()) {
-      setError("El código de empleado es obligatorio.")
-      return
-    }
-
     if (!form.firstName.trim()) {
       setError("El nombre es obligatorio.")
       return
@@ -155,8 +164,13 @@ export function EmployeeFormDialog({
     setIsSubmitting(true)
 
     try {
+      const employeeCode =
+        mode === "edit" && employee
+          ? employee.employeeCode
+          : buildNextEmployeeCode(employees.map((item) => item.employeeCode))
+
       await onSubmit({
-        employeeCode: form.employeeCode.trim(),
+        employeeCode,
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
         preferredName: form.preferredName.trim() || undefined,
@@ -185,7 +199,6 @@ export function EmployeeFormDialog({
   }
 
   const isValid =
-    form.employeeCode.trim() !== "" &&
     form.firstName.trim() !== "" &&
     form.lastName.trim() !== "" &&
     form.jobTitle.trim() !== ""
@@ -206,17 +219,6 @@ export function EmployeeFormDialog({
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="employeeCode">Código</Label>
-              <Input
-                id="employeeCode"
-                value={form.employeeCode}
-                onChange={(event) =>
-                  updateField("employeeCode", event.target.value)
-                }
-                placeholder="EMP-001"
-              />
-            </div>
             <div className="space-y-2">
               <Label htmlFor="nationalId">DNI / Identificación</Label>
               <Input
