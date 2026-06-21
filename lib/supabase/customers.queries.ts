@@ -94,6 +94,7 @@ export async function searchCustomers(
     .or(
       [
         `customer_number.ilike.${pattern}`,
+        `external_customer_code.ilike.${pattern}`,
         `name.ilike.${pattern}`,
         `phone.ilike.${pattern}`,
         `address.ilike.${pattern}`,

@@ -56,6 +56,7 @@ export type Database = {
         Row: {
           id: string
           customer_number: string
+          external_customer_code: string | null
           name: string
           phone: string | null
           email: string | null
@@ -65,10 +66,12 @@ export type Database = {
           status: string
           created_at: string
           updated_at: string
+          deleted_at: string | null
         }
         Insert: {
           id?: string
           customer_number: string
+          external_customer_code?: string | null
           name: string
           phone?: string | null
           email?: string | null
@@ -78,10 +81,12 @@ export type Database = {
           status?: string
           created_at?: string
           updated_at?: string
+          deleted_at?: string | null
         }
         Update: {
           id?: string
           customer_number?: string
+          external_customer_code?: string | null
           name?: string
           phone?: string | null
           email?: string | null
@@ -91,6 +96,7 @@ export type Database = {
           status?: string
           created_at?: string
           updated_at?: string
+          deleted_at?: string | null
         }
         Relationships: []
       }

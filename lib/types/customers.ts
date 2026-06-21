@@ -1,6 +1,7 @@
 export interface Customer {
   id: string
   customerNumber: string
+  externalCustomerCode?: string
 
   name: string
   phone?: string
@@ -15,10 +16,12 @@ export interface Customer {
 
   createdAt: string
   updatedAt: string
+  deletedAt?: string
 }
 
 export type NewCustomerInput = {
   name: string
+  externalCustomerCode?: string
   phone?: string
   email?: string
   address?: string

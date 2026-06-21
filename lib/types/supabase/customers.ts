@@ -1,6 +1,7 @@
 export type CreateCustomerPayload = {
   customerNumber: string
   name: string
+  externalCustomerCode?: string | null
   phone?: string | null
   email?: string | null
   address?: string | null
@@ -12,12 +13,14 @@ export type CreateCustomerPayload = {
 export type UpdateCustomerPayload = Partial<{
   customerNumber: string
   name: string
+  externalCustomerCode: string | null
   phone: string | null
   email: string | null
   address: string | null
   locality: string | null
   technology: string | null
   status: string
+  deletedAt: string | null
 }>
 
 export type CustomersRepositoryErrorCode =

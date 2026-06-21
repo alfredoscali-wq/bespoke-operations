@@ -19,6 +19,7 @@ export function mapCustomerRowToCustomer(row: CustomerRow): Customer {
   return {
     id: row.id,
     customerNumber: row.customer_number,
+    externalCustomerCode: row.external_customer_code ?? undefined,
     name: row.name,
     phone: row.phone ?? undefined,
     email: row.email ?? undefined,
@@ -28,6 +29,7 @@ export function mapCustomerRowToCustomer(row: CustomerRow): Customer {
     status: row.status,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    deletedAt: row.deleted_at ?? undefined,
   }
 }
 
@@ -37,6 +39,7 @@ export function mapCustomerInsert(
   return {
     customer_number: payload.customerNumber.trim(),
     name: payload.name.trim(),
+    external_customer_code: trimOptional(payload.externalCustomerCode),
     phone: trimOptional(payload.phone),
     email: trimOptional(payload.email),
     address: trimOptional(payload.address),
@@ -57,6 +60,9 @@ export function mapCustomerUpdate(
   if (payload.name !== undefined) {
     update.name = payload.name.trim()
   }
+  if (payload.externalCustomerCode !== undefined) {
+    update.external_customer_code = trimOptional(payload.externalCustomerCode)
+  }
   if (payload.phone !== undefined) {
     update.phone = trimOptional(payload.phone)
   }
@@ -74,6 +80,9 @@ export function mapCustomerUpdate(
   }
   if (payload.status !== undefined) {
     update.status = payload.status.trim()
+  }
+  if (payload.deletedAt !== undefined) {
+    update.deleted_at = payload.deletedAt
   }
 
   return update
