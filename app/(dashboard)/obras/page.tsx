@@ -1,5 +1,5 @@
-import { ProjectsList } from "@/components/obras/projects-list"
+import { ProjectsModule } from "@/components/obras/projects-module"
 
 export default function ObrasPage() {
-  return <ProjectsList />
+  return <ProjectsModule />
 }

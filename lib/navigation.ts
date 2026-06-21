@@ -1,4 +1,5 @@
 import {
+  BarChart3,
   Building2,
   CalendarClock,
   CalendarRange,
@@ -99,6 +100,17 @@ export const rrhhNavItems: NavItem[] = [
   },
 ]
 
+export const analysisNavItems: NavItem[] = [
+  {
+    title: "Reportes",
+    href: "/reportes",
+    icon: BarChart3,
+    pageTitle: "Reportes Operativos",
+    description:
+      "Indicadores y análisis de órdenes de trabajo según período y filtros operativos.",
+  },
+]
+
 export const systemNavItems: NavItem[] = [
   {
     title: "Historial",
@@ -119,6 +131,7 @@ export const systemNavItems: NavItem[] = [
 export const navGroups: NavGroup[] = [
   { id: "dashboard", items: [dashboardNavItem] },
   { id: "operations", label: "Operaciones", items: operationsNavItems },
+  { id: "analysis", label: "Análisis", items: analysisNavItems },
   { id: "rrhh", label: "RRHH", items: rrhhNavItems },
   { id: "system", label: "Sistema", items: systemNavItems },
 ]
