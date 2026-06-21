@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation"
 import {
   ChevronLeft,
   ChevronRight,
-  Radio,
   X,
 } from "lucide-react"
 
@@ -13,6 +12,8 @@ import { navGroups, type NavItem } from "@/lib/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
+
+const BESPOKE_LOGO_SRC = "/branding/Bespoke-logo-2.png"
 
 type AppSidebarProps = {
   collapsed: boolean
@@ -67,6 +68,31 @@ function NavLink({
   )
 }
 
+function SidebarBrand({
+  collapsed,
+  onCloseMobile,
+}: {
+  collapsed: boolean
+  onCloseMobile: () => void
+}) {
+  return (
+    <Link
+      href="/"
+      className="flex max-w-full items-center justify-center rounded-lg transition-opacity hover:opacity-90"
+      onClick={onCloseMobile}
+    >
+      <img
+        src={BESPOKE_LOGO_SRC}
+        alt="Bespoke Operations"
+        className={cn(
+          "h-auto max-w-full shrink-0 object-contain object-center",
+          collapsed ? "w-10" : "w-[200px]"
+        )}
+      />
+    </Link>
+  )
+}
+
 export function AppSidebar({
   collapsed,
   mobileOpen,
@@ -79,38 +105,17 @@ export function AppSidebar({
     <>
       <div
         className={cn(
-          "flex h-14 shrink-0 items-center border-b border-sidebar-border px-3",
-          collapsed ? "justify-center" : "justify-between"
+          "relative flex shrink-0 items-center justify-center border-b border-sidebar-border px-3",
+          collapsed ? "h-[4.75rem] py-2" : "py-4"
         )}
       >
-        <Link
-          href="/"
-          className={cn(
-            "flex items-center gap-2.5 overflow-hidden rounded-lg px-2 py-1.5 transition-colors hover:bg-sidebar-accent",
-            collapsed && "px-0"
-          )}
-          onClick={onCloseMobile}
-        >
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Radio className="size-4" />
-          </div>
-          {!collapsed && (
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold tracking-tight text-sidebar-foreground">
-                Bespoke Operations
-              </p>
-              <p className="truncate text-[11px] text-muted-foreground">
-                Infraestructura &amp; Telecom
-              </p>
-            </div>
-          )}
-        </Link>
+        <SidebarBrand collapsed={collapsed} onCloseMobile={onCloseMobile} />
 
         {!collapsed && (
           <Button
             variant="ghost"
             size="icon-sm"
-            className="hidden text-muted-foreground lg:inline-flex"
+            className="absolute top-1/2 right-2 hidden -translate-y-1/2 shrink-0 text-muted-foreground lg:inline-flex"
             onClick={onToggleCollapse}
             aria-label="Contraer menú"
           >
@@ -121,7 +126,7 @@ export function AppSidebar({
         <Button
           variant="ghost"
           size="icon-sm"
-          className="text-muted-foreground lg:hidden"
+          className="absolute top-1/2 right-2 -translate-y-1/2 shrink-0 text-muted-foreground lg:hidden"
           onClick={onCloseMobile}
           aria-label="Cerrar menú"
         >
@@ -156,19 +161,6 @@ export function AppSidebar({
           ))}
         </nav>
       </ScrollArea>
-
-      {!collapsed && (
-        <div className="shrink-0 border-t border-sidebar-border p-3">
-          <div className="rounded-lg bg-muted/60 px-3 py-3">
-            <p className="text-xs font-medium text-foreground">
-              Operaciones de campo
-            </p>
-            <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-              Fibra · Cámaras · Wireless · Postes
-            </p>
-          </div>
-        </div>
-      )}
 
       {collapsed && (
         <div className="hidden shrink-0 border-t border-sidebar-border p-2 lg:block">
