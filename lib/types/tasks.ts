@@ -41,6 +41,8 @@ export type Task = {
   serviceAddress?: string
   latitude?: number
   longitude?: number
+  sharedLocation?: string
+  observationsForCrew?: string
   workOrderNumber?: string
   type: TaskType
   status: TaskStatus

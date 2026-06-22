@@ -3,6 +3,7 @@
 import { Archive, Pencil, Trash2 } from "lucide-react"
 
 import { useCustomersUI } from "@/components/clientes/customers-ui-provider"
+import { WhatsAppLink } from "@/components/ui/whatsapp-link"
 import { Button } from "@/components/ui/button"
 import {
   formatCustomerAddressLabel,
@@ -93,7 +94,11 @@ function CustomerCard({
         </div>
 
         <div className="space-y-1 text-sm text-muted-foreground">
-          {customer.phone && <p>📞 {customer.phone}</p>}
+          {customer.phone && (
+            <p>
+              📞 <WhatsAppLink phone={customer.phone} />
+            </p>
+          )}
           {addressLabel && <p>📍 {addressLabel}</p>}
         </div>
 

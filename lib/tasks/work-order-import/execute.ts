@@ -89,6 +89,8 @@ function importRowToFormInput(row: WorkOrderImportReviewRow): WorkOrderFormInput
     clientOrderNumber: data.clientOrderNumber,
     province: data.province,
     postalCode: data.postalCode,
+    sharedLocation: "",
+    observationsForCrew: "",
   }
 }
 

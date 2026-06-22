@@ -21,6 +21,8 @@ import { formatTaskDate } from "@/lib/tasks/constants"
 import { isFieldServiceTask } from "@/lib/tasks/utils"
 import { TaskEvidenceSummary } from "@/components/evidencias/task-evidence-summary"
 import { TaskMaterialsPanel } from "@/components/materiales/task-materials-panel"
+import { TaskReferencePhotosGallery } from "@/components/tareas/task-reference-photos-gallery"
+import { WhatsAppLink } from "@/components/ui/whatsapp-link"
 import { Progress } from "@/components/ui/progress"
 import {
   Card,
@@ -37,6 +39,11 @@ import {
   TaskTypeBadge,
 } from "@/components/tareas/task-badges"
 import { isWorkOrderTask } from "@/lib/tasks/work-order"
+import {
+  getSharedLocationDisplayText,
+  getSharedLocationHref,
+  hasLoadedGps,
+} from "@/lib/utils/shared-location"
 
 type TaskOverviewTabProps = {
   task: Task
@@ -60,6 +67,29 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
     task.supervisor || "Sin supervisor asignado"
   const supervisorHint =
     taskHasCrew(task) && task.supervisor ? "Asignado por cuadrilla" : undefined
+
+  const sharedLocationText = task.sharedLocation?.trim()
+  const crewObservations = task.observationsForCrew?.trim()
+  const gpsLoaded = hasLoadedGps(
+    task.sharedLocation,
+    task.latitude,
+    task.longitude
+  )
+  const sharedLocationDisplay = getSharedLocationDisplayText(
+    task.sharedLocation,
+    task.latitude,
+    task.longitude
+  )
+  const sharedLocationHref = getSharedLocationHref(
+    task.sharedLocation,
+    task.latitude,
+    task.longitude
+  )
+  const hasCrewInfo =
+    isWorkOrderTask(task) ||
+    Boolean(sharedLocationText) ||
+    Boolean(crewObservations) ||
+    gpsLoaded
 
   const sharedInfoItems = [
     {
@@ -129,7 +159,11 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
     {
       icon: Phone,
       label: "Teléfono",
-      value: task.customerPhone || "—",
+      value: task.customerPhone ? (
+        <WhatsAppLink phone={task.customerPhone} />
+      ) : (
+        "—"
+      ),
     },
     {
       icon: MapPin,
@@ -194,6 +228,49 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
             })}
           </div>
 
+          {hasCrewInfo && (
+            <div className="mt-4 rounded-lg border bg-muted/20 p-4">
+              <p className="text-xs font-medium text-muted-foreground">
+                Información para la Cuadrilla
+              </p>
+              <div className="mt-3 space-y-3 text-sm">
+                {gpsLoaded && sharedLocationDisplay ? (
+                  <div className="space-y-1">
+                    <p className="text-green-600 dark:text-green-500">
+                      ✅ GPS cargado
+                    </p>
+                    {sharedLocationHref ? (
+                      <a
+                        href={sharedLocationHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="break-all font-medium text-primary hover:underline"
+                      >
+                        {sharedLocationDisplay}
+                      </a>
+                    ) : (
+                      <p className="break-all font-medium">
+                        {sharedLocationDisplay}
+                      </p>
+                    )}
+                  </div>
+                ) : sharedLocationDisplay ? (
+                  <p className="break-all font-medium text-muted-foreground">
+                    {sharedLocationDisplay}
+                  </p>
+                ) : null}
+                <div>
+                  <p className="text-xs text-muted-foreground">
+                    Observaciones para la cuadrilla
+                  </p>
+                  <p className="whitespace-pre-wrap font-medium">
+                    {crewObservations || "Sin observaciones"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {!isService && (
             <div className="mt-4 rounded-lg border bg-muted/20 p-3 text-sm">
               <p className="text-xs text-muted-foreground">Obra relacionada</p>
@@ -233,6 +310,7 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
         </Card>
 
         <TaskEvidenceSummary taskId={task.id} />
+        <TaskReferencePhotosGallery taskId={task.id} />
         <TaskMaterialsPanel taskId={task.id} />
       </div>
     </div>

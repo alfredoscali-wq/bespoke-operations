@@ -10,6 +10,7 @@ import { EmployeeFormDialog } from "@/components/rrhh/employee-form-dialog"
 import { useEmployees } from "@/components/rrhh/employees-provider"
 import { EntityActionFeedback } from "@/components/ui/entity-action-feedback"
 import type { EmployeeListItem, NewEmployeeInput } from "@/lib/types/employees"
+import { WhatsAppLink } from "@/components/ui/whatsapp-link"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -182,7 +183,11 @@ export function EmployeesTable({ employees }: EmployeesTableProps) {
                     {employee.department || "—"}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {employee.phone || "—"}
+                    {employee.phone ? (
+                      <WhatsAppLink phone={employee.phone} />
+                    ) : (
+                      "—"
+                    )}
                   </TableCell>
                   <TableCell>
                     <EmploymentStatusBadge status={employee.employmentStatus} />
@@ -225,7 +230,11 @@ export function EmployeesTable({ employees }: EmployeesTableProps) {
               </p>
               <p>
                 <span className="text-muted-foreground">Teléfono:</span>{" "}
-                {employee.phone || "—"}
+                {employee.phone ? (
+                  <WhatsAppLink phone={employee.phone} />
+                ) : (
+                  "—"
+                )}
               </p>
             </CardContent>
           </Card>

@@ -48,6 +48,8 @@ export function mapTaskRowToTask(row: TaskRow): Task {
     serviceAddress: row.service_address ?? undefined,
     latitude: mapNullableNumber(row.latitude),
     longitude: mapNullableNumber(row.longitude),
+    sharedLocation: row.shared_location?.trim() || undefined,
+    observationsForCrew: row.observations_for_crew?.trim() || undefined,
     workOrderNumber: row.work_order_number ?? undefined,
     type: row.type,
     status: row.status,
@@ -84,6 +86,8 @@ export function mapCreatePayloadToInsert(payload: CreateTaskPayload): TaskInsert
     service_address: payload.serviceAddress?.trim() || null,
     latitude: payload.latitude ?? null,
     longitude: payload.longitude ?? null,
+    shared_location: payload.sharedLocation?.trim() || "",
+    observations_for_crew: payload.observationsForCrew?.trim() || "",
     work_order_number: payload.workOrderNumber?.trim() || null,
     type: payload.type,
     status:
@@ -136,6 +140,12 @@ export function mapUpdatePayloadToUpdate(payload: UpdateTaskPayload): TaskUpdate
   }
   if (payload.latitude !== undefined) update.latitude = payload.latitude
   if (payload.longitude !== undefined) update.longitude = payload.longitude
+  if (payload.sharedLocation !== undefined) {
+    update.shared_location = payload.sharedLocation?.trim() || ""
+  }
+  if (payload.observationsForCrew !== undefined) {
+    update.observations_for_crew = payload.observationsForCrew?.trim() || ""
+  }
   if (payload.workOrderNumber !== undefined) {
     update.work_order_number = payload.workOrderNumber?.trim() || null
   }

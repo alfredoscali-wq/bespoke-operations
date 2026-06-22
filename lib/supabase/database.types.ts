@@ -411,6 +411,8 @@ export type Database = {
           service_address: string | null
           latitude: number | null
           longitude: number | null
+          shared_location: string
+          observations_for_crew: string
           work_order_number: string | null
           type: TaskType
           status: TaskStatus
@@ -448,6 +450,8 @@ export type Database = {
           service_address?: string | null
           latitude?: number | null
           longitude?: number | null
+          shared_location?: string
+          observations_for_crew?: string
           work_order_number?: string | null
           type: TaskType
           status?: TaskStatus
@@ -485,6 +489,8 @@ export type Database = {
           service_address?: string | null
           latitude?: number | null
           longitude?: number | null
+          shared_location?: string
+          observations_for_crew?: string
           work_order_number?: string | null
           type?: TaskType
           status?: TaskStatus
@@ -505,6 +511,69 @@ export type Database = {
           service_type?: string | null
           locality?: string | null
           task_metadata?: Json
+        }
+        Relationships: []
+      }
+      task_photos: {
+        Row: {
+          id: string
+          task_id: string
+          company_id: string
+          storage_bucket: string
+          storage_path: string
+          file_name: string
+          mime_type: string | null
+          file_size_bytes: number | null
+          caption: string
+          uploaded_by: string
+          uploaded_at: string
+          created_at: string
+          updated_at: string
+          deleted_at: string | null
+          photo_type: "reference" | "evidence"
+          file_url: string | null
+          description: string
+          created_by: string | null
+        }
+        Insert: {
+          id?: string
+          task_id: string
+          company_id?: string
+          storage_bucket?: string
+          storage_path: string
+          file_name: string
+          mime_type?: string | null
+          file_size_bytes?: number | null
+          caption?: string
+          uploaded_by?: string
+          uploaded_at?: string
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+          photo_type?: "reference" | "evidence"
+          file_url?: string | null
+          description?: string
+          created_by?: string | null
+        }
+        Update: {
+          id?: string
+          task_id?: string
+          company_id?: string
+          storage_bucket?: string
+          storage_path?: string
+          file_name?: string
+          mime_type?: string | null
+          file_size_bytes?: number | null
+          caption?: string
+          uploaded_by?: string
+          uploaded_at?: string
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+          photo_type?: "reference" | "evidence"
+          file_url?: string | null
+          description?: string
+          created_by?: string | null
         }
         Relationships: []
       }
@@ -634,6 +703,11 @@ export type ProjectHistoryUpdate =
 export type TaskRow = Database["public"]["Tables"]["tasks"]["Row"]
 export type TaskInsert = Database["public"]["Tables"]["tasks"]["Insert"]
 export type TaskUpdate = Database["public"]["Tables"]["tasks"]["Update"]
+export type TaskPhotoRow = Database["public"]["Tables"]["task_photos"]["Row"]
+export type TaskPhotoInsert =
+  Database["public"]["Tables"]["task_photos"]["Insert"]
+export type TaskPhotoUpdate =
+  Database["public"]["Tables"]["task_photos"]["Update"]
 export type EvidenceRow = Database["public"]["Tables"]["evidences"]["Row"]
 export type EvidenceInsert =
   Database["public"]["Tables"]["evidences"]["Insert"]

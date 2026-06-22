@@ -197,6 +197,12 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       ...(payload.longitude !== undefined
         ? { longitude: payload.longitude ?? undefined }
         : {}),
+      ...(payload.sharedLocation !== undefined
+        ? { sharedLocation: payload.sharedLocation ?? undefined }
+        : {}),
+      ...(payload.observationsForCrew !== undefined
+        ? { observationsForCrew: payload.observationsForCrew ?? undefined }
+        : {}),
       ...(payload.workOrderNumber !== undefined
         ? { workOrderNumber: payload.workOrderNumber ?? undefined }
         : {}),

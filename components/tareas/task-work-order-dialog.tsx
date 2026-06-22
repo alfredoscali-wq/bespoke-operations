@@ -27,10 +27,20 @@ import {
   type WorkOrderServiceType,
 } from "@/lib/tasks/work-order"
 import { resolveSupervisorFromCrew } from "@/lib/tasks/utils"
+import {
+  isRecognizedSharedLocation,
+} from "@/lib/utils/shared-location"
+import { uploadPendingTaskReferencePhotos } from "@/lib/supabase/task-photos.browser"
+import {
+  TaskReferencePhotosPicker,
+  revokePendingTaskReferencePhotos,
+} from "@/components/tareas/task-reference-photos-picker"
+import type { PendingTaskReferencePhoto } from "@/lib/types/task-photos"
 import type { Customer } from "@/lib/types/customers"
 import type { Task } from "@/lib/types/tasks"
 import type { CreateTaskPayload } from "@/lib/types/supabase/tasks"
 import { Button } from "@/components/ui/button"
+import { WhatsAppLink } from "@/components/ui/whatsapp-link"
 import {
   Dialog,
   DialogContent,
@@ -53,7 +63,7 @@ type TaskWorkOrderDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   existingTasks: Task[]
-  onSubmit: (payload: CreateTaskPayload) => Promise<void>
+  onSubmit: (payload: CreateTaskPayload) => Promise<Task>
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
@@ -177,7 +187,7 @@ function CustomerSearchField({
                 )}
                 {customer.phone && (
                   <span className="text-xs text-muted-foreground">
-                    📞 {customer.phone}
+                    📞 <WhatsAppLink phone={customer.phone} />
                   </span>
                 )}
                 {technologyLabel && (
@@ -235,6 +245,11 @@ function CustomerFields({
             readOnly={readOnlyContact}
             className={readOnlyContact ? "bg-muted/40" : undefined}
           />
+          {form.customerPhone.trim() && (
+            <p className="text-xs">
+              <WhatsAppLink phone={form.customerPhone} />
+            </p>
+          )}
         </div>
         <div className="space-y-2">
           <Label htmlFor="wo-email">Email</Label>
@@ -519,6 +534,74 @@ function applyCustomerToForm(
   }
 }
 
+function WorkOrderCrewInfoFields({
+  form,
+  updateField,
+  referencePhotos,
+  onReferencePhotosChange,
+  photosDisabled,
+  onPhotosError,
+}: {
+  form: WorkOrderFormInput
+  updateField: <K extends keyof WorkOrderFormInput>(
+    key: K,
+    value: WorkOrderFormInput[K]
+  ) => void
+  referencePhotos: PendingTaskReferencePhoto[]
+  onReferencePhotosChange: (photos: PendingTaskReferencePhoto[]) => void
+  photosDisabled?: boolean
+  onPhotosError?: (message: string | null) => void
+}) {
+  const hasSharedLocationInput = form.sharedLocation.trim().length > 0
+  const isGpsLoaded = isRecognizedSharedLocation(form.sharedLocation)
+
+  return (
+    <section className="space-y-4">
+      <SectionTitle>Información para la Cuadrilla</SectionTitle>
+      <div className="space-y-2">
+        <Label htmlFor="wo-shared-location">Ubicación Compartida</Label>
+        <Input
+          id="wo-shared-location"
+          value={form.sharedLocation}
+          onChange={(event) =>
+            updateField("sharedLocation", event.target.value)
+          }
+          placeholder="URL de Google Maps, enlace corto o coordenadas"
+        />
+        {hasSharedLocationInput && isGpsLoaded ? (
+          <p className="text-xs text-green-600 dark:text-green-500">
+            ✅ GPS cargado
+          </p>
+        ) : hasSharedLocationInput ? (
+          <p className="text-xs text-amber-600 dark:text-amber-500">
+            ⚠ Revise la ubicación ingresada
+          </p>
+        ) : null}
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="wo-observations-crew">
+          Observaciones para la cuadrilla
+        </Label>
+        <Textarea
+          id="wo-observations-crew"
+          value={form.observationsForCrew}
+          onChange={(event) =>
+            updateField("observationsForCrew", event.target.value)
+          }
+          placeholder="Casa amarilla. Portón negro. Llamar antes de llegar."
+          rows={3}
+        />
+      </div>
+      <TaskReferencePhotosPicker
+        photos={referencePhotos}
+        onChange={onReferencePhotosChange}
+        disabled={photosDisabled}
+        onError={onPhotosError}
+      />
+    </section>
+  )
+}
+
 export function TaskWorkOrderDialog({
   open,
   onOpenChange,
@@ -529,6 +612,10 @@ export function TaskWorkOrderDialog({
   const { searchCustomers, createCustomer } = useCustomers()
   const assignableCrews = useMemo(() => getAssignableCrews(crews), [crews])
   const [form, setForm] = useState<WorkOrderFormInput>(getDefaultWorkOrderForm)
+  const [referencePhotos, setReferencePhotos] = useState<
+    PendingTaskReferencePhoto[]
+  >([])
+  const [photosError, setPhotosError] = useState<string | null>(null)
   const [customerSelected, setCustomerSelected] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -541,6 +628,11 @@ export function TaskWorkOrderDialog({
   useEffect(() => {
     if (open) {
       setForm(getDefaultWorkOrderForm())
+      setReferencePhotos((current) => {
+        revokePendingTaskReferencePhotos(current)
+        return []
+      })
+      setPhotosError(null)
       setCustomerSelected(false)
       setError(null)
     }
@@ -649,7 +741,22 @@ export function TaskWorkOrderDialog({
         checklist: taskDefaultChecklist,
       })
 
-      await onSubmit(payload)
+      const task = await onSubmit(payload)
+
+      if (referencePhotos.length > 0) {
+        const uploadResult = await uploadPendingTaskReferencePhotos(
+          task.id,
+          referencePhotos
+        )
+
+        if (uploadResult.error) {
+          throw new Error(
+            uploadResult.error.message ??
+              "La orden se creó, pero no se pudieron cargar las fotos."
+          )
+        }
+      }
+
       onOpenChange(false)
     } catch (submitError) {
       setError(
@@ -766,6 +873,17 @@ export function TaskWorkOrderDialog({
           )}
 
           {showScheduling && (
+            <WorkOrderCrewInfoFields
+              form={form}
+              updateField={updateField}
+              referencePhotos={referencePhotos}
+              onReferencePhotosChange={setReferencePhotos}
+              photosDisabled={isSubmitting}
+              onPhotosError={setPhotosError}
+            />
+          )}
+
+          {showScheduling && (
             <section className="space-y-4">
               <SectionTitle>Observaciones</SectionTitle>
               <Textarea
@@ -773,10 +891,16 @@ export function TaskWorkOrderDialog({
                 onChange={(event) =>
                   updateField("observations", event.target.value)
                 }
-                placeholder="Información adicional para la cuadrilla"
+                placeholder="Notas administrativas internas"
                 rows={3}
               />
             </section>
+          )}
+
+          {photosError && (
+            <p className="text-sm text-amber-600 dark:text-amber-500" role="alert">
+              {photosError}
+            </p>
           )}
 
           {error && (

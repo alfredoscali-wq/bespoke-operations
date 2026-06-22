@@ -1,5 +1,6 @@
 import type { CreateTaskPayload } from "@/lib/types/supabase/tasks"
 import type { Task, TaskStatus, TaskType } from "@/lib/types/tasks"
+import { parseSharedLocation } from "@/lib/utils/shared-location"
 
 export type WorkOrderServiceType =
   | "instalacion-nueva"
@@ -141,6 +142,8 @@ export type WorkOrderFormInput = {
   clientOrderNumber: string
   province: string
   postalCode: string
+  sharedLocation: string
+  observationsForCrew: string
 }
 
 export function getDefaultWorkOrderForm(): WorkOrderFormInput {
@@ -173,6 +176,8 @@ export function getDefaultWorkOrderForm(): WorkOrderFormInput {
     clientOrderNumber: "",
     province: "",
     postalCode: "",
+    sharedLocation: "",
+    observationsForCrew: "",
   }
 }
 
@@ -456,6 +461,8 @@ export function buildWorkOrderCreatePayload(input: {
   const customerName = form.customerName.trim()
   const serviceAddress = resolvePrimaryAddress(form)
   const locality = resolvePrimaryLocality(form)
+  const sharedLocation = form.sharedLocation.trim()
+  const parsedLocation = parseSharedLocation(sharedLocation)
 
   return {
     code: generateWorkOrderTaskCode(existingTasks),
@@ -469,6 +476,10 @@ export function buildWorkOrderCreatePayload(input: {
     customerCompany: form.customerCompany.trim() || undefined,
     customerId: customerId ?? undefined,
     serviceAddress: serviceAddress || undefined,
+    latitude: parsedLocation.latitude,
+    longitude: parsedLocation.longitude,
+    sharedLocation: sharedLocation || undefined,
+    observationsForCrew: form.observationsForCrew.trim() || undefined,
     workOrderNumber: form.clientOrderNumber.trim() || undefined,
     type: resolveTaskTypeFromForm(form),
     status,

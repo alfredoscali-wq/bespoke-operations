@@ -16,6 +16,7 @@ import {
 } from "lucide-react"
 
 import { EmploymentStatusBadge, EmployeeTypeBadge } from "@/components/rrhh/employee-badges"
+import { WhatsAppLink } from "@/components/ui/whatsapp-link"
 import { EMPLOYEE_TYPE_LABELS } from "@/lib/employees/constants"
 import { EmployeeFormDialog } from "@/components/rrhh/employee-form-dialog"
 import { useEmployees } from "@/components/rrhh/employees-provider"
@@ -62,7 +63,7 @@ function DetailField({
   icon: React.ComponentType<{ className?: string }>
   iconClassName: string
   label: string
-  value: string
+  value: React.ReactNode
 }) {
   return (
     <div className="flex gap-3">
@@ -73,7 +74,7 @@ function DetailField({
       </div>
       <div>
         <p className="text-xs text-muted-foreground">{label}</p>
-        <p className="text-sm font-medium">{value}</p>
+        <div className="text-sm font-medium">{value}</div>
       </div>
     </div>
   )
@@ -223,7 +224,13 @@ export function EmployeeDetailView({ employee }: EmployeeDetailViewProps) {
             icon={Phone}
             iconClassName="bg-emerald-50 text-emerald-600"
             label="Teléfono"
-            value={employee.phone?.trim() || "—"}
+            value={
+              employee.phone?.trim() ? (
+                <WhatsAppLink phone={employee.phone} />
+              ) : (
+                "—"
+              )
+            }
           />
           <DetailField
             icon={Briefcase}

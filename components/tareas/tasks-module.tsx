@@ -55,8 +55,9 @@ function TasksModuleContent() {
   )
 
   async function handleCreateWorkOrder(payload: CreateTaskPayload) {
-    await addTask(payload)
+    const task = await addTask(payload)
     setFeedback("Orden de trabajo creada correctamente.")
+    return task
   }
 
   return (
