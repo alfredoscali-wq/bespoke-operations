@@ -246,6 +246,25 @@ export async function softDeleteTask(
   return { data: undefined, error: null }
 }
 
+export async function fetchOccupiedTaskCodesByPrefix(
+  client: SupabaseTasksClient,
+  prefix: string
+): Promise<TasksRepositoryResult<string[]>> {
+  const { data, error } = await client
+    .from("tasks")
+    .select("code")
+    .like("code", `${prefix}%`)
+
+  if (error) {
+    return { data: null, error: mapSupabaseTaskError(error) }
+  }
+
+  return {
+    data: (data ?? []).map((row) => row.code),
+    error: null,
+  }
+}
+
 export async function findActiveTasksForProject(
   client: SupabaseTasksClient,
   projectId: string,

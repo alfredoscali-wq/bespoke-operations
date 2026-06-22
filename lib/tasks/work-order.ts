@@ -75,6 +75,42 @@ export const WORK_ORDER_SERVICE_TYPE_LABELS: Record<
 } as Record<WorkOrderServiceType, string>
 
 const WORK_ORDER_PROJECT_CODE = "OT"
+const WORK_ORDER_TASK_CODE_PREFIX = "TSK-OT-"
+const WORK_ORDER_TASK_CODE_PATTERN = /^TSK-OT-(\d+)$/
+
+export function generateWorkOrderTaskCodeFromCodes(codes: Iterable<string>): string {
+  const knownCodes = new Set(
+    [...codes].map((code) => code.trim()).filter(Boolean)
+  )
+  const otCodes = [...knownCodes].filter((code) =>
+    WORK_ORDER_TASK_CODE_PATTERN.test(code)
+  )
+
+  let maxCounter = 0
+  for (const code of otCodes) {
+    const match = code.match(WORK_ORDER_TASK_CODE_PATTERN)
+    if (!match) continue
+    maxCounter = Math.max(maxCounter, Number.parseInt(match[1], 10))
+  }
+
+  let counter = maxCounter + 1
+  let generatedCode = `${WORK_ORDER_TASK_CODE_PREFIX}${String(counter).padStart(3, "0")}`
+
+  while (knownCodes.has(generatedCode)) {
+    counter += 1
+    generatedCode = `${WORK_ORDER_TASK_CODE_PREFIX}${String(counter).padStart(3, "0")}`
+  }
+
+  console.log("TOTAL TASKS", knownCodes.size)
+  console.log("OT TASKS", otCodes)
+  console.log("GENERATED CODE", generatedCode)
+
+  return generatedCode
+}
+
+export function generateWorkOrderTaskCode(tasks: Task[]): string {
+  return generateWorkOrderTaskCodeFromCodes(tasks.map((task) => task.code))
+}
 
 export type WorkOrderFormInput = {
   serviceType: WorkOrderServiceType | ""
@@ -170,24 +206,6 @@ export function getWorkOrderServiceTypeLabel(
 
 export function resolveTaskOperationalTitle(task: Task): string {
   return getWorkOrderServiceTypeLabel(task.serviceType) ?? task.title
-}
-
-export function generateWorkOrderTaskCode(tasks: Task[]): string {
-  const prefix = "TSK-OT-"
-  const workOrders = tasks.filter(
-    (task) =>
-      task.projectCode === WORK_ORDER_PROJECT_CODE ||
-      task.code.startsWith(prefix)
-  )
-  let counter = workOrders.length + 1
-  let code = `${prefix}${String(counter).padStart(3, "0")}`
-
-  while (tasks.some((task) => task.code === code)) {
-    counter += 1
-    code = `${prefix}${String(counter).padStart(3, "0")}`
-  }
-
-  return code
 }
 
 function resolveTechnologyType(technology: WorkOrderTechnology | ""): TaskType {

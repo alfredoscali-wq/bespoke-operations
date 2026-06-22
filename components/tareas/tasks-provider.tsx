@@ -17,6 +17,7 @@ import {
   createBrowserTasksClient,
   createTask,
   deleteTask as deleteTaskInSupabase,
+  listOccupiedTaskCodesByPrefix,
   listTasks,
   updateTask as updateTaskInSupabase,
 } from "@/lib/supabase/tasks.browser"
@@ -36,6 +37,7 @@ import {
 import {
   syncTaskProgress,
 } from "@/lib/tasks/utils"
+import { generateWorkOrderTaskCodeFromCodes } from "@/lib/tasks/work-order"
 import type { CreateTaskPayload, UpdateTaskPayload } from "@/lib/types/supabase/tasks"
 import type { Task, TaskDetail, TaskStatus } from "@/lib/types/tasks"
 
@@ -211,7 +213,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       const status =
         input.status ??
         getInitialTaskStatus({ crewId: input.crewId, crew: input.crew })
-      const payload: CreateTaskPayload = {
+      let payload: CreateTaskPayload = {
         ...input,
         status,
       }
@@ -221,6 +223,25 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       }
 
       const client = createBrowserTasksClient()
+
+      if (payload.projectCode === "OT") {
+        const occupiedCodesResult = await listOccupiedTaskCodesByPrefix(
+          "TSK-OT-",
+          client
+        )
+        const mergedCodes = new Set<string>([
+          ...tasks.map((task) => task.code),
+          ...(occupiedCodesResult.data ?? []),
+        ])
+
+        payload = {
+          ...payload,
+          code: generateWorkOrderTaskCodeFromCodes(mergedCodes),
+        }
+      }
+
+      console.log("BEFORE INSERT", payload)
+
       const result = await createTask(payload, client)
 
       if (!result.data) {
@@ -232,7 +253,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       setTasks((current) => [result.data!, ...current])
       return result.data
     },
-    [usesSupabase]
+    [tasks, usesSupabase]
   )
 
   const updateTaskFields = useCallback(
