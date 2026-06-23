@@ -26,12 +26,17 @@ import {
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
-  DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  DiscardChangesDialog,
+  ProtectedFormDialogContent,
+  isFormStateDirty,
+  useProtectedFormDialog,
+} from "@/components/ui/protected-form-dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -139,8 +144,21 @@ export function ProjectTaskDialog({
     [crews]
   )
   const [form, setForm] = useState<TaskFormState>(() => buildCreateForm(project))
+  const [baselineForm, setBaselineForm] = useState<TaskFormState>(() =>
+    buildCreateForm(project)
+  )
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const isDirty = isFormStateDirty(form, baselineForm)
+  const {
+    handleOpenChange,
+    requestClose,
+    forceClose,
+    discardOpen,
+    setDiscardOpen,
+    confirmDiscard,
+  } = useProtectedFormDialog({ open, onOpenChange, isDirty })
 
   const selectedCrew = crews.find((crew) => crew.id === form.crewId)
   const inheritedSupervisor =
@@ -157,14 +175,16 @@ export function ProjectTaskDialog({
     if (!open) return
 
     setError(null)
-    setForm(
+    const nextForm =
       mode === "edit" && task
         ? buildEditForm(task, crews)
         : {
             ...buildCreateForm(project),
             crewId: assignableCrews[0]?.id ?? "",
           }
-    )
+
+    setForm(nextForm)
+    setBaselineForm(nextForm)
   }, [open, mode, project, task, assignableCrews, crews])
 
   function updateField<K extends keyof TaskFormState>(
@@ -227,7 +247,7 @@ export function ProjectTaskDialog({
         estimatedDuration: form.estimatedDuration.trim(),
       })
 
-      onOpenChange(false)
+      forceClose()
     } catch (submitError) {
       setError(
         submitError instanceof Error
@@ -246,8 +266,13 @@ export function ProjectTaskDialog({
     form.dueDate !== ""
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
+    <>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <ProtectedFormDialogContent
+          className="max-h-[90dvh] overflow-y-auto sm:max-w-lg"
+          onRequestClose={requestClose}
+          isDirty={isDirty}
+        >
         <DialogHeader>
           <DialogTitle>
             {mode === "create" ? "Nueva tarea" : "Editar tarea"}
@@ -400,7 +425,7 @@ export function ProjectTaskDialog({
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false)}
+              onClick={requestClose}
               disabled={isSubmitting}
             >
               Cancelar
@@ -414,8 +439,15 @@ export function ProjectTaskDialog({
             </Button>
           </DialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+        </ProtectedFormDialogContent>
+      </Dialog>
+
+      <DiscardChangesDialog
+        open={discardOpen}
+        onOpenChange={setDiscardOpen}
+        onConfirm={confirmDiscard}
+      />
+    </>
   )
 }
 

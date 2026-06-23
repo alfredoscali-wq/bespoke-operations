@@ -32,6 +32,7 @@ const GROUP_ORDER: TaskStatus[] = [
   "pendiente",
   "asignada",
   "en-curso",
+  "pendiente-cierre",
   "en-aprobacion",
   "finalizada",
   "cerrada",
@@ -42,7 +43,7 @@ const DEFAULT_EXPANDED: TaskStatus[] = [
   "pendiente",
   "asignada",
   "en-curso",
-  "en-aprobacion",
+  "pendiente-cierre",
 ]
 
 function buildExpandedGroups(focusedStatus?: TaskStatus | null) {

@@ -28,12 +28,17 @@ import { resolveCrewSnapshotsForAssignment } from "@/lib/tasks/crew-relation"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
-  DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  DiscardChangesDialog,
+  ProtectedFormDialogContent,
+  isFormStateDirty,
+  useProtectedFormDialog,
+} from "@/components/ui/protected-form-dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -123,8 +128,19 @@ export function TaskFormDialog({
   const { crews } = useCrews()
   const assignableCrews = useMemo(() => getAssignableCrews(crews), [crews])
   const [form, setForm] = useState<TaskFormState>(buildDefaultForm)
+  const [baselineForm, setBaselineForm] = useState<TaskFormState>(buildDefaultForm)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const isDirty = isFormStateDirty(form, baselineForm)
+  const {
+    handleOpenChange,
+    requestClose,
+    forceClose,
+    discardOpen,
+    setDiscardOpen,
+    confirmDiscard,
+  } = useProtectedFormDialog({ open, onOpenChange, isDirty })
 
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === form.projectId),
@@ -139,12 +155,15 @@ export function TaskFormDialog({
     if (!open) return
 
     setError(null)
-    setForm({
+    const nextForm = {
       ...buildDefaultForm(),
       projectId: projects[0]?.id ?? "",
       crewId: assignableCrews[0]?.id ?? "",
       dueDate: projects[0]?.endDate ?? new Date().toISOString().slice(0, 10),
-    })
+    }
+
+    setForm(nextForm)
+    setBaselineForm(nextForm)
   }, [open, projects, assignableCrews])
 
   useEffect(() => {
@@ -253,7 +272,7 @@ export function TaskFormDialog({
         estimatedDuration: form.estimatedDuration.trim(),
       })
 
-      onOpenChange(false)
+      forceClose()
     } catch (submitError) {
       setError(
         submitError instanceof Error
@@ -278,8 +297,13 @@ export function TaskFormDialog({
         form.workOrderNumber.trim() !== "")
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
+    <>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <ProtectedFormDialogContent
+          className="max-h-[90dvh] overflow-y-auto sm:max-w-lg"
+          onRequestClose={requestClose}
+          isDirty={isDirty}
+        >
         <DialogHeader>
           <DialogTitle>Nueva tarea</DialogTitle>
           <DialogDescription>
@@ -528,7 +552,7 @@ export function TaskFormDialog({
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false)}
+              onClick={requestClose}
               disabled={isSubmitting}
             >
               Cancelar
@@ -538,8 +562,15 @@ export function TaskFormDialog({
             </Button>
           </DialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+        </ProtectedFormDialogContent>
+      </Dialog>
+
+      <DiscardChangesDialog
+        open={discardOpen}
+        onOpenChange={setDiscardOpen}
+        onConfirm={confirmDiscard}
+      />
+    </>
   )
 }
 

@@ -11,13 +11,18 @@ import type { UploadEvidenceInput } from "@/lib/types/supabase/evidences"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
-  DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import {
+  DiscardChangesDialog,
+  ProtectedFormDialogContent,
+  isFormStateDirty,
+  useProtectedFormDialog,
+} from "@/components/ui/protected-form-dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -30,6 +35,24 @@ import {
 } from "@/components/ui/select"
 
 const PROJECT_ONLY_TASK_VALUE = "__project_only__"
+
+type EvidenceFormBaseline = {
+  file: null
+  projectId: string
+  taskId: string
+  description: string
+  category: string
+}
+
+function createEmptyBaseline(): EvidenceFormBaseline {
+  return {
+    file: null,
+    projectId: "",
+    taskId: "",
+    description: "",
+    category: "Campo",
+  }
+}
 
 type EvidenceUploadProjectContext = {
   id?: string | null
@@ -72,8 +95,29 @@ export function EvidenceUploadDialog({
   const [taskId, setTaskId] = useState("")
   const [description, setDescription] = useState("")
   const [category, setCategory] = useState("Campo")
+  const [baseline, setBaseline] = useState<EvidenceFormBaseline>(createEmptyBaseline)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const isDirty =
+    file !== null ||
+    isFormStateDirty(
+      { projectId, taskId, description, category },
+      {
+        projectId: baseline.projectId,
+        taskId: baseline.taskId,
+        description: baseline.description,
+        category: baseline.category,
+      }
+    )
+  const {
+    handleOpenChange,
+    requestClose,
+    forceClose,
+    discardOpen,
+    setDiscardOpen,
+    confirmDiscard,
+  } = useProtectedFormDialog({ open, onOpenChange: setOpen, isDirty })
 
   const isProjectLocked = Boolean(lockedProject)
   const isTaskLocked = Boolean(lockedTask)
@@ -125,35 +169,38 @@ export function EvidenceUploadDialog({
     !isTaskLocked &&
     (tasksForProject.length === 0 || taskId === PROJECT_ONLY_TASK_VALUE)
 
-  useEffect(() => {
-    if (!open) return
-
-    if (lockedProject) {
-      setProjectId(lockedProject.id ?? "")
-    }
-
-    if (lockedTask) {
-      setTaskId(lockedTask.id)
-      return
-    }
-
-    if (allowProjectOnly && tasksForProject.length === 0) {
-      setTaskId(PROJECT_ONLY_TASK_VALUE)
-    }
-  }, [open, lockedProject, lockedTask, allowProjectOnly, tasksForProject.length])
-
   function resetForm() {
-    setFile(null)
-    setProjectId(lockedProject?.id ?? "")
-    setTaskId(
+    const nextProjectId = lockedProject?.id ?? ""
+    const nextTaskId =
       lockedTask?.id ??
-        (allowProjectOnly && tasksForProject.length === 0
-          ? PROJECT_ONLY_TASK_VALUE
-          : "")
-    )
+      (allowProjectOnly && tasksForProject.length === 0
+        ? PROJECT_ONLY_TASK_VALUE
+        : "")
+
+    setFile(null)
+    setProjectId(nextProjectId)
+    setTaskId(nextTaskId)
     setDescription("")
     setCategory("Campo")
     setError(null)
+    setBaseline({
+      file: null,
+      projectId: nextProjectId,
+      taskId: nextTaskId,
+      description: "",
+      category: "Campo",
+    })
+  }
+
+  useEffect(() => {
+    if (open) {
+      resetForm()
+    }
+  }, [open, lockedProject?.id, lockedTask?.id, allowProjectOnly])
+
+  function handleConfirmDiscard() {
+    resetForm()
+    confirmDiscard()
   }
 
   async function handleSubmit(event: React.FormEvent) {
@@ -204,7 +251,7 @@ export function EvidenceUploadDialog({
     }
 
     resetForm()
-    setOpen(false)
+    forceClose()
     onUploaded?.()
   }
 
@@ -217,20 +264,19 @@ export function EvidenceUploadDialog({
       (!allowProjectOnly && taskId !== ""))
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(nextOpen) => {
-        setOpen(nextOpen)
-        if (!nextOpen) resetForm()
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button size="sm" className="gap-1.5">
-          <Upload className="size-4" />
-          Subir evidencia
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+    <>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogTrigger asChild>
+          <Button size="sm" className="gap-1.5">
+            <Upload className="size-4" />
+            Subir evidencia
+          </Button>
+        </DialogTrigger>
+        <ProtectedFormDialogContent
+          className="sm:max-w-md"
+          onRequestClose={requestClose}
+          isDirty={isDirty}
+        >
         <DialogHeader>
           <DialogTitle>Subir evidencia</DialogTitle>
           <DialogDescription>
@@ -363,12 +409,27 @@ export function EvidenceUploadDialog({
           {error && <p className="text-sm text-destructive">{error}</p>}
 
           <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={requestClose}
+              disabled={submitting}
+            >
+              Cancelar
+            </Button>
             <Button type="submit" disabled={!isValid || submitting}>
               {submitting ? "Subiendo..." : "Subir evidencia"}
             </Button>
           </DialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+        </ProtectedFormDialogContent>
+      </Dialog>
+
+      <DiscardChangesDialog
+        open={discardOpen}
+        onOpenChange={setDiscardOpen}
+        onConfirm={handleConfirmDiscard}
+      />
+    </>
   )
 }

@@ -5,10 +5,14 @@ import { mapTaskPhotoRowToTaskPhoto } from "@/lib/supabase/task-photos.mapper"
 import {
   TASK_PHOTOS_STORAGE_BUCKET,
   buildTaskPhotoStoragePath,
+  logTaskPhotoUploadFailed,
+  sanitizeTaskPhotoFileName,
   validateTaskReferencePhotoFile,
 } from "@/lib/supabase/task-photos.storage"
 import type {
   TaskPhoto,
+  TaskPhotoType,
+  TaskPhotoUploadBatchResult,
   UploadTaskReferencePhotoInput,
 } from "@/lib/types/task-photos"
 
@@ -64,15 +68,16 @@ async function mapRowsWithSignedUrls(
   )
 }
 
-export async function fetchTaskReferencePhotos(
+export async function fetchTaskPhotos(
   client: SupabaseTaskPhotosClient,
-  taskId: string
+  taskId: string,
+  photoType: TaskPhotoType
 ): Promise<TaskPhotosRepositoryResult<TaskPhoto[]>> {
   const { data, error } = await client
     .from("task_photos")
     .select("*")
     .eq("task_id", taskId)
-    .eq("photo_type", "reference")
+    .eq("photo_type", photoType)
     .is("deleted_at", null)
     .order("created_at", { ascending: true })
 
@@ -84,9 +89,24 @@ export async function fetchTaskReferencePhotos(
   return { data: photos, error: null }
 }
 
-export async function uploadTaskReferencePhoto(
+export async function fetchTaskReferencePhotos(
   client: SupabaseTaskPhotosClient,
-  input: UploadTaskReferencePhotoInput
+  taskId: string
+): Promise<TaskPhotosRepositoryResult<TaskPhoto[]>> {
+  return fetchTaskPhotos(client, taskId, "reference")
+}
+
+export async function fetchTaskEvidencePhotos(
+  client: SupabaseTaskPhotosClient,
+  taskId: string
+): Promise<TaskPhotosRepositoryResult<TaskPhoto[]>> {
+  return fetchTaskPhotos(client, taskId, "evidence")
+}
+
+export async function uploadTaskPhoto(
+  client: SupabaseTaskPhotosClient,
+  input: UploadTaskReferencePhotoInput,
+  photoType: TaskPhotoType
 ): Promise<TaskPhotosRepositoryResult<TaskPhoto>> {
   const validationMessage = validateTaskReferencePhotoFile(input.file)
   if (validationMessage) {
@@ -97,10 +117,11 @@ export async function uploadTaskReferencePhoto(
   }
 
   const photoId = crypto.randomUUID()
+  const sanitizedFileName = sanitizeTaskPhotoFileName(input.file.name)
   const storagePath = buildTaskPhotoStoragePath({
     taskId: input.taskId,
     photoId,
-    fileName: input.file.name,
+    fileName: sanitizedFileName,
   })
 
   const { error: uploadError } = await client.storage
@@ -111,6 +132,13 @@ export async function uploadTaskReferencePhoto(
     })
 
   if (uploadError) {
+    logTaskPhotoUploadFailed({
+      taskId: input.taskId,
+      fileName: input.file.name,
+      storagePath,
+      error: uploadError,
+    })
+
     return {
       data: null,
       error: {
@@ -129,12 +157,14 @@ export async function uploadTaskReferencePhoto(
       storage_bucket: TASK_PHOTOS_STORAGE_BUCKET,
       storage_path: storagePath,
       file_url: storagePath,
-      file_name: input.file.name,
+      file_name: sanitizedFileName,
       mime_type: input.file.type,
       file_size_bytes: input.file.size,
       caption: description,
       description,
-      photo_type: "reference",
+      photo_type: photoType,
+      operational_step_id:
+        photoType === "evidence" ? input.operationalStepId ?? null : null,
       created_by: input.createdBy ?? null,
     })
     .select("*")
@@ -142,6 +172,13 @@ export async function uploadTaskReferencePhoto(
 
   if (error || !data) {
     await client.storage.from(TASK_PHOTOS_STORAGE_BUCKET).remove([storagePath])
+    logTaskPhotoUploadFailed({
+      taskId: input.taskId,
+      fileName: input.file.name,
+      storagePath,
+      error: error ?? { message: "No se pudo registrar la foto." },
+    })
+
     return {
       data: null,
       error: mapSupabaseError(error ?? { message: "No se pudo registrar la foto." }),
@@ -152,36 +189,126 @@ export async function uploadTaskReferencePhoto(
   return { data: photo, error: null }
 }
 
-export async function uploadTaskReferencePhotos(
+export async function uploadTaskReferencePhoto(
+  client: SupabaseTaskPhotosClient,
+  input: UploadTaskReferencePhotoInput
+): Promise<TaskPhotosRepositoryResult<TaskPhoto>> {
+  return uploadTaskPhoto(client, input, "reference")
+}
+
+export async function uploadTaskEvidencePhoto(
+  client: SupabaseTaskPhotosClient,
+  input: UploadTaskReferencePhotoInput
+): Promise<TaskPhotosRepositoryResult<TaskPhoto>> {
+  return uploadTaskPhoto(client, input, "evidence")
+}
+
+export async function uploadOperationalStepPhoto(
+  client: SupabaseTaskPhotosClient,
+  input: UploadTaskReferencePhotoInput & { operationalStepId: string }
+): Promise<TaskPhotosRepositoryResult<TaskPhoto>> {
+  if (!input.operationalStepId.trim()) {
+    return {
+      data: null,
+      error: {
+        code: "VALIDATION",
+        message: "Debe indicar el paso operativo.",
+      },
+    }
+  }
+
+  return uploadTaskPhoto(
+    client,
+    {
+      ...input,
+      operationalStepId: input.operationalStepId,
+    },
+    "evidence"
+  )
+}
+
+export async function uploadTaskPhotos(
   client: SupabaseTaskPhotosClient,
   taskId: string,
   photos: Array<{ file: File; description?: string }>,
+  photoType: TaskPhotoType,
   createdBy?: string | null
-): Promise<TaskPhotosRepositoryResult<TaskPhoto[]>> {
+): Promise<TaskPhotosRepositoryResult<TaskPhotoUploadBatchResult>> {
   const uploaded: TaskPhoto[] = []
+  const failures: TaskPhotoUploadBatchResult["failures"] = []
 
   for (const photo of photos) {
-    const result = await uploadTaskReferencePhoto(client, {
+    const sanitizedFileName = sanitizeTaskPhotoFileName(photo.file.name)
+    const previewStoragePath = buildTaskPhotoStoragePath({
       taskId,
-      file: photo.file,
-      description: photo.description,
-      createdBy,
+      photoId: crypto.randomUUID(),
+      fileName: sanitizedFileName,
     })
 
+    const result = await uploadTaskPhoto(
+      client,
+      {
+        taskId,
+        file: photo.file,
+        description: photo.description,
+        createdBy,
+      },
+      photoType
+    )
+
     if (result.error || !result.data) {
-      return result.error
-        ? { data: null, error: result.error }
-        : {
-            data: null,
-            error: {
-              code: "UPLOAD",
-              message: "No se pudieron cargar todas las fotos.",
-            },
-          }
+      failures.push({
+        fileName: photo.file.name,
+        storagePath: previewStoragePath,
+        message: result.error?.message ?? "No se pudo subir la foto.",
+      })
+      continue
     }
 
     uploaded.push(result.data)
   }
 
-  return { data: uploaded, error: null }
+  return {
+    data: {
+      uploaded,
+      failures,
+    },
+    error: null,
+  }
+}
+
+export async function uploadTaskReferencePhotos(
+  client: SupabaseTaskPhotosClient,
+  taskId: string,
+  photos: Array<{ file: File; description?: string }>,
+  createdBy?: string | null
+): Promise<TaskPhotosRepositoryResult<TaskPhotoUploadBatchResult>> {
+  return uploadTaskPhotos(client, taskId, photos, "reference", createdBy)
+}
+
+export async function uploadTaskEvidencePhotos(
+  client: SupabaseTaskPhotosClient,
+  taskId: string,
+  photos: Array<{ file: File; description?: string }>,
+  createdBy?: string | null
+): Promise<TaskPhotosRepositoryResult<TaskPhotoUploadBatchResult>> {
+  return uploadTaskPhotos(client, taskId, photos, "evidence", createdBy)
+}
+
+export async function countTaskEvidencePhotos(
+  client: SupabaseTaskPhotosClient,
+  taskId: string
+): Promise<TaskPhotosRepositoryResult<number>> {
+  const { count, error } = await client
+    .from("task_photos")
+    .select("*", { count: "exact", head: true })
+    .eq("task_id", taskId)
+    .eq("photo_type", "evidence")
+    .is("deleted_at", null)
+
+  if (error) {
+    return { data: null, error: mapSupabaseError(error) }
+  }
+
+  return { data: count ?? 0, error: null }
 }

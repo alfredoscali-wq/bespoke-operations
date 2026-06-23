@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import {
   Building2,
@@ -15,13 +16,21 @@ import {
 
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { useProjects } from "@/components/obras/projects-provider"
+import { useTasks } from "@/components/tareas/tasks-provider"
 import type { Task } from "@/lib/types/tasks"
+import {
+  getOperationalStepsProgress,
+  hasOperationalSteps,
+} from "@/lib/operational-steps/utils"
+import { listTaskEvidencePhotos } from "@/lib/supabase/task-photos.browser"
+import type { TaskPhoto } from "@/lib/types/task-photos"
 import { resolveTaskCrewDisplayName, taskHasCrew } from "@/lib/tasks/crew-relation"
 import { formatTaskDate } from "@/lib/tasks/constants"
 import { isFieldServiceTask } from "@/lib/tasks/utils"
 import { TaskEvidenceSummary } from "@/components/evidencias/task-evidence-summary"
 import { TaskMaterialsPanel } from "@/components/materiales/task-materials-panel"
-import { TaskReferencePhotosGallery } from "@/components/tareas/task-reference-photos-gallery"
+import { TaskReferencePhotosSection } from "@/components/tareas/task-reference-photos-section"
+import { TaskEvidencePhotosGallery } from "@/components/tareas/task-evidence-photos-gallery"
 import { WhatsAppLink } from "@/components/ui/whatsapp-link"
 import { Progress } from "@/components/ui/progress"
 import {
@@ -52,41 +61,87 @@ type TaskOverviewTabProps = {
 export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
   const { projects } = useProjects()
   const { getCrew } = useCrews()
-  const isService = isFieldServiceTask(task)
+  const { getTask } = useTasks()
+  const liveTask = getTask(task.id) ?? task
+  const usesOperationalSteps = hasOperationalSteps(liveTask)
+  const steps = liveTask.operationalSteps ?? []
+  const [stepPhotos, setStepPhotos] = useState<TaskPhoto[]>([])
+
+  useEffect(() => {
+    if (!usesOperationalSteps) {
+      setStepPhotos([])
+      return
+    }
+
+    let cancelled = false
+
+    async function loadPhotos() {
+      const result = await listTaskEvidencePhotos(task.id)
+      if (cancelled) return
+      setStepPhotos(result.data ?? [])
+    }
+
+    void loadPhotos()
+
+    return () => {
+      cancelled = true
+    }
+  }, [task.id, usesOperationalSteps])
+
+  const stepPhotoCounts = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const photo of stepPhotos) {
+      if (!photo.operationalStepId) continue
+      counts[photo.operationalStepId] =
+        (counts[photo.operationalStepId] ?? 0) + 1
+    }
+    return counts
+  }, [stepPhotos])
+
+  const completedSteps = useMemo(
+    () =>
+      steps.filter((step) => (stepPhotoCounts[step.id] ?? 0) > 0).length,
+    [stepPhotoCounts, steps]
+  )
+  const operationalProgress = getOperationalStepsProgress(steps, stepPhotoCounts)
+
+  const isService = isFieldServiceTask(liveTask)
 
   const relatedProject = projects.find(
     (project) =>
-      project.id === task.projectId || project.code === task.projectCode
+      project.id === liveTask.projectId || project.code === liveTask.projectCode
   )
-  const relatedCrew = task.crewId
-    ? getCrew(task.crewId)
+  const relatedCrew = liveTask.crewId
+    ? getCrew(liveTask.crewId)
     : undefined
-  const crewDisplayName = resolveTaskCrewDisplayName(task, getCrew)
+  const crewDisplayName = resolveTaskCrewDisplayName(liveTask, getCrew)
 
   const supervisorValue =
-    task.supervisor || "Sin supervisor asignado"
+    liveTask.supervisor || "Sin supervisor asignado"
   const supervisorHint =
-    taskHasCrew(task) && task.supervisor ? "Asignado por cuadrilla" : undefined
+    taskHasCrew(liveTask) && liveTask.supervisor
+      ? "Asignado por cuadrilla"
+      : undefined
 
-  const sharedLocationText = task.sharedLocation?.trim()
-  const crewObservations = task.observationsForCrew?.trim()
+  const sharedLocationText = liveTask.sharedLocation?.trim()
+  const crewObservations = liveTask.observationsForCrew?.trim()
   const gpsLoaded = hasLoadedGps(
-    task.sharedLocation,
-    task.latitude,
-    task.longitude
+    liveTask.sharedLocation,
+    liveTask.latitude,
+    liveTask.longitude
   )
   const sharedLocationDisplay = getSharedLocationDisplayText(
-    task.sharedLocation,
-    task.latitude,
-    task.longitude
+    liveTask.sharedLocation,
+    liveTask.latitude,
+    liveTask.longitude
   )
   const sharedLocationHref = getSharedLocationHref(
-    task.sharedLocation,
-    task.latitude,
-    task.longitude
+    liveTask.sharedLocation,
+    liveTask.latitude,
+    liveTask.longitude
   )
   const hasCrewInfo =
-    isWorkOrderTask(task) ||
+    isWorkOrderTask(liveTask) ||
     Boolean(sharedLocationText) ||
     Boolean(crewObservations) ||
     gpsLoaded
@@ -108,7 +163,7 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
         >
           {crewDisplayName}
         </Link>
-      ) : taskHasCrew(task) ? (
+      ) : taskHasCrew(liveTask) ? (
         crewDisplayName
       ) : (
         "Sin cuadrilla asignada"
@@ -117,17 +172,17 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
     {
       icon: Calendar,
       label: "Fecha de inicio",
-      value: formatTaskDate(task.startDate),
+      value: formatTaskDate(liveTask.startDate),
     },
     {
       icon: Calendar,
       label: "Fecha límite",
-      value: formatTaskDate(task.dueDate),
+      value: formatTaskDate(liveTask.dueDate),
     },
     {
       icon: Clock,
       label: "Duración estimada",
-      value: task.estimatedDuration || "—",
+      value: liveTask.estimatedDuration || "—",
     },
   ]
 
@@ -137,8 +192,8 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
       label: "Proyecto",
       value: (
         <div>
-          <p className="font-mono text-xs text-primary">{task.projectCode}</p>
-          <p className="text-sm">{task.projectName}</p>
+          <p className="font-mono text-xs text-primary">{liveTask.projectCode}</p>
+          <p className="text-sm">{liveTask.projectName}</p>
         </div>
       ),
     },
@@ -149,18 +204,18 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
     {
       icon: Building2,
       label: "Cliente Operativo",
-      value: task.customerCompany || "—",
+      value: liveTask.customerCompany || "—",
     },
     {
       icon: User,
       label: "Cliente Final",
-      value: task.customerName || "—",
+      value: liveTask.customerName || "—",
     },
     {
       icon: Phone,
       label: "Teléfono",
-      value: task.customerPhone ? (
-        <WhatsAppLink phone={task.customerPhone} />
+      value: liveTask.customerPhone ? (
+        <WhatsAppLink phone={liveTask.customerPhone} />
       ) : (
         "—"
       ),
@@ -168,12 +223,12 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
     {
       icon: MapPin,
       label: "Dirección",
-      value: task.serviceAddress || "—",
+      value: liveTask.serviceAddress || "—",
     },
     {
       icon: FileText,
       label: "Número de Orden",
-      value: task.workOrderNumber || "—",
+      value: liveTask.workOrderNumber || "—",
     },
     ...sharedInfoItems,
   ]
@@ -186,19 +241,19 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
         <CardHeader>
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-mono text-sm font-semibold text-primary">
-              {task.code}
+              {liveTask.code}
             </span>
-            <TaskOperationBadge task={task} />
-            <TaskTypeBadge type={task.type} />
-            {isWorkOrderTask(task) ? (
-              <TaskOperationalCategoryBadge task={task} />
+            <TaskOperationBadge task={liveTask} />
+            <TaskTypeBadge type={liveTask.type} />
+            {isWorkOrderTask(liveTask) ? (
+              <TaskOperationalCategoryBadge task={liveTask} />
             ) : (
-              <TaskStatusBadge status={task.status} />
+              <TaskStatusBadge status={liveTask.status} />
             )}
-            <TaskPriorityBadge priority={task.priority} />
+            <TaskPriorityBadge priority={liveTask.priority} />
           </div>
-          <CardTitle className="text-lg">{task.title}</CardTitle>
-          <CardDescription>{task.description}</CardDescription>
+          <CardTitle className="text-lg">{liveTask.title}</CardTitle>
+          <CardDescription>{liveTask.description}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -281,7 +336,7 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
                 className="mt-1 inline-flex items-center gap-1 font-medium text-primary hover:underline"
               >
                 <MapPin className="size-3.5" />
-                Ver proyecto {task.projectCode}
+                Ver proyecto {liveTask.projectCode}
               </Link>
             </div>
           )}
@@ -289,29 +344,58 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
       </Card>
 
       <div className="space-y-6">
-        <Card className="shadow-sm">
-          <CardHeader>
-            <CardTitle>Progreso del checklist</CardTitle>
-            <CardDescription>Avance de entregables obligatorios</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-end justify-between">
-              <span className="text-4xl font-semibold tracking-tight tabular-nums">
-                {task.progress}%
-              </span>
-            </div>
-            <Progress value={task.progress} className="h-2.5" />
-            <p className="text-xs leading-relaxed text-muted-foreground">
-              {task.checklist.filter((item) => item.completed).length} de{" "}
-              {task.checklist.length} elementos completados. Los ítems marcados
-              como obligatorios deben estar listos antes de finalizar la tarea.
-            </p>
-          </CardContent>
-        </Card>
+        {usesOperationalSteps ? (
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle>Progreso operativo</CardTitle>
+              <CardDescription>
+                Avance por pasos operativos con evidencia fotográfica
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-end justify-between">
+                <span className="text-4xl font-semibold tracking-tight tabular-nums">
+                  {operationalProgress}%
+                </span>
+              </div>
+              <Progress value={operationalProgress} className="h-2.5" />
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                {completedSteps} de {steps.length} pasos completados. Cada paso
+                requiere una foto de evidencia para considerarse listo.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle>Progreso del checklist</CardTitle>
+              <CardDescription>Avance de entregables obligatorios</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-end justify-between">
+                <span className="text-4xl font-semibold tracking-tight tabular-nums">
+                  {liveTask.progress}%
+                </span>
+              </div>
+              <Progress value={liveTask.progress} className="h-2.5" />
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                {liveTask.checklist.filter((item) => item.completed).length} de{" "}
+                {liveTask.checklist.length} elementos completados. Los ítems
+                marcados como obligatorios deben estar listos antes de
+                finalizar la tarea.
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
-        <TaskEvidenceSummary taskId={task.id} />
-        <TaskReferencePhotosGallery taskId={task.id} />
-        <TaskMaterialsPanel taskId={task.id} />
+        {!usesOperationalSteps ? (
+          <>
+            <TaskEvidenceSummary taskId={liveTask.id} />
+            <TaskEvidencePhotosGallery taskId={liveTask.id} />
+          </>
+        ) : null}
+        <TaskReferencePhotosSection taskId={liveTask.id} />
+        <TaskMaterialsPanel taskId={liveTask.id} />
       </div>
     </div>
   )

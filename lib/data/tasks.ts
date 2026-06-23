@@ -566,6 +566,7 @@ function createDefaultDetail(task: Task): TaskDetail {
           ]
         : []),
       ...(task.status === "en-curso" ||
+      task.status === "pendiente-cierre" ||
       task.status === "finalizada" ||
       task.status === "en-aprobacion" ||
       task.status === "cerrada"
@@ -596,6 +597,10 @@ export function getTasksSummary(tasks: Task[]) {
     pendiente: tasks.filter((task) => task.status === "pendiente").length,
     asignada: tasks.filter((task) => task.status === "asignada").length,
     enCurso: tasks.filter((task) => task.status === "en-curso").length,
+    pendienteCierre: tasks.filter(
+      (task) =>
+        task.status === "pendiente-cierre" || task.status === "en-aprobacion"
+    ).length,
     enAprobacion: tasks.filter((task) => task.status === "en-aprobacion").length,
     finalizada: tasks.filter((task) => task.status === "finalizada").length,
     cerrada: tasks.filter((task) => task.status === "cerrada").length,

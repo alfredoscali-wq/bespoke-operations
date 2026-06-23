@@ -16,7 +16,7 @@ type TasksSummaryCardsProps = {
 }
 
 const cards: {
-  key: "pendiente" | "asignada" | "enCurso" | "enAprobacion" | "finalizada"
+  key: "pendiente" | "enCurso" | "pendienteCierre" | "cerrada" | "asignada"
   label: string
   icon: typeof CircleDot
   tone: VisualTone
@@ -28,28 +28,28 @@ const cards: {
     tone: "gray",
   },
   {
-    key: "asignada",
-    label: "Asignadas",
-    icon: UserCheck,
-    tone: "blue",
-  },
-  {
     key: "enCurso",
     label: "En Curso",
     icon: Clock,
     tone: "yellow",
   },
   {
-    key: "enAprobacion",
-    label: "En Aprobación",
+    key: "pendienteCierre",
+    label: "Pendiente de Cierre",
     icon: ClipboardCheck,
     tone: "yellow",
   },
   {
-    key: "finalizada",
-    label: "Finalizadas",
+    key: "cerrada",
+    label: "Cerradas",
     icon: CheckCircle2,
-    tone: "violet",
+    tone: "green",
+  },
+  {
+    key: "asignada",
+    label: "Asignadas",
+    icon: UserCheck,
+    tone: "blue",
   },
 ]
 

@@ -21,12 +21,17 @@ import type { Crew, NewCrewInput } from "@/lib/types/crews"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
-  DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  DiscardChangesDialog,
+  ProtectedFormDialogContent,
+  isFormStateDirty,
+  useProtectedFormDialog,
+} from "@/components/ui/protected-form-dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -72,8 +77,19 @@ export function CrewFormDialog({
   const { tasks } = useTasks()
   const { employees, getEmployee } = useEmployees()
   const [form, setForm] = useState<CrewFormState>(emptyForm)
+  const [baselineForm, setBaselineForm] = useState<CrewFormState>(emptyForm)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const isDirty = isFormStateDirty(form, baselineForm)
+  const {
+    handleOpenChange,
+    requestClose,
+    forceClose,
+    discardOpen,
+    setDiscardOpen,
+    confirmDiscard,
+  } = useProtectedFormDialog({ open, onOpenChange, isDirty })
 
   const supervisorOptions = useMemo(
     () => getSupervisorEmployees(employees),
@@ -99,7 +115,7 @@ export function CrewFormDialog({
     if (!open) return
 
     setError(null)
-    setForm(
+    const nextForm =
       mode === "edit" && crew
         ? {
             name: crew.name,
@@ -109,7 +125,9 @@ export function CrewFormDialog({
             manuallyInactive: isCrewManuallyInactive(crew),
           }
         : emptyForm
-    )
+
+    setForm(nextForm)
+    setBaselineForm(nextForm)
   }, [open, mode, crew])
 
   function updateField<K extends keyof CrewFormState>(
@@ -144,7 +162,7 @@ export function CrewFormDialog({
         manuallyInactive:
           mode === "edit" ? form.manuallyInactive : undefined,
       })
-      onOpenChange(false)
+      forceClose()
     } catch (submitError) {
       setError(
         submitError instanceof Error
@@ -160,8 +178,13 @@ export function CrewFormDialog({
     form.name.trim() !== "" && form.supervisorEmployeeId !== ""
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
+    <>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <ProtectedFormDialogContent
+          className="max-h-[90dvh] overflow-y-auto sm:max-w-lg"
+          onRequestClose={requestClose}
+          isDirty={isDirty}
+        >
         <DialogHeader>
           <DialogTitle>
             {mode === "create" ? "Nueva cuadrilla" : "Editar cuadrilla"}
@@ -299,7 +322,7 @@ export function CrewFormDialog({
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false)}
+              onClick={requestClose}
               disabled={isSubmitting}
             >
               Cancelar
@@ -313,7 +336,14 @@ export function CrewFormDialog({
             </Button>
           </DialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+        </ProtectedFormDialogContent>
+      </Dialog>
+
+      <DiscardChangesDialog
+        open={discardOpen}
+        onOpenChange={setDiscardOpen}
+        onConfirm={confirmDiscard}
+      />
+    </>
   )
 }

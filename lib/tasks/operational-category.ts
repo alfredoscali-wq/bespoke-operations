@@ -12,7 +12,6 @@ export type OperationalTaskCategory =
 const ACTIVE_INTERNAL_STATUSES = new Set<Task["status"]>([
   "asignada",
   "en-curso",
-  "en-aprobacion",
 ])
 
 export const OPERATIONAL_CATEGORY_KPI_LABELS: Record<
@@ -21,8 +20,8 @@ export const OPERATIONAL_CATEGORY_KPI_LABELS: Record<
 > = {
   "sin-cuadrilla": "🔵 Sin cuadrilla",
   programadas: "🟢 Programadas",
-  suspendidas: "🟡 Suspendidas",
-  completadas: "🟠 Completadas",
+  suspendidas: "🟠 Pendiente de Cierre",
+  completadas: "🟢 Completadas",
   canceladas: "🔴 Canceladas",
 }
 
@@ -32,7 +31,7 @@ export const OPERATIONAL_CATEGORY_BADGE_LABELS: Record<
 > = {
   "sin-cuadrilla": "🔵 Sin cuadrilla",
   programadas: "🟢 Programada",
-  suspendidas: "🟡 Suspendida",
+  suspendidas: "🟠 Pendiente de Cierre",
   completadas: "🟠 Completada",
   canceladas: "🔴 Cancelada",
 }
@@ -71,7 +70,7 @@ export const OPERATIONAL_CATEGORY_BADGE_STYLES: Record<
 > = {
   "sin-cuadrilla": STATUS_TONE_STYLES.blue,
   programadas: STATUS_TONE_STYLES.green,
-  suspendidas: STATUS_TONE_STYLES.yellow,
+  suspendidas: "border-orange-200/80 bg-orange-50 text-orange-800",
   completadas: "border-orange-200/80 bg-orange-50 text-orange-800",
   canceladas: STATUS_TONE_STYLES.red,
 }
@@ -83,6 +82,10 @@ function isPendingAssignment(task: Task): boolean {
 export function resolveOperationalCategory(
   task: Task
 ): OperationalTaskCategory {
+  if (task.status === "pendiente-cierre" || task.status === "en-aprobacion") {
+    return "suspendidas"
+  }
+
   if (task.status === "cancelada") {
     return "canceladas"
   }
@@ -107,7 +110,10 @@ export function filterTasksByOperationalCategory(
   category: OperationalTaskCategory
 ): Task[] {
   if (category === "suspendidas") {
-    return []
+    return tasks.filter(
+      (task) =>
+        task.status === "pendiente-cierre" || task.status === "en-aprobacion"
+    )
   }
 
   return tasks.filter(
@@ -130,8 +136,6 @@ export function countTasksByOperationalCategory(
     const category = resolveOperationalCategory(task)
     counts[category] += 1
   }
-
-  counts.suspendidas = 0
 
   return counts
 }

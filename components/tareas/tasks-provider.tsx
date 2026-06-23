@@ -38,6 +38,12 @@ import {
   syncTaskProgress,
 } from "@/lib/tasks/utils"
 import { generateWorkOrderTaskCodeFromCodes } from "@/lib/tasks/work-order"
+import { getTaskEvidencePhotoCount, getOperationalStepPhotoCounts } from "@/lib/supabase/task-photos.browser"
+import {
+  getOperationalStepsProgress,
+  hasOperationalSteps,
+  syncOperationalStepsWithPhotoCounts,
+} from "@/lib/operational-steps/utils"
 import type { CreateTaskPayload, UpdateTaskPayload } from "@/lib/types/supabase/tasks"
 import type { Task, TaskDetail, TaskStatus } from "@/lib/types/tasks"
 
@@ -67,10 +73,19 @@ type TasksContextValue = {
   startTask: (id: string) => Promise<TaskMutationResult>
   submitTaskForApproval: (id: string) => Promise<TaskMutationResult>
   approveTask: (id: string) => Promise<TaskMutationResult>
-  rejectTask: (id: string) => Promise<TaskMutationResult>
+  rejectTask: (id: string, reason: string) => Promise<TaskMutationResult>
   closeTask: (id: string) => Promise<TaskMutationResult>
   cancelTask: (id: string) => Promise<TaskMutationResult>
   toggleChecklistItem: (taskId: string, itemId: string) => void
+  syncOperationalStepsProgress: (
+    taskId: string,
+    stepPhotoCounts: Record<string, number>
+  ) => Promise<TaskMutationResult>
+  updateOperationalStepObservation: (
+    taskId: string,
+    stepId: string,
+    observation: string
+  ) => Promise<TaskMutationResult>
   addComment: (
     taskId: string,
     content: string,
@@ -203,6 +218,9 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       ...(payload.observationsForCrew !== undefined
         ? { observationsForCrew: payload.observationsForCrew ?? undefined }
         : {}),
+      ...(payload.rejectionReason !== undefined
+        ? { rejectionReason: payload.rejectionReason ?? undefined }
+        : {}),
       ...(payload.workOrderNumber !== undefined
         ? { workOrderNumber: payload.workOrderNumber ?? undefined }
         : {}),
@@ -210,6 +228,9 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         ? { estimatedDuration: payload.estimatedDuration }
         : {}),
       ...(payload.checklist !== undefined ? { checklist: payload.checklist } : {}),
+      ...(payload.operationalSteps !== undefined
+        ? { operationalSteps: payload.operationalSteps }
+        : {}),
       ...(payload.progress !== undefined ? { progress: payload.progress } : {}),
     })
   }, [])
@@ -266,7 +287,8 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     async (
       id: string,
       payload: UpdateTaskPayload,
-      workflowAction?: TaskWorkflowAction
+      workflowAction?: TaskWorkflowAction,
+      historyNote?: string
     ): Promise<TaskMutationResult> => {
       const existing = tasks.find((item) => item.id === id)
       if (!existing) {
@@ -287,7 +309,10 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         if (result.data) {
           if (workflowAction) {
             const detail = detailCache.get(id) ?? getTaskDetail(result.data)
-            const historyEntry = getWorkflowHistoryEntry(workflowAction)
+            const historyEntry = getWorkflowHistoryEntry(
+              workflowAction,
+              historyNote
+            )
 
             cacheDetail(id, {
               ...detail,
@@ -337,20 +362,33 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
   const applyWorkflowTransition = useCallback(
     async (
       id: string,
-      workflowAction: TaskWorkflowAction
+      workflowAction: TaskWorkflowAction,
+      options?: {
+        evidenceCount?: number
+        stepPhotoCounts?: Record<string, number>
+        historyNote?: string
+      }
     ): Promise<TaskMutationResult> => {
       const task = tasks.find((item) => item.id === id)
       if (!task) {
         return { success: false, message: "Tarea no encontrada." }
       }
 
-      const validation = canPerformTaskAction(task, workflowAction)
+      const validation = canPerformTaskAction(task, workflowAction, {
+        evidenceCount: options?.evidenceCount,
+        stepPhotoCounts: options?.stepPhotoCounts,
+      })
       if (!validation.allowed) {
         return { success: false, message: validation.message }
       }
 
       const { to } = getTransitionForAction(workflowAction)
-      return updateTaskFields(id, { status: to }, workflowAction)
+      return updateTaskFields(
+        id,
+        { status: to },
+        workflowAction,
+        options?.historyNote
+      )
     },
     [tasks, updateTaskFields]
   )
@@ -382,8 +420,29 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
   )
 
   const submitTaskForApproval = useCallback(
-    (id: string) => applyWorkflowTransition(id, "submit-for-approval"),
-    [applyWorkflowTransition]
+    async (id: string) => {
+      const task = tasks.find((item) => item.id === id)
+      if (!task) {
+        return { success: false, message: "Tarea no encontrada." }
+      }
+
+      if (hasOperationalSteps(task)) {
+        const stepCountsResult = await getOperationalStepPhotoCounts(id)
+        const stepPhotoCounts = stepCountsResult.data ?? {}
+
+        return applyWorkflowTransition(id, "submit-for-approval", {
+          stepPhotoCounts,
+        })
+      }
+
+      const evidenceResult = await getTaskEvidencePhotoCount(id)
+      const evidenceCount = evidenceResult.data ?? 0
+
+      return applyWorkflowTransition(id, "submit-for-approval", {
+        evidenceCount,
+      })
+    },
+    [tasks, applyWorkflowTransition]
   )
 
   const approveTask = useCallback(
@@ -392,8 +451,34 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
   )
 
   const rejectTask = useCallback(
-    (id: string) => applyWorkflowTransition(id, "reject"),
-    [applyWorkflowTransition]
+    async (id: string, reason: string) => {
+      const trimmedReason = reason.trim()
+      if (!trimmedReason) {
+        return {
+          success: false,
+          message: "Indique el motivo de rechazo.",
+        }
+      }
+
+      const task = tasks.find((item) => item.id === id)
+      if (!task) {
+        return { success: false, message: "Tarea no encontrada." }
+      }
+
+      const validation = canPerformTaskAction(task, "reject")
+      if (!validation.allowed) {
+        return { success: false, message: validation.message }
+      }
+
+      const { to } = getTransitionForAction("reject")
+      return updateTaskFields(
+        id,
+        { status: to, rejectionReason: trimmedReason },
+        "reject",
+        `Motivo: ${trimmedReason}`
+      )
+    },
+    [tasks, updateTaskFields]
   )
 
   const closeTask = useCallback(
@@ -545,6 +630,43 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     [persistTaskUpdate]
   )
 
+  const syncOperationalStepsProgress = useCallback(
+    async (taskId: string, stepPhotoCounts: Record<string, number>) => {
+      const task = tasks.find((item) => item.id === taskId)
+      if (!task || !hasOperationalSteps(task)) {
+        return { success: false, message: "Tarea no encontrada." }
+      }
+
+      const operationalSteps = syncOperationalStepsWithPhotoCounts(
+        task.operationalSteps ?? [],
+        stepPhotoCounts
+      )
+      const progress = getOperationalStepsProgress(
+        operationalSteps,
+        stepPhotoCounts
+      )
+
+      return updateTaskFields(taskId, { operationalSteps, progress })
+    },
+    [tasks, updateTaskFields]
+  )
+
+  const updateOperationalStepObservation = useCallback(
+    async (taskId: string, stepId: string, observation: string) => {
+      const task = tasks.find((item) => item.id === taskId)
+      if (!task || !hasOperationalSteps(task)) {
+        return { success: false, message: "Tarea no encontrada." }
+      }
+
+      const operationalSteps = (task.operationalSteps ?? []).map((step) =>
+        step.id === stepId ? { ...step, observation } : step
+      )
+
+      return updateTaskFields(taskId, { operationalSteps })
+    },
+    [tasks, updateTaskFields]
+  )
+
   const addComment = useCallback(
     (
       taskId: string,
@@ -630,6 +752,8 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       closeTask,
       cancelTask,
       toggleChecklistItem,
+      syncOperationalStepsProgress,
+      updateOperationalStepObservation,
       addComment,
       addEvidence,
     }),
@@ -652,6 +776,8 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       closeTask,
       cancelTask,
       toggleChecklistItem,
+      syncOperationalStepsProgress,
+      updateOperationalStepObservation,
       addComment,
       addEvidence,
     ]

@@ -9,7 +9,7 @@ import type {
   CalendarTaskAlertKind,
   CalendarTaskAlertSeverity,
 } from "@/lib/types/calendar"
-import { FINAL_TASK_STATUSES } from "@/lib/tasks/status-groups"
+import { FINAL_TASK_STATUSES, taskRequiresSupervisorValidation } from "@/lib/tasks/status-groups"
 import type { Crew, CrewMember } from "@/lib/types/crews"
 import type { Task } from "@/lib/types/tasks"
 
@@ -91,6 +91,14 @@ export function buildTaskAlertsForDate(input: {
   const isFinal = FINAL_TASK_STATUSES.includes(task.status)
 
   if (!isFinal) {
+    if (taskRequiresSupervisorValidation(task)) {
+      alerts.push({
+        kind: "DUE_THIS_WEEK",
+        severity: "warning",
+        message: "Requiere validación de cierre por supervisor.",
+      })
+    }
+
     if (task.dueDate < date) {
       alerts.push({
         kind: "OVERDUE",

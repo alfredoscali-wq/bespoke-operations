@@ -8,12 +8,17 @@ import { PROJECT_TYPE_OPTIONS } from "@/lib/projects/constants"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
-  DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  DiscardChangesDialog,
+  ProtectedFormDialogContent,
+  isFormStateDirty,
+  useProtectedFormDialog,
+} from "@/components/ui/protected-form-dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -55,10 +60,25 @@ export function ProjectEditDialog({
   isSubmitting = false,
 }: ProjectEditDialogProps) {
   const [form, setForm] = useState<NewProjectInput>(() => projectToForm(project))
+  const [baselineForm, setBaselineForm] = useState<NewProjectInput>(() =>
+    projectToForm(project)
+  )
+
+  const isDirty = isFormStateDirty(form, baselineForm)
+  const {
+    handleOpenChange,
+    requestClose,
+    forceClose,
+    discardOpen,
+    setDiscardOpen,
+    confirmDiscard,
+  } = useProtectedFormDialog({ open, onOpenChange, isDirty })
 
   useEffect(() => {
     if (open) {
-      setForm(projectToForm(project))
+      const nextForm = projectToForm(project)
+      setForm(nextForm)
+      setBaselineForm(nextForm)
     }
   }, [open, project])
 
@@ -72,6 +92,7 @@ export function ProjectEditDialog({
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     await onSubmit(form)
+    forceClose()
   }
 
   const isValid =
@@ -82,8 +103,13 @@ export function ProjectEditDialog({
     form.supervisor.trim() !== ""
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+    <>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <ProtectedFormDialogContent
+          className="max-h-[90vh] overflow-y-auto sm:max-w-lg"
+          onRequestClose={requestClose}
+          isDirty={isDirty}
+        >
         <DialogHeader>
           <DialogTitle>Editar obra</DialogTitle>
           <DialogDescription>
@@ -198,7 +224,7 @@ export function ProjectEditDialog({
           <Button
             type="button"
             variant="outline"
-            onClick={() => onOpenChange(false)}
+            onClick={requestClose}
             disabled={isSubmitting}
           >
             Cancelar
@@ -211,7 +237,14 @@ export function ProjectEditDialog({
             {isSubmitting ? "Guardando..." : "Guardar cambios"}
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </ProtectedFormDialogContent>
+      </Dialog>
+
+      <DiscardChangesDialog
+        open={discardOpen}
+        onOpenChange={setDiscardOpen}
+        onConfirm={confirmDiscard}
+      />
+    </>
   )
 }

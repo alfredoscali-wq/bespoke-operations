@@ -1,9 +1,11 @@
 import type { Task, TaskStatus } from "@/lib/types/tasks"
+import { isPendingClosureStatus } from "@/lib/tasks/task-status-workflow"
 
 export const ACTIVE_TASK_STATUSES: TaskStatus[] = [
   "pendiente",
   "asignada",
   "en-curso",
+  "pendiente-cierre",
   "en-aprobacion",
 ]
 
@@ -37,4 +39,8 @@ export function isCalendarOperationalTask(status: TaskStatus): boolean {
 
 export function filterCalendarOperationalTasks(tasks: Task[]): Task[] {
   return tasks.filter((task) => isCalendarOperationalTask(task.status))
+}
+
+export function taskRequiresSupervisorValidation(task: Pick<Task, "status">): boolean {
+  return isPendingClosureStatus(task.status)
 }

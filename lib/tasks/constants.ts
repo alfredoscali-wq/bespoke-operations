@@ -13,6 +13,7 @@ export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   pendiente: "Pendiente",
   asignada: "Asignada",
   "en-curso": "En Curso",
+  "pendiente-cierre": "Pendiente de Cierre",
   finalizada: "Finalizada",
   "en-aprobacion": "En Aprobación",
   cerrada: "Cerrada",
@@ -23,8 +24,11 @@ export const TASK_STATUS_STYLES: Record<TaskStatus, string> = {
   pendiente: STATUS_TONE_STYLES.gray,
   asignada: STATUS_TONE_STYLES.blue,
   "en-curso": STATUS_TONE_STYLES.yellow,
+  "pendiente-cierre":
+    "border-orange-200/80 bg-orange-50 text-orange-900 dark:border-orange-800 dark:bg-orange-950/40 dark:text-orange-200",
   finalizada: STATUS_TONE_STYLES.violet,
-  "en-aprobacion": STATUS_TONE_STYLES.yellow,
+  "en-aprobacion":
+    "border-orange-200/80 bg-orange-50 text-orange-900 dark:border-orange-800 dark:bg-orange-950/40 dark:text-orange-200",
   cerrada: STATUS_TONE_STYLES.green,
   cancelada: STATUS_TONE_STYLES.red,
 }
@@ -33,6 +37,7 @@ export const KANBAN_COLUMNS: TaskStatus[] = [
   "pendiente",
   "asignada",
   "en-curso",
+  "pendiente-cierre",
   "finalizada",
   "en-aprobacion",
   "cerrada",

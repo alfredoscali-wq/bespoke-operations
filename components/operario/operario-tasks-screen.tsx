@@ -1,8 +1,10 @@
 "use client"
 
+import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { OperarioTaskCard } from "@/components/operario/operario-task-card"
-import { groupWorkerTasks } from "@/lib/data/operario"
+import { useOperario } from "@/components/operario/operario-provider"
+import { groupWorkerTasks, resolveWorkerCrewRef } from "@/lib/data/operario"
 import type { Task } from "@/lib/types/tasks"
 
 function TaskSection({
@@ -28,7 +30,10 @@ function TaskSection({
 
 export function OperarioTasksScreen() {
   const { tasks } = useTasks()
-  const grouped = groupWorkerTasks(tasks)
+  const { worker } = useOperario()
+  const { crews } = useCrews()
+  const workerCrew = resolveWorkerCrewRef(worker, crews)
+  const grouped = groupWorkerTasks(tasks, workerCrew)
 
   return (
     <div className="space-y-6 px-4 pt-6">

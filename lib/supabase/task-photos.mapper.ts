@@ -9,6 +9,7 @@ export function mapTaskPhotoRowToTaskPhoto(
     id: row.id,
     taskId: row.task_id,
     photoType: row.photo_type,
+    operationalStepId: row.operational_step_id,
     fileUrl: row.file_url ?? row.storage_path,
     fileName: row.file_name,
     description: row.description?.trim() || row.caption?.trim() || "",

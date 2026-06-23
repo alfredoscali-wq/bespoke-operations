@@ -81,10 +81,11 @@ const statusOrder: Record<TaskStatus, number> = {
   pendiente: 1,
   asignada: 2,
   "en-curso": 3,
-  finalizada: 4,
-  "en-aprobacion": 5,
-  cerrada: 6,
-  cancelada: 7,
+  "pendiente-cierre": 4,
+  finalizada: 5,
+  "en-aprobacion": 6,
+  cerrada: 7,
+  cancelada: 8,
 }
 
 export function TasksFiltersBar({

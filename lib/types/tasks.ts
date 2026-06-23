@@ -2,6 +2,7 @@ export type TaskStatus =
   | "pendiente"
   | "asignada"
   | "en-curso"
+  | "pendiente-cierre"
   | "finalizada"
   | "en-aprobacion"
   | "cerrada"
@@ -22,6 +23,13 @@ export type ChecklistItem = {
   label: string
   completed: boolean
   required: boolean
+}
+
+export type OperationalStep = {
+  id: string
+  label: string
+  observation: string
+  completedAt: string | null
 }
 
 export type TaskOperationMode = "obra" | "servicio"
@@ -54,10 +62,12 @@ export type Task = {
   dueDate: string
   estimatedDuration: string
   checklist: ChecklistItem[]
+  operationalSteps?: OperationalStep[]
   progress: number
   createdAt?: string
   completedAt?: string | null
   closedAt?: string | null
+  rejectionReason?: string
   serviceType?: string | null
   locality?: string | null
   taskMetadata?: Record<string, unknown>

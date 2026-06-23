@@ -5,7 +5,7 @@ import { FileSpreadsheet, Plus } from "lucide-react"
 
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { useTasks } from "@/components/tareas/tasks-provider"
-import { TaskWorkOrderDialog } from "@/components/tareas/task-work-order-dialog"
+import { TaskWorkOrderDialog, type WorkOrderCreateResult } from "@/components/tareas/task-work-order-dialog"
 import { TasksOperationalList } from "@/components/tareas/tasks-operational-list"
 import { TasksOperationalSummary } from "@/components/tareas/tasks-operational-summary"
 import { TasksUIProvider, useTasksUI } from "@/components/tareas/tasks-ui-provider"
@@ -55,9 +55,18 @@ function TasksModuleContent() {
   )
 
   async function handleCreateWorkOrder(payload: CreateTaskPayload) {
-    const task = await addTask(payload)
+    return addTask(payload)
+  }
+
+  function handleWorkOrderCreated(result: WorkOrderCreateResult) {
+    if (result.photoUpload.failedPhotos > 0) {
+      setFeedback(
+        "La orden fue creada correctamente. Algunas fotos no pudieron cargarse."
+      )
+      return
+    }
+
     setFeedback("Orden de trabajo creada correctamente.")
-    return task
   }
 
   return (
@@ -117,6 +126,7 @@ function TasksModuleContent() {
         onOpenChange={setWorkOrderOpen}
         existingTasks={tasks}
         onSubmit={handleCreateWorkOrder}
+        onTaskCreated={handleWorkOrderCreated}
       />
 
       <WorkOrderImportDialog

@@ -14,6 +14,7 @@ const TASK_STATUS_VALUES: TaskStatus[] = [
   "pendiente",
   "asignada",
   "en-curso",
+  "pendiente-cierre",
   "en-aprobacion",
   "finalizada",
   "cerrada",

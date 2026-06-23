@@ -8,12 +8,17 @@ import { WORK_ORDER_TECHNOLOGY_OPTIONS } from "@/lib/tasks/work-order"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
-  DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  DiscardChangesDialog,
+  ProtectedFormDialogContent,
+  isFormStateDirty,
+  useProtectedFormDialog,
+} from "@/components/ui/protected-form-dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -78,12 +83,25 @@ export function CustomerFormDialog({
   const { createCustomer, updateCustomer } = useCustomers()
   const isEditMode = Boolean(customer)
   const [form, setForm] = useState<CustomerFormState>(emptyForm)
+  const [baselineForm, setBaselineForm] = useState<CustomerFormState>(emptyForm)
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  const isDirty = isFormStateDirty(form, baselineForm)
+  const {
+    handleOpenChange,
+    requestClose,
+    forceClose,
+    discardOpen,
+    setDiscardOpen,
+    confirmDiscard,
+  } = useProtectedFormDialog({ open, onOpenChange, isDirty })
+
   useEffect(() => {
     if (open) {
-      setForm(customer ? customerToForm(customer) : emptyForm)
+      const nextForm = customer ? customerToForm(customer) : emptyForm
+      setForm(nextForm)
+      setBaselineForm(nextForm)
       setError(null)
     }
   }, [open, customer])
@@ -138,15 +156,20 @@ export function CustomerFormDialog({
         onSuccess(`Cliente ${payload.name} registrado correctamente.`)
       }
 
-      onOpenChange(false)
+      forceClose()
     } finally {
       setIsSubmitting(false)
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+    <>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <ProtectedFormDialogContent
+          className="max-h-[90vh] overflow-y-auto sm:max-w-lg"
+          onRequestClose={requestClose}
+          isDirty={isDirty}
+        >
         <DialogHeader>
           <DialogTitle>
             {isEditMode ? "Editar cliente" : "Nuevo cliente"}
@@ -291,7 +314,7 @@ export function CustomerFormDialog({
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false)}
+              onClick={requestClose}
               disabled={isSubmitting}
             >
               Cancelar
@@ -305,7 +328,14 @@ export function CustomerFormDialog({
             </Button>
           </DialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+        </ProtectedFormDialogContent>
+      </Dialog>
+
+      <DiscardChangesDialog
+        open={discardOpen}
+        onOpenChange={setDiscardOpen}
+        onConfirm={confirmDiscard}
+      />
+    </>
   )
 }

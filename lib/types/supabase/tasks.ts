@@ -1,5 +1,6 @@
 import type {
   ChecklistItem,
+  OperationalStep,
   Task,
   TaskPriority,
   TaskStatus,
@@ -39,10 +40,12 @@ export type UpdateTaskPayload = Partial<{
   dueDate: string
   estimatedDuration: string
   checklist: ChecklistItem[]
+  operationalSteps?: OperationalStep[]
   progress: number
   serviceType?: string | null
   locality?: string | null
   taskMetadata?: Record<string, unknown>
+  rejectionReason?: string | null
 }>
 
 export type TasksRepositoryErrorCode =

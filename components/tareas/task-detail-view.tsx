@@ -13,10 +13,15 @@ import {
 } from "@/lib/crews/status-workflow"
 import { resolveTaskCrewDisplayName } from "@/lib/tasks/crew-relation"
 import { TaskOverviewTab } from "@/components/tareas/task-tabs/overview-tab"
+import { TaskOperationalWorkflowActions } from "@/components/tareas/task-operational-workflow-actions"
+import { TaskClosureRejectDialog } from "@/components/tareas/task-closure-reject-dialog"
+import { TaskClosureValidationCard } from "@/components/tareas/task-closure-validation-card"
 import { TaskChecklistTab } from "@/components/tareas/task-tabs/checklist-tab"
 import { TaskEvidenceTab } from "@/components/tareas/task-tabs/evidence-tab"
+import { TaskOperationalStepsTab } from "@/components/tareas/task-tabs/operational-steps-tab"
 import { TaskCommentsTab } from "@/components/tareas/task-tabs/comments-tab"
 import { TaskHistoryTab } from "@/components/tareas/task-tabs/history-tab"
+import { hasOperationalSteps } from "@/lib/operational-steps/utils"
 import {
   TaskOperationBadge,
   TaskPriorityBadge,
@@ -28,7 +33,7 @@ import {
   TASK_STATUS_STYLES,
 } from "@/lib/tasks/constants"
 import { isWorkOrderTask } from "@/lib/tasks/work-order"
-import { canPerformTaskAction } from "@/lib/tasks/task-status-workflow"
+import { isPendingClosureStatus } from "@/lib/tasks/task-status-workflow"
 import { ACTIVE_TASK_STATUSES, isFinalTaskStatus } from "@/lib/tasks/status-groups"
 import { isFieldServiceTask } from "@/lib/tasks/utils"
 import type { Task, TaskDetail } from "@/lib/types/tasks"
@@ -72,6 +77,7 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
   const [isAssigningCrew, setIsAssigningCrew] = useState(false)
   const [isWorkflowActionPending, setIsWorkflowActionPending] = useState(false)
   const [actionSuccess, setActionSuccess] = useState<string | null>(null)
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false)
 
   async function handleCrewChange(value: string) {
     setCrewError(null)
@@ -119,22 +125,23 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
       return
     }
 
-    setActionSuccess("Tarea aprobada. Ya puede cerrarla administrativamente.")
+    setActionSuccess("Cierre aprobado. La tarea quedó cerrada.")
   }
 
-  async function handleReject() {
+  async function handleConfirmReject(reason: string) {
     setActionError(null)
     setActionSuccess(null)
     setIsWorkflowActionPending(true)
-    const result = await rejectTask(task.id)
+    const result = await rejectTask(task.id, reason)
     setIsWorkflowActionPending(false)
 
     if (!result.success) {
-      setActionError(result.message ?? "No se pudo rechazar la tarea.")
+      setActionError(result.message ?? "No se pudo rechazar el cierre.")
       return
     }
 
-    setActionSuccess("Tarea devuelta a en curso para correcciones.")
+    setRejectDialogOpen(false)
+    setActionSuccess("Cierre rechazado. La tarea volvió a En Curso.")
   }
 
   async function handleClose() {
@@ -167,8 +174,9 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
     setActionSuccess("Tarea cancelada correctamente.")
   }
 
-  const submitValidation = canPerformTaskAction(task, "submit-for-approval")
   const canCancel = ACTIVE_TASK_STATUSES.includes(task.status)
+  const pendingClosure = isPendingClosureStatus(task.status)
+  const usesOperationalSteps = hasOperationalSteps(task)
 
   return (
     <div className="space-y-6">
@@ -298,33 +306,23 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
         </Alert>
       )}
 
-      {task.status === "en-aprobacion" && (
-        <Alert className="border-orange-200 bg-orange-50/60">
-          <AlertTriangle className="size-4 text-orange-700" />
-          <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <span className="text-sm text-foreground">
-              Esta tarea requiere revisión de supervisión antes de continuar.
-            </span>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                size="sm"
-                onClick={handleApprove}
-                disabled={isWorkflowActionPending}
-              >
-                Aprobar
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleReject}
-                disabled={isWorkflowActionPending}
-              >
-                Rechazar
-              </Button>
-            </div>
-          </AlertDescription>
-        </Alert>
+      <TaskOperationalWorkflowActions task={task} />
+
+      {pendingClosure && (
+        <TaskClosureValidationCard
+          task={task}
+          onApprove={handleApprove}
+          onReject={() => setRejectDialogOpen(true)}
+          isPending={isWorkflowActionPending}
+        />
       )}
+
+      <TaskClosureRejectDialog
+        open={rejectDialogOpen}
+        onOpenChange={setRejectDialogOpen}
+        onConfirm={handleConfirmReject}
+        isSubmitting={isWorkflowActionPending}
+      />
 
       {task.status === "finalizada" && (
         <Alert className="border-violet-200 bg-violet-50/60">
@@ -364,19 +362,20 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
         </Alert>
       )}
 
-      {task.status === "en-curso" && !submitValidation.allowed && (
-        <Alert>
-          <AlertTriangle className="size-4" />
-          <AlertDescription>{submitValidation.message}</AlertDescription>
-        </Alert>
-      )}
-
       <Tabs defaultValue="overview" className="space-y-4">
         <div className="overflow-x-auto">
           <TabsList variant="line" className="w-full min-w-max justify-start">
             <TabsTrigger value="overview">Resumen</TabsTrigger>
-            <TabsTrigger value="checklist">Checklist</TabsTrigger>
-            <TabsTrigger value="evidence">Evidencias</TabsTrigger>
+            {usesOperationalSteps ? (
+              <TabsTrigger value="operational-steps">
+                Pasos Operativos
+              </TabsTrigger>
+            ) : (
+              <>
+                <TabsTrigger value="checklist">Checklist</TabsTrigger>
+                <TabsTrigger value="evidence">Evidencias</TabsTrigger>
+              </>
+            )}
             <TabsTrigger value="comments">Comentarios</TabsTrigger>
             <TabsTrigger value="history">Historial</TabsTrigger>
           </TabsList>
@@ -385,12 +384,20 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
         <TabsContent value="overview">
           <TaskOverviewTab task={task} />
         </TabsContent>
-        <TabsContent value="checklist">
-          <TaskChecklistTab task={task} />
-        </TabsContent>
-        <TabsContent value="evidence">
-          <TaskEvidenceTab task={task} />
-        </TabsContent>
+        {usesOperationalSteps ? (
+          <TabsContent value="operational-steps">
+            <TaskOperationalStepsTab task={task} />
+          </TabsContent>
+        ) : (
+          <>
+            <TabsContent value="checklist">
+              <TaskChecklistTab task={task} />
+            </TabsContent>
+            <TabsContent value="evidence">
+              <TaskEvidenceTab task={task} />
+            </TabsContent>
+          </>
+        )}
         <TabsContent value="comments">
           <TaskCommentsTab comments={detail.comments} />
         </TabsContent>

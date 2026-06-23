@@ -1,14 +1,17 @@
 "use client"
 
+import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { OperarioTaskCard } from "@/components/operario/operario-task-card"
 import { useOperario } from "@/components/operario/operario-provider"
-import { getTodayWorkerTasks } from "@/lib/data/operario"
+import { getTodayWorkerTasks, resolveWorkerCrewRef } from "@/lib/data/operario"
 
 export function OperarioHomeScreen() {
   const { tasks } = useTasks()
   const { worker } = useOperario()
-  const todayTasks = getTodayWorkerTasks(tasks)
+  const { crews } = useCrews()
+  const workerCrew = resolveWorkerCrewRef(worker, crews)
+  const todayTasks = getTodayWorkerTasks(tasks, workerCrew)
 
   return (
     <div className="space-y-5 px-4 pt-6">

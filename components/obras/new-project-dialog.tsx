@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Plus } from "lucide-react"
 
 import { ProjectSupervisorSelect } from "@/components/obras/project-supervisor-select"
@@ -9,13 +9,18 @@ import { PROJECT_TYPE_OPTIONS } from "@/lib/projects/constants"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
-  DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import {
+  DiscardChangesDialog,
+  ProtectedFormDialogContent,
+  isFormStateDirty,
+  useProtectedFormDialog,
+} from "@/components/ui/protected-form-dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -46,6 +51,24 @@ const emptyForm: NewProjectInput = {
 export function NewProjectDialog({ onSubmit }: NewProjectDialogProps) {
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState<NewProjectInput>(emptyForm)
+  const [baselineForm, setBaselineForm] = useState<NewProjectInput>(emptyForm)
+
+  const isDirty = isFormStateDirty(form, baselineForm)
+  const {
+    handleOpenChange,
+    requestClose,
+    forceClose,
+    discardOpen,
+    setDiscardOpen,
+    confirmDiscard,
+  } = useProtectedFormDialog({ open, onOpenChange: setOpen, isDirty })
+
+  useEffect(() => {
+    if (open) {
+      setForm(emptyForm)
+      setBaselineForm(emptyForm)
+    }
+  }, [open])
 
   function updateField<K extends keyof NewProjectInput>(
     key: K,
@@ -59,7 +82,7 @@ export function NewProjectDialog({ onSubmit }: NewProjectDialogProps) {
     try {
       await onSubmit(form)
       setForm(emptyForm)
-      setOpen(false)
+      forceClose()
     } catch (error) {
       console.error("[PROJECT CREATE]", error)
     }
@@ -73,14 +96,19 @@ export function NewProjectDialog({ onSubmit }: NewProjectDialogProps) {
     form.supervisor.trim() !== ""
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm" className="gap-1.5">
-          <Plus className="size-4" />
-          Nueva obra
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+    <>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogTrigger asChild>
+          <Button size="sm" className="gap-1.5">
+            <Plus className="size-4" />
+            Nueva obra
+          </Button>
+        </DialogTrigger>
+        <ProtectedFormDialogContent
+          className="max-h-[90vh] overflow-y-auto sm:max-w-lg"
+          onRequestClose={requestClose}
+          isDirty={isDirty}
+        >
         <DialogHeader>
           <DialogTitle>Nueva obra</DialogTitle>
           <DialogDescription>
@@ -196,14 +224,21 @@ export function NewProjectDialog({ onSubmit }: NewProjectDialogProps) {
         </form>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
+          <Button variant="outline" onClick={requestClose}>
             Cancelar
           </Button>
           <Button type="submit" form="new-project-form" disabled={!isValid}>
             Crear obra
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </ProtectedFormDialogContent>
+      </Dialog>
+
+      <DiscardChangesDialog
+        open={discardOpen}
+        onOpenChange={setDiscardOpen}
+        onConfirm={confirmDiscard}
+      />
+    </>
   )
 }

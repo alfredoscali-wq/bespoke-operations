@@ -216,16 +216,17 @@ export function buildOperationalAlerts(input: {
     })
   }
 
-  const pendingApproval = input.tasks.filter(
-    (task) => task.status === "en-aprobacion"
+  const pendingClosure = input.tasks.filter(
+    (task) =>
+      task.status === "pendiente-cierre" || task.status === "en-aprobacion"
   ).length
 
-  if (pendingApproval > 0) {
+  if (pendingClosure > 0) {
     alerts.push({
-      id: "pending-approval",
+      id: "pending-closure",
       severity: "warning",
-      message: `${pendingApproval} tarea${pendingApproval === 1 ? "" : "s"} en aprobación`,
-      href: "/tareas?status=en-aprobacion",
+      message: `${pendingClosure} tarea${pendingClosure === 1 ? "" : "s"} pendiente${pendingClosure === 1 ? "" : "s"} de cierre`,
+      href: "/tareas?status=pendiente-cierre",
     })
   }
 
@@ -322,21 +323,21 @@ export function buildTasksStatusKpis(tasks: Task[]): DashboardStatusKpi[] {
   const entries: { id: string; label: string; key: keyof typeof summary; href: string }[] =
     [
       { id: "pendiente", label: "Pendientes", key: "pendiente", href: "/tareas?status=pendiente" },
-      { id: "asignada", label: "Asignadas", key: "asignada", href: "/tareas?status=asignada" },
       { id: "en-curso", label: "En Curso", key: "enCurso", href: "/tareas?status=en-curso" },
       {
-        id: "en-aprobacion",
-        label: "En Aprobación",
-        key: "enAprobacion",
-        href: "/tareas?status=en-aprobacion",
+        id: "pendiente-cierre",
+        label: "Pendiente de Cierre",
+        key: "pendienteCierre",
+        href: "/tareas?status=pendiente-cierre",
       },
+      { id: "cerrada", label: "Cerradas", key: "cerrada", href: "/tareas?status=cerrada" },
+      { id: "asignada", label: "Asignadas", key: "asignada", href: "/tareas?status=asignada" },
       {
         id: "finalizada",
         label: "Finalizadas",
         key: "finalizada",
         href: "/tareas?status=finalizada",
       },
-      { id: "cerrada", label: "Cerradas", key: "cerrada", href: "/tareas?status=cerrada" },
     ]
 
   return entries.map((entry) => ({

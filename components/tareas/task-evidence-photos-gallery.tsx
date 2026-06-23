@@ -2,18 +2,18 @@
 
 import { TaskPhotosGallery } from "@/components/tareas/task-photos-gallery"
 
-type TaskReferencePhotosGalleryProps = {
+type TaskEvidencePhotosGalleryProps = {
   taskId: string
 }
 
-export function TaskReferencePhotosGallery({
+export function TaskEvidencePhotosGallery({
   taskId,
-}: TaskReferencePhotosGalleryProps) {
+}: TaskEvidencePhotosGalleryProps) {
   return (
     <TaskPhotosGallery
       taskId={taskId}
-      photoType="reference"
-      title="Fotos para la Cuadrilla"
+      photoType="evidence"
+      title="Evidencias"
     />
   )
 }

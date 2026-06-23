@@ -14,12 +14,17 @@ import { getEmployeeDisplayName } from "@/lib/employees/utils"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
-  DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  DiscardChangesDialog,
+  ProtectedFormDialogContent,
+  isFormStateDirty,
+  useProtectedFormDialog,
+} from "@/components/ui/protected-form-dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -78,8 +83,19 @@ export function AvailabilityFormDialog({
 }: AvailabilityFormDialogProps) {
   const { employees } = useEmployees()
   const [form, setForm] = useState<FormState>(buildDefaultForm)
+  const [baselineForm, setBaselineForm] = useState<FormState>(buildDefaultForm)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const isDirty = isFormStateDirty(form, baselineForm)
+  const {
+    handleOpenChange,
+    requestClose,
+    forceClose,
+    discardOpen,
+    setDiscardOpen,
+    confirmDiscard,
+  } = useProtectedFormDialog({ open, onOpenChange, isDirty })
 
   const employeeOptions = useMemo(
     () =>
@@ -93,14 +109,16 @@ export function AvailabilityFormDialog({
     if (!open) return
 
     setError(null)
-    setForm(
+    const nextForm =
       mode === "edit" && record
         ? buildEditForm(record)
         : {
             ...buildDefaultForm(),
             employeeId: employeeOptions[0]?.id ?? "",
           }
-    )
+
+    setForm(nextForm)
+    setBaselineForm(nextForm)
   }, [open, mode, record, employeeOptions])
 
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -127,7 +145,7 @@ export function AvailabilityFormDialog({
         endDate: form.endDate,
         reason: form.reason.trim() || undefined,
       })
-      onOpenChange(false)
+      forceClose()
     } catch (submitError) {
       setError(
         submitError instanceof Error
@@ -146,8 +164,13 @@ export function AvailabilityFormDialog({
     form.endDate >= form.startDate
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
+    <>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <ProtectedFormDialogContent
+          className="max-h-[90dvh] overflow-y-auto sm:max-w-lg"
+          onRequestClose={requestClose}
+          isDirty={isDirty}
+        >
         <DialogHeader>
           <DialogTitle>
             {mode === "create" ? "Nueva novedad" : "Editar novedad"}
@@ -244,7 +267,7 @@ export function AvailabilityFormDialog({
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false)}
+              onClick={requestClose}
               disabled={isSubmitting}
             >
               Cancelar
@@ -258,7 +281,14 @@ export function AvailabilityFormDialog({
             </Button>
           </DialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+        </ProtectedFormDialogContent>
+      </Dialog>
+
+      <DiscardChangesDialog
+        open={discardOpen}
+        onOpenChange={setDiscardOpen}
+        onConfirm={confirmDiscard}
+      />
+    </>
   )
 }

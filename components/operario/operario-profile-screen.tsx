@@ -2,15 +2,18 @@
 
 import { HardHat, ClipboardList, Users } from "lucide-react"
 
+import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { useOperario } from "@/components/operario/operario-provider"
-import { getWorkerTasks } from "@/lib/data/operario"
+import { getWorkerTasks, resolveWorkerCrewRef } from "@/lib/data/operario"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 
 export function OperarioProfileScreen() {
   const { worker } = useOperario()
   const { tasks } = useTasks()
-  const assignedCount = getWorkerTasks(tasks).length
+  const { crews } = useCrews()
+  const workerCrew = resolveWorkerCrewRef(worker, crews)
+  const assignedCount = getWorkerTasks(tasks, workerCrew).length
 
   return (
     <div className="space-y-6 px-4 pt-6">

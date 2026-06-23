@@ -1,5 +1,6 @@
 import { TASK_STATUS_LABELS } from "@/lib/tasks/constants"
-import type { ChecklistItem, Task, TaskStatus } from "@/lib/types/tasks"
+import { hasOperationalSteps } from "@/lib/operational-steps/utils"
+import type { ChecklistItem, OperationalStep, Task, TaskStatus } from "@/lib/types/tasks"
 
 export type TaskWorkflowAction =
   | "assign-crew"
@@ -10,14 +11,17 @@ export type TaskWorkflowAction =
   | "close"
   | "cancel"
 
-function getRequiredChecklistComplete(checklist: ChecklistItem[]): boolean {
-  return checklist
-    .filter((item) => item.required)
-    .every((item) => item.completed)
+export const PENDING_CLOSURE_STATUSES: TaskStatus[] = [
+  "pendiente-cierre",
+  "en-aprobacion",
+]
+
+export function isPendingClosureStatus(status: TaskStatus): boolean {
+  return PENDING_CLOSURE_STATUSES.includes(status)
 }
 
-function getIncompleteRequiredItems(checklist: ChecklistItem[]): ChecklistItem[] {
-  return checklist.filter((item) => item.required && !item.completed)
+function getIncompleteChecklistItems(checklist: ChecklistItem[]): ChecklistItem[] {
+  return checklist.filter((item) => !item.completed)
 }
 
 const WORKFLOW_TRANSITIONS: Record<
@@ -26,12 +30,18 @@ const WORKFLOW_TRANSITIONS: Record<
 > = {
   "assign-crew": { from: ["pendiente"], to: "asignada" },
   start: { from: ["asignada"], to: "en-curso" },
-  "submit-for-approval": { from: ["en-curso"], to: "en-aprobacion" },
-  approve: { from: ["en-aprobacion"], to: "finalizada" },
-  reject: { from: ["en-aprobacion"], to: "en-curso" },
+  "submit-for-approval": { from: ["en-curso"], to: "pendiente-cierre" },
+  approve: { from: PENDING_CLOSURE_STATUSES, to: "cerrada" },
+  reject: { from: PENDING_CLOSURE_STATUSES, to: "en-curso" },
   close: { from: ["finalizada"], to: "cerrada" },
   cancel: {
-    from: ["pendiente", "asignada", "en-curso", "en-aprobacion"],
+    from: [
+      "pendiente",
+      "asignada",
+      "en-curso",
+      "pendiente-cierre",
+      "en-aprobacion",
+    ],
     to: "cancelada",
   },
 }
@@ -67,9 +77,67 @@ export function getWorkflowActionForTargetStatus(
   return null
 }
 
+export function validateOperationalStepsComplete(
+  steps: OperationalStep[],
+  stepPhotoCounts: Record<string, number>
+): { allowed: boolean; message?: string } {
+  for (const step of steps) {
+    if ((stepPhotoCounts[step.id] ?? 0) <= 0) {
+      return {
+        allowed: false,
+        message: `Falta completar ${step.label}`,
+      }
+    }
+  }
+
+  return { allowed: true }
+}
+
+export function validateTaskClosureSubmission(
+  task: Task,
+  evidenceCount: number
+): { allowed: boolean; message?: string } {
+  if (getIncompleteChecklistItems(task.checklist).length > 0) {
+    return {
+      allowed: false,
+      message: "Debe completar el checklist antes de finalizar la tarea.",
+    }
+  }
+
+  if (evidenceCount <= 0) {
+    return {
+      allowed: false,
+      message: "Debe cargar evidencias antes de finalizar la tarea.",
+    }
+  }
+
+  return { allowed: true }
+}
+
+export function validateTaskClosureForSubmit(
+  task: Task,
+  options?: {
+    evidenceCount?: number
+    stepPhotoCounts?: Record<string, number>
+  }
+): { allowed: boolean; message?: string } {
+  if (hasOperationalSteps(task)) {
+    return validateOperationalStepsComplete(
+      task.operationalSteps ?? [],
+      options?.stepPhotoCounts ?? {}
+    )
+  }
+
+  return validateTaskClosureSubmission(task, options?.evidenceCount ?? 0)
+}
+
 export function canPerformTaskAction(
   task: Task,
-  action: TaskWorkflowAction
+  action: TaskWorkflowAction,
+  options?: {
+    evidenceCount?: number
+    stepPhotoCounts?: Record<string, number>
+  }
 ): { allowed: boolean; message?: string } {
   const { from } = WORKFLOW_TRANSITIONS[action]
 
@@ -80,18 +148,12 @@ export function canPerformTaskAction(
     }
   }
 
-  if (
-    action === "submit-for-approval" &&
-    !getRequiredChecklistComplete(task.checklist)
-  ) {
-    const missing = getIncompleteRequiredItems(task.checklist)
-      .map((item) => item.label)
-      .join(", ")
+  if (action === "submit-for-approval") {
+    return validateTaskClosureForSubmit(task, options)
+  }
 
-    return {
-      allowed: false,
-      message: `Complete los elementos obligatorios antes de finalizar: ${missing}.`,
-    }
+  if (action === "reject") {
+    return { allowed: true }
   }
 
   return { allowed: true }
@@ -111,7 +173,10 @@ export function resolveStatusAfterCrewAssignment(
   return null
 }
 
-export function getWorkflowHistoryEntry(action: TaskWorkflowAction): {
+export function getWorkflowHistoryEntry(
+  action: TaskWorkflowAction,
+  note?: string
+): {
   action: string
   description: string
 } {
@@ -120,15 +185,19 @@ export function getWorkflowHistoryEntry(action: TaskWorkflowAction): {
   const actionLabels: Record<TaskWorkflowAction, string> = {
     "assign-crew": "Cuadrilla asignada",
     start: "Trabajo iniciado",
-    "submit-for-approval": "Enviado a aprobación",
-    approve: "Tarea aprobada",
-    reject: "Tarea rechazada",
+    "submit-for-approval": "Enviado a validación de cierre",
+    approve: "Cierre aprobado",
+    reject: "Cierre rechazado",
     close: "Tarea cerrada",
     cancel: "Tarea cancelada",
   }
 
+  const description = note?.trim()
+    ? note.trim()
+    : `Estado cambiado a ${TASK_STATUS_LABELS[to]}.`
+
   return {
     action: actionLabels[action],
-    description: `Estado cambiado a ${TASK_STATUS_LABELS[to]}.`,
+    description,
   }
 }

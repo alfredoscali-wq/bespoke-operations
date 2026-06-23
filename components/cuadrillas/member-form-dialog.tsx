@@ -18,12 +18,17 @@ import { WhatsAppLink } from "@/components/ui/whatsapp-link"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
-  DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  DiscardChangesDialog,
+  ProtectedFormDialogContent,
+  isFormStateDirty,
+  useProtectedFormDialog,
+} from "@/components/ui/protected-form-dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -61,6 +66,11 @@ const emptyForm: MemberFormState = {
 
 const ROLE_OTHER_VALUE = "__other__"
 
+type MemberFormBaseline = {
+  form: MemberFormState
+  roleInputMode: "preset" | "other"
+}
+
 export function MemberFormDialog({
   open,
   onOpenChange,
@@ -72,8 +82,22 @@ export function MemberFormDialog({
   const { employees, getEmployee } = useEmployees()
   const [form, setForm] = useState<MemberFormState>(emptyForm)
   const [roleInputMode, setRoleInputMode] = useState<"preset" | "other">("preset")
+  const [baseline, setBaseline] = useState<MemberFormBaseline>({
+    form: emptyForm,
+    roleInputMode: "preset",
+  })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const isDirty = isFormStateDirty({ form, roleInputMode }, baseline)
+  const {
+    handleOpenChange,
+    requestClose,
+    forceClose,
+    discardOpen,
+    setDiscardOpen,
+    confirmDiscard,
+  } = useProtectedFormDialog({ open, onOpenChange, isDirty })
 
   const isLegacyMember = mode === "edit" && member && !member.employeeId
   const isLinkedMember = mode === "edit" && member && !!member.employeeId
@@ -145,9 +169,12 @@ export function MemberFormDialog({
         .filter(Boolean)
     )
 
-    setRoleInputMode(
+    const nextRoleInputMode =
       role !== "" && !knownTitles.has(role) ? "other" : "preset"
-    )
+
+    setForm(nextForm)
+    setRoleInputMode(nextRoleInputMode)
+    setBaseline({ form: nextForm, roleInputMode: nextRoleInputMode })
   }, [open, mode, member, employees])
 
   function updateField<K extends keyof MemberFormState>(
@@ -224,7 +251,7 @@ export function MemberFormDialog({
           phone: employee.phone,
           active: form.active,
         })
-        onOpenChange(false)
+        forceClose()
       } catch (submitError) {
         setError(
           submitError instanceof Error
@@ -260,7 +287,7 @@ export function MemberFormDialog({
           : member?.phone,
         active: form.active,
       })
-      onOpenChange(false)
+      forceClose()
     } catch (submitError) {
       setError(
         submitError instanceof Error
@@ -280,8 +307,13 @@ export function MemberFormDialog({
         : form.role.trim() !== ""
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+    <>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <ProtectedFormDialogContent
+          className="sm:max-w-md"
+          onRequestClose={requestClose}
+          isDirty={isDirty}
+        >
         <DialogHeader>
           <DialogTitle>
             {mode === "create" ? "Agregar integrante" : "Editar integrante"}
@@ -429,7 +461,7 @@ export function MemberFormDialog({
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false)}
+              onClick={requestClose}
               disabled={isSubmitting}
             >
               Cancelar
@@ -443,7 +475,14 @@ export function MemberFormDialog({
             </Button>
           </DialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+        </ProtectedFormDialogContent>
+      </Dialog>
+
+      <DiscardChangesDialog
+        open={discardOpen}
+        onOpenChange={setDiscardOpen}
+        onConfirm={confirmDiscard}
+      />
+    </>
   )
 }

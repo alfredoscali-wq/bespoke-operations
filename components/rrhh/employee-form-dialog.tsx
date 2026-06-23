@@ -17,12 +17,17 @@ import { useEmployees } from "@/components/rrhh/employees-provider"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
-  DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  DiscardChangesDialog,
+  ProtectedFormDialogContent,
+  isFormStateDirty,
+  useProtectedFormDialog,
+} from "@/components/ui/protected-form-dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -99,8 +104,19 @@ export function EmployeeFormDialog({
 }: EmployeeFormDialogProps) {
   const { employees } = useEmployees()
   const [form, setForm] = useState<EmployeeFormState>(emptyForm)
+  const [baselineForm, setBaselineForm] = useState<EmployeeFormState>(emptyForm)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const isDirty = isFormStateDirty(form, baselineForm)
+  const {
+    handleOpenChange,
+    requestClose,
+    forceClose,
+    discardOpen,
+    setDiscardOpen,
+    confirmDiscard,
+  } = useProtectedFormDialog({ open, onOpenChange, isDirty })
 
   const showTerminationWarning = useMemo(
     () =>
@@ -112,7 +128,7 @@ export function EmployeeFormDialog({
     if (!open) return
 
     setError(null)
-    setForm(
+    const nextForm =
       mode === "edit" && employee
         ? {
             employeeCode: employee.employeeCode,
@@ -132,7 +148,9 @@ export function EmployeeFormDialog({
             notes: employee.notes,
           }
         : emptyForm
-    )
+
+    setForm(nextForm)
+    setBaselineForm(nextForm)
   }, [open, mode, employee])
 
   function updateField<K extends keyof EmployeeFormState>(
@@ -186,7 +204,7 @@ export function EmployeeFormDialog({
         terminationDate: form.terminationDate || undefined,
         notes: form.notes.trim(),
       })
-      onOpenChange(false)
+      forceClose()
     } catch (submitError) {
       setError(
         submitError instanceof Error
@@ -204,8 +222,13 @@ export function EmployeeFormDialog({
     form.jobTitle.trim() !== ""
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
+    <>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <ProtectedFormDialogContent
+          className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl"
+          onRequestClose={requestClose}
+          isDirty={isDirty}
+        >
         <DialogHeader>
           <DialogTitle>
             {mode === "create" ? "Nuevo empleado" : "Editar empleado"}
@@ -401,7 +424,7 @@ export function EmployeeFormDialog({
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false)}
+              onClick={requestClose}
               disabled={isSubmitting}
             >
               Cancelar
@@ -415,7 +438,14 @@ export function EmployeeFormDialog({
             </Button>
           </DialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+        </ProtectedFormDialogContent>
+      </Dialog>
+
+      <DiscardChangesDialog
+        open={discardOpen}
+        onOpenChange={setDiscardOpen}
+        onConfirm={confirmDiscard}
+      />
+    </>
   )
 }

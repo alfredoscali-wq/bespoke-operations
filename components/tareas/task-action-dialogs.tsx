@@ -23,12 +23,17 @@ import {
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
-  DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  DiscardChangesDialog,
+  ProtectedFormDialogContent,
+  isFormStateDirty,
+  useProtectedFormDialog,
+} from "@/components/ui/protected-form-dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -99,12 +104,27 @@ export function TaskEditDialog({
   const [form, setForm] = useState<TaskFormState>(() =>
     buildEditForm(task, crews)
   )
+  const [baselineForm, setBaselineForm] = useState<TaskFormState>(() =>
+    buildEditForm(task, crews)
+  )
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  const isDirty = isFormStateDirty(form, baselineForm)
+  const {
+    handleOpenChange,
+    requestClose,
+    forceClose,
+    discardOpen,
+    setDiscardOpen,
+    confirmDiscard,
+  } = useProtectedFormDialog({ open, onOpenChange, isDirty })
+
   useEffect(() => {
     if (open) {
-      setForm(buildEditForm(task, crews))
+      const nextForm = buildEditForm(task, crews)
+      setForm(nextForm)
+      setBaselineForm(nextForm)
       setError(null)
     }
   }, [open, task, crews])
@@ -154,7 +174,7 @@ export function TaskEditDialog({
         dueDate: form.dueDate,
         estimatedDuration: form.estimatedDuration.trim(),
       })
-      onOpenChange(false)
+      forceClose()
     } catch (submitError) {
       setError(
         submitError instanceof Error
@@ -167,8 +187,13 @@ export function TaskEditDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+    <>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <ProtectedFormDialogContent
+          className="max-h-[90vh] overflow-y-auto sm:max-w-lg"
+          onRequestClose={requestClose}
+          isDirty={isDirty}
+        >
         <DialogHeader>
           <DialogTitle>Editar tarea</DialogTitle>
           <DialogDescription>
@@ -301,7 +326,7 @@ export function TaskEditDialog({
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false)}
+              onClick={requestClose}
               disabled={isSubmitting}
             >
               Cancelar
@@ -311,8 +336,15 @@ export function TaskEditDialog({
             </Button>
           </DialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+        </ProtectedFormDialogContent>
+      </Dialog>
+
+      <DiscardChangesDialog
+        open={discardOpen}
+        onOpenChange={setDiscardOpen}
+        onConfirm={confirmDiscard}
+      />
+    </>
   )
 }
 
@@ -328,8 +360,19 @@ export function TaskStatusDialog({
   onSubmit: (status: Task["status"]) => Promise<void>
 }) {
   const [status, setStatus] = useState<Task["status"]>(task.status)
+  const [baselineStatus, setBaselineStatus] = useState<Task["status"]>(task.status)
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const isDirty = status !== baselineStatus
+  const {
+    handleOpenChange,
+    requestClose,
+    forceClose,
+    discardOpen,
+    setDiscardOpen,
+    confirmDiscard,
+  } = useProtectedFormDialog({ open, onOpenChange, isDirty })
 
   const allowedStatusOptions = useMemo(
     () =>
@@ -347,6 +390,7 @@ export function TaskStatusDialog({
   useEffect(() => {
     if (open) {
       setStatus(task.status)
+      setBaselineStatus(task.status)
       setError(null)
     }
   }, [open, task.status])
@@ -357,7 +401,7 @@ export function TaskStatusDialog({
     setIsSubmitting(true)
     try {
       await onSubmit(status)
-      onOpenChange(false)
+      forceClose()
     } catch (submitError) {
       setError(
         submitError instanceof Error
@@ -370,8 +414,13 @@ export function TaskStatusDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+    <>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <ProtectedFormDialogContent
+          className="sm:max-w-md"
+          onRequestClose={requestClose}
+          isDirty={isDirty}
+        >
         <DialogHeader>
           <DialogTitle>Cambiar estado</DialogTitle>
           <DialogDescription>
@@ -412,7 +461,7 @@ export function TaskStatusDialog({
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false)}
+              onClick={requestClose}
               disabled={isSubmitting}
             >
               Cancelar
@@ -429,8 +478,15 @@ export function TaskStatusDialog({
             </Button>
           </DialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+        </ProtectedFormDialogContent>
+      </Dialog>
+
+      <DiscardChangesDialog
+        open={discardOpen}
+        onOpenChange={setDiscardOpen}
+        onConfirm={confirmDiscard}
+      />
+    </>
   )
 }
 
@@ -452,12 +508,24 @@ export function TaskCrewAssignDialog({
   )
   const currentCrewId = resolveTaskCrewId(task, crews) ?? ""
   const [crewId, setCrewId] = useState(currentCrewId)
+  const [baselineCrewId, setBaselineCrewId] = useState(currentCrewId)
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const isDirty = crewId !== baselineCrewId
+  const {
+    handleOpenChange,
+    requestClose,
+    forceClose,
+    discardOpen,
+    setDiscardOpen,
+    confirmDiscard,
+  } = useProtectedFormDialog({ open, onOpenChange, isDirty })
 
   useEffect(() => {
     if (open) {
       setCrewId(currentCrewId)
+      setBaselineCrewId(currentCrewId)
       setError(null)
     }
   }, [open, currentCrewId])
@@ -486,7 +554,7 @@ export function TaskCrewAssignDialog({
     setIsSubmitting(true)
     try {
       await onSubmit(crewId)
-      onOpenChange(false)
+      forceClose()
     } catch (submitError) {
       setError(
         submitError instanceof Error
@@ -499,8 +567,13 @@ export function TaskCrewAssignDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+    <>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <ProtectedFormDialogContent
+          className="sm:max-w-md"
+          onRequestClose={requestClose}
+          isDirty={isDirty}
+        >
         <DialogHeader>
           <DialogTitle>Reasignar cuadrilla</DialogTitle>
           <DialogDescription>
@@ -532,7 +605,7 @@ export function TaskCrewAssignDialog({
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false)}
+              onClick={requestClose}
               disabled={isSubmitting}
             >
               Cancelar
@@ -542,7 +615,14 @@ export function TaskCrewAssignDialog({
             </Button>
           </DialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+        </ProtectedFormDialogContent>
+      </Dialog>
+
+      <DiscardChangesDialog
+        open={discardOpen}
+        onOpenChange={setDiscardOpen}
+        onConfirm={confirmDiscard}
+      />
+    </>
   )
 }

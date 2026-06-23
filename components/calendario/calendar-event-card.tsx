@@ -18,6 +18,13 @@ type CalendarEventCardProps = {
 
 function getEventStyles(event: CalendarEvent): string {
   if (event.type === "TASK") {
+    if (
+      event.payload.status === "pendiente-cierre" ||
+      event.payload.status === "en-aprobacion"
+    ) {
+      return "border-orange-200/80 bg-orange-50/90 text-orange-900 hover:bg-orange-100/80 dark:border-orange-800 dark:bg-orange-950/40 dark:text-orange-100"
+    }
+
     return CALENDAR_EVENT_TONE_STYLES[
       resolveTaskOperationalTone(event.payload.alerts)
     ]

@@ -1,6 +1,7 @@
 import type { CreateTaskPayload } from "@/lib/types/supabase/tasks"
 import type { Task, TaskStatus, TaskType } from "@/lib/types/tasks"
 import { parseSharedLocation } from "@/lib/utils/shared-location"
+import { createDefaultOperationalSteps } from "@/lib/operational-steps/default-steps"
 
 export type WorkOrderServiceType =
   | "instalacion-nueva"
@@ -491,6 +492,7 @@ export function buildWorkOrderCreatePayload(input: {
     dueDate: form.scheduledDate,
     estimatedDuration: "",
     checklist,
+    operationalSteps: createDefaultOperationalSteps(),
     serviceType: form.serviceType as WorkOrderServiceType,
     locality: locality || undefined,
     taskMetadata: buildTaskMetadata(form),

@@ -11,9 +11,20 @@ export const TASK_REFERENCE_PHOTO_MAX_SIZE_BYTES = 52428800
 
 const MAX_FILE_NAME_LENGTH = 180
 
+export function sanitizeFileName(fileName: string): string {
+  return fileName
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]/g, "-")
+    .replace(/-+/g, "-")
+}
+
 export function sanitizeTaskPhotoFileName(fileName: string): string {
   const trimmed = fileName.trim()
-  const normalized = trimmed.replace(/[/\\?%*:|"<>]/g, "-").replace(/\s+/g, "_")
+  const baseName = trimmed.replace(/^-+|-+$/g, "") || "photo"
+  const normalized = sanitizeFileName(baseName)
+    .replace(/-+\./g, ".")
+    .replace(/-+$/g, "")
 
   if (normalized.length <= MAX_FILE_NAME_LENGTH) {
     return normalized
@@ -25,8 +36,10 @@ export function sanitizeTaskPhotoFileName(fileName: string): string {
   }
 
   const extension = normalized.slice(extensionIndex)
-  const base = normalized.slice(0, MAX_FILE_NAME_LENGTH - extension.length)
-  return `${base}${extension}`
+  const nameWithoutExtension = normalized.slice(0, extensionIndex)
+  const maxBaseLength = MAX_FILE_NAME_LENGTH - extension.length
+
+  return `${nameWithoutExtension.slice(0, maxBaseLength)}${extension}`
 }
 
 export function buildTaskPhotoStoragePath(input: {
@@ -51,4 +64,18 @@ export function validateTaskReferencePhotoFile(file: File): string | null {
   }
 
   return null
+}
+
+export function logTaskPhotoUploadFailed(input: {
+  taskId: string
+  fileName: string
+  storagePath?: string
+  error: unknown
+}) {
+  console.error("[TASK_PHOTO_UPLOAD_FAILED]", {
+    task_id: input.taskId,
+    file_name: input.fileName,
+    storage_path: input.storagePath,
+    error: input.error,
+  })
 }

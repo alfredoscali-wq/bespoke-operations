@@ -1,6 +1,6 @@
 import type { Json, TaskInsert, TaskRow, TaskUpdate } from "@/lib/supabase/database.types"
 import { getInitialTaskStatus } from "@/lib/tasks/task-status-workflow"
-import type { ChecklistItem, Task } from "@/lib/types/tasks"
+import type { ChecklistItem, OperationalStep, Task } from "@/lib/types/tasks"
 import type {
   CreateTaskPayload,
   UpdateTaskPayload,
@@ -22,6 +22,27 @@ function parseChecklist(value: unknown): ChecklistItem[] {
 
 function mapNullableNumber(value: number | null | undefined): number | undefined {
   return value === null || value === undefined ? undefined : Number(value)
+}
+
+function parseOperationalSteps(value: unknown): OperationalStep[] {
+  if (!Array.isArray(value)) return []
+
+  return value
+    .filter(
+      (item): item is OperationalStep =>
+        typeof item === "object" &&
+        item !== null &&
+        typeof (item as OperationalStep).id === "string" &&
+        typeof (item as OperationalStep).label === "string"
+    )
+    .map((item) => ({
+      id: item.id,
+      label: item.label,
+      observation:
+        typeof item.observation === "string" ? item.observation : "",
+      completedAt:
+        typeof item.completedAt === "string" ? item.completedAt : null,
+    }))
 }
 
 function parseTaskMetadata(value: unknown): Record<string, unknown> {
@@ -61,10 +82,12 @@ export function mapTaskRowToTask(row: TaskRow): Task {
     dueDate: row.due_date,
     estimatedDuration: row.estimated_duration,
     checklist: parseChecklist(row.checklist),
+    operationalSteps: parseOperationalSteps(row.operational_steps),
     progress: row.progress,
     createdAt: row.created_at,
     completedAt: row.completed_at,
     closedAt: row.closed_at,
+    rejectionReason: row.rejection_reason?.trim() || undefined,
     serviceType: row.service_type,
     locality: row.locality,
     taskMetadata: parseTaskMetadata(row.task_metadata),
@@ -101,6 +124,7 @@ export function mapCreatePayloadToInsert(payload: CreateTaskPayload): TaskInsert
     due_date: payload.dueDate,
     estimated_duration: payload.estimatedDuration.trim(),
     checklist: payload.checklist,
+    operational_steps: (payload.operationalSteps ?? []) as Json,
     progress: payload.progress ?? 0,
     service_type: payload.serviceType ?? null,
     locality: payload.locality ?? null,
@@ -146,6 +170,9 @@ export function mapUpdatePayloadToUpdate(payload: UpdateTaskPayload): TaskUpdate
   if (payload.observationsForCrew !== undefined) {
     update.observations_for_crew = payload.observationsForCrew?.trim() || ""
   }
+  if (payload.rejectionReason !== undefined) {
+    update.rejection_reason = payload.rejectionReason?.trim() || ""
+  }
   if (payload.workOrderNumber !== undefined) {
     update.work_order_number = payload.workOrderNumber?.trim() || null
   }
@@ -163,6 +190,9 @@ export function mapUpdatePayloadToUpdate(payload: UpdateTaskPayload): TaskUpdate
     update.estimated_duration = payload.estimatedDuration.trim()
   }
   if (payload.checklist !== undefined) update.checklist = payload.checklist
+  if (payload.operationalSteps !== undefined) {
+    update.operational_steps = payload.operationalSteps as Json
+  }
   if (payload.progress !== undefined) update.progress = payload.progress
   if (payload.serviceType !== undefined) {
     update.service_type = payload.serviceType

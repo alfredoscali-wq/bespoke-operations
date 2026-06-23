@@ -35,7 +35,7 @@ import {
   TaskReferencePhotosPicker,
   revokePendingTaskReferencePhotos,
 } from "@/components/tareas/task-reference-photos-picker"
-import type { PendingTaskReferencePhoto } from "@/lib/types/task-photos"
+import type { PendingTaskReferencePhoto, TaskPhotoUploadSummary } from "@/lib/types/task-photos"
 import type { Customer } from "@/lib/types/customers"
 import type { Task } from "@/lib/types/tasks"
 import type { CreateTaskPayload } from "@/lib/types/supabase/tasks"
@@ -43,12 +43,17 @@ import { Button } from "@/components/ui/button"
 import { WhatsAppLink } from "@/components/ui/whatsapp-link"
 import {
   Dialog,
-  DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  DiscardChangesDialog,
+  ProtectedFormDialogContent,
+  isFormStateDirty,
+  useProtectedFormDialog,
+} from "@/components/ui/protected-form-dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -64,6 +69,12 @@ type TaskWorkOrderDialogProps = {
   onOpenChange: (open: boolean) => void
   existingTasks: Task[]
   onSubmit: (payload: CreateTaskPayload) => Promise<Task>
+  onTaskCreated?: (result: WorkOrderCreateResult) => void
+}
+
+export type WorkOrderCreateResult = {
+  task: Task
+  photoUpload: TaskPhotoUploadSummary
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
@@ -607,11 +618,15 @@ export function TaskWorkOrderDialog({
   onOpenChange,
   existingTasks,
   onSubmit,
+  onTaskCreated,
 }: TaskWorkOrderDialogProps) {
   const { crews } = useCrews()
   const { searchCustomers, createCustomer } = useCustomers()
   const assignableCrews = useMemo(() => getAssignableCrews(crews), [crews])
   const [form, setForm] = useState<WorkOrderFormInput>(getDefaultWorkOrderForm)
+  const [baselineForm, setBaselineForm] = useState<WorkOrderFormInput>(
+    getDefaultWorkOrderForm
+  )
   const [referencePhotos, setReferencePhotos] = useState<
     PendingTaskReferencePhoto[]
   >([])
@@ -620,6 +635,17 @@ export function TaskWorkOrderDialog({
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  const isDirty =
+    isFormStateDirty(form, baselineForm) || referencePhotos.length > 0
+  const {
+    handleOpenChange,
+    requestClose,
+    forceClose,
+    discardOpen,
+    setDiscardOpen,
+    confirmDiscard,
+  } = useProtectedFormDialog({ open, onOpenChange, isDirty })
+
   const handleCustomerSearch = useCallback(
     (query: string) => searchCustomers(query),
     [searchCustomers]
@@ -627,7 +653,9 @@ export function TaskWorkOrderDialog({
 
   useEffect(() => {
     if (open) {
-      setForm(getDefaultWorkOrderForm())
+      const nextForm = getDefaultWorkOrderForm()
+      setForm(nextForm)
+      setBaselineForm(nextForm)
       setReferencePhotos((current) => {
         revokePendingTaskReferencePhotos(current)
         return []
@@ -743,21 +771,24 @@ export function TaskWorkOrderDialog({
 
       const task = await onSubmit(payload)
 
+      let photoUpload: TaskPhotoUploadSummary = {
+        taskCreated: true,
+        uploadedPhotos: 0,
+        failedPhotos: 0,
+      }
+
       if (referencePhotos.length > 0) {
         const uploadResult = await uploadPendingTaskReferencePhotos(
           task.id,
           referencePhotos
         )
-
-        if (uploadResult.error) {
-          throw new Error(
-            uploadResult.error.message ??
-              "La orden se creó, pero no se pudieron cargar las fotos."
-          )
-        }
+        photoUpload = uploadResult.summary
       }
 
-      onOpenChange(false)
+      revokePendingTaskReferencePhotos(referencePhotos)
+      setReferencePhotos([])
+      onTaskCreated?.({ task, photoUpload })
+      forceClose()
     } catch (submitError) {
       setError(
         submitError instanceof Error
@@ -769,9 +800,20 @@ export function TaskWorkOrderDialog({
     }
   }
 
+  function handleConfirmDiscard() {
+    revokePendingTaskReferencePhotos(referencePhotos)
+    setReferencePhotos([])
+    confirmDiscard()
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+    <>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <ProtectedFormDialogContent
+          className="max-h-[90vh] overflow-y-auto sm:max-w-lg"
+          onRequestClose={requestClose}
+          isDirty={isDirty}
+        >
         <DialogHeader>
           <DialogTitle>Nueva Orden de Trabajo</DialogTitle>
           <DialogDescription>
@@ -913,7 +955,7 @@ export function TaskWorkOrderDialog({
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false)}
+              onClick={requestClose}
               disabled={isSubmitting}
             >
               Cancelar
@@ -926,7 +968,14 @@ export function TaskWorkOrderDialog({
             </Button>
           </DialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+        </ProtectedFormDialogContent>
+      </Dialog>
+
+      <DiscardChangesDialog
+        open={discardOpen}
+        onOpenChange={setDiscardOpen}
+        onConfirm={handleConfirmDiscard}
+      />
+    </>
   )
 }

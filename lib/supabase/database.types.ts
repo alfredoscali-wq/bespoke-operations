@@ -413,6 +413,7 @@ export type Database = {
           longitude: number | null
           shared_location: string
           observations_for_crew: string
+          rejection_reason: string
           work_order_number: string | null
           type: TaskType
           status: TaskStatus
@@ -424,6 +425,7 @@ export type Database = {
           due_date: string
           estimated_duration: string
           checklist: Json
+          operational_steps: Json
           progress: number
           created_at: string
           updated_at: string
@@ -452,6 +454,7 @@ export type Database = {
           longitude?: number | null
           shared_location?: string
           observations_for_crew?: string
+          rejection_reason?: string
           work_order_number?: string | null
           type: TaskType
           status?: TaskStatus
@@ -463,6 +466,7 @@ export type Database = {
           due_date: string
           estimated_duration?: string
           checklist?: Json
+          operational_steps?: Json
           progress?: number
           created_at?: string
           updated_at?: string
@@ -491,6 +495,7 @@ export type Database = {
           longitude?: number | null
           shared_location?: string
           observations_for_crew?: string
+          rejection_reason?: string
           work_order_number?: string | null
           type?: TaskType
           status?: TaskStatus
@@ -502,6 +507,7 @@ export type Database = {
           due_date?: string
           estimated_duration?: string
           checklist?: Json
+          operational_steps?: Json
           progress?: number
           created_at?: string
           updated_at?: string
@@ -531,6 +537,7 @@ export type Database = {
           updated_at: string
           deleted_at: string | null
           photo_type: "reference" | "evidence"
+          operational_step_id: string | null
           file_url: string | null
           description: string
           created_by: string | null
@@ -551,6 +558,7 @@ export type Database = {
           updated_at?: string
           deleted_at?: string | null
           photo_type?: "reference" | "evidence"
+          operational_step_id?: string | null
           file_url?: string | null
           description?: string
           created_by?: string | null
@@ -571,6 +579,7 @@ export type Database = {
           updated_at?: string
           deleted_at?: string | null
           photo_type?: "reference" | "evidence"
+          operational_step_id?: string | null
           file_url?: string | null
           description?: string
           created_by?: string | null
