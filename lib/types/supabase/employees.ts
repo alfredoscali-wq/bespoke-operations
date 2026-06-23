@@ -1,4 +1,8 @@
-import type { EmploymentStatus, EmployeeType } from "@/lib/types/employees"
+import type {
+  EmploymentStatus,
+  EmployeeType,
+  SystemRole,
+} from "@/lib/types/employees"
 
 export type CreateEmployeePayload = {
   companyId?: string
@@ -18,6 +22,10 @@ export type CreateEmployeePayload = {
   terminationDate?: string | null
   notes?: string
   appUserId?: string | null
+  systemRole?: SystemRole
+  systemAccess?: boolean
+  mustChangePassword?: boolean
+  lastLoginAt?: string | null
 }
 
 export type UpdateEmployeePayload = Partial<{
@@ -37,6 +45,10 @@ export type UpdateEmployeePayload = Partial<{
   terminationDate: string | null
   notes: string
   appUserId: string | null
+  systemRole: SystemRole
+  systemAccess: boolean
+  mustChangePassword: boolean
+  lastLoginAt: string | null
 }>
 
 export type EmployeesRepositoryErrorCode =

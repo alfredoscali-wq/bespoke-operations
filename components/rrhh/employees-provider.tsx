@@ -148,6 +148,7 @@ export function EmployeesProvider({ children }: { children: React.ReactNode }) {
             phone: input.phone ?? null,
             jobTitle: input.jobTitle,
             department: input.department,
+            employeeType: input.employeeType ?? "operario",
             employmentStatus: input.employmentStatus ?? "active",
             hireDate: input.hireDate ?? null,
             terminationDate: input.terminationDate ?? null,

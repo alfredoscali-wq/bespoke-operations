@@ -1,9 +1,26 @@
-import type { OperationalStep, Task } from "@/lib/types/tasks"
+import type { OperationalStep, OperationalStepKind, Task } from "@/lib/types/tasks"
 
 export function hasOperationalSteps(
   task: Pick<Task, "operationalSteps">
 ): boolean {
   return (task.operationalSteps?.length ?? 0) > 0
+}
+
+export function resolveOperationalStepKind(
+  step: OperationalStep
+): OperationalStepKind {
+  return step.stepKind === "text" ? "text" : "photo"
+}
+
+export function isOperationalStepComplete(
+  step: OperationalStep,
+  stepPhotoCounts: Record<string, number>
+): boolean {
+  if (resolveOperationalStepKind(step) === "text") {
+    return step.observation.trim().length > 0
+  }
+
+  return (stepPhotoCounts[step.id] ?? 0) > 0
 }
 
 export function getOperationalStepsProgress(
@@ -12,8 +29,8 @@ export function getOperationalStepsProgress(
 ): number {
   if (steps.length === 0) return 0
 
-  const completed = steps.filter(
-    (step) => (stepPhotoCounts[step.id] ?? 0) > 0
+  const completed = steps.filter((step) =>
+    isOperationalStepComplete(step, stepPhotoCounts)
   ).length
 
   return Math.round((completed / steps.length) * 100)
@@ -40,11 +57,11 @@ export function syncOperationalStepsWithPhotoCounts(
   const now = new Date().toISOString()
 
   return steps.map((step) => {
-    const hasPhoto = (stepPhotoCounts[step.id] ?? 0) > 0
+    const complete = isOperationalStepComplete(step, stepPhotoCounts)
 
     return {
       ...step,
-      completedAt: hasPhoto ? step.completedAt ?? now : null,
+      completedAt: complete ? step.completedAt ?? now : null,
     }
   })
 }

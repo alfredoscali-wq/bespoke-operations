@@ -26,6 +26,8 @@ import {
   type WorkOrderFormInput,
   type WorkOrderServiceType,
 } from "@/lib/tasks/work-order"
+import { resolveContractedPlanForTechnology } from "@/lib/tasks/commercial-plan"
+import { WorkOrderCommercialFields } from "@/components/tareas/work-order-commercial-fields"
 import { resolveSupervisorFromCrew } from "@/lib/tasks/utils"
 import {
   isRecognizedSharedLocation,
@@ -342,10 +344,17 @@ function WorkOrderDynamicFields({
               <Label>Tecnología *</Label>
               <TechnologySelect
                 value={form.technology}
-                onChange={(value) => updateField("technology", value)}
+                onChange={(value) => {
+                  updateField("technology", value)
+                  updateField(
+                    "contractedPlan",
+                    resolveContractedPlanForTechnology(value)
+                  )
+                }}
               />
             </div>
           </div>
+          <WorkOrderCommercialFields form={form} updateField={updateField} />
         </div>
       )
 

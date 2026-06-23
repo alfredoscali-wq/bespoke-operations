@@ -91,6 +91,8 @@ function importRowToFormInput(row: WorkOrderImportReviewRow): WorkOrderFormInput
     postalCode: data.postalCode,
     sharedLocation: "",
     observationsForCrew: "",
+    contractedPlan: "",
+    installationCost: "",
   }
 }
 

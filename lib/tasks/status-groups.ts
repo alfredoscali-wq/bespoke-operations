@@ -9,6 +9,8 @@ export const ACTIVE_TASK_STATUSES: TaskStatus[] = [
   "en-aprobacion",
 ]
 
+export const CANCELLABLE_TASK_STATUSES: TaskStatus[] = ["pendiente", "asignada"]
+
 export const FINAL_TASK_STATUSES: TaskStatus[] = [
   "finalizada",
   "cerrada",
@@ -17,6 +19,10 @@ export const FINAL_TASK_STATUSES: TaskStatus[] = [
 
 export function isActiveTaskStatus(status: TaskStatus): boolean {
   return ACTIVE_TASK_STATUSES.includes(status)
+}
+
+export function isCancellableTaskStatus(status: TaskStatus): boolean {
+  return CANCELLABLE_TASK_STATUSES.includes(status)
 }
 
 export function isFinalTaskStatus(status: TaskStatus): boolean {

@@ -12,14 +12,22 @@ import { OperationalStepsPanel } from "@/components/operario/operational-steps-p
 import { OperarioTaskClosureFooter } from "@/components/operario/operario-task-closure-footer"
 import {
   OperarioTaskClientCard,
+  OperarioTaskCommercialCard,
   OperarioTaskCrewNotes,
   OperarioTaskLocationCard,
   OperarioTaskReferencePhotos,
 } from "@/components/operario/operario-task-field-sections"
 import { getWorkerTasks, resolveWorkerCrewRef } from "@/lib/data/operario"
 import { hasOperationalSteps } from "@/lib/operational-steps/utils"
-import { TASK_STATUS_LABELS, TASK_STATUS_STYLES } from "@/lib/tasks/constants"
+import { getTaskTechnologyLabel } from "@/lib/tasks/commercial-plan"
+import {
+  TASK_PRIORITY_LABELS,
+  TASK_PRIORITY_STYLES,
+  TASK_STATUS_LABELS,
+  TASK_STATUS_STYLES,
+} from "@/lib/tasks/constants"
 import { isPendingClosureStatus } from "@/lib/tasks/task-status-workflow"
+import { getWorkOrderServiceTypeLabel } from "@/lib/tasks/work-order"
 import type { Task } from "@/lib/types/tasks"
 import { cn } from "@/lib/utils"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -51,12 +59,17 @@ export function OperarioTaskDetailScreen({ id }: OperarioTaskDetailScreenProps) 
   }
 
   const activeTask = task as Task
+  const serviceTypeTitle =
+    getWorkOrderServiceTypeLabel(activeTask.serviceType) ?? activeTask.title
+  const taskDescription = activeTask.description?.trim()
+  const technologyLabel = getTaskTechnologyLabel(activeTask)
   const usesOperationalSteps = hasOperationalSteps(activeTask)
   const actionsDisabled = isPendingClosureStatus(activeTask.status)
   const showFooter =
     activeTask.status === "asignada" ||
     activeTask.status === "en-curso" ||
     actionsDisabled
+  const rejectionReason = activeTask.rejectionReason?.trim()
 
   return (
     <div
@@ -77,21 +90,44 @@ export function OperarioTaskDetailScreen({ id }: OperarioTaskDetailScreenProps) 
         </Link>
       </Button>
 
-      <header className="space-y-2">
-        <p className="font-mono text-sm font-bold text-primary">{activeTask.code}</p>
-        <h1 className="text-2xl font-bold leading-snug text-foreground">
-          {activeTask.title}
+      <header className="space-y-3">
+        <h1 className="text-2xl font-bold uppercase leading-snug tracking-wide text-foreground">
+          {serviceTypeTitle}
         </h1>
-        <Badge
-          variant="outline"
-          className={cn(
-            "rounded-md px-2.5 py-1 text-xs font-semibold",
-            TASK_STATUS_STYLES[activeTask.status]
-          )}
-        >
-          {activeTask.status === "pendiente-cierre" ? "🟠 " : ""}
-          {TASK_STATUS_LABELS[activeTask.status]}
-        </Badge>
+        {taskDescription ? (
+          <p className="text-base leading-relaxed whitespace-pre-line text-foreground">
+            {taskDescription}
+          </p>
+        ) : null}
+        <div className="flex flex-wrap gap-2">
+          <Badge
+            variant="outline"
+            className={cn(
+              "rounded-md px-2.5 py-1 text-xs font-semibold",
+              TASK_STATUS_STYLES[activeTask.status]
+            )}
+          >
+            {activeTask.status === "pendiente-cierre" ? "🟠 " : ""}
+            {TASK_STATUS_LABELS[activeTask.status]}
+          </Badge>
+          <Badge
+            variant="outline"
+            className={cn(
+              "rounded-md px-2.5 py-1 text-xs font-semibold",
+              TASK_PRIORITY_STYLES[activeTask.priority]
+            )}
+          >
+            {TASK_PRIORITY_LABELS[activeTask.priority]}
+          </Badge>
+          {technologyLabel ? (
+            <Badge
+              variant="outline"
+              className="rounded-md px-2.5 py-1 text-xs font-semibold"
+            >
+              {technologyLabel}
+            </Badge>
+          ) : null}
+        </div>
       </header>
 
       {actionMessage ? (
@@ -119,7 +155,22 @@ export function OperarioTaskDetailScreen({ id }: OperarioTaskDetailScreenProps) 
         </Alert>
       ) : null}
 
+      {activeTask.status === "en-curso" && rejectionReason ? (
+        <Alert variant="destructive">
+          <AlertTriangle className="size-4" />
+          <AlertDescription className="space-y-1">
+            <p className="font-semibold">⚠ Cierre rechazado</p>
+            <p className="text-sm whitespace-pre-wrap">
+              Motivo:
+              <br />
+              {rejectionReason}
+            </p>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
       <OperarioTaskClientCard task={activeTask} />
+      <OperarioTaskCommercialCard task={activeTask} />
       <OperarioTaskLocationCard task={activeTask} />
       <OperarioTaskCrewNotes task={activeTask} />
       <OperarioTaskReferencePhotos taskId={activeTask.id} />

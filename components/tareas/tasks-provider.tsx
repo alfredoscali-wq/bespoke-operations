@@ -383,9 +383,18 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       }
 
       const { to } = getTransitionForAction(workflowAction)
+      const fields: UpdateTaskPayload = { status: to }
+
+      if (
+        workflowAction === "submit-for-approval" ||
+        workflowAction === "approve"
+      ) {
+        fields.rejectionReason = ""
+      }
+
       return updateTaskFields(
         id,
-        { status: to },
+        fields,
         workflowAction,
         options?.historyNote
       )
@@ -658,11 +667,23 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         return { success: false, message: "Tarea no encontrada." }
       }
 
-      const operationalSteps = (task.operationalSteps ?? []).map((step) =>
+      const withObservation = (task.operationalSteps ?? []).map((step) =>
         step.id === stepId ? { ...step, observation } : step
       )
 
-      return updateTaskFields(taskId, { operationalSteps })
+      const stepCountsResult = await getOperationalStepPhotoCounts(taskId)
+      const stepPhotoCounts = stepCountsResult.data ?? {}
+
+      const operationalSteps = syncOperationalStepsWithPhotoCounts(
+        withObservation,
+        stepPhotoCounts
+      )
+      const progress = getOperationalStepsProgress(
+        operationalSteps,
+        stepPhotoCounts
+      )
+
+      return updateTaskFields(taskId, { operationalSteps, progress })
     },
     [tasks, updateTaskFields]
   )

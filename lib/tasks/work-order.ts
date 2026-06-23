@@ -1,7 +1,15 @@
 import type { CreateTaskPayload } from "@/lib/types/supabase/tasks"
 import type { Task, TaskStatus, TaskType } from "@/lib/types/tasks"
 import { parseSharedLocation } from "@/lib/utils/shared-location"
-import { createDefaultOperationalSteps } from "@/lib/operational-steps/default-steps"
+import {
+  createDefaultOperationalSteps,
+  createInstallationOperationalSteps,
+} from "@/lib/operational-steps/default-steps"
+import {
+  parseInstallationCostInput,
+  resolveContractedPlanFromForm,
+  type ContractedPlan,
+} from "@/lib/tasks/commercial-plan"
 
 export type WorkOrderServiceType =
   | "instalacion-nueva"
@@ -145,6 +153,8 @@ export type WorkOrderFormInput = {
   postalCode: string
   sharedLocation: string
   observationsForCrew: string
+  contractedPlan: ContractedPlan | ""
+  installationCost: string
 }
 
 export function getDefaultWorkOrderForm(): WorkOrderFormInput {
@@ -179,6 +189,8 @@ export function getDefaultWorkOrderForm(): WorkOrderFormInput {
     postalCode: "",
     sharedLocation: "",
     observationsForCrew: "",
+    contractedPlan: "",
+    installationCost: "",
   }
 }
 
@@ -367,6 +379,15 @@ export function validateWorkOrderForm(
       if (!input.technology) {
         return { valid: false, message: "Seleccione la tecnología." }
       }
+      if (!resolveContractedPlanFromForm(input)) {
+        return { valid: false, message: "Seleccione el plan contratado." }
+      }
+      if (parseInstallationCostInput(input.installationCost) === null) {
+        return {
+          valid: false,
+          message: "Indique el costo de instalación.",
+        }
+      }
       break
     case "cambio-domicilio":
       if (!input.currentAddress.trim() || !input.newAddress.trim()) {
@@ -442,6 +463,19 @@ export function validateWorkOrderForm(
   return { valid: true }
 }
 
+function resolveOperationalStepsForWorkOrder(
+  form: WorkOrderFormInput
+): CreateTaskPayload["operationalSteps"] {
+  if (form.serviceType !== "instalacion-nueva") {
+    return createDefaultOperationalSteps()
+  }
+
+  const technology =
+    form.technology === "wireless" ? "wireless" : ("fiber" as const)
+
+  return createInstallationOperationalSteps(technology)
+}
+
 export function buildWorkOrderCreatePayload(input: {
   form: WorkOrderFormInput
   existingTasks: Task[]
@@ -464,6 +498,8 @@ export function buildWorkOrderCreatePayload(input: {
   const locality = resolvePrimaryLocality(form)
   const sharedLocation = form.sharedLocation.trim()
   const parsedLocation = parseSharedLocation(sharedLocation)
+  const contractedPlan = resolveContractedPlanFromForm(form)
+  const installationCost = parseInstallationCostInput(form.installationCost)
 
   return {
     code: generateWorkOrderTaskCode(existingTasks),
@@ -492,9 +528,11 @@ export function buildWorkOrderCreatePayload(input: {
     dueDate: form.scheduledDate,
     estimatedDuration: "",
     checklist,
-    operationalSteps: createDefaultOperationalSteps(),
+    operationalSteps: resolveOperationalStepsForWorkOrder(form),
     serviceType: form.serviceType as WorkOrderServiceType,
     locality: locality || undefined,
     taskMetadata: buildTaskMetadata(form),
+    contractedPlan: contractedPlan ?? undefined,
+    installationCost: installationCost ?? undefined,
   }
 }

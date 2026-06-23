@@ -14,7 +14,10 @@ import {
 
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { useTasks } from "@/components/tareas/tasks-provider"
-import { ACTIVE_TASK_STATUSES, canArchiveTaskByStatus } from "@/lib/tasks/status-groups"
+import {
+  canArchiveTaskByStatus,
+  isCancellableTaskStatus,
+} from "@/lib/tasks/status-groups"
 import {
   TASK_ARCHIVE_BLOCKED_ACTIVE_MESSAGE,
   TASK_DELETE_USER_MESSAGE,
@@ -73,7 +76,7 @@ export function TaskRowActions({
   const [isDeleting, setIsDeleting] = useState(false)
   const [isCancelling, setIsCancelling] = useState(false)
 
-  const canCancel = ACTIVE_TASK_STATUSES.includes(task.status)
+  const canCancel = isCancellableTaskStatus(task.status)
   const canArchive = canArchiveTaskByStatus(task.status)
   const hideInternalStatusActions =
     operationalMode || isWorkOrderTask(task)

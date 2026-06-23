@@ -17,10 +17,7 @@ type OperarioTaskCardProps = {
 export function OperarioTaskCard({ task }: OperarioTaskCardProps) {
   return (
     <article className="rounded-2xl border border-border/80 bg-card p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <span className="font-mono text-xs font-bold text-primary">
-          {task.code}
-        </span>
+      <div className="flex items-start justify-end gap-3">
         <Badge
           variant="outline"
           className={cn("text-[10px]", TASK_PRIORITY_STYLES[task.priority])}
@@ -34,10 +31,6 @@ export function OperarioTaskCard({ task }: OperarioTaskCardProps) {
       </h3>
 
       <dl className="mt-3 space-y-2 text-sm">
-        <div>
-          <dt className="text-muted-foreground">Proyecto:</dt>
-          <dd className="font-mono text-xs font-medium">{task.projectCode}</dd>
-        </div>
         <div>
           <dt className="text-muted-foreground">Prioridad:</dt>
           <dd>{TASK_PRIORITY_LABELS[task.priority]}</dd>

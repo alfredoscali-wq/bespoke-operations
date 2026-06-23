@@ -1,10 +1,15 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { MapPin, Navigation, Phone, User } from "lucide-react"
+import { MapPin, Navigation, Phone, Signal, User } from "lucide-react"
 
 import { TaskPhotoViewerDialog } from "@/components/tareas/task-photo-viewer-dialog"
 import { listTaskReferencePhotos } from "@/lib/supabase/task-photos.browser"
+import {
+  formatContractedPlanLabel,
+  getTaskTechnologyLabel,
+  isNewInstallationTask,
+} from "@/lib/tasks/commercial-plan"
 import type { Task } from "@/lib/types/tasks"
 import type { TaskPhoto } from "@/lib/types/task-photos"
 import {
@@ -61,6 +66,46 @@ export function OperarioTaskClientCard({ task }: OperarioTaskClientCardProps) {
             <Phone className="size-5 shrink-0" />
             {phone}
           </a>
+        ) : null}
+      </div>
+    </section>
+  )
+}
+
+type OperarioTaskCommercialCardProps = {
+  task: Task
+}
+
+export function OperarioTaskCommercialCard({ task }: OperarioTaskCommercialCardProps) {
+  if (!isNewInstallationTask(task)) {
+    return null
+  }
+
+  const technologyLabel = getTaskTechnologyLabel(task)
+  const planLabel = formatContractedPlanLabel(task.contractedPlan)
+
+  if (!technologyLabel && !planLabel) {
+    return null
+  }
+
+  return (
+    <section className="rounded-2xl border bg-card p-4 shadow-sm">
+      <h2 className="sr-only">Información comercial</h2>
+      <div className="space-y-3">
+        {technologyLabel ? (
+          <div className="flex items-start gap-3">
+            <Signal className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
+            <div>
+              <p className="text-xs text-muted-foreground">Tecnología</p>
+              <p className="text-base font-semibold">{technologyLabel}</p>
+            </div>
+          </div>
+        ) : null}
+        {planLabel ? (
+          <div>
+            <p className="text-xs text-muted-foreground">Plan contratado</p>
+            <p className="text-base font-semibold">{planLabel}</p>
+          </div>
         ) : null}
       </div>
     </section>

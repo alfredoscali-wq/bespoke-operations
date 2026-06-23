@@ -1,14 +1,13 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Camera, CheckCircle2, ImageOff } from "lucide-react"
+import { CheckCircle2 } from "lucide-react"
 
 import { useTasks } from "@/components/tareas/tasks-provider"
-import { TaskPhotoViewerDialog } from "@/components/tareas/task-photo-viewer-dialog"
 import {
-  getLatestPhotoForStep,
   getOperationalStepsProgress,
   hasOperationalSteps,
+  isOperationalStepComplete,
 } from "@/lib/operational-steps/utils"
 import { listTaskEvidencePhotos } from "@/lib/supabase/task-photos.browser"
 import type { Task } from "@/lib/types/tasks"
@@ -34,8 +33,6 @@ export function TaskOperationalStepsTab({ task }: TaskOperationalStepsTabProps) 
   const steps = liveTask.operationalSteps ?? []
 
   const [photos, setPhotos] = useState<TaskPhoto[]>([])
-  const [selectedPhoto, setSelectedPhoto] = useState<TaskPhoto | null>(null)
-  const [viewerOpen, setViewerOpen] = useState(false)
 
   useEffect(() => {
     if (!hasOperationalSteps(liveTask)) return
@@ -67,7 +64,8 @@ export function TaskOperationalStepsTab({ task }: TaskOperationalStepsTabProps) 
 
   const completedSteps = useMemo(
     () =>
-      steps.filter((step) => (stepPhotoCounts[step.id] ?? 0) > 0).length,
+      steps.filter((step) => isOperationalStepComplete(step, stepPhotoCounts))
+        .length,
     [stepPhotoCounts, steps]
   )
   const progress = getOperationalStepsProgress(steps, stepPhotoCounts)
@@ -102,8 +100,8 @@ export function TaskOperationalStepsTab({ task }: TaskOperationalStepsTabProps) 
 
       <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
         {steps.map((step) => {
-          const isComplete = (stepPhotoCounts[step.id] ?? 0) > 0
-          const latestPhoto = getLatestPhotoForStep(photos, step.id)
+          const isComplete = isOperationalStepComplete(step, stepPhotoCounts)
+          const hasPhotoEvidence = (stepPhotoCounts[step.id] ?? 0) > 0
           const observation = step.observation?.trim()
 
           return (
@@ -151,37 +149,11 @@ export function TaskOperationalStepsTab({ task }: TaskOperationalStepsTabProps) 
 
                 <div>
                   <p className="text-xs font-medium text-muted-foreground">
-                    Foto
+                    Evidencia
                   </p>
-                  {latestPhoto ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedPhoto(latestPhoto)
-                        setViewerOpen(true)
-                      }}
-                      className="mt-2 block w-full overflow-hidden rounded-lg border bg-background text-left transition-opacity hover:opacity-90"
-                    >
-                      {latestPhoto.signedUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={latestPhoto.signedUrl}
-                          alt={step.label}
-                          className="aspect-video w-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex aspect-video items-center justify-center gap-2 bg-muted/40 text-sm text-muted-foreground">
-                          <Camera className="size-4" />
-                          {latestPhoto.fileName}
-                        </div>
-                      )}
-                    </button>
-                  ) : (
-                    <div className="mt-2 flex aspect-video items-center justify-center gap-2 rounded-lg border border-dashed bg-muted/20 text-sm text-muted-foreground">
-                      <ImageOff className="size-4" />
-                      Sin foto
-                    </div>
-                  )}
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {hasPhotoEvidence ? "Foto cargada" : "Sin foto"}
+                  </p>
                 </div>
 
                 <div>
@@ -197,12 +169,6 @@ export function TaskOperationalStepsTab({ task }: TaskOperationalStepsTabProps) 
           )
         })}
       </div>
-
-      <TaskPhotoViewerDialog
-        photo={selectedPhoto}
-        open={viewerOpen}
-        onOpenChange={setViewerOpen}
-      />
     </div>
   )
 }

@@ -16,6 +16,7 @@ import {
 } from "lucide-react"
 
 import { EmploymentStatusBadge, EmployeeTypeBadge } from "@/components/rrhh/employee-badges"
+import { EmployeeSystemAccessSection } from "@/components/rrhh/employee-system-access-section"
 import { WhatsAppLink } from "@/components/ui/whatsapp-link"
 import { EMPLOYEE_TYPE_LABELS } from "@/lib/employees/constants"
 import { EmployeeFormDialog } from "@/components/rrhh/employee-form-dialog"
@@ -286,6 +287,8 @@ export function EmployeeDetailView({ employee }: EmployeeDetailViewProps) {
           </CardContent>
         )}
       </Card>
+
+      <EmployeeSystemAccessSection employee={employee} />
 
       <div className="flex items-center gap-3 rounded-xl border bg-muted/20 px-4 py-3">
         <div className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">

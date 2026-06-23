@@ -1,6 +1,7 @@
 import { formatDateOnly, formatDateOnlyDateTime } from "@/lib/dates/date-only"
 import type { EmploymentStatus } from "@/lib/types/employees"
 import type { EmployeeType } from "@/lib/types/employees"
+import type { SystemRole } from "@/lib/types/employees"
 
 export const EMPLOYMENT_STATUS_LABELS: Record<EmploymentStatus, string> = {
   active: "Activo",
@@ -56,6 +57,27 @@ export const EMPLOYEE_TYPE_OPTIONS = Object.entries(EMPLOYEE_TYPE_LABELS).map(
     label,
   })
 )
+
+export const SYSTEM_ROLE_LABELS: Record<SystemRole, string> = {
+  administrador: "Administrador",
+  supervisor: "Supervisor",
+  administrativo: "Administrativo",
+  operario: "Operario",
+}
+
+export const SYSTEM_ROLE_STYLES: Record<SystemRole, string> = {
+  administrador: "bg-violet-50 text-violet-700 border-violet-100",
+  supervisor: "bg-indigo-50 text-indigo-700 border-indigo-100",
+  administrativo: "bg-slate-100 text-slate-700 border-slate-200",
+  operario: "bg-blue-50 text-blue-700 border-blue-100",
+}
+
+export const SYSTEM_ROLE_OPTIONS: SystemRole[] = [
+  "administrador",
+  "supervisor",
+  "administrativo",
+  "operario",
+]
 
 export function formatEmployeeDate(date?: string | null) {
   return formatDateOnly(date)

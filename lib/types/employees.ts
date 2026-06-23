@@ -13,6 +13,12 @@ export type EmployeeType =
   | "gerente"
   | "otro"
 
+export type SystemRole =
+  | "administrador"
+  | "supervisor"
+  | "administrativo"
+  | "operario"
+
 export type Employee = {
   id: string
   employeeCode: string
@@ -31,6 +37,10 @@ export type Employee = {
   terminationDate?: string
   notes: string
   appUserId?: string | null
+  systemRole: SystemRole
+  systemAccess: boolean
+  mustChangePassword: boolean
+  lastLoginAt?: string | null
   createdAt?: string
   updatedAt?: string
 }
@@ -74,6 +84,10 @@ export type NewEmployeeInput = {
   terminationDate?: string
   notes?: string
   appUserId?: string | null
+  systemRole?: SystemRole
+  systemAccess?: boolean
+  mustChangePassword?: boolean
+  lastLoginAt?: string | null
 }
 
 export type UpdateEmployeeInput = Partial<NewEmployeeInput>

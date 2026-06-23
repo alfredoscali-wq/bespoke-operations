@@ -42,6 +42,10 @@ function parseOperationalSteps(value: unknown): OperationalStep[] {
         typeof item.observation === "string" ? item.observation : "",
       completedAt:
         typeof item.completedAt === "string" ? item.completedAt : null,
+      ...(item.stepKind === "text" || item.stepKind === "photo"
+        ? { stepKind: item.stepKind }
+        : {}),
+      ...(typeof item.stepKey === "string" ? { stepKey: item.stepKey } : {}),
     }))
 }
 
@@ -90,6 +94,8 @@ export function mapTaskRowToTask(row: TaskRow): Task {
     rejectionReason: row.rejection_reason?.trim() || undefined,
     serviceType: row.service_type,
     locality: row.locality,
+    contractedPlan: row.contracted_plan?.trim() || undefined,
+    installationCost: mapNullableNumber(row.installation_cost),
     taskMetadata: parseTaskMetadata(row.task_metadata),
   }
 }
@@ -128,6 +134,8 @@ export function mapCreatePayloadToInsert(payload: CreateTaskPayload): TaskInsert
     progress: payload.progress ?? 0,
     service_type: payload.serviceType ?? null,
     locality: payload.locality ?? null,
+    contracted_plan: payload.contractedPlan?.trim() || null,
+    installation_cost: payload.installationCost ?? null,
     task_metadata: (payload.taskMetadata ?? {}) as Json,
   }
 }
@@ -198,6 +206,12 @@ export function mapUpdatePayloadToUpdate(payload: UpdateTaskPayload): TaskUpdate
     update.service_type = payload.serviceType
   }
   if (payload.locality !== undefined) update.locality = payload.locality
+  if (payload.contractedPlan !== undefined) {
+    update.contracted_plan = payload.contractedPlan?.trim() || null
+  }
+  if (payload.installationCost !== undefined) {
+    update.installation_cost = payload.installationCost
+  }
   if (payload.taskMetadata !== undefined) {
     update.task_metadata = payload.taskMetadata as Json
   }

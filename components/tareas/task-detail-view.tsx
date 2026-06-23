@@ -16,6 +16,7 @@ import { TaskOverviewTab } from "@/components/tareas/task-tabs/overview-tab"
 import { TaskOperationalWorkflowActions } from "@/components/tareas/task-operational-workflow-actions"
 import { TaskClosureRejectDialog } from "@/components/tareas/task-closure-reject-dialog"
 import { TaskClosureValidationCard } from "@/components/tareas/task-closure-validation-card"
+import { TaskEvidencePhotosGallery } from "@/components/tareas/task-evidence-photos-gallery"
 import { TaskChecklistTab } from "@/components/tareas/task-tabs/checklist-tab"
 import { TaskEvidenceTab } from "@/components/tareas/task-tabs/evidence-tab"
 import { TaskOperationalStepsTab } from "@/components/tareas/task-tabs/operational-steps-tab"
@@ -25,21 +26,14 @@ import { hasOperationalSteps } from "@/lib/operational-steps/utils"
 import {
   TaskOperationBadge,
   TaskPriorityBadge,
+  TaskStatusBadge,
   TaskTypeBadge,
 } from "@/components/tareas/task-badges"
-import { TaskOperationalCategoryBadge } from "@/components/tareas/task-operational-badge"
-import {
-  TASK_STATUS_LABELS,
-  TASK_STATUS_STYLES,
-} from "@/lib/tasks/constants"
-import { isWorkOrderTask } from "@/lib/tasks/work-order"
 import { isPendingClosureStatus } from "@/lib/tasks/task-status-workflow"
-import { ACTIVE_TASK_STATUSES, isFinalTaskStatus } from "@/lib/tasks/status-groups"
+import { isCancellableTaskStatus, isFinalTaskStatus } from "@/lib/tasks/status-groups"
 import { isFieldServiceTask } from "@/lib/tasks/utils"
 import type { Task, TaskDetail } from "@/lib/types/tasks"
-import { cn } from "@/lib/utils"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -174,7 +168,7 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
     setActionSuccess("Tarea cancelada correctamente.")
   }
 
-  const canCancel = ACTIVE_TASK_STATUSES.includes(task.status)
+  const canCancel = isCancellableTaskStatus(task.status)
   const pendingClosure = isPendingClosureStatus(task.status)
   const usesOperationalSteps = hasOperationalSteps(task)
 
@@ -207,22 +201,7 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
               {task.title}
             </h2>
             <div className="flex flex-wrap items-center gap-2 pt-1">
-              {isWorkOrderTask(task) ? (
-                <TaskOperationalCategoryBadge
-                  task={task}
-                  className="px-3 py-1 text-sm"
-                />
-              ) : (
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "rounded-md px-3 py-1 text-sm font-semibold uppercase tracking-wide",
-                    TASK_STATUS_STYLES[task.status]
-                  )}
-                >
-                  {TASK_STATUS_LABELS[task.status]}
-                </Badge>
-              )}
+              <TaskStatusBadge status={task.status} className="px-3 py-1 text-sm" />
             </div>
             <p className="text-sm text-muted-foreground">
               {isFieldServiceTask(task)
@@ -405,6 +384,13 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
           <TaskHistoryTab history={detail.history} />
         </TabsContent>
       </Tabs>
+
+      {usesOperationalSteps ? (
+        <TaskEvidencePhotosGallery
+          taskId={task.id}
+          title="Evidencias Operativas"
+        />
+      ) : null}
     </div>
   )
 }

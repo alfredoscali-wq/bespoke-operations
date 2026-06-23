@@ -1,13 +1,15 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Plus } from "lucide-react"
+import { Download, FileSpreadsheet, Plus } from "lucide-react"
 
 import { EmployeeFormDialog } from "@/components/rrhh/employee-form-dialog"
+import { EmployeesImportDialog } from "@/components/rrhh/employees-import-dialog"
 import { EmployeesFiltersBar } from "@/components/rrhh/employees-filters"
 import { useEmployees } from "@/components/rrhh/employees-provider"
 import { EmployeesSummaryCards } from "@/components/rrhh/employees-summary-cards"
 import { EmployeesTable } from "@/components/rrhh/employees-table"
+import { downloadEmployeeImportTemplate } from "@/lib/employees/employee-import/template"
 import {
   buildEmployeeListItems,
   defaultEmployeeFilters,
@@ -27,6 +29,7 @@ export function EmployeesModule() {
   const { employees, addEmployee } = useEmployees()
   const [filters, setFilters] = useState<EmployeeFilters>(defaultEmployeeFilters)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [feedback, setFeedback] = useState<string | null>(null)
 
   const listItems = useMemo(
@@ -64,14 +67,34 @@ export function EmployeesModule() {
             </p>
           )}
         </div>
-        <Button
-          size="sm"
-          className="gap-1.5 self-start"
-          onClick={() => setDialogOpen(true)}
-        >
-          <Plus className="size-4" />
-          Nuevo empleado
-        </Button>
+        <div className="flex flex-wrap gap-2 self-start">
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            onClick={() => setImportOpen(true)}
+          >
+            <FileSpreadsheet className="size-4" />
+            Importar empleados
+          </Button>
+          <Button
+            size="sm"
+            className="gap-1.5"
+            onClick={() => setDialogOpen(true)}
+          >
+            <Plus className="size-4" />
+            Nuevo empleado
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            onClick={() => downloadEmployeeImportTemplate()}
+          >
+            <Download className="size-4" />
+            Exportar
+          </Button>
+        </div>
       </div>
 
       <EmployeesSummaryCards employees={employees} />
@@ -96,6 +119,12 @@ export function EmployeesModule() {
         onOpenChange={setDialogOpen}
         mode="create"
         onSubmit={handleCreateEmployee}
+      />
+
+      <EmployeesImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onImported={setFeedback}
       />
     </div>
   )

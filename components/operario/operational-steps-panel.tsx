@@ -9,15 +9,17 @@ import {
   getLatestPhotoForStep,
   getOperationalStepsProgress,
   hasOperationalSteps,
+  isOperationalStepComplete,
 } from "@/lib/operational-steps/utils"
 import {
   listTaskEvidencePhotos,
   uploadOperationalStepPhoto,
 } from "@/lib/supabase/task-photos.browser"
-import type { Task } from "@/lib/types/tasks"
+import type { OperationalStep, Task } from "@/lib/types/tasks"
 import type { TaskPhoto } from "@/lib/types/task-photos"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 
 type OperationalStepsPanelProps = {
@@ -27,19 +29,86 @@ type OperationalStepsPanelProps = {
   actionsDisabled?: boolean
 }
 
+type OperationalTextStepFieldProps = {
+  step: OperationalStep
+  actionsDisabled: boolean
+  isSaving: boolean
+  onSave: (stepId: string, value: string) => Promise<void>
+}
+
+function OperationalTextStepField({
+  step,
+  actionsDisabled,
+  isSaving,
+  onSave,
+}: OperationalTextStepFieldProps) {
+  const [value, setValue] = useState(step.observation)
+
+  useEffect(() => {
+    setValue(step.observation)
+  }, [step.observation])
+
+  const savedValue = step.observation.trim()
+  const isComplete = savedValue.length > 0
+  const isDirty = value.trim() !== savedValue
+
+  return (
+    <div className="mt-3 space-y-2">
+      {actionsDisabled ? (
+        <p className="text-sm text-foreground">
+          {savedValue || "Sin datos"}
+        </p>
+      ) : (
+        <>
+          <Input
+            value={value}
+            onChange={(event) => setValue(event.target.value)}
+            placeholder={`Ingrese ${step.label.toLowerCase()}`}
+            className="h-11 rounded-xl"
+            disabled={isSaving}
+          />
+          <Button
+            type="button"
+            size="lg"
+            className="h-11 w-full gap-2 rounded-xl text-base font-semibold"
+            onClick={() => void onSave(step.id, value)}
+            disabled={isSaving || !isDirty}
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="size-5 animate-spin" />
+                Guardando...
+              </>
+            ) : (
+              "Guardar"
+            )}
+          </Button>
+        </>
+      )}
+      {isComplete ? (
+        <p className="text-sm text-emerald-700 dark:text-emerald-300">
+          Dato guardado
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
 export function OperationalStepsPanel({
   task,
   refreshKey = 0,
   onProgressChange,
   actionsDisabled = false,
 }: OperationalStepsPanelProps) {
-  const { getTask, syncOperationalStepsProgress } = useTasks()
+  const { getTask, syncOperationalStepsProgress, updateOperationalStepObservation } =
+    useTasks()
   const liveTask = getTask(task.id) ?? task
   const steps = liveTask.operationalSteps ?? []
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [photos, setPhotos] = useState<TaskPhoto[]>([])
   const [uploadingStepId, setUploadingStepId] = useState<string | null>(null)
+  const [savingStepId, setSavingStepId] = useState<string | null>(null)
   const [pendingStepId, setPendingStepId] = useState<string | null>(null)
   const [selectedPhoto, setSelectedPhoto] = useState<TaskPhoto | null>(null)
   const [viewerOpen, setViewerOpen] = useState(false)
@@ -72,7 +141,8 @@ export function OperationalStepsPanel({
 
   const completedSteps = useMemo(
     () =>
-      steps.filter((step) => (stepPhotoCounts[step.id] ?? 0) > 0).length,
+      steps.filter((step) => isOperationalStepComplete(step, stepPhotoCounts))
+        .length,
     [stepPhotoCounts, steps]
   )
   const progress = getOperationalStepsProgress(steps, stepPhotoCounts)
@@ -85,6 +155,22 @@ export function OperationalStepsPanel({
     if (actionsDisabled || uploadingStepId) return
     setPendingStepId(stepId)
     fileInputRef.current?.click()
+  }
+
+  async function handleSaveObservation(stepId: string, value: string) {
+    setSavingStepId(stepId)
+
+    const result = await updateOperationalStepObservation(
+      task.id,
+      stepId,
+      value.trim()
+    )
+
+    setSavingStepId(null)
+
+    if (result.success) {
+      onProgressChange?.()
+    }
   }
 
   async function handleFileSelected(event: ChangeEvent<HTMLInputElement>) {
@@ -152,9 +238,11 @@ export function OperationalStepsPanel({
 
       <div className="mt-4 space-y-3">
         {steps.map((step) => {
-          const isComplete = (stepPhotoCounts[step.id] ?? 0) > 0
+          const isTextStep = step.stepKind === "text"
+          const isComplete = isOperationalStepComplete(step, stepPhotoCounts)
           const latestPhoto = getLatestPhotoForStep(photos, step.id)
           const isUploading = uploadingStepId === step.id
+          const isSaving = savingStepId === step.id
 
           return (
             <div
@@ -170,7 +258,14 @@ export function OperationalStepsPanel({
                 {isComplete ? `✅ ${step.label}` : `☐ ${step.label}`}
               </p>
 
-              {isComplete && latestPhoto ? (
+              {isTextStep ? (
+                <OperationalTextStepField
+                  step={step}
+                  actionsDisabled={actionsDisabled}
+                  isSaving={isSaving}
+                  onSave={handleSaveObservation}
+                />
+              ) : isComplete && latestPhoto ? (
                 <div className="mt-3 space-y-2">
                   <button
                     type="button"

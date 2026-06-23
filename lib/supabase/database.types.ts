@@ -2,6 +2,7 @@ import type { AvailabilityType } from "@/lib/types/availability"
 import type { CrewStatus } from "@/lib/types/crews"
 import type { EmploymentStatus } from "@/lib/types/employees"
 import type { EmployeeType } from "@/lib/types/employees"
+import type { SystemRole } from "@/lib/types/employees"
 import type {
   EvidenceCategoryType,
   EvidenceFileType,
@@ -303,6 +304,10 @@ export type Database = {
           termination_date: string | null
           notes: string
           app_user_id: string | null
+          system_role: SystemRole
+          system_access: boolean
+          must_change_password: boolean
+          last_login_at: string | null
           created_at: string
           updated_at: string
           deleted_at: string | null
@@ -326,6 +331,10 @@ export type Database = {
           termination_date?: string | null
           notes?: string
           app_user_id?: string | null
+          system_role?: SystemRole
+          system_access?: boolean
+          must_change_password?: boolean
+          last_login_at?: string | null
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
@@ -349,6 +358,10 @@ export type Database = {
           termination_date?: string | null
           notes?: string
           app_user_id?: string | null
+          system_role?: SystemRole
+          system_access?: boolean
+          must_change_password?: boolean
+          last_login_at?: string | null
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
@@ -434,6 +447,8 @@ export type Database = {
           deleted_at: string | null
           service_type: string | null
           locality: string | null
+          contracted_plan: string | null
+          installation_cost: number | null
           task_metadata: Json
         }
         Insert: {
@@ -475,6 +490,8 @@ export type Database = {
           deleted_at?: string | null
           service_type?: string | null
           locality?: string | null
+          contracted_plan?: string | null
+          installation_cost?: number | null
           task_metadata?: Json
         }
         Update: {
@@ -516,6 +533,8 @@ export type Database = {
           deleted_at?: string | null
           service_type?: string | null
           locality?: string | null
+          contracted_plan?: string | null
+          installation_cost?: number | null
           task_metadata?: Json
         }
         Relationships: []
@@ -690,6 +709,7 @@ export type Database = {
       evidence_status: EvidenceStatus
       crew_status: CrewStatus
       employment_status: EmploymentStatus
+      system_role: SystemRole
     }
     CompositeTypes: Record<string, never>
   }

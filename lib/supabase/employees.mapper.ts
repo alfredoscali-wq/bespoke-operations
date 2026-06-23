@@ -34,6 +34,10 @@ export function mapEmployeeRowToEmployee(row: EmployeeRow): Employee {
     terminationDate: row.termination_date ?? undefined,
     notes: row.notes,
     appUserId: row.app_user_id,
+    systemRole: row.system_role,
+    systemAccess: row.system_access,
+    mustChangePassword: row.must_change_password,
+    lastLoginAt: row.last_login_at,
     createdAt: row.created_at ?? undefined,
     updatedAt: row.updated_at ?? undefined,
   }
@@ -60,6 +64,10 @@ export function mapCreateEmployeePayloadToInsert(
     termination_date: payload.terminationDate ?? null,
     notes: payload.notes?.trim() ?? "",
     app_user_id: payload.appUserId ?? null,
+    system_role: payload.systemRole ?? "operario",
+    system_access: payload.systemAccess ?? false,
+    must_change_password: payload.mustChangePassword ?? false,
+    last_login_at: payload.lastLoginAt ?? null,
   }
 }
 
@@ -115,6 +123,18 @@ export function mapUpdateEmployeePayloadToUpdate(
   }
   if (payload.appUserId !== undefined) {
     update.app_user_id = payload.appUserId
+  }
+  if (payload.systemRole !== undefined) {
+    update.system_role = payload.systemRole
+  }
+  if (payload.systemAccess !== undefined) {
+    update.system_access = payload.systemAccess
+  }
+  if (payload.mustChangePassword !== undefined) {
+    update.must_change_password = payload.mustChangePassword
+  }
+  if (payload.lastLoginAt !== undefined) {
+    update.last_login_at = payload.lastLoginAt
   }
 
   return update

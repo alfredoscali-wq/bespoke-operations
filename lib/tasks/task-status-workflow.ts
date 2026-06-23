@@ -1,5 +1,5 @@
 import { TASK_STATUS_LABELS } from "@/lib/tasks/constants"
-import { hasOperationalSteps } from "@/lib/operational-steps/utils"
+import { hasOperationalSteps, isOperationalStepComplete } from "@/lib/operational-steps/utils"
 import type { ChecklistItem, OperationalStep, Task, TaskStatus } from "@/lib/types/tasks"
 
 export type TaskWorkflowAction =
@@ -82,7 +82,7 @@ export function validateOperationalStepsComplete(
   stepPhotoCounts: Record<string, number>
 ): { allowed: boolean; message?: string } {
   for (const step of steps) {
-    if ((stepPhotoCounts[step.id] ?? 0) <= 0) {
+    if (!isOperationalStepComplete(step, stepPhotoCounts)) {
       return {
         allowed: false,
         message: `Falta completar ${step.label}`,

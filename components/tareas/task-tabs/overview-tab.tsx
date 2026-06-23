@@ -21,11 +21,17 @@ import type { Task } from "@/lib/types/tasks"
 import {
   getOperationalStepsProgress,
   hasOperationalSteps,
+  isOperationalStepComplete,
 } from "@/lib/operational-steps/utils"
 import { listTaskEvidencePhotos } from "@/lib/supabase/task-photos.browser"
 import type { TaskPhoto } from "@/lib/types/task-photos"
 import { resolveTaskCrewDisplayName, taskHasCrew } from "@/lib/tasks/crew-relation"
 import { formatTaskDate } from "@/lib/tasks/constants"
+import {
+  formatContractedPlanLabel,
+  formatInstallationCostDisplay,
+  isNewInstallationTask,
+} from "@/lib/tasks/commercial-plan"
 import { isFieldServiceTask } from "@/lib/tasks/utils"
 import { TaskEvidenceSummary } from "@/components/evidencias/task-evidence-summary"
 import { TaskMaterialsPanel } from "@/components/materiales/task-materials-panel"
@@ -100,7 +106,8 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
 
   const completedSteps = useMemo(
     () =>
-      steps.filter((step) => (stepPhotoCounts[step.id] ?? 0) > 0).length,
+      steps.filter((step) => isOperationalStepComplete(step, stepPhotoCounts))
+        .length,
     [stepPhotoCounts, steps]
   )
   const operationalProgress = getOperationalStepsProgress(steps, stepPhotoCounts)
@@ -344,6 +351,36 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
       </Card>
 
       <div className="space-y-6">
+        {isNewInstallationTask(liveTask) &&
+        (liveTask.contractedPlan || liveTask.installationCost != null) ? (
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle>Información comercial</CardTitle>
+              <CardDescription>
+                Plan contratado y costo de instalación
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <p className="text-xs text-muted-foreground">Plan contratado</p>
+                <p className="text-base font-semibold">
+                  {formatContractedPlanLabel(liveTask.contractedPlan) ?? "—"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">
+                  Costo instalación
+                </p>
+                <p className="text-base font-semibold">
+                  {liveTask.installationCost != null
+                    ? formatInstallationCostDisplay(liveTask.installationCost)
+                    : "—"}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
+
         {usesOperationalSteps ? (
           <Card className="shadow-sm">
             <CardHeader>

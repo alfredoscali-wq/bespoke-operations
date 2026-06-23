@@ -25,11 +25,15 @@ export type ChecklistItem = {
   required: boolean
 }
 
+export type OperationalStepKind = "text" | "photo"
+
 export type OperationalStep = {
   id: string
   label: string
   observation: string
   completedAt: string | null
+  stepKind?: OperationalStepKind
+  stepKey?: string
 }
 
 export type TaskOperationMode = "obra" | "servicio"
@@ -70,6 +74,8 @@ export type Task = {
   rejectionReason?: string
   serviceType?: string | null
   locality?: string | null
+  contractedPlan?: string | null
+  installationCost?: number | null
   taskMetadata?: Record<string, unknown>
 }
 
