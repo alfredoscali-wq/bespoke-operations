@@ -26,6 +26,7 @@ import {
 } from "@/lib/employees/constants"
 import {
   canProvisionEmployeeAccess,
+  canResetEmployeePassword,
   resolveEmployeeProvisionStatus,
 } from "@/lib/employees/utils"
 import type { Employee, SystemRole, UpdateEmployeeInput } from "@/lib/types/employees"
@@ -39,6 +40,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 function SystemRoleBadge({ role }: { role: SystemRole }) {
   return (
@@ -102,15 +111,22 @@ export function EmployeeSystemAccessSection({
   employee,
 }: EmployeeSystemAccessSectionProps) {
   const { sessionUser } = useAuth()
-  const { editEmployee, provisionEmployeeAccess } = useEmployees()
+  const { editEmployee, provisionEmployeeAccess, resetEmployeePassword } =
+    useEmployees()
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [resetDialogOpen, setResetDialogOpen] = useState(false)
   const [isProvisioning, setIsProvisioning] = useState(false)
+  const [isResettingPassword, setIsResettingPassword] = useState(false)
   const [provisionError, setProvisionError] = useState<string | null>(null)
   const [provisionSuccess, setProvisionSuccess] = useState<string | null>(null)
+  const [resetError, setResetError] = useState<string | null>(null)
+  const [resetSuccess, setResetSuccess] = useState<string | null>(null)
 
+  const isAdministrator = sessionUser?.systemRole === "administrador"
   const canCreateAccess =
-    canProvisionEmployeeAccess(employee) &&
-    sessionUser?.systemRole === "administrador"
+    canProvisionEmployeeAccess(employee) && isAdministrator
+  const canResetPassword =
+    canResetEmployeePassword(employee) && isAdministrator
   const hasNationalId = Boolean(employee.nationalId?.trim())
 
   async function handleSave(
@@ -143,6 +159,30 @@ export function EmployeeSystemAccessSection({
       setProvisionSuccess("Acceso creado correctamente. El empleado ya puede iniciar sesión.")
     } finally {
       setIsProvisioning(false)
+    }
+  }
+
+  async function handleResetPassword() {
+    setResetError(null)
+    setResetSuccess(null)
+    setIsResettingPassword(true)
+
+    try {
+      const result = await resetEmployeePassword(employee.id)
+
+      if (!result.success) {
+        setResetError(
+          result.message ?? "No se pudo restablecer la contraseña del empleado."
+        )
+        return
+      }
+
+      setResetDialogOpen(false)
+      setResetSuccess(
+        "Contraseña restablecida. El empleado deberá cambiarla al iniciar sesión."
+      )
+    } finally {
+      setIsResettingPassword(false)
     }
   }
 
@@ -230,7 +270,7 @@ export function EmployeeSystemAccessSection({
           </CardContent>
         )}
 
-        {(provisionError || provisionSuccess) && (
+        {(provisionError || provisionSuccess || resetError || resetSuccess) && (
           <CardContent className="border-t pt-4">
             {provisionError && (
               <p className="text-sm text-destructive" role="alert">
@@ -242,32 +282,97 @@ export function EmployeeSystemAccessSection({
                 {provisionSuccess}
               </p>
             )}
+            {resetError && (
+              <p className="text-sm text-destructive" role="alert">
+                {resetError}
+              </p>
+            )}
+            {resetSuccess && (
+              <p className="text-sm text-emerald-700" role="status">
+                {resetSuccess}
+              </p>
+            )}
           </CardContent>
         )}
 
-        {canCreateAccess && (
-          <CardFooter className="border-t pt-4">
-            <Button
-              type="button"
-              className="gap-1.5"
-              onClick={() => void handleProvisionAccess()}
-              disabled={isProvisioning || !hasNationalId}
-            >
-              {isProvisioning ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  Creando acceso...
-                </>
-              ) : (
-                <>
-                  <UserPlus className="size-4" />
-                  Crear acceso
-                </>
-              )}
-            </Button>
+        {(canCreateAccess || canResetPassword) && (
+          <CardFooter className="flex flex-wrap gap-2 border-t pt-4">
+            {canCreateAccess && (
+              <Button
+                type="button"
+                className="gap-1.5"
+                onClick={() => void handleProvisionAccess()}
+                disabled={isProvisioning || !hasNationalId}
+              >
+                {isProvisioning ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    Creando acceso...
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="size-4" />
+                    Crear acceso
+                  </>
+                )}
+              </Button>
+            )}
+            {canResetPassword && (
+              <Button
+                type="button"
+                variant="outline"
+                className="gap-1.5"
+                onClick={() => {
+                  setResetError(null)
+                  setResetSuccess(null)
+                  setResetDialogOpen(true)
+                }}
+                disabled={isResettingPassword || !hasNationalId}
+              >
+                <KeyRound className="size-4" />
+                Restablecer contraseña
+              </Button>
+            )}
           </CardFooter>
         )}
       </Card>
+
+      <Dialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Restablecer contraseña</DialogTitle>
+            <DialogDescription>
+              La contraseña temporal será el DNI del empleado (
+              {employee.nationalId?.trim() || "—"}). El usuario deberá cambiarla
+              al iniciar sesión.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setResetDialogOpen(false)}
+              disabled={isResettingPassword}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void handleResetPassword()}
+              disabled={isResettingPassword || !hasNationalId}
+            >
+              {isResettingPassword ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Restableciendo...
+                </>
+              ) : (
+                "Confirmar restablecimiento"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <EmployeeSystemAccessDialog
         open={dialogOpen}

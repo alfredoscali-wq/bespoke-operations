@@ -66,6 +66,12 @@ export function canProvisionEmployeeAccess(
   return employee.systemAccess && !employee.appUserId
 }
 
+export function canResetEmployeePassword(
+  employee: Pick<Employee, "appUserId">
+): boolean {
+  return Boolean(employee.appUserId)
+}
+
 export function getEmployeeInitials(
   employee: Pick<Employee, "firstName" | "lastName" | "preferredName">
 ): string {
