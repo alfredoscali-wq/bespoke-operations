@@ -16,6 +16,7 @@ type KpiCardProps = {
   icon: LucideIcon
   tone?: VisualTone
   hint?: React.ReactNode
+  compact?: boolean
   className?: string
 }
 
@@ -25,9 +26,40 @@ export function KpiCard({
   icon: Icon,
   tone = "neutral",
   hint,
+  compact = false,
   className,
 }: KpiCardProps) {
   const styles = KPI_TONE_STYLES[tone]
+
+  if (compact) {
+    return (
+      <Card className={cn("shadow-sm", styles.card, className)}>
+        <CardContent className="flex items-center justify-between gap-2 px-3 py-2.5">
+          <div className="min-w-0">
+            <p className="truncate text-[11px] font-medium text-muted-foreground">
+              {label}
+            </p>
+            <p className="text-lg font-semibold leading-tight tracking-tight tabular-nums text-foreground">
+              {value}
+            </p>
+            {hint ? (
+              <div className="mt-0.5 text-[10px] leading-snug text-muted-foreground">
+                {hint}
+              </div>
+            ) : null}
+          </div>
+          <div
+            className={cn(
+              "flex size-7 shrink-0 items-center justify-center rounded-md",
+              styles.icon
+            )}
+          >
+            <Icon className={cn("size-3.5", styles.iconColor)} />
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
     <Card className={cn("shadow-sm", styles.card, className)}>

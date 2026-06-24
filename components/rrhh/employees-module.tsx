@@ -58,8 +58,8 @@ export function EmployeesModule() {
   }
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           {feedback && (
             <p className="text-sm text-emerald-700" role="status">
@@ -100,10 +100,10 @@ export function EmployeesModule() {
       <EmployeesSummaryCards employees={employees} />
 
       <Card className="shadow-sm">
-        <CardHeader className="border-b">
+        <CardHeader className="border-b py-3">
           <CardTitle className="text-base">Personal registrado</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4 pt-4">
+        <CardContent className="space-y-3 pt-3">
           <EmployeesFiltersBar
             filters={filters}
             onChange={setFilters}

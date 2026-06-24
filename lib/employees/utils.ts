@@ -40,6 +40,13 @@ export function getEmployeeFullName(
     .join(" ")
 }
 
+/** Legal full name for RRHH table (firstName + lastName, never preferredName). */
+export function formatEmployeeTableFullName(
+  employee: Pick<Employee, "firstName" | "lastName">
+): string {
+  return getEmployeeFullName(employee).toLocaleUpperCase("es")
+}
+
 export function resolveEmployeeProvisionStatus(
   employee: Pick<Employee, "systemAccess" | "appUserId">
 ): EmployeeProvisionStatus {
@@ -209,18 +216,20 @@ function getSortableString(
   switch (column) {
     case "employeeCode":
       return employee.employeeCode
+    case "nationalId":
+      return employee.nationalId ?? ""
     case "displayName":
-      return employee.displayName
+      return getEmployeeFullName(employee)
     case "jobTitle":
       return employee.jobTitle
-    case "employeeType":
-      return EMPLOYEE_TYPE_LABELS[employee.employeeType]
+    case "email":
+      return employee.email ?? ""
+    case "systemAccess":
+      return employee.systemAccess ? "1" : "0"
     case "employmentStatus":
       return employee.employmentStatus
     case "systemRole":
       return SYSTEM_ROLE_LABELS[employee.systemRole]
-    case "hireDate":
-      return employee.hireDate ?? ""
     default:
       return ""
   }
@@ -234,25 +243,13 @@ export function sortEmployees(
 
   const sorted = [...employees]
 
-  sorted.sort((left, right) => {
-    if (sort.column === "hireDate") {
-      const leftDate = left.hireDate ?? ""
-      const rightDate = right.hireDate ?? ""
-
-      if (!leftDate && !rightDate) return 0
-      if (!leftDate) return 1
-      if (!rightDate) return -1
-
-      const result = leftDate.localeCompare(rightDate)
-      return sort.direction === "asc" ? result : -result
-    }
-
-    return compareStrings(
+  sorted.sort((left, right) =>
+    compareStrings(
       getSortableString(left, sort.column),
       getSortableString(right, sort.column),
       sort.direction
     )
-  })
+  )
 
   return sorted
 }

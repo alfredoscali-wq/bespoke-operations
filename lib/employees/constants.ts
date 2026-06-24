@@ -75,6 +75,16 @@ export const SYSTEM_ROLE_STYLES: Record<SystemRole, string> = {
   operario: "bg-blue-50 text-blue-700 border-blue-100",
 }
 
+export const SYSTEM_ACCESS_LABELS = {
+  with: "Con acceso",
+  without: "Sin acceso",
+} as const
+
+export const SYSTEM_ACCESS_STYLES = {
+  with: "bg-emerald-50 text-emerald-700 border-emerald-100",
+  without: "bg-slate-100 text-slate-600 border-slate-200",
+} as const
+
 export const SYSTEM_ROLE_OPTIONS: SystemRole[] = [
   "administrador",
   "supervisor",

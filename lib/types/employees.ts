@@ -77,12 +77,13 @@ export type EmployeeSystemAccessFilter = "all" | "with" | "without"
 
 export type EmployeeSortColumn =
   | "employeeCode"
+  | "nationalId"
   | "displayName"
   | "jobTitle"
-  | "employeeType"
-  | "employmentStatus"
+  | "email"
+  | "systemAccess"
   | "systemRole"
-  | "hireDate"
+  | "employmentStatus"
 
 export type EmployeeSortDirection = "asc" | "desc"
 

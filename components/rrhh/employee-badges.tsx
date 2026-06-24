@@ -3,6 +3,8 @@ import {
   EMPLOYMENT_STATUS_STYLES,
   EMPLOYEE_TYPE_LABELS,
   EMPLOYEE_TYPE_STYLES,
+  SYSTEM_ACCESS_LABELS,
+  SYSTEM_ACCESS_STYLES,
   SYSTEM_ROLE_LABELS,
   SYSTEM_ROLE_STYLES,
 } from "@/lib/employees/constants"
@@ -65,6 +67,25 @@ export function SystemRoleBadge({
       className={cn("font-medium", SYSTEM_ROLE_STYLES[systemRole], className)}
     >
       {SYSTEM_ROLE_LABELS[systemRole]}
+    </Badge>
+  )
+}
+
+export function SystemAccessBadge({
+  systemAccess,
+  className,
+}: {
+  systemAccess: boolean
+  className?: string
+}) {
+  const key = systemAccess ? "with" : "without"
+
+  return (
+    <Badge
+      variant="outline"
+      className={cn("font-medium whitespace-nowrap", SYSTEM_ACCESS_STYLES[key], className)}
+    >
+      {SYSTEM_ACCESS_LABELS[key]}
     </Badge>
   )
 }

@@ -6,14 +6,17 @@ import { useRouter } from "next/navigation"
 import { ArrowDown, ArrowUp, Eye, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
 
 import {
-  EmployeeTypeBadge,
   EmploymentStatusBadge,
-  SystemRoleBadge,
+  SystemAccessBadge,
 } from "@/components/rrhh/employee-badges"
 import { EmployeeFormDialog } from "@/components/rrhh/employee-form-dialog"
 import { useEmployees } from "@/components/rrhh/employees-provider"
-import { formatEmployeeDate } from "@/lib/employees/constants"
-import { cycleEmployeeSort, sortEmployees } from "@/lib/employees/utils"
+import {
+  cycleEmployeeSort,
+  formatEmployeeTableFullName,
+  getEmployeeFullName,
+  sortEmployees,
+} from "@/lib/employees/utils"
 import { EntityActionFeedback } from "@/components/ui/entity-action-feedback"
 import type {
   EmployeeListItem,
@@ -66,14 +69,14 @@ type Feedback = {
 const SORTABLE_COLUMNS: {
   key: EmployeeSortColumn
   label: string
+  className?: string
 }[] = [
-  { key: "employeeCode", label: "Código" },
-  { key: "displayName", label: "Nombre" },
-  { key: "jobTitle", label: "Cargo" },
-  { key: "employeeType", label: "Tipo" },
-  { key: "employmentStatus", label: "Estado" },
-  { key: "systemRole", label: "Rol" },
-  { key: "hireDate", label: "Ingreso" },
+  { key: "displayName", label: "Nombre completo", className: "min-w-[200px]" },
+  { key: "nationalId", label: "DNI", className: "w-[100px]" },
+  { key: "jobTitle", label: "Cargo", className: "min-w-[140px]" },
+  { key: "email", label: "Email", className: "min-w-[160px]" },
+  { key: "systemAccess", label: "Acceso al sistema", className: "w-[130px]" },
+  { key: "employmentStatus", label: "Estado", className: "w-[120px]" },
 ]
 
 function SortableTableHead({
@@ -81,16 +84,18 @@ function SortableTableHead({
   column,
   sort,
   onSort,
+  className,
 }: {
   label: string
   column: EmployeeSortColumn
   sort: EmployeeSortState
   onSort: (column: EmployeeSortColumn) => void
+  className?: string
 }) {
   const isActive = sort?.column === column
 
   return (
-    <TableHead>
+    <TableHead className={className}>
       <button
         type="button"
         onClick={() => onSort(column)}
@@ -101,10 +106,10 @@ function SortableTableHead({
       >
         <span>{label}</span>
         {isActive && sort.direction === "asc" ? (
-          <ArrowUp className="size-3.5" aria-hidden />
+          <ArrowUp className="size-3.5 shrink-0" aria-hidden />
         ) : null}
         {isActive && sort.direction === "desc" ? (
-          <ArrowDown className="size-3.5" aria-hidden />
+          <ArrowDown className="size-3.5 shrink-0" aria-hidden />
         ) : null}
       </button>
     </TableHead>
@@ -158,7 +163,7 @@ export function EmployeesTable({ employees }: EmployeesTableProps) {
       setDeleteTarget(null)
       setFeedback({
         variant: "success",
-        message: `Empleado "${deleteTarget.displayName}" eliminado.`,
+        message: `Empleado "${getEmployeeFullName(deleteTarget)}" eliminado.`,
       })
     } finally {
       setIsDeleting(false)
@@ -220,123 +225,154 @@ export function EmployeesTable({ employees }: EmployeesTableProps) {
 
       <div className="hidden overflow-hidden rounded-xl border bg-card shadow-sm lg:block">
         <div className="overflow-x-auto">
-          <Table>
+          <Table className="min-w-[980px]">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                {SORTABLE_COLUMNS.map((column) => (
+                {SORTABLE_COLUMNS.slice(0, 4).map((column) => (
                   <SortableTableHead
                     key={column.key}
                     label={column.label}
                     column={column.key}
                     sort={sort}
                     onSort={handleSort}
+                    className={column.className}
                   />
                 ))}
-                <TableHead>Departamento</TableHead>
-                <TableHead>Teléfono</TableHead>
-                <TableHead className="w-[60px]" />
+                <TableHead className="w-[120px] text-muted-foreground">
+                  Teléfono
+                </TableHead>
+                {SORTABLE_COLUMNS.slice(4).map((column) => (
+                  <SortableTableHead
+                    key={column.key}
+                    label={column.label}
+                    column={column.key}
+                    sort={sort}
+                    onSort={handleSort}
+                    className={column.className}
+                  />
+                ))}
+                <TableHead className="sticky right-0 w-[60px] bg-card" />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sortedEmployees.map((employee) => (
-                <TableRow key={employee.id}>
-                  <TableCell className="font-mono text-xs text-muted-foreground">
-                    {employee.employeeCode}
-                  </TableCell>
-                  <TableCell>
-                    <Link
-                      href={`/rrhh/${employee.id}`}
-                      className="font-medium hover:text-primary"
-                    >
-                      {employee.displayName}
-                    </Link>
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {employee.jobTitle || "—"}
-                  </TableCell>
-                  <TableCell>
-                    <EmployeeTypeBadge employeeType={employee.employeeType} />
-                  </TableCell>
-                  <TableCell>
-                    <EmploymentStatusBadge status={employee.employmentStatus} />
-                  </TableCell>
-                  <TableCell>
-                    <SystemRoleBadge systemRole={employee.systemRole} />
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {formatEmployeeDate(employee.hireDate) || "—"}
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {employee.department || "—"}
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {employee.phone ? (
-                      <WhatsAppLink phone={employee.phone} />
-                    ) : (
-                      "—"
-                    )}
-                  </TableCell>
-                  <TableCell>{renderActions(employee)}</TableCell>
-                </TableRow>
-              ))}
+              {sortedEmployees.map((employee) => {
+                const fullName = formatEmployeeTableFullName(employee)
+
+                return (
+                  <TableRow key={employee.id}>
+                    <TableCell className="max-w-[240px]">
+                      <Link
+                        href={`/rrhh/${employee.id}`}
+                        className="font-medium uppercase hover:text-primary"
+                        title={fullName}
+                      >
+                        <span className="line-clamp-2">{fullName}</span>
+                      </Link>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground">
+                      {employee.nationalId?.trim() || "—"}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      <span className="line-clamp-2">
+                        {employee.jobTitle || "—"}
+                      </span>
+                    </TableCell>
+                    <TableCell className="max-w-[200px] text-sm text-muted-foreground">
+                      {employee.email?.trim() ? (
+                        <a
+                          href={`mailto:${employee.email.trim()}`}
+                          className="block truncate hover:text-primary"
+                          title={employee.email.trim()}
+                        >
+                          {employee.email.trim()}
+                        </a>
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {employee.phone ? (
+                        <WhatsAppLink phone={employee.phone} />
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <SystemAccessBadge systemAccess={employee.systemAccess} />
+                    </TableCell>
+                    <TableCell>
+                      <EmploymentStatusBadge status={employee.employmentStatus} />
+                    </TableCell>
+                    <TableCell className="sticky right-0 bg-card">
+                      {renderActions(employee)}
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
             </TableBody>
           </Table>
         </div>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:hidden">
-        {sortedEmployees.map((employee) => (
-          <Card key={employee.id} className="h-full shadow-sm">
-            <CardHeader className="pb-2">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="font-mono text-[11px] text-muted-foreground">
-                    {employee.employeeCode}
-                  </p>
-                  <Link href={`/rrhh/${employee.id}`}>
-                    <CardTitle className="text-base hover:text-primary">
-                      {employee.displayName}
-                    </CardTitle>
-                  </Link>
+        {sortedEmployees.map((employee) => {
+          const fullName = formatEmployeeTableFullName(employee)
+
+          return (
+            <Card key={employee.id} className="h-full shadow-sm">
+              <CardHeader className="pb-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    {employee.nationalId?.trim() ? (
+                      <p className="font-mono text-[11px] text-muted-foreground">
+                        DNI {employee.nationalId.trim()}
+                      </p>
+                    ) : null}
+                    <Link href={`/rrhh/${employee.id}`}>
+                      <CardTitle className="text-base uppercase hover:text-primary">
+                        {fullName}
+                      </CardTitle>
+                    </Link>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    {renderActions(employee)}
+                  </div>
                 </div>
-                <div className="flex items-center gap-1">
-                  <SystemRoleBadge systemRole={employee.systemRole} />
-                  {renderActions(employee)}
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                <p>
+                  <span className="text-muted-foreground">Cargo:</span>{" "}
+                  {employee.jobTitle || "—"}
+                </p>
+                <p className="truncate">
+                  <span className="text-muted-foreground">Email:</span>{" "}
+                  {employee.email?.trim() ? (
+                    <a
+                      href={`mailto:${employee.email.trim()}`}
+                      className="hover:text-primary"
+                    >
+                      {employee.email.trim()}
+                    </a>
+                  ) : (
+                    "—"
+                  )}
+                </p>
+                <p>
+                  <span className="text-muted-foreground">Teléfono:</span>{" "}
+                  {employee.phone ? (
+                    <WhatsAppLink phone={employee.phone} />
+                  ) : (
+                    "—"
+                  )}
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <SystemAccessBadge systemAccess={employee.systemAccess} />
+                  <EmploymentStatusBadge status={employee.employmentStatus} />
                 </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-1 text-sm">
-              <p>
-                <span className="text-muted-foreground">Cargo:</span>{" "}
-                {employee.jobTitle || "—"}
-              </p>
-              <p>
-                <span className="text-muted-foreground">Tipo:</span>{" "}
-                <EmployeeTypeBadge employeeType={employee.employeeType} />
-              </p>
-              <p className="flex items-center gap-2">
-                <span className="text-muted-foreground">Estado:</span>{" "}
-                <EmploymentStatusBadge status={employee.employmentStatus} />
-              </p>
-              <p>
-                <span className="text-muted-foreground">Ingreso:</span>{" "}
-                {formatEmployeeDate(employee.hireDate) || "—"}
-              </p>
-              <p>
-                <span className="text-muted-foreground">Departamento:</span>{" "}
-                {employee.department || "—"}
-              </p>
-              <p>
-                <span className="text-muted-foreground">Teléfono:</span>{" "}
-                {employee.phone ? (
-                  <WhatsAppLink phone={employee.phone} />
-                ) : (
-                  "—"
-                )}
-              </p>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          )
+        })}
       </div>
 
       <EmployeeFormDialog
@@ -366,7 +402,7 @@ export function EmployeesTable({ employees }: EmployeesTableProps) {
                 <>
                   {" "}
                   <span className="font-medium text-foreground">
-                    {deleteTarget.displayName}
+                    {formatEmployeeTableFullName(deleteTarget)}
                   </span>
                 </>
               ) : null}
