@@ -2,18 +2,44 @@
 
 import { HardHat, ClipboardList, Users } from "lucide-react"
 
-import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { useTasks } from "@/components/tareas/tasks-provider"
+import {
+  OperarioCrewStatusMessage,
+} from "@/components/operario/operario-crew-status-message"
 import { useOperario } from "@/components/operario/operario-provider"
-import { getWorkerTasks, resolveWorkerCrewRef } from "@/lib/data/operario"
+import { getWorkerTasks } from "@/lib/data/operario"
+import type { OperarioCrewStatus } from "@/lib/operario/crew"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 
+function resolveCrewDisplayLabel(
+  crewStatus: OperarioCrewStatus,
+  crewName: string
+): string {
+  if (crewStatus === "loading") {
+    return "—"
+  }
+
+  if (crewStatus === "unassigned" || !crewName.trim()) {
+    return "Sin cuadrilla asignada"
+  }
+
+  return crewName
+}
+
 export function OperarioProfileScreen() {
-  const { identity, isIdentityReady, crewName } = useOperario()
+  const {
+    identity,
+    isIdentityReady,
+    workerCrewRef,
+    crewStatus,
+    assignedCrewNames,
+    isCrewReady,
+  } = useOperario()
   const { tasks } = useTasks()
-  const { crews } = useCrews()
-  const workerCrew = resolveWorkerCrewRef(crewName, crews)
-  const assignedCount = getWorkerTasks(tasks, workerCrew).length
+  const assignedCount =
+    crewStatus === "resolved" || crewStatus === "multiple"
+      ? getWorkerTasks(tasks, workerCrewRef).length
+      : 0
 
   return (
     <div className="space-y-6 px-4 pt-6">
@@ -23,6 +49,12 @@ export function OperarioProfileScreen() {
         </h1>
         <p className="text-sm text-muted-foreground">Tu información de campo</p>
       </header>
+
+      <OperarioCrewStatusMessage
+        crewStatus={crewStatus}
+        primaryCrewName={workerCrewRef.name}
+        assignedCrewNames={assignedCrewNames}
+      />
 
       <section className="flex flex-col items-center rounded-2xl border bg-card p-6 shadow-sm">
         <Avatar className="size-20">
@@ -54,7 +86,13 @@ export function OperarioProfileScreen() {
           <Users className="size-5 shrink-0 text-muted-foreground" />
           <div>
             <p className="text-xs text-muted-foreground">Cuadrilla</p>
-            <p className="font-medium">{crewName}</p>
+            {isCrewReady ? (
+              <p className="font-medium">
+                {resolveCrewDisplayLabel(crewStatus, workerCrewRef.name)}
+              </p>
+            ) : (
+              <span className="inline-block h-5 w-32 animate-pulse rounded bg-muted" />
+            )}
           </div>
         </div>
         <div className="flex items-center gap-3 rounded-xl bg-muted/30 p-3">
@@ -70,7 +108,9 @@ export function OperarioProfileScreen() {
           <ClipboardList className="size-5 shrink-0 text-muted-foreground" />
           <div>
             <p className="text-xs text-muted-foreground">Tareas asignadas</p>
-            <p className="font-medium">{assignedCount} tareas activas</p>
+            <p className="font-medium">
+              {isCrewReady ? `${assignedCount} tareas activas` : "—"}
+            </p>
           </div>
         </div>
       </section>

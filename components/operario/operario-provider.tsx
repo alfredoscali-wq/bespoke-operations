@@ -9,11 +9,17 @@ import {
 } from "react"
 
 import { useAuth } from "@/components/auth/auth-provider"
+import { useCrews } from "@/components/cuadrillas/crews-provider"
 import {
   mockNotifications,
-  TEMP_OPERARIO_CREW_NAME,
   type OperarioNotification,
+  type WorkerCrewRef,
 } from "@/lib/data/operario"
+import {
+  createLoadingCrewResolution,
+  resolveOperarioWorkerCrew,
+  type OperarioCrewStatus,
+} from "@/lib/operario/crew"
 import {
   resolveOperarioIdentity,
   type OperarioIdentity,
@@ -22,8 +28,10 @@ import {
 type OperarioContextValue = {
   identity: OperarioIdentity
   isIdentityReady: boolean
-  /** Temporary until Fase 2 resolves crew from crew_members. */
-  crewName: string
+  workerCrewRef: WorkerCrewRef
+  crewStatus: OperarioCrewStatus
+  assignedCrewNames: string[]
+  isCrewReady: boolean
   notifications: OperarioNotification[]
   unreadCount: number
   markAsRead: (id: string) => void
@@ -34,6 +42,7 @@ const OperarioContext = createContext<OperarioContextValue | null>(null)
 
 export function OperarioProvider({ children }: { children: React.ReactNode }) {
   const { sessionUser, isAuthReady } = useAuth()
+  const { crews, isCrewsReady } = useCrews()
   const [notifications, setNotifications] =
     useState<OperarioNotification[]>(mockNotifications)
 
@@ -41,6 +50,16 @@ export function OperarioProvider({ children }: { children: React.ReactNode }) {
     () => resolveOperarioIdentity(sessionUser),
     [sessionUser]
   )
+
+  const isCrewReady = isAuthReady && isCrewsReady
+
+  const crewResolution = useMemo(() => {
+    if (!isCrewReady) {
+      return createLoadingCrewResolution()
+    }
+
+    return resolveOperarioWorkerCrew(sessionUser?.employeeId, crews)
+  }, [isCrewReady, sessionUser?.employeeId, crews])
 
   const unreadCount = useMemo(
     () => notifications.filter((notification) => !notification.read).length,
@@ -65,7 +84,10 @@ export function OperarioProvider({ children }: { children: React.ReactNode }) {
     () => ({
       identity,
       isIdentityReady: isAuthReady,
-      crewName: TEMP_OPERARIO_CREW_NAME,
+      workerCrewRef: crewResolution.workerCrewRef,
+      crewStatus: crewResolution.crewStatus,
+      assignedCrewNames: crewResolution.assignedCrewNames,
+      isCrewReady,
       notifications,
       unreadCount,
       markAsRead,
@@ -74,6 +96,8 @@ export function OperarioProvider({ children }: { children: React.ReactNode }) {
     [
       identity,
       isAuthReady,
+      crewResolution,
+      isCrewReady,
       notifications,
       unreadCount,
       markAsRead,

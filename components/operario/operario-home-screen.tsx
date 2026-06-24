@@ -1,17 +1,27 @@
 "use client"
 
-import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { OperarioTaskCard } from "@/components/operario/operario-task-card"
+import {
+  OperarioCrewEmptyState,
+  OperarioCrewStatusMessage,
+} from "@/components/operario/operario-crew-status-message"
 import { useOperario } from "@/components/operario/operario-provider"
-import { getTodayWorkerTasks, resolveWorkerCrewRef } from "@/lib/data/operario"
+import { getTodayWorkerTasks } from "@/lib/data/operario"
 
 export function OperarioHomeScreen() {
   const { tasks } = useTasks()
-  const { identity, isIdentityReady, crewName } = useOperario()
-  const { crews } = useCrews()
-  const workerCrew = resolveWorkerCrewRef(crewName, crews)
-  const todayTasks = getTodayWorkerTasks(tasks, workerCrew)
+  const {
+    identity,
+    isIdentityReady,
+    workerCrewRef,
+    crewStatus,
+    assignedCrewNames,
+    isCrewReady,
+  } = useOperario()
+  const todayTasks = getTodayWorkerTasks(tasks, workerCrewRef)
+  const hasCrew =
+    crewStatus === "resolved" || crewStatus === "multiple"
 
   return (
     <div className="space-y-5 px-4 pt-6">
@@ -23,14 +33,30 @@ export function OperarioHomeScreen() {
             <span className="inline-block h-8 w-48 animate-pulse rounded bg-muted" />
           )}
         </h1>
-        <p className="text-sm text-muted-foreground">
-          Tienes {todayTasks.length}{" "}
-          {todayTasks.length === 1 ? "tarea asignada" : "tareas asignadas"} para
-          hoy
-        </p>
+        {isCrewReady && hasCrew ? (
+          <p className="text-sm text-muted-foreground">
+            Cuadrilla {workerCrewRef.name} · {todayTasks.length}{" "}
+            {todayTasks.length === 1 ? "tarea asignada" : "tareas asignadas"}{" "}
+            para hoy
+          </p>
+        ) : isCrewReady ? (
+          <p className="text-sm text-muted-foreground">
+            Sin cuadrilla asignada
+          </p>
+        ) : (
+          <span className="inline-block h-4 w-64 animate-pulse rounded bg-muted" />
+        )}
       </header>
 
-      {todayTasks.length === 0 ? (
+      <OperarioCrewStatusMessage
+        crewStatus={crewStatus}
+        primaryCrewName={workerCrewRef.name}
+        assignedCrewNames={assignedCrewNames}
+      />
+
+      {!isCrewReady || crewStatus === "loading" || crewStatus === "unassigned" ? (
+        <OperarioCrewEmptyState crewStatus={crewStatus} />
+      ) : todayTasks.length === 0 ? (
         <div className="rounded-2xl border border-dashed bg-card/60 px-4 py-12 text-center">
           <p className="text-sm font-medium text-foreground">
             Sin tareas para hoy

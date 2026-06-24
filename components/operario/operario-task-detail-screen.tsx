@@ -5,9 +5,12 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { AlertTriangle, ArrowLeft, CheckCircle2 } from "lucide-react"
 
-import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { useOperario } from "@/components/operario/operario-provider"
+import {
+  OperarioCrewEmptyState,
+  OperarioCrewStatusMessage,
+} from "@/components/operario/operario-crew-status-message"
 import { OperationalStepsPanel } from "@/components/operario/operational-steps-panel"
 import { OperarioTaskClosureFooter } from "@/components/operario/operario-task-closure-footer"
 import {
@@ -17,7 +20,7 @@ import {
   OperarioTaskLocationCard,
   OperarioTaskReferencePhotos,
 } from "@/components/operario/operario-task-field-sections"
-import { getWorkerTasks, resolveWorkerCrewRef } from "@/lib/data/operario"
+import { getWorkerTasks } from "@/lib/data/operario"
 import { hasOperationalSteps } from "@/lib/operational-steps/utils"
 import { getTaskTechnologyLabel } from "@/lib/tasks/commercial-plan"
 import {
@@ -39,13 +42,55 @@ type OperarioTaskDetailScreenProps = {
 }
 
 export function OperarioTaskDetailScreen({ id }: OperarioTaskDetailScreenProps) {
-  const { crewName } = useOperario()
-  const { crews } = useCrews()
-  const workerCrew = resolveWorkerCrewRef(crewName, crews)
+  const {
+    workerCrewRef,
+    crewStatus,
+    assignedCrewNames,
+    isCrewReady,
+  } = useOperario()
   const { tasks, getTask } = useTasks()
   const [actionMessage, setActionMessage] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [stepsRefreshKey, setStepsRefreshKey] = useState(0)
+
+  if (!isCrewReady || crewStatus === "loading") {
+    return (
+      <div className="space-y-4 px-4 pt-4 pb-6">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="-ml-2 h-10 gap-2 text-muted-foreground"
+          asChild
+        >
+          <Link href="/operario/tareas">
+            <ArrowLeft className="size-4" />
+            Volver
+          </Link>
+        </Button>
+        <OperarioCrewEmptyState crewStatus="loading" />
+      </div>
+    )
+  }
+
+  if (crewStatus === "unassigned") {
+    return (
+      <div className="space-y-4 px-4 pt-4 pb-6">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="-ml-2 h-10 gap-2 text-muted-foreground"
+          asChild
+        >
+          <Link href="/operario/tareas">
+            <ArrowLeft className="size-4" />
+            Volver
+          </Link>
+        </Button>
+        <OperarioCrewStatusMessage crewStatus={crewStatus} />
+        <OperarioCrewEmptyState crewStatus={crewStatus} />
+      </div>
+    )
+  }
 
   const task = getTask(id)
 
@@ -53,7 +98,9 @@ export function OperarioTaskDetailScreen({ id }: OperarioTaskDetailScreenProps) 
     notFound()
   }
 
-  const isAssigned = getWorkerTasks(tasks, workerCrew).some((item) => item.id === id)
+  const isAssigned = getWorkerTasks(tasks, workerCrewRef).some(
+    (item) => item.id === id
+  )
   if (!isAssigned) {
     notFound()
   }
@@ -89,6 +136,12 @@ export function OperarioTaskDetailScreen({ id }: OperarioTaskDetailScreenProps) 
           Volver
         </Link>
       </Button>
+
+      <OperarioCrewStatusMessage
+        crewStatus={crewStatus}
+        primaryCrewName={workerCrewRef.name}
+        assignedCrewNames={assignedCrewNames}
+      />
 
       <header className="space-y-3">
         <h1 className="text-2xl font-bold uppercase leading-snug tracking-wide text-foreground">

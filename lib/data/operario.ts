@@ -1,5 +1,4 @@
 import { taskMatchesCrewId } from "@/lib/tasks/crew-relation"
-import type { Crew } from "@/lib/types/crews"
 import type { Task } from "@/lib/types/tasks"
 
 export type OperarioNotificationType =
@@ -18,27 +17,9 @@ export type OperarioNotification = {
   taskId?: string
 }
 
-/** Temporary crew name until Fase 2 resolves crew from crew_members. */
-export const TEMP_OPERARIO_CREW_NAME = "SUR"
-
 export type WorkerCrewRef = {
   id?: string
   name: string
-}
-
-export function resolveWorkerCrewRef(
-  crewName: string,
-  crews: Pick<Crew, "id" | "name">[] = []
-): WorkerCrewRef {
-  const normalizedWorkerCrew = crewName.trim().toLocaleLowerCase("es")
-  const matchedCrew = crews.find(
-    (crew) => crew.name.trim().toLocaleLowerCase("es") === normalizedWorkerCrew
-  )
-
-  return {
-    id: matchedCrew?.id,
-    name: crewName,
-  }
 }
 
 export const mockNotifications: OperarioNotification[] = [
