@@ -2,7 +2,11 @@
 
 import { Search, X } from "lucide-react"
 
-import { EMPLOYMENT_STATUS_OPTIONS } from "@/lib/employees/constants"
+import {
+  EMPLOYMENT_STATUS_OPTIONS,
+  SYSTEM_ACCESS_FILTER_OPTIONS,
+  SYSTEM_ROLE_FILTER_OPTIONS,
+} from "@/lib/employees/constants"
 import { defaultEmployeeFilters } from "@/lib/employees/utils"
 import type { EmployeeFilters } from "@/lib/types/employees"
 import { Button } from "@/components/ui/button"
@@ -31,7 +35,9 @@ export function EmployeesFiltersBar({
   const hasActiveFilters =
     filters.search !== "" ||
     filters.employmentStatus !== "all" ||
-    filters.department !== "all"
+    filters.department !== "all" ||
+    filters.systemRole !== "all" ||
+    filters.systemAccess !== "all"
 
   function update<K extends keyof EmployeeFilters>(
     key: K,
@@ -51,12 +57,12 @@ export function EmployeesFiltersBar({
         <Input
           value={filters.search}
           onChange={(event) => update("search", event.target.value)}
-          placeholder="Buscar por código, nombre, correo o teléfono..."
+          placeholder="Buscar por código, nombre, apellido, DNI, email o cargo..."
           className="h-9 bg-background pl-8"
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Select
           value={filters.employmentStatus}
           onValueChange={(value) =>
@@ -88,6 +94,43 @@ export function EmployeesFiltersBar({
             {departments.map((department) => (
               <SelectItem key={department} value={department}>
                 {department}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={filters.systemRole}
+          onValueChange={(value) =>
+            update("systemRole", value as EmployeeFilters["systemRole"])
+          }
+        >
+          <SelectTrigger className="h-9 w-full bg-background">
+            <SelectValue placeholder="Rol del sistema" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los roles</SelectItem>
+            {SYSTEM_ROLE_FILTER_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={filters.systemAccess}
+          onValueChange={(value) =>
+            update("systemAccess", value as EmployeeFilters["systemAccess"])
+          }
+        >
+          <SelectTrigger className="h-9 w-full bg-background">
+            <SelectValue placeholder="Acceso al sistema" />
+          </SelectTrigger>
+          <SelectContent>
+            {SYSTEM_ACCESS_FILTER_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
               </SelectItem>
             ))}
           </SelectContent>

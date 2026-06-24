@@ -11,6 +11,7 @@ import { EvidenceRejectDialog } from "@/components/evidencias/evidence-reject-di
 import { EvidenceVoidDialog } from "@/components/evidencias/evidence-void-dialog"
 import { EvidenceUploadHistory } from "@/components/evidencias/evidence-upload-history"
 import { useEvidence } from "@/components/evidencias/evidence-provider"
+import { useAuth } from "@/components/auth/auth-provider"
 import {
   EvidenceCategoryBadge,
   EvidenceStatusBadge,
@@ -18,7 +19,7 @@ import {
   EvidenceVoidedBadge,
 } from "@/components/evidencias/evidence-badges"
 import { formatEvidenceDateTime } from "@/lib/evidence/constants"
-import { DASHBOARD_USER, formatAppUserRole } from "@/lib/auth/current-user"
+import { formatAppUserRole } from "@/lib/auth/current-user"
 import { resolveEvidenceUploadedByRole } from "@/lib/auth/evidence-uploader"
 import {
   canVoidEvidence,
@@ -46,6 +47,7 @@ export function EvidenceDetailView({
   navigation,
 }: EvidenceDetailViewProps) {
   const { approveEvidence, rejectEvidence, voidEvidence } = useEvidence()
+  const { sessionUser } = useAuth()
   const [actionMessage, setActionMessage] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [rejectOpen, setRejectOpen] = useState(false)
@@ -54,7 +56,7 @@ export function EvidenceDetailView({
   const voidDetails = resolveEvidenceVoidDetails(record)
   const isVoided = Boolean(record.deletedAt)
   const canVoid =
-    !isVoided && canVoidEvidence(DASHBOARD_USER.role)
+    !isVoided && canVoidEvidence(sessionUser?.systemRole)
 
   function handleApprove() {
     const result = approveEvidence(record.id)

@@ -9,6 +9,7 @@ import {
   useState,
 } from "react"
 
+import { requestProvisionEmployeeAccess } from "@/lib/auth/provision-client"
 import { BESPOKE_DEMO_COMPANY_ID } from "@/lib/supabase/company.constants"
 import {
   logEmployeeDeleteClientDiagnostics,
@@ -19,6 +20,7 @@ import {
   createBrowserEmployeesClient,
   createEmployee,
   deleteEmployee,
+  getEmployeeById,
   listEmployees,
   updateEmployee,
 } from "@/lib/supabase/employees.browser"
@@ -45,6 +47,9 @@ type EmployeesContextValue = {
   editEmployee: (
     id: string,
     input: UpdateEmployeeInput
+  ) => Promise<EmployeeMutationResult & { employee?: Employee }>
+  provisionEmployeeAccess: (
+    id: string
   ) => Promise<EmployeeMutationResult & { employee?: Employee }>
   removeEmployee: (id: string) => Promise<EmployeeMutationResult>
 }
@@ -213,6 +218,52 @@ export function EmployeesProvider({ children }: { children: React.ReactNode }) {
     [usesSupabase]
   )
 
+  const provisionEmployeeAccess = useCallback(
+    async (id: string) => {
+      if (!usesSupabase) {
+        return {
+          success: false,
+          message:
+            "Supabase no está disponible. No se pudo crear el acceso del empleado.",
+        }
+      }
+
+      try {
+        const result = await requestProvisionEmployeeAccess(id)
+
+        if (!result.success) {
+          return {
+            success: false,
+            message: result.error,
+          }
+        }
+
+        const client = createBrowserEmployeesClient()
+        const employeeResult = await getEmployeeById(id, client)
+
+        if (employeeResult.data) {
+          setEmployees((current) =>
+            sortEmployees(replaceEmployeeInList(current, employeeResult.data!))
+          )
+          return { success: true, employee: employeeResult.data }
+        }
+
+        return {
+          success: false,
+          message:
+            employeeResult.error?.message ??
+            "El acceso fue creado, pero no se pudo refrescar el empleado.",
+        }
+      } catch {
+        return {
+          success: false,
+          message: "No se pudo crear el acceso del empleado.",
+        }
+      }
+    },
+    [usesSupabase]
+  )
+
   const removeEmployee = useCallback(
     async (id: string) => {
       if (!usesSupabase) {
@@ -272,6 +323,7 @@ export function EmployeesProvider({ children }: { children: React.ReactNode }) {
       getEmployeeByCode,
       addEmployee,
       editEmployee,
+      provisionEmployeeAccess,
       removeEmployee,
     }),
     [
@@ -282,6 +334,7 @@ export function EmployeesProvider({ children }: { children: React.ReactNode }) {
       getEmployeeByCode,
       addEmployee,
       editEmployee,
+      provisionEmployeeAccess,
       removeEmployee,
     ]
   )

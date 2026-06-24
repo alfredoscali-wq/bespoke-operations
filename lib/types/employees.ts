@@ -50,6 +50,12 @@ export type EmployeeListItem = Employee & {
   initials: string
 }
 
+export type EmployeeProvisionStatus =
+  | "no_system_access"
+  | "pending_provision"
+  | "provisioned"
+  | "inconsistent"
+
 export type EmployeeSummary = {
   total: number
   active: number
@@ -59,12 +65,38 @@ export type EmployeeSummary = {
   suspended: number
   inactive: number
   available: number
+  administradores: number
+  supervisores: number
+  administrativos: number
+  operarios: number
+  provisionedUsers: number
+  pendingProvision: number
 }
+
+export type EmployeeSystemAccessFilter = "all" | "with" | "without"
+
+export type EmployeeSortColumn =
+  | "employeeCode"
+  | "displayName"
+  | "jobTitle"
+  | "employeeType"
+  | "employmentStatus"
+  | "systemRole"
+  | "hireDate"
+
+export type EmployeeSortDirection = "asc" | "desc"
+
+export type EmployeeSortState = {
+  column: EmployeeSortColumn
+  direction: EmployeeSortDirection
+} | null
 
 export type EmployeeFilters = {
   search: string
   employmentStatus: EmploymentStatus | "all"
   department: string | "all"
+  systemRole: SystemRole | "all"
+  systemAccess: EmployeeSystemAccessFilter
 }
 
 export type NewEmployeeInput = {

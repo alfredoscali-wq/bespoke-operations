@@ -1,6 +1,8 @@
 import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 
+import { AuthProvider } from "@/components/auth/auth-provider"
+import { PasswordChangeGuard } from "@/components/auth/password-change-guard"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
 import "./globals.css"
@@ -35,7 +37,10 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full bg-background font-sans text-foreground">
-        <TooltipProvider>{children}</TooltipProvider>
+        <AuthProvider>
+          <PasswordChangeGuard />
+          <TooltipProvider>{children}</TooltipProvider>
+        </AuthProvider>
       </body>
     </html>
   )

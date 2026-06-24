@@ -138,6 +138,37 @@ export async function fetchEmployeeByCode(
   }
 }
 
+export async function fetchEmployeeByAppUserId(
+  client: SupabaseEmployeesClient,
+  appUserId: string
+): Promise<EmployeesRepositoryResult<Employee>> {
+  const { data, error } = await client
+    .from("employees")
+    .select("*")
+    .eq("app_user_id", appUserId)
+    .is("deleted_at", null)
+    .maybeSingle()
+
+  if (error) {
+    return { data: null, error: mapSupabaseEmployeeError(error) }
+  }
+
+  if (!data) {
+    return {
+      data: null,
+      error: {
+        code: "NOT_FOUND",
+        message: "Empleado no encontrado para este usuario.",
+      },
+    }
+  }
+
+  return {
+    data: mapEmployeeRowToEmployee(data),
+    error: null,
+  }
+}
+
 export async function insertEmployee(
   client: SupabaseEmployeesClient,
   payload: CreateEmployeePayload

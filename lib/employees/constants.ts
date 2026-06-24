@@ -1,7 +1,10 @@
 import { formatDateOnly, formatDateOnlyDateTime } from "@/lib/dates/date-only"
-import type { EmploymentStatus } from "@/lib/types/employees"
-import type { EmployeeType } from "@/lib/types/employees"
-import type { SystemRole } from "@/lib/types/employees"
+import type {
+  EmployeeProvisionStatus,
+  EmployeeType,
+  EmploymentStatus,
+  SystemRole,
+} from "@/lib/types/employees"
 
 export const EMPLOYMENT_STATUS_LABELS: Record<EmploymentStatus, string> = {
   active: "Activo",
@@ -78,6 +81,31 @@ export const SYSTEM_ROLE_OPTIONS: SystemRole[] = [
   "administrativo",
   "operario",
 ]
+
+export const SYSTEM_ROLE_FILTER_OPTIONS = SYSTEM_ROLE_OPTIONS.map((value) => ({
+  value,
+  label: SYSTEM_ROLE_LABELS[value],
+}))
+
+export const SYSTEM_ACCESS_FILTER_OPTIONS = [
+  { value: "all" as const, label: "Todos" },
+  { value: "with" as const, label: "Con acceso" },
+  { value: "without" as const, label: "Sin acceso" },
+]
+
+export const PROVISION_STATUS_LABELS: Record<EmployeeProvisionStatus, string> = {
+  no_system_access: "Sin acceso al sistema",
+  pending_provision: "Pendiente de provisión",
+  provisioned: "Usuario provisionado",
+  inconsistent: "Estado inconsistente",
+}
+
+export const PROVISION_STATUS_STYLES: Record<EmployeeProvisionStatus, string> = {
+  no_system_access: "border-slate-200 bg-slate-100 text-slate-600",
+  pending_provision: "border-amber-200 bg-amber-50 text-amber-800",
+  provisioned: "border-emerald-100 bg-emerald-50 text-emerald-700",
+  inconsistent: "border-rose-200 bg-rose-50 text-rose-700",
+}
 
 export function formatEmployeeDate(date?: string | null) {
   return formatDateOnly(date)

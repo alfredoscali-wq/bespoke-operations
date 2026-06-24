@@ -1,10 +1,9 @@
+import { resolveEvidenceActor } from "@/lib/auth/auth-display"
+import type { AppUserRole } from "@/lib/auth/current-user"
+import type { SessionUser } from "@/lib/auth/types"
 import { FIELD_WORKER } from "@/lib/data/operario"
 import type { EvidenceUploadOrigin } from "@/lib/evidence/upload-origin"
 import type { EvidenceRecord } from "@/lib/types/evidence"
-import {
-  DASHBOARD_USER,
-  type AppUserRole,
-} from "@/lib/auth/current-user"
 import type { UploadEvidenceInput } from "@/lib/types/supabase/evidences"
 
 export type EvidenceUploader = {
@@ -12,34 +11,36 @@ export type EvidenceUploader = {
   uploadedByRole: AppUserRole
 }
 
-/**
- * Resolves the uploader for a new evidence record.
- * TODO(auth): replace simulation with supabase.auth.getUser() + profile lookup.
- */
 export function resolveEvidenceUploader(
   origin: EvidenceUploadOrigin = "dashboard",
-  operarioName?: string
+  options?: {
+    operarioName?: string
+    sessionUser?: SessionUser | null
+  }
 ): EvidenceUploader {
   if (origin === "operario") {
     return {
-      uploadedBy: operarioName ?? FIELD_WORKER.name,
+      uploadedBy: options?.operarioName ?? FIELD_WORKER.name,
       uploadedByRole: "operario",
     }
   }
 
+  const actor = resolveEvidenceActor(options?.sessionUser ?? null)
+
   return {
-    uploadedBy: DASHBOARD_USER.name,
-    uploadedByRole: DASHBOARD_USER.role,
+    uploadedBy: actor.name,
+    uploadedByRole: actor.role,
   }
 }
 
 export function normalizeUploadEvidenceInput(
-  input: UploadEvidenceInput
+  input: UploadEvidenceInput,
+  sessionUser?: SessionUser | null
 ): UploadEvidenceInput & { worker: string; uploadedByRole: AppUserRole } {
-  const uploader = resolveEvidenceUploader(
-    input.origin ?? "dashboard",
-    input.worker
-  )
+  const uploader = resolveEvidenceUploader(input.origin ?? "dashboard", {
+    operarioName: input.worker,
+    sessionUser,
+  })
 
   return {
     ...input,

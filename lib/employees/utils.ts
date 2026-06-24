@@ -1,15 +1,25 @@
+import {
+  EMPLOYEE_TYPE_LABELS,
+  SYSTEM_ROLE_LABELS,
+} from "@/lib/employees/constants"
 import type {
   Employee,
   EmployeeFilters,
   EmployeeListItem,
+  EmployeeProvisionStatus,
+  EmployeeSortColumn,
+  EmployeeSortState,
   EmployeeSummary,
   EmploymentStatus,
+  SystemRole,
 } from "@/lib/types/employees"
 
 export const defaultEmployeeFilters: EmployeeFilters = {
   search: "",
   employmentStatus: "all",
   department: "all",
+  systemRole: "all",
+  systemAccess: "all",
 }
 
 export function getEmployeeDisplayName(
@@ -28,6 +38,32 @@ export function getEmployeeFullName(
     .map((part) => part.trim())
     .filter(Boolean)
     .join(" ")
+}
+
+export function resolveEmployeeProvisionStatus(
+  employee: Pick<Employee, "systemAccess" | "appUserId">
+): EmployeeProvisionStatus {
+  const hasAppUser = Boolean(employee.appUserId)
+
+  if (!employee.systemAccess && !hasAppUser) {
+    return "no_system_access"
+  }
+
+  if (!employee.systemAccess && hasAppUser) {
+    return "inconsistent"
+  }
+
+  if (employee.systemAccess && !hasAppUser) {
+    return "pending_provision"
+  }
+
+  return "provisioned"
+}
+
+export function canProvisionEmployeeAccess(
+  employee: Pick<Employee, "systemAccess" | "appUserId">
+): boolean {
+  return employee.systemAccess && !employee.appUserId
 }
 
 export function getEmployeeInitials(
@@ -90,6 +126,30 @@ export function buildEmployeeListItems(
   return employees.map(buildEmployeeListItem)
 }
 
+function employeeMatchesSearch(
+  employee: EmployeeListItem,
+  query: string
+): boolean {
+  if (!query) return true
+
+  const searchableValues = [
+    employee.employeeCode,
+    employee.firstName,
+    employee.lastName,
+    employee.displayName,
+    employee.preferredName ?? "",
+    employee.nationalId ?? "",
+    employee.email ?? "",
+    employee.jobTitle,
+    EMPLOYEE_TYPE_LABELS[employee.employeeType],
+    SYSTEM_ROLE_LABELS[employee.systemRole],
+  ]
+
+  return searchableValues.some((value) =>
+    value.toLowerCase().includes(query)
+  )
+}
+
 export function filterEmployees(
   employees: EmployeeListItem[],
   filters: EmployeeFilters
@@ -97,18 +157,7 @@ export function filterEmployees(
   const query = filters.search.trim().toLowerCase()
 
   return employees.filter((employee) => {
-    const matchesSearch =
-      query === "" ||
-      employee.employeeCode.toLowerCase().includes(query) ||
-      employee.firstName.toLowerCase().includes(query) ||
-      employee.lastName.toLowerCase().includes(query) ||
-      employee.displayName.toLowerCase().includes(query) ||
-      (employee.preferredName?.toLowerCase().includes(query) ?? false) ||
-      (employee.email?.toLowerCase().includes(query) ?? false) ||
-      (employee.phone?.toLowerCase().includes(query) ?? false) ||
-      (employee.nationalId?.toLowerCase().includes(query) ?? false) ||
-      employee.jobTitle.toLowerCase().includes(query) ||
-      employee.department.toLowerCase().includes(query)
+    const matchesSearch = employeeMatchesSearch(employee, query)
 
     const matchesStatus =
       filters.employmentStatus === "all" ||
@@ -118,8 +167,103 @@ export function filterEmployees(
       filters.department === "all" ||
       employee.department === filters.department
 
-    return matchesSearch && matchesStatus && matchesDepartment
+    const matchesSystemRole =
+      filters.systemRole === "all" ||
+      employee.systemRole === filters.systemRole
+
+    const matchesSystemAccess =
+      filters.systemAccess === "all" ||
+      (filters.systemAccess === "with"
+        ? employee.systemAccess
+        : !employee.systemAccess)
+
+    return (
+      matchesSearch &&
+      matchesStatus &&
+      matchesDepartment &&
+      matchesSystemRole &&
+      matchesSystemAccess
+    )
   })
+}
+
+function compareStrings(
+  left: string,
+  right: string,
+  direction: "asc" | "desc"
+): number {
+  const result = left.localeCompare(right, "es", { sensitivity: "base" })
+  return direction === "asc" ? result : -result
+}
+
+function getSortableString(
+  employee: EmployeeListItem,
+  column: EmployeeSortColumn
+): string {
+  switch (column) {
+    case "employeeCode":
+      return employee.employeeCode
+    case "displayName":
+      return employee.displayName
+    case "jobTitle":
+      return employee.jobTitle
+    case "employeeType":
+      return EMPLOYEE_TYPE_LABELS[employee.employeeType]
+    case "employmentStatus":
+      return employee.employmentStatus
+    case "systemRole":
+      return SYSTEM_ROLE_LABELS[employee.systemRole]
+    case "hireDate":
+      return employee.hireDate ?? ""
+    default:
+      return ""
+  }
+}
+
+export function sortEmployees(
+  employees: EmployeeListItem[],
+  sort: EmployeeSortState
+): EmployeeListItem[] {
+  if (!sort) return employees
+
+  const sorted = [...employees]
+
+  sorted.sort((left, right) => {
+    if (sort.column === "hireDate") {
+      const leftDate = left.hireDate ?? ""
+      const rightDate = right.hireDate ?? ""
+
+      if (!leftDate && !rightDate) return 0
+      if (!leftDate) return 1
+      if (!rightDate) return -1
+
+      const result = leftDate.localeCompare(rightDate)
+      return sort.direction === "asc" ? result : -result
+    }
+
+    return compareStrings(
+      getSortableString(left, sort.column),
+      getSortableString(right, sort.column),
+      sort.direction
+    )
+  })
+
+  return sorted
+}
+
+export function cycleEmployeeSort(
+  current: EmployeeSortState,
+  column: EmployeeSortColumn
+): EmployeeSortState {
+  if (current?.column !== column) {
+    return { column, direction: "asc" }
+  }
+
+  if (current.direction === "asc") {
+    return { column, direction: "desc" }
+  }
+
+  return null
 }
 
 function countByStatus(
@@ -128,6 +272,13 @@ function countByStatus(
 ): number {
   return employees.filter((employee) => employee.employmentStatus === status)
     .length
+}
+
+function countBySystemRole(
+  employees: Employee[],
+  role: SystemRole
+): number {
+  return employees.filter((employee) => employee.systemRole === role).length
 }
 
 export function getEmployeeSummary(employees: Employee[]): EmployeeSummary {
@@ -140,6 +291,14 @@ export function getEmployeeSummary(employees: Employee[]): EmployeeSummary {
     suspended: countByStatus(employees, "suspended"),
     inactive: countByStatus(employees, "inactive"),
     available: employees.filter(isEmployeeAvailable).length,
+    administradores: countBySystemRole(employees, "administrador"),
+    supervisores: countBySystemRole(employees, "supervisor"),
+    administrativos: countBySystemRole(employees, "administrativo"),
+    operarios: countBySystemRole(employees, "operario"),
+    provisionedUsers: employees.filter((employee) => employee.appUserId).length,
+    pendingProvision: employees.filter(
+      (employee) => employee.systemAccess && !employee.appUserId
+    ).length,
   }
 }
 

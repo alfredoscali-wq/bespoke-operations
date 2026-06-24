@@ -11,7 +11,8 @@ import {
 } from "react"
 
 import { appendUploadHistoryEvent } from "@/lib/data/evidence-enrichment"
-import { DASHBOARD_USER } from "@/lib/auth/current-user"
+import { useAuth } from "@/components/auth/auth-provider"
+import { resolveEvidenceActor } from "@/lib/auth/auth-display"
 import { normalizeUploadEvidenceInput } from "@/lib/auth/evidence-uploader"
 import { EVIDENCE_VOID_HISTORY_ACTION } from "@/lib/evidence/utils"
 import { logOperationError } from "@/lib/operations/user-messages"
@@ -49,10 +50,16 @@ const EvidenceContext = createContext<EvidenceContextValue | null>(null)
 const REVIEWER = "Ing. Carlos Ruiz"
 
 export function EvidenceProvider({ children }: { children: React.ReactNode }) {
+  const { sessionUser } = useAuth()
   const [evidence, setEvidence] = useState<EvidenceRecord[]>([])
   const [isEvidenceReady, setIsEvidenceReady] = useState(false)
   const [usesSupabase, setUsesSupabase] = useState(false)
   const usesSupabaseRef = useRef(false)
+  const sessionUserRef = useRef(sessionUser)
+
+  useEffect(() => {
+    sessionUserRef.current = sessionUser
+  }, [sessionUser])
 
   useEffect(() => {
     usesSupabaseRef.current = usesSupabase
@@ -113,7 +120,10 @@ export function EvidenceProvider({ children }: { children: React.ReactNode }) {
 
   const uploadEvidence = useCallback(
     async (input: UploadEvidenceInput): Promise<UploadEvidenceResult> => {
-      const normalized = normalizeUploadEvidenceInput(input)
+      const normalized = normalizeUploadEvidenceInput(
+        input,
+        sessionUserRef.current
+      )
 
       if (!usesSupabaseRef.current) {
         return {
@@ -293,6 +303,7 @@ export function EvidenceProvider({ children }: { children: React.ReactNode }) {
       }
 
       const voidedAt = new Date().toISOString()
+      const actor = resolveEvidenceActor(sessionUserRef.current)
       let updatedRecord: EvidenceRecord | undefined
 
       setEvidence((current) =>
@@ -304,10 +315,10 @@ export function EvidenceProvider({ children }: { children: React.ReactNode }) {
             deletedAt: voidedAt,
             uploadHistory: appendUploadHistoryEvent(item, {
               action: EVIDENCE_VOID_HISTORY_ACTION,
-              user: DASHBOARD_USER.name,
+              user: actor.name,
               timestamp: voidedAt,
               note: trimmed,
-              role: DASHBOARD_USER.role,
+              role: actor.role,
             }),
           }
 
@@ -318,8 +329,8 @@ export function EvidenceProvider({ children }: { children: React.ReactNode }) {
       if (usesSupabaseRef.current && updatedRecord) {
         void voidEvidenceInSupabase(id, {
           reason: trimmed,
-          voidedBy: DASHBOARD_USER.name,
-          voidedByRole: DASHBOARD_USER.role,
+          voidedBy: actor.name,
+          voidedByRole: actor.role,
           uploadHistory: updatedRecord.uploadHistory,
         }).catch(() => {
           // Keep optimistic local state if persistence fails.

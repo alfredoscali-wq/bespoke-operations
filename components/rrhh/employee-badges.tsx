@@ -3,8 +3,14 @@ import {
   EMPLOYMENT_STATUS_STYLES,
   EMPLOYEE_TYPE_LABELS,
   EMPLOYEE_TYPE_STYLES,
+  SYSTEM_ROLE_LABELS,
+  SYSTEM_ROLE_STYLES,
 } from "@/lib/employees/constants"
-import type { EmployeeType, EmploymentStatus } from "@/lib/types/employees"
+import type {
+  EmployeeType,
+  EmploymentStatus,
+  SystemRole,
+} from "@/lib/types/employees"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 
@@ -42,6 +48,23 @@ export function EmployeeTypeBadge({
       className={cn("font-medium", EMPLOYEE_TYPE_STYLES[employeeType], className)}
     >
       {EMPLOYEE_TYPE_LABELS[employeeType]}
+    </Badge>
+  )
+}
+
+export function SystemRoleBadge({
+  systemRole,
+  className,
+}: {
+  systemRole: SystemRole
+  className?: string
+}) {
+  return (
+    <Badge
+      variant="outline"
+      className={cn("font-medium", SYSTEM_ROLE_STYLES[systemRole], className)}
+    >
+      {SYSTEM_ROLE_LABELS[systemRole]}
     </Badge>
   )
 }

@@ -1,4 +1,5 @@
 import type { AppUserRole } from "@/lib/auth/current-user"
+import type { SystemRole } from "@/lib/types/employees"
 import type { EvidenceRecord } from "@/lib/types/evidence"
 
 export const EVIDENCE_VOID_HISTORY_ACTION = "Evidencia anulada"
@@ -13,11 +14,16 @@ export function getActiveEvidence(evidence: EvidenceRecord[]): EvidenceRecord[] 
   return evidence.filter(isActiveEvidence)
 }
 
-export function canVoidEvidence(role: AppUserRole): boolean {
+export function canVoidEvidence(
+  role: SystemRole | AppUserRole | null | undefined
+): boolean {
+  if (!role) return false
+
   return (
     role === "administrador" ||
-    role === "coordinador" ||
-    role === "supervisor"
+    role === "supervisor" ||
+    role === "administrativo" ||
+    role === "coordinador"
   )
 }
 

@@ -1,15 +1,26 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Eye, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
+import { ArrowDown, ArrowUp, Eye, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
 
-import { EmployeeTypeBadge, EmploymentStatusBadge } from "@/components/rrhh/employee-badges"
+import {
+  EmployeeTypeBadge,
+  EmploymentStatusBadge,
+  SystemRoleBadge,
+} from "@/components/rrhh/employee-badges"
 import { EmployeeFormDialog } from "@/components/rrhh/employee-form-dialog"
 import { useEmployees } from "@/components/rrhh/employees-provider"
+import { formatEmployeeDate } from "@/lib/employees/constants"
+import { cycleEmployeeSort, sortEmployees } from "@/lib/employees/utils"
 import { EntityActionFeedback } from "@/components/ui/entity-action-feedback"
-import type { EmployeeListItem, NewEmployeeInput } from "@/lib/types/employees"
+import type {
+  EmployeeListItem,
+  EmployeeSortColumn,
+  EmployeeSortState,
+  NewEmployeeInput,
+} from "@/lib/types/employees"
 import { WhatsAppLink } from "@/components/ui/whatsapp-link"
 import { Button } from "@/components/ui/button"
 import {
@@ -41,6 +52,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { cn } from "@/lib/utils"
 
 type EmployeesTableProps = {
   employees: EmployeeListItem[]
@@ -51,13 +63,71 @@ type Feedback = {
   message: string
 } | null
 
+const SORTABLE_COLUMNS: {
+  key: EmployeeSortColumn
+  label: string
+}[] = [
+  { key: "employeeCode", label: "Código" },
+  { key: "displayName", label: "Nombre" },
+  { key: "jobTitle", label: "Cargo" },
+  { key: "employeeType", label: "Tipo" },
+  { key: "employmentStatus", label: "Estado" },
+  { key: "systemRole", label: "Rol" },
+  { key: "hireDate", label: "Ingreso" },
+]
+
+function SortableTableHead({
+  label,
+  column,
+  sort,
+  onSort,
+}: {
+  label: string
+  column: EmployeeSortColumn
+  sort: EmployeeSortState
+  onSort: (column: EmployeeSortColumn) => void
+}) {
+  const isActive = sort?.column === column
+
+  return (
+    <TableHead>
+      <button
+        type="button"
+        onClick={() => onSort(column)}
+        className={cn(
+          "inline-flex items-center gap-1 text-left font-medium transition-colors hover:text-foreground",
+          isActive ? "text-foreground" : "text-muted-foreground"
+        )}
+      >
+        <span>{label}</span>
+        {isActive && sort.direction === "asc" ? (
+          <ArrowUp className="size-3.5" aria-hidden />
+        ) : null}
+        {isActive && sort.direction === "desc" ? (
+          <ArrowDown className="size-3.5" aria-hidden />
+        ) : null}
+      </button>
+    </TableHead>
+  )
+}
+
 export function EmployeesTable({ employees }: EmployeesTableProps) {
   const router = useRouter()
   const { editEmployee, removeEmployee } = useEmployees()
+  const [sort, setSort] = useState<EmployeeSortState>(null)
   const [editTarget, setEditTarget] = useState<EmployeeListItem | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<EmployeeListItem | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [feedback, setFeedback] = useState<Feedback>(null)
+
+  const sortedEmployees = useMemo(
+    () => sortEmployees(employees, sort),
+    [employees, sort]
+  )
+
+  function handleSort(column: EmployeeSortColumn) {
+    setSort((current) => cycleEmployeeSort(current, column))
+  }
 
   async function handleEdit(input: NewEmployeeInput) {
     if (!editTarget) return
@@ -99,10 +169,10 @@ export function EmployeesTable({ employees }: EmployeesTableProps) {
     return (
       <div className="rounded-xl border border-dashed bg-muted/20 px-6 py-16 text-center">
         <p className="text-sm font-medium text-foreground">
-          No hay empleados registrados
+          No hay empleados que coincidan con los filtros
         </p>
         <p className="mt-1 text-sm text-muted-foreground">
-          Registre un empleado para comenzar a gestionar el personal.
+          Ajuste la búsqueda o limpie los filtros para ver más resultados.
         </p>
       </div>
     )
@@ -153,18 +223,26 @@ export function EmployeesTable({ employees }: EmployeesTableProps) {
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead>Nombre</TableHead>
-                <TableHead>Cargo</TableHead>
-                <TableHead>Tipo</TableHead>
+                {SORTABLE_COLUMNS.map((column) => (
+                  <SortableTableHead
+                    key={column.key}
+                    label={column.label}
+                    column={column.key}
+                    sort={sort}
+                    onSort={handleSort}
+                  />
+                ))}
                 <TableHead>Departamento</TableHead>
                 <TableHead>Teléfono</TableHead>
-                <TableHead>Estado</TableHead>
                 <TableHead className="w-[60px]" />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {employees.map((employee) => (
+              {sortedEmployees.map((employee) => (
                 <TableRow key={employee.id}>
+                  <TableCell className="font-mono text-xs text-muted-foreground">
+                    {employee.employeeCode}
+                  </TableCell>
                   <TableCell>
                     <Link
                       href={`/rrhh/${employee.id}`}
@@ -179,6 +257,15 @@ export function EmployeesTable({ employees }: EmployeesTableProps) {
                   <TableCell>
                     <EmployeeTypeBadge employeeType={employee.employeeType} />
                   </TableCell>
+                  <TableCell>
+                    <EmploymentStatusBadge status={employee.employmentStatus} />
+                  </TableCell>
+                  <TableCell>
+                    <SystemRoleBadge systemRole={employee.systemRole} />
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {formatEmployeeDate(employee.hireDate) || "—"}
+                  </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {employee.department || "—"}
                   </TableCell>
@@ -189,9 +276,6 @@ export function EmployeesTable({ employees }: EmployeesTableProps) {
                       "—"
                     )}
                   </TableCell>
-                  <TableCell>
-                    <EmploymentStatusBadge status={employee.employmentStatus} />
-                  </TableCell>
                   <TableCell>{renderActions(employee)}</TableCell>
                 </TableRow>
               ))}
@@ -201,11 +285,14 @@ export function EmployeesTable({ employees }: EmployeesTableProps) {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:hidden">
-        {employees.map((employee) => (
+        {sortedEmployees.map((employee) => (
           <Card key={employee.id} className="h-full shadow-sm">
             <CardHeader className="pb-2">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
+                  <p className="font-mono text-[11px] text-muted-foreground">
+                    {employee.employeeCode}
+                  </p>
                   <Link href={`/rrhh/${employee.id}`}>
                     <CardTitle className="text-base hover:text-primary">
                       {employee.displayName}
@@ -213,8 +300,7 @@ export function EmployeesTable({ employees }: EmployeesTableProps) {
                   </Link>
                 </div>
                 <div className="flex items-center gap-1">
-                  <EmployeeTypeBadge employeeType={employee.employeeType} />
-                  <EmploymentStatusBadge status={employee.employmentStatus} />
+                  <SystemRoleBadge systemRole={employee.systemRole} />
                   {renderActions(employee)}
                 </div>
               </div>
@@ -223,6 +309,18 @@ export function EmployeesTable({ employees }: EmployeesTableProps) {
               <p>
                 <span className="text-muted-foreground">Cargo:</span>{" "}
                 {employee.jobTitle || "—"}
+              </p>
+              <p>
+                <span className="text-muted-foreground">Tipo:</span>{" "}
+                <EmployeeTypeBadge employeeType={employee.employeeType} />
+              </p>
+              <p className="flex items-center gap-2">
+                <span className="text-muted-foreground">Estado:</span>{" "}
+                <EmploymentStatusBadge status={employee.employmentStatus} />
+              </p>
+              <p>
+                <span className="text-muted-foreground">Ingreso:</span>{" "}
+                {formatEmployeeDate(employee.hireDate) || "—"}
               </p>
               <p>
                 <span className="text-muted-foreground">Departamento:</span>{" "}
