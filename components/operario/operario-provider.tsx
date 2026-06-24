@@ -8,14 +8,22 @@ import {
   useState,
 } from "react"
 
+import { useAuth } from "@/components/auth/auth-provider"
 import {
-  FIELD_WORKER,
   mockNotifications,
+  TEMP_OPERARIO_CREW_NAME,
   type OperarioNotification,
 } from "@/lib/data/operario"
+import {
+  resolveOperarioIdentity,
+  type OperarioIdentity,
+} from "@/lib/operario/identity"
 
 type OperarioContextValue = {
-  worker: typeof FIELD_WORKER
+  identity: OperarioIdentity
+  isIdentityReady: boolean
+  /** Temporary until Fase 2 resolves crew from crew_members. */
+  crewName: string
   notifications: OperarioNotification[]
   unreadCount: number
   markAsRead: (id: string) => void
@@ -25,8 +33,14 @@ type OperarioContextValue = {
 const OperarioContext = createContext<OperarioContextValue | null>(null)
 
 export function OperarioProvider({ children }: { children: React.ReactNode }) {
+  const { sessionUser, isAuthReady } = useAuth()
   const [notifications, setNotifications] =
     useState<OperarioNotification[]>(mockNotifications)
+
+  const identity = useMemo(
+    () => resolveOperarioIdentity(sessionUser),
+    [sessionUser]
+  )
 
   const unreadCount = useMemo(
     () => notifications.filter((notification) => !notification.read).length,
@@ -49,13 +63,22 @@ export function OperarioProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo(
     () => ({
-      worker: FIELD_WORKER,
+      identity,
+      isIdentityReady: isAuthReady,
+      crewName: TEMP_OPERARIO_CREW_NAME,
       notifications,
       unreadCount,
       markAsRead,
       markAllAsRead,
     }),
-    [notifications, unreadCount, markAsRead, markAllAsRead]
+    [
+      identity,
+      isAuthReady,
+      notifications,
+      unreadCount,
+      markAsRead,
+      markAllAsRead,
+    ]
   )
 
   return (

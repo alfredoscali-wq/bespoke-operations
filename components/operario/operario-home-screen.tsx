@@ -8,16 +8,20 @@ import { getTodayWorkerTasks, resolveWorkerCrewRef } from "@/lib/data/operario"
 
 export function OperarioHomeScreen() {
   const { tasks } = useTasks()
-  const { worker } = useOperario()
+  const { identity, isIdentityReady, crewName } = useOperario()
   const { crews } = useCrews()
-  const workerCrew = resolveWorkerCrewRef(worker, crews)
+  const workerCrew = resolveWorkerCrewRef(crewName, crews)
   const todayTasks = getTodayWorkerTasks(tasks, workerCrew)
 
   return (
     <div className="space-y-5 px-4 pt-6">
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight text-foreground">
-          Hola {worker.name}
+          {isIdentityReady ? (
+            <>Hola {identity.displayName}</>
+          ) : (
+            <span className="inline-block h-8 w-48 animate-pulse rounded bg-muted" />
+          )}
         </h1>
         <p className="text-sm text-muted-foreground">
           Tienes {todayTasks.length}{" "}

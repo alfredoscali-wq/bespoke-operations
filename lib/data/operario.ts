@@ -18,16 +18,8 @@ export type OperarioNotification = {
   taskId?: string
 }
 
-export const FIELD_WORKER = {
-  id: "worker-juan",
-  name: "Juan Pérez",
-  initials: "JP",
-  crew: "SUR",
-  position: "Técnico de Campo",
-  role: "Técnico de Instalación CCTV",
-  phone: "+52 442 847 9031",
-  supervisor: "Ing. Ana Torres",
-} as const
+/** Temporary crew name until Fase 2 resolves crew from crew_members. */
+export const TEMP_OPERARIO_CREW_NAME = "SUR"
 
 export type WorkerCrewRef = {
   id?: string
@@ -35,17 +27,17 @@ export type WorkerCrewRef = {
 }
 
 export function resolveWorkerCrewRef(
-  worker: Pick<typeof FIELD_WORKER, "crew">,
+  crewName: string,
   crews: Pick<Crew, "id" | "name">[] = []
 ): WorkerCrewRef {
-  const normalizedWorkerCrew = worker.crew.trim().toLocaleLowerCase("es")
+  const normalizedWorkerCrew = crewName.trim().toLocaleLowerCase("es")
   const matchedCrew = crews.find(
     (crew) => crew.name.trim().toLocaleLowerCase("es") === normalizedWorkerCrew
   )
 
   return {
     id: matchedCrew?.id,
-    name: worker.crew,
+    name: crewName,
   }
 }
 

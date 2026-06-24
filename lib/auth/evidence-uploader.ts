@@ -1,7 +1,10 @@
-import { resolveEvidenceActor } from "@/lib/auth/auth-display"
+import {
+  AUTH_DISPLAY_FALLBACK,
+  resolveAuthDisplay,
+  resolveEvidenceActor,
+} from "@/lib/auth/auth-display"
 import type { AppUserRole } from "@/lib/auth/current-user"
 import type { SessionUser } from "@/lib/auth/types"
-import { FIELD_WORKER } from "@/lib/data/operario"
 import type { EvidenceUploadOrigin } from "@/lib/evidence/upload-origin"
 import type { EvidenceRecord } from "@/lib/types/evidence"
 import type { UploadEvidenceInput } from "@/lib/types/supabase/evidences"
@@ -19,8 +22,13 @@ export function resolveEvidenceUploader(
   }
 ): EvidenceUploader {
   if (origin === "operario") {
+    const display = resolveAuthDisplay(options?.sessionUser ?? null)
+
     return {
-      uploadedBy: options?.operarioName ?? FIELD_WORKER.name,
+      uploadedBy:
+        options?.operarioName?.trim() ||
+        display.displayName ||
+        AUTH_DISPLAY_FALLBACK.displayName,
       uploadedByRole: "operario",
     }
   }

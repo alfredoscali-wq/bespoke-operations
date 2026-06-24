@@ -39,9 +39,9 @@ type OperarioTaskDetailScreenProps = {
 }
 
 export function OperarioTaskDetailScreen({ id }: OperarioTaskDetailScreenProps) {
-  const { worker } = useOperario()
+  const { crewName } = useOperario()
   const { crews } = useCrews()
-  const workerCrew = resolveWorkerCrewRef(worker, crews)
+  const workerCrew = resolveWorkerCrewRef(crewName, crews)
   const { tasks, getTask } = useTasks()
   const [actionMessage, setActionMessage] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)

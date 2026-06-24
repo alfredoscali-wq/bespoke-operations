@@ -30,9 +30,9 @@ function TaskSection({
 
 export function OperarioTasksScreen() {
   const { tasks } = useTasks()
-  const { worker } = useOperario()
+  const { crewName } = useOperario()
   const { crews } = useCrews()
-  const workerCrew = resolveWorkerCrewRef(worker, crews)
+  const workerCrew = resolveWorkerCrewRef(crewName, crews)
   const grouped = groupWorkerTasks(tasks, workerCrew)
 
   return (
