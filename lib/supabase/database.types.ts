@@ -427,6 +427,12 @@ export type Database = {
           shared_location: string
           observations_for_crew: string
           rejection_reason: string
+          incident_reason: string
+          incident_observation: string
+          incident_reported_at: string | null
+          incident_reported_by: string
+          cancellation_reason: string
+          cancellation_observation: string
           work_order_number: string | null
           type: TaskType
           status: TaskStatus
@@ -470,6 +476,12 @@ export type Database = {
           shared_location?: string
           observations_for_crew?: string
           rejection_reason?: string
+          incident_reason?: string
+          incident_observation?: string
+          incident_reported_at?: string | null
+          incident_reported_by?: string
+          cancellation_reason?: string
+          cancellation_observation?: string
           work_order_number?: string | null
           type: TaskType
           status?: TaskStatus
@@ -513,6 +525,12 @@ export type Database = {
           shared_location?: string
           observations_for_crew?: string
           rejection_reason?: string
+          incident_reason?: string
+          incident_observation?: string
+          incident_reported_at?: string | null
+          incident_reported_by?: string
+          cancellation_reason?: string
+          cancellation_observation?: string
           work_order_number?: string | null
           type?: TaskType
           status?: TaskStatus

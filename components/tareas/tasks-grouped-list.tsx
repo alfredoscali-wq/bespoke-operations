@@ -32,6 +32,7 @@ const GROUP_ORDER: TaskStatus[] = [
   "pendiente",
   "asignada",
   "en-curso",
+  "incidencia",
   "pendiente-cierre",
   "en-aprobacion",
   "finalizada",
@@ -43,6 +44,7 @@ const DEFAULT_EXPANDED: TaskStatus[] = [
   "pendiente",
   "asignada",
   "en-curso",
+  "incidencia",
   "pendiente-cierre",
 ]
 

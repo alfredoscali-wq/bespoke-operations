@@ -1,6 +1,7 @@
 import type { Task } from "@/lib/types/tasks"
 import type { VisualTone } from "@/lib/ui/visual-tokens"
 import { STATUS_TONE_STYLES } from "@/lib/ui/visual-tokens"
+import { TASK_EN_CURSO_STYLE } from "@/lib/tasks/constants"
 
 export type OperationalTaskCategory =
   | "sin-cuadrilla"
@@ -19,8 +20,8 @@ export const OPERATIONAL_CATEGORY_KPI_LABELS: Record<
   string
 > = {
   "sin-cuadrilla": "🔵 Sin cuadrilla",
-  programadas: "🟢 Programadas",
-  suspendidas: "🟠 Pendiente de Cierre",
+  programadas: "🔵 Programadas",
+  suspendidas: "🟡 Pendiente de cierre",
   completadas: "🟢 Completadas",
   canceladas: "🔴 Canceladas",
 }
@@ -30,9 +31,9 @@ export const OPERATIONAL_CATEGORY_BADGE_LABELS: Record<
   string
 > = {
   "sin-cuadrilla": "🔵 Sin cuadrilla",
-  programadas: "🟢 Programada",
-  suspendidas: "🟠 Pendiente de Cierre",
-  completadas: "🟠 Completada",
+  programadas: "🔵 Programada",
+  suspendidas: "🟡 Pendiente de cierre",
+  completadas: "🟢 Finalizada",
   canceladas: "🔴 Cancelada",
 }
 
@@ -52,9 +53,9 @@ export const OPERATIONAL_CATEGORY_KPI_TONE: Record<
   VisualTone
 > = {
   "sin-cuadrilla": "blue",
-  programadas: "green",
+  programadas: "blue",
   suspendidas: "yellow",
-  completadas: "yellow",
+  completadas: "green",
   canceladas: "red",
 }
 
@@ -69,14 +70,68 @@ export const OPERATIONAL_CATEGORY_BADGE_STYLES: Record<
   string
 > = {
   "sin-cuadrilla": STATUS_TONE_STYLES.blue,
-  programadas: STATUS_TONE_STYLES.green,
-  suspendidas: "border-orange-200/80 bg-orange-50 text-orange-800",
-  completadas: "border-orange-200/80 bg-orange-50 text-orange-800",
+  programadas: STATUS_TONE_STYLES.blue,
+  suspendidas: STATUS_TONE_STYLES.yellow,
+  completadas: STATUS_TONE_STYLES.green,
   canceladas: STATUS_TONE_STYLES.red,
 }
 
 function isPendingAssignment(task: Task): boolean {
   return task.status === "pendiente" || !task.crewId
+}
+
+export function resolveOperationalExecutionBadge(task: Task): {
+  label: string
+  className: string
+} {
+  if (task.status === "asignada") {
+    return {
+      label: "Programada",
+      className: STATUS_TONE_STYLES.blue,
+    }
+  }
+
+  if (task.status === "en-curso") {
+    return {
+      label: "En curso",
+      className: TASK_EN_CURSO_STYLE,
+    }
+  }
+
+  if (task.status === "incidencia") {
+    return {
+      label: "🔴 Incidencia",
+      className: STATUS_TONE_STYLES.red,
+    }
+  }
+
+  if (task.status === "pendiente-cierre" || task.status === "en-aprobacion") {
+    return {
+      label: "Pendiente de cierre",
+      className: STATUS_TONE_STYLES.yellow,
+    }
+  }
+
+  if (task.status === "finalizada" || task.status === "cerrada") {
+    return {
+      label: "Finalizada",
+      className: STATUS_TONE_STYLES.green,
+    }
+  }
+
+  if (task.status === "cancelada") {
+    return {
+      label: "Cancelada",
+      className: STATUS_TONE_STYLES.red,
+    }
+  }
+
+  const category = resolveOperationalCategory(task)
+
+  return {
+    label: OPERATIONAL_CATEGORY_BADGE_LABELS[category],
+    className: OPERATIONAL_CATEGORY_BADGE_STYLES[category],
+  }
 }
 
 export function resolveOperationalCategory(

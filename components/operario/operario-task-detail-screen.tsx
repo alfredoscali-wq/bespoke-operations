@@ -29,6 +29,7 @@ import {
   TASK_STATUS_LABELS,
   TASK_STATUS_STYLES,
 } from "@/lib/tasks/constants"
+import { isIncidentStatus } from "@/lib/tasks/incidents"
 import { isPendingClosureStatus } from "@/lib/tasks/task-status-workflow"
 import { getWorkOrderServiceTypeLabel } from "@/lib/tasks/work-order"
 import type { Task } from "@/lib/types/tasks"
@@ -111,11 +112,14 @@ export function OperarioTaskDetailScreen({ id }: OperarioTaskDetailScreenProps) 
   const taskDescription = activeTask.description?.trim()
   const technologyLabel = getTaskTechnologyLabel(activeTask)
   const usesOperationalSteps = hasOperationalSteps(activeTask)
-  const actionsDisabled = isPendingClosureStatus(activeTask.status)
+  const actionsDisabled =
+    isPendingClosureStatus(activeTask.status) ||
+    isIncidentStatus(activeTask.status)
   const showFooter =
     activeTask.status === "asignada" ||
     activeTask.status === "en-curso" ||
-    actionsDisabled
+    isIncidentStatus(activeTask.status) ||
+    isPendingClosureStatus(activeTask.status)
   const rejectionReason = activeTask.rejectionReason?.trim()
 
   return (
@@ -160,7 +164,12 @@ export function OperarioTaskDetailScreen({ id }: OperarioTaskDetailScreenProps) 
               TASK_STATUS_STYLES[activeTask.status]
             )}
           >
-            {activeTask.status === "pendiente-cierre" ? "🟠 " : ""}
+            {activeTask.status === "incidencia" ? "🔴 " : ""}
+            {activeTask.status === "pendiente-cierre" ? "🟡 " : ""}
+            {activeTask.status === "en-curso" ? "🟠 " : ""}
+            {activeTask.status === "asignada" ? "🔵 " : ""}
+            {activeTask.status === "finalizada" ? "🟢 " : ""}
+            {activeTask.status === "cancelada" ? "🔴 " : ""}
             {TASK_STATUS_LABELS[activeTask.status]}
           </Badge>
           <Badge
@@ -197,12 +206,23 @@ export function OperarioTaskDetailScreen({ id }: OperarioTaskDetailScreenProps) 
         </Alert>
       ) : null}
 
-      {actionsDisabled ? (
-        <Alert className="border-orange-200 bg-orange-50/80 dark:border-orange-900 dark:bg-orange-950/30">
-          <AlertDescription className="space-y-1 text-orange-900 dark:text-orange-100">
-            <p className="font-semibold">🟠 Trabajo enviado</p>
+      {isIncidentStatus(activeTask.status) ? (
+        <Alert className="border-red-200 bg-red-50/80 dark:border-red-900 dark:bg-red-950/30">
+          <AlertDescription className="space-y-1 text-red-900 dark:text-red-100">
+            <p className="font-semibold">🔴 Incidencia reportada</p>
             <p className="text-sm">
-              Pendiente de validación del supervisor.
+              El supervisor revisará el caso y definirá los próximos pasos.
+            </p>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {actionsDisabled && isPendingClosureStatus(activeTask.status) ? (
+        <Alert className="border-amber-200 bg-amber-50/80 dark:border-amber-900 dark:bg-amber-950/30">
+          <AlertDescription className="space-y-1 text-amber-900 dark:text-amber-100">
+            <p className="font-semibold">🟡 Pendiente de cierre</p>
+            <p className="text-sm">
+              El supervisor debe cerrar la OT desde BackOffice.
             </p>
           </AlertDescription>
         </Alert>

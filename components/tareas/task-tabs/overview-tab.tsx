@@ -419,7 +419,7 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
                 {liveTask.checklist.filter((item) => item.completed).length} de{" "}
                 {liveTask.checklist.length} elementos completados. Los ítems
                 marcados como obligatorios deben estar listos antes de
-                finalizar la tarea.
+                solicitar el cierre.
               </p>
             </CardContent>
           </Card>

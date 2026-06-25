@@ -11,24 +11,27 @@ import { STATUS_TONE_STYLES } from "@/lib/ui/visual-tokens"
 
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   pendiente: "Pendiente",
-  asignada: "Asignada",
-  "en-curso": "En Curso",
-  "pendiente-cierre": "Pendiente de Cierre",
+  asignada: "Programada",
+  "en-curso": "En curso",
+  incidencia: "Incidencia",
+  "pendiente-cierre": "Pendiente de cierre",
   finalizada: "Finalizada",
   "en-aprobacion": "En Aprobación",
   cerrada: "Cerrada",
   cancelada: "Cancelada",
 }
 
+export const TASK_EN_CURSO_STYLE =
+  "border-orange-200/80 bg-orange-50 text-orange-900 dark:border-orange-800 dark:bg-orange-950/40 dark:text-orange-200"
+
 export const TASK_STATUS_STYLES: Record<TaskStatus, string> = {
   pendiente: STATUS_TONE_STYLES.gray,
   asignada: STATUS_TONE_STYLES.blue,
-  "en-curso": STATUS_TONE_STYLES.yellow,
-  "pendiente-cierre":
-    "border-orange-200/80 bg-orange-50 text-orange-900 dark:border-orange-800 dark:bg-orange-950/40 dark:text-orange-200",
-  finalizada: STATUS_TONE_STYLES.violet,
-  "en-aprobacion":
-    "border-orange-200/80 bg-orange-50 text-orange-900 dark:border-orange-800 dark:bg-orange-950/40 dark:text-orange-200",
+  "en-curso": TASK_EN_CURSO_STYLE,
+  incidencia: STATUS_TONE_STYLES.red,
+  "pendiente-cierre": STATUS_TONE_STYLES.yellow,
+  finalizada: STATUS_TONE_STYLES.green,
+  "en-aprobacion": STATUS_TONE_STYLES.yellow,
   cerrada: STATUS_TONE_STYLES.green,
   cancelada: STATUS_TONE_STYLES.red,
 }
@@ -37,6 +40,7 @@ export const KANBAN_COLUMNS: TaskStatus[] = [
   "pendiente",
   "asignada",
   "en-curso",
+  "incidencia",
   "pendiente-cierre",
   "finalizada",
   "en-aprobacion",

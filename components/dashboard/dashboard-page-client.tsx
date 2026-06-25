@@ -2,6 +2,7 @@
 
 import { useMemo } from "react"
 import {
+  AlertTriangle,
   Ban,
   Building2,
   CheckCircle2,
@@ -57,6 +58,7 @@ const TASK_ICONS = {
   pendiente: CircleDot,
   asignada: UserCheck,
   "en-curso": Clock,
+  incidencia: AlertTriangle,
   "pendiente-cierre": ClipboardCheck,
   "en-aprobacion": ClipboardCheck,
   finalizada: CheckCircle2,
@@ -67,10 +69,11 @@ const TASK_TONES = {
   pendiente: "gray",
   asignada: "blue",
   "en-curso": "yellow",
+  incidencia: "red",
   "pendiente-cierre": "yellow",
   "en-aprobacion": "yellow",
-  finalizada: "violet",
-  cerrada: "neutral",
+  finalizada: "green",
+  cerrada: "green",
 } as const
 
 const CREW_ICONS = {

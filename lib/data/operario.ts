@@ -88,7 +88,8 @@ export function getTodayWorkerTasks(
     (task) =>
       task.status === "pendiente" ||
       task.status === "asignada" ||
-      task.status === "en-curso"
+      task.status === "en-curso" ||
+      task.status === "incidencia"
   )
 }
 
@@ -102,6 +103,7 @@ export function groupWorkerTasks(tasks: Task[], workerCrew: WorkerCrewRef) {
     enCurso: workerTasks.filter(
       (task) =>
         task.status === "en-curso" ||
+        task.status === "incidencia" ||
         task.status === "pendiente-cierre" ||
         task.status === "en-aprobacion"
     ),

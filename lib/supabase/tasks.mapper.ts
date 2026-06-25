@@ -92,6 +92,12 @@ export function mapTaskRowToTask(row: TaskRow): Task {
     completedAt: row.completed_at,
     closedAt: row.closed_at,
     rejectionReason: row.rejection_reason?.trim() || undefined,
+    incidentReason: row.incident_reason?.trim() || undefined,
+    incidentObservation: row.incident_observation?.trim() || undefined,
+    incidentReportedAt: row.incident_reported_at,
+    incidentReportedBy: row.incident_reported_by?.trim() || undefined,
+    cancellationReason: row.cancellation_reason?.trim() || undefined,
+    cancellationObservation: row.cancellation_observation?.trim() || undefined,
     serviceType: row.service_type,
     locality: row.locality,
     contractedPlan: row.contracted_plan?.trim() || undefined,
@@ -180,6 +186,25 @@ export function mapUpdatePayloadToUpdate(payload: UpdateTaskPayload): TaskUpdate
   }
   if (payload.rejectionReason !== undefined) {
     update.rejection_reason = payload.rejectionReason?.trim() || ""
+  }
+  if (payload.incidentReason !== undefined) {
+    update.incident_reason = payload.incidentReason?.trim() || ""
+  }
+  if (payload.incidentObservation !== undefined) {
+    update.incident_observation = payload.incidentObservation?.trim() || ""
+  }
+  if (payload.incidentReportedAt !== undefined) {
+    update.incident_reported_at = payload.incidentReportedAt
+  }
+  if (payload.incidentReportedBy !== undefined) {
+    update.incident_reported_by = payload.incidentReportedBy?.trim() || ""
+  }
+  if (payload.cancellationReason !== undefined) {
+    update.cancellation_reason = payload.cancellationReason?.trim() || ""
+  }
+  if (payload.cancellationObservation !== undefined) {
+    update.cancellation_observation =
+      payload.cancellationObservation?.trim() || ""
   }
   if (payload.workOrderNumber !== undefined) {
     update.work_order_number = payload.workOrderNumber?.trim() || null

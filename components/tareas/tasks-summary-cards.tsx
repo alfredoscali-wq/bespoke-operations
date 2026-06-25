@@ -29,7 +29,7 @@ const cards: {
   },
   {
     key: "enCurso",
-    label: "En Curso",
+    label: "En curso",
     icon: Clock,
     tone: "yellow",
   },

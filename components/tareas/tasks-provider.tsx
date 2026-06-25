@@ -22,6 +22,7 @@ import {
   updateTask as updateTaskInSupabase,
 } from "@/lib/supabase/tasks.browser"
 import { canArchiveTaskByStatus } from "@/lib/tasks/status-groups"
+import { resolveIncidentReasonLabel } from "@/lib/tasks/incidents"
 import { TASK_DELETE_USER_MESSAGE, TASK_ARCHIVE_BLOCKED_ACTIVE_MESSAGE, logOperationError } from "@/lib/operations/user-messages"
 import { logDeleteTrace } from "@/lib/supabase/delete-trace"
 import { mapTaskToUpdatePayload } from "@/lib/supabase/tasks.mapper"
@@ -75,7 +76,33 @@ type TasksContextValue = {
   approveTask: (id: string) => Promise<TaskMutationResult>
   rejectTask: (id: string, reason: string) => Promise<TaskMutationResult>
   closeTask: (id: string) => Promise<TaskMutationResult>
-  cancelTask: (id: string) => Promise<TaskMutationResult>
+  cancelTask: (
+    id: string,
+    options?: {
+      reason: string
+      observation: string
+      actor?: string
+    }
+  ) => Promise<TaskMutationResult>
+  reportTaskIncident: (
+    id: string,
+    input: {
+      reason: string
+      observation: string
+      reportedBy: string
+    }
+  ) => Promise<TaskMutationResult>
+  resumeTaskFromIncident: (
+    id: string,
+    actor?: string
+  ) => Promise<TaskMutationResult>
+  rescheduleTaskFromIncident: (
+    id: string,
+    input: {
+      dueDate: string
+      actor?: string
+    }
+  ) => Promise<TaskMutationResult>
   toggleChecklistItem: (taskId: string, itemId: string) => void
   syncOperationalStepsProgress: (
     taskId: string,
@@ -288,7 +315,8 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       id: string,
       payload: UpdateTaskPayload,
       workflowAction?: TaskWorkflowAction,
-      historyNote?: string
+      historyNote?: string,
+      historyActor?: string
     ): Promise<TaskMutationResult> => {
       const existing = tasks.find((item) => item.id === id)
       if (!existing) {
@@ -321,7 +349,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
                   id: `h-${Date.now()}`,
                   action: historyEntry.action,
                   description: historyEntry.description,
-                  user: "Usuario",
+                  user: historyActor?.trim() || "Usuario",
                   timestamp: new Date().toISOString(),
                 },
                 ...detail.history,
@@ -496,8 +524,181 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
   )
 
   const cancelTask = useCallback(
-    (id: string) => applyWorkflowTransition(id, "cancel"),
-    [applyWorkflowTransition]
+    async (
+      id: string,
+      options?: {
+        reason: string
+        observation: string
+        actor?: string
+      }
+    ): Promise<TaskMutationResult> => {
+      const task = tasks.find((item) => item.id === id)
+      if (!task) {
+        return { success: false, message: "Tarea no encontrada." }
+      }
+
+      if (task.status === "incidencia") {
+        const reason = options?.reason.trim() ?? ""
+        const observation = options?.observation.trim() ?? ""
+
+        if (!reason) {
+          return { success: false, message: "Indique el motivo de cancelación." }
+        }
+
+        if (!observation) {
+          return {
+            success: false,
+            message: "Indique la observación de cancelación.",
+          }
+        }
+
+        const validation = canPerformTaskAction(task, "cancel")
+        if (!validation.allowed) {
+          return { success: false, message: validation.message }
+        }
+
+        const { to } = getTransitionForAction("cancel")
+        const historyNote = [
+          `Motivo: ${resolveIncidentReasonLabel(reason)}`,
+          `Observación: ${observation}`,
+        ].join("\n")
+
+        return updateTaskFields(
+          id,
+          {
+            status: to,
+            cancellationReason: reason,
+            cancellationObservation: observation,
+          },
+          "cancel",
+          historyNote,
+          options?.actor
+        )
+      }
+
+      return applyWorkflowTransition(id, "cancel")
+    },
+    [tasks, applyWorkflowTransition, updateTaskFields]
+  )
+
+  const reportTaskIncident = useCallback(
+    async (
+      id: string,
+      input: {
+        reason: string
+        observation: string
+        reportedBy: string
+      }
+    ): Promise<TaskMutationResult> => {
+      const task = tasks.find((item) => item.id === id)
+      if (!task) {
+        return { success: false, message: "Tarea no encontrada." }
+      }
+
+      const reason = input.reason.trim()
+      const observation = input.observation.trim()
+      const reportedBy = input.reportedBy.trim()
+
+      if (!reason) {
+        return { success: false, message: "Seleccione un motivo de incidencia." }
+      }
+
+      if (!observation) {
+        return {
+          success: false,
+          message: "Describa brevemente la situación.",
+        }
+      }
+
+      const validation = canPerformTaskAction(task, "report-incident")
+      if (!validation.allowed) {
+        return { success: false, message: validation.message }
+      }
+
+      const { to } = getTransitionForAction("report-incident")
+      const historyNote = [
+        `Motivo: ${resolveIncidentReasonLabel(reason)}`,
+        `Observación: ${observation}`,
+      ].join("\n")
+
+      return updateTaskFields(
+        id,
+        {
+          status: to,
+          incidentReason: reason,
+          incidentObservation: observation,
+          incidentReportedAt: new Date().toISOString(),
+          incidentReportedBy: reportedBy,
+        },
+        "report-incident",
+        historyNote,
+        reportedBy
+      )
+    },
+    [tasks, updateTaskFields]
+  )
+
+  const resumeTaskFromIncident = useCallback(
+    async (id: string, actor?: string): Promise<TaskMutationResult> => {
+      const task = tasks.find((item) => item.id === id)
+      if (!task) {
+        return { success: false, message: "Tarea no encontrada." }
+      }
+
+      const validation = canPerformTaskAction(task, "resume-from-incident")
+      if (!validation.allowed) {
+        return { success: false, message: validation.message }
+      }
+
+      const { to } = getTransitionForAction("resume-from-incident")
+      return updateTaskFields(
+        id,
+        { status: to },
+        "resume-from-incident",
+        "La OT volvió a En curso para continuar la ejecución.",
+        actor
+      )
+    },
+    [tasks, updateTaskFields]
+  )
+
+  const rescheduleTaskFromIncident = useCallback(
+    async (
+      id: string,
+      input: {
+        dueDate: string
+        actor?: string
+      }
+    ): Promise<TaskMutationResult> => {
+      const task = tasks.find((item) => item.id === id)
+      if (!task) {
+        return { success: false, message: "Tarea no encontrada." }
+      }
+
+      const dueDate = input.dueDate.trim()
+      if (!dueDate) {
+        return { success: false, message: "Seleccione una nueva fecha." }
+      }
+
+      const validation = canPerformTaskAction(task, "reschedule-from-incident")
+      if (!validation.allowed) {
+        return { success: false, message: validation.message }
+      }
+
+      const { to } = getTransitionForAction("reschedule-from-incident")
+      return updateTaskFields(
+        id,
+        {
+          status: to,
+          dueDate,
+          startDate: dueDate,
+        },
+        "reschedule-from-incident",
+        `Nueva fecha programada: ${dueDate}.`,
+        input.actor
+      )
+    },
+    [tasks, updateTaskFields]
   )
 
   const assignCrew = useCallback(
@@ -772,6 +973,9 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       rejectTask,
       closeTask,
       cancelTask,
+      reportTaskIncident,
+      resumeTaskFromIncident,
+      rescheduleTaskFromIncident,
       toggleChecklistItem,
       syncOperationalStepsProgress,
       updateOperationalStepObservation,
@@ -796,6 +1000,9 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       rejectTask,
       closeTask,
       cancelTask,
+      reportTaskIncident,
+      resumeTaskFromIncident,
+      rescheduleTaskFromIncident,
       toggleChecklistItem,
       syncOperationalStepsProgress,
       updateOperationalStepObservation,

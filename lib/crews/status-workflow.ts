@@ -6,6 +6,7 @@ import type { Task, TaskStatus } from "@/lib/types/tasks"
 export const CREW_FIELD_TASK_STATUSES: TaskStatus[] = [
   "asignada",
   "en-curso",
+  "incidencia",
   "pendiente-cierre",
   "en-aprobacion",
 ]

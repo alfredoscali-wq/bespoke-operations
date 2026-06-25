@@ -5,6 +5,7 @@ export const ACTIVE_TASK_STATUSES: TaskStatus[] = [
   "pendiente",
   "asignada",
   "en-curso",
+  "incidencia",
   "pendiente-cierre",
   "en-aprobacion",
 ]

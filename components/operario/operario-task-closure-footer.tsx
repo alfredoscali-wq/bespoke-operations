@@ -1,11 +1,14 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { ClipboardCheck, Loader2, Play } from "lucide-react"
+import { AlertTriangle, ClipboardCheck, Loader2, Play } from "lucide-react"
 
+import { useOperario } from "@/components/operario/operario-provider"
+import { OperarioTaskIncidentDialog } from "@/components/operario/operario-task-incident-dialog"
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { getOperationalStepPhotoCounts, getTaskEvidencePhotoCount } from "@/lib/supabase/task-photos.browser"
 import { hasOperationalSteps } from "@/lib/operational-steps/utils"
+import { isIncidentStatus } from "@/lib/tasks/incidents"
 import { isPendingClosureStatus } from "@/lib/tasks/task-status-workflow"
 import { validateTaskClosureForSubmit } from "@/lib/tasks/task-status-workflow"
 import type { Task } from "@/lib/types/tasks"
@@ -24,7 +27,9 @@ export function OperarioTaskClosureFooter({
   onActionMessage,
   onActionError,
 }: OperarioTaskClosureFooterProps) {
-  const { getTask, startTask, submitTaskForApproval } = useTasks()
+  const { identity } = useOperario()
+  const { getTask, startTask, submitTaskForApproval, reportTaskIncident } =
+    useTasks()
   const task = getTask(initialTask.id) ?? initialTask
   const usesSteps = hasOperationalSteps(task)
 
@@ -33,6 +38,7 @@ export function OperarioTaskClosureFooter({
   )
   const [evidenceCount, setEvidenceCount] = useState(0)
   const [isPending, setIsPending] = useState(false)
+  const [incidentDialogOpen, setIncidentDialogOpen] = useState(false)
 
   useEffect(() => {
     if (usesSteps) {
@@ -72,25 +78,41 @@ export function OperarioTaskClosureFooter({
   })
   const closureBlocked = !closureValidation.allowed
   const showStart = task.status === "asignada"
-  const showRequestClosure = task.status === "en-curso"
+  const showInProgressActions = task.status === "en-curso"
   const pendingClosure = isPendingClosureStatus(task.status)
+  const hasIncident = isIncidentStatus(task.status)
 
   if (pendingClosure) {
     return (
-      <div className="fixed inset-x-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom,0px))] z-40 border-t border-orange-200 bg-orange-50/95 px-4 py-4 backdrop-blur supports-[backdrop-filter]:bg-orange-50/90 dark:border-orange-900 dark:bg-orange-950/90">
+      <div className="fixed inset-x-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom,0px))] z-40 border-t border-amber-200 bg-amber-50/95 px-4 py-4 backdrop-blur supports-[backdrop-filter]:bg-amber-50/90 dark:border-amber-900 dark:bg-amber-950/90">
         <div className="mx-auto max-w-lg space-y-1">
-          <p className="text-base font-semibold text-orange-900 dark:text-orange-100">
-            🟠 Trabajo enviado
+          <p className="text-base font-semibold text-amber-900 dark:text-amber-100">
+            🟡 Pendiente de cierre
           </p>
-          <p className="text-sm text-orange-800 dark:text-orange-200">
-            Pendiente de validación del supervisor.
+          <p className="text-sm text-amber-800 dark:text-amber-200">
+            El supervisor debe cerrar la OT desde BackOffice.
           </p>
         </div>
       </div>
     )
   }
 
-  if (!showStart && !showRequestClosure) {
+  if (hasIncident) {
+    return (
+      <div className="fixed inset-x-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom,0px))] z-40 border-t border-red-200 bg-red-50/95 px-4 py-4 backdrop-blur supports-[backdrop-filter]:bg-red-50/90 dark:border-red-900 dark:bg-red-950/90">
+        <div className="mx-auto max-w-lg space-y-1">
+          <p className="text-base font-semibold text-red-900 dark:text-red-100">
+            🔴 Incidencia reportada
+          </p>
+          <p className="text-sm text-red-800 dark:text-red-200">
+            El supervisor revisará el caso y definirá los próximos pasos.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!showStart && !showInProgressActions) {
     return null
   }
 
@@ -130,52 +152,98 @@ export function OperarioTaskClosureFooter({
       return
     }
 
-    onActionMessage?.("Trabajo enviado. Pendiente de validación de cierre.")
+    onActionMessage?.("Trabajo enviado. Pendiente de cierre por supervisor.")
+  }
+
+  async function handleReportIncident(input: {
+    reason: string
+    observation: string
+  }) {
+    onActionError?.(null)
+    onActionMessage?.(null)
+    setIsPending(true)
+
+    const result = await reportTaskIncident(task.id, {
+      reason: input.reason,
+      observation: input.observation,
+      reportedBy: identity.displayName,
+    })
+    setIsPending(false)
+
+    if (!result.success) {
+      onActionError?.(result.message ?? "No se pudo reportar la incidencia.")
+      return
+    }
+
+    setIncidentDialogOpen(false)
+    onActionMessage?.("Incidencia reportada. El supervisor revisará el caso.")
   }
 
   return (
-    <div className="fixed inset-x-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom,0px))] z-40 border-t bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/90">
-      <div className="mx-auto max-w-lg space-y-2">
-        {showRequestClosure && closureBlocked ? (
-          <p className="text-center text-sm text-muted-foreground">
-            {closureValidation.message}
-          </p>
-        ) : null}
+    <>
+      <div className="fixed inset-x-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom,0px))] z-40 border-t bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/90">
+        <div className="mx-auto max-w-lg space-y-2">
+          {showInProgressActions && closureBlocked ? (
+            <p className="text-center text-sm text-muted-foreground">
+              {closureValidation.message}
+            </p>
+          ) : null}
 
-        {showStart ? (
-          <Button
-            type="button"
-            size="lg"
-            className="h-14 w-full gap-2 rounded-2xl text-base font-semibold"
-            onClick={handleStartTask}
-            disabled={isPending}
-          >
-            {isPending ? (
-              <Loader2 className="size-5 animate-spin" />
-            ) : (
-              <Play className="size-5" />
-            )}
-            Iniciar tarea
-          </Button>
-        ) : null}
+          {showStart ? (
+            <Button
+              type="button"
+              size="lg"
+              className="h-14 w-full gap-2 rounded-2xl text-base font-semibold"
+              onClick={handleStartTask}
+              disabled={isPending}
+            >
+              {isPending ? (
+                <Loader2 className="size-5 animate-spin" />
+              ) : (
+                <Play className="size-5" />
+              )}
+              Iniciar tarea
+            </Button>
+          ) : null}
 
-        {showRequestClosure ? (
-          <Button
-            type="button"
-            size="lg"
-            className="h-14 w-full gap-2 rounded-2xl bg-emerald-600 text-base font-semibold hover:bg-emerald-700"
-            onClick={handleRequestClosure}
-            disabled={isPending || closureBlocked}
-          >
-            {isPending ? (
-              <Loader2 className="size-5 animate-spin" />
-            ) : (
-              <ClipboardCheck className="size-5" />
-            )}
-            Solicitar cierre
-          </Button>
-        ) : null}
+          {showInProgressActions ? (
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <Button
+                type="button"
+                size="lg"
+                className="h-14 gap-2 rounded-2xl bg-emerald-600 text-base font-semibold hover:bg-emerald-700"
+                onClick={handleRequestClosure}
+                disabled={isPending || closureBlocked}
+              >
+                {isPending ? (
+                  <Loader2 className="size-5 animate-spin" />
+                ) : (
+                  <ClipboardCheck className="size-5" />
+                )}
+                Solicitar cierre
+              </Button>
+              <Button
+                type="button"
+                size="lg"
+                variant="destructive"
+                className="h-14 gap-2 rounded-2xl text-base font-semibold"
+                onClick={() => setIncidentDialogOpen(true)}
+                disabled={isPending}
+              >
+                <AlertTriangle className="size-5" />
+                Reportar incidencia
+              </Button>
+            </div>
+          ) : null}
+        </div>
       </div>
-    </div>
+
+      <OperarioTaskIncidentDialog
+        open={incidentDialogOpen}
+        onOpenChange={setIncidentDialogOpen}
+        onConfirm={handleReportIncident}
+        isSubmitting={isPending}
+      />
+    </>
   )
 }

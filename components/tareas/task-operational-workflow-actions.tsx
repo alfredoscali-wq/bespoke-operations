@@ -1,19 +1,24 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { AlertTriangle, CheckCircle2, ClipboardCheck, Play } from "lucide-react"
+import { useState } from "react"
+import {
+  CalendarClock,
+  CheckCircle2,
+  Play,
+  XCircle,
+} from "lucide-react"
 
+import { TaskIncidentCancelDialog } from "@/components/tareas/task-incident-cancel-dialog"
+import { TaskIncidentRescheduleDialog } from "@/components/tareas/task-incident-reschedule-dialog"
 import { useTasks } from "@/components/tareas/tasks-provider"
 import {
-  getOperationalStepPhotoCounts,
-  getTaskEvidencePhotoCount,
-} from "@/lib/supabase/task-photos.browser"
-import { hasOperationalSteps } from "@/lib/operational-steps/utils"
-import { TASK_STATUS_LABELS } from "@/lib/tasks/constants"
-import { validateTaskClosureForSubmit } from "@/lib/tasks/task-status-workflow"
-import type { Task } from "@/lib/types/tasks"
+  formatTaskDateTime,
+  TASK_STATUS_LABELS,
+} from "@/lib/tasks/constants"
+import { resolveIncidentReasonLabel } from "@/lib/tasks/incidents"
+import { isPendingClosureStatus } from "@/lib/tasks/task-status-workflow"
+import type { Task, TaskStatus } from "@/lib/types/tasks"
 import { cn } from "@/lib/utils"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -22,255 +27,206 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 
+const OPERATIONAL_STATUS_DISPLAY: Partial<
+  Record<TaskStatus, { emoji: string; label: string }>
+> = {
+  asignada: { emoji: "📅", label: "Programada" },
+  "en-curso": { emoji: "🟠", label: "En curso" },
+  "pendiente-cierre": { emoji: "🟡", label: "Pendiente de cierre" },
+  "en-aprobacion": { emoji: "🟡", label: "Pendiente de cierre" },
+  incidencia: { emoji: "🔴", label: "Incidencia" },
+  finalizada: { emoji: "🟢", label: "Finalizada" },
+  cerrada: { emoji: "🟢", label: "Finalizada" },
+  cancelada: { emoji: "🔴", label: "Cancelada" },
+}
+
 type TaskOperationalWorkflowActionsProps = {
   task: Task
-  variant?: "default" | "operario"
-  evidenceCount?: number
-  stepsRefreshKey?: number
+  canClose?: boolean
+  onClose?: () => void
+  onReject?: () => void
+  onResume?: () => Promise<void>
+  onReschedule?: (dueDate: string) => Promise<void>
+  onCancelIncident?: (input: {
+    reason: string
+    observation: string
+  }) => Promise<void>
+  isPending?: boolean
   className?: string
-  showTitle?: boolean
-  onActionMessage?: (message: string | null) => void
-  onActionError?: (message: string | null) => void
+}
+
+function resolveOperationalStatusDisplay(task: Task) {
+  return (
+    OPERATIONAL_STATUS_DISPLAY[task.status] ?? {
+      emoji: "",
+      label: TASK_STATUS_LABELS[task.status],
+    }
+  )
 }
 
 export function TaskOperationalWorkflowActions({
   task: initialTask,
-  variant = "default",
-  evidenceCount: controlledEvidenceCount,
-  stepsRefreshKey = 0,
+  canClose = false,
+  onClose,
+  onReject,
+  onResume,
+  onReschedule,
+  onCancelIncident,
+  isPending = false,
   className,
-  showTitle = true,
-  onActionMessage,
-  onActionError,
 }: TaskOperationalWorkflowActionsProps) {
-  const { getTask, startTask, submitTaskForApproval, detailVersion } = useTasks()
+  const { getTask } = useTasks()
   const task = getTask(initialTask.id) ?? initialTask
-  const usesSteps = hasOperationalSteps(task)
+  const [rescheduleOpen, setRescheduleOpen] = useState(false)
+  const [cancelOpen, setCancelOpen] = useState(false)
 
-  const [evidenceCount, setEvidenceCount] = useState(controlledEvidenceCount ?? 0)
-  const [stepPhotoCounts, setStepPhotoCounts] = useState<Record<string, number>>({})
-  const [isPending, setIsPending] = useState(false)
-  const [internalMessage, setInternalMessage] = useState<string | null>(null)
-  const [internalError, setInternalError] = useState<string | null>(null)
+  const statusDisplay = resolveOperationalStatusDisplay(task)
+  const pendingClosure = isPendingClosureStatus(task.status)
+  const hasIncident = task.status === "incidencia"
+  const showCloseAction = pendingClosure && canClose && onClose
+  const showRejectAction = pendingClosure && canClose && onReject
+  const showIncidentActions =
+    hasIncident && canClose && onResume && onReschedule && onCancelIncident
 
-  useEffect(() => {
-    if (usesSteps) {
-      if (controlledEvidenceCount !== undefined) {
-        return
-      }
-
-      let cancelled = false
-
-      async function loadStepPhotoCounts() {
-        const result = await getOperationalStepPhotoCounts(task.id)
-        if (cancelled) return
-        setStepPhotoCounts(result.data ?? {})
-      }
-
-      void loadStepPhotoCounts()
-
-      return () => {
-        cancelled = true
-      }
-    }
-
-    if (controlledEvidenceCount !== undefined) {
-      setEvidenceCount(controlledEvidenceCount)
-      return
-    }
-
-    if (task.status !== "en-curso") {
-      return
-    }
-
-    let cancelled = false
-
-    async function loadEvidenceCount() {
-      const result = await getTaskEvidencePhotoCount(task.id)
-      if (cancelled) return
-      setEvidenceCount(result.data ?? 0)
-    }
-
-    void loadEvidenceCount()
-
-    return () => {
-      cancelled = true
-    }
-  }, [
-    controlledEvidenceCount,
-    detailVersion,
-    stepsRefreshKey,
-    task.id,
-    task.status,
-    usesSteps,
-  ])
-
-  const closureValidation = validateTaskClosureForSubmit(task, {
-    evidenceCount,
-    stepPhotoCounts,
-  })
-  const closureBlocked = !closureValidation.allowed
-  const showStart = task.status === "asignada"
-  const showRequestClosure = task.status === "en-curso"
-  const hasActions = showStart || showRequestClosure
-
-  function setMessage(message: string | null) {
-    if (onActionMessage) {
-      onActionMessage(message)
-      return
-    }
-    setInternalMessage(message)
-  }
-
-  function setError(message: string | null) {
-    if (onActionError) {
-      onActionError(message)
-      return
-    }
-    setInternalError(message)
-  }
-
-  async function handleStartTask() {
-    setError(null)
-    setMessage(null)
-    setIsPending(true)
-
-    const result = await startTask(task.id)
-    setIsPending(false)
-
-    if (!result.success) {
-      setError(result.message ?? "No se pudo iniciar la tarea.")
-      return
-    }
-
-    setMessage("Trabajo iniciado.")
-  }
-
-  async function handleRequestClosure() {
-    setError(null)
-    setMessage(null)
-
-    if (!closureValidation.allowed) {
-      setError(closureValidation.message ?? "No se puede enviar a validación.")
-      return
-    }
-
-    setIsPending(true)
-    const result = await submitTaskForApproval(task.id)
-    setIsPending(false)
-
-    if (!result.success) {
-      setError(result.message ?? "No se pudo enviar a validación.")
-      return
-    }
-
-    setMessage("Trabajo enviado. Pendiente de validación de cierre.")
-  }
-
-  if (!hasActions && variant === "default") {
-    return null
-  }
-
-  const content = (
-    <div className={cn("space-y-3", className)}>
-      {showTitle && variant === "default" ? (
-        <p className="text-sm text-muted-foreground">
-          Estado actual:{" "}
-          <span className="font-medium text-foreground">
-            {TASK_STATUS_LABELS[task.status]}
-          </span>
-        </p>
-      ) : null}
-
-      {onActionMessage == null && internalMessage ? (
-        <Alert>
-          <CheckCircle2 className="size-4" />
-          <AlertDescription>{internalMessage}</AlertDescription>
-        </Alert>
-      ) : null}
-
-      {onActionError == null && internalError ? (
-        <Alert variant="destructive">
-          <AlertTriangle className="size-4" />
-          <AlertDescription>{internalError}</AlertDescription>
-        </Alert>
-      ) : null}
-
-      {closureBlocked && task.status === "en-curso" ? (
-        <Alert>
-          <AlertTriangle className="size-4" />
-          <AlertDescription>{closureValidation.message}</AlertDescription>
-        </Alert>
-      ) : null}
-
-      {variant === "operario" ? (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {showStart ? (
-            <Button
-              size="lg"
-              className="h-16 gap-2 rounded-2xl text-base font-semibold"
-              onClick={handleStartTask}
-              disabled={isPending}
-            >
-              <Play className="size-5 shrink-0" />
-              Iniciar tarea
-            </Button>
-          ) : null}
-
-          {showRequestClosure ? (
-            <Button
-              size="lg"
-              className="h-16 gap-2 rounded-2xl bg-emerald-600 text-base font-semibold hover:bg-emerald-700"
-              onClick={handleRequestClosure}
-              disabled={isPending || closureBlocked}
-            >
-              <ClipboardCheck className="size-5 shrink-0" />
-              Solicitar cierre
-            </Button>
-          ) : null}
-        </div>
-      ) : (
-        <div className="flex flex-wrap gap-2">
-          {showStart ? (
-            <Button
-              onClick={handleStartTask}
-              disabled={isPending}
-              className="gap-1.5"
-            >
-              <Play className="size-4" />
-              Iniciar tarea
-            </Button>
-          ) : null}
-
-          {showRequestClosure ? (
-            <Button
-              onClick={handleRequestClosure}
-              disabled={isPending || closureBlocked}
-              className="gap-1.5"
-            >
-              <ClipboardCheck className="size-4" />
-              Solicitar cierre
-            </Button>
-          ) : null}
-        </div>
-      )}
-    </div>
-  )
-
-  if (variant === "operario") {
-    return content
-  }
-
-  if (!hasActions) {
-    return null
-  }
+  const cardTone = hasIncident
+    ? "border-red-200/80 bg-red-50/30 dark:border-red-900 dark:bg-red-950/20"
+    : pendingClosure
+      ? "border-amber-200/80 bg-amber-50/30 dark:border-amber-900 dark:bg-amber-950/20"
+      : "border-blue-200/80 bg-blue-50/30 dark:border-blue-900 dark:bg-blue-950/20"
 
   return (
-    <Card className="border-blue-200/80 bg-blue-50/30 shadow-sm dark:border-blue-900 dark:bg-blue-950/20">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base">Acciones Operativas</CardTitle>
-      </CardHeader>
-      <CardContent>{content}</CardContent>
-    </Card>
+    <>
+      <Card className={cn("shadow-sm", cardTone, className)}>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Acciones Operativas</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Estado actual
+            </p>
+            <p className="mt-1 text-base font-semibold text-foreground">
+              {statusDisplay.emoji ? `${statusDisplay.emoji} ` : ""}
+              {statusDisplay.label}
+            </p>
+          </div>
+
+          {hasIncident ? (
+            <div className="space-y-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-lg border bg-background/80 p-3">
+                  <p className="text-xs text-muted-foreground">Motivo</p>
+                  <p className="mt-1 text-sm font-medium">
+                    {resolveIncidentReasonLabel(task.incidentReason)}
+                  </p>
+                </div>
+                <div className="rounded-lg border bg-background/80 p-3">
+                  <p className="text-xs text-muted-foreground">Operario</p>
+                  <p className="mt-1 text-sm font-medium">
+                    {task.incidentReportedBy?.trim() || "—"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded-lg border bg-background/80 p-3">
+                <p className="text-xs text-muted-foreground">Observación</p>
+                <p className="mt-1 whitespace-pre-wrap text-sm">
+                  {task.incidentObservation?.trim() || "—"}
+                </p>
+              </div>
+
+              <div className="rounded-lg border bg-background/80 p-3">
+                <p className="text-xs text-muted-foreground">Fecha</p>
+                <p className="mt-1 text-sm font-medium">
+                  {task.incidentReportedAt
+                    ? formatTaskDateTime(task.incidentReportedAt)
+                    : "—"}
+                </p>
+              </div>
+            </div>
+          ) : null}
+
+          {showCloseAction || showRejectAction ? (
+            <div className="flex flex-wrap gap-2">
+              {showCloseAction ? (
+                <Button
+                  onClick={onClose}
+                  disabled={isPending}
+                  className="gap-1.5"
+                >
+                  <CheckCircle2 className="size-4" />
+                  Cerrar OT
+                </Button>
+              ) : null}
+              {showRejectAction ? (
+                <Button
+                  variant="outline"
+                  onClick={onReject}
+                  disabled={isPending}
+                >
+                  Rechazar cierre
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+
+          {showIncidentActions ? (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                onClick={() => setRescheduleOpen(true)}
+                disabled={isPending}
+                className="gap-1.5"
+              >
+                <CalendarClock className="size-4" />
+                Reprogramar OT
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => void onResume()}
+                disabled={isPending}
+                className="gap-1.5"
+              >
+                <Play className="size-4" />
+                Reanudar OT
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => setCancelOpen(true)}
+                disabled={isPending}
+                className="gap-1.5"
+              >
+                <XCircle className="size-4" />
+                Cancelar OT
+              </Button>
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      {showIncidentActions ? (
+        <>
+          <TaskIncidentRescheduleDialog
+            open={rescheduleOpen}
+            onOpenChange={setRescheduleOpen}
+            currentDueDate={task.dueDate}
+            onConfirm={async (dueDate) => {
+              await onReschedule(dueDate)
+              setRescheduleOpen(false)
+            }}
+            isSubmitting={isPending}
+          />
+
+          <TaskIncidentCancelDialog
+            open={cancelOpen}
+            onOpenChange={setCancelOpen}
+            onConfirm={async (input) => {
+              await onCancelIncident(input)
+              setCancelOpen(false)
+            }}
+            isSubmitting={isPending}
+          />
+        </>
+      ) : null}
+    </>
   )
 }

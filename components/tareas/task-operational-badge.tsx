@@ -1,10 +1,6 @@
 "use client"
 
-import {
-  OPERATIONAL_CATEGORY_BADGE_LABELS,
-  OPERATIONAL_CATEGORY_BADGE_STYLES,
-  resolveOperationalCategory,
-} from "@/lib/tasks/operational-category"
+import { resolveOperationalExecutionBadge } from "@/lib/tasks/operational-category"
 import type { Task } from "@/lib/types/tasks"
 import { STATUS_BADGE_BASE } from "@/lib/ui/visual-tokens"
 import { cn } from "@/lib/utils"
@@ -18,17 +14,13 @@ export function TaskOperationalCategoryBadge({
   task,
   className,
 }: TaskOperationalCategoryBadgeProps) {
-  const category = resolveOperationalCategory(task)
+  const badge = resolveOperationalExecutionBadge(task)
 
   return (
     <span
-      className={cn(
-        STATUS_BADGE_BASE,
-        OPERATIONAL_CATEGORY_BADGE_STYLES[category],
-        className
-      )}
+      className={cn(STATUS_BADGE_BASE, badge.className, className)}
     >
-      {OPERATIONAL_CATEGORY_BADGE_LABELS[category]}
+      {badge.label}
     </span>
   )
 }

@@ -2,9 +2,10 @@
 
 import { useMemo, useState } from "react"
 import Link from "next/link"
-import { AlertTriangle, ArrowLeft, Ban, CheckCircle2, MoreHorizontal } from "lucide-react"
+import { AlertTriangle, ArrowLeft, CheckCircle2, MoreHorizontal } from "lucide-react"
 
 import { useCrews } from "@/components/cuadrillas/crews-provider"
+import { useAuth } from "@/components/auth/auth-provider"
 import { useTasks } from "@/components/tareas/tasks-provider"
 import {
   getCrewsForTaskSelection,
@@ -15,7 +16,6 @@ import { resolveTaskCrewDisplayName } from "@/lib/tasks/crew-relation"
 import { TaskOverviewTab } from "@/components/tareas/task-tabs/overview-tab"
 import { TaskOperationalWorkflowActions } from "@/components/tareas/task-operational-workflow-actions"
 import { TaskClosureRejectDialog } from "@/components/tareas/task-closure-reject-dialog"
-import { TaskClosureValidationCard } from "@/components/tareas/task-closure-validation-card"
 import { TaskEvidencePhotosGallery } from "@/components/tareas/task-evidence-photos-gallery"
 import { TaskChecklistTab } from "@/components/tareas/task-tabs/checklist-tab"
 import { TaskEvidenceTab } from "@/components/tareas/task-tabs/evidence-tab"
@@ -30,7 +30,9 @@ import {
   TaskTypeBadge,
 } from "@/components/tareas/task-badges"
 import { isPendingClosureStatus } from "@/lib/tasks/task-status-workflow"
+import { canCloseWorkOrder } from "@/lib/tasks/task-closure-permissions"
 import { isCancellableTaskStatus, isFinalTaskStatus } from "@/lib/tasks/status-groups"
+import { resolveAuthDisplay } from "@/lib/auth/auth-display"
 import { isFieldServiceTask } from "@/lib/tasks/utils"
 import type { Task, TaskDetail } from "@/lib/types/tasks"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -57,7 +59,9 @@ type TaskDetailViewProps = {
 
 export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
   const { crews, getCrew } = useCrews()
-  const { assignCrew, approveTask, rejectTask, closeTask, cancelTask } = useTasks()
+  const { assignCrew, approveTask, rejectTask, cancelTask, resumeTaskFromIncident, rescheduleTaskFromIncident } = useTasks()
+  const { sessionUser } = useAuth()
+  const actorName = resolveAuthDisplay(sessionUser).displayName
   const crewDisplayName = useMemo(
     () => resolveTaskCrewDisplayName(task, getCrew),
     [task, getCrew]
@@ -107,7 +111,7 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
     }
   }
 
-  async function handleApprove() {
+  async function handleCloseWorkOrder() {
     setActionError(null)
     setActionSuccess(null)
     setIsWorkflowActionPending(true)
@@ -115,11 +119,11 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
     setIsWorkflowActionPending(false)
 
     if (!result.success) {
-      setActionError(result.message ?? "No se pudo aprobar la tarea.")
+      setActionError(result.message ?? "No se pudo cerrar la OT.")
       return
     }
 
-    setActionSuccess("Cierre aprobado. La tarea quedó cerrada.")
+    setActionSuccess("OT cerrada. La tarea quedó finalizada.")
   }
 
   async function handleConfirmReject(reason: string) {
@@ -135,22 +139,62 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
     }
 
     setRejectDialogOpen(false)
-    setActionSuccess("Cierre rechazado. La tarea volvió a En Curso.")
+    setActionSuccess("Cierre rechazado. La tarea volvió a En curso.")
   }
 
-  async function handleClose() {
+  async function handleResumeFromIncident() {
     setActionError(null)
     setActionSuccess(null)
     setIsWorkflowActionPending(true)
-    const result = await closeTask(task.id)
+    const result = await resumeTaskFromIncident(task.id, actorName)
     setIsWorkflowActionPending(false)
 
     if (!result.success) {
-      setActionError(result.message ?? "No se pudo cerrar la tarea.")
+      setActionError(result.message ?? "No se pudo reanudar la OT.")
       return
     }
 
-    setActionSuccess("Tarea cerrada correctamente.")
+    setActionSuccess("OT reanudada. Volvió a En curso.")
+  }
+
+  async function handleRescheduleFromIncident(dueDate: string) {
+    setActionError(null)
+    setActionSuccess(null)
+    setIsWorkflowActionPending(true)
+    const result = await rescheduleTaskFromIncident(task.id, {
+      dueDate,
+      actor: actorName,
+    })
+    setIsWorkflowActionPending(false)
+
+    if (!result.success) {
+      setActionError(result.message ?? "No se pudo reprogramar la OT.")
+      return
+    }
+
+    setActionSuccess("OT reprogramada. Quedó en estado Programada.")
+  }
+
+  async function handleCancelFromIncident(input: {
+    reason: string
+    observation: string
+  }) {
+    setActionError(null)
+    setActionSuccess(null)
+    setIsWorkflowActionPending(true)
+    const result = await cancelTask(task.id, {
+      reason: input.reason,
+      observation: input.observation,
+      actor: actorName,
+    })
+    setIsWorkflowActionPending(false)
+
+    if (!result.success) {
+      setActionError(result.message ?? "No se pudo cancelar la OT.")
+      return
+    }
+
+    setActionSuccess("OT cancelada correctamente.")
   }
 
   async function handleCancel() {
@@ -170,6 +214,8 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
 
   const canCancel = isCancellableTaskStatus(task.status)
   const pendingClosure = isPendingClosureStatus(task.status)
+  const hasIncident = task.status === "incidencia"
+  const canCloseOt = canCloseWorkOrder(sessionUser?.systemRole)
   const usesOperationalSteps = hasOperationalSteps(task)
 
   return (
@@ -256,7 +302,6 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem>Asignar cuadrilla</DropdownMenuItem>
               <DropdownMenuItem>Exportar tarea</DropdownMenuItem>
               <DropdownMenuItem>Duplicar tarea</DropdownMenuItem>
             </DropdownMenuContent>
@@ -285,16 +330,18 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
         </Alert>
       )}
 
-      <TaskOperationalWorkflowActions task={task} />
-
-      {pendingClosure && (
-        <TaskClosureValidationCard
-          task={task}
-          onApprove={handleApprove}
-          onReject={() => setRejectDialogOpen(true)}
-          isPending={isWorkflowActionPending}
-        />
-      )}
+      <TaskOperationalWorkflowActions
+        task={task}
+        canClose={canCloseOt}
+        onClose={pendingClosure ? handleCloseWorkOrder : undefined}
+        onReject={
+          pendingClosure && canCloseOt ? () => setRejectDialogOpen(true) : undefined
+        }
+        onResume={hasIncident ? handleResumeFromIncident : undefined}
+        onReschedule={hasIncident ? handleRescheduleFromIncident : undefined}
+        onCancelIncident={hasIncident ? handleCancelFromIncident : undefined}
+        isPending={isWorkflowActionPending}
+      />
 
       <TaskClosureRejectDialog
         open={rejectDialogOpen}
@@ -303,42 +350,17 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
         isSubmitting={isWorkflowActionPending}
       />
 
-      {task.status === "finalizada" && (
-        <Alert className="border-violet-200 bg-violet-50/60">
-          <CheckCircle2 className="size-4 text-violet-700" />
-          <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <span className="text-sm text-foreground">
-              La tarea fue aprobada. Cierre administrativo para completar el
-              ciclo operativo.
-            </span>
-            <Button
-              size="sm"
-              onClick={handleClose}
-              disabled={isWorkflowActionPending}
-            >
-              Cerrar Tarea
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
-
       {canCancel && (
-        <Alert className="border-red-200 bg-red-50/60">
-          <Ban className="size-4 text-red-700" />
-          <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <span className="text-sm text-foreground">
-              Puede cancelar esta tarea si ya no debe ejecutarse en operaciones.
-            </span>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleCancel}
-              disabled={isWorkflowActionPending}
-            >
-              Cancelar tarea
-            </Button>
-          </AlertDescription>
-        </Alert>
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleCancel}
+            disabled={isWorkflowActionPending}
+          >
+            Cancelar tarea
+          </Button>
+        </div>
       )}
 
       <Tabs defaultValue="overview" className="space-y-4">

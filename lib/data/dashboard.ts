@@ -12,6 +12,7 @@ import {
   buildProjectOperationalMetricsMap,
 } from "@/lib/projects/project-operational-metrics"
 import { getTasksSummary } from "@/lib/data/tasks"
+import { isFieldServiceTask } from "@/lib/tasks/utils"
 import {
   ACTIVE_TASK_STATUSES,
   FINAL_TASK_STATUSES,
@@ -230,6 +231,19 @@ export function buildOperationalAlerts(input: {
     })
   }
 
+  const incidentTasks = input.tasks.filter(
+    (task) => task.status === "incidencia"
+  ).length
+
+  if (incidentTasks > 0) {
+    alerts.push({
+      id: "incident-tasks",
+      severity: "critical",
+      message: `${incidentTasks} OT${incidentTasks === 1 ? "" : "s"} con incidencia`,
+      href: "/tareas?status=incidencia",
+    })
+  }
+
   if (alerts.length === 0) {
     alerts.push({
       id: "all-clear",
@@ -317,33 +331,57 @@ export function buildProjectsStatusKpis(projects: Project[]): DashboardStatusKpi
   ]
 }
 
+export function countWorkOrdersPendingClosure(tasks: Task[]): number {
+  return tasks.filter(
+    (task) =>
+      task.status === "pendiente-cierre" && isFieldServiceTask(task)
+  ).length
+}
+
+export function countWorkOrdersWithIncidents(tasks: Task[]): number {
+  return tasks.filter(
+    (task) => task.status === "incidencia" && isFieldServiceTask(task)
+  ).length
+}
+
 export function buildTasksStatusKpis(tasks: Task[]): DashboardStatusKpi[] {
   const summary = getTasksSummary(tasks)
+  const otPendingClosure = countWorkOrdersPendingClosure(tasks)
+  const otWithIncidents = countWorkOrdersWithIncidents(tasks)
 
-  const entries: { id: string; label: string; key: keyof typeof summary; href: string }[] =
-    [
-      { id: "pendiente", label: "Pendientes", key: "pendiente", href: "/tareas?status=pendiente" },
-      { id: "en-curso", label: "En Curso", key: "enCurso", href: "/tareas?status=en-curso" },
-      {
-        id: "pendiente-cierre",
-        label: "Pendiente de Cierre",
-        key: "pendienteCierre",
-        href: "/tareas?status=pendiente-cierre",
-      },
-      { id: "cerrada", label: "Cerradas", key: "cerrada", href: "/tareas?status=cerrada" },
-      { id: "asignada", label: "Asignadas", key: "asignada", href: "/tareas?status=asignada" },
-      {
-        id: "finalizada",
-        label: "Finalizadas",
-        key: "finalizada",
-        href: "/tareas?status=finalizada",
-      },
-    ]
+  const entries: {
+    id: string
+    label: string
+    value: number
+    href: string
+  }[] = [
+    { id: "pendiente", label: "Pendientes", value: summary.pendiente, href: "/tareas?status=pendiente" },
+    { id: "asignada", label: "Programadas", value: summary.asignada, href: "/tareas?status=asignada" },
+    { id: "en-curso", label: "En curso", value: summary.enCurso, href: "/tareas?status=en-curso" },
+    {
+      id: "incidencia",
+      label: "OT con incidencias",
+      value: otWithIncidents,
+      href: "/tareas?status=incidencia",
+    },
+    {
+      id: "pendiente-cierre",
+      label: "OT pendientes de cierre",
+      value: otPendingClosure,
+      href: "/tareas?status=pendiente-cierre",
+    },
+    {
+      id: "finalizada",
+      label: "Finalizadas",
+      value: summary.finalizada,
+      href: "/tareas?status=finalizada",
+    },
+  ]
 
   return entries.map((entry) => ({
     id: entry.id,
     label: entry.label,
-    value: summary[entry.key],
+    value: entry.value,
     href: entry.href,
   }))
 }

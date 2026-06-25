@@ -2,6 +2,7 @@ export type TaskStatus =
   | "pendiente"
   | "asignada"
   | "en-curso"
+  | "incidencia"
   | "pendiente-cierre"
   | "finalizada"
   | "en-aprobacion"
@@ -72,6 +73,12 @@ export type Task = {
   completedAt?: string | null
   closedAt?: string | null
   rejectionReason?: string
+  incidentReason?: string
+  incidentObservation?: string
+  incidentReportedAt?: string | null
+  incidentReportedBy?: string
+  cancellationReason?: string
+  cancellationObservation?: string
   serviceType?: string | null
   locality?: string | null
   contractedPlan?: string | null

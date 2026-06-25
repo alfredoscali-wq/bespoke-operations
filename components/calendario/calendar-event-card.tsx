@@ -6,6 +6,7 @@ import {
   countOperationalIncidents,
   resolveTaskOperationalTone,
 } from "@/lib/calendar/task-alerts"
+import { TASK_STATUS_LABELS } from "@/lib/tasks/constants"
 import { CREW_AVAILABILITY_STATUS_LABELS } from "@/lib/crews/constants"
 import type { CalendarEvent } from "@/lib/types/calendar"
 import { CALENDAR_EVENT_TONE_STYLES } from "@/lib/ui/visual-tokens"
@@ -22,6 +23,14 @@ function getEventStyles(event: CalendarEvent): string {
       event.payload.status === "pendiente-cierre" ||
       event.payload.status === "en-aprobacion"
     ) {
+      return CALENDAR_EVENT_TONE_STYLES.yellow
+    }
+
+    if (event.payload.status === "incidencia") {
+      return CALENDAR_EVENT_TONE_STYLES.red
+    }
+
+    if (event.payload.status === "en-curso") {
       return "border-orange-200/80 bg-orange-50/90 text-orange-900 hover:bg-orange-100/80 dark:border-orange-800 dark:bg-orange-950/40 dark:text-orange-100"
     }
 
@@ -68,6 +77,18 @@ function getEventMeta(event: CalendarEvent): string {
 export function CalendarEventCard({ event, onClick }: CalendarEventCardProps) {
   const isTask = event.type === "TASK"
   const subtitle = !isTask ? getEventSubtitleLabel(event) : undefined
+  const taskStatusLabel =
+    isTask && event.payload.status === "pendiente-cierre"
+      ? TASK_STATUS_LABELS["pendiente-cierre"]
+      : isTask && event.payload.status === "incidencia"
+        ? TASK_STATUS_LABELS.incidencia
+        : null
+  const taskStatusPrefix =
+    isTask && event.payload.status === "incidencia"
+      ? "🔴 "
+      : isTask && event.payload.status === "pendiente-cierre"
+        ? "🟡 "
+        : ""
   const alertCount = isTask
     ? countOperationalIncidents(event.payload.alerts)
     : 0
@@ -96,6 +117,12 @@ export function CalendarEventCard({ event, onClick }: CalendarEventCardProps) {
       </div>
       {subtitle ? (
         <p className="mt-0.5 truncate text-[11px] opacity-85">{subtitle}</p>
+      ) : null}
+      {taskStatusLabel ? (
+        <p className="mt-1 truncate text-[10px] font-semibold uppercase tracking-wide opacity-90">
+          {taskStatusPrefix}
+          {taskStatusLabel}
+        </p>
       ) : null}
       {!isTask ? (
         <p className="mt-1.5 truncate text-[10px] font-medium uppercase tracking-wide opacity-75">

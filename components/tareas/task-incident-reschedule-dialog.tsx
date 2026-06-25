@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 
+import { toDateOnly } from "@/lib/availability/utils"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -11,63 +12,63 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 
-type TaskClosureRejectDialogProps = {
+type TaskIncidentRescheduleDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onConfirm: (reason: string) => Promise<void>
+  currentDueDate: string
+  onConfirm: (dueDate: string) => Promise<void>
   isSubmitting?: boolean
 }
 
-export function TaskClosureRejectDialog({
+export function TaskIncidentRescheduleDialog({
   open,
   onOpenChange,
+  currentDueDate,
   onConfirm,
   isSubmitting = false,
-}: TaskClosureRejectDialogProps) {
-  const [reason, setReason] = useState("")
+}: TaskIncidentRescheduleDialogProps) {
+  const [dueDate, setDueDate] = useState(currentDueDate)
   const [error, setError] = useState<string | null>(null)
 
   function handleOpenChange(nextOpen: boolean) {
-    if (!nextOpen) {
-      setReason("")
+    if (nextOpen) {
+      setDueDate(currentDueDate)
       setError(null)
     }
     onOpenChange(nextOpen)
   }
 
   async function handleConfirm() {
-    const trimmed = reason.trim()
-    if (!trimmed) {
-      setError("Indique el motivo de rechazo.")
+    if (!dueDate.trim()) {
+      setError("Seleccione una nueva fecha.")
       return
     }
 
     setError(null)
-    await onConfirm(trimmed)
-    setReason("")
+    await onConfirm(dueDate)
   }
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Rechazar cierre</DialogTitle>
+          <DialogTitle>Reprogramar OT</DialogTitle>
           <DialogDescription>
-            La tarea volverá a En curso para que la cuadrilla corrija lo
-            necesario.
+            La OT volverá a Programada con la nueva fecha seleccionada.
           </DialogDescription>
         </DialogHeader>
+
         <div className="space-y-2">
-          <Label htmlFor="closure-reject-reason">Motivo de rechazo</Label>
-          <Textarea
-            id="closure-reject-reason"
-            value={reason}
-            onChange={(event) => setReason(event.target.value)}
-            placeholder="Indique qué debe corregir la cuadrilla"
-            rows={4}
+          <Label htmlFor="incident-reschedule-date">Nueva fecha *</Label>
+          <Input
+            id="incident-reschedule-date"
+            type="date"
+            value={dueDate}
+            min={toDateOnly()}
+            onChange={(event) => setDueDate(event.target.value)}
           />
           {error ? (
             <p className="text-sm text-destructive" role="alert">
@@ -75,6 +76,7 @@ export function TaskClosureRejectDialog({
             </p>
           ) : null}
         </div>
+
         <DialogFooter className="gap-2 sm:gap-0">
           <Button
             type="button"
@@ -82,15 +84,14 @@ export function TaskClosureRejectDialog({
             onClick={() => handleOpenChange(false)}
             disabled={isSubmitting}
           >
-            Cancelar
+            Volver
           </Button>
           <Button
             type="button"
-            variant="destructive"
             onClick={() => void handleConfirm()}
             disabled={isSubmitting}
           >
-            ✖ Rechazar cierre
+            Reprogramar OT
           </Button>
         </DialogFooter>
       </DialogContent>

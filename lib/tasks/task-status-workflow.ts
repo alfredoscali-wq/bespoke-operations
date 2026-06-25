@@ -6,6 +6,9 @@ export type TaskWorkflowAction =
   | "assign-crew"
   | "start"
   | "submit-for-approval"
+  | "report-incident"
+  | "resume-from-incident"
+  | "reschedule-from-incident"
   | "approve"
   | "reject"
   | "close"
@@ -31,7 +34,10 @@ const WORKFLOW_TRANSITIONS: Record<
   "assign-crew": { from: ["pendiente"], to: "asignada" },
   start: { from: ["asignada"], to: "en-curso" },
   "submit-for-approval": { from: ["en-curso"], to: "pendiente-cierre" },
-  approve: { from: PENDING_CLOSURE_STATUSES, to: "cerrada" },
+  "report-incident": { from: ["en-curso"], to: "incidencia" },
+  "resume-from-incident": { from: ["incidencia"], to: "en-curso" },
+  "reschedule-from-incident": { from: ["incidencia"], to: "asignada" },
+  approve: { from: PENDING_CLOSURE_STATUSES, to: "finalizada" },
   reject: { from: PENDING_CLOSURE_STATUSES, to: "en-curso" },
   close: { from: ["finalizada"], to: "cerrada" },
   cancel: {
@@ -39,6 +45,7 @@ const WORKFLOW_TRANSITIONS: Record<
       "pendiente",
       "asignada",
       "en-curso",
+      "incidencia",
       "pendiente-cierre",
       "en-aprobacion",
     ],
@@ -100,14 +107,14 @@ export function validateTaskClosureSubmission(
   if (getIncompleteChecklistItems(task.checklist).length > 0) {
     return {
       allowed: false,
-      message: "Debe completar el checklist antes de finalizar la tarea.",
+      message: "Debe completar el checklist antes de solicitar el cierre.",
     }
   }
 
   if (evidenceCount <= 0) {
     return {
       allowed: false,
-      message: "Debe cargar evidencias antes de finalizar la tarea.",
+      message: "Debe cargar evidencias antes de solicitar el cierre.",
     }
   }
 
@@ -185,8 +192,11 @@ export function getWorkflowHistoryEntry(
   const actionLabels: Record<TaskWorkflowAction, string> = {
     "assign-crew": "Cuadrilla asignada",
     start: "Trabajo iniciado",
-    "submit-for-approval": "Enviado a validación de cierre",
-    approve: "Cierre aprobado",
+    "submit-for-approval": "Cierre solicitado por operario",
+    "report-incident": "Operario reportó incidencia",
+    "resume-from-incident": "OT reanudada",
+    "reschedule-from-incident": "OT reprogramada",
+    approve: "OT cerrada",
     reject: "Cierre rechazado",
     close: "Tarea cerrada",
     cancel: "Tarea cancelada",

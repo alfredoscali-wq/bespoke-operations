@@ -48,6 +48,12 @@ export type UpdateTaskPayload = Partial<{
   installationCost?: number | null
   taskMetadata?: Record<string, unknown>
   rejectionReason?: string | null
+  incidentReason?: string | null
+  incidentObservation?: string | null
+  incidentReportedAt?: string | null
+  incidentReportedBy?: string | null
+  cancellationReason?: string | null
+  cancellationObservation?: string | null
 }>
 
 export type TasksRepositoryErrorCode =

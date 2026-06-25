@@ -21,6 +21,7 @@ const ACTIVE_TASK_STATUSES = [
   "pendiente",
   "asignada",
   "en-curso",
+  "incidencia",
   "pendiente-cierre",
   "en-aprobacion",
 ] as const

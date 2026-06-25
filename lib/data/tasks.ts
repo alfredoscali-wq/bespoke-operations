@@ -597,6 +597,7 @@ export function getTasksSummary(tasks: Task[]) {
     pendiente: tasks.filter((task) => task.status === "pendiente").length,
     asignada: tasks.filter((task) => task.status === "asignada").length,
     enCurso: tasks.filter((task) => task.status === "en-curso").length,
+    incidencia: tasks.filter((task) => task.status === "incidencia").length,
     pendienteCierre: tasks.filter(
       (task) =>
         task.status === "pendiente-cierre" || task.status === "en-aprobacion"
