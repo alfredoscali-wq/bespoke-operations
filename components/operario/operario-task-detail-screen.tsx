@@ -20,7 +20,7 @@ import {
   OperarioTaskLocationCard,
   OperarioTaskReferencePhotos,
 } from "@/components/operario/operario-task-field-sections"
-import { getWorkerTasks } from "@/lib/data/operario"
+import { isOperarioWorkerTaskAccessible } from "@/lib/data/operario"
 import { hasOperationalSteps } from "@/lib/operational-steps/utils"
 import { getTaskTechnologyLabel } from "@/lib/tasks/commercial-plan"
 import {
@@ -49,7 +49,7 @@ export function OperarioTaskDetailScreen({ id }: OperarioTaskDetailScreenProps) 
     assignedCrewNames,
     isCrewReady,
   } = useOperario()
-  const { tasks, getTask } = useTasks()
+  const { getTask } = useTasks()
   const [actionMessage, setActionMessage] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [stepsRefreshKey, setStepsRefreshKey] = useState(0)
@@ -99,10 +99,7 @@ export function OperarioTaskDetailScreen({ id }: OperarioTaskDetailScreenProps) 
     notFound()
   }
 
-  const isAssigned = getWorkerTasks(tasks, workerCrewRef).some(
-    (item) => item.id === id
-  )
-  if (!isAssigned) {
+  if (!isOperarioWorkerTaskAccessible(task, workerCrewRef)) {
     notFound()
   }
 
