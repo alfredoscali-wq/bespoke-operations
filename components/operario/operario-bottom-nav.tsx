@@ -2,25 +2,13 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import {
-  Bell,
-  ClipboardList,
-  Home,
-  User,
-} from "lucide-react"
+import { ClipboardList, Home, User } from "lucide-react"
 
-import { useOperario } from "@/components/operario/operario-provider"
 import { cn } from "@/lib/utils"
 
 const navItems = [
   { href: "/operario", label: "Inicio", icon: Home, exact: true },
   { href: "/operario/tareas", label: "Tareas", icon: ClipboardList },
-  {
-    href: "/operario/notificaciones",
-    label: "Notificaciones",
-    icon: Bell,
-    badge: true,
-  },
   { href: "/operario/perfil", label: "Perfil", icon: User },
 ]
 
@@ -41,7 +29,6 @@ function isNavItemActive(pathname: string, href: string, exact?: boolean) {
 
 export function OperarioBottomNav() {
   const pathname = usePathname()
-  const { unreadCount } = useOperario()
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/90">
@@ -49,7 +36,6 @@ export function OperarioBottomNav() {
         {navItems.map((item) => {
           const isActive = isNavItemActive(pathname, item.href, item.exact)
           const Icon = item.icon
-          const showBadge = item.badge && unreadCount > 0
 
           return (
             <Link
@@ -62,14 +48,7 @@ export function OperarioBottomNav() {
                   : "text-muted-foreground active:bg-muted/60"
               )}
             >
-              <span className="relative">
-                <Icon className={cn("size-5", isActive && "stroke-[2.5]")} />
-                {showBadge && (
-                  <span className="absolute -top-1.5 -right-1.5 flex size-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground">
-                    {unreadCount > 9 ? "9+" : unreadCount}
-                  </span>
-                )}
-              </span>
+              <Icon className={cn("size-5", isActive && "stroke-[2.5]")} />
               {item.label}
             </Link>
           )

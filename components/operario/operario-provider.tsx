@@ -1,20 +1,10 @@
 "use client"
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useMemo,
-  useState,
-} from "react"
+import { createContext, useContext, useMemo } from "react"
 
 import { useAuth } from "@/components/auth/auth-provider"
 import { useCrews } from "@/components/cuadrillas/crews-provider"
-import {
-  mockNotifications,
-  type OperarioNotification,
-  type WorkerCrewRef,
-} from "@/lib/data/operario"
+import type { WorkerCrewRef } from "@/lib/data/operario"
 import {
   createLoadingCrewResolution,
   resolveOperarioWorkerCrew,
@@ -32,10 +22,6 @@ type OperarioContextValue = {
   crewStatus: OperarioCrewStatus
   assignedCrewNames: string[]
   isCrewReady: boolean
-  notifications: OperarioNotification[]
-  unreadCount: number
-  markAsRead: (id: string) => void
-  markAllAsRead: () => void
 }
 
 const OperarioContext = createContext<OperarioContextValue | null>(null)
@@ -43,8 +29,6 @@ const OperarioContext = createContext<OperarioContextValue | null>(null)
 export function OperarioProvider({ children }: { children: React.ReactNode }) {
   const { sessionUser, isAuthReady } = useAuth()
   const { crews, isCrewsReady } = useCrews()
-  const [notifications, setNotifications] =
-    useState<OperarioNotification[]>(mockNotifications)
 
   const identity = useMemo(
     () => resolveOperarioIdentity(sessionUser),
@@ -61,25 +45,6 @@ export function OperarioProvider({ children }: { children: React.ReactNode }) {
     return resolveOperarioWorkerCrew(sessionUser?.employeeId, crews)
   }, [isCrewReady, sessionUser?.employeeId, crews])
 
-  const unreadCount = useMemo(
-    () => notifications.filter((notification) => !notification.read).length,
-    [notifications]
-  )
-
-  const markAsRead = useCallback((id: string) => {
-    setNotifications((current) =>
-      current.map((notification) =>
-        notification.id === id ? { ...notification, read: true } : notification
-      )
-    )
-  }, [])
-
-  const markAllAsRead = useCallback(() => {
-    setNotifications((current) =>
-      current.map((notification) => ({ ...notification, read: true }))
-    )
-  }, [])
-
   const value = useMemo(
     () => ({
       identity,
@@ -88,21 +53,8 @@ export function OperarioProvider({ children }: { children: React.ReactNode }) {
       crewStatus: crewResolution.crewStatus,
       assignedCrewNames: crewResolution.assignedCrewNames,
       isCrewReady,
-      notifications,
-      unreadCount,
-      markAsRead,
-      markAllAsRead,
     }),
-    [
-      identity,
-      isAuthReady,
-      crewResolution,
-      isCrewReady,
-      notifications,
-      unreadCount,
-      markAsRead,
-      markAllAsRead,
-    ]
+    [identity, isAuthReady, crewResolution, isCrewReady]
   )
 
   return (

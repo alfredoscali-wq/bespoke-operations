@@ -1,61 +1,10 @@
 import { taskMatchesCrewId } from "@/lib/tasks/crew-relation"
 import type { Task } from "@/lib/types/tasks"
 
-export type OperarioNotificationType =
-  | "task-assigned"
-  | "comment-received"
-  | "task-approved"
-  | "task-rejected"
-
-export type OperarioNotification = {
-  id: string
-  type: OperarioNotificationType
-  title: string
-  message: string
-  timestamp: string
-  read: boolean
-  taskId?: string
-}
-
 export type WorkerCrewRef = {
   id?: string
   name: string
 }
-
-export const mockNotifications: OperarioNotification[] = [
-  {
-    id: "notif-1",
-    type: "task-assigned",
-    title: "Nueva tarea asignada",
-    message: "Nueva OT asignada a su cuadrilla.",
-    timestamp: "2026-06-12T07:30:00",
-    read: false,
-  },
-  {
-    id: "notif-2",
-    type: "comment-received",
-    title: "Comentario recibido",
-    message: "Ing. Ana Torres: Verificar alineación de la cámara.",
-    timestamp: "2026-06-12T09:00:00",
-    read: false,
-  },
-  {
-    id: "notif-3",
-    type: "task-approved",
-    title: "Tarea aprobada",
-    message: "Una tarea de su cuadrilla fue aprobada por supervisión.",
-    timestamp: "2026-06-10T16:00:00",
-    read: true,
-  },
-  {
-    id: "notif-4",
-    type: "task-rejected",
-    title: "Evidencia rechazada",
-    message: "Ajuste la evidencia y vuelva a solicitar cierre.",
-    timestamp: "2026-06-09T11:30:00",
-    read: true,
-  },
-]
 
 export function getWorkerTasks(tasks: Task[], workerCrew: WorkerCrewRef): Task[] {
   const crewName = workerCrew.name.trim()
