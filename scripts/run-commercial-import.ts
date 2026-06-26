@@ -14,6 +14,8 @@ import {
   readMigrationReviewState,
   readPreparedMigrationDataset,
 } from "@/lib/customers/commercial-migration/review-storage"
+import type { Database } from "@/lib/supabase/database.types"
+import type { SupabaseCustomersClient } from "@/lib/supabase/customers.queries"
 import { createClient } from "@supabase/supabase-js"
 
 function loadEnv() {
@@ -29,9 +31,7 @@ function loadEnv() {
   return { url, key }
 }
 
-async function fetchExistingCustomersForImport(
-  supabase: ReturnType<typeof createClient>
-) {
+async function fetchExistingCustomersForImport(client: SupabaseCustomersClient) {
   const rows: {
     external_customer_code: string | null
     legacy_migration_id: number | null
@@ -40,7 +40,7 @@ async function fetchExistingCustomersForImport(
   let offset = 0
 
   while (true) {
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from("customers")
       .select("external_customer_code, legacy_migration_id")
       .range(offset, offset + pageSize - 1)
@@ -64,7 +64,12 @@ async function fetchExistingCustomersForImport(
 
 async function main() {
   const { url, key } = loadEnv()
-  const supabase = createClient(url, key)
+  const supabase = createClient<Database>(url, key, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  })
 
   const probe = await supabase
     .from("customers")
@@ -94,10 +99,10 @@ async function main() {
 
   const existingCustomers = await fetchExistingCustomersForImport(supabase)
 
-  const existingExternalCodes = new Set(
+  const existingExternalCodes = new Set<string>(
     existingCustomers
       .map((customer) => customer.external_customer_code?.trim().toLowerCase())
-      .filter(Boolean)
+      .filter((value): value is string => Boolean(value))
   )
   const existingLegacyMigrationIds = new Set(
     existingCustomers
