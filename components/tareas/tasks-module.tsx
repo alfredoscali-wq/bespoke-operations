@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { FileSpreadsheet, Plus } from "lucide-react"
 
 import { useCrews } from "@/components/cuadrillas/crews-provider"
@@ -18,6 +19,11 @@ import {
 import type { CreateTaskPayload } from "@/lib/types/supabase/tasks"
 import { buildCrewFilterOptions } from "@/lib/tasks/crew-relation"
 import {
+  parseTaskOperationalCategoryQuery,
+  parseTaskStatusQuery,
+  taskStatusToOperationalCategory,
+} from "@/lib/navigation/query-filters"
+import {
   Card,
   CardContent,
   CardHeader,
@@ -34,8 +40,13 @@ export function TasksModule() {
 }
 
 function TasksModuleContent() {
+  const searchParams = useSearchParams()
   const { tasks, addTask } = useTasks()
-  const { filteredTasks: categoryFilteredTasks, selectedCategory } = useTasksUI()
+  const {
+    filteredTasks: categoryFilteredTasks,
+    selectedCategory,
+    selectCategory,
+  } = useTasksUI()
   const { crews } = useCrews()
   const crewOptions = useMemo(() => buildCrewFilterOptions(crews), [crews])
   const [filters, setFilters] = useState(defaultTaskFilters)
@@ -44,10 +55,17 @@ function TasksModuleContent() {
   const [feedback, setFeedback] = useState<string | null>(null)
 
   useEffect(() => {
-    if (selectedCategory) {
-      setFilters((current) => ({ ...current, status: "all" }))
+    const status = parseTaskStatusQuery(searchParams.get("status"))
+    const category = parseTaskOperationalCategoryQuery(searchParams.get("category"))
+
+    if (status !== "all") {
+      setFilters((current) => ({ ...current, status }))
+      const mappedCategory = taskStatusToOperationalCategory(status)
+      selectCategory(mappedCategory ?? category)
+    } else if (category) {
+      selectCategory(category)
     }
-  }, [selectedCategory])
+  }, [searchParams, selectCategory])
 
   const displayedTasks = useMemo(
     () => filterAndSortTasks(categoryFilteredTasks, filters, crews),

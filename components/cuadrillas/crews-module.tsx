@@ -1,6 +1,7 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { Plus } from "lucide-react"
 
 import { useCrews } from "@/components/cuadrillas/crews-provider"
@@ -17,6 +18,7 @@ import {
   getSupervisorOptions,
 } from "@/lib/crews/utils"
 import type { CrewFilters } from "@/lib/types/crews"
+import { parseCrewStatusQuery } from "@/lib/navigation/query-filters"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -26,12 +28,20 @@ import {
 } from "@/components/ui/card"
 
 export function CrewsModule() {
+  const searchParams = useSearchParams()
   const { crews, addCrew } = useCrews()
   const { getEmployee } = useEmployees()
   const { tasks, projects } = useOperationalData()
   const [filters, setFilters] = useState<CrewFilters>(defaultCrewFilters)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [feedback, setFeedback] = useState<string | null>(null)
+
+  useEffect(() => {
+    const status = parseCrewStatusQuery(searchParams.get("status"))
+    if (status !== "all") {
+      setFilters((current) => ({ ...current, status }))
+    }
+  }, [searchParams])
 
   const listItems = useMemo(
     () => getCrewListItems(crews, tasks, projects),

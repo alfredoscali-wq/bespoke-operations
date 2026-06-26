@@ -16,6 +16,7 @@ import {
   recordCustomerCreateAudit,
   recordCustomerDeleteAudit,
   recordCustomerUpdateAudit,
+  recordCustomerSyncFromWorkOrderAudit,
   recordCustomerValidateAudit,
 } from "@/lib/audit/customers-audit"
 import {
@@ -68,7 +69,10 @@ type CustomersContextValue = {
   createCustomer: (input: NewCustomerInput) => Promise<CustomerMutationResult>
   updateCustomer: (
     id: string,
-    input: UpdateCustomerInput
+    input: UpdateCustomerInput,
+    options?: {
+      syncFromTask?: { id: string; code: string }
+    }
   ) => Promise<CustomerMutationResult>
   deleteCustomer: (id: string) => Promise<CustomerMutationResult>
   removeCustomerLocally: (id: string) => void
@@ -290,7 +294,10 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
   const updateCustomer = useCallback(
     async (
       id: string,
-      input: UpdateCustomerInput
+      input: UpdateCustomerInput,
+      options?: {
+        syncFromTask?: { id: string; code: string }
+      }
     ): Promise<CustomerMutationResult> => {
       if (!usesSupabase) {
         return {
@@ -330,7 +337,15 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
           if (isCustomerArchiveUpdate(input)) {
             recordCustomerArchiveAudit(result.data)
           } else if (existing) {
-            recordCustomerUpdateAudit(existing, input)
+            if (options?.syncFromTask) {
+              recordCustomerSyncFromWorkOrderAudit(
+                existing,
+                input,
+                options.syncFromTask
+              )
+            } else {
+              recordCustomerUpdateAudit(existing, input)
+            }
           }
           invalidateImportIndex()
           await Promise.all([

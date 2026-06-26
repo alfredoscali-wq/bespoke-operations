@@ -2,6 +2,7 @@ import { taskDefaultChecklist } from "@/components/tareas/task-form-dialog"
 import { resolveCrewSnapshotsForAssignment } from "@/lib/tasks/crew-relation"
 import {
   buildWorkOrderCreatePayload,
+  getDefaultWorkOrderForm,
   isNewInstallationWorkOrder,
   requiresCustomerLookup,
   type WorkOrderFormInput,
@@ -60,6 +61,7 @@ function importRowToFormInput(row: WorkOrderImportReviewRow): WorkOrderFormInput
   const { data } = row
 
   return {
+    ...getDefaultWorkOrderForm(),
     serviceType: data.serviceType,
     customerName: data.customerName,
     customerPhone: data.customerPhone,
@@ -90,12 +92,6 @@ function importRowToFormInput(row: WorkOrderImportReviewRow): WorkOrderFormInput
     clientOrderNumber: data.clientOrderNumber,
     province: data.province,
     postalCode: data.postalCode,
-    sharedLocation: "",
-    observationsForCrew: "",
-    contractedPlan: "",
-    amountToCollect: "",
-    latitude: null,
-    longitude: null,
   }
 }
 

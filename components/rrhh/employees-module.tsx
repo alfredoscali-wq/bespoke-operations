@@ -1,6 +1,7 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { Download, FileSpreadsheet, Plus } from "lucide-react"
 
 import { EmployeeFormDialog } from "@/components/rrhh/employee-form-dialog"
@@ -9,6 +10,7 @@ import { EmployeesFiltersBar } from "@/components/rrhh/employees-filters"
 import { useEmployees } from "@/components/rrhh/employees-provider"
 import { EmployeesSummaryCards } from "@/components/rrhh/employees-summary-cards"
 import { EmployeesTable } from "@/components/rrhh/employees-table"
+import { TableRowsSkeleton } from "@/components/ui/kpi-grid-skeleton"
 import { downloadEmployeeImportTemplate } from "@/lib/employees/employee-import/template"
 import {
   buildEmployeeListItems,
@@ -16,7 +18,13 @@ import {
   filterEmployees,
   getDepartmentOptions,
 } from "@/lib/employees/utils"
-import type { EmployeeFilters } from "@/lib/types/employees"
+import {
+  employeeSummaryKeyToFilters,
+  parseEmploymentStatusQuery,
+  parseEmployeeProvisionQuery,
+  parseSystemRoleQuery,
+} from "@/lib/navigation/query-filters"
+import type { EmployeeFilters, EmployeeSummary } from "@/lib/types/employees"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -27,10 +35,34 @@ import {
 
 export function EmployeesModule() {
   const { employees, addEmployee } = useEmployees()
+  const searchParams = useSearchParams()
   const [filters, setFilters] = useState<EmployeeFilters>(defaultEmployeeFilters)
+  const [activeKpi, setActiveKpi] = useState<keyof EmployeeSummary | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [feedback, setFeedback] = useState<string | null>(null)
+  const [isHydratingFilters, setIsHydratingFilters] = useState(true)
+
+  useEffect(() => {
+    const employmentStatus = parseEmploymentStatusQuery(
+      searchParams.get("employmentStatus")
+    )
+    const systemRole = parseSystemRoleQuery(searchParams.get("systemRole"))
+    const provision = parseEmployeeProvisionQuery(searchParams.get("provision"))
+    const systemAccessParam = searchParams.get("systemAccess")
+
+    setFilters((current) => ({
+      ...current,
+      employmentStatus,
+      systemRole,
+      provision,
+      systemAccess:
+        systemAccessParam === "with" || systemAccessParam === "without"
+          ? systemAccessParam
+          : current.systemAccess,
+    }))
+    setIsHydratingFilters(false)
+  }, [searchParams])
 
   const listItems = useMemo(
     () => buildEmployeeListItems(employees),
@@ -46,6 +78,15 @@ export function EmployeesModule() {
     () => filterEmployees(listItems, filters),
     [listItems, filters]
   )
+
+  function handleKpiClick(key: keyof EmployeeSummary) {
+    const nextFilters = {
+      ...defaultEmployeeFilters,
+      ...employeeSummaryKeyToFilters(key),
+    }
+    setFilters(nextFilters)
+    setActiveKpi(key)
+  }
 
   async function handleCreateEmployee(
     input: Parameters<typeof addEmployee>[0]
@@ -97,7 +138,11 @@ export function EmployeesModule() {
         </div>
       </div>
 
-      <EmployeesSummaryCards employees={employees} />
+      <EmployeesSummaryCards
+        employees={employees}
+        activeKpi={activeKpi}
+        onKpiClick={handleKpiClick}
+      />
 
       <Card className="shadow-sm">
         <CardHeader className="border-b py-3">
@@ -106,11 +151,18 @@ export function EmployeesModule() {
         <CardContent className="space-y-3 pt-3">
           <EmployeesFiltersBar
             filters={filters}
-            onChange={setFilters}
+            onChange={(next) => {
+              setFilters(next)
+              setActiveKpi(null)
+            }}
             resultCount={filteredEmployees.length}
             departments={departments}
           />
-          <EmployeesTable employees={filteredEmployees} />
+          {isHydratingFilters && employees.length === 0 ? (
+            <TableRowsSkeleton rows={8} columns={6} />
+          ) : (
+            <EmployeesTable employees={filteredEmployees} />
+          )}
         </CardContent>
       </Card>
 

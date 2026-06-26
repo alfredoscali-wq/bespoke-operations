@@ -1,9 +1,9 @@
-import Link from "next/link"
 import type { LucideIcon } from "lucide-react"
 
 import type { DashboardStatusKpi } from "@/lib/data/dashboard"
 import type { VisualTone } from "@/lib/ui/visual-tokens"
-import { KpiCard } from "@/components/ui/kpi-card"
+import { FilterableKpiCard } from "@/components/ui/filterable-kpi-card"
+import { KpiCardGrid } from "@/components/ui/kpi-card-grid"
 import {
   Card,
   CardContent,
@@ -19,6 +19,7 @@ type DashboardStatusSectionProps = {
   icons: Record<string, LucideIcon>
   tones: Record<string, VisualTone>
   columnsClassName?: string
+  layout?: "standard" | "wide"
 }
 
 export function DashboardStatusSection({
@@ -27,7 +28,7 @@ export function DashboardStatusSection({
   kpis,
   icons,
   tones,
-  columnsClassName = "sm:grid-cols-2 xl:grid-cols-4",
+  layout = "standard",
 }: DashboardStatusSectionProps) {
   return (
     <Card className="shadow-sm">
@@ -36,28 +37,23 @@ export function DashboardStatusSection({
         <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent className="pt-4">
-        <div className={`grid gap-5 ${columnsClassName}`}>
+        <KpiCardGrid layout={layout}>
           {kpis.map((kpi) => {
             const Icon = icons[kpi.id]
             const tone = tones[kpi.id] ?? "neutral"
 
             return (
-              <Link
+              <FilterableKpiCard
                 key={kpi.id}
+                label={kpi.label}
+                value={kpi.value}
+                icon={Icon}
+                tone={tone}
                 href={kpi.href}
-                className="rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-              >
-                <KpiCard
-                  label={kpi.label}
-                  value={kpi.value}
-                  icon={Icon}
-                  tone={tone}
-                  className="h-full transition-shadow hover:shadow-md"
-                />
-              </Link>
+              />
             )
           })}
-        </div>
+        </KpiCardGrid>
       </CardContent>
     </Card>
   )

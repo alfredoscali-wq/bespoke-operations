@@ -92,6 +92,30 @@ export function recordCustomerUpdateAudit(before: Customer, input: UpdateCustome
   })
 }
 
+export function recordCustomerSyncFromWorkOrderAudit(
+  before: Customer,
+  input: UpdateCustomerInput,
+  task: { id: string; code: string }
+) {
+  void recordAuditEventClient({
+    module: AUDIT_MODULES.CLIENTES,
+    action: AUDIT_ACTIONS.CUSTOMER_UPDATE,
+    entityType: AUDIT_ENTITY_TYPES.CUSTOMER,
+    entityId: before.id,
+    entityLabel: resolveCustomerEntityLabel(before),
+    description: buildAuditDescription({
+      action: AUDIT_ACTIONS.CUSTOMER_UPDATE,
+      entityLabel: resolveCustomerEntityLabel(before),
+    }),
+    metadata: {
+      ...buildCustomerUpdateChangeMetadata(before, input),
+      syncSource: "work-order",
+      taskId: task.id,
+      taskCode: task.code,
+    },
+  })
+}
+
 export function recordCustomerArchiveAudit(
   customer: Pick<Customer, "id" | "name" | "customerNumber" | "externalCustomerCode">
 ) {

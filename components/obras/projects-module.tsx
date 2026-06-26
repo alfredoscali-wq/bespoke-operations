@@ -16,7 +16,11 @@ import {
   ProjectsUIProvider,
   useProjectsUI,
 } from "@/components/obras/projects-ui-provider"
-import { parseProjectStatusQuery } from "@/lib/navigation/query-filters"
+import {
+  parseProjectHealthQuery,
+  parseProjectOperationalCategoryQuery,
+  parseProjectStatusQuery,
+} from "@/lib/navigation/query-filters"
 import {
   Card,
   CardContent,
@@ -35,27 +39,44 @@ export function ProjectsModule() {
 function ProjectsModuleContent() {
   const searchParams = useSearchParams()
   const { projects, addProject } = useProjects()
-  const { filteredProjects: categoryFilteredProjects, selectedCategory } =
-    useProjectsUI()
+  const {
+    filteredProjects: categoryFilteredProjects,
+    selectedCategory,
+    selectCategory,
+    metricsByProjectId,
+  } = useProjectsUI()
   const [filters, setFilters] = useState(defaultProjectFilters)
 
   useEffect(() => {
     const status = parseProjectStatusQuery(searchParams.get("status"))
-    if (status !== "all") {
-      setFilters((current) => ({ ...current, status }))
-    }
-  }, [searchParams])
+    const health = parseProjectHealthQuery(searchParams.get("health"))
+    const category = parseProjectOperationalCategoryQuery(
+      searchParams.get("category")
+    )
 
-  useEffect(() => {
-    if (selectedCategory) {
-      setFilters((current) => ({ ...current, status: "all" }))
-    }
-  }, [selectedCategory])
+    setFilters((current) => ({
+      ...current,
+      ...(status !== "all" ? { status } : {}),
+      ...(health !== "all" ? { health } : {}),
+    }))
 
-  const displayedProjects = useMemo(
-    () => filterProjects(categoryFilteredProjects, filters),
-    [categoryFilteredProjects, filters]
-  )
+    if (category) {
+      selectCategory(category)
+    }
+  }, [searchParams, selectCategory])
+
+  const displayedProjects = useMemo(() => {
+    const filtered = filterProjects(categoryFilteredProjects, filters)
+
+    if (filters.health === "all") {
+      return filtered
+    }
+
+    return filtered.filter((project) => {
+      const metrics = metricsByProjectId.get(project.id)
+      return metrics?.health === filters.health
+    })
+  }, [categoryFilteredProjects, filters, metricsByProjectId])
 
   return (
     <div className="space-y-8">

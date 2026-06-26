@@ -9,8 +9,11 @@ import { useTasks } from "@/components/tareas/tasks-provider"
 import { getOperationalStepPhotoCounts, getTaskEvidencePhotoCount } from "@/lib/supabase/task-photos.browser"
 import { hasOperationalSteps } from "@/lib/operational-steps/utils"
 import { isIncidentStatus } from "@/lib/tasks/incidents"
-import { isPendingClosureStatus } from "@/lib/tasks/task-status-workflow"
-import { validateTaskClosureForSubmit } from "@/lib/tasks/task-status-workflow"
+import { OverdueTaskInfoPanel } from "@/components/tareas/overdue-task-info-panel"
+import {
+  isPendingClosureStatus,
+  validateTaskClosureForSubmit,
+} from "@/lib/tasks/task-status-workflow"
 import type { Task } from "@/lib/types/tasks"
 import { Button } from "@/components/ui/button"
 
@@ -86,13 +89,8 @@ export function OperarioTaskClosureFooter({
   if (hasOverdue) {
     return (
       <div className="fixed inset-x-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom,0px))] z-40 border-t border-red-200 bg-red-50/95 px-4 py-4 backdrop-blur supports-[backdrop-filter]:bg-red-50/90 dark:border-red-900 dark:bg-red-950/90">
-        <div className="mx-auto max-w-lg space-y-1">
-          <p className="text-base font-semibold text-red-900 dark:text-red-100">
-            🔴 OT vencida
-          </p>
-          <p className="text-sm text-red-800 dark:text-red-200">
-            Debe reprogramarse antes de iniciar la orden de trabajo.
-          </p>
+        <div className="mx-auto max-w-lg">
+          <OverdueTaskInfoPanel task={task} compact />
         </div>
       </div>
     )

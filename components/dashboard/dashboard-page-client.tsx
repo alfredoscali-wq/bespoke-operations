@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   AlertTriangle,
   Ban,
@@ -18,6 +18,7 @@ import {
 } from "lucide-react"
 
 import { useAvailability } from "@/components/disponibilidad/availability-provider"
+import { DashboardPageSkeleton } from "@/components/dashboard/dashboard-page-skeleton"
 import { DashboardDayOperations } from "@/components/dashboard/dashboard-day-operations"
 import { DashboardExecutiveSummary } from "@/components/dashboard/dashboard-executive-summary"
 import { DashboardOperationalAlerts } from "@/components/dashboard/dashboard-operational-alerts"
@@ -96,6 +97,7 @@ const CREW_TONES = {
 } as const
 
 export function DashboardPageClient() {
+  const [isHydrating, setIsHydrating] = useState(true)
   const { profile } = useOperationalProfile()
   const { projects } = useProjects()
   const { tasks } = useTasks()
@@ -103,6 +105,10 @@ export function DashboardPageClient() {
   const { crews } = useCrews()
   const { records: availabilityRecords } = useAvailability()
   const { getEmployee } = useEmployees()
+
+  useEffect(() => {
+    setIsHydrating(false)
+  }, [])
 
   const crewAvailabilityContext = useMemo(
     () => ({
@@ -180,6 +186,10 @@ export function DashboardPageClient() {
   const show = (section: Parameters<typeof profileShowsDashboardSection>[1]) =>
     profileShowsDashboardSection(profile, section)
 
+  if (isHydrating) {
+    return <DashboardPageSkeleton />
+  }
+
   return (
     <div className="space-y-8">
       {profile !== "rrhh" ? <DashboardOperationalHeader /> : null}
@@ -222,7 +232,7 @@ export function DashboardPageClient() {
           kpis={tasksStatus}
           icons={TASK_ICONS}
           tones={TASK_TONES}
-          columnsClassName="sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6"
+          layout="wide"
         />
       ) : null}
 

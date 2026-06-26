@@ -7,8 +7,8 @@ import {
 } from "@/lib/projects/operational-project-category"
 import type { Project } from "@/lib/types/projects"
 import type { Task } from "@/lib/types/tasks"
-import { STATUS_BADGE_BASE } from "@/lib/ui/visual-tokens"
 import { cn } from "@/lib/utils"
+import { StatusBadge } from "@/components/ui/status-badge"
 
 type ProjectOperationalCategoryBadgeProps = {
   project: Project
@@ -24,14 +24,13 @@ export function ProjectOperationalCategoryBadge({
   const category = resolveOperationalProjectCategory(project, tasks)
 
   return (
-    <span
+    <StatusBadge
       className={cn(
-        STATUS_BADGE_BASE,
         OPERATIONAL_PROJECT_CATEGORY_BADGE_STYLES[category],
         className
       )}
     >
       {OPERATIONAL_PROJECT_CATEGORY_BADGE_LABELS[category]}
-    </span>
+    </StatusBadge>
   )
 }

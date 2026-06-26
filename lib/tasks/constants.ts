@@ -11,7 +11,7 @@ import { STATUS_TONE_STYLES } from "@/lib/ui/visual-tokens"
 
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   pendiente: "Pendiente",
-  asignada: "Programada",
+  asignada: "Asignada",
   vencida: "Vencida",
   "en-curso": "En curso",
   incidencia: "Incidencia",
@@ -22,14 +22,13 @@ export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   cancelada: "Cancelada",
 }
 
-export const TASK_EN_CURSO_STYLE =
-  "border-orange-200/80 bg-orange-50 text-orange-900 dark:border-orange-800 dark:bg-orange-950/40 dark:text-orange-200"
+export const TASK_EN_CURSO_STYLE = STATUS_TONE_STYLES.yellow
 
 export const TASK_STATUS_STYLES: Record<TaskStatus, string> = {
   pendiente: STATUS_TONE_STYLES.gray,
   asignada: STATUS_TONE_STYLES.blue,
   vencida: STATUS_TONE_STYLES.red,
-  "en-curso": TASK_EN_CURSO_STYLE,
+  "en-curso": STATUS_TONE_STYLES.yellow,
   incidencia: STATUS_TONE_STYLES.red,
   "pendiente-cierre": STATUS_TONE_STYLES.yellow,
   finalizada: STATUS_TONE_STYLES.green,

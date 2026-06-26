@@ -12,6 +12,10 @@ import type { EmployeeFilters } from "@/lib/types/employees"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
+  FILTER_SEARCH_INPUT_CLASS,
+  FILTER_SELECT_TRIGGER_CLASS,
+} from "@/lib/ui/visual-tokens"
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -37,7 +41,8 @@ export function EmployeesFiltersBar({
     filters.employmentStatus !== "all" ||
     filters.department !== "all" ||
     filters.systemRole !== "all" ||
-    filters.systemAccess !== "all"
+    filters.systemAccess !== "all" ||
+    filters.provision !== "all"
 
   function update<K extends keyof EmployeeFilters>(
     key: K,
@@ -58,7 +63,7 @@ export function EmployeesFiltersBar({
           value={filters.search}
           onChange={(event) => update("search", event.target.value)}
           placeholder="Buscar por código, nombre, apellido, DNI, email o cargo..."
-          className="h-9 bg-background pl-8"
+          className={FILTER_SEARCH_INPUT_CLASS}
         />
       </div>
 
@@ -69,7 +74,7 @@ export function EmployeesFiltersBar({
             update("employmentStatus", value as EmployeeFilters["employmentStatus"])
           }
         >
-          <SelectTrigger className="h-9 w-full bg-background">
+          <SelectTrigger className={FILTER_SELECT_TRIGGER_CLASS}>
             <SelectValue placeholder="Estado laboral" />
           </SelectTrigger>
           <SelectContent>
@@ -86,7 +91,7 @@ export function EmployeesFiltersBar({
           value={filters.department}
           onValueChange={(value) => update("department", value)}
         >
-          <SelectTrigger className="h-9 w-full bg-background">
+          <SelectTrigger className={FILTER_SELECT_TRIGGER_CLASS}>
             <SelectValue placeholder="Departamento" />
           </SelectTrigger>
           <SelectContent>
@@ -105,7 +110,7 @@ export function EmployeesFiltersBar({
             update("systemRole", value as EmployeeFilters["systemRole"])
           }
         >
-          <SelectTrigger className="h-9 w-full bg-background">
+          <SelectTrigger className={FILTER_SELECT_TRIGGER_CLASS}>
             <SelectValue placeholder="Rol del sistema" />
           </SelectTrigger>
           <SelectContent>
@@ -124,7 +129,7 @@ export function EmployeesFiltersBar({
             update("systemAccess", value as EmployeeFilters["systemAccess"])
           }
         >
-          <SelectTrigger className="h-9 w-full bg-background">
+          <SelectTrigger className={FILTER_SELECT_TRIGGER_CLASS}>
             <SelectValue placeholder="Acceso al sistema" />
           </SelectTrigger>
           <SelectContent>

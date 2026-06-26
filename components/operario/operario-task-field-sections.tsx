@@ -10,6 +10,8 @@ import {
   formatAmountToCollectDisplay,
   getTaskTechnologyLabel,
 } from "@/lib/tasks/commercial-plan"
+import { isCambioDomicilioTask, parseCambioDomicilioFromTask } from "@/lib/tasks/cambio-domicilio"
+import { buildGoogleMapsNavigationUrl, hasCoordinates } from "@/lib/gps"
 import type { Task } from "@/lib/types/tasks"
 import type { TaskPhoto } from "@/lib/types/task-photos"
 import { Button } from "@/components/ui/button"
@@ -79,6 +81,80 @@ type OperarioTaskLocationCardProps = {
 }
 
 export function OperarioTaskLocationCard({ task }: OperarioTaskLocationCardProps) {
+  if (isCambioDomicilioTask(task)) {
+    const details = parseCambioDomicilioFromTask(task)
+
+    return (
+      <section className="space-y-3">
+        {[
+          { title: "Domicilio actual", location: details.current },
+          { title: "Domicilio nuevo", location: details.new },
+        ].map(({ title, location }) => (
+          <div
+            key={title}
+            className="rounded-xl border bg-card px-4 py-3 shadow-sm"
+          >
+            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {title}
+            </h2>
+            <div className="space-y-2">
+              {location.address ? (
+                <div>
+                  <p className="text-xs text-muted-foreground">Dirección</p>
+                  <p className="text-sm font-medium leading-snug text-foreground">
+                    {location.address}
+                  </p>
+                </div>
+              ) : null}
+              {location.locality ? (
+                <div>
+                  <p className="text-xs text-muted-foreground">Localidad</p>
+                  <p className="text-sm font-medium leading-snug text-foreground">
+                    {location.locality}
+                  </p>
+                </div>
+              ) : null}
+              {hasCoordinates(location.latitude, location.longitude) ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-10 w-full gap-2 rounded-lg text-sm font-semibold"
+                  onClick={() =>
+                    window.open(
+                      buildGoogleMapsNavigationUrl(
+                        location.latitude as number,
+                        location.longitude as number
+                      ),
+                      "_blank",
+                      "noopener,noreferrer"
+                    )
+                  }
+                >
+                  <Navigation className="size-4" />
+                  Navegar
+                </Button>
+              ) : location.sharedLocation ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-10 w-full gap-2 rounded-lg text-sm font-semibold"
+                  onClick={() =>
+                    window.open(location.sharedLocation, "_blank", "noopener,noreferrer")
+                  }
+                >
+                  <Navigation className="size-4" />
+                  Abrir ubicación
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        ))}
+      </section>
+    )
+  }
+
   const address = task.serviceAddress?.trim()
   const locality = task.locality?.trim()
   const sharedLocation = task.sharedLocation?.trim()

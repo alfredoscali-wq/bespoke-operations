@@ -19,6 +19,7 @@ import type { Task } from "@/lib/types/tasks"
 type TasksUIContextValue = {
   selectedCategory: OperationalTaskCategory | null
   openCategory: (category: OperationalTaskCategory) => void
+  selectCategory: (category: OperationalTaskCategory | null) => void
   closeCategory: () => void
   filteredTasks: Task[]
   operationalSummary: Record<OperationalTaskCategory, number>
@@ -48,6 +49,13 @@ export function TasksUIProvider({ children }: { children: React.ReactNode }) {
     setSelectedCategory((current) => (current === category ? null : category))
   }, [])
 
+  const selectCategory = useCallback(
+    (category: OperationalTaskCategory | null) => {
+      setSelectedCategory(category)
+    },
+    []
+  )
+
   const closeCategory = useCallback(() => {
     setSelectedCategory(null)
   }, [])
@@ -56,6 +64,7 @@ export function TasksUIProvider({ children }: { children: React.ReactNode }) {
     () => ({
       selectedCategory,
       openCategory,
+      selectCategory,
       closeCategory,
       filteredTasks,
       operationalSummary,
@@ -63,6 +72,7 @@ export function TasksUIProvider({ children }: { children: React.ReactNode }) {
     [
       selectedCategory,
       openCategory,
+      selectCategory,
       closeCategory,
       filteredTasks,
       operationalSummary,

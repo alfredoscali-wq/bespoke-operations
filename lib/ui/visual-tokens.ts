@@ -77,3 +77,23 @@ export const CALENDAR_EVENT_TONE_STYLES: Record<VisualTone, string> = {
   neutral:
     "border-border/80 bg-muted/40 text-foreground hover:bg-muted/60",
 }
+
+/** Shared KPI card interaction — pointer, hover lift, consistent height. */
+export const KPI_CARD_INTERACTION_CLASS =
+  "h-full min-h-[7.5rem] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+
+/** Compact KPI cards (RRHH summary). */
+export const KPI_CARD_COMPACT_INTERACTION_CLASS =
+  "h-full min-h-[4.5rem] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+
+/** Module filter bar layout tokens. */
+export const FILTER_BAR_CLASS = "space-y-3"
+
+export const FILTER_SEARCH_INPUT_CLASS = "h-9 bg-background pl-8"
+
+export const FILTER_SELECT_TRIGGER_CLASS = "h-9 w-full bg-background"
+
+export const FILTER_RESULT_COUNT_CLASS = "text-xs text-muted-foreground"
+
+export const FILTER_CLEAR_BUTTON_CLASS =
+  "text-xs font-medium text-primary transition-colors hover:text-primary/80 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 rounded-sm"

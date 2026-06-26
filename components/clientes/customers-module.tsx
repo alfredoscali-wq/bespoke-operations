@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { ChevronLeft, ChevronRight, FileSpreadsheet, Plus } from "lucide-react"
 
 import { useAuth } from "@/components/auth/auth-provider"
@@ -17,7 +18,9 @@ import {
 } from "@/components/clientes/customers-filters"
 import { CustomersList } from "@/components/clientes/customers-list"
 import { CustomersSummary } from "@/components/clientes/customers-summary"
+import { TableRowsSkeleton } from "@/components/ui/kpi-grid-skeleton"
 import { resolveAuthDisplay } from "@/lib/auth/auth-display"
+import { parseCustomerQuickFilterQuery } from "@/lib/navigation/query-filters"
 import { DEFAULT_CUSTOMER_PAGE_SIZE } from "@/lib/customers/customer-list"
 import type { CustomerQuickFilter } from "@/lib/customers/customer-operational"
 import type { Customer, CustomerListRow } from "@/lib/types/customers"
@@ -38,6 +41,7 @@ export function CustomersModule() {
 }
 
 function CustomersModuleContent() {
+  const searchParams = useSearchParams()
   const {
     isCustomersReady,
     isListLoading,
@@ -63,6 +67,15 @@ function CustomersModuleContent() {
     useState<CustomerListRow | null>(null)
   const [importOpen, setImportOpen] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    const quickFilter = parseCustomerQuickFilterQuery(searchParams.get("filter"))
+    setFilters((current) =>
+      current.quickFilter === quickFilter
+        ? current
+        : { ...current, quickFilter }
+    )
+  }, [searchParams])
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -221,9 +234,7 @@ function CustomersModuleContent() {
           />
 
           {!isCustomersReady || isListLoading ? (
-            <div className="rounded-xl border border-dashed bg-muted/20 px-6 py-12 text-center text-sm text-muted-foreground">
-              Cargando clientes...
-            </div>
+            <TableRowsSkeleton rows={8} columns={5} />
           ) : (
             <>
               <CustomersList

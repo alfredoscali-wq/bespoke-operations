@@ -29,6 +29,7 @@ import type { Project } from "@/lib/types/projects"
 type ProjectsUIContextValue = {
   selectedCategory: OperationalProjectCategory | null
   openCategory: (category: OperationalProjectCategory) => void
+  selectCategory: (category: OperationalProjectCategory | null) => void
   closeCategory: () => void
   filteredProjects: Project[]
   operationalSummary: Record<OperationalProjectCategory, number>
@@ -78,6 +79,13 @@ export function ProjectsUIProvider({ children }: { children: React.ReactNode }) 
     setSelectedCategory((current) => (current === category ? null : category))
   }, [])
 
+  const selectCategory = useCallback(
+    (category: OperationalProjectCategory | null) => {
+      setSelectedCategory(category)
+    },
+    []
+  )
+
   const closeCategory = useCallback(() => {
     setSelectedCategory(null)
   }, [])
@@ -86,6 +94,7 @@ export function ProjectsUIProvider({ children }: { children: React.ReactNode }) 
     () => ({
       selectedCategory,
       openCategory,
+      selectCategory,
       closeCategory,
       filteredProjects,
       operationalSummary,
@@ -95,6 +104,7 @@ export function ProjectsUIProvider({ children }: { children: React.ReactNode }) 
     [
       selectedCategory,
       openCategory,
+      selectCategory,
       closeCategory,
       filteredProjects,
       operationalSummary,

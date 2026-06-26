@@ -2,8 +2,8 @@
 
 import { resolveOperationalExecutionBadge } from "@/lib/tasks/operational-category"
 import type { Task } from "@/lib/types/tasks"
-import { STATUS_BADGE_BASE } from "@/lib/ui/visual-tokens"
 import { cn } from "@/lib/utils"
+import { StatusBadge } from "@/components/ui/status-badge"
 
 type TaskOperationalCategoryBadgeProps = {
   task: Task
@@ -17,10 +17,8 @@ export function TaskOperationalCategoryBadge({
   const badge = resolveOperationalExecutionBadge(task)
 
   return (
-    <span
-      className={cn(STATUS_BADGE_BASE, badge.className, className)}
-    >
+    <StatusBadge className={cn(badge.className, className)}>
       {badge.label}
-    </span>
+    </StatusBadge>
   )
 }

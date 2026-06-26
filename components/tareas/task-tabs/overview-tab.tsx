@@ -33,6 +33,10 @@ import {
   isNewInstallationTask,
 } from "@/lib/tasks/commercial-plan"
 import { isWorkOrderTask } from "@/lib/tasks/work-order"
+import { isCambioDomicilioTask } from "@/lib/tasks/cambio-domicilio"
+import { isTaskVencida } from "@/lib/tasks/vencida-status"
+import { OverdueTaskInfoPanel } from "@/components/tareas/overdue-task-info-panel"
+import { WorkOrderCambioDomicilioDetail } from "@/components/tareas/work-order-cambio-domicilio-detail"
 import { isFieldServiceTask } from "@/lib/tasks/utils"
 import { TaskEvidenceSummary } from "@/components/evidencias/task-evidence-summary"
 import { TaskMaterialsPanel } from "@/components/materiales/task-materials-panel"
@@ -263,6 +267,18 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
           <CardDescription>{liveTask.description}</CardDescription>
         </CardHeader>
         <CardContent>
+          {isTaskVencida(liveTask) ? (
+            <div className="mb-4">
+              <OverdueTaskInfoPanel task={liveTask} compact />
+            </div>
+          ) : null}
+
+          {isCambioDomicilioTask(liveTask) ? (
+            <div className="mb-4">
+              <WorkOrderCambioDomicilioDetail task={liveTask} />
+            </div>
+          ) : null}
+
           <div className="grid gap-4 sm:grid-cols-2">
             {infoItems.map((item) => {
               const Icon = item.icon

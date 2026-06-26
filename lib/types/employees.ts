@@ -98,6 +98,7 @@ export type EmployeeFilters = {
   department: string | "all"
   systemRole: SystemRole | "all"
   systemAccess: EmployeeSystemAccessFilter
+  provision: "all" | "pending" | "provisioned"
 }
 
 export type NewEmployeeInput = {

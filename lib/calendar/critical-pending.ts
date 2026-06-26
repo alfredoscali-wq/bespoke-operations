@@ -9,6 +9,7 @@ export type CriticalPendingTask = {
   projectCode: string
   projectName: string
   crewName: string
+  supervisorName: string
   dueDate: string
   status: TaskStatus
 }
@@ -41,6 +42,7 @@ export function getCriticalPendingTasks(
       projectCode: task.projectCode,
       projectName: task.projectName,
       crewName: task.crew || "—",
+      supervisorName: task.supervisor?.trim() || "—",
       dueDate: task.dueDate,
       status: task.status,
     }))

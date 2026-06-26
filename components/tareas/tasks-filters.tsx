@@ -20,6 +20,10 @@ import { compareDateOnly } from "@/lib/dates/date-only"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
+  FILTER_SEARCH_INPUT_CLASS,
+  FILTER_SELECT_TRIGGER_CLASS,
+} from "@/lib/ui/visual-tokens"
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -124,7 +128,7 @@ export function TasksFiltersBar({
                 ? "Buscar por código, cliente o dirección..."
                 : "Buscar por código, OT u obra..."
             }
-            className="h-9 bg-background pl-8"
+            className={FILTER_SEARCH_INPUT_CLASS}
           />
         </div>
 
@@ -142,7 +146,7 @@ export function TasksFiltersBar({
                 update("status", value as TaskFilters["status"])
               }
             >
-              <SelectTrigger className="h-9 w-full bg-background">
+              <SelectTrigger className={FILTER_SELECT_TRIGGER_CLASS}>
                 <SelectValue placeholder="Estado" />
               </SelectTrigger>
               <SelectContent>
@@ -162,7 +166,7 @@ export function TasksFiltersBar({
               update("type", value as TaskFilters["type"])
             }
           >
-            <SelectTrigger className="h-9 w-full bg-background">
+            <SelectTrigger className={FILTER_SELECT_TRIGGER_CLASS}>
               <SelectValue placeholder="Tipo" />
             </SelectTrigger>
             <SelectContent>
@@ -181,7 +185,7 @@ export function TasksFiltersBar({
               update("priority", value as TaskFilters["priority"])
             }
           >
-            <SelectTrigger className="h-9 w-full bg-background">
+            <SelectTrigger className={FILTER_SELECT_TRIGGER_CLASS}>
               <SelectValue placeholder="Prioridad" />
             </SelectTrigger>
             <SelectContent>
@@ -198,7 +202,7 @@ export function TasksFiltersBar({
             value={filters.crew}
             onValueChange={(value) => update("crew", value)}
           >
-            <SelectTrigger className="h-9 w-full bg-background">
+            <SelectTrigger className={FILTER_SELECT_TRIGGER_CLASS}>
               <SelectValue placeholder="Cuadrilla" />
             </SelectTrigger>
             <SelectContent>

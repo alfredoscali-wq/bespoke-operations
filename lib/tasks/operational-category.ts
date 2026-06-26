@@ -20,24 +20,24 @@ export const OPERATIONAL_CATEGORY_KPI_LABELS: Record<
   OperationalTaskCategory,
   string
 > = {
-  "sin-cuadrilla": "🔵 Sin cuadrilla",
-  programadas: "🔵 Programadas",
-  vencidas: "🔴 Vencidas",
-  suspendidas: "🟡 Pendiente de cierre",
-  completadas: "🟢 Completadas",
-  canceladas: "🔴 Canceladas",
+  "sin-cuadrilla": "Sin cuadrilla",
+  programadas: "Programadas",
+  vencidas: "Vencidas",
+  suspendidas: "Pendiente de cierre",
+  completadas: "Completadas",
+  canceladas: "Canceladas",
 }
 
 export const OPERATIONAL_CATEGORY_BADGE_LABELS: Record<
   OperationalTaskCategory,
   string
 > = {
-  "sin-cuadrilla": "🔵 Sin cuadrilla",
-  programadas: "🔵 Programada",
-  vencidas: "🔴 Vencida",
-  suspendidas: "🟡 Pendiente de cierre",
-  completadas: "🟢 Finalizada",
-  canceladas: "🔴 Cancelada",
+  "sin-cuadrilla": "Sin cuadrilla",
+  programadas: "Programada",
+  vencidas: "Vencida",
+  suspendidas: "Pendiente de cierre",
+  completadas: "Finalizada",
+  canceladas: "Cancelada",
 }
 
 /** @deprecated Use OPERATIONAL_CATEGORY_BADGE_LABELS for card badges. */
@@ -66,9 +66,7 @@ export const OPERATIONAL_CATEGORY_KPI_TONE: Record<
 
 export const OPERATIONAL_CATEGORY_KPI_CARD_CLASS: Partial<
   Record<OperationalTaskCategory, string>
-> = {
-  completadas: "border-orange-100/80 bg-orange-500/[0.04]",
-}
+> = {}
 
 export const OPERATIONAL_CATEGORY_BADGE_STYLES: Record<
   OperationalTaskCategory,

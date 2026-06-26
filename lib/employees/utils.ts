@@ -20,6 +20,7 @@ export const defaultEmployeeFilters: EmployeeFilters = {
   department: "all",
   systemRole: "all",
   systemAccess: "all",
+  provision: "all",
 }
 
 export function getEmployeeDisplayName(
@@ -190,12 +191,19 @@ export function filterEmployees(
         ? employee.systemAccess
         : !employee.systemAccess)
 
+    const matchesProvision =
+      filters.provision === "all" ||
+      (filters.provision === "pending"
+        ? employee.systemAccess && !employee.appUserId
+        : Boolean(employee.appUserId))
+
     return (
       matchesSearch &&
       matchesStatus &&
       matchesDepartment &&
       matchesSystemRole &&
-      matchesSystemAccess
+      matchesSystemAccess &&
+      matchesProvision
     )
   })
 }

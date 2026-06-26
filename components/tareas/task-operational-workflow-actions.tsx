@@ -10,6 +10,7 @@ import {
 
 import { TaskIncidentCancelDialog } from "@/components/tareas/task-incident-cancel-dialog"
 import { TaskRescheduleDialog } from "@/components/tareas/task-reschedule-dialog"
+import { OverdueTaskInfoPanel } from "@/components/tareas/overdue-task-info-panel"
 import { useTasks } from "@/components/tareas/tasks-provider"
 import {
   formatTaskDateTime,
@@ -118,10 +119,11 @@ export function TaskOperationalWorkflowActions({
           </div>
 
           {hasOverdue ? (
-            <div className="rounded-lg border border-red-200/80 bg-background/80 p-3 text-sm text-red-900 dark:text-red-100">
-              La fecha y hora programadas ya vencieron sin iniciar la OT.
-              Reprograme antes de continuar la operación.
-            </div>
+            <OverdueTaskInfoPanel
+              task={task}
+              showRescheduleAction={Boolean(showOverdueActions && onReschedule)}
+              onReschedule={() => setRescheduleOpen(true)}
+            />
           ) : null}
 
           {hasIncident ? (

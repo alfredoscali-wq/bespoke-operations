@@ -1,4 +1,3 @@
-import Link from "next/link"
 import {
   AlertTriangle,
   ClipboardList,
@@ -7,7 +6,8 @@ import {
 } from "lucide-react"
 
 import type { DashboardExecutiveKpi } from "@/lib/data/dashboard"
-import { KpiCard } from "@/components/ui/kpi-card"
+import { FilterableKpiCard } from "@/components/ui/filterable-kpi-card"
+import { KpiCardGrid } from "@/components/ui/kpi-card-grid"
 
 const EXECUTIVE_ICONS = {
   "active-projects": TowerControl,
@@ -31,28 +31,23 @@ export function DashboardExecutiveSummary({
   kpis,
 }: DashboardExecutiveSummaryProps) {
   return (
-    <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+    <KpiCardGrid layout="standard">
       {kpis.map((kpi) => {
         const Icon = EXECUTIVE_ICONS[kpi.id as keyof typeof EXECUTIVE_ICONS]
         const tone = EXECUTIVE_TONES[kpi.id as keyof typeof EXECUTIVE_TONES]
 
         return (
-          <Link
+          <FilterableKpiCard
             key={kpi.id}
+            label={kpi.label}
+            value={kpi.value}
+            icon={Icon}
+            tone={tone}
+            hint={kpi.hint}
             href={kpi.href}
-            className="rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-          >
-            <KpiCard
-              label={kpi.label}
-              value={kpi.value}
-              icon={Icon}
-              tone={tone}
-              hint={kpi.hint}
-              className="h-full transition-shadow hover:shadow-md"
-            />
-          </Link>
+          />
         )
       })}
-    </div>
+    </KpiCardGrid>
   )
 }

@@ -14,9 +14,11 @@ import {
 import { useAvailability } from "@/components/disponibilidad/availability-provider"
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { useEmployees } from "@/components/rrhh/employees-provider"
+import { FilterableKpiCard } from "@/components/ui/filterable-kpi-card"
+import { KpiCardGrid } from "@/components/ui/kpi-card-grid"
 import { getAvailabilitySummary } from "@/lib/availability/utils"
 import { getEmployeeSummary } from "@/lib/employees/utils"
-import { KpiCard } from "@/components/ui/kpi-card"
+import { moduleFilterUrls } from "@/lib/navigation/query-filters"
 
 export function DashboardRrhhSummary() {
   const { employees } = useEmployees()
@@ -48,7 +50,7 @@ export function DashboardRrhhSummary() {
       label: "Empleados activos",
       value: String(employeeSummary.active),
       hint: "Personal operativo hoy",
-      href: "/rrhh",
+      href: moduleFilterUrls.employees.fromSummaryKey("active"),
       icon: UserCheck,
       tone: "green" as const,
     },
@@ -57,7 +59,7 @@ export function DashboardRrhhSummary() {
       label: "Licencias",
       value: String(employeeSummary.medicalLeave),
       hint: "Licencias médicas activas",
-      href: "/rrhh",
+      href: moduleFilterUrls.employees.fromSummaryKey("medicalLeave"),
       icon: Stethoscope,
       tone: "blue" as const,
     },
@@ -88,7 +90,7 @@ export function DashboardRrhhSummary() {
       label: "Cuadrillas",
       value: String(activeCrews),
       hint: "Equipos activos en operación",
-      href: "/cuadrillas",
+      href: moduleFilterUrls.crews.status("activa"),
       icon: UsersRound,
       tone: "violet" as const,
     },
@@ -116,26 +118,25 @@ export function DashboardRrhhSummary() {
         </div>
         <Link
           href="/rrhh"
-          className="text-sm font-medium text-primary hover:underline"
+          className="text-sm font-medium text-primary transition-colors hover:underline"
         >
           Ver empleados
         </Link>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <KpiCardGrid layout="triple">
         {cards.map((card) => (
-          <Link key={card.id} href={card.href} className="block">
-            <KpiCard
-              label={card.label}
-              value={card.value}
-              hint={card.hint}
-              icon={card.icon}
-              tone={card.tone}
-              className="h-full transition-shadow hover:shadow-md"
-            />
-          </Link>
+          <FilterableKpiCard
+            key={card.id}
+            label={card.label}
+            value={card.value}
+            hint={card.hint}
+            icon={card.icon}
+            tone={card.tone}
+            href={card.href}
+          />
         ))}
-      </div>
+      </KpiCardGrid>
     </section>
   )
 }

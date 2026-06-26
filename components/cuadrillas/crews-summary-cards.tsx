@@ -1,3 +1,5 @@
+"use client"
+
 import {
   Briefcase,
   ClipboardList,
@@ -5,12 +7,14 @@ import {
   Users,
 } from "lucide-react"
 
+import { FilterableKpiCard } from "@/components/ui/filterable-kpi-card"
+import { KpiCardGrid } from "@/components/ui/kpi-card-grid"
 import { getCrewsSummary } from "@/lib/crews/utils"
+import { moduleFilterUrls } from "@/lib/navigation/query-filters"
 import type { Crew, CrewSummary } from "@/lib/types/crews"
 import type { Project } from "@/lib/types/projects"
 import type { Task } from "@/lib/types/tasks"
 import type { VisualTone } from "@/lib/ui/visual-tokens"
-import { KpiCard } from "@/components/ui/kpi-card"
 
 type CrewsSummaryCardsProps = {
   crews: Crew[]
@@ -23,30 +27,35 @@ const cards: {
   label: string
   icon: typeof Users
   tone: VisualTone
+  href: string
 }[] = [
   {
     key: "totalCrews",
     label: "Total de Cuadrillas",
     icon: Users,
     tone: "neutral",
+    href: "/cuadrillas",
   },
   {
     key: "activeCrews",
     label: "Cuadrillas Activas",
     icon: HardHat,
     tone: "green",
+    href: moduleFilterUrls.crews.status("activa"),
   },
   {
     key: "assignedTasks",
     label: "Órdenes de Trabajo Asignadas",
     icon: ClipboardList,
     tone: "blue",
+    href: moduleFilterUrls.tasks.category("programadas"),
   },
   {
     key: "activeProjects",
     label: "Obras Activas",
     icon: Briefcase,
     tone: "violet",
+    href: moduleFilterUrls.projects.status("active"),
   },
 ]
 
@@ -58,16 +67,17 @@ export function CrewsSummaryCards({
   const summary = getCrewsSummary(crews, tasks, projects)
 
   return (
-    <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+    <KpiCardGrid layout="standard">
       {cards.map((card) => (
-        <KpiCard
+        <FilterableKpiCard
           key={card.key}
           label={card.label}
           value={summary[card.key]}
           icon={card.icon}
           tone={card.tone}
+          href={card.href}
         />
       ))}
-    </div>
+    </KpiCardGrid>
   )
 }

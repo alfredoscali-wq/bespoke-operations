@@ -5,6 +5,9 @@ import {
   createInstallationOperationalSteps,
 } from "@/lib/operational-steps/default-steps"
 import {
+  buildCambioDomicilioMetadataFromForm,
+} from "@/lib/tasks/cambio-domicilio"
+import {
   formatAmountToCollectFormValue,
   parseAmountToCollectInput,
   resolveContractedPlanFromForm,
@@ -116,10 +119,6 @@ export function generateWorkOrderTaskCodeFromCodes(codes: Iterable<string>): str
     generatedCode = `${WORK_ORDER_TASK_CODE_PREFIX}${String(counter).padStart(3, "0")}`
   }
 
-  console.log("TOTAL TASKS", knownCodes.size)
-  console.log("OT TASKS", otCodes)
-  console.log("GENERATED CODE", generatedCode)
-
   return generatedCode
 }
 
@@ -158,11 +157,17 @@ export type WorkOrderFormInput = {
   province: string
   postalCode: string
   sharedLocation: string
+  currentSharedLocation: string
+  newSharedLocation: string
   observationsForCrew: string
   contractedPlan: ContractedPlan | ""
   amountToCollect: string
   latitude: number | null
   longitude: number | null
+  currentLatitude: number | null
+  currentLongitude: number | null
+  newLatitude: number | null
+  newLongitude: number | null
 }
 
 export function getDefaultWorkOrderForm(): WorkOrderFormInput {
@@ -197,11 +202,17 @@ export function getDefaultWorkOrderForm(): WorkOrderFormInput {
     province: "",
     postalCode: "",
     sharedLocation: "",
+    currentSharedLocation: "",
+    newSharedLocation: "",
     observationsForCrew: "",
     contractedPlan: "",
     amountToCollect: "",
     latitude: null,
     longitude: null,
+    currentLatitude: null,
+    currentLongitude: null,
+    newLatitude: null,
+    newLongitude: null,
   }
 }
 
@@ -288,11 +299,8 @@ function buildTaskMetadata(input: WorkOrderFormInput): Record<string, unknown> {
     case "cambio-domicilio":
       metadata = {
         email,
-        currentAddress: input.currentAddress.trim(),
-        newAddress: input.newAddress.trim(),
-        currentLocality: input.currentLocality.trim(),
-        newLocality: input.newLocality.trim(),
         technology: input.technology || "fiber",
+        ...buildCambioDomicilioMetadataFromForm(input),
       }
       break
     case "cambio-tecnologia":
@@ -501,9 +509,20 @@ export function buildWorkOrderCreatePayload(input: {
   const customerName = form.customerName.trim()
   const serviceAddress = resolvePrimaryAddress(form)
   const locality = resolvePrimaryLocality(form)
-  const sharedLocation = form.sharedLocation.trim()
+  const sharedLocation =
+    form.serviceType === "cambio-domicilio"
+      ? form.newSharedLocation.trim() || form.sharedLocation.trim()
+      : form.sharedLocation.trim()
   const contractedPlan = resolveContractedPlanFromForm(form)
   const amountToCollect = parseAmountToCollectInput(form.amountToCollect)
+  const latitude =
+    form.serviceType === "cambio-domicilio"
+      ? form.newLatitude ?? form.latitude
+      : form.latitude
+  const longitude =
+    form.serviceType === "cambio-domicilio"
+      ? form.newLongitude ?? form.longitude
+      : form.longitude
 
   return {
     code: generateWorkOrderTaskCode(existingTasks),
@@ -537,6 +556,8 @@ export function buildWorkOrderCreatePayload(input: {
     taskMetadata: buildTaskMetadata(form),
     contractedPlan: contractedPlan ?? undefined,
     amountToCollect: amountToCollect ?? undefined,
+    latitude: latitude ?? undefined,
+    longitude: longitude ?? undefined,
   }
 }
 

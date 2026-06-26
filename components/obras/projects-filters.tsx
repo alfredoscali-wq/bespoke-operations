@@ -15,6 +15,10 @@ import {
 } from "@/lib/projects/constants"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import {
+  FILTER_SEARCH_INPUT_CLASS,
+  FILTER_SELECT_TRIGGER_CLASS,
+} from "@/lib/ui/visual-tokens"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -29,6 +33,7 @@ export type ProjectFilters = {
   status: ProjectStatus | "all"
   type: ProjectType | "all"
   supervisor: string | "all"
+  health: import("@/lib/projects/project-operational-metrics").ProjectHealth | "all"
 }
 
 type ProjectsFiltersProps = {
@@ -43,6 +48,7 @@ export const defaultProjectFilters: ProjectFilters = {
   status: "all",
   type: "all",
   supervisor: "all",
+  health: "all",
 }
 
 export function ProjectsFilters({
@@ -88,7 +94,7 @@ export function ProjectsFilters({
             value={filters.search}
             onChange={(event) => update("search", event.target.value)}
             placeholder="Buscar por código, nombre o cliente..."
-            className="h-9 bg-background pl-8"
+            className={FILTER_SEARCH_INPUT_CLASS}
           />
         </div>
 
@@ -106,7 +112,7 @@ export function ProjectsFilters({
                 update("status", value as ProjectFilters["status"])
               }
             >
-              <SelectTrigger className="h-9 w-full bg-background">
+              <SelectTrigger className={FILTER_SELECT_TRIGGER_CLASS}>
                 <SelectValue placeholder="Estado" />
               </SelectTrigger>
               <SelectContent>
@@ -126,7 +132,7 @@ export function ProjectsFilters({
               update("type", value as ProjectFilters["type"])
             }
           >
-            <SelectTrigger className="h-9 w-full bg-background">
+            <SelectTrigger className={FILTER_SELECT_TRIGGER_CLASS}>
               <SelectValue placeholder="Tipo" />
             </SelectTrigger>
             <SelectContent>

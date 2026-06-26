@@ -12,6 +12,7 @@ import {
   buildProjectOperationalMetricsMap,
 } from "@/lib/projects/project-operational-metrics"
 import { getTasksSummary } from "@/lib/data/tasks"
+import { moduleFilterUrls } from "@/lib/navigation/query-filters"
 import { isFieldServiceTask } from "@/lib/tasks/utils"
 import { isTaskVencida } from "@/lib/tasks/vencida-status"
 import {
@@ -126,7 +127,7 @@ export function buildExecutiveSummary(input: {
       label: "Órdenes de Trabajo Pendientes",
       value: String(pendingAttention),
       hint: "Requieren atención",
-      href: "/tareas",
+      href: "/tareas?status=pendiente",
     },
     {
       id: "operational-crews",
@@ -161,7 +162,7 @@ export function buildOperationalAlerts(input: {
       id: "overdue-tasks",
       severity: "critical",
       message: `${overdueTasks.length} OT${overdueTasks.length === 1 ? "" : "s"} vencida${overdueTasks.length === 1 ? "" : "s"}`,
-      href: "/tareas",
+      href: "/tareas?status=vencida",
     })
   }
 
@@ -353,7 +354,7 @@ export function buildTasksStatusKpis(tasks: Task[]): DashboardStatusKpi[] {
     href: string
   }[] = [
     { id: "pendiente", label: "Pendientes", value: summary.pendiente, href: "/tareas?status=pendiente" },
-    { id: "asignada", label: "Programadas", value: summary.asignada, href: "/tareas?status=asignada" },
+    { id: "asignada", label: "Asignadas", value: summary.asignada, href: "/tareas?status=asignada" },
     { id: "vencida", label: "Vencidas", value: summary.vencida, href: "/tareas?status=vencida" },
     { id: "en-curso", label: "En curso", value: summary.enCurso, href: "/tareas?status=en-curso" },
     {
@@ -417,13 +418,13 @@ export function buildCrewsStatusKpis(input: {
       id: "active",
       label: "Cuadrillas Activas",
       value: activeCrews,
-      href: "/cuadrillas",
+      href: moduleFilterUrls.crews.status("activa"),
     },
     {
       id: "field",
       label: "Cuadrillas en Campo",
       value: fieldCrews,
-      href: "/cuadrillas",
+      href: moduleFilterUrls.crews.status("en-campo"),
     },
     {
       id: "reduced",
@@ -435,7 +436,7 @@ export function buildCrewsStatusKpis(input: {
       id: "not-operational",
       label: "No Operativas",
       value: notOperational,
-      href: "/cuadrillas",
+      href: moduleFilterUrls.crews.status("inactiva"),
     },
   ]
 }

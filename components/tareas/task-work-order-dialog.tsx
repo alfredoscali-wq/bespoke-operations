@@ -26,10 +26,21 @@ import {
   type WorkOrderFormInput,
   type WorkOrderServiceType,
 } from "@/lib/tasks/work-order"
-import { resolveContractedPlanForTechnology } from "@/lib/tasks/commercial-plan"
+import { sanitizePlanForTechnology } from "@/lib/tasks/commercial-plan"
 import { WorkOrderCommercialFields } from "@/components/tareas/work-order-commercial-fields"
+import { WorkOrderCambioDomicilioFields } from "@/components/tareas/work-order-cambio-domicilio-fields"
+import { WorkOrderCustomerSyncDialog } from "@/components/tareas/work-order-customer-sync-dialog"
 import { WorkOrderAmountToCollectField } from "@/components/tareas/work-order-amount-to-collect-field"
 import { WorkOrderLocationSection } from "@/components/tareas/work-order-location-section"
+import {
+  buildCustomerSyncSnapshotFromCustomer,
+  buildCustomerSyncSnapshotFromWorkOrderForm,
+  buildCustomerUpdateFromSyncChanges,
+  diffCustomerSyncSnapshots,
+  shouldOfferCustomerSync,
+  type CustomerSyncFieldChange,
+  type CustomerSyncFieldKey,
+} from "@/lib/tasks/customer-sync"
 import { resolveSupervisorFromCrew } from "@/lib/tasks/utils"
 import { uploadPendingTaskReferencePhotos } from "@/lib/supabase/task-photos.browser"
 import {
@@ -298,7 +309,13 @@ function CustomerFields({
               <Label>Tecnología</Label>
               <TechnologySelect
                 value={form.technology}
-                onChange={(value) => updateField("technology", value)}
+                onChange={(value) => {
+                  updateField("technology", value)
+                  updateField(
+                    "contractedPlan",
+                    sanitizePlanForTechnology(form.contractedPlan, value)
+                  )
+                }}
               />
             </div>
           </div>
@@ -330,28 +347,13 @@ function WorkOrderDynamicFields({
               onChange={(event) => updateField("address", event.target.value)}
             />
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="wo-locality">Localidad *</Label>
-              <Input
-                id="wo-locality"
-                value={form.locality}
-                onChange={(event) => updateField("locality", event.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Tecnología *</Label>
-              <TechnologySelect
-                value={form.technology}
-                onChange={(value) => {
-                  updateField("technology", value)
-                  updateField(
-                    "contractedPlan",
-                    resolveContractedPlanForTechnology(value)
-                  )
-                }}
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="wo-locality">Localidad *</Label>
+            <Input
+              id="wo-locality"
+              value={form.locality}
+              onChange={(event) => updateField("locality", event.target.value)}
+            />
           </div>
           <WorkOrderCommercialFields form={form} updateField={updateField} />
         </div>
@@ -359,50 +361,7 @@ function WorkOrderDynamicFields({
 
     case "cambio-domicilio":
       return (
-        <div className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="wo-current-address">Dirección actual *</Label>
-              <Input
-                id="wo-current-address"
-                value={form.currentAddress}
-                onChange={(event) =>
-                  updateField("currentAddress", event.target.value)
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="wo-new-address">Nueva dirección *</Label>
-              <Input
-                id="wo-new-address"
-                value={form.newAddress}
-                onChange={(event) => updateField("newAddress", event.target.value)}
-              />
-            </div>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="wo-current-locality">Localidad actual *</Label>
-              <Input
-                id="wo-current-locality"
-                value={form.currentLocality}
-                onChange={(event) =>
-                  updateField("currentLocality", event.target.value)
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="wo-new-locality">Nueva localidad *</Label>
-              <Input
-                id="wo-new-locality"
-                value={form.newLocality}
-                onChange={(event) =>
-                  updateField("newLocality", event.target.value)
-                }
-              />
-            </div>
-          </div>
-        </div>
+        <WorkOrderCambioDomicilioFields form={form} updateField={updateField} />
       )
 
     case "cambio-tecnologia":
@@ -606,7 +565,8 @@ export function TaskWorkOrderDialog({
   onTaskCreated,
 }: TaskWorkOrderDialogProps) {
   const { crews } = useCrews()
-  const { searchCustomers, createCustomer } = useCustomers()
+  const { searchCustomers, createCustomer, updateCustomer, fetchCustomerById } =
+    useCustomers()
   const assignableCrews = useMemo(() => getAssignableCrews(crews), [crews])
   const [form, setForm] = useState<WorkOrderFormInput>(getDefaultWorkOrderForm)
   const [baselineForm, setBaselineForm] = useState<WorkOrderFormInput>(
@@ -617,6 +577,12 @@ export function TaskWorkOrderDialog({
   >([])
   const [photosError, setPhotosError] = useState<string | null>(null)
   const [customerSelected, setCustomerSelected] = useState(false)
+  const [linkedCustomer, setLinkedCustomer] = useState<Customer | null>(null)
+  const [customerSyncState, setCustomerSyncState] = useState<{
+    customer: Customer
+    changes: CustomerSyncFieldChange[]
+    task: Task
+  } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -647,6 +613,8 @@ export function TaskWorkOrderDialog({
       })
       setPhotosError(null)
       setCustomerSelected(false)
+      setLinkedCustomer(null)
+      setCustomerSyncState(null)
       setError(null)
     }
   }, [open])
@@ -665,6 +633,7 @@ export function TaskWorkOrderDialog({
       scheduledDate: form.scheduledDate,
     })
     setCustomerSelected(false)
+    setLinkedCustomer(null)
     setError(null)
   }
 
@@ -673,7 +642,71 @@ export function TaskWorkOrderDialog({
       ...current,
       ...applyCustomerToForm(customer),
     }))
+    setLinkedCustomer(customer)
     setCustomerSelected(true)
+  }
+
+  async function prepareCustomerSyncAfterCreate(
+    task: Task,
+    customerId: string,
+    submittedForm: WorkOrderFormInput
+  ) {
+    if (
+      !shouldOfferCustomerSync({
+        customerId,
+        serviceType: submittedForm.serviceType,
+      })
+    ) {
+      return
+    }
+
+    const customer =
+      linkedCustomer?.id === customerId
+        ? linkedCustomer
+        : await fetchCustomerById(customerId)
+
+    if (!customer) {
+      return
+    }
+
+    const changes = diffCustomerSyncSnapshots(
+      buildCustomerSyncSnapshotFromCustomer(customer),
+      buildCustomerSyncSnapshotFromWorkOrderForm(submittedForm)
+    )
+
+    if (changes.length === 0) {
+      return
+    }
+
+    setCustomerSyncState({ customer, changes, task })
+  }
+
+  async function handleConfirmCustomerSync(selectedKeys: CustomerSyncFieldKey[]) {
+    if (!customerSyncState) {
+      return
+    }
+
+    const update = buildCustomerUpdateFromSyncChanges(
+      customerSyncState.changes,
+      selectedKeys
+    )
+
+    const result = await updateCustomer(
+      customerSyncState.customer.id,
+      update,
+      {
+        syncFromTask: {
+          id: customerSyncState.task.id,
+          code: customerSyncState.task.code,
+        },
+      }
+    )
+
+    if (!result.success) {
+      throw new Error(result.message ?? "No se pudo actualizar la ficha del cliente.")
+    }
+
+    setCustomerSyncState(null)
   }
 
   const showCustomerSection =
@@ -773,6 +806,7 @@ export function TaskWorkOrderDialog({
       revokePendingTaskReferencePhotos(referencePhotos)
       setReferencePhotos([])
       onTaskCreated?.({ task, photoUpload })
+      await prepareCustomerSyncAfterCreate(task, customerId, form)
       forceClose()
     } catch (submitError) {
       setError(
@@ -868,7 +902,7 @@ export function TaskWorkOrderDialog({
             />
           ) : null}
 
-          {form.serviceType ? (
+          {form.serviceType && form.serviceType !== "cambio-domicilio" ? (
             <WorkOrderLocationSection
               sharedLocation={form.sharedLocation}
               onSharedLocationChange={(value) =>
@@ -987,6 +1021,19 @@ export function TaskWorkOrderDialog({
         open={discardOpen}
         onOpenChange={setDiscardOpen}
         onConfirm={handleConfirmDiscard}
+      />
+
+      <WorkOrderCustomerSyncDialog
+        open={customerSyncState != null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCustomerSyncState(null)
+          }
+        }}
+        customerName={customerSyncState?.customer.name ?? ""}
+        changes={customerSyncState?.changes ?? []}
+        onConfirm={handleConfirmCustomerSync}
+        onSkip={() => setCustomerSyncState(null)}
       />
     </>
   )

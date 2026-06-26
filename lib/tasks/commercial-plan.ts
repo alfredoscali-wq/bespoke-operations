@@ -138,6 +138,52 @@ export function resolveContractedPlanForTechnology(
   return ""
 }
 
+export function getPlanOptionsForTechnology(technology: WorkOrderTechnology | "") {
+  if (technology === "wireless") {
+    return [{ value: WIRELESS_CONTRACTED_PLAN, label: WIRELESS_CONTRACTED_PLAN_LABEL }]
+  }
+
+  if (technology === "fiber") {
+    return FIBER_CONTRACTED_PLAN_OPTIONS
+  }
+
+  return []
+}
+
+export function isPlanValidForTechnology(
+  plan: string | null | undefined,
+  technology: WorkOrderTechnology | ""
+): boolean {
+  if (!plan?.trim() || !technology) {
+    return false
+  }
+
+  if (technology === "wireless") {
+    return plan === WIRELESS_CONTRACTED_PLAN
+  }
+
+  return FIBER_CONTRACTED_PLAN_OPTIONS.some((option) => option.value === plan)
+}
+
+export function sanitizePlanForTechnology(
+  plan: ContractedPlan | "",
+  technology: WorkOrderTechnology | ""
+): ContractedPlan | "" {
+  if (!technology) {
+    return ""
+  }
+
+  if (technology === "wireless") {
+    return WIRELESS_CONTRACTED_PLAN
+  }
+
+  if (isPlanValidForTechnology(plan, technology)) {
+    return plan
+  }
+
+  return ""
+}
+
 export function taskHasCommercialInfo(
   task: Pick<Task, "serviceType" | "contractedPlan" | "amountToCollect">
 ): boolean {

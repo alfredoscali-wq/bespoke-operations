@@ -33,10 +33,8 @@ import {
   isWorkOrderTask,
   type WorkOrderFormInput,
 } from "@/lib/tasks/work-order"
-import {
-  normalizeScheduledTimeForDb,
-} from "@/lib/tasks/scheduling"
-import { WorkOrderCommercialFields } from "@/components/tareas/work-order-commercial-fields"
+import { WorkOrderTechnologyPlanFields } from "@/components/tareas/work-order-technology-plan-fields"
+import { normalizeScheduledTimeForDb } from "@/lib/tasks/scheduling"
 import { WorkOrderAmountToCollectField } from "@/components/tareas/work-order-amount-to-collect-field"
 import { WorkOrderLocationSection } from "@/components/tareas/work-order-location-section"
 import { Button } from "@/components/ui/button"
@@ -217,6 +215,17 @@ export function TaskEditDialog({
       task.supervisor
     )
 
+    if (showCommercialFields && !resolveContractedPlanFromForm(form.commercial)) {
+      setError("Seleccione el plan contratado.")
+      return
+    }
+
+    const resolvedTaskType: TaskType = showCommercialFields
+      ? form.commercial.technology === "wireless"
+        ? "wireless"
+        : "fiber"
+      : form.type
+
     setIsSubmitting(true)
     try {
       const workOrderPayload = showAmountToCollectField
@@ -234,7 +243,7 @@ export function TaskEditDialog({
       await onSubmit({
         title: form.title.trim(),
         description: form.description.trim(),
-        type: form.type,
+        type: resolvedTaskType,
         priority: form.priority,
         supervisor,
         crewId: snapshots.crewId ?? form.crewId,
@@ -299,24 +308,26 @@ export function TaskEditDialog({
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Tipo</Label>
-              <Select
-                value={form.type}
-                onValueChange={(value) => updateField("type", value as TaskType)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {TASK_TYPE_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {!showCommercialFields ? (
+              <div className="space-y-2">
+                <Label>Tipo</Label>
+                <Select
+                  value={form.type}
+                  onValueChange={(value) => updateField("type", value as TaskType)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TASK_TYPE_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
 
             <div className="space-y-2">
               <Label>Prioridad</Label>
@@ -440,7 +451,7 @@ export function TaskEditDialog({
           ) : null}
 
           {showCommercialFields ? (
-            <WorkOrderCommercialFields
+            <WorkOrderTechnologyPlanFields
               form={form.commercial}
               updateField={updateCommercialField}
             />

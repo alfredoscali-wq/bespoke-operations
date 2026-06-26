@@ -4,6 +4,7 @@ import Link from "next/link"
 
 import { useCalendarUI } from "@/components/calendario/calendar-ui-provider"
 import { formatTaskDate, TASK_STATUS_LABELS } from "@/lib/tasks/constants"
+import { computeOverdueDays, formatOverdueDaysLabel } from "@/lib/tasks/overdue-display"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
@@ -81,9 +82,19 @@ export function CalendarCriticalPendingSheet() {
                     value={`${task.projectCode} — ${task.projectName}`}
                   />
                   <Field label="Cuadrilla" value={task.crewName} />
+                  <Field label="Supervisor" value={task.supervisorName} />
                   <Field
                     label="Vencimiento"
                     value={formatTaskDate(task.dueDate)}
+                  />
+                  <Field
+                    label="Días vencida"
+                    value={formatOverdueDaysLabel(
+                      computeOverdueDays({
+                        dueDate: task.dueDate,
+                        status: task.status,
+                      }) ?? 1
+                    )}
                   />
                   <Field
                     label="Estado"

@@ -19,22 +19,22 @@ export const OPERATIONAL_PROJECT_CATEGORY_KPI_LABELS: Record<
   OperationalProjectCategory,
   string
 > = {
-  "sin-iniciar": "🔵 Sin iniciar",
-  "en-ejecucion": "🟢 En ejecución",
-  detenida: "🟡 Detenidas",
-  finalizada: "🟠 Finalizadas",
-  cancelada: "🔴 Canceladas",
+  "sin-iniciar": "Sin iniciar",
+  "en-ejecucion": "En ejecución",
+  detenida: "Detenidas",
+  finalizada: "Finalizadas",
+  cancelada: "Canceladas",
 }
 
 export const OPERATIONAL_PROJECT_CATEGORY_BADGE_LABELS: Record<
   OperationalProjectCategory,
   string
 > = {
-  "sin-iniciar": "🔵 Sin iniciar",
-  "en-ejecucion": "🟢 En ejecución",
-  detenida: "🟡 Detenida",
-  finalizada: "🟠 Finalizada",
-  cancelada: "🔴 Cancelada",
+  "sin-iniciar": "Sin iniciar",
+  "en-ejecucion": "En ejecución",
+  detenida: "Detenida",
+  finalizada: "Finalizada",
+  cancelada: "Cancelada",
 }
 
 export const OPERATIONAL_PROJECT_CATEGORY_ORDER: OperationalProjectCategory[] =
@@ -47,15 +47,13 @@ export const OPERATIONAL_PROJECT_CATEGORY_KPI_TONE: Record<
   "sin-iniciar": "blue",
   "en-ejecucion": "green",
   detenida: "yellow",
-  finalizada: "yellow",
+  finalizada: "green",
   cancelada: "red",
 }
 
 export const OPERATIONAL_PROJECT_CATEGORY_KPI_CARD_CLASS: Partial<
   Record<OperationalProjectCategory, string>
-> = {
-  finalizada: "border-orange-100/80 bg-orange-500/[0.04]",
-}
+> = {}
 
 export const OPERATIONAL_PROJECT_CATEGORY_BADGE_STYLES: Record<
   OperationalProjectCategory,
@@ -64,7 +62,7 @@ export const OPERATIONAL_PROJECT_CATEGORY_BADGE_STYLES: Record<
   "sin-iniciar": STATUS_TONE_STYLES.blue,
   "en-ejecucion": STATUS_TONE_STYLES.green,
   detenida: STATUS_TONE_STYLES.yellow,
-  finalizada: "border-orange-200/80 bg-orange-50 text-orange-800",
+  finalizada: STATUS_TONE_STYLES.green,
   cancelada: STATUS_TONE_STYLES.red,
 }
 

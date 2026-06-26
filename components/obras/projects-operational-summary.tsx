@@ -12,14 +12,14 @@ import {
 } from "lucide-react"
 
 import { useProjectsUI } from "@/components/obras/projects-ui-provider"
+import { FilterableKpiCard } from "@/components/ui/filterable-kpi-card"
+import { KpiCardGrid } from "@/components/ui/kpi-card-grid"
+import { moduleFilterUrls } from "@/lib/navigation/query-filters"
 import {
-  OPERATIONAL_PROJECT_CATEGORY_KPI_CARD_CLASS,
   OPERATIONAL_PROJECT_CATEGORY_KPI_LABELS,
   OPERATIONAL_PROJECT_CATEGORY_KPI_TONE,
   OPERATIONAL_PROJECT_CATEGORY_ORDER,
 } from "@/lib/projects/operational-project-category"
-import { KpiCard } from "@/components/ui/kpi-card"
-import { cn } from "@/lib/utils"
 
 const CATEGORY_ICONS = {
   "sin-iniciar": Building2,
@@ -31,34 +31,38 @@ const CATEGORY_ICONS = {
 
 const MANAGEMENT_KPIS = [
   {
-    key: "averageProgress",
+    key: "averageProgress" as const,
     label: "Avance promedio",
     icon: TrendingUp,
     tone: "neutral" as const,
     format: (value: number) => `${value}%`,
+    href: undefined,
   },
   {
-    key: "overdueProjects",
+    key: "overdueProjects" as const,
     label: "Obras vencidas",
     icon: Ban,
     tone: "red" as const,
     format: (value: number) => String(value),
+    href: moduleFilterUrls.projects.health("overdue"),
   },
   {
-    key: "riskProjects",
+    key: "riskProjects" as const,
     label: "Obras en riesgo",
     icon: AlertTriangle,
     tone: "yellow" as const,
     format: (value: number) => String(value),
+    href: moduleFilterUrls.projects.health("risk"),
   },
   {
-    key: "pendingTasks",
+    key: "pendingTasks" as const,
     label: "Órdenes de trabajo pendientes",
     icon: ListChecks,
     tone: "blue" as const,
     format: (value: number) => String(value),
+    href: "/tareas",
   },
-] as const
+]
 
 export function ProjectsOperationalSummary() {
   const {
@@ -70,54 +74,41 @@ export function ProjectsOperationalSummary() {
 
   return (
     <div className="space-y-5">
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <KpiCardGrid layout="operational">
         {OPERATIONAL_PROJECT_CATEGORY_ORDER.map((category) => {
-          const isActive = selectedCategory === category
-          const cardOverride = OPERATIONAL_PROJECT_CATEGORY_KPI_CARD_CLASS[category]
+          const Icon = CATEGORY_ICONS[category]
 
           return (
-            <button
+            <FilterableKpiCard
               key={category}
-              type="button"
+              label={OPERATIONAL_PROJECT_CATEGORY_KPI_LABELS[category]}
+              value={operationalSummary[category]}
+              icon={Icon}
+              tone={OPERATIONAL_PROJECT_CATEGORY_KPI_TONE[category]}
+              isActive={selectedCategory === category}
               onClick={() => openCategory(category)}
-              className={cn(
-                "rounded-xl text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30",
-                isActive && "ring-2 ring-primary/25"
-              )}
-            >
-              <KpiCard
-                label={OPERATIONAL_PROJECT_CATEGORY_KPI_LABELS[category]}
-                value={operationalSummary[category]}
-                icon={CATEGORY_ICONS[category]}
-                tone={OPERATIONAL_PROJECT_CATEGORY_KPI_TONE[category]}
-                className={cn(
-                  "h-full cursor-pointer transition-shadow hover:shadow-md",
-                  cardOverride,
-                  isActive && "shadow-md"
-                )}
-              />
-            </button>
+            />
           )
         })}
-      </div>
+      </KpiCardGrid>
 
-      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+      <KpiCardGrid layout="standard">
         {MANAGEMENT_KPIS.map((item) => {
           const Icon = item.icon
           const value = managementSummary[item.key]
 
           return (
-            <KpiCard
+            <FilterableKpiCard
               key={item.key}
               label={item.label}
               value={item.format(value)}
               icon={Icon}
               tone={item.tone}
-              className="shadow-sm"
+              href={item.href}
             />
           )
         })}
-      </div>
+      </KpiCardGrid>
     </div>
   )
 }
