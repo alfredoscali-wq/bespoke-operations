@@ -36,9 +36,9 @@ export function CrewTasksTab({ crew, tasks }: CrewTasksTabProps) {
     return (
       <Card className="shadow-sm">
         <CardHeader>
-          <CardTitle>Tareas asignadas</CardTitle>
+          <CardTitle>Órdenes de Trabajo asignadas</CardTitle>
           <CardDescription>
-            No hay tareas registradas para esta cuadrilla.
+            No hay órdenes de trabajo registradas para esta cuadrilla.
           </CardDescription>
         </CardHeader>
       </Card>
@@ -48,10 +48,10 @@ export function CrewTasksTab({ crew, tasks }: CrewTasksTabProps) {
   return (
     <Card className="shadow-sm">
       <CardHeader>
-        <CardTitle>Tareas asignadas</CardTitle>
+        <CardTitle>Órdenes de Trabajo asignadas</CardTitle>
         <CardDescription>
           {crewTasks.length}{" "}
-          {crewTasks.length === 1 ? "tarea" : "tareas"} vinculadas a{" "}
+          {crewTasks.length === 1 ? "orden de trabajo" : "órdenes de trabajo"} vinculadas a{" "}
           {crew.name}
         </CardDescription>
       </CardHeader>
@@ -60,8 +60,8 @@ export function CrewTasksTab({ crew, tasks }: CrewTasksTabProps) {
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead>Tarea</TableHead>
-                <TableHead>Proyecto</TableHead>
+                <TableHead>OT</TableHead>
+                <TableHead>Obra</TableHead>
                 <TableHead>Prioridad</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead>Fecha límite</TableHead>

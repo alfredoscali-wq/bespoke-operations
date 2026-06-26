@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   AlertTriangle,
   CheckCircle2,
@@ -126,10 +126,13 @@ export function WorkOrderImportDialog({
   onImported,
 }: WorkOrderImportDialogProps) {
   const { tasks, addTask } = useTasks()
-  const { customers, createCustomer } = useCustomers()
+  const { createCustomer, getImportDuplicateIndex } = useCustomers()
   const { crews } = useCrews()
   const assignableCrews = useMemo(() => getAssignableCrews(crews), [crews])
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [importCustomers, setImportCustomers] = useState<
+    Awaited<ReturnType<typeof getImportDuplicateIndex>>
+  >([])
 
   const [step, setStep] = useState<ImportStep>("upload")
   const [fileName, setFileName] = useState<string | null>(null)
@@ -143,10 +146,19 @@ export function WorkOrderImportDialog({
   const validationContext = useMemo<ImportValidationContext>(
     () => ({
       crews: assignableCrews,
-      customers,
+      customers: importCustomers as ImportValidationContext["customers"],
     }),
-    [assignableCrews, customers]
+    [assignableCrews, importCustomers]
   )
+
+  useEffect(() => {
+    if (!open) {
+      setImportCustomers([])
+      return
+    }
+
+    void getImportDuplicateIndex().then(setImportCustomers)
+  }, [open, getImportDuplicateIndex])
 
   const summary = useMemo(() => summarizeImportRows(rows), [rows])
   const selectedImportableCount = useMemo(
@@ -275,7 +287,7 @@ export function WorkOrderImportDialog({
       const result = await executeWorkOrderImport({
         rows,
         existingTasks: tasks,
-        customers,
+        customers: importCustomers as ImportValidationContext["customers"],
         crews: assignableCrews,
         createCustomer,
         addTask,

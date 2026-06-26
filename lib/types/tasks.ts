@@ -1,6 +1,7 @@
 export type TaskStatus =
   | "pendiente"
   | "asignada"
+  | "vencida"
   | "en-curso"
   | "incidencia"
   | "pendiente-cierre"
@@ -65,6 +66,13 @@ export type Task = {
   crew: string
   startDate: string
   dueDate: string
+  scheduledTime?: string | null
+  originalScheduledDate?: string | null
+  originalScheduledTime?: string | null
+  rescheduledBy?: string
+  rescheduledAt?: string | null
+  rescheduleReason?: string
+  rescheduleNotes?: string
   estimatedDuration: string
   checklist: ChecklistItem[]
   operationalSteps?: OperationalStep[]
@@ -83,6 +91,7 @@ export type Task = {
   locality?: string | null
   contractedPlan?: string | null
   installationCost?: number | null
+  amountToCollect?: number | null
   taskMetadata?: Record<string, unknown>
 }
 

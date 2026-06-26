@@ -83,7 +83,7 @@ export function EmployeesModule() {
             onClick={() => setDialogOpen(true)}
           >
             <Plus className="size-4" />
-            Nuevo empleado
+            Nuevo Empleado
           </Button>
           <Button
             size="sm"

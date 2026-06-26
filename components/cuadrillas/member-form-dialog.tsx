@@ -14,7 +14,7 @@ import {
   isEmployeeAvailable,
 } from "@/lib/employees/utils"
 import { Button } from "@/components/ui/button"
-import { WhatsAppLink } from "@/components/ui/whatsapp-link"
+import { TelLink } from "@/components/ui/tel-link"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
@@ -364,7 +364,7 @@ export function MemberFormDialog({
               </p>
               {linkedEmployee?.phone && (
                 <p className="text-xs text-muted-foreground">
-                  <WhatsAppLink phone={linkedEmployee.phone} />
+                  <TelLink phone={linkedEmployee.phone} />
                 </p>
               )}
             </div>

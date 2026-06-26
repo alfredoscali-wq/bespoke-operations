@@ -20,6 +20,25 @@ import {
   resolveCrewSnapshotsForAssignment,
   resolveTaskCrewId,
 } from "@/lib/tasks/crew-relation"
+import {
+  isNewInstallationTask,
+  parseAmountToCollectInput,
+  resolveContractedPlanFromForm,
+} from "@/lib/tasks/commercial-plan"
+import {
+  buildAmountToCollectFormFromTask,
+  buildCommercialFormFromTask,
+  buildLocationFormFromTask,
+  buildScheduleFormFromTask,
+  isWorkOrderTask,
+  type WorkOrderFormInput,
+} from "@/lib/tasks/work-order"
+import {
+  normalizeScheduledTimeForDb,
+} from "@/lib/tasks/scheduling"
+import { WorkOrderCommercialFields } from "@/components/tareas/work-order-commercial-fields"
+import { WorkOrderAmountToCollectField } from "@/components/tareas/work-order-amount-to-collect-field"
+import { WorkOrderLocationSection } from "@/components/tareas/work-order-location-section"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -59,7 +78,11 @@ type TaskEditDialogProps = {
     crew: string
     startDate: string
     dueDate: string
+    scheduledTime?: string | null
     estimatedDuration: string
+    amountToCollect?: number | null
+    contractedPlan?: string | null
+    sharedLocation?: string | null
   }) => Promise<void>
 }
 
@@ -71,13 +94,23 @@ type TaskFormState = {
   crewId: string
   startDate: string
   dueDate: string
+  scheduledDate: string
+  scheduledTime: string
   estimatedDuration: string
+  amountToCollect: string
+  sharedLocation: string
+  commercial: Pick<
+    WorkOrderFormInput,
+    "serviceType" | "technology" | "contractedPlan"
+  >
 }
 
 function buildEditForm(
   task: Task,
   crews: { id: string; name: string }[]
 ): TaskFormState {
+  const schedule = buildScheduleFormFromTask(task)
+
   return {
     title: task.title,
     description: task.description,
@@ -86,7 +119,12 @@ function buildEditForm(
     crewId: resolveTaskCrewId(task, crews) ?? "",
     startDate: task.startDate,
     dueDate: task.dueDate,
+    scheduledDate: schedule.scheduledDate,
+    scheduledTime: schedule.scheduledTime,
     estimatedDuration: task.estimatedDuration,
+    amountToCollect: buildAmountToCollectFormFromTask(task),
+    ...buildLocationFormFromTask(task),
+    commercial: buildCommercialFormFromTask(task),
   }
 }
 
@@ -136,12 +174,31 @@ export function TaskEditDialog({
     setForm((current) => ({ ...current, [key]: value }))
   }
 
+  function updateCommercialField<
+    K extends keyof TaskFormState["commercial"],
+  >(key: K, value: TaskFormState["commercial"][K]) {
+    setForm((current) => ({
+      ...current,
+      commercial: { ...current.commercial, [key]: value },
+    }))
+  }
+
+  const showCommercialFields =
+    isWorkOrderTask(task) && isNewInstallationTask(task)
+  const showAmountToCollectField = isWorkOrderTask(task)
+  const showWorkOrderSchedule = isWorkOrderTask(task)
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     setError(null)
 
     if (!form.title.trim()) {
       setError("El título es obligatorio.")
+      return
+    }
+
+    if (showWorkOrderSchedule && !form.scheduledDate) {
+      setError("La fecha programada es obligatoria.")
       return
     }
 
@@ -162,6 +219,18 @@ export function TaskEditDialog({
 
     setIsSubmitting(true)
     try {
+      const workOrderPayload = showAmountToCollectField
+        ? {
+            amountToCollect: parseAmountToCollectInput(form.amountToCollect),
+            sharedLocation: form.sharedLocation.trim() || null,
+            ...(showCommercialFields
+              ? {
+                  contractedPlan: resolveContractedPlanFromForm(form.commercial),
+                }
+              : {}),
+          }
+        : {}
+
       await onSubmit({
         title: form.title.trim(),
         description: form.description.trim(),
@@ -170,16 +239,20 @@ export function TaskEditDialog({
         supervisor,
         crewId: snapshots.crewId ?? form.crewId,
         crew: snapshots.crew || selectedCrew?.name || task.crew,
-        startDate: form.startDate,
-        dueDate: form.dueDate,
+        startDate: showWorkOrderSchedule ? form.scheduledDate : form.startDate,
+        dueDate: showWorkOrderSchedule ? form.scheduledDate : form.dueDate,
+        scheduledTime: showWorkOrderSchedule
+          ? normalizeScheduledTimeForDb(form.scheduledTime)
+          : undefined,
         estimatedDuration: form.estimatedDuration.trim(),
+        ...workOrderPayload,
       })
       forceClose()
     } catch (submitError) {
       setError(
         submitError instanceof Error
           ? submitError.message
-          : "No se pudo actualizar la tarea."
+          : "No se pudo actualizar la orden de trabajo."
       )
     } finally {
       setIsSubmitting(false)
@@ -195,9 +268,11 @@ export function TaskEditDialog({
           isDirty={isDirty}
         >
         <DialogHeader>
-          <DialogTitle>Editar tarea</DialogTitle>
+          <DialogTitle>
+            {isWorkOrderTask(task) ? "Editar Orden de Trabajo" : "Editar Orden de Trabajo"}
+          </DialogTitle>
           <DialogDescription>
-            {task.code} · Actualice los datos operativos de la tarea.
+            {task.code} · Actualice los datos operativos de la orden de trabajo.
           </DialogDescription>
         </DialogHeader>
 
@@ -284,26 +359,57 @@ export function TaskEditDialog({
             </Select>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="task-edit-start">Inicio</Label>
-              <Input
-                id="task-edit-start"
-                type="date"
-                value={form.startDate}
-                onChange={(event) => updateField("startDate", event.target.value)}
-              />
+          {showWorkOrderSchedule ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="task-edit-scheduled-date">Fecha programada</Label>
+                <Input
+                  id="task-edit-scheduled-date"
+                  type="date"
+                  value={form.scheduledDate}
+                  onChange={(event) =>
+                    updateField("scheduledDate", event.target.value)
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="task-edit-scheduled-time">Hora programada</Label>
+                <Input
+                  id="task-edit-scheduled-time"
+                  type="time"
+                  value={form.scheduledTime}
+                  onChange={(event) =>
+                    updateField("scheduledTime", event.target.value)
+                  }
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="task-edit-due">Fecha límite</Label>
-              <Input
-                id="task-edit-due"
-                type="date"
-                value={form.dueDate}
-                onChange={(event) => updateField("dueDate", event.target.value)}
-              />
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="task-edit-start">Inicio</Label>
+                <Input
+                  id="task-edit-start"
+                  type="date"
+                  value={form.startDate}
+                  onChange={(event) =>
+                    updateField("startDate", event.target.value)
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="task-edit-due">Fecha límite</Label>
+                <Input
+                  id="task-edit-due"
+                  type="date"
+                  value={form.dueDate}
+                  onChange={(event) =>
+                    updateField("dueDate", event.target.value)
+                  }
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="task-edit-duration">Duración estimada</Label>
@@ -315,6 +421,30 @@ export function TaskEditDialog({
               }
             />
           </div>
+
+          {showAmountToCollectField ? (
+            <WorkOrderAmountToCollectField
+              id="task-edit-amount-to-collect"
+              value={form.amountToCollect}
+              onChange={(value) => updateField("amountToCollect", value)}
+            />
+          ) : null}
+
+          {showAmountToCollectField ? (
+            <WorkOrderLocationSection
+              sharedLocation={form.sharedLocation}
+              onSharedLocationChange={(value) =>
+                updateField("sharedLocation", value)
+              }
+            />
+          ) : null}
+
+          {showCommercialFields ? (
+            <WorkOrderCommercialFields
+              form={form.commercial}
+              updateField={updateCommercialField}
+            />
+          ) : null}
 
           {error && (
             <p className="text-sm text-destructive" role="alert">
@@ -540,7 +670,7 @@ export function TaskCrewAssignDialog({
     }
 
     if (isSameTaskCrewAssignment(task, crewId)) {
-      setError("La tarea ya está asignada a esta cuadrilla.")
+      setError("La orden de trabajo ya está asignada a esta cuadrilla.")
       return
     }
 

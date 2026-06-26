@@ -39,9 +39,9 @@ export function EvidenceChecklistPanel({
     return (
       <Card className="shadow-sm">
         <CardHeader>
-          <CardTitle className="text-base">Checklist de tarea</CardTitle>
+          <CardTitle className="text-base">Checklist de la orden de trabajo</CardTitle>
           <CardDescription>
-            No se encontró información de checklist para esta tarea.
+            No se encontró información de checklist para esta orden de trabajo.
           </CardDescription>
         </CardHeader>
       </Card>
@@ -58,7 +58,7 @@ export function EvidenceChecklistPanel({
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 space-y-1">
-            <CardTitle className="text-base">Checklist de tarea</CardTitle>
+            <CardTitle className="text-base">Checklist de la orden de trabajo</CardTitle>
             <CardDescription className="line-clamp-2">
               {taskCode} · {taskTitle}
             </CardDescription>
@@ -67,7 +67,7 @@ export function EvidenceChecklistPanel({
             href={`/tareas/${taskId}`}
             className="inline-flex shrink-0 items-center gap-1 text-xs text-primary hover:underline"
           >
-            Ver tarea
+            Ver OT
             <ExternalLink className="size-3" />
           </Link>
         </div>
@@ -75,7 +75,7 @@ export function EvidenceChecklistPanel({
         <div className="flex flex-wrap items-center gap-2 pt-2">
           <Badge variant="outline" className="font-normal">
             {evidenceCount}{" "}
-            {evidenceCount === 1 ? "evidencia" : "evidencias"} en la tarea
+            {evidenceCount === 1 ? "evidencia" : "evidencias"} en la orden de trabajo
           </Badge>
           <Badge
             variant="outline"
@@ -136,7 +136,7 @@ export function EvidenceChecklistPanel({
 
         {detail.evidence.length > 0 && (
           <p className="pt-1 text-[11px] text-muted-foreground">
-            Última evidencia registrada en tarea:{" "}
+            Última evidencia registrada en la orden de trabajo:{" "}
             {detail.evidence[0]?.title ?? "—"}
           </p>
         )}

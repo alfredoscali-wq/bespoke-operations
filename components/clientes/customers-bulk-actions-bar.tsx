@@ -5,21 +5,20 @@ import { Archive, CheckCircle2, Download, Trash2, UserX } from "lucide-react"
 
 import { useAuth } from "@/components/auth/auth-provider"
 import { useCustomers } from "@/components/clientes/customers-provider"
-import { useTasks } from "@/components/tareas/tasks-provider"
+import { checkCustomerCanDelete } from "@/lib/supabase/customers.browser"
 import { resolveAuthDisplay } from "@/lib/auth/auth-display"
-import { canDeleteCustomer } from "@/lib/customers/customer-delete"
 import { CUSTOMER_EXCLUDE_BLOCKED_MESSAGE } from "@/lib/customers/customer-activity"
-import type { Customer } from "@/lib/types/customers"
+import type { CustomerListRow } from "@/lib/types/customers"
 import { Button } from "@/components/ui/button"
 
 type CustomersBulkActionsBarProps = {
-  selectedCustomers: Customer[]
+  selectedCustomers: CustomerListRow[]
   onClearSelection: () => void
-  onArchive: (customers: Customer[]) => void
+  onArchive: (customers: CustomerListRow[]) => void
   onFeedback: (message: string) => void
 }
 
-function exportCustomersCsv(customers: Customer[]) {
+function exportCustomersCsv(customers: CustomerListRow[]) {
   const headers = [
     "N° Cliente",
     "Nombre",
@@ -66,7 +65,6 @@ export function CustomersBulkActionsBar({
   onFeedback,
 }: CustomersBulkActionsBarProps) {
   const { markCustomersAsActive, deleteCustomer } = useCustomers()
-  const { tasks } = useTasks()
   const { sessionUser } = useAuth()
   const [isPending, setIsPending] = useState(false)
 
@@ -80,10 +78,14 @@ export function CustomersBulkActionsBar({
   }
 
   async function handleExclude() {
-    const blocked = selectedCustomers.filter((customer) => {
-      const check = canDeleteCustomer(customer.id, tasks)
-      return !check.allowed
-    })
+    const checks = await Promise.all(
+      selectedCustomers.map(async (customer) => ({
+        customer,
+        check: await checkCustomerCanDelete(customer.id),
+      }))
+    )
+
+    const blocked = checks.filter(({ check }) => !check.allowed)
 
     if (blocked.length > 0) {
       onFeedback(
@@ -98,13 +100,13 @@ export function CustomersBulkActionsBar({
       for (const customer of selectedCustomers) {
         const result = await deleteCustomer(customer.id)
         if (!result.success) {
-          onFeedback(result.message ?? "No se pudieron excluir los clientes.")
+          onFeedback(result.message ?? "No se pudo excluir al cliente.")
           return
         }
-        excluded++
+        excluded += 1
       }
 
-      onFeedback(`${excluded} cliente(s) excluido(s) de la migración.`)
+      onFeedback(`${excluded} cliente(s) excluido(s).`)
       onClearSelection()
     } finally {
       setIsPending(false)
@@ -120,13 +122,11 @@ export function CustomersBulkActionsBar({
       })
 
       if (!result.success) {
-        onFeedback(result.message ?? "No se pudieron marcar los clientes.")
+        onFeedback(result.message ?? "No se pudo marcar como activo.")
         return
       }
 
-      onFeedback(
-        `${selectedCustomers.length} cliente(s) marcado(s) como activos.`
-      )
+      onFeedback(`${selectedCustomers.length} cliente(s) marcado(s) como activo.`)
       onClearSelection()
     } finally {
       setIsPending(false)
@@ -134,56 +134,65 @@ export function CustomersBulkActionsBar({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border bg-muted/30 p-3 sm:flex-row sm:items-center sm:justify-between">
-      <p className="text-sm font-medium">
+    <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-muted/20 px-3 py-2">
+      <span className="text-sm font-medium text-foreground">
         {selectedCustomers.length} seleccionado(s)
-      </p>
-      <div className="flex flex-wrap gap-2">
-        <Button
-          size="sm"
-          className="gap-1.5"
-          disabled={isPending}
-          onClick={() => void handleMarkActive()}
-        >
-          <CheckCircle2 className="size-4" />
-          Marcar activos
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          className="gap-1.5"
-          onClick={() => onArchive(selectedCustomers)}
-        >
-          <Archive className="size-4" />
-          Archivar
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          className="gap-1.5"
-          onClick={() => void handleExclude()}
-        >
-          <UserX className="size-4" />
-          Excluir de la migración
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          className="gap-1.5"
-          onClick={() => exportCustomersCsv(selectedCustomers)}
-        >
-          <Download className="size-4" />
-          Exportar
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={onClearSelection}
-        >
-          <Trash2 className="size-4" />
-          Limpiar
-        </Button>
-      </div>
+      </span>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        className="gap-1.5"
+        disabled={isPending}
+        onClick={() => onArchive(selectedCustomers)}
+      >
+        <Archive className="size-4" />
+        Archivar
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        className="gap-1.5"
+        disabled={isPending}
+        onClick={() => void handleMarkActive()}
+      >
+        <CheckCircle2 className="size-4" />
+        Marcar activo
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        className="gap-1.5"
+        disabled={isPending}
+        onClick={() => exportCustomersCsv(selectedCustomers)}
+      >
+        <Download className="size-4" />
+        Exportar CSV
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        className="gap-1.5 text-destructive hover:text-destructive"
+        disabled={isPending}
+        onClick={() => void handleExclude()}
+      >
+        <Trash2 className="size-4" />
+        Excluir
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        variant="ghost"
+        className="gap-1.5"
+        disabled={isPending}
+        onClick={onClearSelection}
+      >
+        <UserX className="size-4" />
+        Limpiar
+      </Button>
     </div>
   )
 }

@@ -29,9 +29,10 @@ import { resolveTaskCrewDisplayName, taskHasCrew } from "@/lib/tasks/crew-relati
 import { formatTaskDate } from "@/lib/tasks/constants"
 import {
   formatContractedPlanLabel,
-  formatInstallationCostDisplay,
+  formatAmountToCollectDisplay,
   isNewInstallationTask,
 } from "@/lib/tasks/commercial-plan"
+import { isWorkOrderTask } from "@/lib/tasks/work-order"
 import { isFieldServiceTask } from "@/lib/tasks/utils"
 import { TaskEvidenceSummary } from "@/components/evidencias/task-evidence-summary"
 import { TaskMaterialsPanel } from "@/components/materiales/task-materials-panel"
@@ -53,7 +54,6 @@ import {
   TaskStatusBadge,
   TaskTypeBadge,
 } from "@/components/tareas/task-badges"
-import { isWorkOrderTask } from "@/lib/tasks/work-order"
 import {
   getSharedLocationDisplayText,
   getSharedLocationHref,
@@ -196,7 +196,7 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
   const obraInfoItems = [
     {
       icon: FolderKanban,
-      label: "Proyecto",
+      label: "Obra",
       value: (
         <div>
           <p className="font-mono text-xs text-primary">{liveTask.projectCode}</p>
@@ -343,7 +343,7 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
                 className="mt-1 inline-flex items-center gap-1 font-medium text-primary hover:underline"
               >
                 <MapPin className="size-3.5" />
-                Ver proyecto {liveTask.projectCode}
+                Ver obra {liveTask.projectCode}
               </Link>
             </div>
           )}
@@ -351,14 +351,11 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
       </Card>
 
       <div className="space-y-6">
-        {isNewInstallationTask(liveTask) &&
-        (liveTask.contractedPlan || liveTask.installationCost != null) ? (
+        {isNewInstallationTask(liveTask) && liveTask.contractedPlan ? (
           <Card className="shadow-sm">
             <CardHeader>
               <CardTitle>Información comercial</CardTitle>
-              <CardDescription>
-                Plan contratado y costo de instalación
-              </CardDescription>
+              <CardDescription>Plan contratado</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
@@ -367,16 +364,19 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
                   {formatContractedPlanLabel(liveTask.contractedPlan) ?? "—"}
                 </p>
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground">
-                  Costo instalación
-                </p>
-                <p className="text-base font-semibold">
-                  {liveTask.installationCost != null
-                    ? formatInstallationCostDisplay(liveTask.installationCost)
-                    : "—"}
-                </p>
-              </div>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {isWorkOrderTask(liveTask) && liveTask.amountToCollect != null ? (
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle>Importe a cobrar</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-base font-semibold">
+                {formatAmountToCollectDisplay(liveTask.amountToCollect)}
+              </p>
             </CardContent>
           </Card>
         ) : null}

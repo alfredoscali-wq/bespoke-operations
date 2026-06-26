@@ -9,13 +9,14 @@ import {
 } from "lucide-react"
 
 import { TaskIncidentCancelDialog } from "@/components/tareas/task-incident-cancel-dialog"
-import { TaskIncidentRescheduleDialog } from "@/components/tareas/task-incident-reschedule-dialog"
+import { TaskRescheduleDialog } from "@/components/tareas/task-reschedule-dialog"
 import { useTasks } from "@/components/tareas/tasks-provider"
 import {
   formatTaskDateTime,
   TASK_STATUS_LABELS,
 } from "@/lib/tasks/constants"
 import { resolveIncidentReasonLabel } from "@/lib/tasks/incidents"
+import type { TaskRescheduleInput } from "@/lib/tasks/reschedule"
 import { isPendingClosureStatus } from "@/lib/tasks/task-status-workflow"
 import type { Task, TaskStatus } from "@/lib/types/tasks"
 import { cn } from "@/lib/utils"
@@ -31,6 +32,7 @@ const OPERATIONAL_STATUS_DISPLAY: Partial<
   Record<TaskStatus, { emoji: string; label: string }>
 > = {
   asignada: { emoji: "📅", label: "Programada" },
+  vencida: { emoji: "🔴", label: "Vencida" },
   "en-curso": { emoji: "🟠", label: "En curso" },
   "pendiente-cierre": { emoji: "🟡", label: "Pendiente de cierre" },
   "en-aprobacion": { emoji: "🟡", label: "Pendiente de cierre" },
@@ -42,11 +44,12 @@ const OPERATIONAL_STATUS_DISPLAY: Partial<
 
 type TaskOperationalWorkflowActionsProps = {
   task: Task
+  rescheduledBy: string
   canClose?: boolean
   onClose?: () => void
   onReject?: () => void
   onResume?: () => Promise<void>
-  onReschedule?: (dueDate: string) => Promise<void>
+  onReschedule?: (input: TaskRescheduleInput) => Promise<void>
   onCancelIncident?: (input: {
     reason: string
     observation: string
@@ -66,6 +69,7 @@ function resolveOperationalStatusDisplay(task: Task) {
 
 export function TaskOperationalWorkflowActions({
   task: initialTask,
+  rescheduledBy,
   canClose = false,
   onClose,
   onReject,
@@ -83,12 +87,14 @@ export function TaskOperationalWorkflowActions({
   const statusDisplay = resolveOperationalStatusDisplay(task)
   const pendingClosure = isPendingClosureStatus(task.status)
   const hasIncident = task.status === "incidencia"
+  const hasOverdue = task.status === "vencida"
   const showCloseAction = pendingClosure && canClose && onClose
   const showRejectAction = pendingClosure && canClose && onReject
   const showIncidentActions =
     hasIncident && canClose && onResume && onReschedule && onCancelIncident
+  const showOverdueActions = hasOverdue && canClose && onReschedule
 
-  const cardTone = hasIncident
+  const cardTone = hasIncident || hasOverdue
     ? "border-red-200/80 bg-red-50/30 dark:border-red-900 dark:bg-red-950/20"
     : pendingClosure
       ? "border-amber-200/80 bg-amber-50/30 dark:border-amber-900 dark:bg-amber-950/20"
@@ -110,6 +116,13 @@ export function TaskOperationalWorkflowActions({
               {statusDisplay.label}
             </p>
           </div>
+
+          {hasOverdue ? (
+            <div className="rounded-lg border border-red-200/80 bg-background/80 p-3 text-sm text-red-900 dark:text-red-100">
+              La fecha y hora programadas ya vencieron sin iniciar la OT.
+              Reprograme antes de continuar la operación.
+            </div>
+          ) : null}
 
           {hasIncident ? (
             <div className="space-y-3">
@@ -182,7 +195,7 @@ export function TaskOperationalWorkflowActions({
               </Button>
               <Button
                 variant="outline"
-                onClick={() => void onResume()}
+                onClick={() => void onResume!()}
                 disabled={isPending}
                 className="gap-1.5"
               >
@@ -200,31 +213,52 @@ export function TaskOperationalWorkflowActions({
               </Button>
             </div>
           ) : null}
+
+          {showOverdueActions ? (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                onClick={() => setRescheduleOpen(true)}
+                disabled={isPending}
+                className="gap-1.5"
+              >
+                <CalendarClock className="size-4" />
+                Reprogramar OT
+              </Button>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
-      {showIncidentActions ? (
+      {(showIncidentActions || showOverdueActions) && onReschedule ? (
         <>
-          <TaskIncidentRescheduleDialog
+          <TaskRescheduleDialog
             open={rescheduleOpen}
             onOpenChange={setRescheduleOpen}
-            currentDueDate={task.dueDate}
-            onConfirm={async (dueDate) => {
-              await onReschedule(dueDate)
+            task={task}
+            rescheduledBy={rescheduledBy}
+            description={
+              hasOverdue
+                ? "La OT volverá a Programada. Indique la nueva fecha, hora y motivo."
+                : "La OT volverá a Programada. Indique la nueva fecha, hora y motivo de la reprogramación."
+            }
+            onConfirm={async (input) => {
+              await onReschedule(input)
               setRescheduleOpen(false)
             }}
             isSubmitting={isPending}
           />
 
-          <TaskIncidentCancelDialog
-            open={cancelOpen}
-            onOpenChange={setCancelOpen}
-            onConfirm={async (input) => {
-              await onCancelIncident(input)
-              setCancelOpen(false)
-            }}
-            isSubmitting={isPending}
-          />
+          {showIncidentActions && onCancelIncident ? (
+            <TaskIncidentCancelDialog
+              open={cancelOpen}
+              onOpenChange={setCancelOpen}
+              onConfirm={async (input) => {
+                await onCancelIncident(input)
+                setCancelOpen(false)
+              }}
+              isSubmitting={isPending}
+            />
+          ) : null}
         </>
       ) : null}
     </>

@@ -17,7 +17,7 @@ import {
 
 import { EmploymentStatusBadge, EmployeeTypeBadge } from "@/components/rrhh/employee-badges"
 import { EmployeeSystemAccessSection } from "@/components/rrhh/employee-system-access-section"
-import { WhatsAppLink } from "@/components/ui/whatsapp-link"
+import { TelLink } from "@/components/ui/tel-link"
 import { EMPLOYEE_TYPE_LABELS } from "@/lib/employees/constants"
 import { EmployeeFormDialog } from "@/components/rrhh/employee-form-dialog"
 import { useEmployees } from "@/components/rrhh/employees-provider"
@@ -160,10 +160,10 @@ export function EmployeeDetailView({ employee }: EmployeeDetailViewProps) {
                 onClick={() => setEditOpen(true)}
               >
                 <Pencil className="size-4" />
-                <span className="sr-only">Editar empleado</span>
+                <span className="sr-only">Editar Empleado</span>
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Editar empleado</TooltipContent>
+            <TooltipContent>Editar Empleado</TooltipContent>
           </Tooltip>
 
           <Tooltip>
@@ -227,7 +227,7 @@ export function EmployeeDetailView({ employee }: EmployeeDetailViewProps) {
             label="Teléfono"
             value={
               employee.phone?.trim() ? (
-                <WhatsAppLink phone={employee.phone} />
+                <TelLink phone={employee.phone} />
               ) : (
                 "—"
               )

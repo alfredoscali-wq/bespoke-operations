@@ -8,10 +8,12 @@ import {
   MoreHorizontal,
   Pencil,
   RefreshCw,
+  ShieldAlert,
   Trash2,
   Users,
 } from "lucide-react"
 
+import { PermanentDeleteDialog } from "@/components/admin/permanent-delete-dialog"
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { useTasks } from "@/components/tareas/tasks-provider"
 import {
@@ -29,10 +31,10 @@ import {
   TaskEditDialog,
   TaskStatusDialog,
 } from "@/components/tareas/task-action-dialogs"
+import { TaskIncidentCancelDialog } from "@/components/tareas/task-incident-cancel-dialog"
 import type { Task } from "@/lib/types/tasks"
-import {
-  resolveCrewSnapshotsForAssignment,
-} from "@/lib/tasks/crew-relation"
+import { resolveCrewSnapshotsForAssignment } from "@/lib/tasks/crew-relation"
+import { useIsSystemAdministrator } from "@/lib/auth/use-is-system-administrator"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -66,13 +68,16 @@ export function TaskRowActions({
   triggerClassName,
   operationalMode = false,
 }: TaskRowActionsProps) {
-  const { editTask, changeTaskStatus, deleteTask, assignCrew, cancelTask } =
+  const { editTask, changeTaskStatus, deleteTask, assignCrew, cancelTask, removeTaskLocally } =
     useTasks()
   const { getCrew } = useCrews()
+  const isSystemAdministrator = useIsSystemAdministrator()
   const [editOpen, setEditOpen] = useState(false)
   const [statusOpen, setStatusOpen] = useState(false)
   const [crewOpen, setCrewOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [permanentDeleteOpen, setPermanentDeleteOpen] = useState(false)
+  const [cancelOpen, setCancelOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isCancelling, setIsCancelling] = useState(false)
 
@@ -91,7 +96,11 @@ export function TaskRowActions({
     crew: string
     startDate: string
     dueDate: string
+    scheduledTime?: string | null
     estimatedDuration: string
+    contractedPlan?: string | null
+    amountToCollect?: number | null
+    sharedLocation?: string | null
   }) {
     const selectedCrew = getCrew(payload.crewId)
     const snapshots = resolveCrewSnapshotsForAssignment(selectedCrew)
@@ -103,19 +112,31 @@ export function TaskRowActions({
       priority: payload.priority,
       dueDate: payload.dueDate,
       startDate: payload.startDate,
+      ...(payload.scheduledTime !== undefined
+        ? { scheduledTime: payload.scheduledTime }
+        : {}),
       estimatedDuration: payload.estimatedDuration,
       supervisor: payload.supervisor,
       crewId: snapshots.crewId ?? payload.crewId,
       crew: snapshots.crew || payload.crew,
+      ...(payload.contractedPlan !== undefined
+        ? { contractedPlan: payload.contractedPlan }
+        : {}),
+      ...(payload.amountToCollect !== undefined
+        ? { amountToCollect: payload.amountToCollect }
+        : {}),
+      ...(payload.sharedLocation !== undefined
+        ? { sharedLocation: payload.sharedLocation }
+        : {}),
     })
 
     if (!result.success) {
-      throw new Error(result.message ?? "No se pudo actualizar la tarea.")
+      throw new Error(result.message ?? "No se pudo actualizar la orden de trabajo.")
     }
 
     onFeedback({
       variant: "success",
-      message: "Tarea actualizada correctamente.",
+      message: "Orden de trabajo actualizada correctamente.",
     })
   }
 
@@ -126,7 +147,7 @@ export function TaskRowActions({
     }
     onFeedback({
       variant: "success",
-      message: "Estado de la tarea actualizado.",
+      message: "Estado de la orden de trabajo actualizado.",
     })
   }
 
@@ -148,22 +169,28 @@ export function TaskRowActions({
     })
   }
 
-  async function handleCancelTask() {
+  async function handleConfirmCancel(input: {
+    reason: string
+    observation: string
+  }) {
     setIsCancelling(true)
-    const result = await cancelTask(task.id)
+    const result = await cancelTask(task.id, {
+      reason: input.reason,
+      observation: input.observation,
+    })
     setIsCancelling(false)
 
     if (!result.success) {
       onFeedback({
         variant: "error",
-        message: result.message ?? "No se pudo cancelar la tarea.",
+        message: result.message ?? "No se pudo cancelar la orden de trabajo.",
       })
       return
     }
 
     onFeedback({
       variant: "success",
-      message: "Tarea cancelada correctamente.",
+      message: "Orden de trabajo cancelada correctamente.",
     })
   }
 
@@ -189,7 +216,7 @@ export function TaskRowActions({
     setDeleteOpen(false)
     onFeedback({
       variant: "success",
-      message: "Tarea eliminada correctamente.",
+      message: "Orden de trabajo eliminada correctamente.",
     })
   }
 
@@ -215,7 +242,7 @@ export function TaskRowActions({
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setEditOpen(true)}>
             <Pencil className="size-4" />
-            {hideInternalStatusActions ? "Editar orden" : "Editar tarea"}
+            {hideInternalStatusActions ? "Editar Orden de Trabajo" : "Editar Orden de Trabajo"}
           </DropdownMenuItem>
           {!hideInternalStatusActions && (
             <DropdownMenuItem onClick={() => setStatusOpen(true)}>
@@ -229,11 +256,11 @@ export function TaskRowActions({
           </DropdownMenuItem>
           {canCancel && (
             <DropdownMenuItem
-              onClick={handleCancelTask}
+              onClick={() => setCancelOpen(true)}
               disabled={isCancelling}
             >
               <Ban className="size-4" />
-              Cancelar tarea
+              Cancelar Orden de Trabajo
             </DropdownMenuItem>
           )}
           <DropdownMenuSeparator />
@@ -243,8 +270,20 @@ export function TaskRowActions({
             disabled={!canArchive}
           >
             <Trash2 className="size-4" />
-            Eliminar tarea
+            Eliminar Orden de Trabajo
           </DropdownMenuItem>
+          {isSystemAdministrator ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onClick={() => setPermanentDeleteOpen(true)}
+              >
+                <ShieldAlert className="size-4" />
+                Eliminar definitivamente
+              </DropdownMenuItem>
+            </>
+          ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -269,12 +308,24 @@ export function TaskRowActions({
         onSubmit={handleCrewAssign}
       />
 
+      {canCancel ? (
+        <TaskIncidentCancelDialog
+          open={cancelOpen}
+          onOpenChange={setCancelOpen}
+          onConfirm={async (input) => {
+            await handleConfirmCancel(input)
+            setCancelOpen(false)
+          }}
+          isSubmitting={isCancelling}
+        />
+      ) : null}
+
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Eliminar tarea</DialogTitle>
+            <DialogTitle>Eliminar Orden de Trabajo</DialogTitle>
             <DialogDescription>
-              ¿Desea eliminar esta tarea?
+              ¿Desea eliminar esta orden de trabajo?
               <span className="font-medium text-foreground"> {task.title}</span>
               {!canArchive && (
                 <span className="mt-2 block text-destructive">
@@ -303,6 +354,18 @@ export function TaskRowActions({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <PermanentDeleteDialog
+        open={permanentDeleteOpen}
+        onOpenChange={setPermanentDeleteOpen}
+        entityType="task"
+        entityId={task.id}
+        entityLabel={task.code || task.title}
+        onSuccess={(message) => {
+          removeTaskLocally(task.id)
+          onFeedback({ variant: "success", message })
+        }}
+      />
     </>
   )
 }

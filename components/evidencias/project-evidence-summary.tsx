@@ -25,7 +25,7 @@ export function ProjectEvidenceSummary({ projectId }: ProjectEvidenceSummaryProp
   return (
     <Card className="shadow-sm">
       <CardHeader className="pb-2">
-        <CardTitle className="text-base">Evidencias del proyecto</CardTitle>
+        <CardTitle className="text-base">Evidencias de la obra</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="grid grid-cols-2 gap-3">

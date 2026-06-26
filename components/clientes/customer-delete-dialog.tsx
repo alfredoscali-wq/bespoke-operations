@@ -1,15 +1,14 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 
 import { useCustomers } from "@/components/clientes/customers-provider"
-import { useTasks } from "@/components/tareas/tasks-provider"
+import { checkCustomerCanDelete } from "@/lib/supabase/customers.browser"
 import {
-  canDeleteCustomer,
   CUSTOMER_DELETE_BLOCKED_MESSAGE,
 } from "@/lib/customers/customer-delete"
 import { CUSTOMER_EXCLUDE_BLOCKED_MESSAGE } from "@/lib/customers/customer-activity"
-import type { Customer } from "@/lib/types/customers"
+import type { CustomerListRow } from "@/lib/types/customers"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -21,7 +20,7 @@ import {
 } from "@/components/ui/dialog"
 
 type CustomerDeleteDialogProps = {
-  customer: Customer | null
+  customer: CustomerListRow | null
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess: (message: string) => void
@@ -34,28 +33,37 @@ export function CustomerDeleteDialog({
   onSuccess,
 }: CustomerDeleteDialogProps) {
   const { deleteCustomer } = useCustomers()
-  const { tasks } = useTasks()
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [deleteCheck, setDeleteCheck] = useState<
+    { allowed: true } | { allowed: false; message: string }
+  >({ allowed: false, message: "" })
+  const [isChecking, setIsChecking] = useState(false)
 
   const isMigrationCustomer = Boolean(customer?.legacyMigrationId)
   const blockedMessage = isMigrationCustomer
     ? CUSTOMER_EXCLUDE_BLOCKED_MESSAGE
     : CUSTOMER_DELETE_BLOCKED_MESSAGE
 
-  const deleteCheck = useMemo(() => {
-    if (!customer) {
-      return { allowed: false as const, message: "" }
-    }
-
-    return canDeleteCustomer(customer.id, tasks)
-  }, [customer, tasks])
-
   useEffect(() => {
-    if (open) {
-      setError(deleteCheck.allowed ? null : deleteCheck.message || blockedMessage)
+    if (!open || !customer) {
+      return
     }
-  }, [open, deleteCheck, blockedMessage])
+
+    let cancelled = false
+    setIsChecking(true)
+
+    void checkCustomerCanDelete(customer.id).then((result) => {
+      if (cancelled) return
+      setDeleteCheck(result)
+      setError(result.allowed ? null : result.message || blockedMessage)
+      setIsChecking(false)
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [open, customer, blockedMessage])
 
   async function handleDelete() {
     if (!customer || !deleteCheck.allowed) {
@@ -103,7 +111,9 @@ export function CustomerDeleteDialog({
               : "Eliminar cliente"}
           </DialogTitle>
           <DialogDescription className="space-y-2">
-            {deleteCheck.allowed ? (
+            {isChecking ? (
+              <span className="block">Verificando actividad operativa...</span>
+            ) : deleteCheck.allowed ? (
               <>
                 <span className="block">
                   {isMigrationCustomer
@@ -141,7 +151,7 @@ export function CustomerDeleteDialog({
           >
             Cancelar
           </Button>
-          {deleteCheck.allowed && (
+          {deleteCheck.allowed && !isChecking && (
             <Button
               type="button"
               variant="destructive"

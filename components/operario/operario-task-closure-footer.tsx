@@ -81,6 +81,22 @@ export function OperarioTaskClosureFooter({
   const showInProgressActions = task.status === "en-curso"
   const pendingClosure = isPendingClosureStatus(task.status)
   const hasIncident = isIncidentStatus(task.status)
+  const hasOverdue = task.status === "vencida"
+
+  if (hasOverdue) {
+    return (
+      <div className="fixed inset-x-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom,0px))] z-40 border-t border-red-200 bg-red-50/95 px-4 py-4 backdrop-blur supports-[backdrop-filter]:bg-red-50/90 dark:border-red-900 dark:bg-red-950/90">
+        <div className="mx-auto max-w-lg space-y-1">
+          <p className="text-base font-semibold text-red-900 dark:text-red-100">
+            🔴 OT vencida
+          </p>
+          <p className="text-sm text-red-800 dark:text-red-200">
+            Debe reprogramarse antes de iniciar la orden de trabajo.
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   if (pendingClosure) {
     return (
@@ -125,7 +141,7 @@ export function OperarioTaskClosureFooter({
     setIsPending(false)
 
     if (!result.success) {
-      onActionError?.(result.message ?? "No se pudo iniciar la tarea.")
+      onActionError?.(result.message ?? "No se pudo iniciar la orden de trabajo.")
       return
     }
 
@@ -202,7 +218,7 @@ export function OperarioTaskClosureFooter({
               ) : (
                 <Play className="size-5" />
               )}
-              Iniciar tarea
+              Iniciar Orden de Trabajo
             </Button>
           ) : null}
 

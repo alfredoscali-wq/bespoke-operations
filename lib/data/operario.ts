@@ -1,5 +1,5 @@
-import { toDateOnly } from "@/lib/availability/utils"
-import { compareDateOnly } from "@/lib/dates/date-only"
+import { compareDateOnly, toLocalDateOnly } from "@/lib/dates/date-only"
+import { compareTasksBySchedule } from "@/lib/tasks/scheduling"
 import { taskMatchesCrewId } from "@/lib/tasks/crew-relation"
 import type { Task, TaskStatus } from "@/lib/types/tasks"
 
@@ -8,57 +8,84 @@ export type WorkerCrewRef = {
   name: string
 }
 
-const OPERARIO_HOME_STATUSES: TaskStatus[] = [
-  "pendiente",
-  "asignada",
+const OPERARIO_TODAY_SCHEDULED_STATUSES: TaskStatus[] = ["pendiente", "asignada"]
+
+const OPERARIO_TODAY_OVERDUE_STATUSES: TaskStatus[] = ["vencida"]
+
+const OPERARIO_TODAY_ACTIVE_STATUSES: TaskStatus[] = [
   "en-curso",
+  "incidencia",
+  "pendiente-cierre",
+  "en-aprobacion",
+]
+
+const OPERARIO_HISTORY_STATUSES: TaskStatus[] = [
+  "finalizada",
+  "cerrada",
+  "cancelada",
+  "pendiente-cierre",
+  "en-aprobacion",
   "incidencia",
 ]
 
-const OPERARIO_SCHEDULED_STATUSES: TaskStatus[] = ["pendiente", "asignada"]
+const OPERARIO_TODAY_STATUS_ORDER: Partial<Record<TaskStatus, number>> = {
+  vencida: 0,
+  incidencia: 1,
+  "en-curso": 2,
+  "pendiente-cierre": 3,
+  "en-aprobacion": 3,
+  pendiente: 4,
+  asignada: 4,
+}
 
-const OPERARIO_ACTIVE_FIELD_STATUSES: TaskStatus[] = ["en-curso", "incidencia"]
-
+/** Scheduled OT visible on today's jornada (due today or overdue, never future). */
 export function isOperarioScheduledTaskVisibleToday(
-  task: Pick<Task, "dueDate" | "startDate">,
-  referenceDate: string = toDateOnly()
+  task: Pick<Task, "dueDate">,
+  referenceDate: string = toLocalDateOnly()
 ): boolean {
-  if (compareDateOnly(task.dueDate, referenceDate) < 0) {
+  return compareDateOnly(task.dueDate, referenceDate) <= 0
+}
+
+export function isOperarioTodayTask(
+  task: Task,
+  referenceDate: string = toLocalDateOnly()
+): boolean {
+  if (OPERARIO_TODAY_ACTIVE_STATUSES.includes(task.status)) {
     return true
   }
 
-  return task.dueDate === referenceDate || task.startDate === referenceDate
-}
-
-function isOperarioHomeTask(
-  task: Task,
-  referenceDate: string = toDateOnly()
-): boolean {
-  if (!OPERARIO_HOME_STATUSES.includes(task.status)) {
-    return false
-  }
-
-  if (OPERARIO_ACTIVE_FIELD_STATUSES.includes(task.status)) {
+  if (OPERARIO_TODAY_OVERDUE_STATUSES.includes(task.status)) {
     return true
   }
 
-  return isOperarioScheduledTaskVisibleToday(task, referenceDate)
-}
-
-export function isOperarioWorkerTaskAccessible(
-  task: Task,
-  workerCrew: WorkerCrewRef,
-  referenceDate: string = toDateOnly()
-): boolean {
-  if (!getWorkerTasks([task], workerCrew).length) {
-    return false
-  }
-
-  if (OPERARIO_SCHEDULED_STATUSES.includes(task.status)) {
+  if (OPERARIO_TODAY_SCHEDULED_STATUSES.includes(task.status)) {
     return isOperarioScheduledTaskVisibleToday(task, referenceDate)
   }
 
-  return true
+  return false
+}
+
+export function isOperarioHistoryTask(task: Task): boolean {
+  return OPERARIO_HISTORY_STATUSES.includes(task.status)
+}
+
+export function sortOperarioTasksByDateDesc(tasks: Task[]): Task[] {
+  return [...tasks].sort((left, right) =>
+    compareDateOnly(right.dueDate, left.dueDate)
+  )
+}
+
+function sortOperarioTodayTasks(tasks: Task[]): Task[] {
+  return [...tasks].sort((left, right) => {
+    const leftOrder = OPERARIO_TODAY_STATUS_ORDER[left.status] ?? 99
+    const rightOrder = OPERARIO_TODAY_STATUS_ORDER[right.status] ?? 99
+
+    if (leftOrder !== rightOrder) {
+      return leftOrder - rightOrder
+    }
+
+    return compareTasksBySchedule(left, right)
+  })
 }
 
 export function getWorkerTasks(tasks: Task[], workerCrew: WorkerCrewRef): Task[] {
@@ -84,42 +111,114 @@ export function getWorkerTasks(tasks: Task[], workerCrew: WorkerCrewRef): Task[]
   })
 }
 
+export function getOperarioTodayTasks(
+  tasks: Task[],
+  workerCrew: WorkerCrewRef,
+  referenceDate: string = toLocalDateOnly()
+): Task[] {
+  const todayTasks = getWorkerTasks(tasks, workerCrew).filter((task) =>
+    isOperarioTodayTask(task, referenceDate)
+  )
+
+  return sortOperarioTodayTasks(todayTasks)
+}
+
+/** @deprecated Use getOperarioTodayTasks */
 export function getTodayWorkerTasks(
   tasks: Task[],
   workerCrew: WorkerCrewRef,
-  referenceDate: string = toDateOnly()
+  referenceDate: string = toLocalDateOnly()
 ): Task[] {
-  return getWorkerTasks(tasks, workerCrew).filter((task) =>
-    isOperarioHomeTask(task, referenceDate)
-  )
+  return getOperarioTodayTasks(tasks, workerCrew, referenceDate)
 }
 
+export function getOperarioHistoryTasks(
+  tasks: Task[],
+  workerCrew: WorkerCrewRef
+): Task[] {
+  const historyTasks = getWorkerTasks(tasks, workerCrew).filter((task) =>
+    isOperarioHistoryTask(task)
+  )
+
+  return sortOperarioTasksByDateDesc(historyTasks)
+}
+
+export function groupOperarioHistoryTasks(
+  tasks: Task[],
+  workerCrew: WorkerCrewRef
+) {
+  const historyTasks = getOperarioHistoryTasks(tasks, workerCrew)
+
+  return {
+    finalizadas: sortOperarioTasksByDateDesc(
+      historyTasks.filter(
+        (task) => task.status === "finalizada" || task.status === "cerrada"
+      )
+    ),
+    pendientesCierre: sortOperarioTasksByDateDesc(
+      historyTasks.filter(
+        (task) =>
+          task.status === "pendiente-cierre" || task.status === "en-aprobacion"
+      )
+    ),
+    incidencias: sortOperarioTasksByDateDesc(
+      historyTasks.filter((task) => task.status === "incidencia")
+    ),
+    canceladas: sortOperarioTasksByDateDesc(
+      historyTasks.filter((task) => task.status === "cancelada")
+    ),
+    all: historyTasks,
+  }
+}
+
+/** @deprecated Use groupOperarioHistoryTasks */
 export function groupWorkerTasks(
   tasks: Task[],
   workerCrew: WorkerCrewRef,
-  referenceDate: string = toDateOnly()
+  referenceDate: string = toLocalDateOnly()
 ) {
-  const workerTasks = getWorkerTasks(tasks, workerCrew)
+  void referenceDate
 
+  return groupOperarioHistoryTasks(tasks, workerCrew)
+}
+
+export function isOperarioWorkerTaskAccessible(
+  task: Task,
+  workerCrew: WorkerCrewRef,
+  referenceDate: string = toLocalDateOnly()
+): boolean {
+  if (!getWorkerTasks([task], workerCrew).length) {
+    return false
+  }
+
+  return (
+    isOperarioTodayTask(task, referenceDate) || isOperarioHistoryTask(task)
+  )
+}
+
+export type OperarioTodaySummary = {
+  total: number
+  programadas: number
+  vencidas: number
+  enCurso: number
+  pendientesCierre: number
+  incidencias: number
+}
+
+export function summarizeOperarioTodayTasks(
+  todayTasks: Task[]
+): OperarioTodaySummary {
   return {
-    pendientes: workerTasks.filter(
+    total: todayTasks.length,
+    programadas: todayTasks.filter((task) =>
+      OPERARIO_TODAY_SCHEDULED_STATUSES.includes(task.status)
+    ).length,
+    vencidas: todayTasks.filter((task) => task.status === "vencida").length,
+    enCurso: todayTasks.filter((task) => task.status === "en-curso").length,
+    pendientesCierre: todayTasks.filter(
       (task) =>
-        OPERARIO_SCHEDULED_STATUSES.includes(task.status) &&
-        isOperarioScheduledTaskVisibleToday(task, referenceDate)
-    ),
-    enCurso: workerTasks.filter(
-      (task) =>
-        task.status === "en-curso" ||
-        task.status === "incidencia" ||
-        task.status === "pendiente-cierre" ||
-        task.status === "en-aprobacion"
-    ),
-    finalizadas: workerTasks.filter(
-      (task) =>
-        task.status === "finalizada" ||
-        task.status === "cerrada" ||
-        task.status === "cancelada"
-    ),
-    all: workerTasks,
+        task.status === "pendiente-cierre" || task.status === "en-aprobacion"
+    ).length,
+    incidencias: todayTasks.filter((task) => task.status === "incidencia").length,
   }
 }

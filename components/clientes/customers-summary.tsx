@@ -2,7 +2,7 @@
 
 import { AlertTriangle, CheckCircle2, Users } from "lucide-react"
 
-import { useCustomersUI } from "@/components/clientes/customers-ui-provider"
+import { useCustomers } from "@/components/clientes/customers-provider"
 import { KpiCard } from "@/components/ui/kpi-card"
 import {
   CUSTOMER_KPI_LABELS,
@@ -28,7 +28,7 @@ export function CustomersSummary({
   quickFilter,
   onQuickFilterChange,
 }: CustomersSummaryProps) {
-  const { operationalSummary } = useCustomersUI()
+  const { operationalSummary, isSummaryLoading } = useCustomers()
 
   return (
     <div className="grid gap-5 sm:grid-cols-3">
@@ -48,7 +48,11 @@ export function CustomersSummary({
           >
             <KpiCard
               label={CUSTOMER_KPI_LABELS[kpi]}
-              value={getOperationalKpiValue(operationalSummary, kpi)}
+              value={
+                isSummaryLoading
+                  ? "…"
+                  : getOperationalKpiValue(operationalSummary, kpi)
+              }
               icon={Icon}
               tone={CUSTOMER_KPI_TONE[kpi]}
               className={cn(

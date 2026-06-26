@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server"
 
+import { recordUserPasswordResetAudit } from "@/lib/audit/users-audit.server"
 import { resetEmployeePassword } from "@/lib/auth/reset-employee-password"
 import { getSessionUser } from "@/lib/auth/session"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { fetchEmployeeById } from "@/lib/supabase/employees.queries"
 
 type ResetPasswordRequestBody = {
   employeeId?: string
@@ -61,6 +64,17 @@ export async function POST(request: Request) {
 
     if (!result.success) {
       return NextResponse.json(result, { status: 422 })
+    }
+
+    const admin = createAdminClient()
+    const employeeResult = await fetchEmployeeById(admin, employeeId)
+    const employee = employeeResult.data
+
+    if (employee) {
+      await recordUserPasswordResetAudit({
+        performedBy: sessionUser,
+        employee,
+      })
     }
 
     return NextResponse.json(result, { status: 200 })

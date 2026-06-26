@@ -7,8 +7,8 @@ import { ClipboardList, Home, User } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const navItems = [
-  { href: "/operario", label: "Inicio", icon: Home, exact: true },
-  { href: "/operario/tareas", label: "Tareas", icon: ClipboardList },
+  { href: "/operario", label: "Hoy", icon: Home, exact: true },
+  { href: "/operario/tareas", label: "Historial de OT", icon: ClipboardList },
   { href: "/operario/perfil", label: "Perfil", icon: User },
 ]
 

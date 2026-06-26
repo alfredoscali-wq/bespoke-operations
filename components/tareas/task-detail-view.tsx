@@ -13,9 +13,11 @@ import {
   validateCrewAssignment,
 } from "@/lib/crews/status-workflow"
 import { resolveTaskCrewDisplayName } from "@/lib/tasks/crew-relation"
+import type { TaskRescheduleInput } from "@/lib/tasks/reschedule"
 import { TaskOverviewTab } from "@/components/tareas/task-tabs/overview-tab"
 import { TaskOperationalWorkflowActions } from "@/components/tareas/task-operational-workflow-actions"
 import { TaskClosureRejectDialog } from "@/components/tareas/task-closure-reject-dialog"
+import { TaskIncidentCancelDialog } from "@/components/tareas/task-incident-cancel-dialog"
 import { TaskEvidencePhotosGallery } from "@/components/tareas/task-evidence-photos-gallery"
 import { TaskChecklistTab } from "@/components/tareas/task-tabs/checklist-tab"
 import { TaskEvidenceTab } from "@/components/tareas/task-tabs/evidence-tab"
@@ -59,7 +61,7 @@ type TaskDetailViewProps = {
 
 export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
   const { crews, getCrew } = useCrews()
-  const { assignCrew, approveTask, rejectTask, cancelTask, resumeTaskFromIncident, rescheduleTaskFromIncident } = useTasks()
+  const { assignCrew, approveTask, rejectTask, cancelTask, resumeTaskFromIncident, rescheduleTaskFromIncident, rescheduleTaskFromOverdue } = useTasks()
   const { sessionUser } = useAuth()
   const actorName = resolveAuthDisplay(sessionUser).displayName
   const crewDisplayName = useMemo(
@@ -76,6 +78,7 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
   const [isWorkflowActionPending, setIsWorkflowActionPending] = useState(false)
   const [actionSuccess, setActionSuccess] = useState<string | null>(null)
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false)
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
 
   async function handleCrewChange(value: string) {
     setCrewError(null)
@@ -123,7 +126,7 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
       return
     }
 
-    setActionSuccess("OT cerrada. La tarea quedó finalizada.")
+    setActionSuccess("OT cerrada. La orden de trabajo quedó finalizada.")
   }
 
   async function handleConfirmReject(reason: string) {
@@ -139,7 +142,7 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
     }
 
     setRejectDialogOpen(false)
-    setActionSuccess("Cierre rechazado. La tarea volvió a En curso.")
+    setActionSuccess("Cierre rechazado. La orden de trabajo volvió a En curso.")
   }
 
   async function handleResumeFromIncident() {
@@ -157,12 +160,12 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
     setActionSuccess("OT reanudada. Volvió a En curso.")
   }
 
-  async function handleRescheduleFromIncident(dueDate: string) {
+  async function handleRescheduleFromIncident(input: TaskRescheduleInput) {
     setActionError(null)
     setActionSuccess(null)
     setIsWorkflowActionPending(true)
     const result = await rescheduleTaskFromIncident(task.id, {
-      dueDate,
+      ...input,
       actor: actorName,
     })
     setIsWorkflowActionPending(false)
@@ -175,7 +178,25 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
     setActionSuccess("OT reprogramada. Quedó en estado Programada.")
   }
 
-  async function handleCancelFromIncident(input: {
+  async function handleRescheduleFromOverdue(input: TaskRescheduleInput) {
+    setActionError(null)
+    setActionSuccess(null)
+    setIsWorkflowActionPending(true)
+    const result = await rescheduleTaskFromOverdue(task.id, {
+      ...input,
+      actor: actorName,
+    })
+    setIsWorkflowActionPending(false)
+
+    if (!result.success) {
+      setActionError(result.message ?? "No se pudo reprogramar la OT.")
+      return
+    }
+
+    setActionSuccess("OT reprogramada. Quedó en estado Programada.")
+  }
+
+  async function handleConfirmCancel(input: {
     reason: string
     observation: string
   }) {
@@ -197,24 +218,10 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
     setActionSuccess("OT cancelada correctamente.")
   }
 
-  async function handleCancel() {
-    setActionError(null)
-    setActionSuccess(null)
-    setIsWorkflowActionPending(true)
-    const result = await cancelTask(task.id)
-    setIsWorkflowActionPending(false)
-
-    if (!result.success) {
-      setActionError(result.message ?? "No se pudo cancelar la tarea.")
-      return
-    }
-
-    setActionSuccess("Tarea cancelada correctamente.")
-  }
-
   const canCancel = isCancellableTaskStatus(task.status)
   const pendingClosure = isPendingClosureStatus(task.status)
   const hasIncident = task.status === "incidencia"
+  const hasOverdue = task.status === "vencida"
   const canCloseOt = canCloseWorkOrder(sessionUser?.systemRole)
   const usesOperationalSteps = hasOperationalSteps(task)
 
@@ -230,7 +237,7 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
           >
             <Link href="/tareas">
               <ArrowLeft className="size-4" />
-              Volver a tareas
+              Volver a órdenes de trabajo
             </Link>
           </Button>
 
@@ -302,8 +309,8 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem>Exportar tarea</DropdownMenuItem>
-              <DropdownMenuItem>Duplicar tarea</DropdownMenuItem>
+              <DropdownMenuItem>Exportar Orden de Trabajo</DropdownMenuItem>
+              <DropdownMenuItem>Duplicar Orden de Trabajo</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -332,14 +339,21 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
 
       <TaskOperationalWorkflowActions
         task={task}
+        rescheduledBy={actorName}
         canClose={canCloseOt}
         onClose={pendingClosure ? handleCloseWorkOrder : undefined}
         onReject={
           pendingClosure && canCloseOt ? () => setRejectDialogOpen(true) : undefined
         }
         onResume={hasIncident ? handleResumeFromIncident : undefined}
-        onReschedule={hasIncident ? handleRescheduleFromIncident : undefined}
-        onCancelIncident={hasIncident ? handleCancelFromIncident : undefined}
+        onReschedule={
+          hasIncident
+            ? handleRescheduleFromIncident
+            : hasOverdue
+              ? handleRescheduleFromOverdue
+              : undefined
+        }
+        onCancelIncident={hasIncident ? handleConfirmCancel : undefined}
         isPending={isWorkflowActionPending}
       />
 
@@ -351,16 +365,28 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
       />
 
       {canCancel && (
-        <div className="flex justify-end">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleCancel}
-            disabled={isWorkflowActionPending}
-          >
-            Cancelar tarea
-          </Button>
-        </div>
+        <>
+          <div className="flex justify-end">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setCancelDialogOpen(true)}
+              disabled={isWorkflowActionPending}
+            >
+              Cancelar Orden de Trabajo
+            </Button>
+          </div>
+
+          <TaskIncidentCancelDialog
+            open={cancelDialogOpen}
+            onOpenChange={setCancelDialogOpen}
+            onConfirm={async (input) => {
+              await handleConfirmCancel(input)
+              setCancelDialogOpen(false)
+            }}
+            isSubmitting={isWorkflowActionPending}
+          />
+        </>
       )}
 
       <Tabs defaultValue="overview" className="space-y-4">

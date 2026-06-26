@@ -62,7 +62,7 @@ export function CalendarCriticalPendingSheet() {
         <SheetHeader>
           <SheetTitle>Pendientes críticos</SheetTitle>
           <SheetDescription>
-            Tareas activas con fecha de vencimiento anterior a hoy
+            Órdenes de trabajo en estado Vencida que requieren reprogramación
           </SheetDescription>
         </SheetHeader>
 
@@ -91,7 +91,7 @@ export function CalendarCriticalPendingSheet() {
                   />
                   <div className="flex flex-wrap gap-2 pt-1">
                     <Button asChild variant="outline" size="sm">
-                      <Link href={`/tareas/${task.taskId}`}>Ver tarea</Link>
+                      <Link href={`/tareas/${task.taskId}`}>Ver OT</Link>
                     </Button>
                     {task.projectId ? (
                       <Button asChild variant="outline" size="sm">

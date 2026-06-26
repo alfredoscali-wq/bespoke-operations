@@ -231,7 +231,7 @@ export function EmployeeFormDialog({
         >
         <DialogHeader>
           <DialogTitle>
-            {mode === "create" ? "Nuevo empleado" : "Editar empleado"}
+            {mode === "create" ? "Nuevo Empleado" : "Editar Empleado"}
           </DialogTitle>
           <DialogDescription>
             {mode === "create"
@@ -433,7 +433,7 @@ export function EmployeeFormDialog({
               {isSubmitting
                 ? "Guardando..."
                 : mode === "create"
-                  ? "Registrar empleado"
+                  ? "Registrar Empleado"
                   : "Guardar cambios"}
             </Button>
           </DialogFooter>

@@ -70,8 +70,8 @@ export function ProjectCrewsTab({ project }: ProjectCrewsTabProps) {
         </p>
         <p className="mt-1 text-sm text-muted-foreground">
           {activeProjectTasks.length === 0
-            ? "No hay tareas activas en esta obra."
-            : "Asigne cuadrilla en las tareas activas para ver su disponibilidad operativa aquí."}
+            ? "No hay órdenes de trabajo activas en esta obra."
+            : "Asigne cuadrilla en las órdenes de trabajo activas para ver su disponibilidad operativa aquí."}
         </p>
       </div>
     )
@@ -82,9 +82,9 @@ export function ProjectCrewsTab({ project }: ProjectCrewsTabProps) {
       <CardHeader>
         <CardTitle>Cuadrillas asignadas</CardTitle>
         <CardDescription>
-          Cuadrillas derivadas de tareas activas de la obra (
+          Cuadrillas derivadas de órdenes de trabajo activas de la obra (
           {activeProjectTasks.length}{" "}
-          {activeProjectTasks.length === 1 ? "tarea" : "tareas"})
+          {activeProjectTasks.length === 1 ? "orden de trabajo" : "órdenes de trabajo"})
         </CardDescription>
       </CardHeader>
       <CardContent>

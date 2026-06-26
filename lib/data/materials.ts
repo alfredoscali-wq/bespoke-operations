@@ -598,7 +598,7 @@ export const mockMaterialHistory: MaterialHistoryEvent[] = [
   {
     id: "hist-004",
     materialId: "mat-005",
-    title: "Asignación a proyecto",
+    title: "Asignación a obra",
     description: "2 antenas asignadas a WLS-2026-002 / TSK-004.",
     user: "Logística Wireless",
     timestamp: "2026-06-12T09:00:00",

@@ -129,12 +129,12 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
       })
 
       if (!result.success) {
-        throw new Error(result.message ?? "No se pudo actualizar la tarea.")
+        throw new Error(result.message ?? "No se pudo actualizar la orden de trabajo.")
       }
 
       setFeedback({
         type: "success",
-        message: "Tarea actualizada correctamente.",
+        message: "Orden de trabajo actualizada correctamente.",
       })
       return
     }
@@ -162,7 +162,7 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
 
     setFeedback({
       type: "success",
-      message: "Tarea creada correctamente.",
+      message: "Orden de trabajo creada correctamente.",
     })
   }
 
@@ -192,7 +192,7 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
     setDeleteTarget(null)
     setFeedback({
       type: "success",
-      message: "Tarea eliminada correctamente.",
+      message: "Orden de trabajo eliminada correctamente.",
     })
   }
 
@@ -226,15 +226,15 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h3 className="text-sm font-semibold">Tareas de la obra</h3>
+          <h3 className="text-sm font-semibold">Órdenes de trabajo de la obra</h3>
           <p className="text-xs text-muted-foreground">
             {projectTasks.length}{" "}
-            {projectTasks.length === 1 ? "tarea registrada" : "tareas registradas"}
+            {projectTasks.length === 1 ? "orden de trabajo registrada" : "órdenes de trabajo registradas"}
           </p>
         </div>
         <Button size="sm" className="gap-1.5 self-start" onClick={openCreateDialog}>
           <Plus className="size-4" />
-          Nueva tarea
+          Nueva Orden de Trabajo
         </Button>
       </div>
 
@@ -243,9 +243,9 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
           <AlertTriangle className="size-4 text-amber-700" />
           <AlertDescription>
             {archivedCrewTaskCount === 1
-              ? "1 tarea referencia una cuadrilla archivada."
-              : `${archivedCrewTaskCount} tareas referencian cuadrillas archivadas.`}{" "}
-            Edite la tarea y reasigne una cuadrilla activa para corregir la
+              ? "1 orden de trabajo referencia una cuadrilla archivada."
+              : `${archivedCrewTaskCount} órdenes de trabajo referencian cuadrillas archivadas.`}{" "}
+            Edite la orden de trabajo y reasigne una cuadrilla activa para corregir la
             inconsistencia operativa.
           </AlertDescription>
         </Alert>
@@ -268,11 +268,11 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
         <Card className="border-dashed shadow-sm">
           <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
             <p className="text-sm text-muted-foreground">
-              No hay tareas registradas para esta obra.
+              No hay órdenes de trabajo registradas para esta obra.
             </p>
             <Button size="sm" className="gap-1.5" onClick={openCreateDialog}>
               <Plus className="size-4" />
-              Nueva tarea
+              Nueva Orden de Trabajo
             </Button>
           </CardContent>
         </Card>
@@ -283,7 +283,7 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead className="w-[100px]">Código</TableHead>
-                  <TableHead>Tarea</TableHead>
+                  <TableHead>OT</TableHead>
                   <TableHead>Cuadrilla</TableHead>
                   <TableHead>Fecha límite</TableHead>
                   <TableHead>Prioridad</TableHead>
@@ -380,9 +380,9 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Eliminar tarea</DialogTitle>
+            <DialogTitle>Eliminar Orden de Trabajo</DialogTitle>
             <DialogDescription>
-              ¿Desea eliminar esta tarea?
+              ¿Desea eliminar esta orden de trabajo?
               {deleteTarget ? (
                 <>
                   {" "}

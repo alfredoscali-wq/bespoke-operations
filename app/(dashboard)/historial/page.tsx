@@ -6,8 +6,8 @@ export default function HistorialPage() {
   return (
     <PlaceholderPanel
       icon={History}
-      title="Registro histórico"
-      description="Audita movimientos por obra, cuadrilla y tipo de operación con filtros avanzados."
+      title="Historial del Sistema"
+      description="Audite movimientos por obra, cuadrilla y tipo de operación con filtros avanzados."
     />
   )
 }

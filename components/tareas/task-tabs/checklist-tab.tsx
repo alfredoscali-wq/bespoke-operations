@@ -37,7 +37,7 @@ export function TaskChecklistTab({ task }: TaskChecklistTabProps) {
           <AlertTriangle className="size-4" />
           <AlertTitle>Requisitos pendientes</AlertTitle>
           <AlertDescription>
-            Esta tarea no puede moverse a &quot;Finalizada&quot; hasta completar:{" "}
+            Esta orden de trabajo no puede moverse a &quot;Finalizada&quot; hasta completar:{" "}
             {incompleteRequired.map((item) => item.label).join(", ")}.
           </AlertDescription>
         </Alert>

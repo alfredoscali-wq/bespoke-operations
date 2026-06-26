@@ -294,7 +294,7 @@ function buildInstructionsSheet(crewNames: string[]): string[][] {
     ["1. Complete filas en la hoja Ordenes (desde fila 2)."],
     ["2. Use la hoja Catalogos como referencia de valores válidos."],
     ["3. tipo_orden y tecnologia tienen listas desplegables en Ordenes."],
-    ["4. Suba el archivo en Tareas → Importar Excel."],
+    ["4. Suba el archivo en Órdenes de Trabajo → Importar Excel."],
     ["5. Revise y corrija en la mesa de despacho antes de importar."],
     [""],
     ["Formato de fechas"],

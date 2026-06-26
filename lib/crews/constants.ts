@@ -3,11 +3,11 @@ import { formatDateOnly, formatDateOnlyDateTime } from "@/lib/dates/date-only"
 import { STATUS_TONE_STYLES } from "@/lib/ui/visual-tokens"
 
 export const CREW_ACTIVITY_LABELS: Record<CrewActivityType, string> = {
-  "task-assigned": "Tarea asignada",
+  "task-assigned": "Orden de trabajo asignada",
   "work-started": "Trabajo iniciado",
   "evidence-uploaded": "Evidencia cargada",
-  "task-completed": "Tarea completada",
-  "project-completed": "Proyecto completado",
+  "task-completed": "Orden de trabajo completada",
+  "project-completed": "Obra completada",
 }
 
 export const CREW_STATUS_LABELS: Record<CrewStatus, string> = {

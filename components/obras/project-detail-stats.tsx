@@ -39,14 +39,14 @@ const statItems = [
   },
   {
     key: "activeTasks" as const,
-    label: "Tareas activas",
+    label: "Órdenes de trabajo activas",
     icon: CircleDot,
     tone: "blue" as const,
     hint: PROJECT_OPERATIONAL_KPI_HINTS.activeTasks,
   },
   {
     key: "completedTasks" as const,
-    label: "Tareas completadas",
+    label: "Órdenes de trabajo completadas",
     icon: CheckCircle2,
     tone: "green" as const,
     hint: PROJECT_OPERATIONAL_KPI_HINTS.completedTasks,

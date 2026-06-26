@@ -12,6 +12,7 @@ import { STATUS_TONE_STYLES } from "@/lib/ui/visual-tokens"
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   pendiente: "Pendiente",
   asignada: "Programada",
+  vencida: "Vencida",
   "en-curso": "En curso",
   incidencia: "Incidencia",
   "pendiente-cierre": "Pendiente de cierre",
@@ -27,6 +28,7 @@ export const TASK_EN_CURSO_STYLE =
 export const TASK_STATUS_STYLES: Record<TaskStatus, string> = {
   pendiente: STATUS_TONE_STYLES.gray,
   asignada: STATUS_TONE_STYLES.blue,
+  vencida: STATUS_TONE_STYLES.red,
   "en-curso": TASK_EN_CURSO_STYLE,
   incidencia: STATUS_TONE_STYLES.red,
   "pendiente-cierre": STATUS_TONE_STYLES.yellow,
@@ -39,6 +41,7 @@ export const TASK_STATUS_STYLES: Record<TaskStatus, string> = {
 export const KANBAN_COLUMNS: TaskStatus[] = [
   "pendiente",
   "asignada",
+  "vencida",
   "en-curso",
   "incidencia",
   "pendiente-cierre",

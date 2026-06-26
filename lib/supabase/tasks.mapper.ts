@@ -84,6 +84,13 @@ export function mapTaskRowToTask(row: TaskRow): Task {
     crew: row.crew,
     startDate: row.start_date,
     dueDate: row.due_date,
+    scheduledTime: row.scheduled_time,
+    originalScheduledDate: row.original_scheduled_date ?? undefined,
+    originalScheduledTime: row.original_scheduled_time ?? undefined,
+    rescheduledBy: row.rescheduled_by?.trim() || undefined,
+    rescheduledAt: row.rescheduled_at,
+    rescheduleReason: row.reschedule_reason?.trim() || undefined,
+    rescheduleNotes: row.reschedule_notes?.trim() || undefined,
     estimatedDuration: row.estimated_duration,
     checklist: parseChecklist(row.checklist),
     operationalSteps: parseOperationalSteps(row.operational_steps),
@@ -102,6 +109,7 @@ export function mapTaskRowToTask(row: TaskRow): Task {
     locality: row.locality,
     contractedPlan: row.contracted_plan?.trim() || undefined,
     installationCost: mapNullableNumber(row.installation_cost),
+    amountToCollect: mapNullableNumber(row.amount_to_collect),
     taskMetadata: parseTaskMetadata(row.task_metadata),
   }
 }
@@ -134,6 +142,7 @@ export function mapCreatePayloadToInsert(payload: CreateTaskPayload): TaskInsert
     crew: payload.crew.trim(),
     start_date: payload.startDate,
     due_date: payload.dueDate,
+    scheduled_time: payload.scheduledTime ?? null,
     estimated_duration: payload.estimatedDuration.trim(),
     checklist: payload.checklist,
     operational_steps: (payload.operationalSteps ?? []) as Json,
@@ -142,6 +151,7 @@ export function mapCreatePayloadToInsert(payload: CreateTaskPayload): TaskInsert
     locality: payload.locality ?? null,
     contracted_plan: payload.contractedPlan?.trim() || null,
     installation_cost: payload.installationCost ?? null,
+    amount_to_collect: payload.amountToCollect ?? null,
     task_metadata: (payload.taskMetadata ?? {}) as Json,
   }
 }
@@ -219,6 +229,27 @@ export function mapUpdatePayloadToUpdate(payload: UpdateTaskPayload): TaskUpdate
   if (payload.crew !== undefined) update.crew = payload.crew.trim()
   if (payload.startDate !== undefined) update.start_date = payload.startDate
   if (payload.dueDate !== undefined) update.due_date = payload.dueDate
+  if (payload.scheduledTime !== undefined) {
+    update.scheduled_time = payload.scheduledTime
+  }
+  if (payload.originalScheduledDate !== undefined) {
+    update.original_scheduled_date = payload.originalScheduledDate
+  }
+  if (payload.originalScheduledTime !== undefined) {
+    update.original_scheduled_time = payload.originalScheduledTime
+  }
+  if (payload.rescheduledBy !== undefined) {
+    update.rescheduled_by = payload.rescheduledBy?.trim() || ""
+  }
+  if (payload.rescheduledAt !== undefined) {
+    update.rescheduled_at = payload.rescheduledAt
+  }
+  if (payload.rescheduleReason !== undefined) {
+    update.reschedule_reason = payload.rescheduleReason?.trim() || ""
+  }
+  if (payload.rescheduleNotes !== undefined) {
+    update.reschedule_notes = payload.rescheduleNotes?.trim() || ""
+  }
   if (payload.estimatedDuration !== undefined) {
     update.estimated_duration = payload.estimatedDuration.trim()
   }
@@ -236,6 +267,9 @@ export function mapUpdatePayloadToUpdate(payload: UpdateTaskPayload): TaskUpdate
   }
   if (payload.installationCost !== undefined) {
     update.installation_cost = payload.installationCost
+  }
+  if (payload.amountToCollect !== undefined) {
+    update.amount_to_collect = payload.amountToCollect
   }
   if (payload.taskMetadata !== undefined) {
     update.task_metadata = payload.taskMetadata as Json

@@ -52,7 +52,7 @@ export function TasksKanban({ tasks }: TasksKanbanProps) {
                 <div className="space-y-3 p-3">
                   {columnTasks.length === 0 ? (
                     <div className="rounded-lg border border-dashed bg-background/50 px-3 py-8 text-center text-xs text-muted-foreground">
-                      Sin tareas
+                      Sin órdenes de trabajo
                     </div>
                   ) : (
                     columnTasks.map((task) => (

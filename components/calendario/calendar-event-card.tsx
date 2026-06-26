@@ -1,6 +1,11 @@
 "use client"
 
 import { AVAILABILITY_TYPE_LABELS } from "@/lib/availability/constants"
+import {
+  getCalendarTaskCustomerName,
+  getCalendarTaskScheduledTimeLabel,
+  getCalendarTaskWorkTypeLabel,
+} from "@/lib/calendar/calendar-task-display"
 import { getEventSubtitleLabel } from "@/lib/calendar/calendar-ui-utils"
 import {
   countOperationalIncidents,
@@ -27,6 +32,10 @@ function getEventStyles(event: CalendarEvent): string {
     }
 
     if (event.payload.status === "incidencia") {
+      return CALENDAR_EVENT_TONE_STYLES.red
+    }
+
+    if (event.payload.status === "vencida") {
       return CALENDAR_EVENT_TONE_STYLES.red
     }
 
@@ -74,21 +83,78 @@ function getEventMeta(event: CalendarEvent): string {
   return ""
 }
 
+function CalendarTaskCardContent({
+  event,
+  alertCount,
+}: {
+  event: Extract<CalendarEvent, { type: "TASK" }>
+  alertCount: number
+}) {
+  const scheduledTime = getCalendarTaskScheduledTimeLabel(event.payload)
+  const customerName = getCalendarTaskCustomerName(event.payload)
+  const workType = getCalendarTaskWorkTypeLabel(event.payload)
+  const taskStatusLabel =
+    event.payload.status === "pendiente-cierre"
+      ? TASK_STATUS_LABELS["pendiente-cierre"]
+      : event.payload.status === "incidencia"
+        ? TASK_STATUS_LABELS.incidencia
+        : event.payload.status === "vencida"
+          ? TASK_STATUS_LABELS.vencida
+          : null
+  const taskStatusPrefix =
+    event.payload.status === "incidencia" || event.payload.status === "vencida"
+      ? "🔴 "
+      : event.payload.status === "pendiente-cierre"
+        ? "🟡 "
+        : ""
+
+  return (
+    <>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1 space-y-0.5">
+          <div className="sm:hidden">
+            <p className="truncate text-xs font-semibold leading-snug">
+              <span className="tabular-nums">{scheduledTime}</span>
+              <span className="opacity-70"> • </span>
+              <span>{customerName}</span>
+            </p>
+            <p className="truncate text-[11px] opacity-85">{workType}</p>
+          </div>
+
+          <div className="hidden space-y-0.5 sm:block">
+            <p className="text-xs font-bold tabular-nums leading-snug">
+              {scheduledTime}
+            </p>
+            <p className="truncate text-xs font-semibold uppercase leading-snug">
+              {customerName}
+            </p>
+            <p className="truncate text-[11px] opacity-85">{workType}</p>
+          </div>
+        </div>
+
+        {alertCount > 0 ? (
+          <span
+            className="shrink-0 text-[11px] font-semibold tabular-nums"
+            aria-label={`${alertCount} incidencias operativas`}
+          >
+            ⚠ {alertCount}
+          </span>
+        ) : null}
+      </div>
+
+      {taskStatusLabel ? (
+        <p className="mt-1 truncate text-[10px] font-semibold uppercase tracking-wide opacity-90">
+          {taskStatusPrefix}
+          {taskStatusLabel}
+        </p>
+      ) : null}
+    </>
+  )
+}
+
 export function CalendarEventCard({ event, onClick }: CalendarEventCardProps) {
   const isTask = event.type === "TASK"
   const subtitle = !isTask ? getEventSubtitleLabel(event) : undefined
-  const taskStatusLabel =
-    isTask && event.payload.status === "pendiente-cierre"
-      ? TASK_STATUS_LABELS["pendiente-cierre"]
-      : isTask && event.payload.status === "incidencia"
-        ? TASK_STATUS_LABELS.incidencia
-        : null
-  const taskStatusPrefix =
-    isTask && event.payload.status === "incidencia"
-      ? "🔴 "
-      : isTask && event.payload.status === "pendiente-cierre"
-        ? "🟡 "
-        : ""
   const alertCount = isTask
     ? countOperationalIncidents(event.payload.alerts)
     : 0
@@ -102,33 +168,23 @@ export function CalendarEventCard({ event, onClick }: CalendarEventCardProps) {
         getEventStyles(event)
       )}
     >
-      <div className="flex items-start justify-between gap-2">
-        <p className="min-w-0 flex-1 truncate text-xs font-semibold leading-snug">
-          {event.title}
-        </p>
-        {isTask && alertCount > 0 ? (
-          <span
-            className="shrink-0 text-[11px] font-semibold tabular-nums"
-            aria-label={`${alertCount} incidencias operativas`}
-          >
-            ⚠ {alertCount}
-          </span>
-        ) : null}
-      </div>
-      {subtitle ? (
-        <p className="mt-0.5 truncate text-[11px] opacity-85">{subtitle}</p>
-      ) : null}
-      {taskStatusLabel ? (
-        <p className="mt-1 truncate text-[10px] font-semibold uppercase tracking-wide opacity-90">
-          {taskStatusPrefix}
-          {taskStatusLabel}
-        </p>
-      ) : null}
-      {!isTask ? (
-        <p className="mt-1.5 truncate text-[10px] font-medium uppercase tracking-wide opacity-75">
-          {getEventMeta(event)}
-        </p>
-      ) : null}
+      {isTask ? (
+        <CalendarTaskCardContent event={event} alertCount={alertCount} />
+      ) : (
+        <>
+          <div className="flex items-start justify-between gap-2">
+            <p className="min-w-0 flex-1 truncate text-xs font-semibold leading-snug">
+              {event.title}
+            </p>
+          </div>
+          {subtitle ? (
+            <p className="mt-0.5 truncate text-[11px] opacity-85">{subtitle}</p>
+          ) : null}
+          <p className="mt-1.5 truncate text-[10px] font-medium uppercase tracking-wide opacity-75">
+            {getEventMeta(event)}
+          </p>
+        </>
+      )}
     </button>
   )
 }

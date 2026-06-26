@@ -24,7 +24,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area"
 
 const KPI_TITLES: Record<CalendarKpiKey, string> = {
-  tasksInWeek: "Tareas de la semana",
+  tasksInWeek: "Órdenes de trabajo de la semana",
   activeAbsences: "Ausencias activas",
   operationalCrews: "Cuadrillas operativas",
   reducedCrews: "Cuadrillas reducidas",
@@ -192,7 +192,7 @@ export function CalendarKpiSheet() {
             {selectedKpi === "tasksInWeek" &&
               (weekTaskDetails.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No hay tareas en esta semana.
+                  No hay órdenes de trabajo en esta semana.
                 </p>
               ) : (
                 weekTaskDetails.map((item) => (
@@ -208,7 +208,7 @@ export function CalendarKpiSheet() {
                     />
                     <Field label="Cuadrilla" value={item.crewName} />
                     <Button asChild variant="outline" size="sm" className="mt-2">
-                      <Link href={`/tareas/${item.taskId}`}>Ver tarea</Link>
+                      <Link href={`/tareas/${item.taskId}`}>Ver OT</Link>
                     </Button>
                   </DetailBlock>
                 ))

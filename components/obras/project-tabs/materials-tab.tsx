@@ -52,7 +52,7 @@ export function ProjectMaterialsTab({ projectId }: ProjectMaterialsTabProps) {
   return (
     <Card className="shadow-sm">
       <CardHeader>
-        <CardTitle>Materiales del proyecto</CardTitle>
+        <CardTitle>Materiales de la obra</CardTitle>
         <CardDescription>
           Asignaciones, utilización y pendiente por material
         </CardDescription>

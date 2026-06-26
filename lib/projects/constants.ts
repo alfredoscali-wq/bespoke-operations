@@ -68,11 +68,11 @@ export const PROJECT_STATUS_OPTIONS = Object.entries(PROJECT_STATUS_LABELS).map(
 /** Explicación operativa de cada KPI en el detalle de obra. */
 export const PROJECT_OPERATIONAL_KPI_HINTS = {
   assignedCrews:
-    "Cuadrillas activas con al menos una tarea activa asignada en esta obra.",
+    "Cuadrillas activas con al menos una orden de trabajo activa asignada en esta obra.",
   assignedPersonnel:
     "Integrantes activos en esas cuadrillas. Incluye registros legacy sin vínculo RRHH; deduplica por empleado cuando aplica.",
-  activeTasks: "Tareas en curso operativo (pendiente, asignada, en curso o en aprobación).",
-  completedTasks: "Tareas finalizadas, cerradas o canceladas vinculadas a la obra.",
+  activeTasks: "Órdenes de trabajo en curso operativo (pendiente, asignada, en curso o en aprobación).",
+  completedTasks: "Órdenes de trabajo finalizadas, cerradas o canceladas vinculadas a la obra.",
   evidenceFiles: "Evidencias activas registradas para la obra.",
   progress: "Avance acumulado reportado en la ficha de la obra.",
 } as const

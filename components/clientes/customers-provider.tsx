@@ -6,20 +6,39 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react"
 
 import {
+  isCustomerArchiveUpdate,
+  recordCustomerArchiveAudit,
+  recordCustomerCreateAudit,
+  recordCustomerDeleteAudit,
+  recordCustomerUpdateAudit,
+  recordCustomerValidateAudit,
+} from "@/lib/audit/customers-audit"
+import {
+  DEFAULT_CUSTOMER_PAGE_SIZE,
+  type CustomerListQuery,
+} from "@/lib/customers/customer-list"
+import type { CustomerOperationalSummary } from "@/lib/customers/customer-operational"
+import {
   createBrowserCustomersClient,
   createCustomer as createCustomerInSupabase,
   deleteCustomer as deleteCustomerInSupabase,
-  getCustomers as listCustomers,
+  getCustomerDuplicateIndex,
+  getCustomerById as loadCustomerById,
+  getCustomerSummary,
+  listCustomerPage,
   markCustomersAsActive as markCustomersAsActiveInSupabase,
   searchCustomers as searchCustomersInSupabase,
   updateCustomer as updateCustomerInSupabase,
 } from "@/lib/supabase/customers.browser"
 import type {
   Customer,
+  CustomerListPage,
+  CustomerListRow,
   NewCustomerInput,
   UpdateCustomerInput,
 } from "@/lib/types/customers"
@@ -31,10 +50,20 @@ type CustomerMutationResult = {
 }
 
 type CustomersContextValue = {
-  customers: Customer[]
+  listPage: CustomerListPage | null
+  isListLoading: boolean
+  isSummaryLoading: boolean
   isCustomersReady: boolean
   usesSupabase: boolean
+  operationalSummary: CustomerOperationalSummary
+  listQuery: CustomerListQuery
+  loadCustomerPage: (query: CustomerListQuery) => Promise<void>
+  refreshOperationalSummary: () => Promise<void>
   getCustomer: (id: string) => Customer | undefined
+  fetchCustomerById: (id: string) => Promise<Customer | null>
+  getImportDuplicateIndex: () => Promise<
+    Pick<Customer, "id" | "name" | "externalCustomerCode" | "dni">[]
+  >
   searchCustomers: (query: string, limit?: number) => Promise<Customer[]>
   createCustomer: (input: NewCustomerInput) => Promise<CustomerMutationResult>
   updateCustomer: (
@@ -42,104 +71,162 @@ type CustomersContextValue = {
     input: UpdateCustomerInput
   ) => Promise<CustomerMutationResult>
   deleteCustomer: (id: string) => Promise<CustomerMutationResult>
+  removeCustomerLocally: (id: string) => void
   markCustomersAsActive: (input: {
     customerIds: string[]
     validatedBy: string
   }) => Promise<CustomerMutationResult & { customers?: Customer[] }>
 }
 
+const EMPTY_SUMMARY: CustomerOperationalSummary = {
+  operativos: 0,
+  activos: 0,
+  revisar: 0,
+}
+
 const CustomersContext = createContext<CustomersContextValue | null>(null)
 
-function replaceCustomerInList(
-  customers: Customer[],
-  customer: Customer
-): Customer[] {
-  return customers.map((item) => (item.id === customer.id ? customer : item))
-}
-
-function sortCustomers(customers: Customer[]): Customer[] {
-  return [...customers].sort((left, right) =>
-    left.name.localeCompare(right.name, "es")
-  )
-}
-
 export function CustomersProvider({ children }: { children: React.ReactNode }) {
-  const [customers, setCustomers] = useState<Customer[]>([])
+  const [listPage, setListPage] = useState<CustomerListPage | null>(null)
+  const [operationalSummary, setOperationalSummary] =
+    useState<CustomerOperationalSummary>(EMPTY_SUMMARY)
+  const [listQuery, setListQuery] = useState<CustomerListQuery>({
+    page: 1,
+    pageSize: DEFAULT_CUSTOMER_PAGE_SIZE,
+    search: "",
+    quickFilter: "operativos",
+  })
+  const [isListLoading, setIsListLoading] = useState(true)
+  const [isSummaryLoading, setIsSummaryLoading] = useState(true)
   const [isCustomersReady, setIsCustomersReady] = useState(false)
   const [usesSupabase, setUsesSupabase] = useState(false)
+  const customerCacheRef = useRef<Map<string, Customer>>(new Map())
+  const importIndexRef = useRef<
+    Pick<Customer, "id" | "name" | "externalCustomerCode" | "dni">[] | null
+  >(null)
 
-  useEffect(() => {
-    let cancelled = false
+  const refreshOperationalSummary = useCallback(async () => {
+    setIsSummaryLoading(true)
 
-    async function loadCustomersFromSupabase() {
-      try {
-        const client = createBrowserCustomersClient()
-        const result = await listCustomers(client)
+    try {
+      const client = createBrowserCustomersClient()
+      const result = await getCustomerSummary(client)
 
-        if (cancelled) return
-
-        if (result.error || result.data === null) {
-          setCustomers([])
-          setUsesSupabase(false)
-          return
-        }
-
-        setCustomers(result.data)
+      if (result.data) {
+        setOperationalSummary(result.data)
         setUsesSupabase(true)
-      } catch {
-        if (!cancelled) {
-          setCustomers([])
-          setUsesSupabase(false)
-        }
-      } finally {
-        if (!cancelled) {
-          setIsCustomersReady(true)
-        }
+      } else {
+        setOperationalSummary(EMPTY_SUMMARY)
+        setUsesSupabase(false)
       }
-    }
-
-    void loadCustomersFromSupabase()
-
-    return () => {
-      cancelled = true
+    } catch {
+      setOperationalSummary(EMPTY_SUMMARY)
+      setUsesSupabase(false)
+    } finally {
+      setIsSummaryLoading(false)
     }
   }, [])
 
-  const getCustomer = useCallback(
-    (id: string) => customers.find((customer) => customer.id === id),
-    [customers]
-  )
+  const loadCustomerPage = useCallback(async (query: CustomerListQuery) => {
+    setIsListLoading(true)
+    setListQuery(query)
+
+    try {
+      const client = createBrowserCustomersClient()
+      const result = await listCustomerPage(query, client)
+
+      if (result.data) {
+        setListPage(result.data)
+        setUsesSupabase(true)
+      } else {
+        setListPage({
+          items: [],
+          total: 0,
+          page: query.page,
+          pageSize: query.pageSize ?? DEFAULT_CUSTOMER_PAGE_SIZE,
+        })
+        setUsesSupabase(false)
+      }
+    } catch {
+      setListPage({
+        items: [],
+        total: 0,
+        page: query.page,
+        pageSize: query.pageSize ?? DEFAULT_CUSTOMER_PAGE_SIZE,
+      })
+      setUsesSupabase(false)
+    } finally {
+      setIsListLoading(false)
+      setIsCustomersReady(true)
+    }
+  }, [])
+
+  useEffect(() => {
+    void refreshOperationalSummary()
+  }, [refreshOperationalSummary])
+
+  const getCustomer = useCallback((id: string) => {
+    return customerCacheRef.current.get(id)
+  }, [])
+
+  const fetchCustomerById = useCallback(async (id: string) => {
+    const cached = customerCacheRef.current.get(id)
+    if (cached) {
+      return cached
+    }
+
+    try {
+      const client = createBrowserCustomersClient()
+      const result = await loadCustomerById(id, client)
+
+      if (result.data) {
+        customerCacheRef.current.set(id, result.data)
+        return result.data
+      }
+    } catch {
+      return null
+    }
+
+    return null
+  }, [])
+
+  const getImportDuplicateIndex = useCallback(async () => {
+    if (importIndexRef.current) {
+      return importIndexRef.current
+    }
+
+    const client = createBrowserCustomersClient()
+    const result = await getCustomerDuplicateIndex(client)
+    importIndexRef.current = result.data ?? []
+    return importIndexRef.current
+  }, [])
 
   const searchCustomers = useCallback(
     async (query: string, limit = 8) => {
       if (!usesSupabase) {
-        const normalizedQuery = query.trim().toLowerCase()
-        const filtered = customers.filter((customer) => {
-          if (!normalizedQuery) return true
-          return (
-            customer.externalCustomerCode
-              ?.toLowerCase()
-              .includes(normalizedQuery) ||
-            customer.dni?.toLowerCase().includes(normalizedQuery) ||
-            customer.name.toLowerCase().includes(normalizedQuery) ||
-            customer.phone?.includes(normalizedQuery) ||
-            customer.address?.toLowerCase().includes(normalizedQuery) ||
-            customer.locality?.toLowerCase().includes(normalizedQuery)
-          )
-        })
-        return filtered.slice(0, limit)
+        return []
       }
 
       try {
         const client = createBrowserCustomersClient()
         const result = await searchCustomersInSupabase(query, limit, client)
-        return result.data ?? []
+        const customers = result.data ?? []
+
+        for (const customer of customers) {
+          customerCacheRef.current.set(customer.id, customer)
+        }
+
+        return customers
       } catch {
         return []
       }
     },
-    [customers, usesSupabase]
+    [usesSupabase]
   )
+
+  const invalidateImportIndex = useCallback(() => {
+    importIndexRef.current = null
+  }, [])
 
   const createCustomer = useCallback(
     async (input: NewCustomerInput): Promise<CustomerMutationResult> => {
@@ -170,7 +257,13 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
         )
 
         if (result.data) {
-          setCustomers((current) => sortCustomers([...current, result.data!]))
+          customerCacheRef.current.set(result.data.id, result.data)
+          invalidateImportIndex()
+          await Promise.all([
+            loadCustomerPage(listQuery),
+            refreshOperationalSummary(),
+          ])
+          recordCustomerCreateAudit(result.data)
           return { success: true, customer: result.data }
         }
 
@@ -185,7 +278,13 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
         }
       }
     },
-    [usesSupabase]
+    [
+      usesSupabase,
+      loadCustomerPage,
+      listQuery,
+      refreshOperationalSummary,
+      invalidateImportIndex,
+    ]
   )
 
   const updateCustomer = useCallback(
@@ -203,6 +302,7 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
 
       try {
         const client = createBrowserCustomersClient()
+        const existing = customerCacheRef.current.get(id)
         const result = await updateCustomerInSupabase(id, input, client)
 
         if (result.error) {
@@ -213,14 +313,30 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
         }
 
         if ("ok" in result && result.ok) {
-          setCustomers((current) => current.filter((customer) => customer.id !== id))
+          if (existing && isCustomerArchiveUpdate(input)) {
+            recordCustomerArchiveAudit(existing)
+          }
+          customerCacheRef.current.delete(id)
+          invalidateImportIndex()
+          await Promise.all([
+            loadCustomerPage(listQuery),
+            refreshOperationalSummary(),
+          ])
           return { success: true }
         }
 
         if (result.data) {
-          setCustomers((current) =>
-            sortCustomers(replaceCustomerInList(current, result.data!))
-          )
+          customerCacheRef.current.set(result.data.id, result.data)
+          if (isCustomerArchiveUpdate(input)) {
+            recordCustomerArchiveAudit(result.data)
+          } else if (existing) {
+            recordCustomerUpdateAudit(existing, input)
+          }
+          invalidateImportIndex()
+          await Promise.all([
+            loadCustomerPage(listQuery),
+            refreshOperationalSummary(),
+          ])
           return { success: true, customer: result.data }
         }
 
@@ -235,7 +351,13 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
         }
       }
     },
-    [usesSupabase]
+    [
+      usesSupabase,
+      loadCustomerPage,
+      listQuery,
+      refreshOperationalSummary,
+      invalidateImportIndex,
+    ]
   )
 
   const deleteCustomer = useCallback(
@@ -250,6 +372,7 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
 
       try {
         const client = createBrowserCustomersClient()
+        const existing = customerCacheRef.current.get(id)
         const result = await deleteCustomerInSupabase(id, client)
 
         if (result.error) {
@@ -260,7 +383,15 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
         }
 
         if ("ok" in result && result.ok) {
-          setCustomers((current) => current.filter((customer) => customer.id !== id))
+          if (existing) {
+            recordCustomerDeleteAudit(existing)
+          }
+          customerCacheRef.current.delete(id)
+          invalidateImportIndex()
+          await Promise.all([
+            loadCustomerPage(listQuery),
+            refreshOperationalSummary(),
+          ])
           return { success: true }
         }
 
@@ -275,7 +406,30 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
         }
       }
     },
-    [usesSupabase]
+    [
+      usesSupabase,
+      loadCustomerPage,
+      listQuery,
+      refreshOperationalSummary,
+      invalidateImportIndex,
+    ]
+  )
+
+  const removeCustomerLocally = useCallback(
+    (id: string) => {
+      customerCacheRef.current.delete(id)
+      setListPage((current) =>
+        current
+          ? {
+              ...current,
+              items: current.items.filter((item) => item.id !== id),
+              total: Math.max(0, current.total - 1),
+            }
+          : current
+      )
+      void refreshOperationalSummary()
+    },
+    [refreshOperationalSummary]
   )
 
   const markCustomersAsActive = useCallback(
@@ -296,12 +450,20 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
         const result = await markCustomersAsActiveInSupabase(input, client)
 
         if (result.data) {
-          setCustomers((current) => {
-            const byId = new Map(result.data!.map((customer) => [customer.id, customer]))
-            return sortCustomers(
-              current.map((customer) => byId.get(customer.id) ?? customer)
-            )
-          })
+          for (const customer of result.data) {
+            customerCacheRef.current.set(customer.id, customer)
+          }
+
+          await Promise.all([
+            loadCustomerPage(listQuery),
+            refreshOperationalSummary(),
+          ])
+
+          for (const customer of result.data) {
+            const previous = customerCacheRef.current.get(customer.id)
+            recordCustomerValidateAudit(previous ?? customer, input.validatedBy)
+          }
+
           return { success: true, customers: result.data }
         }
 
@@ -316,30 +478,48 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
         }
       }
     },
-    [usesSupabase]
+    [usesSupabase, loadCustomerPage, listQuery, refreshOperationalSummary]
   )
 
   const value = useMemo(
     () => ({
-      customers,
+      listPage,
+      isListLoading,
+      isSummaryLoading,
       isCustomersReady,
       usesSupabase,
+      operationalSummary,
+      listQuery,
+      loadCustomerPage,
+      refreshOperationalSummary,
       getCustomer,
+      fetchCustomerById,
+      getImportDuplicateIndex,
       searchCustomers,
       createCustomer,
       updateCustomer,
       deleteCustomer,
+      removeCustomerLocally,
       markCustomersAsActive,
     }),
     [
-      customers,
+      listPage,
+      isListLoading,
+      isSummaryLoading,
       isCustomersReady,
       usesSupabase,
+      operationalSummary,
+      listQuery,
+      loadCustomerPage,
+      refreshOperationalSummary,
       getCustomer,
+      fetchCustomerById,
+      getImportDuplicateIndex,
       searchCustomers,
       createCustomer,
       updateCustomer,
       deleteCustomer,
+      removeCustomerLocally,
       markCustomersAsActive,
     ]
   )
@@ -355,4 +535,8 @@ export function useCustomers() {
     throw new Error("useCustomers must be used within CustomersProvider")
   }
   return context
+}
+
+export function useCustomersOptional() {
+  return useContext(CustomersContext)
 }

@@ -16,6 +16,8 @@ import {
   softDeleteEmployeeAvailability,
   updateEmployeeAvailability,
 } from "@/lib/availability/employee-availability.service"
+import { recordAvailabilityChangeAudit } from "@/lib/audit/rrhh-audit"
+import { useEmployees } from "@/components/rrhh/employees-provider"
 import type {
   CreateEmployeeAvailabilityInput,
   EmployeeAvailability,
@@ -54,6 +56,7 @@ export function AvailabilityProvider({
 }: {
   children: React.ReactNode
 }) {
+  const { getEmployee } = useEmployees()
   const [records, setRecords] = useState<EmployeeAvailability[]>([])
   const [isAvailabilityReady, setIsAvailabilityReady] = useState(false)
   const [usesSupabase, setUsesSupabase] = useState(false)
@@ -124,6 +127,15 @@ export function AvailabilityProvider({
         }
 
         setRecords((current) => sortRecords([result.data!, ...current]))
+        const employee = getEmployee(input.employeeId)
+        if (employee) {
+          recordAvailabilityChangeAudit({
+            operation: "create",
+            employee,
+            after: result.data,
+            payload: input,
+          })
+        }
         return { success: true, record: result.data }
       } catch {
         return {
@@ -132,7 +144,7 @@ export function AvailabilityProvider({
         }
       }
     },
-    [usesSupabase]
+    [usesSupabase, getEmployee]
   )
 
   const editRecord = useCallback(
@@ -147,6 +159,7 @@ export function AvailabilityProvider({
 
       try {
         const client = createBrowserEmployeeAvailabilityClient()
+        const existing = records.find((record) => record.id === id)
         const result = await updateEmployeeAvailability(id, input, client)
 
         if (result.error || !result.data) {
@@ -165,6 +178,16 @@ export function AvailabilityProvider({
             )
           )
         )
+        const employee = getEmployee(result.data.employeeId)
+        if (employee && existing) {
+          recordAvailabilityChangeAudit({
+            operation: "update",
+            employee,
+            before: existing,
+            after: result.data,
+            payload: input,
+          })
+        }
         return { success: true, record: result.data }
       } catch {
         return {
@@ -173,7 +196,7 @@ export function AvailabilityProvider({
         }
       }
     },
-    [usesSupabase]
+    [usesSupabase, records, getEmployee]
   )
 
   const removeRecord = useCallback(
@@ -188,6 +211,7 @@ export function AvailabilityProvider({
 
       try {
         const client = createBrowserEmployeeAvailabilityClient()
+        const existing = records.find((record) => record.id === id)
         const result = await softDeleteEmployeeAvailability(id, client)
 
         if (result.error) {
@@ -199,6 +223,15 @@ export function AvailabilityProvider({
           }
         }
 
+        const employee = existing ? getEmployee(existing.employeeId) : undefined
+        if (employee && existing) {
+          recordAvailabilityChangeAudit({
+            operation: "remove",
+            employee,
+            before: existing,
+          })
+        }
+
         setRecords((current) => current.filter((record) => record.id !== id))
         return { success: true }
       } catch {
@@ -208,7 +241,7 @@ export function AvailabilityProvider({
         }
       }
     },
-    [usesSupabase]
+    [usesSupabase, records, getEmployee]
   )
 
   const value = useMemo(

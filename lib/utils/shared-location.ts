@@ -42,9 +42,27 @@ function isGoogleMapsShortUrl(value: string): boolean {
   return /^(https?:\/\/)?(maps\.)?app\.goo\.gl\//i.test(value)
 }
 
+export function isGoogleMapsShortUrlValue(value: string): boolean {
+  return isGoogleMapsShortUrl(value.trim())
+}
+
+export function isGoogleMapsUrlValue(value: string): boolean {
+  return isGoogleMapsUrl(value.trim())
+}
+
 export function parseSharedLocation(input: string): ParsedSharedLocation {
   const trimmed = input.trim()
   if (!trimmed) return { isValid: false }
+
+  const placeDataMatch = trimmed.match(
+    /!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/
+  )
+  if (placeDataMatch) {
+    return buildParsedLocation(
+      Number.parseFloat(placeDataMatch[1]),
+      Number.parseFloat(placeDataMatch[2])
+    )
+  }
 
   const queryMatch = trimmed.match(
     /[?&](?:q|query|ll)=(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/i
@@ -91,9 +109,7 @@ export function hasLoadedGps(
   latitude?: number | null,
   longitude?: number | null
 ): boolean {
-  if (sharedLocation?.trim() && isRecognizedSharedLocation(sharedLocation)) {
-    return true
-  }
+  void sharedLocation
 
   return (
     latitude != null &&

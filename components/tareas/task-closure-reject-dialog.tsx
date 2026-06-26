@@ -56,7 +56,7 @@ export function TaskClosureRejectDialog({
         <DialogHeader>
           <DialogTitle>Rechazar cierre</DialogTitle>
           <DialogDescription>
-            La tarea volverá a En curso para que la cuadrilla corrija lo
+            La orden de trabajo volverá a En curso para que la cuadrilla corrija lo
             necesario.
           </DialogDescription>
         </DialogHeader>

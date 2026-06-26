@@ -48,7 +48,7 @@ export function TasksListTable({ tasks }: TasksListTableProps) {
     return (
       <div className="rounded-xl border border-dashed bg-muted/20 px-6 py-16 text-center">
         <p className="text-sm font-medium text-foreground">
-          No se encontraron tareas
+          No se encontraron órdenes de trabajo
         </p>
         <p className="mt-1 text-sm text-muted-foreground">
           Ajusta los filtros para ver más resultados.
@@ -70,9 +70,9 @@ export function TasksListTable({ tasks }: TasksListTableProps) {
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead className="w-[90px]">Código</TableHead>
-                <TableHead>Tarea</TableHead>
+                <TableHead>OT</TableHead>
                 <TableHead>Modelo</TableHead>
-                <TableHead>Proyecto / Cliente</TableHead>
+                <TableHead>Obra / Cliente</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead>Prioridad</TableHead>

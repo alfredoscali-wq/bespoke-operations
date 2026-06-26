@@ -162,7 +162,7 @@ export function CrewsTable({ crews }: CrewsTableProps) {
           No hay cuadrillas registradas
         </p>
         <p className="mt-1 text-sm text-muted-foreground">
-          Cree una cuadrilla para comenzar a asignar tareas.
+          Cree una cuadrilla para comenzar a asignar órdenes de trabajo.
         </p>
       </div>
     )
@@ -234,8 +234,8 @@ export function CrewsTable({ crews }: CrewsTableProps) {
                 <TableHead>Cuadrilla</TableHead>
                 <TableHead>Descripción</TableHead>
                 <TableHead>Integrantes</TableHead>
-                <TableHead>Tareas Activas</TableHead>
-                <TableHead>Proyectos Activos</TableHead>
+                <TableHead>Órdenes de Trabajo Activas</TableHead>
+                <TableHead>Obras Activas</TableHead>
                 <TableHead>Disponibilidad</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead className="w-[88px]" />
@@ -332,13 +332,13 @@ export function CrewsTable({ crews }: CrewsTableProps) {
                 <p className="font-semibold tabular-nums text-foreground">
                   {crew.activeTasks}
                 </p>
-                <p className="text-muted-foreground">Tareas</p>
+                <p className="text-muted-foreground">Órdenes de Trabajo</p>
               </div>
               <div className="rounded-lg border bg-muted/20 p-2">
                 <p className="font-semibold tabular-nums text-foreground">
                   {crew.activeProjects}
                 </p>
-                <p className="text-muted-foreground">Proyectos</p>
+                <p className="text-muted-foreground">Obras</p>
               </div>
             </CardContent>
           </Card>
@@ -365,7 +365,7 @@ export function CrewsTable({ crews }: CrewsTableProps) {
           <DialogHeader>
             <DialogTitle>Archivar cuadrilla</DialogTitle>
             <DialogDescription>
-              La cuadrilla quedará inactiva y no podrá recibir nuevas tareas.
+              La cuadrilla quedará inactiva y no podrá recibir nuevas órdenes de trabajo.
               {archiveTarget ? (
                 <>
                   {" "}

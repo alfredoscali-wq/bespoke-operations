@@ -76,7 +76,7 @@ export function EvidenceFiltersBar({
         <Input
           value={filters.search}
           onChange={(event) => update("search", event.target.value)}
-          placeholder="Buscar por archivo, proyecto, tarea u operario..."
+          placeholder="Buscar por archivo, obra, orden de trabajo u operario..."
           className="h-9 bg-background pl-8"
         />
       </div>
@@ -87,10 +87,10 @@ export function EvidenceFiltersBar({
           onValueChange={(value) => update("projectId", value)}
         >
           <SelectTrigger className="h-9 w-full bg-background">
-            <SelectValue placeholder="Proyecto" />
+            <SelectValue placeholder="Obra" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todos los proyectos</SelectItem>
+            <SelectItem value="all">Todas las obras</SelectItem>
             {projects
               .filter((project) => project.id !== "")
               .map((project) => (
@@ -106,10 +106,10 @@ export function EvidenceFiltersBar({
           onValueChange={(value) => update("taskId", value)}
         >
           <SelectTrigger className="h-9 w-full bg-background">
-            <SelectValue placeholder="Tarea" />
+            <SelectValue placeholder="Orden de Trabajo" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todas las tareas</SelectItem>
+            <SelectItem value="all">Todas las órdenes de trabajo</SelectItem>
             {tasks
               .filter((task) => task.id !== "")
               .map((task) => (

@@ -52,7 +52,7 @@ export function TaskEvidenceTab({ task }: TaskEvidenceTabProps) {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="text-sm font-semibold text-foreground">
-              Evidencias de la tarea
+              Evidencias de la orden de trabajo
             </h3>
             <p className="text-sm text-muted-foreground">
               {evidence.length}{" "}
@@ -80,7 +80,7 @@ export function TaskEvidenceTab({ task }: TaskEvidenceTabProps) {
       {evidence.length === 0 ? (
         <Card className="border-dashed shadow-sm">
           <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            No hay evidencias cargadas para esta tarea.
+            No hay evidencias cargadas para esta orden de trabajo.
           </CardContent>
         </Card>
       ) : (

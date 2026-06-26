@@ -38,13 +38,13 @@ const cards: {
   },
   {
     key: "assignedTasks",
-    label: "Tareas Asignadas",
+    label: "Órdenes de Trabajo Asignadas",
     icon: ClipboardList,
     tone: "blue",
   },
   {
     key: "activeProjects",
-    label: "Proyectos Activos",
+    label: "Obras Activas",
     icon: Briefcase,
     tone: "violet",
   },

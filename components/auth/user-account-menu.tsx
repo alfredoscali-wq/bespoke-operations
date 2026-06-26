@@ -39,7 +39,7 @@ export function UserAccountMenu() {
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
+      <DropdownMenuContent align="end" className="w-64">
         <DropdownMenuLabel className="font-normal">
           <p className="text-sm font-medium leading-none">
             {userDisplay.displayName}

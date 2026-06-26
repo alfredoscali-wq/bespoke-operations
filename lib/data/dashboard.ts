@@ -13,6 +13,7 @@ import {
 } from "@/lib/projects/project-operational-metrics"
 import { getTasksSummary } from "@/lib/data/tasks"
 import { isFieldServiceTask } from "@/lib/tasks/utils"
+import { isTaskVencida } from "@/lib/tasks/vencida-status"
 import {
   ACTIVE_TASK_STATUSES,
   FINAL_TASK_STATUSES,
@@ -74,12 +75,8 @@ function countProjectsByStatus(
   return projects.filter((project) => project.status === status).length
 }
 
-function isTaskOverdue(task: Task, today: string): boolean {
-  if (isFinalTaskStatus(task.status)) {
-    return false
-  }
-
-  return compareDateOnly(task.dueDate, today) < 0
+function isTaskOverdue(task: Task): boolean {
+  return isTaskVencida(task)
 }
 
 function isTaskScheduledForToday(task: Task, today: string): boolean {
@@ -126,7 +123,7 @@ export function buildExecutiveSummary(input: {
     },
     {
       id: "pending-tasks",
-      label: "Tareas Pendientes",
+      label: "Órdenes de Trabajo Pendientes",
       value: String(pendingAttention),
       hint: "Requieren atención",
       href: "/tareas",
@@ -158,12 +155,12 @@ export function buildOperationalAlerts(input: {
   const today = input.referenceDate ?? toDateOnly()
   const alerts: DashboardOperationalAlert[] = []
 
-  const overdueTasks = input.tasks.filter((task) => isTaskOverdue(task, today))
+  const overdueTasks = input.tasks.filter((task) => isTaskOverdue(task))
   if (overdueTasks.length > 0) {
     alerts.push({
       id: "overdue-tasks",
       severity: "critical",
-      message: `${overdueTasks.length} tarea${overdueTasks.length === 1 ? "" : "s"} vencida${overdueTasks.length === 1 ? "" : "s"}`,
+      message: `${overdueTasks.length} OT${overdueTasks.length === 1 ? "" : "s"} vencida${overdueTasks.length === 1 ? "" : "s"}`,
       href: "/tareas",
     })
   }
@@ -226,7 +223,7 @@ export function buildOperationalAlerts(input: {
     alerts.push({
       id: "pending-closure",
       severity: "warning",
-      message: `${pendingClosure} tarea${pendingClosure === 1 ? "" : "s"} pendiente${pendingClosure === 1 ? "" : "s"} de cierre`,
+      message: `${pendingClosure} OT${pendingClosure === 1 ? "" : "s"} pendiente${pendingClosure === 1 ? "" : "s"} de cierre`,
       href: "/tareas?status=pendiente-cierre",
     })
   }
@@ -283,13 +280,13 @@ export function buildDayOperations(input: {
   return [
     {
       id: "scheduled-today",
-      label: "Tareas programadas hoy",
+      label: "Órdenes de trabajo programadas hoy",
       value: scheduledToday,
       hint: "Con fecha operativa hoy",
     },
     {
       id: "completed-today",
-      label: "Tareas finalizadas hoy",
+      label: "Órdenes de trabajo finalizadas hoy",
       value: completedToday,
       hint: "Cierre operativo del día",
     },
@@ -357,6 +354,7 @@ export function buildTasksStatusKpis(tasks: Task[]): DashboardStatusKpi[] {
   }[] = [
     { id: "pendiente", label: "Pendientes", value: summary.pendiente, href: "/tareas?status=pendiente" },
     { id: "asignada", label: "Programadas", value: summary.asignada, href: "/tareas?status=asignada" },
+    { id: "vencida", label: "Vencidas", value: summary.vencida, href: "/tareas?status=vencida" },
     { id: "en-curso", label: "En curso", value: summary.enCurso, href: "/tareas?status=en-curso" },
     {
       id: "incidencia",
@@ -459,7 +457,7 @@ export function buildRecentOperationalActivity(input: {
       const timestamp = task.createdAt ?? `${task.dueDate}T18:00:00`
       events.push({
         id: `task-final-${task.id}`,
-        message: `Tarea ${task.code} finalizada`,
+        message: `OT ${task.code} finalizada`,
         tone: "success",
         href: `/tareas/${task.id}`,
         sortAt: new Date(timestamp).getTime(),

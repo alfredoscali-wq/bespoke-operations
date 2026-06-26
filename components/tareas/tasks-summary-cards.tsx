@@ -3,6 +3,7 @@ import {
   CircleDot,
   ClipboardCheck,
   Clock,
+  AlertTriangle,
   UserCheck,
 } from "lucide-react"
 
@@ -16,7 +17,7 @@ type TasksSummaryCardsProps = {
 }
 
 const cards: {
-  key: "pendiente" | "enCurso" | "pendienteCierre" | "cerrada" | "asignada"
+  key: "pendiente" | "enCurso" | "pendienteCierre" | "cerrada" | "asignada" | "vencida"
   label: string
   icon: typeof CircleDot
   tone: VisualTone
@@ -47,9 +48,15 @@ const cards: {
   },
   {
     key: "asignada",
-    label: "Asignadas",
+    label: "Programadas",
     icon: UserCheck,
     tone: "blue",
+  },
+  {
+    key: "vencida",
+    label: "Vencidas",
+    icon: AlertTriangle,
+    tone: "red",
   },
 ]
 
@@ -57,7 +64,7 @@ export function TasksSummaryCards({ tasks }: TasksSummaryCardsProps) {
   const summary = getTasksSummary(tasks)
 
   return (
-    <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-5">
+    <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-6">
       {cards.map((card) => (
         <KpiCard
           key={card.key}

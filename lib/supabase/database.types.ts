@@ -221,6 +221,60 @@ export type Database = {
         }
         Relationships: []
       }
+      system_audit_log: {
+        Row: {
+          id: string
+          module: string
+          action: string
+          entity_type: string
+          entity_id: string | null
+          entity_label: string | null
+          description: string
+          severity: string
+          performed_by_user_id: string | null
+          performed_by_name: string
+          performed_by_role: string | null
+          ip_address: string | null
+          user_agent: string | null
+          metadata: Record<string, unknown>
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          module: string
+          action: string
+          entity_type: string
+          entity_id?: string | null
+          entity_label?: string | null
+          description: string
+          severity?: string
+          performed_by_user_id?: string | null
+          performed_by_name: string
+          performed_by_role?: string | null
+          ip_address?: string | null
+          user_agent?: string | null
+          metadata?: Record<string, unknown>
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          module?: string
+          action?: string
+          entity_type?: string
+          entity_id?: string | null
+          entity_label?: string | null
+          description?: string
+          severity?: string
+          performed_by_user_id?: string | null
+          performed_by_name?: string
+          performed_by_role?: string | null
+          ip_address?: string | null
+          user_agent?: string | null
+          metadata?: Record<string, unknown>
+          created_at?: string
+        }
+        Relationships: []
+      }
       crews: {
         Row: {
           id: string
@@ -461,6 +515,12 @@ export type Database = {
           start_date: string
           due_date: string
           scheduled_time: string | null
+          original_scheduled_date: string | null
+          original_scheduled_time: string | null
+          rescheduled_by: string
+          rescheduled_at: string | null
+          reschedule_reason: string
+          reschedule_notes: string
           estimated_duration: string
           checklist: Json
           operational_steps: Json
@@ -512,6 +572,12 @@ export type Database = {
           start_date: string
           due_date: string
           scheduled_time?: string | null
+          original_scheduled_date?: string | null
+          original_scheduled_time?: string | null
+          rescheduled_by?: string
+          rescheduled_at?: string | null
+          reschedule_reason?: string
+          reschedule_notes?: string
           estimated_duration?: string
           checklist?: Json
           operational_steps?: Json
@@ -563,6 +629,12 @@ export type Database = {
           start_date?: string
           due_date?: string
           scheduled_time?: string | null
+          original_scheduled_date?: string | null
+          original_scheduled_time?: string | null
+          rescheduled_by?: string
+          rescheduled_at?: string | null
+          reschedule_reason?: string
+          reschedule_notes?: string
           estimated_duration?: string
           checklist?: Json
           operational_steps?: Json
@@ -771,6 +843,12 @@ export type ProjectHistoryInsert =
   Database["public"]["Tables"]["project_history"]["Insert"]
 export type ProjectHistoryUpdate =
   Database["public"]["Tables"]["project_history"]["Update"]
+export type SystemAuditLogRow =
+  Database["public"]["Tables"]["system_audit_log"]["Row"]
+export type SystemAuditLogInsert =
+  Database["public"]["Tables"]["system_audit_log"]["Insert"]
+export type SystemAuditLogUpdate =
+  Database["public"]["Tables"]["system_audit_log"]["Update"]
 export type TaskRow = Database["public"]["Tables"]["tasks"]["Row"]
 export type TaskInsert = Database["public"]["Tables"]["tasks"]["Insert"]
 export type TaskUpdate = Database["public"]["Tables"]["tasks"]["Update"]

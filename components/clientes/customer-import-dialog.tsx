@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   AlertTriangle,
   CheckCircle2,
@@ -34,6 +34,7 @@ import {
   type ImportValidationContext,
 } from "@/lib/customers/customer-import/validate"
 import { formatCustomerStatusLabel } from "@/lib/customers/format"
+import type { Customer } from "@/lib/types/customers"
 import { WORK_ORDER_TECHNOLOGY_OPTIONS } from "@/lib/tasks/work-order"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -140,8 +141,9 @@ export function CustomerImportDialog({
   onOpenChange,
   onImported,
 }: CustomerImportDialogProps) {
-  const { customers, createCustomer } = useCustomers()
+  const { createCustomer, getImportDuplicateIndex } = useCustomers()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [importCustomers, setImportCustomers] = useState<Customer[]>([])
 
   const [step, setStep] = useState<ImportStep>("upload")
   const [fileName, setFileName] = useState<string | null>(null)
@@ -153,9 +155,20 @@ export function CustomerImportDialog({
     useState<CustomerImportExecutionResult | null>(null)
 
   const validationContext = useMemo<ImportValidationContext>(
-    () => ({ customers }),
-    [customers]
+    () => ({ customers: importCustomers }),
+    [importCustomers]
   )
+
+  useEffect(() => {
+    if (!open) {
+      setImportCustomers([])
+      return
+    }
+
+    void getImportDuplicateIndex().then((index) => {
+      setImportCustomers(index as Customer[])
+    })
+  }, [open, getImportDuplicateIndex])
 
   const summary = useMemo(() => summarizeImportRows(rows), [rows])
   const selectedCount = useMemo(
@@ -263,7 +276,7 @@ export function CustomerImportDialog({
     try {
       const result = await executeCustomerImport({
         rows,
-        customers,
+        customers: importCustomers,
         createCustomer,
       })
 

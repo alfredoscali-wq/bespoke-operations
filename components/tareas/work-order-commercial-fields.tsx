@@ -3,36 +3,31 @@
 import {
   FIBER_CONTRACTED_PLAN_OPTIONS,
   WIRELESS_CONTRACTED_PLAN_LABEL,
-  formatInstallationCostInput,
   type FiberContractedPlan,
 } from "@/lib/tasks/commercial-plan"
 import type { WorkOrderFormInput } from "@/lib/tasks/work-order"
 import { cn } from "@/lib/utils"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
-type WorkOrderCommercialFieldsProps = {
-  form: WorkOrderFormInput
-  updateField: <K extends keyof WorkOrderFormInput>(
-    key: K,
-    value: WorkOrderFormInput[K]
-  ) => void
+type CommercialFormSlice = Pick<
+  WorkOrderFormInput,
+  "serviceType" | "technology" | "contractedPlan"
+>
+
+type WorkOrderCommercialFieldsProps<T extends CommercialFormSlice> = {
+  form: T
+  updateField: <K extends keyof T>(key: K, value: T[K]) => void
 }
 
-export function WorkOrderCommercialFields({
+export function WorkOrderCommercialFields<T extends CommercialFormSlice>({
   form,
   updateField,
-}: WorkOrderCommercialFieldsProps) {
+}: WorkOrderCommercialFieldsProps<T>) {
   if (form.serviceType !== "instalacion-nueva" || !form.technology) {
     return null
   }
 
   const isWireless = form.technology === "wireless"
-
-  function handleInstallationCostChange(rawValue: string) {
-    const digits = rawValue.replace(/\D/g, "")
-    updateField("installationCost", digits)
-  }
 
   return (
     <div className="space-y-4 rounded-xl border bg-muted/20 p-4">
@@ -80,17 +75,6 @@ export function WorkOrderCommercialFields({
             })}
           </div>
         )}
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="wo-installation-cost">Costo de instalación *</Label>
-        <Input
-          id="wo-installation-cost"
-          inputMode="numeric"
-          value={formatInstallationCostInput(form.installationCost)}
-          onChange={(event) => handleInstallationCostChange(event.target.value)}
-          placeholder="$ 0"
-        />
       </div>
     </div>
   )

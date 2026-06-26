@@ -39,9 +39,9 @@ export function CrewProjectsTab({
     return (
       <Card className="shadow-sm">
         <CardHeader>
-          <CardTitle>Proyectos activos</CardTitle>
+          <CardTitle>Obras activas</CardTitle>
           <CardDescription>
-            No hay proyectos activos vinculados a esta cuadrilla.
+            No hay obras activas vinculadas a esta cuadrilla.
           </CardDescription>
         </CardHeader>
       </Card>
@@ -51,7 +51,7 @@ export function CrewProjectsTab({
   return (
     <Card className="shadow-sm">
       <CardHeader>
-        <CardTitle>Proyectos activos</CardTitle>
+        <CardTitle>Obras activas</CardTitle>
         <CardDescription>
           Obras en curso con asignaciones de {crew.name}
         </CardDescription>
@@ -61,7 +61,7 @@ export function CrewProjectsTab({
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead>Proyecto</TableHead>
+                <TableHead>Obra</TableHead>
                 <TableHead>Avance</TableHead>
                 <TableHead>Estado</TableHead>
               </TableRow>

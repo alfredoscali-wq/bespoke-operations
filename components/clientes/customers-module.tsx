@@ -1,9 +1,10 @@
 "use client"
 
-import { useMemo, useState } from "react"
-import { FileSpreadsheet, Plus } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
+import { ChevronLeft, ChevronRight, FileSpreadsheet, Plus } from "lucide-react"
 
 import { useAuth } from "@/components/auth/auth-provider"
+import { PermanentDeleteDialog } from "@/components/admin/permanent-delete-dialog"
 import { CustomerArchiveDialog } from "@/components/clientes/customer-archive-dialog"
 import { CustomerDeleteDialog } from "@/components/clientes/customer-delete-dialog"
 import { CustomerFormDialog } from "@/components/clientes/customer-form-dialog"
@@ -16,11 +17,10 @@ import {
 } from "@/components/clientes/customers-filters"
 import { CustomersList } from "@/components/clientes/customers-list"
 import { CustomersSummary } from "@/components/clientes/customers-summary"
-import { CustomersUIProvider } from "@/components/clientes/customers-ui-provider"
 import { resolveAuthDisplay } from "@/lib/auth/auth-display"
-import { filterCustomers } from "@/lib/customers/customer-filters"
+import { DEFAULT_CUSTOMER_PAGE_SIZE } from "@/lib/customers/customer-list"
 import type { CustomerQuickFilter } from "@/lib/customers/customer-operational"
-import type { Customer } from "@/lib/types/customers"
+import type { Customer, CustomerListRow } from "@/lib/types/customers"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -29,37 +29,70 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { EntityActionFeedback } from "@/components/ui/entity-action-feedback"
+import { useIsSystemAdministrator } from "@/lib/auth/use-is-system-administrator"
+
+const SEARCH_DEBOUNCE_MS = 300
 
 export function CustomersModule() {
-  return (
-    <CustomersUIProvider>
-      <CustomersModuleContent />
-    </CustomersUIProvider>
-  )
+  return <CustomersModuleContent />
 }
 
 function CustomersModuleContent() {
-  const { isCustomersReady, customers, markCustomersAsActive } = useCustomers()
+  const {
+    isCustomersReady,
+    isListLoading,
+    listPage,
+    listQuery,
+    loadCustomerPage,
+    fetchCustomerById,
+    markCustomersAsActive,
+    removeCustomerLocally,
+  } = useCustomers()
   const { sessionUser } = useAuth()
+  const isSystemAdministrator = useIsSystemAdministrator()
   const [filters, setFilters] = useState(defaultCustomerFilters)
+  const [debouncedSearch, setDebouncedSearch] = useState("")
   const [feedback, setFeedback] = useState<string | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
-  const [archiveTarget, setArchiveTarget] = useState<Customer | Customer[] | null>(
-    null
-  )
-  const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null)
+  const [archiveTarget, setArchiveTarget] = useState<
+    CustomerListRow | CustomerListRow[] | null
+  >(null)
+  const [deleteTarget, setDeleteTarget] = useState<CustomerListRow | null>(null)
+  const [permanentDeleteTarget, setPermanentDeleteTarget] =
+    useState<CustomerListRow | null>(null)
   const [importOpen, setImportOpen] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
-  const displayedCustomers = useMemo(
-    () => filterCustomers(customers, filters),
-    [customers, filters]
-  )
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setDebouncedSearch(filters.search.trim())
+    }, SEARCH_DEBOUNCE_MS)
+
+    return () => {
+      window.clearTimeout(timeout)
+    }
+  }, [filters.search])
+
+  useEffect(() => {
+    void loadCustomerPage({
+      page: 1,
+      pageSize: DEFAULT_CUSTOMER_PAGE_SIZE,
+      search: debouncedSearch,
+      quickFilter: filters.quickFilter,
+    })
+    setSelectedIds(new Set())
+  }, [debouncedSearch, filters.quickFilter, loadCustomerPage])
+
+  const displayedCustomers = listPage?.items ?? []
+  const totalResults = listPage?.total ?? 0
+  const currentPage = listPage?.page ?? 1
+  const pageSize = listPage?.pageSize ?? DEFAULT_CUSTOMER_PAGE_SIZE
+  const totalPages = Math.max(1, Math.ceil(totalResults / pageSize))
 
   const selectedCustomers = useMemo(
-    () => customers.filter((customer) => selectedIds.has(customer.id)),
-    [customers, selectedIds]
+    () => displayedCustomers.filter((customer) => selectedIds.has(customer.id)),
+    [displayedCustomers, selectedIds]
   )
 
   function handleQuickFilterChange(quickFilter: CustomerQuickFilter) {
@@ -75,20 +108,45 @@ function CustomersModuleContent() {
     setFormOpen(true)
   }
 
-  function openEditDialog(customer: Customer) {
-    setEditingCustomer(customer)
-    setFormOpen(true)
+  function openEditDialog(customer: CustomerListRow) {
+    void (async () => {
+      const fullCustomer = await fetchCustomerById(customer.id)
+      if (fullCustomer) {
+        setEditingCustomer(fullCustomer)
+        setFormOpen(true)
+      } else {
+        setFeedback("No se pudo cargar el cliente para editar.")
+      }
+    })()
   }
 
-  function openArchiveDialog(customer: Customer | Customer[]) {
+  function openArchiveDialog(customer: CustomerListRow | CustomerListRow[]) {
     setArchiveTarget(customer)
   }
 
-  function openDeleteDialog(customer: Customer) {
+  function openDeleteDialog(customer: CustomerListRow) {
     setDeleteTarget(customer)
   }
 
-  async function handleMarkActive(customer: Customer) {
+  function openPermanentDeleteDialog(customer: CustomerListRow) {
+    setPermanentDeleteTarget(customer)
+  }
+
+  function handlePermanentDeleteSuccess(message: string) {
+    if (permanentDeleteTarget) {
+      removeCustomerLocally(permanentDeleteTarget.id)
+      setSelectedIds((current) => {
+        const next = new Set(current)
+        next.delete(permanentDeleteTarget.id)
+        return next
+      })
+    }
+
+    setPermanentDeleteTarget(null)
+    setFeedback(message)
+  }
+
+  async function handleMarkActive(customer: CustomerListRow) {
     const result = await markCustomersAsActive({
       customerIds: [customer.id],
       validatedBy: resolveAuthDisplay(sessionUser).displayName,
@@ -100,6 +158,16 @@ function CustomersModuleContent() {
     }
 
     setFeedback("Cliente marcado como activo.")
+  }
+
+  function goToPage(page: number) {
+    void loadCustomerPage({
+      ...listQuery,
+      page,
+      search: debouncedSearch,
+      quickFilter: filters.quickFilter,
+    })
+    setSelectedIds(new Set())
   }
 
   return (
@@ -142,7 +210,7 @@ function CustomersModuleContent() {
           <CustomersFilters
             filters={filters}
             onChange={setFilters}
-            resultCount={displayedCustomers.length}
+            resultCount={totalResults}
           />
 
           <CustomersBulkActionsBar
@@ -152,21 +220,59 @@ function CustomersModuleContent() {
             onFeedback={setFeedback}
           />
 
-          {!isCustomersReady ? (
+          {!isCustomersReady || isListLoading ? (
             <div className="rounded-xl border border-dashed bg-muted/20 px-6 py-12 text-center text-sm text-muted-foreground">
               Cargando clientes...
             </div>
           ) : (
-            <CustomersList
-              customers={displayedCustomers}
-              quickFilter={filters.quickFilter}
-              selectedIds={selectedIds}
-              onSelectedIdsChange={setSelectedIds}
-              onEdit={openEditDialog}
-              onArchive={openArchiveDialog}
-              onDelete={openDeleteDialog}
-              onMarkActive={(customer) => void handleMarkActive(customer)}
-            />
+            <>
+              <CustomersList
+                customers={displayedCustomers}
+                quickFilter={filters.quickFilter}
+                selectedIds={selectedIds}
+                onSelectedIdsChange={setSelectedIds}
+                onEdit={openEditDialog}
+                onArchive={openArchiveDialog}
+                onDelete={openDeleteDialog}
+                onMarkActive={(customer) => void handleMarkActive(customer)}
+                onPermanentDelete={
+                  isSystemAdministrator ? openPermanentDeleteDialog : undefined
+                }
+              />
+
+              {totalResults > pageSize ? (
+                <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-xs text-muted-foreground">
+                    Página {currentPage} de {totalPages} · {totalResults}{" "}
+                    {totalResults === 1 ? "cliente" : "clientes"}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5"
+                      disabled={currentPage <= 1}
+                      onClick={() => goToPage(currentPage - 1)}
+                    >
+                      <ChevronLeft className="size-4" />
+                      Anterior
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5"
+                      disabled={currentPage >= totalPages}
+                      onClick={() => goToPage(currentPage + 1)}
+                    >
+                      Siguiente
+                      <ChevronRight className="size-4" />
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+            </>
           )}
         </CardContent>
       </Card>
@@ -206,6 +312,21 @@ function CustomersModuleContent() {
         }}
         onSuccess={handleMutationSuccess}
       />
+
+      {permanentDeleteTarget ? (
+        <PermanentDeleteDialog
+          open={permanentDeleteTarget !== null}
+          onOpenChange={(open) => {
+            if (!open) {
+              setPermanentDeleteTarget(null)
+            }
+          }}
+          entityType="customer"
+          entityId={permanentDeleteTarget.id}
+          entityLabel={permanentDeleteTarget.name}
+          onSuccess={handlePermanentDeleteSuccess}
+        />
+      ) : null}
 
       <CustomerImportDialog
         open={importOpen}

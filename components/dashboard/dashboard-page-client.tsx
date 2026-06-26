@@ -23,7 +23,9 @@ import { DashboardExecutiveSummary } from "@/components/dashboard/dashboard-exec
 import { DashboardOperationalAlerts } from "@/components/dashboard/dashboard-operational-alerts"
 import { DashboardOperationalHeader } from "@/components/dashboard/dashboard-operational-header"
 import { DashboardRecentActivity } from "@/components/dashboard/dashboard-recent-activity"
+import { DashboardRrhhSummary } from "@/components/dashboard/dashboard-rrhh-summary"
 import { DashboardStatusSection } from "@/components/dashboard/dashboard-status-section"
+import { useOperationalProfile } from "@/components/operations/operational-profile-provider"
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { useEvidence } from "@/components/evidencias/evidence-provider"
 import { useProjects } from "@/components/obras/projects-provider"
@@ -39,6 +41,7 @@ import {
   buildTasksStatusKpis,
   countOperationalIncidents,
 } from "@/lib/data/dashboard"
+import { profileShowsDashboardSection } from "@/lib/operations/operational-profile"
 
 const PROJECT_ICONS = {
   active: Building2,
@@ -57,6 +60,7 @@ const PROJECT_TONES = {
 const TASK_ICONS = {
   pendiente: CircleDot,
   asignada: UserCheck,
+  vencida: AlertTriangle,
   "en-curso": Clock,
   incidencia: AlertTriangle,
   "pendiente-cierre": ClipboardCheck,
@@ -68,6 +72,7 @@ const TASK_ICONS = {
 const TASK_TONES = {
   pendiente: "gray",
   asignada: "blue",
+  vencida: "red",
   "en-curso": "yellow",
   incidencia: "red",
   "pendiente-cierre": "yellow",
@@ -91,6 +96,7 @@ const CREW_TONES = {
 } as const
 
 export function DashboardPageClient() {
+  const { profile } = useOperationalProfile()
   const { projects } = useProjects()
   const { tasks } = useTasks()
   const { evidence } = useEvidence()
@@ -171,49 +177,68 @@ export function DashboardPageClient() {
     [projects, tasks, evidence, crews, crewAvailabilityContext]
   )
 
+  const show = (section: Parameters<typeof profileShowsDashboardSection>[1]) =>
+    profileShowsDashboardSection(profile, section)
+
   return (
     <div className="space-y-8">
-      <DashboardOperationalHeader />
+      {profile !== "rrhh" ? <DashboardOperationalHeader /> : null}
 
-      <section className="space-y-3">
-        <div>
-          <h3 className="text-sm font-semibold text-foreground">
-            Resumen Ejecutivo
-          </h3>
-        </div>
-        <DashboardExecutiveSummary kpis={executiveSummary} />
-      </section>
+      {show("rrhh-summary") ? <DashboardRrhhSummary /> : null}
 
-      <DashboardOperationalAlerts alerts={alerts} />
+      {show("executive-summary") ? (
+        <section className="space-y-3">
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">
+              Resumen Ejecutivo
+            </h3>
+          </div>
+          <DashboardExecutiveSummary kpis={executiveSummary} />
+        </section>
+      ) : null}
 
-      <DashboardDayOperations metrics={dayOperations} />
+      {show("operational-alerts") ? (
+        <DashboardOperationalAlerts alerts={alerts} />
+      ) : null}
 
-      <DashboardStatusSection
-        title="Estado de Obras"
-        description="Distribución operativa del portafolio de obras"
-        kpis={projectsStatus}
-        icons={PROJECT_ICONS}
-        tones={PROJECT_TONES}
-      />
+      {show("day-operations") ? (
+        <DashboardDayOperations metrics={dayOperations} />
+      ) : null}
 
-      <DashboardStatusSection
-        title="Estado de Tareas"
-        description="Seguimiento operativo por estado de ciclo de vida"
-        kpis={tasksStatus}
-        icons={TASK_ICONS}
-        tones={TASK_TONES}
-        columnsClassName="sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6"
-      />
+      {show("projects-status") ? (
+        <DashboardStatusSection
+          title="Estado de Obras"
+          description="Distribución operativa del portafolio de obras"
+          kpis={projectsStatus}
+          icons={PROJECT_ICONS}
+          tones={PROJECT_TONES}
+        />
+      ) : null}
 
-      <DashboardStatusSection
-        title="Estado de Cuadrillas"
-        description="Disponibilidad y despliegue operativo de cuadrillas"
-        kpis={crewsStatus}
-        icons={CREW_ICONS}
-        tones={CREW_TONES}
-      />
+      {show("tasks-status") ? (
+        <DashboardStatusSection
+          title="Estado de Órdenes de Trabajo"
+          description="Seguimiento operativo por estado de ciclo de vida"
+          kpis={tasksStatus}
+          icons={TASK_ICONS}
+          tones={TASK_TONES}
+          columnsClassName="sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6"
+        />
+      ) : null}
 
-      <DashboardRecentActivity items={recentActivity} />
+      {show("crews-status") ? (
+        <DashboardStatusSection
+          title="Estado de Cuadrillas"
+          description="Disponibilidad y despliegue operativo de cuadrillas"
+          kpis={crewsStatus}
+          icons={CREW_ICONS}
+          tones={CREW_TONES}
+        />
+      ) : null}
+
+      {show("recent-activity") ? (
+        <DashboardRecentActivity items={recentActivity} />
+      ) : null}
     </div>
   )
 }

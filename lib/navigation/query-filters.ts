@@ -13,6 +13,7 @@ const PROJECT_STATUS_VALUES: ProjectStatus[] = [
 const TASK_STATUS_VALUES: TaskStatus[] = [
   "pendiente",
   "asignada",
+  "vencida",
   "en-curso",
   "incidencia",
   "pendiente-cierre",

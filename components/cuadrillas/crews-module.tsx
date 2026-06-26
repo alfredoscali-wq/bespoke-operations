@@ -68,7 +68,7 @@ export function CrewsModule() {
         </div>
         <Button size="sm" className="gap-1.5 self-start" onClick={() => setDialogOpen(true)}>
           <Plus className="size-4" />
-          Nueva cuadrilla
+          Nueva Cuadrilla
         </Button>
       </div>
 

@@ -2,13 +2,24 @@ import { createClient } from "@/lib/supabase/client"
 import {
   createCustomer as insertCustomer,
   deleteCustomer as removeCustomer,
-  getCustomers as fetchCustomers,
+  fetchCustomerDuplicateIndex,
+  getCustomerById as fetchCustomerById,
+  getCustomerOperationalSummaryCounts,
+  listCustomersPaginated,
   markCustomersValidated,
   searchCustomers as querySearchCustomers,
   updateCustomer as patchCustomer,
   type SupabaseCustomersClient,
 } from "@/lib/supabase/customers.queries"
-import type { Customer } from "@/lib/types/customers"
+import { getCustomerOperationalActivity } from "@/lib/customers/customer-activity"
+import { canDeleteCustomerWithActivity } from "@/lib/customers/customer-activity"
+import type {
+  Customer,
+  CustomerListPage,
+  CustomerListRow,
+} from "@/lib/types/customers"
+import type { CustomerListQuery } from "@/lib/customers/customer-list"
+import type { CustomerOperationalSummary } from "@/lib/customers/customer-operational"
 import type {
   CreateCustomerPayload,
   CustomersRepositoryResult,
@@ -19,10 +30,42 @@ export function createBrowserCustomersClient(): SupabaseCustomersClient {
   return createClient()
 }
 
-export async function getCustomers(
+export async function listCustomerPage(
+  query: CustomerListQuery,
   client: SupabaseCustomersClient = createBrowserCustomersClient()
-): Promise<CustomersRepositoryResult<Customer[]>> {
-  return fetchCustomers(client)
+): Promise<CustomersRepositoryResult<CustomerListPage>> {
+  return listCustomersPaginated(client, query)
+}
+
+export async function getCustomerSummary(
+  client: SupabaseCustomersClient = createBrowserCustomersClient()
+): Promise<CustomersRepositoryResult<CustomerOperationalSummary>> {
+  return getCustomerOperationalSummaryCounts(client)
+}
+
+export async function getCustomerById(
+  id: string,
+  client: SupabaseCustomersClient = createBrowserCustomersClient()
+): Promise<CustomersRepositoryResult<Customer>> {
+  return fetchCustomerById(client, id)
+}
+
+export async function getCustomerDuplicateIndex(
+  client: SupabaseCustomersClient = createBrowserCustomersClient()
+): Promise<
+  CustomersRepositoryResult<
+    Pick<Customer, "id" | "name" | "externalCustomerCode" | "dni">[]
+  >
+> {
+  return fetchCustomerDuplicateIndex(client)
+}
+
+export async function checkCustomerCanDelete(
+  customerId: string,
+  client: SupabaseCustomersClient = createBrowserCustomersClient()
+): Promise<{ allowed: true } | { allowed: false; message: string }> {
+  const activity = await getCustomerOperationalActivity(client, customerId)
+  return canDeleteCustomerWithActivity(activity)
 }
 
 export async function searchCustomers(
@@ -66,3 +109,5 @@ export async function markCustomersAsActive(
 ): Promise<CustomersRepositoryResult<Customer[]>> {
   return markCustomersValidated(client, input)
 }
+
+export type { CustomerListRow }

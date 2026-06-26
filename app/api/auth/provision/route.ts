@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server"
 
+import {
+  recordUserCreateAudit,
+  recordUserProvisionAudit,
+} from "@/lib/audit/users-audit.server"
 import { provisionEmployeeAccess } from "@/lib/auth/provision-employee"
 import { getSessionUser } from "@/lib/auth/session"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { fetchEmployeeById } from "@/lib/supabase/employees.queries"
 
 type ProvisionRequestBody = {
   employeeId?: string
@@ -61,6 +67,23 @@ export async function POST(request: Request) {
 
     if (!result.success) {
       return NextResponse.json(result, { status: 422 })
+    }
+
+    const admin = createAdminClient()
+    const employeeResult = await fetchEmployeeById(admin, employeeId)
+    const employee = employeeResult.data
+
+    if (employee) {
+      await recordUserCreateAudit({
+        performedBy: sessionUser,
+        employee,
+        authUserId: result.authUserId,
+      })
+      await recordUserProvisionAudit({
+        performedBy: sessionUser,
+        employee,
+        authUserId: result.authUserId,
+      })
     }
 
     return NextResponse.json(result, { status: 201 })

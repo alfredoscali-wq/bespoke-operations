@@ -41,7 +41,7 @@ export function OperarioCrewStatusMessage({
         Tenés más de una cuadrilla asignada
         {otherCrews.length > 0 ? ` (${assignedCrewNames.join(", ")})` : ""}.
         {primaryCrewName
-          ? ` Se muestran las tareas de ${primaryCrewName}.`
+          ? ` Se muestran las órdenes de trabajo de ${primaryCrewName}.`
           : " Se usa la cuadrilla principal."}
       </AlertDescription>
     </Alert>
@@ -69,7 +69,7 @@ export function OperarioCrewEmptyState({
           Sin cuadrilla asignada
         </p>
         <p className="mt-1 text-sm text-muted-foreground">
-          Cuando te asignen a una cuadrilla, verás tus tareas aquí.
+          Cuando te asignen a una cuadrilla, verás tus órdenes de trabajo aquí.
         </p>
       </div>
     )

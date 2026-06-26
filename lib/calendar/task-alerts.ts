@@ -9,7 +9,7 @@ import type {
   CalendarTaskAlertKind,
   CalendarTaskAlertSeverity,
 } from "@/lib/types/calendar"
-import { FINAL_TASK_STATUSES, taskRequiresSupervisorValidation } from "@/lib/tasks/status-groups"
+import { FINAL_TASK_STATUSES } from "@/lib/tasks/status-groups"
 import type { Crew, CrewMember } from "@/lib/types/crews"
 import type { Task } from "@/lib/types/tasks"
 
@@ -80,8 +80,6 @@ export function buildTaskAlertsForDate(input: {
   const {
     task,
     date,
-    weekStart,
-    weekEnd,
     crews,
     crewAvailabilityContext,
     crewAvailabilityCache,
@@ -90,28 +88,12 @@ export function buildTaskAlertsForDate(input: {
   const alerts: CalendarTaskAlert[] = []
   const isFinal = FINAL_TASK_STATUSES.includes(task.status)
 
-  if (!isFinal) {
-    if (taskRequiresSupervisorValidation(task)) {
-      alerts.push({
-        kind: "DUE_THIS_WEEK",
-        severity: "warning",
-        message: "Requiere validación de cierre por supervisor.",
-      })
-    }
-
-    if (task.dueDate < date) {
-      alerts.push({
-        kind: "OVERDUE",
-        severity: ALERT_SEVERITY.OVERDUE,
-        message: `La tarea venció el ${task.dueDate}.`,
-      })
-    } else if (task.dueDate >= weekStart && task.dueDate <= weekEnd) {
-      alerts.push({
-        kind: "DUE_THIS_WEEK",
-        severity: ALERT_SEVERITY.DUE_THIS_WEEK,
-        message: `Vence el ${task.dueDate} dentro de la semana visible.`,
-      })
-    }
+  if (task.status === "vencida" && !isFinal) {
+    alerts.push({
+      kind: "OVERDUE",
+      severity: ALERT_SEVERITY.OVERDUE,
+      message: "OT vencida. Debe reprogramarse antes de iniciarse.",
+    })
   }
 
   if (!task.crewId) {

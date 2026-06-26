@@ -53,7 +53,7 @@ const MANAGEMENT_KPIS = [
   },
   {
     key: "pendingTasks",
-    label: "Tareas pendientes",
+    label: "Órdenes de trabajo pendientes",
     icon: ListChecks,
     tone: "blue" as const,
     format: (value: number) => String(value),

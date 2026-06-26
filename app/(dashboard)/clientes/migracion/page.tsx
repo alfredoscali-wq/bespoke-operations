@@ -5,20 +5,22 @@ import { useEffect } from "react"
 
 import { ClientesSectionNav } from "@/components/clientes/clientes-section-nav"
 import { MigrationReviewModule } from "@/components/clientes/migration/migration-review-module"
-import { useOperationalProfile } from "@/components/operations/operational-profile-provider"
+import { useAuth } from "@/components/auth/auth-provider"
+import { useIsSystemAdministrator } from "@/lib/auth/use-is-system-administrator"
 
 export default function ClientesMigracionPage() {
   const router = useRouter()
-  const { profile, isProfileReady } = useOperationalProfile()
+  const { isAuthReady } = useAuth()
+  const isAdministrator = useIsSystemAdministrator()
 
   useEffect(() => {
-    if (!isProfileReady) return
-    if (profile !== "administrador") {
+    if (!isAuthReady) return
+    if (!isAdministrator) {
       router.replace("/clientes")
     }
-  }, [profile, isProfileReady, router])
+  }, [isAdministrator, isAuthReady, router])
 
-  if (!isProfileReady || profile !== "administrador") {
+  if (!isAuthReady || !isAdministrator) {
     return (
       <div className="rounded-xl border border-dashed bg-muted/20 px-6 py-12 text-center text-sm text-muted-foreground">
         Verificando acceso...

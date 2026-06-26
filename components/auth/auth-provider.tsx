@@ -18,6 +18,7 @@ import {
 } from "@/lib/auth/routes"
 import { buildSessionUserFromAuthUser } from "@/lib/auth/resolve-session-user"
 import type { SessionUser } from "@/lib/auth/types"
+import { recordUserSessionAudit } from "@/lib/audit/users-audit"
 import { getEmployeeByAppUserId } from "@/lib/supabase/employees.browser"
 import { createClient } from "@/lib/supabase/client"
 
@@ -131,12 +132,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const resolved = await resolveSessionUserFromAuthUser(data.user)
       setSessionUser(resolved)
+      void recordUserSessionAudit("USER_LOGIN")
       return resolved
     },
     []
   )
 
   const signOut = useCallback(async () => {
+    await recordUserSessionAudit("USER_LOGOUT")
     const supabase = createClient()
     await supabase.auth.signOut()
     setSessionUser(null)

@@ -74,6 +74,43 @@ export function formatInstallationCostInput(digits: string): string {
   return formatInstallationCostDisplay(value)
 }
 
+export function parseAmountToCollectInput(input: string): number | null {
+  const trimmed = input.trim()
+  if (!trimmed) return null
+
+  let cleaned = trimmed.replace(/[$\s]/g, "")
+
+  if (cleaned.includes(",")) {
+    cleaned = cleaned.replace(/\./g, "").replace(",", ".")
+  } else {
+    const parts = cleaned.split(".")
+    if (parts.length > 2) {
+      cleaned = parts.join("")
+    } else if (parts.length === 2 && parts[1].length === 3) {
+      cleaned = parts.join("")
+    }
+  }
+
+  const value = Number.parseFloat(cleaned)
+  if (!Number.isFinite(value) || value < 0) return null
+
+  return Math.round(value * 100) / 100
+}
+
+export function formatAmountToCollectDisplay(value: number): string {
+  return `$ ${value.toLocaleString("es-AR", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  })}`
+}
+
+export function formatAmountToCollectFormValue(
+  value: number | null | undefined
+): string {
+  if (value == null) return ""
+  return String(value)
+}
+
 export function resolveContractedPlanFromForm(
   form: CommercialFormSlice
 ): ContractedPlan | null {
@@ -102,10 +139,10 @@ export function resolveContractedPlanForTechnology(
 }
 
 export function taskHasCommercialInfo(
-  task: Pick<Task, "serviceType" | "contractedPlan" | "installationCost">
+  task: Pick<Task, "serviceType" | "contractedPlan" | "amountToCollect">
 ): boolean {
   return (
     isNewInstallationTask(task) &&
-    Boolean(task.contractedPlan?.trim() || task.installationCost != null)
+    Boolean(task.contractedPlan?.trim() || task.amountToCollect != null)
   )
 }

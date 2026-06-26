@@ -1,6 +1,7 @@
 import { compareDateOnly } from "@/lib/dates/date-only"
 import { extractDatePortion, toDateOnlyString } from "@/lib/reports/report-utils"
 import { getTasksForProject } from "@/lib/tasks/utils"
+import { isTaskVencida } from "@/lib/tasks/vencida-status"
 import type { Project } from "@/lib/types/projects"
 import type { Task, TaskStatus } from "@/lib/types/tasks"
 
@@ -20,6 +21,7 @@ export type ProjectHealthVariant = "success" | "warning" | "danger"
 const ACTIVE_TASK_STATUSES = [
   "pendiente",
   "asignada",
+  "vencida",
   "en-curso",
   "incidencia",
   "pendiente-cierre",
@@ -46,17 +48,8 @@ function isCancelledTaskStatus(status: TaskStatus): boolean {
   return CANCELLED_TASK_STATUS_SET.has(status)
 }
 
-function isTaskOverdue(task: Task, today: string): boolean {
-  if (isCompletedTaskStatus(task.status)) {
-    return false
-  }
-
-  const dueDate = extractDatePortion(task.dueDate)
-  if (!dueDate) {
-    return false
-  }
-
-  return compareDateOnly(dueDate, today) < 0
+function isTaskOverdue(task: Task): boolean {
+  return isTaskVencida(task)
 }
 
 function calculateProjectHealth(
@@ -113,7 +106,7 @@ function calculateMetricsFromProjectTasks(
       pendingTasks += 1
     }
 
-    if (isTaskOverdue(task, today)) {
+    if (isTaskOverdue(task)) {
       overdueTasks += 1
     }
   }

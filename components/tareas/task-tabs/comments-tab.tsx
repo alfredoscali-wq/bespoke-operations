@@ -53,7 +53,7 @@ export function TaskCommentsTab({ comments }: TaskCommentsTabProps) {
   return (
     <Card className="shadow-sm">
       <CardHeader>
-        <CardTitle>Comentarios del proyecto</CardTitle>
+        <CardTitle>Comentarios de la obra</CardTitle>
         <CardDescription>
           Notas de supervisión y respuestas de campo
         </CardDescription>

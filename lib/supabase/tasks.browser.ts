@@ -8,6 +8,7 @@ import {
   softDeleteTask,
   type SupabaseTasksClient,
 } from "@/lib/supabase/tasks.queries"
+import { applyVencidaSyncFromApi } from "@/lib/tasks/vencida-sync.client"
 import { logDeleteTrace } from "@/lib/supabase/delete-trace"
 import type { Task } from "@/lib/types/tasks"
 import type {
@@ -23,7 +24,18 @@ export function createBrowserTasksClient(): SupabaseTasksClient {
 export async function listTasks(
   client: SupabaseTasksClient = createBrowserTasksClient()
 ): Promise<TasksRepositoryResult<Task[]>> {
-  return fetchTasks(client)
+  const result = await fetchTasks(client)
+
+  if (result.error || !result.data) {
+    return result
+  }
+
+  const syncedTasks = await applyVencidaSyncFromApi(result.data)
+
+  return {
+    data: syncedTasks,
+    error: null,
+  }
 }
 
 export async function getTaskById(

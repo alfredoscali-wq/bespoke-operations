@@ -82,8 +82,8 @@ export function ProjectsOperationalList({ projects }: ProjectsOperationalListPro
                 <p className="text-xs text-amber-800">
                   ⚠ {metrics.overdueTasks}{" "}
                   {metrics.overdueTasks === 1
-                    ? "tarea vencida"
-                    : "tareas vencidas"}
+                    ? "OT vencida"
+                    : "OT vencidas"}
                 </p>
               ) : null}
 

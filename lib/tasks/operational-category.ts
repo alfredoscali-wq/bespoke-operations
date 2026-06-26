@@ -6,6 +6,7 @@ import { TASK_EN_CURSO_STYLE } from "@/lib/tasks/constants"
 export type OperationalTaskCategory =
   | "sin-cuadrilla"
   | "programadas"
+  | "vencidas"
   | "suspendidas"
   | "completadas"
   | "canceladas"
@@ -21,6 +22,7 @@ export const OPERATIONAL_CATEGORY_KPI_LABELS: Record<
 > = {
   "sin-cuadrilla": "🔵 Sin cuadrilla",
   programadas: "🔵 Programadas",
+  vencidas: "🔴 Vencidas",
   suspendidas: "🟡 Pendiente de cierre",
   completadas: "🟢 Completadas",
   canceladas: "🔴 Canceladas",
@@ -32,6 +34,7 @@ export const OPERATIONAL_CATEGORY_BADGE_LABELS: Record<
 > = {
   "sin-cuadrilla": "🔵 Sin cuadrilla",
   programadas: "🔵 Programada",
+  vencidas: "🔴 Vencida",
   suspendidas: "🟡 Pendiente de cierre",
   completadas: "🟢 Finalizada",
   canceladas: "🔴 Cancelada",
@@ -43,6 +46,7 @@ export const OPERATIONAL_CATEGORY_LABELS = OPERATIONAL_CATEGORY_BADGE_LABELS
 export const OPERATIONAL_CATEGORY_ORDER: OperationalTaskCategory[] = [
   "sin-cuadrilla",
   "programadas",
+  "vencidas",
   "suspendidas",
   "completadas",
   "canceladas",
@@ -54,6 +58,7 @@ export const OPERATIONAL_CATEGORY_KPI_TONE: Record<
 > = {
   "sin-cuadrilla": "blue",
   programadas: "blue",
+  vencidas: "red",
   suspendidas: "yellow",
   completadas: "green",
   canceladas: "red",
@@ -71,6 +76,7 @@ export const OPERATIONAL_CATEGORY_BADGE_STYLES: Record<
 > = {
   "sin-cuadrilla": STATUS_TONE_STYLES.blue,
   programadas: STATUS_TONE_STYLES.blue,
+  vencidas: STATUS_TONE_STYLES.red,
   suspendidas: STATUS_TONE_STYLES.yellow,
   completadas: STATUS_TONE_STYLES.green,
   canceladas: STATUS_TONE_STYLES.red,
@@ -88,6 +94,13 @@ export function resolveOperationalExecutionBadge(task: Task): {
     return {
       label: "Programada",
       className: STATUS_TONE_STYLES.blue,
+    }
+  }
+
+  if (task.status === "vencida") {
+    return {
+      label: "🔴 Vencida",
+      className: STATUS_TONE_STYLES.red,
     }
   }
 
@@ -145,6 +158,10 @@ export function resolveOperationalCategory(
     return "canceladas"
   }
 
+  if (task.status === "vencida") {
+    return "vencidas"
+  }
+
   if (task.status === "finalizada" || task.status === "cerrada") {
     return "completadas"
   }
@@ -171,6 +188,10 @@ export function filterTasksByOperationalCategory(
     )
   }
 
+  if (category === "vencidas") {
+    return tasks.filter((task) => task.status === "vencida")
+  }
+
   return tasks.filter(
     (task) => resolveOperationalCategory(task) === category
   )
@@ -182,6 +203,7 @@ export function countTasksByOperationalCategory(
   const counts: Record<OperationalTaskCategory, number> = {
     "sin-cuadrilla": 0,
     programadas: 0,
+    vencidas: 0,
     suspendidas: 0,
     completadas: 0,
     canceladas: 0,

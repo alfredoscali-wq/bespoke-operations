@@ -17,7 +17,7 @@ export function serializeTaskDeleteError(error: unknown): TaskDeleteSupabaseErro
       message:
         typeof record.message === "string"
           ? record.message
-          : "Error desconocido al eliminar la tarea.",
+          : "Error desconocido al eliminar la orden de trabajo.",
       details:
         typeof record.details === "string" || record.details === null
           ? (record.details as string | null)
@@ -33,7 +33,7 @@ export function serializeTaskDeleteError(error: unknown): TaskDeleteSupabaseErro
     return { message: error.message }
   }
 
-  return { message: "Error desconocido al eliminar la tarea." }
+  return { message: "Error desconocido al eliminar la orden de trabajo." }
 }
 
 export function logTaskSoftDeleteAttempt(input: {

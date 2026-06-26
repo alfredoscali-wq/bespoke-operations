@@ -1,15 +1,26 @@
 "use client"
 
-import { HardHat, ClipboardList, Users } from "lucide-react"
+import { useMemo } from "react"
+import {
+  Briefcase,
+  CreditCard,
+  LogOut,
+  Mail,
+  Phone,
+  User,
+  Users,
+} from "lucide-react"
 
-import { useTasks } from "@/components/tareas/tasks-provider"
+import { useAuth } from "@/components/auth/auth-provider"
 import {
   OperarioCrewStatusMessage,
 } from "@/components/operario/operario-crew-status-message"
 import { useOperario } from "@/components/operario/operario-provider"
-import { getWorkerTasks } from "@/lib/data/operario"
+import { useEmployees } from "@/components/rrhh/employees-provider"
+import { parseDniFromAuthEmail } from "@/lib/auth/auth-identity"
 import type { OperarioCrewStatus } from "@/lib/operario/crew"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Button } from "@/components/ui/button"
 
 function resolveCrewDisplayLabel(
   crewStatus: OperarioCrewStatus,
@@ -26,7 +37,46 @@ function resolveCrewDisplayLabel(
   return crewName
 }
 
+function resolveProfileEmail(
+  employeeEmail: string | undefined,
+  sessionEmail: string | undefined
+): string | null {
+  const fromEmployee = employeeEmail?.trim()
+  if (fromEmployee) {
+    return fromEmployee
+  }
+
+  const fromSession = sessionEmail?.trim()
+  if (!fromSession || parseDniFromAuthEmail(fromSession)) {
+    return null
+  }
+
+  return fromSession
+}
+
+function ProfileField({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof User
+  label: string
+  value: string
+}) {
+  return (
+    <div className="flex items-start gap-3 rounded-xl bg-muted/30 p-3">
+      <Icon className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
+      <div className="min-w-0">
+        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className="break-words font-medium text-foreground">{value}</p>
+      </div>
+    </div>
+  )
+}
+
 export function OperarioProfileScreen() {
+  const { sessionUser, isAuthReady, signOut } = useAuth()
+  const { getEmployee } = useEmployees()
   const {
     identity,
     isIdentityReady,
@@ -35,14 +85,31 @@ export function OperarioProfileScreen() {
     assignedCrewNames,
     isCrewReady,
   } = useOperario()
-  const { tasks } = useTasks()
-  const assignedCount =
-    crewStatus === "resolved" || crewStatus === "multiple"
-      ? getWorkerTasks(tasks, workerCrewRef).length
-      : 0
+
+  const employee = useMemo(
+    () =>
+      sessionUser?.employeeId
+        ? getEmployee(sessionUser.employeeId)
+        : undefined,
+    [getEmployee, sessionUser?.employeeId]
+  )
+
+  const profileEmail = useMemo(
+    () => resolveProfileEmail(employee?.email, sessionUser?.email),
+    [employee?.email, sessionUser?.email]
+  )
+
+  const dni =
+    sessionUser?.nationalId?.trim() ||
+    employee?.nationalId?.trim() ||
+    "—"
+  const cargo =
+    employee?.jobTitle?.trim() || identity.roleLabel || "—"
+  const phone = employee?.phone?.trim() || "—"
+  const crewLabel = resolveCrewDisplayLabel(crewStatus, workerCrewRef.name)
 
   return (
-    <div className="space-y-6 px-4 pt-6">
+    <div className="space-y-6 px-4 pt-6 pb-4">
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight text-foreground">
           Perfil
@@ -67,53 +134,43 @@ export function OperarioProfileScreen() {
           </AvatarFallback>
         </Avatar>
         {isIdentityReady ? (
-          <>
-            <h2 className="mt-4 text-xl font-bold text-foreground">
-              {identity.displayName}
-            </h2>
-            <p className="text-sm text-muted-foreground">{identity.roleLabel}</p>
-          </>
+          <h2 className="mt-4 text-xl font-bold text-foreground">
+            {identity.displayName}
+          </h2>
         ) : (
-          <div className="mt-4 space-y-2">
-            <span className="mx-auto block h-6 w-40 animate-pulse rounded bg-muted" />
-            <span className="mx-auto block h-4 w-24 animate-pulse rounded bg-muted" />
-          </div>
+          <span className="mt-4 inline-block h-6 w-40 animate-pulse rounded bg-muted" />
         )}
       </section>
 
       <section className="space-y-3 rounded-2xl border bg-card p-4 shadow-sm">
-        <div className="flex items-center gap-3 rounded-xl bg-muted/30 p-3">
-          <Users className="size-5 shrink-0 text-muted-foreground" />
-          <div>
-            <p className="text-xs text-muted-foreground">Cuadrilla</p>
-            {isCrewReady ? (
-              <p className="font-medium">
-                {resolveCrewDisplayLabel(crewStatus, workerCrewRef.name)}
-              </p>
-            ) : (
-              <span className="inline-block h-5 w-32 animate-pulse rounded bg-muted" />
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-3 rounded-xl bg-muted/30 p-3">
-          <HardHat className="size-5 shrink-0 text-muted-foreground" />
-          <div>
-            <p className="text-xs text-muted-foreground">Rol</p>
-            <p className="font-medium">
-              {isIdentityReady ? identity.roleLabel : "—"}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3 rounded-xl bg-muted/30 p-3">
-          <ClipboardList className="size-5 shrink-0 text-muted-foreground" />
-          <div>
-            <p className="text-xs text-muted-foreground">Tareas asignadas</p>
-            <p className="font-medium">
-              {isCrewReady ? `${assignedCount} tareas activas` : "—"}
-            </p>
-          </div>
-        </div>
+        <ProfileField
+          icon={User}
+          label="Nombre"
+          value={isIdentityReady ? identity.displayName : "—"}
+        />
+        <ProfileField icon={CreditCard} label="DNI" value={dni} />
+        <ProfileField icon={Briefcase} label="Cargo" value={cargo} />
+        <ProfileField
+          icon={Users}
+          label="Cuadrilla"
+          value={isCrewReady ? crewLabel : "—"}
+        />
+        <ProfileField icon={Phone} label="Teléfono" value={phone} />
+        {profileEmail ? (
+          <ProfileField icon={Mail} label="Email" value={profileEmail} />
+        ) : null}
       </section>
+
+      <Button
+        type="button"
+        variant="outline"
+        className="h-11 w-full gap-2"
+        onClick={() => void signOut()}
+        disabled={!isAuthReady}
+      >
+        <LogOut className="size-4" />
+        Cerrar sesión
+      </Button>
     </div>
   )
 }

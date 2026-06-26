@@ -22,7 +22,7 @@ export const CALENDAR_CREW_STATUS_LABELS: Record<
 }
 
 export const CALENDAR_EVENT_TYPE_LABELS: Record<CalendarEventType, string> = {
-  TASK: "Tareas",
+  TASK: "Órdenes de Trabajo",
   AVAILABILITY: "Ausencias",
   CREW_STATUS: "Cuadrillas",
 }
@@ -32,7 +32,7 @@ export const CALENDAR_TASK_ALERT_LABELS: Record<CalendarTaskAlertKind, string> =
   CREW_NOT_OPERATIONAL: "Cuadrilla no operativa",
   MEMBER_ABSENT: "Personal ausente",
   DUE_THIS_WEEK: "Vence esta semana",
-  OVERDUE: "Tarea vencida",
+  OVERDUE: "OT vencida",
 }
 
 export function getNotOperationalReason(input: {

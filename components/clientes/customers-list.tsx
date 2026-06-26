@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Archive, CheckCircle2, Eye, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
+import { Archive, CheckCircle2, Eye, MoreHorizontal, Pencil, ShieldAlert, Trash2 } from "lucide-react"
 
 import { WhatsAppLink } from "@/components/ui/whatsapp-link"
 import { Button } from "@/components/ui/button"
@@ -28,18 +28,19 @@ import {
   validationStatusDotClassName,
 } from "@/lib/customers/customer-validation"
 import { formatCustomerTechnologyLabel } from "@/lib/customers/format"
+import type { CustomerListRow } from "@/lib/types/customers"
 import type { CustomerQuickFilter } from "@/lib/customers/customer-operational"
-import type { Customer } from "@/lib/types/customers"
 
 type CustomersListProps = {
-  customers: Customer[]
+  customers: CustomerListRow[]
   quickFilter: CustomerQuickFilter
   selectedIds: Set<string>
   onSelectedIdsChange: (ids: Set<string>) => void
-  onEdit: (customer: Customer) => void
-  onArchive: (customer: Customer) => void
-  onDelete: (customer: Customer) => void
-  onMarkActive: (customer: Customer) => void
+  onEdit: (customer: CustomerListRow) => void
+  onArchive: (customer: CustomerListRow) => void
+  onDelete: (customer: CustomerListRow) => void
+  onMarkActive: (customer: CustomerListRow) => void
+  onPermanentDelete?: (customer: CustomerListRow) => void
 }
 
 export function CustomersList({
@@ -51,6 +52,7 @@ export function CustomersList({
   onArchive,
   onDelete,
   onMarkActive,
+  onPermanentDelete,
 }: CustomersListProps) {
   const allSelected =
     customers.length > 0 && customers.every((customer) => selectedIds.has(customer.id))
@@ -124,6 +126,7 @@ export function CustomersList({
               onArchive={onArchive}
               onDelete={onDelete}
               onMarkActive={onMarkActive}
+              onPermanentDelete={onPermanentDelete}
             />
           ))}
         </TableBody>
@@ -140,14 +143,16 @@ function CustomerRow({
   onArchive,
   onDelete,
   onMarkActive,
+  onPermanentDelete,
 }: {
-  customer: Customer
+  customer: CustomerListRow
   selected: boolean
   onToggle: (checked: boolean) => void
-  onEdit: (customer: Customer) => void
-  onArchive: (customer: Customer) => void
-  onDelete: (customer: Customer) => void
-  onMarkActive: (customer: Customer) => void
+  onEdit: (customer: CustomerListRow) => void
+  onArchive: (customer: CustomerListRow) => void
+  onDelete: (customer: CustomerListRow) => void
+  onMarkActive: (customer: CustomerListRow) => void
+  onPermanentDelete?: (customer: CustomerListRow) => void
 }) {
   const technologyLabel = formatCustomerTechnologyLabel(customer.technology) ?? "—"
 
@@ -234,6 +239,18 @@ function CustomerRow({
                 ? "Excluir de la migración"
                 : "Eliminar"}
             </DropdownMenuItem>
+            {onPermanentDelete ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={() => onPermanentDelete(customer)}
+                >
+                  <ShieldAlert className="size-4" />
+                  Eliminar definitivamente
+                </DropdownMenuItem>
+              </>
+            ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
       </TableCell>

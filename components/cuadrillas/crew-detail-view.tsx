@@ -116,8 +116,8 @@ export function CrewDetailView({ crew, detail }: CrewDetailViewProps) {
 
     const automaticStatus = resolveAutomaticCrewStatus(crew, tasks)
     return automaticStatus === "en-campo"
-      ? "En campo por tareas activas (automático)."
-      : "Disponible sin tareas en campo (automático)."
+      ? "En campo por órdenes de trabajo activas (automático)."
+      : "Disponible sin órdenes de trabajo en campo (automático)."
   }, [crew, tasks])
 
   async function handleEdit(input: NewCrewInput) {
@@ -181,7 +181,7 @@ export function CrewDetailView({ crew, detail }: CrewDetailViewProps) {
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => setEditOpen(true)}>
               <Pencil className="size-4" />
-              Editar cuadrilla
+              Editar Cuadrilla
             </DropdownMenuItem>
             <DropdownMenuItem
               variant="destructive"
@@ -267,8 +267,8 @@ export function CrewDetailView({ crew, detail }: CrewDetailViewProps) {
         <div className="overflow-x-auto">
           <TabsList variant="line" className="w-full min-w-max justify-start">
             <TabsTrigger value="members">Integrantes</TabsTrigger>
-            <TabsTrigger value="tasks">Tareas</TabsTrigger>
-            <TabsTrigger value="projects">Proyectos</TabsTrigger>
+            <TabsTrigger value="tasks">Órdenes de Trabajo</TabsTrigger>
+            <TabsTrigger value="projects">Obras</TabsTrigger>
             <TabsTrigger value="materials">Materiales</TabsTrigger>
             <TabsTrigger value="activity">Actividad</TabsTrigger>
             <TabsTrigger value="performance">Desempeño</TabsTrigger>
@@ -308,7 +308,7 @@ export function CrewDetailView({ crew, detail }: CrewDetailViewProps) {
           <DialogHeader>
             <DialogTitle>Eliminar cuadrilla</DialogTitle>
             <DialogDescription>
-              ¿Desea eliminar esta cuadrilla? Las tareas asociadas conservarán el
+              ¿Desea eliminar esta cuadrilla? Las órdenes de trabajo asociadas conservarán el
               nombre pero perderán la referencia.
             </DialogDescription>
           </DialogHeader>

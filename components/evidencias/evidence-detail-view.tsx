@@ -218,7 +218,7 @@ export function EvidenceDetailView({
             </div>
             <Separator />
             <div>
-              <p className="text-xs text-muted-foreground">Proyecto</p>
+              <p className="text-xs text-muted-foreground">Obra</p>
               <Link
                 href={`/obras/${record.projectId}`}
                 className="font-medium text-primary hover:underline"

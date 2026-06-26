@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Dump del sistema comercial (datos reales)
+data/
+
+# Supabase CLI (generado localmente al vincular el proyecto)
+supabase/.temp/

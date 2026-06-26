@@ -1,8 +1,28 @@
-# Bespoke Operations — Supabase CLI (remote project)
-# Link: npx supabase link --project-ref uzupiqviwraxnnsymbdl
-# Push: npx supabase db push
+# Bespoke Operations — Supabase CLI
+# Project: https://supabase.com/dashboard/project/uzupiqviwraxnnsymbdl
+#
+# Setup (once):
+#   npx supabase login
+#   npx supabase link --project-ref uzupiqviwraxnnsymbdl
+#   npm run infra:migrate
 
 project_id = "uzupiqviwraxnnsymbdl"
 
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
 [db]
+port = 54322
+shadow_port = 54320
 major_version = 15
+
+[db.migrations]
+enabled = true
+
+[studio]
+enabled = true
+port = 54323

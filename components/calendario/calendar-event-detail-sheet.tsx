@@ -7,16 +7,18 @@ import { useCalendarUI } from "@/components/calendario/calendar-ui-provider"
 import { AvailabilityBadge } from "@/components/disponibilidad/availability-badge"
 import { CrewAvailabilityBadge } from "@/components/cuadrillas/crew-badges"
 import {
+  getCalendarTaskCustomerName,
+  getCalendarTaskScheduledTimeLabel,
+  getCalendarTaskWorkTypeLabel,
+} from "@/lib/calendar/calendar-task-display"
+import {
   CALENDAR_AVAILABILITY_LABELS,
   CALENDAR_CREW_STATUS_LABELS,
   CALENDAR_TASK_ALERT_LABELS,
 } from "@/lib/calendar/calendar-labels"
+import { getOperationalIncidentAlerts } from "@/lib/calendar/task-alerts"
 import { formatAvailabilityDate } from "@/lib/availability/constants"
-import {
-  TASK_PRIORITY_LABELS,
-  TASK_STATUS_LABELS,
-  formatTaskDate,
-} from "@/lib/tasks/constants"
+import { TASK_STATUS_LABELS, formatTaskDate } from "@/lib/tasks/constants"
 import type {
   CalendarAvailabilityPayload,
   CalendarCrewStatusPayload,
@@ -31,6 +33,10 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
+
+function SectionDivider() {
+  return <div className="border-t border-border/80" aria-hidden />
+}
 
 function DetailRow({
   label,
@@ -52,7 +58,9 @@ function TaskOperationalIncidents({
 }: {
   alerts: CalendarTaskAlert[]
 }) {
-  if (alerts.length === 0) {
+  const operationalAlerts = getOperationalIncidentAlerts(alerts)
+
+  if (operationalAlerts.length === 0) {
     return (
       <div className="rounded-xl border bg-muted/20 p-4">
         <p className="text-sm font-semibold text-foreground">
@@ -71,9 +79,9 @@ function TaskOperationalIncidents({
         Incidencias operativas
       </p>
       <div className="space-y-3">
-        {alerts.map((alert) => (
+        {operationalAlerts.map((alert, index) => (
           <div
-            key={alert.kind}
+            key={`${alert.kind}-${index}`}
             className="rounded-lg border bg-background px-3 py-2.5"
           >
             <p className="text-sm font-medium text-foreground">
@@ -87,34 +95,41 @@ function TaskOperationalIncidents({
   )
 }
 
+function isWorkOrderPayload(payload: CalendarTaskPayload): boolean {
+  return payload.projectCode === "OT" || Boolean(payload.serviceType)
+}
+
 function TaskEventDetail({ payload }: { payload: CalendarTaskPayload }) {
+  const customerName = getCalendarTaskCustomerName(payload)
+  const scheduledDate = formatTaskDate(payload.dueDate)
+  const scheduledTime = getCalendarTaskScheduledTimeLabel(payload)
+
   return (
     <div className="grid gap-4">
-      <DetailRow label="Código" value={payload.code} />
+      <DetailRow label="👤 Cliente" value={customerName} />
+
+      <SectionDivider />
+
       <DetailRow
-        label="Proyecto"
-        value={`${payload.projectCode} — ${payload.projectName}`}
+        label="📍 Dirección"
+        value={payload.serviceAddress?.trim() || "—"}
       />
-      <DetailRow
-        label="Cliente"
-        value={
-          payload.customerCompany || payload.customerName || "—"
-        }
-      />
-      <DetailRow label="Dirección" value={payload.serviceAddress || "—"} />
+
+      <SectionDivider />
+
       <DetailRow label="Estado" value={TASK_STATUS_LABELS[payload.status]} />
-      <DetailRow
-        label="Prioridad"
-        value={TASK_PRIORITY_LABELS[payload.priority]}
-      />
-      <DetailRow
-        label="Fecha inicio"
-        value={formatTaskDate(payload.startDate)}
-      />
-      <DetailRow label="Fecha fin" value={formatTaskDate(payload.dueDate)} />
+
+      <SectionDivider />
+
+      <DetailRow label="📅 Fecha programada" value={scheduledDate} />
+      <DetailRow label="🕒 Hora programada" value={scheduledTime} />
+
+      <SectionDivider />
+
       <TaskOperationalIncidents alerts={payload.alerts} />
+
       <Button asChild variant="outline" size="sm" className="w-fit">
-        <Link href={`/tareas/${payload.taskId}`}>Ver tarea</Link>
+        <Link href={`/tareas/${payload.taskId}`}>Ver OT</Link>
       </Button>
     </div>
   )
@@ -205,7 +220,7 @@ export function CalendarEventDetailSheet() {
 
   const title = selectedEvent
     ? selectedEvent.type === "TASK"
-      ? selectedEvent.payload.title
+      ? getCalendarTaskWorkTypeLabel(selectedEvent.payload)
       : selectedEvent.type === "AVAILABILITY"
         ? selectedEvent.payload.employeeName
         : selectedEvent.payload.crewName
@@ -213,7 +228,9 @@ export function CalendarEventDetailSheet() {
 
   const description = selectedEvent
     ? selectedEvent.type === "TASK"
-      ? "Detalle de tarea"
+      ? isWorkOrderPayload(selectedEvent.payload)
+        ? "Orden de Trabajo"
+        : "Detalle de Orden de Trabajo"
       : selectedEvent.type === "AVAILABILITY"
         ? CALENDAR_AVAILABILITY_LABELS[selectedEvent.payload.availabilityType]
         : CALENDAR_CREW_STATUS_LABELS[selectedEvent.payload.status]

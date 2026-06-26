@@ -25,7 +25,7 @@ export function TaskEvidenceSummary({ taskId }: TaskEvidenceSummaryProps) {
   return (
     <Card className="shadow-sm">
       <CardHeader className="pb-2">
-        <CardTitle className="text-base">Evidencias de la tarea</CardTitle>
+        <CardTitle className="text-base">Evidencias de la orden de trabajo</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="flex items-center gap-2 rounded-lg border bg-muted/20 p-3">

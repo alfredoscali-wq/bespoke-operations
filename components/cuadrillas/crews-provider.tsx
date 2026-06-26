@@ -10,6 +10,14 @@ import {
   useState,
 } from "react"
 
+import {
+  isCrewAuditableFieldUpdate,
+  recordCrewArchiveAudit,
+  recordCrewCreateAudit,
+  recordCrewMemberAddAudit,
+  recordCrewMemberRemoveAudit,
+  recordCrewUpdateAudit,
+} from "@/lib/audit/rrhh-audit"
 import { useEmployees } from "@/components/rrhh/employees-provider"
 import {
   resolveSupervisorAssignment,
@@ -222,6 +230,7 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
               a.name.localeCompare(b.name, "es")
             )
           )
+          recordCrewCreateAudit(result.data)
           return { success: true, crew: result.data }
         }
 
@@ -299,6 +308,12 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
         const result = await updateCrew(id, payload, client)
 
         if (result.data) {
+          if (
+            existingCrew &&
+            (isCrewAuditableFieldUpdate(payload) || payload.status !== undefined)
+          ) {
+            recordCrewUpdateAudit(existingCrew, payload, result.data)
+          }
           setCrews((current) => replaceCrewInList(current, result.data!))
           return { success: true, crew: result.data }
         }
@@ -328,6 +343,7 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
 
       try {
         const client = createBrowserCrewsClient()
+        const existingCrew = crews.find((crew) => crew.id === id)
         const result = await deleteCrew(id, client)
 
         if (result.error) {
@@ -335,6 +351,10 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
             success: false,
             message: result.error.message,
           }
+        }
+
+        if (existingCrew) {
+          recordCrewArchiveAudit(existingCrew)
         }
 
         setCrews((current) => current.filter((crew) => crew.id !== id))
@@ -346,7 +366,7 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
         }
       }
     },
-    [usesSupabase]
+    [usesSupabase, crews]
   )
 
   const addMember = useCallback(
@@ -386,6 +406,11 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
         const result = await createCrewMember(payload, client)
 
         if (result.data) {
+          const resolvedCrew = crew ?? { id: crewId, name: "" }
+          recordCrewMemberAddAudit({
+            crew: resolvedCrew,
+            member: result.data,
+          })
           setCrews((current) =>
             current.map((crew) =>
               crew.id === crewId
@@ -488,6 +513,8 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
       }
 
       try {
+        const crew = crews.find((item) => item.id === crewId)
+        const member = crew?.members.find((item) => item.id === memberId)
         const client = createBrowserCrewsClient()
         const result = await deleteCrewMember(memberId, client)
 
@@ -496,6 +523,10 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
             success: false,
             message: result.error.message,
           }
+        }
+
+        if (crew && member) {
+          recordCrewMemberRemoveAudit({ crew, member })
         }
 
         setCrews((current) =>
@@ -519,7 +550,7 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
         }
       }
     },
-    [usesSupabase]
+    [usesSupabase, crews]
   )
 
   const value = useMemo(

@@ -38,6 +38,13 @@ export type UpdateTaskPayload = Partial<{
   crew: string
   startDate: string
   dueDate: string
+  scheduledTime?: string | null
+  originalScheduledDate?: string | null
+  originalScheduledTime?: string | null
+  rescheduledBy?: string | null
+  rescheduledAt?: string | null
+  rescheduleReason?: string | null
+  rescheduleNotes?: string | null
   estimatedDuration: string
   checklist: ChecklistItem[]
   operationalSteps?: OperationalStep[]
@@ -46,6 +53,7 @@ export type UpdateTaskPayload = Partial<{
   locality?: string | null
   contractedPlan?: string | null
   installationCost?: number | null
+  amountToCollect?: number | null
   taskMetadata?: Record<string, unknown>
   rejectionReason?: string | null
   incidentReason?: string | null

@@ -1,5 +1,6 @@
 import { TASK_STATUS_LABELS } from "@/lib/tasks/constants"
 import { hasOperationalSteps, isOperationalStepComplete } from "@/lib/operational-steps/utils"
+import { TASK_VENCIDA_START_BLOCKED_MESSAGE } from "@/lib/operations/user-messages"
 import type { ChecklistItem, OperationalStep, Task, TaskStatus } from "@/lib/types/tasks"
 
 export type TaskWorkflowAction =
@@ -9,6 +10,7 @@ export type TaskWorkflowAction =
   | "report-incident"
   | "resume-from-incident"
   | "reschedule-from-incident"
+  | "reschedule-from-overdue"
   | "approve"
   | "reject"
   | "close"
@@ -37,6 +39,7 @@ const WORKFLOW_TRANSITIONS: Record<
   "report-incident": { from: ["en-curso"], to: "incidencia" },
   "resume-from-incident": { from: ["incidencia"], to: "en-curso" },
   "reschedule-from-incident": { from: ["incidencia"], to: "asignada" },
+  "reschedule-from-overdue": { from: ["vencida"], to: "asignada" },
   approve: { from: PENDING_CLOSURE_STATUSES, to: "finalizada" },
   reject: { from: PENDING_CLOSURE_STATUSES, to: "en-curso" },
   close: { from: ["finalizada"], to: "cerrada" },
@@ -44,6 +47,7 @@ const WORKFLOW_TRANSITIONS: Record<
     from: [
       "pendiente",
       "asignada",
+      "vencida",
       "en-curso",
       "incidencia",
       "pendiente-cierre",
@@ -149,10 +153,21 @@ export function canPerformTaskAction(
   const { from } = WORKFLOW_TRANSITIONS[action]
 
   if (!from.includes(task.status)) {
+    if (action === "start" && task.status === "vencida") {
+      return {
+        allowed: false,
+        message: TASK_VENCIDA_START_BLOCKED_MESSAGE,
+      }
+    }
+
     return {
       allowed: false,
       message: `No se puede ejecutar esta acción desde ${TASK_STATUS_LABELS[task.status]}.`,
     }
+  }
+
+  if (action === "reschedule-from-overdue") {
+    return { allowed: true }
   }
 
   if (action === "submit-for-approval") {
@@ -196,10 +211,11 @@ export function getWorkflowHistoryEntry(
     "report-incident": "Operario reportó incidencia",
     "resume-from-incident": "OT reanudada",
     "reschedule-from-incident": "OT reprogramada",
+    "reschedule-from-overdue": "OT reprogramada",
     approve: "OT cerrada",
     reject: "Cierre rechazado",
-    close: "Tarea cerrada",
-    cancel: "Tarea cancelada",
+    close: "Orden de trabajo cerrada",
+    cancel: "Orden de trabajo cancelada",
   }
 
   const description = note?.trim()

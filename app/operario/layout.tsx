@@ -1,8 +1,8 @@
 import { OperarioShell } from "@/components/operario/operario-shell"
 
 export const metadata = {
-  title: "Portal de Campo",
-  description: "Portal móvil para técnicos y cuadrillas de campo",
+  title: "Portal Operario",
+  description: "Portal móvil para operarios y cuadrillas de campo",
 }
 
 export default function OperarioLayout({

@@ -66,6 +66,7 @@ function importRowToFormInput(row: WorkOrderImportReviewRow): WorkOrderFormInput
     customerEmail: data.customerEmail,
     customerId: data.customerId,
     scheduledDate: data.scheduledDate,
+    scheduledTime: "",
     crewId: data.crewId,
     observations: data.observations,
     address: data.address,
@@ -92,7 +93,9 @@ function importRowToFormInput(row: WorkOrderImportReviewRow): WorkOrderFormInput
     sharedLocation: "",
     observationsForCrew: "",
     contractedPlan: "",
-    installationCost: "",
+    amountToCollect: "",
+    latitude: null,
+    longitude: null,
   }
 }
 

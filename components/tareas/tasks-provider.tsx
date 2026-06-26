@@ -47,6 +47,18 @@ import {
 } from "@/lib/operational-steps/utils"
 import type { CreateTaskPayload, UpdateTaskPayload } from "@/lib/types/supabase/tasks"
 import type { Task, TaskDetail, TaskStatus } from "@/lib/types/tasks"
+import {
+  buildTaskRescheduleHistoryNote,
+  buildTaskRescheduleUpdatePayload,
+  validateTaskRescheduleInput,
+  type TaskRescheduleInput,
+} from "@/lib/tasks/reschedule"
+import { applyVencidaSyncFromApi } from "@/lib/tasks/vencida-sync.client"
+import {
+  recordTaskCreateAudit,
+  recordTaskDeleteAudit,
+  recordTaskMutationAudit,
+} from "@/lib/audit/tasks-audit"
 
 type TaskMutationResult = {
   success: boolean
@@ -71,6 +83,8 @@ type TasksContextValue = {
     supervisor?: string
   ) => Promise<TaskMutationResult>
   deleteTask: (id: string) => Promise<TaskMutationResult>
+  removeTaskLocally: (id: string) => void
+  removeTasksByCustomerId: (customerId: string) => void
   startTask: (id: string) => Promise<TaskMutationResult>
   submitTaskForApproval: (id: string) => Promise<TaskMutationResult>
   approveTask: (id: string) => Promise<TaskMutationResult>
@@ -98,10 +112,11 @@ type TasksContextValue = {
   ) => Promise<TaskMutationResult>
   rescheduleTaskFromIncident: (
     id: string,
-    input: {
-      dueDate: string
-      actor?: string
-    }
+    input: TaskRescheduleInput & { actor?: string }
+  ) => Promise<TaskMutationResult>
+  rescheduleTaskFromOverdue: (
+    id: string,
+    input: TaskRescheduleInput & { actor?: string }
   ) => Promise<TaskMutationResult>
   toggleChecklistItem: (taskId: string, itemId: string) => void
   syncOperationalStepsProgress: (
@@ -140,10 +155,38 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
   const [usesSupabase, setUsesSupabase] = useState(false)
   const [detailVersion, setDetailVersion] = useState(0)
   const usesSupabaseRef = useRef(false)
+  const tasksRef = useRef<Task[]>([])
 
   useEffect(() => {
     usesSupabaseRef.current = usesSupabase
   }, [usesSupabase])
+
+  useEffect(() => {
+    tasksRef.current = tasks
+  }, [tasks])
+
+  const mergeVencidaSyncIntoTasks = useCallback(
+    (current: Task[], syncedTasks: Task[]) => {
+      const syncedById = new Map(syncedTasks.map((task) => [task.id, task]))
+      const next = current.map((task) => syncedById.get(task.id) ?? task)
+      const changed = next.some(
+        (task, index) => task.status !== current[index]?.status
+      )
+      return changed ? next : current
+    },
+    []
+  )
+
+  const runVencidaSync = useCallback(
+    async (sourceTasks?: Task[]) => {
+      const syncedTasks = await applyVencidaSyncFromApi(
+        sourceTasks ?? tasksRef.current
+      )
+      setTasks((current) => mergeVencidaSyncIntoTasks(current, syncedTasks))
+      return syncedTasks
+    },
+    [mergeVencidaSyncIntoTasks]
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -184,6 +227,22 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
+  useEffect(() => {
+    if (!usesSupabase) {
+      return
+    }
+
+    void runVencidaSync()
+
+    const interval = window.setInterval(() => {
+      void runVencidaSync()
+    }, 60_000)
+
+    return () => {
+      window.clearInterval(interval)
+    }
+  }, [usesSupabase, runVencidaSync])
+
   const persistTaskUpdate = useCallback(async (task: Task) => {
     if (!usesSupabaseRef.current) return
 
@@ -211,6 +270,9 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       ...(payload.crew !== undefined ? { crew: payload.crew } : {}),
       ...(payload.crewId !== undefined ? { crewId: payload.crewId ?? undefined } : {}),
       ...(payload.startDate !== undefined ? { startDate: payload.startDate } : {}),
+      ...(payload.scheduledTime !== undefined
+        ? { scheduledTime: payload.scheduledTime }
+        : {}),
       ...(payload.type !== undefined ? { type: payload.type } : {}),
       ...(payload.projectId !== undefined
         ? { projectId: payload.projectId ?? undefined }
@@ -259,6 +321,30 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         ? { operationalSteps: payload.operationalSteps }
         : {}),
       ...(payload.progress !== undefined ? { progress: payload.progress } : {}),
+      ...(payload.contractedPlan !== undefined
+        ? { contractedPlan: payload.contractedPlan ?? undefined }
+        : {}),
+      ...(payload.amountToCollect !== undefined
+        ? { amountToCollect: payload.amountToCollect ?? undefined }
+        : {}),
+      ...(payload.originalScheduledDate !== undefined
+        ? { originalScheduledDate: payload.originalScheduledDate ?? undefined }
+        : {}),
+      ...(payload.originalScheduledTime !== undefined
+        ? { originalScheduledTime: payload.originalScheduledTime ?? undefined }
+        : {}),
+      ...(payload.rescheduledBy !== undefined
+        ? { rescheduledBy: payload.rescheduledBy ?? undefined }
+        : {}),
+      ...(payload.rescheduledAt !== undefined
+        ? { rescheduledAt: payload.rescheduledAt ?? undefined }
+        : {}),
+      ...(payload.rescheduleReason !== undefined
+        ? { rescheduleReason: payload.rescheduleReason ?? undefined }
+        : {}),
+      ...(payload.rescheduleNotes !== undefined
+        ? { rescheduleNotes: payload.rescheduleNotes ?? undefined }
+        : {}),
     })
   }, [])
 
@@ -273,7 +359,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (!usesSupabase) {
-        throw new Error("No fue posible crear la tarea. Intente nuevamente.")
+        throw new Error("No fue posible crear la orden de trabajo. Intente nuevamente.")
       }
 
       const client = createBrowserTasksClient()
@@ -300,11 +386,12 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
 
       if (!result.data) {
         logOperationError("TASK CREATE", result.error)
-        throw new Error("No fue posible crear la tarea. Intente nuevamente.")
+        throw new Error("No fue posible crear la orden de trabajo. Intente nuevamente.")
       }
 
       cacheDetail(result.data.id, getTaskDetail(result.data))
       setTasks((current) => [result.data!, ...current])
+      recordTaskCreateAudit(result.data)
       return result.data
     },
     [tasks, usesSupabase]
@@ -316,17 +403,20 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       payload: UpdateTaskPayload,
       workflowAction?: TaskWorkflowAction,
       historyNote?: string,
-      historyActor?: string
+      historyActor?: string,
+      auditOptions?: {
+        rescheduleInput?: TaskRescheduleInput
+      }
     ): Promise<TaskMutationResult> => {
       const existing = tasks.find((item) => item.id === id)
       if (!existing) {
-        return { success: false, message: "Tarea no encontrada." }
+        return { success: false, message: "Orden de trabajo no encontrada." }
       }
 
       if (!usesSupabase) {
         return {
           success: false,
-          message: "No fue posible actualizar la tarea. Intente nuevamente.",
+          message: "No fue posible actualizar la orden de trabajo. Intente nuevamente.",
         }
       }
 
@@ -335,6 +425,14 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         const result = await updateTaskInSupabase(id, payload, client)
 
         if (result.data) {
+          recordTaskMutationAudit({
+            before: existing,
+            after: result.data,
+            payload,
+            workflowAction,
+            rescheduleInput: auditOptions?.rescheduleInput,
+          })
+
           if (workflowAction) {
             const detail = detailCache.get(id) ?? getTaskDetail(result.data)
             const historyEntry = getWorkflowHistoryEntry(
@@ -357,9 +455,19 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
             })
           }
 
-          setTasks((current) =>
-            current.map((item) => (item.id === id ? result.data! : item))
-          )
+          setTasks((current) => {
+            const next = current.map((item) =>
+              item.id === id ? result.data! : item
+            )
+            if (payload.dueDate !== undefined) {
+              void applyVencidaSyncFromApi(next).then((syncedTasks) => {
+                setTasks((latest) =>
+                  mergeVencidaSyncIntoTasks(latest, syncedTasks)
+                )
+              })
+            }
+            return next
+          })
           setDetailVersion((version) => version + 1)
           return { success: true, task: result.data }
         }
@@ -373,10 +481,10 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
 
       return {
         success: false,
-        message: "No fue posible actualizar la tarea. Intente nuevamente.",
+        message: "No fue posible actualizar la orden de trabajo. Intente nuevamente.",
       }
     },
-    [tasks, usesSupabase]
+    [tasks, usesSupabase, mergeVencidaSyncIntoTasks]
   )
 
   const editTask = useCallback(
@@ -399,7 +507,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     ): Promise<TaskMutationResult> => {
       const task = tasks.find((item) => item.id === id)
       if (!task) {
-        return { success: false, message: "Tarea no encontrada." }
+        return { success: false, message: "Orden de trabajo no encontrada." }
       }
 
       const validation = canPerformTaskAction(task, workflowAction, {
@@ -434,11 +542,11 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     async (id: string, targetStatus: TaskStatus): Promise<TaskMutationResult> => {
       const task = tasks.find((item) => item.id === id)
       if (!task) {
-        return { success: false, message: "Tarea no encontrada." }
+        return { success: false, message: "Orden de trabajo no encontrada." }
       }
 
       if (targetStatus === task.status) {
-        return { success: false, message: "La tarea ya está en ese estado." }
+        return { success: false, message: "La orden de trabajo ya está en ese estado." }
       }
 
       const action = getWorkflowActionForTargetStatus(task.status, targetStatus)
@@ -460,7 +568,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     async (id: string) => {
       const task = tasks.find((item) => item.id === id)
       if (!task) {
-        return { success: false, message: "Tarea no encontrada." }
+        return { success: false, message: "Orden de trabajo no encontrada." }
       }
 
       if (hasOperationalSteps(task)) {
@@ -499,7 +607,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
 
       const task = tasks.find((item) => item.id === id)
       if (!task) {
-        return { success: false, message: "Tarea no encontrada." }
+        return { success: false, message: "Orden de trabajo no encontrada." }
       }
 
       const validation = canPerformTaskAction(task, "reject")
@@ -534,51 +642,47 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     ): Promise<TaskMutationResult> => {
       const task = tasks.find((item) => item.id === id)
       if (!task) {
-        return { success: false, message: "Tarea no encontrada." }
+        return { success: false, message: "Orden de trabajo no encontrada." }
       }
 
-      if (task.status === "incidencia") {
-        const reason = options?.reason.trim() ?? ""
-        const observation = options?.observation.trim() ?? ""
+      const reason = options?.reason.trim() ?? ""
+      const observation = options?.observation.trim() ?? ""
 
-        if (!reason) {
-          return { success: false, message: "Indique el motivo de cancelación." }
-        }
-
-        if (!observation) {
-          return {
-            success: false,
-            message: "Indique la observación de cancelación.",
-          }
-        }
-
-        const validation = canPerformTaskAction(task, "cancel")
-        if (!validation.allowed) {
-          return { success: false, message: validation.message }
-        }
-
-        const { to } = getTransitionForAction("cancel")
-        const historyNote = [
-          `Motivo: ${resolveIncidentReasonLabel(reason)}`,
-          `Observación: ${observation}`,
-        ].join("\n")
-
-        return updateTaskFields(
-          id,
-          {
-            status: to,
-            cancellationReason: reason,
-            cancellationObservation: observation,
-          },
-          "cancel",
-          historyNote,
-          options?.actor
-        )
+      if (!reason) {
+        return { success: false, message: "Indique el motivo de cancelación." }
       }
 
-      return applyWorkflowTransition(id, "cancel")
+      if (!observation) {
+        return {
+          success: false,
+          message: "Indique la observación de cancelación.",
+        }
+      }
+
+      const validation = canPerformTaskAction(task, "cancel")
+      if (!validation.allowed) {
+        return { success: false, message: validation.message }
+      }
+
+      const { to } = getTransitionForAction("cancel")
+      const historyNote = [
+        `Motivo: ${resolveIncidentReasonLabel(reason)}`,
+        `Observación: ${observation}`,
+      ].join("\n")
+
+      return updateTaskFields(
+        id,
+        {
+          status: to,
+          cancellationReason: reason,
+          cancellationObservation: observation,
+        },
+        "cancel",
+        historyNote,
+        options?.actor
+      )
     },
-    [tasks, applyWorkflowTransition, updateTaskFields]
+    [tasks, updateTaskFields]
   )
 
   const reportTaskIncident = useCallback(
@@ -592,7 +696,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     ): Promise<TaskMutationResult> => {
       const task = tasks.find((item) => item.id === id)
       if (!task) {
-        return { success: false, message: "Tarea no encontrada." }
+        return { success: false, message: "Orden de trabajo no encontrada." }
       }
 
       const reason = input.reason.trim()
@@ -642,7 +746,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     async (id: string, actor?: string): Promise<TaskMutationResult> => {
       const task = tasks.find((item) => item.id === id)
       if (!task) {
-        return { success: false, message: "Tarea no encontrada." }
+        return { success: false, message: "Orden de trabajo no encontrada." }
       }
 
       const validation = canPerformTaskAction(task, "resume-from-incident")
@@ -662,43 +766,89 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     [tasks, updateTaskFields]
   )
 
-  const rescheduleTaskFromIncident = useCallback(
+  const applyTaskReschedule = useCallback(
     async (
       id: string,
-      input: {
-        dueDate: string
-        actor?: string
-      }
+      workflowAction: Extract<
+        TaskWorkflowAction,
+        "reschedule-from-incident" | "reschedule-from-overdue"
+      >,
+      input: TaskRescheduleInput & { actor?: string }
     ): Promise<TaskMutationResult> => {
       const task = tasks.find((item) => item.id === id)
       if (!task) {
-        return { success: false, message: "Tarea no encontrada." }
+        return { success: false, message: "Orden de trabajo no encontrada." }
       }
 
-      const dueDate = input.dueDate.trim()
-      if (!dueDate) {
-        return { success: false, message: "Seleccione una nueva fecha." }
-      }
-
-      const validation = canPerformTaskAction(task, "reschedule-from-incident")
+      const validation = canPerformTaskAction(task, workflowAction)
       if (!validation.allowed) {
         return { success: false, message: validation.message }
       }
 
-      const { to } = getTransitionForAction("reschedule-from-incident")
+      const scheduleValidation = validateTaskRescheduleInput({
+        dueDate: input.dueDate,
+        scheduledTime: input.scheduledTime,
+        reason: input.reason,
+      })
+
+      if (!scheduleValidation.allowed) {
+        return {
+          success: false,
+          message: scheduleValidation.message,
+        }
+      }
+
+      const rescheduledBy = input.rescheduledBy.trim() || input.actor?.trim() || ""
+      if (!rescheduledBy) {
+        return {
+          success: false,
+          message: "No se pudo identificar al usuario que reprograma.",
+        }
+      }
+
+      const { to } = getTransitionForAction(workflowAction)
+      const targetStatus =
+        workflowAction === "reschedule-from-overdue"
+          ? getInitialTaskStatus({
+              crewId: input.crewId ?? task.crewId,
+              crew: input.crew ?? task.crew,
+            })
+          : to
+      const rescheduleInput: TaskRescheduleInput = {
+        ...input,
+        rescheduledBy,
+      }
+
       return updateTaskFields(
         id,
-        {
-          status: to,
-          dueDate,
-          startDate: dueDate,
-        },
-        "reschedule-from-incident",
-        `Nueva fecha programada: ${dueDate}.`,
-        input.actor
+        buildTaskRescheduleUpdatePayload(task, rescheduleInput, targetStatus),
+        workflowAction,
+        buildTaskRescheduleHistoryNote(rescheduleInput),
+        rescheduledBy,
+        { rescheduleInput }
       )
     },
     [tasks, updateTaskFields]
+  )
+
+  const rescheduleTaskFromIncident = useCallback(
+    async (
+      id: string,
+      input: TaskRescheduleInput & { actor?: string }
+    ): Promise<TaskMutationResult> => {
+      return applyTaskReschedule(id, "reschedule-from-incident", input)
+    },
+    [applyTaskReschedule]
+  )
+
+  const rescheduleTaskFromOverdue = useCallback(
+    async (
+      id: string,
+      input: TaskRescheduleInput & { actor?: string }
+    ): Promise<TaskMutationResult> => {
+      return applyTaskReschedule(id, "reschedule-from-overdue", input)
+    },
+    [applyTaskReschedule]
   )
 
   const assignCrew = useCallback(
@@ -710,7 +860,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     ): Promise<TaskMutationResult> => {
       const existing = tasks.find((item) => item.id === id)
       if (!existing) {
-        return { success: false, message: "Tarea no encontrada." }
+        return { success: false, message: "Orden de trabajo no encontrada." }
       }
 
       const payload: UpdateTaskPayload = {
@@ -747,7 +897,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     async (id: string): Promise<TaskMutationResult> => {
       const existing = tasks.find((item) => item.id === id)
       if (!existing) {
-        return { success: false, message: "Tarea no encontrada." }
+        return { success: false, message: "Orden de trabajo no encontrada." }
       }
 
       logDeleteTrace("provider.deleteTask", {
@@ -789,11 +939,31 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       setTasks((current) => current.filter((item) => item.id !== id))
       detailCache.delete(id)
       setDetailVersion((version) => version + 1)
+      recordTaskDeleteAudit(existing)
 
       return { success: true }
     },
     [tasks, usesSupabase]
   )
+
+  const removeTaskLocally = useCallback((id: string) => {
+    setTasks((current) => current.filter((item) => item.id !== id))
+    detailCache.delete(id)
+    setDetailVersion((version) => version + 1)
+  }, [])
+
+  const removeTasksByCustomerId = useCallback((customerId: string) => {
+    setTasks((current) => {
+      for (const task of current) {
+        if (task.customerId === customerId) {
+          detailCache.delete(task.id)
+        }
+      }
+
+      return current.filter((item) => item.customerId !== customerId)
+    })
+    setDetailVersion((version) => version + 1)
+  }, [])
 
   const getTask = useCallback(
     (id: string) => tasks.find((task) => task.id === id),
@@ -844,7 +1014,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     async (taskId: string, stepPhotoCounts: Record<string, number>) => {
       const task = tasks.find((item) => item.id === taskId)
       if (!task || !hasOperationalSteps(task)) {
-        return { success: false, message: "Tarea no encontrada." }
+        return { success: false, message: "Orden de trabajo no encontrada." }
       }
 
       const operationalSteps = syncOperationalStepsWithPhotoCounts(
@@ -865,7 +1035,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     async (taskId: string, stepId: string, observation: string) => {
       const task = tasks.find((item) => item.id === taskId)
       if (!task || !hasOperationalSteps(task)) {
-        return { success: false, message: "Tarea no encontrada." }
+        return { success: false, message: "Orden de trabajo no encontrada." }
       }
 
       const withObservation = (task.operationalSteps ?? []).map((step) =>
@@ -967,6 +1137,8 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       changeTaskStatus,
       assignCrew,
       deleteTask,
+      removeTaskLocally,
+      removeTasksByCustomerId,
       startTask,
       submitTaskForApproval,
       approveTask,
@@ -976,6 +1148,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       reportTaskIncident,
       resumeTaskFromIncident,
       rescheduleTaskFromIncident,
+      rescheduleTaskFromOverdue,
       toggleChecklistItem,
       syncOperationalStepsProgress,
       updateOperationalStepObservation,
@@ -994,6 +1167,8 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       changeTaskStatus,
       assignCrew,
       deleteTask,
+      removeTaskLocally,
+      removeTasksByCustomerId,
       startTask,
       submitTaskForApproval,
       approveTask,
@@ -1003,6 +1178,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       reportTaskIncident,
       resumeTaskFromIncident,
       rescheduleTaskFromIncident,
+      rescheduleTaskFromOverdue,
       toggleChecklistItem,
       syncOperationalStepsProgress,
       updateOperationalStepObservation,

@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server"
 
 import { executeCommercialMigrationImport } from "@/lib/customers/commercial-migration/execute-import"
+import {
+  formatCustomersImportSchemaError,
+  verifyCustomersImportSchema,
+} from "@/lib/customers/commercial-migration/import-schema"
 import { enrichMigrationCustomers } from "@/lib/customers/commercial-migration/review-utils"
 import {
   readMigrationReviewState,
@@ -12,6 +16,14 @@ import { getCustomers } from "@/lib/supabase/customers.queries"
 export async function POST() {
   try {
     const supabase = await createClient()
+    const schemaIssues = await verifyCustomersImportSchema(supabase)
+    if (schemaIssues.length > 0) {
+      return NextResponse.json(
+        { error: formatCustomersImportSchemaError(schemaIssues) },
+        { status: 400 }
+      )
+    }
+
     const dataset = readPreparedMigrationDataset()
     const reviewState = readMigrationReviewState()
     const records = enrichMigrationCustomers(
@@ -32,11 +44,17 @@ export async function POST() {
         .map((customer) => customer.externalCustomerCode?.trim().toLowerCase())
         .filter(Boolean) as string[]
     )
+    const existingLegacyMigrationIds = new Set(
+      existing.data
+        .map((customer) => customer.legacyMigrationId)
+        .filter((value): value is number => value != null)
+    )
 
     const result = await executeCommercialMigrationImport({
       client: supabase,
       records,
       existingExternalCodes,
+      existingLegacyMigrationIds,
     })
 
     return NextResponse.json({

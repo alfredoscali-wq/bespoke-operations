@@ -425,8 +425,8 @@ const taskDetails: Record<string, TaskDetail> = {
     history: [
       {
         id: "h-1",
-        action: "Tarea creada",
-        description: "Tarea registrada en el sistema de operaciones.",
+        action: "Orden de trabajo creada",
+        description: "Orden de trabajo registrada en el sistema de operaciones.",
         user: "Sistema",
         timestamp: "2026-06-08T09:00:00",
       },
@@ -496,7 +496,7 @@ const taskDetails: Record<string, TaskDetail> = {
     history: [
       {
         id: "h-1",
-        action: "Tarea creada",
+        action: "Orden de trabajo creada",
         description: "Inspección de poste programada.",
         user: "Sistema",
         timestamp: "2026-06-08T09:00:00",
@@ -511,7 +511,7 @@ const taskDetails: Record<string, TaskDetail> = {
       {
         id: "h-3",
         action: "Enviada a aprobación",
-        description: "Tarea marcada como Finalizada y enviada a revisión.",
+        description: "Orden de trabajo marcada como Finalizada y enviada a revisión.",
         user: "M. Soto",
         timestamp: "2026-06-11T14:00:00",
       },
@@ -542,14 +542,14 @@ function createDefaultDetail(task: Task): TaskDetail {
         id: "cm-default",
         author: task.supervisor,
         role: "supervisor",
-        content: `Revisar entregables de la tarea ${task.code} antes del cierre.`,
+        content: `Revisar entregables de la OT ${task.code} antes del cierre.`,
         timestamp: `${task.startDate}T09:00:00`,
       },
     ],
     history: [
       {
         id: "h-default-1",
-        action: "Tarea creada",
+        action: "Orden de trabajo creada",
         description: task.description,
         user: "Sistema",
         timestamp: `${task.startDate}T08:00:00`,
@@ -596,6 +596,7 @@ export function getTasksSummary(tasks: Task[]) {
   return {
     pendiente: tasks.filter((task) => task.status === "pendiente").length,
     asignada: tasks.filter((task) => task.status === "asignada").length,
+    vencida: tasks.filter((task) => task.status === "vencida").length,
     enCurso: tasks.filter((task) => task.status === "en-curso").length,
     incidencia: tasks.filter((task) => task.status === "incidencia").length,
     pendienteCierre: tasks.filter(

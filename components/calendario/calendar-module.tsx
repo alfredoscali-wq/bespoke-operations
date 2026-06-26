@@ -48,7 +48,7 @@ function CalendarModuleContent() {
         <div className="flex flex-col gap-3 rounded-xl border bg-muted/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-medium text-foreground">
-              Calendario filtrado por obra
+              Calendario Operativo filtrado por obra
             </p>
             <p className="text-sm text-muted-foreground">{projectFilterLabel}</p>
           </div>
@@ -56,7 +56,7 @@ function CalendarModuleContent() {
             href="/operations/calendar"
             className="text-sm font-medium text-primary hover:underline"
           >
-            Ver calendario completo
+            Ver Calendario Operativo completo
           </Link>
         </div>
       )}

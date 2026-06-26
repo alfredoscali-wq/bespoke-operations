@@ -21,19 +21,19 @@ type CrewDetailStatsProps = {
 const statItems = [
   {
     key: "activeTasks" as const,
-    label: "Tareas Activas",
+    label: "Órdenes de Trabajo Activas",
     icon: ClipboardList,
     color: "text-blue-600 bg-blue-50",
   },
   {
     key: "activeProjects" as const,
-    label: "Proyectos Activos",
+    label: "Obras Activas",
     icon: Briefcase,
     color: "text-violet-600 bg-violet-50",
   },
   {
     key: "completedTasks" as const,
-    label: "Tareas Completadas",
+    label: "Órdenes de Trabajo Completadas",
     icon: CheckCircle2,
     color: "text-emerald-600 bg-emerald-50",
   },

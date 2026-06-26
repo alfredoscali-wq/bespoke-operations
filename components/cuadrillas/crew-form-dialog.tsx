@@ -187,7 +187,7 @@ export function CrewFormDialog({
         >
         <DialogHeader>
           <DialogTitle>
-            {mode === "create" ? "Nueva cuadrilla" : "Editar cuadrilla"}
+            {mode === "create" ? "Nueva Cuadrilla" : "Editar Cuadrilla"}
           </DialogTitle>
           <DialogDescription>
             {mode === "create"
@@ -259,7 +259,7 @@ export function CrewFormDialog({
             <div className="rounded-lg border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
               Estado inicial:{" "}
               <span className="font-medium text-foreground">Activa</span>{" "}
-              (automático según tareas asignadas).
+              (automático según órdenes de trabajo asignadas).
             </div>
           ) : (
             <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
@@ -273,8 +273,8 @@ export function CrewFormDialog({
                     <span className="ml-1 font-normal text-muted-foreground">
                       (automático
                       {automaticStatus === "en-campo"
-                        ? " — tareas en campo"
-                        : " — sin tareas activas"}
+                        ? " — órdenes de trabajo en campo"
+                        : " — sin órdenes de trabajo activas"}
                       )
                     </span>
                   )}
@@ -331,7 +331,7 @@ export function CrewFormDialog({
               {isSubmitting
                 ? "Guardando..."
                 : mode === "create"
-                  ? "Crear cuadrilla"
+                  ? "Crear Cuadrilla"
                   : "Guardar cambios"}
             </Button>
           </DialogFooter>

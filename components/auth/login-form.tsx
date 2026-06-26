@@ -1,20 +1,21 @@
 "use client"
 
 import { useState } from "react"
+import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Loader2, LogIn } from "lucide-react"
+import { Loader2 } from "lucide-react"
 
 import {
   redirectAfterSignIn,
   useAuth,
 } from "@/components/auth/auth-provider"
+import { BESPOKE_LOGO_SRC } from "@/lib/branding/logo"
 import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -81,11 +82,15 @@ function LoginFormInner() {
 
   return (
     <Card className="w-full max-w-md shadow-lg">
-      <CardHeader className="space-y-2 text-center">
-        <div className="mx-auto flex size-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-          <LogIn className="size-6" />
-        </div>
-        <CardTitle className="text-2xl">Bespoke Operations</CardTitle>
+      <CardHeader className="space-y-4 text-center">
+        <Image
+          src={BESPOKE_LOGO_SRC}
+          alt="Bespoke Operations"
+          width={220}
+          height={68}
+          className="mx-auto h-14 w-auto object-contain"
+          priority
+        />
         <CardDescription>
           Ingrese con su DNI y contraseña para acceder a la plataforma.
         </CardDescription>

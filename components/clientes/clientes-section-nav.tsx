@@ -3,14 +3,14 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
-import { useOperationalProfile } from "@/components/operations/operational-profile-provider"
+import { useIsSystemAdministrator } from "@/lib/auth/use-is-system-administrator"
 import { cn } from "@/lib/utils"
 
 export function ClientesSectionNav() {
   const pathname = usePathname()
-  const { profile } = useOperationalProfile()
+  const isAdministrator = useIsSystemAdministrator()
 
-  if (profile !== "administrador") {
+  if (!isAdministrator) {
     return null
   }
 

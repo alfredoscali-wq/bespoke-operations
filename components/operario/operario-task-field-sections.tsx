@@ -1,37 +1,39 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { MapPin, Navigation, Phone, Signal, User } from "lucide-react"
+import { Navigation, Phone, User } from "lucide-react"
 
 import { TaskPhotoViewerDialog } from "@/components/tareas/task-photo-viewer-dialog"
 import { listTaskReferencePhotos } from "@/lib/supabase/task-photos.browser"
 import {
   formatContractedPlanLabel,
+  formatAmountToCollectDisplay,
   getTaskTechnologyLabel,
-  isNewInstallationTask,
 } from "@/lib/tasks/commercial-plan"
 import type { Task } from "@/lib/types/tasks"
 import type { TaskPhoto } from "@/lib/types/task-photos"
-import {
-  getSharedLocationHref,
-  hasLoadedGps,
-} from "@/lib/utils/shared-location"
 import { Button } from "@/components/ui/button"
-
-function toTelHref(phone: string): string {
-  const normalized = phone.replace(/[^\d+]/g, "")
-  return `tel:${normalized}`
-}
+import { WhatsAppLink } from "@/components/ui/whatsapp-link"
 
 function resolveCustomerName(task: Task): string | undefined {
   return task.customerName?.trim() || task.projectName?.trim() || undefined
 }
 
-function resolveAddressLine(task: Task): string | undefined {
-  const parts = [task.serviceAddress?.trim(), task.locality?.trim()].filter(
-    Boolean
+function ServiceInfoRow({
+  label,
+  value,
+}: {
+  label: string
+  value: string
+}) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 border-b border-border/60 py-2 last:border-0 last:pb-0">
+      <p className="shrink-0 text-xs text-muted-foreground">{label}</p>
+      <p className="text-right text-sm font-semibold leading-snug text-foreground">
+        {value}
+      </p>
+    </div>
   )
-  return parts.length > 0 ? parts.join(" - ") : undefined
 }
 
 type OperarioTaskClientCardProps = {
@@ -47,65 +49,25 @@ export function OperarioTaskClientCard({ task }: OperarioTaskClientCardProps) {
   }
 
   return (
-    <section className="rounded-2xl border bg-card p-4 shadow-sm">
+    <section className="rounded-xl border bg-card px-4 py-3 shadow-sm">
       <h2 className="sr-only">Cliente</h2>
-      <div className="space-y-3">
+      <div className="space-y-2">
         {customerName ? (
-          <div className="flex items-start gap-3">
-            <User className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
-            <p className="text-base font-semibold leading-snug text-foreground">
+          <div className="flex items-center gap-2.5">
+            <User className="size-5 shrink-0 text-primary" />
+            <p className="text-lg font-bold leading-tight text-foreground">
               {customerName}
             </p>
           </div>
         ) : null}
         {phone ? (
-          <a
-            href={toTelHref(phone)}
-            className="flex items-center gap-3 rounded-xl bg-muted/30 px-3 py-3 text-base font-medium text-primary active:bg-muted/50"
+          <WhatsAppLink
+            phone={phone}
+            className="flex items-center gap-2.5 rounded-lg bg-primary/8 px-3 py-2.5 text-base font-semibold text-primary no-underline hover:bg-primary/12 hover:text-primary hover:no-underline active:bg-primary/12"
           >
-            <Phone className="size-5 shrink-0" />
+            <Phone className="size-4 shrink-0" />
             {phone}
-          </a>
-        ) : null}
-      </div>
-    </section>
-  )
-}
-
-type OperarioTaskCommercialCardProps = {
-  task: Task
-}
-
-export function OperarioTaskCommercialCard({ task }: OperarioTaskCommercialCardProps) {
-  if (!isNewInstallationTask(task)) {
-    return null
-  }
-
-  const technologyLabel = getTaskTechnologyLabel(task)
-  const planLabel = formatContractedPlanLabel(task.contractedPlan)
-
-  if (!technologyLabel && !planLabel) {
-    return null
-  }
-
-  return (
-    <section className="rounded-2xl border bg-card p-4 shadow-sm">
-      <h2 className="sr-only">Información comercial</h2>
-      <div className="space-y-3">
-        {technologyLabel ? (
-          <div className="flex items-start gap-3">
-            <Signal className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
-            <div>
-              <p className="text-xs text-muted-foreground">Tecnología</p>
-              <p className="text-base font-semibold">{technologyLabel}</p>
-            </div>
-          </div>
-        ) : null}
-        {planLabel ? (
-          <div>
-            <p className="text-xs text-muted-foreground">Plan contratado</p>
-            <p className="text-base font-semibold">{planLabel}</p>
-          </div>
+          </WhatsAppLink>
         ) : null}
       </div>
     </section>
@@ -117,54 +79,90 @@ type OperarioTaskLocationCardProps = {
 }
 
 export function OperarioTaskLocationCard({ task }: OperarioTaskLocationCardProps) {
-  const addressLine = resolveAddressLine(task)
-  const gpsLoaded = hasLoadedGps(
-    task.sharedLocation,
-    task.latitude,
-    task.longitude
-  )
-  const mapsHref = getSharedLocationHref(
-    task.sharedLocation,
-    task.latitude,
-    task.longitude
-  )
+  const address = task.serviceAddress?.trim()
+  const locality = task.locality?.trim()
+  const sharedLocation = task.sharedLocation?.trim()
 
-  if (!addressLine && !gpsLoaded && !mapsHref) {
+  if (!address && !locality && !sharedLocation) {
     return null
   }
 
-  function handleOpenGps() {
-    if (!mapsHref) return
-    window.open(mapsHref, "_blank", "noopener,noreferrer")
+  function handleOpenLocation() {
+    if (!sharedLocation) return
+    window.open(sharedLocation, "_blank", "noopener,noreferrer")
   }
 
   return (
-    <section className="rounded-2xl border bg-card p-4 shadow-sm">
-      <h2 className="sr-only">Ubicación</h2>
-      <div className="space-y-3">
-        {addressLine ? (
-          <div className="flex items-start gap-3">
-            <MapPin className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
-            <p className="text-base font-medium leading-snug">{addressLine}</p>
+    <section className="rounded-xl border bg-card px-4 py-3 shadow-sm">
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        📍 Ubicación
+      </h2>
+      <div className="space-y-2">
+        {address ? (
+          <div>
+            <p className="text-xs text-muted-foreground">Dirección</p>
+            <p className="text-sm font-medium leading-snug text-foreground">
+              {address}
+            </p>
           </div>
         ) : null}
-        {gpsLoaded ? (
-          <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
-            ✅ GPS cargado
-          </p>
-        ) : (
-          <p className="text-sm text-muted-foreground">GPS no disponible</p>
-        )}
-        {mapsHref ? (
+        {locality ? (
+          <div>
+            <p className="text-xs text-muted-foreground">Localidad</p>
+            <p className="text-sm font-medium leading-snug text-foreground">
+              {locality}
+            </p>
+          </div>
+        ) : null}
+        {sharedLocation ? (
           <Button
             type="button"
             variant="outline"
-            className="h-12 w-full gap-2 rounded-xl text-base font-semibold"
-            onClick={handleOpenGps}
+            size="sm"
+            className="h-10 w-full gap-2 rounded-lg text-sm font-semibold"
+            onClick={handleOpenLocation}
           >
-            <Navigation className="size-5" />
-            Abrir GPS
+            <Navigation className="size-4" />
+            🧭 Abrir ubicación
           </Button>
+        ) : null}
+      </div>
+    </section>
+  )
+}
+
+type OperarioTaskServiceInfoCardProps = {
+  task: Task
+}
+
+export function OperarioTaskServiceInfoCard({
+  task,
+}: OperarioTaskServiceInfoCardProps) {
+  const technologyLabel = getTaskTechnologyLabel(task)
+  const planLabel = formatContractedPlanLabel(task.contractedPlan)
+  const amountLabel =
+    task.amountToCollect != null
+      ? formatAmountToCollectDisplay(task.amountToCollect)
+      : null
+
+  if (!technologyLabel && !planLabel && !amountLabel) {
+    return null
+  }
+
+  return (
+    <section className="rounded-xl border bg-card px-4 py-3 shadow-sm">
+      <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        Información del servicio
+      </h2>
+      <div>
+        {technologyLabel ? (
+          <ServiceInfoRow label="Tecnología" value={technologyLabel} />
+        ) : null}
+        {planLabel ? (
+          <ServiceInfoRow label="Plan contratado" value={planLabel} />
+        ) : null}
+        {amountLabel ? (
+          <ServiceInfoRow label="💰 Importe a cobrar" value={amountLabel} />
         ) : null}
       </div>
     </section>
@@ -180,11 +178,11 @@ export function OperarioTaskCrewNotes({ task }: OperarioTaskCrewNotesProps) {
   if (!notes) return null
 
   return (
-    <section className="rounded-2xl border bg-card p-4 shadow-sm">
-      <h2 className="text-sm font-semibold text-muted-foreground">
-        Observaciones para la cuadrilla
+    <section className="rounded-xl border bg-card px-4 py-3 shadow-sm">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        Observaciones
       </h2>
-      <p className="mt-2 whitespace-pre-wrap text-base leading-relaxed text-foreground">
+      <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-foreground">
         {notes}
       </p>
     </section>
@@ -223,11 +221,11 @@ export function OperarioTaskReferencePhotos({
   }
 
   return (
-    <section className="rounded-2xl border bg-card p-4 shadow-sm">
-      <h2 className="text-sm font-semibold text-foreground">
+    <section className="rounded-xl border bg-card px-4 py-3 shadow-sm">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-foreground">
         Fotos de referencia
       </h2>
-      <div className="-mx-1 mt-3 flex gap-3 overflow-x-auto px-1 pb-1 snap-x snap-mandatory">
+      <div className="-mx-1 mt-2 flex gap-2 overflow-x-auto px-1 pb-0.5 snap-x snap-mandatory">
         {photos.map((photo) => (
           <button
             key={photo.id}
@@ -236,7 +234,7 @@ export function OperarioTaskReferencePhotos({
               setSelectedPhoto(photo)
               setViewerOpen(true)
             }}
-            className="size-24 shrink-0 snap-start overflow-hidden rounded-xl border bg-muted/30"
+            className="size-20 shrink-0 snap-start overflow-hidden rounded-lg border bg-muted/30"
           >
             {photo.signedUrl ? (
               // eslint-disable-next-line @next/next/no-img-element

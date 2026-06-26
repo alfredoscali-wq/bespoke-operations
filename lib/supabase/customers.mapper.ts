@@ -3,7 +3,11 @@ import type {
   CustomerRow,
   CustomerUpdate,
 } from "@/lib/supabase/database.types"
-import type { Customer, CustomerValidationStatus } from "@/lib/types/customers"
+import type {
+  Customer,
+  CustomerListRow,
+  CustomerValidationStatus,
+} from "@/lib/types/customers"
 import type {
   CreateCustomerPayload,
   UpdateCustomerPayload,
@@ -40,6 +44,37 @@ export function mapCustomerRowToCustomer(row: CustomerRow): Customer {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at ?? undefined,
+  }
+}
+
+export function mapCustomerRowToListRow(
+  row: Pick<
+    CustomerRow,
+    | "id"
+    | "name"
+    | "external_customer_code"
+    | "dni"
+    | "address"
+    | "locality"
+    | "email"
+    | "phone"
+    | "technology"
+    | "validation_status"
+    | "legacy_migration_id"
+  >
+): CustomerListRow {
+  return {
+    id: row.id,
+    name: row.name,
+    externalCustomerCode: row.external_customer_code ?? undefined,
+    dni: row.dni ?? undefined,
+    address: row.address ?? undefined,
+    locality: row.locality ?? undefined,
+    email: row.email ?? undefined,
+    phone: row.phone ?? undefined,
+    technology: row.technology ?? undefined,
+    validationStatus: parseValidationStatus(row.validation_status),
+    legacyMigrationId: row.legacy_migration_id ?? undefined,
   }
 }
 

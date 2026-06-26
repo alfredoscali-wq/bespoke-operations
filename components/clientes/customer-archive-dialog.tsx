@@ -3,7 +3,7 @@
 import { useState } from "react"
 
 import { useCustomers } from "@/components/clientes/customers-provider"
-import type { Customer } from "@/lib/types/customers"
+import type { CustomerListRow } from "@/lib/types/customers"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -15,8 +15,8 @@ import {
 } from "@/components/ui/dialog"
 
 type CustomerArchiveDialogProps = {
-  customer: Customer | null
-  customers?: Customer[]
+  customer: CustomerListRow | null
+  customers?: CustomerListRow[]
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess: (message: string) => void

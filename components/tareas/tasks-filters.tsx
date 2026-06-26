@@ -80,13 +80,14 @@ const priorityOrder: Record<TaskPriority, number> = {
 const statusOrder: Record<TaskStatus, number> = {
   pendiente: 1,
   asignada: 2,
-  "en-curso": 3,
-  incidencia: 4,
-  "pendiente-cierre": 5,
-  finalizada: 6,
-  "en-aprobacion": 7,
-  cerrada: 8,
-  cancelada: 9,
+  vencida: 3,
+  "en-curso": 4,
+  incidencia: 5,
+  "pendiente-cierre": 6,
+  finalizada: 7,
+  "en-aprobacion": 8,
+  cerrada: 9,
+  cancelada: 10,
 }
 
 export function TasksFiltersBar({
@@ -121,7 +122,7 @@ export function TasksFiltersBar({
             placeholder={
               operationalMode
                 ? "Buscar por código, cliente o dirección..."
-                : "Buscar por código, tarea o proyecto..."
+                : "Buscar por código, OT u obra..."
             }
             className="h-9 bg-background pl-8"
           />
@@ -220,8 +221,8 @@ export function TasksFiltersBar({
               ? "orden encontrada"
               : "órdenes encontradas"
             : resultCount === 1
-              ? "tarea encontrada"
-              : "tareas encontradas"}
+              ? "orden de trabajo encontrada"
+              : "órdenes de trabajo encontradas"}
         </span>
 
         <div className="flex flex-wrap items-center gap-2">

@@ -5,15 +5,16 @@ import { usePathname } from "next/navigation"
 import {
   ChevronLeft,
   ChevronRight,
+  Plus,
   X,
 } from "lucide-react"
 
-import { navGroups, type NavItem } from "@/lib/navigation"
+import { useOperationalProfile } from "@/components/operations/operational-profile-provider"
+import { BESPOKE_LOGO_SRC } from "@/lib/branding/logo"
+import type { NavItem } from "@/lib/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-
-const BESPOKE_LOGO_SRC = "/branding/Bespoke-logo-2.png"
 
 type AppSidebarProps = {
   collapsed: boolean
@@ -70,23 +71,25 @@ function NavLink({
 
 function SidebarBrand({
   collapsed,
+  homePath,
   onCloseMobile,
 }: {
   collapsed: boolean
+  homePath: string
   onCloseMobile: () => void
 }) {
   return (
     <Link
-      href="/"
-      className="flex max-w-full items-center justify-center rounded-lg transition-opacity hover:opacity-90"
+      href={homePath}
+      className="flex items-center justify-center rounded-lg transition-opacity hover:opacity-90"
       onClick={onCloseMobile}
     >
       <img
         src={BESPOKE_LOGO_SRC}
         alt="Bespoke Operations"
         className={cn(
-          "h-auto max-w-full shrink-0 object-contain object-center",
-          collapsed ? "w-10" : "w-[200px]"
+          "shrink-0 object-contain object-center",
+          collapsed ? "h-10 w-auto" : "h-12 w-auto"
         )}
       />
     </Link>
@@ -100,6 +103,7 @@ export function AppSidebar({
   onCloseMobile,
 }: AppSidebarProps) {
   const pathname = usePathname()
+  const { navGroups, profile, profileLabel, homePath } = useOperationalProfile()
 
   const sidebarContent = (
     <>
@@ -109,7 +113,11 @@ export function AppSidebar({
           collapsed ? "h-[4.75rem] py-2" : "py-4"
         )}
       >
-        <SidebarBrand collapsed={collapsed} onCloseMobile={onCloseMobile} />
+        <SidebarBrand
+          collapsed={collapsed}
+          homePath={homePath}
+          onCloseMobile={onCloseMobile}
+        />
 
         {!collapsed && (
           <Button
@@ -134,6 +142,17 @@ export function AppSidebar({
         </Button>
       </div>
 
+      {!collapsed && (
+        <div className="border-b border-sidebar-border px-3 py-2.5">
+          <p className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+            Perfil operativo
+          </p>
+          <p className="mt-0.5 truncate text-xs font-medium text-foreground">
+            {profileLabel}
+          </p>
+        </div>
+      )}
+
       <ScrollArea className="flex-1 px-2 py-4">
         <nav className="flex flex-col gap-1">
           {navGroups.map((group) => (
@@ -150,7 +169,7 @@ export function AppSidebar({
 
               {group.items.map((item) => (
                 <NavLink
-                  key={item.href}
+                  key={`${group.id}-${item.href}-${item.title}`}
                   item={item}
                   pathname={pathname}
                   collapsed={collapsed}
@@ -161,6 +180,24 @@ export function AppSidebar({
           ))}
         </nav>
       </ScrollArea>
+
+      {profile === "ventas" && (
+        <div className="shrink-0 border-t border-sidebar-border p-3">
+          <Button
+            asChild
+            className={cn(
+              "w-full gap-2 font-semibold",
+              collapsed && "size-9 px-0"
+            )}
+            size={collapsed ? "icon-sm" : "default"}
+          >
+            <Link href="/tareas" onClick={onCloseMobile} title="Nueva Instalación">
+              <Plus className="size-4 shrink-0" />
+              {!collapsed && <span>Nueva Instalación</span>}
+            </Link>
+          </Button>
+        </div>
+      )}
 
       {collapsed && (
         <div className="hidden shrink-0 border-t border-sidebar-border p-2 lg:block">

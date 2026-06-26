@@ -1,5 +1,4 @@
-import { toDateOnly } from "@/lib/availability/utils"
-import { isFinalTaskStatus } from "@/lib/tasks/status-groups"
+import { isVencidaStatus } from "@/lib/tasks/vencida-status"
 import type { Task, TaskStatus } from "@/lib/types/tasks"
 
 export type CriticalPendingTask = {
@@ -14,22 +13,17 @@ export type CriticalPendingTask = {
   status: TaskStatus
 }
 
-export function isCriticalPendingTask(
-  task: Task,
-  referenceDate: string = toDateOnly()
-): boolean {
-  return !isFinalTaskStatus(task.status) && task.dueDate < referenceDate
+export function isCriticalPendingTask(task: Task): boolean {
+  return isVencidaStatus(task.status)
 }
 
 export function getCriticalPendingTasks(
   tasks: Task[],
-  options: { referenceDate?: string; projectId?: string | null } = {}
+  options: { projectId?: string | null } = {}
 ): CriticalPendingTask[] {
-  const referenceDate = options.referenceDate ?? toDateOnly()
-
   return tasks
     .filter((task) => {
-      if (!isCriticalPendingTask(task, referenceDate)) {
+      if (!isCriticalPendingTask(task)) {
         return false
       }
 

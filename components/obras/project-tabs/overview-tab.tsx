@@ -48,7 +48,7 @@ export function ProjectOverviewTab({ project }: ProjectOverviewTabProps) {
     <div className="grid gap-6 lg:grid-cols-3">
       <Card className="shadow-sm lg:col-span-2">
         <CardHeader>
-          <CardTitle>Información del proyecto</CardTitle>
+          <CardTitle>Información de la obra</CardTitle>
           <CardDescription>
             Datos generales y alcance de la obra
           </CardDescription>
@@ -109,7 +109,7 @@ export function ProjectOverviewTab({ project }: ProjectOverviewTabProps) {
                 {project.code}
               </div>
               <p className="mt-2 leading-relaxed">
-                Seguimiento basado en tareas completadas, evidencias cargadas y
+                Seguimiento basado en órdenes de trabajo completadas, evidencias cargadas y
                 hitos de campo reportados por la cuadrilla asignada.
               </p>
             </div>

@@ -3,11 +3,10 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { ArrowLeft, Pencil } from "lucide-react"
+import { useEffect, useState } from "react"
 
 import { CustomerFormDialog } from "@/components/clientes/customer-form-dialog"
 import { useCustomers } from "@/components/clientes/customers-provider"
-import { useTasks } from "@/components/tareas/tasks-provider"
-import { getCustomerWorkOrderHistory } from "@/lib/customers/customer-work-orders"
 import {
   formatCustomerTechnologyLabel,
 } from "@/lib/customers/format"
@@ -19,6 +18,10 @@ import {
 import { getWorkOrderServiceTypeLabel } from "@/lib/tasks/work-order"
 import { TASK_STATUS_LABELS, formatTaskDate } from "@/lib/tasks/constants"
 import { formatScheduledTimeDisplay } from "@/lib/tasks/scheduling"
+import { createClient } from "@/lib/supabase/client"
+import { fetchWorkOrdersByCustomerId } from "@/lib/supabase/tasks.queries"
+import type { Customer } from "@/lib/types/customers"
+import type { Task } from "@/lib/types/tasks"
 import { WhatsAppLink } from "@/components/ui/whatsapp-link"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -36,8 +39,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { cn } from "@/lib/utils"
-import { useState } from "react"
 
 type CustomerDetailScreenProps = {
   customerId: string
@@ -59,13 +60,43 @@ function DetailField({
 }
 
 export function CustomerDetailScreen({ customerId }: CustomerDetailScreenProps) {
-  const { getCustomer, isCustomersReady } = useCustomers()
-  const { tasks } = useTasks()
+  const { fetchCustomerById } = useCustomers()
+  const [customer, setCustomer] = useState<Customer | null>(null)
+  const [workOrders, setWorkOrders] = useState<Task[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [editOpen, setEditOpen] = useState(false)
 
-  const customer = getCustomer(customerId)
+  useEffect(() => {
+    let cancelled = false
 
-  if (!isCustomersReady) {
+    async function loadCustomerDetail() {
+      setIsLoading(true)
+
+      try {
+        const [loadedCustomer, workOrdersResult] = await Promise.all([
+          fetchCustomerById(customerId),
+          fetchWorkOrdersByCustomerId(createClient(), customerId),
+        ])
+
+        if (cancelled) return
+
+        setCustomer(loadedCustomer)
+        setWorkOrders(workOrdersResult.data ?? [])
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    void loadCustomerDetail()
+
+    return () => {
+      cancelled = true
+    }
+  }, [customerId, fetchCustomerById])
+
+  if (isLoading) {
     return (
       <div className="rounded-xl border border-dashed bg-muted/20 px-6 py-16 text-center text-sm text-muted-foreground">
         Cargando cliente...
@@ -77,7 +108,6 @@ export function CustomerDetailScreen({ customerId }: CustomerDetailScreenProps) 
     notFound()
   }
 
-  const workOrders = getCustomerWorkOrderHistory(tasks, customer.id)
   const technologyLabel = formatCustomerTechnologyLabel(customer.technology) ?? "—"
 
   return (
@@ -223,7 +253,14 @@ export function CustomerDetailScreen({ customerId }: CustomerDetailScreenProps) 
         open={editOpen}
         onOpenChange={setEditOpen}
         customer={customer}
-        onSuccess={() => setEditOpen(false)}
+        onSuccess={() => {
+          setEditOpen(false)
+          void fetchCustomerById(customerId).then((nextCustomer) => {
+            if (nextCustomer) {
+              setCustomer(nextCustomer)
+            }
+          })
+        }}
       />
     </div>
   )

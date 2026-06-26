@@ -71,7 +71,7 @@ export function validateCrewAssignment(
   if (!isCrewAssignable(crew)) {
     return {
       allowed: false,
-      message: `La cuadrilla ${crew.name} está inactiva y no puede recibir tareas.`,
+      message: `La cuadrilla ${crew.name} está inactiva y no puede recibir órdenes de trabajo.`,
     }
   }
 

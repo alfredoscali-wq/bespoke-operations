@@ -33,7 +33,7 @@ export function TaskMaterialsPanel({ taskId }: TaskMaterialsPanelProps) {
 
         {items.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No hay materiales asignados a esta tarea.
+            No hay materiales asignados a esta orden de trabajo.
           </p>
         ) : (
           <EntityMaterialsList items={items} />

@@ -212,7 +212,7 @@ export function EvidenceUploadDialog({
     }
 
     if (!allowProjectOnly && !selectedTask) {
-      setError("Seleccione una tarea.")
+      setError("Seleccione una orden de trabajo.")
       return
     }
 
@@ -222,7 +222,7 @@ export function EvidenceUploadDialog({
       !selectedTask &&
       taskId !== PROJECT_ONLY_TASK_VALUE
     ) {
-      setError("Seleccione una tarea o suba la evidencia solo a la obra.")
+      setError("Seleccione una orden de trabajo o suba la evidencia solo a la obra.")
       return
     }
 
@@ -281,12 +281,12 @@ export function EvidenceUploadDialog({
           <DialogTitle>Subir evidencia</DialogTitle>
           <DialogDescription>
             {isFullyContextual
-              ? "Cargue una imagen para esta tarea."
+              ? "Cargue una imagen para esta orden de trabajo."
               : isTaskLocked
-                ? "Cargue una imagen vinculada a la tarea seleccionada."
+                ? "Cargue una imagen vinculada a la orden de trabajo seleccionada."
                 : isProjectLocked
                   ? "Cargue una imagen vinculada a esta obra."
-                  : "Cargue una imagen de campo vinculada a una obra y tarea existentes."}
+                  : "Cargue una imagen de campo vinculada a una obra y orden de trabajo existentes."}
           </DialogDescription>
         </DialogHeader>
 
@@ -360,7 +360,7 @@ export function EvidenceUploadDialog({
                   <SelectValue
                     placeholder={
                       tasksForProject.length === 0
-                        ? "Sin tareas para esta obra"
+                        ? "Sin órdenes de trabajo para esta obra"
                         : "Seleccionar tarea"
                     }
                   />

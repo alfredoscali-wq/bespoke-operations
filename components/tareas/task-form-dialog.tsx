@@ -277,7 +277,7 @@ export function TaskFormDialog({
       setError(
         submitError instanceof Error
           ? submitError.message
-          : "No se pudo guardar la tarea."
+          : "No se pudo guardar la orden de trabajo."
       )
     } finally {
       setIsSubmitting(false)
@@ -305,16 +305,16 @@ export function TaskFormDialog({
           isDirty={isDirty}
         >
         <DialogHeader>
-          <DialogTitle>Nueva tarea</DialogTitle>
+          <DialogTitle>Nueva Orden de Trabajo</DialogTitle>
           <DialogDescription>
-            Cree una tarea vinculada a una obra o un servicio de campo
+            Cree una orden de trabajo vinculada a una obra o un servicio de campo
             independiente.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label>Tipo de tarea</Label>
+            <Label>Tipo de orden de trabajo</Label>
             <div className="flex rounded-lg border bg-muted/40 p-0.5">
               <Button
                 type="button"
@@ -558,7 +558,7 @@ export function TaskFormDialog({
               Cancelar
             </Button>
             <Button type="submit" disabled={!isValid || isSubmitting}>
-              {isSubmitting ? "Guardando..." : "Crear tarea"}
+              {isSubmitting ? "Guardando..." : "Crear Orden de Trabajo"}
             </Button>
           </DialogFooter>
         </form>

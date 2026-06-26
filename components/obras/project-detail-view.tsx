@@ -345,7 +345,7 @@ export function ProjectDetailView({
         <div className="overflow-x-auto">
           <TabsList variant="line" className="w-full min-w-max justify-start">
             <TabsTrigger value="overview">Resumen</TabsTrigger>
-            <TabsTrigger value="tasks">Tareas</TabsTrigger>
+            <TabsTrigger value="tasks">Órdenes de Trabajo</TabsTrigger>
             <TabsTrigger value="crews">Cuadrillas</TabsTrigger>
             <TabsTrigger value="materials">Materiales</TabsTrigger>
             <TabsTrigger value="evidence">Evidencias</TabsTrigger>

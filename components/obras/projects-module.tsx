@@ -61,7 +61,7 @@ function ProjectsModuleContent() {
     <div className="space-y-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <p className="max-w-2xl text-sm text-muted-foreground">
-          Gestión de proyectos de fibra óptica, cámaras, wireless, postes y
+          Gestión de obras de fibra óptica, cámaras, wireless, postes y
           mantenimiento.
         </p>
         <NewProjectDialog onSubmit={addProject} />

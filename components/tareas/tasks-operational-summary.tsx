@@ -6,6 +6,7 @@ import {
   PauseCircle,
   UserCheck,
   CheckCircle2,
+  AlertTriangle,
 } from "lucide-react"
 
 import { useTasksUI } from "@/components/tareas/tasks-ui-provider"
@@ -21,6 +22,7 @@ import { cn } from "@/lib/utils"
 const CATEGORY_ICONS = {
   "sin-cuadrilla": UserCheck,
   programadas: CircleDot,
+  vencidas: AlertTriangle,
   suspendidas: PauseCircle,
   completadas: CheckCircle2,
   canceladas: Ban,

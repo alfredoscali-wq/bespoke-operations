@@ -1,18 +1,29 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
-import { generateCustomerNumber } from "@/lib/customers/customer-number"
+import {
+  formatCustomerNumber,
+  generateCustomerNumber,
+  parseCustomerNumberCounter,
+} from "@/lib/customers/customer-number"
 import {
   canExcludeCustomerFromOperations,
   getCustomerOperationalActivity,
 } from "@/lib/customers/customer-activity"
+import {
+  DEFAULT_CUSTOMER_PAGE_SIZE,
+  escapeCustomerSearchPattern,
+  type CustomerListQuery,
+} from "@/lib/customers/customer-list"
+import type { CustomerOperationalSummary } from "@/lib/customers/customer-operational"
 import { CUSTOMER_DELETE_BLOCKED_MESSAGE } from "@/lib/customers/customer-delete"
-import type { Database } from "@/lib/supabase/database.types"
+import type { Database, CustomerRow } from "@/lib/supabase/database.types"
 import {
   mapCustomerInsert,
   mapCustomerRowToCustomer,
+  mapCustomerRowToListRow,
   mapCustomerUpdate,
 } from "@/lib/supabase/customers.mapper"
-import type { Customer } from "@/lib/types/customers"
+import type { Customer, CustomerListPage } from "@/lib/types/customers"
 import type {
   CreateCustomerPayload,
   CustomersRepositoryResult,
@@ -55,20 +66,285 @@ async function fetchLatestCustomerNumber(
   return data.customer_number
 }
 
-export async function getCustomers(
+export async function getLatestCustomerNumberCounter(
   client: SupabaseCustomersClient
-): Promise<CustomersRepositoryResult<Customer[]>> {
-  const { data, error } = await client
-    .from("customers")
-    .select("*")
-    .order("name", { ascending: true })
+): Promise<number> {
+  const latestNumber = await fetchLatestCustomerNumber(client)
+  return parseCustomerNumberCounter(latestNumber)
+}
+
+const CUSTOMER_IMPORT_BATCH_SIZE = 100
+
+export async function createCustomersBatch(
+  client: SupabaseCustomersClient,
+  payloads: (Omit<CreateCustomerPayload, "customerNumber"> & {
+    customerNumber?: string
+  })[],
+  startCounter: number
+): Promise<
+  CustomersRepositoryResult<{
+    customers: Customer[]
+    nextCounter: number
+  }>
+> {
+  if (payloads.length === 0) {
+    return {
+      data: { customers: [], nextCounter: startCounter },
+      error: null,
+    }
+  }
+
+  let counter = startCounter
+  const rows = payloads.map((payload) => {
+    counter += 1
+    return mapCustomerInsert({
+      ...payload,
+      customerNumber:
+        payload.customerNumber?.trim() || formatCustomerNumber(counter),
+    })
+  })
+
+  const { data, error } = await client.from("customers").insert(rows).select("*")
 
   if (error) {
     return { data: null, error: mapSupabaseCustomerError(error) }
   }
 
   return {
-    data: (data ?? []).map(mapCustomerRowToCustomer),
+    data: {
+      customers: (data ?? []).map(mapCustomerRowToCustomer),
+      nextCounter: counter,
+    },
+    error: null,
+  }
+}
+
+export { CUSTOMER_IMPORT_BATCH_SIZE }
+
+const CUSTOMERS_PAGE_SIZE = 1000
+
+const CUSTOMER_LIST_SELECT =
+  "id, name, external_customer_code, dni, address, locality, email, phone, technology, validation_status, legacy_migration_id"
+
+const CUSTOMER_DUPLICATE_INDEX_SELECT =
+  "id, name, external_customer_code, dni"
+
+function applyCustomerQuickFilter<
+  T extends {
+    eq: (column: string, value: string) => T
+  },
+>(query: T, quickFilter: CustomerListQuery["quickFilter"]): T {
+  if (quickFilter === "activos") {
+    return query.eq("validation_status", "active")
+  }
+
+  if (quickFilter === "revisar") {
+    return query.eq("validation_status", "review")
+  }
+
+  return query
+}
+
+function applyCustomerSearchFilter<
+  T extends {
+    or: (filters: string) => T
+  },
+>(query: T, search: string): T {
+  const normalizedSearch = search.trim()
+  if (!normalizedSearch) {
+    return query
+  }
+
+  const pattern = escapeCustomerSearchPattern(normalizedSearch)
+  const filters = [
+    `external_customer_code.ilike.${pattern}`,
+    `dni.ilike.${pattern}`,
+    `name.ilike.${pattern}`,
+    `phone.ilike.${pattern}`,
+    `address.ilike.${pattern}`,
+    `locality.ilike.${pattern}`,
+  ]
+
+  const numericId = Number.parseInt(normalizedSearch, 10)
+  if (
+    !Number.isNaN(numericId) &&
+    String(numericId) === normalizedSearch.replace(/\s/g, "")
+  ) {
+    filters.push(`legacy_migration_id.eq.${numericId}`)
+  }
+
+  return query.or(filters.join(","))
+}
+
+export async function listCustomersPaginated(
+  client: SupabaseCustomersClient,
+  input: CustomerListQuery
+): Promise<CustomersRepositoryResult<CustomerListPage>> {
+  const pageSize = input.pageSize ?? DEFAULT_CUSTOMER_PAGE_SIZE
+  const page = Math.max(1, input.page)
+  const offset = (page - 1) * pageSize
+
+  let query = client
+    .from("customers")
+    .select(CUSTOMER_LIST_SELECT, { count: "exact" })
+    .is("deleted_at", null)
+    .order("name", { ascending: true })
+
+  query = applyCustomerQuickFilter(query, input.quickFilter)
+  query = applyCustomerSearchFilter(query, input.search ?? "")
+
+  const { data, error, count } = await query.range(offset, offset + pageSize - 1)
+
+  if (error) {
+    return { data: null, error: mapSupabaseCustomerError(error) }
+  }
+
+  return {
+    data: {
+      items: (data ?? []).map(mapCustomerRowToListRow),
+      total: count ?? 0,
+      page,
+      pageSize,
+    },
+    error: null,
+  }
+}
+
+export async function getCustomerOperationalSummaryCounts(
+  client: SupabaseCustomersClient
+): Promise<CustomersRepositoryResult<CustomerOperationalSummary>> {
+  const base = () =>
+    client
+      .from("customers")
+      .select("id", { count: "exact", head: true })
+      .is("deleted_at", null)
+
+  const [operativosResult, activosResult, revisarResult] = await Promise.all([
+    base(),
+    base().eq("validation_status", "active"),
+    base().eq("validation_status", "review"),
+  ])
+
+  const error =
+    operativosResult.error ?? activosResult.error ?? revisarResult.error
+
+  if (error) {
+    return { data: null, error: mapSupabaseCustomerError(error) }
+  }
+
+  return {
+    data: {
+      operativos: operativosResult.count ?? 0,
+      activos: activosResult.count ?? 0,
+      revisar: revisarResult.count ?? 0,
+    },
+    error: null,
+  }
+}
+
+export async function getCustomerById(
+  client: SupabaseCustomersClient,
+  id: string
+): Promise<CustomersRepositoryResult<Customer>> {
+  const { data, error } = await client
+    .from("customers")
+    .select("*")
+    .eq("id", id)
+    .is("deleted_at", null)
+    .maybeSingle()
+
+  if (error) {
+    return { data: null, error: mapSupabaseCustomerError(error) }
+  }
+
+  if (!data) {
+    return {
+      data: null,
+      error: {
+        code: "NOT_FOUND",
+        message: "Cliente no encontrado.",
+      },
+    }
+  }
+
+  return {
+    data: mapCustomerRowToCustomer(data),
+    error: null,
+  }
+}
+
+export async function fetchCustomerDuplicateIndex(
+  client: SupabaseCustomersClient
+): Promise<
+  CustomersRepositoryResult<
+    Pick<Customer, "id" | "name" | "externalCustomerCode" | "dni">[]
+  >
+> {
+  const rows: Pick<Customer, "id" | "name" | "externalCustomerCode" | "dni">[] =
+    []
+  let offset = 0
+
+  while (true) {
+    const { data, error } = await client
+      .from("customers")
+      .select(CUSTOMER_DUPLICATE_INDEX_SELECT)
+      .is("deleted_at", null)
+      .order("name", { ascending: true })
+      .range(offset, offset + CUSTOMERS_PAGE_SIZE - 1)
+
+    if (error) {
+      return { data: null, error: mapSupabaseCustomerError(error) }
+    }
+
+    const page = data ?? []
+    rows.push(
+      ...page.map((row) => ({
+        id: row.id,
+        name: row.name,
+        externalCustomerCode: row.external_customer_code ?? undefined,
+        dni: row.dni ?? undefined,
+      }))
+    )
+
+    if (page.length < CUSTOMERS_PAGE_SIZE) {
+      break
+    }
+
+    offset += CUSTOMERS_PAGE_SIZE
+  }
+
+  return { data: rows, error: null }
+}
+
+export async function getCustomers(
+  client: SupabaseCustomersClient
+): Promise<CustomersRepositoryResult<Customer[]>> {
+  const rows: CustomerRow[] = []
+  let offset = 0
+
+  while (true) {
+    const { data, error } = await client
+      .from("customers")
+      .select("*")
+      .order("name", { ascending: true })
+      .range(offset, offset + CUSTOMERS_PAGE_SIZE - 1)
+
+    if (error) {
+      return { data: null, error: mapSupabaseCustomerError(error) }
+    }
+
+    const page = data ?? []
+    rows.push(...page)
+
+    if (page.length < CUSTOMERS_PAGE_SIZE) {
+      break
+    }
+
+    offset += CUSTOMERS_PAGE_SIZE
+  }
+
+  return {
+    data: rows.map(mapCustomerRowToCustomer),
     error: null,
   }
 }
@@ -81,31 +357,31 @@ export async function searchCustomers(
   const normalizedQuery = query.trim()
 
   if (!normalizedQuery) {
-    const allCustomers = await getCustomers(client)
-    if (allCustomers.error || allCustomers.data === null) {
-      return allCustomers
+    const { data, error } = await client
+      .from("customers")
+      .select("*")
+      .is("deleted_at", null)
+      .order("name", { ascending: true })
+      .limit(limit)
+
+    if (error) {
+      return { data: null, error: mapSupabaseCustomerError(error) }
     }
 
     return {
-      data: allCustomers.data.slice(0, limit),
+      data: (data ?? []).map(mapCustomerRowToCustomer),
       error: null,
     }
   }
 
-  const pattern = `%${normalizedQuery.replace(/[%_,]/g, "")}%`
-  const { data, error } = await client
+  let searchQuery = client
     .from("customers")
     .select("*")
-    .or(
-      [
-        `external_customer_code.ilike.${pattern}`,
-        `dni.ilike.${pattern}`,
-        `name.ilike.${pattern}`,
-        `phone.ilike.${pattern}`,
-        `address.ilike.${pattern}`,
-        `locality.ilike.${pattern}`,
-      ].join(",")
-    )
+    .is("deleted_at", null)
+
+  searchQuery = applyCustomerSearchFilter(searchQuery, normalizedQuery)
+
+  const { data, error } = await searchQuery
     .order("name", { ascending: true })
     .limit(limit)
 

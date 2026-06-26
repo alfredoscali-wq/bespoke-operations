@@ -1,27 +1,23 @@
 "use client"
 
-import { Radio } from "lucide-react"
-
 import { SignOutButton } from "@/components/auth/sign-out-button"
+import { BESPOKE_LOGO_SRC } from "@/lib/branding/logo"
 
 export function OperarioHeader() {
   return (
-    <header className="sticky top-0 z-40 border-b border-border/80 bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/90">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Radio className="size-4" />
-          </div>
-          <div>
-            <p className="text-sm font-semibold leading-none text-foreground">
-              Bespoke Campo
-            </p>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">
-              Portal de operario
-            </p>
-          </div>
+    <header className="sticky top-0 z-40 border-b border-border/80 bg-white px-4 py-4 sm:py-5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <img
+            src={BESPOKE_LOGO_SRC}
+            alt="Bespoke Operations"
+            className="h-14 w-auto object-contain"
+          />
+          <p className="mt-2 text-xs font-medium text-muted-foreground sm:text-[13px]">
+            Portal Operario
+          </p>
         </div>
-        <SignOutButton className="text-muted-foreground" />
+        <SignOutButton className="mt-0.5 shrink-0 text-muted-foreground" />
       </div>
     </header>
   )

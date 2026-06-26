@@ -91,7 +91,7 @@ export function ProjectCostsTab({ costs }: ProjectCostsTabProps) {
             <div>
               <CardTitle>Costo Total</CardTitle>
               <CardDescription>
-                Suma estimada de todos los rubros del proyecto
+                Suma estimada de todos los rubros de la obra
               </CardDescription>
             </div>
           </div>

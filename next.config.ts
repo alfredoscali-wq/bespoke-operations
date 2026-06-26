@@ -5,6 +5,10 @@ const supabaseHostname = process.env.NEXT_PUBLIC_SUPABASE_URL
   : undefined
 
 const nextConfig: NextConfig = {
+  allowedDevOrigins: [
+    "opened-deemed-yang-warren.trycloudflare.com",
+    "*.trycloudflare.com",
+  ],
   images: {
     remotePatterns: [
       {

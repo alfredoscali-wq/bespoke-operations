@@ -101,7 +101,7 @@ export function NewProjectDialog({ onSubmit }: NewProjectDialogProps) {
         <DialogTrigger asChild>
           <Button size="sm" className="gap-1.5">
             <Plus className="size-4" />
-            Nueva obra
+            Nueva Obra
           </Button>
         </DialogTrigger>
         <ProtectedFormDialogContent
@@ -110,16 +110,16 @@ export function NewProjectDialog({ onSubmit }: NewProjectDialogProps) {
           isDirty={isDirty}
         >
         <DialogHeader>
-          <DialogTitle>Nueva obra</DialogTitle>
+          <DialogTitle>Nueva Obra</DialogTitle>
           <DialogDescription>
-            Registra un nuevo proyecto de infraestructura o telecomunicaciones.
+            Registre una nueva obra de infraestructura o telecomunicaciones.
           </DialogDescription>
         </DialogHeader>
 
         <form id="new-project-form" onSubmit={handleSubmit} className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="name">Nombre del proyecto</Label>
+              <Label htmlFor="name">Nombre de la obra</Label>
               <Input
                 id="name"
                 value={form.name}
@@ -228,7 +228,7 @@ export function NewProjectDialog({ onSubmit }: NewProjectDialogProps) {
             Cancelar
           </Button>
           <Button type="submit" form="new-project-form" disabled={!isValid}>
-            Crear obra
+            Crear Obra
           </Button>
         </DialogFooter>
         </ProtectedFormDialogContent>

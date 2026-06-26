@@ -1,6 +1,6 @@
 "use client"
 
-import { buildWhatsAppUrl } from "@/lib/utils/whatsapp"
+import { buildWhatsAppUrl } from "@/lib/utils/phone"
 import { cn } from "@/lib/utils"
 
 type WhatsAppLinkProps = {

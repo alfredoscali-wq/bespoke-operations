@@ -401,7 +401,7 @@ function createEmptyDetail(project: Project): ProjectDetail {
       mockHistoryEvent({
         id: "h-new",
         eventType: "created",
-        title: "Proyecto registrado",
+        title: "Obra registrada",
         description: "Obra creada en el sistema de operaciones.",
         user: project.supervisor,
         timestamp: new Date().toISOString(),

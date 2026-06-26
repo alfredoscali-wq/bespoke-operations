@@ -28,10 +28,9 @@ import {
 } from "@/lib/tasks/work-order"
 import { resolveContractedPlanForTechnology } from "@/lib/tasks/commercial-plan"
 import { WorkOrderCommercialFields } from "@/components/tareas/work-order-commercial-fields"
+import { WorkOrderAmountToCollectField } from "@/components/tareas/work-order-amount-to-collect-field"
+import { WorkOrderLocationSection } from "@/components/tareas/work-order-location-section"
 import { resolveSupervisorFromCrew } from "@/lib/tasks/utils"
-import {
-  isRecognizedSharedLocation,
-} from "@/lib/utils/shared-location"
 import { uploadPendingTaskReferencePhotos } from "@/lib/supabase/task-photos.browser"
 import {
   TaskReferencePhotosPicker,
@@ -572,32 +571,9 @@ function WorkOrderCrewInfoFields({
   photosDisabled?: boolean
   onPhotosError?: (message: string | null) => void
 }) {
-  const hasSharedLocationInput = form.sharedLocation.trim().length > 0
-  const isGpsLoaded = isRecognizedSharedLocation(form.sharedLocation)
-
   return (
     <section className="space-y-4">
       <SectionTitle>Información para la Cuadrilla</SectionTitle>
-      <div className="space-y-2">
-        <Label htmlFor="wo-shared-location">Ubicación Compartida</Label>
-        <Input
-          id="wo-shared-location"
-          value={form.sharedLocation}
-          onChange={(event) =>
-            updateField("sharedLocation", event.target.value)
-          }
-          placeholder="URL de Google Maps, enlace corto o coordenadas"
-        />
-        {hasSharedLocationInput && isGpsLoaded ? (
-          <p className="text-xs text-green-600 dark:text-green-500">
-            ✅ GPS cargado
-          </p>
-        ) : hasSharedLocationInput ? (
-          <p className="text-xs text-amber-600 dark:text-amber-500">
-            ⚠ Revise la ubicación ingresada
-          </p>
-        ) : null}
-      </div>
       <div className="space-y-2">
         <Label htmlFor="wo-observations-crew">
           Observaciones para la cuadrilla
@@ -885,6 +861,22 @@ export function TaskWorkOrderDialog({
             </section>
           )}
 
+          {form.serviceType ? (
+            <WorkOrderAmountToCollectField
+              value={form.amountToCollect}
+              onChange={(value) => updateField("amountToCollect", value)}
+            />
+          ) : null}
+
+          {form.serviceType ? (
+            <WorkOrderLocationSection
+              sharedLocation={form.sharedLocation}
+              onSharedLocationChange={(value) =>
+                updateField("sharedLocation", value)
+              }
+            />
+          ) : null}
+
           {showScheduling && (
             <section className="space-y-4">
               <SectionTitle>Programación</SectionTitle>
@@ -896,6 +888,17 @@ export function TaskWorkOrderDialog({
                   value={form.scheduledDate}
                   onChange={(event) =>
                     updateField("scheduledDate", event.target.value)
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="wo-scheduled-time">Hora programada</Label>
+                <Input
+                  id="wo-scheduled-time"
+                  type="time"
+                  value={form.scheduledTime}
+                  onChange={(event) =>
+                    updateField("scheduledTime", event.target.value)
                   }
                 />
               </div>

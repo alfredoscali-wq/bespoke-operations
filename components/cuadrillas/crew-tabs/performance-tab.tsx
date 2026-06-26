@@ -23,7 +23,7 @@ type CrewPerformanceTabProps = {
 const metrics = [
   {
     key: "completedTasks" as const,
-    label: "Tareas Completadas",
+    label: "Órdenes de Trabajo Completadas",
     icon: CheckCircle2,
     color: "text-emerald-600 bg-emerald-50",
     suffix: "",
@@ -91,7 +91,7 @@ export function CrewPerformanceTab({ performance }: CrewPerformanceTabProps) {
         <CardHeader>
           <CardTitle className="text-base">Desempeño general</CardTitle>
           <CardDescription>
-            Índice calculado con tasa de cierre de tareas (60%) y aprobación de
+            Índice calculado con tasa de cierre de órdenes de trabajo (60%) y aprobación de
             evidencias (40%)
           </CardDescription>
         </CardHeader>

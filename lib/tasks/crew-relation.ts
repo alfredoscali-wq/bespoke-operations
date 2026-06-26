@@ -81,10 +81,10 @@ export function isTaskCrewArchived(
 export function getTaskCrewArchiveWarning(task: TaskCrewFields): string {
   const snapshot = task.crew?.trim()
   if (snapshot) {
-    return `La cuadrilla "${snapshot}" fue archivada. Reasigne la tarea a una cuadrilla activa.`
+    return `La cuadrilla "${snapshot}" fue archivada. Reasigne la orden de trabajo a una cuadrilla activa.`
   }
 
-  return "La cuadrilla asignada fue archivada. Reasigne la tarea a una cuadrilla activa."
+  return "La cuadrilla asignada fue archivada. Reasigne la orden de trabajo a una cuadrilla activa."
 }
 
 export function isSameTaskCrewAssignment(

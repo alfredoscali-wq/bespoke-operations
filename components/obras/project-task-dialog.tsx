@@ -252,7 +252,7 @@ export function ProjectTaskDialog({
       setError(
         submitError instanceof Error
           ? submitError.message
-          : "No se pudo guardar la tarea."
+          : "No se pudo guardar la orden de trabajo."
       )
     } finally {
       setIsSubmitting(false)
@@ -275,12 +275,12 @@ export function ProjectTaskDialog({
         >
         <DialogHeader>
           <DialogTitle>
-            {mode === "create" ? "Nueva tarea" : "Editar tarea"}
+            {mode === "create" ? "Nueva Orden de Trabajo" : "Editar Orden de Trabajo"}
           </DialogTitle>
           <DialogDescription>
             {mode === "create"
-              ? `La tarea se asociará a ${project.code} — ${project.name}.`
-              : `Modifique los datos de la tarea en ${project.code}.`}
+              ? `La orden de trabajo se asociará a ${project.code} — ${project.name}.`
+              : `Modifique los datos de la orden de trabajo en ${project.code}.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -434,7 +434,7 @@ export function ProjectTaskDialog({
               {isSubmitting
                 ? "Guardando..."
                 : mode === "create"
-                  ? "Crear tarea"
+                  ? "Crear Orden de Trabajo"
                   : "Guardar cambios"}
             </Button>
           </DialogFooter>

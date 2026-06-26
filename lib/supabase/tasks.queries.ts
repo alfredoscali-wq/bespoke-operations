@@ -35,7 +35,7 @@ export function mapSupabaseTaskError(error: {
   if (error.code === "23505") {
     return {
       code: "DUPLICATE_CODE" as const,
-      message: "Ya existe una tarea con ese código.",
+      message: "Ya existe una orden de trabajo con ese código.",
     }
   }
 
@@ -55,6 +55,28 @@ export async function fetchTasks(
     .select("*")
     .is("deleted_at", null)
     .order("due_date", { ascending: true })
+
+  if (error) {
+    return { data: null, error: mapSupabaseTaskError(error) }
+  }
+
+  return {
+    data: (data ?? []).map(mapTaskRowToTask),
+    error: null,
+  }
+}
+
+export async function fetchWorkOrdersByCustomerId(
+  client: SupabaseTasksClient,
+  customerId: string
+): Promise<TasksRepositoryResult<Task[]>> {
+  const { data, error } = await client
+    .from("tasks")
+    .select("*")
+    .eq("customer_id", customerId)
+    .is("deleted_at", null)
+    .not("work_order_number", "is", null)
+    .order("due_date", { ascending: false })
 
   if (error) {
     return { data: null, error: mapSupabaseTaskError(error) }
@@ -86,7 +108,7 @@ export async function fetchTaskById(
       data: null,
       error: {
         code: "NOT_FOUND",
-        message: "Tarea no encontrada.",
+        message: "Orden de trabajo no encontrada.",
       },
     }
   }
@@ -147,7 +169,7 @@ export async function patchTask(
       data: null,
       error: {
         code: "NOT_FOUND",
-        message: "Tarea no encontrada.",
+        message: "Orden de trabajo no encontrada.",
       },
     }
   }
@@ -181,7 +203,7 @@ export async function softDeleteTask(
       data: null,
       error: {
         code: "NOT_FOUND",
-        message: "Tarea no encontrada.",
+        message: "Orden de trabajo no encontrada.",
       },
     }
   }

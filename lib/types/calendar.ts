@@ -34,6 +34,8 @@ export type CalendarTaskPayload = {
   priority: TaskPriority
   startDate: string
   dueDate: string
+  scheduledTime?: string | null
+  serviceType?: string | null
   alerts: CalendarTaskAlert[]
 }
 

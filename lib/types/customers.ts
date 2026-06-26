@@ -29,6 +29,29 @@ export interface Customer {
   deletedAt?: string
 }
 
+/** Campos mínimos para filas del listado operativo. */
+export type CustomerListRow = Pick<
+  Customer,
+  | "id"
+  | "name"
+  | "externalCustomerCode"
+  | "dni"
+  | "address"
+  | "locality"
+  | "email"
+  | "phone"
+  | "technology"
+  | "validationStatus"
+  | "legacyMigrationId"
+>
+
+export type CustomerListPage = {
+  items: CustomerListRow[]
+  total: number
+  page: number
+  pageSize: number
+}
+
 export type NewCustomerInput = {
   name: string
   externalCustomerCode?: string

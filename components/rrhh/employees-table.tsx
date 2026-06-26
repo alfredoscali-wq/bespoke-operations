@@ -24,7 +24,7 @@ import type {
   EmployeeSortState,
   NewEmployeeInput,
 } from "@/lib/types/employees"
-import { WhatsAppLink } from "@/components/ui/whatsapp-link"
+import { TelLink } from "@/components/ui/tel-link"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -292,7 +292,7 @@ export function EmployeesTable({ employees }: EmployeesTableProps) {
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {employee.phone ? (
-                        <WhatsAppLink phone={employee.phone} />
+                        <TelLink phone={employee.phone} />
                       ) : (
                         "—"
                       )}
@@ -360,7 +360,7 @@ export function EmployeesTable({ employees }: EmployeesTableProps) {
                 <p>
                   <span className="text-muted-foreground">Teléfono:</span>{" "}
                   {employee.phone ? (
-                    <WhatsAppLink phone={employee.phone} />
+                    <TelLink phone={employee.phone} />
                   ) : (
                     "—"
                   )}

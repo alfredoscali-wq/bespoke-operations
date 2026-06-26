@@ -104,7 +104,7 @@ export function TasksGroupedList({
     return (
       <div className="rounded-xl border border-dashed bg-muted/20 px-6 py-16 text-center">
         <p className="text-sm font-medium text-foreground">
-          No se encontraron tareas
+          No se encontraron órdenes de trabajo
         </p>
         <p className="mt-1 text-sm text-muted-foreground">
           Ajusta los filtros para ver más resultados.
@@ -206,7 +206,7 @@ export function TasksGroupedList({
 
             {isExpanded && group.tasks.length === 0 && (
               <div className="border-t px-4 py-6 text-sm text-muted-foreground">
-                No hay tareas en este estado.
+                No hay órdenes de trabajo en este estado.
               </div>
             )}
           </section>

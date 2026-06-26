@@ -113,14 +113,14 @@ export function ProjectEditDialog({
         <DialogHeader>
           <DialogTitle>Editar obra</DialogTitle>
           <DialogDescription>
-            Actualice los datos operativos y administrativos del proyecto.
+            Actualice los datos operativos y administrativos de la obra.
           </DialogDescription>
         </DialogHeader>
 
         <form id="edit-project-form" onSubmit={handleSubmit} className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="edit-name">Nombre del proyecto</Label>
+              <Label htmlFor="edit-name">Nombre de la obra</Label>
               <Input
                 id="edit-name"
                 value={form.name}

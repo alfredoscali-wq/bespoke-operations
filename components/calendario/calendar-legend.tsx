@@ -6,7 +6,7 @@ import { useCalendarUI } from "@/components/calendario/calendar-ui-provider"
 import { Button } from "@/components/ui/button"
 
 const legendItems = [
-  { emoji: "🔵", label: "Tareas" },
+  ({ emoji: "🔵", label: "Órdenes de Trabajo" }),
   { emoji: "🔴", label: "Vacaciones" },
   { emoji: "🟠", label: "Licencia médica" },
   { emoji: "🟡", label: "Capacidad reducida" },

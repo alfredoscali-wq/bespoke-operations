@@ -27,7 +27,7 @@ const cards: {
 }[] = [
   {
     key: "tasksInWeek",
-    label: "Tareas de la semana",
+    label: "Órdenes de trabajo de la semana",
     icon: CheckSquare,
     tone: "blue",
   },

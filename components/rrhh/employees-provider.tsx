@@ -9,6 +9,14 @@ import {
   useState,
 } from "react"
 
+import {
+  recordEmployeeCreateAudit,
+  recordEmployeeEditAudit,
+} from "@/lib/audit/rrhh-audit"
+import {
+  hasUserAccountFieldChanges,
+  recordUserAccountChangesViaApi,
+} from "@/lib/audit/users-audit"
 import { requestProvisionEmployeeAccess } from "@/lib/auth/provision-client"
 import { requestResetEmployeePassword } from "@/lib/auth/reset-password-client"
 import { BESPOKE_DEMO_COMPANY_ID } from "@/lib/supabase/company.constants"
@@ -169,6 +177,7 @@ export function EmployeesProvider({ children }: { children: React.ReactNode }) {
 
         if (result.data) {
           setEmployees((current) => sortEmployees([...current, result.data!]))
+          recordEmployeeCreateAudit(result.data)
           return { success: true, employee: result.data }
         }
 
@@ -198,9 +207,20 @@ export function EmployeesProvider({ children }: { children: React.ReactNode }) {
 
       try {
         const client = createBrowserEmployeesClient()
+        const existing = employees.find((employee) => employee.id === id)
         const result = await updateEmployee(id, input, client)
 
         if (result.data) {
+          if (existing) {
+            if (hasUserAccountFieldChanges(input)) {
+              void recordUserAccountChangesViaApi({
+                before: existing,
+                after: result.data,
+                changes: input,
+              })
+            }
+            recordEmployeeEditAudit(existing, input, result.data)
+          }
           setEmployees((current) =>
             sortEmployees(replaceEmployeeInList(current, result.data!))
           )
@@ -219,7 +239,7 @@ export function EmployeesProvider({ children }: { children: React.ReactNode }) {
         }
       }
     },
-    [usesSupabase]
+    [usesSupabase, employees]
   )
 
   const provisionEmployeeAccess = useCallback(

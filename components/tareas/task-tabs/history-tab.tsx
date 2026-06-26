@@ -23,7 +23,7 @@ export function TaskHistoryTab({ history }: TaskHistoryTabProps) {
       <CardHeader>
         <CardTitle>Historial de actividad</CardTitle>
         <CardDescription>
-          Línea de tiempo automática de eventos de la tarea
+          Línea de tiempo automática de eventos de la orden de trabajo
         </CardDescription>
       </CardHeader>
       <CardContent>

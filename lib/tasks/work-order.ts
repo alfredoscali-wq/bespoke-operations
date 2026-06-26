@@ -1,15 +1,20 @@
 import type { CreateTaskPayload } from "@/lib/types/supabase/tasks"
 import type { Task, TaskStatus, TaskType } from "@/lib/types/tasks"
-import { parseSharedLocation } from "@/lib/utils/shared-location"
 import {
   createDefaultOperationalSteps,
   createInstallationOperationalSteps,
 } from "@/lib/operational-steps/default-steps"
 import {
-  parseInstallationCostInput,
+  formatAmountToCollectFormValue,
+  parseAmountToCollectInput,
   resolveContractedPlanFromForm,
   type ContractedPlan,
 } from "@/lib/tasks/commercial-plan"
+import {
+  formatScheduledTimeForInput,
+  getDefaultScheduledTime,
+  normalizeScheduledTimeForDb,
+} from "@/lib/tasks/scheduling"
 
 export type WorkOrderServiceType =
   | "instalacion-nueva"
@@ -129,6 +134,7 @@ export type WorkOrderFormInput = {
   customerEmail: string
   customerId: string
   scheduledDate: string
+  scheduledTime: string
   crewId: string
   observations: string
   address: string
@@ -154,7 +160,9 @@ export type WorkOrderFormInput = {
   sharedLocation: string
   observationsForCrew: string
   contractedPlan: ContractedPlan | ""
-  installationCost: string
+  amountToCollect: string
+  latitude: number | null
+  longitude: number | null
 }
 
 export function getDefaultWorkOrderForm(): WorkOrderFormInput {
@@ -165,6 +173,7 @@ export function getDefaultWorkOrderForm(): WorkOrderFormInput {
     customerEmail: "",
     customerId: "",
     scheduledDate: new Date().toISOString().slice(0, 10),
+    scheduledTime: getDefaultScheduledTime(),
     crewId: "",
     observations: "",
     address: "",
@@ -190,7 +199,9 @@ export function getDefaultWorkOrderForm(): WorkOrderFormInput {
     sharedLocation: "",
     observationsForCrew: "",
     contractedPlan: "",
-    installationCost: "",
+    amountToCollect: "",
+    latitude: null,
+    longitude: null,
   }
 }
 
@@ -382,12 +393,6 @@ export function validateWorkOrderForm(
       if (!resolveContractedPlanFromForm(input)) {
         return { valid: false, message: "Seleccione el plan contratado." }
       }
-      if (parseInstallationCostInput(input.installationCost) === null) {
-        return {
-          valid: false,
-          message: "Indique el costo de instalación.",
-        }
-      }
       break
     case "cambio-domicilio":
       if (!input.currentAddress.trim() || !input.newAddress.trim()) {
@@ -497,9 +502,8 @@ export function buildWorkOrderCreatePayload(input: {
   const serviceAddress = resolvePrimaryAddress(form)
   const locality = resolvePrimaryLocality(form)
   const sharedLocation = form.sharedLocation.trim()
-  const parsedLocation = parseSharedLocation(sharedLocation)
   const contractedPlan = resolveContractedPlanFromForm(form)
-  const installationCost = parseInstallationCostInput(form.installationCost)
+  const amountToCollect = parseAmountToCollectInput(form.amountToCollect)
 
   return {
     code: generateWorkOrderTaskCode(existingTasks),
@@ -513,8 +517,6 @@ export function buildWorkOrderCreatePayload(input: {
     customerCompany: form.customerCompany.trim() || undefined,
     customerId: customerId ?? undefined,
     serviceAddress: serviceAddress || undefined,
-    latitude: parsedLocation.latitude,
-    longitude: parsedLocation.longitude,
     sharedLocation: sharedLocation || undefined,
     observationsForCrew: form.observationsForCrew.trim() || undefined,
     workOrderNumber: form.clientOrderNumber.trim() || undefined,
@@ -526,6 +528,7 @@ export function buildWorkOrderCreatePayload(input: {
     crew: hasCrew ? crewName : "",
     startDate: form.scheduledDate,
     dueDate: form.scheduledDate,
+    scheduledTime: normalizeScheduledTimeForDb(form.scheduledTime),
     estimatedDuration: "",
     checklist,
     operationalSteps: resolveOperationalStepsForWorkOrder(form),
@@ -533,6 +536,64 @@ export function buildWorkOrderCreatePayload(input: {
     locality: locality || undefined,
     taskMetadata: buildTaskMetadata(form),
     contractedPlan: contractedPlan ?? undefined,
-    installationCost: installationCost ?? undefined,
+    amountToCollect: amountToCollect ?? undefined,
+  }
+}
+
+export function resolveWorkOrderTechnologyFromTask(
+  task: Pick<Task, "type" | "taskMetadata">
+): WorkOrderTechnology | "" {
+  if (task.type === "wireless") return "wireless"
+  if (task.type === "fiber") return "fiber"
+
+  const metadataTechnology = task.taskMetadata?.technology
+  if (metadataTechnology === "wireless" || metadataTechnology === "fiber") {
+    return metadataTechnology
+  }
+
+  return ""
+}
+
+export function buildCommercialFormFromTask(
+  task: Task
+): Pick<
+  WorkOrderFormInput,
+  "serviceType" | "technology" | "contractedPlan"
+> {
+  const technology = resolveWorkOrderTechnologyFromTask(task)
+  const contractedPlan =
+    task.contractedPlan === "50Mb" ||
+    task.contractedPlan === "100Mb" ||
+    task.contractedPlan === "300Mb" ||
+    task.contractedPlan === "20Mb"
+      ? task.contractedPlan
+      : ""
+
+  return {
+    serviceType: (task.serviceType as WorkOrderServiceType) ?? "",
+    technology,
+    contractedPlan,
+  }
+}
+
+export function buildAmountToCollectFormFromTask(task: Task): string {
+  return formatAmountToCollectFormValue(task.amountToCollect)
+}
+
+export function buildLocationFormFromTask(
+  task: Task
+): Pick<WorkOrderFormInput, "sharedLocation"> {
+  return {
+    sharedLocation: task.sharedLocation ?? "",
+  }
+}
+
+export function buildScheduleFormFromTask(
+  task: Task
+): Pick<WorkOrderFormInput, "scheduledDate" | "scheduledTime"> {
+  return {
+    scheduledDate: task.dueDate,
+    scheduledTime:
+      formatScheduledTimeForInput(task.scheduledTime) || getDefaultScheduledTime(),
   }
 }

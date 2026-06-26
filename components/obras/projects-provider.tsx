@@ -32,6 +32,14 @@ import {
   updateProject as updateProjectInSupabase,
 } from "@/lib/supabase/projects.browser"
 import { PROJECT_DELETE_USER_MESSAGE, logOperationError } from "@/lib/operations/user-messages"
+import {
+  isProjectAuditableFieldUpdate,
+  isProjectStatusUpdate,
+  recordProjectArchiveAudit,
+  recordProjectCreateAudit,
+  recordProjectStatusChangeAuditFromTransition,
+  recordProjectUpdateAudit,
+} from "@/lib/audit/projects-audit"
 import { logDeleteTrace } from "@/lib/supabase/delete-trace"
 import type { UpdateProjectPayload } from "@/lib/types/supabase/projects"
 import type {
@@ -178,6 +186,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
       const project = result.data
       cacheProjectDetail(project)
       setProjects((current) => [project, ...current])
+      recordProjectCreateAudit(project)
 
       await persistHistoryEvent(
         project.id,
@@ -220,6 +229,10 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
               project.id === id ? result.data! : project
             )
           )
+
+          if (!isProjectStatusUpdate(payload) && isProjectAuditableFieldUpdate(payload)) {
+            recordProjectUpdateAudit(existing, payload, result.data)
+          }
 
           if (payload.status === undefined) {
             await persistHistoryEvent(
@@ -268,9 +281,18 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
+      const previousStatus = existing.status
       const result = await updateProject(id, { status: newStatus })
       if (!result.success) {
         return result
+      }
+
+      if (result.project) {
+        recordProjectStatusChangeAuditFromTransition({
+          project: existing,
+          previousStatus,
+          nextStatus: newStatus,
+        })
       }
 
       await persistHistoryEvent(
@@ -300,12 +322,18 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
         return { success: false, message: validation.message }
       }
 
+      const previousStatus = existing.status
       const result = await updateProject(
         id,
         buildProjectUpdatePayloadForPause(input)
       )
 
-      if (result.success) {
+      if (result.success && result.project) {
+        recordProjectStatusChangeAuditFromTransition({
+          project: existing,
+          previousStatus,
+          nextStatus: result.project.status,
+        })
         await persistHistoryEvent(id, buildPauseHistory(input))
       }
 
@@ -316,9 +344,20 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
 
   const resumeProject = useCallback(
     async (id: string) => {
+      const existing = projects.find((project) => project.id === id)
+      if (!existing) {
+        return { success: false, message: "Obra no encontrada." }
+      }
+
+      const previousStatus = existing.status
       const result = await updateProject(id, buildProjectUpdatePayloadForResume())
 
-      if (result.success) {
+      if (result.success && result.project) {
+        recordProjectStatusChangeAuditFromTransition({
+          project: existing,
+          previousStatus,
+          nextStatus: result.project.status,
+        })
         await persistHistoryEvent(
           id,
           createHistoryEvent({
@@ -391,6 +430,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
 
       setProjects((current) => current.filter((project) => project.id !== id))
       detailCache.delete(id)
+      recordProjectArchiveAudit(existing)
 
       return { success: true }
     },

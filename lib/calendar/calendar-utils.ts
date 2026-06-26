@@ -13,6 +13,8 @@ import type {
 import type { Crew } from "@/lib/types/crews"
 import type { Employee } from "@/lib/types/employees"
 import type { Task } from "@/lib/types/tasks"
+import { compareDateOnly } from "@/lib/dates/date-only"
+import { compareScheduledTimeStrings } from "@/lib/tasks/scheduling"
 import { isCalendarOperationalTask } from "@/lib/tasks/status-groups"
 
 const ABSENCE_TYPES: AvailabilityType[] = [
@@ -169,6 +171,8 @@ export function buildTaskCalendarEvents(
           priority: task.priority,
           startDate: task.startDate,
           dueDate: task.dueDate,
+          scheduledTime: task.scheduledTime,
+          serviceType: task.serviceType,
           alerts,
         },
       })
@@ -364,6 +368,18 @@ export function sortCalendarEvents(events: CalendarEvent[]): CalendarEvent[] {
   return [...events].sort((a, b) => {
     const typeCompare = typeOrder[a.type] - typeOrder[b.type]
     if (typeCompare !== 0) return typeCompare
+
+    if (a.type === "TASK" && b.type === "TASK") {
+      const byDate = compareDateOnly(a.date, b.date)
+      if (byDate !== 0) return byDate
+
+      const byTime = compareScheduledTimeStrings(
+        a.payload.scheduledTime,
+        b.payload.scheduledTime
+      )
+      if (byTime !== 0) return byTime
+    }
+
     return a.title.localeCompare(b.title, "es")
   })
 }
