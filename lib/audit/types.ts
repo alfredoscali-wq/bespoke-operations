@@ -122,11 +122,26 @@ export type AuditLogQuery = {
   severity?: AuditSeverity
   performedByUserId?: string
   search?: string
+  entityLabel?: string
+  otCode?: string
+  customerQuery?: string
+  projectQuery?: string
   from?: string
   to?: string
   page?: number
   limit?: number
 }
+
+export type AuditLogStats = {
+  eventsToday: number
+  activeUsersToday: number
+  tasksCreatedToday: number
+  tasksFinishedToday: number
+  criticalToday: number
+  loginsToday: number
+}
+
+export type AuditLogStatsQuery = Pick<AuditLogQuery, "from" | "to">
 
 export type AuditLogQueryResult = {
   entries: AuditLogEntry[]

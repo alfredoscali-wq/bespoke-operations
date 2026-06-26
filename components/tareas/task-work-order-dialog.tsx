@@ -10,6 +10,10 @@ import {
   formatCustomerTechnologyLabel,
 } from "@/lib/customers/format"
 import {
+  isCustomerEligibleForReconexion,
+  validateReconexionCustomer,
+} from "@/lib/customers/reconexion-eligibility"
+import {
   getAssignableCrews,
   validateCrewAssignment,
 } from "@/lib/crews/status-workflow"
@@ -26,7 +30,7 @@ import {
   type WorkOrderFormInput,
   type WorkOrderServiceType,
 } from "@/lib/tasks/work-order"
-import { sanitizePlanForTechnology } from "@/lib/tasks/commercial-plan"
+import { WorkOrderCambioTecnologiaFields } from "@/components/tareas/work-order-cambio-tecnologia-fields"
 import { WorkOrderCommercialFields } from "@/components/tareas/work-order-commercial-fields"
 import { WorkOrderCambioDomicilioFields } from "@/components/tareas/work-order-cambio-domicilio-fields"
 import { WorkOrderCustomerSyncDialog } from "@/components/tareas/work-order-customer-sync-dialog"
@@ -286,7 +290,9 @@ function CustomerFields({
           />
         </div>
       </div>
-      {!isNewInstallationWorkOrder(form.serviceType) && (
+      {!isNewInstallationWorkOrder(form.serviceType) &&
+        form.serviceType !== "cambio-domicilio" &&
+        form.serviceType !== "cambio-tecnologia" && (
         <>
           <div className="space-y-2">
             <Label htmlFor="wo-address">Dirección</Label>
@@ -309,13 +315,7 @@ function CustomerFields({
               <Label>Tecnología</Label>
               <TechnologySelect
                 value={form.technology}
-                onChange={(value) => {
-                  updateField("technology", value)
-                  updateField(
-                    "contractedPlan",
-                    sanitizePlanForTechnology(form.contractedPlan, value)
-                  )
-                }}
+                onChange={(value) => updateField("technology", value)}
               />
             </div>
           </div>
@@ -366,22 +366,7 @@ function WorkOrderDynamicFields({
 
     case "cambio-tecnologia":
       return (
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label>Tecnología actual *</Label>
-            <TechnologySelect
-              value={form.currentTechnology}
-              onChange={(value) => updateField("currentTechnology", value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Nueva tecnología *</Label>
-            <TechnologySelect
-              value={form.newTechnology}
-              onChange={(value) => updateField("newTechnology", value)}
-            />
-          </div>
-        </div>
+        <WorkOrderCambioTecnologiaFields form={form} updateField={updateField} />
       )
 
     case "service-tecnico":
@@ -598,8 +583,16 @@ export function TaskWorkOrderDialog({
   } = useProtectedFormDialog({ open, onOpenChange, isDirty })
 
   const handleCustomerSearch = useCallback(
-    (query: string) => searchCustomers(query),
-    [searchCustomers]
+    async (query: string) => {
+      const items = await searchCustomers(query)
+
+      if (form.serviceType === "reconexion") {
+        return items.filter(isCustomerEligibleForReconexion)
+      }
+
+      return items
+    },
+    [searchCustomers, form.serviceType]
   )
 
   useEffect(() => {
@@ -773,6 +766,26 @@ export function TaskWorkOrderDialog({
         setError("Seleccione un cliente registrado.")
         setIsSubmitting(false)
         return
+      }
+
+      if (form.serviceType === "reconexion") {
+        const reconexionCustomer =
+          linkedCustomer?.id === customerId
+            ? linkedCustomer
+            : await fetchCustomerById(customerId)
+
+        const reconexionValidation = validateReconexionCustomer(
+          reconexionCustomer
+        )
+
+        if (!reconexionValidation.valid) {
+          setError(
+            reconexionValidation.message ??
+              "Cliente no elegible para reconexión."
+          )
+          setIsSubmitting(false)
+          return
+        }
       }
 
       const snapshots = resolveCrewSnapshotsForAssignment(selectedCrew)

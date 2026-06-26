@@ -1,3 +1,4 @@
+import { isTaskCompletedInReportRange } from "@/lib/reports/completed-tasks"
 import {
   applyReportFilters,
   isDateWithinReportRange,
@@ -28,10 +29,8 @@ export function getOperationalReportSummary(
     isDateWithinReportRange(task.dueDate, range)
   ).length
 
-  const completed = filteredTasks.filter(
-    (task) =>
-      Boolean(task.completedAt) &&
-      isDateWithinReportRange(task.completedAt, range)
+  const completed = filteredTasks.filter((task) =>
+    isTaskCompletedInReportRange(task, range)
   ).length
 
   const cancelled = filteredTasks.filter(

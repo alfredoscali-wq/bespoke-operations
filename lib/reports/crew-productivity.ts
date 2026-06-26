@@ -1,3 +1,4 @@
+import { isTaskCompletedInReportRange } from "@/lib/reports/completed-tasks"
 import {
   applyReportFilters,
   isDateWithinReportRange,
@@ -49,10 +50,8 @@ function countCrewMetrics(
     isDateWithinReportRange(task.dueDate, range)
   ).length
 
-  const completed = tasks.filter(
-    (task) =>
-      Boolean(task.completedAt) &&
-      isDateWithinReportRange(task.completedAt, range)
+  const completed = tasks.filter((task) =>
+    isTaskCompletedInReportRange(task, range)
   ).length
 
   const cancelled = tasks.filter(

@@ -37,6 +37,11 @@ import { isCambioDomicilioTask } from "@/lib/tasks/cambio-domicilio"
 import { isTaskVencida } from "@/lib/tasks/vencida-status"
 import { OverdueTaskInfoPanel } from "@/components/tareas/overdue-task-info-panel"
 import { WorkOrderCambioDomicilioDetail } from "@/components/tareas/work-order-cambio-domicilio-detail"
+import {
+  WorkOrderDualTechnologyDetail,
+  WorkOrderFtthInstallationDetail,
+} from "@/components/tareas/work-order-technology-state-detail"
+import { taskRequiresFtthInstallation } from "@/lib/tasks/ftth-installation"
 import { isFieldServiceTask } from "@/lib/tasks/utils"
 import { TaskEvidenceSummary } from "@/components/evidencias/task-evidence-summary"
 import { TaskMaterialsPanel } from "@/components/materiales/task-materials-panel"
@@ -279,6 +284,12 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
             </div>
           ) : null}
 
+          {liveTask.serviceType === "cambio-tecnologia" ? (
+            <div className="mb-4">
+              <WorkOrderDualTechnologyDetail task={liveTask} />
+            </div>
+          ) : null}
+
           <div className="grid gap-4 sm:grid-cols-2">
             {infoItems.map((item) => {
               const Icon = item.icon
@@ -367,7 +378,9 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
       </Card>
 
       <div className="space-y-6">
-        {isNewInstallationTask(liveTask) && liveTask.contractedPlan ? (
+        {taskRequiresFtthInstallation(liveTask) ? (
+          <WorkOrderFtthInstallationDetail task={liveTask} />
+        ) : isNewInstallationTask(liveTask) && liveTask.contractedPlan ? (
           <Card className="shadow-sm">
             <CardHeader>
               <CardTitle>Información comercial</CardTitle>

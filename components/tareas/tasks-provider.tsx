@@ -39,6 +39,7 @@ import {
   syncTaskProgress,
 } from "@/lib/tasks/utils"
 import { generateWorkOrderTaskCodeFromCodes } from "@/lib/tasks/work-order"
+import { applyWorkOrderApprovalEffects } from "@/lib/tasks/work-order-approval-effects"
 import { getTaskEvidencePhotoCount, getOperationalStepPhotoCounts } from "@/lib/supabase/task-photos.browser"
 import {
   getOperationalStepsProgress,
@@ -591,7 +592,15 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
   )
 
   const approveTask = useCallback(
-    (id: string) => applyWorkflowTransition(id, "approve"),
+    async (id: string): Promise<TaskMutationResult> => {
+      const result = await applyWorkflowTransition(id, "approve")
+
+      if (result.success && result.task) {
+        await applyWorkOrderApprovalEffects(result.task)
+      }
+
+      return result
+    },
     [applyWorkflowTransition]
   )
 

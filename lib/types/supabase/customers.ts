@@ -8,6 +8,14 @@ export type CreateCustomerPayload = {
   address?: string | null
   locality?: string | null
   technology?: string | null
+  contractedPlan?: string | null
+  latitude?: number | null
+  longitude?: number | null
+  sharedLocation?: string | null
+  napBox?: string | null
+  napPort?: string | null
+  onuSerial?: string | null
+  statusReason?: string | null
   status?: string
   validationStatus?: "active" | "review"
   legacyClientState?: string | null
@@ -24,6 +32,14 @@ export type UpdateCustomerPayload = Partial<{
   address: string | null
   locality: string | null
   technology: string | null
+  contractedPlan: string | null
+  latitude: number | null
+  longitude: number | null
+  sharedLocation: string | null
+  napBox: string | null
+  napPort: string | null
+  onuSerial: string | null
+  statusReason: string | null
   status: string
   validationStatus: "active" | "review"
   validatedBy: string | null

@@ -8,6 +8,10 @@ type CommercialFormSlice = {
   serviceType: string | ""
   technology: WorkOrderTechnology | ""
   contractedPlan: ContractedPlan | ""
+  currentTechnology?: WorkOrderTechnology | ""
+  newTechnology?: WorkOrderTechnology | ""
+  currentContractedPlan?: ContractedPlan | ""
+  newContractedPlan?: ContractedPlan | ""
 }
 
 export const FIBER_CONTRACTED_PLAN_OPTIONS: {
@@ -112,23 +116,62 @@ export function formatAmountToCollectFormValue(
 }
 
 export function resolveContractedPlanFromForm(
-  form: CommercialFormSlice
+  form: CommercialFormSlice & {
+    serviceType: string | ""
+    currentTechnology?: WorkOrderTechnology | ""
+    newTechnology?: WorkOrderTechnology | ""
+    newContractedPlan?: ContractedPlan | ""
+  }
 ): ContractedPlan | null {
-  if (form.serviceType !== "instalacion-nueva") return null
-
-  if (form.technology === "wireless") {
-    return WIRELESS_CONTRACTED_PLAN
+  if (form.serviceType === "instalacion-nueva") {
+    return resolvePlanForTechnology(form.technology, form.contractedPlan)
   }
 
   if (
-    form.contractedPlan === "50Mb" ||
-    form.contractedPlan === "100Mb" ||
-    form.contractedPlan === "300Mb"
+    form.serviceType === "cambio-domicilio" ||
+    form.serviceType === "cambio-tecnologia"
   ) {
-    return form.contractedPlan
+    const finalTechnology =
+      form.newTechnology ||
+      (form.serviceType === "cambio-domicilio" ? form.technology : "")
+
+    const finalPlan =
+      form.newContractedPlan ||
+      (finalTechnology === form.technology ? form.contractedPlan : "")
+
+    return resolvePlanForTechnology(finalTechnology, finalPlan)
   }
 
   return null
+}
+
+function resolvePlanForTechnology(
+  technology: WorkOrderTechnology | "",
+  plan: ContractedPlan | ""
+): ContractedPlan | null {
+  if (!technology) return null
+
+  if (technology === "wireless") {
+    return WIRELESS_CONTRACTED_PLAN
+  }
+
+  if (plan === "50Mb" || plan === "100Mb" || plan === "300Mb") {
+    return plan
+  }
+
+  return null
+}
+
+export function resolveCurrentContractedPlanFromForm(
+  form: Pick<
+    CommercialFormSlice,
+    "currentTechnology" | "currentContractedPlan"
+  >
+): ContractedPlan | null {
+  return resolvePlanForTechnology(
+    form.currentTechnology ?? "",
+    form.currentContractedPlan ?? ""
+  )
 }
 
 export function resolveContractedPlanForTechnology(
@@ -185,10 +228,54 @@ export function sanitizePlanForTechnology(
 }
 
 export function taskHasCommercialInfo(
-  task: Pick<Task, "serviceType" | "contractedPlan" | "amountToCollect">
+  task: Pick<Task, "serviceType" | "contractedPlan" | "amountToCollect" | "taskMetadata">
 ): boolean {
-  return (
-    isNewInstallationTask(task) &&
-    Boolean(task.contractedPlan?.trim() || task.amountToCollect != null)
+  if (task.contractedPlan?.trim() || task.amountToCollect != null) {
+    return true
+  }
+
+  return Boolean(
+    task.taskMetadata?.currentContractedPlan ||
+      task.taskMetadata?.newContractedPlan
   )
+}
+
+function readMetadataPlan(value: unknown): ContractedPlan | "" {
+  if (
+    value === "50Mb" ||
+    value === "100Mb" ||
+    value === "300Mb" ||
+    value === "20Mb"
+  ) {
+    return value
+  }
+
+  return ""
+}
+
+export function resolveContractedPlanFromTask(
+  task: Pick<Task, "contractedPlan" | "taskMetadata" | "serviceType" | "type">
+): ContractedPlan | null {
+  const direct =
+    task.contractedPlan === "50Mb" ||
+    task.contractedPlan === "100Mb" ||
+    task.contractedPlan === "300Mb" ||
+    task.contractedPlan === "20Mb"
+      ? task.contractedPlan
+      : ""
+
+  if (direct) {
+    return direct
+  }
+
+  const metadata = task.taskMetadata ?? {}
+  const metadataPlan =
+    readMetadataPlan(metadata.newContractedPlan) ||
+    readMetadataPlan(metadata.contractedPlan)
+
+  if (metadataPlan) {
+    return metadataPlan
+  }
+
+  return null
 }

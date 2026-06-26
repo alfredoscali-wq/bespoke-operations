@@ -14,6 +14,8 @@ import type {
   AuditLogEntry,
   AuditLogQuery,
   AuditLogQueryResult,
+  AuditLogStats,
+  AuditLogStatsQuery,
   WriteAuditLogInput,
 } from "@/lib/audit/types"
 import type { SupabaseAdminClient } from "@/lib/supabase/admin"
@@ -147,20 +149,19 @@ export async function writeAuditLog(
   return mapAuditLogRow(data as SystemAuditLogRow)
 }
 
-export async function queryAuditLogs(
-  client: SupabaseAdminClient,
-  input: AuditLogQuery = {}
-): Promise<AuditLogQueryResult> {
-  const page = Math.max(input.page ?? 1, 1)
-  const limit = Math.min(Math.max(input.limit ?? 50, 1), 200)
-  const from = (page - 1) * limit
-  const to = from + limit - 1
+function escapeIlikeTerm(value: string): string {
+  return value.replace(/[%_,]/g, "\\$&")
+}
 
-  let query = client
-    .from("system_audit_log")
-    .select("*", { count: "exact" })
-    .order("created_at", { ascending: false })
-
+function applyAuditLogFilters<
+  T extends {
+    eq: (column: string, value: string) => T
+    gte: (column: string, value: string) => T
+    lte: (column: string, value: string) => T
+    or: (filters: string) => T
+    ilike: (column: string, pattern: string) => T
+  },
+>(query: T, input: AuditLogQuery): T {
   if (input.module) {
     query = query.eq("module", input.module)
   }
@@ -193,12 +194,197 @@ export async function queryAuditLogs(
     query = query.lte("created_at", input.to)
   }
 
+  if (input.entityLabel?.trim()) {
+    query = query.ilike("entity_label", `%${escapeIlikeTerm(input.entityLabel.trim())}%`)
+  }
+
+  if (input.otCode?.trim()) {
+    const code = escapeIlikeTerm(input.otCode.trim())
+    query = query
+      .eq("entity_type", "task")
+      .ilike("entity_label", `%${code}%`)
+  }
+
+  if (input.customerQuery?.trim()) {
+    const term = escapeIlikeTerm(input.customerQuery.trim())
+    query = query
+      .eq("module", "clientes")
+      .or(`entity_label.ilike.%${term}%,description.ilike.%${term}%`)
+  }
+
+  if (input.projectQuery?.trim()) {
+    const term = escapeIlikeTerm(input.projectQuery.trim())
+    query = query
+      .eq("entity_type", "project")
+      .ilike("entity_label", `%${term}%`)
+  }
+
   if (input.search?.trim()) {
-    const term = input.search.trim()
+    const term = escapeIlikeTerm(input.search.trim())
     query = query.or(
       `description.ilike.%${term}%,entity_label.ilike.%${term}%,performed_by_name.ilike.%${term}%`
     )
   }
+
+  return query
+}
+
+function resolveTodayRange(reference = new Date()): { from: string; to: string } {
+  const start = new Date(reference)
+  start.setHours(0, 0, 0, 0)
+  const end = new Date(reference)
+  end.setHours(23, 59, 59, 999)
+
+  return {
+    from: start.toISOString(),
+    to: end.toISOString(),
+  }
+}
+
+async function countAuditLogs(
+  client: SupabaseAdminClient,
+  input: AuditLogQuery
+): Promise<number> {
+  let query = client
+    .from("system_audit_log")
+    .select("id", { count: "exact", head: true })
+
+  query = applyAuditLogFilters(query, input)
+
+  const { count, error } = await query
+
+  if (error) {
+    throw new Error(`No se pudo contar el Historial del Sistema: ${error.message}`)
+  }
+
+  return count ?? 0
+}
+
+export async function queryAuditLogStats(
+  client: SupabaseAdminClient,
+  input: AuditLogStatsQuery = {}
+): Promise<AuditLogStats> {
+  const today = resolveTodayRange()
+  const from = input.from ?? today.from
+  const to = input.to ?? today.to
+  const base = { from, to }
+
+  const [
+    eventsToday,
+    tasksCreatedToday,
+    tasksFinishedToday,
+    criticalToday,
+    loginsToday,
+    activeUsersResult,
+  ] = await Promise.all([
+    countAuditLogs(client, base),
+    countAuditLogs(client, { ...base, action: "TASK_CREATE" }),
+    countAuditLogs(client, { ...base, action: "TASK_FINISH" }),
+    countAuditLogs(client, { ...base, severity: "CRITICAL" }),
+    countAuditLogs(client, { ...base, action: "USER_LOGIN" }),
+    client
+      .from("system_audit_log")
+      .select("performed_by_user_id")
+      .gte("created_at", from)
+      .lte("created_at", to)
+      .not("performed_by_user_id", "is", null),
+  ])
+
+  if (activeUsersResult.error) {
+    throw new Error(
+      `No se pudo calcular usuarios activos: ${activeUsersResult.error.message}`
+    )
+  }
+
+  const activeUsersToday = new Set(
+    (activeUsersResult.data ?? [])
+      .map((row) => row.performed_by_user_id)
+      .filter(Boolean)
+  ).size
+
+  const tasksClosedToday = await countAuditLogs(client, {
+    ...base,
+    action: "TASK_CLOSE",
+  })
+
+  return {
+    eventsToday,
+    activeUsersToday,
+    tasksCreatedToday,
+    tasksFinishedToday: tasksFinishedToday + tasksClosedToday,
+    criticalToday,
+    loginsToday,
+  }
+}
+
+export async function queryAuditEntityTimeline(
+  client: SupabaseAdminClient,
+  input: { entityType: string; entityId: string; limit?: number }
+): Promise<AuditLogEntry[]> {
+  const limit = Math.min(Math.max(input.limit ?? 100, 1), 200)
+
+  let query = client
+    .from("system_audit_log")
+    .select("*")
+    .eq("entity_type", input.entityType)
+    .eq("entity_id", input.entityId)
+    .order("created_at", { ascending: true })
+    .limit(limit)
+
+  const { data, error } = await query
+
+  if (error) {
+    throw new Error(
+      `No se pudo consultar la línea de tiempo de auditoría: ${error.message}`
+    )
+  }
+
+  return (data ?? []).map((row) => mapAuditLogRow(row as SystemAuditLogRow))
+}
+
+export async function queryAllAuditLogsForExport(
+  client: SupabaseAdminClient,
+  input: AuditLogQuery,
+  maxRows = 5000
+): Promise<AuditLogEntry[]> {
+  const limit = 200
+  const entries: AuditLogEntry[] = []
+  let page = 1
+
+  while (entries.length < maxRows) {
+    const batch = await queryAuditLogs(client, {
+      ...input,
+      page,
+      limit,
+    })
+
+    entries.push(...batch.entries)
+
+    if (batch.entries.length < limit || entries.length >= batch.total) {
+      break
+    }
+
+    page += 1
+  }
+
+  return entries.slice(0, maxRows)
+}
+
+export async function queryAuditLogs(
+  client: SupabaseAdminClient,
+  input: AuditLogQuery = {}
+): Promise<AuditLogQueryResult> {
+  const page = Math.max(input.page ?? 1, 1)
+  const limit = Math.min(Math.max(input.limit ?? 50, 1), 200)
+  const from = (page - 1) * limit
+  const to = from + limit - 1
+
+  let query = client
+    .from("system_audit_log")
+    .select("*", { count: "exact" })
+    .order("created_at", { ascending: false })
+
+  query = applyAuditLogFilters(query, input)
 
   const { data, error, count } = await query.range(from, to)
 

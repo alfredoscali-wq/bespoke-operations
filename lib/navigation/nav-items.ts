@@ -110,7 +110,7 @@ export const reportsNavItem: NavItem = {
 }
 
 export const historyNavItem: NavItem = {
-  title: "Historial del Sistema",
+  title: "Historial",
   href: "/historial",
   icon: History,
   pageTitle: "Historial del Sistema",

@@ -65,6 +65,14 @@ export type Database = {
           address: string | null
           locality: string | null
           technology: string | null
+          contracted_plan: string | null
+          latitude: number | null
+          longitude: number | null
+          shared_location: string | null
+          nap_box: string | null
+          nap_port: string | null
+          onu_serial: string | null
+          status_reason: string | null
           status: string
           validation_status: string
           validated_by: string | null
@@ -86,6 +94,14 @@ export type Database = {
           address?: string | null
           locality?: string | null
           technology?: string | null
+          contracted_plan?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          shared_location?: string | null
+          nap_box?: string | null
+          nap_port?: string | null
+          onu_serial?: string | null
+          status_reason?: string | null
           status?: string
           validation_status?: string
           validated_by?: string | null
@@ -107,6 +123,14 @@ export type Database = {
           address?: string | null
           locality?: string | null
           technology?: string | null
+          contracted_plan?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          shared_location?: string | null
+          nap_box?: string | null
+          nap_port?: string | null
+          onu_serial?: string | null
+          status_reason?: string | null
           status?: string
           validation_status?: string
           validated_by?: string | null

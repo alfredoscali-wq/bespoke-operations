@@ -8,8 +8,13 @@ import { listTaskReferencePhotos } from "@/lib/supabase/task-photos.browser"
 import {
   formatContractedPlanLabel,
   formatAmountToCollectDisplay,
-  getTaskTechnologyLabel,
 } from "@/lib/tasks/commercial-plan"
+import {
+  resolveCurrentContractedPlanFromTask,
+  resolveCurrentTechnologyFromTask,
+  resolveFinalTechnologyFromTask,
+  resolveTechnologyLabel,
+} from "@/lib/tasks/ftth-installation"
 import { isCambioDomicilioTask, parseCambioDomicilioFromTask } from "@/lib/tasks/cambio-domicilio"
 import { buildGoogleMapsNavigationUrl, hasCoordinates } from "@/lib/gps"
 import type { Task } from "@/lib/types/tasks"
@@ -214,15 +219,59 @@ type OperarioTaskServiceInfoCardProps = {
 export function OperarioTaskServiceInfoCard({
   task,
 }: OperarioTaskServiceInfoCardProps) {
-  const technologyLabel = getTaskTechnologyLabel(task)
-  const planLabel = formatContractedPlanLabel(task.contractedPlan)
+  const isDualTechnology =
+    task.serviceType === "cambio-domicilio" ||
+    task.serviceType === "cambio-tecnologia"
+  const currentTechnology = resolveCurrentTechnologyFromTask(task)
+  const finalTechnology = resolveFinalTechnologyFromTask(task)
+  const currentTechnologyLabel = resolveTechnologyLabel(currentTechnology)
+  const finalTechnologyLabel = resolveTechnologyLabel(finalTechnology)
+  const currentPlanLabel = formatContractedPlanLabel(
+    resolveCurrentContractedPlanFromTask(task) ||
+      (currentTechnology === finalTechnology ? task.contractedPlan : null)
+  )
+  const finalPlanLabel = formatContractedPlanLabel(task.contractedPlan)
   const amountLabel =
     task.amountToCollect != null
       ? formatAmountToCollectDisplay(task.amountToCollect)
       : null
 
-  if (!technologyLabel && !planLabel && !amountLabel) {
+  const hasDualInfo =
+    isDualTechnology &&
+    (currentTechnologyLabel || finalTechnologyLabel || currentPlanLabel || finalPlanLabel)
+  const hasSimpleInfo =
+    !isDualTechnology &&
+    (finalTechnologyLabel || finalPlanLabel || amountLabel)
+
+  if (!hasDualInfo && !hasSimpleInfo) {
     return null
+  }
+
+  if (isDualTechnology) {
+    return (
+      <section className="rounded-xl border bg-card px-4 py-3 shadow-sm">
+        <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Información del servicio
+        </h2>
+        <div>
+          {currentTechnologyLabel ? (
+            <ServiceInfoRow label="Tecnología actual" value={currentTechnologyLabel} />
+          ) : null}
+          {currentPlanLabel ? (
+            <ServiceInfoRow label="Plan actual" value={currentPlanLabel} />
+          ) : null}
+          {finalTechnologyLabel ? (
+            <ServiceInfoRow label="Tecnología final" value={finalTechnologyLabel} />
+          ) : null}
+          {finalPlanLabel ? (
+            <ServiceInfoRow label="Plan final" value={finalPlanLabel} />
+          ) : null}
+          {amountLabel ? (
+            <ServiceInfoRow label="Importe a cobrar" value={amountLabel} />
+          ) : null}
+        </div>
+      </section>
+    )
   }
 
   return (
@@ -231,14 +280,14 @@ export function OperarioTaskServiceInfoCard({
         Información del servicio
       </h2>
       <div>
-        {technologyLabel ? (
-          <ServiceInfoRow label="Tecnología" value={technologyLabel} />
+        {finalTechnologyLabel ? (
+          <ServiceInfoRow label="Tecnología" value={finalTechnologyLabel} />
         ) : null}
-        {planLabel ? (
-          <ServiceInfoRow label="Plan contratado" value={planLabel} />
+        {finalPlanLabel ? (
+          <ServiceInfoRow label="Plan contratado" value={finalPlanLabel} />
         ) : null}
         {amountLabel ? (
-          <ServiceInfoRow label="💰 Importe a cobrar" value={amountLabel} />
+          <ServiceInfoRow label="Importe a cobrar" value={amountLabel} />
         ) : null}
       </div>
     </section>

@@ -11,6 +11,7 @@ import {
   hasOperationalSteps,
   isOperationalStepComplete,
 } from "@/lib/operational-steps/utils"
+import { filterFtthTextStepsForPhotoPanel } from "@/lib/tasks/ftth-installation"
 import {
   listTaskEvidencePhotos,
   uploadOperationalStepPhoto,
@@ -103,7 +104,8 @@ export function OperationalStepsPanel({
   const { getTask, syncOperationalStepsProgress, updateOperationalStepObservation } =
     useTasks()
   const liveTask = getTask(task.id) ?? task
-  const steps = liveTask.operationalSteps ?? []
+  const allSteps = liveTask.operationalSteps ?? []
+  const photoSteps = filterFtthTextStepsForPhotoPanel(allSteps)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [photos, setPhotos] = useState<TaskPhoto[]>([])
@@ -141,11 +143,11 @@ export function OperationalStepsPanel({
 
   const completedSteps = useMemo(
     () =>
-      steps.filter((step) => isOperationalStepComplete(step, stepPhotoCounts))
+      allSteps.filter((step) => isOperationalStepComplete(step, stepPhotoCounts))
         .length,
-    [stepPhotoCounts, steps]
+    [allSteps, stepPhotoCounts]
   )
-  const progress = getOperationalStepsProgress(steps, stepPhotoCounts)
+  const progress = getOperationalStepsProgress(allSteps, stepPhotoCounts)
 
   if (!hasOperationalSteps(liveTask)) {
     return null
@@ -227,7 +229,7 @@ export function OperationalStepsPanel({
       <div className="space-y-3">
         <div className="flex items-end justify-between gap-3">
           <p className="text-sm font-medium text-foreground">
-            {completedSteps} de {steps.length} completados
+            {completedSteps} de {allSteps.length} completados
           </p>
           <span className="text-lg font-bold tabular-nums text-primary">
             {progress}%
@@ -237,7 +239,7 @@ export function OperationalStepsPanel({
       </div>
 
       <div className="mt-4 space-y-3">
-        {steps.map((step) => {
+        {photoSteps.map((step) => {
           const isTextStep = step.stepKind === "text"
           const isComplete = isOperationalStepComplete(step, stepPhotoCounts)
           const latestPhoto = getLatestPhotoForStep(photos, step.id)

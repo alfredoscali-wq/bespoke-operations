@@ -21,7 +21,9 @@ import {
   OperarioTaskServiceInfoCard,
 } from "@/components/operario/operario-task-field-sections"
 import { isOperarioWorkerTaskAccessible } from "@/lib/data/operario"
+import { OperarioFtthInstallationCard } from "@/components/operario/operario-ftth-installation-card"
 import { hasOperationalSteps } from "@/lib/operational-steps/utils"
+import { taskRequiresFtthInstallation } from "@/lib/tasks/ftth-installation"
 import { getTaskTechnologyLabel } from "@/lib/tasks/commercial-plan"
 import {
   TASK_PRIORITY_LABELS,
@@ -245,6 +247,14 @@ export function OperarioTaskDetailScreen({ id }: OperarioTaskDetailScreenProps) 
       <OperarioTaskCrewNotes task={activeTask} />
 
       <OperarioTaskReferencePhotos taskId={activeTask.id} />
+
+      {taskRequiresFtthInstallation(activeTask) ? (
+        <OperarioFtthInstallationCard
+          task={activeTask}
+          actionsDisabled={actionsDisabled}
+          onSaved={() => setStepsRefreshKey((value) => value + 1)}
+        />
+      ) : null}
 
       {usesOperationalSteps ? (
         <OperationalStepsPanel

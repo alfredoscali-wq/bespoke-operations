@@ -14,6 +14,14 @@ export interface Customer {
   locality?: string
 
   technology?: string
+  contractedPlan?: string | null
+  latitude?: number | null
+  longitude?: number | null
+  sharedLocation?: string | null
+  napBox?: string | null
+  napPort?: string | null
+  onuSerial?: string | null
+  statusReason?: string | null
 
   /** Estado operativo interno (siempre activo para clientes operativos). */
   status: string
@@ -61,6 +69,14 @@ export type NewCustomerInput = {
   address?: string
   locality?: string
   technology?: string
+  contractedPlan?: string | null
+  latitude?: number | null
+  longitude?: number | null
+  sharedLocation?: string | null
+  napBox?: string | null
+  napPort?: string | null
+  onuSerial?: string | null
+  statusReason?: string | null | null
   status?: string
   validationStatus?: CustomerValidationStatus
   legacyClientState?: string

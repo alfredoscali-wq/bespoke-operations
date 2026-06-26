@@ -8,11 +8,19 @@ import {
   buildCambioDomicilioMetadataFromForm,
 } from "@/lib/tasks/cambio-domicilio"
 import {
+  buildFtthMetadataFromForm,
+  resolveFinalTechnologyFromForm,
+} from "@/lib/tasks/ftth-installation"
+import {
   formatAmountToCollectFormValue,
   parseAmountToCollectInput,
   resolveContractedPlanFromForm,
+  resolveCurrentContractedPlanFromForm,
   type ContractedPlan,
 } from "@/lib/tasks/commercial-plan"
+import {
+  applyFtthValuesToOperationalSteps,
+} from "@/lib/tasks/ftth-installation"
 import {
   formatScheduledTimeForInput,
   getDefaultScheduledTime,
@@ -145,6 +153,11 @@ export type WorkOrderFormInput = {
   newLocality: string
   currentTechnology: WorkOrderTechnology | ""
   newTechnology: WorkOrderTechnology | ""
+  currentContractedPlan: ContractedPlan | ""
+  newContractedPlan: ContractedPlan | ""
+  napBox: string
+  napPort: string
+  onuSerial: string
   serviceReason: ServiceTechnicalReason | ""
   serviceDetail: string
   cancellationReason: string
@@ -190,6 +203,11 @@ export function getDefaultWorkOrderForm(): WorkOrderFormInput {
     newLocality: "",
     currentTechnology: "",
     newTechnology: "",
+    currentContractedPlan: "",
+    newContractedPlan: "",
+    napBox: "",
+    napPort: "",
+    onuSerial: "",
     serviceReason: "",
     serviceDetail: "",
     cancellationReason: "",
@@ -294,13 +312,20 @@ function buildTaskMetadata(input: WorkOrderFormInput): Record<string, unknown> {
       metadata = {
         email,
         technology: input.technology || "fiber",
+        ...buildFtthMetadataFromForm(input),
       }
       break
     case "cambio-domicilio":
       metadata = {
         email,
-        technology: input.technology || "fiber",
+        currentTechnology: input.currentTechnology || input.technology || "fiber",
+        newTechnology: input.newTechnology || input.technology || "fiber",
+        currentContractedPlan:
+          resolveCurrentContractedPlanFromForm(input) ?? undefined,
+        newContractedPlan: resolveContractedPlanFromForm(input) ?? undefined,
+        technology: input.newTechnology || input.technology || "fiber",
         ...buildCambioDomicilioMetadataFromForm(input),
+        ...buildFtthMetadataFromForm(input),
       }
       break
     case "cambio-tecnologia":
@@ -308,7 +333,11 @@ function buildTaskMetadata(input: WorkOrderFormInput): Record<string, unknown> {
         email,
         currentTechnology: input.currentTechnology || "fiber",
         newTechnology: input.newTechnology || "fiber",
+        currentContractedPlan:
+          resolveCurrentContractedPlanFromForm(input) ?? undefined,
+        newContractedPlan: resolveContractedPlanFromForm(input) ?? undefined,
         technology: input.newTechnology || input.currentTechnology || "fiber",
+        ...buildFtthMetadataFromForm(input),
       }
       break
     case "service-tecnico":
@@ -403,6 +432,12 @@ export function validateWorkOrderForm(
       }
       break
     case "cambio-domicilio":
+      if (!input.currentTechnology || !input.newTechnology) {
+        return {
+          valid: false,
+          message: "Indique tecnología actual y tecnología en el nuevo domicilio.",
+        }
+      }
       if (!input.currentAddress.trim() || !input.newAddress.trim()) {
         return {
           valid: false,
@@ -415,12 +450,48 @@ export function validateWorkOrderForm(
           message: "Indique localidad actual y nueva localidad.",
         }
       }
+      if (
+        input.currentTechnology === "fiber" &&
+        !resolveCurrentContractedPlanFromForm(input)
+      ) {
+        return {
+          valid: false,
+          message: "Seleccione el plan actual.",
+        }
+      }
+      if (
+        input.newTechnology === "fiber" &&
+        !resolveContractedPlanFromForm(input)
+      ) {
+        return {
+          valid: false,
+          message: "Seleccione el plan en el nuevo domicilio.",
+        }
+      }
       break
     case "cambio-tecnologia":
       if (!input.currentTechnology || !input.newTechnology) {
         return {
           valid: false,
           message: "Indique tecnología actual y nueva tecnología.",
+        }
+      }
+      if (
+        input.currentTechnology === "fiber" &&
+        !resolveCurrentContractedPlanFromForm(input)
+      ) {
+        return {
+          valid: false,
+          message: "Seleccione el plan actual.",
+        }
+      }
+      if (
+        input.newTechnology === "fiber" &&
+        !resolveContractedPlanFromForm(input)
+      ) {
+        return {
+          valid: false,
+          message: "Seleccione el plan de la nueva tecnología.",
         }
       }
       if (!input.address.trim()) {
@@ -479,14 +550,29 @@ export function validateWorkOrderForm(
 function resolveOperationalStepsForWorkOrder(
   form: WorkOrderFormInput
 ): CreateTaskPayload["operationalSteps"] {
-  if (form.serviceType !== "instalacion-nueva") {
-    return createDefaultOperationalSteps()
+  const finalTechnology = resolveFinalTechnologyFromForm(form)
+
+  if (
+    form.serviceType === "instalacion-nueva" ||
+    form.serviceType === "cambio-domicilio" ||
+    form.serviceType === "cambio-tecnologia"
+  ) {
+    const technology =
+      finalTechnology === "wireless" ? "wireless" : ("fiber" as const)
+    const steps = createInstallationOperationalSteps(technology)
+
+    if (technology === "fiber") {
+      return applyFtthValuesToOperationalSteps(steps, {
+        napBox: form.napBox,
+        napPort: form.napPort,
+        onuSerial: form.onuSerial,
+      })
+    }
+
+    return steps
   }
 
-  const technology =
-    form.technology === "wireless" ? "wireless" : ("fiber" as const)
-
-  return createInstallationOperationalSteps(technology)
+  return createDefaultOperationalSteps()
 }
 
 export function buildWorkOrderCreatePayload(input: {
