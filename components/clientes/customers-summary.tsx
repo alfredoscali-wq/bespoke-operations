@@ -1,83 +1,64 @@
 "use client"
 
-import { Cable, Radio, UserCheck, UserX } from "lucide-react"
+import { AlertTriangle, CheckCircle2, Users } from "lucide-react"
 
 import { useCustomersUI } from "@/components/clientes/customers-ui-provider"
 import { KpiCard } from "@/components/ui/kpi-card"
 import {
-  CUSTOMER_CATEGORY_KPI_LABELS,
-  CUSTOMER_CATEGORY_KPI_TONE,
-  CUSTOMER_CATEGORY_ORDER,
-  type CustomerCategory,
-} from "@/lib/customers/customer-category"
+  CUSTOMER_KPI_LABELS,
+  CUSTOMER_KPI_ORDER,
+  CUSTOMER_KPI_TONE,
+  getOperationalKpiValue,
+  type CustomerQuickFilter,
+} from "@/lib/customers/customer-operational"
 import { cn } from "@/lib/utils"
 
-const CATEGORY_ICONS = {
-  activo: UserCheck,
-  inactivo: UserX,
-  fiber: Cable,
-  wireless: Radio,
+const KPI_ICONS = {
+  operativos: Users,
+  activos: CheckCircle2,
+  revisar: AlertTriangle,
 } as const
 
-export function CustomersSummary() {
-  const { categorySummary, selectedCategory, openCategory } = useCustomersUI()
+type CustomersSummaryProps = {
+  quickFilter: CustomerQuickFilter
+  onQuickFilterChange: (filter: CustomerQuickFilter) => void
+}
+
+export function CustomersSummary({
+  quickFilter,
+  onQuickFilterChange,
+}: CustomersSummaryProps) {
+  const { operationalSummary } = useCustomersUI()
 
   return (
-    <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-      {CUSTOMER_CATEGORY_ORDER.map((category) => {
-        const isActive = selectedCategory === category
-        const Icon = CATEGORY_ICONS[category]
+    <div className="grid gap-5 sm:grid-cols-3">
+      {CUSTOMER_KPI_ORDER.map((kpi) => {
+        const isActive = quickFilter === kpi
+        const Icon = KPI_ICONS[kpi]
 
         return (
-          <CategoryKpiButton
-            key={category}
-            isActive={isActive}
-            label={CUSTOMER_CATEGORY_KPI_LABELS[category]}
-            value={categorySummary[category]}
-            icon={Icon}
-            tone={CUSTOMER_CATEGORY_KPI_TONE[category]}
-            onClick={() => openCategory(category)}
-          />
+          <button
+            key={kpi}
+            type="button"
+            onClick={() => onQuickFilterChange(kpi)}
+            className={cn(
+              "rounded-xl text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30",
+              isActive && "ring-2 ring-primary/25"
+            )}
+          >
+            <KpiCard
+              label={CUSTOMER_KPI_LABELS[kpi]}
+              value={getOperationalKpiValue(operationalSummary, kpi)}
+              icon={Icon}
+              tone={CUSTOMER_KPI_TONE[kpi]}
+              className={cn(
+                "h-full cursor-pointer transition-shadow hover:shadow-md",
+                isActive && "shadow-md"
+              )}
+            />
+          </button>
         )
       })}
     </div>
-  )
-}
-
-function CategoryKpiButton({
-  isActive,
-  label,
-  value,
-  icon: Icon,
-  tone,
-  onClick,
-}: {
-  isActive: boolean
-  label: string
-  value: number
-  icon: typeof UserCheck
-  tone: (typeof CUSTOMER_CATEGORY_KPI_TONE)[CustomerCategory]
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "rounded-xl text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30",
-        isActive && "ring-2 ring-primary/25"
-      )}
-    >
-      <KpiCard
-        label={label}
-        value={value}
-        icon={Icon}
-        tone={tone}
-        className={cn(
-          "h-full cursor-pointer transition-shadow hover:shadow-md",
-          isActive && "shadow-md"
-        )}
-      />
-    </button>
   )
 }

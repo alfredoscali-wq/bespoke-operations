@@ -1,7 +1,7 @@
 import type { Task } from "@/lib/types/tasks"
 
 export const CUSTOMER_DELETE_BLOCKED_MESSAGE =
-  "No se puede eliminar el cliente porque posee tareas u órdenes asociadas. Utilice la opción Archivar."
+  "No se puede eliminar el cliente porque posee órdenes de trabajo asociadas. Utilice la opción Archivar."
 
 type TaskCustomerRef = Pick<Task, "customerId">
 

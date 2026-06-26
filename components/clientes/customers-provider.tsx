@@ -14,6 +14,7 @@ import {
   createCustomer as createCustomerInSupabase,
   deleteCustomer as deleteCustomerInSupabase,
   getCustomers as listCustomers,
+  markCustomersAsActive as markCustomersAsActiveInSupabase,
   searchCustomers as searchCustomersInSupabase,
   updateCustomer as updateCustomerInSupabase,
 } from "@/lib/supabase/customers.browser"
@@ -41,6 +42,10 @@ type CustomersContextValue = {
     input: UpdateCustomerInput
   ) => Promise<CustomerMutationResult>
   deleteCustomer: (id: string) => Promise<CustomerMutationResult>
+  markCustomersAsActive: (input: {
+    customerIds: string[]
+    validatedBy: string
+  }) => Promise<CustomerMutationResult & { customers?: Customer[] }>
 }
 
 const CustomersContext = createContext<CustomersContextValue | null>(null)
@@ -112,13 +117,14 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
         const filtered = customers.filter((customer) => {
           if (!normalizedQuery) return true
           return (
-            customer.customerNumber.toLowerCase().includes(normalizedQuery) ||
             customer.externalCustomerCode
               ?.toLowerCase()
               .includes(normalizedQuery) ||
+            customer.dni?.toLowerCase().includes(normalizedQuery) ||
             customer.name.toLowerCase().includes(normalizedQuery) ||
             customer.phone?.includes(normalizedQuery) ||
-            customer.address?.toLowerCase().includes(normalizedQuery)
+            customer.address?.toLowerCase().includes(normalizedQuery) ||
+            customer.locality?.toLowerCase().includes(normalizedQuery)
           )
         })
         return filtered.slice(0, limit)
@@ -151,12 +157,14 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
           {
             name: input.name,
             externalCustomerCode: input.externalCustomerCode ?? null,
+            dni: input.dni ?? null,
             phone: input.phone ?? null,
             email: input.email ?? null,
             address: input.address ?? null,
             locality: input.locality ?? null,
             technology: input.technology ?? null,
             status: input.status ?? "activo",
+            validationStatus: input.validationStatus ?? "active",
           },
           client
         )
@@ -270,6 +278,47 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
     [usesSupabase]
   )
 
+  const markCustomersAsActive = useCallback(
+    async (input: {
+      customerIds: string[]
+      validatedBy: string
+    }): Promise<CustomerMutationResult & { customers?: Customer[] }> => {
+      if (!usesSupabase) {
+        return {
+          success: false,
+          message:
+            "Supabase no está disponible. No se pudo actualizar la validación.",
+        }
+      }
+
+      try {
+        const client = createBrowserCustomersClient()
+        const result = await markCustomersAsActiveInSupabase(input, client)
+
+        if (result.data) {
+          setCustomers((current) => {
+            const byId = new Map(result.data!.map((customer) => [customer.id, customer]))
+            return sortCustomers(
+              current.map((customer) => byId.get(customer.id) ?? customer)
+            )
+          })
+          return { success: true, customers: result.data }
+        }
+
+        return {
+          success: false,
+          message: result.error?.message ?? "No se pudo marcar como activo.",
+        }
+      } catch {
+        return {
+          success: false,
+          message: "No se pudo marcar como activo.",
+        }
+      }
+    },
+    [usesSupabase]
+  )
+
   const value = useMemo(
     () => ({
       customers,
@@ -280,6 +329,7 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
       createCustomer,
       updateCustomer,
       deleteCustomer,
+      markCustomersAsActive,
     }),
     [
       customers,
@@ -290,6 +340,7 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
       createCustomer,
       updateCustomer,
       deleteCustomer,
+      markCustomersAsActive,
     ]
   )
 

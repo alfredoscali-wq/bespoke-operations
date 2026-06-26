@@ -8,6 +8,7 @@ import {
   canDeleteCustomer,
   CUSTOMER_DELETE_BLOCKED_MESSAGE,
 } from "@/lib/customers/customer-delete"
+import { CUSTOMER_EXCLUDE_BLOCKED_MESSAGE } from "@/lib/customers/customer-activity"
 import type { Customer } from "@/lib/types/customers"
 import { Button } from "@/components/ui/button"
 import {
@@ -37,6 +38,11 @@ export function CustomerDeleteDialog({
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  const isMigrationCustomer = Boolean(customer?.legacyMigrationId)
+  const blockedMessage = isMigrationCustomer
+    ? CUSTOMER_EXCLUDE_BLOCKED_MESSAGE
+    : CUSTOMER_DELETE_BLOCKED_MESSAGE
+
   const deleteCheck = useMemo(() => {
     if (!customer) {
       return { allowed: false as const, message: "" }
@@ -47,15 +53,13 @@ export function CustomerDeleteDialog({
 
   useEffect(() => {
     if (open) {
-      setError(
-        deleteCheck.allowed ? null : deleteCheck.message
-      )
+      setError(deleteCheck.allowed ? null : deleteCheck.message || blockedMessage)
     }
-  }, [open, deleteCheck])
+  }, [open, deleteCheck, blockedMessage])
 
   async function handleDelete() {
     if (!customer || !deleteCheck.allowed) {
-      setError(CUSTOMER_DELETE_BLOCKED_MESSAGE)
+      setError(blockedMessage)
       return
     }
 
@@ -66,11 +70,15 @@ export function CustomerDeleteDialog({
       const result = await deleteCustomer(customer.id)
 
       if (!result.success) {
-        setError(result.message ?? "No se pudo eliminar al cliente.")
+        setError(result.message ?? "No se pudo excluir al cliente.")
         return
       }
 
-      onSuccess(`Cliente ${customer.name} eliminado definitivamente.`)
+      onSuccess(
+        isMigrationCustomer
+          ? `Cliente ${customer.name} excluido de la migración.`
+          : `Cliente ${customer.name} eliminado definitivamente.`
+      )
       onOpenChange(false)
     } finally {
       setIsSubmitting(false)
@@ -89,12 +97,18 @@ export function CustomerDeleteDialog({
     >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Eliminar Cliente</DialogTitle>
+          <DialogTitle>
+            {isMigrationCustomer
+              ? "Excluir de la migración"
+              : "Eliminar cliente"}
+          </DialogTitle>
           <DialogDescription className="space-y-2">
             {deleteCheck.allowed ? (
               <>
                 <span className="block">
-                  Esta acción eliminará definitivamente el cliente.
+                  {isMigrationCustomer
+                    ? "El cliente se eliminará de Bespoke porque aún no posee actividad operativa."
+                    : "Esta acción eliminará definitivamente el cliente."}
                 </span>
                 <span className="block">
                   No podrá recuperarse posteriormente.
@@ -107,9 +121,7 @@ export function CustomerDeleteDialog({
                 ) : null}
               </>
             ) : (
-              <span className="block text-destructive">
-                {CUSTOMER_DELETE_BLOCKED_MESSAGE}
-              </span>
+              <span className="block text-destructive">{blockedMessage}</span>
             )}
           </DialogDescription>
         </DialogHeader>
@@ -136,7 +148,13 @@ export function CustomerDeleteDialog({
               onClick={handleDelete}
               disabled={isSubmitting || !customer}
             >
-              {isSubmitting ? "Eliminando..." : "Eliminar"}
+              {isSubmitting
+                ? isMigrationCustomer
+                  ? "Excluyendo..."
+                  : "Eliminando..."
+                : isMigrationCustomer
+                  ? "Excluir"
+                  : "Eliminar"}
             </Button>
           )}
         </DialogFooter>

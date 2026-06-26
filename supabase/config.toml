@@ -1,0 +1,8 @@
+# Bespoke Operations — Supabase CLI (remote project)
+# Link: npx supabase link --project-ref uzupiqviwraxnnsymbdl
+# Push: npx supabase db push
+
+project_id = "uzupiqviwraxnnsymbdl"
+
+[db]
+major_version = 15

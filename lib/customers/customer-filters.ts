@@ -1,19 +1,18 @@
-import { isCustomerActive } from "@/lib/customers/customer-category"
+import {
+  matchCustomerSearchQuery,
+  matchesCustomerQuickFilter,
+  type CustomerQuickFilter,
+} from "@/lib/customers/customer-operational"
 import type { Customer } from "@/lib/types/customers"
-
-export type CustomerStatusFilter = "all" | "activo" | "inactivo"
-export type CustomerTechnologyFilter = "all" | "fiber" | "wireless"
 
 export type CustomerFilters = {
   search: string
-  status: CustomerStatusFilter
-  technology: CustomerTechnologyFilter
+  quickFilter: CustomerQuickFilter
 }
 
 export const defaultCustomerFilters: CustomerFilters = {
   search: "",
-  status: "all",
-  technology: "all",
+  quickFilter: "operativos",
 }
 
 export function filterCustomers(
@@ -21,21 +20,14 @@ export function filterCustomers(
   filters: CustomerFilters
 ): Customer[] {
   return customers.filter((customer) => {
-    if (filters.status === "activo" && !isCustomerActive(customer)) {
+    if (customer.deletedAt) {
       return false
     }
 
-    if (filters.status === "inactivo" && isCustomerActive(customer)) {
+    if (!matchCustomerSearchQuery(customer, filters.search)) {
       return false
     }
 
-    if (
-      filters.technology !== "all" &&
-      customer.technology !== filters.technology
-    ) {
-      return false
-    }
-
-    return true
+    return matchesCustomerQuickFilter(customer, filters.quickFilter)
   })
 }

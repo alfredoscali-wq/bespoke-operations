@@ -1,52 +1,21 @@
-import {
-  WORK_ORDER_TECHNOLOGY_OPTIONS,
-  type WorkOrderTechnology,
-} from "@/lib/tasks/work-order"
 import type { CustomerImportStatus } from "@/lib/customers/customer-import/types"
+import {
+  isValidEmail,
+  normalizeComparisonKey,
+  normalizeDni,
+  normalizeEmail,
+  normalizeLocalityName,
+  normalizePhone,
+  resolveImportStatus,
+  resolveImportTechnology,
+} from "@/lib/customers/normalization"
 
-function normalizeText(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-}
-
-const TECHNOLOGY_LOOKUP = new Map<string, WorkOrderTechnology>()
-
-for (const option of WORK_ORDER_TECHNOLOGY_OPTIONS) {
-  TECHNOLOGY_LOOKUP.set(normalizeText(option.value), option.value)
-  TECHNOLOGY_LOOKUP.set(normalizeText(option.label), option.value)
-}
-
-TECHNOLOGY_LOOKUP.set("fibra", "fiber")
-TECHNOLOGY_LOOKUP.set("fibra optica", "fiber")
-TECHNOLOGY_LOOKUP.set("radio", "wireless")
-
-const STATUS_LOOKUP = new Map<string, CustomerImportStatus>([
-  ["activo", "activo"],
-  ["active", "activo"],
-  ["inactivo", "inactivo"],
-  ["inactive", "inactivo"],
-])
-
-export function resolveImportTechnology(
-  value: unknown
-): WorkOrderTechnology | "" {
-  const raw = String(value ?? "").trim()
-  if (!raw) return ""
-
-  const normalized = normalizeText(raw)
-  return TECHNOLOGY_LOOKUP.get(normalized) ?? ""
-}
-
-export function resolveImportStatus(value: unknown): CustomerImportStatus {
-  const raw = String(value ?? "").trim()
-  if (!raw) return ""
-
-  const normalized = normalizeText(raw)
-  return STATUS_LOOKUP.get(normalized) ?? ""
-}
+export {
+  isValidEmail,
+  normalizeComparisonKey as normalizeDuplicateKey,
+  resolveImportStatus,
+  resolveImportTechnology,
+} from "@/lib/customers/normalization"
 
 export function cellToString(value: unknown): string {
   if (value === null || value === undefined) return ""
@@ -56,14 +25,43 @@ export function cellToString(value: unknown): string {
   return String(value).trim()
 }
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
+/** @deprecated Usar isValidEmail desde normalization */
 export function isValidImportEmail(value: string): boolean {
-  const trimmed = value.trim()
-  if (!trimmed) return true
-  return EMAIL_PATTERN.test(trimmed)
+  return isValidEmail(value)
 }
 
-export function normalizeDuplicateKey(value: string): string {
-  return normalizeText(value)
+export function normalizeImportFieldValues(input: {
+  externalCustomerCode: string
+  name: string
+  phone: string
+  email: string
+  address: string
+  locality: string
+  technology: string
+  status: string
+}): {
+  externalCustomerCode: string
+  name: string
+  phone: string
+  email: string
+  address: string
+  locality: string
+  technology: ReturnType<typeof resolveImportTechnology>
+  status: CustomerImportStatus
+} {
+  const phone = normalizePhone(input.phone)
+  const email = normalizeEmail(input.email)
+  const locality = normalizeLocalityName(input.locality)
+  const status = resolveImportStatus(input.status)
+
+  return {
+    externalCustomerCode: input.externalCustomerCode.trim(),
+    name: input.name.trim(),
+    phone: phone.national || phone.digits,
+    email: email.normalized,
+    address: input.address.trim(),
+    locality: locality.normalized,
+    technology: resolveImportTechnology(input.technology) || "",
+    status: status || "",
+  }
 }

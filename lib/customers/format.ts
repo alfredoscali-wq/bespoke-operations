@@ -38,9 +38,24 @@ export function formatCustomerStatusLabel(status: string): string {
     return "Inactivo"
   }
 
+  if (
+    normalized === "pendiente-activacion" ||
+    normalized === "pendiente de activación"
+  ) {
+    return "Pendiente de activación"
+  }
+
   return status.trim() || "Sin estado"
 }
 
 export function isCustomerStatusActive(status: string): boolean {
   return status.trim().toLowerCase() === "activo"
+}
+
+export function isCustomerStatusPendingActivation(status: string): boolean {
+  const normalized = status.trim().toLowerCase()
+  return (
+    normalized === "pendiente-activacion" ||
+    normalized === "pendiente de activación"
+  )
 }

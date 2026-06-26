@@ -1,8 +1,5 @@
-import {
-  normalizeDuplicateKey,
-  resolveImportStatus,
-  resolveImportTechnology,
-} from "@/lib/customers/customer-import/normalize"
+import { normalizeComparisonKey } from "@/lib/customers/normalization"
+import { normalizeImportFieldValues } from "@/lib/customers/customer-import/normalize"
 import type {
   CustomerImportRowData,
   ImportIssue,
@@ -24,7 +21,7 @@ export function createBatchDuplicateState(): BatchDuplicateState {
 }
 
 function buildNamePhoneKey(name: string, phone: string): string | null {
-  const normalizedName = normalizeDuplicateKey(name)
+  const normalizedName = normalizeComparisonKey(name)
   const trimmedPhone = phone.trim()
 
   if (!normalizedName || !trimmedPhone) {
@@ -38,13 +35,13 @@ export function findCustomerByExternalCode(
   customers: Customer[],
   code: string
 ): Customer | undefined {
-  const normalizedCode = normalizeDuplicateKey(code)
+  const normalizedCode = normalizeComparisonKey(code)
   if (!normalizedCode) return undefined
 
   return customers.find(
     (customer) =>
       customer.externalCustomerCode &&
-      normalizeDuplicateKey(customer.externalCustomerCode) === normalizedCode
+      normalizeComparisonKey(customer.externalCustomerCode) === normalizedCode
   )
 }
 
@@ -66,11 +63,11 @@ export function findCustomerByExactName(
   customers: Customer[],
   name: string
 ): Customer | undefined {
-  const normalizedName = normalizeDuplicateKey(name)
+  const normalizedName = normalizeComparisonKey(name)
   if (!normalizedName) return undefined
 
   return customers.find(
-    (customer) => normalizeDuplicateKey(customer.name) === normalizedName
+    (customer) => normalizeComparisonKey(customer.name) === normalizedName
   )
 }
 
@@ -83,7 +80,7 @@ export function checkBatchDuplicates(
   const externalCode = data.externalCustomerCode.trim()
 
   if (externalCode) {
-    const key = normalizeDuplicateKey(externalCode)
+    const key = normalizeComparisonKey(externalCode)
     const firstRow = state.externalCodes.get(key)
 
     if (firstRow !== undefined && firstRow !== rowNumber) {
@@ -122,7 +119,7 @@ export function checkNameWithoutPhoneDuplicate(
     return []
   }
 
-  const normalizedName = normalizeDuplicateKey(data.name)
+  const normalizedName = normalizeComparisonKey(data.name)
   if (!normalizedName) {
     return []
   }
@@ -149,7 +146,7 @@ export function registerBatchRow(
 ): void {
   const externalCode = data.externalCustomerCode.trim()
   if (externalCode) {
-    const key = normalizeDuplicateKey(externalCode)
+    const key = normalizeComparisonKey(externalCode)
     if (!state.externalCodes.has(key)) {
       state.externalCodes.set(key, rowNumber)
     }
@@ -161,7 +158,7 @@ export function registerBatchRow(
   }
 
   if (!data.phone.trim()) {
-    const normalizedName = normalizeDuplicateKey(data.name)
+    const normalizedName = normalizeComparisonKey(data.name)
     if (normalizedName && !state.namesWithoutPhone.has(normalizedName)) {
       state.namesWithoutPhone.set(normalizedName, rowNumber)
     }
@@ -171,17 +168,20 @@ export function registerBatchRow(
 export function normalizeImportRowData(
   data: CustomerImportRowData
 ): CustomerImportRowData {
-  const status = resolveImportStatus(data.status)
+  const normalized = normalizeImportFieldValues({
+    externalCustomerCode: data.externalCustomerCode,
+    name: data.name,
+    phone: data.phone,
+    email: data.email,
+    address: data.address,
+    locality: data.locality,
+    technology: data.technology,
+    status: data.status,
+  })
 
   return {
     ...data,
-    externalCustomerCode: data.externalCustomerCode.trim(),
-    name: data.name.trim(),
-    phone: data.phone.trim(),
-    email: data.email.trim(),
-    address: data.address.trim(),
-    locality: data.locality.trim(),
-    technology: resolveImportTechnology(data.technology) || data.technology,
-    status: status || "",
+    ...normalized,
+    technology: normalized.technology || data.technology,
   }
 }

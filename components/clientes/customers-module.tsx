@@ -1,12 +1,14 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { FileSpreadsheet, Plus } from "lucide-react"
 
+import { useAuth } from "@/components/auth/auth-provider"
 import { CustomerArchiveDialog } from "@/components/clientes/customer-archive-dialog"
 import { CustomerDeleteDialog } from "@/components/clientes/customer-delete-dialog"
 import { CustomerFormDialog } from "@/components/clientes/customer-form-dialog"
 import { CustomerImportDialog } from "@/components/clientes/customer-import-dialog"
+import { CustomersBulkActionsBar } from "@/components/clientes/customers-bulk-actions-bar"
 import { useCustomers } from "@/components/clientes/customers-provider"
 import {
   CustomersFilters,
@@ -14,11 +16,10 @@ import {
 } from "@/components/clientes/customers-filters"
 import { CustomersList } from "@/components/clientes/customers-list"
 import { CustomersSummary } from "@/components/clientes/customers-summary"
-import {
-  CustomersUIProvider,
-  useCustomersUI,
-} from "@/components/clientes/customers-ui-provider"
+import { CustomersUIProvider } from "@/components/clientes/customers-ui-provider"
+import { resolveAuthDisplay } from "@/lib/auth/auth-display"
 import { filterCustomers } from "@/lib/customers/customer-filters"
+import type { CustomerQuickFilter } from "@/lib/customers/customer-operational"
 import type { Customer } from "@/lib/types/customers"
 import { Button } from "@/components/ui/button"
 import {
@@ -29,8 +30,6 @@ import {
 } from "@/components/ui/card"
 import { EntityActionFeedback } from "@/components/ui/entity-action-feedback"
 
-const SEARCH_LIMIT = 100
-
 export function CustomersModule() {
   return (
     <CustomersUIProvider>
@@ -40,82 +39,35 @@ export function CustomersModule() {
 }
 
 function CustomersModuleContent() {
-  const { isCustomersReady, searchCustomers } = useCustomers()
-  const { filteredCustomers: categoryFilteredCustomers, selectedCategory } =
-    useCustomersUI()
+  const { isCustomersReady, customers, markCustomersAsActive } = useCustomers()
+  const { sessionUser } = useAuth()
   const [filters, setFilters] = useState(defaultCustomerFilters)
-  const [searchResults, setSearchResults] = useState<Customer[] | null>(null)
-  const [isSearching, setIsSearching] = useState(false)
   const [feedback, setFeedback] = useState<string | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
-  const [archiveTarget, setArchiveTarget] = useState<Customer | null>(null)
+  const [archiveTarget, setArchiveTarget] = useState<Customer | Customer[] | null>(
+    null
+  )
   const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null)
   const [importOpen, setImportOpen] = useState(false)
-
-  const refreshSearchIfNeeded = useCallback(async () => {
-    const query = filters.search.trim()
-
-    if (!query) {
-      setSearchResults(null)
-      return
-    }
-
-    setIsSearching(true)
-    const results = await searchCustomers(query, SEARCH_LIMIT)
-    setSearchResults(results)
-    setIsSearching(false)
-  }, [filters.search, searchCustomers])
-
-  useEffect(() => {
-    if (selectedCategory) {
-      setFilters((current) => ({ ...current, status: "all", technology: "all" }))
-    }
-  }, [selectedCategory])
-
-  useEffect(() => {
-    const query = filters.search.trim()
-
-    if (!query) {
-      setSearchResults(null)
-      setIsSearching(false)
-      return
-    }
-
-    let cancelled = false
-    setIsSearching(true)
-
-    const timeout = window.setTimeout(async () => {
-      const results = await searchCustomers(query, SEARCH_LIMIT)
-
-      if (!cancelled) {
-        setSearchResults(results)
-        setIsSearching(false)
-      }
-    }, 250)
-
-    return () => {
-      cancelled = true
-      window.clearTimeout(timeout)
-    }
-  }, [filters.search, searchCustomers])
-
-  const baseCustomers = useMemo(() => {
-    if (filters.search.trim()) {
-      return searchResults ?? []
-    }
-
-    return categoryFilteredCustomers
-  }, [filters.search, searchResults, categoryFilteredCustomers])
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   const displayedCustomers = useMemo(
-    () => filterCustomers(baseCustomers, filters),
-    [baseCustomers, filters]
+    () => filterCustomers(customers, filters),
+    [customers, filters]
   )
+
+  const selectedCustomers = useMemo(
+    () => customers.filter((customer) => selectedIds.has(customer.id)),
+    [customers, selectedIds]
+  )
+
+  function handleQuickFilterChange(quickFilter: CustomerQuickFilter) {
+    setFilters((current) => ({ ...current, quickFilter }))
+  }
 
   function handleMutationSuccess(message: string) {
     setFeedback(message)
-    void refreshSearchIfNeeded()
   }
 
   function openCreateDialog() {
@@ -128,7 +80,7 @@ function CustomersModuleContent() {
     setFormOpen(true)
   }
 
-  function openArchiveDialog(customer: Customer) {
+  function openArchiveDialog(customer: Customer | Customer[]) {
     setArchiveTarget(customer)
   }
 
@@ -136,18 +88,29 @@ function CustomersModuleContent() {
     setDeleteTarget(customer)
   }
 
+  async function handleMarkActive(customer: Customer) {
+    const result = await markCustomersAsActive({
+      customerIds: [customer.id],
+      validatedBy: resolveAuthDisplay(sessionUser).displayName,
+    })
+
+    if (!result.success) {
+      setFeedback(result.message ?? "No se pudo marcar el cliente como activo.")
+      return
+    }
+
+    setFeedback("Cliente marcado como activo.")
+  }
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <p className="max-w-2xl text-sm text-muted-foreground">
-          Directorio de abonados y suscriptores para operaciones de campo.
+          Base operativa de clientes para crear y administrar órdenes de trabajo.
+          El estado de validación es informativo y no bloquea la operación.
         </p>
         <div className="flex flex-wrap gap-2 self-start">
-          <Button
-            size="sm"
-            className="gap-1.5"
-            onClick={openCreateDialog}
-          >
+          <Button size="sm" className="gap-1.5" onClick={openCreateDialog}>
             <Plus className="size-4" />
             Nuevo Cliente
           </Button>
@@ -165,11 +128,14 @@ function CustomersModuleContent() {
 
       <EntityActionFeedback message={feedback} />
 
-      <CustomersSummary />
+      <CustomersSummary
+        quickFilter={filters.quickFilter}
+        onQuickFilterChange={handleQuickFilterChange}
+      />
 
       <Card className="shadow-sm">
         <CardHeader className="gap-4 border-b">
-          <CardTitle className="text-base">Clientes</CardTitle>
+          <CardTitle className="text-base">Clientes operativos</CardTitle>
         </CardHeader>
 
         <CardContent className="space-y-4 pt-4">
@@ -179,16 +145,27 @@ function CustomersModuleContent() {
             resultCount={displayedCustomers.length}
           />
 
-          {!isCustomersReady || isSearching ? (
+          <CustomersBulkActionsBar
+            selectedCustomers={selectedCustomers}
+            onClearSelection={() => setSelectedIds(new Set())}
+            onArchive={openArchiveDialog}
+            onFeedback={setFeedback}
+          />
+
+          {!isCustomersReady ? (
             <div className="rounded-xl border border-dashed bg-muted/20 px-6 py-12 text-center text-sm text-muted-foreground">
-              {isSearching ? "Buscando clientes..." : "Cargando clientes..."}
+              Cargando clientes...
             </div>
           ) : (
             <CustomersList
               customers={displayedCustomers}
+              quickFilter={filters.quickFilter}
+              selectedIds={selectedIds}
+              onSelectedIdsChange={setSelectedIds}
               onEdit={openEditDialog}
               onArchive={openArchiveDialog}
               onDelete={openDeleteDialog}
+              onMarkActive={(customer) => void handleMarkActive(customer)}
             />
           )}
         </CardContent>
@@ -207,11 +184,13 @@ function CustomersModuleContent() {
       />
 
       <CustomerArchiveDialog
-        customer={archiveTarget}
+        customer={Array.isArray(archiveTarget) ? archiveTarget[0] : archiveTarget}
+        customers={Array.isArray(archiveTarget) ? archiveTarget : undefined}
         open={archiveTarget !== null}
         onOpenChange={(open) => {
           if (!open) {
             setArchiveTarget(null)
+            setSelectedIds(new Set())
           }
         }}
         onSuccess={handleMutationSuccess}

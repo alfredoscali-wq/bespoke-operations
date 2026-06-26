@@ -58,6 +58,7 @@ export type Database = {
           id: string
           customer_number: string
           external_customer_code: string | null
+          dni: string | null
           name: string
           phone: string | null
           email: string | null
@@ -65,6 +66,11 @@ export type Database = {
           locality: string | null
           technology: string | null
           status: string
+          validation_status: string
+          validated_by: string | null
+          validated_at: string | null
+          legacy_client_state: string | null
+          legacy_migration_id: number | null
           created_at: string
           updated_at: string
           deleted_at: string | null
@@ -73,6 +79,7 @@ export type Database = {
           id?: string
           customer_number: string
           external_customer_code?: string | null
+          dni?: string | null
           name: string
           phone?: string | null
           email?: string | null
@@ -80,6 +87,11 @@ export type Database = {
           locality?: string | null
           technology?: string | null
           status?: string
+          validation_status?: string
+          validated_by?: string | null
+          validated_at?: string | null
+          legacy_client_state?: string | null
+          legacy_migration_id?: number | null
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
@@ -88,6 +100,7 @@ export type Database = {
           id?: string
           customer_number?: string
           external_customer_code?: string | null
+          dni?: string | null
           name?: string
           phone?: string | null
           email?: string | null
@@ -95,6 +108,11 @@ export type Database = {
           locality?: string | null
           technology?: string | null
           status?: string
+          validation_status?: string
+          validated_by?: string | null
+          validated_at?: string | null
+          legacy_client_state?: string | null
+          legacy_migration_id?: number | null
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
@@ -442,6 +460,7 @@ export type Database = {
           crew: string
           start_date: string
           due_date: string
+          scheduled_time: string | null
           estimated_duration: string
           checklist: Json
           operational_steps: Json
@@ -455,6 +474,7 @@ export type Database = {
           locality: string | null
           contracted_plan: string | null
           installation_cost: number | null
+          amount_to_collect: number | null
           task_metadata: Json
         }
         Insert: {
@@ -491,6 +511,7 @@ export type Database = {
           crew: string
           start_date: string
           due_date: string
+          scheduled_time?: string | null
           estimated_duration?: string
           checklist?: Json
           operational_steps?: Json
@@ -504,6 +525,7 @@ export type Database = {
           locality?: string | null
           contracted_plan?: string | null
           installation_cost?: number | null
+          amount_to_collect?: number | null
           task_metadata?: Json
         }
         Update: {
@@ -540,6 +562,7 @@ export type Database = {
           crew?: string
           start_date?: string
           due_date?: string
+          scheduled_time?: string | null
           estimated_duration?: string
           checklist?: Json
           operational_steps?: Json
@@ -553,6 +576,7 @@ export type Database = {
           locality?: string | null
           contracted_plan?: string | null
           installation_cost?: number | null
+          amount_to_collect?: number | null
           task_metadata?: Json
         }
         Relationships: []

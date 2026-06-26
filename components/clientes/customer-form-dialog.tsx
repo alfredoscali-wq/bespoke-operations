@@ -36,8 +36,8 @@ type CustomerFormState = {
   address: string
   locality: string
   technology: "" | "fiber" | "wireless"
-  status: "activo" | "inactivo"
   externalCustomerCode: string
+  dni: string
 }
 
 const emptyForm: CustomerFormState = {
@@ -47,8 +47,8 @@ const emptyForm: CustomerFormState = {
   address: "",
   locality: "",
   technology: "",
-  status: "activo",
   externalCustomerCode: "",
+  dni: "",
 }
 
 function customerToForm(customer: Customer): CustomerFormState {
@@ -62,8 +62,8 @@ function customerToForm(customer: Customer): CustomerFormState {
       customer.technology === "fiber" || customer.technology === "wireless"
         ? customer.technology
         : "",
-    status: customer.status.trim().toLowerCase() === "inactivo" ? "inactivo" : "activo",
     externalCustomerCode: customer.externalCustomerCode ?? "",
+    dni: customer.dni ?? "",
   }
 }
 
@@ -132,8 +132,10 @@ export function CustomerFormDialog({
         address: form.address.trim() || undefined,
         locality: form.locality.trim() || undefined,
         technology: form.technology || undefined,
-        status: form.status,
+        status: "activo",
+        validationStatus: "active" as const,
         externalCustomerCode: form.externalCustomerCode.trim() || undefined,
+        dni: form.dni.trim() || undefined,
       }
 
       if (isEditMode && customer) {
@@ -172,28 +174,16 @@ export function CustomerFormDialog({
         >
         <DialogHeader>
           <DialogTitle>
-            {isEditMode ? "Editar cliente" : "Nuevo cliente"}
+            {isEditMode ? "Editar Cliente" : "Nuevo Cliente"}
           </DialogTitle>
           <DialogDescription>
             {isEditMode
-              ? "Actualice los datos del abonado en el directorio maestro."
-              : "Registre un nuevo abonado en el directorio maestro."}
+              ? "Actualice los datos del cliente en el directorio maestro."
+              : "Registre un nuevo cliente en el directorio maestro."}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {isEditMode && customer && (
-            <div className="space-y-2">
-              <Label htmlFor="customer-number">Número interno</Label>
-              <Input
-                id="customer-number"
-                value={customer.customerNumber}
-                readOnly
-                className="bg-muted/40 font-mono"
-              />
-            </div>
-          )}
-
           <div className="space-y-2">
             <Label htmlFor="customer-name">Nombre *</Label>
             <Input
@@ -226,17 +216,16 @@ export function CustomerFormDialog({
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="customer-address">Dirección</Label>
-            <Input
-              id="customer-address"
-              value={form.address}
-              onChange={(event) => updateField("address", event.target.value)}
-              placeholder="Calle 123"
-            />
-          </div>
-
           <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="customer-address">Dirección</Label>
+              <Input
+                id="customer-address"
+                value={form.address}
+                onChange={(event) => updateField("address", event.target.value)}
+                placeholder="Calle 123"
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="customer-locality">Localidad</Label>
               <Input
@@ -246,8 +235,11 @@ export function CustomerFormDialog({
                 placeholder="Córdoba"
               />
             </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="customer-external-code">Código externo</Label>
+              <Label htmlFor="customer-external-code">N° Cliente</Label>
               <Input
                 id="customer-external-code"
                 value={form.externalCustomerCode}
@@ -258,50 +250,41 @@ export function CustomerFormDialog({
                 className="font-mono"
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="customer-dni">DNI</Label>
+              <Input
+                id="customer-dni"
+                value={form.dni}
+                onChange={(event) => updateField("dni", event.target.value)}
+                placeholder="30123456"
+                className="font-mono"
+              />
+            </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Tecnología</Label>
-              <Select
-                value={form.technology || "none"}
-                onValueChange={(value) =>
-                  updateField(
-                    "technology",
-                    value === "none" ? "" : (value as CustomerFormState["technology"])
-                  )
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Sin especificar</SelectItem>
-                  {WORK_ORDER_TECHNOLOGY_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Estado</Label>
-              <Select
-                value={form.status}
-                onValueChange={(value) =>
-                  updateField("status", value as CustomerFormState["status"])
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="activo">Activo</SelectItem>
-                  <SelectItem value="inactivo">Inactivo</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-2">
+            <Label>Tecnología</Label>
+            <Select
+              value={form.technology || "none"}
+              onValueChange={(value) =>
+                updateField(
+                  "technology",
+                  value === "none" ? "" : (value as CustomerFormState["technology"])
+                )
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Seleccionar" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Sin especificar</SelectItem>
+                {WORK_ORDER_TECHNOLOGY_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {error && (

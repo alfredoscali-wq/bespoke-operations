@@ -1,34 +1,78 @@
 "use client"
 
-import { Archive, Pencil, Trash2 } from "lucide-react"
+import Link from "next/link"
+import { Archive, CheckCircle2, Eye, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
 
-import { useCustomersUI } from "@/components/clientes/customers-ui-provider"
 import { WhatsAppLink } from "@/components/ui/whatsapp-link"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
-  formatCustomerAddressLabel,
-  formatCustomerStatusLabel,
-  formatCustomerTechnologyLabel,
-  isCustomerStatusActive,
-} from "@/lib/customers/format"
-import { CUSTOMER_CATEGORY_KPI_LABELS } from "@/lib/customers/customer-category"
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { CUSTOMER_QUICK_FILTER_LABELS } from "@/lib/customers/customer-operational"
+import {
+  formatValidationStatusLabel,
+  validationStatusBadgeClassName,
+  validationStatusDotClassName,
+} from "@/lib/customers/customer-validation"
+import { formatCustomerTechnologyLabel } from "@/lib/customers/format"
+import type { CustomerQuickFilter } from "@/lib/customers/customer-operational"
 import type { Customer } from "@/lib/types/customers"
-import { cn } from "@/lib/utils"
 
 type CustomersListProps = {
   customers: Customer[]
+  quickFilter: CustomerQuickFilter
+  selectedIds: Set<string>
+  onSelectedIdsChange: (ids: Set<string>) => void
   onEdit: (customer: Customer) => void
   onArchive: (customer: Customer) => void
   onDelete: (customer: Customer) => void
+  onMarkActive: (customer: Customer) => void
 }
 
 export function CustomersList({
   customers,
+  quickFilter,
+  selectedIds,
+  onSelectedIdsChange,
   onEdit,
   onArchive,
   onDelete,
+  onMarkActive,
 }: CustomersListProps) {
-  const { selectedCategory } = useCustomersUI()
+  const allSelected =
+    customers.length > 0 && customers.every((customer) => selectedIds.has(customer.id))
+
+  function toggleAll(checked: boolean) {
+    if (!checked) {
+      onSelectedIdsChange(new Set())
+      return
+    }
+
+    onSelectedIdsChange(new Set(customers.map((customer) => customer.id)))
+  }
+
+  function toggleOne(customerId: string, checked: boolean) {
+    const next = new Set(selectedIds)
+    if (checked) {
+      next.add(customerId)
+    } else {
+      next.delete(customerId)
+    }
+    onSelectedIdsChange(next)
+  }
 
   if (customers.length === 0) {
     return (
@@ -37,129 +81,162 @@ export function CustomersList({
           No se encontraron clientes
         </p>
         <p className="mt-1 text-sm text-muted-foreground">
-          {selectedCategory
-            ? `No hay clientes en ${CUSTOMER_CATEGORY_KPI_LABELS[selectedCategory].toLowerCase()}.`
-            : "Ajustá los filtros para ver más resultados."}
+          {quickFilter === "operativos"
+            ? "Ajustá la búsqueda para ver más resultados."
+            : `No hay clientes en ${CUSTOMER_QUICK_FILTER_LABELS[quickFilter].toLowerCase()}.`}
         </p>
       </div>
     )
   }
 
   return (
-    <div className="space-y-3">
-      {customers.map((customer) => (
-        <CustomerCard
-          key={customer.id}
-          customer={customer}
-          onEdit={onEdit}
-          onArchive={onArchive}
-          onDelete={onDelete}
-        />
-      ))}
+    <div className="overflow-x-auto rounded-xl border">
+      <Table>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="w-10">
+              <Checkbox
+                checked={allSelected}
+                onCheckedChange={(value) => toggleAll(value === true)}
+                aria-label="Seleccionar todos"
+              />
+            </TableHead>
+            <TableHead>Cliente</TableHead>
+            <TableHead>N° Cliente</TableHead>
+            <TableHead>DNI</TableHead>
+            <TableHead>Domicilio</TableHead>
+            <TableHead>Localidad</TableHead>
+            <TableHead>Mail</TableHead>
+            <TableHead>Teléfono</TableHead>
+            <TableHead>Tecnología</TableHead>
+            <TableHead>Validación</TableHead>
+            <TableHead className="w-[72px] text-right">Acciones</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {customers.map((customer) => (
+            <CustomerRow
+              key={customer.id}
+              customer={customer}
+              selected={selectedIds.has(customer.id)}
+              onToggle={(checked) => toggleOne(customer.id, checked)}
+              onEdit={onEdit}
+              onArchive={onArchive}
+              onDelete={onDelete}
+              onMarkActive={onMarkActive}
+            />
+          ))}
+        </TableBody>
+      </Table>
     </div>
   )
 }
 
-function CustomerCard({
+function CustomerRow({
   customer,
+  selected,
+  onToggle,
   onEdit,
   onArchive,
   onDelete,
+  onMarkActive,
 }: {
   customer: Customer
+  selected: boolean
+  onToggle: (checked: boolean) => void
   onEdit: (customer: Customer) => void
   onArchive: (customer: Customer) => void
   onDelete: (customer: Customer) => void
+  onMarkActive: (customer: Customer) => void
 }) {
-  const addressLabel = formatCustomerAddressLabel(customer)
-  const technologyLabel = formatCustomerTechnologyLabel(customer.technology)
-  const statusLabel = formatCustomerStatusLabel(customer.status)
-  const isActive = isCustomerStatusActive(customer.status)
+  const technologyLabel = formatCustomerTechnologyLabel(customer.technology) ?? "—"
 
   return (
-    <article className="flex flex-col gap-4 rounded-xl border bg-card p-4 shadow-sm transition-colors hover:bg-muted/20 sm:flex-row sm:items-start sm:justify-between">
-      <div className="min-w-0 flex-1 space-y-3">
-        <div className="space-y-1">
-          <h3 className="text-base font-semibold text-foreground">
-            {customer.name}
-          </h3>
-          <p className="font-mono text-[11px] font-medium text-primary">
-            {customer.customerNumber}
-          </p>
-          {customer.externalCustomerCode && (
-            <p className="font-mono text-[11px] text-muted-foreground">
-              {customer.externalCustomerCode}
-            </p>
-          )}
-        </div>
-
-        <div className="space-y-1 text-sm text-muted-foreground">
-          {customer.phone && (
-            <p>
-              📞 <WhatsAppLink phone={customer.phone} />
-            </p>
-          )}
-          {addressLabel && <p>📍 {addressLabel}</p>}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <span
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-0.5 text-xs font-medium",
-              isActive
-                ? "border-emerald-200/80 bg-emerald-50 text-emerald-800"
-                : "border-slate-200/80 bg-slate-50 text-slate-700"
-            )}
-          >
-            <span
-              className={cn(
-                "size-1.5 rounded-full",
-                isActive ? "bg-emerald-500" : "bg-slate-400"
-              )}
-            />
-            {statusLabel}
-          </span>
-
-          {technologyLabel && (
-            <span className="inline-flex items-center rounded-md border border-blue-200/80 bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-800">
-              🌐 {technologyLabel}
-            </span>
-          )}
-        </div>
-      </div>
-
-      <div className="flex shrink-0 flex-wrap gap-2 self-start">
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          className="gap-1.5"
-          onClick={() => onEdit(customer)}
+    <TableRow data-selected={selected}>
+      <TableCell>
+        <Checkbox
+          checked={selected}
+          onCheckedChange={(value) => onToggle(value === true)}
+          aria-label={`Seleccionar ${customer.name}`}
+        />
+      </TableCell>
+      <TableCell className="min-w-[160px]">
+        <Link
+          href={`/clientes/${customer.id}`}
+          className="font-semibold text-foreground hover:text-primary hover:underline"
         >
-          <Pencil className="size-3.5" />
-          Editar
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          className="gap-1.5"
-          onClick={() => onArchive(customer)}
-        >
-          <Archive className="size-3.5" />
-          Archivar
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          className="gap-1.5 text-destructive hover:text-destructive"
-          onClick={() => onDelete(customer)}
-        >
-          <Trash2 className="size-3.5" />
-          Eliminar
-        </Button>
-      </div>
-    </article>
+          {customer.name}
+        </Link>
+      </TableCell>
+      <TableCell className="font-mono text-xs">
+        {customer.externalCustomerCode?.trim() || "—"}
+      </TableCell>
+      <TableCell className="font-mono text-xs">
+        {customer.dni?.trim() || "—"}
+      </TableCell>
+      <TableCell className="max-w-[160px] truncate">
+        {customer.address?.trim() || "—"}
+      </TableCell>
+      <TableCell>{customer.locality?.trim() || "—"}</TableCell>
+      <TableCell className="max-w-[160px] truncate">
+        {customer.email?.trim() || "—"}
+      </TableCell>
+      <TableCell>
+        {customer.phone ? (
+          <WhatsAppLink phone={customer.phone} />
+        ) : (
+          "—"
+        )}
+      </TableCell>
+      <TableCell>{technologyLabel}</TableCell>
+      <TableCell>
+        <span className={validationStatusBadgeClassName(customer.validationStatus)}>
+          <span className={validationStatusDotClassName(customer.validationStatus)} />
+          {formatValidationStatusLabel(customer.validationStatus)}
+        </span>
+      </TableCell>
+      <TableCell className="text-right">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button type="button" variant="ghost" size="icon" className="size-8">
+              <MoreHorizontal className="size-4" />
+              <span className="sr-only">Acciones</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem asChild>
+              <Link href={`/clientes/${customer.id}`}>
+                <Eye className="size-4" />
+                Ver ficha
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onEdit(customer)}>
+              <Pencil className="size-4" />
+              Editar
+            </DropdownMenuItem>
+            {customer.validationStatus === "review" ? (
+              <DropdownMenuItem onClick={() => onMarkActive(customer)}>
+                <CheckCircle2 className="size-4" />
+                Marcar activo
+              </DropdownMenuItem>
+            ) : null}
+            <DropdownMenuItem onClick={() => onArchive(customer)}>
+              <Archive className="size-4" />
+              Archivar
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => onDelete(customer)}
+            >
+              <Trash2 className="size-4" />
+              {customer.legacyMigrationId
+                ? "Excluir de la migración"
+                : "Eliminar"}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </TableCell>
+    </TableRow>
   )
 }

@@ -16,6 +16,7 @@ import {
 
 type CustomerArchiveDialogProps = {
   customer: Customer | null
+  customers?: Customer[]
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess: (message: string) => void
@@ -23,6 +24,7 @@ type CustomerArchiveDialogProps = {
 
 export function CustomerArchiveDialog({
   customer,
+  customers,
   open,
   onOpenChange,
   onSuccess,
@@ -31,23 +33,31 @@ export function CustomerArchiveDialog({
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  const targets = customers && customers.length > 0 ? customers : customer ? [customer] : []
+
   async function handleArchive() {
-    if (!customer) return
+    if (targets.length === 0) return
 
     setError(null)
     setIsSubmitting(true)
 
     try {
-      const result = await updateCustomer(customer.id, {
-        deletedAt: new Date().toISOString(),
-      })
+      for (const target of targets) {
+        const result = await updateCustomer(target.id, {
+          deletedAt: new Date().toISOString(),
+        })
 
-      if (!result.success) {
-        setError(result.message ?? "No se pudo archivar al cliente.")
-        return
+        if (!result.success) {
+          setError(result.message ?? "No se pudo archivar al cliente.")
+          return
+        }
       }
 
-      onSuccess(`Cliente ${customer.name} archivado correctamente.`)
+      onSuccess(
+        targets.length === 1
+          ? `Cliente ${targets[0].name} archivado correctamente.`
+          : `${targets.length} clientes archivados correctamente.`
+      )
       onOpenChange(false)
     } finally {
       setIsSubmitting(false)
@@ -68,15 +78,17 @@ export function CustomerArchiveDialog({
         <DialogHeader>
           <DialogTitle>Archivar cliente</DialogTitle>
           <DialogDescription>
-            El cliente dejará de aparecer en operaciones activas. Los datos se
-            conservan en archivo lógico.
-            {customer ? (
+            El cliente dejará de aparecer en operaciones activas. El historial,
+            órdenes de trabajo, evidencias y materiales se conservan.
+            {targets.length === 1 ? (
               <>
                 {" "}
                 <span className="font-medium text-foreground">
-                  {customer.name}
+                  {targets[0].name}
                 </span>
               </>
+            ) : targets.length > 1 ? (
+              <> Se archivarán {targets.length} clientes.</>
             ) : null}
           </DialogDescription>
         </DialogHeader>
@@ -100,7 +112,7 @@ export function CustomerArchiveDialog({
             type="button"
             variant="destructive"
             onClick={handleArchive}
-            disabled={isSubmitting || !customer}
+            disabled={isSubmitting || targets.length === 0}
           >
             {isSubmitting ? "Archivando..." : "Archivar"}
           </Button>

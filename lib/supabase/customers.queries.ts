@@ -1,6 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import { generateCustomerNumber } from "@/lib/customers/customer-number"
+import {
+  canExcludeCustomerFromOperations,
+  getCustomerOperationalActivity,
+} from "@/lib/customers/customer-activity"
 import { CUSTOMER_DELETE_BLOCKED_MESSAGE } from "@/lib/customers/customer-delete"
 import type { Database } from "@/lib/supabase/database.types"
 import {
@@ -94,11 +98,12 @@ export async function searchCustomers(
     .select("*")
     .or(
       [
-        `customer_number.ilike.${pattern}`,
         `external_customer_code.ilike.${pattern}`,
+        `dni.ilike.${pattern}`,
         `name.ilike.${pattern}`,
         `phone.ilike.${pattern}`,
         `address.ilike.${pattern}`,
+        `locality.ilike.${pattern}`,
       ].join(",")
     )
     .order("name", { ascending: true })
@@ -209,39 +214,19 @@ export async function updateCustomer(
   }
 }
 
-async function countCustomerTasks(
-  client: SupabaseCustomersClient,
-  customerId: string
-): Promise<{ count: number; error: ReturnType<typeof mapSupabaseCustomerError> | null }> {
-  const { count, error } = await client
-    .from("tasks")
-    .select("id", { count: "exact", head: true })
-    .eq("customer_id", customerId)
-    .is("deleted_at", null)
-
-  if (error) {
-    return { count: 0, error: mapSupabaseCustomerError(error) }
-  }
-
-  return { count: count ?? 0, error: null }
-}
-
 export async function deleteCustomer(
   client: SupabaseCustomersClient,
   id: string
 ): Promise<CustomersRepositoryResult<void>> {
-  const { count, error: countError } = await countCustomerTasks(client, id)
+  const activity = await getCustomerOperationalActivity(client, id)
+  const excludeCheck = canExcludeCustomerFromOperations(activity)
 
-  if (countError) {
-    return { data: null, error: countError }
-  }
-
-  if (count > 0) {
+  if (!excludeCheck.allowed) {
     return {
       data: null,
       error: {
-        code: "HAS_ASSOCIATED_TASKS",
-        message: CUSTOMER_DELETE_BLOCKED_MESSAGE,
+        code: "HAS_OPERATIONAL_ACTIVITY",
+        message: excludeCheck.message || CUSTOMER_DELETE_BLOCKED_MESSAGE,
       },
     }
   }
@@ -257,4 +242,42 @@ export async function deleteCustomer(
   }
 
   return { data: null, error: null, ok: true }
+}
+
+export async function markCustomersValidated(
+  client: SupabaseCustomersClient,
+  input: {
+    customerIds: string[]
+    validatedBy: string
+    validatedAt?: string
+  }
+): Promise<CustomersRepositoryResult<Customer[]>> {
+  if (input.customerIds.length === 0) {
+    return { data: [], error: null }
+  }
+
+  const validatedAt = input.validatedAt ?? new Date().toISOString()
+  const updated: Customer[] = []
+
+  for (const id of input.customerIds) {
+    const result = await updateCustomer(client, id, {
+      validationStatus: "active",
+      validatedBy: input.validatedBy,
+      validatedAt,
+    })
+
+    if (result.error || !result.data) {
+      return {
+        data: null,
+        error: result.error ?? {
+          code: "UNKNOWN",
+          message: "No se pudo marcar el cliente como activo.",
+        },
+      }
+    }
+
+    updated.push(result.data)
+  }
+
+  return { data: updated, error: null }
 }

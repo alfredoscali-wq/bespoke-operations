@@ -3,6 +3,7 @@ import {
   createCustomer as insertCustomer,
   deleteCustomer as removeCustomer,
   getCustomers as fetchCustomers,
+  markCustomersValidated,
   searchCustomers as querySearchCustomers,
   updateCustomer as patchCustomer,
   type SupabaseCustomersClient,
@@ -54,4 +55,14 @@ export async function deleteCustomer(
   client: SupabaseCustomersClient = createBrowserCustomersClient()
 ): Promise<CustomersRepositoryResult<void>> {
   return removeCustomer(client, id)
+}
+
+export async function markCustomersAsActive(
+  input: {
+    customerIds: string[]
+    validatedBy: string
+  },
+  client: SupabaseCustomersClient = createBrowserCustomersClient()
+): Promise<CustomersRepositoryResult<Customer[]>> {
+  return markCustomersValidated(client, input)
 }
