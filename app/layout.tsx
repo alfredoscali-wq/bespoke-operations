@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 
 import { AuthProvider } from "@/components/auth/auth-provider"
+import { DemoModeProvider } from "@/components/demo/demo-mode-provider"
 import { PasswordChangeGuard } from "@/components/auth/password-change-guard"
 import { PwaServiceWorkerRegister } from "@/components/pwa/pwa-service-worker-register"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -88,8 +89,10 @@ export default function RootLayout({
       <body className="min-h-full bg-background font-sans text-foreground">
         <PwaServiceWorkerRegister />
         <AuthProvider>
-          <PasswordChangeGuard />
-          <TooltipProvider>{children}</TooltipProvider>
+          <DemoModeProvider>
+            <PasswordChangeGuard />
+            <TooltipProvider>{children}</TooltipProvider>
+          </DemoModeProvider>
         </AuthProvider>
       </body>
     </html>

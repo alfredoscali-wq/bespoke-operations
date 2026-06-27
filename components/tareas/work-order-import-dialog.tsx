@@ -12,7 +12,9 @@ import {
 
 import { useCustomers } from "@/components/clientes/customers-provider"
 import { useCrews } from "@/components/cuadrillas/crews-provider"
+import { useDemoMode } from "@/components/demo/demo-mode-provider"
 import { useTasks } from "@/components/tareas/tasks-provider"
+import { blockDemoWrite } from "@/lib/demo/demo-write-block"
 import { getAssignableCrews } from "@/lib/crews/status-workflow"
 import { executeWorkOrderImport } from "@/lib/tasks/work-order-import/execute"
 import { parseWorkOrderImportFile } from "@/lib/tasks/work-order-import/parse"
@@ -125,6 +127,7 @@ export function WorkOrderImportDialog({
   onOpenChange,
   onImported,
 }: WorkOrderImportDialogProps) {
+  const { isReadOnly, openRestrictedDialog } = useDemoMode()
   const { tasks, addTask } = useTasks()
   const { createCustomer, getImportDuplicateIndex } = useCustomers()
   const { crews } = useCrews()
@@ -280,6 +283,10 @@ export function WorkOrderImportDialog({
   }
 
   async function handleImport() {
+    if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+      return
+    }
+
     setError(null)
     setIsImporting(true)
 

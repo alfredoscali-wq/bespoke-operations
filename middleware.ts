@@ -5,6 +5,7 @@ import {
   getDefaultPostLoginPath,
   isAuthPublicPath,
   isDashboardPath,
+  isDemoRestrictedAdminPath,
   isOperarioPortalPath,
   LOGIN_PATH,
   sanitizeRedirectPath,
@@ -72,6 +73,13 @@ export async function middleware(request: NextRequest) {
       systemRole !== "operario" &&
       isOperarioPortalPath(pathname)
     ) {
+      const redirectUrl = request.nextUrl.clone()
+      redirectUrl.pathname = "/"
+      redirectUrl.search = ""
+      return NextResponse.redirect(redirectUrl)
+    }
+
+    if (systemRole === "demo" && isDemoRestrictedAdminPath(pathname)) {
       const redirectUrl = request.nextUrl.clone()
       redirectUrl.pathname = "/"
       redirectUrl.search = ""

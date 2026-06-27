@@ -10,10 +10,17 @@ import {
   readMigrationReviewState,
   readPreparedMigrationDataset,
 } from "@/lib/customers/commercial-migration/review-storage"
+import { requireAdministratorSession } from "@/lib/auth/require-administrator"
 import { createClient } from "@/lib/supabase/server"
 import { getCustomers } from "@/lib/supabase/customers.queries"
 
 export async function POST() {
+  const auth = await requireAdministratorSession()
+
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.message }, { status: auth.status })
+  }
+
   try {
     const supabase = await createClient()
     const schemaIssues = await verifyCustomersImportSchema(supabase)

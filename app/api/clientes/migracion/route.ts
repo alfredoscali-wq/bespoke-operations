@@ -7,8 +7,15 @@ import {
   upsertMigrationReviewDecision,
 } from "@/lib/customers/commercial-migration/review-storage"
 import type { MigrationReviewAction } from "@/lib/customers/commercial-migration/review-types"
+import { requireAdministratorSession } from "@/lib/auth/require-administrator"
 
 export async function GET() {
+  const auth = await requireAdministratorSession()
+
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.message }, { status: auth.status })
+  }
+
   try {
     const dataset = readPreparedMigrationDataset()
     const reviewState = readMigrationReviewState()
@@ -33,6 +40,12 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const auth = await requireAdministratorSession()
+
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.message }, { status: auth.status })
+  }
+
   try {
     const body = (await request.json()) as {
       legacyId?: number

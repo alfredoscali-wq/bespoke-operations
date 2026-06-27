@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react"
 import { Mail, Save } from "lucide-react"
 
+import { useDemoMode } from "@/components/demo/demo-mode-provider"
+import { blockDemoWrite } from "@/lib/demo/demo-write-block"
+
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -49,6 +52,7 @@ type TestSendResponse = {
 }
 
 export function AutomaticReportsSettingsPanel() {
+  const { isReadOnly, openRestrictedDialog } = useDemoMode()
   const [settings, setSettings] = useState<SettingsDto | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -79,6 +83,10 @@ export function AutomaticReportsSettingsPanel() {
 
   async function handleSave() {
     if (!settings || saving) {
+      return
+    }
+
+    if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
       return
     }
 
@@ -124,6 +132,10 @@ export function AutomaticReportsSettingsPanel() {
 
   async function handleTestSend() {
     if (testing) {
+      return
+    }
+
+    if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
       return
     }
 

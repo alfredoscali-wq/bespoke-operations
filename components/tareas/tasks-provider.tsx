@@ -10,6 +10,13 @@ import {
   useState,
 } from "react"
 
+import { useDemoMode } from "@/components/demo/demo-mode-provider"
+import {
+  blockDemoWrite,
+  DemoWriteBlockedError,
+  DEMO_WRITE_BLOCKED_TASK_RESULT,
+} from "@/lib/demo/demo-write-block"
+
 import {
   getTaskDetail,
 } from "@/lib/data/tasks"
@@ -151,6 +158,7 @@ function cacheDetail(id: string, detail: TaskDetail) {
 }
 
 export function TasksProvider({ children }: { children: React.ReactNode }) {
+  const { isReadOnly, openRestrictedDialog } = useDemoMode()
   const [tasks, setTasks] = useState<Task[]>([])
   const [isTasksReady, setIsTasksReady] = useState(false)
   const [usesSupabase, setUsesSupabase] = useState(false)
@@ -351,6 +359,10 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
 
   const addTask = useCallback(
     async (input: CreateTaskPayload): Promise<Task> => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        throw new DemoWriteBlockedError()
+      }
+
       const status =
         input.status ??
         getInitialTaskStatus({ crewId: input.crewId, crew: input.crew })
@@ -395,7 +407,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       recordTaskCreateAudit(result.data)
       return result.data
     },
-    [tasks, usesSupabase]
+    [tasks, usesSupabase, isReadOnly, openRestrictedDialog]
   )
 
   const updateTaskFields = useCallback(
@@ -409,6 +421,10 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         rescheduleInput?: TaskRescheduleInput
       }
     ): Promise<TaskMutationResult> => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return DEMO_WRITE_BLOCKED_TASK_RESULT
+      }
+
       const existing = tasks.find((item) => item.id === id)
       if (!existing) {
         return { success: false, message: "Orden de trabajo no encontrada." }
@@ -485,7 +501,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         message: "No fue posible actualizar la orden de trabajo. Intente nuevamente.",
       }
     },
-    [tasks, usesSupabase, mergeVencidaSyncIntoTasks]
+    [tasks, usesSupabase, mergeVencidaSyncIntoTasks, isReadOnly, openRestrictedDialog]
   )
 
   const editTask = useCallback(
@@ -904,6 +920,10 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
 
   const deleteTask = useCallback(
     async (id: string): Promise<TaskMutationResult> => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return DEMO_WRITE_BLOCKED_TASK_RESULT
+      }
+
       const existing = tasks.find((item) => item.id === id)
       if (!existing) {
         return { success: false, message: "Orden de trabajo no encontrada." }
@@ -952,7 +972,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
 
       return { success: true }
     },
-    [tasks, usesSupabase]
+    [tasks, usesSupabase, isReadOnly, openRestrictedDialog]
   )
 
   const removeTaskLocally = useCallback((id: string) => {
@@ -997,6 +1017,10 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
 
   const toggleChecklistItem = useCallback(
     (taskId: string, itemId: string) => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return
+      }
+
       let updatedTask: Task | undefined
 
       setTasks((current) =>
@@ -1016,7 +1040,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         void persistTaskUpdate(updatedTask)
       }
     },
-    [persistTaskUpdate]
+    [persistTaskUpdate, isReadOnly, openRestrictedDialog]
   )
 
   const syncOperationalStepsProgress = useCallback(
@@ -1075,6 +1099,10 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       author = "Operario",
       role: TaskDetail["comments"][number]["role"] = "operario"
     ) => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return
+      }
+
       const task = tasks.find((item) => item.id === taskId)
       if (!task) return
 
@@ -1095,11 +1123,15 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       })
       setDetailVersion((version) => version + 1)
     },
-    [tasks]
+    [tasks, isReadOnly, openRestrictedDialog]
   )
 
   const addEvidence = useCallback(
     (taskId: string, title: string, uploadedBy = "Operario") => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return
+      }
+
       const task = tasks.find((item) => item.id === taskId)
       if (!task) return
 
@@ -1130,7 +1162,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       })
       setDetailVersion((version) => version + 1)
     },
-    [tasks]
+    [tasks, isReadOnly, openRestrictedDialog]
   )
 
   const value = useMemo(

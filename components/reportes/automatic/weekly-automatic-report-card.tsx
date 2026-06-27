@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useState } from "react"
 import { Download, Mail, Play, RefreshCw } from "lucide-react"
 
+import { useDemoMode } from "@/components/demo/demo-mode-provider"
+import { blockDemoWrite } from "@/lib/demo/demo-write-block"
+
 import { WeeklyReportResultDialog } from "@/components/reportes/automatic/weekly-report-result-dialog"
 import { Button } from "@/components/ui/button"
 import {
@@ -37,6 +40,7 @@ type RunResponse = {
 }
 
 export function WeeklyAutomaticReportCard() {
+  const { isReadOnly, openRestrictedDialog } = useDemoMode()
   const [status, setStatus] = useState<WeeklyReportRunStatusDto | null>(null)
   const [loadingStatus, setLoadingStatus] = useState(true)
   const [running, setRunning] = useState(false)
@@ -74,6 +78,10 @@ export function WeeklyAutomaticReportCard() {
 
   async function handleGenerateNow() {
     if (running) {
+      return
+    }
+
+    if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
       return
     }
 
@@ -122,6 +130,10 @@ export function WeeklyAutomaticReportCard() {
 
   async function handleSendNow() {
     if (sending) {
+      return
+    }
+
+    if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
       return
     }
 

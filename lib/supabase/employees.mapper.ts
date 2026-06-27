@@ -18,6 +18,7 @@ function trimOptional(value: string | null | undefined): string | null {
 export function mapEmployeeRowToEmployee(row: EmployeeRow): Employee {
   return {
     id: row.id,
+    companyId: row.company_id,
     employeeCode: row.employee_code,
     firstName: row.first_name,
     lastName: row.last_name,

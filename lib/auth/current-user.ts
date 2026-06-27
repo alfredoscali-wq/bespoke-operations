@@ -22,6 +22,7 @@ export const APP_USER_ROLE_LABELS: Record<AppUserRole, string> = {
   supervisor: "Supervisor",
   administrativo: "Administrativo",
   operario: "Operario",
+  demo: "Demo",
 }
 
 /**

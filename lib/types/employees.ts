@@ -18,9 +18,11 @@ export type SystemRole =
   | "supervisor"
   | "administrativo"
   | "operario"
+  | "demo"
 
 export type Employee = {
   id: string
+  companyId: string
   employeeCode: string
   firstName: string
   lastName: string

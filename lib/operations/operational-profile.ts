@@ -8,6 +8,7 @@ export type OperationalProfile =
   | "ventas"
   | "rrhh"
   | "operario"
+  | "demo"
 
 export type DashboardSectionId =
   | "executive-summary"
@@ -26,6 +27,7 @@ export const OPERATIONAL_PROFILE_LABELS: Record<OperationalProfile, string> = {
   ventas: "Ventas",
   rrhh: "RRHH",
   operario: "Operario de Campo",
+  demo: "Demostración Comercial",
 }
 
 /** Ruta de inicio de jornada por perfil operativo. */
@@ -36,6 +38,7 @@ export const PROFILE_HOME_PATH: Record<OperationalProfile, string> = {
   ventas: "/operations/calendar",
   rrhh: "/",
   operario: "/operario",
+  demo: "/",
 }
 
 export const OPERATIONAL_PROFILE_DASHBOARD_TITLE: Record<
@@ -47,6 +50,7 @@ export const OPERATIONAL_PROFILE_DASHBOARD_TITLE: Record<
   administracion_operativa: "Dashboard Operativo",
   ventas: "Dashboard Operativo",
   rrhh: "Dashboard RRHH",
+  demo: "Dashboard Ejecutivo",
 }
 
 export const OPERATIONAL_PROFILE_DASHBOARD_SUBTITLE: Record<
@@ -64,6 +68,7 @@ export const OPERATIONAL_PROFILE_DASHBOARD_SUBTITLE: Record<
   rrhh:
     "Empleados activos, licencias, disponibilidad, ausencias y cuadrillas.",
   operario: "Portal de campo para órdenes de trabajo del día.",
+  demo: "Recorrido comercial de Bespoke Operations en modo consulta.",
 }
 
 export const PROFILE_DASHBOARD_SECTIONS: Record<
@@ -84,6 +89,15 @@ export const PROFILE_DASHBOARD_SECTIONS: Record<
   ventas: [],
   rrhh: ["rrhh-summary"],
   operario: [],
+  demo: [
+    "executive-summary",
+    "operational-alerts",
+    "day-operations",
+    "projects-status",
+    "tasks-status",
+    "crews-status",
+    "recent-activity",
+  ],
 }
 
 const BACKOFFICE_PROFILES: OperationalProfile[] = [
@@ -92,6 +106,7 @@ const BACKOFFICE_PROFILES: OperationalProfile[] = [
   "administracion_operativa",
   "ventas",
   "rrhh",
+  "demo",
 ]
 
 export function isBackofficeOperationalProfile(
@@ -107,7 +122,7 @@ export function getProfileHomePath(profile: OperationalProfile): string {
 export function profileUsesOperationalDashboard(
   profile: OperationalProfile
 ): boolean {
-  return profile === "administrador"
+  return profile === "administrador" || profile === "demo"
 }
 
 export function profileUsesRrhhDashboard(profile: OperationalProfile): boolean {
@@ -133,6 +148,8 @@ export function mapSystemRoleToOperationalProfile(
       return "administracion_operativa"
     case "operario":
       return "operario"
+    case "demo":
+      return "demo"
     default:
       return "administracion_operativa"
   }

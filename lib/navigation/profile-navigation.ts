@@ -99,6 +99,26 @@ const PROFILE_NAV_BUILDERS: Record<
       ],
     },
   ],
+  demo: () => [
+    { id: "dashboard", items: [dashboardNavItem] },
+    {
+      id: "operations",
+      label: "Operaciones",
+      items: [
+        calendarNavItem,
+        workOrdersNavItem,
+        customersNavItem,
+        projectsNavItem,
+      ],
+    },
+    {
+      id: "rrhh",
+      label: "RRHH",
+      items: [employeesNavItem, crewsNavItem, availabilityNavItem],
+    },
+    { id: "analysis", label: "Análisis", items: [reportsNavItem] },
+    { id: "system", label: "Sistema", items: [historyNavItem] },
+  ],
 }
 
 export function buildNavGroupsForProfile(
@@ -134,10 +154,16 @@ export function getDashboardPageMeta(profile: OperationalProfile): {
   }
 
   if (profileUsesOperationalDashboard(profile)) {
-    return {
-      title: OPERATIONAL_PROFILE_DASHBOARD_TITLE.administrador,
-      subtitle: OPERATIONAL_PROFILE_DASHBOARD_SUBTITLE.administrador,
-    }
+    const title =
+      profile === "demo"
+        ? OPERATIONAL_PROFILE_DASHBOARD_TITLE.demo
+        : OPERATIONAL_PROFILE_DASHBOARD_TITLE.administrador
+    const subtitle =
+      profile === "demo"
+        ? OPERATIONAL_PROFILE_DASHBOARD_SUBTITLE.demo
+        : OPERATIONAL_PROFILE_DASHBOARD_SUBTITLE.administrador
+
+    return { title, subtitle }
   }
 
   return {

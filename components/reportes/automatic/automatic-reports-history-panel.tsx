@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useState } from "react"
 import { Download, Eye, Mail, RefreshCw } from "lucide-react"
 
+import { useDemoMode } from "@/components/demo/demo-mode-provider"
+import { blockDemoWrite } from "@/lib/demo/demo-write-block"
+
 import { Button } from "@/components/ui/button"
 import { EntityActionFeedback } from "@/components/ui/entity-action-feedback"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -35,6 +38,7 @@ type PdfResponse = {
 }
 
 export function AutomaticReportsHistoryPanel() {
+  const { isReadOnly, openRestrictedDialog } = useDemoMode()
   const [items, setItems] = useState<AutomaticReportHistoryEntryDto[]>([])
   const [loading, setLoading] = useState(true)
   const [actionId, setActionId] = useState<string | null>(null)
@@ -121,6 +125,10 @@ export function AutomaticReportsHistoryPanel() {
   }
 
   async function handleResend(id: string) {
+    if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+      return
+    }
+
     setActionId(id)
     setFeedback(null)
 

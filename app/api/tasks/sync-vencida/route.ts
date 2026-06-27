@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 
 import { syncVencidaTasksWithAudit } from "@/lib/supabase/tasks-vencida-sync.server"
 import { fetchTasks } from "@/lib/supabase/tasks.queries"
-import { getSessionUser } from "@/lib/auth/session"
+import { requireWritablePlatformSession } from "@/lib/auth/require-writable-platform-session"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { shouldAutoTransitionToVencida } from "@/lib/tasks/vencida-status"
 
@@ -11,12 +11,12 @@ type SyncVencidaBody = {
 }
 
 export async function POST(request: Request) {
-  const sessionUser = await getSessionUser()
+  const auth = await requireWritablePlatformSession()
 
-  if (!sessionUser) {
+  if (!auth.ok) {
     return NextResponse.json(
-      { success: false, message: "Debe iniciar sesión." },
-      { status: 401 }
+      { success: false, message: auth.message },
+      { status: auth.status }
     )
   }
 

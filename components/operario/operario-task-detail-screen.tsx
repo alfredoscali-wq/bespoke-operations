@@ -5,6 +5,7 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { AlertTriangle, ArrowLeft, CheckCircle2 } from "lucide-react"
 
+import { useDemoMode } from "@/components/demo/demo-mode-provider"
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { useOperario } from "@/components/operario/operario-provider"
 import {
@@ -52,6 +53,7 @@ export function OperarioTaskDetailScreen({ id }: OperarioTaskDetailScreenProps) 
     isCrewReady,
   } = useOperario()
   const { getTask } = useTasks()
+  const { isReadOnly } = useDemoMode()
   const [actionMessage, setActionMessage] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [stepsRefreshKey, setStepsRefreshKey] = useState(0)
@@ -111,13 +113,15 @@ export function OperarioTaskDetailScreen({ id }: OperarioTaskDetailScreenProps) 
   const technologyLabel = getTaskTechnologyLabel(activeTask)
   const usesOperationalSteps = hasOperationalSteps(activeTask)
   const actionsDisabled =
+    isReadOnly ||
     isPendingClosureStatus(activeTask.status) ||
     isIncidentStatus(activeTask.status)
   const showFooter =
-    activeTask.status === "asignada" ||
+    !isReadOnly &&
+    (activeTask.status === "asignada" ||
     activeTask.status === "en-curso" ||
     isIncidentStatus(activeTask.status) ||
-    isPendingClosureStatus(activeTask.status)
+    isPendingClosureStatus(activeTask.status))
   const rejectionReason = activeTask.rejectionReason?.trim()
 
   return (

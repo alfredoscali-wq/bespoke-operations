@@ -66,6 +66,7 @@ export const SYSTEM_ROLE_LABELS: Record<SystemRole, string> = {
   supervisor: "Supervisor",
   administrativo: "Administrativo",
   operario: "Operario",
+  demo: "Demo",
 }
 
 export const SYSTEM_ROLE_STYLES: Record<SystemRole, string> = {
@@ -73,6 +74,7 @@ export const SYSTEM_ROLE_STYLES: Record<SystemRole, string> = {
   supervisor: "bg-indigo-50 text-indigo-700 border-indigo-100",
   administrativo: "bg-slate-100 text-slate-700 border-slate-200",
   operario: "bg-blue-50 text-blue-700 border-blue-100",
+  demo: "bg-primary/10 text-primary border-primary/20",
 }
 
 export const SYSTEM_ACCESS_LABELS = {

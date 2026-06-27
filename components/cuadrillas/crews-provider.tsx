@@ -10,6 +10,12 @@ import {
   useState,
 } from "react"
 
+import { useDemoMode } from "@/components/demo/demo-mode-provider"
+import {
+  blockDemoWrite,
+  DEMO_WRITE_BLOCKED_MUTATION_RESULT,
+} from "@/lib/demo/demo-write-block"
+
 import {
   isCrewAuditableFieldUpdate,
   recordCrewArchiveAudit,
@@ -89,6 +95,7 @@ function replaceCrewInList(crews: Crew[], crew: Crew): Crew[] {
 }
 
 export function CrewsProvider({ children }: { children: React.ReactNode }) {
+  const { isReadOnly, openRestrictedDialog } = useDemoMode()
   const { tasks, isTasksReady } = useTasks()
   const { getEmployee } = useEmployees()
   const [crews, setCrews] = useState<Crew[]>([])
@@ -143,6 +150,10 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
+    if (isReadOnly) {
+      return
+    }
+
     const pendingUpdates = crews
       .map((crew) => {
         const nextStatus = shouldPersistCrewStatusSync(crew, tasks)
@@ -178,7 +189,7 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
         syncInFlightRef.current = false
       }
     })()
-  }, [crews, tasks, isCrewsReady, isTasksReady, usesSupabase])
+  }, [crews, tasks, isCrewsReady, isTasksReady, usesSupabase, isReadOnly])
 
   const getCrew = useCallback(
     (id: string) => resolvedCrews.find((crew) => crew.id === id),
@@ -187,6 +198,10 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
 
   const addCrew = useCallback(
     async (input: NewCrewInput) => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return DEMO_WRITE_BLOCKED_MUTATION_RESULT
+      }
+
       if (!usesSupabase) {
         return {
           success: false,
@@ -250,6 +265,10 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
 
   const editCrew = useCallback(
     async (id: string, input: UpdateCrewPayload | NewCrewInput) => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return DEMO_WRITE_BLOCKED_MUTATION_RESULT
+      }
+
       if (!usesSupabase) {
         return {
           success: false,
@@ -334,6 +353,10 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
 
   const removeCrew = useCallback(
     async (id: string) => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return DEMO_WRITE_BLOCKED_MUTATION_RESULT
+      }
+
       if (!usesSupabase) {
         return {
           success: false,
@@ -371,6 +394,10 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
 
   const addMember = useCallback(
     async (crewId: string, input: NewCrewMemberInput) => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return DEMO_WRITE_BLOCKED_MUTATION_RESULT
+      }
+
       if (!usesSupabase) {
         return {
           success: false,
@@ -446,6 +473,10 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
       memberId: string,
       input: UpdateCrewMemberPayload
     ) => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return DEMO_WRITE_BLOCKED_MUTATION_RESULT
+      }
+
       if (!usesSupabase) {
         return {
           success: false,
@@ -505,6 +536,10 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
 
   const removeMember = useCallback(
     async (crewId: string, memberId: string) => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return DEMO_WRITE_BLOCKED_MUTATION_RESULT
+      }
+
       if (!usesSupabase) {
         return {
           success: false,

@@ -55,6 +55,7 @@ export function buildSessionUserFromAuthUser(
     return {
       authUserId: user.id,
       employeeId: employee.id,
+      companyId: employee.companyId,
       displayName: resolveSessionDisplayName(employee),
       initials: resolveSessionInitials(employee),
       systemRole: employee.systemRole,
@@ -71,6 +72,7 @@ export function buildSessionUserFromAuthUser(
     authUserId: user.id,
     employeeId:
       typeof metadata.employee_id === "string" ? metadata.employee_id : null,
+    companyId: null,
     displayName,
     initials: resolveFallbackInitials(displayName),
     systemRole: getMetadataSystemRole(metadata),

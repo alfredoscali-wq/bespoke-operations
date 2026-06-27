@@ -10,6 +10,12 @@ import {
   useState,
 } from "react"
 
+import { useDemoMode } from "@/components/demo/demo-mode-provider"
+import {
+  blockDemoWrite,
+  DEMO_WRITE_BLOCKED_MUTATION_RESULT,
+} from "@/lib/demo/demo-write-block"
+
 import {
   isCustomerArchiveUpdate,
   recordCustomerArchiveAudit,
@@ -91,6 +97,7 @@ const EMPTY_SUMMARY: CustomerOperationalSummary = {
 const CustomersContext = createContext<CustomersContextValue | null>(null)
 
 export function CustomersProvider({ children }: { children: React.ReactNode }) {
+  const { isReadOnly, openRestrictedDialog } = useDemoMode()
   const [listPage, setListPage] = useState<CustomerListPage | null>(null)
   const [operationalSummary, setOperationalSummary] =
     useState<CustomerOperationalSummary>(EMPTY_SUMMARY)
@@ -234,6 +241,10 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
 
   const createCustomer = useCallback(
     async (input: NewCustomerInput): Promise<CustomerMutationResult> => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return DEMO_WRITE_BLOCKED_MUTATION_RESULT
+      }
+
       if (!usesSupabase) {
         return {
           success: false,
@@ -299,6 +310,10 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
         syncFromTask?: { id: string; code: string }
       }
     ): Promise<CustomerMutationResult> => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return DEMO_WRITE_BLOCKED_MUTATION_RESULT
+      }
+
       if (!usesSupabase) {
         return {
           success: false,
@@ -377,6 +392,10 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
 
   const deleteCustomer = useCallback(
     async (id: string): Promise<CustomerMutationResult> => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return DEMO_WRITE_BLOCKED_MUTATION_RESULT
+      }
+
       if (!usesSupabase) {
         return {
           success: false,

@@ -2,6 +2,8 @@
 
 import { useState } from "react"
 
+import { DemoPlatformBanner } from "@/components/demo/demo-platform-banner"
+import { useDemoMode } from "@/components/demo/demo-mode-provider"
 import { AppHeader } from "@/components/layout/app-header"
 import { AppSidebar } from "@/components/layout/app-sidebar"
 
@@ -14,6 +16,7 @@ type AppShellProps = {
 export function AppShell({ children, title, subtitle }: AppShellProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const { showBanner } = useDemoMode()
 
   return (
     <div className="flex min-h-screen bg-muted/30">
@@ -25,6 +28,8 @@ export function AppShell({ children, title, subtitle }: AppShellProps) {
       />
 
       <div className="flex min-w-0 flex-1 flex-col">
+        {showBanner ? <DemoPlatformBanner /> : null}
+
         <AppHeader
           title={title}
           subtitle={subtitle}

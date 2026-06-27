@@ -9,6 +9,13 @@ import {
   useState,
 } from "react"
 
+import { useDemoMode } from "@/components/demo/demo-mode-provider"
+import {
+  blockDemoWrite,
+  DemoWriteBlockedError,
+  DEMO_WRITE_BLOCKED_MUTATION_RESULT,
+} from "@/lib/demo/demo-write-block"
+
 import {
   createProjectDetail,
 } from "@/lib/data/projects"
@@ -99,6 +106,7 @@ function cacheProjectDetail(project: Project) {
 }
 
 export function ProjectsProvider({ children }: { children: React.ReactNode }) {
+  const { isReadOnly, openRestrictedDialog } = useDemoMode()
   const [projects, setProjects] = useState<Project[]>([])
   const [isProjectsReady, setIsProjectsReady] = useState(false)
   const [usesSupabase, setUsesSupabase] = useState(false)
@@ -171,6 +179,10 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
 
   const addProject = useCallback(
     async (input: NewProjectInput): Promise<Project> => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        throw new DemoWriteBlockedError()
+      }
+
       if (!usesSupabase) {
         throw new Error("No fue posible crear la obra. Intente nuevamente.")
       }
@@ -206,6 +218,10 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
       id: string,
       payload: UpdateProjectPayload
     ): Promise<ProjectMutationResult> => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return DEMO_WRITE_BLOCKED_MUTATION_RESULT
+      }
+
       const existing = projects.find((project) => project.id === id)
       if (!existing) {
         return { success: false, message: "Obra no encontrada." }
@@ -389,6 +405,10 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
 
   const archiveProject = useCallback(
     async (id: string) => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return DEMO_WRITE_BLOCKED_MUTATION_RESULT
+      }
+
       const existing = projects.find((project) => project.id === id)
       if (!existing) {
         return { success: false, message: "Obra no encontrada." }

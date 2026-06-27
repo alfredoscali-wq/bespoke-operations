@@ -58,10 +58,30 @@ export function isDashboardPath(pathname: string): boolean {
   return true
 }
 
+export function isDemoRestrictedAdminPath(pathname: string): boolean {
+  if (pathname === "/configuracion" || pathname.startsWith("/configuracion/")) {
+    return true
+  }
+
+  if (pathname === "/usuarios" || pathname.startsWith("/usuarios/")) {
+    return true
+  }
+
+  if (
+    pathname === "/clientes/migracion" ||
+    pathname.startsWith("/clientes/migracion/")
+  ) {
+    return true
+  }
+
+  return false
+}
+
 export function getDefaultPostLoginPath(
   systemRole: SystemRole | null | undefined
 ): string {
   if (systemRole === "operario") return "/operario"
+  if (systemRole === "demo") return "/"
   return "/"
 }
 

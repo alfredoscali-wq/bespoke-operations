@@ -5,6 +5,7 @@ const SYSTEM_ROLES: SystemRole[] = [
   "supervisor",
   "administrativo",
   "operario",
+  "demo",
 ]
 
 export function isSystemRole(value: unknown): value is SystemRole {

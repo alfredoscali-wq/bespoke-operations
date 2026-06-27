@@ -9,6 +9,11 @@ import {
   useState,
 } from "react"
 
+import { useDemoMode } from "@/components/demo/demo-mode-provider"
+import {
+  blockDemoWrite,
+  DEMO_WRITE_BLOCKED_MUTATION_RESULT,
+} from "@/lib/demo/demo-write-block"
 import {
   createBrowserEmployeeAvailabilityClient,
   createEmployeeAvailability,
@@ -56,6 +61,7 @@ export function AvailabilityProvider({
 }: {
   children: React.ReactNode
 }) {
+  const { isReadOnly, openRestrictedDialog } = useDemoMode()
   const { getEmployee } = useEmployees()
   const [records, setRecords] = useState<EmployeeAvailability[]>([])
   const [isAvailabilityReady, setIsAvailabilityReady] = useState(false)
@@ -105,6 +111,10 @@ export function AvailabilityProvider({
 
   const addRecord = useCallback(
     async (input: CreateEmployeeAvailabilityInput) => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return DEMO_WRITE_BLOCKED_MUTATION_RESULT
+      }
+
       if (!usesSupabase) {
         return {
           success: false,
@@ -149,6 +159,10 @@ export function AvailabilityProvider({
 
   const editRecord = useCallback(
     async (id: string, input: UpdateEmployeeAvailabilityInput) => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return DEMO_WRITE_BLOCKED_MUTATION_RESULT
+      }
+
       if (!usesSupabase) {
         return {
           success: false,
@@ -201,6 +215,10 @@ export function AvailabilityProvider({
 
   const removeRecord = useCallback(
     async (id: string) => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return DEMO_WRITE_BLOCKED_MUTATION_RESULT
+      }
+
       if (!usesSupabase) {
         return {
           success: false,

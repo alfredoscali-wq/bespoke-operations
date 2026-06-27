@@ -10,6 +10,12 @@ import {
   useState,
 } from "react"
 
+import { useDemoMode } from "@/components/demo/demo-mode-provider"
+import {
+  blockDemoWrite,
+  DEMO_WRITE_BLOCKED_MUTATION_RESULT,
+} from "@/lib/demo/demo-write-block"
+
 import { appendUploadHistoryEvent } from "@/lib/data/evidence-enrichment"
 import { useAuth } from "@/components/auth/auth-provider"
 import { resolveEvidenceActor } from "@/lib/auth/auth-display"
@@ -50,6 +56,7 @@ const EvidenceContext = createContext<EvidenceContextValue | null>(null)
 const REVIEWER = "Ing. Carlos Ruiz"
 
 export function EvidenceProvider({ children }: { children: React.ReactNode }) {
+  const { isReadOnly, openRestrictedDialog } = useDemoMode()
   const { sessionUser } = useAuth()
   const [evidence, setEvidence] = useState<EvidenceRecord[]>([])
   const [isEvidenceReady, setIsEvidenceReady] = useState(false)
@@ -120,6 +127,10 @@ export function EvidenceProvider({ children }: { children: React.ReactNode }) {
 
   const uploadEvidence = useCallback(
     async (input: UploadEvidenceInput): Promise<UploadEvidenceResult> => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return DEMO_WRITE_BLOCKED_MUTATION_RESULT
+      }
+
       const normalized = normalizeUploadEvidenceInput(
         input,
         sessionUserRef.current
@@ -169,6 +180,10 @@ export function EvidenceProvider({ children }: { children: React.ReactNode }) {
 
   const approveEvidence = useCallback(
     (id: string): ReviewActionResult => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return DEMO_WRITE_BLOCKED_MUTATION_RESULT
+      }
+
       let updated = false
 
       setEvidence((current) =>
@@ -215,6 +230,10 @@ export function EvidenceProvider({ children }: { children: React.ReactNode }) {
 
   const rejectEvidence = useCallback(
     (id: string, comment: string): ReviewActionResult => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return DEMO_WRITE_BLOCKED_MUTATION_RESULT
+      }
+
       const trimmed = comment.trim()
       if (!trimmed) {
         return {
@@ -282,6 +301,10 @@ export function EvidenceProvider({ children }: { children: React.ReactNode }) {
 
   const voidEvidence = useCallback(
     (id: string, reason: string): ReviewActionResult => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return DEMO_WRITE_BLOCKED_MUTATION_RESULT
+      }
+
       const trimmed = reason.trim()
       if (!trimmed) {
         return {

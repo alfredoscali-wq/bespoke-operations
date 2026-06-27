@@ -5,6 +5,7 @@ export const SYSTEM_ROLE_LABELS: Record<SystemRole, string> = {
   supervisor: "Supervisor",
   administrativo: "Administrativo",
   operario: "Operario",
+  demo: "Demo",
 }
 
 export function formatSystemRole(role: SystemRole): string {

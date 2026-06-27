@@ -15,8 +15,8 @@ import type {
   AuditSeverity,
   WriteAuditLogInput,
 } from "@/lib/audit/types"
-import { getSessionUser } from "@/lib/auth/session"
 import { requireAdministratorSession } from "@/lib/auth/require-administrator"
+import { requireWritablePlatformSession } from "@/lib/auth/require-writable-platform-session"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 type RecordAuditEventBody = Omit<
@@ -88,12 +88,12 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const sessionUser = await getSessionUser()
+  const auth = await requireWritablePlatformSession()
 
-  if (!sessionUser) {
+  if (!auth.ok) {
     return NextResponse.json(
-      { success: false, message: "Debe iniciar sesión para registrar eventos." },
-      { status: 401 }
+      { success: false, message: auth.message },
+      { status: auth.status }
     )
   }
 
@@ -132,7 +132,7 @@ export async function POST(request: Request) {
     const { severity: _severity, ...eventInput } = body
     const entry = await writeAuditLog(admin, {
       ...eventInput,
-      performedBy: { kind: "user", sessionUser },
+      performedBy: { kind: "user", sessionUser: auth.sessionUser },
       ipAddress: requestContext.ipAddress,
       userAgent: requestContext.userAgent,
     })

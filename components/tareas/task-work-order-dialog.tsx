@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 
+import { DemoWriteBlockedError } from "@/lib/demo/demo-write-block"
+
 import { useCustomers } from "@/components/clientes/customers-provider"
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { taskDefaultChecklist } from "@/components/tareas/task-form-dialog"
@@ -822,6 +824,10 @@ export function TaskWorkOrderDialog({
       await prepareCustomerSyncAfterCreate(task, customerId, form)
       forceClose()
     } catch (submitError) {
+      if (submitError instanceof DemoWriteBlockedError) {
+        return
+      }
+
       setError(
         submitError instanceof Error
           ? submitError.message

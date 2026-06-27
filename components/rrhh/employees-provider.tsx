@@ -9,6 +9,12 @@ import {
   useState,
 } from "react"
 
+import { useDemoMode } from "@/components/demo/demo-mode-provider"
+import {
+  blockDemoWrite,
+  DEMO_WRITE_BLOCKED_MUTATION_RESULT,
+} from "@/lib/demo/demo-write-block"
+
 import {
   recordEmployeeCreateAudit,
   recordEmployeeEditAudit,
@@ -84,6 +90,7 @@ function sortEmployees(employees: Employee[]): Employee[] {
 }
 
 export function EmployeesProvider({ children }: { children: React.ReactNode }) {
+  const { isReadOnly, openRestrictedDialog } = useDemoMode()
   const [employees, setEmployees] = useState<Employee[]>([])
   const [isEmployeesReady, setIsEmployeesReady] = useState(false)
   const [usesSupabase, setUsesSupabase] = useState(false)
@@ -142,6 +149,10 @@ export function EmployeesProvider({ children }: { children: React.ReactNode }) {
 
   const addEmployee = useCallback(
     async (input: NewEmployeeInput) => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return DEMO_WRITE_BLOCKED_MUTATION_RESULT
+      }
+
       if (!usesSupabase) {
         return {
           success: false,
@@ -197,6 +208,10 @@ export function EmployeesProvider({ children }: { children: React.ReactNode }) {
 
   const editEmployee = useCallback(
     async (id: string, input: UpdateEmployeeInput) => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return DEMO_WRITE_BLOCKED_MUTATION_RESULT
+      }
+
       if (!usesSupabase) {
         return {
           success: false,
@@ -244,6 +259,10 @@ export function EmployeesProvider({ children }: { children: React.ReactNode }) {
 
   const provisionEmployeeAccess = useCallback(
     async (id: string) => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return DEMO_WRITE_BLOCKED_MUTATION_RESULT
+      }
+
       if (!usesSupabase) {
         return {
           success: false,
@@ -290,6 +309,10 @@ export function EmployeesProvider({ children }: { children: React.ReactNode }) {
 
   const resetEmployeePassword = useCallback(
     async (id: string) => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return DEMO_WRITE_BLOCKED_MUTATION_RESULT
+      }
+
       if (!usesSupabase) {
         return {
           success: false,
@@ -336,6 +359,10 @@ export function EmployeesProvider({ children }: { children: React.ReactNode }) {
 
   const removeEmployee = useCallback(
     async (id: string) => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return DEMO_WRITE_BLOCKED_MUTATION_RESULT
+      }
+
       if (!usesSupabase) {
         return {
           success: false,
