@@ -11,7 +11,7 @@ import {
 import { useRouter } from "next/navigation"
 import type { User } from "@supabase/supabase-js"
 
-import { buildAuthEmail } from "@/lib/auth/auth-identity"
+import { resolveLoginEmail } from "@/lib/auth/auth-identity"
 import {
   getDefaultPostLoginPath,
   sanitizeRedirectPath,
@@ -26,7 +26,7 @@ type AuthContextValue = {
   sessionUser: SessionUser | null
   isAuthReady: boolean
   isAuthenticated: boolean
-  signIn: (dni: string, password: string) => Promise<SessionUser>
+  signIn: (identifier: string, password: string) => Promise<SessionUser>
   signOut: () => Promise<void>
   refreshSession: () => Promise<SessionUser | null>
 }
@@ -113,9 +113,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const signIn = useCallback(
-    async (dni: string, password: string) => {
+    async (identifier: string, password: string) => {
       const supabase = createClient()
-      const email = buildAuthEmail(dni)
+      const email = resolveLoginEmail(identifier)
 
       const { data, error } = await supabase.auth.signInWithPassword({
         email,

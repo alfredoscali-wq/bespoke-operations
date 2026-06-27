@@ -13,6 +13,12 @@ export {
 /** Prefijo para identificar datos generados por el seed demo (limpieza segura). */
 export const DEMO_SEED_MARKER = "DEMO-SEED"
 
+/** Código RRHH del administrador demo (no se elimina en reset de seed operativo). */
+export const DEMO_ADMIN_EMPLOYEE_CODE = "DEMO-ADMIN"
+
+/** Credencial de acceso al tenant demo (solo entorno de demostración). */
+export const DEMO_ADMIN_EMAIL = "demo@bespoke-app.com.ar"
+
 export const DEMO_BANNER_TITLE = "BESPOKE DEMO"
 
 export const DEMO_BANNER_SUBTITLE = "Versión demostrativa"

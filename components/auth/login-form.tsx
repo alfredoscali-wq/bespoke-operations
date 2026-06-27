@@ -32,7 +32,7 @@ function resolveSignInErrorMessage(error: unknown): string {
     const message = String(error.message).toLowerCase()
 
     if (message.includes("invalid login credentials")) {
-      return "DNI o contraseña incorrectos."
+      return "DNI, correo o contraseña incorrectos."
     }
 
     if (message.includes("email not confirmed")) {
@@ -47,7 +47,7 @@ function LoginFormInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { signIn, isAuthReady } = useAuth()
-  const [dni, setDni] = useState("")
+  const [identifier, setIdentifier] = useState("")
   const [password, setPassword] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -59,15 +59,15 @@ function LoginFormInner() {
     event.preventDefault()
     setError(null)
 
-    if (!dni.trim() || !password) {
-      setError("Ingrese DNI y contraseña.")
+    if (!identifier.trim() || !password) {
+      setError("Ingrese DNI o correo y contraseña.")
       return
     }
 
     setIsSubmitting(true)
 
     try {
-      const sessionUser = await signIn(dni, password)
+      const sessionUser = await signIn(identifier, password)
       redirectAfterSignIn(router, sessionUser, nextPath)
     } catch (submitError) {
       setError(resolveSignInErrorMessage(submitError))
@@ -92,22 +92,22 @@ function LoginFormInner() {
           priority
         />
         <CardDescription>
-          Ingrese con su DNI y contraseña para acceder a la plataforma.
+          Ingrese con su DNI o correo electrónico y contraseña para acceder a la
+          plataforma.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="login-dni">DNI</Label>
+            <Label htmlFor="login-identifier">DNI o correo electrónico</Label>
             <Input
-              id="login-dni"
-              name="dni"
+              id="login-identifier"
+              name="identifier"
               type="text"
-              inputMode="numeric"
               autoComplete="username"
-              placeholder="Ej. 12345678"
-              value={dni}
-              onChange={(event) => setDni(event.target.value)}
+              placeholder="Ej. 12345678 o demo@bespoke-app.com.ar"
+              value={identifier}
+              onChange={(event) => setIdentifier(event.target.value)}
               disabled={!isAuthReady || isSubmitting}
             />
           </div>

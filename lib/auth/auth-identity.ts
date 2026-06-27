@@ -22,6 +22,21 @@ export function buildAuthEmail(
   return `${normalized}.${companyId}@auth.bespoke.local`
 }
 
+/** Resuelve el email de Auth a partir de DNI o correo ingresado en login. */
+export function resolveLoginEmail(identifier: string): string {
+  const trimmed = identifier.trim()
+
+  if (!trimmed) {
+    throw new Error("Identificador inválido")
+  }
+
+  if (trimmed.includes("@")) {
+    return trimmed.toLowerCase()
+  }
+
+  return buildAuthEmail(trimmed)
+}
+
 /** Extracts the normalized DNI from a synthetic auth email, if present. */
 export function parseDniFromAuthEmail(email: string): string | null {
   const match = email.match(/^([0-9]+)\./)

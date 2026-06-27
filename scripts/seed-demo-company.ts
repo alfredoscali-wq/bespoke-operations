@@ -7,8 +7,13 @@ import {
   BESPOKE_DEMO_COMPANY_ID,
   BESPOKE_DEMO_COMPANY_NAME,
   BESPOKE_DEMO_COMPANY_SLUG,
+  DEMO_ADMIN_EMAIL,
   DEMO_SEED_MARKER,
 } from "@/lib/demo/constants"
+import {
+  DEMO_ADMIN_PASSWORD,
+  ensureDemoAdminAccount,
+} from "@/lib/demo/ensure-demo-admin-account"
 import type { Database } from "@/lib/supabase/database.types"
 
 const CUSTOMER_COUNT = 250
@@ -562,7 +567,7 @@ async function seedAuditLog(
       description: usesTask
         ? `Actualización demo en ${task.title}.`
         : `Evento demo en ${project.name}.`,
-      severity: index % 11 === 0 ? "warning" : "info",
+      severity: index % 11 === 0 ? "WARNING" : "INFO",
       performed_by_name: "Administrador Demo",
       performed_by_role: "demo",
       metadata: { demoSeed: true, sequence: index + 1 },
@@ -689,13 +694,19 @@ async function main() {
   console.log("Seeding evidences…")
   await seedEvidences(supabase, tasks)
 
+  console.log("Ensuring demo admin account…")
+  const demoAdmin = await ensureDemoAdminAccount(supabase)
+
   console.log("\nDemo seed completed successfully.")
   console.log(`Company: ${BESPOKE_DEMO_COMPANY_NAME} (${BESPOKE_DEMO_COMPANY_ID})`)
   console.log(
     `Counts → customers: ${CUSTOMER_COUNT}, employees: ${EMPLOYEE_COUNT}, crews: ${CREW_COUNT}, projects: ${PROJECT_COUNT}, tasks: ${TASK_COUNT}`
   )
   console.log(
-    "\nProvision demo users from Usuarios/RRHH and assign rol demo u operario según corresponda."
+    `\nDemo login → email: ${DEMO_ADMIN_EMAIL} | password: ${DEMO_ADMIN_PASSWORD}`
+  )
+  console.log(
+    `Demo admin auth user ${demoAdmin.created ? "created" : "reused"} (${demoAdmin.authUserId}).`
   )
 }
 
