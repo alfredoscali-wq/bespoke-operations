@@ -11,7 +11,7 @@ import {
 import { useRouter } from "next/navigation"
 import type { User } from "@supabase/supabase-js"
 
-import { resolveLoginEmail } from "@/lib/auth/auth-identity"
+import { resolveSignInEmailCandidates } from "@/lib/auth/auth-identity"
 import {
   getDefaultPostLoginPath,
   sanitizeRedirectPath,
@@ -115,25 +115,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signIn = useCallback(
     async (identifier: string, password: string) => {
       const supabase = createClient()
-      const email = resolveLoginEmail(identifier)
+      const emailCandidates = resolveSignInEmailCandidates(identifier)
 
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
+      let lastError: unknown = null
 
-      if (error) {
-        throw error
+      for (const email of emailCandidates) {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        })
+
+        if (!error && data.user) {
+          const resolved = await resolveSessionUserFromAuthUser(data.user)
+          setSessionUser(resolved)
+          void recordUserSessionAudit("USER_LOGIN")
+          return resolved
+        }
+
+        lastError = error
       }
 
-      if (!data.user) {
-        throw new Error("No se pudo iniciar sesión.")
+      if (lastError instanceof Error) {
+        throw lastError
       }
 
-      const resolved = await resolveSessionUserFromAuthUser(data.user)
-      setSessionUser(resolved)
-      void recordUserSessionAudit("USER_LOGIN")
-      return resolved
+      throw new Error("No se pudo iniciar sesión.")
     },
     []
   )
