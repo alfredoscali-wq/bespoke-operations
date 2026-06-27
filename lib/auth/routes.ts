@@ -3,6 +3,7 @@ import type { SystemRole } from "@/lib/types/employees"
 export const LOGIN_PATH = "/login"
 export const AUTH_CALLBACK_PATH = "/auth/callback"
 export const CHANGE_PASSWORD_PATH = "/cambiar-contrasena"
+export const PROFILE_PATH = "/perfil"
 
 export function isChangePasswordPath(pathname: string): boolean {
   return (

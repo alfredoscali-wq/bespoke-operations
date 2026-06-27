@@ -29,12 +29,16 @@ export const PWA_ICONS = PWA_ICON_SIZES.map((size) => ({
   purpose: "any" as const,
 }))
 
-export const PWA_MASKABLE_ICON = {
-  src: "/icons/icon-maskable-512x512.png",
-  sizes: "512x512",
+export const PWA_MASKABLE_ICON_SIZES = [192, 512] as const
+
+export const PWA_MASKABLE_ICONS = PWA_MASKABLE_ICON_SIZES.map((size) => ({
+  src: `/icons/icon-maskable-${size}x${size}.png`,
+  sizes: `${size}x${size}`,
   type: "image/png" as const,
   purpose: "maskable" as const,
-}
+}))
+
+export const PWA_MASKABLE_ICON = PWA_MASKABLE_ICONS[PWA_MASKABLE_ICONS.length - 1]
 
 export const PWA_APPLE_TOUCH_ICON = "/icons/apple-touch-icon.png"
 
