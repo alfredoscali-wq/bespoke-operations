@@ -57,11 +57,13 @@ export function mapSupabaseCrewError(error: {
 }
 
 export async function fetchCrews(
-  client: SupabaseCrewsClient
+  client: SupabaseCrewsClient,
+  companyId: string
 ): Promise<CrewsRepositoryResult<Crew[]>> {
   const { data, error } = await client
     .from("crews")
     .select(CREW_SELECT)
+    .eq("company_id", companyId)
     .is("deleted_at", null)
     .order("name", { ascending: true })
 

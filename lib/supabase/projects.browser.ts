@@ -22,9 +22,10 @@ export function createBrowserProjectsClient(): SupabaseProjectsClient {
 }
 
 export async function listProjects(
+  companyId: string,
   client: SupabaseProjectsClient = createBrowserProjectsClient()
 ): Promise<ProjectsRepositoryResult<Project[]>> {
-  return fetchProjects(client)
+  return fetchProjects(client, companyId)
 }
 
 export async function getProjectById(
@@ -67,7 +68,8 @@ export async function getProjectHistory(
 export async function createProjectHistoryEvent(
   projectId: string,
   event: ProjectHistoryEvent,
+  companyId?: string,
   client: SupabaseProjectsClient = createBrowserProjectsClient()
 ): Promise<ProjectsRepositoryResult<ProjectHistoryEvent>> {
-  return insertProjectHistoryEvent(client, projectId, event)
+  return insertProjectHistoryEvent(client, projectId, event, companyId)
 }

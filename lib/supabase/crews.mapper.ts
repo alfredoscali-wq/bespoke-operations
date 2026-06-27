@@ -6,6 +6,7 @@ import type {
   CrewRow,
   CrewUpdate,
 } from "@/lib/supabase/database.types"
+import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
 import type { Crew, CrewMember } from "@/lib/types/crews"
 import type {
   CreateCrewMemberPayload,
@@ -50,6 +51,7 @@ export function mapCrewRowToCrew(row: CrewRowWithMembers): Crew {
 
 export function mapCreatePayloadToInsert(payload: CreateCrewPayload): CrewInsert {
   return {
+    company_id: payload.companyId ?? BESPOKE_PRODUCTION_COMPANY_ID,
     name: payload.name.trim(),
     description: payload.description?.trim() ?? "",
     supervisor: payload.supervisor.trim(),

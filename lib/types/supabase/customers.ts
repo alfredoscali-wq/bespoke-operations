@@ -1,4 +1,5 @@
 export type CreateCustomerPayload = {
+  companyId?: string
   customerNumber: string
   name: string
   externalCustomerCode?: string | null

@@ -1,4 +1,5 @@
 import type { Json, TaskInsert, TaskRow, TaskUpdate } from "@/lib/supabase/database.types"
+import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
 import { getInitialTaskStatus } from "@/lib/tasks/task-status-workflow"
 import type { ChecklistItem, OperationalStep, Task } from "@/lib/types/tasks"
 import type {
@@ -116,6 +117,7 @@ export function mapTaskRowToTask(row: TaskRow): Task {
 
 export function mapCreatePayloadToInsert(payload: CreateTaskPayload): TaskInsert {
   return {
+    company_id: payload.companyId ?? BESPOKE_PRODUCTION_COMPANY_ID,
     code: payload.code.trim(),
     title: payload.title.trim(),
     description: payload.description.trim(),

@@ -11,6 +11,7 @@ import {
 } from "react"
 
 import { useDemoMode } from "@/components/demo/demo-mode-provider"
+import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import {
   blockDemoWrite,
   DEMO_WRITE_BLOCKED_MUTATION_RESULT,
@@ -58,6 +59,7 @@ const REVIEWER = "Ing. Carlos Ruiz"
 export function EvidenceProvider({ children }: { children: React.ReactNode }) {
   const { isReadOnly, openRestrictedDialog } = useDemoMode()
   const { sessionUser } = useAuth()
+  const { companyId, isAuthReady } = useTenantCompanyId()
   const [evidence, setEvidence] = useState<EvidenceRecord[]>([])
   const [isEvidenceReady, setIsEvidenceReady] = useState(false)
   const [usesSupabase, setUsesSupabase] = useState(false)
@@ -73,12 +75,16 @@ export function EvidenceProvider({ children }: { children: React.ReactNode }) {
   }, [usesSupabase])
 
   useEffect(() => {
+    if (!isAuthReady) {
+      return
+    }
+
     let cancelled = false
 
     async function loadEvidenceFromSupabase() {
       try {
         const client = createBrowserEvidencesClient()
-        const result = await listEvidences(client)
+        const result = await listEvidences(companyId, client)
 
         if (cancelled) return
 
@@ -109,7 +115,7 @@ export function EvidenceProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [companyId, isAuthReady])
 
   const persistEvidenceStatus = useCallback(
     async (id: string, status: EvidenceStatus) => {

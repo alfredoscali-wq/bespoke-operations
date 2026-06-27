@@ -9,7 +9,7 @@ import {
   fetchEmployeeById,
   patchEmployee,
 } from "@/lib/supabase/employees.queries"
-import { BESPOKE_DEMO_COMPANY_ID } from "@/lib/supabase/company.constants"
+import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
 import type { Employee } from "@/lib/types/employees"
 
 export type ProvisionEmployeeAccessResult =
@@ -117,7 +117,7 @@ export async function provisionEmployeeAccess(
   const nationalId = employee.nationalId!.trim()
   const normalizedDni = normalizeDni(nationalId)
   const companyId =
-    (await fetchEmployeeCompanyId(trimmedId)) ?? BESPOKE_DEMO_COMPANY_ID
+    (await fetchEmployeeCompanyId(trimmedId)) ?? BESPOKE_PRODUCTION_COMPANY_ID
   const email = buildAuthEmail(normalizedDni, companyId)
 
   const { data: authData, error: authError } =

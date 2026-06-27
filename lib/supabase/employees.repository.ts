@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
 import {
   fetchEmployeeByCode,
   fetchEmployeeById,
@@ -20,9 +21,10 @@ async function createServerEmployeesClient(): Promise<SupabaseEmployeesClient> {
 }
 
 export async function listEmployees(
+  companyId: string = BESPOKE_PRODUCTION_COMPANY_ID,
   client?: SupabaseEmployeesClient
 ): Promise<EmployeesRepositoryResult<Employee[]>> {
-  return fetchEmployees(client ?? (await createServerEmployeesClient()))
+  return fetchEmployees(client ?? (await createServerEmployeesClient()), companyId)
 }
 
 export async function getEmployeeById(

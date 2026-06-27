@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
 import {
   fetchEvidenceById,
   fetchEvidences,
@@ -25,9 +26,10 @@ async function createServerEvidencesClient(): Promise<SupabaseEvidencesClient> {
 }
 
 export async function listEvidences(
+  companyId: string = BESPOKE_PRODUCTION_COMPANY_ID,
   client?: SupabaseEvidencesClient
 ): Promise<EvidencesRepositoryResult<EvidenceRecord[]>> {
-  return fetchEvidences(client ?? (await createServerEvidencesClient()))
+  return fetchEvidences(client ?? (await createServerEvidencesClient()), companyId)
 }
 
 export async function getEvidenceById(

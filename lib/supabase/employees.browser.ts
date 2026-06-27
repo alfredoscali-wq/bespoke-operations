@@ -27,9 +27,10 @@ export function createBrowserEmployeesClient(): SupabaseEmployeesClient {
 }
 
 export async function listEmployees(
+  companyId: string,
   client: SupabaseEmployeesClient = createBrowserEmployeesClient()
 ): Promise<EmployeesRepositoryResult<Employee[]>> {
-  return fetchEmployees(client)
+  return fetchEmployees(client, companyId)
 }
 
 export async function getEmployeeById(

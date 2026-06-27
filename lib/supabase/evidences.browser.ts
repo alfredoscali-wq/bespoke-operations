@@ -27,9 +27,10 @@ export function createBrowserEvidencesClient(): SupabaseEvidencesClient {
 }
 
 export async function listEvidences(
+  companyId: string,
   client: SupabaseEvidencesClient = createBrowserEvidencesClient()
 ): Promise<EvidencesRepositoryResult<EvidenceRecord[]>> {
-  return fetchEvidences(client)
+  return fetchEvidences(client, companyId)
 }
 
 export async function getEvidenceById(

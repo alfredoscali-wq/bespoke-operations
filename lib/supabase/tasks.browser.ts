@@ -22,9 +22,10 @@ export function createBrowserTasksClient(): SupabaseTasksClient {
 }
 
 export async function listTasks(
+  companyId: string,
   client: SupabaseTasksClient = createBrowserTasksClient()
 ): Promise<TasksRepositoryResult<Task[]>> {
-  const result = await fetchTasks(client)
+  const result = await fetchTasks(client, companyId)
 
   if (result.error || !result.data) {
     return result
@@ -46,10 +47,11 @@ export async function getTaskById(
 }
 
 export async function listOccupiedTaskCodesByPrefix(
+  companyId: string,
   prefix: string,
   client: SupabaseTasksClient = createBrowserTasksClient()
 ): Promise<TasksRepositoryResult<string[]>> {
-  return fetchOccupiedTaskCodesByPrefix(client, prefix)
+  return fetchOccupiedTaskCodesByPrefix(client, companyId, prefix)
 }
 
 export async function createTask(

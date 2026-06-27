@@ -1,6 +1,7 @@
 import type { Crew, CrewMember, CrewStatus } from "@/lib/types/crews"
 
 export type CreateCrewPayload = {
+  companyId?: string
   name: string
   description?: string
   supervisor: string

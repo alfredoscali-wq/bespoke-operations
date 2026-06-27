@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
-import { BESPOKE_DEMO_COMPANY_ID } from "@/lib/supabase/company.constants"
+import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
 import {
   buildEmployeeSoftDeleteRequestUrl,
   logEmployeeSoftDeleteAttempt,
@@ -55,11 +55,13 @@ export function mapSupabaseEmployeeError(error: {
 }
 
 export async function fetchEmployees(
-  client: SupabaseEmployeesClient
+  client: SupabaseEmployeesClient,
+  companyId: string
 ): Promise<EmployeesRepositoryResult<Employee[]>> {
   const { data, error } = await client
     .from("employees")
     .select("*")
+    .eq("company_id", companyId)
     .is("deleted_at", null)
     .order("last_name", { ascending: true })
     .order("first_name", { ascending: true })
@@ -108,7 +110,7 @@ export async function fetchEmployeeById(
 export async function fetchEmployeeByCode(
   client: SupabaseEmployeesClient,
   employeeCode: string,
-  companyId: string = BESPOKE_DEMO_COMPANY_ID
+  companyId: string = BESPOKE_PRODUCTION_COMPANY_ID
 ): Promise<EmployeesRepositoryResult<Employee>> {
   const { data, error } = await client
     .from("employees")

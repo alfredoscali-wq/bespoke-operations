@@ -11,6 +11,7 @@ import {
 } from "react"
 
 import { useDemoMode } from "@/components/demo/demo-mode-provider"
+import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import {
   blockDemoWrite,
   DEMO_WRITE_BLOCKED_MUTATION_RESULT,
@@ -96,6 +97,7 @@ function replaceCrewInList(crews: Crew[], crew: Crew): Crew[] {
 
 export function CrewsProvider({ children }: { children: React.ReactNode }) {
   const { isReadOnly, openRestrictedDialog } = useDemoMode()
+  const { companyId, isAuthReady } = useTenantCompanyId()
   const { tasks, isTasksReady } = useTasks()
   const { getEmployee } = useEmployees()
   const [crews, setCrews] = useState<Crew[]>([])
@@ -109,12 +111,16 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
   )
 
   useEffect(() => {
+    if (!isAuthReady) {
+      return
+    }
+
     let cancelled = false
 
     async function loadCrewsFromSupabase() {
       try {
         const client = createBrowserCrewsClient()
-        const result = await listCrews(client)
+        const result = await listCrews(companyId, client)
 
         if (cancelled) return
 
@@ -143,7 +149,7 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [companyId, isAuthReady])
 
   useEffect(() => {
     if (!isCrewsReady || !isTasksReady || !usesSupabase || syncInFlightRef.current) {
@@ -229,6 +235,7 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
         const client = createBrowserCrewsClient()
         const result = await createCrew(
           {
+            companyId,
             name: input.name,
             description: input.description,
             supervisor: supervisorValidation.supervisorName,

@@ -11,6 +11,7 @@ import {
 } from "react"
 
 import { useDemoMode } from "@/components/demo/demo-mode-provider"
+import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import {
   blockDemoWrite,
   DemoWriteBlockedError,
@@ -159,6 +160,7 @@ function cacheDetail(id: string, detail: TaskDetail) {
 
 export function TasksProvider({ children }: { children: React.ReactNode }) {
   const { isReadOnly, openRestrictedDialog } = useDemoMode()
+  const { companyId, isAuthReady } = useTenantCompanyId()
   const [tasks, setTasks] = useState<Task[]>([])
   const [isTasksReady, setIsTasksReady] = useState(false)
   const [usesSupabase, setUsesSupabase] = useState(false)
@@ -198,12 +200,16 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
   )
 
   useEffect(() => {
+    if (!isAuthReady) {
+      return
+    }
+
     let cancelled = false
 
     async function loadTasksFromSupabase() {
       try {
         const client = createBrowserTasksClient()
-        const result = await listTasks(client)
+        const result = await listTasks(companyId, client)
 
         if (cancelled) return
 
@@ -234,7 +240,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [companyId, isAuthReady])
 
   useEffect(() => {
     if (!usesSupabase) {
@@ -368,6 +374,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         getInitialTaskStatus({ crewId: input.crewId, crew: input.crew })
       let payload: CreateTaskPayload = {
         ...input,
+        companyId,
         status,
       }
 
@@ -379,6 +386,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
 
       if (payload.projectCode === "OT") {
         const occupiedCodesResult = await listOccupiedTaskCodesByPrefix(
+          companyId,
           "TSK-OT-",
           client
         )

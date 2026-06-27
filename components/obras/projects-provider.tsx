@@ -10,6 +10,7 @@ import {
 } from "react"
 
 import { useDemoMode } from "@/components/demo/demo-mode-provider"
+import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import {
   blockDemoWrite,
   DemoWriteBlockedError,
@@ -107,17 +108,22 @@ function cacheProjectDetail(project: Project) {
 
 export function ProjectsProvider({ children }: { children: React.ReactNode }) {
   const { isReadOnly, openRestrictedDialog } = useDemoMode()
+  const { companyId, isAuthReady } = useTenantCompanyId()
   const [projects, setProjects] = useState<Project[]>([])
   const [isProjectsReady, setIsProjectsReady] = useState(false)
   const [usesSupabase, setUsesSupabase] = useState(false)
 
   useEffect(() => {
+    if (!isAuthReady) {
+      return
+    }
+
     let cancelled = false
 
     async function loadProjectsFromSupabase() {
       try {
         const client = createBrowserProjectsClient()
-        const result = await listProjects(client)
+        const result = await listProjects(companyId, client)
 
         if (cancelled) return
 
@@ -148,7 +154,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [companyId, isAuthReady])
 
   const persistHistoryEvent = useCallback(
     async (projectId: string, event: ProjectHistoryEvent) => {
@@ -169,12 +175,12 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
 
       try {
         const client = createBrowserProjectsClient()
-        await createProjectHistoryEvent(projectId, event, client)
+        await createProjectHistoryEvent(projectId, event, companyId, client)
       } catch {
         // Keep local history even if remote persistence fails.
       }
     },
-    [usesSupabase]
+    [usesSupabase, companyId]
   )
 
   const addProject = useCallback(
@@ -188,7 +194,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
       }
 
       const client = createBrowserProjectsClient()
-      const result = await createProject(input, client)
+      const result = await createProject({ ...input, companyId }, client)
 
       if (!result.data) {
         logOperationError("PROJECT CREATE", result.error)

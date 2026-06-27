@@ -17,6 +17,7 @@ import type {
 } from "@/lib/audit/types"
 import { requireAdministratorSession } from "@/lib/auth/require-administrator"
 import { requireWritablePlatformSession } from "@/lib/auth/require-writable-platform-session"
+import { resolveTenantCompanyId } from "@/lib/operations/tenant-scope"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 type RecordAuditEventBody = Omit<
@@ -56,6 +57,7 @@ export async function GET(request: Request) {
   try {
     const admin = createAdminClient()
     const result = await queryAuditLogs(admin, {
+      companyId: resolveTenantCompanyId(auth.sessionUser),
       module: parseAuditModule(searchParams.get("module")),
       action: searchParams.get("action") ?? undefined,
       entityType: parseAuditEntityType(searchParams.get("entityType")),

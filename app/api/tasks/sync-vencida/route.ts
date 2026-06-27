@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 
+import { resolveTenantCompanyId } from "@/lib/operations/tenant-scope"
 import { syncVencidaTasksWithAudit } from "@/lib/supabase/tasks-vencida-sync.server"
 import { fetchTasks } from "@/lib/supabase/tasks.queries"
 import { requireWritablePlatformSession } from "@/lib/auth/require-writable-platform-session"
@@ -44,7 +45,8 @@ export async function POST(request: Request) {
 
   try {
     const admin = createAdminClient()
-    const tasksResult = await fetchTasks(admin)
+    const companyId = resolveTenantCompanyId(auth.sessionUser)
+    const tasksResult = await fetchTasks(admin, companyId)
 
     if (tasksResult.error || !tasksResult.data) {
       return NextResponse.json(

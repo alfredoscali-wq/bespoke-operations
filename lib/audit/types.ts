@@ -115,6 +115,7 @@ export type AuditLogEntry = {
 }
 
 export type AuditLogQuery = {
+  companyId?: string
   module?: AuditModule
   action?: AuditAction | string
   entityType?: AuditEntityType | string
@@ -141,7 +142,7 @@ export type AuditLogStats = {
   loginsToday: number
 }
 
-export type AuditLogStatsQuery = Pick<AuditLogQuery, "from" | "to">
+export type AuditLogStatsQuery = Pick<AuditLogQuery, "companyId" | "from" | "to">
 
 export type AuditLogQueryResult = {
   entries: AuditLogEntry[]

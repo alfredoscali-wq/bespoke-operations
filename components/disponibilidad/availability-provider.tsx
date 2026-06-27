@@ -10,6 +10,7 @@ import {
 } from "react"
 
 import { useDemoMode } from "@/components/demo/demo-mode-provider"
+import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import {
   blockDemoWrite,
   DEMO_WRITE_BLOCKED_MUTATION_RESULT,
@@ -62,18 +63,23 @@ export function AvailabilityProvider({
   children: React.ReactNode
 }) {
   const { isReadOnly, openRestrictedDialog } = useDemoMode()
+  const { companyId, isAuthReady } = useTenantCompanyId()
   const { getEmployee } = useEmployees()
   const [records, setRecords] = useState<EmployeeAvailability[]>([])
   const [isAvailabilityReady, setIsAvailabilityReady] = useState(false)
   const [usesSupabase, setUsesSupabase] = useState(false)
 
   useEffect(() => {
+    if (!isAuthReady) {
+      return
+    }
+
     let cancelled = false
 
     async function loadRecords() {
       try {
         const client = createBrowserEmployeeAvailabilityClient()
-        const result = await getEmployeeAvailabilities(client)
+        const result = await getEmployeeAvailabilities(companyId, client)
 
         if (cancelled) return
 
@@ -102,7 +108,7 @@ export function AvailabilityProvider({
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [companyId, isAuthReady])
 
   const getRecord = useCallback(
     (id: string) => records.find((record) => record.id === id),
@@ -125,7 +131,7 @@ export function AvailabilityProvider({
 
       try {
         const client = createBrowserEmployeeAvailabilityClient()
-        const result = await createEmployeeAvailability(input, client)
+        const result = await createEmployeeAvailability(input, companyId, client)
 
         if (result.error || !result.data) {
           return {

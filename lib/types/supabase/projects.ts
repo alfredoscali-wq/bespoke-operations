@@ -1,6 +1,7 @@
 import type { NewProjectInput, ProjectStatus, ProjectType } from "@/lib/types/projects"
 
 export type CreateProjectPayload = NewProjectInput & {
+  companyId?: string
   status?: ProjectStatus
   progress?: number
 }

@@ -1,5 +1,4 @@
 import { getCurrentAvailabilityStatus as resolveCurrentAvailabilityStatus } from "@/lib/availability/utils"
-import { BESPOKE_DEMO_COMPANY_ID } from "@/lib/supabase/company.constants"
 import {
   createBrowserEmployeeAvailabilityClient,
   createEmployeeAvailabilityRecord,
@@ -26,10 +25,11 @@ export type EmployeeAvailabilityServiceClient = ReturnType<
 >
 
 function mapCreateInputToPayload(
-  input: CreateEmployeeAvailabilityInput
+  input: CreateEmployeeAvailabilityInput,
+  companyId: string
 ): CreateEmployeeAvailabilityPayload {
   return {
-    companyId: BESPOKE_DEMO_COMPANY_ID,
+    companyId,
     employeeId: input.employeeId,
     startDate: input.startDate,
     endDate: input.endDate,
@@ -53,9 +53,11 @@ function mapUpdateInputToPayload(
 }
 
 export async function getEmployeeAvailabilities(
+  companyId: string,
   client?: EmployeeAvailabilityServiceClient
 ): Promise<EmployeeAvailabilityRepositoryResult<EmployeeAvailability[]>> {
   return listEmployeeAvailabilities(
+    companyId,
     client ?? createBrowserEmployeeAvailabilityClient()
   )
 }
@@ -72,10 +74,11 @@ export async function getEmployeeAvailabilityById(
 
 export async function createEmployeeAvailability(
   input: CreateEmployeeAvailabilityInput,
+  companyId: string,
   client?: EmployeeAvailabilityServiceClient
 ): Promise<EmployeeAvailabilityRepositoryResult<EmployeeAvailability>> {
   return createEmployeeAvailabilityRecord(
-    mapCreateInputToPayload(input),
+    mapCreateInputToPayload(input, companyId),
     client ?? createBrowserEmployeeAvailabilityClient()
   )
 }

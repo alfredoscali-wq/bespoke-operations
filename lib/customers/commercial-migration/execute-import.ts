@@ -40,6 +40,7 @@ function buildMigrationCustomerPayload(
 
 async function insertBatchWithFallback(
   client: SupabaseCustomersClient,
+  companyId: string,
   batch: {
     record: EnrichedMigrationCustomer
     payload: Omit<CreateCustomerPayload, "customerNumber">
@@ -52,6 +53,7 @@ async function insertBatchWithFallback(
 }> {
   const batchResult = await createCustomersBatch(
     client,
+    companyId,
     batch.map((item) => item.payload),
     startCounter
   )
@@ -77,6 +79,7 @@ async function insertBatchWithFallback(
     counter += 1
     const singleResult = await createCustomersBatch(
       client,
+      companyId,
       [item.payload],
       counter - 1
     )
@@ -99,6 +102,7 @@ async function insertBatchWithFallback(
 
 export async function executeCommercialMigrationImport(input: {
   client: SupabaseCustomersClient
+  companyId: string
   records: EnrichedMigrationCustomer[]
   existingExternalCodes?: Set<string>
   existingLegacyMigrationIds?: Set<number>
@@ -138,13 +142,14 @@ export async function executeCommercialMigrationImport(input: {
     })
   }
 
-  let counter = await getLatestCustomerNumberCounter(input.client)
+  let counter = await getLatestCustomerNumberCounter(input.client, input.companyId)
   let processed = 0
 
   for (let index = 0; index < pending.length; index += CUSTOMER_IMPORT_BATCH_SIZE) {
     const batch = pending.slice(index, index + CUSTOMER_IMPORT_BATCH_SIZE)
     const batchResult = await insertBatchWithFallback(
       input.client,
+      input.companyId,
       batch,
       counter
     )

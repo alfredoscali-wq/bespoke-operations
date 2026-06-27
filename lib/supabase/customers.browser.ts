@@ -31,16 +31,18 @@ export function createBrowserCustomersClient(): SupabaseCustomersClient {
 }
 
 export async function listCustomerPage(
+  companyId: string,
   query: CustomerListQuery,
   client: SupabaseCustomersClient = createBrowserCustomersClient()
 ): Promise<CustomersRepositoryResult<CustomerListPage>> {
-  return listCustomersPaginated(client, query)
+  return listCustomersPaginated(client, companyId, query)
 }
 
 export async function getCustomerSummary(
+  companyId: string,
   client: SupabaseCustomersClient = createBrowserCustomersClient()
 ): Promise<CustomersRepositoryResult<CustomerOperationalSummary>> {
-  return getCustomerOperationalSummaryCounts(client)
+  return getCustomerOperationalSummaryCounts(client, companyId)
 }
 
 export async function getCustomerById(
@@ -51,13 +53,14 @@ export async function getCustomerById(
 }
 
 export async function getCustomerDuplicateIndex(
+  companyId: string,
   client: SupabaseCustomersClient = createBrowserCustomersClient()
 ): Promise<
   CustomersRepositoryResult<
     Pick<Customer, "id" | "name" | "externalCustomerCode" | "dni">[]
   >
 > {
-  return fetchCustomerDuplicateIndex(client)
+  return fetchCustomerDuplicateIndex(client, companyId)
 }
 
 export async function checkCustomerCanDelete(
@@ -69,11 +72,12 @@ export async function checkCustomerCanDelete(
 }
 
 export async function searchCustomers(
+  companyId: string,
   query: string,
   limit = 8,
   client: SupabaseCustomersClient = createBrowserCustomersClient()
 ): Promise<CustomersRepositoryResult<Customer[]>> {
-  return querySearchCustomers(client, query, limit)
+  return querySearchCustomers(client, companyId, query, limit)
 }
 
 export async function createCustomer(

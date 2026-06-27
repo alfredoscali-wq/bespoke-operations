@@ -24,9 +24,10 @@ export function createBrowserCrewsClient(): SupabaseCrewsClient {
 }
 
 export async function listCrews(
+  companyId: string,
   client: SupabaseCrewsClient = createBrowserCrewsClient()
 ): Promise<CrewsRepositoryResult<Crew[]>> {
-  return fetchCrews(client)
+  return fetchCrews(client, companyId)
 }
 
 export async function getCrewByIdFromSupabase(

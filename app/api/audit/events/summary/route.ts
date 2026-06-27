@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 
 import { queryAuditLogStats } from "@/lib/audit/audit-service"
 import { requireAdministratorSession } from "@/lib/auth/require-administrator"
+import { resolveTenantCompanyId } from "@/lib/operations/tenant-scope"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 export async function GET() {
@@ -16,7 +17,9 @@ export async function GET() {
 
   try {
     const admin = createAdminClient()
-    const stats = await queryAuditLogStats(admin)
+    const stats = await queryAuditLogStats(admin, {
+      companyId: resolveTenantCompanyId(auth.sessionUser),
+    })
 
     return NextResponse.json({ success: true, ...stats })
   } catch (error) {

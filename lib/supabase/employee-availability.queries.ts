@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
-import { BESPOKE_DEMO_COMPANY_ID } from "@/lib/supabase/company.constants"
+import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
 import type { Database } from "@/lib/supabase/database.types"
 import {
   mapCreateEmployeeAvailabilityPayloadToInsert,
@@ -34,11 +34,13 @@ export function mapSupabaseEmployeeAvailabilityError(error: {
 }
 
 export async function fetchEmployeeAvailabilities(
-  client: SupabaseEmployeeAvailabilityClient
+  client: SupabaseEmployeeAvailabilityClient,
+  companyId: string
 ): Promise<EmployeeAvailabilityRepositoryResult<EmployeeAvailability[]>> {
   const { data, error } = await client
     .from("employee_availability")
     .select("*")
+    .eq("company_id", companyId)
     .is("deleted_at", null)
     .order("start_date", { ascending: false })
 
@@ -116,7 +118,7 @@ export async function insertEmployeeAvailability(
     .insert(
       mapCreateEmployeeAvailabilityPayloadToInsert({
         ...payload,
-        companyId: payload.companyId ?? BESPOKE_DEMO_COMPANY_ID,
+        companyId: payload.companyId ?? BESPOKE_PRODUCTION_COMPANY_ID,
       })
     )
     .select("*")

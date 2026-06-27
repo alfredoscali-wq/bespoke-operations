@@ -10,6 +10,8 @@ import {
   shouldAssignEntityAuditRevision,
 } from "@/lib/audit/entity-revision"
 import { SYSTEM_AUDIT_ACTOR_NAME } from "@/lib/audit/system-actor"
+import { resolveTenantCompanyId } from "@/lib/operations/tenant-scope"
+import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
 import type {
   AuditLogEntry,
   AuditLogQuery,
@@ -22,6 +24,7 @@ import type { SupabaseAdminClient } from "@/lib/supabase/admin"
 
 type SystemAuditLogRow = {
   id: string
+  company_id: string
   module: string
   action: string
   entity_type: string
@@ -98,6 +101,14 @@ export function validateWriteAuditLogInput(input: WriteAuditLogInput): void {
   }
 }
 
+function resolveAuditCompanyId(input: WriteAuditLogInput): string {
+  if (input.performedBy.kind === "user") {
+    return resolveTenantCompanyId(input.performedBy.sessionUser)
+  }
+
+  return BESPOKE_PRODUCTION_COMPANY_ID
+}
+
 export async function writeAuditLog(
   client: SupabaseAdminClient,
   input: WriteAuditLogInput
@@ -125,6 +136,7 @@ export async function writeAuditLog(
   const { data, error } = await client
     .from("system_audit_log")
     .insert({
+      company_id: resolveAuditCompanyId(input),
       module: input.module,
       action: input.action,
       entity_type: input.entityType,
@@ -162,6 +174,10 @@ function applyAuditLogFilters<
     ilike: (column: string, pattern: string) => T
   },
 >(query: T, input: AuditLogQuery): T {
+  if (input.companyId) {
+    query = query.eq("company_id", input.companyId)
+  }
+
   if (input.module) {
     query = query.eq("module", input.module)
   }
@@ -267,7 +283,14 @@ export async function queryAuditLogStats(
   const today = resolveTodayRange()
   const from = input.from ?? today.from
   const to = input.to ?? today.to
-  const base = { from, to }
+  const base = { from, to, companyId: input.companyId }
+
+  const activeUsersQuery = client
+    .from("system_audit_log")
+    .select("performed_by_user_id")
+    .gte("created_at", from)
+    .lte("created_at", to)
+    .not("performed_by_user_id", "is", null)
 
   const [
     eventsToday,
@@ -282,12 +305,9 @@ export async function queryAuditLogStats(
     countAuditLogs(client, { ...base, action: "TASK_FINISH" }),
     countAuditLogs(client, { ...base, severity: "CRITICAL" }),
     countAuditLogs(client, { ...base, action: "USER_LOGIN" }),
-    client
-      .from("system_audit_log")
-      .select("performed_by_user_id")
-      .gte("created_at", from)
-      .lte("created_at", to)
-      .not("performed_by_user_id", "is", null),
+    input.companyId
+      ? activeUsersQuery.eq("company_id", input.companyId)
+      : activeUsersQuery,
   ])
 
   if (activeUsersResult.error) {

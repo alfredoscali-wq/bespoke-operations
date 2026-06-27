@@ -113,11 +113,13 @@ function validateEvidenceImageFile(
 }
 
 export async function fetchEvidences(
-  client: SupabaseEvidencesClient
+  client: SupabaseEvidencesClient,
+  companyId: string
 ): Promise<EvidencesRepositoryResult<EvidenceRecord[]>> {
   const { data, error } = await client
     .from("evidences")
     .select("*")
+    .eq("company_id", companyId)
     .order("uploaded_at", { ascending: false })
 
   if (error) {

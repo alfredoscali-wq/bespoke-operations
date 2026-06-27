@@ -11,6 +11,7 @@ import {
 } from "react"
 
 import { useDemoMode } from "@/components/demo/demo-mode-provider"
+import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import {
   blockDemoWrite,
   DEMO_WRITE_BLOCKED_MUTATION_RESULT,
@@ -98,6 +99,7 @@ const CustomersContext = createContext<CustomersContextValue | null>(null)
 
 export function CustomersProvider({ children }: { children: React.ReactNode }) {
   const { isReadOnly, openRestrictedDialog } = useDemoMode()
+  const { companyId, isAuthReady } = useTenantCompanyId()
   const [listPage, setListPage] = useState<CustomerListPage | null>(null)
   const [operationalSummary, setOperationalSummary] =
     useState<CustomerOperationalSummary>(EMPTY_SUMMARY)
@@ -117,11 +119,15 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
   >(null)
 
   const refreshOperationalSummary = useCallback(async () => {
+    if (!isAuthReady) {
+      return
+    }
+
     setIsSummaryLoading(true)
 
     try {
       const client = createBrowserCustomersClient()
-      const result = await getCustomerSummary(client)
+      const result = await getCustomerSummary(companyId, client)
 
       if (result.data) {
         setOperationalSummary(result.data)
@@ -136,15 +142,19 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsSummaryLoading(false)
     }
-  }, [])
+  }, [companyId, isAuthReady])
 
   const loadCustomerPage = useCallback(async (query: CustomerListQuery) => {
+    if (!isAuthReady) {
+      return
+    }
+
     setIsListLoading(true)
     setListQuery(query)
 
     try {
       const client = createBrowserCustomersClient()
-      const result = await listCustomerPage(query, client)
+      const result = await listCustomerPage(companyId, query, client)
 
       if (result.data) {
         setListPage(result.data)
@@ -170,11 +180,15 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
       setIsListLoading(false)
       setIsCustomersReady(true)
     }
-  }, [])
+  }, [companyId, isAuthReady])
 
   useEffect(() => {
+    if (!isAuthReady) {
+      return
+    }
+
     void refreshOperationalSummary()
-  }, [refreshOperationalSummary])
+  }, [refreshOperationalSummary, isAuthReady])
 
   const getCustomer = useCallback((id: string) => {
     return customerCacheRef.current.get(id)
@@ -207,10 +221,10 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
     }
 
     const client = createBrowserCustomersClient()
-    const result = await getCustomerDuplicateIndex(client)
+    const result = await getCustomerDuplicateIndex(companyId, client)
     importIndexRef.current = result.data ?? []
     return importIndexRef.current
-  }, [])
+  }, [companyId])
 
   const searchCustomers = useCallback(
     async (query: string, limit = 8) => {
@@ -220,7 +234,7 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
 
       try {
         const client = createBrowserCustomersClient()
-        const result = await searchCustomersInSupabase(query, limit, client)
+        const result = await searchCustomersInSupabase(companyId, query, limit, client)
         const customers = result.data ?? []
 
         for (const customer of customers) {
@@ -232,7 +246,7 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
         return []
       }
     },
-    [usesSupabase]
+    [usesSupabase, companyId]
   )
 
   const invalidateImportIndex = useCallback(() => {
@@ -257,6 +271,7 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
         const client = createBrowserCustomersClient()
         const result = await createCustomerInSupabase(
           {
+            companyId,
             name: input.name,
             externalCustomerCode: input.externalCustomerCode ?? null,
             dni: input.dni ?? null,

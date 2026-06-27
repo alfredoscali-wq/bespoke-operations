@@ -1,4 +1,5 @@
 import type { ProjectHistoryRow } from "@/lib/supabase/database.types"
+import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
 import type {
   ProjectHistoryEvent,
   ProjectHistoryEventType,
@@ -20,9 +21,11 @@ export function mapProjectHistoryRowToEvent(
 
 export function mapProjectHistoryEventToInsert(
   projectId: string,
-  event: ProjectHistoryEvent
+  event: ProjectHistoryEvent,
+  companyId: string = BESPOKE_PRODUCTION_COMPANY_ID
 ) {
   return {
+    company_id: companyId,
     project_id: projectId,
     event_type: event.eventType,
     title: event.title,

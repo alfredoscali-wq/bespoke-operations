@@ -161,6 +161,7 @@ async function resetDemoDataDirect(supabase: SupabaseAdmin) {
   await supabase
     .from("customers")
     .delete()
+    .eq("company_id", companyId)
     .like("external_customer_code", `${DEMO_SEED_MARKER}-%`)
 }
 
@@ -185,6 +186,7 @@ async function seedCustomers(supabase: SupabaseAdmin) {
     const locality = LOCALITIES[index % LOCALITIES.length]
 
     return {
+      company_id: BESPOKE_DEMO_COMPANY_ID,
       customer_number: `${DEMO_SEED_MARKER}-${pad(number, 4)}`,
       external_customer_code: `${DEMO_SEED_MARKER}-${pad(number, 4)}`,
       name: `Cliente Demo ${pad(number, 3)}`,
@@ -210,6 +212,7 @@ async function seedCustomers(supabase: SupabaseAdmin) {
   const { data, error: loadError } = await supabase
     .from("customers")
     .select("id, name, phone, address, locality, external_customer_code")
+    .eq("company_id", BESPOKE_DEMO_COMPANY_ID)
     .like("external_customer_code", `${DEMO_SEED_MARKER}-%`)
     .order("external_customer_code", { ascending: true })
 
@@ -550,6 +553,7 @@ async function seedAuditLog(
     const project = projects[index % projects.length]
 
     return {
+      company_id: BESPOKE_DEMO_COMPANY_ID,
       module: modules[index % modules.length],
       action: actions[index % actions.length],
       entity_type: usesTask ? "task" : "project",
@@ -574,22 +578,6 @@ async function seedAuditLog(
 }
 
 async function seedAutomaticReports(supabase: SupabaseAdmin) {
-  const { error: settingsError } = await supabase.from("automatic_report_settings").upsert(
-    {
-      report_type: "weekly",
-      enabled: true,
-      company_name: BESPOKE_DEMO_COMPANY_NAME,
-      recipient_email: "reportes.demo@bespoke.example",
-      send_day: 1,
-      send_time: "07:30:00",
-    },
-    { onConflict: "report_type" }
-  )
-
-  if (settingsError) {
-    throw new Error(`Failed to seed automatic report settings: ${settingsError.message}`)
-  }
-
   const today = new Date()
   const rows = Array.from({ length: REPORT_HISTORY_COUNT }, (_, index) => ({
     report_type: "weekly",

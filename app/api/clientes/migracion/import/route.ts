@@ -11,6 +11,7 @@ import {
   readPreparedMigrationDataset,
 } from "@/lib/customers/commercial-migration/review-storage"
 import { requireAdministratorSession } from "@/lib/auth/require-administrator"
+import { resolveTenantCompanyId } from "@/lib/operations/tenant-scope"
 import { createClient } from "@/lib/supabase/server"
 import { getCustomers } from "@/lib/supabase/customers.queries"
 
@@ -38,7 +39,9 @@ export async function POST() {
       reviewState.decisions
     )
 
-    const existing = await getCustomers(supabase)
+    const companyId = resolveTenantCompanyId(auth.sessionUser)
+
+    const existing = await getCustomers(supabase, companyId)
     if (existing.error || !existing.data) {
       return NextResponse.json(
         { error: existing.error?.message ?? "No se pudieron leer clientes existentes." },
@@ -59,6 +62,7 @@ export async function POST() {
 
     const result = await executeCommercialMigrationImport({
       client: supabase,
+      companyId,
       records,
       existingExternalCodes,
       existingLegacyMigrationIds,

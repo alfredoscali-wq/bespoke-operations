@@ -3,6 +3,7 @@ import type {
   CustomerRow,
   CustomerUpdate,
 } from "@/lib/supabase/database.types"
+import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
 import type {
   Customer,
   CustomerListRow,
@@ -90,6 +91,7 @@ export function mapCustomerInsert(
   payload: CreateCustomerPayload
 ): CustomerInsert {
   return {
+    company_id: payload.companyId ?? BESPOKE_PRODUCTION_COMPANY_ID,
     customer_number: payload.customerNumber.trim(),
     name: payload.name.trim(),
     external_customer_code: trimOptional(payload.externalCustomerCode),

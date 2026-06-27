@@ -1,4 +1,4 @@
-import { BESPOKE_DEMO_COMPANY_ID } from "@/lib/supabase/company.constants"
+import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
 
 /** Strips non-digit characters from a national ID (DNI). */
 export function normalizeDni(dni: string): string {
@@ -11,7 +11,7 @@ export function normalizeDni(dni: string): string {
  */
 export function buildAuthEmail(
   dni: string,
-  companyId: string = BESPOKE_DEMO_COMPANY_ID
+  companyId: string = BESPOKE_PRODUCTION_COMPANY_ID
 ): string {
   const normalized = normalizeDni(dni)
 

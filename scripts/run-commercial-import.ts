@@ -1,6 +1,7 @@
 import { readFileSync } from "fs"
 import { resolve } from "path"
 
+import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
 import { executeCommercialMigrationImport } from "@/lib/customers/commercial-migration/execute-import"
 import {
   formatCustomersImportSchemaError,
@@ -117,6 +118,7 @@ async function main() {
   const startedAt = Date.now()
   const result = await executeCommercialMigrationImport({
     client: supabase,
+    companyId: BESPOKE_PRODUCTION_COMPANY_ID,
     records,
     existingExternalCodes,
     existingLegacyMigrationIds,

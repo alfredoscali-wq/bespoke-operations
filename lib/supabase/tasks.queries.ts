@@ -48,11 +48,13 @@ export function mapSupabaseTaskError(error: {
 }
 
 export async function fetchTasks(
-  client: SupabaseTasksClient
+  client: SupabaseTasksClient,
+  companyId: string
 ): Promise<TasksRepositoryResult<Task[]>> {
   const { data, error } = await client
     .from("tasks")
     .select("*")
+    .eq("company_id", companyId)
     .is("deleted_at", null)
     .order("due_date", { ascending: true })
 
@@ -270,11 +272,13 @@ export async function softDeleteTask(
 
 export async function fetchOccupiedTaskCodesByPrefix(
   client: SupabaseTasksClient,
+  companyId: string,
   prefix: string
 ): Promise<TasksRepositoryResult<string[]>> {
   const { data, error } = await client
     .from("tasks")
     .select("code")
+    .eq("company_id", companyId)
     .like("code", `${prefix}%`)
 
   if (error) {

@@ -40,11 +40,13 @@ export function mapSupabaseError(error: { code?: string; message: string }) {
 }
 
 export async function fetchProjects(
-  client: SupabaseProjectsClient
+  client: SupabaseProjectsClient,
+  companyId: string
 ): Promise<ProjectsRepositoryResult<Project[]>> {
   const { data, error } = await client
     .from("projects")
     .select("*")
+    .eq("company_id", companyId)
     .is("deleted_at", null)
     .order("created_at", { ascending: false })
 
@@ -258,11 +260,12 @@ export async function fetchProjectHistory(
 export async function insertProjectHistoryEvent(
   client: SupabaseProjectsClient,
   projectId: string,
-  event: ProjectHistoryEvent
+  event: ProjectHistoryEvent,
+  companyId?: string
 ): Promise<ProjectsRepositoryResult<ProjectHistoryEvent>> {
   const { data, error } = await client
     .from("project_history")
-    .insert(mapProjectHistoryEventToInsert(projectId, event))
+    .insert(mapProjectHistoryEventToInsert(projectId, event, companyId))
     .select("*")
     .single()
 

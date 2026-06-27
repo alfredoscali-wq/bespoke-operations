@@ -8,6 +8,7 @@ import type {
 } from "@/lib/types/tasks"
 
 export type CreateTaskPayload = Omit<Task, "id" | "progress" | "status"> & {
+  companyId?: string
   progress?: number
   projectId?: string | null
   status?: TaskStatus

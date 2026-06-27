@@ -1,4 +1,5 @@
 import type { ProjectInsert, ProjectRow, ProjectUpdate } from "@/lib/supabase/database.types"
+import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
 import type { ProjectPauseReason, Project } from "@/lib/types/projects"
 import type {
   CreateProjectPayload,
@@ -30,6 +31,7 @@ export function mapCreatePayloadToInsert(
   payload: CreateProjectPayload
 ): ProjectInsert {
   return {
+    company_id: payload.companyId ?? BESPOKE_PRODUCTION_COMPANY_ID,
     code: payload.code.trim(),
     name: payload.name.trim(),
     client: payload.client.trim(),

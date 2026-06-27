@@ -140,6 +140,7 @@ export type Database = {
       customers: {
         Row: {
           id: string
+          company_id: string
           customer_number: string
           external_customer_code: string | null
           dni: string | null
@@ -169,6 +170,7 @@ export type Database = {
         }
         Insert: {
           id?: string
+          company_id?: string
           customer_number: string
           external_customer_code?: string | null
           dni?: string | null
@@ -198,6 +200,7 @@ export type Database = {
         }
         Update: {
           id?: string
+          company_id?: string
           customer_number?: string
           external_customer_code?: string | null
           dni?: string | null
@@ -332,6 +335,7 @@ export type Database = {
       system_audit_log: {
         Row: {
           id: string
+          company_id: string
           module: string
           action: string
           entity_type: string
@@ -349,6 +353,7 @@ export type Database = {
         }
         Insert: {
           id?: string
+          company_id?: string
           module: string
           action: string
           entity_type: string
@@ -366,6 +371,7 @@ export type Database = {
         }
         Update: {
           id?: string
+          company_id?: string
           module?: string
           action?: string
           entity_type?: string

@@ -11,6 +11,7 @@ import {
 } from "@/lib/audit/audit-labels"
 import type { AuditEntityType, AuditModule, AuditSeverity } from "@/lib/audit/types"
 import { requireAdministratorSession } from "@/lib/auth/require-administrator"
+import { resolveTenantCompanyId } from "@/lib/operations/tenant-scope"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 function parseModule(value: string | null): AuditModule | undefined {
@@ -51,6 +52,7 @@ export async function GET(request: Request) {
   try {
     const admin = createAdminClient()
     const entries = await queryAllAuditLogsForExport(admin, {
+      companyId: resolveTenantCompanyId(auth.sessionUser),
       module: parseModule(searchParams.get("module")),
       action: searchParams.get("action") ?? undefined,
       entityType: parseEntityType(searchParams.get("entityType")),

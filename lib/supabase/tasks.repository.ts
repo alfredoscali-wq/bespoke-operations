@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
 import {
   fetchTaskById,
   fetchTasks,
@@ -19,9 +20,10 @@ async function createServerTasksClient(): Promise<SupabaseTasksClient> {
 }
 
 export async function listTasks(
+  companyId: string = BESPOKE_PRODUCTION_COMPANY_ID,
   client?: SupabaseTasksClient
 ): Promise<TasksRepositoryResult<Task[]>> {
-  return fetchTasks(client ?? (await createServerTasksClient()))
+  return fetchTasks(client ?? (await createServerTasksClient()), companyId)
 }
 
 export async function getTaskById(

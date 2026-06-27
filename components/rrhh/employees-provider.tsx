@@ -10,6 +10,7 @@ import {
 } from "react"
 
 import { useDemoMode } from "@/components/demo/demo-mode-provider"
+import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import {
   blockDemoWrite,
   DEMO_WRITE_BLOCKED_MUTATION_RESULT,
@@ -25,7 +26,6 @@ import {
 } from "@/lib/audit/users-audit"
 import { requestProvisionEmployeeAccess } from "@/lib/auth/provision-client"
 import { requestResetEmployeePassword } from "@/lib/auth/reset-password-client"
-import { BESPOKE_DEMO_COMPANY_ID } from "@/lib/supabase/company.constants"
 import {
   logEmployeeDeleteClientDiagnostics,
   logRemoveEmployeeEnd,
@@ -91,17 +91,22 @@ function sortEmployees(employees: Employee[]): Employee[] {
 
 export function EmployeesProvider({ children }: { children: React.ReactNode }) {
   const { isReadOnly, openRestrictedDialog } = useDemoMode()
+  const { companyId, isAuthReady } = useTenantCompanyId()
   const [employees, setEmployees] = useState<Employee[]>([])
   const [isEmployeesReady, setIsEmployeesReady] = useState(false)
   const [usesSupabase, setUsesSupabase] = useState(false)
 
   useEffect(() => {
+    if (!isAuthReady) {
+      return
+    }
+
     let cancelled = false
 
     async function loadEmployeesFromSupabase() {
       try {
         const client = createBrowserEmployeesClient()
-        const result = await listEmployees(client)
+        const result = await listEmployees(companyId, client)
 
         if (cancelled) return
 
@@ -130,7 +135,7 @@ export function EmployeesProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [companyId, isAuthReady])
 
   const getEmployee = useCallback(
     (id: string) => employees.find((employee) => employee.id === id),
@@ -165,7 +170,7 @@ export function EmployeesProvider({ children }: { children: React.ReactNode }) {
         const client = createBrowserEmployeesClient()
         const result = await createEmployee(
           {
-            companyId: BESPOKE_DEMO_COMPANY_ID,
+            companyId,
             employeeCode: input.employeeCode,
             firstName: input.firstName,
             lastName: input.lastName,

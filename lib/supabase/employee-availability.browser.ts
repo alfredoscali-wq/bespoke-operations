@@ -20,9 +20,10 @@ export function createBrowserEmployeeAvailabilityClient(): SupabaseEmployeeAvail
 }
 
 export async function listEmployeeAvailabilities(
+  companyId: string,
   client: SupabaseEmployeeAvailabilityClient = createBrowserEmployeeAvailabilityClient()
 ): Promise<EmployeeAvailabilityRepositoryResult<EmployeeAvailability[]>> {
-  return fetchEmployeeAvailabilities(client)
+  return fetchEmployeeAvailabilities(client, companyId)
 }
 
 export async function getEmployeeAvailabilityById(

@@ -20,6 +20,7 @@ import {
 import type { WeeklyAutomaticReport } from "@/lib/reports/automatic/types"
 import { isDateWithinRange } from "@/lib/availability/utils"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
 import { fetchCrews } from "@/lib/supabase/crews.queries"
 import { fetchEmployeeAvailabilities } from "@/lib/supabase/employee-availability.queries"
 import { fetchProjects } from "@/lib/supabase/projects.queries"
@@ -35,7 +36,9 @@ export type WeeklyReportSourceData = {
   availabilities: EmployeeAvailability[]
 }
 
-async function countCustomersByStatus(): Promise<{
+async function countCustomersByStatus(
+  companyId: string
+): Promise<{
   activeCustomers: number
   inactiveCustomers: number
 }> {
@@ -45,6 +48,7 @@ async function countCustomersByStatus(): Promise<{
     client
       .from("customers")
       .select("id", { count: "exact", head: true })
+      .eq("company_id", companyId)
       .is("deleted_at", null)
 
   const [activeResult, inactiveResult] = await Promise.all([
@@ -86,7 +90,9 @@ function buildAbsentOperarioLookup(
   }
 }
 
-export async function fetchWeeklyReportSourceData(): Promise<WeeklyReportSourceData> {
+export async function fetchWeeklyReportSourceData(
+  companyId: string = BESPOKE_PRODUCTION_COMPANY_ID
+): Promise<WeeklyReportSourceData> {
   const client = createAdminClient()
 
   const [
@@ -96,11 +102,11 @@ export async function fetchWeeklyReportSourceData(): Promise<WeeklyReportSourceD
     projectsResult,
     availabilitiesResult,
   ] = await Promise.all([
-    countCustomersByStatus(),
-    fetchTasks(client),
-    fetchCrews(client),
-    fetchProjects(client),
-    fetchEmployeeAvailabilities(client),
+    countCustomersByStatus(companyId),
+    fetchTasks(client, companyId),
+    fetchCrews(client, companyId),
+    fetchProjects(client, companyId),
+    fetchEmployeeAvailabilities(client, companyId),
   ])
 
   const errors = [

@@ -17,6 +17,7 @@ import {
 import type { CustomerOperationalSummary } from "@/lib/customers/customer-operational"
 import { CUSTOMER_DELETE_BLOCKED_MESSAGE } from "@/lib/customers/customer-delete"
 import type { Database, CustomerRow } from "@/lib/supabase/database.types"
+import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
 import {
   mapCustomerInsert,
   mapCustomerRowToCustomer,
@@ -50,11 +51,13 @@ function mapSupabaseCustomerError(error: {
 }
 
 async function fetchLatestCustomerNumber(
-  client: SupabaseCustomersClient
+  client: SupabaseCustomersClient,
+  companyId: string
 ): Promise<string | null> {
   const { data, error } = await client
     .from("customers")
     .select("customer_number")
+    .eq("company_id", companyId)
     .order("customer_number", { ascending: false })
     .limit(1)
     .maybeSingle()
@@ -67,9 +70,10 @@ async function fetchLatestCustomerNumber(
 }
 
 export async function getLatestCustomerNumberCounter(
-  client: SupabaseCustomersClient
+  client: SupabaseCustomersClient,
+  companyId: string
 ): Promise<number> {
-  const latestNumber = await fetchLatestCustomerNumber(client)
+  const latestNumber = await fetchLatestCustomerNumber(client, companyId)
   return parseCustomerNumberCounter(latestNumber)
 }
 
@@ -77,6 +81,7 @@ const CUSTOMER_IMPORT_BATCH_SIZE = 100
 
 export async function createCustomersBatch(
   client: SupabaseCustomersClient,
+  companyId: string,
   payloads: (Omit<CreateCustomerPayload, "customerNumber"> & {
     customerNumber?: string
   })[],
@@ -99,6 +104,7 @@ export async function createCustomersBatch(
     counter += 1
     return mapCustomerInsert({
       ...payload,
+      companyId,
       customerNumber:
         payload.customerNumber?.trim() || formatCustomerNumber(counter),
     })
@@ -178,6 +184,7 @@ function applyCustomerSearchFilter<
 
 export async function listCustomersPaginated(
   client: SupabaseCustomersClient,
+  companyId: string,
   input: CustomerListQuery
 ): Promise<CustomersRepositoryResult<CustomerListPage>> {
   const pageSize = input.pageSize ?? DEFAULT_CUSTOMER_PAGE_SIZE
@@ -187,6 +194,7 @@ export async function listCustomersPaginated(
   let query = client
     .from("customers")
     .select(CUSTOMER_LIST_SELECT, { count: "exact" })
+    .eq("company_id", companyId)
     .is("deleted_at", null)
     .order("name", { ascending: true })
 
@@ -211,12 +219,14 @@ export async function listCustomersPaginated(
 }
 
 export async function getCustomerOperationalSummaryCounts(
-  client: SupabaseCustomersClient
+  client: SupabaseCustomersClient,
+  companyId: string
 ): Promise<CustomersRepositoryResult<CustomerOperationalSummary>> {
   const base = () =>
     client
       .from("customers")
       .select("id", { count: "exact", head: true })
+      .eq("company_id", companyId)
       .is("deleted_at", null)
 
   const [operativosResult, activosResult, revisarResult] = await Promise.all([
@@ -274,7 +284,8 @@ export async function getCustomerById(
 }
 
 export async function fetchCustomerDuplicateIndex(
-  client: SupabaseCustomersClient
+  client: SupabaseCustomersClient,
+  companyId: string
 ): Promise<
   CustomersRepositoryResult<
     Pick<Customer, "id" | "name" | "externalCustomerCode" | "dni">[]
@@ -288,6 +299,7 @@ export async function fetchCustomerDuplicateIndex(
     const { data, error } = await client
       .from("customers")
       .select(CUSTOMER_DUPLICATE_INDEX_SELECT)
+      .eq("company_id", companyId)
       .is("deleted_at", null)
       .order("name", { ascending: true })
       .range(offset, offset + CUSTOMERS_PAGE_SIZE - 1)
@@ -317,7 +329,8 @@ export async function fetchCustomerDuplicateIndex(
 }
 
 export async function getCustomers(
-  client: SupabaseCustomersClient
+  client: SupabaseCustomersClient,
+  companyId: string
 ): Promise<CustomersRepositoryResult<Customer[]>> {
   const rows: CustomerRow[] = []
   let offset = 0
@@ -326,6 +339,7 @@ export async function getCustomers(
     const { data, error } = await client
       .from("customers")
       .select("*")
+      .eq("company_id", companyId)
       .order("name", { ascending: true })
       .range(offset, offset + CUSTOMERS_PAGE_SIZE - 1)
 
@@ -351,6 +365,7 @@ export async function getCustomers(
 
 export async function searchCustomers(
   client: SupabaseCustomersClient,
+  companyId: string,
   query: string,
   limit = 8
 ): Promise<CustomersRepositoryResult<Customer[]>> {
@@ -360,6 +375,7 @@ export async function searchCustomers(
     const { data, error } = await client
       .from("customers")
       .select("*")
+      .eq("company_id", companyId)
       .is("deleted_at", null)
       .order("name", { ascending: true })
       .limit(limit)
@@ -377,6 +393,7 @@ export async function searchCustomers(
   let searchQuery = client
     .from("customers")
     .select("*")
+    .eq("company_id", companyId)
     .is("deleted_at", null)
 
   searchQuery = applyCustomerSearchFilter(searchQuery, normalizedQuery)
@@ -401,7 +418,8 @@ export async function createCustomer(
     customerNumber?: string
   }
 ): Promise<CustomersRepositoryResult<Customer>> {
-  const latestNumber = await fetchLatestCustomerNumber(client)
+  const companyId = payload.companyId ?? BESPOKE_PRODUCTION_COMPANY_ID
+  const latestNumber = await fetchLatestCustomerNumber(client, companyId)
   const customerNumber =
     payload.customerNumber?.trim() ||
     generateCustomerNumber(
@@ -413,6 +431,7 @@ export async function createCustomer(
     .insert(
       mapCustomerInsert({
         ...payload,
+        companyId,
         customerNumber,
       })
     )
