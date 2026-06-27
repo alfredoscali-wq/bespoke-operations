@@ -104,9 +104,9 @@ export const reportsNavItem: NavItem = {
   title: "Reportes",
   href: "/reportes",
   icon: BarChart3,
-  pageTitle: "Reportes Operativos",
+  pageTitle: "Reportes",
   description:
-    "Indicadores y análisis de órdenes de trabajo según período y filtros operativos.",
+    "Dashboard ejecutivo, indicadores operativos y reportes automáticos.",
 }
 
 export const historyNavItem: NavItem = {

@@ -3,6 +3,7 @@
 import { useMemo } from "react"
 
 import { ExportReportActions } from "@/components/reportes/export-report-actions"
+import { ReportesSectionNav } from "@/components/reportes/reportes-section-nav"
 import { ReportsCrewProductivity } from "@/components/reportes/reports-crew-productivity"
 import { ReportsCrewRanking } from "@/components/reportes/reports-crew-ranking"
 import { ReportsFilters } from "@/components/reportes/reports-filters"
@@ -43,6 +44,17 @@ function ReportsModuleContent() {
 
   return (
     <div className="space-y-8">
+      <ReportesSectionNav />
+
+      <div>
+        <h2 className="text-lg font-semibold tracking-tight text-foreground">
+          Reportes Operativos
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Indicadores y análisis de órdenes de trabajo según período y filtros.
+        </p>
+      </div>
+
       <ReportsFilters />
       <ExportReportActions report={managementReport} />
       <ReportsSummaryCards />

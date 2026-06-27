@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { AlertTriangle, ShieldAlert, Trash2, Wrench } from "lucide-react"
+import { AlertTriangle, ArrowRight, ShieldAlert, Trash2, Wrench } from "lucide-react"
 
 import { fetchSystemAuditLogs } from "@/lib/admin/permanent-delete.client"
 import {
@@ -79,6 +79,24 @@ export function SystemToolsPanel() {
           Herramientas de mantenimiento exclusivas para administradores.
         </p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Automatizaciones</CardTitle>
+          <CardDescription>
+            Reportes generados y enviados automáticamente por el sistema.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link
+            href="/reportes/automaticos?tab=configuracion"
+            className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+          >
+            Ir a Reportes Automáticos
+            <ArrowRight className="size-4" />
+          </Link>
+        </CardContent>
+      </Card>
 
       <Card className="border-destructive/30">
         <CardHeader>

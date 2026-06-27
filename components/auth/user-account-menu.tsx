@@ -1,14 +1,11 @@
 "use client"
 
 import Link from "next/link"
-import { KeyRound, UserRound } from "lucide-react"
+import { UserRound } from "lucide-react"
 
 import { useAuth } from "@/components/auth/auth-provider"
 import { resolveAuthDisplay } from "@/lib/auth/auth-display"
-import {
-  CHANGE_PASSWORD_PATH,
-  PROFILE_PATH,
-} from "@/lib/auth/routes"
+import { PROFILE_PATH } from "@/lib/auth/routes"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -67,12 +64,15 @@ export function UserAccountMenu() {
             Mi perfil
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link href={CHANGE_PASSWORD_PATH}>
-            <KeyRound className="size-4" />
-            Cambiar contraseña
-          </Link>
-        </DropdownMenuItem>
+        {/*
+          UX Cleanup 1.0 — restaurar cuando el flujo esté validado en producción:
+          <DropdownMenuItem asChild>
+            <Link href={CHANGE_PASSWORD_PATH}>
+              <KeyRound className="size-4" />
+              Cambiar contraseña
+            </Link>
+          </DropdownMenuItem>
+        */}
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={() => void signOut()}

@@ -53,6 +53,90 @@ export type Database = {
         }
         Relationships: []
       }
+      automatic_report_settings: {
+        Row: {
+          id: string
+          report_type: string
+          enabled: boolean
+          company_name: string
+          recipient_email: string
+          send_day: number
+          send_time: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          report_type: string
+          enabled?: boolean
+          company_name?: string
+          recipient_email?: string
+          send_day?: number
+          send_time?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          report_type?: string
+          enabled?: boolean
+          company_name?: string
+          recipient_email?: string
+          send_day?: number
+          send_time?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      automatic_report_history: {
+        Row: {
+          id: string
+          report_type: string
+          generated_at: string
+          generated_by: string
+          recipient: string
+          status: string
+          pdf_storage_path: string | null
+          pdf_file_name: string | null
+          week_number: number | null
+          error_message: string | null
+          execution_time_ms: number | null
+          email_sent_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          report_type: string
+          generated_at?: string
+          generated_by: string
+          recipient: string
+          status: string
+          pdf_storage_path?: string | null
+          pdf_file_name?: string | null
+          week_number?: number | null
+          error_message?: string | null
+          execution_time_ms?: number | null
+          email_sent_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          report_type?: string
+          generated_at?: string
+          generated_by?: string
+          recipient?: string
+          status?: string
+          pdf_storage_path?: string | null
+          pdf_file_name?: string | null
+          week_number?: number | null
+          error_message?: string | null
+          execution_time_ms?: number | null
+          email_sent_at?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
       customers: {
         Row: {
           id: string
