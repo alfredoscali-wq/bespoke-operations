@@ -87,7 +87,7 @@ export function WorkOrderCustomerSyncDialog({
         <DialogHeader>
           <DialogTitle>Actualizar ficha del cliente</DialogTitle>
           <DialogDescription>
-            La OT modificó datos de contacto respecto a la ficha de{" "}
+            La orden de trabajo modificó datos de contacto respecto a la ficha de{" "}
             <span className="font-medium text-foreground">{customerName}</span>.
             Seleccione qué campos desea sincronizar.
           </DialogDescription>
@@ -117,7 +117,7 @@ export function WorkOrderCustomerSyncDialog({
                     Ficha: {change.before || "—"}
                   </p>
                   <p className="text-xs font-medium text-foreground">
-                    OT: {change.after}
+                    Orden de trabajo: {change.after}
                   </p>
                 </div>
               </label>

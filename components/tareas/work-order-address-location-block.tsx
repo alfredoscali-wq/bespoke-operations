@@ -24,6 +24,7 @@ type WorkOrderAddressLocationBlockProps = {
   readOnly?: boolean
   addressRequired?: boolean
   localityRequired?: boolean
+  locationLinkRequired?: boolean
   addressId?: string
   localityId?: string
   locationLinkId?: string
@@ -45,6 +46,7 @@ export function WorkOrderAddressLocationBlock({
   readOnly = false,
   addressRequired = false,
   localityRequired = false,
+  locationLinkRequired = false,
   addressId,
   localityId,
   locationLinkId,
@@ -105,13 +107,16 @@ export function WorkOrderAddressLocationBlock({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor={locationLinkId}>Enlace GPS / Maps</Label>
+        <Label htmlFor={locationLinkId}>
+          📍 Enlace de Google Maps{locationLinkRequired ? " *" : ""}
+        </Label>
         <Input
           id={locationLinkId}
           value={sharedLocation}
           onChange={(event) => handleSharedLocationChange(event.target.value)}
           placeholder="https://maps.app.goo.gl/..."
           readOnly={readOnly}
+          required={locationLinkRequired}
           className={readOnly ? "bg-muted/40" : undefined}
         />
       </div>

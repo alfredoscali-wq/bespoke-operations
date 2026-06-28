@@ -1,38 +1,58 @@
+import {
+  isCustomerStatusActive,
+  isCustomerStatusPendingActivation,
+} from "@/lib/customers/format"
 import type { Customer } from "@/lib/types/customers"
 import type { VisualTone } from "@/lib/ui/visual-tokens"
 
-export type CustomerOperationalKpi = "operativos" | "activos" | "revisar"
+export type CustomerOperationalKpi =
+  | "operativos"
+  | "activos"
+  | "pendientes-activacion"
+  | "revisar"
 
 export type CustomerQuickFilter = CustomerOperationalKpi
 
 export const CUSTOMER_KPI_ORDER: CustomerOperationalKpi[] = [
   "operativos",
   "activos",
+  "pendientes-activacion",
   "revisar",
 ]
 
 export const CUSTOMER_KPI_LABELS: Record<CustomerOperationalKpi, string> = {
   operativos: "Clientes operativos",
   activos: "Activos",
+  "pendientes-activacion": "Pendientes de activación",
   revisar: "Revisar",
 }
 
 export const CUSTOMER_KPI_TONE: Record<CustomerOperationalKpi, VisualTone> = {
   operativos: "blue",
   activos: "green",
+  "pendientes-activacion": "yellow",
   revisar: "yellow",
 }
 
 export const CUSTOMER_QUICK_FILTER_LABELS: Record<CustomerQuickFilter, string> = {
   operativos: "Operativos",
   activos: "Activos",
+  "pendientes-activacion": "Pendientes de activación",
   revisar: "Revisar",
 }
 
 export type CustomerOperationalSummary = {
   operativos: number
   activos: number
+  "pendientes-activacion": number
   revisar: number
+}
+
+function isCommerciallyActiveCustomer(customer: Customer): boolean {
+  return (
+    customer.validationStatus === "active" &&
+    !isCustomerStatusPendingActivation(customer.status)
+  )
 }
 
 export function countCustomerOperationalSummary(
@@ -42,8 +62,10 @@ export function countCustomerOperationalSummary(
 
   return {
     operativos: operational.length,
-    activos: operational.filter((customer) => customer.validationStatus === "active")
-      .length,
+    activos: operational.filter(isCommerciallyActiveCustomer).length,
+    "pendientes-activacion": operational.filter((customer) =>
+      isCustomerStatusPendingActivation(customer.status)
+    ).length,
     revisar: operational.filter((customer) => customer.validationStatus === "review")
       .length,
   }
@@ -65,7 +87,11 @@ export function matchesCustomerQuickFilter(
   }
 
   if (filter === "activos") {
-    return customer.validationStatus === "active"
+    return isCommerciallyActiveCustomer(customer)
+  }
+
+  if (filter === "pendientes-activacion") {
+    return isCustomerStatusPendingActivation(customer.status)
   }
 
   return customer.validationStatus === "review"

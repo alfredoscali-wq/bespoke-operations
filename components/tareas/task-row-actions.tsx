@@ -14,6 +14,7 @@ import {
 } from "lucide-react"
 
 import { PermanentDeleteDialog } from "@/components/admin/permanent-delete-dialog"
+import { useAuth } from "@/components/auth/auth-provider"
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { useTasks } from "@/components/tareas/tasks-provider"
 import {
@@ -34,6 +35,7 @@ import {
 import { TaskIncidentCancelDialog } from "@/components/tareas/task-incident-cancel-dialog"
 import type { Task } from "@/lib/types/tasks"
 import { resolveCrewSnapshotsForAssignment } from "@/lib/tasks/crew-relation"
+import { canAssignWorkOrderCrew } from "@/lib/tasks/task-closure-permissions"
 import { useIsSystemAdministrator } from "@/lib/auth/use-is-system-administrator"
 import { Button } from "@/components/ui/button"
 import {
@@ -70,8 +72,10 @@ export function TaskRowActions({
 }: TaskRowActionsProps) {
   const { editTask, changeTaskStatus, deleteTask, assignCrew, cancelTask, removeTaskLocally } =
     useTasks()
+  const { sessionUser } = useAuth()
   const { getCrew } = useCrews()
   const isSystemAdministrator = useIsSystemAdministrator()
+  const canAssignCrew = canAssignWorkOrderCrew(sessionUser?.systemRole)
   const [editOpen, setEditOpen] = useState(false)
   const [statusOpen, setStatusOpen] = useState(false)
   const [crewOpen, setCrewOpen] = useState(false)
@@ -250,10 +254,12 @@ export function TaskRowActions({
               Cambiar estado
             </DropdownMenuItem>
           )}
-          <DropdownMenuItem onClick={() => setCrewOpen(true)}>
-            <Users className="size-4" />
-            Reasignar cuadrilla
-          </DropdownMenuItem>
+          {canAssignCrew ? (
+            <DropdownMenuItem onClick={() => setCrewOpen(true)}>
+              <Users className="size-4" />
+              Reasignar cuadrilla
+            </DropdownMenuItem>
+          ) : null}
           {canCancel && (
             <DropdownMenuItem
               onClick={() => setCancelOpen(true)}

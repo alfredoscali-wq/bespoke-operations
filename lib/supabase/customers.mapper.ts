@@ -68,6 +68,7 @@ export function mapCustomerRowToListRow(
     | "email"
     | "phone"
     | "technology"
+    | "status"
     | "validation_status"
     | "legacy_migration_id"
   >
@@ -82,6 +83,7 @@ export function mapCustomerRowToListRow(
     email: row.email ?? undefined,
     phone: row.phone ?? undefined,
     technology: row.technology ?? undefined,
+    status: row.status,
     validationStatus: parseValidationStatus(row.validation_status),
     legacyMigrationId: row.legacy_migration_id ?? undefined,
   }

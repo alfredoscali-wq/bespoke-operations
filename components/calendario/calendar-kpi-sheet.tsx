@@ -208,7 +208,7 @@ export function CalendarKpiSheet() {
                     />
                     <Field label="Cuadrilla" value={item.crewName} />
                     <Button asChild variant="outline" size="sm" className="mt-2">
-                      <Link href={`/tareas/${item.taskId}`}>Ver OT</Link>
+                      <Link href={`/tareas/${item.taskId}`}>Ver orden de trabajo</Link>
                     </Button>
                   </DetailBlock>
                 ))

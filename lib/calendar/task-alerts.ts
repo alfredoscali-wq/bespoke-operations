@@ -92,7 +92,7 @@ export function buildTaskAlertsForDate(input: {
     alerts.push({
       kind: "OVERDUE",
       severity: ALERT_SEVERITY.OVERDUE,
-      message: "OT vencida. Debe reprogramarse antes de iniciarse.",
+      message: "Orden de trabajo vencida. Debe reprogramarse antes de iniciarse.",
     })
   }
 

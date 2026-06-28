@@ -1,5 +1,5 @@
 import type { CreateTaskPayload } from "@/lib/types/supabase/tasks"
-import type { Task, TaskStatus, TaskType } from "@/lib/types/tasks"
+import type { Task, TaskType } from "@/lib/types/tasks"
 import {
   createDefaultOperationalSteps,
   createInstallationOperationalSteps,
@@ -18,9 +18,6 @@ import {
   resolveCurrentContractedPlanFromForm,
   type ContractedPlan,
 } from "@/lib/tasks/commercial-plan"
-import {
-  applyFtthValuesToOperationalSteps,
-} from "@/lib/tasks/ftth-installation"
 import {
   formatScheduledTimeForInput,
   getDefaultScheduledTime,
@@ -312,7 +309,6 @@ function buildTaskMetadata(input: WorkOrderFormInput): Record<string, unknown> {
       metadata = {
         email,
         technology: input.technology || "fiber",
-        ...buildFtthMetadataFromForm(input),
       }
       break
     case "cambio-domicilio":
@@ -399,6 +395,35 @@ function resolvePrimaryLocality(input: WorkOrderFormInput): string {
     default:
       return input.locality.trim()
   }
+}
+
+export function resolveWorkOrderSharedLocation(
+  input: Pick<
+    WorkOrderFormInput,
+    "serviceType" | "sharedLocation" | "newSharedLocation"
+  >
+): string {
+  if (input.serviceType === "cambio-domicilio") {
+    return input.newSharedLocation.trim()
+  }
+
+  return input.sharedLocation.trim()
+}
+
+export function validateWorkOrderSharedLocation(
+  input: Pick<
+    WorkOrderFormInput,
+    "serviceType" | "sharedLocation" | "newSharedLocation"
+  >
+): { valid: boolean; message?: string } {
+  if (!resolveWorkOrderSharedLocation(input)) {
+    return {
+      valid: false,
+      message: "El enlace de Google Maps es obligatorio.",
+    }
+  }
+
+  return { valid: true }
 }
 
 export function validateWorkOrderForm(
@@ -544,6 +569,11 @@ export function validateWorkOrderForm(
       break
   }
 
+  const sharedLocationValidation = validateWorkOrderSharedLocation(input)
+  if (!sharedLocationValidation.valid) {
+    return sharedLocationValidation
+  }
+
   return { valid: true }
 }
 
@@ -559,17 +589,7 @@ function resolveOperationalStepsForWorkOrder(
   ) {
     const technology =
       finalTechnology === "wireless" ? "wireless" : ("fiber" as const)
-    const steps = createInstallationOperationalSteps(technology)
-
-    if (technology === "fiber") {
-      return applyFtthValuesToOperationalSteps(steps, {
-        napBox: form.napBox,
-        napPort: form.napPort,
-        onuSerial: form.onuSerial,
-      })
-    }
-
-    return steps
+    return createInstallationOperationalSteps(technology)
   }
 
   return createDefaultOperationalSteps()
@@ -579,15 +599,9 @@ export function buildWorkOrderCreatePayload(input: {
   form: WorkOrderFormInput
   existingTasks: Task[]
   customerId?: string | null
-  crewId?: string | null
-  crewName: string
-  supervisor: string
   checklist: CreateTaskPayload["checklist"]
 }): CreateTaskPayload {
-  const { form, existingTasks, customerId, crewId, crewName, supervisor, checklist } =
-    input
-  const hasCrew = Boolean(crewId && crewName.trim())
-  const status: TaskStatus = hasCrew ? "asignada" : "pendiente"
+  const { form, existingTasks, customerId, checklist } = input
   const serviceLabel =
     WORK_ORDER_SERVICE_TYPE_LABELS[form.serviceType as WorkOrderServiceType] ??
     "Orden de trabajo"
@@ -626,11 +640,11 @@ export function buildWorkOrderCreatePayload(input: {
     observationsForCrew: form.observationsForCrew.trim() || undefined,
     workOrderNumber: form.clientOrderNumber.trim() || undefined,
     type: resolveTaskTypeFromForm(form),
-    status,
+    status: "pendiente",
     priority: "media",
-    supervisor: hasCrew ? supervisor : "",
-    crewId: hasCrew ? crewId ?? undefined : undefined,
-    crew: hasCrew ? crewName : "",
+    supervisor: "",
+    crewId: undefined,
+    crew: "",
     startDate: form.scheduledDate,
     dueDate: form.scheduledDate,
     scheduledTime: normalizeScheduledTimeForDb(form.scheduledTime),

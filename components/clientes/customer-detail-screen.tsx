@@ -209,7 +209,7 @@ export function CustomerDetailScreen({ customerId }: CustomerDetailScreenProps) 
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead>OT</TableHead>
+                    <TableHead>Orden de trabajo</TableHead>
                     <TableHead>Tipo</TableHead>
                     <TableHead>Fecha</TableHead>
                     <TableHead>Hora</TableHead>

@@ -5,7 +5,6 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { DemoWriteBlockedError } from "@/lib/demo/demo-write-block"
 
 import { useCustomers } from "@/components/clientes/customers-provider"
-import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { taskDefaultChecklist } from "@/components/tareas/task-form-dialog"
 import {
   formatCustomerAddressLabel,
@@ -15,11 +14,6 @@ import {
   isCustomerEligibleForReconexion,
   validateReconexionCustomer,
 } from "@/lib/customers/reconexion-eligibility"
-import {
-  getAssignableCrews,
-  validateCrewAssignment,
-} from "@/lib/crews/status-workflow"
-import { resolveCrewSnapshotsForAssignment } from "@/lib/tasks/crew-relation"
 import {
   buildWorkOrderCreatePayload,
   getDefaultWorkOrderForm,
@@ -47,7 +41,6 @@ import {
   type CustomerSyncFieldChange,
   type CustomerSyncFieldKey,
 } from "@/lib/tasks/customer-sync"
-import { resolveSupervisorFromCrew } from "@/lib/tasks/utils"
 import { uploadPendingTaskReferencePhotos } from "@/lib/supabase/task-photos.browser"
 import {
   TaskReferencePhotosPicker,
@@ -551,10 +544,8 @@ export function TaskWorkOrderDialog({
   onSubmit,
   onTaskCreated,
 }: TaskWorkOrderDialogProps) {
-  const { crews } = useCrews()
   const { searchCustomers, createCustomer, updateCustomer, fetchCustomerById } =
     useCustomers()
-  const assignableCrews = useMemo(() => getAssignableCrews(crews), [crews])
   const [form, setForm] = useState<WorkOrderFormInput>(getDefaultWorkOrderForm)
   const [baselineForm, setBaselineForm] = useState<WorkOrderFormInput>(
     getDefaultWorkOrderForm
@@ -730,18 +721,6 @@ export function TaskWorkOrderDialog({
       return
     }
 
-    const selectedCrew = form.crewId
-      ? assignableCrews.find((crew) => crew.id === form.crewId)
-      : undefined
-
-    if (form.crewId) {
-      const crewValidation = validateCrewAssignment(selectedCrew)
-      if (!crewValidation.allowed) {
-        setError(crewValidation.message ?? "Cuadrilla no disponible.")
-        return
-      }
-    }
-
     setIsSubmitting(true)
 
     try {
@@ -790,15 +769,10 @@ export function TaskWorkOrderDialog({
         }
       }
 
-      const snapshots = resolveCrewSnapshotsForAssignment(selectedCrew)
       const payload = buildWorkOrderCreatePayload({
         form,
         existingTasks,
         customerId,
-        crewId: form.crewId ? snapshots.crewId : null,
-        crewName: snapshots.crew,
-        supervisor:
-          resolveSupervisorFromCrew(selectedCrew) || snapshots.supervisor,
         checklist: taskDefaultChecklist,
       })
 
@@ -954,27 +928,6 @@ export function TaskWorkOrderDialog({
                     updateField("scheduledTime", event.target.value)
                   }
                 />
-              </div>
-              <div className="space-y-2">
-                <Label>Cuadrilla</Label>
-                <Select
-                  value={form.crewId || "none"}
-                  onValueChange={(value) =>
-                    updateField("crewId", value === "none" ? "" : value)
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sin cuadrilla" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Sin cuadrilla</SelectItem>
-                    {assignableCrews.map((crew) => (
-                      <SelectItem key={crew.id} value={crew.id}>
-                        {crew.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
             </section>
           )}

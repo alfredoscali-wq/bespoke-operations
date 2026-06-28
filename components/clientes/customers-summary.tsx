@@ -1,6 +1,6 @@
 "use client"
 
-import { AlertTriangle, CheckCircle2, Users } from "lucide-react"
+import { AlertTriangle, CheckCircle2, Clock3, Users } from "lucide-react"
 
 import { useCustomers } from "@/components/clientes/customers-provider"
 import { FilterableKpiCard } from "@/components/ui/filterable-kpi-card"
@@ -16,6 +16,7 @@ import {
 const KPI_ICONS = {
   operativos: Users,
   activos: CheckCircle2,
+  "pendientes-activacion": Clock3,
   revisar: AlertTriangle,
 } as const
 
@@ -31,7 +32,7 @@ export function CustomersSummary({
   const { operationalSummary, isSummaryLoading } = useCustomers()
 
   return (
-    <KpiCardGrid layout="triple">
+    <KpiCardGrid layout="standard">
       {CUSTOMER_KPI_ORDER.map((kpi) => {
         const Icon = KPI_ICONS[kpi]
 

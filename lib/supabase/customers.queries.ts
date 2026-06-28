@@ -10,11 +10,16 @@ import {
   getCustomerOperationalActivity,
 } from "@/lib/customers/customer-activity"
 import {
+  resolveCustomerStatusFilterValue,
+  type CustomerListSort,
+} from "@/lib/customers/customer-filters"
+import {
   DEFAULT_CUSTOMER_PAGE_SIZE,
   escapeCustomerSearchPattern,
   type CustomerListQuery,
 } from "@/lib/customers/customer-list"
 import type { CustomerOperationalSummary } from "@/lib/customers/customer-operational"
+import { CUSTOMER_STATUS_PENDING_ACTIVATION } from "@/lib/customers/format"
 import { CUSTOMER_DELETE_BLOCKED_MESSAGE } from "@/lib/customers/customer-delete"
 import type { Database, CustomerRow } from "@/lib/supabase/database.types"
 import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
@@ -130,7 +135,7 @@ export { CUSTOMER_IMPORT_BATCH_SIZE }
 const CUSTOMERS_PAGE_SIZE = 1000
 
 const CUSTOMER_LIST_SELECT =
-  "id, name, external_customer_code, dni, address, locality, email, phone, technology, validation_status, legacy_migration_id"
+  "id, name, external_customer_code, dni, address, locality, email, phone, technology, status, validation_status, legacy_migration_id"
 
 const CUSTOMER_DUPLICATE_INDEX_SELECT =
   "id, name, external_customer_code, dni"
@@ -138,10 +143,17 @@ const CUSTOMER_DUPLICATE_INDEX_SELECT =
 function applyCustomerQuickFilter<
   T extends {
     eq: (column: string, value: string) => T
+    neq: (column: string, value: string) => T
   },
 >(query: T, quickFilter: CustomerListQuery["quickFilter"]): T {
   if (quickFilter === "activos") {
-    return query.eq("validation_status", "active")
+    return query
+      .eq("validation_status", "active")
+      .neq("status", CUSTOMER_STATUS_PENDING_ACTIVATION)
+  }
+
+  if (quickFilter === "pendientes-activacion") {
+    return query.eq("status", CUSTOMER_STATUS_PENDING_ACTIVATION)
   }
 
   if (quickFilter === "revisar") {
@@ -182,6 +194,81 @@ function applyCustomerSearchFilter<
   return query.or(filters.join(","))
 }
 
+function applyCustomerLocalityFilter<
+  T extends {
+    eq: (column: string, value: string) => T
+  },
+>(query: T, locality?: string): T {
+  const normalizedLocality = locality?.trim()
+  if (!normalizedLocality) {
+    return query
+  }
+
+  return query.eq("locality", normalizedLocality)
+}
+
+function applyCustomerStatusFilter<
+  T extends {
+    eq: (column: string, value: string) => T
+  },
+>(query: T, statusFilter: CustomerListQuery["statusFilter"]): T {
+  const status = resolveCustomerStatusFilterValue(statusFilter ?? "all")
+  if (!status) {
+    return query
+  }
+
+  return query.eq("status", status)
+}
+
+function applyCustomerSort<
+  T extends {
+    order: (
+      column: string,
+      options: { ascending: boolean }
+    ) => T
+  },
+>(query: T, sort: CustomerListSort = "name-asc"): T {
+  switch (sort) {
+    case "name-desc":
+      return query.order("name", { ascending: false })
+    case "created-desc":
+      return query.order("created_at", { ascending: false })
+    case "created-asc":
+      return query.order("created_at", { ascending: true })
+    case "name-asc":
+    default:
+      return query.order("name", { ascending: true })
+  }
+}
+
+export async function getCustomerLocalityOptions(
+  client: SupabaseCustomersClient,
+  companyId: string
+): Promise<CustomersRepositoryResult<string[]>> {
+  const { data, error } = await client
+    .from("customers")
+    .select("locality")
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .not("locality", "is", null)
+    .neq("locality", "")
+    .order("locality", { ascending: true })
+
+  if (error) {
+    return { data: null, error: mapSupabaseCustomerError(error) }
+  }
+
+  const localities = Array.from(
+    new Set(
+      (data ?? [])
+        .map((row) => row.locality?.trim())
+        .filter((locality): locality is string => Boolean(locality))
+    )
+  ).sort((left, right) => left.localeCompare(right, "es"))
+
+  return { data: localities, error: null }
+}
+
 export async function listCustomersPaginated(
   client: SupabaseCustomersClient,
   companyId: string,
@@ -196,10 +283,12 @@ export async function listCustomersPaginated(
     .select(CUSTOMER_LIST_SELECT, { count: "exact" })
     .eq("company_id", companyId)
     .is("deleted_at", null)
-    .order("name", { ascending: true })
 
   query = applyCustomerQuickFilter(query, input.quickFilter)
   query = applyCustomerSearchFilter(query, input.search ?? "")
+  query = applyCustomerLocalityFilter(query, input.locality)
+  query = applyCustomerStatusFilter(query, input.statusFilter)
+  query = applyCustomerSort(query, input.sort ?? "name-asc")
 
   const { data, error, count } = await query.range(offset, offset + pageSize - 1)
 
@@ -229,14 +318,21 @@ export async function getCustomerOperationalSummaryCounts(
       .eq("company_id", companyId)
       .is("deleted_at", null)
 
-  const [operativosResult, activosResult, revisarResult] = await Promise.all([
-    base(),
-    base().eq("validation_status", "active"),
-    base().eq("validation_status", "review"),
-  ])
+  const [operativosResult, activosResult, pendientesActivacionResult, revisarResult] =
+    await Promise.all([
+      base(),
+      base()
+        .eq("validation_status", "active")
+        .neq("status", CUSTOMER_STATUS_PENDING_ACTIVATION),
+      base().eq("status", CUSTOMER_STATUS_PENDING_ACTIVATION),
+      base().eq("validation_status", "review"),
+    ])
 
   const error =
-    operativosResult.error ?? activosResult.error ?? revisarResult.error
+    operativosResult.error ??
+    activosResult.error ??
+    pendientesActivacionResult.error ??
+    revisarResult.error
 
   if (error) {
     return { data: null, error: mapSupabaseCustomerError(error) }
@@ -246,6 +342,7 @@ export async function getCustomerOperationalSummaryCounts(
     data: {
       operativos: operativosResult.count ?? 0,
       activos: activosResult.count ?? 0,
+      "pendientes-activacion": pendientesActivacionResult.count ?? 0,
       revisar: revisarResult.count ?? 0,
     },
     error: null,

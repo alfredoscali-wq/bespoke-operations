@@ -67,7 +67,7 @@ export function EvidenceChecklistPanel({
             href={`/tareas/${taskId}`}
             className="inline-flex shrink-0 items-center gap-1 text-xs text-primary hover:underline"
           >
-            Ver OT
+            Ver orden de trabajo
             <ExternalLink className="size-3" />
           </Link>
         </div>

@@ -137,7 +137,7 @@ function buildInstalacionNuevaUpdate(
     assignStringField(update, "contractedPlan", plan, customer.contractedPlan)
   }
 
-  assignStatus(update, "activo", customer.status)
+  assignStatus(update, "pendiente-activacion", customer.status)
   applyFtthFields(update, task, customer)
 
   return update

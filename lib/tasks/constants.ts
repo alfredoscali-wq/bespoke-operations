@@ -10,7 +10,7 @@ import {
 import { STATUS_TONE_STYLES } from "@/lib/ui/visual-tokens"
 
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
-  pendiente: "Pendiente",
+  pendiente: "Programada",
   asignada: "Asignada",
   vencida: "Vencida",
   "en-curso": "En curso",

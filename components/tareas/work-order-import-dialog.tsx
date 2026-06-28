@@ -128,7 +128,7 @@ export function WorkOrderImportDialog({
   onImported,
 }: WorkOrderImportDialogProps) {
   const { isReadOnly, openRestrictedDialog } = useDemoMode()
-  const { tasks, addTask } = useTasks()
+  const { tasks, addTask, assignCrew } = useTasks()
   const { createCustomer, getImportDuplicateIndex } = useCustomers()
   const { crews } = useCrews()
   const assignableCrews = useMemo(() => getAssignableCrews(crews), [crews])
@@ -298,6 +298,7 @@ export function WorkOrderImportDialog({
         crews: assignableCrews,
         createCustomer,
         addTask,
+        assignCrew,
       })
 
       setExecutionResult(result)

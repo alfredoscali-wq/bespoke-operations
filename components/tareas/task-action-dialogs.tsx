@@ -226,12 +226,17 @@ export function TaskEditDialog({
         : "fiber"
       : form.type
 
+    if (showAmountToCollectField && !form.sharedLocation.trim()) {
+      setError("El enlace de Google Maps es obligatorio.")
+      return
+    }
+
     setIsSubmitting(true)
     try {
       const workOrderPayload = showAmountToCollectField
         ? {
             amountToCollect: parseAmountToCollectInput(form.amountToCollect),
-            sharedLocation: form.sharedLocation.trim() || null,
+            sharedLocation: form.sharedLocation.trim(),
             ...(showCommercialFields
               ? {
                   contractedPlan: resolveContractedPlanFromForm(form.commercial),

@@ -2,29 +2,25 @@ import type { Task } from "@/lib/types/tasks"
 import type { VisualTone } from "@/lib/ui/visual-tokens"
 import { STATUS_TONE_STYLES } from "@/lib/ui/visual-tokens"
 import { TASK_EN_CURSO_STYLE } from "@/lib/tasks/constants"
+import { taskHasAssignedCrew } from "@/lib/tasks/vencida-status"
 
 export type OperationalTaskCategory =
-  | "sin-cuadrilla"
   | "programadas"
-  | "vencidas"
-  | "suspendidas"
-  | "completadas"
+  | "asignadas"
+  | "en-curso"
+  | "pendientes-cierre"
+  | "finalizadas"
   | "canceladas"
-
-const ACTIVE_INTERNAL_STATUSES = new Set<Task["status"]>([
-  "asignada",
-  "en-curso",
-])
 
 export const OPERATIONAL_CATEGORY_KPI_LABELS: Record<
   OperationalTaskCategory,
   string
 > = {
-  "sin-cuadrilla": "Sin cuadrilla",
   programadas: "Programadas",
-  vencidas: "Vencidas",
-  suspendidas: "Pendiente de cierre",
-  completadas: "Completadas",
+  asignadas: "Asignadas",
+  "en-curso": "En curso",
+  "pendientes-cierre": "Pendientes de cierre",
+  finalizadas: "Finalizadas",
   canceladas: "Canceladas",
 }
 
@@ -32,11 +28,11 @@ export const OPERATIONAL_CATEGORY_BADGE_LABELS: Record<
   OperationalTaskCategory,
   string
 > = {
-  "sin-cuadrilla": "Sin cuadrilla",
   programadas: "Programada",
-  vencidas: "Vencida",
-  suspendidas: "Pendiente de cierre",
-  completadas: "Finalizada",
+  asignadas: "Asignada",
+  "en-curso": "En curso",
+  "pendientes-cierre": "Pendiente de cierre",
+  finalizadas: "Finalizada",
   canceladas: "Cancelada",
 }
 
@@ -44,11 +40,11 @@ export const OPERATIONAL_CATEGORY_BADGE_LABELS: Record<
 export const OPERATIONAL_CATEGORY_LABELS = OPERATIONAL_CATEGORY_BADGE_LABELS
 
 export const OPERATIONAL_CATEGORY_ORDER: OperationalTaskCategory[] = [
-  "sin-cuadrilla",
   "programadas",
-  "vencidas",
-  "suspendidas",
-  "completadas",
+  "asignadas",
+  "en-curso",
+  "pendientes-cierre",
+  "finalizadas",
   "canceladas",
 ]
 
@@ -56,11 +52,11 @@ export const OPERATIONAL_CATEGORY_KPI_TONE: Record<
   OperationalTaskCategory,
   VisualTone
 > = {
-  "sin-cuadrilla": "blue",
   programadas: "blue",
-  vencidas: "red",
-  suspendidas: "yellow",
-  completadas: "green",
+  asignadas: "blue",
+  "en-curso": "yellow",
+  "pendientes-cierre": "yellow",
+  finalizadas: "green",
   canceladas: "red",
 }
 
@@ -72,29 +68,18 @@ export const OPERATIONAL_CATEGORY_BADGE_STYLES: Record<
   OperationalTaskCategory,
   string
 > = {
-  "sin-cuadrilla": STATUS_TONE_STYLES.blue,
   programadas: STATUS_TONE_STYLES.blue,
-  vencidas: STATUS_TONE_STYLES.red,
-  suspendidas: STATUS_TONE_STYLES.yellow,
-  completadas: STATUS_TONE_STYLES.green,
+  asignadas: STATUS_TONE_STYLES.blue,
+  "en-curso": TASK_EN_CURSO_STYLE,
+  "pendientes-cierre": STATUS_TONE_STYLES.yellow,
+  finalizadas: STATUS_TONE_STYLES.green,
   canceladas: STATUS_TONE_STYLES.red,
-}
-
-function isPendingAssignment(task: Task): boolean {
-  return task.status === "pendiente" || !task.crewId
 }
 
 export function resolveOperationalExecutionBadge(task: Task): {
   label: string
   className: string
 } {
-  if (task.status === "asignada") {
-    return {
-      label: "Programada",
-      className: STATUS_TONE_STYLES.blue,
-    }
-  }
-
   if (task.status === "vencida") {
     return {
       label: "🔴 Vencida",
@@ -102,17 +87,31 @@ export function resolveOperationalExecutionBadge(task: Task): {
     }
   }
 
-  if (task.status === "en-curso") {
-    return {
-      label: "En curso",
-      className: TASK_EN_CURSO_STYLE,
-    }
-  }
-
   if (task.status === "incidencia") {
     return {
       label: "🔴 Incidencia",
       className: STATUS_TONE_STYLES.red,
+    }
+  }
+
+  if (task.status === "pendiente") {
+    return {
+      label: "Programada",
+      className: STATUS_TONE_STYLES.blue,
+    }
+  }
+
+  if (task.status === "asignada") {
+    return {
+      label: "Asignada",
+      className: STATUS_TONE_STYLES.blue,
+    }
+  }
+
+  if (task.status === "en-curso") {
+    return {
+      label: "En curso",
+      className: TASK_EN_CURSO_STYLE,
     }
   }
 
@@ -148,48 +147,41 @@ export function resolveOperationalExecutionBadge(task: Task): {
 export function resolveOperationalCategory(
   task: Task
 ): OperationalTaskCategory {
-  if (task.status === "pendiente-cierre" || task.status === "en-aprobacion") {
-    return "suspendidas"
-  }
-
   if (task.status === "cancelada") {
     return "canceladas"
   }
 
-  if (task.status === "vencida") {
-    return "vencidas"
-  }
-
   if (task.status === "finalizada" || task.status === "cerrada") {
-    return "completadas"
+    return "finalizadas"
   }
 
-  if (isPendingAssignment(task)) {
-    return "sin-cuadrilla"
+  if (task.status === "pendiente-cierre" || task.status === "en-aprobacion") {
+    return "pendientes-cierre"
   }
 
-  if (ACTIVE_INTERNAL_STATUSES.has(task.status)) {
+  if (task.status === "en-curso" || task.status === "incidencia") {
+    return "en-curso"
+  }
+
+  if (task.status === "asignada") {
+    return "asignadas"
+  }
+
+  if (task.status === "vencida") {
+    return taskHasAssignedCrew(task) ? "asignadas" : "programadas"
+  }
+
+  if (task.status === "pendiente") {
     return "programadas"
   }
 
-  return "sin-cuadrilla"
+  return "programadas"
 }
 
 export function filterTasksByOperationalCategory(
   tasks: Task[],
   category: OperationalTaskCategory
 ): Task[] {
-  if (category === "suspendidas") {
-    return tasks.filter(
-      (task) =>
-        task.status === "pendiente-cierre" || task.status === "en-aprobacion"
-    )
-  }
-
-  if (category === "vencidas") {
-    return tasks.filter((task) => task.status === "vencida")
-  }
-
   return tasks.filter(
     (task) => resolveOperationalCategory(task) === category
   )
@@ -199,11 +191,11 @@ export function countTasksByOperationalCategory(
   tasks: Task[]
 ): Record<OperationalTaskCategory, number> {
   const counts: Record<OperationalTaskCategory, number> = {
-    "sin-cuadrilla": 0,
     programadas: 0,
-    vencidas: 0,
-    suspendidas: 0,
-    completadas: 0,
+    asignadas: 0,
+    "en-curso": 0,
+    "pendientes-cierre": 0,
+    finalizadas: 0,
     canceladas: 0,
   }
 

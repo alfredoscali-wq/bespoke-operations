@@ -37,17 +37,25 @@ const TASK_STATUS_VALUES: TaskStatus[] = [
 const CUSTOMER_QUICK_FILTER_VALUES: CustomerQuickFilter[] = [
   "operativos",
   "activos",
+  "pendientes-activacion",
   "revisar",
 ]
 
 const TASK_CATEGORY_VALUES: OperationalTaskCategory[] = [
-  "sin-cuadrilla",
   "programadas",
-  "vencidas",
-  "suspendidas",
-  "completadas",
+  "asignadas",
+  "en-curso",
+  "pendientes-cierre",
+  "finalizadas",
   "canceladas",
 ]
+
+const LEGACY_TASK_CATEGORY_ALIASES: Record<string, OperationalTaskCategory> = {
+  "sin-cuadrilla": "programadas",
+  vencidas: "asignadas",
+  suspendidas: "pendientes-cierre",
+  completadas: "finalizadas",
+}
 
 const PROJECT_CATEGORY_VALUES: OperationalProjectCategory[] = [
   "sin-iniciar",
@@ -106,6 +114,12 @@ export function parseTaskOperationalCategoryQuery(
   value: string | null
 ): OperationalTaskCategory | null {
   if (!value) return null
+
+  const legacy = LEGACY_TASK_CATEGORY_ALIASES[value]
+  if (legacy) {
+    return legacy
+  }
+
   return TASK_CATEGORY_VALUES.includes(value as OperationalTaskCategory)
     ? (value as OperationalTaskCategory)
     : null
@@ -322,16 +336,20 @@ export function taskStatusToOperationalCategory(
   status: TaskStatus
 ): OperationalTaskCategory | null {
   switch (status) {
-    case "asignada":
+    case "pendiente":
       return "programadas"
+    case "asignada":
     case "vencida":
-      return "vencidas"
+      return "asignadas"
+    case "en-curso":
+    case "incidencia":
+      return "en-curso"
     case "pendiente-cierre":
     case "en-aprobacion":
-      return "suspendidas"
+      return "pendientes-cierre"
     case "finalizada":
     case "cerrada":
-      return "completadas"
+      return "finalizadas"
     case "cancelada":
       return "canceladas"
     default:

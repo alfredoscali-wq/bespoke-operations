@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Archive, CheckCircle2, Eye, MoreHorizontal, Pencil, ShieldAlert, Trash2 } from "lucide-react"
+import { Archive, CheckCircle2, Eye, MoreHorizontal, Pencil, ShieldAlert, Trash2, UserCheck } from "lucide-react"
 
 import { WhatsAppLink } from "@/components/ui/whatsapp-link"
 import { Button } from "@/components/ui/button"
@@ -27,7 +27,7 @@ import {
   validationStatusBadgeClassName,
   validationStatusDotClassName,
 } from "@/lib/customers/customer-validation"
-import { formatCustomerTechnologyLabel } from "@/lib/customers/format"
+import { formatCustomerTechnologyLabel, isCustomerStatusPendingActivation } from "@/lib/customers/format"
 import type { CustomerListRow } from "@/lib/types/customers"
 import type { CustomerQuickFilter } from "@/lib/customers/customer-operational"
 
@@ -40,6 +40,7 @@ type CustomersListProps = {
   onArchive: (customer: CustomerListRow) => void
   onDelete: (customer: CustomerListRow) => void
   onMarkActive: (customer: CustomerListRow) => void
+  onActivateCustomer: (customer: CustomerListRow) => void
   onPermanentDelete?: (customer: CustomerListRow) => void
 }
 
@@ -52,6 +53,7 @@ export function CustomersList({
   onArchive,
   onDelete,
   onMarkActive,
+  onActivateCustomer,
   onPermanentDelete,
 }: CustomersListProps) {
   const allSelected =
@@ -126,6 +128,7 @@ export function CustomersList({
               onArchive={onArchive}
               onDelete={onDelete}
               onMarkActive={onMarkActive}
+              onActivateCustomer={onActivateCustomer}
               onPermanentDelete={onPermanentDelete}
             />
           ))}
@@ -143,6 +146,7 @@ function CustomerRow({
   onArchive,
   onDelete,
   onMarkActive,
+  onActivateCustomer,
   onPermanentDelete,
 }: {
   customer: CustomerListRow
@@ -152,9 +156,11 @@ function CustomerRow({
   onArchive: (customer: CustomerListRow) => void
   onDelete: (customer: CustomerListRow) => void
   onMarkActive: (customer: CustomerListRow) => void
+  onActivateCustomer: (customer: CustomerListRow) => void
   onPermanentDelete?: (customer: CustomerListRow) => void
 }) {
   const technologyLabel = formatCustomerTechnologyLabel(customer.technology) ?? "—"
+  const pendingActivation = isCustomerStatusPendingActivation(customer.status)
 
   return (
     <TableRow data-selected={selected}>
@@ -219,6 +225,12 @@ function CustomerRow({
               <Pencil className="size-4" />
               Editar
             </DropdownMenuItem>
+            {pendingActivation ? (
+              <DropdownMenuItem onClick={() => onActivateCustomer(customer)}>
+                <UserCheck className="size-4" />
+                Activar cliente
+              </DropdownMenuItem>
+            ) : null}
             {customer.validationStatus === "review" ? (
               <DropdownMenuItem onClick={() => onMarkActive(customer)}>
                 <CheckCircle2 className="size-4" />

@@ -74,6 +74,7 @@ export function WorkOrderCambioDomicilioFields({
           }}
           addressRequired
           localityRequired
+          locationLinkRequired
           addressId="wo-new-address"
           localityId="wo-new-locality"
           locationLinkId="wo-new-location-link"

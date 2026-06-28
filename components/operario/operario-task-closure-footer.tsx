@@ -104,7 +104,7 @@ export function OperarioTaskClosureFooter({
             🟡 Pendiente de cierre
           </p>
           <p className="text-sm text-amber-800 dark:text-amber-200">
-            El supervisor debe cerrar la OT desde BackOffice.
+            El supervisor debe cerrar la orden de trabajo desde el panel administrativo.
           </p>
         </div>
       </div>

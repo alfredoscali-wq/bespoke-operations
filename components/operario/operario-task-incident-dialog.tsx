@@ -78,7 +78,7 @@ export function OperarioTaskIncidentDialog({
         <DialogHeader>
           <DialogTitle>Reportar incidencia</DialogTitle>
           <DialogDescription>
-            Indique por qué no puede completarse la OT en este momento. El
+            Indique por qué no puede completarse la orden de trabajo en este momento. El
             supervisor revisará el caso.
           </DialogDescription>
         </DialogHeader>

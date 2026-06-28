@@ -283,7 +283,7 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead className="w-[100px]">Código</TableHead>
-                  <TableHead>OT</TableHead>
+                  <TableHead>Orden de trabajo</TableHead>
                   <TableHead>Cuadrilla</TableHead>
                   <TableHead>Fecha límite</TableHead>
                   <TableHead>Prioridad</TableHead>

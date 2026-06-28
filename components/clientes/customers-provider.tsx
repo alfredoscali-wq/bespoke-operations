@@ -19,6 +19,7 @@ import {
 
 import {
   isCustomerArchiveUpdate,
+  recordCustomerActivateAudit,
   recordCustomerArchiveAudit,
   recordCustomerCreateAudit,
   recordCustomerDeleteAudit,
@@ -37,6 +38,7 @@ import {
   deleteCustomer as deleteCustomerInSupabase,
   getCustomerDuplicateIndex,
   getCustomerById as loadCustomerById,
+  getCustomerLocalityOptions,
   getCustomerSummary,
   listCustomerPage,
   markCustomersAsActive as markCustomersAsActiveInSupabase,
@@ -64,6 +66,7 @@ type CustomersContextValue = {
   isCustomersReady: boolean
   usesSupabase: boolean
   operationalSummary: CustomerOperationalSummary
+  localityOptions: string[]
   listQuery: CustomerListQuery
   loadCustomerPage: (query: CustomerListQuery) => Promise<void>
   refreshOperationalSummary: () => Promise<void>
@@ -87,11 +90,16 @@ type CustomersContextValue = {
     customerIds: string[]
     validatedBy: string
   }) => Promise<CustomerMutationResult & { customers?: Customer[] }>
+  activateCustomer: (input: {
+    customerId: string
+    activatedBy: string
+  }) => Promise<CustomerMutationResult>
 }
 
 const EMPTY_SUMMARY: CustomerOperationalSummary = {
   operativos: 0,
   activos: 0,
+  "pendientes-activacion": 0,
   revisar: 0,
 }
 
@@ -103,11 +111,14 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
   const [listPage, setListPage] = useState<CustomerListPage | null>(null)
   const [operationalSummary, setOperationalSummary] =
     useState<CustomerOperationalSummary>(EMPTY_SUMMARY)
+  const [localityOptions, setLocalityOptions] = useState<string[]>([])
   const [listQuery, setListQuery] = useState<CustomerListQuery>({
     page: 1,
     pageSize: DEFAULT_CUSTOMER_PAGE_SIZE,
     search: "",
     quickFilter: "operativos",
+    statusFilter: "all",
+    sort: "name-asc",
   })
   const [isListLoading, setIsListLoading] = useState(true)
   const [isSummaryLoading, setIsSummaryLoading] = useState(true)
@@ -127,17 +138,27 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const client = createBrowserCustomersClient()
-      const result = await getCustomerSummary(companyId, client)
+      const [summaryResult, localityResult] = await Promise.all([
+        getCustomerSummary(companyId, client),
+        getCustomerLocalityOptions(companyId, client),
+      ])
 
-      if (result.data) {
-        setOperationalSummary(result.data)
+      if (summaryResult.data) {
+        setOperationalSummary(summaryResult.data)
         setUsesSupabase(true)
       } else {
         setOperationalSummary(EMPTY_SUMMARY)
         setUsesSupabase(false)
       }
+
+      if (localityResult.data) {
+        setLocalityOptions(localityResult.data)
+      } else {
+        setLocalityOptions([])
+      }
     } catch {
       setOperationalSummary(EMPTY_SUMMARY)
+      setLocalityOptions([])
       setUsesSupabase(false)
     } finally {
       setIsSummaryLoading(false)
@@ -530,6 +551,76 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
     [usesSupabase, loadCustomerPage, listQuery, refreshOperationalSummary]
   )
 
+  const activateCustomer = useCallback(
+    async (input: {
+      customerId: string
+      activatedBy: string
+    }): Promise<CustomerMutationResult> => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return DEMO_WRITE_BLOCKED_MUTATION_RESULT
+      }
+
+      if (!usesSupabase) {
+        return {
+          success: false,
+          message:
+            "Supabase no está disponible. No se pudo activar al cliente.",
+        }
+      }
+
+      const existing =
+        customerCacheRef.current.get(input.customerId) ??
+        (await fetchCustomerById(input.customerId))
+
+      if (!existing) {
+        return {
+          success: false,
+          message: "No se encontró el cliente.",
+        }
+      }
+
+      const client = createBrowserCustomersClient()
+      const result = await updateCustomerInSupabase(
+        input.customerId,
+        { status: "activo" },
+        client
+      )
+
+      if (result.error) {
+        return {
+          success: false,
+          message: result.error.message ?? "No se pudo activar al cliente.",
+        }
+      }
+
+      if (result.data) {
+        customerCacheRef.current.set(result.data.id, result.data)
+        invalidateImportIndex()
+        await Promise.all([
+          loadCustomerPage(listQuery),
+          refreshOperationalSummary(),
+        ])
+        recordCustomerActivateAudit(existing, input.activatedBy)
+        return { success: true, customer: result.data }
+      }
+
+      return {
+        success: false,
+        message: "No se pudo activar al cliente.",
+      }
+    },
+    [
+      isReadOnly,
+      openRestrictedDialog,
+      usesSupabase,
+      fetchCustomerById,
+      loadCustomerPage,
+      listQuery,
+      refreshOperationalSummary,
+      invalidateImportIndex,
+    ]
+  )
+
   const value = useMemo(
     () => ({
       listPage,
@@ -538,6 +629,7 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
       isCustomersReady,
       usesSupabase,
       operationalSummary,
+      localityOptions,
       listQuery,
       loadCustomerPage,
       refreshOperationalSummary,
@@ -550,6 +642,7 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
       deleteCustomer,
       removeCustomerLocally,
       markCustomersAsActive,
+      activateCustomer,
     }),
     [
       listPage,
@@ -558,6 +651,7 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
       isCustomersReady,
       usesSupabase,
       operationalSummary,
+      localityOptions,
       listQuery,
       loadCustomerPage,
       refreshOperationalSummary,
@@ -570,6 +664,7 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
       deleteCustomer,
       removeCustomerLocally,
       markCustomersAsActive,
+      activateCustomer,
     ]
   )
 

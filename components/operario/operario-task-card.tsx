@@ -40,7 +40,7 @@ export function OperarioTaskCard({ task }: OperarioTaskCardProps) {
         asChild
         className="mt-4 h-11 w-full rounded-xl text-sm font-semibold"
       >
-        <Link href={`/operario/tarea/${task.id}`}>Ver OT</Link>
+        <Link href={`/operario/tarea/${task.id}`}>Ver orden de trabajo</Link>
       </Button>
     </article>
   )

@@ -76,9 +76,9 @@ export function TaskIncidentCancelDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Cancelar OT</DialogTitle>
+          <DialogTitle>Cancelar Orden de Trabajo</DialogTitle>
           <DialogDescription>
-            La OT quedará cancelada. Indique el motivo y una observación para
+            La orden de trabajo quedará cancelada. Indique el motivo y una observación para
             dejar registro en el historial.
           </DialogDescription>
         </DialogHeader>
@@ -138,7 +138,7 @@ export function TaskIncidentCancelDialog({
             onClick={() => void handleConfirm()}
             disabled={isSubmitting}
           >
-            Cancelar OT
+            Cancelar Orden de Trabajo
           </Button>
         </DialogFooter>
       </DialogContent>

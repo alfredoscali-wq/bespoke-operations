@@ -265,10 +265,10 @@ export function buildWeeklyReportPdf(report: WeeklyAutomaticReport): Uint8Array 
       value: String(report.summary.inactiveCustomers),
     },
     { label: "Obras activas", value: String(report.summary.activeProjects) },
-    { label: "OT creadas", value: String(report.summary.tasksCreated) },
-    { label: "OT finalizadas", value: String(report.summary.tasksCompleted) },
-    { label: "OT pendientes", value: String(report.summary.tasksPending) },
-    { label: "OT vencidas", value: String(report.summary.tasksOverdue) },
+    { label: "Órdenes de trabajo creadas", value: String(report.summary.tasksCreated) },
+    { label: "Órdenes de trabajo finalizadas", value: String(report.summary.tasksCompleted) },
+    { label: "Órdenes de trabajo pendientes", value: String(report.summary.tasksPending) },
+    { label: "Órdenes de trabajo vencidas", value: String(report.summary.tasksOverdue) },
     {
       label: "Cumplimiento semanal",
       value: `${report.summary.weeklyCompliancePercent}%`,
@@ -344,9 +344,9 @@ export function buildWeeklyReportPdf(report: WeeklyAutomaticReport): Uint8Array 
     doc,
     "4. Alertas",
     [
-      { label: "OT vencidas", value: String(report.alerts.overdueTasks) },
+      { label: "Órdenes de trabajo vencidas", value: String(report.alerts.overdueTasks) },
       {
-        label: "OT pendientes de aprobación",
+        label: "Órdenes de trabajo pendientes de cierre",
         value: String(report.alerts.pendingApprovalTasks),
       },
       {

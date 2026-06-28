@@ -57,7 +57,7 @@ export function MaterialMovementsTab({
                 <TableHead>Tipo</TableHead>
                 <TableHead>Cantidad</TableHead>
                 <TableHead>Referencia</TableHead>
-                <TableHead>Obra / OT</TableHead>
+                <TableHead>Obra / Orden de trabajo</TableHead>
                 <TableHead>Usuario</TableHead>
               </TableRow>
             </TableHeader>

@@ -81,7 +81,7 @@ export function MaterialDetailView({
           <DropdownMenuContent align="end">
             <DropdownMenuItem>Registrar entrada</DropdownMenuItem>
             <DropdownMenuItem>Registrar salida</DropdownMenuItem>
-            <DropdownMenuItem>Asignar a OT</DropdownMenuItem>
+            <DropdownMenuItem>Asignar a orden de trabajo</DropdownMenuItem>
             <DropdownMenuItem>Exportar ficha</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

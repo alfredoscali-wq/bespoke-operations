@@ -39,7 +39,7 @@ export function OverdueTaskInfoPanel({
           <p className="text-sm font-semibold">{summary.overdueDaysLabel}</p>
           {!compact ? (
             <p className="text-xs text-red-900/80 dark:text-red-100/80">
-              La OT no inició ejecución dentro de la fecha programada.
+              La orden de trabajo no inició ejecución dentro de la fecha programada.
             </p>
           ) : null}
         </div>

@@ -17,6 +17,8 @@ export function buildAuditDescription(input: BuildAuditDescriptionInput): string
       return label ? `Cliente editado: ${label}.` : "Cliente editado."
     case AUDIT_ACTIONS.CUSTOMER_VALIDATE:
       return label ? `Cliente validado: ${label}.` : "Cliente validado."
+    case AUDIT_ACTIONS.CUSTOMER_ACTIVATE:
+      return label ? `Cliente activado: ${label}.` : "Cliente activado."
     case AUDIT_ACTIONS.CUSTOMER_ARCHIVE:
       return label ? `Cliente archivado: ${label}.` : "Cliente archivado."
     case AUDIT_ACTIONS.CUSTOMER_DELETE:
@@ -26,33 +28,49 @@ export function buildAuditDescription(input: BuildAuditDescriptionInput): string
         ? `Cliente eliminado definitivamente: ${label}.`
         : "Cliente eliminado definitivamente."
     case AUDIT_ACTIONS.TASK_CREATE:
-      return label ? `OT creada: ${label}.` : "OT creada."
+      return label
+        ? `Orden de trabajo creada: ${label}.`
+        : "Orden de trabajo creada."
     case AUDIT_ACTIONS.TASK_UPDATE:
-      return label ? `OT editada: ${label}.` : "OT editada."
+      return label
+        ? `Orden de trabajo editada: ${label}.`
+        : "Orden de trabajo editada."
     case AUDIT_ACTIONS.TASK_ASSIGN_CREW:
-      return label ? `Cuadrilla asignada a OT: ${label}.` : "Cuadrilla asignada a OT."
+      return label
+        ? `Cuadrilla asignada a orden de trabajo: ${label}.`
+        : "Cuadrilla asignada a orden de trabajo."
     case AUDIT_ACTIONS.TASK_RESCHEDULE:
-      return label ? `OT reprogramada: ${label}.` : "OT reprogramada."
+      return label
+        ? `Orden de trabajo reprogramada: ${label}.`
+        : "Orden de trabajo reprogramada."
     case AUDIT_ACTIONS.TASK_STATUS_VENCIDA:
       return label
-        ? `OT marcada como Vencida automáticamente: ${label}.`
-        : "OT marcada como Vencida automáticamente."
+        ? `Orden de trabajo marcada como Vencida automáticamente: ${label}.`
+        : "Orden de trabajo marcada como Vencida automáticamente."
     case AUDIT_ACTIONS.TASK_STATUS_EN_CURSO:
-      return label ? `OT iniciada (En curso): ${label}.` : "OT iniciada (En curso)."
+      return label
+        ? `Orden de trabajo iniciada (En curso): ${label}.`
+        : "Orden de trabajo iniciada (En curso)."
     case AUDIT_ACTIONS.TASK_REQUEST_CLOSE:
       return label
-        ? `Solicitud de cierre de OT: ${label}.`
-        : "Solicitud de cierre de OT."
+        ? `Solicitud de cierre de orden de trabajo: ${label}.`
+        : "Solicitud de cierre de orden de trabajo."
     case AUDIT_ACTIONS.TASK_FINISH:
-      return label ? `OT finalizada: ${label}.` : "OT finalizada."
+      return label
+        ? `Orden de trabajo finalizada: ${label}.`
+        : "Orden de trabajo finalizada."
     case AUDIT_ACTIONS.TASK_CLOSE:
-      return label ? `OT cerrada: ${label}.` : "OT cerrada."
+      return label
+        ? `Orden de trabajo cerrada: ${label}.`
+        : "Orden de trabajo cerrada."
     case AUDIT_ACTIONS.TASK_DELETE:
-      return label ? `OT eliminada: ${label}.` : "OT eliminada."
+      return label
+        ? `Orden de trabajo eliminada: ${label}.`
+        : "Orden de trabajo eliminada."
     case AUDIT_ACTIONS.TASK_DELETE_PERMANENT:
       return label
-        ? `OT eliminada definitivamente: ${label}.`
-        : "OT eliminada definitivamente."
+        ? `Orden de trabajo eliminada definitivamente: ${label}.`
+        : "Orden de trabajo eliminada definitivamente."
     case AUDIT_ACTIONS.PROJECT_CREATE:
       return label ? `Obra creada: ${label}.` : "Obra creada."
     case AUDIT_ACTIONS.PROJECT_UPDATE:

@@ -51,6 +51,7 @@ export type CustomerListRow = Pick<
   | "technology"
   | "validationStatus"
   | "legacyMigrationId"
+  | "status"
 >
 
 export type CustomerListPage = {

@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils"
 
 const navItems = [
   { href: "/operario", label: "Hoy", icon: Home, exact: true },
-  { href: "/operario/tareas", label: "Historial de OT", icon: ClipboardList },
+  { href: "/operario/tareas", label: "Historial de Órdenes de Trabajo", icon: ClipboardList },
   { href: "/operario/perfil", label: "Perfil", icon: User },
 ]
 

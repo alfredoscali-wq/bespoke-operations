@@ -32,6 +32,11 @@ export const AUDIT_ACTION_DEFINITIONS: Record<AuditAction, AuditActionDefinition
       entityType: AUDIT_ENTITY_TYPES.CUSTOMER,
       severity: AUDIT_SEVERITIES.WARNING,
     },
+    [AUDIT_ACTIONS.CUSTOMER_ACTIVATE]: {
+      module: AUDIT_MODULES.CLIENTES,
+      entityType: AUDIT_ENTITY_TYPES.CUSTOMER,
+      severity: AUDIT_SEVERITIES.INFO,
+    },
     [AUDIT_ACTIONS.CUSTOMER_ARCHIVE]: {
       module: AUDIT_MODULES.CLIENTES,
       entityType: AUDIT_ENTITY_TYPES.CUSTOMER,

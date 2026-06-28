@@ -204,11 +204,11 @@ export function AuditLogDetailSheet({
 
           {showTimeline ? (
             <div className="mt-6 space-y-3">
-              <h3 className="text-sm font-semibold">Línea de tiempo de la OT</h3>
+              <h3 className="text-sm font-semibold">Línea de tiempo de la orden de trabajo</h3>
               {isLoadingTimeline ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="size-4 animate-spin" />
-                  Cargando historial de la OT...
+                  Cargando historial de la orden de trabajo...
                 </div>
               ) : (
                 <AuditTimeline entries={timeline} />

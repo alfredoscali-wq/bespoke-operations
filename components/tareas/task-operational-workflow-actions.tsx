@@ -32,9 +32,10 @@ import {
 const OPERATIONAL_STATUS_DISPLAY: Partial<
   Record<TaskStatus, { emoji: string; label: string }>
 > = {
-  asignada: { emoji: "📅", label: "Programada" },
+  pendiente: { emoji: "📅", label: "Programada" },
+  asignada: { emoji: "👷", label: "Asignada" },
   vencida: { emoji: "🔴", label: "Vencida" },
-  "en-curso": { emoji: "🟠", label: "En curso" },
+  "en-curso": { emoji: "🚧", label: "En curso" },
   "pendiente-cierre": { emoji: "🟡", label: "Pendiente de cierre" },
   "en-aprobacion": { emoji: "🟡", label: "Pendiente de cierre" },
   incidencia: { emoji: "🔴", label: "Incidencia" },
@@ -170,7 +171,7 @@ export function TaskOperationalWorkflowActions({
                   className="gap-1.5"
                 >
                   <CheckCircle2 className="size-4" />
-                  Cerrar OT
+                  Cerrar Orden de Trabajo
                 </Button>
               ) : null}
               {showRejectAction ? (
@@ -193,7 +194,7 @@ export function TaskOperationalWorkflowActions({
                 className="gap-1.5"
               >
                 <CalendarClock className="size-4" />
-                Reprogramar OT
+                Reprogramar Orden de Trabajo
               </Button>
               <Button
                 variant="outline"
@@ -202,7 +203,7 @@ export function TaskOperationalWorkflowActions({
                 className="gap-1.5"
               >
                 <Play className="size-4" />
-                Reanudar OT
+                Reanudar Orden de Trabajo
               </Button>
               <Button
                 variant="destructive"
@@ -211,7 +212,7 @@ export function TaskOperationalWorkflowActions({
                 className="gap-1.5"
               >
                 <XCircle className="size-4" />
-                Cancelar OT
+                Cancelar Orden de Trabajo
               </Button>
             </div>
           ) : null}
@@ -224,7 +225,7 @@ export function TaskOperationalWorkflowActions({
                 className="gap-1.5"
               >
                 <CalendarClock className="size-4" />
-                Reprogramar OT
+                Reprogramar Orden de Trabajo
               </Button>
             </div>
           ) : null}
@@ -240,8 +241,8 @@ export function TaskOperationalWorkflowActions({
             rescheduledBy={rescheduledBy}
             description={
               hasOverdue
-                ? "La OT volverá a Programada. Indique la nueva fecha, hora y motivo."
-                : "La OT volverá a Programada. Indique la nueva fecha, hora y motivo de la reprogramación."
+                ? "La orden de trabajo volverá a Asignada. Indique la nueva fecha, hora y motivo."
+                : "La orden de trabajo volverá a Asignada. Indique la nueva fecha, hora y motivo de la reprogramación."
             }
             onConfirm={async (input) => {
               await onReschedule(input)

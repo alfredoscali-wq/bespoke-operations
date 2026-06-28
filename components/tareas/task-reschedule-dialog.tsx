@@ -50,7 +50,7 @@ export function TaskRescheduleDialog({
   onOpenChange,
   task,
   rescheduledBy,
-  description = "La OT volverá a Programada con la nueva fecha y hora seleccionadas.",
+  description = "La orden de trabajo volverá a Programada con la nueva fecha y hora seleccionadas.",
   onConfirm,
   isSubmitting = false,
 }: TaskRescheduleDialogProps) {
@@ -122,7 +122,7 @@ export function TaskRescheduleDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Reprogramar OT</DialogTitle>
+          <DialogTitle>Reprogramar Orden de Trabajo</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
@@ -216,7 +216,7 @@ export function TaskRescheduleDialog({
             onClick={() => void handleConfirm()}
             disabled={isSubmitting}
           >
-            {isSubmitting ? "Reprogramando..." : "Reprogramar OT"}
+            {isSubmitting ? "Reprogramando..." : "Reprogramar Orden de Trabajo"}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -126,7 +126,7 @@ export function TasksFiltersBar({
             placeholder={
               operationalMode
                 ? "Buscar por código, cliente o dirección..."
-                : "Buscar por código, OT u obra..."
+                : "Buscar por código, orden de trabajo u obra..."
             }
             className={FILTER_SEARCH_INPUT_CLASS}
           />

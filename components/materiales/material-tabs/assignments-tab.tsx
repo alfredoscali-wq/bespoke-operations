@@ -47,7 +47,7 @@ export function MaterialAssignmentsTab({
       <div>
         <h3 className="text-base font-semibold">Cadena de asignación</h3>
         <p className="text-sm text-muted-foreground">
-          Material → Obra → OT → Cuadrilla
+          Material → Obra → Orden de trabajo → Cuadrilla
         </p>
       </div>
       <EntityMaterialsList items={items} />

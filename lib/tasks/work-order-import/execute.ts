@@ -116,8 +116,15 @@ export async function executeWorkOrderImport(input: {
   crews: Crew[]
   createCustomer: (payload: NewCustomerInput) => Promise<CustomerMutationResult>
   addTask: (payload: CreateTaskPayload) => Promise<Task>
+  assignCrew?: (
+    taskId: string,
+    crewId: string | null,
+    crewName?: string,
+    supervisor?: string
+  ) => Promise<{ success: boolean; message?: string }>
 }): Promise<WorkOrderImportExecutionResult> {
-  const { rows, existingTasks, createCustomer, addTask, crews } = input
+  const { rows, existingTasks, createCustomer, addTask, assignCrew, crews } =
+    input
   let customers = [...input.customers]
   let workingTasks = [...existingTasks]
 
@@ -215,13 +222,42 @@ export async function executeWorkOrderImport(input: {
         form,
         existingTasks: workingTasks,
         customerId,
-        crewId: snapshots.crewId,
-        crewName: snapshots.crew,
-        supervisor: resolveSupervisorFromCrew(selectedCrew) || snapshots.supervisor,
         checklist: taskDefaultChecklist,
       })
 
-      const createdTask = await addTask(payload)
+      let createdTask = await addTask(payload)
+
+      if (snapshots.crewId && assignCrew) {
+        const assignResult = await assignCrew(
+          createdTask.id,
+          snapshots.crewId,
+          snapshots.crew,
+          resolveSupervisorFromCrew(selectedCrew) || snapshots.supervisor
+        )
+
+        if (!assignResult.success) {
+          failed += 1
+          reportRows.push(
+            buildReportRow(
+              row,
+              "Error",
+              assignResult.message ?? "No se pudo asignar la cuadrilla",
+              "Asigne la cuadrilla manualmente desde el detalle de la orden de trabajo"
+            )
+          )
+          continue
+        }
+
+        createdTask = {
+          ...createdTask,
+          crewId: snapshots.crewId ?? undefined,
+          crew: snapshots.crew,
+          supervisor:
+            resolveSupervisorFromCrew(selectedCrew) || snapshots.supervisor,
+          status: "asignada",
+        }
+      }
+
       workingTasks = [...workingTasks, createdTask]
       imported += 1
 

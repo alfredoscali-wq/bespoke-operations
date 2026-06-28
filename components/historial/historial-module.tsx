@@ -244,7 +244,7 @@ export function HistorialModule() {
           onClick={() => handleKpiClick("active-users")}
         />
         <FilterableKpiCard
-          label="OT creadas hoy"
+          label="Órdenes de trabajo creadas hoy"
           value={stats.tasksCreatedToday}
           icon={Activity}
           tone="green"
@@ -253,7 +253,7 @@ export function HistorialModule() {
           onClick={() => handleKpiClick("tasks-created")}
         />
         <FilterableKpiCard
-          label="OT finalizadas hoy"
+          label="Órdenes de trabajo finalizadas hoy"
           value={stats.tasksFinishedToday}
           icon={Activity}
           tone="yellow"

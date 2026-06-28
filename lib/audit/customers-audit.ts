@@ -194,6 +194,38 @@ export function recordCustomerValidateAudit(
   })
 }
 
+export function recordCustomerActivateAudit(
+  customer: Pick<
+    Customer,
+    "id" | "name" | "customerNumber" | "externalCustomerCode" | "status"
+  >,
+  activatedBy: string
+) {
+  void recordAuditEventClient({
+    module: AUDIT_MODULES.CLIENTES,
+    action: AUDIT_ACTIONS.CUSTOMER_ACTIVATE,
+    entityType: AUDIT_ENTITY_TYPES.CUSTOMER,
+    entityId: customer.id,
+    entityLabel: resolveCustomerEntityLabel(customer),
+    description: buildAuditDescription({
+      action: AUDIT_ACTIONS.CUSTOMER_ACTIVATE,
+      entityLabel: resolveCustomerEntityLabel(customer),
+    }),
+    metadata: {
+      activatedBy,
+      changes: [
+        {
+          campo: "status",
+          valor_anterior: customer.status,
+          valor_nuevo: "activo",
+        },
+      ],
+      previousStatus: customer.status,
+      nextStatus: "activo",
+    },
+  })
+}
+
 export function isCustomerArchiveUpdate(input: UpdateCustomerInput): boolean {
   return input.deletedAt !== undefined && input.deletedAt !== null
 }

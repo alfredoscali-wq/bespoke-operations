@@ -2,11 +2,11 @@
 
 import {
   Ban,
-  CircleDot,
+  CalendarClock,
+  CheckCircle2,
+  HardHat,
   PauseCircle,
   UserCheck,
-  CheckCircle2,
-  AlertTriangle,
 } from "lucide-react"
 
 import { useTasksUI } from "@/components/tareas/tasks-ui-provider"
@@ -19,11 +19,11 @@ import {
 } from "@/lib/tasks/operational-category"
 
 const CATEGORY_ICONS = {
-  "sin-cuadrilla": UserCheck,
-  programadas: CircleDot,
-  vencidas: AlertTriangle,
-  suspendidas: PauseCircle,
-  completadas: CheckCircle2,
+  programadas: CalendarClock,
+  asignadas: UserCheck,
+  "en-curso": HardHat,
+  "pendientes-cierre": PauseCircle,
+  finalizadas: CheckCircle2,
   canceladas: Ban,
 } as const
 

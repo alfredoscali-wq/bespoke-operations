@@ -4,6 +4,7 @@ import {
   deleteCustomer as removeCustomer,
   fetchCustomerDuplicateIndex,
   getCustomerById as fetchCustomerById,
+  getCustomerLocalityOptions as fetchCustomerLocalityOptions,
   getCustomerOperationalSummaryCounts,
   listCustomersPaginated,
   markCustomersValidated,
@@ -43,6 +44,13 @@ export async function getCustomerSummary(
   client: SupabaseCustomersClient = createBrowserCustomersClient()
 ): Promise<CustomersRepositoryResult<CustomerOperationalSummary>> {
   return getCustomerOperationalSummaryCounts(client, companyId)
+}
+
+export async function getCustomerLocalityOptions(
+  companyId: string,
+  client: SupabaseCustomersClient = createBrowserCustomersClient()
+): Promise<CustomersRepositoryResult<string[]>> {
+  return fetchCustomerLocalityOptions(client, companyId)
 }
 
 export async function getCustomerById(

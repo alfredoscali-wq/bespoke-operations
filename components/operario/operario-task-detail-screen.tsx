@@ -220,7 +220,7 @@ export function OperarioTaskDetailScreen({ id }: OperarioTaskDetailScreenProps) 
           <AlertDescription className="space-y-0.5 text-amber-900 dark:text-amber-100">
             <p className="text-sm font-semibold">🟡 Pendiente de cierre</p>
             <p className="text-xs">
-              El supervisor debe cerrar la OT desde BackOffice.
+              El supervisor debe cerrar la orden de trabajo desde el panel administrativo.
             </p>
           </AlertDescription>
         </Alert>

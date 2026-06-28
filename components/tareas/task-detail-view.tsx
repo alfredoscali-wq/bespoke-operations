@@ -32,7 +32,7 @@ import {
   TaskTypeBadge,
 } from "@/components/tareas/task-badges"
 import { isPendingClosureStatus } from "@/lib/tasks/task-status-workflow"
-import { canCloseWorkOrder } from "@/lib/tasks/task-closure-permissions"
+import { canAssignWorkOrderCrew, canCloseWorkOrder } from "@/lib/tasks/task-closure-permissions"
 import { isCancellableTaskStatus, isFinalTaskStatus } from "@/lib/tasks/status-groups"
 import { resolveAuthDisplay } from "@/lib/auth/auth-display"
 import { isFieldServiceTask } from "@/lib/tasks/utils"
@@ -122,11 +122,11 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
     setIsWorkflowActionPending(false)
 
     if (!result.success) {
-      setActionError(result.message ?? "No se pudo cerrar la OT.")
+      setActionError(result.message ?? "No se pudo cerrar la orden de trabajo.")
       return
     }
 
-    setActionSuccess("OT cerrada. La orden de trabajo quedó finalizada.")
+    setActionSuccess("Orden de trabajo cerrada y finalizada.")
   }
 
   async function handleConfirmReject(reason: string) {
@@ -153,11 +153,11 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
     setIsWorkflowActionPending(false)
 
     if (!result.success) {
-      setActionError(result.message ?? "No se pudo reanudar la OT.")
+      setActionError(result.message ?? "No se pudo reanudar la orden de trabajo.")
       return
     }
 
-    setActionSuccess("OT reanudada. Volvió a En curso.")
+    setActionSuccess("Orden de trabajo reanudada. Volvió a En curso.")
   }
 
   async function handleRescheduleFromIncident(input: TaskRescheduleInput) {
@@ -171,11 +171,11 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
     setIsWorkflowActionPending(false)
 
     if (!result.success) {
-      setActionError(result.message ?? "No se pudo reprogramar la OT.")
+      setActionError(result.message ?? "No se pudo reprogramar la orden de trabajo.")
       return
     }
 
-    setActionSuccess("OT reprogramada. Quedó en estado Programada.")
+    setActionSuccess("Orden de trabajo reprogramada. Quedó en estado Asignada.")
   }
 
   async function handleRescheduleFromOverdue(input: TaskRescheduleInput) {
@@ -189,11 +189,11 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
     setIsWorkflowActionPending(false)
 
     if (!result.success) {
-      setActionError(result.message ?? "No se pudo reprogramar la OT.")
+      setActionError(result.message ?? "No se pudo reprogramar la orden de trabajo.")
       return
     }
 
-    setActionSuccess("OT reprogramada. Quedó en estado Programada.")
+    setActionSuccess("Orden de trabajo reprogramada. Quedó en estado Asignada.")
   }
 
   async function handleConfirmCancel(input: {
@@ -211,11 +211,11 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
     setIsWorkflowActionPending(false)
 
     if (!result.success) {
-      setActionError(result.message ?? "No se pudo cancelar la OT.")
+      setActionError(result.message ?? "No se pudo cancelar la orden de trabajo.")
       return
     }
 
-    setActionSuccess("OT cancelada correctamente.")
+    setActionSuccess("Orden de trabajo cancelada correctamente.")
   }
 
   const canCancel = isCancellableTaskStatus(task.status)
@@ -223,6 +223,7 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
   const hasIncident = task.status === "incidencia"
   const hasOverdue = task.status === "vencida"
   const canCloseOt = canCloseWorkOrder(sessionUser?.systemRole)
+  const canAssignCrew = canAssignWorkOrderCrew(sessionUser?.systemRole)
   const usesOperationalSteps = hasOperationalSteps(task)
 
   return (
@@ -276,30 +277,36 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Select
-            value={task.crewId ?? "none"}
-            onValueChange={handleCrewChange}
-            disabled={isAssigningCrew || isFinalTaskStatus(task.status)}
-          >
-            <SelectTrigger className="h-9 w-[200px] bg-background">
-              <SelectValue placeholder="Cuadrilla" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">Sin cuadrilla</SelectItem>
-              {crewOptions.map((crew) => (
-                <SelectItem
-                  key={crew.id}
-                  value={crew.id}
-                  disabled={
-                    !isCrewAssignable(crew) && crew.id !== task.crewId
-                  }
-                >
-                  {crew.name}
-                  {!isCrewAssignable(crew) ? " (inactiva)" : ""}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {canAssignCrew ? (
+            <Select
+              value={task.crewId ?? "none"}
+              onValueChange={handleCrewChange}
+              disabled={isAssigningCrew || isFinalTaskStatus(task.status)}
+            >
+              <SelectTrigger className="h-9 w-[200px] bg-background">
+                <SelectValue placeholder="Cuadrilla" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Sin cuadrilla</SelectItem>
+                {crewOptions.map((crew) => (
+                  <SelectItem
+                    key={crew.id}
+                    value={crew.id}
+                    disabled={
+                      !isCrewAssignable(crew) && crew.id !== task.crewId
+                    }
+                  >
+                    {crew.name}
+                    {!isCrewAssignable(crew) ? " (inactiva)" : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <div className="flex h-9 min-w-[200px] items-center rounded-md border bg-muted/30 px-3 text-sm text-muted-foreground">
+              {crewDisplayName}
+            </div>
+          )}
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

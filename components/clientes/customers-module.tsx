@@ -50,6 +50,7 @@ function CustomersModuleContent() {
     loadCustomerPage,
     fetchCustomerById,
     markCustomersAsActive,
+    activateCustomer,
     removeCustomerLocally,
   } = useCustomers()
   const { sessionUser } = useAuth()
@@ -93,9 +94,19 @@ function CustomersModuleContent() {
       pageSize: DEFAULT_CUSTOMER_PAGE_SIZE,
       search: debouncedSearch,
       quickFilter: filters.quickFilter,
+      locality: filters.locality,
+      statusFilter: filters.statusFilter,
+      sort: filters.sort,
     })
     setSelectedIds(new Set())
-  }, [debouncedSearch, filters.quickFilter, loadCustomerPage])
+  }, [
+    debouncedSearch,
+    filters.quickFilter,
+    filters.locality,
+    filters.statusFilter,
+    filters.sort,
+    loadCustomerPage,
+  ])
 
   const displayedCustomers = listPage?.items ?? []
   const totalResults = listPage?.total ?? 0
@@ -159,6 +170,20 @@ function CustomersModuleContent() {
     setFeedback(message)
   }
 
+  async function handleActivateCustomer(customer: CustomerListRow) {
+    const result = await activateCustomer({
+      customerId: customer.id,
+      activatedBy: resolveAuthDisplay(sessionUser).displayName,
+    })
+
+    if (!result.success) {
+      setFeedback(result.message ?? "No se pudo activar el cliente.")
+      return
+    }
+
+    setFeedback("Cliente activado correctamente.")
+  }
+
   async function handleMarkActive(customer: CustomerListRow) {
     const result = await markCustomersAsActive({
       customerIds: [customer.id],
@@ -179,6 +204,9 @@ function CustomersModuleContent() {
       page,
       search: debouncedSearch,
       quickFilter: filters.quickFilter,
+      locality: filters.locality,
+      statusFilter: filters.statusFilter,
+      sort: filters.sort,
     })
     setSelectedIds(new Set())
   }
@@ -246,6 +274,9 @@ function CustomersModuleContent() {
                 onArchive={openArchiveDialog}
                 onDelete={openDeleteDialog}
                 onMarkActive={(customer) => void handleMarkActive(customer)}
+                onActivateCustomer={(customer) =>
+                  void handleActivateCustomer(customer)
+                }
                 onPermanentDelete={
                   isSystemAdministrator ? openPermanentDeleteDialog : undefined
                 }

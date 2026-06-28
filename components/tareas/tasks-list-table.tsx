@@ -70,7 +70,7 @@ export function TasksListTable({ tasks }: TasksListTableProps) {
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead className="w-[90px]">Código</TableHead>
-                <TableHead>OT</TableHead>
+                <TableHead>Orden de trabajo</TableHead>
                 <TableHead>Modelo</TableHead>
                 <TableHead>Obra / Cliente</TableHead>
                 <TableHead>Tipo</TableHead>

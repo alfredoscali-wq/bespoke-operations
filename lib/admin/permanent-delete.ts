@@ -64,7 +64,7 @@ async function permanentDeleteTaskRecords(
 
   if (evidencesReadError) {
     throw new Error(
-      `No se pudieron leer evidencias de la OT: ${evidencesReadError.message}`
+      `No se pudieron leer evidencias de la orden de trabajo: ${evidencesReadError.message}`
     )
   }
 
@@ -77,7 +77,7 @@ async function permanentDeleteTaskRecords(
 
   if (photosReadError) {
     throw new Error(
-      `No se pudieron leer fotografías de la OT: ${photosReadError.message}`
+      `No se pudieron leer fotografías de la orden de trabajo: ${photosReadError.message}`
     )
   }
 

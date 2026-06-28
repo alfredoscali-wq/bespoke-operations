@@ -183,7 +183,7 @@ export function AuditLogFilters({
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="audit-ot">Código OT</Label>
+          <Label htmlFor="audit-ot">Código de orden de trabajo</Label>
           <Input
             id="audit-ot"
             className="h-9 bg-background"

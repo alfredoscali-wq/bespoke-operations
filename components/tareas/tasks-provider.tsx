@@ -792,7 +792,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         id,
         { status: to },
         "resume-from-incident",
-        "La OT volvió a En curso para continuar la ejecución.",
+        "La orden de trabajo volvió a En curso para continuar la ejecución.",
         actor
       )
     },

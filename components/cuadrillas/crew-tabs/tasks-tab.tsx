@@ -60,7 +60,7 @@ export function CrewTasksTab({ crew, tasks }: CrewTasksTabProps) {
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead>OT</TableHead>
+                <TableHead>Orden de trabajo</TableHead>
                 <TableHead>Obra</TableHead>
                 <TableHead>Prioridad</TableHead>
                 <TableHead>Estado</TableHead>

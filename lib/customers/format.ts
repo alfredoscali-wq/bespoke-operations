@@ -59,3 +59,6 @@ export function isCustomerStatusPendingActivation(status: string): boolean {
     normalized === "pendiente de activación"
   )
 }
+
+/** Slug canónico para clientes con instalación finalizada pendiente de validación. */
+export const CUSTOMER_STATUS_PENDING_ACTIVATION = "pendiente-activacion"

@@ -57,12 +57,12 @@ const WORKFLOW_TRANSITIONS: Record<
   },
 }
 
-export function getInitialTaskStatus(input: {
+/** OT administrativa recién creada: siempre Programada (pendiente), sin cuadrilla. */
+export function getInitialTaskStatus(_input?: {
   crewId?: string | null
   crew?: string
 }): TaskStatus {
-  const hasCrew = Boolean(input.crewId || input.crew?.trim())
-  return hasCrew ? "asignada" : "pendiente"
+  return "pendiente"
 }
 
 export function getTransitionForAction(action: TaskWorkflowAction): {
@@ -209,10 +209,10 @@ export function getWorkflowHistoryEntry(
     start: "Trabajo iniciado",
     "submit-for-approval": "Cierre solicitado por operario",
     "report-incident": "Operario reportó incidencia",
-    "resume-from-incident": "OT reanudada",
-    "reschedule-from-incident": "OT reprogramada",
-    "reschedule-from-overdue": "OT reprogramada",
-    approve: "OT cerrada",
+    "resume-from-incident": "Orden de trabajo reanudada",
+    "reschedule-from-incident": "Orden de trabajo reprogramada",
+    "reschedule-from-overdue": "Orden de trabajo reprogramada",
+    approve: "Orden de trabajo cerrada",
     reject: "Cierre rechazado",
     close: "Orden de trabajo cerrada",
     cancel: "Orden de trabajo cancelada",

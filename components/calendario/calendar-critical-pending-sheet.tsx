@@ -102,7 +102,7 @@ export function CalendarCriticalPendingSheet() {
                   />
                   <div className="flex flex-wrap gap-2 pt-1">
                     <Button asChild variant="outline" size="sm">
-                      <Link href={`/tareas/${task.taskId}`}>Ver OT</Link>
+                      <Link href={`/tareas/${task.taskId}`}>Ver orden de trabajo</Link>
                     </Button>
                     {task.projectId ? (
                       <Button asChild variant="outline" size="sm">

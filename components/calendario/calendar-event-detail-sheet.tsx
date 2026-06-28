@@ -129,7 +129,7 @@ function TaskEventDetail({ payload }: { payload: CalendarTaskPayload }) {
       <TaskOperationalIncidents alerts={payload.alerts} />
 
       <Button asChild variant="outline" size="sm" className="w-fit">
-        <Link href={`/tareas/${payload.taskId}`}>Ver OT</Link>
+        <Link href={`/tareas/${payload.taskId}`}>Ver orden de trabajo</Link>
       </Button>
     </div>
   )

@@ -56,7 +56,7 @@ export function EvidenceTable({ evidence }: EvidenceTableProps) {
                 <TableHead>Archivo</TableHead>
                 <TableHead>Formato</TableHead>
                 <TableHead>Obra</TableHead>
-                <TableHead>OT</TableHead>
+                <TableHead>Orden de trabajo</TableHead>
                 <TableHead>Cuadrilla</TableHead>
                 <TableHead>Operario</TableHead>
                 <TableHead>Estado</TableHead>
