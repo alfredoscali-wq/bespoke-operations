@@ -3,10 +3,12 @@ import { type NextRequest, NextResponse } from "next/server"
 import { getMetadataSystemRole } from "@/lib/auth/system-role"
 import {
   getDefaultPostLoginPath,
+  canAccessPlanificacionOperativa,
   isAuthPublicPath,
   isDashboardPath,
   isDemoRestrictedAdminPath,
   isOperarioPortalPath,
+  isPlanificacionOperativaPath,
   LOGIN_PATH,
   sanitizeRedirectPath,
 } from "@/lib/auth/routes"
@@ -82,6 +84,16 @@ export async function middleware(request: NextRequest) {
     if (systemRole === "demo" && isDemoRestrictedAdminPath(pathname)) {
       const redirectUrl = request.nextUrl.clone()
       redirectUrl.pathname = "/"
+      redirectUrl.search = ""
+      return NextResponse.redirect(redirectUrl)
+    }
+
+    if (
+      isPlanificacionOperativaPath(pathname) &&
+      !canAccessPlanificacionOperativa(systemRole)
+    ) {
+      const redirectUrl = request.nextUrl.clone()
+      redirectUrl.pathname = getDefaultPostLoginPath(systemRole)
       redirectUrl.search = ""
       return NextResponse.redirect(redirectUrl)
     }

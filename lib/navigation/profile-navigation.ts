@@ -15,6 +15,7 @@ import {
   historyNavItem,
   availabilityNavItem,
   newsNavItem,
+  planificacionNavItem,
   projectsNavItem,
   reportsNavItem,
   rrhhDashboardNavItem,
@@ -34,9 +35,10 @@ const PROFILE_NAV_BUILDERS: Record<
       label: "Operaciones",
       items: [
         calendarNavItem,
-        workOrdersNavItem,
-        customersNavItem,
         projectsNavItem,
+        workOrdersNavItem,
+        planificacionNavItem,
+        customersNavItem,
       ],
     },
     {
@@ -57,9 +59,10 @@ const PROFILE_NAV_BUILDERS: Record<
       label: "Operaciones",
       items: [
         calendarNavItem,
-        workOrdersNavItem,
-        customersNavItem,
         projectsNavItem,
+        workOrdersNavItem,
+        planificacionNavItem,
+        customersNavItem,
       ],
     },
     { id: "analysis", label: "Análisis", items: [reportsNavItem] },
@@ -210,6 +213,7 @@ export function getPageMetaForProfile(
 
 /** Ítems de navegación por perfil (referencia para permisos futuros). */
 export const PROFILE_NAV_ITEM_KEYS = {
+  planificacionNavItem,
   calendarNavItem,
   workOrdersNavItem,
   customersNavItem,

@@ -8,6 +8,7 @@ import {
   History,
   LayoutDashboard,
   ListChecks,
+  MapPinned,
   Package,
   Settings,
   UserCog,
@@ -32,6 +33,15 @@ export const rrhhDashboardNavItem: NavItem = {
   pageTitle: "Dashboard RRHH",
   description:
     "Empleados activos, licencias, disponibilidad, ausencias y cuadrillas.",
+}
+
+export const planificacionNavItem: NavItem = {
+  title: "Planificación Operativa",
+  href: "/operations/planificacion",
+  icon: MapPinned,
+  pageTitle: "Planificación Operativa",
+  description:
+    "Organizar la jornada diaria revisando OT programadas, mapa territorial y cuadrillas activas.",
 }
 
 export const calendarNavItem: NavItem = {

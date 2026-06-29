@@ -135,6 +135,12 @@ export function profileShowsDashboardInSidebar(
   return profileUsesOperationalDashboard(profile) || profileUsesRrhhDashboard(profile)
 }
 
+export function profileCanAccessPlanificacion(
+  profile: OperationalProfile
+): boolean {
+  return profile === "administrador" || profile === "supervisor"
+}
+
 /** Mapeo desde rol de sistema → perfil operativo (sidebar, dashboard y navegación). */
 export function mapSystemRoleToOperationalProfile(
   systemRole: SystemRole | null | undefined

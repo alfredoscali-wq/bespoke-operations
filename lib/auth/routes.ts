@@ -77,6 +77,19 @@ export function isDemoRestrictedAdminPath(pathname: string): boolean {
   return false
 }
 
+export function isPlanificacionOperativaPath(pathname: string): boolean {
+  return (
+    pathname === "/operations/planificacion" ||
+    pathname.startsWith("/operations/planificacion/")
+  )
+}
+
+export function canAccessPlanificacionOperativa(
+  systemRole: SystemRole | null | undefined
+): boolean {
+  return systemRole === "administrador" || systemRole === "supervisor"
+}
+
 export function getDefaultPostLoginPath(
   systemRole: SystemRole | null | undefined
 ): string {
