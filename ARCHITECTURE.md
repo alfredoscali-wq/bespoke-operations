@@ -59,7 +59,8 @@ The Mobile API does **not** replace existing routes. It is an isolated layer opt
 
 ```
 app/api/mobile/v1/
-  auth/login/       POST — implemented (Sprint API Mobile 0.1)
+  auth/login/       POST — public login
+  auth/me/          GET  — bearer-protected profile (Sprint API Mobile 0.2)
   auth/             refresh, logout — planned
   device/           planned
   workday/          planned
@@ -72,9 +73,25 @@ lib/mobile/v1/
   error-factory.ts      Standard error envelope
   request-context.ts    Request ID + optional mobile headers
   types/responses.ts    Envelope contracts
-  auth/                 login service, validation, contracts
+  handle-mobile-route.ts  Public / protected wrappers
+  auth/
+    mobile-bearer-middleware.ts
+    mobile-token-resolver.ts
+    mobile-auth-context.ts
+    mobile-auth-helpers.ts
+    login service, validation, contracts
   errors.ts             error codes
   constants.ts          MOBILE_API_VERSION (single source)
+```
+
+**Protected route flow:**
+
+```
+Authorization: Bearer <token>
+  → mobileBearerMiddleware
+  → resolveMobileAuthFromAccessToken (Supabase getUser)
+  → MobileAuthContext
+  → handleProtectedMobileRoute → endpoint
 ```
 
 **Auth flow (login):**

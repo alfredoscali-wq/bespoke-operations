@@ -90,11 +90,85 @@ Read and logged at debug level when present. **Not required** in Sprint 0.1.1.
 
 ---
 
-## Authentication
+## Bearer authentication
+
+Protected Mobile API routes require a Supabase access token obtained from login.
+
+### Authorization header
+
+```
+Authorization: Bearer <access_token>
+```
+
+| Rule | Detail |
+|------|--------|
+| Accepted scheme | `Bearer` only |
+| Not accepted | Cookies, query string, custom headers |
+| Token logging | Never log tokens server-side |
+
+### Authentication flow
+
+```
+Client Request (Authorization: Bearer …)
+        ↓
+mobileBearerMiddleware
+        ↓
+extractBearerToken
+        ↓
+resolveMobileAuthFromAccessToken → Supabase auth.getUser(jwt)
+        ↓
+employees lookup + access validation
+        ↓
+MobileAuthContext
+        ↓
+Endpoint handler (via handleProtectedMobileRoute)
+```
+
+Route handlers receive `MobileAuthenticatedContext` and must **not** parse `Authorization` manually.
+
+### MobileAuthContext
+
+Built once per authenticated request:
+
+| Field | Source |
+|-------|--------|
+| `authUserId` | Supabase Auth user id |
+| `employeeId` | RRHH employee record |
+| `companyId` | Employee company |
+| `role` | `system_role` |
+| `email` | Employee email or auth email |
+| `displayName` | Employee full name |
+
+### Unauthorized responses
+
+When the Bearer token is missing, malformed, invalid, or expired, the API responds with:
+
+| Status | Code | Message |
+|--------|------|---------|
+| 401 | `UNAUTHORIZED` | No autorizado |
+
+All token failures share the same public response (no distinction between missing, expired, or invalid).
+
+### Helpers (server)
+
+| Function | Purpose |
+|----------|---------|
+| `requireAuthenticatedMobileUser()` | Runs bearer middleware; returns context or error response |
+| `getAuthenticatedMobileUser()` | Returns `MobileAuthContext` from authenticated context |
+| `requireAuthenticatedUser()` | Same as above; for explicit handler usage |
+| `requireCompany()` | Ensures `companyId` is present |
+| `requireEmployee()` | Ensures `employeeId` is present |
+| `handleProtectedMobileRoute()` | Wrapper for protected route handlers |
+
+Refresh token exchange is prepared in `lib/mobile/v1/auth/contracts.ts` but not implemented yet.
+
+---
+
+## Authentication endpoints
 
 ### POST `/api/mobile/v1/auth/login`
 
-Authenticates a field user and returns Supabase tokens for subsequent mobile requests.
+Public. Authenticates a field user and returns Supabase tokens for subsequent mobile requests.
 
 #### Request
 
@@ -170,9 +244,63 @@ Authenticates a field user and returns Supabase tokens for subsequent mobile req
 |--------|------|---------|
 | 400 | `INVALID_REQUEST` | Validation error (missing fields, invalid platform, invalid JSON) |
 | 401 | `INVALID_CREDENTIALS` | Credenciales inválidas |
+| 401 | `UNAUTHORIZED` | No autorizado (Bearer inválido o ausente) |
 | 403 | `USER_DISABLED` | Usuario deshabilitado |
 | 404 | `EMPLOYEE_NOT_FOUND` | Empleado inexistente |
 | 405 | `INVALID_REQUEST` | Método no permitido |
+| 500 | `INTERNAL_ERROR` | Error interno |
+
+---
+
+### GET `/api/mobile/v1/auth/me`
+
+Protected. Returns the authenticated mobile user profile.
+
+#### Request headers
+
+```
+Authorization: Bearer <access_token>
+```
+
+#### Success — `200`
+
+```json
+{
+  "success": true,
+  "apiVersion": "v1",
+  "requestId": "550e8400-e29b-41d4-a716-446655440000",
+  "serverTime": "2026-06-29T22:15:30Z",
+  "data": {
+    "id": "auth-user-uuid",
+    "name": "Juan Pérez",
+    "email": "juan@empresa.com",
+    "companyId": "company-uuid",
+    "employeeId": "employee-uuid",
+    "role": "operario"
+  }
+}
+```
+
+#### Error example — `401`
+
+```json
+{
+  "success": false,
+  "apiVersion": "v1",
+  "requestId": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+  "serverTime": "2026-06-29T22:16:01Z",
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "No autorizado"
+  }
+}
+```
+
+| Status | Code | Message |
+|--------|------|---------|
+| 401 | `UNAUTHORIZED` | No autorizado |
+| 403 | `USER_DISABLED` | Usuario deshabilitado |
+| 404 | `EMPLOYEE_NOT_FOUND` | Empleado inexistente |
 | 500 | `INTERNAL_ERROR` | Error interno |
 
 ---
@@ -196,12 +324,17 @@ Authenticates a field user and returns Supabase tokens for subsequent mobile req
 app/api/mobile/v1/              Route handlers (thin)
 lib/mobile/v1/
   response-factory.ts           Success envelope builder
-  error-factory.ts                Error envelope builder
-  request-context.ts              Request ID + mobile headers
-  types/responses.ts              Envelope TypeScript types
-  auth/                           Auth orchestration
-lib/auth/                         Shared auth identity & session mapping
-lib/supabase/                     Data access (employees, admin client)
+  error-factory.ts              Error envelope builder
+  handle-mobile-route.ts        Public / protected route wrappers
+  request-context.ts            Request ID + mobile headers
+  types/responses.ts            Envelope TypeScript types
+  auth/
+    mobile-bearer-middleware.ts Bearer authentication
+    mobile-token-resolver.ts    Supabase JWT validation
+    mobile-auth-context.ts      Authenticated user context
+    mobile-auth-helpers.ts      require/get helpers
+lib/auth/                       Shared auth identity & session mapping
+lib/supabase/                   Data access (employees, admin client)
 ```
 
 Route handlers must not embed business rules or hand-build JSON envelopes.
@@ -211,5 +344,7 @@ Route handlers must not embed business rules or hand-build JSON envelopes.
 ## Security notes
 
 - Login uses Supabase `signInWithPassword` with the public anon key (stateless, no cookies).
+- Protected routes validate `Authorization: Bearer` via Supabase `auth.getUser(jwt)` — no cookies or query tokens.
 - Employee access checks reuse RRHH flags (`system_access`, employment status).
+- Access tokens are never logged.
 - Refresh token, device registration, and session revocation endpoints are prepared in `lib/mobile/v1/auth/contracts.ts` for future sprints.

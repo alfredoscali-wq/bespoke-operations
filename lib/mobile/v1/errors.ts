@@ -1,6 +1,7 @@
 export type MobileApiErrorCode =
   | "INVALID_REQUEST"
   | "INVALID_CREDENTIALS"
+  | "UNAUTHORIZED"
   | "USER_DISABLED"
   | "EMPLOYEE_NOT_FOUND"
   | "INTERNAL_ERROR"
@@ -19,6 +20,7 @@ export class MobileApiError extends Error {
 }
 
 export const MOBILE_API_ERROR_MESSAGES = {
+  UNAUTHORIZED: "No autorizado",
   INVALID_CREDENTIALS: "Credenciales inválidas",
   USER_DISABLED: "Usuario deshabilitado",
   EMPLOYEE_NOT_FOUND: "Empleado inexistente",

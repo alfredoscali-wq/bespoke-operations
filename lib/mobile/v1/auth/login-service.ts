@@ -4,6 +4,7 @@ import type { User } from "@supabase/supabase-js"
 
 import { resolveSignInEmailCandidates } from "@/lib/auth/auth-identity"
 import { buildSessionUserFromAuthUser } from "@/lib/auth/resolve-session-user"
+import { assertEmployeeCanUseMobile } from "@/lib/mobile/v1/auth/assert-employee-mobile-access"
 import { createMobileAuthClient } from "@/lib/mobile/v1/auth/create-mobile-auth-client"
 import { mapMobileLoginUser } from "@/lib/mobile/v1/auth/map-mobile-user-response"
 import type { MobileLoginRequest, MobileLoginResponse } from "@/lib/mobile/v1/auth/types"
@@ -25,30 +26,6 @@ function isInvalidCredentialsError(message: string): boolean {
     normalized.includes("invalid login credentials") ||
     normalized.includes("invalid email or password")
   )
-}
-
-function assertEmployeeCanUseMobile(employee: {
-  systemAccess: boolean
-  employmentStatus: string
-}): void {
-  if (!employee.systemAccess) {
-    throw new MobileApiError(
-      "USER_DISABLED",
-      MOBILE_API_ERROR_MESSAGES.USER_DISABLED,
-      403
-    )
-  }
-
-  if (
-    employee.employmentStatus === "inactive" ||
-    employee.employmentStatus === "suspended"
-  ) {
-    throw new MobileApiError(
-      "USER_DISABLED",
-      MOBILE_API_ERROR_MESSAGES.USER_DISABLED,
-      403
-    )
-  }
 }
 
 export async function authenticateMobileLogin(

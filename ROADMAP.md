@@ -22,6 +22,7 @@ Phased delivery for the operational platform and its integration with Bespoke Fi
 | Planning 1.1 | Edición rápida supervisor | Done |
 | **API Mobile 0.1** | Mobile API foundation + login | Done |
 | **API Mobile 0.1.1** | Standard response envelope + request ID | Done |
+| **API Mobile 0.2** | Bearer authentication + `/auth/me` | Done |
 
 ---
 
@@ -37,12 +38,22 @@ Phased delivery for the operational platform and its integration with Bespoke Fi
 
 ---
 
+## API Mobile 0.2 — Bearer auth (done)
+
+- Bearer middleware + token resolver
+- `MobileAuthContext` + helpers
+- `GET /api/mobile/v1/auth/me`
+
+**Exit criteria:** Protected routes use centralized auth; login unchanged.
+
+---
+
 ## API Mobile — Next phases (planned)
 
 | Phase | Endpoints | Depends on |
 |-------|-----------|------------|
-| 0.2 Auth refresh | `POST /auth/refresh`, session revocation | Mobile 0.1 |
-| 0.3 Device | `POST /device/register`, device binding | Mobile 0.1 |
+| 0.3 Auth refresh | `POST /auth/refresh`, session revocation | Mobile 0.2 |
+| 0.3 Device | `POST /device/register`, device binding | Mobile 0.2 |
 | 1.0 Workday | `GET /workday/current` — published jornada | Planning publish sprint |
 | 1.1 Tasks | Assigned OT list + detail for operario | OT assign workflow |
 | 2.0 GPS | Batch upload | Field Agent GPS sprint |
