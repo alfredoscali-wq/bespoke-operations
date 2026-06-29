@@ -2,7 +2,7 @@ import type { Task, TaskStatus } from "@/lib/types/tasks"
 import { isPendingClosureStatus } from "@/lib/tasks/task-status-workflow"
 
 export const ACTIVE_TASK_STATUSES: TaskStatus[] = [
-  "pendiente",
+  "programada",
   "asignada",
   "vencida",
   "en-curso",
@@ -12,7 +12,7 @@ export const ACTIVE_TASK_STATUSES: TaskStatus[] = [
 ]
 
 export const CANCELLABLE_TASK_STATUSES: TaskStatus[] = [
-  "pendiente",
+  "programada",
   "asignada",
   "vencida",
 ]

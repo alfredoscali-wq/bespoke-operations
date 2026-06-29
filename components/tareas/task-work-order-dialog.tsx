@@ -5,7 +5,9 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { DemoWriteBlockedError } from "@/lib/demo/demo-write-block"
 
 import { useCustomers } from "@/components/clientes/customers-provider"
+import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { taskDefaultChecklist } from "@/components/tareas/task-form-dialog"
+import { WorkOrderSchedulingFields } from "@/components/tareas/work-order-scheduling-fields"
 import {
   formatCustomerAddressLabel,
   formatCustomerTechnologyLabel,
@@ -14,7 +16,9 @@ import {
   isCustomerEligibleForReconexion,
   validateReconexionCustomer,
 } from "@/lib/customers/reconexion-eligibility"
+import { validateCrewAssignment } from "@/lib/crews/status-workflow"
 import {
+  applySuggestedDurationPreset,
   buildWorkOrderCreatePayload,
   getDefaultWorkOrderForm,
   isNewInstallationWorkOrder,
@@ -546,6 +550,7 @@ export function TaskWorkOrderDialog({
 }: TaskWorkOrderDialogProps) {
   const { searchCustomers, createCustomer, updateCustomer, fetchCustomerById } =
     useCustomers()
+  const { crews } = useCrews()
   const [form, setForm] = useState<WorkOrderFormInput>(getDefaultWorkOrderForm)
   const [baselineForm, setBaselineForm] = useState<WorkOrderFormInput>(
     getDefaultWorkOrderForm
@@ -617,6 +622,7 @@ export function TaskWorkOrderDialog({
       ...getDefaultWorkOrderForm(),
       serviceType: value,
       scheduledDate: form.scheduledDate,
+      ...applySuggestedDurationPreset(value),
     })
     setCustomerSelected(false)
     setLinkedCustomer(null)
@@ -721,6 +727,13 @@ export function TaskWorkOrderDialog({
       return
     }
 
+    const selectedCrew = crews.find((crew) => crew.id === form.crewId)
+    const crewValidation = validateCrewAssignment(selectedCrew)
+    if (!crewValidation.allowed) {
+      setError(crewValidation.message ?? "Cuadrilla no disponible.")
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
@@ -774,6 +787,7 @@ export function TaskWorkOrderDialog({
         existingTasks,
         customerId,
         checklist: taskDefaultChecklist,
+        crew: selectedCrew ?? null,
       })
 
       const task = await onSubmit(payload)
@@ -904,33 +918,9 @@ export function TaskWorkOrderDialog({
             />
           ) : null}
 
-          {showScheduling && (
-            <section className="space-y-4">
-              <SectionTitle>Programación</SectionTitle>
-              <div className="space-y-2">
-                <Label htmlFor="wo-scheduled-date">Fecha programada *</Label>
-                <Input
-                  id="wo-scheduled-date"
-                  type="date"
-                  value={form.scheduledDate}
-                  onChange={(event) =>
-                    updateField("scheduledDate", event.target.value)
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="wo-scheduled-time">Hora programada</Label>
-                <Input
-                  id="wo-scheduled-time"
-                  type="time"
-                  value={form.scheduledTime}
-                  onChange={(event) =>
-                    updateField("scheduledTime", event.target.value)
-                  }
-                />
-              </div>
-            </section>
-          )}
+          {showScheduling ? (
+            <WorkOrderSchedulingFields form={form} updateField={updateField} />
+          ) : null}
 
           {showScheduling && (
             <WorkOrderCrewInfoFields

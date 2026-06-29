@@ -19,7 +19,7 @@ export interface ProjectOperationalMetrics {
 export type ProjectHealthVariant = "success" | "warning" | "danger"
 
 const ACTIVE_TASK_STATUSES = [
-  "pendiente",
+  "programada",
   "asignada",
   "vencida",
   "en-curso",

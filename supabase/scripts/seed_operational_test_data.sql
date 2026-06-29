@@ -104,7 +104,7 @@ BEGIN
     'OB-' || v_suffix,
     'Obra Residencial ' || v_suffix,
     'fiber',
-    'pendiente',
+    'programada',
     'media',
     'Carlos Supervisor',
     v_crew_id,

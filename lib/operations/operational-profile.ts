@@ -60,9 +60,9 @@ export const OPERATIONAL_PROFILE_DASHBOARD_SUBTITLE: Record<
   administrador:
     "Resumen operativo del día para coordinación y supervisión.",
   supervisor:
-    "Órdenes de trabajo en curso, pendientes críticos, solicitudes de cierre, incidencias y productividad.",
+    "Órdenes de trabajo en curso, OT programadas, solicitudes de cierre, incidencias y productividad.",
   administracion_operativa:
-    "Órdenes de trabajo por programar, carga del día, clientes pendientes, cuadrillas y asignaciones.",
+    "OT programadas, carga del día, clientes, cuadrillas y asignaciones.",
   ventas:
     "Calendario operativo, clientes y órdenes de trabajo de instalación.",
   rrhh:

@@ -105,7 +105,8 @@ export function TaskDetailView({ task, detail }: TaskDetailViewProps) {
       task.id,
       value,
       crew?.name ?? "",
-      crew?.supervisor ?? ""
+      crew?.supervisor ?? "",
+      { promoteToAssigned: true }
     )
     setIsAssigningCrew(false)
 

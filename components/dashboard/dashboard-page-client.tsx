@@ -59,7 +59,7 @@ const PROJECT_TONES = {
 } as const
 
 const TASK_ICONS = {
-  pendiente: CircleDot,
+  programada: CircleDot,
   asignada: UserCheck,
   vencida: AlertTriangle,
   "en-curso": Clock,
@@ -71,7 +71,7 @@ const TASK_ICONS = {
 } as const
 
 const TASK_TONES = {
-  pendiente: "gray",
+  programada: "gray",
   asignada: "blue",
   vencida: "red",
   "en-curso": "yellow",

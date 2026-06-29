@@ -97,7 +97,7 @@ export const mockTasks: Task[] = [
     projectCode: "WLS-2026-002",
     projectName: "Backhaul Wireless Torre Sur — Enlace PTP",
     type: "wireless",
-    status: "pendiente",
+    status: "programada",
     priority: "media",
     supervisor: "Ing. Carlos Ruiz",
     crew: "Cuadrilla Wireless",
@@ -115,7 +115,7 @@ export const mockTasks: Task[] = [
     projectCode: "PST-2026-007",
     projectName: "Infraestructura de Postes — Circuito 9",
     type: "pole",
-    status: "pendiente",
+    status: "programada",
     priority: "media",
     supervisor: "Ing. Patricia Vega",
     crew: "Cuadrilla Postación",
@@ -248,7 +248,7 @@ export const mockTasks: Task[] = [
     projectCode: "FO-2026-001",
     projectName: "Despliegue FTTH Zona Norte — Sector B",
     type: "fiber",
-    status: "pendiente",
+    status: "programada",
     priority: "media",
     supervisor: "Ing. Roberto Méndez",
     crew: "Cuadrilla Norte",
@@ -554,7 +554,7 @@ function createDefaultDetail(task: Task): TaskDetail {
         user: "Sistema",
         timestamp: `${task.startDate}T08:00:00`,
       },
-      ...(task.status !== "pendiente"
+      ...(task.status !== "programada"
         ? [
             {
               id: "h-default-2",
@@ -594,7 +594,7 @@ export function getTaskDetail(task: Task): TaskDetail {
 
 export function getTasksSummary(tasks: Task[]) {
   return {
-    pendiente: tasks.filter((task) => task.status === "pendiente").length,
+    programada: tasks.filter((task) => task.status === "programada").length,
     asignada: tasks.filter((task) => task.status === "asignada").length,
     vencida: tasks.filter((task) => task.status === "vencida").length,
     enCurso: tasks.filter((task) => task.status === "en-curso").length,

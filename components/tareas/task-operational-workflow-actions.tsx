@@ -32,7 +32,7 @@ import {
 const OPERATIONAL_STATUS_DISPLAY: Partial<
   Record<TaskStatus, { emoji: string; label: string }>
 > = {
-  pendiente: { emoji: "📅", label: "Programada" },
+  programada: { emoji: "📅", label: "Programada" },
   asignada: { emoji: "👷", label: "Asignada" },
   vencida: { emoji: "🔴", label: "Vencida" },
   "en-curso": { emoji: "🚧", label: "En curso" },

@@ -17,14 +17,14 @@ type TasksSummaryCardsProps = {
 }
 
 const cards: {
-  key: "pendiente" | "enCurso" | "pendienteCierre" | "cerrada" | "asignada" | "vencida"
+  key: "programada" | "enCurso" | "pendienteCierre" | "cerrada" | "asignada" | "vencida"
   label: string
   icon: typeof CircleDot
   tone: VisualTone
 }[] = [
   {
-    key: "pendiente",
-    label: "Pendientes",
+    key: "programada",
+    label: "Programadas",
     icon: CircleDot,
     tone: "gray",
   },
@@ -48,7 +48,7 @@ const cards: {
   },
   {
     key: "asignada",
-    label: "Programadas",
+    label: "Asignadas",
     icon: UserCheck,
     tone: "blue",
   },

@@ -33,7 +33,7 @@ const WORKFLOW_TRANSITIONS: Record<
   TaskWorkflowAction,
   { from: TaskStatus[]; to: TaskStatus }
 > = {
-  "assign-crew": { from: ["pendiente"], to: "asignada" },
+  "assign-crew": { from: ["programada"], to: "asignada" },
   start: { from: ["asignada"], to: "en-curso" },
   "submit-for-approval": { from: ["en-curso"], to: "pendiente-cierre" },
   "report-incident": { from: ["en-curso"], to: "incidencia" },
@@ -45,7 +45,7 @@ const WORKFLOW_TRANSITIONS: Record<
   close: { from: ["finalizada"], to: "cerrada" },
   cancel: {
     from: [
-      "pendiente",
+      "programada",
       "asignada",
       "vencida",
       "en-curso",
@@ -57,12 +57,12 @@ const WORKFLOW_TRANSITIONS: Record<
   },
 }
 
-/** OT administrativa recién creada: siempre Programada (pendiente), sin cuadrilla. */
+/** OT recién creada: siempre Programada, aunque incluya cuadrilla sugerida. */
 export function getInitialTaskStatus(_input?: {
   crewId?: string | null
   crew?: string
 }): TaskStatus {
-  return "pendiente"
+  return "programada"
 }
 
 export function getTransitionForAction(action: TaskWorkflowAction): {
@@ -184,11 +184,16 @@ export function canPerformTaskAction(
 export function resolveStatusAfterCrewAssignment(
   currentStatus: TaskStatus,
   crewId: string | null,
-  crewName: string
+  crewName: string,
+  options?: { promoteToAssigned?: boolean }
 ): TaskStatus | null {
+  if (!options?.promoteToAssigned) {
+    return null
+  }
+
   const hasCrew = Boolean(crewId || crewName.trim())
 
-  if (hasCrew && currentStatus === "pendiente") {
+  if (hasCrew && currentStatus === "programada") {
     return "asignada"
   }
 

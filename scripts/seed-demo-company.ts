@@ -34,7 +34,7 @@ const LOCALITIES = [
 ]
 
 const TASK_STATUSES = [
-  "pendiente",
+  "programada",
   "asignada",
   "en-curso",
   "pendiente-cierre",
@@ -481,8 +481,8 @@ async function seedTasks(
       status,
       priority: index % 5 === 0 ? "alta" : index % 3 === 0 ? "baja" : "media",
       supervisor: project.supervisor,
-      crew_id: ["cancelada", "pendiente"].includes(status) ? null : crew.id,
-      crew: ["cancelada", "pendiente"].includes(status) ? "" : crew.name,
+      crew_id: ["cancelada", "programada"].includes(status) ? null : crew.id,
+      crew: ["cancelada", "programada"].includes(status) ? "" : crew.name,
       start_date: toDateOnly(addDays(today, scheduledOffset - 2)),
       due_date: toDateOnly(addDays(today, scheduledOffset + 3)),
       scheduled_time: index % 4 === 0 ? "09:30:00" : index % 4 === 1 ? "14:00:00" : null,

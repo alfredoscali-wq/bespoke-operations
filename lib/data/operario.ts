@@ -8,7 +8,8 @@ export type WorkerCrewRef = {
   name: string
 }
 
-const OPERARIO_TODAY_SCHEDULED_STATUSES: TaskStatus[] = ["pendiente", "asignada"]
+/** OT publicadas en jornada (asignadas), visibles para el operario. */
+const OPERARIO_TODAY_SCHEDULED_STATUSES: TaskStatus[] = ["asignada"]
 
 const OPERARIO_TODAY_OVERDUE_STATUSES: TaskStatus[] = ["vencida"]
 
@@ -34,7 +35,6 @@ const OPERARIO_TODAY_STATUS_ORDER: Partial<Record<TaskStatus, number>> = {
   "en-curso": 2,
   "pendiente-cierre": 3,
   "en-aprobacion": 3,
-  pendiente: 4,
   asignada: 4,
 }
 

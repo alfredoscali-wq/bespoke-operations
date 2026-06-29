@@ -1,4 +1,6 @@
+import { resolveCrewSnapshotsForAssignment } from "@/lib/tasks/crew-relation"
 import type { CreateTaskPayload } from "@/lib/types/supabase/tasks"
+import type { Crew } from "@/lib/types/crews"
 import type { Task, TaskType } from "@/lib/types/tasks"
 import {
   createDefaultOperationalSteps,
@@ -39,6 +41,118 @@ export type WorkOrderServiceType =
   | "otro"
 
 export type WorkOrderTechnology = "fiber" | "wireless"
+
+export type WorkOrderShift = "manana" | "tarde"
+
+export const WORK_ORDER_SHIFT_OPTIONS: {
+  value: WorkOrderShift
+  label: string
+}[] = [
+  { value: "manana", label: "☀️ Mañana" },
+  { value: "tarde", label: "🌇 Tarde" },
+]
+
+export const WORK_ORDER_DURATION_PRESET_MINUTES = [
+  15, 30, 45, 60, 90, 120, 180,
+] as const
+
+export type WorkOrderDurationPresetMinutes =
+  (typeof WORK_ORDER_DURATION_PRESET_MINUTES)[number]
+
+export type WorkOrderDurationPreset =
+  | `${WorkOrderDurationPresetMinutes}`
+  | "other"
+
+export const WORK_ORDER_DURATION_PRESET_OPTIONS: {
+  value: WorkOrderDurationPreset
+  label: string
+}[] = [
+  ...WORK_ORDER_DURATION_PRESET_MINUTES.map((minutes) => ({
+    value: `${minutes}` as WorkOrderDurationPreset,
+    label: `${minutes} min`,
+  })),
+  { value: "other", label: "Otro..." },
+]
+
+export function getSuggestedDurationMinutes(
+  serviceType: WorkOrderServiceType | ""
+): number | null {
+  switch (serviceType) {
+    case "service-tecnico":
+      return 45
+    case "instalacion-nueva":
+      return 90
+    case "cambio-domicilio":
+      return 120
+    case "cambio-tecnologia":
+      return 60
+    default:
+      return null
+  }
+}
+
+export function formatEstimatedDurationMinutes(minutes: number): string {
+  return `${minutes} min`
+}
+
+export function resolveEstimatedDurationFromForm(
+  form: Pick<
+    WorkOrderFormInput,
+    "estimatedDurationPreset" | "estimatedDurationCustomMinutes"
+  >
+): string {
+  if (!form.estimatedDurationPreset) {
+    return ""
+  }
+
+  if (form.estimatedDurationPreset === "other") {
+    const minutes = Number.parseInt(form.estimatedDurationCustomMinutes.trim(), 10)
+    if (!Number.isFinite(minutes) || minutes <= 0) {
+      return ""
+    }
+
+    return formatEstimatedDurationMinutes(minutes)
+  }
+
+  return formatEstimatedDurationMinutes(
+    Number.parseInt(form.estimatedDurationPreset, 10)
+  )
+}
+
+export function applySuggestedDurationPreset(
+  serviceType: WorkOrderServiceType
+): Pick<
+  WorkOrderFormInput,
+  "estimatedDurationPreset" | "estimatedDurationCustomMinutes"
+> {
+  const suggested = getSuggestedDurationMinutes(serviceType)
+  if (suggested == null) {
+    return {
+      estimatedDurationPreset: "",
+      estimatedDurationCustomMinutes: "",
+    }
+  }
+
+  if (
+    WORK_ORDER_DURATION_PRESET_MINUTES.includes(
+      suggested as WorkOrderDurationPresetMinutes
+    )
+  ) {
+    return {
+      estimatedDurationPreset: String(suggested) as WorkOrderDurationPreset,
+      estimatedDurationCustomMinutes: "",
+    }
+  }
+
+  return {
+    estimatedDurationPreset: "other",
+    estimatedDurationCustomMinutes: String(suggested),
+  }
+}
+
+export function resolveScheduledTimeFromShift(shift: WorkOrderShift): string {
+  return shift === "tarde" ? "14:00" : "08:00"
+}
 
 export type ServiceTechnicalReason =
   | "sin-conexion"
@@ -138,8 +252,10 @@ export type WorkOrderFormInput = {
   customerEmail: string
   customerId: string
   scheduledDate: string
-  scheduledTime: string
+  shift: WorkOrderShift | ""
   crewId: string
+  estimatedDurationPreset: WorkOrderDurationPreset | ""
+  estimatedDurationCustomMinutes: string
   observations: string
   address: string
   locality: string
@@ -188,8 +304,10 @@ export function getDefaultWorkOrderForm(): WorkOrderFormInput {
     customerEmail: "",
     customerId: "",
     scheduledDate: new Date().toISOString().slice(0, 10),
-    scheduledTime: getDefaultScheduledTime(),
+    shift: "",
     crewId: "",
+    estimatedDurationPreset: "",
+    estimatedDurationCustomMinutes: "",
     observations: "",
     address: "",
     locality: "",
@@ -374,7 +492,11 @@ function buildTaskMetadata(input: WorkOrderFormInput): Record<string, unknown> {
       metadata = email ? { email } : {}
   }
 
-  return { ...metadata, ...importFields }
+  return {
+    ...metadata,
+    ...importFields,
+    ...(input.shift ? { shift: input.shift } : {}),
+  }
 }
 
 function resolvePrimaryAddress(input: WorkOrderFormInput): string {
@@ -419,7 +541,8 @@ export function validateWorkOrderSharedLocation(
   if (!resolveWorkOrderSharedLocation(input)) {
     return {
       valid: false,
-      message: "El enlace de Google Maps es obligatorio.",
+      message:
+        "La ubicación GPS es obligatoria. Pegue el enlace de Google Maps.",
     }
   }
 
@@ -439,6 +562,18 @@ export function validateWorkOrderForm(
 
   if (!input.scheduledDate) {
     return { valid: false, message: "La fecha programada es obligatoria." }
+  }
+
+  if (!input.crewId.trim()) {
+    return { valid: false, message: "Seleccione la cuadrilla sugerida." }
+  }
+
+  if (!input.shift) {
+    return { valid: false, message: "Seleccione el turno." }
+  }
+
+  if (!resolveEstimatedDurationFromForm(input)) {
+    return { valid: false, message: "La duración estimada es obligatoria." }
   }
 
   switch (input.serviceType) {
@@ -600,8 +735,10 @@ export function buildWorkOrderCreatePayload(input: {
   existingTasks: Task[]
   customerId?: string | null
   checklist: CreateTaskPayload["checklist"]
+  crew?: Pick<Crew, "id" | "name" | "supervisor"> | null
 }): CreateTaskPayload {
-  const { form, existingTasks, customerId, checklist } = input
+  const { form, existingTasks, customerId, checklist, crew = null } = input
+  const crewSnapshots = resolveCrewSnapshotsForAssignment(crew)
   const serviceLabel =
     WORK_ORDER_SERVICE_TYPE_LABELS[form.serviceType as WorkOrderServiceType] ??
     "Orden de trabajo"
@@ -640,15 +777,17 @@ export function buildWorkOrderCreatePayload(input: {
     observationsForCrew: form.observationsForCrew.trim() || undefined,
     workOrderNumber: form.clientOrderNumber.trim() || undefined,
     type: resolveTaskTypeFromForm(form),
-    status: "pendiente",
+    status: "programada",
     priority: "media",
-    supervisor: "",
-    crewId: undefined,
-    crew: "",
+    supervisor: crewSnapshots.supervisor,
+    crewId: crewSnapshots.crewId ?? undefined,
+    crew: crewSnapshots.crew,
     startDate: form.scheduledDate,
     dueDate: form.scheduledDate,
-    scheduledTime: normalizeScheduledTimeForDb(form.scheduledTime),
-    estimatedDuration: "",
+    scheduledTime: form.shift
+      ? normalizeScheduledTimeForDb(resolveScheduledTimeFromShift(form.shift))
+      : null,
+    estimatedDuration: resolveEstimatedDurationFromForm(form),
     checklist,
     operationalSteps: resolveOperationalStepsForWorkOrder(form),
     serviceType: form.serviceType as WorkOrderServiceType,
@@ -711,7 +850,7 @@ export function buildLocationFormFromTask(
 
 export function buildScheduleFormFromTask(
   task: Task
-): Pick<WorkOrderFormInput, "scheduledDate" | "scheduledTime"> {
+): { scheduledDate: string; scheduledTime: string } {
   return {
     scheduledDate: task.dueDate,
     scheduledTime:

@@ -267,7 +267,7 @@ export function buildWeeklyReportPdf(report: WeeklyAutomaticReport): Uint8Array 
     { label: "Obras activas", value: String(report.summary.activeProjects) },
     { label: "Órdenes de trabajo creadas", value: String(report.summary.tasksCreated) },
     { label: "Órdenes de trabajo finalizadas", value: String(report.summary.tasksCompleted) },
-    { label: "Órdenes de trabajo pendientes", value: String(report.summary.tasksPending) },
+    { label: "Órdenes de trabajo activas", value: String(report.summary.tasksPending) },
     { label: "Órdenes de trabajo vencidas", value: String(report.summary.tasksOverdue) },
     {
       label: "Cumplimiento semanal",

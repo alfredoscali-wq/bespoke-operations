@@ -353,7 +353,7 @@ export function buildTasksStatusKpis(tasks: Task[]): DashboardStatusKpi[] {
     value: number
     href: string
   }[] = [
-    { id: "pendiente", label: "Pendientes", value: summary.pendiente, href: "/tareas?status=pendiente" },
+    { id: "programada", label: "Programadas", value: summary.programada, href: "/tareas?status=programada" },
     { id: "asignada", label: "Asignadas", value: summary.asignada, href: "/tareas?status=asignada" },
     { id: "vencida", label: "Vencidas", value: summary.vencida, href: "/tareas?status=vencida" },
     { id: "en-curso", label: "En curso", value: summary.enCurso, href: "/tareas?status=en-curso" },

@@ -1,5 +1,5 @@
 export type TaskStatus =
-  | "pendiente"
+  | "programada"
   | "asignada"
   | "vencida"
   | "en-curso"

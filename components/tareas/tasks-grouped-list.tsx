@@ -29,7 +29,7 @@ type TasksGroupedListProps = {
 }
 
 const GROUP_ORDER: TaskStatus[] = [
-  "pendiente",
+  "programada",
   "asignada",
   "en-curso",
   "incidencia",
@@ -41,7 +41,7 @@ const GROUP_ORDER: TaskStatus[] = [
 ]
 
 const DEFAULT_EXPANDED: TaskStatus[] = [
-  "pendiente",
+  "programada",
   "asignada",
   "en-curso",
   "incidencia",

@@ -22,7 +22,7 @@ const PROJECT_STATUS_VALUES: ProjectStatus[] = [
 ]
 
 const TASK_STATUS_VALUES: TaskStatus[] = [
-  "pendiente",
+  "programada",
   "asignada",
   "vencida",
   "en-curso",
@@ -94,8 +94,14 @@ export function parseProjectStatusQuery(
     : "all"
 }
 
+const LEGACY_TASK_STATUS_ALIASES: Record<string, TaskStatus> = {
+  pendiente: "programada",
+}
+
 export function parseTaskStatusQuery(value: string | null): TaskStatus | "all" {
   if (!value) return "all"
+  const legacy = LEGACY_TASK_STATUS_ALIASES[value]
+  if (legacy) return legacy
   return TASK_STATUS_VALUES.includes(value as TaskStatus)
     ? (value as TaskStatus)
     : "all"
@@ -336,7 +342,7 @@ export function taskStatusToOperationalCategory(
   status: TaskStatus
 ): OperationalTaskCategory | null {
   switch (status) {
-    case "pendiente":
+    case "programada":
       return "programadas"
     case "asignada":
     case "vencida":

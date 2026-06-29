@@ -1,5 +1,4 @@
 import { taskDefaultChecklist } from "@/components/tareas/task-form-dialog"
-import { resolveCrewSnapshotsForAssignment } from "@/lib/tasks/crew-relation"
 import {
   buildWorkOrderCreatePayload,
   getDefaultWorkOrderForm,
@@ -7,7 +6,6 @@ import {
   requiresCustomerLookup,
   type WorkOrderFormInput,
 } from "@/lib/tasks/work-order"
-import { resolveSupervisorFromCrew } from "@/lib/tasks/utils"
 import type {
   WorkOrderImportExecutionResult,
   WorkOrderImportReportRow,
@@ -68,7 +66,9 @@ function importRowToFormInput(row: WorkOrderImportReviewRow): WorkOrderFormInput
     customerEmail: data.customerEmail,
     customerId: data.customerId,
     scheduledDate: data.scheduledDate,
-    scheduledTime: "",
+    shift: "",
+    estimatedDurationPreset: "",
+    estimatedDurationCustomMinutes: "",
     crewId: data.crewId,
     observations: data.observations,
     address: data.address,
@@ -116,15 +116,8 @@ export async function executeWorkOrderImport(input: {
   crews: Crew[]
   createCustomer: (payload: NewCustomerInput) => Promise<CustomerMutationResult>
   addTask: (payload: CreateTaskPayload) => Promise<Task>
-  assignCrew?: (
-    taskId: string,
-    crewId: string | null,
-    crewName?: string,
-    supervisor?: string
-  ) => Promise<{ success: boolean; message?: string }>
 }): Promise<WorkOrderImportExecutionResult> {
-  const { rows, existingTasks, createCustomer, addTask, assignCrew, crews } =
-    input
+  const { rows, existingTasks, createCustomer, addTask, crews } = input
   let customers = [...input.customers]
   let workingTasks = [...existingTasks]
 
@@ -216,48 +209,16 @@ export async function executeWorkOrderImport(input: {
       const selectedCrew = form.crewId
         ? crews.find((crew) => crew.id === form.crewId)
         : undefined
-      const snapshots = resolveCrewSnapshotsForAssignment(selectedCrew)
 
       const payload = buildWorkOrderCreatePayload({
         form,
         existingTasks: workingTasks,
         customerId,
         checklist: taskDefaultChecklist,
+        crew: selectedCrew ?? null,
       })
 
-      let createdTask = await addTask(payload)
-
-      if (snapshots.crewId && assignCrew) {
-        const assignResult = await assignCrew(
-          createdTask.id,
-          snapshots.crewId,
-          snapshots.crew,
-          resolveSupervisorFromCrew(selectedCrew) || snapshots.supervisor
-        )
-
-        if (!assignResult.success) {
-          failed += 1
-          reportRows.push(
-            buildReportRow(
-              row,
-              "Error",
-              assignResult.message ?? "No se pudo asignar la cuadrilla",
-              "Asigne la cuadrilla manualmente desde el detalle de la orden de trabajo"
-            )
-          )
-          continue
-        }
-
-        createdTask = {
-          ...createdTask,
-          crewId: snapshots.crewId ?? undefined,
-          crew: snapshots.crew,
-          supervisor:
-            resolveSupervisorFromCrew(selectedCrew) || snapshots.supervisor,
-          status: "asignada",
-        }
-      }
-
+      const createdTask = await addTask(payload)
       workingTasks = [...workingTasks, createdTask]
       imported += 1
 

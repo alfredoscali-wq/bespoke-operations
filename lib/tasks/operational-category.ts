@@ -94,7 +94,7 @@ export function resolveOperationalExecutionBadge(task: Task): {
     }
   }
 
-  if (task.status === "pendiente") {
+  if (task.status === "programada") {
     return {
       label: "Programada",
       className: STATUS_TONE_STYLES.blue,
@@ -171,7 +171,7 @@ export function resolveOperationalCategory(
     return taskHasAssignedCrew(task) ? "asignadas" : "programadas"
   }
 
-  if (task.status === "pendiente") {
+  if (task.status === "programada") {
     return "programadas"
   }
 

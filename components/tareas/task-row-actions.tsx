@@ -162,7 +162,8 @@ export function TaskRowActions({
       task.id,
       snapshots.crewId,
       snapshots.crew,
-      snapshots.supervisor
+      snapshots.supervisor,
+      { promoteToAssigned: true }
     )
     if (!result.success) {
       throw new Error(result.message ?? "No se pudo reasignar la cuadrilla.")
