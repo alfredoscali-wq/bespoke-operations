@@ -1,36 +1,97 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Bespoke Operations
 
-## Getting Started
+Multi-tenant operational platform for Bespoke: customers, HR, work orders, crews, planning, evidence, and reports.
 
-First, run the development server:
+Part of the **Bespoke ecosystem** together with **Bespoke Field Agent** (Android) and platform services (Supabase).
+
+---
+
+## Tech stack
+
+| Layer | Choice |
+|-------|--------|
+| Framework | Next.js 16 (App Router) |
+| Language | TypeScript |
+| UI | React 19, Tailwind, shadcn/ui |
+| Database / Auth | Supabase |
+| Maps (planning) | Leaflet |
+
+---
+
+## Getting started
 
 ```bash
+npm install
+cp .env.example .env.local   # configure Supabase keys
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Quality checks
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run type-check
+npm run build
+```
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## Project structure
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+app/
+  (dashboard)/          Backoffice modules
+  operario/             Operario PWA
+  api/
+    mobile/v1/          Mobile API (Field Agent)
+    auth/               Backoffice auth helpers
+    …
+lib/
+  mobile/v1/            Mobile API services
+  auth/                 Shared authentication
+  supabase/             Data access
+  tasks/                Work order domain
+  planificacion/        Operational planning
+docs/
+  mobile-api.md         Mobile API contracts
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## Mobile API
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Dedicated, versioned HTTP API for **Bespoke Field Agent** only.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Base path: `/api/mobile/v1/`
+- Does not replace Backoffice or Operario routes
+- First endpoint: `POST /api/mobile/v1/auth/login`
+
+Full contract and error codes: [docs/mobile-api.md](./docs/mobile-api.md)
+
+Architecture overview: [ARCHITECTURE.md](./ARCHITECTURE.md)
+
+---
+
+## Documentation
+
+| Document | Purpose |
+|----------|---------|
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | System design, Mobile API layer |
+| [ROADMAP.md](./ROADMAP.md) | Delivery phases |
+| [docs/mobile-api.md](./docs/mobile-api.md) | Mobile API contracts |
+| [docs/supabase-setup.md](./docs/supabase-setup.md) | Supabase configuration |
+| [docs/supabase-migrations.md](./docs/supabase-migrations.md) | Database migrations |
+
+---
+
+## Ecosystem
+
+```
+Bespoke Operations (this repo)
+  ├── Backoffice Web
+  ├── Operario PWA
+  └── Mobile API ──► Bespoke Field Agent (Android)
+```
+
+Operations owns business logic. Field Agent executes published work on device.

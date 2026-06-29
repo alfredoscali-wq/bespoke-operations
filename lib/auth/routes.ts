@@ -1,4 +1,5 @@
 import type { SystemRole } from "@/lib/types/employees"
+import { isMobileApiPublicPath } from "@/lib/mobile/v1/routing"
 
 export const LOGIN_PATH = "/login"
 export const AUTH_CALLBACK_PATH = "/auth/callback"
@@ -40,6 +41,10 @@ export function isAuthPublicPath(pathname: string): boolean {
   }
 
   if (pathname.startsWith("/api/health")) {
+    return true
+  }
+
+  if (isMobileApiPublicPath(pathname)) {
     return true
   }
 
