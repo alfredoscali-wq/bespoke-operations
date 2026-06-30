@@ -654,6 +654,7 @@ export type Database = {
           installation_cost: number | null
           amount_to_collect: number | null
           task_metadata: Json
+          execution_order: number | null
         }
         Insert: {
           id?: string
@@ -712,6 +713,7 @@ export type Database = {
           installation_cost?: number | null
           amount_to_collect?: number | null
           task_metadata?: Json
+          execution_order?: number | null
         }
         Update: {
           id?: string
@@ -770,6 +772,7 @@ export type Database = {
           installation_cost?: number | null
           amount_to_collect?: number | null
           task_metadata?: Json
+          execution_order?: number | null
         }
         Relationships: []
       }

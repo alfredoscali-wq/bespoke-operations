@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { X } from "lucide-react"
+import { ChevronDown, ChevronUp, X } from "lucide-react"
 
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { Button } from "@/components/ui/button"
@@ -22,13 +22,18 @@ import {
 import { resolveTaskCrewId } from "@/lib/tasks/crew-relation"
 import {
   buildPlanningEditFormFromTask,
-  buildPlanningTaskUpdatePayload,
+  buildPlanningTaskUpdateBatch,
   EMPTY_PLANNING_EDIT_FORM,
   resolvePlanningEditEstimatedDuration,
   resolvePlanningTaskAddress,
   validatePlanningEditForm,
   type PlanningEditFormState,
 } from "@/lib/planificacion/planning-edit"
+import {
+  buildExecutionOrderSwapUpdates,
+  formatPlanningExecutionOrderPanelLabel,
+  resolveExecutionOrderMoveAvailability,
+} from "@/lib/planificacion/planning-execution-order"
 import {
   resolvePlanningTaskClientLabel,
   resolvePlanningTaskServiceLabel,
@@ -43,6 +48,7 @@ import { cn } from "@/lib/utils"
 
 type PlanningTaskEditPanelProps = {
   task: Task | null
+  allTasks: Task[]
   open: boolean
   onClose: () => void
   onSaved?: (task: Task) => void
@@ -51,6 +57,7 @@ type PlanningTaskEditPanelProps = {
 
 export function PlanningTaskEditPanel({
   task,
+  allTasks,
   open,
   onClose,
   onSaved,
@@ -63,6 +70,7 @@ export function PlanningTaskEditPanel({
   )
   const [error, setError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [isReordering, setIsReordering] = useState(false)
 
   const resolvedTaskCrewId = useMemo(
     () => (task ? resolveTaskCrewId(task, crews) : undefined),
@@ -84,6 +92,61 @@ export function PlanningTaskEditPanel({
       ),
     [crews, form.crewId, resolvedTaskCrewId]
   )
+
+  const executionOrderLabel = task
+    ? formatPlanningExecutionOrderPanelLabel(task.executionOrder)
+    : "Sin asignar"
+
+  const { canMoveUp, canMoveDown } = useMemo(
+    () =>
+      task
+        ? resolveExecutionOrderMoveAvailability(allTasks, task.id, crews)
+        : { canMoveUp: false, canMoveDown: false },
+    [allTasks, task, crews]
+  )
+
+  async function applyExecutionOrderUpdates(
+    updates: Array<{ taskId: string; executionOrder: number | null }>
+  ) {
+    for (const update of updates) {
+      const result = await editTask(update.taskId, {
+        executionOrder: update.executionOrder,
+      })
+
+      if (!result.success) {
+        throw new Error(
+          result.message ?? "No se pudo actualizar el orden de ejecución."
+        )
+      }
+    }
+  }
+
+  async function handleMoveExecutionOrder(direction: "up" | "down") {
+    if (!task) {
+      return
+    }
+
+    setIsReordering(true)
+    setError(null)
+
+    try {
+      const updates = buildExecutionOrderSwapUpdates(
+        allTasks,
+        task.id,
+        direction,
+        crews
+      )
+      await applyExecutionOrderUpdates(updates)
+    } catch (moveError) {
+      setError(
+        moveError instanceof Error
+          ? moveError.message
+          : "No se pudo reordenar la OT."
+      )
+    } finally {
+      setIsReordering(false)
+    }
+  }
 
   function updateField<K extends keyof PlanningEditFormState>(
     key: K,
@@ -120,17 +183,23 @@ export function PlanningTaskEditPanel({
     setError(null)
 
     try {
-      const payload = buildPlanningTaskUpdatePayload({
+      const batch = buildPlanningTaskUpdateBatch({
         task,
         form,
         crew: selectedCrew ?? null,
+        allTasks,
+        crews,
       })
 
-      const result = await editTask(task.id, payload)
+      const result = await editTask(batch.primaryTaskId, batch.primaryPayload)
       if (!result.success || !result.task) {
         throw new Error(
           result.message ?? "No se pudo actualizar la orden de trabajo."
         )
+      }
+
+      if (batch.relatedUpdates.length > 0) {
+        await applyExecutionOrderUpdates(batch.relatedUpdates)
       }
 
       onSaved?.(result.task)
@@ -253,6 +322,39 @@ export function PlanningTaskEditPanel({
             </div>
 
             <div className="space-y-2">
+              <Label>Orden de ejecución</Label>
+              <div className="flex items-center gap-2">
+                <p className="min-w-0 flex-1 rounded-md border bg-muted/20 px-3 py-2 text-sm font-medium text-foreground">
+                  {executionOrderLabel}
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  className="size-8 shrink-0"
+                  disabled={!canMoveUp || isReordering || isSaving}
+                  onClick={() => handleMoveExecutionOrder("up")}
+                  aria-label="Subir orden de ejecución"
+                  title="Subir"
+                >
+                  <ChevronUp className="size-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  className="size-8 shrink-0"
+                  disabled={!canMoveDown || isReordering || isSaving}
+                  onClick={() => handleMoveExecutionOrder("down")}
+                  aria-label="Bajar orden de ejecución"
+                  title="Bajar"
+                >
+                  <ChevronDown className="size-4" />
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="planning-edit-duration">Duración estimada</Label>
               <Select
                 value={form.estimatedDurationPreset || undefined}
@@ -306,10 +408,10 @@ export function PlanningTaskEditPanel({
         </div>
 
         <div className="flex flex-col gap-2 border-t px-4 py-3 sm:flex-row sm:justify-end">
-          <Button type="button" variant="outline" onClick={onClose} disabled={isSaving}>
+          <Button type="button" variant="outline" onClick={onClose} disabled={isSaving || isReordering}>
             Cancelar
           </Button>
-          <Button type="submit" disabled={isSaving}>
+          <Button type="submit" disabled={isSaving || isReordering}>
             {isSaving ? "Guardando..." : "Guardar cambios"}
           </Button>
         </div>

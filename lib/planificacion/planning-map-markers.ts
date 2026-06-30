@@ -89,10 +89,10 @@ export function isPlanningPinHighlighted(
 }
 
 export function buildPlanningMarkersViewKey(
-  markers: Array<{ task: Pick<Task, "id"> }>
+  markers: Array<{ task: Pick<Task, "id" | "executionOrder"> }>
 ): string {
   return markers
-    .map((marker) => marker.task.id)
+    .map((marker) => `${marker.task.id}:${marker.task.executionOrder ?? ""}`)
     .sort()
     .join(",")
 }

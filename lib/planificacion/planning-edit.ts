@@ -17,6 +17,12 @@ import type { UpdateTaskPayload } from "@/lib/types/supabase/tasks"
 import type { Task } from "@/lib/types/tasks"
 
 import {
+  dedupeExecutionOrderUpdates,
+  resolveExecutionOrderOnCrewChange,
+  type ExecutionOrderUpdate,
+  type PlanningTaskUpdateBatch,
+} from "@/lib/planificacion/planning-execution-order"
+import {
   parseEstimatedDurationMinutes,
   resolveTaskShift,
 } from "@/lib/planificacion/planning-utils"
@@ -101,17 +107,31 @@ export function validatePlanningEditForm(
   return { valid: true }
 }
 
-export function buildPlanningTaskUpdatePayload(input: {
+export function buildPlanningTaskUpdateBatch(input: {
   task: Task
   form: PlanningEditFormState
   crew: Pick<Crew, "id" | "name" | "supervisor"> | null
-}): UpdateTaskPayload {
-  const { task, form, crew } = input
+  allTasks: Task[]
+  crews: Pick<Crew, "id" | "name">[]
+}): PlanningTaskUpdateBatch {
+  const { task, form, crew, allTasks, crews } = input
   const estimatedDuration = resolvePlanningEditEstimatedDuration(form)
   const shift = form.shift as WorkOrderShift
   const snapshots = resolveCrewSnapshotsForAssignment(crew)
+  const previousCrewId = resolveTaskCrewId(task, crews) ?? null
+  const nextCrewId = form.crewId || null
 
-  return {
+  const executionOrderUpdates: ExecutionOrderUpdate[] =
+    previousCrewId !== nextCrewId
+      ? resolveExecutionOrderOnCrewChange({
+          task,
+          newCrewId: nextCrewId,
+          allTasks,
+          crews,
+        })
+      : []
+
+  const primaryPayload: UpdateTaskPayload = {
     crewId: snapshots.crewId,
     crew: snapshots.crew,
     supervisor: snapshots.supervisor,
@@ -121,6 +141,25 @@ export function buildPlanningTaskUpdatePayload(input: {
       ...(task.taskMetadata ?? {}),
       shift,
     },
+  }
+
+  if (previousCrewId !== nextCrewId) {
+    const taskOrderUpdate = executionOrderUpdates.find(
+      (update) => update.taskId === task.id
+    )
+    if (taskOrderUpdate) {
+      primaryPayload.executionOrder = taskOrderUpdate.executionOrder
+    }
+  }
+
+  const relatedUpdates = dedupeExecutionOrderUpdates(
+    executionOrderUpdates.filter((update) => update.taskId !== task.id)
+  )
+
+  return {
+    primaryTaskId: task.id,
+    primaryPayload,
+    relatedUpdates,
   }
 }
 

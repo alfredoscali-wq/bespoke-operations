@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { PlanningAccessGuard } from "@/components/planificacion/planning-access-guard"
@@ -12,6 +12,10 @@ import { PlanningTaskList } from "@/components/planificacion/planning-task-list"
 import { PlanningToolbar } from "@/components/planificacion/planning-toolbar"
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { isCrewAssignable } from "@/lib/crews/status-workflow"
+import {
+  buildExecutionOrderSwapUpdates,
+  sortTasksForPlanningList,
+} from "@/lib/planificacion/planning-execution-order"
 import {
   resolveInitialPlanningFilters,
   writePlanningFiltersToSession,
@@ -25,12 +29,13 @@ import {
 import { cn } from "@/lib/utils"
 
 function PlanningModuleContent() {
-  const { tasks, isTasksReady } = useTasks()
+  const { tasks, isTasksReady, editTask } = useTasks()
   const { crews } = useCrews()
   const [initialFilters] = useState(resolveInitialPlanningFilters)
   const [date, setDate] = useState(initialFilters.date)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null)
+  const [reorderingTaskId, setReorderingTaskId] = useState<string | null>(null)
 
   useEffect(() => {
     writePlanningFiltersToSession({ date })
@@ -44,6 +49,11 @@ function PlanningModuleContent() {
   const filteredTasks = useMemo(
     () => filterProgrammedTasksForPlanning(tasks, { date }),
     [tasks, date]
+  )
+
+  const sortedTasks = useMemo(
+    () => sortTasksForPlanningList(filteredTasks, crews),
+    [filteredTasks, crews]
   )
 
   const kpis = useMemo(
@@ -87,6 +97,42 @@ function PlanningModuleContent() {
     setEditingTaskId(null)
   }
 
+  const handleMoveExecutionOrder = useCallback(
+    async (taskId: string, direction: "up" | "down") => {
+      const updates = buildExecutionOrderSwapUpdates(
+        filteredTasks,
+        taskId,
+        direction,
+        crews
+      )
+
+      if (updates.length === 0) {
+        return
+      }
+
+      setReorderingTaskId(taskId)
+
+      try {
+        for (const update of updates) {
+          const result = await editTask(update.taskId, {
+            executionOrder: update.executionOrder,
+          })
+
+          if (!result.success) {
+            throw new Error(
+              result.message ?? "No se pudo actualizar el orden de ejecución."
+            )
+          }
+        }
+      } catch (error) {
+        console.error(error)
+      } finally {
+        setReorderingTaskId(null)
+      }
+    },
+    [filteredTasks, crews, editTask]
+  )
+
   if (!isTasksReady) {
     return (
       <div className="rounded-xl border bg-muted/20 px-4 py-16 text-center text-sm text-muted-foreground">
@@ -120,14 +166,17 @@ function PlanningModuleContent() {
         >
           <PlanningTaskList
             tasks={filteredTasks}
+            crews={crews}
             selectedTaskId={selectedTaskId}
+            reorderingTaskId={reorderingTaskId}
             onSelectTask={setSelectedTaskId}
             onEditTask={setEditingTaskId}
+            onMoveExecutionOrder={handleMoveExecutionOrder}
           />
         </div>
 
         <PlanningMap
-          tasks={filteredTasks}
+          tasks={sortedTasks}
           selectedTaskId={selectedTaskId}
           highlightedTaskId={highlightedTaskId}
           crewIdsInOrder={crewIdsInOrder}
@@ -143,6 +192,7 @@ function PlanningModuleContent() {
             <PlanningTaskEditPanel
               key={editingTaskId}
               task={editingTask}
+              allTasks={filteredTasks}
               open={isFocusMode}
               onClose={() => setEditingTaskId(null)}
             />

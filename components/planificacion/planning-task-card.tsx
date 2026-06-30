@@ -1,10 +1,13 @@
 "use client"
 
-import { Pencil } from "lucide-react"
+import { ChevronDown, ChevronUp, Pencil } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { Task } from "@/lib/types/tasks"
+import {
+  formatPlanningExecutionOrderDisplay,
+} from "@/lib/planificacion/planning-execution-order"
 import {
   resolvePlanningTaskClientLabel,
   resolvePlanningTaskCrewLabel,
@@ -16,17 +19,28 @@ import {
 type PlanningTaskCardProps = {
   task: Task
   selected: boolean
+  canMoveUp: boolean
+  canMoveDown: boolean
+  isReordering?: boolean
   onSelect: () => void
   onEdit: () => void
+  onMoveUp: () => void
+  onMoveDown: () => void
 }
 
 export function PlanningTaskCard({
   task,
   selected,
+  canMoveUp,
+  canMoveDown,
+  isReordering = false,
   onSelect,
   onEdit,
+  onMoveUp,
+  onMoveDown,
 }: PlanningTaskCardProps) {
   const shiftLabel = resolvePlanningTaskShiftDisplayLabel(task)
+  const orderLabel = formatPlanningExecutionOrderDisplay(task.executionOrder)
 
   return (
     <article
@@ -42,9 +56,19 @@ export function PlanningTaskCard({
         onClick={onSelect}
         className="w-full px-3 py-3 text-left hover:bg-muted/30"
       >
-        <p className="text-sm font-semibold text-foreground">
-          {resolvePlanningTaskClientLabel(task)}
-        </p>
+        <div className="flex items-start gap-2">
+          {orderLabel ? (
+            <span
+              className="shrink-0 text-sm leading-none text-muted-foreground"
+              aria-label={`Orden ${task.executionOrder}`}
+            >
+              {orderLabel}
+            </span>
+          ) : null}
+          <p className="min-w-0 flex-1 text-sm font-semibold text-foreground">
+            {resolvePlanningTaskClientLabel(task)}
+          </p>
+        </div>
         <dl className="mt-2 space-y-1 text-xs text-muted-foreground">
           <div className="flex justify-between gap-2">
             <dt>Tipo</dt>
@@ -77,12 +101,38 @@ export function PlanningTaskCard({
         </dl>
       </button>
 
-      <div className="border-t px-3 py-2">
+      <div className="flex items-center gap-2 border-t px-3 py-2">
+        <div className="flex shrink-0 gap-1">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            className="size-8"
+            disabled={!canMoveUp || isReordering}
+            onClick={onMoveUp}
+            aria-label="Subir orden de ejecución"
+            title="Subir"
+          >
+            <ChevronUp className="size-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            className="size-8"
+            disabled={!canMoveDown || isReordering}
+            onClick={onMoveDown}
+            aria-label="Bajar orden de ejecución"
+            title="Bajar"
+          >
+            <ChevronDown className="size-4" />
+          </Button>
+        </div>
         <Button
           type="button"
           variant="outline"
           size="sm"
-          className="h-8 w-full gap-2"
+          className="h-8 min-w-0 flex-1 gap-2"
           onClick={onEdit}
         >
           <Pencil className="size-3.5" />

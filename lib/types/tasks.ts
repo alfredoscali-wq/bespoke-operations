@@ -94,6 +94,7 @@ export type Task = {
   installationCost?: number | null
   amountToCollect?: number | null
   taskMetadata?: Record<string, unknown>
+  executionOrder?: number | null
 }
 
 export type TaskEvidence = {

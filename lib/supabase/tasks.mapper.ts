@@ -113,6 +113,7 @@ export function mapTaskRowToTask(row: TaskRow): Task {
     installationCost: mapNullableNumber(row.installation_cost),
     amountToCollect: mapNullableNumber(row.amount_to_collect),
     taskMetadata: parseTaskMetadata(row.task_metadata),
+    executionOrder: row.execution_order ?? undefined,
   }
 }
 
@@ -157,6 +158,7 @@ export function mapCreatePayloadToInsert(payload: CreateTaskPayload): TaskInsert
     installation_cost: payload.installationCost ?? null,
     amount_to_collect: payload.amountToCollect ?? null,
     task_metadata: (payload.taskMetadata ?? {}) as Json,
+    execution_order: payload.executionOrder ?? null,
   }
 }
 
@@ -280,6 +282,9 @@ export function mapUpdatePayloadToUpdate(payload: UpdateTaskPayload): TaskUpdate
   }
   if (payload.taskMetadata !== undefined) {
     update.task_metadata = payload.taskMetadata as Json
+  }
+  if (payload.executionOrder !== undefined) {
+    update.execution_order = payload.executionOrder
   }
 
   return update
