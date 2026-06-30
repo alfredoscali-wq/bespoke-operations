@@ -33,10 +33,61 @@ export function formatPlanningExecutionOrderDisplay(
   return String(normalized)
 }
 
-export function formatPlanningExecutionOrderPanelLabel(
+export function resolveOperarioExecutionOrderHeader(
   order: number | null | undefined
-): string {
-  return formatPlanningExecutionOrderDisplay(order) ?? "Sin asignar"
+): { heading: string; text: string } | null {
+  const badge = formatPlanningExecutionOrderDisplay(order)
+  if (!badge) {
+    return null
+  }
+
+  const normalized = Math.floor(order!)
+  if (normalized === 1) {
+    return {
+      heading: "Orden de trabajo",
+      text: `${badge} Primera visita del día`,
+    }
+  }
+
+  return {
+    heading: "Orden de ejecución",
+    text: badge,
+  }
+}
+
+export type ExecutionOrderPersistPlan = {
+  phases: ExecutionOrderUpdate[][]
+}
+
+/**
+ * Splits updates into two phases so UNIQUE (due_date, crew_id, execution_order)
+ * is never violated during sequential client updates:
+ * 1) clear affected rows (NULL is excluded from the unique index)
+ * 2) assign final execution_order values
+ */
+export function buildExecutionOrderPersistPlan(
+  updates: ExecutionOrderUpdate[],
+  tasks: Task[]
+): ExecutionOrderPersistPlan {
+  const deduped = dedupeExecutionOrderUpdates(updates)
+  const changes = deduped.filter((update) => {
+    const task = tasks.find((item) => item.id === update.taskId)
+    return task?.executionOrder !== update.executionOrder
+  })
+
+  if (changes.length === 0) {
+    return { phases: [] }
+  }
+
+  return {
+    phases: [
+      changes.map((update) => ({
+        taskId: update.taskId,
+        executionOrder: null,
+      })),
+      changes,
+    ],
+  }
 }
 
 function resolveTaskCreatedAtSortKey(task: Pick<Task, "createdAt">): string {
@@ -235,10 +286,16 @@ export function buildExecutionOrderSwapUpdates(
   const [moving] = reordered.splice(currentIndex, 1)
   reordered.splice(targetIndex, 0, moving)
 
-  return reordered.map((item, index) => ({
-    taskId: item.id,
-    executionOrder: index + 1,
-  }))
+  const updates: ExecutionOrderUpdate[] = []
+
+  reordered.forEach((item, index) => {
+    const nextOrder = index + 1
+    if (item.executionOrder !== nextOrder) {
+      updates.push({ taskId: item.id, executionOrder: nextOrder })
+    }
+  })
+
+  return updates
 }
 
 export function resolveExecutionOrderOnCrewChange(input: {

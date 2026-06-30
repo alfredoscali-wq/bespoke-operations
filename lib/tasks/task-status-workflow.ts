@@ -5,6 +5,7 @@ import type { ChecklistItem, OperationalStep, Task, TaskStatus } from "@/lib/typ
 
 export type TaskWorkflowAction =
   | "assign-crew"
+  | "confirm-planning"
   | "start"
   | "submit-for-approval"
   | "report-incident"
@@ -34,6 +35,7 @@ const WORKFLOW_TRANSITIONS: Record<
   { from: TaskStatus[]; to: TaskStatus }
 > = {
   "assign-crew": { from: ["programada"], to: "asignada" },
+  "confirm-planning": { from: ["programada"], to: "asignada" },
   start: { from: ["asignada"], to: "en-curso" },
   "submit-for-approval": { from: ["en-curso"], to: "pendiente-cierre" },
   "report-incident": { from: ["en-curso"], to: "incidencia" },
@@ -211,6 +213,7 @@ export function getWorkflowHistoryEntry(
 
   const actionLabels: Record<TaskWorkflowAction, string> = {
     "assign-crew": "Cuadrilla asignada",
+    "confirm-planning": "Planificación confirmada",
     start: "Trabajo iniciado",
     "submit-for-approval": "Cierre solicitado por operario",
     "report-incident": "Operario reportó incidencia",

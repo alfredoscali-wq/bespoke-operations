@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { ChevronDown, ChevronUp, X } from "lucide-react"
+import { X } from "lucide-react"
 
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { Button } from "@/components/ui/button"
@@ -21,6 +21,10 @@ import {
 } from "@/lib/crews/status-workflow"
 import { resolveTaskCrewId } from "@/lib/tasks/crew-relation"
 import {
+  buildExecutionOrderPersistPlan,
+  type ExecutionOrderUpdate,
+} from "@/lib/planificacion/planning-execution-order"
+import {
   buildPlanningEditFormFromTask,
   buildPlanningTaskUpdateBatch,
   EMPTY_PLANNING_EDIT_FORM,
@@ -29,11 +33,6 @@ import {
   validatePlanningEditForm,
   type PlanningEditFormState,
 } from "@/lib/planificacion/planning-edit"
-import {
-  buildExecutionOrderSwapUpdates,
-  formatPlanningExecutionOrderPanelLabel,
-  resolveExecutionOrderMoveAvailability,
-} from "@/lib/planificacion/planning-execution-order"
 import {
   resolvePlanningTaskClientLabel,
   resolvePlanningTaskServiceLabel,
@@ -70,7 +69,6 @@ export function PlanningTaskEditPanel({
   )
   const [error, setError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
-  const [isReordering, setIsReordering] = useState(false)
 
   const resolvedTaskCrewId = useMemo(
     () => (task ? resolveTaskCrewId(task, crews) : undefined),
@@ -93,58 +91,21 @@ export function PlanningTaskEditPanel({
     [crews, form.crewId, resolvedTaskCrewId]
   )
 
-  const executionOrderLabel = task
-    ? formatPlanningExecutionOrderPanelLabel(task.executionOrder)
-    : "Sin asignar"
+  async function applyExecutionOrderUpdates(updates: ExecutionOrderUpdate[]) {
+    const plan = buildExecutionOrderPersistPlan(updates, allTasks)
 
-  const { canMoveUp, canMoveDown } = useMemo(
-    () =>
-      task
-        ? resolveExecutionOrderMoveAvailability(allTasks, task.id, crews)
-        : { canMoveUp: false, canMoveDown: false },
-    [allTasks, task, crews]
-  )
+    for (const phase of plan.phases) {
+      for (const update of phase) {
+        const result = await editTask(update.taskId, {
+          executionOrder: update.executionOrder,
+        })
 
-  async function applyExecutionOrderUpdates(
-    updates: Array<{ taskId: string; executionOrder: number | null }>
-  ) {
-    for (const update of updates) {
-      const result = await editTask(update.taskId, {
-        executionOrder: update.executionOrder,
-      })
-
-      if (!result.success) {
-        throw new Error(
-          result.message ?? "No se pudo actualizar el orden de ejecución."
-        )
+        if (!result.success) {
+          throw new Error(
+            result.message ?? "No se pudo actualizar el orden de ejecución."
+          )
+        }
       }
-    }
-  }
-
-  async function handleMoveExecutionOrder(direction: "up" | "down") {
-    if (!task) {
-      return
-    }
-
-    setIsReordering(true)
-    setError(null)
-
-    try {
-      const updates = buildExecutionOrderSwapUpdates(
-        allTasks,
-        task.id,
-        direction,
-        crews
-      )
-      await applyExecutionOrderUpdates(updates)
-    } catch (moveError) {
-      setError(
-        moveError instanceof Error
-          ? moveError.message
-          : "No se pudo reordenar la OT."
-      )
-    } finally {
-      setIsReordering(false)
     }
   }
 
@@ -322,39 +283,6 @@ export function PlanningTaskEditPanel({
             </div>
 
             <div className="space-y-2">
-              <Label>Orden de ejecución</Label>
-              <div className="flex items-center gap-2">
-                <p className="min-w-0 flex-1 rounded-md border bg-muted/20 px-3 py-2 text-sm font-medium text-foreground">
-                  {executionOrderLabel}
-                </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon-sm"
-                  className="size-8 shrink-0"
-                  disabled={!canMoveUp || isReordering || isSaving}
-                  onClick={() => handleMoveExecutionOrder("up")}
-                  aria-label="Subir orden de ejecución"
-                  title="Subir"
-                >
-                  <ChevronUp className="size-4" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon-sm"
-                  className="size-8 shrink-0"
-                  disabled={!canMoveDown || isReordering || isSaving}
-                  onClick={() => handleMoveExecutionOrder("down")}
-                  aria-label="Bajar orden de ejecución"
-                  title="Bajar"
-                >
-                  <ChevronDown className="size-4" />
-                </Button>
-              </div>
-            </div>
-
-            <div className="space-y-2">
               <Label htmlFor="planning-edit-duration">Duración estimada</Label>
               <Select
                 value={form.estimatedDurationPreset || undefined}
@@ -408,10 +336,10 @@ export function PlanningTaskEditPanel({
         </div>
 
         <div className="flex flex-col gap-2 border-t px-4 py-3 sm:flex-row sm:justify-end">
-          <Button type="button" variant="outline" onClick={onClose} disabled={isSaving || isReordering}>
+          <Button type="button" variant="outline" onClick={onClose} disabled={isSaving}>
             Cancelar
           </Button>
-          <Button type="submit" disabled={isSaving || isReordering}>
+          <Button type="submit" disabled={isSaving}>
             {isSaving ? "Guardando..." : "Guardar cambios"}
           </Button>
         </div>

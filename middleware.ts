@@ -12,10 +12,15 @@ import {
   LOGIN_PATH,
   sanitizeRedirectPath,
 } from "@/lib/auth/routes"
+import { isMobileApiPath } from "@/lib/mobile/v1/routing"
 import { createMiddlewareSupabaseClient } from "@/lib/supabase/middleware"
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
+
+  if (isMobileApiPath(pathname)) {
+    return NextResponse.next()
+  }
 
   let response = NextResponse.next({ request })
 

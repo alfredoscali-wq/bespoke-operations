@@ -107,6 +107,11 @@ export const AUDIT_ACTION_DEFINITIONS: Record<AuditAction, AuditActionDefinition
       entityType: AUDIT_ENTITY_TYPES.TASK,
       severity: AUDIT_SEVERITIES.CRITICAL,
     },
+    [AUDIT_ACTIONS.PLANNING_CONFIRMED]: {
+      module: AUDIT_MODULES.TAREAS,
+      entityType: AUDIT_ENTITY_TYPES.TASK,
+      severity: AUDIT_SEVERITIES.INFO,
+    },
     [AUDIT_ACTIONS.PROJECT_CREATE]: {
       module: AUDIT_MODULES.OBRAS,
       entityType: AUDIT_ENTITY_TYPES.PROJECT,

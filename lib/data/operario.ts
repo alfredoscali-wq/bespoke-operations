@@ -1,5 +1,5 @@
 import { compareDateOnly, toLocalDateOnly } from "@/lib/dates/date-only"
-import { compareTasksBySchedule } from "@/lib/tasks/scheduling"
+import { sortTasksInExecutionSequence } from "@/lib/planificacion/planning-execution-order"
 import { taskMatchesCrewId } from "@/lib/tasks/crew-relation"
 import type { Task, TaskStatus } from "@/lib/types/tasks"
 
@@ -29,16 +29,10 @@ const OPERARIO_HISTORY_STATUSES: TaskStatus[] = [
   "incidencia",
 ]
 
-const OPERARIO_TODAY_STATUS_ORDER: Partial<Record<TaskStatus, number>> = {
-  vencida: 0,
-  incidencia: 1,
-  "en-curso": 2,
-  "pendiente-cierre": 3,
-  "en-aprobacion": 3,
-  asignada: 4,
+function sortOperarioTodayTasks(tasks: Task[]): Task[] {
+  return sortTasksInExecutionSequence(tasks)
 }
 
-/** Scheduled OT visible on today's jornada (due today or overdue, never future). */
 export function isOperarioScheduledTaskVisibleToday(
   task: Pick<Task, "dueDate">,
   referenceDate: string = toLocalDateOnly()
@@ -73,19 +67,6 @@ export function sortOperarioTasksByDateDesc(tasks: Task[]): Task[] {
   return [...tasks].sort((left, right) =>
     compareDateOnly(right.dueDate, left.dueDate)
   )
-}
-
-function sortOperarioTodayTasks(tasks: Task[]): Task[] {
-  return [...tasks].sort((left, right) => {
-    const leftOrder = OPERARIO_TODAY_STATUS_ORDER[left.status] ?? 99
-    const rightOrder = OPERARIO_TODAY_STATUS_ORDER[right.status] ?? 99
-
-    if (leftOrder !== rightOrder) {
-      return leftOrder - rightOrder
-    }
-
-    return compareTasksBySchedule(left, right)
-  })
 }
 
 export function getWorkerTasks(tasks: Task[], workerCrew: WorkerCrewRef): Task[] {

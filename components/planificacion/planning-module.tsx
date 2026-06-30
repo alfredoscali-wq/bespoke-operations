@@ -12,7 +12,10 @@ import { PlanningTaskList } from "@/components/planificacion/planning-task-list"
 import { PlanningToolbar } from "@/components/planificacion/planning-toolbar"
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { isCrewAssignable } from "@/lib/crews/status-workflow"
+import { recordPlanningConfirmAudit } from "@/lib/planificacion/planning-audit"
+import { evaluatePlanningConfirmReadiness } from "@/lib/planificacion/planning-confirm"
 import {
+  buildExecutionOrderPersistPlan,
   buildExecutionOrderSwapUpdates,
   sortTasksForPlanningList,
 } from "@/lib/planificacion/planning-execution-order"
@@ -29,13 +32,16 @@ import {
 import { cn } from "@/lib/utils"
 
 function PlanningModuleContent() {
-  const { tasks, isTasksReady, editTask } = useTasks()
+  const { tasks, isTasksReady, editTask, confirmPlanningTasks } = useTasks()
   const { crews } = useCrews()
   const [initialFilters] = useState(resolveInitialPlanningFilters)
   const [date, setDate] = useState(initialFilters.date)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null)
   const [reorderingTaskId, setReorderingTaskId] = useState<string | null>(null)
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
+  const [isConfirmingPlanning, setIsConfirmingPlanning] = useState(false)
+  const [confirmError, setConfirmError] = useState<string | null>(null)
 
   useEffect(() => {
     writePlanningFiltersToSession({ date })
@@ -69,6 +75,11 @@ function PlanningModuleContent() {
   const alerts = useMemo(
     () => computePlanningAlerts(filteredTasks, crewSummaries),
     [filteredTasks, crewSummaries]
+  )
+
+  const confirmReadiness = useMemo(
+    () => evaluatePlanningConfirmReadiness(tasks, date),
+    [tasks, date]
   )
 
   const editingTask = useMemo(
@@ -113,15 +124,19 @@ function PlanningModuleContent() {
       setReorderingTaskId(taskId)
 
       try {
-        for (const update of updates) {
-          const result = await editTask(update.taskId, {
-            executionOrder: update.executionOrder,
-          })
+        const plan = buildExecutionOrderPersistPlan(updates, filteredTasks)
 
-          if (!result.success) {
-            throw new Error(
-              result.message ?? "No se pudo actualizar el orden de ejecución."
-            )
+        for (const phase of plan.phases) {
+          for (const update of phase) {
+            const result = await editTask(update.taskId, {
+              executionOrder: update.executionOrder,
+            })
+
+            if (!result.success) {
+              throw new Error(
+                result.message ?? "No se pudo actualizar el orden de ejecución."
+              )
+            }
           }
         }
       } catch (error) {
@@ -132,6 +147,45 @@ function PlanningModuleContent() {
     },
     [filteredTasks, crews, editTask]
   )
+
+  const handleConfirmPlanning = useCallback(async () => {
+    const readiness = evaluatePlanningConfirmReadiness(tasks, date)
+
+    if (!readiness.canConfirm) {
+      setConfirmError(
+        readiness.validationError ??
+          readiness.disabledReason ??
+          "No se puede confirmar la planificación."
+      )
+      return
+    }
+
+    setIsConfirmingPlanning(true)
+    setConfirmError(null)
+
+    try {
+      const result = await confirmPlanningTasks(readiness.taskIds)
+
+      if (!result.success) {
+        setConfirmError(
+          result.message ?? "No se pudo confirmar la planificación."
+        )
+        return
+      }
+
+      setConfirmDialogOpen(false)
+      resetInteractionState()
+      recordPlanningConfirmAudit({
+        date,
+        taskCount: readiness.taskCount,
+      })
+    } catch (error) {
+      console.error(error)
+      setConfirmError("No se pudo confirmar la planificación.")
+    } finally {
+      setIsConfirmingPlanning(false)
+    }
+  }, [tasks, date, confirmPlanningTasks])
 
   if (!isTasksReady) {
     return (
@@ -146,10 +200,22 @@ function PlanningModuleContent() {
       <PlanningToolbar
         date={date}
         kpis={kpis}
+        confirmReadiness={confirmReadiness}
+        isConfirming={isConfirmingPlanning}
+        confirmError={confirmError}
+        confirmDialogOpen={confirmDialogOpen}
+        onConfirmDialogOpenChange={(open) => {
+          setConfirmDialogOpen(open)
+          if (!open) {
+            setConfirmError(null)
+          }
+        }}
         onDateChange={(nextDate) => {
           setDate(nextDate)
           resetInteractionState()
+          setConfirmError(null)
         }}
+        onConfirmPlanning={handleConfirmPlanning}
       />
 
       <PlanningAlertsPanel alerts={alerts} />

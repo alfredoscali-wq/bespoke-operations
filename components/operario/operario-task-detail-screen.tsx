@@ -23,6 +23,7 @@ import {
 } from "@/components/operario/operario-task-field-sections"
 import { isOperarioWorkerTaskAccessible } from "@/lib/data/operario"
 import { OperarioFtthInstallationCard } from "@/components/operario/operario-ftth-installation-card"
+import { resolveOperarioExecutionOrderHeader } from "@/lib/planificacion/planning-execution-order"
 import { hasOperationalSteps } from "@/lib/operational-steps/utils"
 import { taskRequiresFtthInstallation } from "@/lib/tasks/ftth-installation"
 import { getTaskTechnologyLabel } from "@/lib/tasks/commercial-plan"
@@ -123,6 +124,9 @@ export function OperarioTaskDetailScreen({ id }: OperarioTaskDetailScreenProps) 
     isIncidentStatus(activeTask.status) ||
     isPendingClosureStatus(activeTask.status))
   const rejectionReason = activeTask.rejectionReason?.trim()
+  const executionOrderHeader = resolveOperarioExecutionOrderHeader(
+    activeTask.executionOrder
+  )
 
   return (
     <div
@@ -154,6 +158,14 @@ export function OperarioTaskDetailScreen({ id }: OperarioTaskDetailScreenProps) 
         <h1 className="text-xl font-bold uppercase leading-tight tracking-wide text-foreground">
           {serviceTypeTitle}
         </h1>
+        {executionOrderHeader ? (
+          <p className="text-xs text-muted-foreground">
+            <span className="font-medium text-foreground/80">
+              {executionOrderHeader.heading}
+            </span>{" "}
+            {executionOrderHeader.text}
+          </p>
+        ) : null}
         <div className="flex flex-wrap gap-1.5">
           <Badge
             variant="outline"

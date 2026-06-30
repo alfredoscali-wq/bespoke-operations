@@ -51,6 +51,7 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   TASK_CLOSE: "Orden de trabajo cerrada",
   TASK_DELETE: "Orden de trabajo eliminada",
   TASK_DELETE_PERMANENT: "Orden de trabajo eliminada definitivamente",
+  PLANNING_CONFIRMED: "Planificación confirmada",
   PROJECT_CREATE: "Obra creada",
   PROJECT_UPDATE: "Obra editada",
   PROJECT_STATUS_CHANGE: "Cambio de estado de obra",

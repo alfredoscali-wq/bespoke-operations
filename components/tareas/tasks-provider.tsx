@@ -112,6 +112,7 @@ type TasksContextValue = {
       actor?: string
     }
   ) => Promise<TaskMutationResult>
+  confirmPlanningTasks: (ids: string[]) => Promise<TaskMutationResult>
   reportTaskIncident: (
     id: string,
     input: {
@@ -434,6 +435,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       historyActor?: string,
       auditOptions?: {
         rescheduleInput?: TaskRescheduleInput
+        suppressAudit?: boolean
       }
     ): Promise<TaskMutationResult> => {
       if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
@@ -459,13 +461,15 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         const result = await updateTaskInSupabase(id, enrichedPayload, client)
 
         if (result.data) {
-          recordTaskMutationAudit({
-            before: existing,
-            after: result.data,
-            payload: enrichedPayload,
-            workflowAction,
-            rescheduleInput: auditOptions?.rescheduleInput,
-          })
+          if (!auditOptions?.suppressAudit) {
+            recordTaskMutationAudit({
+              before: existing,
+              after: result.data,
+              payload: enrichedPayload,
+              workflowAction,
+              rescheduleInput: auditOptions?.rescheduleInput,
+            })
+          }
 
           if (workflowAction) {
             const detail = detailCache.get(id) ?? getTaskDetail(result.data)
@@ -937,6 +941,45 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     [tasks, updateTaskFields]
   )
 
+  const confirmPlanningTasks = useCallback(
+    async (ids: string[]): Promise<TaskMutationResult> => {
+      if (ids.length === 0) {
+        return {
+          success: false,
+          message: "No hay órdenes de trabajo programadas para confirmar.",
+        }
+      }
+
+      for (const id of ids) {
+        const task = tasks.find((item) => item.id === id)
+        if (!task) {
+          return { success: false, message: "Orden de trabajo no encontrada." }
+        }
+
+        const validation = canPerformTaskAction(task, "confirm-planning")
+        if (!validation.allowed) {
+          return { success: false, message: validation.message }
+        }
+
+        const result = await updateTaskFields(
+          id,
+          { status: "asignada" },
+          "confirm-planning",
+          "Planificación confirmada para la jornada.",
+          undefined,
+          { suppressAudit: true }
+        )
+
+        if (!result.success) {
+          return result
+        }
+      }
+
+      return { success: true }
+    },
+    [tasks, updateTaskFields]
+  )
+
   const deleteTask = useCallback(
     async (id: string): Promise<TaskMutationResult> => {
       if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
@@ -1205,6 +1248,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       rejectTask,
       closeTask,
       cancelTask,
+      confirmPlanningTasks,
       reportTaskIncident,
       resumeTaskFromIncident,
       rescheduleTaskFromIncident,
@@ -1235,6 +1279,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       rejectTask,
       closeTask,
       cancelTask,
+      confirmPlanningTasks,
       reportTaskIncident,
       resumeTaskFromIncident,
       rescheduleTaskFromIncident,
