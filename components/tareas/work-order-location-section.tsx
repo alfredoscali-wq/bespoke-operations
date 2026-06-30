@@ -1,7 +1,6 @@
 "use client"
 
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { SharedLocationInput } from "@/components/tareas/shared-location-input"
 
 type WorkOrderLocationSectionProps = {
   sharedLocation: string
@@ -14,18 +13,13 @@ export function WorkOrderLocationSection({
 }: WorkOrderLocationSectionProps) {
   return (
     <div className="space-y-4 rounded-xl border bg-muted/20 p-4">
-      <div className="space-y-2">
-        <Label htmlFor="wo-client-location-link">
-          📍 Enlace de Google Maps *
-        </Label>
-        <Input
-          id="wo-client-location-link"
-          value={sharedLocation}
-          onChange={(event) => onSharedLocationChange(event.target.value)}
-          placeholder="https://maps.app.goo.gl/..."
-          required
-        />
-      </div>
+      <SharedLocationInput
+        id="wo-client-location-link"
+        label="📍 Enlace de Google Maps"
+        value={sharedLocation}
+        onChange={onSharedLocationChange}
+        required
+      />
     </div>
   )
 }

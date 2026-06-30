@@ -1,39 +1,40 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { PlanningAccessGuard } from "@/components/planificacion/planning-access-guard"
 import { PlanningAlertsPanel } from "@/components/planificacion/planning-alerts-panel"
 import { PlanningCrewPanel } from "@/components/planificacion/planning-crew-panel"
-import {
-  PlanningMap,
-  resolvePlanningShiftLabel,
-} from "@/components/planificacion/planning-map"
-import { PlanningTaskEditSheet } from "@/components/planificacion/planning-task-edit-sheet"
+import { PlanningMap } from "@/components/planificacion/planning-map"
+import { PlanningTaskEditPanel } from "@/components/planificacion/planning-task-edit-panel"
 import { PlanningTaskList } from "@/components/planificacion/planning-task-list"
 import { PlanningToolbar } from "@/components/planificacion/planning-toolbar"
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { isCrewAssignable } from "@/lib/crews/status-workflow"
+import {
+  resolveInitialPlanningFilters,
+  writePlanningFiltersToSession,
+} from "@/lib/planificacion/planning-filters-session"
 import {
   buildPlanningCrewSummaries,
   computePlanningAlerts,
   computePlanningKpis,
   filterProgrammedTasksForPlanning,
 } from "@/lib/planificacion/planning-utils"
-import type { WorkOrderShift } from "@/lib/tasks/work-order"
-
-function todayDateInputValue(): string {
-  return new Date().toISOString().slice(0, 10)
-}
+import { cn } from "@/lib/utils"
 
 function PlanningModuleContent() {
   const { tasks, isTasksReady } = useTasks()
   const { crews } = useCrews()
-  const [date, setDate] = useState(todayDateInputValue)
-  const [shift, setShift] = useState<WorkOrderShift>("manana")
+  const [initialFilters] = useState(resolveInitialPlanningFilters)
+  const [date, setDate] = useState(initialFilters.date)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null)
+
+  useEffect(() => {
+    writePlanningFiltersToSession({ date })
+  }, [date])
 
   const activeCrews = useMemo(
     () => crews.filter(isCrewAssignable),
@@ -41,8 +42,8 @@ function PlanningModuleContent() {
   )
 
   const filteredTasks = useMemo(
-    () => filterProgrammedTasksForPlanning(tasks, { date, shift }),
-    [tasks, date, shift]
+    () => filterProgrammedTasksForPlanning(tasks, { date }),
+    [tasks, date]
   )
 
   const kpis = useMemo(
@@ -51,8 +52,8 @@ function PlanningModuleContent() {
   )
 
   const crewSummaries = useMemo(
-    () => buildPlanningCrewSummaries(filteredTasks, activeCrews, shift),
-    [filteredTasks, activeCrews, shift]
+    () => buildPlanningCrewSummaries(filteredTasks, activeCrews),
+    [filteredTasks, activeCrews]
   )
 
   const alerts = useMemo(
@@ -65,7 +66,26 @@ function PlanningModuleContent() {
     [tasks, editingTaskId]
   )
 
-  const shiftLabel = resolvePlanningShiftLabel(shift)
+  const crewIdsInOrder = useMemo(
+    () => activeCrews.map((crew) => crew.id),
+    [activeCrews]
+  )
+
+  const crewNamesById = useMemo(
+    () =>
+      Object.fromEntries(
+        activeCrews.map((crew) => [crew.id, crew.name] as const)
+      ),
+    [activeCrews]
+  )
+
+  const highlightedTaskId = selectedTaskId ?? editingTaskId
+  const isFocusMode = editingTaskId != null
+
+  function resetInteractionState() {
+    setSelectedTaskId(null)
+    setEditingTaskId(null)
+  }
 
   if (!isTasksReady) {
     return (
@@ -79,47 +99,68 @@ function PlanningModuleContent() {
     <div className="flex min-h-[calc(100vh-12rem)] flex-col gap-4">
       <PlanningToolbar
         date={date}
-        shift={shift}
         kpis={kpis}
         onDateChange={(nextDate) => {
           setDate(nextDate)
-          setSelectedTaskId(null)
-          setEditingTaskId(null)
-        }}
-        onShiftChange={(nextShift) => {
-          setShift(nextShift)
-          setSelectedTaskId(null)
-          setEditingTaskId(null)
+          resetInteractionState()
         }}
       />
 
       <PlanningAlertsPanel alerts={alerts} />
 
       <div className="flex min-h-0 flex-1 flex-col gap-4 xl:flex-row">
-        <PlanningTaskList
-          tasks={filteredTasks}
-          selectedTaskId={selectedTaskId}
-          onSelectTask={setSelectedTaskId}
-          onEditTask={setEditingTaskId}
-        />
+        <div
+          aria-hidden={isFocusMode}
+          className={cn(
+            "min-h-0 shrink-0 overflow-hidden transition-all duration-300 ease-in-out",
+            isFocusMode
+              ? "pointer-events-none max-h-0 opacity-0 xl:max-h-none xl:w-0 xl:opacity-0"
+              : "max-h-[2000px] w-full opacity-100 xl:w-80"
+          )}
+        >
+          <PlanningTaskList
+            tasks={filteredTasks}
+            selectedTaskId={selectedTaskId}
+            onSelectTask={setSelectedTaskId}
+            onEditTask={setEditingTaskId}
+          />
+        </div>
+
         <PlanningMap
           tasks={filteredTasks}
           selectedTaskId={selectedTaskId}
+          highlightedTaskId={highlightedTaskId}
+          crewIdsInOrder={crewIdsInOrder}
+          crewNamesById={crewNamesById}
           onSelectTask={setSelectedTaskId}
-          shiftLabel={shiftLabel}
+          planningDate={date}
+          isEditMode={isFocusMode}
+          className="min-h-[420px] min-w-0 flex-1 transition-all duration-300 ease-in-out"
         />
-        <PlanningCrewPanel summaries={crewSummaries} />
-      </div>
 
-      <PlanningTaskEditSheet
-        task={editingTask}
-        open={editingTaskId != null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setEditingTaskId(null)
-          }
-        }}
-      />
+        {isFocusMode ? (
+          <div className="min-h-[420px] w-full shrink-0 overflow-hidden transition-all duration-300 ease-in-out xl:w-96">
+            <PlanningTaskEditPanel
+              key={editingTaskId}
+              task={editingTask}
+              open={isFocusMode}
+              onClose={() => setEditingTaskId(null)}
+            />
+          </div>
+        ) : null}
+
+        <div
+          aria-hidden={isFocusMode}
+          className={cn(
+            "min-h-0 shrink-0 overflow-hidden transition-all duration-300 ease-in-out",
+            isFocusMode
+              ? "pointer-events-none max-h-0 opacity-0 xl:max-h-none xl:w-0 xl:opacity-0"
+              : "max-h-[2000px] w-full opacity-100 xl:w-72"
+          )}
+        >
+          <PlanningCrewPanel summaries={crewSummaries} />
+        </div>
+      </div>
     </div>
   )
 }

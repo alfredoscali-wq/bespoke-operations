@@ -75,6 +75,7 @@ export function mapTaskRowToTask(row: TaskRow): Task {
     latitude: mapNullableNumber(row.latitude),
     longitude: mapNullableNumber(row.longitude),
     sharedLocation: row.shared_location?.trim() || undefined,
+    locationResolutionMethod: row.location_resolution_method ?? undefined,
     observationsForCrew: row.observations_for_crew?.trim() || undefined,
     workOrderNumber: row.work_order_number ?? undefined,
     type: row.type,
@@ -131,6 +132,7 @@ export function mapCreatePayloadToInsert(payload: CreateTaskPayload): TaskInsert
     service_address: payload.serviceAddress?.trim() || null,
     latitude: payload.latitude ?? null,
     longitude: payload.longitude ?? null,
+    location_resolution_method: payload.locationResolutionMethod ?? null,
     shared_location: payload.sharedLocation?.trim() || "",
     observations_for_crew: payload.observationsForCrew?.trim() || "",
     work_order_number: payload.workOrderNumber?.trim() || null,
@@ -190,6 +192,9 @@ export function mapUpdatePayloadToUpdate(payload: UpdateTaskPayload): TaskUpdate
   }
   if (payload.latitude !== undefined) update.latitude = payload.latitude
   if (payload.longitude !== undefined) update.longitude = payload.longitude
+  if (payload.locationResolutionMethod !== undefined) {
+    update.location_resolution_method = payload.locationResolutionMethod
+  }
   if (payload.sharedLocation !== undefined) {
     update.shared_location = payload.sharedLocation?.trim() || ""
   }

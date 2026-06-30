@@ -29,6 +29,7 @@ export type UpdateTaskPayload = Partial<{
   latitude: number | null
   longitude: number | null
   sharedLocation?: string | null
+  locationResolutionMethod?: string | null
   observationsForCrew?: string | null
   workOrderNumber: string | null
   type: TaskType

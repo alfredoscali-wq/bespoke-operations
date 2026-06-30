@@ -25,6 +25,7 @@ import {
   getDefaultScheduledTime,
   normalizeScheduledTimeForDb,
 } from "@/lib/tasks/scheduling"
+import { validateLocationInput } from "@/lib/location"
 
 export type WorkOrderServiceType =
   | "instalacion-nueva"
@@ -535,14 +536,56 @@ export function resolveWorkOrderSharedLocation(
 export function validateWorkOrderSharedLocation(
   input: Pick<
     WorkOrderFormInput,
-    "serviceType" | "sharedLocation" | "newSharedLocation"
+    "serviceType" | "sharedLocation" | "newSharedLocation" | "currentSharedLocation"
   >
 ): { valid: boolean; message?: string } {
-  if (!resolveWorkOrderSharedLocation(input)) {
+  if (input.serviceType === "cambio-domicilio") {
+    const newLocation = input.newSharedLocation.trim()
+    if (!newLocation) {
+      return {
+        valid: false,
+        message:
+          "La ubicación GPS del nuevo domicilio es obligatoria. Pegue el enlace de Google Maps.",
+      }
+    }
+
+    const newFormat = validateLocationInput(newLocation)
+    if (!newFormat.valid) {
+      return {
+        valid: false,
+        message: "Pegue una ubicación válida de Google Maps para el nuevo domicilio.",
+      }
+    }
+
+    const currentLocation = input.currentSharedLocation.trim()
+    if (currentLocation) {
+      const currentFormat = validateLocationInput(currentLocation)
+      if (!currentFormat.valid) {
+        return {
+          valid: false,
+          message:
+            "Pegue una ubicación válida de Google Maps para el domicilio actual.",
+        }
+      }
+    }
+
+    return { valid: true }
+  }
+
+  const location = resolveWorkOrderSharedLocation(input)
+  if (!location) {
     return {
       valid: false,
       message:
         "La ubicación GPS es obligatoria. Pegue el enlace de Google Maps.",
+    }
+  }
+
+  const formatValidation = validateLocationInput(location)
+  if (!formatValidation.valid) {
+    return {
+      valid: false,
+      message: "Pegue una ubicación válida de Google Maps.",
     }
   }
 

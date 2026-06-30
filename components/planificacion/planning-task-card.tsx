@@ -10,9 +10,8 @@ import {
   resolvePlanningTaskCrewLabel,
   resolvePlanningTaskLocality,
   resolvePlanningTaskServiceLabel,
-  resolveTaskShift,
+  resolvePlanningTaskShiftDisplayLabel,
 } from "@/lib/planificacion/planning-utils"
-import { WORK_ORDER_SHIFT_OPTIONS } from "@/lib/tasks/work-order"
 
 type PlanningTaskCardProps = {
   task: Task
@@ -27,10 +26,7 @@ export function PlanningTaskCard({
   onSelect,
   onEdit,
 }: PlanningTaskCardProps) {
-  const shiftValue = resolveTaskShift(task)
-  const shiftLabel =
-    WORK_ORDER_SHIFT_OPTIONS.find((option) => option.value === shiftValue)
-      ?.label ?? "—"
+  const shiftLabel = resolvePlanningTaskShiftDisplayLabel(task)
 
   return (
     <article

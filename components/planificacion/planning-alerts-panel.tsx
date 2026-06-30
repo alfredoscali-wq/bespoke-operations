@@ -63,7 +63,7 @@ export function PlanningAlertsPanel({
         </h2>
         <p className="text-xs text-muted-foreground">
           {hasAlerts
-            ? "Revise estos puntos antes de preparar la jornada."
+            ? "Revise estos puntos antes de organizar la jornada."
             : "Sin alertas operativas para la selección actual."}
         </p>
       </div>

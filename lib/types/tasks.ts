@@ -56,6 +56,7 @@ export type Task = {
   latitude?: number
   longitude?: number
   sharedLocation?: string
+  locationResolutionMethod?: string
   observationsForCrew?: string
   workOrderNumber?: string
   type: TaskType

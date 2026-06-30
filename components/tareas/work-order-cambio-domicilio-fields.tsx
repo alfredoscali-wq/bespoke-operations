@@ -44,10 +44,6 @@ export function WorkOrderCambioDomicilioFields({
           onSharedLocationChange={(value) =>
             updateField("currentSharedLocation", value)
           }
-          onCoordinatesChange={(latitude, longitude) => {
-            updateField("currentLatitude", latitude)
-            updateField("currentLongitude", longitude)
-          }}
           addressRequired
           localityRequired
           addressId="wo-current-address"
@@ -68,10 +64,6 @@ export function WorkOrderCambioDomicilioFields({
           onSharedLocationChange={(value) =>
             updateField("newSharedLocation", value)
           }
-          onCoordinatesChange={(latitude, longitude) => {
-            updateField("newLatitude", latitude)
-            updateField("newLongitude", longitude)
-          }}
           addressRequired
           localityRequired
           locationLinkRequired

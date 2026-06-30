@@ -26,7 +26,6 @@ export function WorkOrderCambioDomicilioDetail({
           sharedLocation={details.current.sharedLocation}
           latitude={details.current.latitude}
           longitude={details.current.longitude}
-          onCoordinatesChange={() => undefined}
           readOnly
         />
 
@@ -38,7 +37,6 @@ export function WorkOrderCambioDomicilioDetail({
           sharedLocation={details.new.sharedLocation}
           latitude={details.new.latitude}
           longitude={details.new.longitude}
-          onCoordinatesChange={() => undefined}
           readOnly
         />
       </div>

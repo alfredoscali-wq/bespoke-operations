@@ -85,6 +85,33 @@ type OperarioTaskLocationCardProps = {
   task: Task
 }
 
+function OperarioNavigateButton({
+  latitude,
+  longitude,
+}: {
+  latitude: number
+  longitude: number
+}) {
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      className="h-10 w-full gap-2 rounded-lg text-sm font-semibold"
+      onClick={() =>
+        window.open(
+          buildGoogleMapsNavigationUrl(latitude, longitude),
+          "_blank",
+          "noopener,noreferrer"
+        )
+      }
+    >
+      <Navigation className="size-4" />
+      Navegar
+    </Button>
+  )
+}
+
 export function OperarioTaskLocationCard({ task }: OperarioTaskLocationCardProps) {
   if (isCambioDomicilioTask(task)) {
     const details = parseCambioDomicilioFromTask(task)
@@ -120,38 +147,10 @@ export function OperarioTaskLocationCard({ task }: OperarioTaskLocationCardProps
                 </div>
               ) : null}
               {hasCoordinates(location.latitude, location.longitude) ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-10 w-full gap-2 rounded-lg text-sm font-semibold"
-                  onClick={() =>
-                    window.open(
-                      buildGoogleMapsNavigationUrl(
-                        location.latitude as number,
-                        location.longitude as number
-                      ),
-                      "_blank",
-                      "noopener,noreferrer"
-                    )
-                  }
-                >
-                  <Navigation className="size-4" />
-                  Navegar
-                </Button>
-              ) : location.sharedLocation ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-10 w-full gap-2 rounded-lg text-sm font-semibold"
-                  onClick={() =>
-                    window.open(location.sharedLocation, "_blank", "noopener,noreferrer")
-                  }
-                >
-                  <Navigation className="size-4" />
-                  Abrir ubicación
-                </Button>
+                <OperarioNavigateButton
+                  latitude={location.latitude as number}
+                  longitude={location.longitude as number}
+                />
               ) : null}
             </div>
           </div>
@@ -162,15 +161,10 @@ export function OperarioTaskLocationCard({ task }: OperarioTaskLocationCardProps
 
   const address = task.serviceAddress?.trim()
   const locality = task.locality?.trim()
-  const sharedLocation = task.sharedLocation?.trim()
+  const hasGps = hasCoordinates(task.latitude, task.longitude)
 
-  if (!address && !locality && !sharedLocation) {
+  if (!address && !locality && !hasGps) {
     return null
-  }
-
-  function handleOpenLocation() {
-    if (!sharedLocation) return
-    window.open(sharedLocation, "_blank", "noopener,noreferrer")
   }
 
   return (
@@ -195,17 +189,11 @@ export function OperarioTaskLocationCard({ task }: OperarioTaskLocationCardProps
             </p>
           </div>
         ) : null}
-        {sharedLocation ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-10 w-full gap-2 rounded-lg text-sm font-semibold"
-            onClick={handleOpenLocation}
-          >
-            <Navigation className="size-4" />
-            🧭 Abrir ubicación
-          </Button>
+        {hasGps ? (
+          <OperarioNavigateButton
+            latitude={task.latitude as number}
+            longitude={task.longitude as number}
+          />
         ) : null}
       </div>
     </section>

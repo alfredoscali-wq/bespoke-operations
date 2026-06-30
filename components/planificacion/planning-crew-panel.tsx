@@ -6,7 +6,6 @@ import {
   formatPlanningEstimatedHours,
   resolveCrewLoadLabel,
 } from "@/lib/planificacion/planning-utils"
-import { WORK_ORDER_SHIFT_OPTIONS } from "@/lib/tasks/work-order"
 import { cn } from "@/lib/utils"
 
 type PlanningCrewPanelProps = {
@@ -18,11 +17,6 @@ export function PlanningCrewPanel({
   summaries,
   className,
 }: PlanningCrewPanelProps) {
-  const shiftLabel =
-    WORK_ORDER_SHIFT_OPTIONS.find(
-      (option) => option.value === summaries[0]?.shift
-    )?.label ?? "—"
-
   return (
     <section
       className={cn(
@@ -34,7 +28,7 @@ export function PlanningCrewPanel({
         <h2 className="text-sm font-semibold text-foreground">Cuadrillas</h2>
         <p className="text-xs text-muted-foreground">
           {summaries.length} cuadrilla{summaries.length === 1 ? "" : "s"} activa
-          {summaries.length === 1 ? "" : "s"}
+          {summaries.length === 1 ? "" : "s"} · carga diaria
         </p>
       </div>
 
@@ -45,46 +39,34 @@ export function PlanningCrewPanel({
               No hay cuadrillas activas disponibles.
             </p>
           ) : (
-            summaries.map(({ crew, taskCount, estimatedMinutes, shift, loadLevel }) => {
-              const cardShiftLabel =
-                WORK_ORDER_SHIFT_OPTIONS.find((option) => option.value === shift)
-                  ?.label ?? shiftLabel
-
-              return (
-                <article
-                  key={crew.id}
-                  className="rounded-lg border bg-muted/10 px-3 py-3"
-                >
-                  <p className="text-sm font-semibold text-foreground">
-                    {crew.name}
-                  </p>
-                  <dl className="mt-2 space-y-1 text-xs text-muted-foreground">
-                    <div className="flex justify-between gap-2">
-                      <dt>OT</dt>
-                      <dd className="font-medium text-foreground">{taskCount}</dd>
-                    </div>
-                    <div className="flex justify-between gap-2">
-                      <dt>Tiempo estimado</dt>
-                      <dd className="font-medium text-foreground">
-                        {formatPlanningEstimatedHours(estimatedMinutes)}
-                      </dd>
-                    </div>
-                    <div className="flex justify-between gap-2">
-                      <dt>Turno</dt>
-                      <dd className="font-medium text-foreground">
-                        {cardShiftLabel}
-                      </dd>
-                    </div>
-                    <div className="flex justify-between gap-2">
-                      <dt>Carga</dt>
-                      <dd className="text-right font-medium text-foreground">
-                        {resolveCrewLoadLabel(loadLevel)}
-                      </dd>
-                    </div>
-                  </dl>
-                </article>
-              )
-            })
+            summaries.map(({ crew, taskCount, estimatedMinutes, loadLevel }) => (
+              <article
+                key={crew.id}
+                className="rounded-lg border bg-muted/10 px-3 py-3"
+              >
+                <p className="text-sm font-semibold text-foreground">
+                  {crew.name}
+                </p>
+                <dl className="mt-2 space-y-1 text-xs text-muted-foreground">
+                  <div className="flex justify-between gap-2">
+                    <dt>OT</dt>
+                    <dd className="font-medium text-foreground">{taskCount}</dd>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <dt>Tiempo estimado</dt>
+                    <dd className="font-medium text-foreground">
+                      {formatPlanningEstimatedHours(estimatedMinutes)}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <dt>Carga</dt>
+                    <dd className="text-right font-medium text-foreground">
+                      {resolveCrewLoadLabel(loadLevel)}
+                    </dd>
+                  </div>
+                </dl>
+              </article>
+            ))
           )}
         </div>
       </ScrollArea>

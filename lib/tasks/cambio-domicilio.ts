@@ -1,5 +1,3 @@
-import { hasCoordinates } from "@/lib/gps"
-import { parseSharedLocation } from "@/lib/utils/shared-location"
 import type { WorkOrderFormInput } from "@/lib/tasks/work-order"
 import type { Task } from "@/lib/types/tasks"
 
@@ -34,23 +32,12 @@ function resolveLocationFromParts(input: {
   latitude: number | null
   longitude: number | null
 }): CambioDomicilioLocation {
-  let latitude = input.latitude
-  let longitude = input.longitude
-
-  if (!hasCoordinates(latitude, longitude) && input.sharedLocation) {
-    const parsed = parseSharedLocation(input.sharedLocation)
-    if (parsed.isValid && parsed.latitude != null && parsed.longitude != null) {
-      latitude = parsed.latitude
-      longitude = parsed.longitude
-    }
-  }
-
   return {
     address: input.address,
     locality: input.locality,
     sharedLocation: input.sharedLocation,
-    latitude,
-    longitude,
+    latitude: input.latitude,
+    longitude: input.longitude,
   }
 }
 

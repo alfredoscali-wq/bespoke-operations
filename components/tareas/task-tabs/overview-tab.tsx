@@ -64,10 +64,10 @@ import {
   TaskTypeBadge,
 } from "@/components/tareas/task-badges"
 import {
-  getSharedLocationDisplayText,
-  getSharedLocationHref,
-  hasLoadedGps,
-} from "@/lib/utils/shared-location"
+  getLocationDisplayText,
+  getLocationHref,
+  hasResolvedCoordinates,
+} from "@/lib/location"
 
 type TaskOverviewTabProps = {
   task: Task
@@ -141,17 +141,16 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
 
   const sharedLocationText = liveTask.sharedLocation?.trim()
   const crewObservations = liveTask.observationsForCrew?.trim()
-  const gpsLoaded = hasLoadedGps(
+  const gpsLoaded = hasResolvedCoordinates(
+    liveTask.latitude,
+    liveTask.longitude
+  )
+  const sharedLocationDisplay = getLocationDisplayText(
     liveTask.sharedLocation,
     liveTask.latitude,
     liveTask.longitude
   )
-  const sharedLocationDisplay = getSharedLocationDisplayText(
-    liveTask.sharedLocation,
-    liveTask.latitude,
-    liveTask.longitude
-  )
-  const sharedLocationHref = getSharedLocationHref(
+  const sharedLocationHref = getLocationHref(
     liveTask.sharedLocation,
     liveTask.latitude,
     liveTask.longitude

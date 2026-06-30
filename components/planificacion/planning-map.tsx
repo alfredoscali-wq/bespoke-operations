@@ -1,17 +1,25 @@
 "use client"
 
+import { useMemo } from "react"
 import dynamic from "next/dynamic"
 import { Loader2 } from "lucide-react"
 
 import type { Task } from "@/lib/types/tasks"
 import type { PlanningTaskCoordinates } from "@/lib/planificacion/planning-utils"
 import {
+  buildPlanningCrewColorIndex,
+  buildPlanningCrewLegendItems,
+  PLANNING_PIN_COLOR_NO_CREW,
+  PLANNING_PIN_COLOR_SELECTED,
+  PLANNING_PIN_COLOR_VENCIDA,
+} from "@/lib/planificacion/planning-map-markers"
+import {
   resolvePlanningTaskClientLabel,
   resolvePlanningTaskCrewLabel,
   resolvePlanningTaskServiceLabel,
+  resolvePlanningTaskShiftDisplayLabel,
   resolveTaskPlanningCoordinates,
 } from "@/lib/planificacion/planning-utils"
-import { WORK_ORDER_SHIFT_OPTIONS } from "@/lib/tasks/work-order"
 import { cn } from "@/lib/utils"
 
 const PlanningMapCanvas = dynamic(
@@ -32,8 +40,12 @@ const PlanningMapCanvas = dynamic(
 type PlanningMapProps = {
   tasks: Task[]
   selectedTaskId: string | null
+  highlightedTaskId: string | null
+  crewIdsInOrder: string[]
+  crewNamesById: Record<string, string>
   onSelectTask: (taskId: string) => void
-  shiftLabel: string
+  planningDate: string
+  isEditMode?: boolean
   className?: string
 }
 
@@ -53,20 +65,77 @@ export function buildPlanningMapMarkers(tasks: Task[]): PlanningMapMarker[] {
   })
 }
 
+function PlanningMapLegend({
+  crewItems,
+}: {
+  crewItems: Array<{ label: string; color: string }>
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t px-4 py-2 text-[11px] text-muted-foreground">
+      {crewItems.map((item) => (
+        <span key={item.label} className="inline-flex items-center gap-1.5">
+          <span
+            className="inline-block size-2.5 rounded-full"
+            style={{ backgroundColor: item.color }}
+            aria-hidden
+          />
+          {item.label}
+        </span>
+      ))}
+      <span className="inline-flex items-center gap-1.5">
+        <span
+          className="inline-block size-2.5 rounded-full"
+          style={{ backgroundColor: PLANNING_PIN_COLOR_SELECTED }}
+          aria-hidden
+        />
+        OT seleccionada
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <span
+          className="inline-block size-2.5 rounded-full"
+          style={{ backgroundColor: PLANNING_PIN_COLOR_VENCIDA }}
+          aria-hidden
+        />
+        OT vencida
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <span
+          className="inline-block size-2.5 rounded-full"
+          style={{ backgroundColor: PLANNING_PIN_COLOR_NO_CREW }}
+          aria-hidden
+        />
+        Sin cuadrilla
+      </span>
+    </div>
+  )
+}
+
 export function PlanningMap({
   tasks,
   selectedTaskId,
+  highlightedTaskId,
+  crewIdsInOrder,
+  crewNamesById,
   onSelectTask,
-  shiftLabel,
+  planningDate,
+  isEditMode = false,
   className,
 }: PlanningMapProps) {
   const markers = buildPlanningMapMarkers(tasks)
   const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null
+  const crewColorIndex = useMemo(
+    () => buildPlanningCrewColorIndex(crewIdsInOrder),
+    [crewIdsInOrder]
+  )
+  const crewLegendItems = useMemo(
+    () => buildPlanningCrewLegendItems(crewIdsInOrder, crewNamesById),
+    [crewIdsInOrder, crewNamesById]
+  )
 
   return (
     <section
       className={cn(
-        "flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border bg-card shadow-sm",
+        "flex min-h-[420px] flex-1 flex-col overflow-hidden rounded-xl border bg-card shadow-sm",
         className
       )}
     >
@@ -74,7 +143,8 @@ export function PlanningMap({
         <div>
           <h2 className="text-sm font-semibold text-foreground">Mapa operativo</h2>
           <p className="text-xs text-muted-foreground">
-            {markers.length} OT con GPS · Turno {shiftLabel}
+            {markers.length} OT con GPS · Jornada del{" "}
+            {formatPlanningDateLabel(planningDate)}
           </p>
         </div>
       </div>
@@ -83,10 +153,13 @@ export function PlanningMap({
         <PlanningMapCanvas
           markers={markers}
           selectedTaskId={selectedTaskId}
+          highlightedTaskId={highlightedTaskId}
+          crewColorIndex={crewColorIndex}
           onSelectTask={onSelectTask}
+          isEditMode={isEditMode}
         />
 
-        {selectedTask ? (
+        {selectedTask && !isEditMode ? (
           <div className="pointer-events-none absolute bottom-4 left-4 z-[500] max-w-xs rounded-lg border bg-background/95 p-3 shadow-lg backdrop-blur">
             <p className="text-sm font-semibold text-foreground">
               {resolvePlanningTaskClientLabel(selectedTask)}
@@ -107,7 +180,7 @@ export function PlanningMap({
               <div className="flex justify-between gap-3">
                 <dt>Turno</dt>
                 <dd className="text-right font-medium text-foreground">
-                  {shiftLabel}
+                  {resolvePlanningTaskShiftDisplayLabel(selectedTask)}
                 </dd>
               </div>
               <div className="flex justify-between gap-3">
@@ -120,13 +193,22 @@ export function PlanningMap({
           </div>
         ) : null}
       </div>
+
+      <PlanningMapLegend crewItems={crewLegendItems} />
     </section>
   )
 }
 
-export function resolvePlanningShiftLabel(shift: string): string {
-  return (
-    WORK_ORDER_SHIFT_OPTIONS.find((option) => option.value === shift)?.label ??
-    shift
-  )
+export function formatPlanningDateLabel(dateInput: string): string {
+  const [year, month, day] = dateInput.split("-").map(Number)
+  if (!year || !month || !day) {
+    return dateInput
+  }
+
+  const date = new Date(year, month - 1, day)
+  return date.toLocaleDateString("es-AR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  })
 }

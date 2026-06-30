@@ -38,7 +38,7 @@ export function PlanningTaskList({
         <div className="space-y-2 p-3">
           {tasks.length === 0 ? (
             <p className="rounded-lg border border-dashed px-3 py-8 text-center text-sm text-muted-foreground">
-              No hay OT programadas para la fecha y turno seleccionados.
+              No hay OT programadas para la fecha seleccionada.
             </p>
           ) : (
             tasks.map((task) => (

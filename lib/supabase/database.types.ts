@@ -153,6 +153,7 @@ export type Database = {
           contracted_plan: string | null
           latitude: number | null
           longitude: number | null
+          location_resolution_method: string | null
           shared_location: string | null
           nap_box: string | null
           nap_port: string | null
@@ -183,6 +184,7 @@ export type Database = {
           contracted_plan?: string | null
           latitude?: number | null
           longitude?: number | null
+          location_resolution_method?: string | null
           shared_location?: string | null
           nap_box?: string | null
           nap_port?: string | null
@@ -213,6 +215,7 @@ export type Database = {
           contracted_plan?: string | null
           latitude?: number | null
           longitude?: number | null
+          location_resolution_method?: string | null
           shared_location?: string | null
           nap_box?: string | null
           nap_port?: string | null
@@ -610,6 +613,7 @@ export type Database = {
           service_address: string | null
           latitude: number | null
           longitude: number | null
+          location_resolution_method: string | null
           shared_location: string
           observations_for_crew: string
           rejection_reason: string
@@ -667,6 +671,7 @@ export type Database = {
           service_address?: string | null
           latitude?: number | null
           longitude?: number | null
+          location_resolution_method?: string | null
           shared_location?: string
           observations_for_crew?: string
           rejection_reason?: string
@@ -724,6 +729,7 @@ export type Database = {
           service_address?: string | null
           latitude?: number | null
           longitude?: number | null
+          location_resolution_method?: string | null
           shared_location?: string
           observations_for_crew?: string
           rejection_reason?: string

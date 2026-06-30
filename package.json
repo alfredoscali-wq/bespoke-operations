@@ -12,6 +12,7 @@
     "prepare:clientes": "npx tsx scripts/prepare-commercial-migration.ts",
     "import:clientes": "npx tsx scripts/run-commercial-import.ts",
     "seed:demo": "npx tsx scripts/seed-demo-company.ts",
+    "backfill:task-locations": "npx tsx scripts/backfill-task-locations.ts",
     "validate:clientes": "node scripts/validate-customers-import.mjs",
     "generate:pwa-icons": "node scripts/generate-pwa-icons.mjs"
   },

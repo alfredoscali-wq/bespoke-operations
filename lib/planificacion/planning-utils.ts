@@ -6,14 +6,21 @@ import {
   type WorkOrderShift,
 } from "@/lib/tasks/work-order"
 import { hasCoordinates } from "@/lib/gps/coordinates"
-import { parseSharedLocation } from "@/lib/utils/shared-location"
 import type { Crew } from "@/lib/types/crews"
 import type { Task } from "@/lib/types/tasks"
 
 export type PlanningFilters = {
   date: string
-  shift: WorkOrderShift
 }
+
+export type PlanningCrewSummary = {
+  crew: Crew
+  taskCount: number
+  estimatedMinutes: number
+  loadLevel: PlanningCrewLoadLevel
+}
+
+export type PlanningCrewLoadLevel = "ok" | "warning" | "overload"
 
 export type PlanningTaskCoordinates = {
   latitude: number
@@ -27,16 +34,6 @@ export type PlanningKpis = {
   withoutCrewCount: number
   withoutGpsCount: number
 }
-
-export type PlanningCrewSummary = {
-  crew: Crew
-  taskCount: number
-  estimatedMinutes: number
-  shift: WorkOrderShift
-  loadLevel: PlanningCrewLoadLevel
-}
-
-export type PlanningCrewLoadLevel = "ok" | "warning" | "overload"
 
 export type PlanningAlerts = {
   withoutGps: number
@@ -68,7 +65,7 @@ export function resolveTaskShift(
 }
 
 export function resolveTaskPlanningCoordinates(
-  task: Pick<Task, "latitude" | "longitude" | "sharedLocation">
+  task: Pick<Task, "latitude" | "longitude">
 ): PlanningTaskCoordinates | null {
   if (
     hasCoordinates(task.latitude, task.longitude) &&
@@ -76,17 +73,6 @@ export function resolveTaskPlanningCoordinates(
     task.longitude != null
   ) {
     return { latitude: task.latitude, longitude: task.longitude }
-  }
-
-  if (task.sharedLocation?.trim()) {
-    const parsed = parseSharedLocation(task.sharedLocation)
-    if (
-      parsed.isValid &&
-      parsed.latitude != null &&
-      parsed.longitude != null
-    ) {
-      return { latitude: parsed.latitude, longitude: parsed.longitude }
-    }
   }
 
   return null
@@ -198,7 +184,7 @@ export function filterProgrammedTasksForPlanning(
       return false
     }
 
-    return resolveTaskShift(task) === filters.shift
+    return true
   })
 }
 
@@ -224,8 +210,7 @@ export function computePlanningKpis(
 
 export function buildPlanningCrewSummaries(
   tasks: Task[],
-  activeCrews: Crew[],
-  shift: WorkOrderShift
+  activeCrews: Crew[]
 ): PlanningCrewSummary[] {
   return [...activeCrews]
     .sort((left, right) => left.name.localeCompare(right.name, "es"))
@@ -240,10 +225,23 @@ export function buildPlanningCrewSummaries(
         crew,
         taskCount: crewTasks.length,
         estimatedMinutes,
-        shift,
         loadLevel: resolveCrewLoadLevel(estimatedMinutes),
       }
     })
+}
+
+export function resolvePlanningTaskShiftDisplayLabel(
+  task: Pick<Task, "taskMetadata" | "scheduledTime">
+): string {
+  const shift = resolveTaskShift(task)
+  if (shift === "manana") {
+    return "🌞 Mañana"
+  }
+  if (shift === "tarde") {
+    return "🌙 Tarde"
+  }
+
+  return "—"
 }
 
 export function resolvePlanningTaskLocality(task: Task): string {
@@ -295,10 +293,50 @@ export function resolvePlanningMapBounds(
   ]
 }
 
-/** Centro por defecto (Argentina) cuando no hay OT con GPS. */
+/** Centro por defecto (Córdoba Capital) cuando no hay OT con GPS. */
 export const PLANNING_MAP_DEFAULT_CENTER: PlanningTaskCoordinates = {
-  latitude: -34.6037,
-  longitude: -58.3816,
+  latitude: -31.420083,
+  longitude: -64.188776,
 }
 
-export const PLANNING_MAP_DEFAULT_ZOOM = 11
+export const PLANNING_MAP_DEFAULT_ZOOM = 12
+export const PLANNING_MAP_SINGLE_MARKER_ZOOM = 16
+export const PLANNING_MAP_FIT_BOUNDS_PADDING: [number, number] = [60, 60]
+
+export type PlanningMapViewConfig =
+  | {
+      type: "bounds"
+      bounds: [[number, number], [number, number]]
+    }
+  | {
+      type: "point"
+      latitude: number
+      longitude: number
+      zoom: number
+    }
+  | {
+      type: "default"
+    }
+
+export function resolvePlanningMapViewConfig(
+  coordinates: PlanningTaskCoordinates[]
+): PlanningMapViewConfig {
+  if (coordinates.length > 1) {
+    const bounds = resolvePlanningMapBounds(coordinates)
+    if (bounds) {
+      return { type: "bounds", bounds }
+    }
+  }
+
+  if (coordinates.length === 1) {
+    const point = coordinates[0]
+    return {
+      type: "point",
+      latitude: point.latitude,
+      longitude: point.longitude,
+      zoom: PLANNING_MAP_SINGLE_MARKER_ZOOM,
+    }
+  }
+
+  return { type: "default" }
+}

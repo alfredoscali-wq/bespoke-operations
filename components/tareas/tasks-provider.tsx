@@ -17,6 +17,10 @@ import {
   DemoWriteBlockedError,
   DEMO_WRITE_BLOCKED_TASK_RESULT,
 } from "@/lib/demo/demo-write-block"
+import {
+  enrichCreateTaskPayloadWithResolvedLocation,
+  enrichUpdateTaskPayloadWithResolvedLocation,
+} from "@/lib/location/client/enrich-task-payload"
 
 import {
   getTaskDetail,
@@ -402,6 +406,8 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
+      payload = await enrichCreateTaskPayloadWithResolvedLocation(payload)
+
       console.log("BEFORE INSERT", payload)
 
       const result = await createTask(payload, client)
@@ -448,13 +454,15 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
 
       try {
         const client = createBrowserTasksClient()
-        const result = await updateTaskInSupabase(id, payload, client)
+        const enrichedPayload =
+          await enrichUpdateTaskPayloadWithResolvedLocation(payload)
+        const result = await updateTaskInSupabase(id, enrichedPayload, client)
 
         if (result.data) {
           recordTaskMutationAudit({
             before: existing,
             after: result.data,
-            payload,
+            payload: enrichedPayload,
             workflowAction,
             rescheduleInput: auditOptions?.rescheduleInput,
           })

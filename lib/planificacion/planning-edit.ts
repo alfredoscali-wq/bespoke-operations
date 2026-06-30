@@ -1,4 +1,7 @@
-import { resolveCrewSnapshotsForAssignment } from "@/lib/tasks/crew-relation"
+import {
+  resolveCrewSnapshotsForAssignment,
+  resolveTaskCrewId,
+} from "@/lib/tasks/crew-relation"
 import {
   normalizeScheduledTimeForDb,
 } from "@/lib/tasks/scheduling"
@@ -25,11 +28,21 @@ export type PlanningEditFormState = {
   estimatedDurationCustomMinutes: string
 }
 
-export function buildPlanningEditFormFromTask(task: Task): PlanningEditFormState {
+export const EMPTY_PLANNING_EDIT_FORM: PlanningEditFormState = {
+  crewId: "",
+  shift: "",
+  estimatedDurationPreset: "",
+  estimatedDurationCustomMinutes: "",
+}
+
+export function buildPlanningEditFormFromTask(
+  task: Task,
+  crews: Pick<Crew, "id" | "name">[] = []
+): PlanningEditFormState {
   const { preset, customMinutes } = resolveDurationPresetFromTask(task)
 
   return {
-    crewId: task.crewId ?? "",
+    crewId: resolveTaskCrewId(task, crews) ?? "",
     shift: resolveTaskShift(task) ?? "",
     estimatedDurationPreset: preset,
     estimatedDurationCustomMinutes: customMinutes,
