@@ -11,6 +11,7 @@ import {
   crewsNavItem,
   customersNavItem,
   dashboardNavItem,
+  dispositivosNavItem,
   employeesNavItem,
   historyNavItem,
   availabilityNavItem,
@@ -50,7 +51,7 @@ const PROFILE_NAV_BUILDERS: Record<
     {
       id: "system",
       label: "Sistema",
-      items: [historyNavItem, settingsNavItem, usersNavItem],
+      items: [historyNavItem, settingsNavItem, usersNavItem, dispositivosNavItem],
     },
   ],
   supervisor: () => [

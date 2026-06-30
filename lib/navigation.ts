@@ -9,6 +9,7 @@ export {
   customersNavItem,
   customersNavItems,
   dashboardNavItem,
+  dispositivosNavItem,
   employeesNavItem,
   evidenceNavItem,
   fieldOperationsNavItems,

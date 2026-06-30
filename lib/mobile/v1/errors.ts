@@ -6,6 +6,11 @@ export type MobileApiErrorCode =
   | "EMPLOYEE_NOT_FOUND"
   | "INTERNAL_ERROR"
   | "NOT_IMPLEMENTED"
+  | "DEVICE_NOT_FOUND"
+  | "DEVICE_BLOCKED"
+  | "WORK_TEAM_NOT_ASSIGNED"
+  | "SHIFT_ALREADY_ACTIVE"
+  | "SHIFT_NOT_ACTIVE"
 
 export class MobileApiError extends Error {
   readonly code: MobileApiErrorCode

@@ -24,6 +24,8 @@ export const AUDIT_ENTITY_TYPE_LABELS: Record<AuditEntityType, string> = {
   crew: "Cuadrilla",
   user: "Usuario",
   session: "Sesión",
+  mobile_device: "Dispositivo móvil",
+  work_team_shift: "Jornada operativa",
 }
 
 export const AUDIT_SEVERITY_LABELS: Record<AuditSeverity, string> = {
@@ -75,6 +77,11 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   USER_REACTIVATE: "Usuario reactivado",
   USER_PASSWORD_RESET: "Reset de contraseña",
   USER_ROLE_CHANGE: "Cambio de rol",
+  MOBILE_DEVICE_REGISTERED: "Dispositivo registrado",
+  MOBILE_DEVICE_ACTIVATED: "Dispositivo activado",
+  MOBILE_DEVICE_BLOCKED: "Dispositivo bloqueado",
+  SHIFT_STARTED: "Jornada iniciada",
+  SHIFT_FINISHED: "Jornada finalizada",
 }
 
 export function formatAuditModuleLabel(module: AuditModule | string): string {

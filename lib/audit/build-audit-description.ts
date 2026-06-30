@@ -127,6 +127,22 @@ export function buildAuditDescription(input: BuildAuditDescriptionInput): string
       return label ? `Reset de contraseña: ${label}.` : "Reset de contraseña."
     case AUDIT_ACTIONS.USER_ROLE_CHANGE:
       return label ? `Cambio de rol: ${label}.` : "Cambio de rol."
+    case AUDIT_ACTIONS.MOBILE_DEVICE_REGISTERED:
+      return label
+        ? `Dispositivo registrado: ${label}.`
+        : "Dispositivo registrado."
+    case AUDIT_ACTIONS.MOBILE_DEVICE_ACTIVATED:
+      return label
+        ? `Dispositivo activado: ${label}.`
+        : "Dispositivo activado."
+    case AUDIT_ACTIONS.MOBILE_DEVICE_BLOCKED:
+      return label
+        ? `Dispositivo bloqueado: ${label}.`
+        : "Dispositivo bloqueado."
+    case AUDIT_ACTIONS.SHIFT_STARTED:
+      return label ? `Jornada iniciada: ${label}.` : "Jornada iniciada."
+    case AUDIT_ACTIONS.SHIFT_FINISHED:
+      return label ? `Jornada finalizada: ${label}.` : "Jornada finalizada."
     default:
       return fallback || "Evento registrado en Historial del Sistema."
   }

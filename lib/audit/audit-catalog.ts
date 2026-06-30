@@ -227,6 +227,31 @@ export const AUDIT_ACTION_DEFINITIONS: Record<AuditAction, AuditActionDefinition
       entityType: AUDIT_ENTITY_TYPES.USER,
       severity: AUDIT_SEVERITIES.CRITICAL,
     },
+    [AUDIT_ACTIONS.MOBILE_DEVICE_REGISTERED]: {
+      module: AUDIT_MODULES.SISTEMA,
+      entityType: AUDIT_ENTITY_TYPES.MOBILE_DEVICE,
+      severity: AUDIT_SEVERITIES.INFO,
+    },
+    [AUDIT_ACTIONS.MOBILE_DEVICE_ACTIVATED]: {
+      module: AUDIT_MODULES.SISTEMA,
+      entityType: AUDIT_ENTITY_TYPES.MOBILE_DEVICE,
+      severity: AUDIT_SEVERITIES.INFO,
+    },
+    [AUDIT_ACTIONS.MOBILE_DEVICE_BLOCKED]: {
+      module: AUDIT_MODULES.SISTEMA,
+      entityType: AUDIT_ENTITY_TYPES.MOBILE_DEVICE,
+      severity: AUDIT_SEVERITIES.WARNING,
+    },
+    [AUDIT_ACTIONS.SHIFT_STARTED]: {
+      module: AUDIT_MODULES.SISTEMA,
+      entityType: AUDIT_ENTITY_TYPES.WORK_TEAM_SHIFT,
+      severity: AUDIT_SEVERITIES.INFO,
+    },
+    [AUDIT_ACTIONS.SHIFT_FINISHED]: {
+      module: AUDIT_MODULES.SISTEMA,
+      entityType: AUDIT_ENTITY_TYPES.WORK_TEAM_SHIFT,
+      severity: AUDIT_SEVERITIES.INFO,
+    },
   }
 
 export function isAuditAction(value: string): value is AuditAction {

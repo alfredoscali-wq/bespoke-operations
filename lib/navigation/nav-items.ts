@@ -11,6 +11,7 @@ import {
   MapPinned,
   Package,
   Settings,
+  Smartphone,
   UserCog,
   Users,
   UsersRound,
@@ -143,6 +144,14 @@ export const usersNavItem: NavItem = {
   description: "Accesos, roles y cuentas de la plataforma.",
 }
 
+export const dispositivosNavItem: NavItem = {
+  title: "Dispositivos",
+  href: "/dispositivos",
+  icon: Smartphone,
+  pageTitle: "Dispositivos del Sistema",
+  description: "Registro y autorización de dispositivos móviles de campo.",
+}
+
 export const availabilityNavItem: NavItem = {
   title: "Disponibilidad",
   href: "/operations/availability",
@@ -178,4 +187,4 @@ export const rrhhNavItems: NavItem[] = [employeesNavItem, newsNavItem]
 
 export const analysisNavItems: NavItem[] = [reportsNavItem]
 
-export const systemNavItems: NavItem[] = [historyNavItem, settingsNavItem]
+export const systemNavItems: NavItem[] = [historyNavItem, settingsNavItem, dispositivosNavItem]
