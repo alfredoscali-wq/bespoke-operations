@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { OperarioTaskCard } from "@/components/operario/operario-task-card"
@@ -10,47 +10,55 @@ import {
 } from "@/components/operario/operario-crew-status-message"
 import { useOperario } from "@/components/operario/operario-provider"
 import {
+  filterOperarioTodayTasksByJornadaFilter,
   getOperarioTodayTasks,
   summarizeOperarioTodayTasks,
+  type OperarioJornadaFilter,
 } from "@/lib/data/operario"
+import { cn } from "@/lib/utils"
 
-function OperarioJornadaKpis({
-  programadas,
-  vencidas,
-  enCurso,
-  pendientesCierre,
-  incidencias,
+type JornadaFilterChip = {
+  id: OperarioJornadaFilter
+  label: string
+  value: number
+}
+
+function OperarioJornadaFilters({
+  chips,
+  activeFilter,
+  onFilterChange,
 }: {
-  programadas: number
-  vencidas: number
-  enCurso: number
-  pendientesCierre: number
-  incidencias: number
+  chips: JornadaFilterChip[]
+  activeFilter: OperarioJornadaFilter
+  onFilterChange: (filter: OperarioJornadaFilter) => void
 }) {
-  const items = [
-    { label: "Programadas", value: programadas },
-    { label: "Vencidas", value: vencidas },
-    { label: "En curso", value: enCurso },
-    { label: "Pend. de cierre", value: pendientesCierre },
-    { label: "Incidencias", value: incidencias },
-  ]
-
   return (
-    <dl className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-      {items.map((item) => (
-        <div
-          key={item.label}
-          className="rounded-xl border bg-card px-2 py-2.5 text-center shadow-sm"
-        >
-          <dt className="text-[10px] leading-tight text-muted-foreground">
-            {item.label}
-          </dt>
-          <dd className="mt-1 text-lg font-semibold tabular-nums text-foreground">
-            {item.value}
-          </dd>
-        </div>
-      ))}
-    </dl>
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+      {chips.map((chip) => {
+        const isActive = activeFilter === chip.id
+
+        return (
+          <button
+            key={chip.id}
+            type="button"
+            onClick={() => onFilterChange(chip.id)}
+            className={cn(
+              "rounded-xl border px-2 py-2.5 text-center shadow-sm transition-colors",
+              isActive
+                ? "border-primary bg-primary/10 ring-2 ring-primary/25"
+                : "border-border bg-card hover:bg-muted/40"
+            )}
+          >
+            <span className="block text-[10px] leading-tight text-muted-foreground">
+              {chip.label}
+            </span>
+            <span className="mt-1 block text-lg font-semibold tabular-nums text-foreground">
+              {chip.value}
+            </span>
+          </button>
+        )
+      })}
+    </div>
   )
 }
 
@@ -64,6 +72,7 @@ export function OperarioHomeScreen() {
     assignedCrewNames,
     isCrewReady,
   } = useOperario()
+  const [activeFilter, setActiveFilter] = useState<OperarioJornadaFilter>("todas")
   const hasCrew =
     crewStatus === "resolved" || crewStatus === "multiple"
 
@@ -75,6 +84,24 @@ export function OperarioHomeScreen() {
   const summary = useMemo(
     () => summarizeOperarioTodayTasks(todayTasks),
     [todayTasks]
+  )
+  const filteredTasks = useMemo(
+    () => filterOperarioTodayTasksByJornadaFilter(todayTasks, activeFilter),
+    [todayTasks, activeFilter]
+  )
+  const filterChips = useMemo<JornadaFilterChip[]>(
+    () => [
+      { id: "todas", label: "Todas", value: summary.total },
+      { id: "programadas", label: "Programadas", value: summary.programadas },
+      { id: "en-curso", label: "En curso", value: summary.enCurso },
+      {
+        id: "pendientes-cierre",
+        label: "Pend. de cierre",
+        value: summary.pendientesCierre,
+      },
+      { id: "incidencias", label: "Incidencias", value: summary.incidencias },
+    ],
+    [summary]
   )
 
   return (
@@ -103,22 +130,20 @@ export function OperarioHomeScreen() {
             <h2 className="text-base font-semibold text-foreground">
               Mi jornada
             </h2>
-            <OperarioJornadaKpis
-              programadas={summary.programadas}
-              vencidas={summary.vencidas}
-              enCurso={summary.enCurso}
-              pendientesCierre={summary.pendientesCierre}
-              incidencias={summary.incidencias}
+            <OperarioJornadaFilters
+              chips={filterChips}
+              activeFilter={activeFilter}
+              onFilterChange={setActiveFilter}
             />
           </section>
 
           <section className="space-y-3">
             <div className="space-y-1">
               <h2 className="text-base font-semibold text-foreground">
-                Órdenes de trabajo de hoy
+                Mi jornada de hoy
               </h2>
               <p className="text-xs text-muted-foreground">
-                Solo se muestran las órdenes de trabajo de la jornada actual.
+                Recorrido del día ordenado por prioridad de ejecución.
               </p>
             </div>
 
@@ -128,10 +153,16 @@ export function OperarioHomeScreen() {
                   No tenés órdenes de trabajo programadas para hoy.
                 </p>
               </div>
+            ) : filteredTasks.length === 0 ? (
+              <div className="rounded-2xl border border-dashed bg-card/60 px-4 py-12 text-center">
+                <p className="text-sm font-medium text-foreground">
+                  No hay órdenes de trabajo en esta categoría.
+                </p>
+              </div>
             ) : (
               <div className="space-y-3">
-                {todayTasks.map((task) => (
-                  <OperarioTaskCard key={task.id} task={task} />
+                {filteredTasks.map((task) => (
+                  <OperarioTaskCard key={task.id} task={task} variant="jornada" />
                 ))}
               </div>
             )}

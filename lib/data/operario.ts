@@ -186,6 +186,36 @@ export type OperarioTodaySummary = {
   incidencias: number
 }
 
+export type OperarioJornadaFilter =
+  | "todas"
+  | "programadas"
+  | "en-curso"
+  | "pendientes-cierre"
+  | "incidencias"
+
+export function filterOperarioTodayTasksByJornadaFilter(
+  tasks: Task[],
+  filter: OperarioJornadaFilter
+): Task[] {
+  switch (filter) {
+    case "programadas":
+      return tasks.filter((task) =>
+        OPERARIO_TODAY_SCHEDULED_STATUSES.includes(task.status)
+      )
+    case "en-curso":
+      return tasks.filter((task) => task.status === "en-curso")
+    case "pendientes-cierre":
+      return tasks.filter(
+        (task) =>
+          task.status === "pendiente-cierre" || task.status === "en-aprobacion"
+      )
+    case "incidencias":
+      return tasks.filter((task) => task.status === "incidencia")
+    default:
+      return tasks
+  }
+}
+
 export function summarizeOperarioTodayTasks(
   todayTasks: Task[]
 ): OperarioTodaySummary {
