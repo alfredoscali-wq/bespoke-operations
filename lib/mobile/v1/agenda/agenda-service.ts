@@ -4,6 +4,7 @@ import { toLocalDateOnly } from "@/lib/dates/date-only"
 import type { MobileAuthContext } from "@/lib/mobile/v1/auth/mobile-auth-context"
 import { MobileApiError } from "@/lib/mobile/v1/errors"
 import { fetchTodayAgendaTasks } from "@/lib/mobile/v1/agenda/agenda-queries"
+import { sortAgendaTasks } from "@/lib/mobile/v1/agenda/sort-agenda-tasks"
 import type {
   MobileAgendaTaskItem,
   MobileAgendaTodayResponse,
@@ -11,14 +12,8 @@ import type {
 import { resolveMobileWorkTeam } from "@/lib/mobile/v1/shifts/resolve-work-team"
 import { resolveTaskOperationalTitle } from "@/lib/tasks/work-order"
 import { createAdminClient } from "@/lib/supabase/admin"
-import type { Task, TaskPriority } from "@/lib/types/tasks"
+import type { Task } from "@/lib/types/tasks"
 import { fetchActiveWorkTeamShift } from "@/lib/work-team-shifts/work-team-shifts.queries"
-
-const PRIORITY_ORDER: Record<TaskPriority, number> = {
-  alta: 0,
-  media: 1,
-  baja: 2,
-}
 
 function summarizeObservations(value: string | undefined): string | null {
   const trimmed = value?.trim()
@@ -56,34 +51,6 @@ function mapTaskToAgendaItem(task: Task): MobileAgendaTaskItem {
     longitude: task.longitude ?? null,
     executionOrder: task.executionOrder ?? null,
   }
-}
-
-function compareScheduledTime(
-  left: string | null | undefined,
-  right: string | null | undefined
-): number {
-  const normalizedLeft = left?.trim() || "99:99"
-  const normalizedRight = right?.trim() || "99:99"
-  return normalizedLeft.localeCompare(normalizedRight)
-}
-
-function sortAgendaTasks(tasks: Task[]): Task[] {
-  return [...tasks].sort((left, right) => {
-    const byTime = compareScheduledTime(left.scheduledTime, right.scheduledTime)
-    if (byTime !== 0) {
-      return byTime
-    }
-
-    const byPriority =
-      PRIORITY_ORDER[left.priority] - PRIORITY_ORDER[right.priority]
-    if (byPriority !== 0) {
-      return byPriority
-    }
-
-    const leftCreated = left.createdAt ?? ""
-    const rightCreated = right.createdAt ?? ""
-    return leftCreated.localeCompare(rightCreated)
-  })
 }
 
 export async function getMobileAgendaToday(

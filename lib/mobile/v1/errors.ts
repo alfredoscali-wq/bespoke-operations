@@ -11,6 +11,7 @@ export type MobileApiErrorCode =
   | "WORK_TEAM_NOT_ASSIGNED"
   | "SHIFT_ALREADY_ACTIVE"
   | "SHIFT_NOT_ACTIVE"
+  | "TASK_NOT_FOUND"
 
 export class MobileApiError extends Error {
   readonly code: MobileApiErrorCode
