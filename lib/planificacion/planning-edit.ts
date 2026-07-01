@@ -96,12 +96,12 @@ export function resolvePlanningEditEstimatedDuration(
 export function validatePlanningEditForm(
   form: PlanningEditFormState
 ): { valid: boolean; message?: string } {
-  if (!form.shift) {
-    return { valid: false, message: "Seleccione el turno." }
+  if (!form.crewId) {
+    return { valid: false, message: "Seleccione la cuadrilla." }
   }
 
-  if (!resolvePlanningEditEstimatedDuration(form)) {
-    return { valid: false, message: "La duración estimada es obligatoria." }
+  if (!form.shift) {
+    return { valid: false, message: "Seleccione el turno." }
   }
 
   return { valid: true }
@@ -115,7 +115,6 @@ export function buildPlanningTaskUpdateBatch(input: {
   crews: Pick<Crew, "id" | "name">[]
 }): PlanningTaskUpdateBatch {
   const { task, form, crew, allTasks, crews } = input
-  const estimatedDuration = resolvePlanningEditEstimatedDuration(form)
   const shift = form.shift as WorkOrderShift
   const snapshots = resolveCrewSnapshotsForAssignment(crew)
   const previousCrewId = resolveTaskCrewId(task, crews) ?? null
@@ -136,7 +135,6 @@ export function buildPlanningTaskUpdateBatch(input: {
     crew: snapshots.crew,
     supervisor: snapshots.supervisor,
     scheduledTime: normalizeScheduledTimeForDb(resolveScheduledTimeFromShift(shift)),
-    estimatedDuration,
     taskMetadata: {
       ...(task.taskMetadata ?? {}),
       shift,

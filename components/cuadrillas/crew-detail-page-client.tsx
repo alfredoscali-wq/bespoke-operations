@@ -5,6 +5,7 @@ import { notFound } from "next/navigation"
 
 import { CrewDetailView } from "@/components/cuadrillas/crew-detail-view"
 import { useCrews } from "@/components/cuadrillas/crews-provider"
+import { useCrewEvidenceRecords } from "@/components/cuadrillas/use-crew-evidence-records"
 import { useOperationalData } from "@/components/cuadrillas/use-operational-data"
 import { getCrewDetail } from "@/lib/crews/utils"
 
@@ -14,7 +15,8 @@ type CrewDetailPageClientProps = {
 
 export function CrewDetailPageClient({ id }: CrewDetailPageClientProps) {
   const { getCrew } = useCrews()
-  const { tasks, projects, evidence } = useOperationalData()
+  const { tasks, projects } = useOperationalData()
+  const { evidence } = useCrewEvidenceRecords()
   const crew = getCrew(id)
 
   const detail = useMemo(

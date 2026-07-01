@@ -162,7 +162,7 @@ export const availabilityNavItem: NavItem = {
 
 export const newsNavItem: NavItem = {
   title: "Novedades",
-  href: "/operations/availability",
+  href: "/novedades",
   icon: CalendarClock,
   pageTitle: "Novedades del Personal",
   description:

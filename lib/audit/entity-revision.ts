@@ -6,6 +6,7 @@ import {
   type AuditEntityType,
   type AuditModule,
 } from "@/lib/audit/types"
+import { isValidAuditEntityId } from "@/lib/audit/entity-id"
 import type { SupabaseAdminClient } from "@/lib/supabase/admin"
 
 export function parseAuditRevision(value: unknown): number {
@@ -72,7 +73,7 @@ export function shouldAssignEntityAuditRevision(input: {
       input.module === AUDIT_MODULES.USUARIOS) &&
     REVISION_TRACKED_ENTITIES.has(input.entityType as AuditEntityType) &&
     typeof input.entityId === "string" &&
-    input.entityId.trim().length > 0
+    isValidAuditEntityId(input.entityId)
   )
 }
 

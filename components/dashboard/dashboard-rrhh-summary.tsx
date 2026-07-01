@@ -68,7 +68,7 @@ export function DashboardRrhhSummary() {
       label: "Disponibilidad",
       value: String(availabilitySummary.available),
       hint: "Personal disponible hoy",
-      href: "/operations/availability",
+      href: "/novedades",
       icon: CalendarDays,
       tone: "green" as const,
     },
@@ -81,7 +81,7 @@ export function DashboardRrhhSummary() {
           availabilitySummary.training
       ),
       hint: "Vacaciones, licencias y capacitaciones",
-      href: "/operations/availability",
+      href: "/novedades",
       icon: Palmtree,
       tone: "yellow" as const,
     },

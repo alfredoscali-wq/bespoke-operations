@@ -18,25 +18,16 @@ export function recordPlanningConfirmAudit(input: {
   date: string
   taskCount: number
 }): void {
-  void (async () => {
-    try {
-      await recordAuditEventClient({
-        module: AUDIT_MODULES.TAREAS,
-        action: AUDIT_ACTIONS.PLANNING_CONFIRMED,
-        entityType: AUDIT_ENTITY_TYPES.TASK,
-        entityId: input.date,
-        entityLabel: input.date,
-        description: buildPlanningConfirmAuditDescription(input),
-        metadata: {
-          planningDate: input.date,
-          taskCount: input.taskCount,
-        },
-      })
-    } catch (error) {
-      console.warn(
-        "[Planning] No se pudo registrar la confirmación en el historial.",
-        error
-      )
-    }
-  })()
+  void recordAuditEventClient({
+    module: AUDIT_MODULES.TAREAS,
+    action: AUDIT_ACTIONS.PLANNING_CONFIRMED,
+    entityType: AUDIT_ENTITY_TYPES.TASK,
+    entityId: null,
+    entityLabel: input.date,
+    description: buildPlanningConfirmAuditDescription(input),
+    metadata: {
+      planningDate: input.date,
+      taskCount: input.taskCount,
+    },
+  })
 }

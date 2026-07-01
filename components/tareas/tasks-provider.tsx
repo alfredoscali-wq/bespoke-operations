@@ -113,6 +113,7 @@ type TasksContextValue = {
     }
   ) => Promise<TaskMutationResult>
   confirmPlanningTasks: (ids: string[]) => Promise<TaskMutationResult>
+  reopenPlanningTasks: (ids: string[]) => Promise<TaskMutationResult>
   reportTaskIncident: (
     id: string,
     input: {
@@ -980,6 +981,45 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     [tasks, updateTaskFields]
   )
 
+  const reopenPlanningTasks = useCallback(
+    async (ids: string[]): Promise<TaskMutationResult> => {
+      if (ids.length === 0) {
+        return {
+          success: false,
+          message: "No hay órdenes de trabajo para reabrir la planificación.",
+        }
+      }
+
+      for (const id of ids) {
+        const task = tasks.find((item) => item.id === id)
+        if (!task) {
+          return { success: false, message: "Orden de trabajo no encontrada." }
+        }
+
+        const validation = canPerformTaskAction(task, "reopen-planning")
+        if (!validation.allowed) {
+          return { success: false, message: validation.message }
+        }
+
+        const result = await updateTaskFields(
+          id,
+          { status: "programada" },
+          "reopen-planning",
+          "Planificación reabierta para edición.",
+          undefined,
+          { suppressAudit: true }
+        )
+
+        if (!result.success) {
+          return result
+        }
+      }
+
+      return { success: true }
+    },
+    [tasks, updateTaskFields]
+  )
+
   const deleteTask = useCallback(
     async (id: string): Promise<TaskMutationResult> => {
       if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
@@ -1249,6 +1289,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       closeTask,
       cancelTask,
       confirmPlanningTasks,
+      reopenPlanningTasks,
       reportTaskIncident,
       resumeTaskFromIncident,
       rescheduleTaskFromIncident,
@@ -1280,6 +1321,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       closeTask,
       cancelTask,
       confirmPlanningTasks,
+      reopenPlanningTasks,
       reportTaskIncident,
       resumeTaskFromIncident,
       rescheduleTaskFromIncident,

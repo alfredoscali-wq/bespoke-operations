@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { ArrowLeft, FileText, MoreHorizontal, Pencil, Trash2, User, Users } from "lucide-react"
 
-import { useAvailability } from "@/components/disponibilidad/availability-provider"
+import { useCrewAvailabilityRecords } from "@/components/cuadrillas/use-crew-availability-records"
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { useEmployees } from "@/components/rrhh/employees-provider"
 import { CrewFormDialog } from "@/components/cuadrillas/crew-form-dialog"
@@ -79,7 +79,7 @@ export function CrewDetailView({ crew, detail }: CrewDetailViewProps) {
   const { tasks, projects } = useOperationalData()
   const { editCrew, removeCrew } = useCrews()
   const { getEmployee } = useEmployees()
-  const { records: availabilityRecords } = useAvailability()
+  const { records: availabilityRecords } = useCrewAvailabilityRecords()
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)

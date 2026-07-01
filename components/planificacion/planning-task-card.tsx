@@ -1,6 +1,6 @@
 "use client"
 
-import { ChevronDown, ChevronUp, Pencil } from "lucide-react"
+import { ChevronDown, ChevronUp, Route } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -15,33 +15,36 @@ import {
   resolvePlanningTaskServiceLabel,
   resolvePlanningTaskShiftDisplayLabel,
 } from "@/lib/planificacion/planning-utils"
+import { TASK_STATUS_LABELS } from "@/lib/tasks/constants"
 
 type PlanningTaskCardProps = {
   task: Task
+  readOnly?: boolean
   selected: boolean
   canMoveUp: boolean
   canMoveDown: boolean
   isReordering?: boolean
   onSelect: () => void
-  onEdit: () => void
-  onMoveUp: () => void
-  onMoveDown: () => void
+  onOrganize?: () => void
+  onMoveUp?: () => void
+  onMoveDown?: () => void
 }
 
 export function PlanningTaskCard({
   task,
+  readOnly = false,
   selected,
   canMoveUp,
   canMoveDown,
   isReordering = false,
   onSelect,
-  onEdit,
+  onOrganize,
   onMoveUp,
   onMoveDown,
 }: PlanningTaskCardProps) {
   const shiftLabel = resolvePlanningTaskShiftDisplayLabel(task)
   const orderLabel = formatPlanningExecutionOrderDisplay(task.executionOrder)
-  const hasCrewControls = canMoveUp || canMoveDown
+  const hasCrewControls = !readOnly && (canMoveUp || canMoveDown)
 
   return (
     <article
@@ -63,7 +66,7 @@ export function PlanningTaskCard({
               disabled={!canMoveUp || isReordering}
               onClick={(event) => {
                 event.stopPropagation()
-                onMoveUp()
+                onMoveUp?.()
               }}
               aria-label="Subir en la lista"
               title="Subir"
@@ -88,7 +91,7 @@ export function PlanningTaskCard({
               disabled={!canMoveDown || isReordering}
               onClick={(event) => {
                 event.stopPropagation()
-                onMoveDown()
+                onMoveDown?.()
               }}
               aria-label="Bajar en la lista"
               title="Bajar"
@@ -129,7 +132,7 @@ export function PlanningTaskCard({
               </dd>
             </div>
             <div className="flex justify-between gap-2">
-              <dt>Cuadrilla sugerida</dt>
+              <dt>Cuadrilla</dt>
               <dd className="text-right font-medium text-foreground">
                 {resolvePlanningTaskCrewLabel(task)}
               </dd>
@@ -138,28 +141,39 @@ export function PlanningTaskCard({
               <dt>Turno</dt>
               <dd className="text-right font-medium text-foreground">{shiftLabel}</dd>
             </div>
-            <div className="flex justify-between gap-2">
-              <dt>Duración</dt>
-              <dd className="text-right font-medium text-foreground">
-                {task.estimatedDuration || "—"}
-              </dd>
-            </div>
+            {readOnly ? (
+              <div className="flex justify-between gap-2">
+                <dt>Estado</dt>
+                <dd className="text-right font-medium text-foreground">
+                  {TASK_STATUS_LABELS[task.status]}
+                </dd>
+              </div>
+            ) : (
+              <div className="flex justify-between gap-2">
+                <dt>Duración</dt>
+                <dd className="text-right font-medium text-foreground">
+                  {task.estimatedDuration || "—"}
+                </dd>
+              </div>
+            )}
           </dl>
         </button>
       </div>
 
-      <div className="border-t px-3 py-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-8 w-full gap-2"
-          onClick={onEdit}
-        >
-          <Pencil className="size-3.5" />
-          Editar
-        </Button>
-      </div>
+      {!readOnly && onOrganize ? (
+        <div className="border-t px-3 py-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 w-full gap-2"
+            onClick={onOrganize}
+          >
+            <Route className="size-3.5" />
+            Organizar despacho
+          </Button>
+        </div>
+      ) : null}
     </article>
   )
 }

@@ -8,35 +8,44 @@ import {
   resolveExecutionOrderMoveAvailability,
   sortTasksForPlanningList,
 } from "@/lib/planificacion/planning-execution-order"
+import type { PlanningDispatchMode } from "@/lib/planificacion/planning-dispatch"
 import type { Crew } from "@/lib/types/crews"
 import type { Task } from "@/lib/types/tasks"
 import { cn } from "@/lib/utils"
 
 type PlanningTaskListProps = {
+  mode: PlanningDispatchMode
   tasks: Task[]
   crews: Pick<Crew, "id" | "name">[]
   selectedTaskId: string | null
   reorderingTaskId?: string | null
   onSelectTask: (taskId: string) => void
-  onEditTask: (taskId: string) => void
-  onMoveExecutionOrder: (taskId: string, direction: "up" | "down") => void
+  onOrganizeTask?: (taskId: string) => void
+  onMoveExecutionOrder?: (taskId: string, direction: "up" | "down") => void
   className?: string
 }
 
 export function PlanningTaskList({
+  mode,
   tasks,
   crews,
   selectedTaskId,
   reorderingTaskId = null,
   onSelectTask,
-  onEditTask,
+  onOrganizeTask,
   onMoveExecutionOrder,
   className,
 }: PlanningTaskListProps) {
+  const readOnly = mode === "confirmed"
   const sortedTasks = useMemo(
     () => sortTasksForPlanningList(tasks, crews),
     [tasks, crews]
   )
+
+  const title = readOnly ? "OT del despacho" : "OT programadas"
+  const emptyMessage = readOnly
+    ? "No hay OT en despacho para la fecha seleccionada."
+    : "No hay OT programadas para la fecha seleccionada."
 
   return (
     <section
@@ -46,7 +55,7 @@ export function PlanningTaskList({
       )}
     >
       <div className="border-b px-4 py-3">
-        <h2 className="text-sm font-semibold text-foreground">OT Programadas</h2>
+        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
         <p className="text-xs text-muted-foreground">
           {tasks.length} orden{tasks.length === 1 ? "" : "es"} para la jornada
         </p>
@@ -56,28 +65,37 @@ export function PlanningTaskList({
         <div className="space-y-2 p-3">
           {sortedTasks.length === 0 ? (
             <p className="rounded-lg border border-dashed px-3 py-8 text-center text-sm text-muted-foreground">
-              No hay OT programadas para la fecha seleccionada.
+              {emptyMessage}
             </p>
           ) : (
             sortedTasks.map((task) => {
-              const { canMoveUp, canMoveDown } = resolveExecutionOrderMoveAvailability(
-                tasks,
-                task.id,
-                crews
-              )
+              const { canMoveUp, canMoveDown } = readOnly
+                ? { canMoveUp: false, canMoveDown: false }
+                : resolveExecutionOrderMoveAvailability(tasks, task.id, crews)
 
               return (
                 <PlanningTaskCard
                   key={task.id}
                   task={task}
+                  readOnly={readOnly}
                   selected={task.id === selectedTaskId}
                   canMoveUp={canMoveUp}
                   canMoveDown={canMoveDown}
                   isReordering={reorderingTaskId === task.id}
                   onSelect={() => onSelectTask(task.id)}
-                  onEdit={() => onEditTask(task.id)}
-                  onMoveUp={() => onMoveExecutionOrder(task.id, "up")}
-                  onMoveDown={() => onMoveExecutionOrder(task.id, "down")}
+                  onOrganize={
+                    onOrganizeTask ? () => onOrganizeTask(task.id) : undefined
+                  }
+                  onMoveUp={
+                    onMoveExecutionOrder
+                      ? () => onMoveExecutionOrder(task.id, "up")
+                      : undefined
+                  }
+                  onMoveDown={
+                    onMoveExecutionOrder
+                      ? () => onMoveExecutionOrder(task.id, "down")
+                      : undefined
+                  }
                 />
               )
             })

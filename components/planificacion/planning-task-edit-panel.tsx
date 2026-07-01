@@ -1,11 +1,11 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { X } from "lucide-react"
+import { ExternalLink, X } from "lucide-react"
+import Link from "next/link"
 
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -28,7 +28,6 @@ import {
   buildPlanningEditFormFromTask,
   buildPlanningTaskUpdateBatch,
   EMPTY_PLANNING_EDIT_FORM,
-  resolvePlanningEditEstimatedDuration,
   resolvePlanningTaskAddress,
   validatePlanningEditForm,
   type PlanningEditFormState,
@@ -38,7 +37,6 @@ import {
   resolvePlanningTaskServiceLabel,
 } from "@/lib/planificacion/planning-utils"
 import {
-  WORK_ORDER_DURATION_PRESET_OPTIONS,
   WORK_ORDER_SHIFT_OPTIONS,
   type WorkOrderShift,
 } from "@/lib/tasks/work-order"
@@ -189,9 +187,9 @@ export function PlanningTaskEditPanel({
     >
       <div className="flex items-start justify-between gap-3 border-b px-4 py-3">
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold text-foreground">Edición rápida</h2>
+          <h2 className="text-sm font-semibold text-foreground">Organizar despacho</h2>
           <p className="text-xs text-muted-foreground">
-            Ajuste cuadrilla, turno y duración sin salir de la planificación.
+            Asigne cuadrilla y jornada. Los datos de la OT se editan en Órdenes de Trabajo.
           </p>
         </div>
         <Button
@@ -200,7 +198,7 @@ export function PlanningTaskEditPanel({
           size="icon-sm"
           className="shrink-0"
           onClick={onClose}
-          aria-label="Cerrar edición"
+          aria-label="Cerrar organización"
         >
           <X className="size-4" />
         </Button>
@@ -213,7 +211,7 @@ export function PlanningTaskEditPanel({
         <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-4 py-4">
           <section className="space-y-3 rounded-lg border bg-muted/15 p-4">
             <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-              Información de la OT
+              Datos de la OT (solo lectura)
             </h3>
             <dl className="space-y-2 text-sm">
               <div>
@@ -234,12 +232,24 @@ export function PlanningTaskEditPanel({
                   {resolvePlanningTaskServiceLabel(task)}
                 </dd>
               </div>
+              <div>
+                <dt className="text-muted-foreground">Duración estimada</dt>
+                <dd className="font-medium text-foreground">
+                  {task.estimatedDuration || "—"}
+                </dd>
+              </div>
             </dl>
+            <Button type="button" variant="link" className="h-auto px-0 text-xs" asChild>
+              <Link href={`/tareas/${task.id}`}>
+                <ExternalLink className="size-3.5" />
+                Editar o reprogramar OT
+              </Link>
+            </Button>
           </section>
 
           <section className="space-y-4">
             <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-              Ajustes operativos
+              Despacho operativo
             </h3>
 
             <div className="space-y-2">
@@ -281,51 +291,6 @@ export function PlanningTaskEditPanel({
                 </SelectContent>
               </Select>
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="planning-edit-duration">Duración estimada</Label>
-              <Select
-                value={form.estimatedDurationPreset || undefined}
-                onValueChange={(value) =>
-                  updateField(
-                    "estimatedDurationPreset",
-                    value as PlanningEditFormState["estimatedDurationPreset"]
-                  )
-                }
-              >
-                <SelectTrigger id="planning-edit-duration">
-                  <SelectValue placeholder="Seleccionar duración" />
-                </SelectTrigger>
-                <SelectContent>
-                  {WORK_ORDER_DURATION_PRESET_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {form.estimatedDurationPreset === "other" ? (
-                <Input
-                  type="number"
-                  min={1}
-                  step={1}
-                  inputMode="numeric"
-                  value={form.estimatedDurationCustomMinutes}
-                  onChange={(event) =>
-                    updateField(
-                      "estimatedDurationCustomMinutes",
-                      event.target.value
-                    )
-                  }
-                  placeholder="Minutos"
-                />
-              ) : null}
-              {form.estimatedDurationPreset ? (
-                <p className="text-xs text-muted-foreground">
-                  Total: {resolvePlanningEditEstimatedDuration(form) || "—"}
-                </p>
-              ) : null}
-            </div>
           </section>
 
           {error ? (
@@ -340,7 +305,7 @@ export function PlanningTaskEditPanel({
             Cancelar
           </Button>
           <Button type="submit" disabled={isSaving}>
-            {isSaving ? "Guardando..." : "Guardar cambios"}
+            {isSaving ? "Guardando..." : "Guardar despacho"}
           </Button>
         </div>
       </form>

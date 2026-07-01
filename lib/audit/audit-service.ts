@@ -5,6 +5,7 @@ import {
   resolveAuditActionDefinition,
   resolveAuditSeverity,
 } from "@/lib/audit/audit-catalog"
+import { normalizeAuditEntityId } from "@/lib/audit/entity-id"
 import {
   resolveNextEntityAuditRevision,
   shouldAssignEntityAuditRevision,
@@ -118,17 +119,24 @@ export async function writeAuditLog(
   const performedBy = resolvePerformedByFields(input)
   const severity = input.severity ?? resolveAuditSeverity(input.action)
 
+  const normalizedEntityId = normalizeAuditEntityId(input.entityId)
+
   let metadata: Record<string, unknown> = {
     ...(input.metadata ?? {}),
   }
 
-  if (shouldAssignEntityAuditRevision(input)) {
+  if (
+    shouldAssignEntityAuditRevision({
+      ...input,
+      entityId: normalizedEntityId,
+    })
+  ) {
     metadata = {
       ...metadata,
       revision: await resolveNextEntityAuditRevision(client, {
         module: input.module,
         entityType: input.entityType,
-        entityId: input.entityId,
+        entityId: normalizedEntityId!,
       }),
     }
   }
@@ -140,7 +148,7 @@ export async function writeAuditLog(
       module: input.module,
       action: input.action,
       entity_type: input.entityType,
-      entity_id: input.entityId ?? null,
+      entity_id: normalizedEntityId,
       entity_label: input.entityLabel ?? null,
       description: input.description.trim(),
       severity,

@@ -12,8 +12,8 @@ import {
   Users,
 } from "lucide-react"
 
-import { useAvailability } from "@/components/disponibilidad/availability-provider"
 import { useCrews } from "@/components/cuadrillas/crews-provider"
+import { useCrewAvailabilityRecords } from "@/components/cuadrillas/use-crew-availability-records"
 import { useEmployees } from "@/components/rrhh/employees-provider"
 import { CrewFormDialog } from "@/components/cuadrillas/crew-form-dialog"
 import {
@@ -74,7 +74,7 @@ export function CrewsTable({ crews }: CrewsTableProps) {
   const router = useRouter()
   const { editCrew, removeCrew } = useCrews()
   const { getEmployee } = useEmployees()
-  const { records: availabilityRecords } = useAvailability()
+  const { records: availabilityRecords } = useCrewAvailabilityRecords()
   const availabilityContext = useMemo(
     () => ({
       availabilityRecords,

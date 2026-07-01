@@ -3,60 +3,55 @@
 import {
   AlertTriangle,
   CalendarClock,
-  Clock3,
-  MapPinOff,
+  ClipboardList,
   UsersRound,
+  Zap,
 } from "lucide-react"
 
 import { KpiCard } from "@/components/ui/kpi-card"
-import type { PlanningKpis } from "@/lib/planificacion/planning-utils"
+import type { PlanningDispatchKpis } from "@/lib/planificacion/planning-dispatch"
 
 type PlanningSummaryCardsProps = {
-  kpis: PlanningKpis
+  kpis: PlanningDispatchKpis
 }
 
 export function PlanningSummaryCards({ kpis }: PlanningSummaryCardsProps) {
-  const estimatedHoursLabel =
-    kpis.estimatedHours < 10
-      ? kpis.estimatedHours.toFixed(1).replace(".", ",")
-      : String(Math.round(kpis.estimatedHours))
-
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
       <KpiCard
         compact
-        label="OT Programadas"
-        value={kpis.programmedCount}
+        label="OT planificadas"
+        value={kpis.plannedCount}
         icon={CalendarClock}
         tone="blue"
       />
       <KpiCard
         compact
-        label="Cuadrillas activas"
-        value={kpis.activeCrewsCount}
+        label="Cuadrillas involucradas"
+        value={kpis.crewsInvolvedCount}
         icon={UsersRound}
         tone="green"
       />
       <KpiCard
         compact
-        label="Horas estimadas"
-        value={`${estimatedHoursLabel} h`}
-        icon={Clock3}
+        label="OT sin asignar"
+        value={kpis.unassignedCount}
+        icon={AlertTriangle}
+        tone={kpis.unassignedCount > 0 ? "red" : "gray"}
+      />
+      <KpiCard
+        compact
+        label="OT pendientes"
+        value={kpis.pendingCount}
+        icon={ClipboardList}
         tone="yellow"
       />
       <KpiCard
         compact
-        label="OT sin cuadrilla"
-        value={kpis.withoutCrewCount}
-        icon={AlertTriangle}
-        tone={kpis.withoutCrewCount > 0 ? "red" : "gray"}
-      />
-      <KpiCard
-        compact
-        label="OT sin GPS"
-        value={kpis.withoutGpsCount}
-        icon={MapPinOff}
-        tone={kpis.withoutGpsCount > 0 ? "red" : "gray"}
+        label="Incidencias"
+        value={kpis.incidentsCount}
+        icon={Zap}
+        tone={kpis.incidentsCount > 0 ? "red" : "gray"}
       />
     </div>
   )

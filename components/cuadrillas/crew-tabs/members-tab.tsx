@@ -7,7 +7,7 @@ import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { MemberFormDialog } from "@/components/cuadrillas/member-form-dialog"
 import { MemberOperationalStatus } from "@/components/cuadrillas/member-operational-status"
 import { useEmployees } from "@/components/rrhh/employees-provider"
-import { useAvailability } from "@/components/disponibilidad/availability-provider"
+import { useCrewAvailabilityRecords } from "@/components/cuadrillas/use-crew-availability-records"
 import { resolveCrewMemberDisplay } from "@/lib/crews/utils"
 import type { Crew, CrewMember, NewCrewMemberInput } from "@/lib/types/crews"
 import { Button } from "@/components/ui/button"
@@ -48,7 +48,7 @@ type CrewMembersTabProps = {
 export function CrewMembersTab({ crew }: CrewMembersTabProps) {
   const { addMember, editMember, removeMember } = useCrews()
   const { getEmployee } = useEmployees()
-  const { records: availabilityRecords } = useAvailability()
+  const { records: availabilityRecords } = useCrewAvailabilityRecords()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogMode, setDialogMode] = useState<"create" | "edit">("create")
   const [selectedMember, setSelectedMember] = useState<CrewMember | undefined>()
