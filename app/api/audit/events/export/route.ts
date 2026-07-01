@@ -110,7 +110,7 @@ export async function GET(request: Request) {
     const { jsPDF } = await import("jspdf")
     const doc = new jsPDF({ orientation: "landscape" })
     doc.setFontSize(12)
-    doc.text("Historial del Sistema", 14, 16)
+    doc.text("Log del Sistema", 14, 16)
     doc.setFontSize(8)
 
     let y = 24

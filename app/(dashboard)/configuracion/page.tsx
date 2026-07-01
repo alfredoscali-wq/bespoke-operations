@@ -1,5 +1,5 @@
-import { SystemToolsPanel } from "@/components/configuracion/system-tools-panel"
+import { ConfigurationHubPanel } from "@/components/configuracion/configuration-hub-panel"
 
 export default function ConfiguracionPage() {
-  return <SystemToolsPanel />
+  return <ConfigurationHubPanel />
 }

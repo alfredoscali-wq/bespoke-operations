@@ -160,7 +160,7 @@ export function HistorialModule() {
         <CardHeader>
           <CardTitle>Acceso restringido</CardTitle>
           <CardDescription>
-            El Historial del Sistema está disponible solo para administradores.
+            El Log del Sistema está disponible solo para administradores.
           </CardDescription>
         </CardHeader>
       </Card>
@@ -196,11 +196,10 @@ export function HistorialModule() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
-            Historial del Sistema
+            Log del Sistema
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Supervisión, auditoría y trazabilidad operativa desde una única
-            pantalla.
+            Auditoría, trazabilidad y registro de eventos de la plataforma.
           </p>
         </div>
         <DropdownMenu>
@@ -319,7 +318,7 @@ export function HistorialModule() {
                 {isLoading ? (
                   <TableRow>
                     <TableCell colSpan={7} className="py-10 text-center text-sm">
-                      Cargando historial...
+                      Cargando log del sistema...
                     </TableCell>
                   </TableRow>
                 ) : entries.length === 0 ? (

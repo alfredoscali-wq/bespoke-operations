@@ -6,8 +6,8 @@ export default function UsuariosPage() {
   return (
     <PlaceholderPanel
       icon={UserCog}
-      title="Usuarios del Sistema"
-      description="Gestión de accesos y cuentas. Este módulo se habilitará con el sistema de permisos."
+      title="Usuarios"
+      description="Administra el acceso al sistema: cuentas, credenciales y permisos de ingreso. La información de empleados se gestiona en RRHH."
     />
   )
 }

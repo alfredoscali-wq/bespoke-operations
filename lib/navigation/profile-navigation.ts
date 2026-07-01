@@ -13,9 +13,11 @@ import {
   dashboardNavItem,
   dispositivosNavItem,
   employeesNavItem,
-  fieldOperationsNavItems,
+  evidenceNavItem,
   historyNavItem,
   availabilityNavItem,
+  maintenanceNavItem,
+  materialsNavItem,
   newsNavItem,
   planificacionNavItem,
   projectsNavItem,
@@ -24,6 +26,7 @@ import {
   rrhhNavItems,
   settingsNavItem,
   usersNavItem,
+  workOrderTypesNavItem,
   workOrdersNavItem,
 } from "@/lib/navigation/nav-items"
 
@@ -32,29 +35,37 @@ const PROFILE_NAV_BUILDERS: Record<
   () => NavGroup[]
 > = {
   administrador: () => [
-    { id: "dashboard", items: [dashboardNavItem] },
     {
       id: "operations",
       label: "Operaciones",
       items: [
+        dashboardNavItem,
         calendarNavItem,
         projectsNavItem,
         workOrdersNavItem,
         planificacionNavItem,
         customersNavItem,
+        crewsNavItem,
+        materialsNavItem,
+        evidenceNavItem,
       ],
-    },
-    {
-      id: "field",
-      label: "Operaciones de campo",
-      items: fieldOperationsNavItems,
     },
     { id: "analysis", label: "Análisis", items: [reportsNavItem] },
     { id: "rrhh", label: "RRHH", items: rrhhNavItems },
     {
       id: "system",
       label: "Sistema",
-      items: [historyNavItem, settingsNavItem, usersNavItem, dispositivosNavItem],
+      items: [
+        settingsNavItem,
+        historyNavItem,
+        usersNavItem,
+        dispositivosNavItem,
+      ],
+    },
+    {
+      id: "administration",
+      label: "Administración",
+      items: [maintenanceNavItem],
     },
   ],
   supervisor: () => [
@@ -70,6 +81,11 @@ const PROFILE_NAV_BUILDERS: Record<
       ],
     },
     { id: "analysis", label: "Análisis", items: [reportsNavItem] },
+    {
+      id: "system",
+      label: "Sistema",
+      items: [settingsNavItem],
+    },
   ],
   administracion_operativa: () => [
     {
@@ -139,7 +155,13 @@ export function buildNavGroupsForProfile(
 }
 
 export function getAllNavItemsForProfile(profile: OperationalProfile): NavItem[] {
-  return buildNavGroupsForProfile(profile).flatMap((group) => group.items)
+  const items = buildNavGroupsForProfile(profile).flatMap((group) => group.items)
+
+  if (profile === "administrador" || profile === "supervisor") {
+    return [...items, workOrderTypesNavItem]
+  }
+
+  return items
 }
 
 export function getDashboardPageMeta(profile: OperationalProfile): {
@@ -229,6 +251,8 @@ export const PROFILE_NAV_ITEM_KEYS = {
   settingsNavItem,
   usersNavItem,
   dispositivosNavItem,
+  maintenanceNavItem,
   availabilityNavItem,
   newsNavItem,
+  workOrderTypesNavItem,
 }

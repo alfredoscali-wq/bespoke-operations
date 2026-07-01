@@ -15,6 +15,7 @@ import {
   UserCog,
   Users,
   UsersRound,
+  Wrench,
 } from "lucide-react"
 
 import type { NavItem } from "@/lib/navigation/nav-types"
@@ -121,35 +122,55 @@ export const reportsNavItem: NavItem = {
 }
 
 export const historyNavItem: NavItem = {
-  title: "Historial",
+  title: "Log del Sistema",
   href: "/historial",
   icon: History,
-  pageTitle: "Historial del Sistema",
-  description: "Bitácora y trazabilidad de operaciones del sistema.",
+  pageTitle: "Log del Sistema",
+  description: "Auditoría, trazabilidad y registro de eventos de la plataforma.",
 }
 
 export const settingsNavItem: NavItem = {
-  title: "Configuración del Sistema",
+  title: "Configuración",
   href: "/configuracion",
   icon: Settings,
-  pageTitle: "Configuración del Sistema",
-  description: "Preferencias generales y parámetros de la plataforma.",
+  pageTitle: "Configuración",
+  description: "Parámetros de la empresa para adaptar Bespoke Operations.",
+}
+
+export const workOrderTypesNavItem: NavItem = {
+  title: "Tipos de OT",
+  href: "/configuracion/tipos-ot",
+  icon: ListChecks,
+  pageTitle: "Tipos de Orden de Trabajo",
+  description:
+    "Configure el checklist operativo asociado a cada tipo de orden de trabajo.",
 }
 
 export const usersNavItem: NavItem = {
   title: "Usuarios",
   href: "/usuarios",
   icon: UserCog,
-  pageTitle: "Usuarios del Sistema",
-  description: "Accesos, roles y cuentas de la plataforma.",
+  pageTitle: "Usuarios",
+  description:
+    "Acceso al sistema: cuentas, credenciales y permisos de ingreso a la plataforma.",
 }
 
 export const dispositivosNavItem: NavItem = {
   title: "Dispositivos",
   href: "/dispositivos",
   icon: Smartphone,
-  pageTitle: "Dispositivos del Sistema",
-  description: "Registro y autorización de dispositivos móviles de campo.",
+  pageTitle: "Dispositivos",
+  description:
+    "Dispositivos corporativos autorizados para Bespoke Field Agent.",
+}
+
+export const maintenanceNavItem: NavItem = {
+  title: "Mantenimiento",
+  href: "/mantenimiento",
+  icon: Wrench,
+  pageTitle: "Mantenimiento",
+  description:
+    "Herramientas técnicas y administrativas para uso excepcional.",
 }
 
 export const availabilityNavItem: NavItem = {
@@ -187,4 +208,11 @@ export const rrhhNavItems: NavItem[] = [employeesNavItem, newsNavItem]
 
 export const analysisNavItems: NavItem[] = [reportsNavItem]
 
-export const systemNavItems: NavItem[] = [historyNavItem, settingsNavItem, dispositivosNavItem]
+export const systemNavItems: NavItem[] = [
+  settingsNavItem,
+  historyNavItem,
+  usersNavItem,
+  dispositivosNavItem,
+]
+
+export const administrationNavItems: NavItem[] = [maintenanceNavItem]

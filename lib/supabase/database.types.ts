@@ -845,6 +845,42 @@ export type Database = {
         }
         Relationships: []
       }
+      work_order_type_checklist_items: {
+        Row: {
+          id: string
+          company_id: string
+          service_type: string
+          title: string
+          required: boolean
+          requires_photo: boolean
+          sort_order: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          service_type: string
+          title: string
+          required?: boolean
+          requires_photo?: boolean
+          sort_order: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          service_type?: string
+          title?: string
+          required?: boolean
+          requires_photo?: boolean
+          sort_order?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       evidences: {
         Row: {
           id: string

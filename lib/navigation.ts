@@ -14,6 +14,7 @@ export {
   evidenceNavItem,
   fieldOperationsNavItems,
   historyNavItem,
+  maintenanceNavItem,
   materialsNavItem,
   newsNavItem,
   projectsNavItem,
