@@ -26,6 +26,7 @@ import {
 } from "@/lib/audit/users-audit"
 import { requestProvisionEmployeeAccess } from "@/lib/auth/provision-client"
 import { requestResetEmployeePassword } from "@/lib/auth/reset-password-client"
+import { syncEmployeeMetadataClient } from "@/lib/auth/sync-employee-metadata.client"
 import {
   logEmployeeDeleteClientDiagnostics,
   logRemoveEmployeeEnd,
@@ -238,6 +239,9 @@ export function EmployeesProvider({ children }: { children: React.ReactNode }) {
                 after: result.data,
                 changes: input,
               })
+            }
+            if (input.roleId !== undefined || input.systemRole !== undefined) {
+              void syncEmployeeMetadataClient(result.data.id)
             }
             recordEmployeeEditAudit(existing, input, result.data)
           }

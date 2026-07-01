@@ -25,6 +25,7 @@ export type CreateEmployeePayload = {
   systemRole?: SystemRole
   systemAccess?: boolean
   mustChangePassword?: boolean
+  roleId?: string | null
   lastLoginAt?: string | null
 }
 
@@ -48,6 +49,7 @@ export type UpdateEmployeePayload = Partial<{
   systemRole: SystemRole
   systemAccess: boolean
   mustChangePassword: boolean
+  roleId: string | null
   lastLoginAt: string | null
 }>
 

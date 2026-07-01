@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 
+import { canAccessPathWithMetadata } from "@/lib/auth/module-access"
 import { getMetadataSystemRole } from "@/lib/auth/system-role"
 import {
   getDefaultPostLoginPath,
@@ -96,6 +97,16 @@ export async function middleware(request: NextRequest) {
     if (
       isPlanificacionOperativaPath(pathname) &&
       !canAccessPlanificacionOperativa(systemRole)
+    ) {
+      const redirectUrl = request.nextUrl.clone()
+      redirectUrl.pathname = getDefaultPostLoginPath(systemRole)
+      redirectUrl.search = ""
+      return NextResponse.redirect(redirectUrl)
+    }
+
+    if (
+      isDashboardPath(pathname) &&
+      !canAccessPathWithMetadata(pathname, user.user_metadata)
     ) {
       const redirectUrl = request.nextUrl.clone()
       redirectUrl.pathname = getDefaultPostLoginPath(systemRole)

@@ -28,6 +28,7 @@ export function buildUserRoleMetadata(
 export const USER_ACCOUNT_FIELDS = new Set<keyof UpdateEmployeeInput>([
   "systemAccess",
   "systemRole",
+  "roleId",
   "mustChangePassword",
 ])
 

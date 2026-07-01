@@ -28,6 +28,7 @@ import {
   usersNavItem,
   workOrderTypesNavItem,
   workOrdersNavItem,
+  incidentTypesNavItem,
 } from "@/lib/navigation/nav-items"
 
 const PROFILE_NAV_BUILDERS: Record<
@@ -158,7 +159,7 @@ export function getAllNavItemsForProfile(profile: OperationalProfile): NavItem[]
   const items = buildNavGroupsForProfile(profile).flatMap((group) => group.items)
 
   if (profile === "administrador" || profile === "supervisor") {
-    return [...items, workOrderTypesNavItem]
+    return [...items, workOrderTypesNavItem, incidentTypesNavItem]
   }
 
   return items
@@ -255,4 +256,5 @@ export const PROFILE_NAV_ITEM_KEYS = {
   availabilityNavItem,
   newsNavItem,
   workOrderTypesNavItem,
+  incidentTypesNavItem,
 }

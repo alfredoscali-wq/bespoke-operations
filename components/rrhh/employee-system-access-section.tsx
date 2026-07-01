@@ -15,6 +15,7 @@ import {
 } from "lucide-react"
 
 import { useAuth } from "@/components/auth/auth-provider"
+import { useCompanyRoles } from "@/components/configuracion/use-company-roles"
 import { EmployeeSystemAccessDialog } from "@/components/rrhh/employee-system-access-dialog"
 import { useEmployees } from "@/components/rrhh/employees-provider"
 import {
@@ -22,14 +23,13 @@ import {
   PROVISION_STATUS_LABELS,
   PROVISION_STATUS_STYLES,
   SYSTEM_ROLE_LABELS,
-  SYSTEM_ROLE_STYLES,
 } from "@/lib/employees/constants"
 import {
   canProvisionEmployeeAccess,
   canResetEmployeePassword,
   resolveEmployeeProvisionStatus,
 } from "@/lib/employees/utils"
-import type { Employee, SystemRole, UpdateEmployeeInput } from "@/lib/types/employees"
+import type { Employee, UpdateEmployeeInput } from "@/lib/types/employees"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -48,17 +48,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-
-function SystemRoleBadge({ role }: { role: SystemRole }) {
-  return (
-    <Badge
-      variant="outline"
-      className={cn("font-medium", SYSTEM_ROLE_STYLES[role])}
-    >
-      {SYSTEM_ROLE_LABELS[role]}
-    </Badge>
-  )
-}
 
 function ProvisionStatusBadge({
   employee,
@@ -111,6 +100,7 @@ export function EmployeeSystemAccessSection({
   employee,
 }: EmployeeSystemAccessSectionProps) {
   const { sessionUser } = useAuth()
+  const { roles } = useCompanyRoles()
   const { editEmployee, provisionEmployeeAccess, resetEmployeePassword } =
     useEmployees()
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -132,7 +122,7 @@ export function EmployeeSystemAccessSection({
   async function handleSave(
     input: Pick<
       UpdateEmployeeInput,
-      "systemAccess" | "systemRole" | "mustChangePassword"
+      "systemAccess" | "roleId" | "systemRole" | "mustChangePassword"
     >
   ) {
     const result = await editEmployee(employee.id, input)
@@ -216,8 +206,11 @@ export function EmployeeSystemAccessSection({
           <AccessField
             icon={Shield}
             iconClassName="bg-violet-50 text-violet-600"
-            label="Rol del sistema"
-            value={<SystemRoleBadge role={employee.systemRole} />}
+            label="Rol"
+            value={
+              roles.find((role) => role.id === employee.roleId)?.name ??
+              SYSTEM_ROLE_LABELS[employee.systemRole]
+            }
           />
           <AccessField
             icon={User}

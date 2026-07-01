@@ -12,6 +12,7 @@ import {
   Package,
   Settings,
   Smartphone,
+  TriangleAlert,
   UserCog,
   Users,
   UsersRound,
@@ -144,6 +145,15 @@ export const workOrderTypesNavItem: NavItem = {
   pageTitle: "Tipos de Orden de Trabajo",
   description:
     "Configure el checklist operativo asociado a cada tipo de orden de trabajo.",
+}
+
+export const incidentTypesNavItem: NavItem = {
+  title: "Tipos de Incidencia",
+  href: "/configuracion/tipos-incidencia",
+  icon: TriangleAlert,
+  pageTitle: "Tipos de Incidencia",
+  description:
+    "Defina qué incidencias pueden reportar las cuadrillas durante la ejecución de OT.",
 }
 
 export const usersNavItem: NavItem = {

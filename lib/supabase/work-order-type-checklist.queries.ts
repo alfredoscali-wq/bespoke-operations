@@ -61,7 +61,7 @@ export async function createWorkOrderTypeChecklistItem(
         serviceType: input.serviceType,
         title: input.item.title,
         required: input.item.required,
-        requiresPhoto: input.item.requiresPhoto,
+        fieldType: input.item.fieldType,
         sortOrder: input.sortOrder,
       })
     )
@@ -83,8 +83,8 @@ export async function updateWorkOrderTypeChecklistItem(
   id: string,
   input: {
     title?: string
+    fieldType?: WorkOrderTypeChecklistItemInput["fieldType"]
     required?: boolean
-    requiresPhoto?: boolean
     sortOrder?: number | null
   }
 ): Promise<ChecklistRepositoryResult<WorkOrderTypeChecklistItem>> {

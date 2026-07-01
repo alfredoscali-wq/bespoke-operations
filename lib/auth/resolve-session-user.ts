@@ -3,9 +3,10 @@ import type { User } from "@supabase/supabase-js"
 import { parseDniFromAuthEmail } from "@/lib/auth/auth-identity"
 import { getMetadataSystemRole } from "@/lib/auth/system-role"
 import type { SessionUser } from "@/lib/auth/types"
-import {
-  getEmployeeFullName,
-} from "@/lib/employees/utils"
+import { getEmployeeFullName } from "@/lib/employees/utils"
+import { buildSessionRoleContext } from "@/lib/roles/session-role"
+import { mapRoleCodeToSystemRole } from "@/lib/roles/role-utils"
+import type { CompanyRole } from "@/lib/types/company-roles"
 import type { Employee } from "@/lib/types/employees"
 
 function resolveSessionDisplayName(
@@ -49,16 +50,27 @@ function resolveFallbackInitials(displayName: string): string {
 
 export function buildSessionUserFromAuthUser(
   user: User,
-  employee: Employee | null
+  employee: Employee | null,
+  role: CompanyRole | null = null
 ): SessionUser {
   if (employee) {
+    const sessionRole = buildSessionRoleContext({ employee, role })
+    const systemRole = role
+      ? mapRoleCodeToSystemRole(role.code)
+      : employee.systemRole
+
     return {
       authUserId: user.id,
       employeeId: employee.id,
       companyId: employee.companyId,
       displayName: resolveSessionDisplayName(employee),
       initials: resolveSessionInitials(employee),
-      systemRole: employee.systemRole,
+      systemRole,
+      roleId: sessionRole.roleId,
+      roleCode: sessionRole.roleCode,
+      roleName: sessionRole.roleName,
+      moduleVisibility: sessionRole.moduleVisibility,
+      visibleModuleKeys: sessionRole.visibleModuleKeys,
       nationalId: employee.nationalId ?? null,
       mustChangePassword: employee.mustChangePassword,
       email: user.email ?? "",
@@ -67,6 +79,7 @@ export function buildSessionUserFromAuthUser(
 
   const metadata = user.user_metadata ?? {}
   const displayName = resolveFallbackDisplayName(user)
+  const sessionRole = buildSessionRoleContext({ employee: null, role: null })
 
   return {
     authUserId: user.id,
@@ -76,6 +89,11 @@ export function buildSessionUserFromAuthUser(
     displayName,
     initials: resolveFallbackInitials(displayName),
     systemRole: getMetadataSystemRole(metadata),
+    roleId: null,
+    roleCode: null,
+    roleName: null,
+    moduleVisibility: sessionRole.moduleVisibility,
+    visibleModuleKeys: sessionRole.visibleModuleKeys,
     nationalId:
       typeof metadata.national_id === "string"
         ? metadata.national_id

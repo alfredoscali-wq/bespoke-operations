@@ -19,6 +19,7 @@ import {
 import { buildSessionUserFromAuthUser } from "@/lib/auth/resolve-session-user"
 import type { SessionUser } from "@/lib/auth/types"
 import { recordUserSessionAudit } from "@/lib/audit/users-audit"
+import { fetchCompanyRole } from "@/lib/supabase/company-roles.browser"
 import { getEmployeeByAppUserId } from "@/lib/supabase/employees.browser"
 import { createClient } from "@/lib/supabase/client"
 
@@ -38,7 +39,15 @@ async function resolveSessionUserFromAuthUser(
 ): Promise<SessionUser> {
   const employeeResult = await getEmployeeByAppUserId(user.id)
   const employee = employeeResult.data ?? null
-  return buildSessionUserFromAuthUser(user, employee)
+
+  if (!employee?.roleId) {
+    return buildSessionUserFromAuthUser(user, employee, null)
+  }
+
+  const roleResult = await fetchCompanyRole(employee.roleId)
+  const role = roleResult.data ?? null
+
+  return buildSessionUserFromAuthUser(user, employee, role)
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {

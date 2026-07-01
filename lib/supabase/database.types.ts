@@ -53,6 +53,50 @@ export type Database = {
         }
         Relationships: []
       }
+      company_roles: {
+        Row: {
+          id: string
+          company_id: string
+          code: string
+          name: string
+          is_system: boolean
+          module_visibility: Json
+          sort_order: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          code: string
+          name: string
+          is_system?: boolean
+          module_visibility?: Json
+          sort_order: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          code?: string
+          name?: string
+          is_system?: boolean
+          module_visibility?: Json
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_roles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       automatic_report_settings: {
         Row: {
           id: string
@@ -494,6 +538,7 @@ export type Database = {
           notes: string
           app_user_id: string | null
           system_role: SystemRole
+          role_id: string | null
           system_access: boolean
           must_change_password: boolean
           last_login_at: string | null
@@ -521,6 +566,7 @@ export type Database = {
           notes?: string
           app_user_id?: string | null
           system_role?: SystemRole
+          role_id?: string | null
           system_access?: boolean
           must_change_password?: boolean
           last_login_at?: string | null
@@ -548,6 +594,7 @@ export type Database = {
           notes?: string
           app_user_id?: string | null
           system_role?: SystemRole
+          role_id?: string | null
           system_access?: boolean
           must_change_password?: boolean
           last_login_at?: string | null
@@ -852,7 +899,7 @@ export type Database = {
           service_type: string
           title: string
           required: boolean
-          requires_photo: boolean
+          field_type: string
           sort_order: number
           created_at: string
           updated_at: string
@@ -863,7 +910,7 @@ export type Database = {
           service_type: string
           title: string
           required?: boolean
-          requires_photo?: boolean
+          field_type: string
           sort_order: number
           created_at?: string
           updated_at?: string
@@ -874,7 +921,55 @@ export type Database = {
           service_type?: string
           title?: string
           required?: boolean
-          requires_photo?: boolean
+          field_type?: string
+          sort_order?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      incident_types: {
+        Row: {
+          id: string
+          company_id: string
+          code: string
+          name: string
+          description: string
+          color: string
+          pauses_work_order: boolean
+          requires_supervisor_intervention: boolean
+          notify_supervisor: boolean
+          is_active: boolean
+          sort_order: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          code: string
+          name: string
+          description?: string
+          color?: string
+          pauses_work_order?: boolean
+          requires_supervisor_intervention?: boolean
+          notify_supervisor?: boolean
+          is_active?: boolean
+          sort_order: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          code?: string
+          name?: string
+          description?: string
+          color?: string
+          pauses_work_order?: boolean
+          requires_supervisor_intervention?: boolean
+          notify_supervisor?: boolean
+          is_active?: boolean
           sort_order?: number | null
           created_at?: string
           updated_at?: string

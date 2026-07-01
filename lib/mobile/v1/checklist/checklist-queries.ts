@@ -30,8 +30,8 @@ export async function fetchOperationalChecklistForServiceType(
   return result.data.map((item) => ({
     id: item.id,
     title: item.title,
+    fieldType: item.fieldType,
     required: item.required,
-    requiresPhoto: item.requiresPhoto,
     sortOrder: item.sortOrder,
   }))
 }

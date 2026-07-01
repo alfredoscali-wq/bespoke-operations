@@ -14,6 +14,10 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import type { WorkOrderTypeChecklistItem } from "@/lib/types/work-order-type-checklist"
+import {
+  CHECKLIST_FIELD_TYPE_OPTIONS,
+  type ChecklistFieldType,
+} from "@/lib/work-order-types/checklist-field-types"
 import { cn } from "@/lib/utils"
 
 type OperationalChecklistItemRowProps = {
@@ -21,7 +25,9 @@ type OperationalChecklistItemRowProps = {
   disabled?: boolean
   onUpdate: (
     id: string,
-    patch: Partial<Pick<WorkOrderTypeChecklistItem, "title" | "required" | "requiresPhoto">>
+    patch: Partial<
+      Pick<WorkOrderTypeChecklistItem, "title" | "fieldType" | "required">
+    >
   ) => Promise<void>
   onDelete: (id: string) => Promise<void>
   onDragStart: (id: string) => void
@@ -111,9 +117,12 @@ export function OperationalChecklistItemRow({
           <GripVertical className="size-4" />
         </button>
 
-        <div className="grid min-w-0 flex-1 gap-4 md:grid-cols-[minmax(0,1.4fr)_120px_120px_auto] md:items-end">
+        <div className="grid min-w-0 flex-1 gap-4 md:grid-cols-[minmax(0,1.4fr)_180px_120px_auto] md:items-end">
           <div className="space-y-1.5">
-            <Label htmlFor={`checklist-title-${item.id}`} className="text-xs text-muted-foreground">
+            <Label
+              htmlFor={`checklist-title-${item.id}`}
+              className="text-xs text-muted-foreground"
+            >
               Título
             </Label>
             <Input
@@ -133,20 +142,41 @@ export function OperationalChecklistItemRow({
             />
           </div>
 
+          <div className="space-y-1.5">
+            <Label
+              htmlFor={`checklist-type-${item.id}`}
+              className="text-xs text-muted-foreground"
+            >
+              Tipo
+            </Label>
+            <Select
+              value={item.fieldType}
+              onValueChange={(value) =>
+                void onUpdate(item.id, {
+                  fieldType: value as ChecklistFieldType,
+                })
+              }
+              disabled={disabled}
+            >
+              <SelectTrigger id={`checklist-type-${item.id}`} className="h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CHECKLIST_FIELD_TYPE_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <YesNoSelect
             id={`checklist-required-${item.id}`}
             label="Obligatorio"
             value={item.required}
             disabled={disabled}
             onChange={(required) => void onUpdate(item.id, { required })}
-          />
-
-          <YesNoSelect
-            id={`checklist-photo-${item.id}`}
-            label="Requiere fotografía"
-            value={item.requiresPhoto}
-            disabled={disabled}
-            onChange={(requiresPhoto) => void onUpdate(item.id, { requiresPhoto })}
           />
 
           <Button

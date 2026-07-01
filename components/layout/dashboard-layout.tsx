@@ -2,21 +2,31 @@
 
 import { usePathname } from "next/navigation"
 
+import { ModuleAccessGuard } from "@/components/auth/module-access-guard"
 import { AppShell } from "@/components/layout/app-shell"
-import { OperationalProfileProvider, useOperationalProfile } from "@/components/operations/operational-profile-provider"
+import {
+  OperationalProfileProvider,
+  useOperationalProfile,
+  getPageMetaForSession,
+} from "@/components/operations/operational-profile-provider"
 import { ProfileHomeRedirect } from "@/components/operations/profile-home-redirect"
-import { getPageMetaForProfile } from "@/lib/navigation/profile-navigation"
+import { useAuth } from "@/components/auth/auth-provider"
 
 function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { profile } = useOperationalProfile()
-  const { title, subtitle } = getPageMetaForProfile(pathname, profile)
+  const { sessionUser } = useAuth()
+  const { title, subtitle } = getPageMetaForSession(
+    pathname,
+    profile,
+    sessionUser
+  )
 
   return (
     <>
       <ProfileHomeRedirect />
       <AppShell title={title} subtitle={subtitle}>
-        {children}
+        <ModuleAccessGuard>{children}</ModuleAccessGuard>
       </AppShell>
     </>
   )

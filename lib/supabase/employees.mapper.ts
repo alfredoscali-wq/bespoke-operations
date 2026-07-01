@@ -38,6 +38,7 @@ export function mapEmployeeRowToEmployee(row: EmployeeRow): Employee {
     systemRole: row.system_role,
     systemAccess: row.system_access,
     mustChangePassword: row.must_change_password,
+    roleId: row.role_id,
     lastLoginAt: row.last_login_at,
     createdAt: row.created_at ?? undefined,
     updatedAt: row.updated_at ?? undefined,
@@ -68,6 +69,7 @@ export function mapCreateEmployeePayloadToInsert(
     system_role: payload.systemRole ?? "operario",
     system_access: payload.systemAccess ?? false,
     must_change_password: payload.mustChangePassword ?? false,
+    role_id: payload.roleId ?? null,
     last_login_at: payload.lastLoginAt ?? null,
   }
 }
@@ -127,6 +129,9 @@ export function mapUpdateEmployeePayloadToUpdate(
   }
   if (payload.systemRole !== undefined) {
     update.system_role = payload.systemRole
+  }
+  if (payload.roleId !== undefined) {
+    update.role_id = payload.roleId
   }
   if (payload.systemAccess !== undefined) {
     update.system_access = payload.systemAccess

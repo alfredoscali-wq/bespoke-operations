@@ -12,6 +12,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { canViewIncidentTypes } from "@/lib/incident-types/incident-type-permissions"
+import { canManageRoles } from "@/lib/roles/role-utils"
 import { canViewWorkOrderTypeChecklist } from "@/lib/work-order-types/checklist-permissions"
 
 type ConfigLinkItem = {
@@ -64,6 +66,11 @@ export function ConfigurationHubPanel() {
   const canAccessWorkOrderTypes = canViewWorkOrderTypeChecklist(
     sessionUser?.systemRole
   )
+  const canAccessIncidentTypes = canViewIncidentTypes(sessionUser?.systemRole)
+  const canAccessRoles = canManageRoles(
+    sessionUser?.roleCode,
+    sessionUser?.systemRole
+  )
 
   const categories: ConfigCategory[] = [
     {
@@ -81,12 +88,16 @@ export function ConfigurationHubPanel() {
               },
             ]
           : []),
-        {
-          title: "Tipos de Incidencia",
-          description:
-            "Clasificación de incidencias reportadas durante la ejecución de OT.",
-          comingSoon: true,
-        },
+        ...(canAccessIncidentTypes
+          ? [
+              {
+                title: "Tipos de Incidencia",
+                description:
+                  "Clasificación de incidencias reportadas durante la ejecución de OT.",
+                href: "/configuracion/tipos-incidencia",
+              },
+            ]
+          : []),
       ],
     },
     {
@@ -107,11 +118,16 @@ export function ConfigurationHubPanel() {
       label: "Seguridad",
       icon: Shield,
       items: [
-        {
-          title: "Roles",
-          description: "Perfiles de acceso y responsabilidades dentro de la plataforma.",
-          comingSoon: true,
-        },
+        ...(canAccessRoles
+          ? [
+              {
+                title: "Roles",
+                description:
+                  "Defina qué módulos puede visualizar cada rol de su empresa.",
+                href: "/configuracion/roles",
+              },
+            ]
+          : []),
         {
           title: "Permisos",
           description: "Control granular de acciones permitidas por rol.",

@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react"
 
+import { useCompanyRoles } from "@/components/configuracion/use-company-roles"
 import { SYSTEM_ROLE_LABELS, SYSTEM_ROLE_OPTIONS } from "@/lib/employees/constants"
-import type { Employee, SystemRole, UpdateEmployeeInput } from "@/lib/types/employees"
+import type { Employee, UpdateEmployeeInput } from "@/lib/types/employees"
+import { mapRoleCodeToSystemRole } from "@/lib/roles/role-utils"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -30,7 +32,7 @@ import {
 
 type SystemAccessFormState = {
   systemAccess: boolean
-  systemRole: SystemRole
+  roleId: string
   mustChangePassword: boolean
 }
 
@@ -41,7 +43,7 @@ type EmployeeSystemAccessDialogProps = {
   onSubmit: (
     input: Pick<
       UpdateEmployeeInput,
-      "systemAccess" | "systemRole" | "mustChangePassword"
+      "systemAccess" | "roleId" | "systemRole" | "mustChangePassword"
     >
   ) => Promise<void>
 }
@@ -49,7 +51,7 @@ type EmployeeSystemAccessDialogProps = {
 function buildFormState(employee: Employee): SystemAccessFormState {
   return {
     systemAccess: employee.systemAccess,
-    systemRole: employee.systemRole,
+    roleId: employee.roleId ?? "",
     mustChangePassword: employee.mustChangePassword,
   }
 }
@@ -60,6 +62,7 @@ export function EmployeeSystemAccessDialog({
   employee,
   onSubmit,
 }: EmployeeSystemAccessDialogProps) {
+  const { roles, isLoading: isLoadingRoles } = useCompanyRoles()
   const [form, setForm] = useState<SystemAccessFormState>(() =>
     buildFormState(employee)
   )
@@ -88,15 +91,43 @@ export function EmployeeSystemAccessDialog({
     setBaselineForm(nextForm)
   }, [open, employee])
 
+  useEffect(() => {
+    if (!open || form.roleId || roles.length === 0) {
+      return
+    }
+
+    const fallbackRole =
+      roles.find((role) => role.code === employee.systemRole) ?? roles[0]
+
+    if (fallbackRole) {
+      setForm((current) => ({ ...current, roleId: fallbackRole.id }))
+      setBaselineForm((current) => ({ ...current, roleId: fallbackRole.id }))
+    }
+  }, [employee.systemRole, form.roleId, open, roles])
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     setError(null)
+
+    if (!form.roleId) {
+      setError("Seleccione un rol para el empleado.")
+      return
+    }
+
+    const selectedRole = roles.find((role) => role.id === form.roleId)
+
+    if (!selectedRole) {
+      setError("El rol seleccionado no es válido.")
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
       await onSubmit({
         systemAccess: form.systemAccess,
-        systemRole: form.systemRole,
+        roleId: form.roleId,
+        systemRole: mapRoleCodeToSystemRole(selectedRole.code),
         mustChangePassword: form.mustChangePassword,
       })
       forceClose()
@@ -160,27 +191,33 @@ export function EmployeeSystemAccessDialog({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="systemRole">Rol del sistema</Label>
+              <Label htmlFor="employeeRole">Rol</Label>
               <Select
-                value={form.systemRole}
+                value={form.roleId}
                 onValueChange={(value) =>
                   setForm((current) => ({
                     ...current,
-                    systemRole: value as SystemRole,
+                    roleId: value,
                   }))
                 }
+                disabled={isLoadingRoles}
               >
-                <SelectTrigger id="systemRole" className="w-full">
+                <SelectTrigger id="employeeRole" className="w-full">
                   <SelectValue placeholder="Seleccione rol" />
                 </SelectTrigger>
                 <SelectContent>
-                  {SYSTEM_ROLE_OPTIONS.map((role) => (
-                    <SelectItem key={role} value={role}>
-                      {SYSTEM_ROLE_LABELS[role]}
+                  {roles.map((role) => (
+                    <SelectItem key={role.id} value={role.id}>
+                      {role.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {!form.roleId && roles.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  Rol legacy: {SYSTEM_ROLE_LABELS[employee.systemRole]}
+                </p>
+              ) : null}
             </div>
 
             <div className="flex items-start gap-3">

@@ -7,7 +7,16 @@ import {
 } from "react"
 
 import { useAuth } from "@/components/auth/auth-provider"
-import { buildNavGroupsForProfile } from "@/lib/navigation/profile-navigation"
+import type { SessionUser } from "@/lib/auth/types"
+import {
+  buildNavGroupsFromModuleVisibility,
+  getAllNavItemsFromModuleVisibility,
+  resolveHomePathFromModuleVisibility,
+} from "@/lib/navigation/build-nav-from-modules"
+import {
+  buildNavGroupsForProfile,
+  getPageMetaForProfile,
+} from "@/lib/navigation/profile-navigation"
 import type { NavGroup } from "@/lib/navigation"
 import {
   getProfileHomePath,
@@ -21,6 +30,7 @@ type OperationalProfileContextValue = {
   profileLabel: string
   homePath: string
   navGroups: NavGroup[]
+  usesRoleModules: boolean
 }
 
 const OperationalProfileContext =
@@ -38,21 +48,35 @@ export function OperationalProfileProvider({
     [sessionUser?.systemRole]
   )
 
-  const navGroups = useMemo(
-    () => buildNavGroupsForProfile(profile),
-    [profile]
-  )
+  const usesRoleModules = Boolean(sessionUser?.roleId)
 
-  const homePath = useMemo(() => getProfileHomePath(profile), [profile])
+  const navGroups = useMemo(() => {
+    if (sessionUser?.roleId) {
+      return buildNavGroupsFromModuleVisibility(sessionUser.moduleVisibility)
+    }
+
+    return buildNavGroupsForProfile(profile)
+  }, [profile, sessionUser?.moduleVisibility, sessionUser?.roleId])
+
+  const homePath = useMemo(() => {
+    if (sessionUser?.roleId) {
+      return resolveHomePathFromModuleVisibility(sessionUser.moduleVisibility)
+    }
+
+    return getProfileHomePath(profile)
+  }, [profile, sessionUser?.moduleVisibility, sessionUser?.roleId])
+
+  const profileLabel = sessionUser?.roleName ?? OPERATIONAL_PROFILE_LABELS[profile]
 
   const value = useMemo(
     () => ({
       profile,
-      profileLabel: OPERATIONAL_PROFILE_LABELS[profile],
+      profileLabel,
       homePath,
       navGroups,
+      usesRoleModules,
     }),
-    [profile, homePath, navGroups]
+    [profile, profileLabel, homePath, navGroups, usesRoleModules]
   )
 
   return (
@@ -72,4 +96,33 @@ export function useOperationalProfile() {
   }
 
   return context
+}
+
+export function getPageMetaForSession(
+  pathname: string,
+  profile: OperationalProfile,
+  sessionUser: SessionUser | null
+): { title: string; subtitle: string } {
+  if (sessionUser?.roleId) {
+    const navItems = getAllNavItemsFromModuleVisibility(
+      sessionUser.moduleVisibility
+    )
+    const match =
+      [...navItems]
+        .filter((item) =>
+          item.href === "/"
+            ? pathname === "/"
+            : pathname.startsWith(item.href)
+        )
+        .sort((a, b) => b.href.length - a.href.length)[0] ?? navItems[0]
+
+    if (match) {
+      return {
+        title: match.pageTitle ?? match.title,
+        subtitle: match.description ?? "Gestión operativa de infraestructura",
+      }
+    }
+  }
+
+  return getPageMetaForProfile(pathname, profile)
 }

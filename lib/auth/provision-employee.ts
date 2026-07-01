@@ -164,10 +164,19 @@ export async function provisionEmployeeAccess(
     }
   }
 
+  await syncProvisionedMetadata(trimmedId)
+
   return {
     success: true,
     authUserId,
   }
+}
+
+async function syncProvisionedMetadata(employeeId: string) {
+  const { syncEmployeeAuthMetadata } = await import(
+    "@/lib/auth/sync-employee-auth-metadata"
+  )
+  await syncEmployeeAuthMetadata(employeeId)
 }
 
 export async function disableEmployeeAccess(

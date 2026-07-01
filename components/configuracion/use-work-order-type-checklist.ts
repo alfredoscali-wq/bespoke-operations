@@ -16,6 +16,7 @@ import {
   buildChecklistReorderUpdates,
   reorderChecklistItemsById,
 } from "@/lib/work-order-types/checklist-reorder"
+import { DEFAULT_CHECKLIST_FIELD_TYPE } from "@/lib/work-order-types/checklist-field-types"
 
 export function useWorkOrderTypeChecklist(serviceType: WorkOrderServiceType | null) {
   const { companyId, isAuthReady } = useTenantCompanyId()
@@ -63,8 +64,8 @@ export function useWorkOrderTypeChecklist(serviceType: WorkOrderServiceType | nu
 
     const result = await addWorkOrderTypeChecklistItem(companyId, serviceType, {
       title: "Nuevo ítem",
+      fieldType: DEFAULT_CHECKLIST_FIELD_TYPE,
       required: false,
-      requiresPhoto: false,
     })
 
     if (!result.success) {
@@ -81,7 +82,9 @@ export function useWorkOrderTypeChecklist(serviceType: WorkOrderServiceType | nu
   const updateItem = useCallback(
     async (
       id: string,
-      patch: Partial<Pick<WorkOrderTypeChecklistItem, "title" | "required" | "requiresPhoto">>
+      patch: Partial<
+        Pick<WorkOrderTypeChecklistItem, "title" | "fieldType" | "required">
+      >
     ) => {
       setIsSaving(true)
       setError(null)

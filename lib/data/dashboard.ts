@@ -342,6 +342,11 @@ export function countWorkOrdersWithIncidents(tasks: Task[]): number {
   ).length
 }
 
+/**
+ * Dashboard KPI for OT in incident status.
+ * Product nomenclature: "OT con incidencias" (replaces the deprecated
+ * "Esperando autorización" concept; resolution workflow is a future sprint).
+ */
 export function buildTasksStatusKpis(tasks: Task[]): DashboardStatusKpi[] {
   const summary = getTasksSummary(tasks)
   const otPendingClosure = countWorkOrdersPendingClosure(tasks)

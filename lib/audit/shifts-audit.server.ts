@@ -8,10 +8,13 @@ import {
   AUDIT_MODULES,
 } from "@/lib/audit/types"
 import type { SessionUser } from "@/lib/auth/types"
+import { buildSessionRoleContext } from "@/lib/roles/session-role"
 import type { MobileAuthContext } from "@/lib/mobile/v1/auth/mobile-auth-context"
 import type { WorkTeamShiftRecord } from "@/lib/work-team-shifts/types"
 
 function mobileAuthToSessionUser(auth: MobileAuthContext): SessionUser {
+  const sessionRole = buildSessionRoleContext({ employee: null, role: null })
+
   return {
     authUserId: auth.authUserId,
     employeeId: auth.employeeId,
@@ -19,6 +22,11 @@ function mobileAuthToSessionUser(auth: MobileAuthContext): SessionUser {
     displayName: auth.displayName,
     initials: auth.displayName.slice(0, 2).toUpperCase(),
     systemRole: auth.role,
+    roleId: null,
+    roleCode: null,
+    roleName: null,
+    moduleVisibility: sessionRole.moduleVisibility,
+    visibleModuleKeys: sessionRole.visibleModuleKeys,
     nationalId: null,
     mustChangePassword: false,
     email: auth.email,
