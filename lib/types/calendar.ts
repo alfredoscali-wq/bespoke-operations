@@ -36,6 +36,10 @@ export type CalendarTaskPayload = {
   dueDate: string
   scheduledTime?: string | null
   serviceType?: string | null
+  crew?: string
+  crewId?: string
+  dispatchOrder?: number | null
+  executionOrder?: number | null
   alerts: CalendarTaskAlert[]
 }
 

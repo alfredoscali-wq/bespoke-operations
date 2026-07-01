@@ -1,4 +1,5 @@
-import { taskMatchesCrewId, resolveTaskCrewId } from "@/lib/tasks/crew-relation"
+import { resolveTaskRouteOrder } from "@/lib/tasks/dispatch-order"
+import { resolveTaskCrewId, taskMatchesCrewId } from "@/lib/tasks/crew-relation"
 import type { Crew } from "@/lib/types/crews"
 import type { Task } from "@/lib/types/tasks"
 import type { UpdateTaskPayload } from "@/lib/types/supabase/tasks"
@@ -102,18 +103,24 @@ export function compareTasksForPlanningDisplay(
   const leftCrewId = resolveTaskCrewId(left, crews) ?? ""
   const rightCrewId = resolveTaskCrewId(right, crews) ?? ""
 
-  const leftHasOrder = left.executionOrder != null && left.executionOrder > 0
-  const rightHasOrder = right.executionOrder != null && right.executionOrder > 0
+  const leftOrder = resolveTaskRouteOrder(left)
+  const rightOrder = resolveTaskRouteOrder(right)
+  const leftHasOrder = leftOrder != null
+  const rightHasOrder = rightOrder != null
 
   if (leftCrewId && leftCrewId === rightCrewId) {
     if (leftHasOrder && rightHasOrder) {
-      return left.executionOrder! - right.executionOrder!
+      return leftOrder! - rightOrder!
     }
     if (leftHasOrder !== rightHasOrder) {
       return leftHasOrder ? -1 : 1
     }
   } else if (leftHasOrder !== rightHasOrder) {
     return leftHasOrder ? -1 : 1
+  }
+
+  if (left.dispatchOrder != null || right.dispatchOrder != null) {
+    return 0
   }
 
   return resolveTaskCreatedAtSortKey(left).localeCompare(

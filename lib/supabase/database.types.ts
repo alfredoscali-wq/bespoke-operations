@@ -655,6 +655,7 @@ export type Database = {
           amount_to_collect: number | null
           task_metadata: Json
           execution_order: number | null
+          dispatch_order: number | null
         }
         Insert: {
           id?: string
@@ -714,6 +715,7 @@ export type Database = {
           amount_to_collect?: number | null
           task_metadata?: Json
           execution_order?: number | null
+          dispatch_order?: number | null
         }
         Update: {
           id?: string
@@ -773,6 +775,7 @@ export type Database = {
           amount_to_collect?: number | null
           task_metadata?: Json
           execution_order?: number | null
+          dispatch_order?: number | null
         }
         Relationships: []
       }

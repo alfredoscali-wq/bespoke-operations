@@ -114,6 +114,7 @@ export function mapTaskRowToTask(row: TaskRow): Task {
     amountToCollect: mapNullableNumber(row.amount_to_collect),
     taskMetadata: parseTaskMetadata(row.task_metadata),
     executionOrder: row.execution_order ?? undefined,
+    dispatchOrder: row.dispatch_order ?? undefined,
   }
 }
 
@@ -159,6 +160,7 @@ export function mapCreatePayloadToInsert(payload: CreateTaskPayload): TaskInsert
     amount_to_collect: payload.amountToCollect ?? null,
     task_metadata: (payload.taskMetadata ?? {}) as Json,
     execution_order: payload.executionOrder ?? null,
+    dispatch_order: payload.dispatchOrder ?? null,
   }
 }
 
@@ -285,6 +287,9 @@ export function mapUpdatePayloadToUpdate(payload: UpdateTaskPayload): TaskUpdate
   }
   if (payload.executionOrder !== undefined) {
     update.execution_order = payload.executionOrder
+  }
+  if (payload.dispatchOrder !== undefined) {
+    update.dispatch_order = payload.dispatchOrder
   }
 
   return update

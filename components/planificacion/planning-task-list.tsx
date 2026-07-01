@@ -6,8 +6,8 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { PlanningTaskCard } from "@/components/planificacion/planning-task-card"
 import {
   resolveExecutionOrderMoveAvailability,
-  sortTasksForPlanningList,
 } from "@/lib/planificacion/planning-execution-order"
+import { sortTasksByDispatchRoute } from "@/lib/tasks/dispatch-order"
 import type { PlanningDispatchMode } from "@/lib/planificacion/planning-dispatch"
 import type { Crew } from "@/lib/types/crews"
 import type { Task } from "@/lib/types/tasks"
@@ -38,7 +38,7 @@ export function PlanningTaskList({
 }: PlanningTaskListProps) {
   const readOnly = mode === "confirmed"
   const sortedTasks = useMemo(
-    () => sortTasksForPlanningList(tasks, crews),
+    () => sortTasksByDispatchRoute(tasks, crews),
     [tasks, crews]
   )
 

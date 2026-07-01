@@ -17,6 +17,7 @@ export type MobileAgendaTaskItem = {
   latitude: number | null
   longitude: number | null
   executionOrder: number | null
+  dispatchOrder: number | null
 }
 
 export type MobileAgendaTodayResponse = {

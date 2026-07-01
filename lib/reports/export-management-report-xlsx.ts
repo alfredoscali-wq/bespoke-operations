@@ -1,6 +1,7 @@
 import { formatDateOnly } from "@/lib/dates/date-only"
 import type { ManagementReport } from "@/lib/reports/management-report"
 import { TASK_STATUS_LABELS } from "@/lib/tasks/constants"
+import { resolveTaskRouteOrder } from "@/lib/tasks/dispatch-order"
 import {
   WORK_ORDER_SERVICE_TYPE_LABELS,
   type WorkOrderServiceType,
@@ -99,8 +100,9 @@ export async function exportManagementReportXlsx(
   ])
 
   appendSheet(workbook, "Pendientes", [
-    ["Código", "Nombre", "Tipo", "Localidad", "Fecha", "Estado"],
+    ["Ruta", "Código", "Nombre", "Tipo", "Localidad", "Fecha", "Estado"],
     ...report.oldestPendingOrders.map((task) => [
+      resolveTaskRouteOrder(task) ?? "—",
       task.code,
       resolveTaskDisplayName(task),
       resolveTaskServiceTypeLabel(task),

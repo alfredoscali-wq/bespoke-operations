@@ -34,8 +34,8 @@ import {
 import {
   buildExecutionOrderPersistPlan,
   buildExecutionOrderSwapUpdates,
-  sortTasksForPlanningList,
 } from "@/lib/planificacion/planning-execution-order"
+import { sortTasksByDispatchRoute } from "@/lib/tasks/dispatch-order"
 import {
   resolveInitialPlanningFilters,
   writePlanningFiltersToSession,
@@ -94,13 +94,13 @@ function PlanningModuleContent() {
   }, [tasks, date, isConfirmedMode])
 
   const sortedTasks = useMemo(
-    () => sortTasksForPlanningList(filteredTasks, crews),
+    () => sortTasksByDispatchRoute(filteredTasks, crews),
     [filteredTasks, crews]
   )
 
   const kpis = useMemo(
-    () => computePlanningDispatchKpis(filteredTasks, activeCrews, dispatchMode),
-    [filteredTasks, activeCrews, dispatchMode]
+    () => computePlanningDispatchKpis(filteredTasks),
+    [filteredTasks]
   )
 
   const crewSummaries = useMemo(

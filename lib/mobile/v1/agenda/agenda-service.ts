@@ -11,6 +11,7 @@ import type {
 } from "@/lib/mobile/v1/agenda/types"
 import { resolveMobileWorkTeam } from "@/lib/mobile/v1/shifts/resolve-work-team"
 import { resolveTaskOperationalTitle } from "@/lib/tasks/work-order"
+import { resolveTaskRouteOrder } from "@/lib/tasks/dispatch-order"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { Task } from "@/lib/types/tasks"
 import { fetchActiveWorkTeamShift } from "@/lib/work-team-shifts/work-team-shifts.queries"
@@ -49,7 +50,8 @@ function mapTaskToAgendaItem(task: Task): MobileAgendaTaskItem {
       task.amountToCollect == null ? null : Number(task.amountToCollect),
     latitude: task.latitude ?? null,
     longitude: task.longitude ?? null,
-    executionOrder: task.executionOrder ?? null,
+    executionOrder: resolveTaskRouteOrder(task),
+    dispatchOrder: task.dispatchOrder ?? null,
   }
 }
 

@@ -1,5 +1,5 @@
 import { compareDateOnly, toLocalDateOnly } from "@/lib/dates/date-only"
-import { sortTasksInExecutionSequence } from "@/lib/planificacion/planning-execution-order"
+import { sortTasksByDispatchRoute } from "@/lib/tasks/dispatch-order"
 import { taskMatchesCrewId } from "@/lib/tasks/crew-relation"
 import type { Task, TaskStatus } from "@/lib/types/tasks"
 
@@ -30,7 +30,7 @@ const OPERARIO_HISTORY_STATUSES: TaskStatus[] = [
 ]
 
 function sortOperarioTodayTasks(tasks: Task[]): Task[] {
-  return sortTasksInExecutionSequence(tasks)
+  return sortTasksByDispatchRoute(tasks)
 }
 
 export function isOperarioScheduledTaskVisibleToday(

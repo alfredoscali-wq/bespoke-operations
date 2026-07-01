@@ -1,10 +1,10 @@
 "use client"
 
 import {
-  AlertTriangle,
   CalendarClock,
+  CheckCircle2,
   ClipboardList,
-  UsersRound,
+  PlayCircle,
   Zap,
 } from "lucide-react"
 
@@ -20,31 +20,31 @@ export function PlanningSummaryCards({ kpis }: PlanningSummaryCardsProps) {
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
       <KpiCard
         compact
-        label="OT planificadas"
+        label="OT programadas"
         value={kpis.plannedCount}
         icon={CalendarClock}
         tone="blue"
       />
       <KpiCard
         compact
-        label="Cuadrillas involucradas"
-        value={kpis.crewsInvolvedCount}
-        icon={UsersRound}
-        tone="green"
-      />
-      <KpiCard
-        compact
-        label="OT sin asignar"
-        value={kpis.unassignedCount}
-        icon={AlertTriangle}
-        tone={kpis.unassignedCount > 0 ? "red" : "gray"}
-      />
-      <KpiCard
-        compact
-        label="OT pendientes"
-        value={kpis.pendingCount}
+        label="Pendientes de ejecución"
+        value={kpis.pendingExecutionCount}
         icon={ClipboardList}
         tone="yellow"
+      />
+      <KpiCard
+        compact
+        label="En curso"
+        value={kpis.inProgressCount}
+        icon={PlayCircle}
+        tone="blue"
+      />
+      <KpiCard
+        compact
+        label="Finalizadas"
+        value={kpis.completedCount}
+        icon={CheckCircle2}
+        tone="green"
       />
       <KpiCard
         compact

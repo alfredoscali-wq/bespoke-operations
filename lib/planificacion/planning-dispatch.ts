@@ -4,28 +4,30 @@ import type { Crew } from "@/lib/types/crews"
 import type { Task, TaskStatus } from "@/lib/types/tasks"
 
 import {
-  parseEstimatedDurationMinutes,
   type PlanningFilters,
 } from "@/lib/planificacion/planning-utils"
-import { sortTasksForPlanningList } from "@/lib/planificacion/planning-execution-order"
+import { sortTasksByDispatchRoute } from "@/lib/tasks/dispatch-order"
 
 export type PlanningDispatchMode = "editing" | "confirmed"
 
-/** OT visibles en el centro de despacho una vez confirmada la jornada. */
+/** OT visibles en el centro de despacho para la jornada confirmada. */
 export const CONFIRMED_DISPATCH_STATUSES: TaskStatus[] = [
   "asignada",
   "en-curso",
   "vencida",
   "incidencia",
+  "pendiente-cierre",
+  "en-aprobacion",
+  "finalizada",
+  "cerrada",
 ]
 
 export type PlanningDispatchKpis = {
   plannedCount: number
-  crewsInvolvedCount: number
-  unassignedCount: number
-  pendingCount: number
+  pendingExecutionCount: number
+  inProgressCount: number
+  completedCount: number
   incidentsCount: number
-  estimatedHours: number
 }
 
 export type PlanningCrewRoute = {
@@ -90,53 +92,19 @@ export function listReopenablePlanningTaskIds(
     .map((task) => task.id)
 }
 
-function countCrewsInvolved(tasks: Task[], crews: Crew[]): number {
-  const crewIds = new Set<string>()
-
-  for (const crew of crews) {
-    if (tasks.some((task) => taskMatchesCrewId(task, crew))) {
-      crewIds.add(crew.id)
-    }
-  }
-
-  for (const task of tasks) {
-    const crewName = task.crew?.trim()
-    if (crewName && !task.crewId?.trim()) {
-      crewIds.add(`name:${crewName}`)
-    }
-  }
-
-  return crewIds.size
-}
-
 export function computePlanningDispatchKpis(
-  tasks: Task[],
-  crews: Crew[],
-  mode: PlanningDispatchMode
+  tasks: Task[]
 ): PlanningDispatchKpis {
-  const totalMinutes = tasks.reduce(
-    (sum, task) => sum + parseEstimatedDurationMinutes(task.estimatedDuration),
-    0
-  )
-
-  const unassignedCount = tasks.filter(
-    (task) => !task.crewId?.trim() && !task.crew?.trim()
-  ).length
-
-  const incidentsCount = tasks.filter((task) => task.status === "incidencia").length
-
-  const pendingCount =
-    mode === "editing"
-      ? tasks.length
-      : tasks.filter((task) => task.status === "asignada").length
-
   return {
     plannedCount: tasks.length,
-    crewsInvolvedCount: countCrewsInvolved(tasks, crews),
-    unassignedCount,
-    pendingCount,
-    incidentsCount,
-    estimatedHours: totalMinutes / 60,
+    pendingExecutionCount: tasks.filter(
+      (task) => task.status === "asignada" || task.status === "vencida"
+    ).length,
+    inProgressCount: tasks.filter((task) => task.status === "en-curso").length,
+    completedCount: tasks.filter(
+      (task) => task.status === "finalizada" || task.status === "cerrada"
+    ).length,
+    incidentsCount: tasks.filter((task) => task.status === "incidencia").length,
   }
 }
 
@@ -155,7 +123,7 @@ export function buildPlanningCrewRoutes(
     routes.push({
       crewId: crew.id,
       crewName: crew.name,
-      tasks: sortTasksForPlanningList(crewTasks, crews),
+      tasks: sortTasksByDispatchRoute(crewTasks, crews),
     })
   }
 
@@ -170,7 +138,7 @@ export function buildPlanningCrewRoutes(
     routes.push({
       crewId: "__unassigned__",
       crewName: "Sin cuadrilla",
-      tasks: sortTasksForPlanningList(unassignedTasks, crews),
+      tasks: sortTasksByDispatchRoute(unassignedTasks, crews),
     })
   }
 
@@ -193,7 +161,7 @@ export function buildPlanningCrewRoutes(
       routes.push({
         crewId: `name:${crewName}`,
         crewName,
-        tasks: sortTasksForPlanningList(bucket, crews),
+        tasks: sortTasksByDispatchRoute(bucket, crews),
       })
     }
   }

@@ -65,6 +65,7 @@ export type UpdateTaskPayload = Partial<{
   cancellationReason?: string | null
   cancellationObservation?: string | null
   executionOrder?: number | null
+  dispatchOrder?: number | null
 }>
 
 export type TasksRepositoryErrorCode =

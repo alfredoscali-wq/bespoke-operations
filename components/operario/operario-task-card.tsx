@@ -1,9 +1,14 @@
 import Link from "next/link"
 
+import { DispatchOrderBadge } from "@/components/tareas/dispatch-order-badge"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { resolvePlanningTaskShiftDisplayLabel } from "@/lib/planificacion/planning-utils"
 import { isIncidentStatus } from "@/lib/tasks/incidents"
+import {
+  formatDispatchOrderNumericLabel,
+  resolveTaskRouteOrder,
+} from "@/lib/tasks/dispatch-order"
 import { resolveTaskOperationalTitle } from "@/lib/tasks/work-order"
 import type { Task } from "@/lib/types/tasks"
 import { cn } from "@/lib/utils"
@@ -13,10 +18,10 @@ type OperarioTaskCardProps = {
   variant?: "jornada" | "default"
 }
 
-function hasOperarioExecutionOrder(
-  task: Pick<Task, "executionOrder">
-): task is Task & { executionOrder: number } {
-  return task.executionOrder != null && task.executionOrder > 0
+function hasOperarioRouteOrder(
+  task: Pick<Task, "dispatchOrder" | "executionOrder">
+): task is Task & { dispatchOrder: number } | Task & { executionOrder: number } {
+  return resolveTaskRouteOrder(task) != null
 }
 
 function formatJornadaOrderPosition(order: number): string {
@@ -53,17 +58,18 @@ function OperarioShiftBadge({ task }: { task: Task }) {
 }
 
 function OperarioJornadaOrderRail({ task }: { task: Task }) {
-  if (!hasOperarioExecutionOrder(task)) {
+  const order = resolveTaskRouteOrder(task)
+  if (order == null) {
     return null
   }
 
-  const order = Math.floor(task.executionOrder)
+  const numericLabel = formatDispatchOrderNumericLabel(order)
   const showIncidentNotice = isIncidentStatus(task.status)
 
   return (
     <aside
       className="flex w-[100px] shrink-0 flex-col items-center justify-center gap-2 border-l border-border/70 bg-muted/20 px-2 py-4 text-center"
-      aria-label={`Orden ${order} en la jornada`}
+      aria-label={`Ruta ${order} en la jornada`}
     >
       <div
         className={cn(
@@ -71,7 +77,7 @@ function OperarioJornadaOrderRail({ task }: { task: Task }) {
           resolveJornadaOrderCircleClassName(task)
         )}
       >
-        {order}
+        {numericLabel}
       </div>
       <p className="text-[11px] font-medium leading-tight text-foreground">
         {formatJornadaOrderPosition(order)}
@@ -89,20 +95,24 @@ function OperarioJornadaOrderRail({ task }: { task: Task }) {
 function OperarioTaskCardContent({ task }: { task: Task }) {
   const customerName =
     task.customerName?.trim() || task.projectName?.trim() || "—"
-  const workType = resolveTaskOperationalTitle(task)
+  const workType = resolveTaskOperationalTitle(task).toUpperCase()
   const address = task.serviceAddress?.trim() || "—"
 
   return (
     <>
-      <OperarioShiftBadge task={task} />
-      <dl className="mt-2 space-y-2 text-sm">
+      <div className="flex items-start gap-3">
+        <DispatchOrderBadge task={task} size="md" />
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-semibold tracking-wide text-primary">
+            {workType}
+          </p>
+          <OperarioShiftBadge task={task} />
+        </div>
+      </div>
+      <dl className="mt-3 space-y-2 text-sm">
         <div>
           <dt className="text-muted-foreground">👤 Cliente</dt>
           <dd className="font-medium text-foreground">{customerName}</dd>
-        </div>
-        <div>
-          <dt className="text-muted-foreground">🔧 Tipo de trabajo</dt>
-          <dd className="font-medium text-foreground">{workType}</dd>
         </div>
         <div>
           <dt className="text-muted-foreground">📍 Dirección</dt>
@@ -129,7 +139,9 @@ export function OperarioTaskCard({
         <div className="min-w-0 flex-1 p-4">
           <OperarioTaskCardContent task={task} />
         </div>
-        <OperarioJornadaOrderRail task={task} />
+        {hasOperarioRouteOrder(task) ? (
+          <OperarioJornadaOrderRail task={task} />
+        ) : null}
       </article>
     )
   }

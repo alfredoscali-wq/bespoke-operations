@@ -24,6 +24,7 @@ import {
 import { isOperarioWorkerTaskAccessible } from "@/lib/data/operario"
 import { OperarioFtthInstallationCard } from "@/components/operario/operario-ftth-installation-card"
 import { resolveOperarioExecutionOrderHeader } from "@/lib/planificacion/planning-execution-order"
+import { resolveTaskRouteOrder } from "@/lib/tasks/dispatch-order"
 import { hasOperationalSteps } from "@/lib/operational-steps/utils"
 import { taskRequiresFtthInstallation } from "@/lib/tasks/ftth-installation"
 import { getTaskTechnologyLabel } from "@/lib/tasks/commercial-plan"
@@ -125,7 +126,7 @@ export function OperarioTaskDetailScreen({ id }: OperarioTaskDetailScreenProps) 
     isPendingClosureStatus(activeTask.status))
   const rejectionReason = activeTask.rejectionReason?.trim()
   const executionOrderHeader = resolveOperarioExecutionOrderHeader(
-    activeTask.executionOrder
+    resolveTaskRouteOrder(activeTask)
   )
 
   return (

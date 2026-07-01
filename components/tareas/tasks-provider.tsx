@@ -52,6 +52,7 @@ import {
 } from "@/lib/tasks/utils"
 import { generateWorkOrderTaskCodeFromCodes } from "@/lib/tasks/work-order"
 import { applyWorkOrderApprovalEffects } from "@/lib/tasks/work-order-approval-effects"
+import { buildDispatchOrderConfirmUpdates } from "@/lib/tasks/dispatch-order"
 import { getTaskEvidencePhotoCount, getOperationalStepPhotoCounts } from "@/lib/supabase/task-photos.browser"
 import {
   getOperationalStepsProgress,
@@ -951,6 +952,11 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
+      const dispatchUpdates = buildDispatchOrderConfirmUpdates(tasks, ids)
+      const dispatchOrderByTaskId = new Map(
+        dispatchUpdates.map((update) => [update.taskId, update.dispatchOrder])
+      )
+
       for (const id of ids) {
         const task = tasks.find((item) => item.id === id)
         if (!task) {
@@ -962,9 +968,13 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
           return { success: false, message: validation.message }
         }
 
+        const dispatchOrder = dispatchOrderByTaskId.get(id)
         const result = await updateTaskFields(
           id,
-          { status: "asignada" },
+          {
+            status: "asignada",
+            ...(dispatchOrder !== undefined ? { dispatchOrder } : {}),
+          },
           "confirm-planning",
           "Planificación confirmada para la jornada.",
           undefined,
@@ -1003,7 +1013,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
 
         const result = await updateTaskFields(
           id,
-          { status: "programada" },
+          { status: "programada", dispatchOrder: null },
           "reopen-planning",
           "Planificación reabierta para edición.",
           undefined,

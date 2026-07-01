@@ -14,6 +14,7 @@ import type { Crew } from "@/lib/types/crews"
 import type { Employee } from "@/lib/types/employees"
 import type { Task } from "@/lib/types/tasks"
 import { compareDateOnly } from "@/lib/dates/date-only"
+import { compareTasksByDispatchRoute } from "@/lib/tasks/dispatch-order"
 import { compareScheduledTimeStrings } from "@/lib/tasks/scheduling"
 import { isCalendarOperationalTask } from "@/lib/tasks/status-groups"
 
@@ -173,6 +174,10 @@ export function buildTaskCalendarEvents(
           dueDate: task.dueDate,
           scheduledTime: task.scheduledTime,
           serviceType: task.serviceType,
+          crew: task.crew,
+          crewId: task.crewId,
+          dispatchOrder: task.dispatchOrder ?? null,
+          executionOrder: task.executionOrder ?? null,
           alerts,
         },
       })
@@ -372,6 +377,31 @@ export function sortCalendarEvents(events: CalendarEvent[]): CalendarEvent[] {
     if (a.type === "TASK" && b.type === "TASK") {
       const byDate = compareDateOnly(a.date, b.date)
       if (byDate !== 0) return byDate
+
+      const leftTask = {
+        dueDate: a.payload.dueDate,
+        crew: a.payload.crew ?? "",
+        crewId: a.payload.crewId,
+        dispatchOrder: a.payload.dispatchOrder,
+        executionOrder: a.payload.executionOrder,
+        createdAt: "",
+      }
+      const rightTask = {
+        dueDate: b.payload.dueDate,
+        crew: b.payload.crew ?? "",
+        crewId: b.payload.crewId,
+        dispatchOrder: b.payload.dispatchOrder,
+        executionOrder: b.payload.executionOrder,
+        createdAt: "",
+      }
+
+      const byRoute = compareTasksByDispatchRoute(
+        leftTask as Task,
+        rightTask as Task
+      )
+      if (byRoute !== 0) {
+        return byRoute
+      }
 
       const byTime = compareScheduledTimeStrings(
         a.payload.scheduledTime,

@@ -1,7 +1,7 @@
 "use client"
 
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { formatPlanningExecutionOrderDisplay } from "@/lib/planificacion/planning-execution-order"
+import { formatDispatchOrderBadge, resolveTaskRouteOrder } from "@/lib/tasks/dispatch-order"
 import type { PlanningCrewRoute } from "@/lib/planificacion/planning-dispatch"
 import {
   resolvePlanningTaskClientLabel,
@@ -67,8 +67,8 @@ export function PlanningDispatchRoutesPanel({
 
                 <ol className="divide-y">
                   {route.tasks.map((task) => {
-                    const orderLabel = formatPlanningExecutionOrderDisplay(
-                      task.executionOrder
+                    const orderLabel = formatDispatchOrderBadge(
+                      resolveTaskRouteOrder(task)
                     )
                     const selected = task.id === selectedTaskId
 
@@ -86,8 +86,8 @@ export function PlanningDispatchRoutesPanel({
                             className="mt-0.5 shrink-0 text-base leading-none text-primary"
                             aria-label={
                               orderLabel
-                                ? `Orden ${task.executionOrder}`
-                                : "Sin orden"
+                                ? `Ruta ${resolveTaskRouteOrder(task)}`
+                                : "Sin ruta"
                             }
                           >
                             {orderLabel ?? "·"}

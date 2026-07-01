@@ -1,5 +1,6 @@
 "use client"
 
+import { DispatchOrderBadge } from "@/components/tareas/dispatch-order-badge"
 import { AVAILABILITY_TYPE_LABELS } from "@/lib/availability/constants"
 import {
   getCalendarTaskCustomerName,
@@ -93,6 +94,10 @@ function CalendarTaskCardContent({
   const scheduledTime = getCalendarTaskScheduledTimeLabel(event.payload)
   const customerName = getCalendarTaskCustomerName(event.payload)
   const workType = getCalendarTaskWorkTypeLabel(event.payload)
+  const routeTask = {
+    dispatchOrder: event.payload.dispatchOrder,
+    executionOrder: event.payload.executionOrder,
+  }
   const taskStatusLabel =
     event.payload.status === "pendiente-cierre"
       ? TASK_STATUS_LABELS["pendiente-cierre"]
@@ -111,6 +116,7 @@ function CalendarTaskCardContent({
   return (
     <>
       <div className="flex items-start justify-between gap-2">
+        <DispatchOrderBadge task={routeTask} size="sm" />
         <div className="min-w-0 flex-1 space-y-0.5">
           <div className="sm:hidden">
             <p className="truncate text-xs font-semibold leading-snug">

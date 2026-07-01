@@ -3,11 +3,7 @@
 import { ChevronDown, ChevronUp, Route } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
-import type { Task } from "@/lib/types/tasks"
-import {
-  formatPlanningExecutionOrderDisplay,
-} from "@/lib/planificacion/planning-execution-order"
+import { formatDispatchOrderBadge, resolveTaskRouteOrder } from "@/lib/tasks/dispatch-order"
 import {
   resolvePlanningTaskClientLabel,
   resolvePlanningTaskCrewLabel,
@@ -16,6 +12,8 @@ import {
   resolvePlanningTaskShiftDisplayLabel,
 } from "@/lib/planificacion/planning-utils"
 import { TASK_STATUS_LABELS } from "@/lib/tasks/constants"
+import type { Task } from "@/lib/types/tasks"
+import { cn } from "@/lib/utils"
 
 type PlanningTaskCardProps = {
   task: Task
@@ -43,7 +41,7 @@ export function PlanningTaskCard({
   onMoveDown,
 }: PlanningTaskCardProps) {
   const shiftLabel = resolvePlanningTaskShiftDisplayLabel(task)
-  const orderLabel = formatPlanningExecutionOrderDisplay(task.executionOrder)
+  const orderLabel = formatDispatchOrderBadge(resolveTaskRouteOrder(task))
   const hasCrewControls = !readOnly && (canMoveUp || canMoveDown)
 
   return (
@@ -76,7 +74,7 @@ export function PlanningTaskCard({
             {orderLabel ? (
               <span
                 className="text-sm leading-none text-muted-foreground"
-                aria-label={`Orden ${task.executionOrder}`}
+                aria-label={`Ruta ${resolveTaskRouteOrder(task)}`}
               >
                 {orderLabel}
               </span>

@@ -3,6 +3,7 @@
 import { Search, X } from "lucide-react"
 
 import type {
+  Task,
   TaskPriority,
   TaskSortDirection,
   TaskSortField,
@@ -17,6 +18,7 @@ import {
   TASK_TYPE_OPTIONS,
 } from "@/lib/tasks/constants"
 import { compareDateOnly } from "@/lib/dates/date-only"
+import { compareTasksByDispatchRoute } from "@/lib/tasks/dispatch-order"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -335,8 +337,17 @@ export function filterAndSortTasks<
 
   return [...filtered].sort((a, b) => {
     switch (filters.sortField) {
-      case "dueDate":
-        return direction * compareDateOnly(a.dueDate, b.dueDate)
+      case "dueDate": {
+        const byDate = direction * compareDateOnly(a.dueDate, b.dueDate)
+        if (byDate !== 0) {
+          return byDate
+        }
+
+        return (
+          direction *
+          compareTasksByDispatchRoute(a as unknown as Task, b as unknown as Task, crews)
+        )
+      }
       case "priority":
         return direction * (priorityOrder[a.priority] - priorityOrder[b.priority])
       case "status":

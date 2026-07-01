@@ -1,5 +1,11 @@
 import type { Task, TaskPriority } from "@/lib/types/tasks"
 
+import {
+  compareTasksByDispatchRoute,
+  sortTasksByDispatchRoute,
+  tasksHavePersistedDispatchOrder,
+} from "@/lib/tasks/dispatch-order"
+
 const PRIORITY_ORDER: Record<TaskPriority, number> = {
   alta: 0,
   media: 1,
@@ -16,7 +22,16 @@ function compareScheduledTime(
 }
 
 export function sortAgendaTasks(tasks: Task[]): Task[] {
+  if (tasksHavePersistedDispatchOrder(tasks)) {
+    return sortTasksByDispatchRoute(tasks)
+  }
+
   return [...tasks].sort((left, right) => {
+    const byRoute = compareTasksByDispatchRoute(left, right)
+    if (byRoute !== 0) {
+      return byRoute
+    }
+
     const byTime = compareScheduledTime(left.scheduledTime, right.scheduledTime)
     if (byTime !== 0) {
       return byTime
