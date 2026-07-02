@@ -53,6 +53,15 @@ import {
 import { generateWorkOrderTaskCodeFromCodes } from "@/lib/tasks/work-order"
 import { applyWorkOrderApprovalEffects } from "@/lib/tasks/work-order-approval-effects"
 import { buildDispatchOrderConfirmUpdates } from "@/lib/tasks/dispatch-order"
+import {
+  buildDispatchOrderPersistPlan,
+  buildExecutionOrderPersistPlan,
+  buildOperationalOrderRemovalUpdates,
+  isOperationalOrderReorderable,
+  resolveOperationalOrderOnDateChange,
+  type ExecutionOrderUpdate,
+} from "@/lib/planificacion/planning-execution-order"
+import { resolveTaskCrewId } from "@/lib/tasks/crew-relation"
 import { getTaskEvidencePhotoCount, getOperationalStepPhotoCounts } from "@/lib/supabase/task-photos.browser"
 import {
   getOperationalStepsProgress,
@@ -535,6 +544,50 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     [updateTaskFields]
   )
 
+  const applyExecutionOrderUpdates = useCallback(
+    async (updates: ExecutionOrderUpdate[]): Promise<TaskMutationResult> => {
+      const plan = buildExecutionOrderPersistPlan(updates, tasks)
+
+      for (const phase of plan.phases) {
+        for (const update of phase) {
+          const result = await editTask(update.taskId, {
+            executionOrder: update.executionOrder,
+          })
+
+          if (!result.success) {
+            return result
+          }
+        }
+      }
+
+      return { success: true }
+    },
+    [tasks, editTask]
+  )
+
+  const applyDispatchOrderUpdates = useCallback(
+    async (
+      updates: Array<{ taskId: string; dispatchOrder: number | null }>
+    ): Promise<TaskMutationResult> => {
+      const plan = buildDispatchOrderPersistPlan(updates, tasks)
+
+      for (const phase of plan.phases) {
+        for (const update of phase) {
+          const result = await editTask(update.taskId, {
+            dispatchOrder: update.dispatchOrder,
+          })
+
+          if (!result.success) {
+            return result
+          }
+        }
+      }
+
+      return { success: true }
+    },
+    [tasks, editTask]
+  )
+
   const applyWorkflowTransition = useCallback(
     async (
       id: string,
@@ -718,6 +771,24 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         `Observación: ${observation}`,
       ].join("\n")
 
+      const crewId = resolveTaskCrewId(task)
+      if (crewId && isOperationalOrderReorderable(task)) {
+        const orderUpdates = buildOperationalOrderRemovalUpdates({
+          tasks,
+          dueDate: task.dueDate,
+          crewId,
+          removedTaskId: id,
+          crews: [],
+        })
+
+        if (orderUpdates.length > 0) {
+          const orderResult = await applyExecutionOrderUpdates(orderUpdates)
+          if (!orderResult.success) {
+            return orderResult
+          }
+        }
+      }
+
       return updateTaskFields(
         id,
         {
@@ -730,7 +801,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         options?.actor
       )
     },
-    [tasks, updateTaskFields]
+    [tasks, updateTaskFields, applyExecutionOrderUpdates]
   )
 
   const reportTaskIncident = useCallback(
@@ -866,17 +937,53 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         ...input,
         rescheduledBy,
       }
+      const updatePayload = buildTaskRescheduleUpdatePayload(
+        task,
+        rescheduleInput,
+        targetStatus
+      )
+
+      const nextDueDate = updatePayload.dueDate ?? task.dueDate
+      const nextCrewId =
+        updatePayload.crewId !== undefined
+          ? updatePayload.crewId
+          : resolveTaskCrewId(task)
+
+      if (
+        nextDueDate !== task.dueDate &&
+        nextCrewId &&
+        isOperationalOrderReorderable(task)
+      ) {
+        const orderUpdates = resolveOperationalOrderOnDateChange({
+          task,
+          newDueDate: nextDueDate,
+          allTasks: tasks,
+          crews: [],
+        })
+
+        if (orderUpdates.length > 0) {
+          const orderResult = await applyExecutionOrderUpdates(orderUpdates)
+          if (!orderResult.success) {
+            return orderResult
+          }
+        }
+
+        const taskOrderUpdate = orderUpdates.find((update) => update.taskId === id)
+        if (taskOrderUpdate) {
+          updatePayload.executionOrder = taskOrderUpdate.executionOrder
+        }
+      }
 
       return updateTaskFields(
         id,
-        buildTaskRescheduleUpdatePayload(task, rescheduleInput, targetStatus),
+        updatePayload,
         workflowAction,
         buildTaskRescheduleHistoryNote(rescheduleInput),
         rescheduledBy,
         { rescheduleInput }
       )
     },
-    [tasks, updateTaskFields]
+    [tasks, updateTaskFields, applyExecutionOrderUpdates]
   )
 
   const rescheduleTaskFromIncident = useCallback(
@@ -953,9 +1060,10 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       }
 
       const dispatchUpdates = buildDispatchOrderConfirmUpdates(tasks, ids)
-      const dispatchOrderByTaskId = new Map(
-        dispatchUpdates.map((update) => [update.taskId, update.dispatchOrder])
-      )
+      const dispatchResult = await applyDispatchOrderUpdates(dispatchUpdates)
+      if (!dispatchResult.success) {
+        return dispatchResult
+      }
 
       for (const id of ids) {
         const task = tasks.find((item) => item.id === id)
@@ -968,12 +1076,10 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
           return { success: false, message: validation.message }
         }
 
-        const dispatchOrder = dispatchOrderByTaskId.get(id)
         const result = await updateTaskFields(
           id,
           {
             status: "asignada",
-            ...(dispatchOrder !== undefined ? { dispatchOrder } : {}),
           },
           "confirm-planning",
           "Planificación confirmada para la jornada.",
@@ -988,7 +1094,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
 
       return { success: true }
     },
-    [tasks, updateTaskFields]
+    [tasks, updateTaskFields, applyDispatchOrderUpdates]
   )
 
   const reopenPlanningTasks = useCallback(

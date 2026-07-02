@@ -1,5 +1,16 @@
-import { resolveTaskRouteOrder } from "@/lib/tasks/dispatch-order"
-import { resolveTaskCrewId, taskMatchesCrewId } from "@/lib/tasks/crew-relation"
+import {
+  buildOperationalOrderFieldUpdates,
+  buildOperationalOrderRemovalFieldUpdates,
+  compareOperationalOrderTasks,
+  filterOperationalOrderScope,
+  isOperationalOrderReorderable,
+  resolveNextOperationalOrderProposal,
+  resolveOperationalOrderValue,
+  sortOperationalOrderScope,
+} from "@/lib/planificacion/planning-operational-order-core"
+import type { DispatchOrderUpdate } from "@/lib/planificacion/planning-dispatch-order"
+import { dedupeDispatchOrderUpdates } from "@/lib/planificacion/planning-dispatch-order"
+import { resolveTaskCrewId } from "@/lib/tasks/crew-relation"
 import type { Crew } from "@/lib/types/crews"
 import type { Task } from "@/lib/types/tasks"
 import type { UpdateTaskPayload } from "@/lib/types/supabase/tasks"
@@ -16,6 +27,12 @@ export type PlanningTaskUpdateBatch = {
   primaryPayload: UpdateTaskPayload
   relatedUpdates: ExecutionOrderUpdate[]
 }
+
+export {
+  isOperationalOrderReorderable,
+  OPERATIONAL_ORDER_REORDERABLE_STATUSES,
+  resolveOperationalOrderValue,
+} from "@/lib/planificacion/planning-operational-order-core"
 
 const CIRCLED_NUMBER_MAX = 20
 
@@ -60,12 +77,10 @@ export type ExecutionOrderPersistPlan = {
   phases: ExecutionOrderUpdate[][]
 }
 
-/**
- * Splits updates into two phases so UNIQUE (due_date, crew_id, execution_order)
- * is never violated during sequential client updates:
- * 1) clear affected rows (NULL is excluded from the unique index)
- * 2) assign final execution_order values
- */
+export type DispatchOrderPersistPlan = {
+  phases: DispatchOrderUpdate[][]
+}
+
 export function buildExecutionOrderPersistPlan(
   updates: ExecutionOrderUpdate[],
   tasks: Task[]
@@ -91,8 +106,29 @@ export function buildExecutionOrderPersistPlan(
   }
 }
 
-function resolveTaskCreatedAtSortKey(task: Pick<Task, "createdAt">): string {
-  return task.createdAt ?? ""
+export function buildDispatchOrderPersistPlan(
+  updates: DispatchOrderUpdate[],
+  tasks: Task[]
+): DispatchOrderPersistPlan {
+  const deduped = dedupeDispatchOrderUpdates(updates)
+  const changes = deduped.filter((update) => {
+    const task = tasks.find((item) => item.id === update.taskId)
+    return task?.dispatchOrder !== update.dispatchOrder
+  })
+
+  if (changes.length === 0) {
+    return { phases: [] }
+  }
+
+  return {
+    phases: [
+      changes.map((update) => ({
+        taskId: update.taskId,
+        dispatchOrder: null,
+      })),
+      changes,
+    ],
+  }
 }
 
 export function compareTasksForPlanningDisplay(
@@ -100,32 +136,7 @@ export function compareTasksForPlanningDisplay(
   right: Task,
   crews: CrewRef[] = []
 ): number {
-  const leftCrewId = resolveTaskCrewId(left, crews) ?? ""
-  const rightCrewId = resolveTaskCrewId(right, crews) ?? ""
-
-  const leftOrder = resolveTaskRouteOrder(left)
-  const rightOrder = resolveTaskRouteOrder(right)
-  const leftHasOrder = leftOrder != null
-  const rightHasOrder = rightOrder != null
-
-  if (leftCrewId && leftCrewId === rightCrewId) {
-    if (leftHasOrder && rightHasOrder) {
-      return leftOrder! - rightOrder!
-    }
-    if (leftHasOrder !== rightHasOrder) {
-      return leftHasOrder ? -1 : 1
-    }
-  } else if (leftHasOrder !== rightHasOrder) {
-    return leftHasOrder ? -1 : 1
-  }
-
-  if (left.dispatchOrder != null || right.dispatchOrder != null) {
-    return 0
-  }
-
-  return resolveTaskCreatedAtSortKey(left).localeCompare(
-    resolveTaskCreatedAtSortKey(right)
-  )
+  return compareOperationalOrderTasks(left, right, crews)
 }
 
 export function sortTasksForPlanningList(
@@ -147,7 +158,7 @@ export function sortTasksForPlanningList(
       return byCrew
     }
 
-    return compareTasksForPlanningDisplay(left, right, crews)
+    return compareOperationalOrderTasks(left, right, crews)
   })
 }
 
@@ -157,82 +168,59 @@ export function filterTasksInExecutionScope(
   crewId: string | null | undefined,
   crews: CrewRef[] = []
 ): Task[] {
-  if (!crewId) {
-    return []
-  }
-
-  return tasks.filter(
-    (task) =>
-      task.dueDate === dueDate &&
-      taskMatchesCrewId(task, { id: crewId, name: "" })
-  )
+  return filterOperationalOrderScope(tasks, dueDate, crewId, crews)
 }
 
 export function sortTasksInExecutionSequence(
   tasks: Task[],
   crews: CrewRef[] = []
 ): Task[] {
-  return [...tasks].sort((left, right) =>
-    compareTasksForPlanningDisplay(left, right, crews)
-  )
+  return sortOperationalOrderScope(tasks, crews)
 }
 
-/** Reassign contiguous 1..n for ordered tasks in each crew+date group. Null orders stay null. */
-export function recalculateExecutionOrder(
-  tasks: Task[],
-  crews: CrewRef[] = []
-): ExecutionOrderUpdate[] {
-  const updates: ExecutionOrderUpdate[] = []
-  const groups = new Map<string, Task[]>()
+export function buildOperationalOrderAssignmentUpdates(input: {
+  tasks: Task[]
+  dueDate: string
+  crewId: string
+  taskId: string
+  desiredOrder: number
+  crews: CrewRef[]
+}): ExecutionOrderUpdate[] {
+  const { tasks, dueDate, crewId, taskId, desiredOrder, crews } = input
+  const scope = filterOperationalOrderScope(tasks, dueDate, crewId, crews)
 
-  for (const task of tasks) {
-    const crewId = resolveTaskCrewId(task, crews)
-    if (!crewId) {
-      if (task.executionOrder != null) {
-        updates.push({ taskId: task.id, executionOrder: null })
-      }
-      continue
-    }
-
-    const key = `${task.dueDate}::${crewId}`
-    const group = groups.get(key) ?? []
-    group.push(task)
-    groups.set(key, group)
-  }
-
-  for (const groupTasks of groups.values()) {
-    const orderedTasks = sortTasksInExecutionSequence(groupTasks, crews).filter(
-      (task) => task.executionOrder != null && task.executionOrder > 0
-    )
-
-    orderedTasks.forEach((task, index) => {
-      const nextOrder = index + 1
-      if (task.executionOrder !== nextOrder) {
-        updates.push({ taskId: task.id, executionOrder: nextOrder })
-      }
-    })
-  }
-
-  return updates
+  return buildOperationalOrderFieldUpdates({
+    scope,
+    taskId,
+    desiredGlobalOrder: desiredOrder,
+    crews,
+    readOrder: (task) => task.executionOrder ?? null,
+    writeUpdate: (updateTaskId, order) => ({
+      taskId: updateTaskId,
+      executionOrder: order,
+    }),
+  })
 }
 
-export function recalculateExecutionOrderForScope(
-  tasks: Task[],
-  dueDate: string,
-  crewId: string | null | undefined,
-  crews: CrewRef[] = [],
-  excludeTaskId?: string
-): ExecutionOrderUpdate[] {
-  if (!crewId) {
-    return []
-  }
-
-  const scopeTasks = filterTasksInExecutionScope(tasks, dueDate, crewId, crews).filter(
-    (task) => task.id !== excludeTaskId
-  )
-
-  return recalculateExecutionOrder(scopeTasks, crews)
+export function buildOperationalOrderRemovalUpdates(input: {
+  tasks: Task[]
+  dueDate: string
+  crewId: string
+  removedTaskId: string
+  crews: CrewRef[]
+}): ExecutionOrderUpdate[] {
+  return buildOperationalOrderRemovalFieldUpdates({
+    ...input,
+    readOrder: (task) => task.executionOrder ?? null,
+    writeUpdate: (updateTaskId, order) => ({
+      taskId: updateTaskId,
+      executionOrder: order,
+    }),
+    isClearable: (task) => isOperationalOrderReorderable(task),
+  })
 }
+
+export { resolveNextOperationalOrderProposal }
 
 export function resolveExecutionOrderAppendPosition(
   tasks: Task[],
@@ -241,16 +229,13 @@ export function resolveExecutionOrderAppendPosition(
   crews: CrewRef[] = [],
   excludeTaskId?: string
 ): number {
-  const mates = filterTasksInExecutionScope(tasks, dueDate, crewId, crews).filter(
-    (task) => task.id !== excludeTaskId
-  )
-
-  const maxOrder = mates.reduce(
-    (max, task) => Math.max(max, task.executionOrder ?? 0),
-    0
-  )
-
-  return maxOrder + 1
+  return resolveNextOperationalOrderProposal({
+    tasks,
+    dueDate,
+    crewId,
+    crews,
+    excludeTaskId,
+  })
 }
 
 export function buildExecutionOrderSwapUpdates(
@@ -260,7 +245,7 @@ export function buildExecutionOrderSwapUpdates(
   crews: CrewRef[] = []
 ): ExecutionOrderUpdate[] {
   const task = tasks.find((item) => item.id === taskId)
-  if (!task) {
+  if (!task || !isOperationalOrderReorderable(task)) {
     return []
   }
 
@@ -269,14 +254,17 @@ export function buildExecutionOrderSwapUpdates(
     return []
   }
 
-  const scopeTasks = filterTasksInExecutionScope(
+  const scopeTasks = filterOperationalOrderScope(
     tasks,
     task.dueDate,
     crewId,
     crews
   )
-  const sorted = sortTasksInExecutionSequence(scopeTasks, crews)
-  const currentIndex = sorted.findIndex((item) => item.id === taskId)
+  const reorderable = sortOperationalOrderScope(
+    scopeTasks.filter(isOperationalOrderReorderable),
+    crews
+  )
+  const currentIndex = reorderable.findIndex((item) => item.id === taskId)
 
   if (currentIndex === -1) {
     return []
@@ -285,24 +273,79 @@ export function buildExecutionOrderSwapUpdates(
   const targetIndex =
     direction === "up" ? currentIndex - 1 : currentIndex + 1
 
-  if (targetIndex < 0 || targetIndex >= sorted.length) {
+  if (targetIndex < 0 || targetIndex >= reorderable.length) {
     return []
   }
 
-  const reordered = [...sorted]
-  const [moving] = reordered.splice(currentIndex, 1)
-  reordered.splice(targetIndex, 0, moving)
+  const targetOrder = resolveOperationalOrderValue(reorderable[targetIndex]!)
+  if (targetOrder == null) {
+    return []
+  }
 
+  return buildOperationalOrderAssignmentUpdates({
+    tasks,
+    dueDate: task.dueDate,
+    crewId,
+    taskId,
+    desiredOrder: targetOrder,
+    crews,
+  })
+}
+
+export function resolveOperationalOrderOnCrewChange(input: {
+  task: Task
+  newCrewId: string | null
+  newDueDate: string
+  desiredOrder?: number | null
+  allTasks: Task[]
+  crews: CrewRef[]
+}): ExecutionOrderUpdate[] {
+  const { task, newCrewId, newDueDate, desiredOrder, allTasks, crews } = input
+  const previousCrewId = resolveTaskCrewId(task, crews) ?? null
   const updates: ExecutionOrderUpdate[] = []
 
-  reordered.forEach((item, index) => {
-    const nextOrder = index + 1
-    if (item.executionOrder !== nextOrder) {
-      updates.push({ taskId: item.id, executionOrder: nextOrder })
-    }
-  })
+  if (previousCrewId === newCrewId && task.dueDate === newDueDate) {
+    return updates
+  }
 
-  return updates
+  if (previousCrewId) {
+    updates.push(
+      ...buildOperationalOrderRemovalUpdates({
+        tasks: allTasks,
+        dueDate: task.dueDate,
+        crewId: previousCrewId,
+        removedTaskId: task.id,
+        crews,
+      })
+    )
+  }
+
+  if (newCrewId) {
+    const nextOrder =
+      desiredOrder ??
+      resolveNextOperationalOrderProposal({
+        tasks: allTasks,
+        dueDate: newDueDate,
+        crewId: newCrewId,
+        crews,
+        excludeTaskId: task.id,
+      })
+
+    updates.push(
+      ...buildOperationalOrderAssignmentUpdates({
+        tasks: allTasks,
+        dueDate: newDueDate,
+        crewId: newCrewId,
+        taskId: task.id,
+        desiredOrder: nextOrder,
+        crews,
+      })
+    )
+  } else {
+    updates.push({ taskId: task.id, executionOrder: null })
+  }
+
+  return dedupeExecutionOrderUpdates(updates)
 }
 
 export function resolveExecutionOrderOnCrewChange(input: {
@@ -311,42 +354,34 @@ export function resolveExecutionOrderOnCrewChange(input: {
   allTasks: Task[]
   crews: CrewRef[]
 }): ExecutionOrderUpdate[] {
-  const { task, newCrewId, allTasks, crews } = input
-  const previousCrewId = resolveTaskCrewId(task, crews) ?? null
-  const updates: ExecutionOrderUpdate[] = []
+  return resolveOperationalOrderOnCrewChange({
+    ...input,
+    newDueDate: input.task.dueDate,
+  })
+}
 
-  if (previousCrewId === newCrewId) {
-    return updates
+export function resolveOperationalOrderOnDateChange(input: {
+  task: Task
+  newDueDate: string
+  desiredOrder?: number | null
+  allTasks: Task[]
+  crews: CrewRef[]
+}): ExecutionOrderUpdate[] {
+  const { task, newDueDate, desiredOrder, allTasks, crews } = input
+  const crewId = resolveTaskCrewId(task, crews)
+
+  if (!crewId || task.dueDate === newDueDate) {
+    return []
   }
 
-  if (previousCrewId) {
-    updates.push(
-      ...recalculateExecutionOrderForScope(
-        allTasks,
-        task.dueDate,
-        previousCrewId,
-        crews,
-        task.id
-      )
-    )
-  }
-
-  if (newCrewId) {
-    updates.push({
-      taskId: task.id,
-      executionOrder: resolveExecutionOrderAppendPosition(
-        allTasks,
-        task.dueDate,
-        newCrewId,
-        crews,
-        task.id
-      ),
-    })
-  } else {
-    updates.push({ taskId: task.id, executionOrder: null })
-  }
-
-  return dedupeExecutionOrderUpdates(updates)
+  return resolveOperationalOrderOnCrewChange({
+    task,
+    newCrewId: crewId,
+    newDueDate,
+    desiredOrder,
+    allTasks,
+    crews,
+  })
 }
 
 export function resolveExecutionOrderOnDateChange(input: {
@@ -355,34 +390,7 @@ export function resolveExecutionOrderOnDateChange(input: {
   allTasks: Task[]
   crews: CrewRef[]
 }): ExecutionOrderUpdate[] {
-  const { task, newDueDate, allTasks, crews } = input
-  const crewId = resolveTaskCrewId(task, crews)
-
-  if (!crewId || task.dueDate === newDueDate) {
-    return []
-  }
-
-  const updates: ExecutionOrderUpdate[] = [
-    ...recalculateExecutionOrderForScope(
-      allTasks,
-      task.dueDate,
-      crewId,
-      crews,
-      task.id
-    ),
-    {
-      taskId: task.id,
-      executionOrder: resolveExecutionOrderAppendPosition(
-        allTasks,
-        newDueDate,
-        crewId,
-        crews,
-        task.id
-      ),
-    },
-  ]
-
-  return dedupeExecutionOrderUpdates(updates)
+  return resolveOperationalOrderOnDateChange(input)
 }
 
 export function dedupeExecutionOrderUpdates(
@@ -415,18 +423,21 @@ export function resolveExecutionOrderMoveAvailability(
   }
 
   const crewId = resolveTaskCrewId(task, crews)!
-  const scopeTasks = filterTasksInExecutionScope(
+  const scopeTasks = filterOperationalOrderScope(
     tasks,
     task.dueDate,
     crewId,
     crews
   )
-  const sorted = sortTasksInExecutionSequence(scopeTasks, crews)
-  const index = sorted.findIndex((item) => item.id === taskId)
+  const reorderable = sortOperationalOrderScope(
+    scopeTasks.filter(isOperationalOrderReorderable),
+    crews
+  )
+  const index = reorderable.findIndex((item) => item.id === taskId)
 
   return {
     canMoveUp: index > 0,
-    canMoveDown: index >= 0 && index < sorted.length - 1,
+    canMoveDown: index >= 0 && index < reorderable.length - 1,
   }
 }
 
@@ -437,4 +448,52 @@ export function toExecutionOrderPayloadUpdates(
     taskId: update.taskId,
     payload: { executionOrder: update.executionOrder },
   }))
+}
+
+export function parseOperationalOrderInput(
+  value: string
+): { valid: true; order: number } | { valid: false; message: string } {
+  const trimmed = value.trim()
+  if (!trimmed) {
+    return { valid: false, message: "Indique el orden operativo." }
+  }
+
+  const parsed = Number.parseInt(trimmed, 10)
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return {
+      valid: false,
+      message: "El orden operativo debe ser un entero mayor a cero.",
+    }
+  }
+
+  return { valid: true, order: parsed }
+}
+
+export function resolveOperationalOrderFormDefault(input: {
+  task: Task
+  crewId: string
+  dueDate: string
+  allTasks: Task[]
+  crews: CrewRef[]
+}): string {
+  const { task, crewId, dueDate, allTasks, crews } = input
+  const existing = resolveOperationalOrderValue(task)
+
+  if (existing != null && existing > 0) {
+    return String(Math.floor(existing))
+  }
+
+  if (!crewId) {
+    return ""
+  }
+
+  return String(
+    resolveNextOperationalOrderProposal({
+      tasks: allTasks,
+      dueDate,
+      crewId,
+      crews,
+      excludeTaskId: task.id,
+    })
+  )
 }

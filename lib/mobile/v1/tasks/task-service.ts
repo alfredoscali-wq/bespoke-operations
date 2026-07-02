@@ -4,6 +4,12 @@ import { toLocalDateOnly } from "@/lib/dates/date-only"
 import { fetchTodayAgendaTasks } from "@/lib/mobile/v1/agenda/agenda-queries"
 import { sortAgendaTasks } from "@/lib/mobile/v1/agenda/sort-agenda-tasks"
 import type { MobileAuthContext } from "@/lib/mobile/v1/auth/mobile-auth-context"
+import { fetchOperationalChecklistForServiceType } from "@/lib/mobile/v1/checklist/checklist-queries"
+import type { MobileOperationalChecklistItem } from "@/lib/mobile/v1/checklist/types"
+import {
+  mergeChecklistWithResponses,
+  readOperationalChecklistResponses,
+} from "@/lib/mobile/v1/tasks/checklist-execution"
 import { MobileApiError } from "@/lib/mobile/v1/errors"
 import { resolveMobileWorkTeam } from "@/lib/mobile/v1/shifts/resolve-work-team"
 import type {
@@ -16,8 +22,15 @@ import {
   formatContractedPlanLabel,
   getTaskTechnologyLabel,
 } from "@/lib/tasks/commercial-plan"
+import type { TaskStatus } from "@/lib/types/tasks"
+
+const MOBILE_TASK_DETAIL_STATUSES: TaskStatus[] = [
+  "asignada",
+  "en-curso",
+  "pendiente-cierre",
+  "incidencia",
+]
 import { taskMatchesCrewId } from "@/lib/tasks/crew-relation"
-import { isActiveTaskStatus } from "@/lib/tasks/status-groups"
 import { resolveTaskOperationalTitle } from "@/lib/tasks/work-order"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { mapTaskRowToTask } from "@/lib/supabase/tasks.mapper"
@@ -60,11 +73,15 @@ function resolveContactPerson(task: Task): string | null {
   return task.customerCompany?.trim() || null
 }
 
-function mapChecklist(task: Task): MobileTaskChecklistItem[] {
-  return (task.checklist ?? []).map((item) => ({
+function mapOperationalChecklist(
+  items: MobileOperationalChecklistItem[]
+): MobileTaskChecklistItem[] {
+  return items.map((item) => ({
     id: item.id,
-    label: item.label,
+    label: item.title,
+    fieldType: item.fieldType,
     required: item.required,
+    sortOrder: item.sortOrder,
   }))
 }
 
@@ -91,7 +108,8 @@ function mapNextWorkItem(task: Task | undefined): MobileTaskNextWorkItem | null 
 
 function mapTaskToDetailResponse(
   task: Task,
-  nextWork: MobileTaskNextWorkItem | null
+  nextWork: MobileTaskNextWorkItem | null,
+  checklist: MobileTaskChecklistItem[]
 ): MobileTaskDetailResponse {
   const technology = getTaskTechnologyLabel(task)
   const contractedPlan = formatContractedPlanLabel(task.contractedPlan)
@@ -100,6 +118,7 @@ function mapTaskToDetailResponse(
     id: task.id,
     workOrderNumber: task.workOrderNumber?.trim() || task.code?.trim() || null,
     workType: resolveTaskOperationalTitle(task),
+    serviceType: task.serviceType?.trim() || null,
     status: task.status,
     priority: task.priority,
     scheduledTime: task.scheduledTime?.trim() || null,
@@ -115,7 +134,7 @@ function mapTaskToDetailResponse(
       task.amountToCollect == null ? null : Number(task.amountToCollect),
     technology,
     contractedPlan,
-    checklist: mapChecklist(task),
+    checklist,
     evidenceRequirements: mapEvidenceRequirements(task),
     nextWork,
   }
@@ -168,7 +187,10 @@ export async function getMobileTaskDetail(
 
   const today = toLocalDateOnly()
 
-  if (task.dueDate !== today || !isActiveTaskStatus(task.status)) {
+  if (
+    task.dueDate !== today ||
+    !MOBILE_TASK_DETAIL_STATUSES.includes(task.status)
+  ) {
     throw new MobileApiError(
       "TASK_NOT_FOUND",
       "Orden de trabajo no encontrada.",
@@ -190,7 +212,25 @@ export async function getMobileTaskDetail(
   const nextTask =
     currentIndex >= 0 ? agendaTasks[currentIndex + 1] : undefined
 
-  return mapTaskToDetailResponse(task, mapNextWorkItem(nextTask))
+  const operationalChecklistTemplate = await fetchOperationalChecklistForServiceType(
+    admin,
+    auth.companyId,
+    task.serviceType?.trim() || ""
+  )
+
+  const checklist =
+    task.status === "en-curso"
+      ? mergeChecklistWithResponses(
+          operationalChecklistTemplate,
+          readOperationalChecklistResponses(task)
+        )
+      : []
+
+  return mapTaskToDetailResponse(
+    task,
+    mapNextWorkItem(nextTask),
+    checklist
+  )
 }
 
 export function validateMobileTaskDetailRequest(

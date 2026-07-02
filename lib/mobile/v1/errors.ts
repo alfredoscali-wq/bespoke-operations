@@ -2,6 +2,7 @@ export type MobileApiErrorCode =
   | "INVALID_REQUEST"
   | "INVALID_CREDENTIALS"
   | "UNAUTHORIZED"
+  | "SESSION_EXPIRED"
   | "USER_DISABLED"
   | "EMPLOYEE_NOT_FOUND"
   | "INTERNAL_ERROR"
@@ -12,6 +13,11 @@ export type MobileApiErrorCode =
   | "SHIFT_ALREADY_ACTIVE"
   | "SHIFT_NOT_ACTIVE"
   | "TASK_NOT_FOUND"
+  | "TASK_INVALID_STATUS"
+  | "TASK_LOCATION_OUT_OF_RANGE"
+  | "TASK_LOCATION_REQUIRED"
+  | "TASK_CHECKLIST_INCOMPLETE"
+  | "UPLOAD_FAILED"
 
 export class MobileApiError extends Error {
   readonly code: MobileApiErrorCode
@@ -27,6 +33,7 @@ export class MobileApiError extends Error {
 
 export const MOBILE_API_ERROR_MESSAGES = {
   UNAUTHORIZED: "No autorizado",
+  SESSION_EXPIRED: "Sesión expirada.",
   INVALID_CREDENTIALS: "Credenciales inválidas",
   USER_DISABLED: "Usuario deshabilitado",
   EMPLOYEE_NOT_FOUND: "Empleado inexistente",

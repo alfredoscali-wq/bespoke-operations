@@ -1,9 +1,22 @@
 import type { TaskPriority, TaskStatus } from "@/lib/types/tasks"
+import type { MobileChecklistFieldType } from "@/lib/mobile/v1/checklist/types"
+
+export type MobileTaskChecklistResponseValue = {
+  confirmed?: boolean
+  textValue?: string
+  photoIds?: string[]
+}
 
 export type MobileTaskChecklistItem = {
   id: string
   label: string
+  fieldType: MobileChecklistFieldType
   required: boolean
+  sortOrder: number
+  confirmed?: boolean | null
+  textValue?: string | null
+  photoIds?: string[]
+  completed?: boolean
 }
 
 export type MobileTaskEvidenceRequirement = {
@@ -23,6 +36,7 @@ export type MobileTaskDetailResponse = {
   id: string
   workOrderNumber: string | null
   workType: string
+  serviceType: string | null
   status: TaskStatus
   priority: TaskPriority
   scheduledTime: string | null
@@ -40,4 +54,79 @@ export type MobileTaskDetailResponse = {
   checklist: MobileTaskChecklistItem[]
   evidenceRequirements: MobileTaskEvidenceRequirement[]
   nextWork: MobileTaskNextWorkItem | null
+}
+
+export type MobileTaskStartRequest = {
+  deviceId: string
+  latitude: number
+  longitude: number
+  accuracyMeters: number | null
+}
+
+export type MobileTaskStartResponse = {
+  id: string
+  status: TaskStatus
+  startedAt: string
+  checklist: MobileTaskChecklistItem[]
+}
+
+export type MobileTaskIncidentType = {
+  id: string
+  code: string
+  name: string
+  description: string
+  color: string
+  required: boolean
+  sortOrder: number
+}
+
+export type MobileTaskIncidentTypesResponse = {
+  serviceType: string | null
+  items: MobileTaskIncidentType[]
+}
+
+export type MobileTaskChecklistResponseRequest = {
+  deviceId: string
+  itemId: string
+  confirmed?: boolean
+  textValue?: string | null
+}
+
+export type MobileTaskChecklistResponseUpdate = {
+  id: string
+  status: TaskStatus
+  checklist: MobileTaskChecklistItem[]
+}
+
+export type MobileTaskChecklistPhotoRequest = {
+  deviceId: string
+  checklistItemId: string
+  file: File
+}
+
+export type MobileTaskChecklistPhotoResponse = {
+  photoId: string
+  checklistItemId: string
+  checklist: MobileTaskChecklistItem[]
+}
+
+export type MobileTaskReportIncidentRequest = {
+  deviceId: string
+  incidentTypeCode: string
+  observation: string
+  photoIds?: string[]
+}
+
+export type MobileTaskReportIncidentResponse = {
+  id: string
+  status: TaskStatus
+}
+
+export type MobileTaskSubmitForApprovalRequest = {
+  deviceId: string
+}
+
+export type MobileTaskSubmitForApprovalResponse = {
+  id: string
+  status: TaskStatus
 }

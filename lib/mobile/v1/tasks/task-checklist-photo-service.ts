@@ -1,0 +1,51 @@
+import "server-only"
+
+import { uploadTaskEvidencePhoto } from "@/lib/supabase/task-photos.queries"
+import { MobileApiError } from "@/lib/mobile/v1/errors"
+import { assertMobileTaskExecutionAccess } from "@/lib/mobile/v1/tasks/task-execution-access"
+import { appendChecklistPhotoId } from "@/lib/mobile/v1/tasks/task-checklist-service"
+import type {
+  MobileTaskChecklistPhotoRequest,
+  MobileTaskChecklistPhotoResponse,
+} from "@/lib/mobile/v1/tasks/types"
+
+export async function uploadMobileTaskChecklistPhoto(
+  auth: Parameters<typeof assertMobileTaskExecutionAccess>[0],
+  taskId: string,
+  request: MobileTaskChecklistPhotoRequest
+): Promise<MobileTaskChecklistPhotoResponse> {
+  const context = await assertMobileTaskExecutionAccess(
+    auth,
+    taskId,
+    request.deviceId,
+    { allowedStatuses: ["en-curso"] }
+  )
+
+  const uploadResult = await uploadTaskEvidencePhoto(context.admin, {
+    taskId: context.task.id,
+    file: request.file,
+    description: `Checklist: ${request.checklistItemId}`,
+    createdBy: context.auth.displayName,
+    operationalStepId: request.checklistItemId,
+  })
+
+  if (uploadResult.error || !uploadResult.data) {
+    throw new MobileApiError(
+      "UPLOAD_FAILED",
+      uploadResult.error?.message ?? "No se pudo subir la fotografía.",
+      400
+    )
+  }
+
+  const checklist = await appendChecklistPhotoId(
+    context,
+    request.checklistItemId,
+    uploadResult.data.id
+  )
+
+  return {
+    photoId: uploadResult.data.id,
+    checklistItemId: request.checklistItemId,
+    checklist,
+  }
+}

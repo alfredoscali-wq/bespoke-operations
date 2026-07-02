@@ -29,6 +29,12 @@ export async function mobileBearerMiddleware(
   const accessToken = extractBearerToken(request)
 
   if (!accessToken) {
+    console.debug("[Mobile API auth failure]", {
+      requestId: requestContext.requestId,
+      stage: "missing_bearer_token",
+      serverTime: new Date().toISOString(),
+    })
+
     return {
       ok: false,
       response: mobileApiErrorResponse(
@@ -63,9 +69,11 @@ export async function mobileBearerMiddleware(
       }
     }
 
-    console.error("[Mobile API]", {
+    console.error("[Mobile API auth failure]", {
       requestId: requestContext.requestId,
-      message: "Bearer authentication failed",
+      stage: "unexpected_exception",
+      message: error instanceof Error ? error.message : "Unknown error",
+      serverTime: new Date().toISOString(),
     })
 
     return {

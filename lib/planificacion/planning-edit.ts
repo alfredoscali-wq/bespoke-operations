@@ -17,8 +17,12 @@ import type { UpdateTaskPayload } from "@/lib/types/supabase/tasks"
 import type { Task } from "@/lib/types/tasks"
 
 import {
+  buildOperationalOrderAssignmentUpdates,
   dedupeExecutionOrderUpdates,
-  resolveExecutionOrderOnCrewChange,
+  parseOperationalOrderInput,
+  resolveNextOperationalOrderProposal,
+  resolveOperationalOrderFormDefault,
+  resolveOperationalOrderOnCrewChange,
   type ExecutionOrderUpdate,
   type PlanningTaskUpdateBatch,
 } from "@/lib/planificacion/planning-execution-order"
@@ -32,6 +36,7 @@ export type PlanningEditFormState = {
   shift: WorkOrderShift | ""
   estimatedDurationPreset: WorkOrderDurationPreset | ""
   estimatedDurationCustomMinutes: string
+  operationalOrder: string
 }
 
 export const EMPTY_PLANNING_EDIT_FORM: PlanningEditFormState = {
@@ -39,20 +44,54 @@ export const EMPTY_PLANNING_EDIT_FORM: PlanningEditFormState = {
   shift: "",
   estimatedDurationPreset: "",
   estimatedDurationCustomMinutes: "",
+  operationalOrder: "",
 }
 
 export function buildPlanningEditFormFromTask(
   task: Task,
+  allTasks: Task[],
   crews: Pick<Crew, "id" | "name">[] = []
 ): PlanningEditFormState {
   const { preset, customMinutes } = resolveDurationPresetFromTask(task)
+  const crewId = resolveTaskCrewId(task, crews) ?? ""
 
   return {
-    crewId: resolveTaskCrewId(task, crews) ?? "",
+    crewId,
     shift: resolveTaskShift(task) ?? "",
     estimatedDurationPreset: preset,
     estimatedDurationCustomMinutes: customMinutes,
+    operationalOrder: resolveOperationalOrderFormDefault({
+      task,
+      crewId,
+      dueDate: task.dueDate,
+      allTasks,
+      crews,
+    }),
   }
+}
+
+export function resolveOperationalOrderProposalForCrew(input: {
+  task: Task
+  crewId: string
+  dueDate: string
+  allTasks: Task[]
+  crews: Pick<Crew, "id" | "name">[]
+}): string {
+  const { task, crewId, dueDate, allTasks, crews } = input
+
+  if (!crewId) {
+    return ""
+  }
+
+  return String(
+    resolveNextOperationalOrderProposal({
+      tasks: allTasks,
+      dueDate,
+      crewId,
+      crews,
+      excludeTaskId: task.id,
+    })
+  )
 }
 
 export function resolveDurationPresetFromTask(task: Pick<Task, "estimatedDuration">): {
@@ -104,6 +143,11 @@ export function validatePlanningEditForm(
     return { valid: false, message: "Seleccione el turno." }
   }
 
+  const orderValidation = parseOperationalOrderInput(form.operationalOrder)
+  if (!orderValidation.valid) {
+    return { valid: false, message: orderValidation.message }
+  }
+
   return { valid: true }
 }
 
@@ -119,16 +163,34 @@ export function buildPlanningTaskUpdateBatch(input: {
   const snapshots = resolveCrewSnapshotsForAssignment(crew)
   const previousCrewId = resolveTaskCrewId(task, crews) ?? null
   const nextCrewId = form.crewId || null
+  const orderValidation = parseOperationalOrderInput(form.operationalOrder)
+  const desiredOrder = orderValidation.valid ? orderValidation.order : null
 
-  const executionOrderUpdates: ExecutionOrderUpdate[] =
-    previousCrewId !== nextCrewId
-      ? resolveExecutionOrderOnCrewChange({
-          task,
-          newCrewId: nextCrewId,
-          allTasks,
-          crews,
-        })
-      : []
+  const executionOrderUpdates: ExecutionOrderUpdate[] = []
+
+  if (previousCrewId !== nextCrewId) {
+    executionOrderUpdates.push(
+      ...resolveOperationalOrderOnCrewChange({
+        task,
+        newCrewId: nextCrewId,
+        newDueDate: task.dueDate,
+        desiredOrder,
+        allTasks,
+        crews,
+      })
+    )
+  } else if (nextCrewId && desiredOrder != null) {
+    executionOrderUpdates.push(
+      ...buildOperationalOrderAssignmentUpdates({
+        tasks: allTasks,
+        dueDate: task.dueDate,
+        crewId: nextCrewId,
+        taskId: task.id,
+        desiredOrder,
+        crews,
+      })
+    )
+  }
 
   const primaryPayload: UpdateTaskPayload = {
     crewId: snapshots.crewId,
@@ -141,13 +203,11 @@ export function buildPlanningTaskUpdateBatch(input: {
     },
   }
 
-  if (previousCrewId !== nextCrewId) {
-    const taskOrderUpdate = executionOrderUpdates.find(
-      (update) => update.taskId === task.id
-    )
-    if (taskOrderUpdate) {
-      primaryPayload.executionOrder = taskOrderUpdate.executionOrder
-    }
+  const taskOrderUpdate = executionOrderUpdates.find(
+    (update) => update.taskId === task.id
+  )
+  if (taskOrderUpdate) {
+    primaryPayload.executionOrder = taskOrderUpdate.executionOrder
   }
 
   const relatedUpdates = dedupeExecutionOrderUpdates(

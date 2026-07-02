@@ -1,5 +1,7 @@
 import { compareDateOnly } from "@/lib/dates/date-only"
-import { resolveTaskCrewId, taskMatchesCrewId } from "@/lib/tasks/crew-relation"
+import { filterOperationalOrderScope } from "@/lib/planificacion/planning-operational-order-core"
+import { resolveOperationalOrderValue } from "@/lib/planificacion/planning-operational-order-core"
+import { resolveTaskCrewId } from "@/lib/tasks/crew-relation"
 import type { Crew } from "@/lib/types/crews"
 import type { Task } from "@/lib/types/tasks"
 
@@ -7,25 +9,17 @@ type CrewRef = Pick<Crew, "id" | "name">
 
 const CIRCLED_NUMBER_MAX = 20
 
-export type DispatchOrderUpdate = {
-  taskId: string
-  dispatchOrder: number | null
-}
+export {
+  buildDispatchOrderAssignmentUpdates,
+  buildDispatchOrderConfirmUpdates,
+  dedupeDispatchOrderUpdates,
+  type DispatchOrderUpdate,
+} from "@/lib/planificacion/planning-dispatch-order"
 
 export function resolveTaskRouteOrder(
   task: Pick<Task, "dispatchOrder" | "executionOrder">
 ): number | null {
-  const dispatch = task.dispatchOrder
-  if (dispatch != null && dispatch > 0 && Number.isFinite(dispatch)) {
-    return Math.floor(dispatch)
-  }
-
-  const execution = task.executionOrder
-  if (execution != null && execution > 0 && Number.isFinite(execution)) {
-    return Math.floor(execution)
-  }
-
-  return null
+  return resolveOperationalOrderValue(task)
 }
 
 export function hasTaskRouteOrder(
@@ -142,72 +136,17 @@ export function sortTasksByDispatchRoute(
   )
 }
 
-export function buildDispatchOrderConfirmUpdates(
-  tasks: Task[],
-  taskIds: string[],
-  crews: CrewRef[] = []
-): DispatchOrderUpdate[] {
-  const idSet = new Set(taskIds)
-  const scoped = tasks.filter((task) => idSet.has(task.id))
-  const groups = new Map<string, Task[]>()
-
-  for (const task of scoped) {
-    const crewId = resolveTaskCrewId(task, crews)
-    if (!crewId) {
-      continue
-    }
-
-    const key = `${task.dueDate}::${crewId}`
-    const bucket = groups.get(key) ?? []
-    bucket.push(task)
-    groups.set(key, bucket)
-  }
-
-  const updates: DispatchOrderUpdate[] = []
-
-  for (const groupTasks of groups.values()) {
-    const ordered = sortTasksByDispatchRoute(groupTasks, crews)
-
-    ordered.forEach((task, index) => {
-      const nextOrder = index + 1
-      if (task.dispatchOrder !== nextOrder) {
-        updates.push({ taskId: task.id, dispatchOrder: nextOrder })
-      }
-    })
-  }
-
-  for (const task of scoped) {
-    if (!resolveTaskCrewId(task, crews) && task.dispatchOrder != null) {
-      updates.push({ taskId: task.id, dispatchOrder: null })
-    }
-  }
-
-  return dedupeDispatchOrderUpdates(updates)
-}
-
-export function dedupeDispatchOrderUpdates(
-  updates: DispatchOrderUpdate[]
-): DispatchOrderUpdate[] {
-  const byTaskId = new Map<string, DispatchOrderUpdate>()
-  for (const update of updates) {
-    byTaskId.set(update.taskId, update)
-  }
-  return [...byTaskId.values()]
-}
-
 export function filterTasksInDispatchScope(
   tasks: Task[],
   dueDate: string,
   crewId: string | null | undefined,
   crews: CrewRef[] = []
 ): Task[] {
-  if (!crewId) {
-    return []
-  }
-
-  return tasks.filter(
-    (task) =>
-      task.dueDate === dueDate &&
-      taskMatchesCrewId(task, { id: crewId, name: "" })
-  )
+  return filterOperationalOrderScope(tasks, dueDate, crewId, crews)
 }
+
+export {
+  filterOperationalOrderScope,
+  isOperationalOrderReorderable,
+  resolveOperationalOrderValue,
+} from "@/lib/planificacion/planning-operational-order-core"

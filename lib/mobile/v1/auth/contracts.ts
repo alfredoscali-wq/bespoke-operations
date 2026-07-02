@@ -2,7 +2,7 @@
  * Stable contracts for Mobile API auth endpoints.
  *
  * Implemented: POST /api/mobile/v1/auth/login
- * Prepared:    POST /api/mobile/v1/auth/refresh (future sprint)
+ * Implemented: POST /api/mobile/v1/auth/refresh
  * Prepared:    POST /api/mobile/v1/auth/logout (future sprint)
  */
 

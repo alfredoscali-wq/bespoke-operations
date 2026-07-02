@@ -6,6 +6,7 @@ import Link from "next/link"
 
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -28,6 +29,7 @@ import {
   buildPlanningEditFormFromTask,
   buildPlanningTaskUpdateBatch,
   EMPTY_PLANNING_EDIT_FORM,
+  resolveOperationalOrderProposalForCrew,
   resolvePlanningTaskAddress,
   validatePlanningEditForm,
   type PlanningEditFormState,
@@ -63,7 +65,9 @@ export function PlanningTaskEditPanel({
   const { editTask } = useTasks()
   const { crews } = useCrews()
   const [form, setForm] = useState<PlanningEditFormState>(() =>
-    task ? buildPlanningEditFormFromTask(task, crews) : EMPTY_PLANNING_EDIT_FORM
+    task
+      ? buildPlanningEditFormFromTask(task, allTasks, crews)
+      : EMPTY_PLANNING_EDIT_FORM
   )
   const [error, setError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -75,10 +79,10 @@ export function PlanningTaskEditPanel({
 
   useEffect(() => {
     if (task && open) {
-      setForm(buildPlanningEditFormFromTask(task, crews))
+      setForm(buildPlanningEditFormFromTask(task, allTasks, crews))
       setError(null)
     }
-  }, [task, open, crews])
+  }, [task, open, crews, allTasks])
 
   const selectableCrews = useMemo(
     () =>
@@ -111,7 +115,21 @@ export function PlanningTaskEditPanel({
     key: K,
     value: PlanningEditFormState[K]
   ) {
-    setForm((current) => ({ ...current, [key]: value }))
+    setForm((current) => {
+      const next = { ...current, [key]: value }
+
+      if (key === "crewId" && task && typeof value === "string") {
+        next.operationalOrder = resolveOperationalOrderProposalForCrew({
+          task,
+          crewId: value,
+          dueDate: task.dueDate,
+          allTasks,
+          crews,
+        })
+      }
+
+      return next
+    })
   }
 
   async function handleSubmit(event: React.FormEvent) {
@@ -269,6 +287,28 @@ export function PlanningTaskEditPanel({
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="planning-edit-operational-order">
+                Orden operativo
+              </Label>
+              <Input
+                id="planning-edit-operational-order"
+                type="number"
+                min={1}
+                step={1}
+                inputMode="numeric"
+                value={form.operationalOrder}
+                onChange={(event) =>
+                  updateField("operationalOrder", event.target.value)
+                }
+                placeholder="Siguiente disponible"
+              />
+              <p className="text-xs text-muted-foreground">
+                Propuesta automática según la cuadrilla. Puede ajustarla antes de
+                guardar.
+              </p>
             </div>
 
             <div className="space-y-2">

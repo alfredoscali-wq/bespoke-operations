@@ -11,6 +11,7 @@ import {
   MOBILE_API_ERROR_MESSAGES,
   MobileApiError,
 } from "@/lib/mobile/v1/errors"
+import { decodeJwtTiming } from "@/lib/mobile/v1/auth/decode-jwt-exp"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { fetchEmployeeByAppUserId } from "@/lib/supabase/employees.queries"
 
@@ -26,6 +27,13 @@ export async function resolveMobileAuthFromAccessToken(
   const { data, error } = await authClient.auth.getUser(accessToken)
 
   if (error || !data.user) {
+    console.debug("[Mobile API auth failure]", {
+      stage: "supabase_get_user",
+      supabaseError: error?.message ?? null,
+      jwt: decodeJwtTiming(accessToken),
+      serverTime: new Date().toISOString(),
+    })
+
     throw new MobileApiError(
       "UNAUTHORIZED",
       MOBILE_API_ERROR_MESSAGES.UNAUTHORIZED,
