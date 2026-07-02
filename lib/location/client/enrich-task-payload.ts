@@ -40,6 +40,18 @@ async function resolveIfNeeded(
     return null
   }
 
+  return resolveSharedLocationOnSave(trimmed, cache)
+}
+
+async function resolveSharedLocationOnSave(
+  sharedLocation: string,
+  cache: Map<string, ResolvedLocation>
+): Promise<ResolvedLocation | null> {
+  const trimmed = sharedLocation.trim()
+  if (!trimmed) {
+    return null
+  }
+
   const cacheKey = trimmed.toLowerCase()
   const cached = cache.get(cacheKey)
   if (cached) {
@@ -145,10 +157,8 @@ export async function enrichUpdateTaskPayloadWithResolvedLocation(
       : undefined
 
   if (payload.sharedLocation !== undefined && payload.sharedLocation?.trim()) {
-    const resolved = await resolveIfNeeded(
+    const resolved = await resolveSharedLocationOnSave(
       payload.sharedLocation,
-      payload.latitude,
-      payload.longitude,
       resolutionCache
     )
 
@@ -193,10 +203,8 @@ export async function enrichUpdateTaskPayloadWithResolvedLocation(
 
     const newSharedLocation = readMetadataString(metadata, "newSharedLocation")
     if (newSharedLocation) {
-      const resolved = await resolveIfNeeded(
+      const resolved = await resolveSharedLocationOnSave(
         newSharedLocation,
-        readMetadataNumber(metadata, "newLatitude"),
-        readMetadataNumber(metadata, "newLongitude"),
         resolutionCache
       )
 
@@ -205,12 +213,21 @@ export async function enrichUpdateTaskPayloadWithResolvedLocation(
         metadata.newLatitude = resolved.latitude
         metadata.newLongitude = resolved.longitude
         metadata.newLocationResolutionMethod = resolved.resolutionMethod
+        nextPayload = {
+          ...nextPayload,
+          latitude: resolved.latitude,
+          longitude: resolved.longitude,
+          locationResolutionMethod: resolved.resolutionMethod,
+          taskMetadata: metadata,
+        }
       }
     }
 
-    nextPayload = {
-      ...nextPayload,
-      taskMetadata: metadata,
+    if (nextPayload.taskMetadata !== metadata) {
+      nextPayload = {
+        ...nextPayload,
+        taskMetadata: metadata,
+      }
     }
   }
 

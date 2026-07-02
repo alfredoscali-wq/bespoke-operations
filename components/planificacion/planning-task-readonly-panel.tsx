@@ -1,7 +1,6 @@
 "use client"
 
-import { ExternalLink, X } from "lucide-react"
-import Link from "next/link"
+import { X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { resolvePlanningTaskAddress } from "@/lib/planificacion/planning-edit"
@@ -12,7 +11,6 @@ import {
   resolvePlanningTaskServiceLabel,
   resolvePlanningTaskShiftDisplayLabel,
 } from "@/lib/planificacion/planning-utils"
-import { TASK_STATUS_LABELS } from "@/lib/tasks/constants"
 import type { Task } from "@/lib/types/tasks"
 import { cn } from "@/lib/utils"
 
@@ -46,7 +44,7 @@ export function PlanningTaskReadonlyPanel({
             Detalle de la OT
           </h2>
           <p className="text-xs text-muted-foreground">
-            Vista de solo lectura del despacho confirmado.
+            Resumen de la orden dentro del despacho confirmado.
           </p>
         </div>
         <Button
@@ -64,7 +62,7 @@ export function PlanningTaskReadonlyPanel({
       <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-4 py-4">
         <section className="space-y-3 rounded-lg border bg-muted/15 p-4">
           <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-            Información operativa
+            Datos de planificación
           </h3>
           <dl className="space-y-2 text-sm">
             <div>
@@ -92,12 +90,6 @@ export function PlanningTaskReadonlyPanel({
               </dd>
             </div>
             <div>
-              <dt className="text-muted-foreground">Estado</dt>
-              <dd className="font-medium text-foreground">
-                {TASK_STATUS_LABELS[task.status]}
-              </dd>
-            </div>
-            <div>
               <dt className="text-muted-foreground">Cuadrilla</dt>
               <dd className="font-medium text-foreground">
                 {resolvePlanningTaskCrewLabel(task)}
@@ -117,15 +109,6 @@ export function PlanningTaskReadonlyPanel({
             </div>
           </dl>
         </section>
-      </div>
-
-      <div className="border-t px-4 py-3">
-        <Button type="button" variant="outline" className="w-full gap-2" asChild>
-          <Link href={`/tareas/${task.id}`}>
-            <ExternalLink className="size-3.5" />
-            Ir a Órdenes de Trabajo
-          </Link>
-        </Button>
       </div>
     </section>
   )

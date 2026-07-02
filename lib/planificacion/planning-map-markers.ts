@@ -1,4 +1,5 @@
 import type { Task } from "@/lib/types/tasks"
+import type { PlanningTaskCoordinates } from "@/lib/planificacion/planning-utils"
 
 export const PLANNING_PIN_COLOR_VENCIDA = "#dc2626"
 export const PLANNING_PIN_COLOR_SELECTED = "#ea580c"
@@ -89,10 +90,27 @@ export function isPlanningPinHighlighted(
 }
 
 export function buildPlanningMarkersViewKey(
-  markers: Array<{ task: Pick<Task, "id" | "executionOrder"> }>
+  markers: Array<{
+    task: Pick<
+      Task,
+      "id" | "executionOrder" | "crewId" | "status"
+    >
+    coordinates: PlanningTaskCoordinates
+  }>
 ): string {
   return markers
-    .map((marker) => `${marker.task.id}:${marker.task.executionOrder ?? ""}`)
+    .map((marker) => {
+      const crewId = marker.task.crewId ?? ""
+
+      return [
+        marker.task.id,
+        marker.task.executionOrder ?? "",
+        marker.coordinates.latitude,
+        marker.coordinates.longitude,
+        crewId,
+        marker.task.status,
+      ].join(":")
+    })
     .sort()
     .join(",")
 }

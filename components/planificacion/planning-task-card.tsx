@@ -11,7 +11,6 @@ import {
   resolvePlanningTaskServiceLabel,
   resolvePlanningTaskShiftDisplayLabel,
 } from "@/lib/planificacion/planning-utils"
-import { TASK_STATUS_LABELS } from "@/lib/tasks/constants"
 import type { Task } from "@/lib/types/tasks"
 import { cn } from "@/lib/utils"
 
@@ -139,21 +138,12 @@ export function PlanningTaskCard({
               <dt>Turno</dt>
               <dd className="text-right font-medium text-foreground">{shiftLabel}</dd>
             </div>
-            {readOnly ? (
-              <div className="flex justify-between gap-2">
-                <dt>Estado</dt>
-                <dd className="text-right font-medium text-foreground">
-                  {TASK_STATUS_LABELS[task.status]}
-                </dd>
-              </div>
-            ) : (
-              <div className="flex justify-between gap-2">
-                <dt>Duración</dt>
-                <dd className="text-right font-medium text-foreground">
-                  {task.estimatedDuration || "—"}
-                </dd>
-              </div>
-            )}
+            <div className="flex justify-between gap-2">
+              <dt>Duración</dt>
+              <dd className="text-right font-medium text-foreground">
+                {task.estimatedDuration || "—"}
+              </dd>
+            </div>
           </dl>
         </button>
       </div>

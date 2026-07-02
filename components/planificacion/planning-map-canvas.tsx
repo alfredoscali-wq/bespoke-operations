@@ -29,6 +29,56 @@ import "leaflet/dist/leaflet.css"
 
 const PLANNING_MAP_FLY_DURATION_SECONDS = 0.35
 
+function buildPlanningMarkerInstanceKey(
+  taskId: string,
+  coordinates: PlanningMapMarker["coordinates"]
+): string {
+  return `${taskId}:${coordinates.latitude}:${coordinates.longitude}`
+}
+
+function removePlanningMarker(
+  markerLayer: L.LayerGroup,
+  marker: L.Marker
+): void {
+  markerLayer.removeLayer(marker)
+  marker.off()
+  marker.remove()
+}
+
+function createPlanningMarker(
+  markerEntry: PlanningMapMarker,
+  highlightedTaskId: string | null,
+  crewColorIndex: Map<string, number>,
+  onSelectTask: (taskId: string) => void,
+  isEditMode: boolean
+): L.Marker {
+  const { task, coordinates } = markerEntry
+  const highlighted = isPlanningPinHighlighted(task.id, highlightedTaskId)
+  const color = resolvePlanningPinColor(task, highlightedTaskId, crewColorIndex)
+  const latLng: L.LatLngExpression = [
+    coordinates.latitude,
+    coordinates.longitude,
+  ]
+
+  const marker = L.marker(latLng, {
+    icon: createPlanningPinIcon(color, highlighted, resolveTaskRouteOrder(task)),
+    zIndexOffset: highlighted ? 1000 : 0,
+  })
+
+  if (!isEditMode) {
+    marker.bindPopup(buildMarkerPopup(task))
+  }
+
+  marker.on("click", () => {
+    onSelectTask(task.id)
+    if (isEditMode) {
+      marker.closePopup()
+    }
+  })
+
+  return marker
+}
+
 function createPlanningPinIcon(
   color: string,
   highlighted: boolean,
@@ -103,6 +153,27 @@ function applyPlanningMapView(
   )
 }
 
+function refreshPlanningMapView(
+  map: L.Map,
+  markers: PlanningMapMarker[],
+  animate: boolean
+): void {
+  map.invalidateSize()
+
+  if (markers.length === 0) {
+    applyPlanningMapView(map, { type: "default" }, false)
+    return
+  }
+
+  applyPlanningMapView(
+    map,
+    resolvePlanningMapViewConfig(
+      markers.map((marker) => marker.coordinates)
+    ),
+    animate
+  )
+}
+
 type PlanningMapCanvasProps = {
   markers: PlanningMapMarker[]
   selectedTaskId: string | null
@@ -110,6 +181,7 @@ type PlanningMapCanvasProps = {
   crewColorIndex: Map<string, number>
   onSelectTask: (taskId: string) => void
   isEditMode?: boolean
+  viewRefreshToken?: number
 }
 
 export function PlanningMapCanvas({
@@ -119,11 +191,14 @@ export function PlanningMapCanvas({
   crewColorIndex,
   onSelectTask,
   isEditMode = false,
+  viewRefreshToken = 0,
 }: PlanningMapCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
   const markerLayerRef = useRef<L.LayerGroup | null>(null)
-  const markerRefsRef = useRef<Map<string, L.Marker>>(new Map())
+  const markerRefsRef = useRef<
+    Map<string, { instanceKey: string; marker: L.Marker }>
+  >(new Map())
   const markersRef = useRef(markers)
   const onSelectTaskRef = useRef(onSelectTask)
   const isEditModeRef = useRef(isEditMode)
@@ -140,9 +215,6 @@ export function PlanningMapCanvas({
     }
 
     const initialMarkers = markersRef.current
-    const initialView = resolvePlanningMapViewConfig(
-      initialMarkers.map((marker) => marker.coordinates)
-    )
 
     const map = L.map(containerRef.current, {
       zoomControl: true,
@@ -157,8 +229,18 @@ export function PlanningMapCanvas({
     markerLayerRef.current = L.layerGroup().addTo(map)
     mapRef.current = map
 
-    applyPlanningMapView(map, initialView, false)
     lastViewKeyRef.current = buildPlanningMarkersViewKey(initialMarkers)
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (!mapRef.current) {
+          return
+        }
+
+        refreshPlanningMapView(mapRef.current, markersRef.current, false)
+        lastViewKeyRef.current = buildPlanningMarkersViewKey(markersRef.current)
+      })
+    })
 
     return () => {
       map.remove()
@@ -179,65 +261,69 @@ export function PlanningMapCanvas({
     const viewKey = buildPlanningMarkersViewKey(markers)
     const nextMarkerIds = new Set(markers.map((marker) => marker.task.id))
 
-    for (const [taskId, marker] of markerRefs.entries()) {
+    for (const [taskId, markerEntry] of markerRefs.entries()) {
       if (!nextMarkerIds.has(taskId)) {
-        markerLayer.removeLayer(marker)
+        removePlanningMarker(markerLayer, markerEntry.marker)
         markerRefs.delete(taskId)
       }
     }
 
     for (const markerEntry of markers) {
       const { task, coordinates } = markerEntry
-      const highlighted = isPlanningPinHighlighted(task.id, highlightedTaskId)
-      const color = resolvePlanningPinColor(
-        task,
-        highlightedTaskId,
-        crewColorIndex
-      )
-      const latLng: L.LatLngExpression = [
-        coordinates.latitude,
-        coordinates.longitude,
-      ]
+      const instanceKey = buildPlanningMarkerInstanceKey(task.id, coordinates)
+      const existing = markerRefs.get(task.id)
 
-      const existingMarker = markerRefs.get(task.id)
-      if (existingMarker) {
-        existingMarker.setLatLng(latLng)
-        existingMarker.setIcon(
+      if (existing && existing.instanceKey !== instanceKey) {
+        removePlanningMarker(markerLayer, existing.marker)
+        markerRefs.delete(task.id)
+      }
+
+      const current = markerRefs.get(task.id)
+      if (current) {
+        const highlighted = isPlanningPinHighlighted(task.id, highlightedTaskId)
+        const color = resolvePlanningPinColor(
+          task,
+          highlightedTaskId,
+          crewColorIndex
+        )
+
+        current.marker.setIcon(
           createPlanningPinIcon(color, highlighted, resolveTaskRouteOrder(task))
         )
-        existingMarker.setZIndexOffset(highlighted ? 1000 : 0)
+        current.marker.setZIndexOffset(highlighted ? 1000 : 0)
         if (!isEditModeRef.current) {
-          existingMarker.setPopupContent(buildMarkerPopup(task))
+          current.marker.setPopupContent(buildMarkerPopup(task))
         }
         continue
       }
 
-      const marker = L.marker(latLng, {
-        icon: createPlanningPinIcon(color, highlighted, resolveTaskRouteOrder(task)),
-        zIndexOffset: highlighted ? 1000 : 0,
-      })
+      const marker = createPlanningMarker(
+        markerEntry,
+        highlightedTaskId,
+        crewColorIndex,
+        (taskId) => onSelectTaskRef.current(taskId),
+        isEditModeRef.current
+      )
 
-      if (!isEditModeRef.current) {
-        marker.bindPopup(buildMarkerPopup(task))
-      }
-      marker.on("click", () => {
-        onSelectTaskRef.current(task.id)
-        if (isEditModeRef.current) {
-          marker.closePopup()
-        }
-      })
       marker.addTo(markerLayer)
-      markerRefs.set(task.id, marker)
+      markerRefs.set(task.id, { instanceKey, marker })
     }
 
     if (viewKey !== lastViewKeyRef.current) {
       lastViewKeyRef.current = viewKey
-      const viewConfig = resolvePlanningMapViewConfig(
-        markers.map((marker) => marker.coordinates)
-      )
       const shouldAnimate =
-        viewConfig.type === "point" && markers.length === 1
-      applyPlanningMapView(map, viewConfig, shouldAnimate)
+        markers.length === 1 &&
+        resolvePlanningMapViewConfig(
+          markers.map((marker) => marker.coordinates)
+        ).type === "point"
+
+      requestAnimationFrame(() => {
+        if (!mapRef.current) {
+          return
+        }
+
+        refreshPlanningMapView(mapRef.current, markers, shouldAnimate)
+      })
     }
   }, [markers, highlightedTaskId, crewColorIndex])
 
@@ -278,37 +364,83 @@ export function PlanningMapCanvas({
 
     if (isEditMode) {
       map.closePopup()
-      for (const marker of markerRefsRef.current.values()) {
-        marker.closePopup()
-        marker.unbindPopup()
+      for (const markerEntry of markerRefsRef.current.values()) {
+        markerEntry.marker.closePopup()
+        markerEntry.marker.unbindPopup()
       }
       return
     }
 
     for (const markerEntry of markers) {
-      const marker = markerRefsRef.current.get(markerEntry.task.id)
-      if (!marker) {
+      const markerRef = markerRefsRef.current.get(markerEntry.task.id)
+      if (!markerRef) {
         continue
       }
 
-      marker.bindPopup(buildMarkerPopup(markerEntry.task))
+      markerRef.marker.bindPopup(buildMarkerPopup(markerEntry.task))
     }
   }, [isEditMode, markers])
 
   useEffect(() => {
+    if (viewRefreshToken === 0) {
+      return
+    }
+
     const map = mapRef.current
     if (!map) {
       return
     }
 
-    const timer = window.setTimeout(() => {
-      map.invalidateSize()
-    }, 300)
+    lastViewKeyRef.current = ""
+
+    requestAnimationFrame(() => {
+      if (!mapRef.current) {
+        return
+      }
+
+      refreshPlanningMapView(mapRef.current, markersRef.current, false)
+      lastViewKeyRef.current = buildPlanningMarkersViewKey(markersRef.current)
+    })
+  }, [viewRefreshToken])
+
+  useEffect(() => {
+    const map = mapRef.current
+    const container = containerRef.current
+    if (!map || !container) {
+      return
+    }
+
+    let lastWidth = 0
+    let lastHeight = 0
+
+    const observer = new ResizeObserver(() => {
+      if (!mapRef.current) {
+        return
+      }
+
+      const { width, height } = container.getBoundingClientRect()
+      const hadNoSize = lastWidth === 0 || lastHeight === 0
+      lastWidth = width
+      lastHeight = height
+
+      mapRef.current.invalidateSize()
+
+      if (
+        hadNoSize &&
+        width > 0 &&
+        height > 0 &&
+        markersRef.current.length > 0
+      ) {
+        refreshPlanningMapView(mapRef.current, markersRef.current, false)
+      }
+    })
+
+    observer.observe(container)
 
     return () => {
-      window.clearTimeout(timer)
+      observer.disconnect()
     }
-  }, [isEditMode])
+  }, [])
 
-  return <div ref={containerRef} className="h-full w-full" />
+  return <div ref={containerRef} className="absolute inset-0 z-0" />
 }

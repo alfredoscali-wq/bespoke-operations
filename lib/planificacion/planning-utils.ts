@@ -1,4 +1,5 @@
 import { taskMatchesCrewId } from "@/lib/tasks/crew-relation"
+import { parseCambioDomicilioFromTask, isCambioDomicilioTask } from "@/lib/tasks/cambio-domicilio"
 import { formatScheduledTimeForInput } from "@/lib/tasks/scheduling"
 import {
   getWorkOrderServiceTypeLabel,
@@ -65,8 +66,24 @@ export function resolveTaskShift(
 }
 
 export function resolveTaskPlanningCoordinates(
-  task: Pick<Task, "latitude" | "longitude">
+  task: Pick<Task, "latitude" | "longitude" | "serviceType" | "taskMetadata">
 ): PlanningTaskCoordinates | null {
+  if (isCambioDomicilioTask(task)) {
+    const details = parseCambioDomicilioFromTask(task as Task)
+    if (
+      hasCoordinates(details.new.latitude, details.new.longitude) &&
+      details.new.latitude != null &&
+      details.new.longitude != null
+    ) {
+      return {
+        latitude: details.new.latitude,
+        longitude: details.new.longitude,
+      }
+    }
+
+    return null
+  }
+
   if (
     hasCoordinates(task.latitude, task.longitude) &&
     task.latitude != null &&

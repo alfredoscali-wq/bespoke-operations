@@ -44,7 +44,7 @@ export const planificacionNavItem: NavItem = {
   icon: MapPinned,
   pageTitle: "Planificación Operativa",
   description:
-    "Organizar la jornada diaria revisando OT programadas, mapa territorial y cuadrillas activas.",
+    "Revise la planificación propuesta y realice los ajustes necesarios antes del inicio de la jornada.",
 }
 
 export const calendarNavItem: NavItem = {

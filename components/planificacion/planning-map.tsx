@@ -2,8 +2,9 @@
 
 import { useMemo } from "react"
 import dynamic from "next/dynamic"
-import { Loader2 } from "lucide-react"
+import { Loader2, RefreshCw } from "lucide-react"
 
+import { Button } from "@/components/ui/button"
 import type { Task } from "@/lib/types/tasks"
 import type { PlanningTaskCoordinates } from "@/lib/planificacion/planning-utils"
 import {
@@ -47,6 +48,9 @@ type PlanningMapProps = {
   planningDate: string
   isEditMode?: boolean
   className?: string
+  onRefreshMap?: () => void | Promise<void>
+  isRefreshingMap?: boolean
+  mapRefreshToken?: number
 }
 
 export type PlanningMapMarker = {
@@ -120,6 +124,9 @@ export function PlanningMap({
   planningDate,
   isEditMode = false,
   className,
+  onRefreshMap,
+  isRefreshingMap = false,
+  mapRefreshToken = 0,
 }: PlanningMapProps) {
   const markers = buildPlanningMapMarkers(tasks)
   const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null
@@ -139,14 +146,29 @@ export function PlanningMap({
         className
       )}
     >
-      <div className="flex items-center justify-between border-b px-4 py-3">
+      <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
         <div>
-          <h2 className="text-sm font-semibold text-foreground">Mapa operativo</h2>
+          <h2 className="text-sm font-semibold text-foreground">Mapa de planificación</h2>
           <p className="text-xs text-muted-foreground">
-            {markers.length} OT con GPS · Jornada del{" "}
-            {formatPlanningDateLabel(planningDate)}
+            {markers.length} ubicación{markers.length === 1 ? "" : "es"} con GPS
+            · distribución geográfica de la jornada
           </p>
         </div>
+        {onRefreshMap ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="shrink-0 gap-2"
+            onClick={() => void onRefreshMap()}
+            disabled={isRefreshingMap}
+          >
+            <RefreshCw
+              className={cn("size-4", isRefreshingMap && "animate-spin")}
+            />
+            Actualizar mapa
+          </Button>
+        ) : null}
       </div>
 
       <div className="relative min-h-[420px] flex-1">
@@ -157,6 +179,7 @@ export function PlanningMap({
           crewColorIndex={crewColorIndex}
           onSelectTask={onSelectTask}
           isEditMode={isEditMode}
+          viewRefreshToken={mapRefreshToken}
         />
 
         {selectedTask && !isEditMode ? (

@@ -25,7 +25,6 @@ import {
 import { evaluatePlanningConfirmReadiness } from "@/lib/planificacion/planning-confirm"
 import {
   buildPlanningCrewRoutes,
-  computePlanningDispatchKpis,
   filterConfirmedDispatchTasksForPlanning,
   filterProgrammedTasksForPlanningDate,
   listReopenablePlanningTaskIds,
@@ -45,11 +44,10 @@ import {
   computePlanningAlerts,
   filterProgrammedTasksForPlanning,
 } from "@/lib/planificacion/planning-utils"
-import { cn } from "@/lib/utils"
 
 function PlanningModuleContent() {
   const { sessionUser } = useAuth()
-  const { tasks, isTasksReady, editTask, confirmPlanningTasks, reopenPlanningTasks } =
+  const { tasks, isTasksReady, editTask, confirmPlanningTasks, reopenPlanningTasks, refreshTasksFromServer } =
     useTasks()
   const { crews } = useCrews()
   const [initialFilters] = useState(resolveInitialPlanningFilters)
@@ -63,6 +61,9 @@ function PlanningModuleContent() {
   const [isReopeningPlanning, setIsReopeningPlanning] = useState(false)
   const [reopenError, setReopenError] = useState<string | null>(null)
   const [confirmSnapshotVersion, setConfirmSnapshotVersion] = useState(0)
+  const [mapRefreshToken, setMapRefreshToken] = useState(0)
+  const [isRefreshingMap, setIsRefreshingMap] = useState(false)
+  const [mapRefreshError, setMapRefreshError] = useState<string | null>(null)
 
   useEffect(() => {
     writePlanningFiltersToSession({ date })
@@ -96,11 +97,6 @@ function PlanningModuleContent() {
   const sortedTasks = useMemo(
     () => sortTasksByDispatchRoute(filteredTasks, crews),
     [filteredTasks, crews]
-  )
-
-  const kpis = useMemo(
-    () => computePlanningDispatchKpis(filteredTasks),
-    [filteredTasks]
   )
 
   const crewSummaries = useMemo(
@@ -149,6 +145,7 @@ function PlanningModuleContent() {
   const highlightedTaskId = selectedTaskId ?? editingTaskId
   const isFocusMode = !isConfirmedMode && editingTaskId != null
   const isReadonlyDetailOpen = isConfirmedMode && selectedTaskId != null
+  const showPlanningOverview = !isFocusMode && !isReadonlyDetailOpen
 
   function resetInteractionState() {
     setSelectedTaskId(null)
@@ -247,7 +244,7 @@ function PlanningModuleContent() {
 
     if (reopenableIds.length === 0) {
       setReopenError(
-        "No hay OT en estado Asignada para reabrir. Las OT ya iniciadas o con incidencia deben gestionarse desde Órdenes de Trabajo."
+        "No hay OT en estado Asignada para reabrir. Las OT ya iniciadas deben gestionarse desde Órdenes de Trabajo."
       )
       return
     }
@@ -276,10 +273,44 @@ function PlanningModuleContent() {
     }
   }, [tasks, date, reopenPlanningTasks])
 
+  const handleRefreshMap = useCallback(async () => {
+    setMapRefreshError(null)
+    setIsRefreshingMap(true)
+
+    try {
+      const result = await refreshTasksFromServer()
+
+      if (!result.success) {
+        setMapRefreshError(
+          result.message ?? "No se pudo actualizar el mapa de planificación."
+        )
+        return
+      }
+
+      setMapRefreshToken((current) => current + 1)
+    } finally {
+      setIsRefreshingMap(false)
+    }
+  }, [refreshTasksFromServer])
+
+  const mapProps = {
+    tasks: sortedTasks,
+    selectedTaskId,
+    highlightedTaskId,
+    crewIdsInOrder,
+    crewNamesById,
+    onSelectTask: setSelectedTaskId,
+    planningDate: date,
+    isEditMode: isFocusMode,
+    onRefreshMap: handleRefreshMap,
+    isRefreshingMap,
+    mapRefreshToken,
+  }
+
   if (!isTasksReady) {
     return (
       <div className="rounded-xl border bg-muted/20 px-4 py-16 text-center text-sm text-muted-foreground">
-        Cargando planificación operativa...
+        Cargando planificación...
       </div>
     )
   }
@@ -293,7 +324,7 @@ function PlanningModuleContent() {
       <PlanningToolbar
         mode={dispatchMode}
         date={date}
-        kpis={kpis}
+        plannedCount={filteredTasks.length}
         confirmReadiness={confirmReadiness}
         isConfirming={isConfirmingPlanning}
         isReopening={isReopeningPlanning}
@@ -318,84 +349,83 @@ function PlanningModuleContent() {
 
       {!isConfirmedMode ? <PlanningAlertsPanel alerts={alerts} /> : null}
 
-      <div className="flex min-h-0 flex-1 flex-col gap-4 xl:flex-row">
-        <div
-          aria-hidden={isFocusMode}
-          className={cn(
-            "min-h-0 shrink-0 overflow-hidden transition-all duration-300 ease-in-out",
-            isFocusMode
-              ? "pointer-events-none max-h-0 opacity-0 xl:max-h-none xl:w-0 xl:opacity-0"
-              : "max-h-[2000px] w-full opacity-100 xl:w-80"
-          )}
-        >
-          <PlanningTaskList
-            mode={dispatchMode}
-            tasks={filteredTasks}
-            crews={crews}
-            selectedTaskId={selectedTaskId}
-            reorderingTaskId={reorderingTaskId}
-            onSelectTask={setSelectedTaskId}
-            onOrganizeTask={isConfirmedMode ? undefined : setEditingTaskId}
-            onMoveExecutionOrder={
-              isConfirmedMode ? undefined : handleMoveExecutionOrder
-            }
-          />
-        </div>
+      {mapRefreshError ? (
+        <p className="text-sm text-destructive" role="alert">
+          {mapRefreshError}
+        </p>
+      ) : null}
 
-        <PlanningMap
-          tasks={sortedTasks}
-          selectedTaskId={selectedTaskId}
-          highlightedTaskId={highlightedTaskId}
-          crewIdsInOrder={crewIdsInOrder}
-          crewNamesById={crewNamesById}
-          onSelectTask={setSelectedTaskId}
-          planningDate={date}
-          isEditMode={isFocusMode}
-          className="min-h-[420px] min-w-0 flex-1 transition-all duration-300 ease-in-out"
-        />
-
-        {isFocusMode ? (
-          <div className="min-h-[420px] w-full shrink-0 overflow-hidden transition-all duration-300 ease-in-out xl:w-96">
-            <PlanningTaskEditPanel
-              key={editingTaskId}
-              task={editingTask}
-              allTasks={filteredTasks}
-              open={isFocusMode}
-              onClose={() => setEditingTaskId(null)}
+      <div className="flex min-h-0 flex-1 flex-col gap-4">
+        {showPlanningOverview ? (
+          <>
+            <PlanningMap
+              {...mapProps}
+              className="min-h-[50vh] w-full shrink-0 xl:min-h-[560px]"
             />
+
+            <div className="grid min-h-[320px] flex-1 gap-4 xl:grid-cols-[minmax(18rem,20rem)_minmax(0,1fr)]">
+              <PlanningTaskList
+                mode={dispatchMode}
+                tasks={filteredTasks}
+                crews={crews}
+                selectedTaskId={selectedTaskId}
+                reorderingTaskId={reorderingTaskId}
+                onSelectTask={setSelectedTaskId}
+                onOrganizeTask={isConfirmedMode ? undefined : setEditingTaskId}
+                onMoveExecutionOrder={
+                  isConfirmedMode ? undefined : handleMoveExecutionOrder
+                }
+                className="min-h-[320px] xl:min-h-0"
+              />
+
+              <div className="min-h-[320px] xl:min-h-0">
+                {isConfirmedMode ? (
+                  <PlanningDispatchRoutesPanel
+                    routes={crewRoutes}
+                    selectedTaskId={selectedTaskId}
+                    onSelectTask={setSelectedTaskId}
+                    className="h-full lg:w-full"
+                  />
+                ) : (
+                  <PlanningCrewPanel
+                    summaries={crewSummaries}
+                    className="h-full lg:w-full"
+                  />
+                )}
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="flex min-h-0 flex-1 flex-col gap-4 xl:flex-row">
+            <PlanningMap
+              {...mapProps}
+              className="min-h-[420px] min-w-0 flex-1 xl:min-h-[520px]"
+            />
+
+            {isFocusMode ? (
+              <div className="min-h-[420px] w-full shrink-0 overflow-hidden xl:w-96">
+                <PlanningTaskEditPanel
+                  key={editingTaskId}
+                  task={editingTask}
+                  allTasks={filteredTasks}
+                  open={isFocusMode}
+                  onClose={() => setEditingTaskId(null)}
+                />
+              </div>
+            ) : null}
+
+            {isReadonlyDetailOpen ? (
+              <div className="min-h-[420px] w-full shrink-0 overflow-hidden xl:w-96">
+                <PlanningTaskReadonlyPanel
+                  key={selectedTaskId}
+                  task={selectedTask}
+                  open={isReadonlyDetailOpen}
+                  onClose={() => setSelectedTaskId(null)}
+                />
+              </div>
+            ) : null}
           </div>
-        ) : null}
-
-        {isReadonlyDetailOpen ? (
-          <div className="min-h-[420px] w-full shrink-0 overflow-hidden transition-all duration-300 ease-in-out xl:w-96">
-            <PlanningTaskReadonlyPanel
-              key={selectedTaskId}
-              task={selectedTask}
-              open={isReadonlyDetailOpen}
-              onClose={() => setSelectedTaskId(null)}
-            />
-          </div>
-        ) : null}
-
-        <div
-          aria-hidden={isFocusMode || isReadonlyDetailOpen}
-          className={cn(
-            "min-h-0 shrink-0 overflow-hidden transition-all duration-300 ease-in-out",
-            isFocusMode || isReadonlyDetailOpen
-              ? "pointer-events-none max-h-0 opacity-0 xl:max-h-none xl:w-0 xl:opacity-0"
-              : "max-h-[2000px] w-full opacity-100 xl:w-72"
-          )}
-        >
-          {isConfirmedMode ? (
-            <PlanningDispatchRoutesPanel
-              routes={crewRoutes}
-              selectedTaskId={selectedTaskId}
-              onSelectTask={setSelectedTaskId}
-            />
-          ) : (
-            <PlanningCrewPanel summaries={crewSummaries} />
-          )}
-        </div>
+        )}
       </div>
     </div>
   )

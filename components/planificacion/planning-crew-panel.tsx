@@ -20,15 +20,16 @@ export function PlanningCrewPanel({
   return (
     <section
       className={cn(
-        "flex min-h-0 w-full shrink-0 flex-col overflow-hidden rounded-xl border bg-card shadow-sm lg:w-72",
+        "flex min-h-0 h-full w-full shrink-0 flex-col overflow-hidden rounded-xl border bg-card shadow-sm",
         className
       )}
     >
       <div className="border-b px-4 py-3">
         <h2 className="text-sm font-semibold text-foreground">Cuadrillas</h2>
         <p className="text-xs text-muted-foreground">
-          {summaries.length} cuadrilla{summaries.length === 1 ? "" : "s"} activa
-          {summaries.length === 1 ? "" : "s"} · carga diaria
+          Distribución propuesta · {summaries.length} cuadrilla
+          {summaries.length === 1 ? "" : "s"} activa
+          {summaries.length === 1 ? "" : "s"}
         </p>
       </div>
 
@@ -42,7 +43,7 @@ export function PlanningCrewPanel({
             summaries.map(({ crew, taskCount, estimatedMinutes, loadLevel }) => (
               <article
                 key={crew.id}
-                className="rounded-lg border bg-muted/10 px-3 py-3"
+                className="rounded-lg border border-border/80 bg-muted/15 px-3 py-3.5"
               >
                 <p className="text-sm font-semibold text-foreground">
                   {crew.name}

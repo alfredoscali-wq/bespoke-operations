@@ -4,17 +4,16 @@ import { CheckCircle2, ClipboardList, PencilLine } from "lucide-react"
 import Link from "next/link"
 
 import { PlanningConfirmDialog } from "@/components/planificacion/planning-confirm-dialog"
-import { PlanningSummaryCards } from "@/components/planificacion/planning-summary-cards"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import type { PlanningConfirmReadiness } from "@/lib/planificacion/planning-confirm"
-import type { PlanningDispatchKpis, PlanningDispatchMode } from "@/lib/planificacion/planning-dispatch"
+import type { PlanningDispatchMode } from "@/lib/planificacion/planning-dispatch"
 
 type PlanningToolbarProps = {
   mode: PlanningDispatchMode
   date: string
-  kpis: PlanningDispatchKpis
+  plannedCount: number
   confirmReadiness: PlanningConfirmReadiness
   isConfirming?: boolean
   isReopening?: boolean
@@ -30,7 +29,7 @@ type PlanningToolbarProps = {
 export function PlanningToolbar({
   mode,
   date,
-  kpis,
+  plannedCount,
   confirmReadiness,
   isConfirming = false,
   isReopening = false,
@@ -53,14 +52,21 @@ export function PlanningToolbar({
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="max-w-xs space-y-2">
-          <Label htmlFor="planning-date">Fecha</Label>
-          <Input
-            id="planning-date"
-            type="date"
-            value={date}
-            onChange={(event) => onDateChange(event.target.value)}
-          />
+        <div className="space-y-2">
+          <div className="max-w-xs">
+            <Label htmlFor="planning-date">Fecha</Label>
+            <Input
+              id="planning-date"
+              type="date"
+              value={date}
+              onChange={(event) => onDateChange(event.target.value)}
+              className="mt-2"
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {plannedCount} orden{plannedCount === 1 ? "" : "es"} en la
+            planificación propuesta
+          </p>
         </div>
 
         {isEditing ? (
@@ -116,8 +122,6 @@ export function PlanningToolbar({
           </div>
         )}
       </div>
-
-      <PlanningSummaryCards kpis={kpis} />
 
       {isEditing ? (
         <PlanningConfirmDialog

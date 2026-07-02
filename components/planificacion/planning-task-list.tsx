@@ -42,22 +42,24 @@ export function PlanningTaskList({
     [tasks, crews]
   )
 
-  const title = readOnly ? "OT del despacho" : "OT programadas"
+  const title = readOnly ? "Despacho confirmado" : "Órdenes de trabajo"
   const emptyMessage = readOnly
-    ? "No hay OT en despacho para la fecha seleccionada."
-    : "No hay OT programadas para la fecha seleccionada."
+    ? "No hay órdenes en el despacho confirmado para esta fecha."
+    : "No hay órdenes programadas para la fecha seleccionada."
 
   return (
     <section
       className={cn(
-        "flex min-h-0 w-full shrink-0 flex-col overflow-hidden rounded-xl border bg-card shadow-sm lg:w-80",
+        "flex min-h-0 h-full w-full shrink-0 flex-col overflow-hidden rounded-xl border bg-card shadow-sm",
         className
       )}
     >
       <div className="border-b px-4 py-3">
         <h2 className="text-sm font-semibold text-foreground">{title}</h2>
         <p className="text-xs text-muted-foreground">
-          {tasks.length} orden{tasks.length === 1 ? "" : "es"} para la jornada
+          {readOnly
+            ? "Recorrido confirmado para la jornada"
+            : "Revise la planificación propuesta antes de confirmar"}
         </p>
       </div>
 

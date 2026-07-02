@@ -80,7 +80,10 @@ import {
   validateTaskRescheduleInput,
   type TaskRescheduleInput,
 } from "@/lib/tasks/reschedule"
-import { applyVencidaSyncFromApi } from "@/lib/tasks/vencida-sync.client"
+import {
+  applyVencidaSyncFromApi,
+  mergeVencidaStatusIntoTasks,
+} from "@/lib/tasks/vencida-sync.client"
 import {
   recordTaskCreateAudit,
   recordTaskDeleteAudit,
@@ -177,6 +180,7 @@ type TasksContextValue = {
     title: string,
     uploadedBy?: string
   ) => void
+  refreshTasksFromServer: () => Promise<TaskMutationResult>
 }
 
 const TasksContext = createContext<TasksContextValue | null>(null)
@@ -205,27 +209,15 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     tasksRef.current = tasks
   }, [tasks])
 
-  const mergeVencidaSyncIntoTasks = useCallback(
-    (current: Task[], syncedTasks: Task[]) => {
-      const syncedById = new Map(syncedTasks.map((task) => [task.id, task]))
-      const next = current.map((task) => syncedById.get(task.id) ?? task)
-      const changed = next.some(
-        (task, index) => task.status !== current[index]?.status
-      )
-      return changed ? next : current
-    },
-    []
-  )
-
   const runVencidaSync = useCallback(
     async (sourceTasks?: Task[]) => {
       const syncedTasks = await applyVencidaSyncFromApi(
         sourceTasks ?? tasksRef.current
       )
-      setTasks((current) => mergeVencidaSyncIntoTasks(current, syncedTasks))
+      setTasks((current) => mergeVencidaStatusIntoTasks(current, syncedTasks))
       return syncedTasks
     },
-    [mergeVencidaSyncIntoTasks]
+    []
   )
 
   useEffect(() => {
@@ -270,6 +262,41 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       cancelled = true
     }
   }, [companyId, isAuthReady])
+
+  const refreshTasksFromServer = useCallback(async (): Promise<TaskMutationResult> => {
+    if (!companyId) {
+      return {
+        success: false,
+        message: "No se pudieron actualizar las órdenes de trabajo.",
+      }
+    }
+
+    try {
+      const client = createBrowserTasksClient()
+      const result = await listTasks(companyId, client)
+
+      if (result.error || result.data === null) {
+        return {
+          success: false,
+          message:
+            result.error?.message ??
+            "No se pudieron actualizar las órdenes de trabajo.",
+        }
+      }
+
+      setTasks(result.data)
+      detailCache.clear()
+      setDetailVersion((version) => version + 1)
+
+      return { success: true }
+    } catch (error) {
+      console.error("[TASKS REFRESH]", error)
+      return {
+        success: false,
+        message: "No se pudieron actualizar las órdenes de trabajo.",
+      }
+    }
+  }, [companyId])
 
   useEffect(() => {
     if (!usesSupabase) {
@@ -523,7 +550,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
             if (payload.dueDate !== undefined) {
               void applyVencidaSyncFromApi(next).then((syncedTasks) => {
                 setTasks((latest) =>
-                  mergeVencidaSyncIntoTasks(latest, syncedTasks)
+                  mergeVencidaStatusIntoTasks(latest, syncedTasks)
                 )
               })
             }
@@ -545,7 +572,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         message: "No fue posible actualizar la orden de trabajo. Intente nuevamente.",
       }
     },
-    [tasks, usesSupabase, mergeVencidaSyncIntoTasks, isReadOnly, openRestrictedDialog]
+    [tasks, usesSupabase, isReadOnly, openRestrictedDialog]
   )
 
   const editTask = useCallback(
@@ -595,7 +622,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
             if (enrichedPayload.dueDate !== undefined) {
               void applyVencidaSyncFromApi(next).then((syncedTasks) => {
                 setTasks((latest) =>
-                  mergeVencidaSyncIntoTasks(latest, syncedTasks)
+                  mergeVencidaStatusIntoTasks(latest, syncedTasks)
                 )
               })
             }
@@ -623,7 +650,6 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       isReadOnly,
       openRestrictedDialog,
       updateTaskFields,
-      mergeVencidaSyncIntoTasks,
     ]
   )
 
@@ -1527,6 +1553,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       updateOperationalStepObservation,
       addComment,
       addEvidence,
+      refreshTasksFromServer,
     }),
     [
       tasks,
@@ -1559,6 +1586,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       updateOperationalStepObservation,
       addComment,
       addEvidence,
+      refreshTasksFromServer,
     ]
   )
 

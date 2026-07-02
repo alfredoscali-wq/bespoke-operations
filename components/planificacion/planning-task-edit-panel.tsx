@@ -1,8 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { ExternalLink, X } from "lucide-react"
-import Link from "next/link"
+import { X } from "lucide-react"
 
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { Button } from "@/components/ui/button"
@@ -257,17 +256,11 @@ export function PlanningTaskEditPanel({
                 </dd>
               </div>
             </dl>
-            <Button type="button" variant="link" className="h-auto px-0 text-xs" asChild>
-              <Link href={`/tareas/${task.id}`}>
-                <ExternalLink className="size-3.5" />
-                Editar o reprogramar OT
-              </Link>
-            </Button>
           </section>
 
           <section className="space-y-4">
             <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-              Despacho operativo
+              Ajustes de planificación
             </h3>
 
             <div className="space-y-2">

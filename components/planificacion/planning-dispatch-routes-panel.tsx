@@ -9,7 +9,6 @@ import {
   resolvePlanningTaskServiceLabel,
   resolvePlanningTaskShiftDisplayLabel,
 } from "@/lib/planificacion/planning-utils"
-import { TASK_STATUS_LABELS } from "@/lib/tasks/constants"
 import { cn } from "@/lib/utils"
 
 type PlanningDispatchRoutesPanelProps = {
@@ -30,7 +29,7 @@ export function PlanningDispatchRoutesPanel({
   return (
     <section
       className={cn(
-        "flex min-h-0 w-full shrink-0 flex-col overflow-hidden rounded-xl border bg-card shadow-sm lg:w-80",
+        "flex min-h-0 h-full w-full shrink-0 flex-col overflow-hidden rounded-xl border bg-card shadow-sm",
         className
       )}
     >
@@ -39,7 +38,7 @@ export function PlanningDispatchRoutesPanel({
           Despacho por cuadrilla
         </h2>
         <p className="text-xs text-muted-foreground">
-          Recorrido operativo en orden de ejecución
+          Orden de visitas por cuadrilla para la jornada confirmada
         </p>
       </div>
 
@@ -100,10 +99,8 @@ export function PlanningDispatchRoutesPanel({
                               {resolvePlanningTaskServiceLabel(task)} ·{" "}
                               {resolvePlanningTaskLocality(task)}
                             </span>
-                            <span className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                              <span>{resolvePlanningTaskShiftDisplayLabel(task)}</span>
-                              <span aria-hidden>·</span>
-                              <span>{TASK_STATUS_LABELS[task.status]}</span>
+                            <span className="mt-1 block text-xs text-muted-foreground">
+                              {resolvePlanningTaskShiftDisplayLabel(task)}
                             </span>
                           </span>
                         </button>
