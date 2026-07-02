@@ -32,8 +32,10 @@ import {
   TaskEditDialog,
   TaskStatusDialog,
 } from "@/components/tareas/task-action-dialogs"
+import { TaskWorkOrderDialog } from "@/components/tareas/task-work-order-dialog"
 import { TaskIncidentCancelDialog } from "@/components/tareas/task-incident-cancel-dialog"
 import type { Task } from "@/lib/types/tasks"
+import type { UpdateTaskPayload } from "@/lib/types/supabase/tasks"
 import { resolveCrewSnapshotsForAssignment } from "@/lib/tasks/crew-relation"
 import { canAssignWorkOrderCrew } from "@/lib/tasks/task-closure-permissions"
 import { useIsSystemAdministrator } from "@/lib/auth/use-is-system-administrator"
@@ -70,7 +72,7 @@ export function TaskRowActions({
   triggerClassName,
   operationalMode = false,
 }: TaskRowActionsProps) {
-  const { editTask, changeTaskStatus, deleteTask, assignCrew, cancelTask, removeTaskLocally } =
+  const { editTask, changeTaskStatus, deleteTask, assignCrew, cancelTask, removeTaskLocally, tasks } =
     useTasks()
   const { sessionUser } = useAuth()
   const { getCrew } = useCrews()
@@ -89,6 +91,27 @@ export function TaskRowActions({
   const canArchive = canArchiveTaskByStatus(task.status)
   const hideInternalStatusActions =
     operationalMode || isWorkOrderTask(task)
+  const useWorkOrderEditForm = isWorkOrderTask(task)
+
+  async function handleUpdateWorkOrder(
+    taskId: string,
+    payload: UpdateTaskPayload
+  ) {
+    const result = await editTask(taskId, payload)
+
+    if (!result.success) {
+      throw new Error(
+        result.message ?? "No se pudo actualizar la orden de trabajo."
+      )
+    }
+
+    onFeedback({
+      variant: "success",
+      message: "Orden de trabajo actualizada correctamente.",
+    })
+
+    return result.task ?? task
+  }
 
   async function handleEdit(payload: {
     title: string
@@ -294,8 +317,17 @@ export function TaskRowActions({
         </DropdownMenuContent>
       </DropdownMenu>
 
+      <TaskWorkOrderDialog
+        open={editOpen && useWorkOrderEditForm}
+        onOpenChange={setEditOpen}
+        existingTasks={tasks}
+        mode="edit"
+        task={task}
+        onUpdate={handleUpdateWorkOrder}
+      />
+
       <TaskEditDialog
-        open={editOpen}
+        open={editOpen && !useWorkOrderEditForm}
         onOpenChange={setEditOpen}
         task={task}
         onSubmit={handleEdit}

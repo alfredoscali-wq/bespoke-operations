@@ -73,6 +73,7 @@ export type TasksRepositoryErrorCode =
   | "DUPLICATE_CODE"
   | "VALIDATION"
   | "ACTIVE_TASK"
+  | "CONFLICT"
   | "UNKNOWN"
 
 export type TasksRepositoryResult<T> =

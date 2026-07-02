@@ -31,6 +31,13 @@ export type TaskPhotosRepositoryResult<T> =
 const SIGNED_URL_TTL_SECONDS = 3600
 
 function mapSupabaseError(error: { message?: string; code?: string }) {
+  if (error.code === "22P02") {
+    return {
+      code: "VALIDATION" as const,
+      message: "Datos de la fotografía inválidos.",
+    }
+  }
+
   return {
     code: "UNKNOWN" as const,
     message: error.message ?? "No fue posible completar la operación.",
@@ -171,6 +178,7 @@ export async function uploadTaskPhoto(
     .single()
 
   if (error || !data) {
+    console.error("ERROR REAL SUPABASE:", error)
     await client.storage.from(TASK_PHOTOS_STORAGE_BUCKET).remove([storagePath])
     logTaskPhotoUploadFailed({
       taskId: input.taskId,
@@ -178,6 +186,7 @@ export async function uploadTaskPhoto(
       storagePath,
       error: error ?? { message: "No se pudo registrar la foto." },
     })
+    
 
     return {
       data: null,

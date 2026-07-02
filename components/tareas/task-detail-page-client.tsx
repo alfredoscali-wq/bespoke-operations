@@ -3,7 +3,7 @@
 import { useMemo } from "react"
 import { notFound } from "next/navigation"
 
-import { TaskDetailView } from "@/components/tareas/task-detail-view"
+import { TaskAdminDetailView } from "@/components/tareas/task-admin-detail-view"
 import { useTasks } from "@/components/tareas/tasks-provider"
 
 type TaskDetailPageClientProps = {
@@ -26,5 +26,5 @@ export function TaskDetailPageClient({ id }: TaskDetailPageClientProps) {
     notFound()
   }
 
-  return <TaskDetailView task={task} detail={detail} />
+  return <TaskAdminDetailView task={task} detail={detail} />
 }

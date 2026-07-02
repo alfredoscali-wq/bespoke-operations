@@ -72,7 +72,6 @@ const sortOptions: { value: TaskSortField; label: string }[] = [
 
 const operationalSortOptions: { value: TaskSortField; label: string }[] = [
   { value: "dueDate", label: "Fecha programada" },
-  { value: "priority", label: "Prioridad" },
   { value: "progress", label: "Progreso" },
   { value: "code", label: "Código" },
 ]
@@ -186,8 +185,15 @@ export function TasksFiltersBar({
             onValueChange={(value) =>
               update("priority", value as TaskFilters["priority"])
             }
+            disabled={operationalMode}
           >
-            <SelectTrigger className={FILTER_SELECT_TRIGGER_CLASS}>
+            <SelectTrigger
+              className={
+                operationalMode
+                  ? "hidden"
+                  : FILTER_SELECT_TRIGGER_CLASS
+              }
+            >
               <SelectValue placeholder="Prioridad" />
             </SelectTrigger>
             <SelectContent>
@@ -286,6 +292,81 @@ export function TasksFiltersBar({
   )
 }
 
+export function taskMatchesAdminSearch(
+  task: {
+    code: string
+    title: string
+    projectCode: string
+    projectName: string
+    customerName?: string
+    customerCompany?: string
+    customerPhone?: string
+    serviceAddress?: string
+    locality?: string | null
+    workOrderNumber?: string
+  },
+  query: string
+): boolean {
+  const normalizedQuery = query.trim().toLowerCase()
+  if (!normalizedQuery) {
+    return true
+  }
+
+  const values = [
+    task.code,
+    task.workOrderNumber,
+    task.title,
+    task.projectCode,
+    task.projectName,
+    task.customerName,
+    task.customerCompany,
+    task.serviceAddress,
+    task.locality,
+    task.customerPhone,
+  ]
+
+  const customerName = task.customerName?.trim()
+  if (customerName) {
+    values.push(customerName)
+    values.push(customerName.split(/\s+/).join(" "))
+    for (const part of customerName.split(/\s+/)) {
+      values.push(part)
+    }
+  }
+
+  return values.some((value) =>
+    value?.trim().toLowerCase().includes(normalizedQuery)
+  )
+}
+
+export function filterAdminTasks<
+  T extends {
+    code: string
+    title: string
+    projectCode: string
+    projectName: string
+    status: TaskStatus
+    dueDate: string
+    customerName?: string
+    customerCompany?: string
+    customerPhone?: string
+    serviceAddress?: string
+    locality?: string | null
+    workOrderNumber?: string
+  },
+>(tasks: T[], search: string, status: TaskStatus | "all" = "all"): T[] {
+  const filtered = tasks.filter((task) => {
+    return (
+      taskMatchesAdminSearch(task, search) &&
+      (status === "all" || task.status === status)
+    )
+  })
+
+  return [...filtered].sort(
+    (a, b) => compareDateOnly(a.dueDate, b.dueDate) || a.code.localeCompare(b.code)
+  )
+}
+
 export function filterAndSortTasks<
   T extends {
     code: string
@@ -315,14 +396,7 @@ export function filterAndSortTasks<
     }
 
     const matchesSearch =
-      query === "" ||
-      task.code.toLowerCase().includes(query) ||
-      task.title.toLowerCase().includes(query) ||
-      task.projectCode.toLowerCase().includes(query) ||
-      task.projectName.toLowerCase().includes(query) ||
-      searchableTask.customerName?.toLowerCase().includes(query) ||
-      searchableTask.serviceAddress?.toLowerCase().includes(query) ||
-      searchableTask.locality?.toLowerCase().includes(query)
+      query === "" || taskMatchesAdminSearch(searchableTask, query)
 
     return (
       matchesSearch &&

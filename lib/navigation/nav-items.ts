@@ -62,7 +62,7 @@ export const workOrdersNavItem: NavItem = {
   icon: ListChecks,
   pageTitle: "Órdenes de Trabajo",
   description:
-    "Planificar, asignar y dar seguimiento a órdenes de trabajo de campo.",
+    "Crear, consultar y administrar las órdenes de trabajo.",
 }
 
 export const customersNavItem: NavItem = {

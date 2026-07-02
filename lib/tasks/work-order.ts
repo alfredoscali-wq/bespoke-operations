@@ -1,5 +1,6 @@
 import { resolveCrewSnapshotsForAssignment } from "@/lib/tasks/crew-relation"
 import type { CreateTaskPayload } from "@/lib/types/supabase/tasks"
+import type { UpdateTaskPayload } from "@/lib/types/supabase/tasks"
 import type { Crew } from "@/lib/types/crews"
 import type { Task, TaskType } from "@/lib/types/tasks"
 import {
@@ -7,11 +8,16 @@ import {
   createInstallationOperationalSteps,
 } from "@/lib/operational-steps/default-steps"
 import {
+  buildCambioDomicilioFormSliceFromTask,
   buildCambioDomicilioMetadataFromForm,
 } from "@/lib/tasks/cambio-domicilio"
 import {
   buildFtthMetadataFromForm,
+  resolveCurrentContractedPlanFromTask,
+  resolveCurrentTechnologyFromTask,
   resolveFinalTechnologyFromForm,
+  resolveFinalTechnologyFromTask,
+  resolveFtthInstallationFromTask,
 } from "@/lib/tasks/ftth-installation"
 import {
   formatAmountToCollectFormValue,
@@ -898,5 +904,166 @@ export function buildScheduleFormFromTask(
     scheduledDate: task.dueDate,
     scheduledTime:
       formatScheduledTimeForInput(task.scheduledTime) || getDefaultScheduledTime(),
+  }
+}
+
+function readTaskMetadataString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : ""
+}
+
+function parseEstimatedDurationToForm(
+  estimatedDuration: string
+): Pick<
+  WorkOrderFormInput,
+  "estimatedDurationPreset" | "estimatedDurationCustomMinutes"
+> {
+  const match = estimatedDuration.trim().match(/^(\d+)\s*min/i)
+  if (!match) {
+    return {
+      estimatedDurationPreset: "",
+      estimatedDurationCustomMinutes: "",
+    }
+  }
+
+  const minutes = Number.parseInt(match[1], 10)
+  if (
+    WORK_ORDER_DURATION_PRESET_MINUTES.includes(
+      minutes as WorkOrderDurationPresetMinutes
+    )
+  ) {
+    return {
+      estimatedDurationPreset: String(minutes) as WorkOrderDurationPreset,
+      estimatedDurationCustomMinutes: "",
+    }
+  }
+
+  return {
+    estimatedDurationPreset: "other",
+    estimatedDurationCustomMinutes: String(minutes),
+  }
+}
+
+function resolveShiftFromTask(task: Task): WorkOrderShift | "" {
+  const metadataShift = task.taskMetadata?.shift
+  if (metadataShift === "manana" || metadataShift === "tarde") {
+    return metadataShift
+  }
+
+  const scheduledTime = formatScheduledTimeForInput(task.scheduledTime)
+  if (scheduledTime.startsWith("14")) {
+    return "tarde"
+  }
+
+  if (scheduledTime) {
+    return "manana"
+  }
+
+  return ""
+}
+
+export function buildWorkOrderFormFromTask(task: Task): WorkOrderFormInput {
+  const metadata = task.taskMetadata ?? {}
+  const commercial = buildCommercialFormFromTask(task)
+  const schedule = buildScheduleFormFromTask(task)
+  const ftth = resolveFtthInstallationFromTask(task)
+  const currentTechnology = resolveCurrentTechnologyFromTask(task)
+  const finalTechnology = resolveFinalTechnologyFromTask(task)
+  const currentContractedPlan = resolveCurrentContractedPlanFromTask(task)
+  const cambioSlice =
+    task.serviceType === "cambio-domicilio"
+      ? buildCambioDomicilioFormSliceFromTask(task)
+      : {}
+
+  return {
+    ...getDefaultWorkOrderForm(),
+    ...commercial,
+    ...parseEstimatedDurationToForm(task.estimatedDuration),
+    ...cambioSlice,
+    serviceType: (task.serviceType as WorkOrderServiceType) ?? "",
+    customerName: task.customerName ?? "",
+    customerPhone: task.customerPhone ?? "",
+    customerEmail: readTaskMetadataString(metadata.email),
+    customerId: task.customerId ?? "",
+    customerCompany: task.customerCompany ?? "",
+    scheduledDate: schedule.scheduledDate,
+    shift: resolveShiftFromTask(task),
+    crewId: task.crewId ?? "",
+    observations: task.description ?? "",
+    address: task.serviceAddress ?? "",
+    locality: task.locality ?? "",
+    technology: commercial.technology,
+    currentTechnology,
+    newTechnology: finalTechnology || currentTechnology,
+    currentContractedPlan,
+    newContractedPlan: commercial.contractedPlan,
+    napBox: ftth.napBox,
+    napPort: ftth.napPort,
+    onuSerial: ftth.onuSerial,
+    sharedLocation: task.sharedLocation ?? "",
+    latitude: task.latitude ?? null,
+    longitude: task.longitude ?? null,
+    observationsForCrew: task.observationsForCrew ?? "",
+    clientOrderNumber: task.workOrderNumber ?? "",
+    externalReference: readTaskMetadataString(metadata.referenciaExterna),
+    province: readTaskMetadataString(metadata.provincia),
+    postalCode: readTaskMetadataString(metadata.codigoPostal),
+    amountToCollect: formatAmountToCollectFormValue(task.amountToCollect),
+    serviceReason:
+      (readTaskMetadataString(metadata.reason) as WorkOrderFormInput["serviceReason"]) ||
+      "",
+    serviceDetail: readTaskMetadataString(metadata.detail),
+    cancellationReason: readTaskMetadataString(metadata.cancellationReason),
+    equipmentToRemove: readTaskMetadataString(metadata.equipmentToRemove),
+    surveyReason: readTaskMetadataString(metadata.surveyReason),
+    postventaDetail:
+      task.serviceType === "postventa"
+        ? readTaskMetadataString(metadata.detail)
+        : "",
+  }
+}
+
+export function buildWorkOrderUpdatePayload(input: {
+  form: WorkOrderFormInput
+  task: Task
+  customerId?: string | null
+  crew?: Pick<Crew, "id" | "name" | "supervisor"> | null
+}): UpdateTaskPayload {
+  const payload = buildWorkOrderCreatePayload({
+    form: input.form,
+    existingTasks: [input.task],
+    customerId: input.customerId ?? input.task.customerId,
+    checklist: input.task.checklist,
+    crew: input.crew ?? null,
+  })
+
+  return {
+    title: payload.title,
+    description: payload.description,
+    projectName: payload.projectName,
+    customerName: payload.customerName,
+    customerPhone: payload.customerPhone,
+    customerCompany: payload.customerCompany,
+    customerId: payload.customerId,
+    serviceAddress: payload.serviceAddress,
+    sharedLocation: payload.sharedLocation,
+    observationsForCrew: payload.observationsForCrew,
+    workOrderNumber: payload.workOrderNumber,
+    type: payload.type,
+    priority: payload.priority,
+    supervisor: payload.supervisor,
+    crewId: payload.crewId,
+    crew: payload.crew,
+    startDate: payload.startDate,
+    dueDate: payload.dueDate,
+    scheduledTime: payload.scheduledTime,
+    estimatedDuration: payload.estimatedDuration,
+    operationalSteps: payload.operationalSteps,
+    serviceType: payload.serviceType,
+    locality: payload.locality,
+    taskMetadata: payload.taskMetadata,
+    contractedPlan: payload.contractedPlan,
+    amountToCollect: payload.amountToCollect,
+    latitude: payload.latitude,
+    longitude: payload.longitude,
   }
 }

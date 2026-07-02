@@ -1,5 +1,8 @@
 import { MobileApiError } from "@/lib/mobile/v1/errors"
-import type { MobileTaskChecklistResponseRequest } from "@/lib/mobile/v1/tasks/types"
+import type {
+  MobileTaskChecklistPhotoRequest,
+  MobileTaskChecklistResponseRequest,
+} from "@/lib/mobile/v1/tasks/types"
 
 function readRequiredString(value: unknown, field: string): string {
   if (typeof value !== "string" || !value.trim()) {
@@ -113,16 +116,85 @@ export function readRequiredFormString(formData: FormData, field: string): strin
   return value.trim()
 }
 
+function isUploadBlob(value: unknown): value is Blob {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as Blob).arrayBuffer === "function" &&
+    typeof (value as Blob).size === "number"
+  )
+}
+
+function normalizeUploadedFormFile(value: Blob, fallbackName: string): File {
+  if (value instanceof File) {
+    return value
+  }
+
+  const fileName =
+    typeof (value as File).name === "string" && (value as File).name.trim()
+      ? (value as File).name.trim()
+      : fallbackName
+
+  return new File([value], fileName, {
+    type: value.type || "application/octet-stream",
+  })
+}
+
+function describeFormFieldValue(value: FormDataEntryValue | null): string {
+  if (value === null) {
+    return "missing"
+  }
+
+  if (typeof value === "string") {
+    return `string(length=${value.length})`
+  }
+
+  if (isUploadBlob(value)) {
+    const fileName =
+      value instanceof File && value.name.trim() ? value.name : "<unnamed>"
+    return `blob(name=${fileName}, type=${value.type || "unknown"}, size=${value.size})`
+  }
+
+  return typeof value
+}
+
 export function readRequiredFormFile(formData: FormData, field: string): File {
   const value = formData.get(field)
 
-  if (!(value instanceof File) || value.size <= 0) {
+  if (!isUploadBlob(value) || value.size <= 0) {
     throw new MobileApiError(
       "INVALID_REQUEST",
-      `Archivo requerido: ${field}.`,
+      `Archivo requerido: ${field} (${describeFormFieldValue(value)}).`,
       400
     )
   }
 
-  return value
+  return normalizeUploadedFormFile(value, `${field}.jpg`)
+}
+
+export function parseMobileTaskChecklistPhotoForm(
+  formData: FormData,
+  options?: {
+    requestId?: string
+    contentType?: string | null
+  }
+): MobileTaskChecklistPhotoRequest {
+  const receivedFields = Array.from(formData.keys())
+
+  console.debug("[Mobile API checklist-photos]", {
+    requestId: options?.requestId,
+    contentType: options?.contentType,
+    receivedFields,
+    fileField: describeFormFieldValue(formData.get("file")),
+    deviceIdField: describeFormFieldValue(formData.get("deviceId")),
+    checklistItemIdField: describeFormFieldValue(
+      formData.get("checklistItemId")
+    ),
+  })
+
+  return {
+    deviceId: readRequiredFormString(formData, "deviceId"),
+    checklistItemId: readRequiredFormString(formData, "checklistItemId"),
+    file: readRequiredFormFile(formData, "file"),
+  }
 }

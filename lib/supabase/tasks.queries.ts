@@ -22,6 +22,10 @@ import { TASK_DELETE_USER_MESSAGE, TASK_ARCHIVE_BLOCKED_ACTIVE_MESSAGE } from "@
 import { logDeleteTrace } from "@/lib/supabase/delete-trace"
 import { getSupabaseEnv } from "@/lib/supabase/env"
 import { ACTIVE_TASK_STATUSES, canArchiveTaskByStatus } from "@/lib/tasks/status-groups"
+import {
+  canAdminModifyWorkOrder,
+  WORK_ORDER_ADMIN_MUTATION_BLOCKED_MESSAGE,
+} from "@/lib/tasks/work-order-admin-mutation"
 import type { TaskStatus } from "@/lib/types/tasks"
 
 export type SupabaseTasksClient = SupabaseClient<Database>
@@ -239,6 +243,90 @@ export async function softDeleteTask(
     message: "UPDATE executed",
     error: serializedError ?? null,
   })
+
+  logTaskSoftDeleteResult({
+    taskId: id,
+    error: serializedError,
+    status,
+    statusText,
+  })
+
+  if (error) {
+    const { url } = getSupabaseEnv()
+    if (url) {
+      console.error("[TASK DELETE]", {
+        table: "tasks",
+        url: buildTaskSoftDeleteRequestUrl(url, id),
+        payload,
+        error: serializedError,
+      })
+    }
+
+    return {
+      data: null,
+      error: {
+        code: "UNKNOWN",
+        message: TASK_DELETE_USER_MESSAGE,
+      },
+    }
+  }
+
+  return { data: undefined, error: null }
+}
+
+export async function softDeleteWorkOrderFromAdmin(
+  client: SupabaseTasksClient,
+  id: string
+): Promise<TasksRepositoryResult<void>> {
+  const { data: existingTask, error: fetchError } = await client
+    .from("tasks")
+    .select("status")
+    .eq("id", id)
+    .is("deleted_at", null)
+    .maybeSingle()
+
+  if (fetchError) {
+    return {
+      data: null,
+      error: {
+        code: "UNKNOWN",
+        message: TASK_DELETE_USER_MESSAGE,
+      },
+    }
+  }
+
+  if (!existingTask) {
+    return {
+      data: null,
+      error: {
+        code: "NOT_FOUND",
+        message: "Orden de trabajo no encontrada.",
+      },
+    }
+  }
+
+  if (!canAdminModifyWorkOrder(existingTask.status as TaskStatus)) {
+    return {
+      data: null,
+      error: {
+        code: "CONFLICT",
+        message: WORK_ORDER_ADMIN_MUTATION_BLOCKED_MESSAGE,
+      },
+    }
+  }
+
+  const payload = { deleted_at: new Date().toISOString() }
+
+  logDeleteTrace("queries.softDeleteWorkOrderFromAdmin", { entity: "task", id })
+  logTaskSoftDeleteAttempt({ taskId: id, payload })
+
+  const { error, status, statusText } = await client
+    .from("tasks")
+    .update(payload)
+    .eq("id", id)
+    .is("deleted_at", null)
+
+  const serializedError = error ? serializeTaskDeleteError(error) : null
 
   logTaskSoftDeleteResult({
     taskId: id,

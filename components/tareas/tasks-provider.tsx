@@ -33,6 +33,10 @@ import {
   listTasks,
   updateTask as updateTaskInSupabase,
 } from "@/lib/supabase/tasks.browser"
+import {
+  deleteWorkOrderThroughAdminApi,
+  updateWorkOrderThroughAdminApi,
+} from "@/lib/supabase/tasks-admin-api.client"
 import { canArchiveTaskByStatus } from "@/lib/tasks/status-groups"
 import { resolveIncidentReasonLabel } from "@/lib/tasks/incidents"
 import { TASK_DELETE_USER_MESSAGE, TASK_ARCHIVE_BLOCKED_ACTIVE_MESSAGE, logOperationError } from "@/lib/operations/user-messages"
@@ -89,6 +93,10 @@ type TaskMutationResult = {
   task?: Task
 }
 
+type TaskMutationOptions = {
+  administration?: boolean
+}
+
 type TasksContextValue = {
   tasks: Task[]
   isTasksReady: boolean
@@ -97,7 +105,11 @@ type TasksContextValue = {
   getTask: (id: string) => Task | undefined
   getDetail: (id: string) => TaskDetail | undefined
   addTask: (input: CreateTaskPayload) => Promise<Task>
-  editTask: (id: string, payload: UpdateTaskPayload) => Promise<TaskMutationResult>
+  editTask: (
+    id: string,
+    payload: UpdateTaskPayload,
+    options?: TaskMutationOptions
+  ) => Promise<TaskMutationResult>
   changeTaskStatus: (id: string, targetStatus: TaskStatus) => Promise<TaskMutationResult>
   assignCrew: (
     id: string,
@@ -106,7 +118,7 @@ type TasksContextValue = {
     supervisor?: string,
     options?: { promoteToAssigned?: boolean }
   ) => Promise<TaskMutationResult>
-  deleteTask: (id: string) => Promise<TaskMutationResult>
+  deleteTask: (id: string, options?: TaskMutationOptions) => Promise<TaskMutationResult>
   removeTaskLocally: (id: string) => void
   removeTasksByCustomerId: (customerId: string) => void
   startTask: (id: string) => Promise<TaskMutationResult>
@@ -537,11 +549,82 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
   )
 
   const editTask = useCallback(
-    async (id: string, payload: UpdateTaskPayload): Promise<TaskMutationResult> => {
+    async (
+      id: string,
+      payload: UpdateTaskPayload,
+      options?: TaskMutationOptions
+    ): Promise<TaskMutationResult> => {
       const { status: _status, ...fieldsOnly } = payload
+
+      if (options?.administration) {
+        if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+          return DEMO_WRITE_BLOCKED_TASK_RESULT
+        }
+
+        const existing = tasks.find((item) => item.id === id)
+        if (!existing) {
+          return { success: false, message: "Orden de trabajo no encontrada." }
+        }
+
+        if (!usesSupabase) {
+          return {
+            success: false,
+            message:
+              "No fue posible actualizar la orden de trabajo. Intente nuevamente.",
+          }
+        }
+
+        try {
+          const enrichedPayload =
+            await enrichUpdateTaskPayloadWithResolvedLocation(fieldsOnly)
+          const updatedTask = await updateWorkOrderThroughAdminApi(
+            id,
+            enrichedPayload
+          )
+
+          recordTaskMutationAudit({
+            before: existing,
+            after: updatedTask,
+            payload: enrichedPayload,
+          })
+
+          setTasks((current) => {
+            const next = current.map((item) =>
+              item.id === id ? updatedTask : item
+            )
+            if (enrichedPayload.dueDate !== undefined) {
+              void applyVencidaSyncFromApi(next).then((syncedTasks) => {
+                setTasks((latest) =>
+                  mergeVencidaSyncIntoTasks(latest, syncedTasks)
+                )
+              })
+            }
+            return next
+          })
+          setDetailVersion((version) => version + 1)
+          return { success: true, task: updatedTask }
+        } catch (error) {
+          logOperationError("TASK ADMIN UPDATE", error)
+          return {
+            success: false,
+            message:
+              error instanceof Error
+                ? error.message
+                : "No fue posible actualizar la orden de trabajo. Intente nuevamente.",
+          }
+        }
+      }
+
       return updateTaskFields(id, fieldsOnly)
     },
-    [updateTaskFields]
+    [
+      tasks,
+      usesSupabase,
+      isReadOnly,
+      openRestrictedDialog,
+      updateTaskFields,
+      mergeVencidaSyncIntoTasks,
+    ]
   )
 
   const applyExecutionOrderUpdates = useCallback(
@@ -1137,7 +1220,10 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
   )
 
   const deleteTask = useCallback(
-    async (id: string): Promise<TaskMutationResult> => {
+    async (
+      id: string,
+      options?: TaskMutationOptions
+    ): Promise<TaskMutationResult> => {
       if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
         return DEMO_WRITE_BLOCKED_TASK_RESULT
       }
@@ -1152,6 +1238,32 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         id,
         code: existing.code,
       })
+
+      if (options?.administration) {
+        if (!usesSupabase) {
+          return { success: false, message: TASK_DELETE_USER_MESSAGE }
+        }
+
+        try {
+          await deleteWorkOrderThroughAdminApi(id)
+        } catch (error) {
+          console.error("[TASK ADMIN DELETE]", error)
+          return {
+            success: false,
+            message:
+              error instanceof Error
+                ? error.message
+                : TASK_DELETE_USER_MESSAGE,
+          }
+        }
+
+        setTasks((current) => current.filter((item) => item.id !== id))
+        detailCache.delete(id)
+        setDetailVersion((version) => version + 1)
+        recordTaskDeleteAudit(existing)
+
+        return { success: true }
+      }
 
       if (!canArchiveTaskByStatus(existing.status)) {
         return {

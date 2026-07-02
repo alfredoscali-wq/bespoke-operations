@@ -21,17 +21,39 @@ export async function uploadMobileTaskChecklistPhoto(
     { allowedStatuses: ["en-curso"] }
   )
 
+  console.debug("[Mobile API checklist-photos]", {
+    taskId: context.task.id,
+    checklistItemId: request.checklistItemId,
+    fileName: request.file.name,
+    mimeType: request.file.type,
+    fileSize: request.file.size,
+    createdBy: context.auth.authUserId,
+  })
+
   const uploadResult = await uploadTaskEvidencePhoto(context.admin, {
     taskId: context.task.id,
     file: request.file,
     description: `Checklist: ${request.checklistItemId}`,
-    createdBy: context.auth.displayName,
+    createdBy: context.auth.authUserId,
     operationalStepId: request.checklistItemId,
   })
 
   if (uploadResult.error || !uploadResult.data) {
+    const errorCode =
+      uploadResult.error?.code === "VALIDATION"
+        ? "INVALID_REQUEST"
+        : "UPLOAD_FAILED"
+
+    console.warn("[Mobile API checklist-photos]", {
+      taskId: context.task.id,
+      checklistItemId: request.checklistItemId,
+      errorCode,
+      repositoryCode: uploadResult.error?.code,
+      message: uploadResult.error?.message,
+    })
+
     throw new MobileApiError(
-      "UPLOAD_FAILED",
+      errorCode,
       uploadResult.error?.message ?? "No se pudo subir la fotografía.",
       400
     )

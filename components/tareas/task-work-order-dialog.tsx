@@ -20,6 +20,8 @@ import { validateCrewAssignment } from "@/lib/crews/status-workflow"
 import {
   applySuggestedDurationPreset,
   buildWorkOrderCreatePayload,
+  buildWorkOrderFormFromTask,
+  buildWorkOrderUpdatePayload,
   getDefaultWorkOrderForm,
   isNewInstallationWorkOrder,
   requiresCustomerLookup,
@@ -30,6 +32,9 @@ import {
   type WorkOrderFormInput,
   type WorkOrderServiceType,
 } from "@/lib/tasks/work-order"
+import {
+  canAdminModifyWorkOrder,
+} from "@/lib/tasks/work-order-admin-mutation"
 import { WorkOrderCambioTecnologiaFields } from "@/components/tareas/work-order-cambio-tecnologia-fields"
 import { WorkOrderCommercialFields } from "@/components/tareas/work-order-commercial-fields"
 import { WorkOrderCambioDomicilioFields } from "@/components/tareas/work-order-cambio-domicilio-fields"
@@ -53,11 +58,12 @@ import {
 import type { PendingTaskReferencePhoto, TaskPhotoUploadSummary } from "@/lib/types/task-photos"
 import type { Customer } from "@/lib/types/customers"
 import type { Task } from "@/lib/types/tasks"
-import type { CreateTaskPayload } from "@/lib/types/supabase/tasks"
+import type { CreateTaskPayload, UpdateTaskPayload } from "@/lib/types/supabase/tasks"
 import { Button } from "@/components/ui/button"
 import { WhatsAppLink } from "@/components/ui/whatsapp-link"
 import {
   Dialog,
+  DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
@@ -79,12 +85,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+export type TaskWorkOrderDialogMode = "create" | "edit"
+
 type TaskWorkOrderDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   existingTasks: Task[]
-  onSubmit: (payload: CreateTaskPayload) => Promise<Task>
+  mode?: TaskWorkOrderDialogMode
+  task?: Task
+  onSubmit?: (payload: CreateTaskPayload) => Promise<Task>
+  onUpdate?: (taskId: string, payload: UpdateTaskPayload) => Promise<Task>
   onTaskCreated?: (result: WorkOrderCreateResult) => void
+  onTaskUpdated?: (task: Task) => void
+  onEditBlocked?: () => void
 }
 
 export type WorkOrderCreateResult = {
@@ -545,9 +558,15 @@ export function TaskWorkOrderDialog({
   open,
   onOpenChange,
   existingTasks,
+  mode = "create",
+  task,
   onSubmit,
+  onUpdate,
   onTaskCreated,
+  onTaskUpdated,
+  onEditBlocked,
 }: TaskWorkOrderDialogProps) {
+  const isEditMode = mode === "edit" && Boolean(task)
   const { searchCustomers, createCustomer, updateCustomer, fetchCustomerById } =
     useCustomers()
   const { crews } = useCrews()
@@ -568,6 +587,7 @@ export function TaskWorkOrderDialog({
   } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [saveConfirmOpen, setSaveConfirmOpen] = useState(false)
 
   const isDirty =
     isFormStateDirty(form, baselineForm) || referencePhotos.length > 0
@@ -594,8 +614,18 @@ export function TaskWorkOrderDialog({
   )
 
   useEffect(() => {
-    if (open) {
-      const nextForm = getDefaultWorkOrderForm()
+    if (!open) {
+      return
+    }
+
+    if (isEditMode && task) {
+      if (!canAdminModifyWorkOrder(task.status)) {
+        onOpenChange(false)
+        onEditBlocked?.()
+        return
+      }
+
+      const nextForm = buildWorkOrderFormFromTask(task)
       setForm(nextForm)
       setBaselineForm(nextForm)
       setReferencePhotos((current) => {
@@ -603,12 +633,41 @@ export function TaskWorkOrderDialog({
         return []
       })
       setPhotosError(null)
-      setCustomerSelected(false)
+      setCustomerSelected(
+        Boolean(task.customerId?.trim()) ||
+          Boolean(task.customerName?.trim()) ||
+          isNewInstallationWorkOrder(nextForm.serviceType)
+      )
       setLinkedCustomer(null)
       setCustomerSyncState(null)
       setError(null)
+      setSaveConfirmOpen(false)
+
+      if (task.customerId?.trim()) {
+        void fetchCustomerById(task.customerId).then((customer) => {
+          if (customer) {
+            setLinkedCustomer(customer)
+          }
+        })
+      }
+
+      return
     }
-  }, [open])
+
+    const nextForm = getDefaultWorkOrderForm()
+    setForm(nextForm)
+    setBaselineForm(nextForm)
+    setReferencePhotos((current) => {
+      revokePendingTaskReferencePhotos(current)
+      return []
+    })
+    setPhotosError(null)
+    setCustomerSelected(false)
+    setLinkedCustomer(null)
+    setCustomerSyncState(null)
+    setError(null)
+    setSaveConfirmOpen(false)
+  }, [open, isEditMode, task, fetchCustomerById, onOpenChange, onEditBlocked])
 
   function updateField<K extends keyof WorkOrderFormInput>(
     key: K,
@@ -717,100 +776,162 @@ export function TaskWorkOrderDialog({
     Boolean(form.serviceType) &&
     (isNewInstallationWorkOrder(form.serviceType) || customerSelected)
 
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault()
-    setError(null)
-
+  async function validateBeforeSave(): Promise<boolean> {
     const validation = validateWorkOrderForm(form)
     if (!validation.valid) {
       setError(validation.message ?? "Complete los campos obligatorios.")
-      return
+      return false
     }
 
     const selectedCrew = crews.find((crew) => crew.id === form.crewId)
     const crewValidation = validateCrewAssignment(selectedCrew)
     if (!crewValidation.allowed) {
       setError(crewValidation.message ?? "Cuadrilla no disponible.")
+      return false
+    }
+
+    return true
+  }
+
+  async function resolveCustomerIdForSave(): Promise<string | null> {
+    let customerId = form.customerId.trim()
+
+    if (isNewInstallationWorkOrder(form.serviceType)) {
+      if (isEditMode) {
+        return customerId || task?.customerId?.trim() || null
+      }
+
+      const customerResult = await createCustomer({
+        name: form.customerName.trim(),
+        phone: form.customerPhone.trim() || undefined,
+        email: form.customerEmail.trim() || undefined,
+        address: form.address.trim() || undefined,
+        locality: form.locality.trim() || undefined,
+        technology: form.technology || undefined,
+      })
+
+      if (!customerResult.success || !customerResult.customer) {
+        throw new Error(customerResult.message ?? "No se pudo crear el cliente.")
+      }
+
+      return customerResult.customer.id
+    }
+
+    if (requiresCustomerLookup(form.serviceType) && !customerId) {
+      setError("Seleccione un cliente registrado.")
+      return null
+    }
+
+    if (form.serviceType === "reconexion") {
+      const reconexionCustomer =
+        linkedCustomer?.id === customerId
+          ? linkedCustomer
+          : await fetchCustomerById(customerId)
+
+      const reconexionValidation = validateReconexionCustomer(reconexionCustomer)
+
+      if (!reconexionValidation.valid) {
+        setError(
+          reconexionValidation.message ?? "Cliente no elegible para reconexión."
+        )
+        return null
+      }
+    }
+
+    return customerId
+  }
+
+  async function performCreate(customerId: string) {
+    if (!onSubmit) {
+      throw new Error("No se configuró la acción de creación.")
+    }
+
+    const selectedCrew = crews.find((crew) => crew.id === form.crewId)
+    const payload = buildWorkOrderCreatePayload({
+      form,
+      existingTasks,
+      customerId,
+      checklist: taskDefaultChecklist,
+      crew: selectedCrew ?? null,
+    })
+
+    const createdTask = await onSubmit(payload)
+
+    let photoUpload: TaskPhotoUploadSummary = {
+      taskCreated: true,
+      uploadedPhotos: 0,
+      failedPhotos: 0,
+    }
+
+    if (referencePhotos.length > 0) {
+      const uploadResult = await uploadPendingTaskReferencePhotos(
+        createdTask.id,
+        referencePhotos
+      )
+      photoUpload = uploadResult.summary
+    }
+
+    revokePendingTaskReferencePhotos(referencePhotos)
+    setReferencePhotos([])
+    onTaskCreated?.({ task: createdTask, photoUpload })
+    await prepareCustomerSyncAfterCreate(createdTask, customerId, form)
+    forceClose()
+  }
+
+  async function performEdit(customerId: string) {
+    if (!task || !onUpdate) {
+      throw new Error("No se configuró la acción de edición.")
+    }
+
+    const selectedCrew = crews.find((crew) => crew.id === form.crewId)
+    const payload = buildWorkOrderUpdatePayload({
+      form,
+      task,
+      customerId,
+      crew: selectedCrew ?? null,
+    })
+
+    const updatedTask = await onUpdate(task.id, payload)
+
+    if (referencePhotos.length > 0) {
+      await uploadPendingTaskReferencePhotos(task.id, referencePhotos)
+    }
+
+    revokePendingTaskReferencePhotos(referencePhotos)
+    setReferencePhotos([])
+    onTaskUpdated?.(updatedTask)
+    setSaveConfirmOpen(false)
+    forceClose()
+  }
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault()
+    setError(null)
+
+    if (isEditMode && !isDirty) {
+      forceClose()
+      return
+    }
+
+    const valid = await validateBeforeSave()
+    if (!valid) {
+      return
+    }
+
+    if (isEditMode) {
+      setSaveConfirmOpen(true)
       return
     }
 
     setIsSubmitting(true)
 
     try {
-      let customerId = form.customerId.trim()
-
-      if (isNewInstallationWorkOrder(form.serviceType)) {
-        const customerResult = await createCustomer({
-          name: form.customerName.trim(),
-          phone: form.customerPhone.trim() || undefined,
-          email: form.customerEmail.trim() || undefined,
-          address: form.address.trim() || undefined,
-          locality: form.locality.trim() || undefined,
-          technology: form.technology || undefined,
-        })
-
-        if (!customerResult.success || !customerResult.customer) {
-          throw new Error(
-            customerResult.message ?? "No se pudo crear el cliente."
-          )
-        }
-
-        customerId = customerResult.customer.id
-      } else if (requiresCustomerLookup(form.serviceType) && !customerId) {
-        setError("Seleccione un cliente registrado.")
-        setIsSubmitting(false)
+      const customerId = await resolveCustomerIdForSave()
+      if (!customerId) {
         return
       }
 
-      if (form.serviceType === "reconexion") {
-        const reconexionCustomer =
-          linkedCustomer?.id === customerId
-            ? linkedCustomer
-            : await fetchCustomerById(customerId)
-
-        const reconexionValidation = validateReconexionCustomer(
-          reconexionCustomer
-        )
-
-        if (!reconexionValidation.valid) {
-          setError(
-            reconexionValidation.message ??
-              "Cliente no elegible para reconexión."
-          )
-          setIsSubmitting(false)
-          return
-        }
-      }
-
-      const payload = buildWorkOrderCreatePayload({
-        form,
-        existingTasks,
-        customerId,
-        checklist: taskDefaultChecklist,
-        crew: selectedCrew ?? null,
-      })
-
-      const task = await onSubmit(payload)
-
-      let photoUpload: TaskPhotoUploadSummary = {
-        taskCreated: true,
-        uploadedPhotos: 0,
-        failedPhotos: 0,
-      }
-
-      if (referencePhotos.length > 0) {
-        const uploadResult = await uploadPendingTaskReferencePhotos(
-          task.id,
-          referencePhotos
-        )
-        photoUpload = uploadResult.summary
-      }
-
-      revokePendingTaskReferencePhotos(referencePhotos)
-      setReferencePhotos([])
-      onTaskCreated?.({ task, photoUpload })
-      await prepareCustomerSyncAfterCreate(task, customerId, form)
-      forceClose()
+      await performCreate(customerId)
     } catch (submitError) {
       if (submitError instanceof DemoWriteBlockedError) {
         return
@@ -821,6 +942,33 @@ export function TaskWorkOrderDialog({
           ? submitError.message
           : "No se pudo crear la orden de trabajo."
       )
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  async function handleConfirmSaveChanges() {
+    setError(null)
+    setIsSubmitting(true)
+
+    try {
+      const customerId = await resolveCustomerIdForSave()
+      if (!customerId) {
+        return
+      }
+
+      await performEdit(customerId)
+    } catch (submitError) {
+      if (submitError instanceof DemoWriteBlockedError) {
+        return
+      }
+
+      setError(
+        submitError instanceof Error
+          ? submitError.message
+          : "No se pudo actualizar la orden de trabajo."
+      )
+      setSaveConfirmOpen(false)
     } finally {
       setIsSubmitting(false)
     }
@@ -841,7 +989,9 @@ export function TaskWorkOrderDialog({
           isDirty={isDirty}
         >
         <DialogHeader>
-          <DialogTitle>Nueva Orden de Trabajo</DialogTitle>
+          <DialogTitle>
+            {isEditMode ? "Editar Orden de Trabajo" : "Nueva Orden de Trabajo"}
+          </DialogTitle>
           <DialogDescription>
             Seleccione el tipo de trabajo y complete los datos operativos.
           </DialogDescription>
@@ -972,7 +1122,11 @@ export function TaskWorkOrderDialog({
               type="submit"
               disabled={isSubmitting || !form.serviceType}
             >
-              {isSubmitting ? "Guardando..." : "Guardar orden"}
+              {isSubmitting
+                ? "Guardando..."
+                : isEditMode
+                  ? "Guardar cambios"
+                  : "Guardar orden"}
             </Button>
           </DialogFooter>
         </form>
@@ -984,6 +1138,35 @@ export function TaskWorkOrderDialog({
         onOpenChange={setDiscardOpen}
         onConfirm={handleConfirmDiscard}
       />
+
+      <Dialog open={saveConfirmOpen} onOpenChange={setSaveConfirmOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Guardar modificaciones</DialogTitle>
+            <DialogDescription>
+              Se detectaron cambios en la Orden de Trabajo. ¿Desea guardar las
+              modificaciones?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setSaveConfirmOpen(false)}
+              disabled={isSubmitting}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void handleConfirmSaveChanges()}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Guardando..." : "Guardar cambios"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <WorkOrderCustomerSyncDialog
         open={customerSyncState != null}

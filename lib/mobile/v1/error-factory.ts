@@ -12,6 +12,7 @@ import type { MobileApiErrorResponse } from "@/lib/mobile/v1/types/responses"
 
 function buildMobileResponseHeaders(requestId: string): HeadersInit {
   return {
+    "Content-Type": "application/json; charset=utf-8",
     "X-Request-Id": requestId,
   }
 }
@@ -33,11 +34,20 @@ export function mobileApiErrorResponse(
     },
   }
 
-  console.debug("[Mobile API]", {
+  const logPayload = {
     requestId: context.requestId,
-    error: body.error,
+    code: body.error.code,
+    message: body.error.message,
     status,
-  })
+  }
+
+  if (status >= 500) {
+    console.error("[Mobile API]", logPayload)
+  } else if (status >= 400) {
+    console.warn("[Mobile API]", logPayload)
+  } else {
+    console.debug("[Mobile API]", logPayload)
+  }
 
   return NextResponse.json(body, {
     status,

@@ -113,3 +113,13 @@ export function generateTaskCode(projectCode: string, tasks: Task[]): string {
 
   return code
 }
+
+/** Visual-only label for admin lists (e.g. TSK-OT-010 → OT-010). */
+export function formatTaskAdminDisplayCode(code: string): string {
+  const trimmed = code.trim()
+  if (trimmed.startsWith("TSK-")) {
+    return trimmed.slice(4)
+  }
+
+  return trimmed
+}
