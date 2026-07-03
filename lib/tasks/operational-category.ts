@@ -1,7 +1,9 @@
 import type { Task } from "@/lib/types/tasks"
 import type { VisualTone } from "@/lib/ui/visual-tokens"
-import { STATUS_TONE_STYLES } from "@/lib/ui/visual-tokens"
-import { TASK_EN_CURSO_STYLE } from "@/lib/tasks/constants"
+import {
+  getTaskStatusBadgeClass,
+} from "@/lib/tasks/status-visual"
+
 import { taskHasAssignedCrew } from "@/lib/tasks/vencida-status"
 
 export type OperationalTaskCategory =
@@ -53,9 +55,9 @@ export const OPERATIONAL_CATEGORY_KPI_TONE: Record<
   VisualTone
 > = {
   programadas: "blue",
-  asignadas: "blue",
-  "en-curso": "yellow",
-  "pendientes-cierre": "yellow",
+  asignadas: "yellow",
+  "en-curso": "orange",
+  "pendientes-cierre": "violet",
   finalizadas: "green",
   canceladas: "red",
 }
@@ -68,12 +70,12 @@ export const OPERATIONAL_CATEGORY_BADGE_STYLES: Record<
   OperationalTaskCategory,
   string
 > = {
-  programadas: STATUS_TONE_STYLES.blue,
-  asignadas: STATUS_TONE_STYLES.blue,
-  "en-curso": TASK_EN_CURSO_STYLE,
-  "pendientes-cierre": STATUS_TONE_STYLES.yellow,
-  finalizadas: STATUS_TONE_STYLES.green,
-  canceladas: STATUS_TONE_STYLES.red,
+  programadas: getTaskStatusBadgeClass("programada"),
+  asignadas: getTaskStatusBadgeClass("asignada"),
+  "en-curso": getTaskStatusBadgeClass("en-curso"),
+  "pendientes-cierre": getTaskStatusBadgeClass("pendiente-cierre"),
+  finalizadas: getTaskStatusBadgeClass("finalizada"),
+  canceladas: getTaskStatusBadgeClass("cancelada"),
 }
 
 export function resolveOperationalExecutionBadge(task: Task): {
@@ -82,57 +84,57 @@ export function resolveOperationalExecutionBadge(task: Task): {
 } {
   if (task.status === "vencida") {
     return {
-      label: "🔴 Vencida",
-      className: STATUS_TONE_STYLES.red,
+      label: "Vencida",
+      className: getTaskStatusBadgeClass("vencida"),
     }
   }
 
   if (task.status === "incidencia") {
     return {
-      label: "🔴 Incidencia",
-      className: STATUS_TONE_STYLES.red,
+      label: "Incidencia",
+      className: getTaskStatusBadgeClass("incidencia"),
     }
   }
 
   if (task.status === "programada") {
     return {
       label: "Programada",
-      className: STATUS_TONE_STYLES.blue,
+      className: getTaskStatusBadgeClass("programada"),
     }
   }
 
   if (task.status === "asignada") {
     return {
       label: "Asignada",
-      className: STATUS_TONE_STYLES.blue,
+      className: getTaskStatusBadgeClass("asignada"),
     }
   }
 
   if (task.status === "en-curso") {
     return {
       label: "En curso",
-      className: TASK_EN_CURSO_STYLE,
+      className: getTaskStatusBadgeClass("en-curso"),
     }
   }
 
   if (task.status === "pendiente-cierre" || task.status === "en-aprobacion") {
     return {
       label: "Pendiente de cierre",
-      className: STATUS_TONE_STYLES.yellow,
+      className: getTaskStatusBadgeClass("pendiente-cierre"),
     }
   }
 
   if (task.status === "finalizada" || task.status === "cerrada") {
     return {
       label: "Finalizada",
-      className: STATUS_TONE_STYLES.green,
+      className: getTaskStatusBadgeClass("finalizada"),
     }
   }
 
   if (task.status === "cancelada") {
     return {
       label: "Cancelada",
-      className: STATUS_TONE_STYLES.red,
+      className: getTaskStatusBadgeClass("cancelada"),
     }
   }
 

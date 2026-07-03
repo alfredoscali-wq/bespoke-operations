@@ -2,6 +2,7 @@ const PLANNING_FILTERS_SESSION_KEY = "bespoke.planning.filters"
 
 type PlanningFiltersSession = {
   date: string
+  crewFilterId?: string | null
 }
 
 function isValidDateInput(value: unknown): value is string {
@@ -27,13 +28,22 @@ export function readPlanningFiltersFromSession(): PlanningFiltersSession | null 
       return null
     }
 
-    const parsed = JSON.parse(raw) as Partial<{ date: unknown }>
+    const parsed = JSON.parse(raw) as Partial<{
+      date: unknown
+      crewFilterId: unknown
+    }>
     if (!isValidDateInput(parsed.date)) {
       return null
     }
 
+    const crewFilterId =
+      typeof parsed.crewFilterId === "string" && parsed.crewFilterId.trim()
+        ? parsed.crewFilterId.trim()
+        : null
+
     return {
       date: parsed.date,
+      crewFilterId,
     }
   } catch {
     return null
@@ -65,5 +75,6 @@ export function resolveInitialPlanningFilters(): PlanningFiltersSession {
 
   return {
     date: resolveLocalTodayDateInputValue(),
+    crewFilterId: null,
   }
 }

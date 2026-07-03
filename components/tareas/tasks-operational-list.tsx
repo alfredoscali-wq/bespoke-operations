@@ -12,7 +12,9 @@ import {
   OPERATIONAL_CATEGORY_KPI_LABELS,
 } from "@/lib/tasks/operational-category"
 import { resolveTaskCrewDisplayName } from "@/lib/tasks/crew-relation"
+import { getTaskStatusSurfaceClass } from "@/lib/tasks/status-visual"
 import type { Task } from "@/lib/types/tasks"
+import { cn } from "@/lib/utils"
 
 type TasksOperationalListProps = {
   tasks: Task[]
@@ -55,7 +57,10 @@ export function TasksOperationalList({ tasks }: TasksOperationalListProps) {
           return (
             <article
               key={task.id}
-              className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-sm transition-colors hover:bg-muted/20 sm:flex-row sm:items-start sm:justify-between"
+              className={cn(
+                "flex flex-col gap-3 rounded-xl border p-4 shadow-sm transition-colors hover:brightness-[0.98] sm:flex-row sm:items-start sm:justify-between",
+                getTaskStatusSurfaceClass(task.status)
+              )}
             >
               <Link href={`/tareas/${task.id}`} className="min-w-0 flex-1">
                 <OperationalTaskCardBody task={task} crewLabel={crewName} />

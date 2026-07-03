@@ -6,7 +6,6 @@ type CrewRef = Pick<Crew, "id" | "name">
 
 export const OPERATIONAL_ORDER_REORDERABLE_STATUSES = [
   "programada",
-  "asignada",
 ] as const satisfies readonly TaskStatus[]
 
 export function isOperationalOrderReorderable(
@@ -17,20 +16,60 @@ export function isOperationalOrderReorderable(
   )
 }
 
-export function resolveOperationalOrderValue(
-  task: Pick<Task, "dispatchOrder" | "executionOrder">
+function normalizePositiveOrder(
+  value: number | null | undefined
 ): number | null {
-  const dispatch = task.dispatchOrder
-  if (dispatch != null && dispatch > 0 && Number.isFinite(dispatch)) {
-    return Math.floor(dispatch)
+  if (value == null || value <= 0 || !Number.isFinite(value)) {
+    return null
   }
 
-  const execution = task.executionOrder
-  if (execution != null && execution > 0 && Number.isFinite(execution)) {
-    return Math.floor(execution)
+  return Math.floor(value)
+}
+
+/** Planning lane: only programada OT carry execution_order. */
+export function resolvePlanningExecutionOrder(
+  task: Pick<Task, "status" | "executionOrder">
+): number | null {
+  if (task.status !== "programada") {
+    return null
   }
 
-  return null
+  return normalizePositiveOrder(task.executionOrder)
+}
+
+/** Operations lane: assigned OT and beyond use dispatch_order only. */
+export function resolveDispatchOperationalOrder(
+  task: Pick<Task, "status" | "dispatchOrder">
+): number | null {
+  if (task.status === "programada") {
+    return null
+  }
+
+  return normalizePositiveOrder(task.dispatchOrder)
+}
+
+export function resolveOperationalOrderValue(
+  task: Pick<Task, "dispatchOrder" | "executionOrder"> &
+    Partial<Pick<Task, "status">>
+): number | null {
+  if (task.status === "programada") {
+    return resolvePlanningExecutionOrder({
+      status: task.status,
+      executionOrder: task.executionOrder,
+    })
+  }
+
+  if (task.status != null) {
+    return resolveDispatchOperationalOrder({
+      status: task.status,
+      dispatchOrder: task.dispatchOrder,
+    })
+  }
+
+  return (
+    normalizePositiveOrder(task.dispatchOrder) ??
+    normalizePositiveOrder(task.executionOrder)
+  )
 }
 
 function resolveTaskCreatedAtSortKey(task: Pick<Task, "createdAt">): string {
@@ -61,10 +100,6 @@ export function compareOperationalOrderTasks(
     return leftHasOrder ? -1 : 1
   }
 
-  if (left.dispatchOrder != null || right.dispatchOrder != null) {
-    return 0
-  }
-
   return resolveTaskCreatedAtSortKey(left).localeCompare(
     resolveTaskCreatedAtSortKey(right)
   )
@@ -93,6 +128,17 @@ export function filterOperationalOrderScope(
     (task) =>
       task.dueDate === dueDate &&
       taskMatchesCrewId(task, { id: crewId, name: "" })
+  )
+}
+
+export function filterPlanningExecutionOrderScope(
+  tasks: Task[],
+  dueDate: string,
+  crewId: string | null | undefined,
+  crews: CrewRef[] = []
+): Task[] {
+  return filterOperationalOrderScope(tasks, dueDate, crewId, crews).filter(
+    (task) => task.status === "programada"
   )
 }
 
@@ -226,7 +272,7 @@ export function resolveNextOperationalOrderProposal(input: {
   excludeTaskId?: string
 }): number {
   const { tasks, dueDate, crewId, crews = [], excludeTaskId } = input
-  const mates = filterOperationalOrderScope(
+  const mates = filterPlanningExecutionOrderScope(
     tasks,
     dueDate,
     crewId,
@@ -234,7 +280,7 @@ export function resolveNextOperationalOrderProposal(input: {
   ).filter((task) => task.id !== excludeTaskId)
 
   const maxOrder = mates.reduce(
-    (max, task) => Math.max(max, resolveOperationalOrderValue(task) ?? 0),
+    (max, task) => Math.max(max, task.executionOrder ?? 0),
     0
   )
 
@@ -261,7 +307,7 @@ export function buildOperationalOrderRemovalFieldUpdates<T extends { taskId: str
     writeUpdate,
     isClearable,
   } = input
-  const scope = filterOperationalOrderScope(tasks, dueDate, crewId, crews)
+  const scope = filterPlanningExecutionOrderScope(tasks, dueDate, crewId, crews)
   const remaining = scope.filter(
     (task) =>
       task.id !== removedTaskId &&

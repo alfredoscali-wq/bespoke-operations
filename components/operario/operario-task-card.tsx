@@ -4,11 +4,11 @@ import { DispatchOrderBadge } from "@/components/tareas/dispatch-order-badge"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { resolvePlanningTaskShiftDisplayLabel } from "@/lib/planificacion/planning-utils"
-import { isIncidentStatus } from "@/lib/tasks/incidents"
 import {
   formatDispatchOrderNumericLabel,
   resolveTaskRouteOrder,
 } from "@/lib/tasks/dispatch-order"
+import { getTaskStatusCircleClass, getTaskStatusSurfaceClass } from "@/lib/tasks/status-visual"
 import { resolveTaskOperationalTitle } from "@/lib/tasks/work-order"
 import type { Task } from "@/lib/types/tasks"
 import { cn } from "@/lib/utils"
@@ -29,15 +29,7 @@ function formatJornadaOrderPosition(order: number): string {
 }
 
 function resolveJornadaOrderCircleClassName(task: Task): string {
-  if (isIncidentStatus(task.status)) {
-    return "border-red-500 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/50 dark:text-red-300"
-  }
-
-  if (task.status === "finalizada" || task.status === "cerrada") {
-    return "border-border bg-muted text-muted-foreground"
-  }
-
-  return "border-emerald-500 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300"
+  return getTaskStatusCircleClass(task.status)
 }
 
 function OperarioShiftBadge({ task }: { task: Task }) {
@@ -64,7 +56,7 @@ function OperarioJornadaOrderRail({ task }: { task: Task }) {
   }
 
   const numericLabel = formatDispatchOrderNumericLabel(order)
-  const showIncidentNotice = isIncidentStatus(task.status)
+  const showIncidentNotice = task.status === "incidencia"
 
   return (
     <aside
@@ -83,7 +75,7 @@ function OperarioJornadaOrderRail({ task }: { task: Task }) {
         {formatJornadaOrderPosition(order)}
       </p>
       {showIncidentNotice ? (
-        <div className="space-y-0.5 text-[10px] leading-tight text-red-700 dark:text-red-300">
+        <div className="space-y-0.5 text-[10px] leading-tight text-zinc-700 dark:text-zinc-300">
           <p className="font-semibold">⚠ Incidencia</p>
           <p>Esperando respuesta del supervisor</p>
         </div>
@@ -135,7 +127,12 @@ export function OperarioTaskCard({
 }: OperarioTaskCardProps) {
   if (variant === "jornada") {
     return (
-      <article className="flex overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm">
+      <article
+        className={cn(
+          "flex overflow-hidden rounded-2xl border shadow-sm",
+          getTaskStatusSurfaceClass(task.status)
+        )}
+      >
         <div className="min-w-0 flex-1 p-4">
           <OperarioTaskCardContent task={task} />
         </div>
@@ -147,7 +144,12 @@ export function OperarioTaskCard({
   }
 
   return (
-    <article className="rounded-2xl border border-border/80 bg-card p-4 shadow-sm">
+    <article
+      className={cn(
+        "rounded-2xl border p-4 shadow-sm",
+        getTaskStatusSurfaceClass(task.status)
+      )}
+    >
       <OperarioTaskCardContent task={task} />
     </article>
   )

@@ -8,6 +8,9 @@ import {
   formatDateOnlyDateTime,
 } from "@/lib/dates/date-only"
 import { STATUS_TONE_STYLES } from "@/lib/ui/visual-tokens"
+import {
+  buildTaskStatusStyleMap,
+} from "@/lib/tasks/status-visual"
 
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   programada: "Programada",
@@ -22,20 +25,12 @@ export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   cancelada: "Cancelada",
 }
 
-export const TASK_EN_CURSO_STYLE = STATUS_TONE_STYLES.yellow
+export const TASK_EN_CURSO_STYLE = STATUS_TONE_STYLES.orange
 
-export const TASK_STATUS_STYLES: Record<TaskStatus, string> = {
-  programada: STATUS_TONE_STYLES.gray,
-  asignada: STATUS_TONE_STYLES.blue,
-  vencida: STATUS_TONE_STYLES.red,
-  "en-curso": STATUS_TONE_STYLES.yellow,
-  incidencia: STATUS_TONE_STYLES.red,
-  "pendiente-cierre": STATUS_TONE_STYLES.yellow,
-  finalizada: STATUS_TONE_STYLES.green,
-  "en-aprobacion": STATUS_TONE_STYLES.yellow,
-  cerrada: STATUS_TONE_STYLES.green,
-  cancelada: STATUS_TONE_STYLES.red,
-}
+export const TASK_STATUS_STYLES: Record<TaskStatus, string> =
+  buildTaskStatusStyleMap()
+
+export { getTaskStatusBadgeClass, getTaskStatusSurfaceClass } from "@/lib/tasks/status-visual"
 
 export const KANBAN_COLUMNS: TaskStatus[] = [
   "programada",

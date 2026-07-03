@@ -15,15 +15,16 @@ import {
   validationStatusBadgeClassName,
   validationStatusDotClassName,
 } from "@/lib/customers/customer-validation"
+import { TaskStatusBadge } from "@/components/tareas/task-badges"
 import { getWorkOrderServiceTypeLabel } from "@/lib/tasks/work-order"
-import { TASK_STATUS_LABELS, formatTaskDate } from "@/lib/tasks/constants"
+import { formatTaskDate } from "@/lib/tasks/constants"
+import { getTaskStatusSurfaceClass } from "@/lib/tasks/status-visual"
 import { formatScheduledTimeDisplay } from "@/lib/tasks/scheduling"
 import { createClient } from "@/lib/supabase/client"
 import { fetchWorkOrdersByCustomerId } from "@/lib/supabase/tasks.queries"
 import type { Customer } from "@/lib/types/customers"
 import type { Task } from "@/lib/types/tasks"
 import { WhatsAppLink } from "@/components/ui/whatsapp-link"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -218,7 +219,10 @@ export function CustomerDetailScreen({ customerId }: CustomerDetailScreenProps) 
                 </TableHeader>
                 <TableBody>
                   {workOrders.map((task) => (
-                    <TableRow key={task.id}>
+                    <TableRow
+                      key={task.id}
+                      className={getTaskStatusSurfaceClass(task.status)}
+                    >
                       <TableCell>
                         <Link
                           href={`/tareas/${task.id}`}
@@ -236,9 +240,7 @@ export function CustomerDetailScreen({ customerId }: CustomerDetailScreenProps) 
                         {formatScheduledTimeDisplay(task.scheduledTime) ?? "—"}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline">
-                          {TASK_STATUS_LABELS[task.status]}
-                        </Badge>
+                        <TaskStatusBadge status={task.status} />
                       </TableCell>
                     </TableRow>
                   ))}

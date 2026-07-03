@@ -203,8 +203,10 @@ export async function enrichUpdateTaskPayloadWithResolvedLocation(
 
     const newSharedLocation = readMetadataString(metadata, "newSharedLocation")
     if (newSharedLocation) {
-      const resolved = await resolveSharedLocationOnSave(
+      const resolved = await resolveIfNeeded(
         newSharedLocation,
+        readMetadataNumber(metadata, "newLatitude"),
+        readMetadataNumber(metadata, "newLongitude"),
         resolutionCache
       )
 

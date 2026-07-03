@@ -1,9 +1,14 @@
+import type { Crew } from "@/lib/types/crews"
 import type { Task } from "@/lib/types/tasks"
+import { taskMatchesCrewId } from "@/lib/tasks/crew-relation"
 import type { PlanningTaskCoordinates } from "@/lib/planificacion/planning-utils"
 
 export const PLANNING_PIN_COLOR_VENCIDA = "#dc2626"
 export const PLANNING_PIN_COLOR_SELECTED = "#ea580c"
 export const PLANNING_PIN_COLOR_NO_CREW = "#94a3b8"
+export const PLANNING_PIN_COLOR_FILTERED_OUT = "#94a3b8"
+export const PLANNING_PIN_FILTERED_OUT_OPACITY = 0.4
+export const PLANNING_PIN_FILTERED_IN_Z_INDEX_BOOST = 100
 
 /** Cuadrilla 1 azul, 2 amarillo, 3 verde, luego paleta extendida. */
 export const PLANNING_CREW_PIN_COLORS = [
@@ -82,6 +87,59 @@ export function resolvePlanningPinColor(
   return PLANNING_CREW_PIN_COLORS[index % PLANNING_CREW_PIN_COLORS.length]
 }
 
+export type PlanningPinVisualState = {
+  color: string
+  opacity: number
+  zIndexOffset: number
+  highlighted: boolean
+}
+
+export function resolvePlanningPinVisualState(
+  task: Pick<Task, "id" | "status" | "crewId" | "crew">,
+  input: {
+    highlightedTaskId: string | null
+    crewColorIndex: Map<string, number>
+    activeCrewFilterId: string | null
+    crews: Pick<Crew, "id" | "name">[]
+  }
+): PlanningPinVisualState {
+  const highlighted = isPlanningPinHighlighted(task.id, input.highlightedTaskId)
+  const color = resolvePlanningPinColor(
+    task,
+    input.highlightedTaskId,
+    input.crewColorIndex
+  )
+  const zIndexOffset = highlighted ? 1000 : 0
+
+  if (!input.activeCrewFilterId) {
+    return {
+      color,
+      opacity: 1,
+      zIndexOffset,
+      highlighted,
+    }
+  }
+
+  const filteredCrew = input.crews.find(
+    (crew) => crew.id === input.activeCrewFilterId
+  )
+  if (!filteredCrew || taskMatchesCrewId(task, filteredCrew)) {
+    return {
+      color,
+      opacity: 1,
+      zIndexOffset: highlighted ? 1000 : PLANNING_PIN_FILTERED_IN_Z_INDEX_BOOST,
+      highlighted,
+    }
+  }
+
+  return {
+    color: PLANNING_PIN_COLOR_FILTERED_OUT,
+    opacity: PLANNING_PIN_FILTERED_OUT_OPACITY,
+    zIndexOffset,
+    highlighted,
+  }
+}
+
 export function isPlanningPinHighlighted(
   taskId: string,
   highlightedTaskId: string | null
@@ -93,7 +151,7 @@ export function buildPlanningMarkersViewKey(
   markers: Array<{
     task: Pick<
       Task,
-      "id" | "executionOrder" | "crewId" | "status"
+      "id" | "dispatchOrder" | "executionOrder" | "crewId" | "status"
     >
     coordinates: PlanningTaskCoordinates
   }>
@@ -104,6 +162,7 @@ export function buildPlanningMarkersViewKey(
 
       return [
         marker.task.id,
+        marker.task.dispatchOrder ?? "",
         marker.task.executionOrder ?? "",
         marker.coordinates.latitude,
         marker.coordinates.longitude,

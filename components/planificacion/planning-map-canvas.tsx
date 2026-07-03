@@ -6,9 +6,10 @@ import L from "leaflet"
 import type { PlanningMapMarker } from "@/components/planificacion/planning-map"
 import {
   buildPlanningMarkersViewKey,
-  isPlanningPinHighlighted,
-  resolvePlanningPinColor,
+  resolvePlanningPinVisualState,
+  type PlanningPinVisualState,
 } from "@/lib/planificacion/planning-map-markers"
+import type { Crew } from "@/lib/types/crews"
 import {
   formatDispatchOrderBadge,
   resolveTaskRouteOrder,
@@ -47,22 +48,24 @@ function removePlanningMarker(
 
 function createPlanningMarker(
   markerEntry: PlanningMapMarker,
-  highlightedTaskId: string | null,
-  crewColorIndex: Map<string, number>,
+  visualState: PlanningPinVisualState,
   onSelectTask: (taskId: string) => void,
   isEditMode: boolean
 ): L.Marker {
   const { task, coordinates } = markerEntry
-  const highlighted = isPlanningPinHighlighted(task.id, highlightedTaskId)
-  const color = resolvePlanningPinColor(task, highlightedTaskId, crewColorIndex)
   const latLng: L.LatLngExpression = [
     coordinates.latitude,
     coordinates.longitude,
   ]
 
   const marker = L.marker(latLng, {
-    icon: createPlanningPinIcon(color, highlighted, resolveTaskRouteOrder(task)),
-    zIndexOffset: highlighted ? 1000 : 0,
+    icon: createPlanningPinIcon(
+      visualState.color,
+      visualState.highlighted,
+      resolveTaskRouteOrder(task),
+      visualState.opacity
+    ),
+    zIndexOffset: visualState.zIndexOffset,
   })
 
   if (!isEditMode) {
@@ -82,7 +85,8 @@ function createPlanningMarker(
 function createPlanningPinIcon(
   color: string,
   highlighted: boolean,
-  routeOrder: number | null | undefined
+  routeOrder: number | null | undefined,
+  opacity = 1
 ): L.DivIcon {
   const scale = highlighted ? 1.12 : 1
   const width = Math.round(26 * scale)
@@ -98,7 +102,7 @@ function createPlanningPinIcon(
 
   return L.divIcon({
     className: "planning-map-pin-icon !border-0 !bg-transparent",
-    html: `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 26 36" aria-hidden="true" style="display:block;filter:drop-shadow(0 2px 4px rgba(15,23,42,.28))">
+    html: `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 26 36" aria-hidden="true" style="display:block;opacity:${opacity};filter:drop-shadow(0 2px 4px rgba(15,23,42,.28))">
       <path d="M13 0C6.925 0 2 4.925 2 11c0 8.25 11 25 11 25s11-16.75 11-25C24 4.925 19.075 0 13 0z" fill="${color}" stroke="#ffffff" stroke-width="1.75"/>
       ${orderBadge}
     </svg>`,
@@ -106,6 +110,37 @@ function createPlanningPinIcon(
     iconAnchor: [anchorX, height],
     popupAnchor: [0, -height + 6],
   })
+}
+
+function resolveMarkerVisualState(
+  markerEntry: PlanningMapMarker,
+  highlightedTaskId: string | null,
+  crewColorIndex: Map<string, number>,
+  activeCrewFilterId: string | null,
+  crews: Pick<Crew, "id" | "name">[]
+): PlanningPinVisualState {
+  return resolvePlanningPinVisualState(markerEntry.task, {
+    highlightedTaskId,
+    crewColorIndex,
+    activeCrewFilterId,
+    crews,
+  })
+}
+
+function applyMarkerVisualState(
+  marker: L.Marker,
+  markerEntry: PlanningMapMarker,
+  visualState: PlanningPinVisualState
+): void {
+  marker.setIcon(
+    createPlanningPinIcon(
+      visualState.color,
+      visualState.highlighted,
+      resolveTaskRouteOrder(markerEntry.task),
+      visualState.opacity
+    )
+  )
+  marker.setZIndexOffset(visualState.zIndexOffset)
 }
 
 function buildMarkerPopup(task: PlanningMapMarker["task"]): string {
@@ -182,6 +217,8 @@ type PlanningMapCanvasProps = {
   onSelectTask: (taskId: string) => void
   isEditMode?: boolean
   viewRefreshToken?: number
+  activeCrewFilterId?: string | null
+  crews?: Pick<Crew, "id" | "name">[]
 }
 
 export function PlanningMapCanvas({
@@ -192,6 +229,8 @@ export function PlanningMapCanvas({
   onSelectTask,
   isEditMode = false,
   viewRefreshToken = 0,
+  activeCrewFilterId = null,
+  crews = [],
 }: PlanningMapCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
@@ -279,18 +318,16 @@ export function PlanningMapCanvas({
       }
 
       const current = markerRefs.get(task.id)
-      if (current) {
-        const highlighted = isPlanningPinHighlighted(task.id, highlightedTaskId)
-        const color = resolvePlanningPinColor(
-          task,
-          highlightedTaskId,
-          crewColorIndex
-        )
+      const visualState = resolveMarkerVisualState(
+        markerEntry,
+        highlightedTaskId,
+        crewColorIndex,
+        activeCrewFilterId,
+        crews
+      )
 
-        current.marker.setIcon(
-          createPlanningPinIcon(color, highlighted, resolveTaskRouteOrder(task))
-        )
-        current.marker.setZIndexOffset(highlighted ? 1000 : 0)
+      if (current) {
+        applyMarkerVisualState(current.marker, markerEntry, visualState)
         if (!isEditModeRef.current) {
           current.marker.setPopupContent(buildMarkerPopup(task))
         }
@@ -299,8 +336,7 @@ export function PlanningMapCanvas({
 
       const marker = createPlanningMarker(
         markerEntry,
-        highlightedTaskId,
-        crewColorIndex,
+        visualState,
         (taskId) => onSelectTaskRef.current(taskId),
         isEditModeRef.current
       )
@@ -325,7 +361,7 @@ export function PlanningMapCanvas({
         refreshPlanningMapView(mapRef.current, markers, shouldAnimate)
       })
     }
-  }, [markers, highlightedTaskId, crewColorIndex])
+  }, [markers, highlightedTaskId, crewColorIndex, activeCrewFilterId, crews])
 
   useEffect(() => {
     const map = mapRef.current

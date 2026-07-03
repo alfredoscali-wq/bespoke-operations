@@ -71,6 +71,8 @@ export type UpdateTaskPayload = Partial<{
 export type TasksRepositoryErrorCode =
   | "NOT_FOUND"
   | "DUPLICATE_CODE"
+  | "DUPLICATE_EXECUTION_ORDER"
+  | "DUPLICATE_DISPATCH_ORDER"
   | "VALIDATION"
   | "ACTIVE_TASK"
   | "CONFLICT"

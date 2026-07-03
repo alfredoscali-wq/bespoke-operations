@@ -3,8 +3,12 @@
 import Link from "next/link"
 
 import { useCalendarUI } from "@/components/calendario/calendar-ui-provider"
-import { formatTaskDate, TASK_STATUS_LABELS } from "@/lib/tasks/constants"
+import { TaskStatusBadge } from "@/components/tareas/task-badges"
+import { formatTaskDate } from "@/lib/tasks/constants"
+import { getTaskStatusSurfaceClass } from "@/lib/tasks/status-visual"
 import { computeOverdueDays, formatOverdueDaysLabel } from "@/lib/tasks/overdue-display"
+import type { TaskStatus } from "@/lib/types/tasks"
+import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
@@ -18,12 +22,19 @@ import {
 function DetailBlock({
   title,
   children,
+  status,
 }: {
   title: string
   children: React.ReactNode
+  status?: TaskStatus
 }) {
   return (
-    <div className="rounded-xl border bg-card p-4 shadow-sm">
+    <div
+      className={cn(
+        "rounded-xl border p-4 shadow-sm",
+        status ? getTaskStatusSurfaceClass(status) : "bg-card"
+      )}
+    >
       <p className="text-sm font-semibold text-foreground">{title}</p>
       <div className="mt-3 space-y-3">{children}</div>
     </div>
@@ -75,7 +86,7 @@ export function CalendarCriticalPendingSheet() {
               </p>
             ) : (
               criticalPendingTasks.map((task) => (
-                <DetailBlock key={task.taskId} title={task.code}>
+                <DetailBlock key={task.taskId} title={task.code} status={task.status}>
                   <Field label="Título" value={task.title} />
                   <Field
                     label="Obra"
@@ -96,10 +107,9 @@ export function CalendarCriticalPendingSheet() {
                       }) ?? 1
                     )}
                   />
-                  <Field
-                    label="Estado"
-                    value={TASK_STATUS_LABELS[task.status]}
-                  />
+                  <div className="pt-1">
+                    <TaskStatusBadge status={task.status} />
+                  </div>
                   <div className="flex flex-wrap gap-2 pt-1">
                     <Button asChild variant="outline" size="sm">
                       <Link href={`/tareas/${task.taskId}`}>Ver orden de trabajo</Link>

@@ -3,13 +3,16 @@ import {
   buildOperationalOrderRemovalFieldUpdates,
   compareOperationalOrderTasks,
   filterOperationalOrderScope,
+  filterPlanningExecutionOrderScope,
   isOperationalOrderReorderable,
   resolveNextOperationalOrderProposal,
   resolveOperationalOrderValue,
   sortOperationalOrderScope,
 } from "@/lib/planificacion/planning-operational-order-core"
-import type { DispatchOrderUpdate } from "@/lib/planificacion/planning-dispatch-order"
-import { dedupeDispatchOrderUpdates } from "@/lib/planificacion/planning-dispatch-order"
+import {
+  dedupeDispatchOrderUpdates,
+  type DispatchOrderUpdate,
+} from "@/lib/planificacion/planning-dispatch-order"
 import { resolveTaskCrewId } from "@/lib/tasks/crew-relation"
 import type { Crew } from "@/lib/types/crews"
 import type { Task } from "@/lib/types/tasks"
@@ -187,7 +190,12 @@ export function buildOperationalOrderAssignmentUpdates(input: {
   crews: CrewRef[]
 }): ExecutionOrderUpdate[] {
   const { tasks, dueDate, crewId, taskId, desiredOrder, crews } = input
-  const scope = filterOperationalOrderScope(tasks, dueDate, crewId, crews)
+  const scope = filterPlanningExecutionOrderScope(
+    tasks,
+    dueDate,
+    crewId,
+    crews
+  )
 
   return buildOperationalOrderFieldUpdates({
     scope,
@@ -238,6 +246,65 @@ export function resolveExecutionOrderAppendPosition(
   })
 }
 
+export function buildExecutionOrderDragUpdates(
+  tasks: Task[],
+  draggedTaskId: string,
+  targetTaskId: string,
+  crews: CrewRef[] = []
+): ExecutionOrderUpdate[] {
+  if (draggedTaskId === targetTaskId) {
+    return []
+  }
+
+  const draggedTask = tasks.find((item) => item.id === draggedTaskId)
+  const targetTask = tasks.find((item) => item.id === targetTaskId)
+
+  if (!draggedTask || !targetTask) {
+    return []
+  }
+
+  if (!isOperationalOrderReorderable(draggedTask)) {
+    return []
+  }
+
+  const draggedCrewId = resolveTaskCrewId(draggedTask, crews)
+  const targetCrewId = resolveTaskCrewId(targetTask, crews)
+
+  if (!draggedCrewId || draggedCrewId !== targetCrewId) {
+    return []
+  }
+
+  if (draggedTask.dueDate !== targetTask.dueDate) {
+    return []
+  }
+
+  const scopeTasks = filterPlanningExecutionOrderScope(
+    tasks,
+    draggedTask.dueDate,
+    draggedCrewId,
+    crews
+  )
+  const reorderable = sortOperationalOrderScope(
+    scopeTasks.filter(isOperationalOrderReorderable),
+    crews
+  )
+  const draggedIndex = reorderable.findIndex((item) => item.id === draggedTaskId)
+  const targetIndex = reorderable.findIndex((item) => item.id === targetTaskId)
+
+  if (draggedIndex === -1 || targetIndex === -1) {
+    return []
+  }
+
+  return buildOperationalOrderAssignmentUpdates({
+    tasks,
+    dueDate: draggedTask.dueDate,
+    crewId: draggedCrewId,
+    taskId: draggedTaskId,
+    desiredOrder: targetIndex + 1,
+    crews,
+  })
+}
+
 export function buildExecutionOrderSwapUpdates(
   tasks: Task[],
   taskId: string,
@@ -254,7 +321,7 @@ export function buildExecutionOrderSwapUpdates(
     return []
   }
 
-  const scopeTasks = filterOperationalOrderScope(
+  const scopeTasks = filterPlanningExecutionOrderScope(
     tasks,
     task.dueDate,
     crewId,
@@ -277,17 +344,12 @@ export function buildExecutionOrderSwapUpdates(
     return []
   }
 
-  const targetOrder = resolveOperationalOrderValue(reorderable[targetIndex]!)
-  if (targetOrder == null) {
-    return []
-  }
-
   return buildOperationalOrderAssignmentUpdates({
     tasks,
     dueDate: task.dueDate,
     crewId,
     taskId,
-    desiredOrder: targetOrder,
+    desiredOrder: targetIndex + 1,
     crews,
   })
 }
@@ -417,27 +479,11 @@ export function resolveExecutionOrderMoveAvailability(
   taskId: string,
   crews: CrewRef[] = []
 ): { canMoveUp: boolean; canMoveDown: boolean } {
-  const task = tasks.find((item) => item.id === taskId)
-  if (!task || !resolveTaskCrewId(task, crews)) {
-    return { canMoveUp: false, canMoveDown: false }
-  }
-
-  const crewId = resolveTaskCrewId(task, crews)!
-  const scopeTasks = filterOperationalOrderScope(
-    tasks,
-    task.dueDate,
-    crewId,
-    crews
-  )
-  const reorderable = sortOperationalOrderScope(
-    scopeTasks.filter(isOperationalOrderReorderable),
-    crews
-  )
-  const index = reorderable.findIndex((item) => item.id === taskId)
-
   return {
-    canMoveUp: index > 0,
-    canMoveDown: index >= 0 && index < reorderable.length - 1,
+    canMoveUp:
+      buildExecutionOrderSwapUpdates(tasks, taskId, "up", crews).length > 0,
+    canMoveDown:
+      buildExecutionOrderSwapUpdates(tasks, taskId, "down", crews).length > 0,
   }
 }
 

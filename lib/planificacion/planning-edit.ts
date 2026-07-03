@@ -17,7 +17,6 @@ import type { UpdateTaskPayload } from "@/lib/types/supabase/tasks"
 import type { Task } from "@/lib/types/tasks"
 
 import {
-  buildOperationalOrderAssignmentUpdates,
   dedupeExecutionOrderUpdates,
   parseOperationalOrderInput,
   resolveNextOperationalOrderProposal,
@@ -132,6 +131,37 @@ export function resolvePlanningEditEstimatedDuration(
   })
 }
 
+export function validatePlanningAdjustForm(
+  form: PlanningEditFormState
+): { valid: boolean; message?: string } {
+  if (!form.crewId) {
+    return { valid: false, message: "Seleccione la cuadrilla." }
+  }
+
+  if (!form.shift) {
+    return { valid: false, message: "Seleccione el turno." }
+  }
+
+  if (!form.estimatedDurationPreset) {
+    return { valid: false, message: "Seleccione la duración estimada." }
+  }
+
+  if (form.estimatedDurationPreset === "other") {
+    const minutes = Number.parseInt(
+      form.estimatedDurationCustomMinutes.trim(),
+      10
+    )
+    if (!Number.isFinite(minutes) || minutes <= 0) {
+      return {
+        valid: false,
+        message: "Indique la duración estimada en minutos.",
+      }
+    }
+  }
+
+  return { valid: true }
+}
+
 export function validatePlanningEditForm(
   form: PlanningEditFormState
 ): { valid: boolean; message?: string } {
@@ -163,9 +193,6 @@ export function buildPlanningTaskUpdateBatch(input: {
   const snapshots = resolveCrewSnapshotsForAssignment(crew)
   const previousCrewId = resolveTaskCrewId(task, crews) ?? null
   const nextCrewId = form.crewId || null
-  const orderValidation = parseOperationalOrderInput(form.operationalOrder)
-  const desiredOrder = orderValidation.valid ? orderValidation.order : null
-
   const executionOrderUpdates: ExecutionOrderUpdate[] = []
 
   if (previousCrewId !== nextCrewId) {
@@ -174,19 +201,8 @@ export function buildPlanningTaskUpdateBatch(input: {
         task,
         newCrewId: nextCrewId,
         newDueDate: task.dueDate,
-        desiredOrder,
+        desiredOrder: null,
         allTasks,
-        crews,
-      })
-    )
-  } else if (nextCrewId && desiredOrder != null) {
-    executionOrderUpdates.push(
-      ...buildOperationalOrderAssignmentUpdates({
-        tasks: allTasks,
-        dueDate: task.dueDate,
-        crewId: nextCrewId,
-        taskId: task.id,
-        desiredOrder,
         crews,
       })
     )
@@ -197,6 +213,7 @@ export function buildPlanningTaskUpdateBatch(input: {
     crew: snapshots.crew,
     supervisor: snapshots.supervisor,
     scheduledTime: normalizeScheduledTimeForDb(resolveScheduledTimeFromShift(shift)),
+    estimatedDuration: resolvePlanningEditEstimatedDuration(form),
     taskMetadata: {
       ...(task.taskMetadata ?? {}),
       shift,

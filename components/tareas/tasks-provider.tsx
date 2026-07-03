@@ -56,9 +56,8 @@ import {
 } from "@/lib/tasks/utils"
 import { generateWorkOrderTaskCodeFromCodes } from "@/lib/tasks/work-order"
 import { applyWorkOrderApprovalEffects } from "@/lib/tasks/work-order-approval-effects"
-import { buildDispatchOrderConfirmUpdates } from "@/lib/tasks/dispatch-order"
+import { resolvePlanningExecutionOrder } from "@/lib/planificacion/planning-operational-order-core"
 import {
-  buildDispatchOrderPersistPlan,
   buildExecutionOrderPersistPlan,
   buildOperationalOrderRemovalUpdates,
   isOperationalOrderReorderable,
@@ -139,6 +138,9 @@ type TasksContextValue = {
   ) => Promise<TaskMutationResult>
   confirmPlanningTasks: (ids: string[]) => Promise<TaskMutationResult>
   reopenPlanningTasks: (ids: string[]) => Promise<TaskMutationResult>
+  applyExecutionOrderUpdates: (
+    updates: ExecutionOrderUpdate[]
+  ) => Promise<TaskMutationResult>
   reportTaskIncident: (
     id: string,
     input: {
@@ -562,9 +564,20 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
 
         if (result.error) {
           logOperationError("TASK UPDATE", result.error)
+          return {
+            success: false,
+            message: result.error.message,
+          }
         }
       } catch (error) {
         logOperationError("TASK UPDATE", error)
+        return {
+          success: false,
+          message:
+            error instanceof Error
+              ? error.message
+              : "No fue posible actualizar la orden de trabajo. Intente nuevamente.",
+        }
       }
 
       return {
@@ -661,29 +674,6 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         for (const update of phase) {
           const result = await editTask(update.taskId, {
             executionOrder: update.executionOrder,
-          })
-
-          if (!result.success) {
-            return result
-          }
-        }
-      }
-
-      return { success: true }
-    },
-    [tasks, editTask]
-  )
-
-  const applyDispatchOrderUpdates = useCallback(
-    async (
-      updates: Array<{ taskId: string; dispatchOrder: number | null }>
-    ): Promise<TaskMutationResult> => {
-      const plan = buildDispatchOrderPersistPlan(updates, tasks)
-
-      for (const phase of plan.phases) {
-        for (const update of phase) {
-          const result = await editTask(update.taskId, {
-            dispatchOrder: update.dispatchOrder,
           })
 
           if (!result.success) {
@@ -1168,12 +1158,6 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      const dispatchUpdates = buildDispatchOrderConfirmUpdates(tasks, ids)
-      const dispatchResult = await applyDispatchOrderUpdates(dispatchUpdates)
-      if (!dispatchResult.success) {
-        return dispatchResult
-      }
-
       for (const id of ids) {
         const task = tasks.find((item) => item.id === id)
         if (!task) {
@@ -1185,10 +1169,21 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
           return { success: false, message: validation.message }
         }
 
+        const executionOrder = resolvePlanningExecutionOrder(task)
+        if (executionOrder == null) {
+          return {
+            success: false,
+            message:
+              "La orden de trabajo debe tener un orden de ejecución antes de planificar.",
+          }
+        }
+
         const result = await updateTaskFields(
           id,
           {
             status: "asignada",
+            dispatchOrder: executionOrder,
+            executionOrder: null,
           },
           "confirm-planning",
           "Planificación confirmada para la jornada.",
@@ -1203,7 +1198,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
 
       return { success: true }
     },
-    [tasks, updateTaskFields, applyDispatchOrderUpdates]
+    [tasks, updateTaskFields]
   )
 
   const reopenPlanningTasks = useCallback(
@@ -1226,9 +1221,15 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
           return { success: false, message: validation.message }
         }
 
+        const dispatchOrder = task.dispatchOrder ?? null
+
         const result = await updateTaskFields(
           id,
-          { status: "programada", dispatchOrder: null },
+          {
+            status: "programada",
+            executionOrder: dispatchOrder,
+            dispatchOrder: null,
+          },
           "reopen-planning",
           "Planificación reabierta para edición.",
           undefined,
@@ -1544,6 +1545,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       cancelTask,
       confirmPlanningTasks,
       reopenPlanningTasks,
+      applyExecutionOrderUpdates,
       reportTaskIncident,
       resumeTaskFromIncident,
       rescheduleTaskFromIncident,
@@ -1577,6 +1579,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       cancelTask,
       confirmPlanningTasks,
       reopenPlanningTasks,
+      applyExecutionOrderUpdates,
       reportTaskIncident,
       resumeTaskFromIncident,
       rescheduleTaskFromIncident,

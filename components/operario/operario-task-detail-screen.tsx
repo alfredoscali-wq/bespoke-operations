@@ -28,12 +28,12 @@ import { resolveTaskRouteOrder } from "@/lib/tasks/dispatch-order"
 import { hasOperationalSteps } from "@/lib/operational-steps/utils"
 import { taskRequiresFtthInstallation } from "@/lib/tasks/ftth-installation"
 import { getTaskTechnologyLabel } from "@/lib/tasks/commercial-plan"
+import { TaskStatusBadge } from "@/components/tareas/task-badges"
 import {
   TASK_PRIORITY_LABELS,
   TASK_PRIORITY_STYLES,
-  TASK_STATUS_LABELS,
-  TASK_STATUS_STYLES,
 } from "@/lib/tasks/constants"
+import { getTaskStatusSurfaceClass } from "@/lib/tasks/status-visual"
 import { isIncidentStatus } from "@/lib/tasks/incidents"
 import { isPendingClosureStatus } from "@/lib/tasks/task-status-workflow"
 import { getWorkOrderServiceTypeLabel } from "@/lib/tasks/work-order"
@@ -155,7 +155,12 @@ export function OperarioTaskDetailScreen({ id }: OperarioTaskDetailScreenProps) 
       />
 
       {/* 1. Tipo de trabajo · 2. Badges */}
-      <header className="space-y-2">
+      <header
+        className={cn(
+          "space-y-2 rounded-xl border p-4",
+          getTaskStatusSurfaceClass(activeTask.status)
+        )}
+      >
         <h1 className="text-xl font-bold uppercase leading-tight tracking-wide text-foreground">
           {serviceTypeTitle}
         </h1>
@@ -168,21 +173,7 @@ export function OperarioTaskDetailScreen({ id }: OperarioTaskDetailScreenProps) 
           </p>
         ) : null}
         <div className="flex flex-wrap gap-1.5">
-          <Badge
-            variant="outline"
-            className={cn(
-              "rounded-md px-2 py-0.5 text-xs font-semibold",
-              TASK_STATUS_STYLES[activeTask.status]
-            )}
-          >
-            {activeTask.status === "incidencia" ? "🔴 " : ""}
-            {activeTask.status === "pendiente-cierre" ? "🟡 " : ""}
-            {activeTask.status === "en-curso" ? "🟠 " : ""}
-            {activeTask.status === "asignada" ? "🔵 " : ""}
-            {activeTask.status === "finalizada" ? "🟢 " : ""}
-            {activeTask.status === "cancelada" ? "🔴 " : ""}
-            {TASK_STATUS_LABELS[activeTask.status]}
-          </Badge>
+          <TaskStatusBadge status={activeTask.status} />
           <Badge
             variant="outline"
             className={cn(

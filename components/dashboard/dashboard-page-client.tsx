@@ -42,6 +42,7 @@ import {
   buildTasksStatusKpis,
   countOperationalIncidents,
 } from "@/lib/data/dashboard"
+import { TASK_STATUS_DASHBOARD_TONE } from "@/lib/tasks/status-visual"
 import { profileShowsDashboardSection } from "@/lib/operations/operational-profile"
 
 const PROJECT_ICONS = {
@@ -70,17 +71,7 @@ const TASK_ICONS = {
   cerrada: Ban,
 } as const
 
-const TASK_TONES = {
-  programada: "gray",
-  asignada: "blue",
-  vencida: "red",
-  "en-curso": "yellow",
-  incidencia: "red",
-  "pendiente-cierre": "yellow",
-  "en-aprobacion": "yellow",
-  finalizada: "green",
-  cerrada: "green",
-} as const
+const TASK_TONES = TASK_STATUS_DASHBOARD_TONE
 
 const CREW_ICONS = {
   active: Users,

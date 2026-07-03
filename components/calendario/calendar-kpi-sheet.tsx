@@ -12,7 +12,10 @@ import {
   TASK_PRIORITY_LABELS,
   TASK_STATUS_LABELS,
 } from "@/lib/tasks/constants"
+import { getTaskStatusSurfaceClass } from "@/lib/tasks/status-visual"
+import type { TaskStatus } from "@/lib/types/tasks"
 import type { CalendarKpiKey } from "@/lib/calendar/calendar-ui-utils"
+import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
   Sheet,
@@ -34,12 +37,19 @@ const KPI_TITLES: Record<CalendarKpiKey, string> = {
 function DetailBlock({
   title,
   children,
+  status,
 }: {
   title: string
   children: React.ReactNode
+  status?: TaskStatus
 }) {
   return (
-    <div className="rounded-xl border bg-card p-4 shadow-sm">
+    <div
+      className={cn(
+        "rounded-xl border p-4 shadow-sm",
+        status ? getTaskStatusSurfaceClass(status) : "bg-card"
+      )}
+    >
       <p className="text-sm font-semibold text-foreground">{title}</p>
       <div className="mt-3 space-y-3">{children}</div>
     </div>
@@ -196,7 +206,7 @@ export function CalendarKpiSheet() {
                 </p>
               ) : (
                 weekTaskDetails.map((item) => (
-                  <DetailBlock key={item.taskId} title={item.code}>
+                  <DetailBlock key={item.taskId} title={item.code} status={item.status}>
                     <Field label="Título" value={item.title} />
                     <Field
                       label="Estado"

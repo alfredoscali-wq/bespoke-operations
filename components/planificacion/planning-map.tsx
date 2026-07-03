@@ -6,6 +6,7 @@ import { Loader2, RefreshCw } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import type { Task } from "@/lib/types/tasks"
+import type { Crew } from "@/lib/types/crews"
 import type { PlanningTaskCoordinates } from "@/lib/planificacion/planning-utils"
 import {
   buildPlanningCrewColorIndex,
@@ -51,6 +52,9 @@ type PlanningMapProps = {
   onRefreshMap?: () => void | Promise<void>
   isRefreshingMap?: boolean
   mapRefreshToken?: number
+  mapRefreshError?: string | null
+  activeCrewFilterId?: string | null
+  crews?: Pick<Crew, "id" | "name">[]
 }
 
 export type PlanningMapMarker = {
@@ -127,6 +131,9 @@ export function PlanningMap({
   onRefreshMap,
   isRefreshingMap = false,
   mapRefreshToken = 0,
+  mapRefreshError = null,
+  activeCrewFilterId = null,
+  crews = [],
 }: PlanningMapProps) {
   const markers = buildPlanningMapMarkers(tasks)
   const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null
@@ -142,17 +149,25 @@ export function PlanningMap({
   return (
     <section
       className={cn(
-        "flex min-h-[420px] flex-1 flex-col overflow-hidden rounded-xl border bg-card shadow-sm",
+        "flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border bg-card shadow-sm",
         className
       )}
     >
       <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
         <div>
           <h2 className="text-sm font-semibold text-foreground">Mapa de planificación</h2>
-          <p className="text-xs text-muted-foreground">
-            {markers.length} ubicación{markers.length === 1 ? "" : "es"} con GPS
-            · distribución geográfica de la jornada
-          </p>
+          {mapRefreshError ? (
+            <p className="text-xs text-destructive" role="alert">
+              {mapRefreshError}
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              {markers.length} ubicación{markers.length === 1 ? "" : "es"} con GPS
+              {activeCrewFilterId
+                ? " · contexto completo con cuadrilla resaltada"
+                : " · jornada completa"}
+            </p>
+          )}
         </div>
         {onRefreshMap ? (
           <Button
@@ -180,6 +195,8 @@ export function PlanningMap({
           onSelectTask={onSelectTask}
           isEditMode={isEditMode}
           viewRefreshToken={mapRefreshToken}
+          activeCrewFilterId={activeCrewFilterId}
+          crews={crews}
         />
 
         {selectedTask && !isEditMode ? (

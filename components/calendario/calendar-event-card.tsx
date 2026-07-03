@@ -8,11 +8,9 @@ import {
   getCalendarTaskWorkTypeLabel,
 } from "@/lib/calendar/calendar-task-display"
 import { getEventSubtitleLabel } from "@/lib/calendar/calendar-ui-utils"
-import {
-  countOperationalIncidents,
-  resolveTaskOperationalTone,
-} from "@/lib/calendar/task-alerts"
+import { countOperationalIncidents } from "@/lib/calendar/task-alerts"
 import { TASK_STATUS_LABELS } from "@/lib/tasks/constants"
+import { getTaskStatusCalendarEventClass } from "@/lib/tasks/status-visual"
 import { CREW_AVAILABILITY_STATUS_LABELS } from "@/lib/crews/constants"
 import type { CalendarEvent } from "@/lib/types/calendar"
 import { CALENDAR_EVENT_TONE_STYLES } from "@/lib/ui/visual-tokens"
@@ -25,28 +23,7 @@ type CalendarEventCardProps = {
 
 function getEventStyles(event: CalendarEvent): string {
   if (event.type === "TASK") {
-    if (
-      event.payload.status === "pendiente-cierre" ||
-      event.payload.status === "en-aprobacion"
-    ) {
-      return CALENDAR_EVENT_TONE_STYLES.yellow
-    }
-
-    if (event.payload.status === "incidencia") {
-      return CALENDAR_EVENT_TONE_STYLES.red
-    }
-
-    if (event.payload.status === "vencida") {
-      return CALENDAR_EVENT_TONE_STYLES.red
-    }
-
-    if (event.payload.status === "en-curso") {
-      return "border-orange-200/80 bg-orange-50/90 text-orange-900 hover:bg-orange-100/80 dark:border-orange-800 dark:bg-orange-950/40 dark:text-orange-100"
-    }
-
-    return CALENDAR_EVENT_TONE_STYLES[
-      resolveTaskOperationalTone(event.payload.alerts)
-    ]
+    return getTaskStatusCalendarEventClass(event.payload.status)
   }
 
   if (event.type === "AVAILABILITY") {
@@ -106,12 +83,7 @@ function CalendarTaskCardContent({
         : event.payload.status === "vencida"
           ? TASK_STATUS_LABELS.vencida
           : null
-  const taskStatusPrefix =
-    event.payload.status === "incidencia" || event.payload.status === "vencida"
-      ? "🔴 "
-      : event.payload.status === "pendiente-cierre"
-        ? "🟡 "
-        : ""
+  const taskStatusPrefix = ""
 
   return (
     <>

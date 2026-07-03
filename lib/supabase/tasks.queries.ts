@@ -37,6 +37,30 @@ export function mapSupabaseTaskError(error: {
   hint?: string | null
 }) {
   if (error.code === "23505") {
+    const detail = `${error.message} ${error.details ?? ""} ${error.hint ?? ""}`
+
+    if (
+      detail.includes("execution_order") ||
+      detail.includes("tasks_execution_order_crew_date_unique")
+    ) {
+      return {
+        code: "DUPLICATE_EXECUTION_ORDER" as const,
+        message:
+          "Ya existe otra OT con el mismo orden de ejecución para esa cuadrilla y fecha.",
+      }
+    }
+
+    if (
+      detail.includes("dispatch_order") ||
+      detail.includes("tasks_dispatch_order_crew_date_unique")
+    ) {
+      return {
+        code: "DUPLICATE_DISPATCH_ORDER" as const,
+        message:
+          "Ya existe otra OT con el mismo orden de despacho para esa cuadrilla y fecha.",
+      }
+    }
+
     return {
       code: "DUPLICATE_CODE" as const,
       message: "Ya existe una orden de trabajo con ese código.",

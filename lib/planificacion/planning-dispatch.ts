@@ -10,17 +10,26 @@ import { sortTasksByDispatchRoute } from "@/lib/tasks/dispatch-order"
 
 export type PlanningDispatchMode = "editing" | "confirmed"
 
+/** OT excluidas de la planificación operativa (KPI, mapa, listado). */
+export const PLANNING_EXCLUDED_TASK_STATUSES: TaskStatus[] = [
+  "finalizada",
+  "cancelada",
+  "pendiente-cierre",
+  "cerrada",
+]
+
 /** OT visibles en el centro de despacho para la jornada confirmada. */
 export const CONFIRMED_DISPATCH_STATUSES: TaskStatus[] = [
   "asignada",
   "en-curso",
   "vencida",
   "incidencia",
-  "pendiente-cierre",
   "en-aprobacion",
-  "finalizada",
-  "cerrada",
 ]
+
+export function isPlanningOperationalTaskStatus(status: TaskStatus): boolean {
+  return !PLANNING_EXCLUDED_TASK_STATUSES.includes(status)
+}
 
 export type PlanningDispatchKpis = {
   plannedCount: number

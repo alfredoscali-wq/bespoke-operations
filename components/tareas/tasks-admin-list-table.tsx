@@ -17,8 +17,10 @@ import {
 } from "@/components/ui/table"
 import { resolveTaskCrewDisplayName } from "@/lib/tasks/crew-relation"
 import { formatTaskDate } from "@/lib/tasks/constants"
+import { getTaskStatusSurfaceClass } from "@/lib/tasks/status-visual"
 import { formatTaskAdminDisplayCode, isFieldServiceTask } from "@/lib/tasks/utils"
 import type { Task } from "@/lib/types/tasks"
+import { cn } from "@/lib/utils"
 
 type TasksAdminListTableProps = {
   tasks: Task[]
@@ -91,7 +93,10 @@ export function TasksAdminListTable({
           </TableHeader>
           <TableBody>
             {tasks.map((task) => (
-              <TableRow key={task.id} className="group">
+              <TableRow
+                key={task.id}
+                className={cn("group", getTaskStatusSurfaceClass(task.status))}
+              >
                 <TableCell className="font-mono text-xs font-medium">
                   <Link
                     href={`/tareas/${task.id}`}

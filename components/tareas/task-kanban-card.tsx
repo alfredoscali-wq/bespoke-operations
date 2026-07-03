@@ -9,7 +9,9 @@ import { TaskOperationBadge, TaskPriorityBadge, TaskStatusBadge } from "@/compon
 import { isFieldServiceTask } from "@/lib/tasks/utils"
 import { resolveTaskCrewDisplayName } from "@/lib/tasks/crew-relation"
 import { formatTaskDate } from "@/lib/tasks/constants"
+import { getTaskStatusSurfaceClass } from "@/lib/tasks/status-visual"
 import type { Task } from "@/lib/types/tasks"
+import { cn } from "@/lib/utils"
 import { Progress } from "@/components/ui/progress"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 
@@ -29,7 +31,12 @@ export function TaskKanbanCard({ task, onFeedback }: TaskKanbanCardProps) {
   )
 
   return (
-    <Card className="gap-0 py-0 shadow-sm transition-shadow hover:shadow-md">
+    <Card
+      className={cn(
+        "gap-0 border py-0 shadow-sm transition-shadow hover:shadow-md",
+        getTaskStatusSurfaceClass(task.status, { accent: false, ring: true })
+      )}
+    >
       <CardHeader className="gap-2 px-3 pt-3 pb-2">
         <div className="flex items-start justify-between gap-2">
           <div className="flex min-w-0 flex-col gap-1">

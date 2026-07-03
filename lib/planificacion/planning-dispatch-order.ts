@@ -1,8 +1,7 @@
 import {
   buildOperationalOrderFieldUpdates,
   filterOperationalOrderScope,
-  resolveNextOperationalOrderProposal,
-  resolveOperationalOrderValue,
+  resolvePlanningExecutionOrder,
   sortOperationalOrderScope,
 } from "@/lib/planificacion/planning-operational-order-core"
 import { resolveTaskCrewId } from "@/lib/tasks/crew-relation"
@@ -35,7 +34,9 @@ export function buildDispatchOrderAssignmentUpdates(input: {
   crews: CrewRef[]
 }): DispatchOrderUpdate[] {
   const { tasks, dueDate, crewId, taskId, desiredOrder, crews } = input
-  const scope = filterOperationalOrderScope(tasks, dueDate, crewId, crews)
+  const scope = filterOperationalOrderScope(tasks, dueDate, crewId, crews).filter(
+    (task) => task.status !== "programada"
+  )
 
   return buildOperationalOrderFieldUpdates({
     scope,
@@ -50,86 +51,29 @@ export function buildDispatchOrderAssignmentUpdates(input: {
   })
 }
 
-function applyDispatchUpdatesToTasks(
-  tasks: Task[],
-  updates: DispatchOrderUpdate[]
-): Task[] {
-  if (updates.length === 0) {
-    return tasks
-  }
-
-  const byTaskId = new Map(updates.map((update) => [update.taskId, update]))
-
-  return tasks.map((task) => {
-    const update = byTaskId.get(task.id)
-    if (!update) {
-      return task
-    }
-
-    return {
-      ...task,
-      dispatchOrder: update.dispatchOrder ?? undefined,
-    }
-  })
-}
-
+/** Copies execution_order into dispatch_order for tasks entering the operations lane. */
 export function buildDispatchOrderConfirmUpdates(
   tasks: Task[],
   taskIds: string[],
-  crews: CrewRef[] = []
+  _crews: CrewRef[] = []
 ): DispatchOrderUpdate[] {
-  const idSet = new Set(taskIds)
-  const scoped = tasks.filter((task) => idSet.has(task.id))
-  const groups = new Map<string, Task[]>()
+  const updates: DispatchOrderUpdate[] = []
 
-  for (const task of scoped) {
-    const crewId = resolveTaskCrewId(task, crews)
-    if (!crewId) {
+  for (const taskId of taskIds) {
+    const task = tasks.find((item) => item.id === taskId)
+    if (!task || task.status !== "programada") {
       continue
     }
 
-    const key = `${task.dueDate}::${crewId}`
-    const bucket = groups.get(key) ?? []
-    bucket.push(task)
-    groups.set(key, bucket)
-  }
-
-  const updates: DispatchOrderUpdate[] = []
-  let virtualTasks = tasks
-
-  for (const [key, confirmingTasks] of groups) {
-    const [dueDate, crewId] = key.split("::")
-    const orderedConfirming = sortOperationalOrderScope(confirmingTasks, crews)
-
-    for (const confirmingTask of orderedConfirming) {
-      const desiredOrder =
-        resolveOperationalOrderValue(confirmingTask) ??
-        resolveNextOperationalOrderProposal({
-          tasks: virtualTasks,
-          dueDate: dueDate!,
-          crewId: crewId!,
-          crews,
-          excludeTaskId: confirmingTask.id,
-        })
-
-      const stepUpdates = buildDispatchOrderAssignmentUpdates({
-        tasks: virtualTasks,
-        dueDate: dueDate!,
-        crewId: crewId!,
-        taskId: confirmingTask.id,
-        desiredOrder,
-        crews,
-      })
-
-      updates.push(...stepUpdates)
-      virtualTasks = applyDispatchUpdatesToTasks(virtualTasks, stepUpdates)
+    const order = resolvePlanningExecutionOrder(task)
+    if (order == null) {
+      continue
     }
-  }
 
-  for (const task of scoped) {
-    if (!resolveTaskCrewId(task, crews) && task.dispatchOrder != null) {
-      updates.push({ taskId: task.id, dispatchOrder: null })
-    }
+    updates.push({
+      taskId,
+      dispatchOrder: order,
+    })
   }
 
   return dedupeDispatchOrderUpdates(updates)

@@ -1,6 +1,8 @@
 import { compareDateOnly } from "@/lib/dates/date-only"
-import { filterOperationalOrderScope } from "@/lib/planificacion/planning-operational-order-core"
-import { resolveOperationalOrderValue } from "@/lib/planificacion/planning-operational-order-core"
+import {
+  filterOperationalOrderScope,
+  resolveOperationalOrderValue,
+} from "@/lib/planificacion/planning-operational-order-core"
 import { resolveTaskCrewId } from "@/lib/tasks/crew-relation"
 import type { Crew } from "@/lib/types/crews"
 import type { Task } from "@/lib/types/tasks"
@@ -17,13 +19,15 @@ export {
 } from "@/lib/planificacion/planning-dispatch-order"
 
 export function resolveTaskRouteOrder(
-  task: Pick<Task, "dispatchOrder" | "executionOrder">
+  task: Pick<Task, "dispatchOrder" | "executionOrder"> &
+    Partial<Pick<Task, "status">>
 ): number | null {
   return resolveOperationalOrderValue(task)
 }
 
 export function hasTaskRouteOrder(
-  task: Pick<Task, "dispatchOrder" | "executionOrder">
+  task: Pick<Task, "dispatchOrder" | "executionOrder"> &
+    Partial<Pick<Task, "status">>
 ): boolean {
   return resolveTaskRouteOrder(task) != null
 }

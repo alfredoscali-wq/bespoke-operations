@@ -20,6 +20,7 @@ import {
 import type { Project } from "@/lib/types/projects"
 import type { Task } from "@/lib/types/tasks"
 import { formatTaskDate } from "@/lib/tasks/constants"
+import { getTaskStatusSurfaceClass } from "@/lib/tasks/status-visual"
 import { compareDateOnly } from "@/lib/dates/date-only"
 import { getTasksForProject } from "@/lib/tasks/utils"
 import { resolveCrewSnapshotsForAssignment, isTaskCrewArchived } from "@/lib/tasks/crew-relation"
@@ -293,7 +294,10 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
               </TableHeader>
               <TableBody>
                 {projectTasks.map((task) => (
-                  <TableRow key={task.id}>
+                  <TableRow
+                    key={task.id}
+                    className={getTaskStatusSurfaceClass(task.status)}
+                  >
                     <TableCell className="font-mono text-xs font-medium">
                       {task.code}
                     </TableCell>
@@ -326,7 +330,14 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
 
           <div className="space-y-3 lg:hidden">
             {projectTasks.map((task) => (
-              <Card key={task.id} size="sm" className="shadow-sm">
+              <Card
+                key={task.id}
+                size="sm"
+                className={getTaskStatusSurfaceClass(task.status, {
+                  accent: false,
+                  ring: true,
+                })}
+              >
                 <CardHeader className="pb-2">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 space-y-1">

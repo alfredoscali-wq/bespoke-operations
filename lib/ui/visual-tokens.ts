@@ -6,6 +6,9 @@ export type VisualTone =
   | "violet"
   | "gray"
   | "neutral"
+  | "orange"
+  | "amber"
+  | "dark"
 
 /** Soft tinted surfaces for KPI cards (≈4–6% opacity). */
 export const KPI_TONE_STYLES: Record<
@@ -47,6 +50,21 @@ export const KPI_TONE_STYLES: Record<
     icon: "bg-primary/[0.08]",
     iconColor: "text-primary",
   },
+  orange: {
+    card: "border-orange-100/80 bg-orange-500/[0.05]",
+    icon: "bg-orange-500/[0.08]",
+    iconColor: "text-orange-800",
+  },
+  amber: {
+    card: "border-amber-200/80 bg-amber-500/[0.06]",
+    icon: "bg-amber-500/[0.1]",
+    iconColor: "text-amber-900",
+  },
+  dark: {
+    card: "border-zinc-300/80 bg-zinc-700/[0.06]",
+    icon: "bg-zinc-600/[0.1]",
+    iconColor: "text-zinc-800",
+  },
 }
 
 /** Unified badge shell used across modules. */
@@ -61,6 +79,9 @@ export const STATUS_TONE_STYLES: Record<VisualTone, string> = {
   violet: "border-violet-200/80 bg-violet-50 text-violet-800",
   gray: "border-slate-200/80 bg-slate-50 text-slate-700",
   neutral: "border-border/80 bg-muted/50 text-foreground",
+  orange: "border-orange-200/80 bg-orange-50 text-orange-900",
+  amber: "border-amber-300/80 bg-amber-100 text-amber-950",
+  dark: "border-zinc-400/80 bg-zinc-100 text-zinc-800",
 }
 
 /** Calendar event surfaces aligned with status tones. */
@@ -76,6 +97,11 @@ export const CALENDAR_EVENT_TONE_STYLES: Record<VisualTone, string> = {
   gray: "border-slate-200/80 bg-slate-50/90 text-slate-800 hover:bg-slate-100/80",
   neutral:
     "border-border/80 bg-muted/40 text-foreground hover:bg-muted/60",
+  orange:
+    "border-orange-200/80 bg-orange-50/90 text-orange-900 hover:bg-orange-100/80",
+  amber:
+    "border-amber-300/80 bg-amber-50/90 text-amber-950 hover:bg-amber-100/80",
+  dark: "border-zinc-400/80 bg-zinc-100/90 text-zinc-900 hover:bg-zinc-200/80",
 }
 
 /** Shared KPI card interaction — pointer, hover lift, consistent height. */

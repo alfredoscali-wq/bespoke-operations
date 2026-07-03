@@ -1,440 +1,1013 @@
 "use client"
 
+
+
 import { useCallback, useEffect, useMemo, useState } from "react"
 
+
+
 import { useAuth } from "@/components/auth/auth-provider"
+
 import { useCrews } from "@/components/cuadrillas/crews-provider"
+
 import { PlanningAccessGuard } from "@/components/planificacion/planning-access-guard"
-import { PlanningAlertsPanel } from "@/components/planificacion/planning-alerts-panel"
-import { PlanningCrewPanel } from "@/components/planificacion/planning-crew-panel"
-import { PlanningDispatchRoutesPanel } from "@/components/planificacion/planning-dispatch-routes-panel"
-import { PlanningDispatchStatusBanner } from "@/components/planificacion/planning-dispatch-status-banner"
+
 import { PlanningMap } from "@/components/planificacion/planning-map"
-import { PlanningTaskEditPanel } from "@/components/planificacion/planning-task-edit-panel"
+
+import { PlanningOperationalSummary } from "@/components/planificacion/planning-operational-summary"
+
+import { PlanningSuccessBanner } from "@/components/planificacion/planning-success-banner"
+
+import { PlanningTaskAdjustSheet } from "@/components/planificacion/planning-task-adjust-sheet"
+
 import { PlanningTaskList } from "@/components/planificacion/planning-task-list"
-import { PlanningTaskReadonlyPanel } from "@/components/planificacion/planning-task-readonly-panel"
+
 import { PlanningToolbar } from "@/components/planificacion/planning-toolbar"
+
 import { useTasks } from "@/components/tareas/tasks-provider"
+
 import { isCrewAssignable } from "@/lib/crews/status-workflow"
+
 import { recordPlanningConfirmAudit } from "@/lib/planificacion/planning-audit"
+
 import {
+
+  evaluatePlanningCrewConfirmReadiness,
+
+} from "@/lib/planificacion/planning-confirm"
+
+import {
+
   clearPlanningConfirmSnapshot,
-  readPlanningConfirmSnapshot,
-  writePlanningConfirmSnapshot,
+
 } from "@/lib/planificacion/planning-confirm-session"
-import { evaluatePlanningConfirmReadiness } from "@/lib/planificacion/planning-confirm"
+
 import {
-  buildPlanningCrewRoutes,
+
   filterConfirmedDispatchTasksForPlanning,
+
   filterProgrammedTasksForPlanningDate,
+
   listReopenablePlanningTaskIds,
-  resolvePlanningDispatchMode,
+
 } from "@/lib/planificacion/planning-dispatch"
+
 import {
-  buildExecutionOrderPersistPlan,
+
   buildExecutionOrderSwapUpdates,
+
 } from "@/lib/planificacion/planning-execution-order"
-import { sortTasksByDispatchRoute } from "@/lib/tasks/dispatch-order"
+
 import {
+
   resolveInitialPlanningFilters,
+
   writePlanningFiltersToSession,
+
 } from "@/lib/planificacion/planning-filters-session"
+
 import {
+
+  buildPlanningDispatchSuccessMessage,
+
+  type PlanningSuccessMessage,
+
+} from "@/lib/planificacion/planning-success-message"
+
+import {
+
+  filterPlanningSessionTasks,
+
+  isJourneyFullyPlanned,
+
+  isTaskPlanningEditable,
+
+  listReopenablePlanningTaskIdsForCrew,
+
+  resolveCrewPlanningStatus,
+
+  type CrewPlanningStatus,
+
+} from "@/lib/planificacion/planning-crew-state"
+
+import {
+
   buildPlanningCrewSummaries,
-  computePlanningAlerts,
-  filterProgrammedTasksForPlanning,
+
+  filterPlanningTasksByCrewFilter,
+
 } from "@/lib/planificacion/planning-utils"
 
+import { sortTasksByDispatchRoute } from "@/lib/tasks/dispatch-order"
+
+
+
 function PlanningModuleContent() {
+
   const { sessionUser } = useAuth()
-  const { tasks, isTasksReady, editTask, confirmPlanningTasks, reopenPlanningTasks, refreshTasksFromServer } =
+
+  const { tasks, isTasksReady, applyExecutionOrderUpdates, confirmPlanningTasks, reopenPlanningTasks, refreshTasksFromServer } =
+
     useTasks()
+
   const { crews } = useCrews()
+
   const [initialFilters] = useState(resolveInitialPlanningFilters)
+
   const [date, setDate] = useState(initialFilters.date)
+
+  const [crewFilterId, setCrewFilterId] = useState<string | null>(
+
+    initialFilters.crewFilterId ?? null
+
+  )
+
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
-  const [editingTaskId, setEditingTaskId] = useState<string | null>(null)
+
+  const [adjustSheetTaskId, setAdjustSheetTaskId] = useState<string | null>(null)
+
   const [reorderingTaskId, setReorderingTaskId] = useState<string | null>(null)
-  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
-  const [isConfirmingPlanning, setIsConfirmingPlanning] = useState(false)
-  const [confirmError, setConfirmError] = useState<string | null>(null)
+
+  const [processingCrewId, setProcessingCrewId] = useState<string | null>(null)
+
+  const [crewActionError, setCrewActionError] = useState<string | null>(null)
+
+  const [dispatchError, setDispatchError] = useState<string | null>(null)
+
+  const [successMessage, setSuccessMessage] = useState<PlanningSuccessMessage | null>(null)
+
   const [isReopeningPlanning, setIsReopeningPlanning] = useState(false)
+
   const [reopenError, setReopenError] = useState<string | null>(null)
-  const [confirmSnapshotVersion, setConfirmSnapshotVersion] = useState(0)
+
   const [mapRefreshToken, setMapRefreshToken] = useState(0)
+
   const [isRefreshingMap, setIsRefreshingMap] = useState(false)
+
   const [mapRefreshError, setMapRefreshError] = useState<string | null>(null)
 
-  useEffect(() => {
-    writePlanningFiltersToSession({ date })
-  }, [date])
 
-  const dispatchMode = useMemo(
-    () => resolvePlanningDispatchMode(tasks, date),
-    [tasks, date]
-  )
 
-  const isConfirmedMode = dispatchMode === "confirmed"
+  const supervisorName = sessionUser?.displayName?.trim() || "Supervisor"
 
-  const confirmSnapshot = useMemo(() => {
-    void confirmSnapshotVersion
-    return readPlanningConfirmSnapshot(date)
-  }, [date, confirmSnapshotVersion])
+
 
   const activeCrews = useMemo(
+
     () => crews.filter(isCrewAssignable),
+
     [crews]
+
   )
 
-  const filteredTasks = useMemo(() => {
-    if (isConfirmedMode) {
-      return filterConfirmedDispatchTasksForPlanning(tasks, { date })
+
+
+  const isConfirmedMode = useMemo(
+
+    () => isJourneyFullyPlanned(tasks, date, activeCrews),
+
+    [tasks, date, activeCrews]
+
+  )
+
+
+
+  const dispatchMode = isConfirmedMode ? "confirmed" : "editing"
+
+  const isEditingMode = !isConfirmedMode
+
+
+
+  useEffect(() => {
+
+    writePlanningFiltersToSession({ date, crewFilterId })
+
+  }, [date, crewFilterId])
+
+
+
+  useEffect(() => {
+
+    if (
+
+      crewFilterId &&
+
+      !activeCrews.some((crew) => crew.id === crewFilterId)
+
+    ) {
+
+      setCrewFilterId(null)
+
     }
 
-    return filterProgrammedTasksForPlanning(tasks, { date })
+  }, [activeCrews, crewFilterId])
+
+
+
+  const filteredTasks = useMemo(() => {
+
+    if (isConfirmedMode) {
+
+      return filterConfirmedDispatchTasksForPlanning(tasks, { date })
+
+    }
+
+
+
+    return filterPlanningSessionTasks(tasks, { date })
+
   }, [tasks, date, isConfirmedMode])
 
+
+
   const sortedTasks = useMemo(
+
     () => sortTasksByDispatchRoute(filteredTasks, crews),
+
     [filteredTasks, crews]
+
   )
+
+
+
+  const listTasks = useMemo(
+
+    () =>
+
+      filterPlanningTasksByCrewFilter(
+
+        filteredTasks,
+
+        crewFilterId,
+
+        activeCrews
+
+      ),
+
+    [filteredTasks, crewFilterId, activeCrews]
+
+  )
+
+
 
   const crewSummaries = useMemo(
+
     () => buildPlanningCrewSummaries(filteredTasks, activeCrews),
+
     [filteredTasks, activeCrews]
+
   )
 
-  const crewRoutes = useMemo(
-    () => buildPlanningCrewRoutes(filteredTasks, activeCrews),
-    [filteredTasks, activeCrews]
-  )
 
-  const alerts = useMemo(
-    () => computePlanningAlerts(filteredTasks, crewSummaries),
-    [filteredTasks, crewSummaries]
-  )
 
-  const confirmReadiness = useMemo(
-    () => evaluatePlanningConfirmReadiness(tasks, date),
+  const crewPlanningStatusById = useMemo(() => {
+
+    const statuses: Record<string, CrewPlanningStatus> = {}
+
+
+
+    for (const summary of crewSummaries) {
+
+      const status = resolveCrewPlanningStatus(tasks, date, summary.crew)
+
+      if (status) {
+
+        statuses[summary.crew.id] = status
+
+      }
+
+    }
+
+
+
+    return statuses
+
+  }, [crewSummaries, tasks, date])
+
+
+
+  const planningOrderScopeTasks = useMemo(
+
+    () => filterProgrammedTasksForPlanningDate(tasks, { date }),
+
     [tasks, date]
+
   )
 
-  const editingTask = useMemo(
-    () => tasks.find((task) => task.id === editingTaskId) ?? null,
-    [tasks, editingTaskId]
+
+
+  const adjustTask = useMemo(
+
+    () => tasks.find((task) => task.id === adjustSheetTaskId) ?? null,
+
+    [tasks, adjustSheetTaskId]
+
   )
 
-  const selectedTask = useMemo(
-    () => tasks.find((task) => task.id === selectedTaskId) ?? null,
-    [tasks, selectedTaskId]
-  )
+
 
   const crewIdsInOrder = useMemo(
+
     () => activeCrews.map((crew) => crew.id),
+
     [activeCrews]
+
   )
+
+
 
   const crewNamesById = useMemo(
+
     () =>
+
       Object.fromEntries(
+
         activeCrews.map((crew) => [crew.id, crew.name] as const)
+
       ),
+
     [activeCrews]
+
   )
 
-  const highlightedTaskId = selectedTaskId ?? editingTaskId
-  const isFocusMode = !isConfirmedMode && editingTaskId != null
-  const isReadonlyDetailOpen = isConfirmedMode && selectedTaskId != null
-  const showPlanningOverview = !isFocusMode && !isReadonlyDetailOpen
 
-  function resetInteractionState() {
-    setSelectedTaskId(null)
-    setEditingTaskId(null)
-  }
 
-  const handleMoveExecutionOrder = useCallback(
+  const activeCrewFilterName = crewFilterId
+
+    ? crewNamesById[crewFilterId]?.trim() || null
+
+    : null
+
+
+
+  const handleMoveTaskOrder = useCallback(
+
     async (taskId: string, direction: "up" | "down") => {
-      const scope = filterProgrammedTasksForPlanningDate(tasks, { date })
+
       const updates = buildExecutionOrderSwapUpdates(
-        scope,
+
+        planningOrderScopeTasks,
+
         taskId,
+
         direction,
+
         crews
+
       )
 
+
+
       if (updates.length === 0) {
+
         return
+
       }
+
+
 
       setReorderingTaskId(taskId)
 
+
+
       try {
-        const plan = buildExecutionOrderPersistPlan(updates, scope)
 
-        for (const phase of plan.phases) {
-          for (const update of phase) {
-            const result = await editTask(update.taskId, {
-              executionOrder: update.executionOrder,
-            })
+        const result = await applyExecutionOrderUpdates(updates)
 
-            if (!result.success) {
-              throw new Error(
-                result.message ?? "No se pudo actualizar el orden de ejecución."
-              )
-            }
-          }
+
+
+        if (!result.success) {
+
+          throw new Error(
+
+            result.message ?? "No se pudo actualizar el orden operativo."
+
+          )
+
         }
+
       } catch (error) {
+
         console.error(error)
+
+        setDispatchError(
+
+          error instanceof Error
+
+            ? error.message
+
+            : "No se pudo actualizar el orden operativo."
+
+        )
+
       } finally {
+
         setReorderingTaskId(null)
+
       }
+
     },
-    [tasks, date, crews, editTask]
+
+    [planningOrderScopeTasks, crews, applyExecutionOrderUpdates]
+
   )
 
-  const handleConfirmPlanning = useCallback(async () => {
-    const readiness = evaluatePlanningConfirmReadiness(tasks, date)
 
-    if (!readiness.canConfirm) {
-      setConfirmError(
-        readiness.validationError ??
-          readiness.disabledReason ??
-          "No se puede confirmar la planificación."
-      )
-      return
-    }
 
-    setIsConfirmingPlanning(true)
-    setConfirmError(null)
+  const handlePlanCrew = useCallback(
 
-    try {
-      const result = await confirmPlanningTasks(readiness.taskIds)
+    async (crewId: string) => {
 
-      if (!result.success) {
-        setConfirmError(
-          result.message ?? "No se pudo confirmar la planificación."
-        )
+      const crew = activeCrews.find((entry) => entry.id === crewId)
+
+      if (!crew) {
+
         return
+
       }
 
-      writePlanningConfirmSnapshot({
-        date,
-        confirmedAt: new Date().toISOString(),
-        confirmedBy: sessionUser?.displayName?.trim() || "Supervisor",
-      })
-      setConfirmSnapshotVersion((current) => current + 1)
 
-      setConfirmDialogOpen(false)
-      resetInteractionState()
-      recordPlanningConfirmAudit({
-        date,
-        taskCount: readiness.taskCount,
-      })
-    } catch (error) {
-      console.error(error)
-      setConfirmError("No se pudo confirmar la planificación.")
-    } finally {
-      setIsConfirmingPlanning(false)
-    }
-  }, [tasks, date, confirmPlanningTasks, sessionUser?.displayName])
+
+      const readiness = evaluatePlanningCrewConfirmReadiness(tasks, date, crew)
+
+
+
+      if (!readiness.canConfirm) {
+
+        setCrewActionError(
+
+          readiness.validationError ??
+
+            readiness.disabledReason ??
+
+            "No se puede planificar esta cuadrilla."
+
+        )
+
+        return
+
+      }
+
+
+
+      setProcessingCrewId(crewId)
+
+      setCrewActionError(null)
+
+
+
+      try {
+
+        const confirmedAt = new Date().toISOString()
+
+        const result = await confirmPlanningTasks(readiness.taskIds)
+
+
+
+        if (!result.success) {
+
+          setCrewActionError(
+
+            result.message ?? "No se pudo planificar la cuadrilla."
+
+          )
+
+          return
+
+        }
+
+
+
+        recordPlanningConfirmAudit({
+
+          date,
+
+          taskCount: readiness.taskCount,
+
+          crewName: crew.name,
+
+          scope: "crew",
+
+        })
+
+        setSuccessMessage(
+
+          buildPlanningDispatchSuccessMessage({
+
+            id: crypto.randomUUID(),
+
+            scopeLabel: `✓ Planificada · ${crew.name}`,
+
+            supervisor: supervisorName,
+
+            date,
+
+            confirmedAt,
+
+            taskCount: readiness.taskCount,
+
+          })
+
+        )
+
+      } catch (error) {
+
+        console.error(error)
+
+        setCrewActionError("No se pudo planificar la cuadrilla.")
+
+      } finally {
+
+        setProcessingCrewId(null)
+
+      }
+
+    },
+
+    [tasks, date, activeCrews, confirmPlanningTasks, supervisorName]
+
+  )
+
+
+
+  const handleModifyCrew = useCallback(
+
+    async (crewId: string) => {
+
+      const crew = activeCrews.find((entry) => entry.id === crewId)
+
+      if (!crew) {
+
+        return
+
+      }
+
+
+
+      const reopenableIds = listReopenablePlanningTaskIdsForCrew(tasks, date, crew)
+
+
+
+      if (reopenableIds.length === 0) {
+
+        setCrewActionError(
+
+          "No hay OT asignadas para modificar en esta cuadrilla."
+
+        )
+
+        return
+
+      }
+
+
+
+      setProcessingCrewId(crewId)
+
+      setCrewActionError(null)
+
+
+
+      try {
+
+        const result = await reopenPlanningTasks(reopenableIds)
+
+
+
+        if (!result.success) {
+
+          setCrewActionError(
+
+            result.message ?? "No se pudo modificar la planificación de la cuadrilla."
+
+          )
+
+          return
+
+        }
+
+
+
+        setAdjustSheetTaskId(null)
+
+        setSuccessMessage(
+
+          buildPlanningDispatchSuccessMessage({
+
+            id: crypto.randomUUID(),
+
+            scopeLabel: `Planificación editable · ${crew.name}`,
+
+            supervisor: supervisorName,
+
+            date,
+
+            confirmedAt: new Date().toISOString(),
+
+            taskCount: reopenableIds.length,
+
+          })
+
+        )
+
+      } catch (error) {
+
+        console.error(error)
+
+        setCrewActionError(
+
+          "No se pudo modificar la planificación de la cuadrilla."
+
+        )
+
+      } finally {
+
+        setProcessingCrewId(null)
+
+      }
+
+    },
+
+    [tasks, date, reopenPlanningTasks, supervisorName]
+
+  )
+
+
 
   const handleModifyPlanning = useCallback(async () => {
+
     const reopenableIds = listReopenablePlanningTaskIds(tasks, date)
 
+
+
     if (reopenableIds.length === 0) {
+
       setReopenError(
+
         "No hay OT en estado Asignada para reabrir. Las OT ya iniciadas deben gestionarse desde Órdenes de Trabajo."
+
       )
+
       return
+
     }
+
+
 
     setIsReopeningPlanning(true)
+
     setReopenError(null)
 
+
+
     try {
+
       const result = await reopenPlanningTasks(reopenableIds)
 
+
+
       if (!result.success) {
+
         setReopenError(
+
           result.message ?? "No se pudo reabrir la planificación."
+
         )
+
         return
+
       }
+
+
 
       clearPlanningConfirmSnapshot(date)
-      setConfirmSnapshotVersion((current) => current + 1)
-      resetInteractionState()
+
+      setSelectedTaskId(null)
+
+      setAdjustSheetTaskId(null)
+
+      setSuccessMessage(null)
+
     } catch (error) {
+
       console.error(error)
+
       setReopenError("No se pudo reabrir la planificación.")
+
     } finally {
+
       setIsReopeningPlanning(false)
+
     }
+
   }, [tasks, date, reopenPlanningTasks])
 
+
+
   const handleRefreshMap = useCallback(async () => {
+
     setMapRefreshError(null)
+
     setIsRefreshingMap(true)
 
+
+
     try {
+
       const result = await refreshTasksFromServer()
 
+
+
       if (!result.success) {
+
         setMapRefreshError(
+
           result.message ?? "No se pudo actualizar el mapa de planificación."
+
         )
+
         return
+
       }
 
+
+
       setMapRefreshToken((current) => current + 1)
+
     } finally {
+
       setIsRefreshingMap(false)
+
     }
+
   }, [refreshTasksFromServer])
 
+
+
   const mapProps = {
+
     tasks: sortedTasks,
+
     selectedTaskId,
-    highlightedTaskId,
+
+    highlightedTaskId: selectedTaskId,
+
     crewIdsInOrder,
+
     crewNamesById,
+
     onSelectTask: setSelectedTaskId,
+
     planningDate: date,
-    isEditMode: isFocusMode,
+
+    isEditMode: isEditingMode,
+
     onRefreshMap: handleRefreshMap,
+
     isRefreshingMap,
+
     mapRefreshToken,
+
+    activeCrewFilterId: crewFilterId,
+
+    crews: activeCrews,
+
   }
+
+
 
   if (!isTasksReady) {
+
     return (
+
       <div className="rounded-xl border bg-muted/20 px-4 py-16 text-center text-sm text-muted-foreground">
+
         Cargando planificación...
+
       </div>
+
     )
+
   }
 
+
+
   return (
-    <div className="flex min-h-[calc(100vh-12rem)] flex-col gap-4">
-      {isConfirmedMode ? (
-        <PlanningDispatchStatusBanner date={date} snapshot={confirmSnapshot} />
-      ) : null}
+
+    <div className="flex min-h-[calc(100vh-8rem)] flex-col gap-2">
 
       <PlanningToolbar
+
         mode={dispatchMode}
+
         date={date}
-        plannedCount={filteredTasks.length}
-        confirmReadiness={confirmReadiness}
-        isConfirming={isConfirmingPlanning}
+
         isReopening={isReopeningPlanning}
+
         reopenError={reopenError}
-        confirmError={confirmError}
-        confirmDialogOpen={confirmDialogOpen}
-        onConfirmDialogOpenChange={(open) => {
-          setConfirmDialogOpen(open)
-          if (!open) {
-            setConfirmError(null)
-          }
-        }}
+
         onDateChange={(nextDate) => {
+
           setDate(nextDate)
-          resetInteractionState()
-          setConfirmError(null)
+
+          setCrewFilterId(null)
+
+          setSelectedTaskId(null)
+
+          setAdjustSheetTaskId(null)
+
           setReopenError(null)
+
+          setDispatchError(null)
+
+          setCrewActionError(null)
+
+          setSuccessMessage(null)
+
         }}
-        onConfirmPlanning={handleConfirmPlanning}
+
         onModifyPlanning={handleModifyPlanning}
+
       />
 
-      {!isConfirmedMode ? <PlanningAlertsPanel alerts={alerts} /> : null}
 
-      {mapRefreshError ? (
-        <p className="text-sm text-destructive" role="alert">
-          {mapRefreshError}
+
+      <PlanningSuccessBanner
+
+        message={successMessage}
+
+        onDismiss={() => setSuccessMessage(null)}
+
+      />
+
+
+
+      {dispatchError ? (
+
+        <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive" role="alert">
+
+          {dispatchError}
+
         </p>
+
       ) : null}
 
-      <div className="flex min-h-0 flex-1 flex-col gap-4">
-        {showPlanningOverview ? (
-          <>
-            <PlanningMap
-              {...mapProps}
-              className="min-h-[50vh] w-full shrink-0 xl:min-h-[560px]"
-            />
 
-            <div className="grid min-h-[320px] flex-1 gap-4 xl:grid-cols-[minmax(18rem,20rem)_minmax(0,1fr)]">
-              <PlanningTaskList
-                mode={dispatchMode}
-                tasks={filteredTasks}
-                crews={crews}
-                selectedTaskId={selectedTaskId}
-                reorderingTaskId={reorderingTaskId}
-                onSelectTask={setSelectedTaskId}
-                onOrganizeTask={isConfirmedMode ? undefined : setEditingTaskId}
-                onMoveExecutionOrder={
-                  isConfirmedMode ? undefined : handleMoveExecutionOrder
+
+      <div className="flex min-h-0 flex-1 flex-col gap-2">
+
+        <PlanningOperationalSummary
+
+          programmedCount={filteredTasks.length}
+
+          crewSummaries={crewSummaries}
+
+          crewIdsInOrder={crewIdsInOrder}
+
+          crewNamesById={crewNamesById}
+
+          activeCrewFilterId={crewFilterId}
+
+          crewPlanningStatusById={crewPlanningStatusById}
+
+          isEditingMode={isEditingMode}
+
+          processingCrewId={processingCrewId}
+
+          crewActionError={crewActionError}
+
+          onSelectAll={() => {
+
+            setCrewFilterId(null)
+
+            setCrewActionError(null)
+
+          }}
+
+          onSelectCrew={(crewId) => {
+
+            setCrewFilterId(crewId)
+
+            setCrewActionError(null)
+
+          }}
+
+          onPlanCrew={handlePlanCrew}
+
+          onModifyCrew={handleModifyCrew}
+
+        />
+
+
+
+        <PlanningMap
+
+          {...mapProps}
+
+          mapRefreshError={mapRefreshError}
+
+          className="min-h-[58vh] w-full min-w-0 flex-[2]"
+
+        />
+
+
+
+        <PlanningTaskList
+
+          mode={dispatchMode}
+
+          tasks={listTasks}
+
+          allScopeTasks={planningOrderScopeTasks}
+
+          crews={crews}
+
+          crewIdsInOrder={crewIdsInOrder}
+
+          selectedTaskId={selectedTaskId}
+
+          reorderingTaskId={reorderingTaskId}
+
+          onSelectTask={setSelectedTaskId}
+
+          onEditTask={
+
+            isEditingMode
+
+              ? (taskId) => {
+
+                  const task = tasks.find((entry) => entry.id === taskId)
+
+                  if (task && isTaskPlanningEditable(task)) {
+
+                    setAdjustSheetTaskId(taskId)
+
+                  }
+
                 }
-                className="min-h-[320px] xl:min-h-0"
-              />
 
-              <div className="min-h-[320px] xl:min-h-0">
-                {isConfirmedMode ? (
-                  <PlanningDispatchRoutesPanel
-                    routes={crewRoutes}
-                    selectedTaskId={selectedTaskId}
-                    onSelectTask={setSelectedTaskId}
-                    className="h-full lg:w-full"
-                  />
-                ) : (
-                  <PlanningCrewPanel
-                    summaries={crewSummaries}
-                    className="h-full lg:w-full"
-                  />
-                )}
-              </div>
-            </div>
-          </>
-        ) : (
-          <div className="flex min-h-0 flex-1 flex-col gap-4 xl:flex-row">
-            <PlanningMap
-              {...mapProps}
-              className="min-h-[420px] min-w-0 flex-1 xl:min-h-[520px]"
-            />
+              : undefined
 
-            {isFocusMode ? (
-              <div className="min-h-[420px] w-full shrink-0 overflow-hidden xl:w-96">
-                <PlanningTaskEditPanel
-                  key={editingTaskId}
-                  task={editingTask}
-                  allTasks={filteredTasks}
-                  open={isFocusMode}
-                  onClose={() => setEditingTaskId(null)}
-                />
-              </div>
-            ) : null}
+          }
 
-            {isReadonlyDetailOpen ? (
-              <div className="min-h-[420px] w-full shrink-0 overflow-hidden xl:w-96">
-                <PlanningTaskReadonlyPanel
-                  key={selectedTaskId}
-                  task={selectedTask}
-                  open={isReadonlyDetailOpen}
-                  onClose={() => setSelectedTaskId(null)}
-                />
-              </div>
-            ) : null}
-          </div>
-        )}
+          onMoveTaskOrder={
+
+            isEditingMode ? handleMoveTaskOrder : undefined
+
+          }
+
+          isTaskEditable={isEditingMode ? isTaskPlanningEditable : undefined}
+
+          activeCrewFilterName={activeCrewFilterName}
+
+          className="w-full shrink-0"
+
+        />
+
       </div>
+
+
+
+      <PlanningTaskAdjustSheet
+
+        task={adjustTask}
+
+        allTasks={filteredTasks.filter(isTaskPlanningEditable)}
+
+        open={adjustSheetTaskId != null}
+
+        onOpenChange={(open) => {
+
+          if (!open) {
+
+            setAdjustSheetTaskId(null)
+
+          }
+
+        }}
+
+      />
+
     </div>
+
   )
+
 }
+
+
 
 export function PlanningModule() {
+
   return (
+
     <PlanningAccessGuard>
+
       <PlanningModuleContent />
+
     </PlanningAccessGuard>
+
   )
+
 }
+
+

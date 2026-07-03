@@ -7,10 +7,12 @@ import {
   KANBAN_COLUMNS,
   TASK_STATUS_LABELS,
 } from "@/lib/tasks/constants"
+import { getTaskStatusSurfaceClass } from "@/lib/tasks/status-visual"
 import { TaskKanbanCard } from "@/components/tareas/task-kanban-card"
 import { EntityActionFeedback } from "@/components/ui/entity-action-feedback"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
+import { cn } from "@/lib/utils"
 
 type TasksKanbanProps = {
   tasks: Task[]
@@ -37,9 +39,17 @@ export function TasksKanban({ tasks }: TasksKanbanProps) {
           return (
             <div
               key={status}
-              className="flex w-[280px] shrink-0 flex-col rounded-xl border bg-muted/20 sm:w-[300px]"
+              className={cn(
+                "flex w-[280px] shrink-0 flex-col rounded-xl border sm:w-[300px]",
+                getTaskStatusSurfaceClass(status, { accent: false })
+              )}
             >
-              <div className="flex items-center justify-between border-b px-3 py-3">
+              <div
+                className={cn(
+                  "flex items-center justify-between border-b px-3 py-3",
+                  getTaskStatusSurfaceClass(status, { accent: true, ring: false })
+                )}
+              >
                 <h3 className="text-sm font-medium text-foreground">
                   {TASK_STATUS_LABELS[status]}
                 </h3>

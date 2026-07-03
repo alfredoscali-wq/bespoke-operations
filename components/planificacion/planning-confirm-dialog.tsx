@@ -33,9 +33,9 @@ export function PlanningConfirmDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Confirmar planificación</DialogTitle>
+          <DialogTitle>Confirmar jornada</DialogTitle>
           <DialogDescription>
-            Se asignarán todas las órdenes de trabajo programadas de la fecha
+            Se despacharán todas las órdenes de trabajo programadas de la fecha
             seleccionada. Una vez confirmadas estarán disponibles para las
             cuadrillas.
           </DialogDescription>
@@ -57,7 +57,7 @@ export function PlanningConfirmDialog({
             Cancelar
           </Button>
           <Button type="button" onClick={handleConfirm} disabled={isSubmitting}>
-            {isSubmitting ? "Confirmando..." : "Confirmar"}
+            {isSubmitting ? "Confirmando..." : "Confirmar jornada"}
           </Button>
         </DialogFooter>
       </DialogContent>
