@@ -175,11 +175,6 @@ export function useTasksWorkflow({
     [tasks, updateTaskFields]
   )
 
-  const closeTask = useCallback(
-    (id: string) => applyWorkflowTransition(id, "close"),
-    [applyWorkflowTransition]
-  )
-
   const assignCrew = useCallback(
     async (
       id: string,
@@ -230,7 +225,6 @@ export function useTasksWorkflow({
     submitTaskForApproval,
     approveTask,
     rejectTask,
-    closeTask,
     assignCrew,
   }
 }

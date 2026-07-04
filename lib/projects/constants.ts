@@ -72,7 +72,7 @@ export const PROJECT_OPERATIONAL_KPI_HINTS = {
   assignedPersonnel:
     "Integrantes activos en esas cuadrillas. Incluye registros legacy sin vínculo RRHH; deduplica por empleado cuando aplica.",
   activeTasks: "Órdenes de trabajo en curso operativo (programada, asignada, en curso o en aprobación).",
-  completedTasks: "Órdenes de trabajo finalizadas, cerradas o canceladas vinculadas a la obra.",
+  completedTasks: "Órdenes de trabajo finalizadas o canceladas vinculadas a la obra.",
   evidenceFiles: "Evidencias activas registradas para la obra.",
   progress: "Avance acumulado reportado en la ficha de la obra.",
 } as const

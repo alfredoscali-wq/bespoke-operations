@@ -4,6 +4,7 @@ import { getTasksForProject } from "@/lib/tasks/utils"
 import { isTaskVencida } from "@/lib/tasks/vencida-status"
 import type { Project } from "@/lib/types/projects"
 import type { Task, TaskStatus } from "@/lib/types/tasks"
+import { isTaskArchivedStatus } from "@/lib/tasks/task-archived-status"
 
 export type ProjectHealth = "healthy" | "risk" | "overdue"
 
@@ -28,7 +29,7 @@ const ACTIVE_TASK_STATUSES = [
   "en-aprobacion",
 ] as const
 
-const COMPLETED_TASK_STATUSES = ["finalizada", "cerrada"] as const
+const COMPLETED_TASK_STATUSES = ["finalizada"] as const
 
 const CANCELLED_TASK_STATUSES = ["cancelada"] as const
 
@@ -41,7 +42,7 @@ function isPendingTaskStatus(status: TaskStatus): boolean {
 }
 
 function isCompletedTaskStatus(status: TaskStatus): boolean {
-  return COMPLETED_TASK_STATUS_SET.has(status)
+  return isTaskArchivedStatus(status)
 }
 
 function isCancelledTaskStatus(status: TaskStatus): boolean {

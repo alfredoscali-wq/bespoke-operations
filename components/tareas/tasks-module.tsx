@@ -14,7 +14,14 @@ import {
   filterAdminTasks,
 } from "@/components/tareas/tasks-filters"
 import type { CreateTaskPayload } from "@/lib/types/supabase/tasks"
-import { parseTaskStatusQuery } from "@/lib/navigation/query-filters"
+import {
+  parseTaskOperationalCategoryQuery,
+  parseTaskStatusQuery,
+} from "@/lib/navigation/query-filters"
+import {
+  filterTasksByOperationalCategory,
+  OPERATIONAL_CATEGORY_KPI_LABELS,
+} from "@/lib/tasks/operational-category"
 import { Button } from "@/components/ui/button"
 
 export function TasksModule() {
@@ -33,13 +40,24 @@ export function TasksModule() {
     }
   }, [searchParams])
 
-  const displayedTasks = useMemo(
-    () => filterAdminTasks(tasks, search, statusFilter),
-    [tasks, search, statusFilter]
+  const archiveCategory = parseTaskOperationalCategoryQuery(
+    searchParams.get("category")
   )
+  const isArchiveView = archiveCategory === "finalizadas"
+
+  const displayedTasks = useMemo(() => {
+    if (isArchiveView) {
+      const archived = filterTasksByOperationalCategory(tasks, "finalizadas")
+      return filterAdminTasks(archived, search, "all")
+    }
+
+    return filterAdminTasks(tasks, search, statusFilter)
+  }, [tasks, search, statusFilter, isArchiveView])
 
   const hasActiveFilter =
-    search.trim() !== "" || statusFilter !== defaultTaskFilters.status
+    search.trim() !== "" ||
+    isArchiveView ||
+    statusFilter !== defaultTaskFilters.status
 
   async function handleCreateWorkOrder(payload: CreateTaskPayload) {
     return addTask(payload)
@@ -58,6 +76,13 @@ export function TasksModule() {
 
   return (
     <div className="space-y-4">
+      {isArchiveView ? (
+        <p className="text-sm text-muted-foreground">
+          {OPERATIONAL_CATEGORY_KPI_LABELS.finalizadas}: órdenes finalizadas en
+          solo lectura. No requiere acción manual de archivado.
+        </p>
+      ) : null}
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-h-5">
           {feedback && (
@@ -67,23 +92,27 @@ export function TasksModule() {
           )}
         </div>
         <div className="flex flex-wrap gap-2 self-start">
-          <Button
-            size="sm"
-            className="gap-1.5"
-            onClick={() => setWorkOrderOpen(true)}
-          >
-            <Plus className="size-4" />
-            Nueva Orden de Trabajo
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-1.5"
-            onClick={() => setImportOpen(true)}
-          >
-            <FileSpreadsheet className="size-4" />
-            Importar Excel
-          </Button>
+          {!isArchiveView ? (
+            <>
+              <Button
+                size="sm"
+                className="gap-1.5"
+                onClick={() => setWorkOrderOpen(true)}
+              >
+                <Plus className="size-4" />
+                Nueva Orden de Trabajo
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5"
+                onClick={() => setImportOpen(true)}
+              >
+                <FileSpreadsheet className="size-4" />
+                Importar Excel
+              </Button>
+            </>
+          ) : null}
         </div>
       </div>
 

@@ -225,7 +225,7 @@ export const mockTasks: Task[] = [
     projectCode: "FO-2025-042",
     projectName: "Fibra Centro Histórico — Fase 2",
     type: "inspection",
-    status: "cerrada",
+    status: "finalizada",
     priority: "baja",
     supervisor: "Ing. Roberto Méndez",
     crew: "Cuadrilla Foxtrot",
@@ -335,7 +335,7 @@ export const mockTasks: Task[] = [
     projectCode: "MNT-2026-003",
     projectName: "Mantenimiento Preventivo Red Troncal",
     type: "maintenance",
-    status: "cerrada",
+    status: "finalizada",
     priority: "baja",
     supervisor: "Ing. Patricia Vega",
     crew: "Cuadrilla Alpha",
@@ -568,8 +568,7 @@ function createDefaultDetail(task: Task): TaskDetail {
       ...(task.status === "en-curso" ||
       task.status === "pendiente-cierre" ||
       task.status === "finalizada" ||
-      task.status === "en-aprobacion" ||
-      task.status === "cerrada"
+      task.status === "en-aprobacion"
         ? [
             {
               id: "h-default-3",
@@ -605,7 +604,6 @@ export function getTasksSummary(tasks: Task[]) {
     ).length,
     enAprobacion: tasks.filter((task) => task.status === "en-aprobacion").length,
     finalizada: tasks.filter((task) => task.status === "finalizada").length,
-    cerrada: tasks.filter((task) => task.status === "cerrada").length,
     cancelada: tasks.filter((task) => task.status === "cancelada").length,
   }
 }

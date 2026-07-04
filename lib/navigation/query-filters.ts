@@ -2,6 +2,7 @@ import type { CustomerQuickFilter } from "@/lib/customers/customer-operational"
 import type { ProjectHealth } from "@/lib/projects/project-operational-metrics"
 import type { OperationalProjectCategory } from "@/lib/projects/operational-project-category"
 import type { OperationalTaskCategory } from "@/lib/tasks/operational-category"
+import { isTaskArchivedStatus } from "@/lib/tasks/task-archived-status"
 import type {
   EmployeeSummary,
   EmployeeFilters,
@@ -30,7 +31,6 @@ const TASK_STATUS_VALUES: TaskStatus[] = [
   "pendiente-cierre",
   "en-aprobacion",
   "finalizada",
-  "cerrada",
   "cancelada",
 ]
 
@@ -341,6 +341,10 @@ export function employeeSummaryKeyToFilters(
 export function taskStatusToOperationalCategory(
   status: TaskStatus
 ): OperationalTaskCategory | null {
+  if (isTaskArchivedStatus(status)) {
+    return "finalizadas"
+  }
+
   switch (status) {
     case "programada":
       return "programadas"
@@ -353,9 +357,6 @@ export function taskStatusToOperationalCategory(
     case "pendiente-cierre":
     case "en-aprobacion":
       return "pendientes-cierre"
-    case "finalizada":
-    case "cerrada":
-      return "finalizadas"
     case "cancelada":
       return "canceladas"
     default:

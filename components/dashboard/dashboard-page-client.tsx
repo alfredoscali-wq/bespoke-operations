@@ -68,7 +68,6 @@ const TASK_ICONS = {
   "pendiente-cierre": ClipboardCheck,
   "en-aprobacion": ClipboardCheck,
   finalizada: CheckCircle2,
-  cerrada: Ban,
 } as const
 
 const TASK_TONES = TASK_STATUS_DASHBOARD_TONE

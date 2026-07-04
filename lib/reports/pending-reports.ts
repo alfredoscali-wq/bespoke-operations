@@ -1,4 +1,5 @@
 import { compareDateOnly } from "@/lib/dates/date-only"
+import { isTaskArchivedStatus } from "@/lib/tasks/task-archived-status"
 import { applyReportFilters, type ReportFilters } from "@/lib/reports/report-filters"
 import { extractDatePortion, toDateOnlyString } from "@/lib/reports/report-utils"
 import {
@@ -22,7 +23,7 @@ function isPendingTask(task: Task): boolean {
     return false
   }
 
-  return task.status !== "finalizada" && task.status !== "cerrada"
+  return !isTaskArchivedStatus(task.status)
 }
 
 function resolveCustomerName(task: Task): string {

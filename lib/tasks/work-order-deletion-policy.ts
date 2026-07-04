@@ -1,5 +1,6 @@
 import { isPendingClosureStatus } from "@/lib/tasks/task-status-workflow"
 import { isCancellableTaskStatus } from "@/lib/tasks/status-groups"
+import { isTaskArchivedStatus } from "@/lib/tasks/task-archived-status"
 import type { Task, TaskStatus } from "@/lib/types/tasks"
 
 export const WORK_ORDER_SOFT_DELETE_BLOCKED_MESSAGE =
@@ -33,11 +34,7 @@ export function resolveWorkOrderRowMenuPolicy(
 ): WorkOrderRowMenuPolicy {
   const { status } = task
 
-  if (
-    status === "finalizada" ||
-    status === "cerrada" ||
-    status === "cancelada"
-  ) {
+  if (isTaskArchivedStatus(status) || status === "cancelada") {
     return {
       showView: true,
       viewLabel: "Ver detalle",

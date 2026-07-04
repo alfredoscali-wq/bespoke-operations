@@ -7,6 +7,7 @@ import {
   type PlanningFilters,
 } from "@/lib/planificacion/planning-utils"
 import { sortTasksByDispatchRoute } from "@/lib/tasks/dispatch-order"
+import { isTaskArchivedStatus } from "@/lib/tasks/task-archived-status"
 
 export type PlanningDispatchMode = "editing" | "confirmed"
 
@@ -113,7 +114,7 @@ export function computePlanningDispatchKpis(
     ).length,
     inProgressCount: tasks.filter((task) => task.status === "en-curso").length,
     completedCount: tasks.filter(
-      (task) => task.status === "finalizada" || task.status === "cerrada"
+      (task) => isTaskArchivedStatus(task.status)
     ).length,
     incidentsCount: tasks.filter((task) => task.status === "incidencia").length,
   }

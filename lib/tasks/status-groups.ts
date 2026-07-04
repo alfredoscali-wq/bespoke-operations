@@ -1,5 +1,6 @@
 import type { Task, TaskStatus } from "@/lib/types/tasks"
 import { isPendingClosureStatus } from "@/lib/tasks/task-status-workflow"
+import { isTaskArchivedStatus } from "@/lib/tasks/task-archived-status"
 
 export const ACTIVE_TASK_STATUSES: TaskStatus[] = [
   "programada",
@@ -19,7 +20,6 @@ export const CANCELLABLE_TASK_STATUSES: TaskStatus[] = [
 
 export const FINAL_TASK_STATUSES: TaskStatus[] = [
   "finalizada",
-  "cerrada",
   "cancelada",
 ]
 
@@ -32,15 +32,17 @@ export function isCancellableTaskStatus(status: TaskStatus): boolean {
 }
 
 export function isFinalTaskStatus(status: TaskStatus): boolean {
-  return FINAL_TASK_STATUSES.includes(status)
+  return FINAL_TASK_STATUSES.includes(status) || isTaskArchivedStatus(status)
 }
 
+/** @deprecated Use isTaskArchivedStatus — Archivo OT es automático al finalizar. */
 export function canArchiveTaskByStatus(status: TaskStatus): boolean {
-  return isFinalTaskStatus(status)
+  return isTaskArchivedStatus(status)
 }
 
-/** Terminal statuses excluded from calendar views. */
+/** Estados excluidos del calendario operativo activo (Archivo OT + canceladas). */
 export const CALENDAR_HIDDEN_TASK_STATUSES: TaskStatus[] = [
+  "finalizada",
   "cancelada",
   "cerrada",
 ]

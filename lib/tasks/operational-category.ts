@@ -3,6 +3,7 @@ import type { VisualTone } from "@/lib/ui/visual-tokens"
 import {
   getTaskStatusBadgeClass,
 } from "@/lib/tasks/status-visual"
+import { isTaskArchivedStatus } from "@/lib/tasks/task-archived-status"
 
 import { taskHasAssignedCrew } from "@/lib/tasks/vencida-status"
 
@@ -22,7 +23,7 @@ export const OPERATIONAL_CATEGORY_KPI_LABELS: Record<
   asignadas: "Asignadas",
   "en-curso": "En curso",
   "pendientes-cierre": "Pendientes de cierre",
-  finalizadas: "Finalizadas",
+  finalizadas: "Archivo OT",
   canceladas: "Canceladas",
 }
 
@@ -34,7 +35,7 @@ export const OPERATIONAL_CATEGORY_BADGE_LABELS: Record<
   asignadas: "Asignada",
   "en-curso": "En curso",
   "pendientes-cierre": "Pendiente de cierre",
-  finalizadas: "Finalizada",
+  finalizadas: "Archivo OT",
   canceladas: "Cancelada",
 }
 
@@ -121,7 +122,7 @@ export function resolveOperationalExecutionBadge(task: Task): {
     }
   }
 
-  if (task.status === "finalizada" || task.status === "cerrada") {
+  if (isTaskArchivedStatus(task.status)) {
     return {
       label: "Finalizada",
       className: getTaskStatusBadgeClass("finalizada"),
@@ -150,7 +151,7 @@ export function resolveOperationalCategory(
     return "canceladas"
   }
 
-  if (task.status === "finalizada" || task.status === "cerrada") {
+  if (isTaskArchivedStatus(task.status)) {
     return "finalizadas"
   }
 

@@ -137,8 +137,6 @@ export function mapWorkflowActionToAuditAction(
       return AUDIT_ACTIONS.TASK_RESCHEDULE
     case "approve":
       return AUDIT_ACTIONS.TASK_FINISH
-    case "close":
-      return AUDIT_ACTIONS.TASK_CLOSE
     default:
       return null
   }

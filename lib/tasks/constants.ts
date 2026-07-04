@@ -21,7 +21,8 @@ export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   "pendiente-cierre": "Pendiente de cierre",
   finalizada: "Finalizada",
   "en-aprobacion": "En Aprobación",
-  cerrada: "Cerrada",
+  /** @deprecated Legacy DB value — normalizado a finalizada en runtime. */
+  cerrada: "Finalizada",
   cancelada: "Cancelada",
 }
 
@@ -41,17 +42,19 @@ export const KANBAN_COLUMNS: TaskStatus[] = [
   "pendiente-cierre",
   "finalizada",
   "en-aprobacion",
-  "cerrada",
   "cancelada",
 ]
 
 export {
   ACTIVE_TASK_STATUSES,
   FINAL_TASK_STATUSES,
-  canArchiveTaskByStatus,
   isActiveTaskStatus,
   isFinalTaskStatus,
 } from "@/lib/tasks/status-groups"
+export {
+  isTaskArchivedStatus,
+  isTaskArchivedStatus as canArchiveTaskByStatus,
+} from "@/lib/tasks/task-archived-status"
 
 export const TASK_TYPE_LABELS: Record<TaskType, string> = {
   fiber: "Fibra Óptica",
@@ -87,9 +90,9 @@ export const TASK_PRIORITY_OPTIONS = Object.entries(TASK_PRIORITY_LABELS).map(
   ([value, label]) => ({ value: value as TaskPriority, label })
 )
 
-export const TASK_STATUS_OPTIONS = Object.entries(TASK_STATUS_LABELS).map(
-  ([value, label]) => ({ value: value as TaskStatus, label })
-)
+export const TASK_STATUS_OPTIONS = Object.entries(TASK_STATUS_LABELS)
+  .filter(([value]) => value !== "cerrada")
+  .map(([value, label]) => ({ value: value as TaskStatus, label }))
 
 export const TASK_TYPE_OPTIONS = Object.entries(TASK_TYPE_LABELS).map(
   ([value, label]) => ({ value: value as TaskType, label })

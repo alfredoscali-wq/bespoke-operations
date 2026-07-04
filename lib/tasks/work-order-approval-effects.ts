@@ -16,6 +16,8 @@ import type { Customer, UpdateCustomerInput } from "@/lib/types/customers"
 import type { Task } from "@/lib/types/tasks"
 import { hasCoordinates } from "@/lib/gps"
 
+/** Solo instalacion-nueva mueve al cliente a pendiente de activación al aprobar. */
+
 export type WorkOrderApprovalEffectResult = {
   applied: boolean
   customerId?: string

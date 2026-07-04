@@ -1,4 +1,5 @@
 import { compareDateOnly, toLocalDateOnly } from "@/lib/dates/date-only"
+import { isTaskArchivedStatus } from "@/lib/tasks/task-archived-status"
 import { sortTasksByDispatchRoute } from "@/lib/tasks/dispatch-order"
 import { taskMatchesCrewId } from "@/lib/tasks/crew-relation"
 import type { Task, TaskStatus } from "@/lib/types/tasks"
@@ -21,8 +22,6 @@ const OPERARIO_TODAY_ACTIVE_STATUSES: TaskStatus[] = [
 ]
 
 const OPERARIO_HISTORY_STATUSES: TaskStatus[] = [
-  "finalizada",
-  "cerrada",
   "cancelada",
   "pendiente-cierre",
   "en-aprobacion",
@@ -60,6 +59,10 @@ export function isOperarioTodayTask(
 }
 
 export function isOperarioHistoryTask(task: Task): boolean {
+  if (isTaskArchivedStatus(task.status)) {
+    return true
+  }
+
   return OPERARIO_HISTORY_STATUSES.includes(task.status)
 }
 
@@ -132,9 +135,7 @@ export function groupOperarioHistoryTasks(
 
   return {
     finalizadas: sortOperarioTasksByDateDesc(
-      historyTasks.filter(
-        (task) => task.status === "finalizada" || task.status === "cerrada"
-      )
+      historyTasks.filter((task) => isTaskArchivedStatus(task.status))
     ),
     pendientesCierre: sortOperarioTasksByDateDesc(
       historyTasks.filter(

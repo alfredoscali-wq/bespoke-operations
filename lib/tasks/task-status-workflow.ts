@@ -15,7 +15,6 @@ export type TaskWorkflowAction =
   | "reschedule-from-overdue"
   | "approve"
   | "reject"
-  | "close"
   | "cancel"
 
 export const PENDING_CLOSURE_STATUSES: TaskStatus[] = [
@@ -46,7 +45,6 @@ const WORKFLOW_TRANSITIONS: Record<
   "reschedule-from-overdue": { from: ["vencida"], to: "asignada" },
   approve: { from: PENDING_CLOSURE_STATUSES, to: "finalizada" },
   reject: { from: PENDING_CLOSURE_STATUSES, to: "en-curso" },
-  close: { from: ["finalizada"], to: "cerrada" },
   cancel: {
     from: [
       "programada",
@@ -223,9 +221,8 @@ export function getWorkflowHistoryEntry(
     "resume-from-incident": "Orden de trabajo reanudada",
     "reschedule-from-incident": "Orden de trabajo reprogramada",
     "reschedule-from-overdue": "Orden de trabajo reprogramada",
-    approve: "Orden de trabajo cerrada",
+    approve: "Orden de trabajo finalizada",
     reject: "Cierre rechazado",
-    close: "Orden de trabajo cerrada",
     cancel: "Orden de trabajo cancelada",
   }
 

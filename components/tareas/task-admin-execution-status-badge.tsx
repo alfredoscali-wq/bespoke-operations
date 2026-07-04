@@ -12,7 +12,6 @@ const TASK_EXECUTION_STATUS_EMOJI: Partial<Record<TaskStatus, string>> = {
   "pendiente-cierre": "🟡",
   "en-aprobacion": "🟡",
   finalizada: "🟢",
-  cerrada: "🟢",
   cancelada: "🔴",
 }
 

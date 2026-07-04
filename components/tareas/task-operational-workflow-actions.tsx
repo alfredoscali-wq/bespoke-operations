@@ -40,7 +40,6 @@ const OPERATIONAL_STATUS_DISPLAY: Partial<
   "en-aprobacion": { emoji: "🟡", label: "Pendiente de cierre" },
   incidencia: { emoji: "🔴", label: "Incidencia" },
   finalizada: { emoji: "🟢", label: "Finalizada" },
-  cerrada: { emoji: "🟢", label: "Finalizada" },
   cancelada: { emoji: "🔴", label: "Cancelada" },
 }
 
@@ -171,7 +170,7 @@ export function TaskOperationalWorkflowActions({
                   className="gap-1.5"
                 >
                   <CheckCircle2 className="size-4" />
-                  Cerrar Orden de Trabajo
+                  Finalizar Orden de Trabajo
                 </Button>
               ) : null}
               {showRejectAction ? (

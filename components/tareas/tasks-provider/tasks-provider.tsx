@@ -60,7 +60,6 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     submitTaskForApproval,
     approveTask,
     rejectTask,
-    closeTask,
     assignCrew,
   } = useTasksWorkflow({ tasks, updateTaskFields })
 
@@ -128,7 +127,6 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       submitTaskForApproval,
       approveTask,
       rejectTask,
-      closeTask,
       cancelTask,
       confirmPlanningTasks,
       reopenPlanningTasks,
@@ -162,7 +160,6 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       submitTaskForApproval,
       approveTask,
       rejectTask,
-      closeTask,
       cancelTask,
       confirmPlanningTasks,
       reopenPlanningTasks,
