@@ -3,11 +3,23 @@ import { isWorkOrderTask } from "@/lib/tasks/work-order"
 import type { Crew } from "@/lib/types/crews"
 import type { Task } from "@/lib/types/tasks"
 
+import {
+  filterPlanningOperationalViewTasks,
+  isTaskInDynamicPlanningPool,
+  isTaskReopenableForPlanning,
+  listReopenableDynamicPlanningTaskIdsForCrew,
+} from "@/lib/planificacion/planning-dynamic"
 import type { PlanningFilters } from "@/lib/planificacion/planning-utils"
 
 export type CrewPlanningStatus = "editable" | "planned"
 
-/** OT visibles durante la sesión de planificación (antes de confirmar la jornada). */
+export type CrewPlanningButtonVisibility = {
+  showPlanificar: boolean
+  showReplanificar: boolean
+  showPlannedBadge: boolean
+}
+
+/** OT en el circuito de planificación dinámica (aún no comenzaron). */
 export function filterPlanningSessionTasks(
   tasks: Task[],
   filters: PlanningFilters
@@ -17,7 +29,7 @@ export function filterPlanningSessionTasks(
       return false
     }
 
-    return task.status === "programada" || task.status === "asignada"
+    return isTaskInDynamicPlanningPool(task.status)
   })
 }
 
@@ -47,6 +59,27 @@ export function resolveCrewPlanningStatus(
   return hasProgrammed ? "editable" : "planned"
 }
 
+export function resolveCrewPlanningButtonVisibility(
+  tasks: Task[],
+  date: string,
+  crew: Pick<Crew, "id" | "name">
+): CrewPlanningButtonVisibility | null {
+  const crewTasks = listPlanningSessionTasksForCrew(tasks, date, crew)
+
+  if (crewTasks.length === 0) {
+    return null
+  }
+
+  const hasProgrammed = crewTasks.some((task) => task.status === "programada")
+  const hasReopenable = crewTasks.some(isTaskReopenableForPlanning)
+
+  return {
+    showPlanificar: hasProgrammed,
+    showReplanificar: hasProgrammed && hasReopenable,
+    showPlannedBadge: !hasProgrammed && hasReopenable,
+  }
+}
+
 export function isCrewPlanningComplete(
   tasks: Task[],
   date: string,
@@ -72,9 +105,7 @@ export function listReopenablePlanningTaskIdsForCrew(
   date: string,
   crew: Pick<Crew, "id" | "name">
 ): string[] {
-  return listPlanningSessionTasksForCrew(tasks, date, crew)
-    .filter((task) => task.status === "asignada")
-    .map((task) => task.id)
+  return listReopenableDynamicPlanningTaskIdsForCrew(tasks, date, crew)
 }
 
 export function isTaskPlanningEditable(task: Pick<Task, "status">): boolean {
@@ -94,3 +125,8 @@ export function isJourneyFullyPlanned(
 
   return crewsWithTasks.every((crew) => isCrewPlanningComplete(tasks, date, crew))
 }
+
+export {
+  filterPlanningOperationalViewTasks,
+  isTaskReopenableForPlanning,
+} from "@/lib/planificacion/planning-dynamic"

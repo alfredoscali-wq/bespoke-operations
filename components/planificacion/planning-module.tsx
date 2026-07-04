@@ -38,17 +38,9 @@ import {
 
 import {
 
-  clearPlanningConfirmSnapshot,
-
-} from "@/lib/planificacion/planning-confirm-session"
-
-import {
-
   filterConfirmedDispatchTasksForPlanning,
 
   filterProgrammedTasksForPlanningDate,
-
-  listReopenablePlanningTaskIds,
 
 } from "@/lib/planificacion/planning-dispatch"
 
@@ -76,7 +68,7 @@ import {
 
 import {
 
-  filterPlanningSessionTasks,
+  filterPlanningOperationalViewTasks,
 
   isJourneyFullyPlanned,
 
@@ -84,9 +76,9 @@ import {
 
   listReopenablePlanningTaskIdsForCrew,
 
-  resolveCrewPlanningStatus,
+  resolveCrewPlanningButtonVisibility,
 
-  type CrewPlanningStatus,
+  type CrewPlanningButtonVisibility,
 
 } from "@/lib/planificacion/planning-crew-state"
 
@@ -135,10 +127,6 @@ function PlanningModuleContent() {
   const [dispatchError, setDispatchError] = useState<string | null>(null)
 
   const [successMessage, setSuccessMessage] = useState<PlanningSuccessMessage | null>(null)
-
-  const [isReopeningPlanning, setIsReopeningPlanning] = useState(false)
-
-  const [reopenError, setReopenError] = useState<string | null>(null)
 
   const [mapRefreshToken, setMapRefreshToken] = useState(0)
 
@@ -214,7 +202,7 @@ function PlanningModuleContent() {
 
 
 
-    return filterPlanningSessionTasks(tasks, { date })
+    return filterPlanningOperationalViewTasks(tasks, { date })
 
   }, [tasks, date, isConfirmedMode])
 
@@ -260,19 +248,27 @@ function PlanningModuleContent() {
 
 
 
-  const crewPlanningStatusById = useMemo(() => {
+  const crewPlanningButtonsById = useMemo(() => {
 
-    const statuses: Record<string, CrewPlanningStatus> = {}
+    const visibility: Record<string, CrewPlanningButtonVisibility> = {}
 
 
 
     for (const summary of crewSummaries) {
 
-      const status = resolveCrewPlanningStatus(tasks, date, summary.crew)
+      const buttons = resolveCrewPlanningButtonVisibility(
 
-      if (status) {
+        tasks,
 
-        statuses[summary.crew.id] = status
+        date,
+
+        summary.crew
+
+      )
+
+      if (buttons) {
+
+        visibility[summary.crew.id] = buttons
 
       }
 
@@ -280,7 +276,7 @@ function PlanningModuleContent() {
 
 
 
-    return statuses
+    return visibility
 
   }, [crewSummaries, tasks, date])
 
@@ -552,7 +548,7 @@ function PlanningModuleContent() {
 
         setCrewActionError(
 
-          "No hay OT asignadas para modificar en esta cuadrilla."
+          "No hay OT asignadas para replanificar en esta cuadrilla."
 
         )
 
@@ -578,7 +574,7 @@ function PlanningModuleContent() {
 
           setCrewActionError(
 
-            result.message ?? "No se pudo modificar la planificación de la cuadrilla."
+            result.message ?? "No se pudo replanificar la cuadrilla."
 
           )
 
@@ -616,7 +612,7 @@ function PlanningModuleContent() {
 
         setCrewActionError(
 
-          "No se pudo modificar la planificación de la cuadrilla."
+          "No se pudo replanificar la cuadrilla."
 
         )
 
@@ -631,76 +627,6 @@ function PlanningModuleContent() {
     [tasks, date, reopenPlanningTasks, supervisorName]
 
   )
-
-
-
-  const handleModifyPlanning = useCallback(async () => {
-
-    const reopenableIds = listReopenablePlanningTaskIds(tasks, date)
-
-
-
-    if (reopenableIds.length === 0) {
-
-      setReopenError(
-
-        "No hay OT en estado Asignada para reabrir. Las OT ya iniciadas deben gestionarse desde Órdenes de Trabajo."
-
-      )
-
-      return
-
-    }
-
-
-
-    setIsReopeningPlanning(true)
-
-    setReopenError(null)
-
-
-
-    try {
-
-      const result = await reopenPlanningTasks(reopenableIds)
-
-
-
-      if (!result.success) {
-
-        setReopenError(
-
-          result.message ?? "No se pudo reabrir la planificación."
-
-        )
-
-        return
-
-      }
-
-
-
-      clearPlanningConfirmSnapshot(date)
-
-      setSelectedTaskId(null)
-
-      setAdjustSheetTaskId(null)
-
-      setSuccessMessage(null)
-
-    } catch (error) {
-
-      console.error(error)
-
-      setReopenError("No se pudo reabrir la planificación.")
-
-    } finally {
-
-      setIsReopeningPlanning(false)
-
-    }
-
-  }, [tasks, date, reopenPlanningTasks])
 
 
 
@@ -798,13 +724,7 @@ function PlanningModuleContent() {
 
       <PlanningToolbar
 
-        mode={dispatchMode}
-
         date={date}
-
-        isReopening={isReopeningPlanning}
-
-        reopenError={reopenError}
 
         onDateChange={(nextDate) => {
 
@@ -816,8 +736,6 @@ function PlanningModuleContent() {
 
           setAdjustSheetTaskId(null)
 
-          setReopenError(null)
-
           setDispatchError(null)
 
           setCrewActionError(null)
@@ -825,8 +743,6 @@ function PlanningModuleContent() {
           setSuccessMessage(null)
 
         }}
-
-        onModifyPlanning={handleModifyPlanning}
 
       />
 
@@ -868,7 +784,7 @@ function PlanningModuleContent() {
 
           activeCrewFilterId={crewFilterId}
 
-          crewPlanningStatusById={crewPlanningStatusById}
+          crewPlanningButtonsById={crewPlanningButtonsById}
 
           isEditingMode={isEditingMode}
 

@@ -2,6 +2,8 @@ import { resolveTaskCrewId, taskMatchesCrewId } from "@/lib/tasks/crew-relation"
 import type { Crew } from "@/lib/types/crews"
 import type { Task, TaskStatus } from "@/lib/types/tasks"
 
+import { resolveNextPlanningQueuePosition } from "@/lib/planificacion/planning-dynamic"
+
 type CrewRef = Pick<Crew, "id" | "name">
 
 export const OPERATIONAL_ORDER_REORDERABLE_STATUSES = [
@@ -229,9 +231,17 @@ export function buildOperationalOrderFieldUpdates<T extends { taskId: string }>(
   crews: CrewRef[]
   readOrder: (task: Task) => number | null | undefined
   writeUpdate: (taskId: string, order: number | null) => T
+  collectFrozenOrders?: (scope: Task[]) => Set<number>
 }): T[] {
-  const { scope, taskId, desiredGlobalOrder, crews, readOrder, writeUpdate } =
-    input
+  const {
+    scope,
+    taskId,
+    desiredGlobalOrder,
+    crews,
+    readOrder,
+    writeUpdate,
+    collectFrozenOrders = collectFrozenOperationalOrdersForScope,
+  } = input
   const reorderable = scope.filter(isOperationalOrderReorderable)
 
   if (!reorderable.some((task) => task.id === taskId)) {
@@ -271,20 +281,7 @@ export function resolveNextOperationalOrderProposal(input: {
   crews?: CrewRef[]
   excludeTaskId?: string
 }): number {
-  const { tasks, dueDate, crewId, crews = [], excludeTaskId } = input
-  const mates = filterPlanningExecutionOrderScope(
-    tasks,
-    dueDate,
-    crewId,
-    crews
-  ).filter((task) => task.id !== excludeTaskId)
-
-  const maxOrder = mates.reduce(
-    (max, task) => Math.max(max, task.executionOrder ?? 0),
-    0
-  )
-
-  return maxOrder + 1
+  return resolveNextPlanningQueuePosition(input)
 }
 
 export function buildOperationalOrderRemovalFieldUpdates<T extends { taskId: string }>(input: {
@@ -296,6 +293,7 @@ export function buildOperationalOrderRemovalFieldUpdates<T extends { taskId: str
   readOrder: (task: Task) => number | null | undefined
   writeUpdate: (taskId: string, order: number | null) => T
   isClearable: (task: Task) => boolean
+  collectFrozenOrders?: (scope: Task[]) => Set<number>
 }): T[] {
   const {
     tasks,
@@ -306,6 +304,7 @@ export function buildOperationalOrderRemovalFieldUpdates<T extends { taskId: str
     readOrder,
     writeUpdate,
     isClearable,
+    collectFrozenOrders = collectFrozenOperationalOrdersForScope,
   } = input
   const scope = filterPlanningExecutionOrderScope(tasks, dueDate, crewId, crews)
   const remaining = scope.filter(

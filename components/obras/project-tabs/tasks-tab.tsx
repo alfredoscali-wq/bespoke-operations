@@ -6,6 +6,10 @@ import { AlertTriangle, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-reac
 
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { TASK_DELETE_USER_MESSAGE } from "@/lib/operations/user-messages"
+import {
+  canSoftDeleteWorkOrder,
+  WORK_ORDER_SOFT_DELETE_BLOCKED_MESSAGE,
+} from "@/lib/tasks/work-order-deletion-policy"
 import { logDeleteTrace } from "@/lib/supabase/delete-trace"
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { TaskCrewAssignmentCell } from "@/components/obras/task-crew-assignment-cell"
@@ -198,6 +202,8 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
   }
 
   function renderActions(task: Task) {
+    const canDelete = canSoftDeleteWorkOrder(task.status)
+
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -211,13 +217,15 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
             <Pencil className="size-4" />
             Editar
           </DropdownMenuItem>
-          <DropdownMenuItem
-            variant="destructive"
-            onClick={() => setDeleteTarget(task)}
-          >
-            <Trash2 className="size-4" />
-            Eliminar
-          </DropdownMenuItem>
+          {canDelete ? (
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => setDeleteTarget(task)}
+            >
+              <Trash2 className="size-4" />
+              Eliminar
+            </DropdownMenuItem>
+          ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
     )

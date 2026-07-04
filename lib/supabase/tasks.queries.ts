@@ -18,14 +18,18 @@ import {
   logTaskSoftDeleteResult,
   serializeTaskDeleteError,
 } from "@/lib/supabase/tasks-delete-diagnostics"
-import { TASK_DELETE_USER_MESSAGE, TASK_ARCHIVE_BLOCKED_ACTIVE_MESSAGE } from "@/lib/operations/user-messages"
+import { TASK_DELETE_USER_MESSAGE } from "@/lib/operations/user-messages"
 import { logDeleteTrace } from "@/lib/supabase/delete-trace"
 import { getSupabaseEnv } from "@/lib/supabase/env"
-import { ACTIVE_TASK_STATUSES, canArchiveTaskByStatus } from "@/lib/tasks/status-groups"
+import { ACTIVE_TASK_STATUSES } from "@/lib/tasks/status-groups"
 import {
   canAdminModifyWorkOrder,
   WORK_ORDER_ADMIN_MUTATION_BLOCKED_MESSAGE,
 } from "@/lib/tasks/work-order-admin-mutation"
+import {
+  canSoftDeleteWorkOrder,
+  WORK_ORDER_SOFT_DELETE_BLOCKED_MESSAGE,
+} from "@/lib/tasks/work-order-deletion-policy"
 import type { TaskStatus } from "@/lib/types/tasks"
 
 export type SupabaseTasksClient = SupabaseClient<Database>
@@ -238,12 +242,12 @@ export async function softDeleteTask(
     }
   }
 
-  if (!canArchiveTaskByStatus(existingTask.status)) {
+  if (!canSoftDeleteWorkOrder(existingTask.status as TaskStatus)) {
     return {
       data: null,
       error: {
         code: "ACTIVE_TASK",
-        message: TASK_ARCHIVE_BLOCKED_ACTIVE_MESSAGE,
+        message: WORK_ORDER_SOFT_DELETE_BLOCKED_MESSAGE,
       },
     }
   }

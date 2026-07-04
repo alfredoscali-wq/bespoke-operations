@@ -12,7 +12,9 @@ import {
 
 } from "@/lib/planificacion/planning-map-markers"
 
-import type { CrewPlanningStatus } from "@/lib/planificacion/planning-crew-state"
+import type {
+  CrewPlanningButtonVisibility,
+} from "@/lib/planificacion/planning-crew-state"
 
 import {
 
@@ -46,7 +48,7 @@ type PlanningOperationalSummaryProps = {
 
   activeCrewFilterId: string | null
 
-  crewPlanningStatusById: Record<string, CrewPlanningStatus>
+  crewPlanningButtonsById: Record<string, CrewPlanningButtonVisibility>
 
   isEditingMode?: boolean
 
@@ -190,9 +192,7 @@ function PlanningCrewOperationsKpiCard({
 
   isActive,
 
-  planningStatus,
-
-  isEditingMode,
+  buttonVisibility,
 
   isProcessing,
 
@@ -210,9 +210,7 @@ function PlanningCrewOperationsKpiCard({
 
   isActive: boolean
 
-  planningStatus: CrewPlanningStatus
-
-  isEditingMode: boolean
+  buttonVisibility: CrewPlanningButtonVisibility
 
   isProcessing: boolean
 
@@ -230,9 +228,11 @@ function PlanningCrewOperationsKpiCard({
 
   )
 
-  const isPlanned = planningStatus === "planned"
+  const { showPlanificar, showReplanificar, showPlannedBadge } = buttonVisibility
 
-  const showActions = summary.taskCount > 0
+  const showActions =
+
+    showPlanificar || showReplanificar || showPlannedBadge
 
 
 
@@ -260,7 +260,7 @@ function PlanningCrewOperationsKpiCard({
 
           <div className="flex flex-col gap-2">
 
-            {isPlanned ? (
+            {showPlannedBadge ? (
 
               <p className="text-center text-xs font-semibold text-white/95">
 
@@ -270,51 +270,65 @@ function PlanningCrewOperationsKpiCard({
 
             ) : null}
 
-            <Button
+            {showPlanificar ? (
 
-              type="button"
+              <Button
 
-              size="sm"
+                type="button"
 
-              variant="secondary"
+                size="sm"
 
-              className="h-8 w-full bg-white/95 text-xs font-semibold text-foreground hover:bg-white"
+                variant="secondary"
 
-              disabled={isProcessing}
+                className="h-8 w-full bg-white/95 text-xs font-semibold text-foreground hover:bg-white"
 
-              onClick={(event) => {
+                disabled={isProcessing}
 
-                event.stopPropagation()
+                onClick={(event) => {
 
-                if (isPlanned) {
-
-                  onModify?.()
-
-                } else {
+                  event.stopPropagation()
 
                   onPlan?.()
 
-                }
+                }}
 
-              }}
+              >
 
-            >
+                {isProcessing ? "Planificando..." : "Planificar"}
 
-              {isProcessing
+              </Button>
 
-                ? isPlanned
+            ) : null}
 
-                  ? "Modificando..."
+            {showReplanificar ? (
 
-                  : "Planificando..."
+              <Button
 
-                : isPlanned
+                type="button"
 
-                  ? "Modificar"
+                size="sm"
 
-                  : "Planificar"}
+                variant="outline"
 
-            </Button>
+                className="h-8 w-full border-white/70 bg-white/10 text-xs font-semibold text-white hover:bg-white/20 hover:text-white"
+
+                disabled={isProcessing}
+
+                onClick={(event) => {
+
+                  event.stopPropagation()
+
+                  onModify?.()
+
+                }}
+
+              >
+
+                {isProcessing ? "Replanificando..." : "Replanificar"}
+
+              </Button>
+
+            ) : null}
 
           </div>
 
@@ -342,7 +356,7 @@ export function PlanningOperationalSummary({
 
   activeCrewFilterId,
 
-  crewPlanningStatusById,
+  crewPlanningButtonsById,
 
   isEditingMode = false,
 
@@ -414,9 +428,9 @@ export function PlanningOperationalSummary({
 
 
 
-          const planningStatus = crewPlanningStatusById[item.crewId]
+          const buttonVisibility = crewPlanningButtonsById[item.crewId]
 
-          if (!planningStatus) {
+          if (!buttonVisibility) {
 
             return null
 
@@ -436,9 +450,7 @@ export function PlanningOperationalSummary({
 
               isActive={activeCrewFilterId === item.crewId}
 
-              planningStatus={planningStatus}
-
-              isEditingMode={isEditingMode}
+              buttonVisibility={buttonVisibility}
 
               isProcessing={processingCrewId === item.crewId}
 

@@ -37,9 +37,12 @@ import {
   deleteWorkOrderThroughAdminApi,
   updateWorkOrderThroughAdminApi,
 } from "@/lib/supabase/tasks-admin-api.client"
-import { canArchiveTaskByStatus } from "@/lib/tasks/status-groups"
+import {
+  canSoftDeleteWorkOrder,
+  WORK_ORDER_SOFT_DELETE_BLOCKED_MESSAGE,
+} from "@/lib/tasks/work-order-deletion-policy"
 import { resolveIncidentReasonLabel } from "@/lib/tasks/incidents"
-import { TASK_DELETE_USER_MESSAGE, TASK_ARCHIVE_BLOCKED_ACTIVE_MESSAGE, logOperationError } from "@/lib/operations/user-messages"
+import { TASK_DELETE_USER_MESSAGE, logOperationError } from "@/lib/operations/user-messages"
 import { logDeleteTrace } from "@/lib/supabase/delete-trace"
 import { mapTaskToUpdatePayload } from "@/lib/supabase/tasks.mapper"
 import {
@@ -56,7 +59,10 @@ import {
 } from "@/lib/tasks/utils"
 import { generateWorkOrderTaskCodeFromCodes } from "@/lib/tasks/work-order"
 import { applyWorkOrderApprovalEffects } from "@/lib/tasks/work-order-approval-effects"
-import { resolvePlanningExecutionOrder } from "@/lib/planificacion/planning-operational-order-core"
+import { buildPlanningConfirmDispatchUpdates } from "@/lib/planificacion/planning-incremental"
+import { resolveNextPlanningQueuePosition } from "@/lib/planificacion/planning-dynamic"
+import { resolveTaskCrewId } from "@/lib/tasks/crew-relation"
+import { isWorkOrderTask } from "@/lib/tasks/work-order"
 import {
   buildExecutionOrderPersistPlan,
   buildOperationalOrderRemovalUpdates,
@@ -64,7 +70,6 @@ import {
   resolveOperationalOrderOnDateChange,
   type ExecutionOrderUpdate,
 } from "@/lib/planificacion/planning-execution-order"
-import { resolveTaskCrewId } from "@/lib/tasks/crew-relation"
 import { getTaskEvidencePhotoCount, getOperationalStepPhotoCounts } from "@/lib/supabase/task-photos.browser"
 import {
   getOperationalStepsProgress,
@@ -460,6 +465,25 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       }
 
       payload = await enrichCreateTaskPayloadWithResolvedLocation(payload)
+
+      const crewId = payload.crewId?.trim() || null
+      const dueDate = payload.dueDate?.trim()
+      if (
+        isWorkOrderTask(payload as Task) &&
+        crewId &&
+        dueDate &&
+        (payload.status === "programada" || payload.status == null)
+      ) {
+        payload = {
+          ...payload,
+          status: payload.status ?? "programada",
+          executionOrder: resolveNextPlanningQueuePosition({
+            tasks,
+            dueDate,
+            crewId,
+          }),
+        }
+      }
 
       console.log("BEFORE INSERT", payload)
 
@@ -1168,21 +1192,27 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         if (!validation.allowed) {
           return { success: false, message: validation.message }
         }
+      }
 
-        const executionOrder = resolvePlanningExecutionOrder(task)
-        if (executionOrder == null) {
-          return {
-            success: false,
-            message:
-              "La orden de trabajo debe tener un orden de ejecución antes de planificar.",
-          }
+      const dispatchUpdates = buildPlanningConfirmDispatchUpdates({
+        tasks,
+        confirmingTaskIds: ids,
+      })
+
+      if (dispatchUpdates.length !== ids.length) {
+        return {
+          success: false,
+          message:
+            "No fue posible calcular el orden operativo para todas las órdenes de trabajo.",
         }
+      }
 
+      for (const update of dispatchUpdates) {
         const result = await updateTaskFields(
-          id,
+          update.taskId,
           {
             status: "asignada",
-            dispatchOrder: executionOrder,
+            dispatchOrder: update.dispatchOrder,
             executionOrder: null,
           },
           "confirm-planning",
@@ -1231,7 +1261,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
             dispatchOrder: null,
           },
           "reopen-planning",
-          "Planificación reabierta para edición.",
+          "Planificación reabierta para replanificación.",
           undefined,
           { suppressAudit: true }
         )
@@ -1292,10 +1322,10 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         return { success: true }
       }
 
-      if (!canArchiveTaskByStatus(existing.status)) {
+      if (!canSoftDeleteWorkOrder(existing.status)) {
         return {
           success: false,
-          message: TASK_ARCHIVE_BLOCKED_ACTIVE_MESSAGE,
+          message: WORK_ORDER_SOFT_DELETE_BLOCKED_MESSAGE,
         }
       }
 

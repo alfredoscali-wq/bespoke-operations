@@ -6,11 +6,16 @@ import { Eye, Pencil, Trash2 } from "lucide-react"
 
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { TaskWorkOrderDialog } from "@/components/tareas/task-work-order-dialog"
+import { WorkOrderPermanentDeleteDialog } from "@/components/tareas/work-order-permanent-delete-dialog"
 import {
   canAdminModifyWorkOrder,
   WORK_ORDER_ADMIN_MUTATION_BLOCKED_MESSAGE,
   WORK_ORDER_ADMIN_MUTATION_BLOCKED_TOOLTIP,
 } from "@/lib/tasks/work-order-admin-mutation"
+import {
+  canSoftDeleteWorkOrder,
+  WORK_ORDER_SOFT_DELETE_BLOCKED_MESSAGE,
+} from "@/lib/tasks/work-order-deletion-policy"
 import { TASK_DELETE_USER_MESSAGE } from "@/lib/operations/user-messages"
 import { logDeleteTrace } from "@/lib/supabase/delete-trace"
 import { useIsSystemAdministrator } from "@/lib/auth/use-is-system-administrator"
@@ -92,14 +97,16 @@ export function TaskAdminRowActions({
   task,
   onFeedback,
 }: TaskAdminRowActionsProps) {
-  const { editTask, deleteTask, tasks } = useTasks()
+  const { editTask, deleteTask, removeTaskLocally, tasks } = useTasks()
   const isSystemAdministrator = useIsSystemAdministrator()
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [permanentDeleteOpen, setPermanentDeleteOpen] = useState(false)
   const [editBlockedOpen, setEditBlockedOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
   const canModify = canAdminModifyWorkOrder(task.status)
+  const canDelete = canSoftDeleteWorkOrder(task.status)
 
   function handleEditClick() {
     if (!canModify) {
@@ -182,21 +189,30 @@ export function TaskAdminRowActions({
           <Pencil className="size-4" />
         </AdminRowActionButton>
 
-        {isSystemAdministrator ? (
+        {canDelete ? (
           <AdminRowActionButton
             label="Eliminar"
-            disabled={!canModify}
-            tooltip={WORK_ORDER_ADMIN_MUTATION_BLOCKED_TOOLTIP}
             destructive
-            onClick={() => {
-              if (!canModify) {
-                return
-              }
-              setDeleteOpen(true)
-            }}
+            onClick={() => setDeleteOpen(true)}
           >
             <Trash2 className="size-4" />
           </AdminRowActionButton>
+        ) : null}
+
+        {isSystemAdministrator ? (
+          <>
+            <span
+              aria-hidden
+              className="mx-0.5 h-5 w-px bg-border"
+            />
+            <AdminRowActionButton
+              label="Eliminar definitivamente"
+              destructive
+              onClick={() => setPermanentDeleteOpen(true)}
+            >
+              <Trash2 className="size-4" />
+            </AdminRowActionButton>
+          </>
         ) : null}
       </div>
 
@@ -234,6 +250,11 @@ export function TaskAdminRowActions({
             <DialogDescription>
               ¿Desea eliminar esta orden de trabajo?
               <span className="font-medium text-foreground"> {task.title}</span>
+              {!canDelete ? (
+                <span className="mt-2 block text-destructive">
+                  {WORK_ORDER_SOFT_DELETE_BLOCKED_MESSAGE}
+                </span>
+              ) : null}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
@@ -249,13 +270,24 @@ export function TaskAdminRowActions({
               type="button"
               variant="destructive"
               onClick={handleConfirmDelete}
-              disabled={isDeleting || !canModify}
+              disabled={isDeleting || !canDelete}
             >
               {isDeleting ? "Eliminando..." : "Eliminar"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <WorkOrderPermanentDeleteDialog
+        open={permanentDeleteOpen}
+        onOpenChange={setPermanentDeleteOpen}
+        taskId={task.id}
+        taskLabel={task.code || task.title}
+        onSuccess={(message) => {
+          removeTaskLocally(task.id)
+          onFeedback({ variant: "success", message })
+        }}
+      />
     </>
   )
 }

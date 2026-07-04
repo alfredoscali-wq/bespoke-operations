@@ -4,29 +4,18 @@ import { useState } from "react"
 import Link from "next/link"
 import {
   Ban,
+  CalendarClock,
   Eye,
   MoreHorizontal,
   Pencil,
   RefreshCw,
-  ShieldAlert,
   Trash2,
   Users,
 } from "lucide-react"
 
-import { PermanentDeleteDialog } from "@/components/admin/permanent-delete-dialog"
 import { useAuth } from "@/components/auth/auth-provider"
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { useTasks } from "@/components/tareas/tasks-provider"
-import {
-  canArchiveTaskByStatus,
-  isCancellableTaskStatus,
-} from "@/lib/tasks/status-groups"
-import {
-  TASK_ARCHIVE_BLOCKED_ACTIVE_MESSAGE,
-  TASK_DELETE_USER_MESSAGE,
-} from "@/lib/operations/user-messages"
-import { logDeleteTrace } from "@/lib/supabase/delete-trace"
-import { isWorkOrderTask } from "@/lib/tasks/work-order"
 import {
   TaskCrewAssignDialog,
   TaskEditDialog,
@@ -34,11 +23,20 @@ import {
 } from "@/components/tareas/task-action-dialogs"
 import { TaskWorkOrderDialog } from "@/components/tareas/task-work-order-dialog"
 import { TaskIncidentCancelDialog } from "@/components/tareas/task-incident-cancel-dialog"
+import { WorkOrderPermanentDeleteDialog } from "@/components/tareas/work-order-permanent-delete-dialog"
+import { TASK_DELETE_USER_MESSAGE } from "@/lib/operations/user-messages"
+import { logDeleteTrace } from "@/lib/supabase/delete-trace"
+import { useIsSystemAdministrator } from "@/lib/auth/use-is-system-administrator"
+import { canAssignWorkOrderCrew } from "@/lib/tasks/task-closure-permissions"
+import { resolveCrewSnapshotsForAssignment } from "@/lib/tasks/crew-relation"
+import {
+  canSoftDeleteWorkOrder,
+  resolveWorkOrderRowMenuPolicy,
+  WORK_ORDER_SOFT_DELETE_BLOCKED_MESSAGE,
+} from "@/lib/tasks/work-order-deletion-policy"
+import { isWorkOrderTask } from "@/lib/tasks/work-order"
 import type { Task } from "@/lib/types/tasks"
 import type { UpdateTaskPayload } from "@/lib/types/supabase/tasks"
-import { resolveCrewSnapshotsForAssignment } from "@/lib/tasks/crew-relation"
-import { canAssignWorkOrderCrew } from "@/lib/tasks/task-closure-permissions"
-import { useIsSystemAdministrator } from "@/lib/auth/use-is-system-administrator"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -72,12 +70,23 @@ export function TaskRowActions({
   triggerClassName,
   operationalMode = false,
 }: TaskRowActionsProps) {
-  const { editTask, changeTaskStatus, deleteTask, assignCrew, cancelTask, removeTaskLocally, tasks } =
-    useTasks()
+  const {
+    editTask,
+    changeTaskStatus,
+    deleteTask,
+    assignCrew,
+    cancelTask,
+    reopenPlanningTasks,
+    removeTaskLocally,
+    tasks,
+  } = useTasks()
   const { sessionUser } = useAuth()
   const { getCrew } = useCrews()
   const isSystemAdministrator = useIsSystemAdministrator()
   const canAssignCrew = canAssignWorkOrderCrew(sessionUser?.systemRole)
+  const isWorkOrder = isWorkOrderTask(task)
+  const menuPolicy = isWorkOrder ? resolveWorkOrderRowMenuPolicy(task) : null
+
   const [editOpen, setEditOpen] = useState(false)
   const [statusOpen, setStatusOpen] = useState(false)
   const [crewOpen, setCrewOpen] = useState(false)
@@ -86,12 +95,13 @@ export function TaskRowActions({
   const [cancelOpen, setCancelOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isCancelling, setIsCancelling] = useState(false)
+  const [isReopeningPlanning, setIsReopeningPlanning] = useState(false)
 
-  const canCancel = isCancellableTaskStatus(task.status)
-  const canArchive = canArchiveTaskByStatus(task.status)
-  const hideInternalStatusActions =
-    operationalMode || isWorkOrderTask(task)
-  const useWorkOrderEditForm = isWorkOrderTask(task)
+  const hideInternalStatusActions = operationalMode || isWorkOrder
+  const useWorkOrderEditForm = isWorkOrder
+  const canSoftDelete = isWorkOrder
+    ? menuPolicy?.showSoftDelete ?? false
+    : canSoftDeleteWorkOrder(task.status)
 
   async function handleUpdateWorkOrder(
     taskId: string,
@@ -222,6 +232,25 @@ export function TaskRowActions({
     })
   }
 
+  async function handleReopenPlanning() {
+    setIsReopeningPlanning(true)
+    const result = await reopenPlanningTasks([task.id])
+    setIsReopeningPlanning(false)
+
+    if (!result.success) {
+      onFeedback({
+        variant: "error",
+        message: result.message ?? "No se pudo modificar la planificación.",
+      })
+      return
+    }
+
+    onFeedback({
+      variant: "success",
+      message: "Planificación reabierta para replanificación.",
+    })
+  }
+
   async function handleConfirmDelete() {
     logDeleteTrace("ui.task-row-actions.handleConfirmDelete", {
       entity: "task",
@@ -248,6 +277,9 @@ export function TaskRowActions({
     })
   }
 
+  const viewHref = `/tareas/${task.id}`
+  const viewLabel = menuPolicy?.viewLabel ?? "Ver detalle"
+
   return (
     <>
       <DropdownMenu>
@@ -262,54 +294,77 @@ export function TaskRowActions({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem asChild>
-            <Link href={`/tareas/${task.id}`}>
-              <Eye className="size-4" />
-              Ver detalle
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setEditOpen(true)}>
-            <Pencil className="size-4" />
-            {hideInternalStatusActions ? "Editar Orden de Trabajo" : "Editar Orden de Trabajo"}
-          </DropdownMenuItem>
-          {!hideInternalStatusActions && (
+          {(menuPolicy?.showView ?? true) ? (
+            <DropdownMenuItem asChild>
+              <Link href={viewHref}>
+                <Eye className="size-4" />
+                {viewLabel}
+              </Link>
+            </DropdownMenuItem>
+          ) : null}
+
+          {(menuPolicy?.showEdit ?? !hideInternalStatusActions) ? (
+            <DropdownMenuItem onClick={() => setEditOpen(true)}>
+              <Pencil className="size-4" />
+              Editar
+            </DropdownMenuItem>
+          ) : null}
+
+          {!hideInternalStatusActions ? (
             <DropdownMenuItem onClick={() => setStatusOpen(true)}>
               <RefreshCw className="size-4" />
               Cambiar estado
             </DropdownMenuItem>
-          )}
-          {canAssignCrew ? (
+          ) : null}
+
+          {(menuPolicy?.showAssignCrew ?? canAssignCrew) && canAssignCrew ? (
             <DropdownMenuItem onClick={() => setCrewOpen(true)}>
               <Users className="size-4" />
               Reasignar cuadrilla
             </DropdownMenuItem>
           ) : null}
-          {canCancel && (
+
+          {menuPolicy?.showReopenPlanning ? (
+            <DropdownMenuItem
+              onClick={() => void handleReopenPlanning()}
+              disabled={isReopeningPlanning}
+            >
+              <CalendarClock className="size-4" />
+              Replanificar planificación
+            </DropdownMenuItem>
+          ) : null}
+
+          {menuPolicy?.showCancel ? (
             <DropdownMenuItem
               onClick={() => setCancelOpen(true)}
               disabled={isCancelling}
             >
               <Ban className="size-4" />
-              Cancelar Orden de Trabajo
+              Cancelar
             </DropdownMenuItem>
-          )}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            variant="destructive"
-            onClick={() => setDeleteOpen(true)}
-            disabled={!canArchive}
-          >
-            <Trash2 className="size-4" />
-            Eliminar Orden de Trabajo
-          </DropdownMenuItem>
-          {isSystemAdministrator ? (
+          ) : null}
+
+          {canSoftDelete ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={() => setDeleteOpen(true)}
+              >
+                <Trash2 className="size-4" />
+                Eliminar
+              </DropdownMenuItem>
+            </>
+          ) : null}
+
+          {isSystemAdministrator && isWorkOrder ? (
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="text-destructive focus:text-destructive"
                 onClick={() => setPermanentDeleteOpen(true)}
               >
-                <ShieldAlert className="size-4" />
+                <Trash2 className="size-4" />
                 Eliminar definitivamente
               </DropdownMenuItem>
             </>
@@ -347,7 +402,7 @@ export function TaskRowActions({
         onSubmit={handleCrewAssign}
       />
 
-      {canCancel ? (
+      {menuPolicy?.showCancel ? (
         <TaskIncidentCancelDialog
           open={cancelOpen}
           onOpenChange={setCancelOpen}
@@ -366,9 +421,9 @@ export function TaskRowActions({
             <DialogDescription>
               ¿Desea eliminar esta orden de trabajo?
               <span className="font-medium text-foreground"> {task.title}</span>
-              {!canArchive && (
+              {!canSoftDelete && (
                 <span className="mt-2 block text-destructive">
-                  {TASK_ARCHIVE_BLOCKED_ACTIVE_MESSAGE}
+                  {WORK_ORDER_SOFT_DELETE_BLOCKED_MESSAGE}
                 </span>
               )}
             </DialogDescription>
@@ -386,7 +441,7 @@ export function TaskRowActions({
               type="button"
               variant="destructive"
               onClick={handleConfirmDelete}
-              disabled={isDeleting || !canArchive}
+              disabled={isDeleting || !canSoftDelete}
             >
               {isDeleting ? "Eliminando..." : "Eliminar"}
             </Button>
@@ -394,12 +449,11 @@ export function TaskRowActions({
         </DialogContent>
       </Dialog>
 
-      <PermanentDeleteDialog
+      <WorkOrderPermanentDeleteDialog
         open={permanentDeleteOpen}
         onOpenChange={setPermanentDeleteOpen}
-        entityType="task"
-        entityId={task.id}
-        entityLabel={task.code || task.title}
+        taskId={task.id}
+        taskLabel={task.code || task.title}
         onSuccess={(message) => {
           removeTaskLocally(task.id)
           onFeedback({ variant: "success", message })

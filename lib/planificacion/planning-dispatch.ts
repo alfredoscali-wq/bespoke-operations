@@ -97,7 +97,9 @@ export function listReopenablePlanningTaskIds(
   date: string
 ): string[] {
   return filterConfirmedDispatchTasksForPlanning(tasks, { date })
-    .filter((task) => task.status === "asignada")
+    .filter(
+      (task) => task.status === "asignada" || task.status === "vencida"
+    )
     .map((task) => task.id)
 }
 

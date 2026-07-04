@@ -10,6 +10,9 @@ import {
   sortOperationalOrderScope,
 } from "@/lib/planificacion/planning-operational-order-core"
 import {
+  collectFrozenPlanningRouteOrders,
+} from "@/lib/planificacion/planning-dynamic"
+import {
   dedupeDispatchOrderUpdates,
   type DispatchOrderUpdate,
 } from "@/lib/planificacion/planning-dispatch-order"
@@ -196,6 +199,12 @@ export function buildOperationalOrderAssignmentUpdates(input: {
     crewId,
     crews
   )
+  const routeScope = filterOperationalOrderScope(
+    tasks,
+    dueDate,
+    crewId,
+    crews
+  )
 
   return buildOperationalOrderFieldUpdates({
     scope,
@@ -207,6 +216,7 @@ export function buildOperationalOrderAssignmentUpdates(input: {
       taskId: updateTaskId,
       executionOrder: order,
     }),
+    collectFrozenOrders: () => collectFrozenPlanningRouteOrders(routeScope),
   })
 }
 
@@ -217,6 +227,13 @@ export function buildOperationalOrderRemovalUpdates(input: {
   removedTaskId: string
   crews: CrewRef[]
 }): ExecutionOrderUpdate[] {
+  const routeScope = filterOperationalOrderScope(
+    input.tasks,
+    input.dueDate,
+    input.crewId,
+    input.crews
+  )
+
   return buildOperationalOrderRemovalFieldUpdates({
     ...input,
     readOrder: (task) => task.executionOrder ?? null,
@@ -225,6 +242,7 @@ export function buildOperationalOrderRemovalUpdates(input: {
       executionOrder: order,
     }),
     isClearable: (task) => isOperationalOrderReorderable(task),
+    collectFrozenOrders: () => collectFrozenPlanningRouteOrders(routeScope),
   })
 }
 

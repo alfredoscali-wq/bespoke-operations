@@ -145,6 +145,7 @@ export async function permanentDeleteTask(
   }
 
   const entityLabel = task.code?.trim() || task.title?.trim() || input.taskId
+  const administratorName = input.sessionUser.displayName?.trim() || "Administrador"
 
   await permanentDeleteTaskRecords(client, input.taskId)
 
@@ -154,10 +155,7 @@ export async function permanentDeleteTask(
     entityType: AUDIT_ENTITY_TYPES.TASK,
     entityId: input.taskId,
     entityLabel,
-    description: buildAuditDescription({
-      action: AUDIT_ACTIONS.TASK_DELETE_PERMANENT,
-      entityLabel,
-    }),
+    description: `Administrador ${administratorName} eliminó definitivamente la OT ${entityLabel}.`,
     performedBy: { kind: "user", sessionUser: input.sessionUser },
     metadata: {
       code: task.code,
