@@ -5,12 +5,19 @@ import { notFound } from "next/navigation"
 
 import { TaskAdminDetailView } from "@/components/tareas/task-admin-detail-view"
 import { useTasks } from "@/components/tareas/tasks-provider"
+import { ARCHIVE_WORK_ORDER_STATUS } from "@/lib/tasks/task-list-scope"
 
 type TaskDetailPageClientProps = {
   id: string
+  backHref?: string
+  requireArchived?: boolean
 }
 
-export function TaskDetailPageClient({ id }: TaskDetailPageClientProps) {
+export function TaskDetailPageClient({
+  id,
+  backHref,
+  requireArchived = false,
+}: TaskDetailPageClientProps) {
   const { getTask, getDetail, detailVersion } = useTasks()
 
   const task = useMemo(
@@ -26,5 +33,9 @@ export function TaskDetailPageClient({ id }: TaskDetailPageClientProps) {
     notFound()
   }
 
-  return <TaskAdminDetailView task={task} detail={detail} />
+  if (requireArchived && task.status !== ARCHIVE_WORK_ORDER_STATUS) {
+    notFound()
+  }
+
+  return <TaskAdminDetailView task={task} detail={detail} backHref={backHref} />
 }

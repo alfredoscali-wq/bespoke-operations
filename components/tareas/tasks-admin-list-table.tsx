@@ -18,6 +18,7 @@ import {
 import { resolveTaskCrewDisplayName } from "@/lib/tasks/crew-relation"
 import { formatTaskDate } from "@/lib/tasks/constants"
 import { getTaskStatusSurfaceClass } from "@/lib/tasks/status-visual"
+import { getWorkOrderServiceTypeLabel } from "@/lib/tasks/work-order"
 import { formatTaskAdminDisplayCode, isFieldServiceTask } from "@/lib/tasks/utils"
 import type { Task } from "@/lib/types/tasks"
 import { cn } from "@/lib/utils"
@@ -25,6 +26,9 @@ import { cn } from "@/lib/utils"
 type TasksAdminListTableProps = {
   tasks: Task[]
   hasActiveFilter?: boolean
+  readOnly?: boolean
+  showExtendedColumns?: boolean
+  detailBasePath?: string
 }
 
 function resolveTaskCustomerLabel(task: Task): string {
@@ -46,9 +50,23 @@ function resolveTaskAddressLabel(task: Task): string {
   return address || locality || "—"
 }
 
+function resolveTaskTypeLabel(task: Task): string {
+  return (
+    getWorkOrderServiceTypeLabel(task.serviceType) ??
+    (task.title?.trim() || "—")
+  )
+}
+
+function resolveTaskOperarioLabel(task: Task): string {
+  return task.supervisor?.trim() || "—"
+}
+
 export function TasksAdminListTable({
   tasks,
   hasActiveFilter = false,
+  readOnly = false,
+  showExtendedColumns = false,
+  detailBasePath = "/tareas",
 }: TasksAdminListTableProps) {
   const { getCrew } = useCrews()
   const [feedback, setFeedback] = useState<{
@@ -85,9 +103,12 @@ export function TasksAdminListTable({
               <TableHead className="w-[90px]">Código</TableHead>
               <TableHead>Cliente</TableHead>
               <TableHead>Dirección</TableHead>
-              <TableHead>Estado</TableHead>
+              {showExtendedColumns ? <TableHead>Tipo</TableHead> : null}
+              {!showExtendedColumns ? <TableHead>Estado</TableHead> : null}
               <TableHead>Cuadrilla</TableHead>
               <TableHead>Fecha</TableHead>
+              {showExtendedColumns ? <TableHead>Operario</TableHead> : null}
+              {showExtendedColumns ? <TableHead>Estado</TableHead> : null}
               <TableHead className="w-[120px] text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
@@ -99,7 +120,7 @@ export function TasksAdminListTable({
               >
                 <TableCell className="font-mono text-xs font-medium">
                   <Link
-                    href={`/tareas/${task.id}`}
+                    href={`${detailBasePath}/${task.id}`}
                     className="hover:text-primary"
                   >
                     {formatTaskAdminDisplayCode(task.code)}
@@ -111,17 +132,39 @@ export function TasksAdminListTable({
                 <TableCell className="max-w-[240px] truncate text-muted-foreground">
                   {resolveTaskAddressLabel(task)}
                 </TableCell>
-                <TableCell>
-                  <TaskStatusBadge status={task.status} />
-                </TableCell>
+                {showExtendedColumns ? (
+                  <TableCell className="max-w-[160px] truncate text-muted-foreground">
+                    {resolveTaskTypeLabel(task)}
+                  </TableCell>
+                ) : null}
+                {!showExtendedColumns ? (
+                  <TableCell>
+                    <TaskStatusBadge status={task.status} />
+                  </TableCell>
+                ) : null}
                 <TableCell className="max-w-[140px] truncate text-muted-foreground">
                   {resolveTaskCrewDisplayName(task, getCrew)}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {formatTaskDate(task.dueDate)}
                 </TableCell>
+                {showExtendedColumns ? (
+                  <TableCell className="max-w-[120px] truncate text-muted-foreground">
+                    {resolveTaskOperarioLabel(task)}
+                  </TableCell>
+                ) : null}
+                {showExtendedColumns ? (
+                  <TableCell>
+                    <TaskStatusBadge status={task.status} />
+                  </TableCell>
+                ) : null}
                 <TableCell className="text-right">
-                  <TaskAdminRowActions task={task} onFeedback={setFeedback} />
+                  <TaskAdminRowActions
+                    task={task}
+                    onFeedback={setFeedback}
+                    readOnly={readOnly}
+                    detailHref={`${detailBasePath}/${task.id}`}
+                  />
                 </TableCell>
               </TableRow>
             ))}

@@ -9,12 +9,16 @@ import type { Task, TaskDetail } from "@/lib/types/tasks"
 type TaskAdminDetailViewProps = {
   task: Task
   detail: TaskDetail
+  backHref?: string
 }
 
-export function TaskAdminDetailView({ task }: TaskAdminDetailViewProps) {
+export function TaskAdminDetailView({
+  task,
+  backHref,
+}: TaskAdminDetailViewProps) {
   return (
     <div className="space-y-6">
-      <TaskAdminDetailHeader task={task} />
+      <TaskAdminDetailHeader task={task} backHref={backHref} />
 
       <TaskAdminWorkflowPanel task={task} />
 

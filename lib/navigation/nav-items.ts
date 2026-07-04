@@ -1,4 +1,5 @@
 import {
+  Archive,
   BarChart3,
   Building2,
   CalendarClock,
@@ -63,6 +64,15 @@ export const workOrdersNavItem: NavItem = {
   pageTitle: "Órdenes de Trabajo",
   description:
     "Crear, consultar y administrar las órdenes de trabajo.",
+}
+
+export const archivoOtNavItem: NavItem = {
+  title: "Archivo OT",
+  href: "/operations/archivo-ot",
+  icon: Archive,
+  pageTitle: "Archivo OT",
+  description:
+    "Histórico de órdenes de trabajo finalizadas en solo lectura.",
 }
 
 export const customersNavItem: NavItem = {
@@ -202,8 +212,12 @@ export const newsNavItem: NavItem = {
 
 export const coreOperationsNavItems: NavItem[] = [
   calendarNavItem,
+  planificacionNavItem,
   projectsNavItem,
   workOrdersNavItem,
+  archivoOtNavItem,
+  evidenceNavItem,
+  materialsNavItem,
 ]
 
 export const customersNavItems: NavItem[] = [customersNavItem]

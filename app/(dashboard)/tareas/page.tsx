@@ -18,7 +18,7 @@ function TasksPageFallback() {
 export default function TareasPage() {
   return (
     <Suspense fallback={<TasksPageFallback />}>
-      <TasksModule />
+      <TasksModule mode="active" />
     </Suspense>
   )
 }

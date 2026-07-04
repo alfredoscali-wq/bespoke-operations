@@ -79,7 +79,7 @@ export const APP_MODULE_DEFINITIONS: AppModuleDefinition[] = [
     label: "Órdenes de Trabajo",
     navItem: workOrdersNavItem,
     groupId: "operations",
-    pathPrefixes: ["/tareas"],
+    pathPrefixes: ["/tareas", "/operations/archivo-ot"],
   },
   {
     key: "planificacion",

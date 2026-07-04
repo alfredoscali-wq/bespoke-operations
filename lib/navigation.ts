@@ -25,6 +25,7 @@ export {
   systemNavItems,
   usersNavItem,
   workOrdersNavItem,
+  archivoOtNavItem,
 } from "@/lib/navigation/nav-items"
 
 import type { NavGroup, NavItem } from "@/lib/navigation/nav-types"

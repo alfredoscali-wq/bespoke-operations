@@ -11,9 +11,13 @@ import { Button } from "@/components/ui/button"
 
 type TaskAdminDetailHeaderProps = {
   task: Task
+  backHref?: string
 }
 
-export function TaskAdminDetailHeader({ task }: TaskAdminDetailHeaderProps) {
+export function TaskAdminDetailHeader({
+  task,
+  backHref = "/tareas",
+}: TaskAdminDetailHeaderProps) {
   return (
     <div className="space-y-3">
       <Button
@@ -22,7 +26,7 @@ export function TaskAdminDetailHeader({ task }: TaskAdminDetailHeaderProps) {
         className="-ml-2 h-8 gap-1.5 text-muted-foreground"
         asChild
       >
-        <Link href="/tareas">
+        <Link href={backHref}>
           <ArrowLeft className="size-4" />
           Volver
         </Link>

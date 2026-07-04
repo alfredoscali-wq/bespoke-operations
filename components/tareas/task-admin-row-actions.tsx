@@ -42,6 +42,8 @@ type TaskAdminRowActionsProps = {
     variant: "success" | "error"
     message: string
   }) => void
+  readOnly?: boolean
+  detailHref?: string
 }
 
 function AdminRowActionButton({
@@ -96,6 +98,8 @@ function AdminRowActionButton({
 export function TaskAdminRowActions({
   task,
   onFeedback,
+  readOnly = false,
+  detailHref,
 }: TaskAdminRowActionsProps) {
   const { editTask, deleteTask, removeTaskLocally, tasks } = useTasks()
   const isSystemAdministrator = useIsSystemAdministrator()
@@ -104,6 +108,27 @@ export function TaskAdminRowActions({
   const [permanentDeleteOpen, setPermanentDeleteOpen] = useState(false)
   const [editBlockedOpen, setEditBlockedOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+
+  const viewHref = detailHref ?? `/tareas/${task.id}`
+
+  if (readOnly) {
+    return (
+      <div className="flex items-center justify-end gap-0.5">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-8"
+          asChild
+          title="Ver detalle"
+        >
+          <Link href={viewHref}>
+            <Eye className="size-4" />
+            <span className="sr-only">Ver detalle</span>
+          </Link>
+        </Button>
+      </div>
+    )
+  }
 
   const canModify = canAdminModifyWorkOrder(task.status)
   const canDelete = canSoftDeleteWorkOrder(task.status)
@@ -174,7 +199,7 @@ export function TaskAdminRowActions({
           asChild
           title="Ver detalle"
         >
-          <Link href={`/tareas/${task.id}`}>
+          <Link href={viewHref}>
             <Eye className="size-4" />
             <span className="sr-only">Ver detalle</span>
           </Link>

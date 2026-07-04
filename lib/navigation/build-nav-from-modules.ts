@@ -3,6 +3,7 @@ import {
   type AppModuleKey,
   type ModuleVisibilityMap,
 } from "@/lib/roles/app-modules"
+import { archivoOtNavItem } from "@/lib/navigation/nav-items"
 import type { NavGroup, NavItem } from "@/lib/navigation/nav-types"
 
 const GROUP_ORDER: Array<{
@@ -36,13 +37,24 @@ export function buildNavGroupsFromModuleVisibility(
 
     if (existing) {
       existing.items.push(definition.navItem)
+
+      if (definition.key === "work_orders") {
+        existing.items.push(archivoOtNavItem)
+      }
+
       continue
+    }
+
+    const items = [definition.navItem]
+
+    if (definition.key === "work_orders") {
+      items.push(archivoOtNavItem)
     }
 
     groups.set(groupKey, {
       id: groupKey,
       label: definition.groupLabel,
-      items: [definition.navItem],
+      items,
     })
   }
 
