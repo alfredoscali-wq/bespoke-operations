@@ -1,4 +1,4 @@
-import type { Crew, CrewMember, CrewStatus } from "@/lib/types/crews"
+import type { Crew, CrewStatus } from "@/lib/types/crews"
 
 export type CreateCrewPayload = {
   companyId?: string

@@ -23,7 +23,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  let response = NextResponse.next({ request })
+  const response = NextResponse.next({ request })
 
   const supabase = createMiddlewareSupabaseClient(request, response)
 

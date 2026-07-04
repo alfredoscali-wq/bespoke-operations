@@ -120,7 +120,7 @@ export function filterOperationalOrderScope(
   tasks: Task[],
   dueDate: string,
   crewId: string | null | undefined,
-  crews: CrewRef[] = []
+  _crews: CrewRef[] = []
 ): Task[] {
   if (!crewId) {
     return []
@@ -240,7 +240,6 @@ export function buildOperationalOrderFieldUpdates<T extends { taskId: string }>(
     crews,
     readOrder,
     writeUpdate,
-    collectFrozenOrders = collectFrozenOperationalOrdersForScope,
   } = input
   const reorderable = scope.filter(isOperationalOrderReorderable)
 
@@ -304,7 +303,6 @@ export function buildOperationalOrderRemovalFieldUpdates<T extends { taskId: str
     readOrder,
     writeUpdate,
     isClearable,
-    collectFrozenOrders = collectFrozenOperationalOrdersForScope,
   } = input
   const scope = filterPlanningExecutionOrderScope(tasks, dueDate, crewId, crews)
   const remaining = scope.filter(

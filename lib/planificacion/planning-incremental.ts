@@ -52,7 +52,6 @@ function groupConfirmingTasksByCrew(
   confirmingTaskIds: string[],
   crews: CrewRef[] = []
 ): PlanningConfirmGroup[] {
-  const idSet = new Set(confirmingTaskIds)
   const groups = new Map<string, PlanningConfirmGroup>()
 
   for (const taskId of confirmingTaskIds) {

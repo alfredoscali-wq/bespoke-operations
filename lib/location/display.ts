@@ -1,4 +1,4 @@
-import { buildGoogleMapsUrl, hasCoordinates } from "@/lib/gps/coordinates"
+import { buildGoogleMapsUrl, hasCoordinates } from "@/lib/gps"
 import { formatCoordinatePair } from "@/lib/location/coordinates"
 
 export function hasResolvedCoordinates(

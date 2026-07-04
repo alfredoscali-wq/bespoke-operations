@@ -1,6 +1,5 @@
 import type { CustomerImportStatus } from "@/lib/customers/customer-import/types"
 import {
-  isValidEmail,
   normalizeComparisonKey,
   normalizeDni,
   normalizeEmail,

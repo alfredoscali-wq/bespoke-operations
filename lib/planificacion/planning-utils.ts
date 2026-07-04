@@ -6,7 +6,7 @@ import {
   isWorkOrderTask,
   type WorkOrderShift,
 } from "@/lib/tasks/work-order"
-import { hasCoordinates } from "@/lib/gps/coordinates"
+import { hasCoordinates } from "@/lib/gps"
 import type { Crew } from "@/lib/types/crews"
 import type { Task } from "@/lib/types/tasks"
 

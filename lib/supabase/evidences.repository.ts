@@ -7,11 +7,8 @@ import {
   fetchEvidences,
   fetchEvidencesByProjectId,
   fetchEvidencesByTaskId,
-  getEvidenceSignedUrl,
   insertEvidence,
   patchEvidence,
-  removeEvidenceFile,
-  uploadEvidenceFile,
   uploadEvidenceWithFile as uploadEvidenceWithFileQuery,
   type SupabaseEvidencesClient,
 } from "@/lib/supabase/evidences.queries"

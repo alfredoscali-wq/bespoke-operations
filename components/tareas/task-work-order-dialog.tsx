@@ -794,7 +794,7 @@ export function TaskWorkOrderDialog({
   }
 
   async function resolveCustomerIdForSave(): Promise<string | null> {
-    let customerId = form.customerId.trim()
+    const customerId = form.customerId.trim()
 
     if (isNewInstallationWorkOrder(form.serviceType)) {
       if (isEditMode) {

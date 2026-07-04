@@ -13,7 +13,7 @@ import type {
   ProjectHistoryEventType,
   ProjectStatus,
 } from "@/lib/types/projects"
-import type { Task, TaskStatus } from "@/lib/types/tasks"
+import type { Task } from "@/lib/types/tasks"
 import {
   ACTIVE_TASK_STATUSES,
   FINAL_TASK_STATUSES,

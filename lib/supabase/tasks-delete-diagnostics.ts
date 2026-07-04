@@ -1,5 +1,3 @@
-import type { SupabaseTasksClient } from "@/lib/supabase/tasks.queries"
-
 const DIAG_PREFIX = "[TASKS DELETE DIAG]"
 
 export type TaskDeleteSupabaseError = {

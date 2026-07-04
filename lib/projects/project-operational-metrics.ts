@@ -85,7 +85,6 @@ function calculateMetricsFromProjectTasks(
   projectTasks: Task[],
   referenceDate = new Date()
 ): ProjectOperationalMetrics {
-  const today = toDateOnlyString(referenceDate)
   let totalTasks = 0
   let completedTasks = 0
   let pendingTasks = 0

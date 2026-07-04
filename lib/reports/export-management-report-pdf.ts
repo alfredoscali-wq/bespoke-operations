@@ -10,7 +10,6 @@ import { jsPDF } from "jspdf"
 
 export const MANAGEMENT_REPORT_PDF_FILE_NAME = "Reporte Gerencial"
 
-const PDF_MIME = "application/pdf"
 const PAGE_MARGIN = 14
 const LINE_HEIGHT = 7
 

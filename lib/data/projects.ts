@@ -6,7 +6,7 @@ import type {
   ProjectHistoryEventType,
   ProjectTask,
 } from "@/lib/types/projects"
-import type { Task, TaskStatus } from "@/lib/types/tasks"
+import type { TaskStatus } from "@/lib/types/tasks"
 import { getEvidenceByProjectId, mockEvidence } from "@/lib/data/evidence"
 import { mockTasks } from "@/lib/data/tasks"
 
@@ -412,77 +412,6 @@ function createEmptyDetail(project: Project): ProjectDetail {
       labor: 0,
       equipment: 0,
       vehicles: 0,
-    },
-  }
-}
-
-function createDefaultDetail(project: Project): ProjectDetail {
-  const stored = projectDetails[project.id]
-  if (stored) return stored
-
-  const today = new Date().toISOString().slice(0, 10)
-  const fallbackDueDate = project.endDate ?? today
-  const fallbackStartDate = project.startDate ?? today
-
-  return {
-    stats: {
-      activeTasks: Math.max(1, Math.round((100 - project.progress) / 15)),
-      completedTasks: Math.round(project.progress / 4),
-      evidenceFiles: Math.round(project.progress * 1.2),
-      progress: project.progress,
-    },
-    tasks: [
-      {
-        id: "t-default-1",
-        title: "Levantamiento inicial de sitio",
-        assignee: "Cuadrilla asignada",
-        dueDate: fallbackDueDate,
-        priority: "media",
-        status: project.progress > 50 ? "completada" : "en-curso",
-      },
-      {
-        id: "t-default-2",
-        title: "Documentación de avance semanal",
-        assignee: project.supervisor,
-        dueDate: fallbackDueDate,
-        priority: "baja",
-        status: "pendiente",
-      },
-    ],
-    evidence: [
-      {
-        id: "e-default-1",
-        title: "Evidencia de inicio de obra",
-        type: "photo",
-        uploadedBy: project.supervisor,
-        uploadedAt: fallbackStartDate,
-        category: "General",
-      },
-    ],
-    documents: [
-      {
-        id: "d-default-1",
-        name: `Expediente técnico — ${project.code}`,
-        type: "pdf",
-        size: "2.4 MB",
-        uploadedAt: fallbackStartDate,
-      },
-    ],
-    history: [
-      mockHistoryEvent({
-        id: "h-default-1",
-        eventType: "created",
-        title: "Obra registrada",
-        description: project.description,
-        user: project.supervisor,
-        timestamp: `${fallbackStartDate}T09:00:00`,
-      }),
-    ],
-    costs: {
-      materials: Math.round(project.progress * 25000),
-      labor: Math.round(project.progress * 15000),
-      equipment: Math.round(project.progress * 8000),
-      vehicles: Math.round(project.progress * 3000),
     },
   }
 }

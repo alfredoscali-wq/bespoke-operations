@@ -1,4 +1,4 @@
-import { hasCoordinates } from "@/lib/gps/coordinates"
+import { hasCoordinates } from "@/lib/gps"
 import { resolveLocationViaApi } from "@/lib/location/client/resolve-via-api"
 import type { ResolvedLocation } from "@/lib/location/types"
 import type {

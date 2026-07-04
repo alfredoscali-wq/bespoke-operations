@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 
-import { ClientesSectionNav } from "@/components/clientes/clientes-section-nav"
 import { MigrationReviewModule } from "@/components/clientes/migration/migration-review-module"
 import { useAuth } from "@/components/auth/auth-provider"
 import { useIsSystemAdministrator } from "@/lib/auth/use-is-system-administrator"

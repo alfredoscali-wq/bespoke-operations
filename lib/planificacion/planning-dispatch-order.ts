@@ -2,9 +2,7 @@ import {
   buildOperationalOrderFieldUpdates,
   filterOperationalOrderScope,
   resolvePlanningExecutionOrder,
-  sortOperationalOrderScope,
 } from "@/lib/planificacion/planning-operational-order-core"
-import { resolveTaskCrewId } from "@/lib/tasks/crew-relation"
 import type { Crew } from "@/lib/types/crews"
 import type { Task } from "@/lib/types/tasks"
 

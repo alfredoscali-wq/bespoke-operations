@@ -68,8 +68,7 @@ async function countCustomersByStatus(
 }
 
 function buildAbsentOperarioLookup(
-  availabilities: EmployeeAvailability[],
-  range: { startDate: string; endDate: string }
+  availabilities: EmployeeAvailability[]
 ): (date: string) => Set<string> {
   return (date: string) => {
     const absent = new Set<string>()
@@ -143,10 +142,7 @@ export function buildWeeklyAutomaticReport(
   const absentOperarioIds = collectAbsentOperarioIdsForWeek({
     crews,
     range: informedWeek,
-    isAbsentOnDate: buildAbsentOperarioLookup(
-      source.availabilities,
-      informedWeek
-    ),
+    isAbsentOnDate: buildAbsentOperarioLookup(source.availabilities),
   })
 
   const summary = buildWeeklyExecutiveSummary({

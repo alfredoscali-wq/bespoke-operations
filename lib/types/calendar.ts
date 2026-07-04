@@ -1,6 +1,6 @@
 import type { AvailabilityType } from "@/lib/types/availability"
 import type { CrewAvailabilityStatus } from "@/lib/types/crews"
-import type { Task, TaskPriority, TaskStatus } from "@/lib/types/tasks"
+import type { TaskPriority, TaskStatus } from "@/lib/types/tasks"
 
 export type CalendarEventType = "TASK" | "AVAILABILITY" | "CREW_STATUS"
 

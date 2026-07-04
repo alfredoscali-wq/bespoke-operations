@@ -20,10 +20,7 @@ import {
   uploadWeeklyReportPdf,
 } from "@/lib/reports/automatic/services/report-storage"
 import { loadWeeklyAutomaticReport } from "@/lib/reports/automatic/services/build-weekly-report"
-import {
-  resendStoredWeeklyReport,
-  sendLatestStoredWeeklyReport,
-} from "@/lib/reports/automatic/services/resend-stored-report"
+import { resendStoredWeeklyReport } from "@/lib/reports/automatic/services/resend-stored-report"
 import { getLatestAutomaticReportHistory } from "@/lib/reports/automatic/services/report-history"
 import type {
   WeeklyReportJobResult,

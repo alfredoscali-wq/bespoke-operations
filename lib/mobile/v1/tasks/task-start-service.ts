@@ -10,7 +10,6 @@ import { resolveMobileWorkTeam } from "@/lib/mobile/v1/shifts/resolve-work-team"
 import {
   calculateDistanceMeters,
   isWithinTaskStartRadius,
-  TASK_START_MAX_DISTANCE_METERS,
 } from "@/lib/mobile/v1/tasks/geo-utils"
 import type {
   MobileTaskStartRequest,

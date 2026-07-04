@@ -351,7 +351,7 @@ export async function queryAuditEntityTimeline(
 ): Promise<AuditLogEntry[]> {
   const limit = Math.min(Math.max(input.limit ?? 100, 1), 200)
 
-  let query = client
+  const query = client
     .from("system_audit_log")
     .select("*")
     .eq("entity_type", input.entityType)

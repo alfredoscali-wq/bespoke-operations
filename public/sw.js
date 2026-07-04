@@ -1,4 +1,4 @@
-/* eslint-disable no-restricted-globals */
+ 
 /**
  * Bespoke Operations — Service Worker (PWA 1.0)
  * Cache: solo recursos estáticos del mismo origen.

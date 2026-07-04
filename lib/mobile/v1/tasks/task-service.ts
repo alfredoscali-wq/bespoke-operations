@@ -5,7 +5,6 @@ import { fetchTodayAgendaTasks } from "@/lib/mobile/v1/agenda/agenda-queries"
 import { sortAgendaTasks } from "@/lib/mobile/v1/agenda/sort-agenda-tasks"
 import type { MobileAuthContext } from "@/lib/mobile/v1/auth/mobile-auth-context"
 import { fetchOperationalChecklistForServiceType } from "@/lib/mobile/v1/checklist/checklist-queries"
-import type { MobileOperationalChecklistItem } from "@/lib/mobile/v1/checklist/types"
 import {
   mergeChecklistWithResponses,
   readOperationalChecklistResponses,
@@ -71,18 +70,6 @@ function resolveContactPerson(task: Task): string | null {
   }
 
   return task.customerCompany?.trim() || null
-}
-
-function mapOperationalChecklist(
-  items: MobileOperationalChecklistItem[]
-): MobileTaskChecklistItem[] {
-  return items.map((item) => ({
-    id: item.id,
-    label: item.title,
-    fieldType: item.fieldType,
-    required: item.required,
-    sortOrder: item.sortOrder,
-  }))
 }
 
 function mapEvidenceRequirements(task: Task): MobileTaskEvidenceRequirement[] {

@@ -4,7 +4,6 @@ import type { Crew } from "@/lib/types/crews"
 import type { Task } from "@/lib/types/tasks"
 
 import {
-  filterPlanningOperationalViewTasks,
   isTaskInDynamicPlanningPool,
   isTaskReopenableForPlanning,
   listReopenableDynamicPlanningTaskIdsForCrew,
