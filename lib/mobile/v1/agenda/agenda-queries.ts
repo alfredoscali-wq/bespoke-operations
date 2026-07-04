@@ -2,9 +2,13 @@ import "server-only"
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 
+import { toLocalDateOnly } from "@/lib/dates/date-only"
+import {
+  FIELD_AGENT_AGENDA_QUERY_STATUSES,
+  isFieldAgentAgendaTaskVisible,
+} from "@/lib/mobile/v1/agenda/agenda-task-visibility"
 import { mapTaskRowToTask } from "@/lib/supabase/tasks.mapper"
 import { taskMatchesCrewId } from "@/lib/tasks/crew-relation"
-import { FIELD_AGENT_VISIBLE_TASK_STATUSES } from "@/lib/mobile/v1/agenda/field-agent-task-statuses"
 import type { Task } from "@/lib/types/tasks"
 
 export async function fetchTodayAgendaTasks(
@@ -12,14 +16,13 @@ export async function fetchTodayAgendaTasks(
   companyId: string,
   workTeamId: string,
   workTeamName: string,
-  dueDate: string
+  referenceDate: string = toLocalDateOnly()
 ): Promise<Task[]> {
   const { data, error } = await client
     .from("tasks")
     .select("*")
     .eq("company_id", companyId)
-    .eq("due_date", dueDate)
-    .in("status", [...FIELD_AGENT_VISIBLE_TASK_STATUSES])
+    .in("status", [...FIELD_AGENT_AGENDA_QUERY_STATUSES])
     .is("deleted_at", null)
 
   if (error) {
@@ -30,5 +33,9 @@ export async function fetchTodayAgendaTasks(
 
   return (data ?? [])
     .map((row) => mapTaskRowToTask(row))
-    .filter((task) => taskMatchesCrewId(task, crewRef))
+    .filter(
+      (task) =>
+        taskMatchesCrewId(task, crewRef) &&
+        isFieldAgentAgendaTaskVisible(task, referenceDate)
+    )
 }

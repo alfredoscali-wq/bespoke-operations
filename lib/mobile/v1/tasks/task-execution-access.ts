@@ -1,6 +1,6 @@
 import "server-only"
 
-import { toLocalDateOnly } from "@/lib/dates/date-only"
+import { isFieldAgentAgendaTaskVisible } from "@/lib/mobile/v1/agenda/agenda-task-visibility"
 import type { MobileAuthContext } from "@/lib/mobile/v1/auth/mobile-auth-context"
 import { MobileApiError } from "@/lib/mobile/v1/errors"
 import { resolveMobileWorkTeam } from "@/lib/mobile/v1/shifts/resolve-work-team"
@@ -86,7 +86,7 @@ export async function assertMobileTaskExecutionAccess(
     name: resolved.workTeamName,
   }
 
-  if (!taskMatchesCrewId(task, crewRef) || task.dueDate !== toLocalDateOnly()) {
+  if (!taskMatchesCrewId(task, crewRef) || !isFieldAgentAgendaTaskVisible(task)) {
     throw new MobileApiError(
       "TASK_NOT_FOUND",
       "Orden de trabajo no encontrada.",

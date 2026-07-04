@@ -2,6 +2,7 @@ import "server-only"
 
 import { toLocalDateOnly } from "@/lib/dates/date-only"
 import { fetchTodayAgendaTasks } from "@/lib/mobile/v1/agenda/agenda-queries"
+import { isFieldAgentAgendaTaskVisible } from "@/lib/mobile/v1/agenda/agenda-task-visibility"
 import { sortAgendaTasks } from "@/lib/mobile/v1/agenda/sort-agenda-tasks"
 import type { MobileAuthContext } from "@/lib/mobile/v1/auth/mobile-auth-context"
 import { fetchOperationalChecklistForServiceType } from "@/lib/mobile/v1/checklist/checklist-queries"
@@ -21,14 +22,6 @@ import {
   formatContractedPlanLabel,
   getTaskTechnologyLabel,
 } from "@/lib/tasks/commercial-plan"
-import type { TaskStatus } from "@/lib/types/tasks"
-
-const MOBILE_TASK_DETAIL_STATUSES: TaskStatus[] = [
-  "asignada",
-  "en-curso",
-  "pendiente-cierre",
-  "incidencia",
-]
 import { taskMatchesCrewId } from "@/lib/tasks/crew-relation"
 import { resolveTaskOperationalTitle } from "@/lib/tasks/work-order"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -174,10 +167,7 @@ export async function getMobileTaskDetail(
 
   const today = toLocalDateOnly()
 
-  if (
-    task.dueDate !== today ||
-    !MOBILE_TASK_DETAIL_STATUSES.includes(task.status)
-  ) {
+  if (!isFieldAgentAgendaTaskVisible(task, today)) {
     throw new MobileApiError(
       "TASK_NOT_FOUND",
       "Orden de trabajo no encontrada.",

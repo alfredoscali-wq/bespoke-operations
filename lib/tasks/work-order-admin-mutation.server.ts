@@ -33,6 +33,15 @@ function assertAdminWorkOrderMutable(status: Task["status"]): void {
   }
 }
 
+function assertWritableAdminRole(sessionUser: SessionUser): void {
+  if (sessionUser.systemRole === "operario") {
+    throw new WorkOrderAdminMutationError(
+      "Su perfil no puede modificar órdenes de trabajo desde administración.",
+      403
+    )
+  }
+}
+
 async function fetchTaskForAdminMutation(
   client: SupabaseTasksClient,
   taskId: string
@@ -53,8 +62,9 @@ export async function updateWorkOrderFromAdmin(
   client: SupabaseTasksClient,
   taskId: string,
   payload: UpdateTaskPayload,
-  _sessionUser: SessionUser
+  sessionUser: SessionUser
 ): Promise<Task> {
+  assertWritableAdminRole(sessionUser)
   const existing = await fetchTaskForAdminMutation(client, taskId)
   assertAdminWorkOrderMutable(existing.status)
 
@@ -75,8 +85,9 @@ export async function updateWorkOrderFromAdmin(
 export async function deleteWorkOrderFromAdmin(
   client: SupabaseTasksClient,
   taskId: string,
-  _sessionUser: SessionUser
+  sessionUser: SessionUser
 ): Promise<void> {
+  assertWritableAdminRole(sessionUser)
   const existing = await fetchTaskForAdminMutation(client, taskId)
   assertAdminWorkOrderMutable(existing.status)
 

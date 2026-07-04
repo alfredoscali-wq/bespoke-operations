@@ -1,4 +1,4 @@
-import { taskMatchesCrewId } from "@/lib/tasks/crew-relation"
+import { taskMatchesCrewId, resolveTaskCrewId } from "@/lib/tasks/crew-relation"
 import { isWorkOrderTask } from "@/lib/tasks/work-order"
 import type { Crew } from "@/lib/types/crews"
 import type { Task } from "@/lib/types/tasks"
@@ -116,6 +116,17 @@ export function isJourneyFullyPlanned(
   date: string,
   activeCrews: Crew[]
 ): boolean {
+  const sessionTasks = filterPlanningSessionTasks(tasks, { date })
+  const hasUnassignedProgramada = sessionTasks.some(
+    (task) =>
+      task.status === "programada" &&
+      !resolveTaskCrewId(task, activeCrews)
+  )
+
+  if (hasUnassignedProgramada) {
+    return false
+  }
+
   const crewsWithTasks = listActiveCrewsWithPlanningTasks(tasks, date, activeCrews)
 
   if (crewsWithTasks.length === 0) {

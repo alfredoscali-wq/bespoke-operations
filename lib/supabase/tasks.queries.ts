@@ -40,11 +40,18 @@ export function mapSupabaseTaskError(error: {
   details?: string | null
   hint?: string | null
 }) {
+  if (error.code === "23514" || error.message.includes("TASK_STATUS_")) {
+    return {
+      code: "WORKFLOW" as const,
+      message:
+        error.message ||
+        "Transición de estado no permitida para la orden de trabajo.",
+    }
+  }
+
   if (error.code === "23505") {
     const detail = `${error.message} ${error.details ?? ""} ${error.hint ?? ""}`
-
     if (
-      detail.includes("execution_order") ||
       detail.includes("tasks_execution_order_crew_date_unique")
     ) {
       return {

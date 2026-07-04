@@ -456,7 +456,7 @@ function PlanningModuleContent() {
 
         const confirmedAt = new Date().toISOString()
 
-        const result = await confirmPlanningTasks(readiness.taskIds)
+        const result = await confirmPlanningTasks(readiness.taskIds, activeCrews)
 
 
 
@@ -566,7 +566,7 @@ function PlanningModuleContent() {
 
       try {
 
-        const result = await reopenPlanningTasks(reopenableIds)
+        const result = await reopenPlanningTasks(reopenableIds, activeCrews)
 
 
 

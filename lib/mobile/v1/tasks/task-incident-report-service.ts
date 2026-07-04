@@ -60,6 +60,10 @@ export async function reportMobileTaskIncident(
 
   const { to } = getTransitionForAction("report-incident")
   const reportedAt = new Date().toISOString()
+  const existingMetadata =
+    context.task.taskMetadata && typeof context.task.taskMetadata === "object"
+      ? context.task.taskMetadata
+      : {}
 
   const { data, error } = await context.admin
     .from("tasks")
@@ -69,6 +73,12 @@ export async function reportMobileTaskIncident(
       incident_observation: observation,
       incident_reported_at: reportedAt,
       incident_reported_by: context.auth.displayName,
+      task_metadata: {
+        ...existingMetadata,
+        ...(request.photoIds && request.photoIds.length > 0
+          ? { incidentPhotoIds: request.photoIds }
+          : {}),
+      },
     })
     .eq("id", context.task.id)
     .eq("company_id", context.auth.companyId)

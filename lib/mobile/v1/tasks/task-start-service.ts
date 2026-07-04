@@ -1,7 +1,7 @@
 import "server-only"
 
 import { recordTaskMobileStartAudit } from "@/lib/audit/tasks-audit.server"
-import { toLocalDateOnly } from "@/lib/dates/date-only"
+import { compareDateOnly, toLocalDateOnly } from "@/lib/dates/date-only"
 import type { MobileAuthContext } from "@/lib/mobile/v1/auth/mobile-auth-context"
 import { MobileApiError } from "@/lib/mobile/v1/errors"
 import { fetchOperationalChecklistForServiceType } from "@/lib/mobile/v1/checklist/checklist-queries"
@@ -134,7 +134,7 @@ export async function startMobileTask(
 
   const today = toLocalDateOnly()
 
-  if (task.dueDate !== today) {
+  if (compareDateOnly(task.dueDate, today) > 0) {
     throw new MobileApiError(
       "TASK_NOT_FOUND",
       "Orden de trabajo no encontrada.",

@@ -81,7 +81,7 @@ export function TaskRowActions({
     tasks,
   } = useTasks()
   const { sessionUser } = useAuth()
-  const { getCrew } = useCrews()
+  const { getCrew, crews } = useCrews()
   const isSystemAdministrator = useIsSystemAdministrator()
   const canAssignCrew = canAssignWorkOrderCrew(sessionUser?.systemRole)
   const isWorkOrder = isWorkOrderTask(task)
@@ -234,7 +234,7 @@ export function TaskRowActions({
 
   async function handleReopenPlanning() {
     setIsReopeningPlanning(true)
-    const result = await reopenPlanningTasks([task.id])
+    const result = await reopenPlanningTasks([task.id], crews)
     setIsReopeningPlanning(false)
 
     if (!result.success) {

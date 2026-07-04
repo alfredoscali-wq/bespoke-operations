@@ -1,12 +1,11 @@
 import "server-only"
 
-import { toLocalDateOnly } from "@/lib/dates/date-only"
 import { fetchIncidentTypesForServiceType } from "@/lib/mobile/v1/incidents/incident-type-queries"
+import { isFieldAgentAgendaTaskVisible } from "@/lib/mobile/v1/agenda/agenda-task-visibility"
 import type { MobileAuthContext } from "@/lib/mobile/v1/auth/mobile-auth-context"
 import { MobileApiError } from "@/lib/mobile/v1/errors"
 import { resolveMobileWorkTeam } from "@/lib/mobile/v1/shifts/resolve-work-team"
 import type { MobileTaskIncidentTypesResponse } from "@/lib/mobile/v1/tasks/types"
-import { isFieldAgentVisibleTaskStatus } from "@/lib/mobile/v1/agenda/field-agent-task-statuses"
 import { taskMatchesCrewId } from "@/lib/tasks/crew-relation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { mapTaskRowToTask } from "@/lib/supabase/tasks.mapper"
@@ -62,8 +61,7 @@ export async function getMobileTaskIncidentTypes(
 
   if (
     !taskMatchesCrewId(task, crewRef) ||
-    task.dueDate !== toLocalDateOnly() ||
-    !isFieldAgentVisibleTaskStatus(task.status)
+    !isFieldAgentAgendaTaskVisible(task)
   ) {
     throw new MobileApiError(
       "TASK_NOT_FOUND",

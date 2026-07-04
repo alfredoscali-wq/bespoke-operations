@@ -74,6 +74,7 @@ export type TasksRepositoryErrorCode =
   | "DUPLICATE_EXECUTION_ORDER"
   | "DUPLICATE_DISPATCH_ORDER"
   | "VALIDATION"
+  | "WORKFLOW"
   | "ACTIVE_TASK"
   | "CONFLICT"
   | "UNKNOWN"

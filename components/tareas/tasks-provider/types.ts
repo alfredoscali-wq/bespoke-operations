@@ -50,8 +50,14 @@ export type TasksContextValue = {
       actor?: string
     }
   ) => Promise<TaskMutationResult>
-  confirmPlanningTasks: (ids: string[]) => Promise<TaskMutationResult>
-  reopenPlanningTasks: (ids: string[]) => Promise<TaskMutationResult>
+  confirmPlanningTasks: (
+    ids: string[],
+    crews?: Pick<import("@/lib/types/crews").Crew, "id" | "name">[]
+  ) => Promise<TaskMutationResult>
+  reopenPlanningTasks: (
+    ids: string[],
+    crews?: Pick<import("@/lib/types/crews").Crew, "id" | "name">[]
+  ) => Promise<TaskMutationResult>
   applyExecutionOrderUpdates: (
     updates: ExecutionOrderUpdate[]
   ) => Promise<TaskMutationResult>

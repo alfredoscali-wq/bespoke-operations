@@ -3,10 +3,46 @@
 import { useCallback } from "react"
 
 import { buildPlanningConfirmDispatchUpdates } from "@/lib/planificacion/planning-incremental"
+import { filterOperationalOrderScope } from "@/lib/planificacion/planning-operational-order-core"
+import { resolveTaskCrewId } from "@/lib/tasks/crew-relation"
 import { canPerformTaskAction } from "@/lib/tasks/task-status-workflow"
+import type { Crew } from "@/lib/types/crews"
 import type { Task } from "@/lib/types/tasks"
 
 import type { TaskMutationResult } from "../types"
+
+type CrewRef = Pick<Crew, "id" | "name">
+
+function resolveReopenExecutionOrder(
+  task: Task,
+  tasks: Task[],
+  crews: CrewRef[]
+): number | null {
+  const crewId = resolveTaskCrewId(task, crews)
+  if (!crewId) {
+    return task.dispatchOrder ?? null
+  }
+
+  const scope = filterOperationalOrderScope(tasks, task.dueDate, crewId, crews)
+  const taken = new Set(
+    scope
+      .filter((item) => item.id !== task.id && item.status === "programada")
+      .map((item) => item.executionOrder)
+      .filter((order): order is number => order != null && order > 0)
+  )
+
+  const preferred = task.dispatchOrder ?? null
+  if (preferred != null && !taken.has(preferred)) {
+    return preferred
+  }
+
+  let candidate = 1
+  while (taken.has(candidate)) {
+    candidate += 1
+  }
+
+  return candidate
+}
 
 type UseTasksPlanningParams = {
   tasks: Task[]
@@ -28,7 +64,10 @@ export function useTasksPlanning({
   updateTaskFields,
 }: UseTasksPlanningParams) {
   const confirmPlanningTasks = useCallback(
-    async (ids: string[]): Promise<TaskMutationResult> => {
+    async (
+      ids: string[],
+      crews: CrewRef[] = []
+    ): Promise<TaskMutationResult> => {
       if (ids.length === 0) {
         return {
           success: false,
@@ -51,6 +90,7 @@ export function useTasksPlanning({
       const dispatchUpdates = buildPlanningConfirmDispatchUpdates({
         tasks,
         confirmingTaskIds: ids,
+        crews,
       })
 
       if (dispatchUpdates.length !== ids.length) {
@@ -86,7 +126,10 @@ export function useTasksPlanning({
   )
 
   const reopenPlanningTasks = useCallback(
-    async (ids: string[]): Promise<TaskMutationResult> => {
+    async (
+      ids: string[],
+      crews: CrewRef[] = []
+    ): Promise<TaskMutationResult> => {
       if (ids.length === 0) {
         return {
           success: false,
@@ -105,13 +148,13 @@ export function useTasksPlanning({
           return { success: false, message: validation.message }
         }
 
-        const dispatchOrder = task.dispatchOrder ?? null
+        const executionOrder = resolveReopenExecutionOrder(task, tasks, crews)
 
         const result = await updateTaskFields(
           id,
           {
             status: "programada",
-            executionOrder: dispatchOrder,
+            executionOrder,
             dispatchOrder: null,
           },
           "reopen-planning",
