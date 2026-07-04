@@ -1,3 +1,5 @@
+import "server-only"
+
 import { buildSessionUserFromAuthUser } from "@/lib/auth/resolve-session-user"
 import type { SessionUser } from "@/lib/auth/types"
 import { fetchCompanyRoleById } from "@/lib/supabase/company-roles.queries"

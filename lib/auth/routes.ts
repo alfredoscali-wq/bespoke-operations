@@ -44,6 +44,10 @@ export function isAuthPublicPath(pathname: string): boolean {
     return true
   }
 
+  if (pathname.startsWith("/api/cron/")) {
+    return true
+  }
+
   if (isMobileApiPublicPath(pathname)) {
     return true
   }

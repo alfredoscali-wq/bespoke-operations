@@ -69,9 +69,9 @@ ALTER TABLE public.work_order_type_incident_types ENABLE ROW LEVEL SECURITY;
 CREATE POLICY task_execution_starts_select_policy
   ON public.task_execution_starts
   FOR SELECT
-  USING (company_id = public.auth_company_id());
+  USING (company_id = public.auth_user_company_id());
 
 CREATE POLICY work_order_type_incident_types_select_policy
   ON public.work_order_type_incident_types
   FOR SELECT
-  USING (company_id = public.auth_company_id());
+  USING (company_id = public.auth_user_company_id());

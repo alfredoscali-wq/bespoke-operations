@@ -1,3 +1,5 @@
+import "server-only"
+
 import { createClient as createServerClient } from "@/lib/supabase/server"
 
 export type SupabaseHealthResult = {
