@@ -39,12 +39,6 @@ import {
   usersNavItem,
 } from "@/lib/navigation/nav-items"
 
-/** @deprecated Use coreOperationsNavItems + fieldOperationsNavItems. */
-export const operationsNavItems: NavItem[] = [
-  ...coreOperationsNavItems,
-  ...fieldOperationsNavItems,
-]
-
 export const navGroups: NavGroup[] = [
   { id: "dashboard", items: [dashboardNavItem] },
   { id: "operations", label: "Operaciones", items: coreOperationsNavItems },
@@ -58,9 +52,6 @@ export const navGroups: NavGroup[] = [
   { id: "rrhh", label: "RRHH", items: rrhhNavItems },
   { id: "system", label: "Sistema", items: systemNavItems },
 ]
-
-/** @deprecated Use navGroups. Kept for compatibility. */
-export const mainNavItems: NavItem[] = [dashboardNavItem]
 
 export const allNavItems: NavItem[] = [
   ...navGroups.flatMap((group) => group.items),

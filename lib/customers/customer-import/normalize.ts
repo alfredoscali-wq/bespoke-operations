@@ -25,11 +25,6 @@ export function cellToString(value: unknown): string {
   return String(value).trim()
 }
 
-/** @deprecated Usar isValidEmail desde normalization */
-export function isValidImportEmail(value: string): boolean {
-  return isValidEmail(value)
-}
-
 export function normalizeImportFieldValues(input: {
   externalCustomerCode: string
   name: string

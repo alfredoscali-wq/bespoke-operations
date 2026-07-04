@@ -1,4 +1,4 @@
-import { isDateOnly } from "@/lib/dates/date-only"
+import { isDateOnly, toLocalDateOnly } from "@/lib/dates/date-only"
 import type { ReportFilters, ReportPeriod } from "@/lib/reports/report-filters"
 
 export type ReportPeriodRange = {
@@ -6,13 +6,8 @@ export type ReportPeriodRange = {
   endDate: string
 }
 
-function pad(value: number): string {
-  return String(value).padStart(2, "0")
-}
-
-export function toDateOnlyString(date: Date): string {
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
-}
+/** Calendar date in the runtime local timezone (YYYY-MM-DD). */
+export const toDateOnlyString = toLocalDateOnly
 
 export function extractDatePortion(value: string | null | undefined): string | null {
   if (!value?.trim()) {

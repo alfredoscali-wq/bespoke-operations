@@ -38,9 +38,6 @@ export const OPERATIONAL_CATEGORY_BADGE_LABELS: Record<
   canceladas: "Cancelada",
 }
 
-/** @deprecated Use OPERATIONAL_CATEGORY_BADGE_LABELS for card badges. */
-export const OPERATIONAL_CATEGORY_LABELS = OPERATIONAL_CATEGORY_BADGE_LABELS
-
 export const OPERATIONAL_CATEGORY_ORDER: OperationalTaskCategory[] = [
   "programadas",
   "asignadas",

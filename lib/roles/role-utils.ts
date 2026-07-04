@@ -4,6 +4,7 @@ import {
   normalizeModuleVisibility,
   type ModuleVisibilityMap,
 } from "@/lib/roles/app-modules"
+import { slugifyCode } from "@/lib/utils/code-slug"
 
 export const ADMINISTRATOR_ROLE_CODE = "administrador"
 
@@ -43,14 +44,5 @@ export function canManageRoles(
 }
 
 export function slugifyRoleCode(name: string): string {
-  const slug = name
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 64)
-
-  return slug || "rol"
+  return slugifyCode(name, "rol")
 }

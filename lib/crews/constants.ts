@@ -1,5 +1,5 @@
 import type { CrewActivityType, CrewStatus } from "@/lib/types/crews"
-import { formatDateOnly, formatDateOnlyDateTime } from "@/lib/dates/date-only"
+import { formatDateOnlyDateTime } from "@/lib/dates/date-only"
 import { STATUS_TONE_STYLES } from "@/lib/ui/visual-tokens"
 
 export const CREW_ACTIVITY_LABELS: Record<CrewActivityType, string> = {
@@ -47,15 +47,8 @@ export const CREW_STATUS_OPTIONS = Object.entries(CREW_STATUS_LABELS).map(
   })
 )
 
-/** @deprecated Use getSupervisorEmployees from lib/employees/utils */
-export const CREW_SUPERVISOR_OPTIONS: readonly string[] = []
-
 /** @deprecated Use crew names from CrewsProvider instead */
 export const CREW_NAMES: readonly string[] = []
-
-export function formatCrewDate(date: string) {
-  return formatDateOnly(date)
-}
 
 export function formatCrewDateTime(date: string) {
   return formatDateOnlyDateTime(date)

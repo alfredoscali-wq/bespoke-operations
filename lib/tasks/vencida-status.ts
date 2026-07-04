@@ -57,22 +57,6 @@ export function isOverdueForAutoVencida(
   return isDueDateBeforeToday(task.dueDate, referenceDate)
 }
 
-/** @deprecated Use isOverdueForAutoVencida */
-export function isProgramadaDueDateExpired(
-  task: Pick<Task, "status" | "dueDate">,
-  referenceDate: Date = new Date()
-): boolean {
-  return isOverdueForAutoVencida(task, referenceDate)
-}
-
-/** @deprecated Prefer isOverdueForAutoVencida */
-export function isProgramadaScheduleExpired(
-  task: Pick<Task, "status" | "dueDate" | "scheduledTime">,
-  referenceDate: Date = new Date()
-): boolean {
-  return isOverdueForAutoVencida(task, referenceDate)
-}
-
 /** OT programada, nunca iniciada, con fecha anterior al día actual. */
 export function shouldAutoTransitionToVencida(task: Task): boolean {
   return isOverdueForAutoVencida(task)

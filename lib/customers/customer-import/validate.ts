@@ -9,7 +9,7 @@ import {
   registerBatchRow,
 } from "@/lib/customers/customer-import/duplicates"
 import {
-  isValidImportEmail,
+  isValidEmail,
   resolveImportStatus,
   resolveImportTechnology,
 } from "@/lib/customers/customer-import/normalize"
@@ -100,7 +100,7 @@ export function validateImportRow(
     }
   }
 
-  if (data.email.trim() && !isValidImportEmail(data.email)) {
+  if (data.email.trim() && !isValidEmail(data.email)) {
     issues.push({
       level: "error",
       field: "email",

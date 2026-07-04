@@ -220,17 +220,3 @@ export function getHistoryTitleForEvent(
 
   return titles[eventType]
 }
-
-/** @deprecated Use getProjectActions instead */
-export function getProjectLifecycleAction(
-  currentStatus: ProjectStatus
-): { label: string; nextStatus: ProjectStatus } | null {
-  switch (currentStatus) {
-    case "planned":
-      return { label: "Iniciar Obra", nextStatus: "active" }
-    case "active":
-      return { label: "Finalizar Obra", nextStatus: "closed" }
-    default:
-      return null
-  }
-}

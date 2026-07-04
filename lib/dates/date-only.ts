@@ -21,9 +21,6 @@ export function parseDateOnlyForDisplay(value: string): Date {
   return new Date(value)
 }
 
-/** @deprecated Prefer parseDateOnlyForDisplay */
-export const parseDateForDisplay = parseDateOnlyForDisplay
-
 type FormatDateOnlyOptions = {
   locale?: string
   emptyLabel?: string

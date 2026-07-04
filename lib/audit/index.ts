@@ -63,9 +63,7 @@ export {
 export {
   parseAuditRevision,
   resolveNextEntityAuditRevision,
-  resolveNextTaskAuditRevision,
   shouldAssignEntityAuditRevision,
-  shouldAssignTaskAuditRevision,
 } from "@/lib/audit/entity-revision"
 export {
   buildProjectDeletePermanentAuditMetadata,
@@ -142,6 +140,5 @@ export {
   type AuditLogQueryResult,
   type AuditModule,
   type AuditSeverity,
-  type SystemAuditLogEntry,
   type WriteAuditLogInput,
 } from "@/lib/audit/types"

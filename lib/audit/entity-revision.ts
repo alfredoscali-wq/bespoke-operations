@@ -76,24 +76,3 @@ export function shouldAssignEntityAuditRevision(input: {
     isValidAuditEntityId(input.entityId)
   )
 }
-
-/** @deprecated Use resolveNextEntityAuditRevision */
-export async function resolveNextTaskAuditRevision(
-  client: SupabaseAdminClient,
-  entityId: string
-): Promise<number> {
-  return resolveNextEntityAuditRevision(client, {
-    module: AUDIT_MODULES.TAREAS,
-    entityType: AUDIT_ENTITY_TYPES.TASK,
-    entityId,
-  })
-}
-
-/** @deprecated Use shouldAssignEntityAuditRevision */
-export function shouldAssignTaskAuditRevision(input: {
-  module: string
-  entityType: string
-  entityId?: string | null
-}) {
-  return shouldAssignEntityAuditRevision(input)
-}

@@ -1,18 +1,9 @@
-import { roundCoordinate } from "@/lib/gps/coordinates"
+import {
+  isValidCoordinatePair,
+  roundCoordinate,
+} from "@/lib/gps/coordinates"
 
-export function isValidCoordinatePair(
-  latitude: number,
-  longitude: number
-): boolean {
-  return (
-    Number.isFinite(latitude) &&
-    Number.isFinite(longitude) &&
-    latitude >= -90 &&
-    latitude <= 90 &&
-    longitude >= -180 &&
-    longitude <= 180
-  )
-}
+export { isValidCoordinatePair }
 
 export function normalizeCoordinates(
   latitude: number,

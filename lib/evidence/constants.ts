@@ -3,7 +3,7 @@ import type {
   EvidenceFileType,
   EvidenceStatus,
 } from "@/lib/types/evidence"
-import { formatDateOnly, formatDateOnlyDateTime } from "@/lib/dates/date-only"
+import { formatDateOnlyDateTime } from "@/lib/dates/date-only"
 import { CREW_NAMES } from "@/lib/crews/constants"
 
 export const EVIDENCE_STATUS_LABELS: Record<EvidenceStatus, string> = {
@@ -87,10 +87,6 @@ export const EVIDENCE_FILE_TYPE_OPTIONS = [
   { value: "plan" as const, label: "Planos" },
   { value: "video" as const, label: "Videos" },
 ]
-
-export function formatEvidenceDate(date: string) {
-  return formatDateOnly(date)
-}
 
 export function formatEvidenceDateTime(date: string) {
   return formatDateOnlyDateTime(date)

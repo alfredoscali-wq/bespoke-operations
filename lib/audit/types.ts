@@ -159,6 +159,3 @@ export type AuditLogQueryResult = {
   page: number
   limit: number
 }
-
-/** @deprecated Use AuditLogEntry — alias temporal para RC1.2 */
-export type SystemAuditLogEntry = AuditLogEntry

@@ -18,7 +18,7 @@ export function toDateOnly(value: Date = new Date()): string {
   return value.toISOString().slice(0, 10)
 }
 
-export { parseDateForDisplay, parseDateOnlyForDisplay } from "@/lib/dates/date-only"
+export { parseDateOnlyForDisplay } from "@/lib/dates/date-only"
 
 export function isDateWithinRange(
   date: string,

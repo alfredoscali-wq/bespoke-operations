@@ -1,6 +1,6 @@
 import type { GpsCoordinates } from "@/lib/gps/types"
 
-function isValidCoordinatePair(latitude: number, longitude: number): boolean {
+export function isValidCoordinatePair(latitude: number, longitude: number): boolean {
   return (
     Number.isFinite(latitude) &&
     Number.isFinite(longitude) &&
