@@ -1,16 +1,11 @@
 "use client"
 
-import { AvailabilityProvider } from "@/components/disponibilidad/availability-provider"
-import { EmployeesProvider } from "@/components/rrhh/employees-provider"
+import { AvailabilityModuleProviders } from "@/components/providers/availability-module-providers"
 
 export default function NovedadesLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  return (
-    <EmployeesProvider>
-      <AvailabilityProvider>{children}</AvailabilityProvider>
-    </EmployeesProvider>
-  )
+  return <AvailabilityModuleProviders>{children}</AvailabilityModuleProviders>
 }

@@ -1,10 +1,7 @@
 "use client"
 
-import { CrewsProvider } from "@/components/cuadrillas/crews-provider"
 import { EvidenceProvider } from "@/components/evidencias/evidence-provider"
-import { ProjectsProvider } from "@/components/obras/projects-provider"
-import { EmployeesProvider } from "@/components/rrhh/employees-provider"
-import { TasksProvider } from "@/components/tareas/tasks-provider"
+import { ProjectsEmployeesTasksCrewsStack } from "@/components/providers/internal/operational-provider-stacks"
 
 export function ObrasModuleProviders({
   children,
@@ -12,14 +9,8 @@ export function ObrasModuleProviders({
   children: React.ReactNode
 }) {
   return (
-    <ProjectsProvider>
-      <EmployeesProvider>
-        <TasksProvider>
-          <CrewsProvider>
-            <EvidenceProvider>{children}</EvidenceProvider>
-          </CrewsProvider>
-        </TasksProvider>
-      </EmployeesProvider>
-    </ProjectsProvider>
+    <ProjectsEmployeesTasksCrewsStack>
+      <EvidenceProvider>{children}</EvidenceProvider>
+    </ProjectsEmployeesTasksCrewsStack>
   )
 }

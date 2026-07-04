@@ -1,9 +1,6 @@
 "use client"
 
-import { CrewsProvider } from "@/components/cuadrillas/crews-provider"
-import { ProjectsProvider } from "@/components/obras/projects-provider"
-import { EmployeesProvider } from "@/components/rrhh/employees-provider"
-import { TasksProvider } from "@/components/tareas/tasks-provider"
+import { ProjectsEmployeesTasksCrewsStack } from "@/components/providers/internal/operational-provider-stacks"
 
 export function ReportesModuleProviders({
   children,
@@ -11,12 +8,6 @@ export function ReportesModuleProviders({
   children: React.ReactNode
 }) {
   return (
-    <ProjectsProvider>
-      <EmployeesProvider>
-        <TasksProvider>
-          <CrewsProvider>{children}</CrewsProvider>
-        </TasksProvider>
-      </EmployeesProvider>
-    </ProjectsProvider>
+    <ProjectsEmployeesTasksCrewsStack>{children}</ProjectsEmployeesTasksCrewsStack>
   )
 }
