@@ -11,6 +11,9 @@ import type { SessionUser } from "@/lib/auth/types"
 import type { SupabaseAdminClient } from "@/lib/supabase/admin"
 import { EVIDENCES_STORAGE_BUCKET } from "@/lib/supabase/evidences.storage"
 import { TASK_PHOTOS_STORAGE_BUCKET } from "@/lib/supabase/task-photos.storage"
+import { isTaskArchivedStatus } from "@/lib/tasks/task-archived-status"
+import { WORK_ORDER_PERMANENT_DELETE_ARCHIVED_ONLY_MESSAGE } from "@/lib/tasks/work-order-deletion-policy"
+import type { TaskStatus } from "@/lib/types/tasks"
 export type PermanentDeleteEntityType = "customer" | "task"
 
 export type PermanentDeleteResult = {
@@ -132,7 +135,7 @@ export async function permanentDeleteTask(
 ): Promise<PermanentDeleteResult> {
   const { data: task, error: taskReadError } = await client
     .from("tasks")
-    .select("id, code, title, customer_id")
+    .select("id, code, title, customer_id, status")
     .eq("id", input.taskId)
     .maybeSingle()
 
@@ -142,6 +145,10 @@ export async function permanentDeleteTask(
 
   if (!task) {
     throw new Error("Orden de trabajo no encontrada.")
+  }
+
+  if (!isTaskArchivedStatus(task.status as TaskStatus)) {
+    throw new Error(WORK_ORDER_PERMANENT_DELETE_ARCHIVED_ONLY_MESSAGE)
   }
 
   const entityLabel = task.code?.trim() || task.title?.trim() || input.taskId

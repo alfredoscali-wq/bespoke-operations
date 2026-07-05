@@ -1,5 +1,6 @@
 "use client"
 
+import { TaskAdminArchivePermanentDelete } from "@/components/tareas/task-admin-archive-permanent-delete"
 import { TaskAdminDetailHeader } from "@/components/tareas/task-admin-detail-header"
 import { TaskAdminInfoPanel } from "@/components/tareas/task-admin-info-panel"
 import { TaskAdminSidebarPanel } from "@/components/tareas/task-admin-sidebar-panel"
@@ -12,6 +13,8 @@ type TaskAdminDetailViewProps = {
   backHref?: string
   embedded?: boolean
   showWorkflowPanel?: boolean
+  showPermanentDelete?: boolean
+  onPermanentDeleteSuccess?: (message: string) => void
 }
 
 export function TaskAdminDetailView({
@@ -19,6 +22,8 @@ export function TaskAdminDetailView({
   backHref,
   embedded = false,
   showWorkflowPanel = false,
+  showPermanentDelete = false,
+  onPermanentDeleteSuccess,
 }: TaskAdminDetailViewProps) {
   return (
     <div className="space-y-6">
@@ -34,6 +39,13 @@ export function TaskAdminDetailView({
         <TaskAdminInfoPanel task={task} />
         <TaskAdminSidebarPanel task={task} />
       </div>
+
+      {showPermanentDelete && onPermanentDeleteSuccess ? (
+        <TaskAdminArchivePermanentDelete
+          task={task}
+          onSuccess={onPermanentDeleteSuccess}
+        />
+      ) : null}
     </div>
   )
 }

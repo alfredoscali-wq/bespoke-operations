@@ -71,20 +71,23 @@ export function WorkOrderPermanentDeleteDialog({
           <DialogTitle>Eliminar definitivamente la Orden de Trabajo</DialogTitle>
           <DialogDescription asChild>
             <div className="space-y-3 text-sm text-muted-foreground">
-              <p>Esta acción eliminará permanentemente:</p>
+              <p>
+                Esta acción eliminará permanentemente toda la información
+                relacionada con esta Orden de Trabajo.
+              </p>
+              <p>Se eliminarán:</p>
               <ul className="list-disc space-y-1 pl-5">
                 <li>Orden de Trabajo</li>
                 <li>Checklist</li>
-                <li>Fotografías</li>
+                <li>Fotografías de referencia</li>
+                <li>Fotografías operativas</li>
                 <li>Evidencias</li>
-                <li>Materiales asociados</li>
-                <li>Comentarios</li>
-                <li>Historial relacionado</li>
+                <li>Incidencias</li>
+                <li>Metadatos relacionados</li>
               </ul>
               <p className="font-medium text-destructive">
-                Esta acción NO puede deshacerse.
+                Esta acción no puede deshacerse.
               </p>
-              <p className="font-medium text-foreground">{taskLabel}</p>
             </div>
           </DialogDescription>
         </DialogHeader>

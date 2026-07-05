@@ -6,7 +6,6 @@ import { Eye, Pencil, Trash2 } from "lucide-react"
 
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { TaskWorkOrderDialog } from "@/components/tareas/task-work-order-dialog"
-import { WorkOrderPermanentDeleteDialog } from "@/components/tareas/work-order-permanent-delete-dialog"
 import {
   canAdminModifyWorkOrder,
   WORK_ORDER_ADMIN_MUTATION_BLOCKED_MESSAGE,
@@ -18,7 +17,6 @@ import {
 } from "@/lib/tasks/work-order-deletion-policy"
 import { TASK_DELETE_USER_MESSAGE } from "@/lib/operations/user-messages"
 import { logDeleteTrace } from "@/lib/supabase/delete-trace"
-import { useIsSystemAdministrator } from "@/lib/auth/use-is-system-administrator"
 import type { Task } from "@/lib/types/tasks"
 import type { UpdateTaskPayload } from "@/lib/types/supabase/tasks"
 import { Button } from "@/components/ui/button"
@@ -101,11 +99,9 @@ export function TaskAdminRowActions({
   readOnly = false,
   detailHref,
 }: TaskAdminRowActionsProps) {
-  const { editTask, deleteTask, removeTaskLocally, tasks } = useTasks()
-  const isSystemAdministrator = useIsSystemAdministrator()
+  const { editTask, deleteTask, tasks } = useTasks()
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
-  const [permanentDeleteOpen, setPermanentDeleteOpen] = useState(false)
   const [editBlockedOpen, setEditBlockedOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -223,22 +219,6 @@ export function TaskAdminRowActions({
             <Trash2 className="size-4" />
           </AdminRowActionButton>
         ) : null}
-
-        {isSystemAdministrator ? (
-          <>
-            <span
-              aria-hidden
-              className="mx-0.5 h-5 w-px bg-border"
-            />
-            <AdminRowActionButton
-              label="Eliminar definitivamente"
-              destructive
-              onClick={() => setPermanentDeleteOpen(true)}
-            >
-              <Trash2 className="size-4" />
-            </AdminRowActionButton>
-          </>
-        ) : null}
       </div>
 
       <TaskWorkOrderDialog
@@ -302,17 +282,6 @@ export function TaskAdminRowActions({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <WorkOrderPermanentDeleteDialog
-        open={permanentDeleteOpen}
-        onOpenChange={setPermanentDeleteOpen}
-        taskId={task.id}
-        taskLabel={task.code || task.title}
-        onSuccess={(message) => {
-          removeTaskLocally(task.id)
-          onFeedback({ variant: "success", message })
-        }}
-      />
     </>
   )
 }
