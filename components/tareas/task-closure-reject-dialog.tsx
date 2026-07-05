@@ -19,6 +19,9 @@ type TaskClosureRejectDialogProps = {
   onOpenChange: (open: boolean) => void
   onConfirm: (reason: string) => Promise<void>
   isSubmitting?: boolean
+  title?: string
+  description?: string
+  confirmLabel?: string
 }
 
 export function TaskClosureRejectDialog({
@@ -26,6 +29,9 @@ export function TaskClosureRejectDialog({
   onOpenChange,
   onConfirm,
   isSubmitting = false,
+  title = "Rechazar cierre",
+  description = "La orden de trabajo volverá a En curso para que la cuadrilla corrija lo necesario.",
+  confirmLabel = "✖ Rechazar cierre",
 }: TaskClosureRejectDialogProps) {
   const [reason, setReason] = useState("")
   const [error, setError] = useState<string | null>(null)
@@ -54,11 +60,8 @@ export function TaskClosureRejectDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Rechazar cierre</DialogTitle>
-          <DialogDescription>
-            La orden de trabajo volverá a En curso para que la cuadrilla corrija lo
-            necesario.
-          </DialogDescription>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
           <Label htmlFor="closure-reject-reason">Motivo de rechazo</Label>
@@ -90,7 +93,7 @@ export function TaskClosureRejectDialog({
             onClick={() => void handleConfirm()}
             disabled={isSubmitting}
           >
-            ✖ Rechazar cierre
+            {confirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

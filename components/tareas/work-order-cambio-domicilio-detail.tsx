@@ -8,10 +8,12 @@ import { WorkOrderDualTechnologyDetail } from "@/components/tareas/work-order-te
 type WorkOrderCambioDomicilioDetailProps = {
   task: Task
   className?: string
+  showInstallationFields?: boolean
 }
 
 export function WorkOrderCambioDomicilioDetail({
   task,
+  showInstallationFields = true,
 }: WorkOrderCambioDomicilioDetailProps) {
   const details = parseCambioDomicilioFromTask(task)
 
@@ -41,7 +43,10 @@ export function WorkOrderCambioDomicilioDetail({
         />
       </div>
 
-      <WorkOrderDualTechnologyDetail task={task} />
+      <WorkOrderDualTechnologyDetail
+        task={task}
+        showInstallationFields={showInstallationFields}
+      />
     </div>
   )
 }

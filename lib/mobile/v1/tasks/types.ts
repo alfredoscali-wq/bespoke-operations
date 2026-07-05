@@ -32,6 +32,13 @@ export type MobileTaskNextWorkItem = {
   customerOrAssetName: string
 }
 
+export type MobileTaskReferencePhoto = {
+  id: string
+  fileName: string
+  description: string
+  url: string
+}
+
 export type MobileTaskDetailResponse = {
   id: string
   workOrderNumber: string | null
@@ -53,6 +60,7 @@ export type MobileTaskDetailResponse = {
   contractedPlan: string | null
   checklist: MobileTaskChecklistItem[]
   evidenceRequirements: MobileTaskEvidenceRequirement[]
+  referencePhotos: MobileTaskReferencePhoto[]
   nextWork: MobileTaskNextWorkItem | null
 }
 

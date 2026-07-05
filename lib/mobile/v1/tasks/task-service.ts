@@ -17,6 +17,7 @@ import type {
   MobileTaskDetailResponse,
   MobileTaskEvidenceRequirement,
   MobileTaskNextWorkItem,
+  MobileTaskReferencePhoto,
 } from "@/lib/mobile/v1/tasks/types"
 import {
   formatContractedPlanLabel,
@@ -25,6 +26,7 @@ import {
 import { taskMatchesCrewId } from "@/lib/tasks/crew-relation"
 import { resolveTaskOperationalTitle } from "@/lib/tasks/work-order"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { fetchTaskReferencePhotos } from "@/lib/supabase/task-photos.queries"
 import { mapTaskRowToTask } from "@/lib/supabase/tasks.mapper"
 import type { Task } from "@/lib/types/tasks"
 import { fetchActiveWorkTeamShift } from "@/lib/work-team-shifts/work-team-shifts.queries"
@@ -86,10 +88,31 @@ function mapNextWorkItem(task: Task | undefined): MobileTaskNextWorkItem | null 
   }
 }
 
+function mapReferencePhotos(photos: Awaited<
+  ReturnType<typeof fetchTaskReferencePhotos>
+>["data"]): MobileTaskReferencePhoto[] {
+  return (photos ?? [])
+    .map((photo) => {
+      const url = photo.signedUrl?.trim() || photo.fileUrl?.trim()
+      if (!url) {
+        return null
+      }
+
+      return {
+        id: photo.id,
+        fileName: photo.fileName,
+        description: photo.description?.trim() || "",
+        url,
+      }
+    })
+    .filter((photo): photo is MobileTaskReferencePhoto => photo !== null)
+}
+
 function mapTaskToDetailResponse(
   task: Task,
   nextWork: MobileTaskNextWorkItem | null,
-  checklist: MobileTaskChecklistItem[]
+  checklist: MobileTaskChecklistItem[],
+  referencePhotos: MobileTaskReferencePhoto[]
 ): MobileTaskDetailResponse {
   const technology = getTaskTechnologyLabel(task)
   const contractedPlan = formatContractedPlanLabel(task.contractedPlan)
@@ -116,6 +139,7 @@ function mapTaskToDetailResponse(
     contractedPlan,
     checklist,
     evidenceRequirements: mapEvidenceRequirements(task),
+    referencePhotos,
     nextWork,
   }
 }
@@ -203,10 +227,16 @@ export async function getMobileTaskDetail(
         )
       : []
 
+  const referencePhotosResult = await fetchTaskReferencePhotos(admin, task.id)
+  const referencePhotos = referencePhotosResult.error
+    ? []
+    : mapReferencePhotos(referencePhotosResult.data)
+
   return mapTaskToDetailResponse(
     task,
     mapNextWorkItem(nextTask),
-    checklist
+    checklist,
+    mapReferencePhotos(referencePhotosResult.data)
   )
 }
 

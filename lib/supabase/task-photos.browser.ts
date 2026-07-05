@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/client"
 import {
   countTaskEvidencePhotos,
+  fetchAllTaskPhotos,
   fetchTaskEvidencePhotos,
   fetchTaskReferencePhotos,
   uploadOperationalStepPhoto as uploadOperationalStepPhotoQuery,
@@ -32,6 +33,10 @@ export async function listTaskReferencePhotos(taskId: string) {
 
 export async function listTaskEvidencePhotos(taskId: string) {
   return fetchTaskEvidencePhotos(createBrowserTaskPhotosClient(), taskId)
+}
+
+export async function listAllTaskPhotos(taskId: string) {
+  return fetchAllTaskPhotos(createBrowserTaskPhotosClient(), taskId)
 }
 
 export async function getTaskEvidencePhotoCount(taskId: string) {

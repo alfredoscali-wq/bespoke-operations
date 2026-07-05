@@ -10,17 +10,25 @@ type TaskAdminDetailViewProps = {
   task: Task
   detail: TaskDetail
   backHref?: string
+  embedded?: boolean
+  showWorkflowPanel?: boolean
 }
 
 export function TaskAdminDetailView({
   task,
   backHref,
+  embedded = false,
+  showWorkflowPanel = false,
 }: TaskAdminDetailViewProps) {
   return (
     <div className="space-y-6">
-      <TaskAdminDetailHeader task={task} backHref={backHref} />
+      <TaskAdminDetailHeader
+        task={task}
+        backHref={backHref}
+        embedded={embedded}
+      />
 
-      <TaskAdminWorkflowPanel task={task} />
+      {showWorkflowPanel ? <TaskAdminWorkflowPanel task={task} /> : null}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <TaskAdminInfoPanel task={task} />

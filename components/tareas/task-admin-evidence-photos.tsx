@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 
 import { TaskPhotoViewerDialog } from "@/components/tareas/task-photo-viewer-dialog"
-import { listTaskReferencePhotos } from "@/lib/supabase/task-photos.browser"
+import { listTaskEvidencePhotos } from "@/lib/supabase/task-photos.browser"
 import type { TaskPhoto } from "@/lib/types/task-photos"
 import {
   Card,
@@ -12,15 +12,15 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 
-type TaskAdminReferencePhotosProps = {
+type TaskAdminEvidencePhotosProps = {
   taskId: string
   compact?: boolean
 }
 
-export function TaskAdminReferencePhotos({
+export function TaskAdminEvidencePhotos({
   taskId,
   compact = false,
-}: TaskAdminReferencePhotosProps) {
+}: TaskAdminEvidencePhotosProps) {
   const [photos, setPhotos] = useState<TaskPhoto[]>([])
   const [loadError, setLoadError] = useState<string | null>(null)
   const [selectedPhoto, setSelectedPhoto] = useState<TaskPhoto | null>(null)
@@ -30,7 +30,7 @@ export function TaskAdminReferencePhotos({
     let cancelled = false
 
     async function fetchPhotos() {
-      const result = await listTaskReferencePhotos(taskId)
+      const result = await listTaskEvidencePhotos(taskId)
       if (cancelled) return
 
       if (result.error) {
@@ -55,7 +55,7 @@ export function TaskAdminReferencePhotos({
       <Card className="shadow-sm">
         <CardHeader className="pb-3">
           <CardTitle className="text-base">
-            Fotografías de referencia
+            Evidencias operativas
             {photos.length > 0 ? ` (${photos.length})` : ""}
           </CardTitle>
         </CardHeader>
@@ -66,7 +66,7 @@ export function TaskAdminReferencePhotos({
             </p>
           ) : photos.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted-foreground">
-              No hay fotografías de referencia cargadas al crear la orden.
+              No hay evidencias fotográficas registradas para esta orden.
             </p>
           ) : (
             <div

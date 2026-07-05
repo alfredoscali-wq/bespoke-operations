@@ -1,10 +1,10 @@
 import {
-  collectFrozenPlanningRouteOrders,
+  collectOccupiedDispatchOrdersForConfirm,
   isTaskReopenableForPlanning,
 } from "@/lib/planificacion/planning-dynamic"
 import {
   filterOperationalOrderScope,
-  resolveDispatchOperationalOrder,
+  resolvePlanningExecutionOrder,
   sortOperationalOrderScope,
 } from "@/lib/planificacion/planning-operational-order-core"
 import { resolveTaskCrewId } from "@/lib/tasks/crew-relation"
@@ -98,11 +98,50 @@ function listConfirmingProgramadaTasks(
   )
 }
 
-function resolveMaxDispatchOrderForRoute(routeScope: Task[]): number {
-  return routeScope.reduce(
-    (max, task) => Math.max(max, resolveDispatchOperationalOrder(task) ?? 0),
-    0
+function collectIncrementalOccupiedOrders(
+  routeScope: Task[],
+  confirmingIds: Set<string>
+): Set<number> {
+  const occupied = collectOccupiedDispatchOrdersForConfirm(
+    routeScope,
+    confirmingIds
   )
+
+  for (const task of routeScope) {
+    if (confirmingIds.has(task.id) || task.status !== "programada") {
+      continue
+    }
+
+    const order = resolvePlanningExecutionOrder(task)
+    if (order != null && order > 0) {
+      occupied.add(Math.floor(order))
+    }
+  }
+
+  return occupied
+}
+
+function assignNextAvailableDispatchOrders(
+  confirming: Task[],
+  occupied: Set<number>
+): PlanningConfirmDispatchUpdate[] {
+  const updates: PlanningConfirmDispatchUpdate[] = []
+  let nextOrder = 1
+
+  for (const task of confirming) {
+    while (occupied.has(nextOrder)) {
+      nextOrder += 1
+    }
+
+    updates.push({
+      taskId: task.id,
+      dispatchOrder: nextOrder,
+    })
+    occupied.add(nextOrder)
+    nextOrder += 1
+  }
+
+  return updates
 }
 
 /**
@@ -133,14 +172,10 @@ export function buildIncrementalPlanificarUpdates(input: {
       group.taskIds,
       crews
     )
-    const maxDispatch = resolveMaxDispatchOrderForRoute(routeScope)
+    const confirmingIds = new Set(group.taskIds)
+    const occupied = collectIncrementalOccupiedOrders(routeScope, confirmingIds)
 
-    confirming.forEach((task, index) => {
-      updates.push({
-        taskId: task.id,
-        dispatchOrder: maxDispatch + index + 1,
-      })
-    })
+    updates.push(...assignNextAvailableDispatchOrders(confirming, occupied))
   }
 
   return updates
@@ -174,11 +209,12 @@ export function buildReplanificarConfirmUpdates(input: {
       group.taskIds,
       crews
     )
-    const frozenOrders = collectFrozenPlanningRouteOrders(routeScope)
-    const slots = buildDispatchSlotsSkippingFrozen(
-      frozenOrders,
-      confirming.length
+    const confirmingIds = new Set(group.taskIds)
+    const occupied = collectOccupiedDispatchOrdersForConfirm(
+      routeScope,
+      confirmingIds
     )
+    const slots = buildDispatchSlotsSkippingFrozen(occupied, confirming.length)
 
     confirming.forEach((task, index) => {
       updates.push({
@@ -210,8 +246,12 @@ export function resolvePlanningConfirmModeForGroup(input: {
   const hasPlannedNotBeingConfirmed = routeScope.some(
     (task) => isTaskReopenableForPlanning(task) && !idSet.has(task.id)
   )
+  const occupiedDispatchOrders = collectOccupiedDispatchOrdersForConfirm(
+    routeScope,
+    idSet
+  )
 
-  if (hasPlannedNotBeingConfirmed) {
+  if (hasPlannedNotBeingConfirmed || occupiedDispatchOrders.size > 0) {
     return "incremental"
   }
 

@@ -228,11 +228,8 @@ function PlanningCrewOperationsKpiCard({
 
   )
 
-  const { showPlanificar, showReplanificar, showPlannedBadge } = buttonVisibility
-
-  const showActions =
-
-    showPlanificar || showReplanificar || showPlannedBadge
+  const { showPlanificar, showReplanificar } = buttonVisibility
+  const showActions = showPlanificar || showReplanificar
 
 
 
@@ -259,16 +256,6 @@ function PlanningCrewOperationsKpiCard({
         showActions ? (
 
           <div className="flex flex-col gap-2">
-
-            {showPlannedBadge ? (
-
-              <p className="text-center text-xs font-semibold text-white/95">
-
-                ✓ Planificada
-
-              </p>
-
-            ) : null}
 
             {showPlanificar ? (
 

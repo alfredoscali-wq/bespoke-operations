@@ -74,8 +74,8 @@ export function resolveCrewPlanningButtonVisibility(
 
   return {
     showPlanificar: hasProgrammed,
-    showReplanificar: hasProgrammed && hasReopenable,
-    showPlannedBadge: !hasProgrammed && hasReopenable,
+    showReplanificar: !hasProgrammed && hasReopenable,
+    showPlannedBadge: false,
   }
 }
 
@@ -108,7 +108,7 @@ export function listReopenablePlanningTaskIdsForCrew(
 }
 
 export function isTaskPlanningEditable(task: Pick<Task, "status">): boolean {
-  return task.status === "programada"
+  return task.status === "programada" || task.status === "asignada"
 }
 
 export function isJourneyFullyPlanned(

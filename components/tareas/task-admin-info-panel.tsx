@@ -14,10 +14,20 @@ import {
 
 import { useProjects } from "@/components/obras/projects-provider"
 import { useTasks } from "@/components/tareas/tasks-provider"
+import { TaskAdminMetricCard } from "@/components/tareas/task-admin-metric-card"
+import { TaskAdminOperationalChecklist } from "@/components/tareas/task-admin-operational-checklist"
 import { WorkOrderCambioDomicilioDetail } from "@/components/tareas/work-order-cambio-domicilio-detail"
 import { WorkOrderDualTechnologyDetail } from "@/components/tareas/work-order-technology-state-detail"
 import { isCambioDomicilioTask } from "@/lib/tasks/cambio-domicilio"
+import {
+  formatAmountToCollectDisplay,
+  formatContractedPlanLabel,
+} from "@/lib/tasks/commercial-plan"
 import { formatTaskDate } from "@/lib/tasks/constants"
+import {
+  resolveFinalTechnologyFromTask,
+  resolveTechnologyLabel,
+} from "@/lib/tasks/ftth-installation"
 import { isWorkOrderTask } from "@/lib/tasks/work-order"
 import { isFieldServiceTask } from "@/lib/tasks/utils"
 import type { Task } from "@/lib/types/tasks"
@@ -148,26 +158,60 @@ export function TaskAdminInfoPanel({ task }: TaskAdminInfoPanelProps) {
   ]
 
   const infoItems = isService ? serviceInfoItems : obraInfoItems
+  const technologyLabel =
+    resolveTechnologyLabel(resolveFinalTechnologyFromTask(liveTask)) ?? "—"
+  const planLabel = formatContractedPlanLabel(liveTask.contractedPlan) ?? "—"
+  const amountLabel =
+    isWorkOrderTask(liveTask) && liveTask.amountToCollect != null
+      ? formatAmountToCollectDisplay(liveTask.amountToCollect)
+      : "—"
 
   return (
-    <Card className="shadow-sm lg:col-span-2">
-      <CardHeader>
-        <CardTitle className="text-lg">Información administrativa</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {isCambioDomicilioTask(liveTask) ? (
-          <div className="mb-4">
-            <WorkOrderCambioDomicilioDetail task={liveTask} />
-          </div>
-        ) : null}
+    <div className="space-y-4 lg:col-span-2">
+      <Card className="shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-lg">Resumen</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isWorkOrderTask(liveTask) ? (
+            <div className="mb-4 grid gap-3 sm:grid-cols-3">
+              <TaskAdminMetricCard
+                icon="📡"
+                label="Tecnología"
+                value={technologyLabel}
+              />
+              <TaskAdminMetricCard
+                icon="📦"
+                label="Plan contratado"
+                value={planLabel}
+              />
+              <TaskAdminMetricCard
+                icon="💰"
+                label="Importe a cobrar"
+                value={amountLabel}
+              />
+            </div>
+          ) : null}
 
-        {liveTask.serviceType === "cambio-tecnologia" ? (
-          <div className="mb-4">
-            <WorkOrderDualTechnologyDetail task={liveTask} />
-          </div>
-        ) : null}
+          {isCambioDomicilioTask(liveTask) ? (
+            <div className="mb-4">
+              <WorkOrderCambioDomicilioDetail
+                task={liveTask}
+                showInstallationFields={false}
+              />
+            </div>
+          ) : null}
 
-        <div className="grid gap-4 sm:grid-cols-2">
+          {liveTask.serviceType === "cambio-tecnologia" ? (
+            <div className="mb-4">
+              <WorkOrderDualTechnologyDetail
+                task={liveTask}
+                showInstallationFields={false}
+              />
+            </div>
+          ) : null}
+
+          <div className="grid gap-4 sm:grid-cols-2">
           {infoItems.map((item) => {
             const Icon = item.icon
             return (
@@ -194,10 +238,30 @@ export function TaskAdminInfoPanel({ task }: TaskAdminInfoPanelProps) {
           })}
         </div>
 
-        {hasGpsInfo && (
-          <div className="mt-4 rounded-lg border bg-muted/20 p-4">
-            <p className="text-xs font-medium text-muted-foreground">GPS</p>
-            <div className="mt-3 space-y-3 text-sm">
+        {!isService && (
+          <div className="mt-4 rounded-lg border bg-muted/20 p-3 text-sm">
+            <p className="text-xs text-muted-foreground">Obra relacionada</p>
+            <Link
+              href={
+                relatedProject ? `/obras/${relatedProject.id}` : "/obras"
+              }
+              className="mt-1 inline-flex items-center gap-1 font-medium text-primary hover:underline"
+            >
+              <MapPin className="size-3.5" />
+              Ver obra {liveTask.projectCode}
+            </Link>
+          </div>
+        )}
+        </CardContent>
+      </Card>
+
+      {hasGpsInfo ? (
+        <Card className="shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">GPS</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3 text-sm">
               {gpsLoaded && sharedLocationDisplay ? (
                 <div className="space-y-1">
                   <p className="text-green-600 dark:text-green-500">
@@ -224,24 +288,11 @@ export function TaskAdminInfoPanel({ task }: TaskAdminInfoPanelProps) {
                 </p>
               ) : null}
             </div>
-          </div>
-        )}
+          </CardContent>
+        </Card>
+      ) : null}
 
-        {!isService && (
-          <div className="mt-4 rounded-lg border bg-muted/20 p-3 text-sm">
-            <p className="text-xs text-muted-foreground">Obra relacionada</p>
-            <Link
-              href={
-                relatedProject ? `/obras/${relatedProject.id}` : "/obras"
-              }
-              className="mt-1 inline-flex items-center gap-1 font-medium text-primary hover:underline"
-            >
-              <MapPin className="size-3.5" />
-              Ver obra {liveTask.projectCode}
-            </Link>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      <TaskAdminOperationalChecklist task={liveTask} />
+    </div>
   )
 }

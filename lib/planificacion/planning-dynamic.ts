@@ -104,6 +104,31 @@ export function collectFrozenPlanningRouteOrders(scope: Task[]): Set<number> {
   return frozenOrders
 }
 
+/** Órdenes de despacho ya ocupadas en la ruta (congeladas + operativas no en confirmación). */
+export function collectOccupiedDispatchOrdersForConfirm(
+  routeScope: Task[],
+  confirmingTaskIds: ReadonlySet<string> | string[]
+): Set<number> {
+  const confirmingIds =
+    confirmingTaskIds instanceof Set
+      ? confirmingTaskIds
+      : new Set(confirmingTaskIds)
+  const occupied = collectFrozenPlanningRouteOrders(routeScope)
+
+  for (const task of routeScope) {
+    if (confirmingIds.has(task.id)) {
+      continue
+    }
+
+    const order = resolveDispatchOperationalOrder(task)
+    if (order != null && order > 0) {
+      occupied.add(Math.floor(order))
+    }
+  }
+
+  return occupied
+}
+
 /** Siguiente posición al final de la cola vigente (execution + dispatch), respetando OT congeladas. */
 export function resolveNextPlanningQueuePosition(input: {
   tasks: Task[]

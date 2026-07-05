@@ -6,69 +6,30 @@ import type {
   MobileTaskChecklistItem,
   MobileTaskChecklistResponseValue,
 } from "@/lib/mobile/v1/tasks/types"
+import {
+  buildTaskMetadataWithResponses,
+  mergeChecklistResponseValue,
+  OPERATIONAL_CHECKLIST_RESPONSES_KEY,
+  operationalChecklistResponseHasValue,
+  readOperationalChecklistResponses,
+  type OperationalChecklistResponses,
+} from "@/lib/tasks/operational-checklist-responses"
 import type { Task } from "@/lib/types/tasks"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
-export const OPERATIONAL_CHECKLIST_RESPONSES_KEY = "operationalChecklistResponses"
-
-export type OperationalChecklistResponses = Record<
-  string,
-  MobileTaskChecklistResponseValue
->
-
-export function readOperationalChecklistResponses(
-  task: Task
-): OperationalChecklistResponses {
-  const raw = task.taskMetadata?.[OPERATIONAL_CHECKLIST_RESPONSES_KEY]
-
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-    return {}
-  }
-
-  const responses: OperationalChecklistResponses = {}
-
-  for (const [itemId, value] of Object.entries(raw)) {
-    if (!itemId.trim() || !value || typeof value !== "object" || Array.isArray(value)) {
-      continue
-    }
-
-    const record = value as Record<string, unknown>
-    const confirmed =
-      typeof record.confirmed === "boolean" ? record.confirmed : undefined
-    const textValue =
-      typeof record.textValue === "string" ? record.textValue.trim() : undefined
-    const photoIds = Array.isArray(record.photoIds)
-      ? record.photoIds.filter((item): item is string => typeof item === "string")
-      : undefined
-
-    responses[itemId] = {
-      ...(confirmed !== undefined ? { confirmed } : {}),
-      ...(textValue !== undefined ? { textValue } : {}),
-      ...(photoIds !== undefined ? { photoIds } : {}),
-    }
-  }
-
-  return responses
-}
+export {
+  OPERATIONAL_CHECKLIST_RESPONSES_KEY,
+  type OperationalChecklistResponses,
+  readOperationalChecklistResponses,
+  buildTaskMetadataWithResponses,
+  mergeChecklistResponseValue,
+} from "@/lib/tasks/operational-checklist-responses"
 
 export function isOperationalChecklistItemComplete(
   item: MobileOperationalChecklistItem,
   response: MobileTaskChecklistResponseValue | undefined
 ): boolean {
-  if (!response) {
-    return false
-  }
-
-  switch (item.fieldType) {
-    case "confirmacion":
-      return response.confirmed === true
-    case "entrada-datos":
-      return Boolean(response.textValue?.trim())
-    case "fotografia":
-      return (response.photoIds?.length ?? 0) > 0
-    default:
-      return false
-  }
+  return operationalChecklistResponseHasValue(item.fieldType, response)
 }
 
 export function validateOperationalChecklistComplete(
@@ -138,25 +99,4 @@ export async function fetchOperationalChecklistTemplate(
     companyId,
     serviceType?.trim() || ""
   )
-}
-
-export function buildTaskMetadataWithResponses(
-  task: Task,
-  responses: OperationalChecklistResponses
-): Record<string, unknown> {
-  return {
-    ...task.taskMetadata,
-    [OPERATIONAL_CHECKLIST_RESPONSES_KEY]: responses,
-  }
-}
-
-export function mergeChecklistResponseValue(
-  current: MobileTaskChecklistResponseValue | undefined,
-  patch: MobileTaskChecklistResponseValue
-): MobileTaskChecklistResponseValue {
-  return {
-    confirmed: patch.confirmed ?? current?.confirmed,
-    textValue: patch.textValue ?? current?.textValue,
-    photoIds: patch.photoIds ?? current?.photoIds ?? [],
-  }
 }

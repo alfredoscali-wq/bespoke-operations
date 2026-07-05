@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
+import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
 import type { Database, TaskPhotoRow } from "@/lib/supabase/database.types"
 import { mapTaskPhotoRowToTaskPhoto } from "@/lib/supabase/task-photos.mapper"
 import {
@@ -29,6 +30,19 @@ export type TaskPhotosRepositoryResult<T> =
     }
 
 const SIGNED_URL_TTL_SECONDS = 3600
+
+async function resolveTaskCompanyId(
+  client: SupabaseTaskPhotosClient,
+  taskId: string
+): Promise<string> {
+  const { data } = await client
+    .from("tasks")
+    .select("company_id")
+    .eq("id", taskId)
+    .maybeSingle()
+
+  return data?.company_id ?? BESPOKE_PRODUCTION_COMPANY_ID
+}
 
 function mapSupabaseError(error: { message?: string; code?: string }) {
   if (error.code === "22P02") {
@@ -110,6 +124,26 @@ export async function fetchTaskEvidencePhotos(
   return fetchTaskPhotos(client, taskId, "evidence")
 }
 
+/** Canonical read for OT traceability: every photo linked to the task. */
+export async function fetchAllTaskPhotos(
+  client: SupabaseTaskPhotosClient,
+  taskId: string
+): Promise<TaskPhotosRepositoryResult<TaskPhoto[]>> {
+  const { data, error } = await client
+    .from("task_photos")
+    .select("*")
+    .eq("task_id", taskId)
+    .is("deleted_at", null)
+    .order("created_at", { ascending: true })
+
+  if (error) {
+    return { data: null, error: mapSupabaseError(error) }
+  }
+
+  const photos = await mapRowsWithSignedUrls(client, data ?? [])
+  return { data: photos, error: null }
+}
+
 export async function uploadTaskPhoto(
   client: SupabaseTaskPhotosClient,
   input: UploadTaskReferencePhotoInput,
@@ -156,11 +190,13 @@ export async function uploadTaskPhoto(
   }
 
   const description = input.description?.trim() ?? ""
+  const companyId = await resolveTaskCompanyId(client, input.taskId)
   const { data, error } = await client
     .from("task_photos")
     .insert({
       id: photoId,
       task_id: input.taskId,
+      company_id: companyId,
       storage_bucket: TASK_PHOTOS_STORAGE_BUCKET,
       storage_path: storagePath,
       file_url: storagePath,

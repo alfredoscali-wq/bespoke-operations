@@ -16,6 +16,10 @@ import { PlanningMap } from "@/components/planificacion/planning-map"
 
 import { PlanningOperationalSummary } from "@/components/planificacion/planning-operational-summary"
 
+import { PlanningOperationalAlerts } from "@/components/planificacion/planning-operational-alerts"
+
+import { PlanningPendingClosureSheet } from "@/components/planificacion/planning-pending-closure-sheet"
+
 import { PlanningSuccessBanner } from "@/components/planificacion/planning-success-banner"
 
 import { PlanningTaskAdjustSheet } from "@/components/planificacion/planning-task-adjust-sheet"
@@ -92,6 +96,8 @@ import {
 
 import { sortTasksByDispatchRoute } from "@/lib/tasks/dispatch-order"
 
+import { listPendingClosureTasksForPlanningDate } from "@/lib/planificacion/planning-pending-closure"
+
 
 
 function PlanningModuleContent() {
@@ -133,6 +139,8 @@ function PlanningModuleContent() {
   const [isRefreshingMap, setIsRefreshingMap] = useState(false)
 
   const [mapRefreshError, setMapRefreshError] = useState<string | null>(null)
+
+  const [pendingClosureSheetOpen, setPendingClosureSheetOpen] = useState(false)
 
 
 
@@ -287,6 +295,16 @@ function PlanningModuleContent() {
     () => filterProgrammedTasksForPlanningDate(tasks, { date }),
 
     [tasks, date]
+
+  )
+
+
+
+  const pendingClosureTasks = useMemo(
+
+    () => listPendingClosureTasksForPlanningDate(tasks, date, activeCrews),
+
+    [tasks, date, activeCrews]
 
   )
 
@@ -811,6 +829,28 @@ function PlanningModuleContent() {
           onPlanCrew={handlePlanCrew}
 
           onModifyCrew={handleModifyCrew}
+
+        />
+
+
+
+        <PlanningOperationalAlerts
+
+          pendingApprovalCount={pendingClosureTasks.length}
+
+          onOpenPendingApproval={() => setPendingClosureSheetOpen(true)}
+
+        />
+
+
+
+        <PlanningPendingClosureSheet
+
+          open={pendingClosureSheetOpen}
+
+          onOpenChange={setPendingClosureSheetOpen}
+
+          date={date}
 
         />
 

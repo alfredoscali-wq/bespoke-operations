@@ -12,25 +12,29 @@ import { Button } from "@/components/ui/button"
 type TaskAdminDetailHeaderProps = {
   task: Task
   backHref?: string
+  embedded?: boolean
 }
 
 export function TaskAdminDetailHeader({
   task,
   backHref = "/tareas",
+  embedded = false,
 }: TaskAdminDetailHeaderProps) {
   return (
     <div className="space-y-3">
-      <Button
-        variant="ghost"
-        size="sm"
-        className="-ml-2 h-8 gap-1.5 text-muted-foreground"
-        asChild
-      >
-        <Link href={backHref}>
-          <ArrowLeft className="size-4" />
-          Volver
-        </Link>
-      </Button>
+      {!embedded ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="-ml-2 h-8 gap-1.5 text-muted-foreground"
+          asChild
+        >
+          <Link href={backHref}>
+            <ArrowLeft className="size-4" />
+            Volver
+          </Link>
+        </Button>
+      ) : null}
 
       <div className="space-y-3">
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">

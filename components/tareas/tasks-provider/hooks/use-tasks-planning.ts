@@ -26,14 +26,19 @@ function resolveReopenExecutionOrder(
   const scope = filterOperationalOrderScope(tasks, task.dueDate, crewId, crews)
   const taken = new Set(
     scope
-      .filter((item) => item.id !== task.id && item.status === "programada")
-      .map((item) => item.executionOrder)
+      .filter((item) => item.id !== task.id)
+      .map((item) =>
+        item.status === "programada"
+          ? item.executionOrder
+          : item.dispatchOrder
+      )
       .filter((order): order is number => order != null && order > 0)
+      .map((order) => Math.floor(order))
   )
 
   const preferred = task.dispatchOrder ?? null
-  if (preferred != null && !taken.has(preferred)) {
-    return preferred
+  if (preferred != null && !taken.has(Math.floor(preferred))) {
+    return Math.floor(preferred)
   }
 
   let candidate = 1

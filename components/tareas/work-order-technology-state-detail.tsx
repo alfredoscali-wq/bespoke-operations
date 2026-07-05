@@ -75,7 +75,13 @@ function TechnologyStateDetailBlock({
   )
 }
 
-export function WorkOrderDualTechnologyDetail({ task }: { task: Task }) {
+export function WorkOrderDualTechnologyDetail({
+  task,
+  showInstallationFields = true,
+}: {
+  task: Task
+  showInstallationFields?: boolean
+}) {
   const metadata = task.taskMetadata ?? {}
   const currentTechnology = resolveCurrentTechnologyFromTask(task)
   const finalTechnology = resolveFinalTechnologyFromTask(task)
@@ -96,7 +102,9 @@ export function WorkOrderDualTechnologyDetail({ task }: { task: Task }) {
         title="Estado final"
         technology={finalTechnology}
         contractedPlan={finalPlan}
-        showInstallationFields={taskRequiresFtthInstallation(task)}
+        showInstallationFields={
+          showInstallationFields && taskRequiresFtthInstallation(task)
+        }
         installationValues={installationValues}
       />
     </div>
