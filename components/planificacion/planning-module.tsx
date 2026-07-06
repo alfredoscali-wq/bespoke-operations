@@ -400,7 +400,7 @@ function PlanningModuleContent() {
 
       try {
 
-        const result = await applyExecutionOrderUpdates(updates)
+        const result = await applyExecutionOrderUpdates(updates, crews)
 
 
 

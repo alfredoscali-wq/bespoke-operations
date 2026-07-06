@@ -87,9 +87,56 @@ export type DispatchOrderPersistPlan = {
   phases: DispatchOrderUpdate[][]
 }
 
+export function collectExecutionOrderScopeClearUpdates(
+  tasks: Task[],
+  anchorTaskIds: string[],
+  crews: CrewRef[] = []
+): ExecutionOrderUpdate[] {
+  const scopeKeys = new Set<string>()
+
+  for (const taskId of anchorTaskIds) {
+    const task = tasks.find((item) => item.id === taskId)
+    if (!task) {
+      continue
+    }
+
+    const crewId = resolveTaskCrewId(task, crews)
+    if (!crewId) {
+      continue
+    }
+
+    scopeKeys.add(`${task.dueDate}::${crewId}`)
+  }
+
+  const updates: ExecutionOrderUpdate[] = []
+  const seenTaskIds = new Set<string>()
+
+  for (const key of scopeKeys) {
+    const separatorIndex = key.indexOf("::")
+    const dueDate = key.slice(0, separatorIndex)
+    const crewId = key.slice(separatorIndex + 2)
+    const scope = filterOperationalOrderScope(tasks, dueDate, crewId, crews)
+
+    for (const task of scope) {
+      if (task.executionOrder == null || seenTaskIds.has(task.id)) {
+        continue
+      }
+
+      seenTaskIds.add(task.id)
+      updates.push({
+        taskId: task.id,
+        executionOrder: null,
+      })
+    }
+  }
+
+  return updates
+}
+
 export function buildExecutionOrderPersistPlan(
   updates: ExecutionOrderUpdate[],
-  tasks: Task[]
+  tasks: Task[],
+  crews: CrewRef[] = []
 ): ExecutionOrderPersistPlan {
   const deduped = dedupeExecutionOrderUpdates(updates)
   const changes = deduped.filter((update) => {
@@ -101,14 +148,33 @@ export function buildExecutionOrderPersistPlan(
     return { phases: [] }
   }
 
-  return {
-    phases: [
-      changes.map((update) => ({
-        taskId: update.taskId,
+  const scopeClears = collectExecutionOrderScopeClearUpdates(
+    tasks,
+    changes.map((update) => update.taskId),
+    crews
+  )
+  const phaseOneByTaskId = new Map<string, ExecutionOrderUpdate>()
+
+  for (const clear of scopeClears) {
+    phaseOneByTaskId.set(clear.taskId, clear)
+  }
+
+  for (const change of changes) {
+    if (change.executionOrder !== null) {
+      phaseOneByTaskId.set(change.taskId, {
+        taskId: change.taskId,
         executionOrder: null,
-      })),
-      changes,
-    ],
+      })
+    }
+  }
+
+  const phaseOne = [...phaseOneByTaskId.values()].filter((update) => {
+    const task = tasks.find((item) => item.id === update.taskId)
+    return task?.executionOrder != null
+  })
+
+  return {
+    phases: [phaseOne, changes],
   }
 }
 

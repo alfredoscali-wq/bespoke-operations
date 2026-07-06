@@ -353,8 +353,11 @@ export function useTasksUpdate({
   )
 
   const applyExecutionOrderUpdates = useCallback(
-    async (updates: ExecutionOrderUpdate[]): Promise<TaskMutationResult> => {
-      const plan = buildExecutionOrderPersistPlan(updates, tasks)
+    async (
+      updates: ExecutionOrderUpdate[],
+      crews: Pick<import("@/lib/types/crews").Crew, "id" | "name">[] = []
+    ): Promise<TaskMutationResult> => {
+      const plan = buildExecutionOrderPersistPlan(updates, tasks, crews)
 
       for (const phase of plan.phases) {
         for (const update of phase) {

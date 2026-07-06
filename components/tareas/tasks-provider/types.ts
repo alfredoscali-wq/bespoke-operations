@@ -58,7 +58,8 @@ export type TasksContextValue = {
     crews?: Pick<import("@/lib/types/crews").Crew, "id" | "name">[]
   ) => Promise<TaskMutationResult>
   applyExecutionOrderUpdates: (
-    updates: ExecutionOrderUpdate[]
+    updates: ExecutionOrderUpdate[],
+    crews?: Pick<import("@/lib/types/crews").Crew, "id" | "name">[]
   ) => Promise<TaskMutationResult>
   reportTaskIncident: (
     id: string,

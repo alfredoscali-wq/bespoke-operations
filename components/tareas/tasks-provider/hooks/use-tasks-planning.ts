@@ -3,6 +3,7 @@
 import { useCallback } from "react"
 
 import { buildPlanningConfirmDispatchUpdates } from "@/lib/planificacion/planning-incremental"
+import { collectExecutionOrderScopeClearUpdates } from "@/lib/planificacion/planning-execution-order"
 import { filterOperationalOrderScope } from "@/lib/planificacion/planning-operational-order-core"
 import { resolveTaskCrewId } from "@/lib/tasks/crew-relation"
 import { canPerformTaskAction } from "@/lib/tasks/task-status-workflow"
@@ -152,14 +153,47 @@ export function useTasksPlanning({
         if (!validation.allowed) {
           return { success: false, message: validation.message }
         }
+      }
 
-        const executionOrder = resolveReopenExecutionOrder(task, tasks, crews)
+      const reopenPlans = ids.map((id) => {
+        const task = tasks.find((item) => item.id === id)
+        if (!task) {
+          return null
+        }
 
+        return {
+          taskId: id,
+          executionOrder: resolveReopenExecutionOrder(task, tasks, crews),
+        }
+      })
+
+      if (reopenPlans.some((plan) => plan == null)) {
+        return { success: false, message: "Orden de trabajo no encontrada." }
+      }
+
+      const scopeClears = collectExecutionOrderScopeClearUpdates(tasks, ids, crews)
+
+      for (const clear of scopeClears) {
         const result = await updateTaskFields(
-          id,
+          clear.taskId,
+          { executionOrder: null },
+          undefined,
+          undefined,
+          undefined,
+          { suppressAudit: true }
+        )
+
+        if (!result.success) {
+          return result
+        }
+      }
+
+      for (const plan of reopenPlans) {
+        const result = await updateTaskFields(
+          plan!.taskId,
           {
             status: "programada",
-            executionOrder,
+            executionOrder: plan!.executionOrder,
             dispatchOrder: null,
           },
           "reopen-planning",
