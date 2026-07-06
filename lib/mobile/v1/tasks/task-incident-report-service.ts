@@ -1,6 +1,5 @@
 import "server-only"
 
-import { recordTaskMobileWorkflowAudit } from "@/lib/audit/tasks-audit.server"
 import { fetchIncidentTypesForServiceType } from "@/lib/mobile/v1/incidents/incident-type-queries"
 import { MobileApiError } from "@/lib/mobile/v1/errors"
 import { assertMobileTaskExecutionAccess } from "@/lib/mobile/v1/tasks/task-execution-access"
@@ -8,8 +7,6 @@ import type {
   MobileTaskReportIncidentRequest,
   MobileTaskReportIncidentResponse,
 } from "@/lib/mobile/v1/tasks/types"
-import { getTransitionForAction } from "@/lib/tasks/task-status-workflow"
-import { mapTaskRowToTask } from "@/lib/supabase/tasks.mapper"
 import { createTaskIncidentService } from "@/lib/task-incidents/task-incident.service"
 import { TaskIncidentError } from "@/lib/task-incidents/task-incident-errors"
 
@@ -91,60 +88,11 @@ export async function reportMobileTaskIncident(
     throw error
   }
 
-  const { to } = getTransitionForAction("report-incident")
-  const reportedAt = new Date().toISOString()
-  const existingMetadata =
-    context.task.taskMetadata && typeof context.task.taskMetadata === "object"
-      ? context.task.taskMetadata
-      : {}
-
-  const { data, error } = await context.admin
-    .from("tasks")
-    .update({
-      status: to,
-      incident_reason: incidentType.code,
-      incident_observation: observation,
-      incident_reported_at: reportedAt,
-      incident_reported_by: context.auth.displayName,
-      task_metadata: {
-        ...existingMetadata,
-        ...(request.photoIds && request.photoIds.length > 0
-          ? { incidentPhotoIds: request.photoIds }
-          : {}),
-      },
-    })
-    .eq("id", context.task.id)
-    .eq("company_id", context.auth.companyId)
-    .is("deleted_at", null)
-    .select("*")
-    .maybeSingle()
-
-  if (error || !data) {
-    throw error ?? new Error("TASK_UPDATE_FAILED")
-  }
-
-  const updatedTask = mapTaskRowToTask(data)
-
-  try {
-    await recordTaskMobileWorkflowAudit({
-      auth: context.auth,
-      before: context.task,
-      after: updatedTask,
-      workflowAction: "report-incident",
-      workTeamId: context.workTeamId,
-      workTeamName: context.workTeamName,
-      mobileDeviceId: context.mobileDeviceId,
-      note: observation
-        ? `Motivo: ${incidentType.name}\nObservación: ${observation}`
-        : `Motivo: ${incidentType.name}`,
-    })
-  } catch {
-    // Non-blocking audit.
-  }
-
+  // RC3.1: task_incidents is the source of truth. The OT remains en-curso so the
+  // operator can continue after supervisor resolution without a legacy status hop.
   return {
-    id: updatedTask.id,
-    status: updatedTask.status,
+    id: context.task.id,
+    status: context.task.status,
     incidentId: createdIncidentId ?? "",
   }
 }

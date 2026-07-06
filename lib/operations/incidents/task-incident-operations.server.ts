@@ -56,7 +56,15 @@ function resolveActorEmployeeId(sessionUser: SessionUser): string {
   return sessionUser.employeeId
 }
 
-async function createOperationsContext(sessionUser: SessionUser) {
+async function createOperationsReadContext(sessionUser: SessionUser) {
+  return {
+    companyId: resolveTenantCompanyId(sessionUser),
+    actorEmployeeId: sessionUser.employeeId ?? "",
+    client: await createClient(),
+  }
+}
+
+async function createOperationsWriteContext(sessionUser: SessionUser) {
   return {
     companyId: resolveTenantCompanyId(sessionUser),
     actorEmployeeId: resolveActorEmployeeId(sessionUser),
@@ -87,7 +95,7 @@ export async function listOperationsIncidents(
   filters?: ListTaskIncidentsFilters
 ): Promise<OperationsIncidentResult<IncidentSummary[]>> {
   try {
-    const context = await createOperationsContext(sessionUser)
+    const context = await createOperationsReadContext(sessionUser)
     const data = await listTaskIncidentsService(context, filters)
     return { ok: true, data }
   } catch (error) {
@@ -110,7 +118,7 @@ export async function getOperationsIncidentById(
   incidentId: string
 ): Promise<OperationsIncidentResult<IncidentResponse>> {
   try {
-    const context = await createOperationsContext(sessionUser)
+    const context = await createOperationsReadContext(sessionUser)
     const data = await getTaskIncidentByIdService(context, incidentId)
     return { ok: true, data }
   } catch (error) {
@@ -134,7 +142,7 @@ export async function updateOperationsIncidentStatus(
   request: UpdateIncidentStatusRequest
 ): Promise<OperationsIncidentResult<IncidentResponse>> {
   try {
-    const context = await createOperationsContext(sessionUser)
+    const context = await createOperationsWriteContext(sessionUser)
     const validated = validateUpdateIncidentStatusRequest(request)
     const data = await updateTaskIncidentStatusService(
       context,
@@ -163,7 +171,7 @@ export async function addOperationsIncidentEvent(
   request: AddIncidentEventRequest
 ): Promise<OperationsIncidentResult<IncidentResponse>> {
   try {
-    const context = await createOperationsContext(sessionUser)
+    const context = await createOperationsWriteContext(sessionUser)
     const validated = validateAddIncidentEventRequest(request)
     const data = await addTaskIncidentEventService(
       context,
@@ -192,7 +200,7 @@ export async function addOperationsIncidentPhoto(
   request: AddIncidentPhotoRequest
 ): Promise<OperationsIncidentResult<IncidentResponse>> {
   try {
-    const context = await createOperationsContext(sessionUser)
+    const context = await createOperationsWriteContext(sessionUser)
     const validated = validateAddIncidentPhotoRequest(request)
     const data = await addTaskIncidentPhotoService(
       context,

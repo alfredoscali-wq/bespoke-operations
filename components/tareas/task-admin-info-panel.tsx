@@ -46,9 +46,13 @@ import {
 
 type TaskAdminInfoPanelProps = {
   task: Task
+  embedded?: boolean
 }
 
-export function TaskAdminInfoPanel({ task }: TaskAdminInfoPanelProps) {
+export function TaskAdminInfoPanel({
+  task,
+  embedded = false,
+}: TaskAdminInfoPanelProps) {
   const { projects } = useProjects()
   const { getTask } = useTasks()
   const liveTask = getTask(task.id) ?? task
@@ -238,7 +242,7 @@ export function TaskAdminInfoPanel({ task }: TaskAdminInfoPanelProps) {
           })}
         </div>
 
-        {!isService && (
+        {!isService && !embedded ? (
           <div className="mt-4 rounded-lg border bg-muted/20 p-3 text-sm">
             <p className="text-xs text-muted-foreground">Obra relacionada</p>
             <Link
@@ -251,7 +255,7 @@ export function TaskAdminInfoPanel({ task }: TaskAdminInfoPanelProps) {
               Ver obra {liveTask.projectCode}
             </Link>
           </div>
-        )}
+        ) : null}
         </CardContent>
       </Card>
 

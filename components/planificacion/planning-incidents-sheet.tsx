@@ -103,6 +103,8 @@ export function PlanningIncidentsSheet({
 
   const canSupervise = canCloseWorkOrder(sessionUser?.systemRole)
   const actorName = sessionUser?.displayName?.trim() || "Supervisor"
+  const supervisorActionsDisabled =
+    isPending || detailLoading || !selectedIncident
 
   const listItems = useMemo(
     () =>
@@ -405,14 +407,18 @@ export function PlanningIncidentsSheet({
             )}
           </div>
 
-          {selectedIncident && canSupervise ? (
-            <SheetFooter className="border-t px-6 py-4 sm:flex-row sm:flex-wrap sm:justify-end sm:gap-2">
+          {selectedIncidentId && canSupervise ? (
+            <SheetFooter className="shrink-0 border-t bg-background px-6 py-4 sm:flex-row sm:flex-wrap sm:justify-end sm:gap-2">
               <Button
                 type="button"
                 variant="outline"
-                disabled={isPending}
+                disabled={supervisorActionsDisabled}
                 className="gap-1.5"
-                onClick={() =>
+                onClick={() => {
+                  if (!selectedIncident) {
+                    return
+                  }
+
                   void runIncidentAction(async () => {
                     await addOperationsIncidentEvent(selectedIncident.id, {
                       eventType: "REQUEST_INFO",
@@ -427,7 +433,7 @@ export function PlanningIncidentsSheet({
                       )
                     }
                   })
-                }
+                }}
               >
                 <MessageSquare className="size-4" />
                 Solicitar información
@@ -435,7 +441,7 @@ export function PlanningIncidentsSheet({
               <Button
                 type="button"
                 variant="outline"
-                disabled={isPending}
+                disabled={supervisorActionsDisabled}
                 className="gap-1.5"
                 onClick={() => setRescheduleOpen(true)}
               >
@@ -445,7 +451,7 @@ export function PlanningIncidentsSheet({
               <Button
                 type="button"
                 variant="outline"
-                disabled={isPending}
+                disabled={supervisorActionsDisabled}
                 className="gap-1.5"
                 onClick={() => setCancelOpen(true)}
               >
@@ -455,7 +461,7 @@ export function PlanningIncidentsSheet({
               <Button
                 type="button"
                 variant="outline"
-                disabled={isPending}
+                disabled={supervisorActionsDisabled}
                 className="gap-1.5"
                 onClick={() => setCloseOpen(true)}
               >
@@ -464,9 +470,13 @@ export function PlanningIncidentsSheet({
               </Button>
               <Button
                 type="button"
-                disabled={isPending}
+                disabled={supervisorActionsDisabled}
                 className="gap-1.5"
-                onClick={() =>
+                onClick={() => {
+                  if (!selectedIncident) {
+                    return
+                  }
+
                   void runIncidentAction(async () => {
                     if (selectedTask) {
                       const result = await resumeTaskFromIncident(
@@ -494,7 +504,7 @@ export function PlanningIncidentsSheet({
                       { canContinue: true }
                     )
                   })
-                }
+                }}
               >
                 {isPending ? (
                   <>

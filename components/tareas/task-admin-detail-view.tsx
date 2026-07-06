@@ -52,7 +52,7 @@ export function TaskAdminDetailView({
       ) : null}
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <TaskAdminInfoPanel task={task} />
+        <TaskAdminInfoPanel task={task} embedded={embedded} />
         <TaskAdminSidebarPanel task={task} />
       </div>
 
