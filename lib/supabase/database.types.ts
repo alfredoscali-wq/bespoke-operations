@@ -14,6 +14,7 @@ import type {
   TaskStatus,
   TaskType,
 } from "@/lib/types/tasks"
+import type { TaskIncidentStatus } from "@/lib/types/task-incidents"
 
 export type Json =
   | string
@@ -976,6 +977,123 @@ export type Database = {
         }
         Relationships: []
       }
+      task_incidents: {
+        Row: {
+          id: string
+          company_id: string
+          task_id: string
+          employee_id: string
+          crew_id: string | null
+          incident_type_id: string
+          status: TaskIncidentStatus
+          comment: string | null
+          can_continue: boolean
+          requires_supervisor_action: boolean
+          resolved_by: string | null
+          resolved_at: string | null
+          created_at: string
+          updated_at: string
+          deleted_at: string | null
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          task_id: string
+          employee_id: string
+          crew_id?: string | null
+          incident_type_id: string
+          status: TaskIncidentStatus
+          comment?: string | null
+          can_continue?: boolean
+          requires_supervisor_action?: boolean
+          resolved_by?: string | null
+          resolved_at?: string | null
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          task_id?: string
+          employee_id?: string
+          crew_id?: string | null
+          incident_type_id?: string
+          status?: TaskIncidentStatus
+          comment?: string | null
+          can_continue?: boolean
+          requires_supervisor_action?: boolean
+          resolved_by?: string | null
+          resolved_at?: string | null
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Relationships: []
+      }
+      task_incident_photos: {
+        Row: {
+          id: string
+          incident_id: string
+          storage_path: string
+          thumbnail_path: string | null
+          file_name: string | null
+          mime_type: string | null
+          size_bytes: number | null
+          created_by: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          incident_id: string
+          storage_path: string
+          thumbnail_path?: string | null
+          file_name?: string | null
+          mime_type?: string | null
+          size_bytes?: number | null
+          created_by: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          incident_id?: string
+          storage_path?: string
+          thumbnail_path?: string | null
+          file_name?: string | null
+          mime_type?: string | null
+          size_bytes?: number | null
+          created_by?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
+      task_incident_events: {
+        Row: {
+          id: string
+          incident_id: string
+          event_type: string
+          comment: string | null
+          created_by: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          incident_id: string
+          event_type: string
+          comment?: string | null
+          created_by: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          incident_id?: string
+          event_type?: string
+          comment?: string | null
+          created_by?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
       evidences: {
         Row: {
           id: string
@@ -1075,6 +1193,7 @@ export type Database = {
       task_type: TaskType
       task_status: TaskStatus
       task_priority: TaskPriority
+      task_incident_status: TaskIncidentStatus
       evidence_file_type: EvidenceFileType
       evidence_category_type: EvidenceCategoryType
       evidence_status: EvidenceStatus
@@ -1114,6 +1233,23 @@ export type TaskPhotoInsert =
   Database["public"]["Tables"]["task_photos"]["Insert"]
 export type TaskPhotoUpdate =
   Database["public"]["Tables"]["task_photos"]["Update"]
+export type TaskIncidentRow = Database["public"]["Tables"]["task_incidents"]["Row"]
+export type TaskIncidentInsert =
+  Database["public"]["Tables"]["task_incidents"]["Insert"]
+export type TaskIncidentUpdate =
+  Database["public"]["Tables"]["task_incidents"]["Update"]
+export type TaskIncidentPhotoRow =
+  Database["public"]["Tables"]["task_incident_photos"]["Row"]
+export type TaskIncidentPhotoInsert =
+  Database["public"]["Tables"]["task_incident_photos"]["Insert"]
+export type TaskIncidentPhotoUpdate =
+  Database["public"]["Tables"]["task_incident_photos"]["Update"]
+export type TaskIncidentEventRow =
+  Database["public"]["Tables"]["task_incident_events"]["Row"]
+export type TaskIncidentEventInsert =
+  Database["public"]["Tables"]["task_incident_events"]["Insert"]
+export type TaskIncidentEventUpdate =
+  Database["public"]["Tables"]["task_incident_events"]["Update"]
 export type EvidenceRow = Database["public"]["Tables"]["evidences"]["Row"]
 export type EvidenceInsert =
   Database["public"]["Tables"]["evidences"]["Insert"]
