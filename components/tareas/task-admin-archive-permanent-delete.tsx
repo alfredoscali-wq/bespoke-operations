@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Trash2 } from "lucide-react"
 
-import { WorkOrderPermanentDeleteDialog } from "@/components/tareas/work-order-permanent-delete-dialog"
+import { DeletePermanentDialog } from "@/components/admin/delete-permanent-dialog"
 import { Button } from "@/components/ui/button"
 import type { Task } from "@/lib/types/tasks"
 
@@ -33,11 +33,12 @@ export function TaskAdminArchivePermanentDelete({
         </Button>
       </div>
 
-      <WorkOrderPermanentDeleteDialog
+      <DeletePermanentDialog
         open={open}
         onOpenChange={setOpen}
-        taskId={task.id}
-        taskLabel={taskLabel}
+        entityType="task"
+        entityId={task.id}
+        entityLabel={taskLabel}
         onSuccess={onSuccess}
       />
     </>

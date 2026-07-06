@@ -1,19 +1,13 @@
 import { NextResponse } from "next/server"
 
 import { executePermanentDelete } from "@/lib/admin/permanent-delete"
-import type { PermanentDeleteEntityType } from "@/lib/admin/permanent-delete"
+import { isPermanentDeleteEntityType } from "@/lib/admin/permanent-delete-types"
 import { requireAdministratorSession } from "@/lib/auth/require-administrator"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 type PermanentDeleteRequestBody = {
-  entityType?: PermanentDeleteEntityType
+  entityType?: string
   entityId?: string
-}
-
-function isPermanentDeleteEntityType(
-  value: string | undefined
-): value is PermanentDeleteEntityType {
-  return value === "customer" || value === "task"
 }
 
 export async function POST(request: Request) {
@@ -44,7 +38,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         success: false,
-        message: "entityType debe ser customer o task.",
+        message: "entityType no es válido.",
       },
       { status: 400 }
     )

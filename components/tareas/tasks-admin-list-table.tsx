@@ -109,7 +109,7 @@ export function TasksAdminListTable({
               <TableHead>Fecha</TableHead>
               {showExtendedColumns ? <TableHead>Operario</TableHead> : null}
               {showExtendedColumns ? <TableHead>Estado</TableHead> : null}
-              <TableHead className="w-[120px] text-right">Acciones</TableHead>
+              <TableHead className="w-[148px] text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

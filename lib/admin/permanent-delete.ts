@@ -11,10 +11,15 @@ import type { SessionUser } from "@/lib/auth/types"
 import type { SupabaseAdminClient } from "@/lib/supabase/admin"
 import { EVIDENCES_STORAGE_BUCKET } from "@/lib/supabase/evidences.storage"
 import { TASK_PHOTOS_STORAGE_BUCKET } from "@/lib/supabase/task-photos.storage"
-import { isTaskArchivedStatus } from "@/lib/tasks/task-archived-status"
-import { WORK_ORDER_PERMANENT_DELETE_ARCHIVED_ONLY_MESSAGE } from "@/lib/tasks/work-order-deletion-policy"
-import type { TaskStatus } from "@/lib/types/tasks"
-export type PermanentDeleteEntityType = "customer" | "task"
+import {
+  assertCustomerPermanentDeleteAllowed,
+  assertPermanentDeleteEntityImplemented,
+  assertTaskPermanentDeleteAllowed,
+  PERMANENT_DELETE_NOT_IMPLEMENTED_MESSAGE,
+} from "@/lib/admin/permanent-delete-policy"
+import type { PermanentDeleteEntityType } from "@/lib/admin/permanent-delete-types"
+
+export type { PermanentDeleteEntityType } from "@/lib/admin/permanent-delete-types"
 
 export type PermanentDeleteResult = {
   success: true
@@ -135,7 +140,7 @@ export async function permanentDeleteTask(
 ): Promise<PermanentDeleteResult> {
   const { data: task, error: taskReadError } = await client
     .from("tasks")
-    .select("id, code, title, customer_id, status")
+    .select("id, code, title, customer_id")
     .eq("id", input.taskId)
     .maybeSingle()
 
@@ -147,9 +152,7 @@ export async function permanentDeleteTask(
     throw new Error("Orden de trabajo no encontrada.")
   }
 
-  if (!isTaskArchivedStatus(task.status as TaskStatus)) {
-    throw new Error(WORK_ORDER_PERMANENT_DELETE_ARCHIVED_ONLY_MESSAGE)
-  }
+  await assertTaskPermanentDeleteAllowed(client, input.taskId)
 
   const entityLabel = task.code?.trim() || task.title?.trim() || input.taskId
   const administratorName = input.sessionUser.displayName?.trim() || "Administrador"
@@ -199,6 +202,8 @@ export async function permanentDeleteCustomer(
   if (!customer) {
     throw new Error("Cliente no encontrado.")
   }
+
+  await assertCustomerPermanentDeleteAllowed(client, input.customerId)
 
   const entityLabel =
     customer.name?.trim() ||
@@ -264,6 +269,8 @@ export async function executePermanentDelete(
     sessionUser: SessionUser
   }
 ): Promise<PermanentDeleteResult> {
+  assertPermanentDeleteEntityImplemented(input.entityType)
+
   if (input.entityType === "customer") {
     return permanentDeleteCustomer(client, {
       customerId: input.entityId,
@@ -271,8 +278,12 @@ export async function executePermanentDelete(
     })
   }
 
-  return permanentDeleteTask(client, {
-    taskId: input.entityId,
-    sessionUser: input.sessionUser,
-  })
+  if (input.entityType === "task") {
+    return permanentDeleteTask(client, {
+      taskId: input.entityId,
+      sessionUser: input.sessionUser,
+    })
+  }
+
+  throw new Error(PERMANENT_DELETE_NOT_IMPLEMENTED_MESSAGE)
 }

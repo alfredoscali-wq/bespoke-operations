@@ -6,12 +6,15 @@ import { Eye, Pencil, Trash2 } from "lucide-react"
 
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { TaskWorkOrderDialog } from "@/components/tareas/task-work-order-dialog"
+import { PermanentDeleteRowAction } from "@/components/admin/permanent-delete-row-action"
+import { useAuth } from "@/components/auth/auth-provider"
 import {
   canAdminModifyWorkOrder,
   WORK_ORDER_ADMIN_MUTATION_BLOCKED_MESSAGE,
   WORK_ORDER_ADMIN_MUTATION_BLOCKED_TOOLTIP,
 } from "@/lib/tasks/work-order-admin-mutation"
 import {
+  canPermanentlyDeleteWorkOrder,
   canSoftDeleteWorkOrder,
   WORK_ORDER_SOFT_DELETE_BLOCKED_MESSAGE,
 } from "@/lib/tasks/work-order-deletion-policy"
@@ -99,7 +102,8 @@ export function TaskAdminRowActions({
   readOnly = false,
   detailHref,
 }: TaskAdminRowActionsProps) {
-  const { editTask, deleteTask, tasks } = useTasks()
+  const { sessionUser } = useAuth()
+  const { editTask, deleteTask, removeTaskLocally, tasks } = useTasks()
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [editBlockedOpen, setEditBlockedOpen] = useState(false)
@@ -108,6 +112,12 @@ export function TaskAdminRowActions({
   const viewHref = detailHref ?? `/tareas/${task.id}`
 
   if (readOnly) {
+    const taskLabel = task.code?.trim() || task.title?.trim() || task.id
+    const canPermanentDelete = canPermanentlyDeleteWorkOrder(
+      sessionUser?.systemRole,
+      task.status
+    )
+
     return (
       <div className="flex items-center justify-end gap-0.5">
         <Button
@@ -122,6 +132,18 @@ export function TaskAdminRowActions({
             <span className="sr-only">Ver detalle</span>
           </Link>
         </Button>
+
+        {canPermanentDelete ? (
+          <PermanentDeleteRowAction
+            entityType="task"
+            entityId={task.id}
+            entityLabel={taskLabel}
+            onSuccess={(message) => {
+              removeTaskLocally(task.id)
+              onFeedback({ variant: "success", message })
+            }}
+          />
+        ) : null}
       </div>
     )
   }

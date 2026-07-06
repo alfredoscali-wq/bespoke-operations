@@ -1,4 +1,6 @@
-import type { PermanentDeleteEntityType } from "@/lib/admin/permanent-delete"
+import type { PermanentDeleteEntityType } from "@/lib/admin/permanent-delete-types"
+
+export type { PermanentDeleteEntityType } from "@/lib/admin/permanent-delete-types"
 
 export type PermanentDeleteRequest = {
   entityType: PermanentDeleteEntityType
