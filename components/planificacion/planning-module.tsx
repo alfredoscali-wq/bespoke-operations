@@ -18,6 +18,8 @@ import { PlanningOperationalSummary } from "@/components/planificacion/planning-
 
 import { PlanningOperationalAlerts } from "@/components/planificacion/planning-operational-alerts"
 
+import { PlanningIncidentsSheet } from "@/components/planificacion/planning-incidents-sheet"
+
 import { PlanningPendingClosureSheet } from "@/components/planificacion/planning-pending-closure-sheet"
 
 import { PlanningSuccessBanner } from "@/components/planificacion/planning-success-banner"
@@ -98,6 +100,8 @@ import { sortTasksByDispatchRoute } from "@/lib/tasks/dispatch-order"
 
 import { listPendingClosureTasksForPlanningDate } from "@/lib/planificacion/planning-pending-closure"
 
+import { usePlanningActiveIncidents } from "@/hooks/use-planning-active-incidents"
+
 
 
 function PlanningModuleContent() {
@@ -142,9 +146,19 @@ function PlanningModuleContent() {
 
   const [pendingClosureSheetOpen, setPendingClosureSheetOpen] = useState(false)
 
+  const [incidentsSheetOpen, setIncidentsSheetOpen] = useState(false)
+
 
 
   const supervisorName = sessionUser?.displayName?.trim() || "Supervisor"
+
+  const {
+    incidents: activeIncidents,
+    activeCount: activeIncidentsCount,
+    isLoading: isActiveIncidentsLoading,
+    error: activeIncidentsError,
+    refresh: refreshActiveIncidents,
+  } = usePlanningActiveIncidents()
 
 
 
@@ -839,6 +853,28 @@ function PlanningModuleContent() {
           pendingApprovalCount={pendingClosureTasks.length}
 
           onOpenPendingApproval={() => setPendingClosureSheetOpen(true)}
+
+          activeIncidentsCount={activeIncidentsCount}
+
+          onOpenIncidents={() => setIncidentsSheetOpen(true)}
+
+        />
+
+
+
+        <PlanningIncidentsSheet
+
+          open={incidentsSheetOpen}
+
+          onOpenChange={setIncidentsSheetOpen}
+
+          incidents={activeIncidents}
+
+          isLoading={isActiveIncidentsLoading}
+
+          error={activeIncidentsError}
+
+          onRefresh={refreshActiveIncidents}
 
         />
 
