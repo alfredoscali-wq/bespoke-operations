@@ -80,3 +80,55 @@ export type CreateTaskIncidentEventInput = {
   comment?: string | null
   createdBy: string
 }
+
+export type CreateIncidentRequest = {
+  taskId: string
+  employeeId: string
+  crewId?: string | null
+  incidentTypeId: string
+  comment?: string | null
+  canContinue?: boolean
+  requiresSupervisorAction?: boolean
+}
+
+export type UpdateIncidentStatusRequest = {
+  status: TaskIncidentStatus
+  comment?: string | null
+  canContinue?: boolean
+  requiresSupervisorAction?: boolean
+}
+
+export type AddIncidentPhotoRequest = {
+  storagePath: string
+  thumbnailPath?: string | null
+  fileName?: string | null
+  mimeType?: string | null
+  sizeBytes?: number | null
+}
+
+export type AddIncidentEventRequest = {
+  eventType: string
+  comment?: string | null
+}
+
+export type IncidentSummary = {
+  id: string
+  companyId: string
+  taskId: string
+  employeeId: string
+  crewId?: string | null
+  incidentTypeId: string
+  status: TaskIncidentStatus
+  comment?: string | null
+  canContinue: boolean
+  requiresSupervisorAction: boolean
+  resolvedBy?: string | null
+  resolvedAt?: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type IncidentResponse = IncidentSummary & {
+  photos: TaskIncidentPhoto[]
+  events: TaskIncidentEvent[]
+}

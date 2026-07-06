@@ -18,6 +18,9 @@ export type MobileApiErrorCode =
   | "TASK_LOCATION_REQUIRED"
   | "TASK_CHECKLIST_INCOMPLETE"
   | "UPLOAD_FAILED"
+  | "INCIDENT_NOT_FOUND"
+  | "INCIDENT_ALREADY_ACTIVE"
+  | "INVALID_INCIDENT_STATUS"
 
 export class MobileApiError extends Error {
   readonly code: MobileApiErrorCode

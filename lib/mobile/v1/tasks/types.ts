@@ -121,7 +121,7 @@ export type MobileTaskChecklistPhotoResponse = {
 export type MobileTaskReportIncidentRequest = {
   deviceId: string
   incidentTypeCode: string
-  observation: string
+  observation?: string | null
   photoIds?: string[]
 }
 

@@ -79,10 +79,27 @@ export function validateMobileTaskSubmitRequest(body: unknown): {
   }
 }
 
+function readOptionalTrimmedString(value: unknown, field: string): string | null {
+  if (value === undefined || value === null) {
+    return null
+  }
+
+  if (typeof value !== "string") {
+    throw new MobileApiError(
+      "INVALID_REQUEST",
+      `Campo inválido: ${field}.`,
+      400
+    )
+  }
+
+  const trimmed = value.trim()
+  return trimmed || null
+}
+
 export function validateMobileTaskReportIncidentRequest(body: unknown): {
   deviceId: string
   incidentTypeCode: string
-  observation: string
+  observation: string | null
   photoIds?: string[]
 } {
   if (!body || typeof body !== "object") {
@@ -97,7 +114,7 @@ export function validateMobileTaskReportIncidentRequest(body: unknown): {
   return {
     deviceId: readRequiredString(record.deviceId, "deviceId"),
     incidentTypeCode: readRequiredString(record.incidentTypeCode, "incidentTypeCode"),
-    observation: readRequiredString(record.observation, "observation"),
+    observation: readOptionalTrimmedString(record.observation, "observation"),
     ...(photoIds && photoIds.length > 0 ? { photoIds } : {}),
   }
 }

@@ -10,6 +10,21 @@ import type {
 } from "@/lib/mobile/v1/tasks/types"
 import { getTransitionForAction } from "@/lib/tasks/task-status-workflow"
 import { mapTaskRowToTask } from "@/lib/supabase/tasks.mapper"
+import { createTaskIncidentService } from "@/lib/task-incidents/task-incident.service"
+import { TaskIncidentError } from "@/lib/task-incidents/task-incident-errors"
+
+function mapTaskIncidentErrorToMobile(error: TaskIncidentError): MobileApiError {
+  const code =
+    error.code === "NOT_FOUND"
+      ? "INVALID_REQUEST"
+      : error.code === "DUPLICATE_ACTIVE"
+        ? "INCIDENT_ALREADY_ACTIVE"
+        : error.code === "FORBIDDEN"
+          ? "UNAUTHORIZED"
+          : "INVALID_REQUEST"
+
+  return new MobileApiError(code, error.message, error.httpStatus)
+}
 
 export async function reportMobileTaskIncident(
   auth: Parameters<typeof assertMobileTaskExecutionAccess>[0],
@@ -24,20 +39,11 @@ export async function reportMobileTaskIncident(
   )
 
   const incidentTypeCode = request.incidentTypeCode.trim()
-  const observation = request.observation.trim()
 
   if (!incidentTypeCode) {
     throw new MobileApiError(
       "INVALID_REQUEST",
       "Seleccione un tipo de incidencia.",
-      400
-    )
-  }
-
-  if (!observation) {
-    throw new MobileApiError(
-      "INVALID_REQUEST",
-      "Describa brevemente la situación.",
       400
     )
   }
@@ -56,6 +62,31 @@ export async function reportMobileTaskIncident(
       "Tipo de incidencia no válido.",
       400
     )
+  }
+
+  const observation = request.observation?.trim() || null
+
+  try {
+    await createTaskIncidentService(
+      {
+        companyId: context.auth.companyId,
+        actorEmployeeId: context.auth.employeeId,
+        client: context.admin,
+      },
+      {
+        taskId: context.task.id,
+        employeeId: context.auth.employeeId,
+        crewId: context.workTeamId,
+        incidentTypeId: incidentType.id,
+        comment: observation,
+      }
+    )
+  } catch (error) {
+    if (error instanceof TaskIncidentError) {
+      throw mapTaskIncidentErrorToMobile(error)
+    }
+
+    throw error
   }
 
   const { to } = getTransitionForAction("report-incident")
@@ -101,7 +132,9 @@ export async function reportMobileTaskIncident(
       workTeamId: context.workTeamId,
       workTeamName: context.workTeamName,
       mobileDeviceId: context.mobileDeviceId,
-      note: `Motivo: ${incidentType.name}\nObservación: ${observation}`,
+      note: observation
+        ? `Motivo: ${incidentType.name}\nObservación: ${observation}`
+        : `Motivo: ${incidentType.name}`,
     })
   } catch {
     // Non-blocking audit.

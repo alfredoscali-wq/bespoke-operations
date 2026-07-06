@@ -38,6 +38,32 @@ export async function listIncidentTypes(
   }
 }
 
+export async function fetchIncidentTypeById(
+  client: SupabaseIncidentTypesClient,
+  companyId: string,
+  id: string
+): Promise<IncidentTypesRepositoryResult<IncidentType>> {
+  const { data, error } = await client
+    .from("incident_types")
+    .select("*")
+    .eq("company_id", companyId)
+    .eq("id", id)
+    .maybeSingle()
+
+  if (error) {
+    return { data: null, error: mapError(error) }
+  }
+
+  if (!data) {
+    return {
+      data: null,
+      error: { message: "Tipo de incidencia no encontrado." },
+    }
+  }
+
+  return { data: mapIncidentTypeRowToItem(data), error: null }
+}
+
 export async function listActiveIncidentTypes(
   client: SupabaseIncidentTypesClient,
   companyId: string
