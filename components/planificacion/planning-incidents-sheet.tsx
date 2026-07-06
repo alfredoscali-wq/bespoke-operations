@@ -30,6 +30,10 @@ import {
   PLANNING_INCIDENT_STATUS_LABELS,
   resolvePlanningIncidentTypeLabel,
 } from "@/lib/planificacion/planning-incidents"
+import {
+  normalizePlanningIncidentSelectionId,
+  resolvePlanningIncidentSheetViewPhase,
+} from "@/lib/planificacion/planning-incidents-sheet-state"
 import { fetchIncidentTypes } from "@/lib/supabase/incident-types.browser"
 import { formatTaskDateTime } from "@/lib/tasks/constants"
 import { canCloseWorkOrder } from "@/lib/tasks/task-closure-permissions"
@@ -62,6 +66,8 @@ type PlanningIncidentsSheetProps = {
   isLoading: boolean
   error: string | null
   onRefresh: () => Promise<void>
+  selectedIncidentId: string | null
+  onSelectedIncidentIdChange: (incidentId: string | null) => void
 }
 
 export function PlanningIncidentsSheet({
@@ -71,6 +77,8 @@ export function PlanningIncidentsSheet({
   isLoading,
   error,
   onRefresh,
+  selectedIncidentId,
+  onSelectedIncidentIdChange,
 }: PlanningIncidentsSheetProps) {
   const { sessionUser } = useAuth()
   const { companyId } = useTenantCompanyId()
@@ -86,9 +94,6 @@ export function PlanningIncidentsSheet({
     cancelTask,
   } = useTasks()
 
-  const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(
-    null
-  )
   const [selectedIncident, setSelectedIncident] =
     useState<IncidentResponse | null>(null)
   const [incidentTypes, setIncidentTypes] = useState<
@@ -106,6 +111,13 @@ export function PlanningIncidentsSheet({
   const actorName = sessionUser?.displayName?.trim() || "Supervisor"
   const supervisorActionsDisabled =
     isPending || detailLoading || !selectedIncident
+
+  const viewPhase = resolvePlanningIncidentSheetViewPhase({
+    selectedIncidentId,
+    detailLoading,
+    detailError,
+    hasSelectedIncident: Boolean(selectedIncident),
+  })
 
   const listItems = useMemo(
     () =>
@@ -164,7 +176,6 @@ export function PlanningIncidentsSheet({
 
   useEffect(() => {
     if (!open) {
-      setSelectedIncidentId(null)
       setSelectedIncident(null)
       setDetailError(null)
       setActionError(null)
@@ -221,14 +232,28 @@ export function PlanningIncidentsSheet({
     }
   }, [open, selectedIncidentId])
 
-  function handleSelectIncident(incidentId: string) {
-    const normalizedIncidentId = incidentId.trim()
+  function handleSelectIncident(incidentId: string | null | undefined) {
+    const normalizedIncidentId =
+      normalizePlanningIncidentSelectionId(incidentId)
 
     if (!normalizedIncidentId) {
+      onSelectedIncidentIdChange(null)
+      setSelectedIncident(null)
+      setDetailError(
+        "No fue posible identificar la incidencia seleccionada. Actualice la bandeja e intente nuevamente."
+      )
+      setActionError(null)
       return
     }
 
-    setSelectedIncidentId(normalizedIncidentId)
+    onSelectedIncidentIdChange(normalizedIncidentId)
+    setSelectedIncident(null)
+    setActionError(null)
+    setDetailError(null)
+  }
+
+  function handleBackToIncidentList() {
+    onSelectedIncidentIdChange(null)
     setSelectedIncident(null)
     setActionError(null)
     setDetailError(null)
@@ -271,7 +296,7 @@ export function PlanningIncidentsSheet({
       detail.status === "RESUELTA" ||
       detail.status === "RECHAZADA"
     ) {
-      setSelectedIncidentId(null)
+      onSelectedIncidentIdChange(null)
     }
   }
 
@@ -326,8 +351,8 @@ export function PlanningIncidentsSheet({
               </p>
             ) : null}
 
-            {!selectedIncidentId ? (
-              <div className="space-y-2">
+            {viewPhase === "LIST" ? (
+              <div className="space-y-2" data-testid="planning-incidents-list">
                 {isLoading ? (
                   <div className="space-y-2">
                     <Skeleton className="h-28 w-full" />
@@ -343,6 +368,7 @@ export function PlanningIncidentsSheet({
                     <button
                       key={item.id}
                       type="button"
+                      data-testid={`planning-incidents-list-item-${item.id}`}
                       onClick={() => handleSelectIncident(item.id)}
                       className="w-full rounded-lg border bg-muted/20 p-4 text-left transition hover:border-primary/40 hover:bg-muted/30"
                     >
@@ -390,18 +416,17 @@ export function PlanningIncidentsSheet({
                 )}
               </div>
             ) : (
-              <div className="space-y-4">
+              <div
+                className="space-y-4"
+                data-testid="planning-incidents-detail"
+                data-view-phase={viewPhase}
+              >
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   className="-ml-2 h-8 gap-1.5 text-muted-foreground"
-                  onClick={() => {
-                    setSelectedIncidentId(null)
-                    setSelectedIncident(null)
-                    setActionError(null)
-                    setDetailError(null)
-                  }}
+                  onClick={handleBackToIncidentList}
                 >
                   <ArrowLeft className="size-4" />
                   Volver al listado

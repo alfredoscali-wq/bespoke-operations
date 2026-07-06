@@ -148,6 +148,10 @@ function PlanningModuleContent() {
 
   const [incidentsSheetOpen, setIncidentsSheetOpen] = useState(false)
 
+  const [selectedPlanningIncidentId, setSelectedPlanningIncidentId] = useState<
+    string | null
+  >(null)
+
 
 
   const supervisorName = sessionUser?.displayName?.trim() || "Supervisor"
@@ -866,7 +870,17 @@ function PlanningModuleContent() {
 
           open={incidentsSheetOpen}
 
-          onOpenChange={setIncidentsSheetOpen}
+          onOpenChange={(nextOpen) => {
+
+            setIncidentsSheetOpen(nextOpen)
+
+            if (!nextOpen) {
+
+              setSelectedPlanningIncidentId(null)
+
+            }
+
+          }}
 
           incidents={activeIncidents}
 
@@ -875,6 +889,10 @@ function PlanningModuleContent() {
           error={activeIncidentsError}
 
           onRefresh={refreshActiveIncidents}
+
+          selectedIncidentId={selectedPlanningIncidentId}
+
+          onSelectedIncidentIdChange={setSelectedPlanningIncidentId}
 
         />
 
