@@ -20,91 +20,124 @@ INSERT INTO public.incident_types (
   is_active,
   sort_order
 )
+WITH standard_codes AS (
+  SELECT *
+  FROM (
+    VALUES
+      (
+        'CLIENT_ABSENT',
+        'Cliente ausente',
+        'El cliente no se encuentra en el domicilio al momento de la visita.',
+        true,
+        1
+      ),
+      (
+        'GPS_INCORRECT',
+        'GPS incorrecto',
+        'La ubicación GPS no coincide con el domicilio de servicio.',
+        true,
+        2
+      ),
+      (
+        'NAP_NOT_FOUND',
+        'NAP no encontrada',
+        'No fue posible localizar la caja NAP en campo.',
+        true,
+        3
+      ),
+      (
+        'PORT_OCCUPIED',
+        'Puerto ocupado',
+        'El puerto NAP requerido ya está en uso.',
+        true,
+        4
+      ),
+      (
+        'MATERIAL_SHORTAGE',
+        'Falta de material',
+        'Faltan materiales necesarios para completar la orden de trabajo.',
+        true,
+        5
+      ),
+      (
+        'NO_PROPERTY_ACCESS',
+        'Sin acceso a la propiedad',
+        'No se puede ingresar al domicilio o edificio para ejecutar la OT.',
+        true,
+        6
+      ),
+      (
+        'CUSTOMER_RESCHEDULE',
+        'Cliente solicita reprogramar',
+        'El cliente pide reprogramar la visita.',
+        false,
+        7
+      ),
+      (
+        'SAFETY_RISK',
+        'Riesgo de seguridad',
+        'Condiciones inseguras impiden continuar la ejecución.',
+        true,
+        8
+      ),
+      (
+        'OTHER',
+        'Otro',
+        'Incidencia operativa no contemplada en el catálogo estándar.',
+        true,
+        9
+      )
+  ) AS seed (
+    code,
+    name,
+    description,
+    requires_supervisor_intervention,
+    catalog_sort_order
+  )
+),
+company_max_sort AS (
+  SELECT
+    c.id AS company_id,
+    COALESCE(MAX(it.sort_order), 0) AS max_sort_order
+  FROM public.companies c
+  LEFT JOIN public.incident_types it
+    ON it.company_id = c.id
+  WHERE c.deleted_at IS NULL
+  GROUP BY c.id
+),
+missing_codes AS (
+  SELECT
+    cms.company_id,
+    sc.code,
+    sc.name,
+    sc.description,
+    sc.requires_supervisor_intervention,
+    cms.max_sort_order,
+    ROW_NUMBER() OVER (
+      PARTITION BY cms.company_id
+      ORDER BY sc.catalog_sort_order
+    ) AS relative_order
+  FROM company_max_sort cms
+  CROSS JOIN standard_codes sc
+  WHERE NOT EXISTS (
+    SELECT 1
+    FROM public.incident_types it
+    WHERE it.company_id = cms.company_id
+      AND it.code = sc.code
+  )
+)
 SELECT
-  c.id,
-  seed.code,
-  seed.name,
-  seed.description,
+  mc.company_id,
+  mc.code,
+  mc.name,
+  mc.description,
   '#64748b',
   true,
-  seed.requires_supervisor_intervention,
+  mc.requires_supervisor_intervention,
   true,
   true,
-  seed.sort_order
-FROM public.companies c
-CROSS JOIN (
-  VALUES
-    (
-      'CLIENT_ABSENT',
-      'Cliente ausente',
-      'El cliente no se encuentra en el domicilio al momento de la visita.',
-      true,
-      1
-    ),
-    (
-      'GPS_INCORRECT',
-      'GPS incorrecto',
-      'La ubicación GPS no coincide con el domicilio de servicio.',
-      true,
-      2
-    ),
-    (
-      'NAP_NOT_FOUND',
-      'NAP no encontrada',
-      'No fue posible localizar la caja NAP en campo.',
-      true,
-      3
-    ),
-    (
-      'PORT_OCCUPIED',
-      'Puerto ocupado',
-      'El puerto NAP requerido ya está en uso.',
-      true,
-      4
-    ),
-    (
-      'MATERIAL_SHORTAGE',
-      'Falta de material',
-      'Faltan materiales necesarios para completar la orden de trabajo.',
-      true,
-      5
-    ),
-    (
-      'NO_PROPERTY_ACCESS',
-      'Sin acceso a la propiedad',
-      'No se puede ingresar al domicilio o edificio para ejecutar la OT.',
-      true,
-      6
-    ),
-    (
-      'CUSTOMER_RESCHEDULE',
-      'Cliente solicita reprogramar',
-      'El cliente pide reprogramar la visita.',
-      false,
-      7
-    ),
-    (
-      'SAFETY_RISK',
-      'Riesgo de seguridad',
-      'Condiciones inseguras impiden continuar la ejecución.',
-      true,
-      8
-    ),
-    (
-      'OTHER',
-      'Otro',
-      'Incidencia operativa no contemplada en el catálogo estándar.',
-      true,
-      9
-    )
-) AS seed (
-  code,
-  name,
-  description,
-  requires_supervisor_intervention,
-  sort_order
-)
-WHERE c.deleted_at IS NULL
+  mc.max_sort_order + mc.relative_order
+FROM missing_codes mc
 ON CONFLICT (company_id, code) DO NOTHING;
 
 -- ---------------------------------------------------------------------------
