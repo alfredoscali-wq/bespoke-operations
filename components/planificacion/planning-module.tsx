@@ -146,6 +146,9 @@ function PlanningModuleContent() {
 
   const [pendingClosureSheetOpen, setPendingClosureSheetOpen] = useState(false)
 
+  const [selectedPlanningPendingClosureTaskId, setSelectedPlanningPendingClosureTaskId] =
+    useState<string | null>(null)
+
   const [incidentsSheetOpen, setIncidentsSheetOpen] = useState(false)
 
   const [selectedPlanningIncidentId, setSelectedPlanningIncidentId] = useState<
@@ -902,9 +905,23 @@ function PlanningModuleContent() {
 
           open={pendingClosureSheetOpen}
 
-          onOpenChange={setPendingClosureSheetOpen}
+          onOpenChange={(nextOpen) => {
+
+            setPendingClosureSheetOpen(nextOpen)
+
+            if (!nextOpen) {
+
+              setSelectedPlanningPendingClosureTaskId(null)
+
+            }
+
+          }}
 
           date={date}
+
+          selectedTaskId={selectedPlanningPendingClosureTaskId}
+
+          onSelectedTaskIdChange={setSelectedPlanningPendingClosureTaskId}
 
         />
 

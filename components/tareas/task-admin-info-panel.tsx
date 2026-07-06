@@ -30,6 +30,7 @@ import {
 } from "@/lib/tasks/ftth-installation"
 import { isWorkOrderTask } from "@/lib/tasks/work-order"
 import { isFieldServiceTask } from "@/lib/tasks/utils"
+import type { Project } from "@/lib/types/projects"
 import type { Task } from "@/lib/types/tasks"
 import {
   getLocationDisplayText,
@@ -49,19 +50,20 @@ type TaskAdminInfoPanelProps = {
   embedded?: boolean
 }
 
-export function TaskAdminInfoPanel({
+type TaskAdminInfoPanelContentProps = {
+  task: Task
+  embedded?: boolean
+  relatedProject?: Project | null
+}
+
+function TaskAdminInfoPanelContent({
   task,
   embedded = false,
-}: TaskAdminInfoPanelProps) {
-  const { projects } = useProjects()
+  relatedProject = null,
+}: TaskAdminInfoPanelContentProps) {
   const { getTask } = useTasks()
   const liveTask = getTask(task.id) ?? task
   const isService = isFieldServiceTask(liveTask)
-
-  const relatedProject = projects.find(
-    (project) =>
-      project.id === liveTask.projectId || project.code === liveTask.projectCode
-  )
 
   const supervisorValue =
     liveTask.supervisor || "Sin supervisor asignado"
@@ -299,4 +301,34 @@ export function TaskAdminInfoPanel({
       <TaskAdminOperationalChecklist task={liveTask} />
     </div>
   )
+}
+
+function TaskAdminInfoPanelWithProjects({ task }: { task: Task }) {
+  const { projects } = useProjects()
+  const { getTask } = useTasks()
+  const liveTask = getTask(task.id) ?? task
+  const relatedProject =
+    projects.find(
+      (project) =>
+        project.id === liveTask.projectId ||
+        project.code === liveTask.projectCode
+    ) ?? null
+
+  return (
+    <TaskAdminInfoPanelContent
+      task={task}
+      relatedProject={relatedProject}
+    />
+  )
+}
+
+export function TaskAdminInfoPanel({
+  task,
+  embedded = false,
+}: TaskAdminInfoPanelProps) {
+  if (embedded) {
+    return <TaskAdminInfoPanelContent task={task} embedded />
+  }
+
+  return <TaskAdminInfoPanelWithProjects task={task} />
 }

@@ -4,18 +4,22 @@ import { useEffect, useMemo, useState } from "react"
 import { ArrowLeft, CheckCircle2, Loader2 } from "lucide-react"
 
 import { useAuth } from "@/components/auth/auth-provider"
+import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { TaskAdminDetailView } from "@/components/tareas/task-admin-detail-view"
 import { TaskClosureRejectDialog } from "@/components/tareas/task-closure-reject-dialog"
 import { useTasks } from "@/components/tareas/tasks-provider"
-import { useCrews } from "@/components/cuadrillas/crews-provider"
 import {
   listPendingClosureTasksForPlanningDate,
   resolvePendingClosureClientLabel,
   resolvePendingClosureSubmittedAt,
   resolveTaskCrewOperatorLabel,
 } from "@/lib/planificacion/planning-pending-closure"
-import { canCloseWorkOrder } from "@/lib/tasks/task-closure-permissions"
+import {
+  normalizePlanningPendingClosureSelectionId,
+  resolvePlanningPendingClosureSheetViewPhase,
+} from "@/lib/planificacion/planning-pending-closure-sheet-state"
 import { formatTaskDateTime } from "@/lib/tasks/constants"
+import { canCloseWorkOrder } from "@/lib/tasks/task-closure-permissions"
 import { formatTaskAdminDisplayCode } from "@/lib/tasks/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -26,16 +30,22 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
+import { Skeleton } from "@/components/ui/skeleton"
+
 type PlanningPendingClosureSheetProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   date: string
+  selectedTaskId: string | null
+  onSelectedTaskIdChange: (taskId: string | null) => void
 }
 
 export function PlanningPendingClosureSheet({
   open,
   onOpenChange,
   date,
+  selectedTaskId,
+  onSelectedTaskIdChange,
 }: PlanningPendingClosureSheetProps) {
   const { sessionUser } = useAuth()
   const { crews } = useCrews()
@@ -47,10 +57,11 @@ export function PlanningPendingClosureSheet({
     approveTask,
     rejectTask,
   } = useTasks()
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [rejectOpen, setRejectOpen] = useState(false)
   const [isPending, setIsPending] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [detailError, setDetailError] = useState<string | null>(null)
 
   const pendingTasks = useMemo(
     () => listPendingClosureTasksForPlanningDate(tasks, date, crews),
@@ -59,28 +70,16 @@ export function PlanningPendingClosureSheet({
 
   const canClose = canCloseWorkOrder(sessionUser?.systemRole)
 
-  useEffect(() => {
-    if (!open) {
-      setSelectedTaskId(null)
-      setActionError(null)
-      setRejectOpen(false)
-      return
-    }
-
-    if (
-      selectedTaskId &&
-      !pendingTasks.some((task) => task.id === selectedTaskId)
-    ) {
-      setSelectedTaskId(null)
-    }
-  }, [open, pendingTasks, selectedTaskId])
-
   const selectedTask = useMemo(() => {
     if (!selectedTaskId) {
       return null
     }
 
-    return getTask(selectedTaskId) ?? pendingTasks.find((task) => task.id === selectedTaskId)
+    return (
+      getTask(selectedTaskId) ??
+      pendingTasks.find((task) => task.id === selectedTaskId) ??
+      null
+    )
   }, [getTask, pendingTasks, selectedTaskId, detailVersion])
 
   const selectedDetail = useMemo(() => {
@@ -90,6 +89,120 @@ export function PlanningPendingClosureSheet({
 
     return getDetail(selectedTaskId)
   }, [getDetail, selectedTaskId, detailVersion])
+
+  const viewPhase = resolvePlanningPendingClosureSheetViewPhase({
+    selectedTaskId,
+    detailLoading,
+    detailError,
+    hasSelectedTask: Boolean(selectedTask),
+    hasSelectedDetail: Boolean(selectedDetail),
+  })
+
+  const supervisorActionsDisabled =
+    isPending || detailLoading || !selectedTask || !selectedDetail
+
+  useEffect(() => {
+    if (!open) {
+      setActionError(null)
+      setRejectOpen(false)
+      setDetailLoading(false)
+      setDetailError(null)
+      return
+    }
+
+    if (
+      selectedTaskId &&
+      !pendingTasks.some((task) => task.id === selectedTaskId)
+    ) {
+      onSelectedTaskIdChange(null)
+    }
+  }, [open, onSelectedTaskIdChange, pendingTasks, selectedTaskId])
+
+  useEffect(() => {
+    if (!open || !selectedTaskId) {
+      setDetailLoading(false)
+      setDetailError(null)
+      return
+    }
+
+    setDetailLoading(true)
+    setDetailError(null)
+
+    const task =
+      getTask(selectedTaskId) ??
+      pendingTasks.find((entry) => entry.id === selectedTaskId)
+
+    if (!task) {
+      setDetailError(
+        "No fue posible identificar la orden seleccionada. Actualice la bandeja e intente nuevamente."
+      )
+      setDetailLoading(false)
+      return
+    }
+
+    const detail = getDetail(selectedTaskId)
+    if (!detail) {
+      setDetailError("No fue posible cargar el expediente técnico de la OT.")
+      setDetailLoading(false)
+      return
+    }
+
+    setDetailLoading(false)
+  }, [open, selectedTaskId, getTask, getDetail, pendingTasks, detailVersion])
+
+  function handleSelectTask(taskId: string | null | undefined) {
+    const normalizedTaskId =
+      normalizePlanningPendingClosureSelectionId(taskId)
+
+    if (!normalizedTaskId) {
+      onSelectedTaskIdChange(null)
+      setDetailError(
+        "No fue posible identificar la orden seleccionada. Actualice la bandeja e intente nuevamente."
+      )
+      setActionError(null)
+      return
+    }
+
+    onSelectedTaskIdChange(normalizedTaskId)
+    setActionError(null)
+    setDetailError(null)
+  }
+
+  function handleBackToTaskList() {
+    onSelectedTaskIdChange(null)
+    setActionError(null)
+    setDetailError(null)
+  }
+
+  function handleRetryDetailLoad() {
+    if (!selectedTaskId) {
+      return
+    }
+
+    setDetailLoading(true)
+    setDetailError(null)
+
+    const task =
+      getTask(selectedTaskId) ??
+      pendingTasks.find((entry) => entry.id === selectedTaskId)
+
+    if (!task) {
+      setDetailError(
+        "No fue posible identificar la orden seleccionada. Actualice la bandeja e intente nuevamente."
+      )
+      setDetailLoading(false)
+      return
+    }
+
+    const detail = getDetail(selectedTaskId)
+    if (!detail) {
+      setDetailError("No fue posible cargar el expediente técnico de la OT.")
+      setDetailLoading(false)
+      return
+    }
+
+    setDetailLoading(false)
+  }
 
   async function runAction(
     action: () => Promise<{ success: boolean; message?: string }>
@@ -133,8 +246,11 @@ export function PlanningPendingClosureSheet({
               </p>
             ) : null}
 
-            {!selectedTask || !selectedDetail ? (
-              <div className="space-y-2">
+            {viewPhase === "LIST" ? (
+              <div
+                className="space-y-2"
+                data-testid="planning-pending-closure-list"
+              >
                 {pendingTasks.length === 0 ? (
                   <p className="py-8 text-center text-sm text-muted-foreground">
                     No hay órdenes pendientes de aprobación para esta jornada.
@@ -148,10 +264,8 @@ export function PlanningPendingClosureSheet({
                       <button
                         key={task.id}
                         type="button"
-                        onClick={() => {
-                          setSelectedTaskId(task.id)
-                          setActionError(null)
-                        }}
+                        data-testid={`planning-pending-closure-list-item-${task.id}`}
+                        onClick={() => handleSelectTask(task.id)}
                         className="w-full rounded-lg border bg-muted/20 p-4 text-left transition hover:border-primary/40 hover:bg-muted/30"
                       >
                         <div className="flex flex-wrap items-start justify-between gap-2">
@@ -193,53 +307,88 @@ export function PlanningPendingClosureSheet({
                 )}
               </div>
             ) : (
-              <div className="space-y-4">
+              <div
+                className="space-y-4"
+                data-testid="planning-pending-closure-detail"
+                data-view-phase={viewPhase}
+              >
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   className="-ml-2 h-8 gap-1.5 text-muted-foreground"
-                  onClick={() => {
-                    setSelectedTaskId(null)
-                    setActionError(null)
-                  }}
+                  onClick={handleBackToTaskList}
                 >
                   <ArrowLeft className="size-4" />
                   Volver al listado
                 </Button>
 
-                <TaskAdminDetailView
-                  task={selectedTask}
-                  detail={selectedDetail}
-                  embedded
-                />
+                {detailError ? (
+                  <div
+                    className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive"
+                    role="alert"
+                  >
+                    <p>{detailError}</p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mt-3"
+                      disabled={detailLoading}
+                      onClick={handleRetryDetailLoad}
+                    >
+                      Reintentar
+                    </Button>
+                  </div>
+                ) : null}
+
+                {detailLoading ? (
+                  <div className="space-y-4">
+                    <Skeleton className="h-24 w-full" />
+                    <Skeleton className="h-64 w-full" />
+                  </div>
+                ) : selectedTask && selectedDetail ? (
+                  <TaskAdminDetailView
+                    task={selectedTask}
+                    detail={selectedDetail}
+                    embedded
+                  />
+                ) : detailError ? null : (
+                  <p className="text-sm text-muted-foreground">
+                    No fue posible cargar el expediente técnico de la OT.
+                  </p>
+                )}
               </div>
             )}
           </div>
 
-          {selectedTask && canClose ? (
-            <SheetFooter className="border-t px-6 py-4 sm:flex-row sm:justify-end sm:gap-2">
+          {selectedTaskId && canClose ? (
+            <SheetFooter className="shrink-0 border-t bg-background px-6 py-4 sm:flex-row sm:flex-wrap sm:justify-end sm:gap-2">
               <Button
                 type="button"
                 variant="outline"
-                disabled={isPending}
+                disabled={supervisorActionsDisabled}
                 onClick={() => setRejectOpen(true)}
               >
                 Solicitar corrección
               </Button>
               <Button
                 type="button"
-                disabled={isPending}
+                disabled={supervisorActionsDisabled}
                 className="gap-1.5"
-                onClick={() =>
+                onClick={() => {
+                  if (!selectedTask) {
+                    return
+                  }
+
                   void runAction(async () => {
                     const result = await approveTask(selectedTask.id)
                     if (result.success) {
-                      setSelectedTaskId(null)
+                      onSelectedTaskIdChange(null)
                     }
                     return result
                   })
-                }
+                }}
               >
                 {isPending ? (
                   <>
@@ -249,7 +398,7 @@ export function PlanningPendingClosureSheet({
                 ) : (
                   <>
                     <CheckCircle2 className="size-4" />
-                    Aprobar OT
+                    Aprobar y cerrar
                   </>
                 )}
               </Button>
@@ -276,7 +425,7 @@ export function PlanningPendingClosureSheet({
 
           if (result?.success) {
             setRejectOpen(false)
-            setSelectedTaskId(null)
+            onSelectedTaskIdChange(null)
           }
         }}
       />
