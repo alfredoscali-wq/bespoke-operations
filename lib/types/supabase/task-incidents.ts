@@ -44,6 +44,7 @@ export type TaskIncidentsRepositoryErrorCode =
   | "VALIDATION"
   | "WORKFLOW"
   | "FORBIDDEN"
+  | "UPLOAD"
   | "UNKNOWN"
 
 export type TaskIncidentsRepositoryResult<T> =

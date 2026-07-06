@@ -65,9 +65,10 @@ export async function reportMobileTaskIncident(
   }
 
   const observation = request.observation?.trim() || null
+  let createdIncidentId: string | null = null
 
   try {
-    await createTaskIncidentService(
+    const incident = await createTaskIncidentService(
       {
         companyId: context.auth.companyId,
         actorEmployeeId: context.auth.employeeId,
@@ -81,6 +82,7 @@ export async function reportMobileTaskIncident(
         comment: observation,
       }
     )
+    createdIncidentId = incident.id
   } catch (error) {
     if (error instanceof TaskIncidentError) {
       throw mapTaskIncidentErrorToMobile(error)
@@ -143,5 +145,6 @@ export async function reportMobileTaskIncident(
   return {
     id: updatedTask.id,
     status: updatedTask.status,
+    incidentId: createdIncidentId ?? "",
   }
 }

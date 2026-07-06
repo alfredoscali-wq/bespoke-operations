@@ -3,6 +3,8 @@ import "server-only"
 import type { MobileAuthContext } from "@/lib/mobile/v1/auth/mobile-auth-context"
 import { MobileApiError } from "@/lib/mobile/v1/errors"
 import type { MobileCreateIncidentRequest } from "@/lib/mobile/v1/incidents/validate-incident-request"
+import type { MobileIncidentCreatedResponse } from "@/lib/mobile/v1/incidents/types"
+import { mapIncidentResponseToMobileCreated } from "@/lib/mobile/v1/incidents/types"
 import { assertMobileTaskExecutionAccess } from "@/lib/mobile/v1/tasks/task-execution-access"
 import { createAdminClient } from "@/lib/supabase/admin"
 import {
@@ -30,7 +32,7 @@ function mapTaskIncidentErrorToMobile(error: TaskIncidentError): MobileApiError 
 export async function createMobileIncident(
   auth: MobileAuthContext,
   request: MobileCreateIncidentRequest
-): Promise<IncidentResponse> {
+): Promise<MobileIncidentCreatedResponse> {
   const context = await assertMobileTaskExecutionAccess(
     auth,
     request.taskId,
@@ -47,7 +49,7 @@ export async function createMobileIncident(
   }
 
   try {
-    return await createTaskIncidentService(
+    const incident = await createTaskIncidentService(
       {
         companyId: auth.companyId,
         actorEmployeeId: auth.employeeId,
@@ -63,6 +65,8 @@ export async function createMobileIncident(
         requiresSupervisorAction: request.requiresSupervisorAction,
       }
     )
+
+    return mapIncidentResponseToMobileCreated(incident)
   } catch (error) {
     if (error instanceof TaskIncidentError) {
       throw mapTaskIncidentErrorToMobile(error)

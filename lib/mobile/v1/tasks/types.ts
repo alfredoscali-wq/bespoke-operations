@@ -128,6 +128,7 @@ export type MobileTaskReportIncidentRequest = {
 export type MobileTaskReportIncidentResponse = {
   id: string
   status: TaskStatus
+  incidentId: string
 }
 
 export type MobileTaskSubmitForApprovalRequest = {

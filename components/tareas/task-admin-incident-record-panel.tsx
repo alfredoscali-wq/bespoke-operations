@@ -10,7 +10,7 @@ import {
   resolvePlanningIncidentEventLabel,
 } from "@/lib/planificacion/planning-incidents"
 import { createClient } from "@/lib/supabase/client"
-import { TASK_PHOTOS_STORAGE_BUCKET } from "@/lib/supabase/task-photos.storage"
+import { TASK_INCIDENT_PHOTOS_STORAGE_BUCKET } from "@/lib/supabase/task-incident-photos.storage"
 import type { IncidentResponse } from "@/lib/types/task-incidents"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -38,7 +38,7 @@ async function signIncidentPhotoPath(
 ): Promise<string | null> {
   const client = createClient()
   const { data, error } = await client.storage
-    .from(TASK_PHOTOS_STORAGE_BUCKET)
+    .from(TASK_INCIDENT_PHOTOS_STORAGE_BUCKET)
     .createSignedUrl(storagePath, 3600)
 
   if (error || !data?.signedUrl) {
