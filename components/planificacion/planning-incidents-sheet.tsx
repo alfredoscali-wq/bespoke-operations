@@ -15,6 +15,7 @@ import { useAuth } from "@/components/auth/auth-provider"
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { useEmployees } from "@/components/rrhh/employees-provider"
 import { TaskAdminDetailView } from "@/components/tareas/task-admin-detail-view"
+import { TaskAdminIncidentRecordPanel } from "@/components/tareas/task-admin-incident-record-panel"
 import { TaskIncidentCancelDialog } from "@/components/tareas/task-incident-cancel-dialog"
 import { TaskRescheduleDialog } from "@/components/tareas/task-reschedule-dialog"
 import { useTasks } from "@/components/tareas/tasks-provider"
@@ -118,10 +119,17 @@ export function PlanningIncidentsSheet({
     [incidents, tasks, crews, employees, incidentTypes]
   )
 
-  const selectedListItem = useMemo(
-    () => listItems.find((item) => item.id === selectedIncidentId) ?? null,
-    [listItems, selectedIncidentId]
-  )
+  const selectedListItem = useMemo(() => {
+    if (!selectedIncidentId) {
+      return null
+    }
+
+    return (
+      listItems.find((item) => item.id === selectedIncidentId) ??
+      incidents.find((item) => item.id === selectedIncidentId) ??
+      null
+    )
+  }, [incidents, listItems, selectedIncidentId])
 
   const selectedTask = useMemo(() => {
     if (!selectedListItem) {
@@ -143,12 +151,16 @@ export function PlanningIncidentsSheet({
     return getDetail(selectedListItem.taskId)
   }, [getDetail, selectedListItem, detailVersion])
 
-  const incidentTypeLabel = selectedIncident
-    ? resolvePlanningIncidentTypeLabel(
-        selectedIncident.incidentTypeId,
-        incidentTypes
-      )
-    : selectedListItem?.incidentTypeLabel ?? "—"
+  const incidentTypeLabel = useMemo(() => {
+    const incidentTypeId =
+      selectedIncident?.incidentTypeId ?? selectedListItem?.incidentTypeId
+
+    if (!incidentTypeId) {
+      return "—"
+    }
+
+    return resolvePlanningIncidentTypeLabel(incidentTypeId, incidentTypes)
+  }, [incidentTypes, selectedIncident, selectedListItem])
 
   useEffect(() => {
     if (!open) {
@@ -209,16 +221,41 @@ export function PlanningIncidentsSheet({
     }
   }, [open, selectedIncidentId])
 
-  useEffect(() => {
-    if (
-      open &&
-      selectedIncidentId &&
-      !isLoading &&
-      !listItems.some((item) => item.id === selectedIncidentId)
-    ) {
-      setSelectedIncidentId(null)
+  function handleSelectIncident(incidentId: string) {
+    const normalizedIncidentId = incidentId.trim()
+
+    if (!normalizedIncidentId) {
+      return
     }
-  }, [open, selectedIncidentId, isLoading, listItems])
+
+    setSelectedIncidentId(normalizedIncidentId)
+    setSelectedIncident(null)
+    setActionError(null)
+    setDetailError(null)
+  }
+
+  async function reloadIncidentDetail() {
+    if (!selectedIncidentId) {
+      return
+    }
+
+    setDetailLoading(true)
+    setDetailError(null)
+
+    try {
+      const detail = await fetchOperationsIncidentById(selectedIncidentId)
+      setSelectedIncident(detail)
+    } catch (loadError) {
+      setSelectedIncident(null)
+      setDetailError(
+        loadError instanceof Error
+          ? loadError.message
+          : "No fue posible cargar la incidencia."
+      )
+    } finally {
+      setDetailLoading(false)
+    }
+  }
 
   async function reloadIncidentContext() {
     await onRefresh()
@@ -306,11 +343,7 @@ export function PlanningIncidentsSheet({
                     <button
                       key={item.id}
                       type="button"
-                      onClick={() => {
-                        setSelectedIncidentId(item.id)
-                        setActionError(null)
-                        setDetailError(null)
-                      }}
+                      onClick={() => handleSelectIncident(item.id)}
                       className="w-full rounded-lg border bg-muted/20 p-4 text-left transition hover:border-primary/40 hover:bg-muted/30"
                     >
                       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -375,34 +408,54 @@ export function PlanningIncidentsSheet({
                 </Button>
 
                 {detailError ? (
-                  <p
+                  <div
                     className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive"
                     role="alert"
                   >
-                    {detailError}
-                  </p>
+                    <p>{detailError}</p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mt-3"
+                      disabled={detailLoading}
+                      onClick={() => {
+                        void reloadIncidentDetail()
+                      }}
+                    >
+                      Reintentar
+                    </Button>
+                  </div>
                 ) : null}
+
+                {detailLoading ? (
+                  <div className="space-y-4">
+                    <Skeleton className="h-24 w-full" />
+                    <Skeleton className="h-64 w-full" />
+                  </div>
+                ) : selectedIncident ? (
+                  <TaskAdminIncidentRecordPanel
+                    incident={selectedIncident}
+                    incidentTypeLabel={incidentTypeLabel}
+                  />
+                ) : detailError ? null : (
+                  <p className="text-sm text-muted-foreground">
+                    No fue posible cargar el detalle de la incidencia.
+                  </p>
+                )}
 
                 {selectedTask && selectedTaskDetail ? (
                   <TaskAdminDetailView
                     task={selectedTask}
                     detail={selectedTaskDetail}
                     embedded
-                    incident={selectedIncident}
-                    incidentTypeLabel={incidentTypeLabel}
-                    isIncidentDetailLoading={detailLoading}
                   />
-                ) : detailLoading ? (
-                  <div className="space-y-4">
-                    <Skeleton className="h-24 w-full" />
-                    <Skeleton className="h-64 w-full" />
-                  </div>
-                ) : (
+                ) : !detailLoading && selectedListItem ? (
                   <p className="text-sm text-muted-foreground">
                     No fue posible cargar el expediente técnico de la OT
                     asociada.
                   </p>
-                )}
+                ) : null}
               </div>
             )}
           </div>
