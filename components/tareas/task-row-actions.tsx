@@ -25,7 +25,6 @@ import { TaskWorkOrderDialog } from "@/components/tareas/task-work-order-dialog"
 import { TaskIncidentCancelDialog } from "@/components/tareas/task-incident-cancel-dialog"
 import { WorkOrderPermanentDeleteDialog } from "@/components/tareas/work-order-permanent-delete-dialog"
 import { TASK_DELETE_USER_MESSAGE } from "@/lib/operations/user-messages"
-import { logDeleteTrace } from "@/lib/supabase/delete-trace"
 import { useIsSystemAdministrator } from "@/lib/auth/use-is-system-administrator"
 import { canAssignWorkOrderCrew } from "@/lib/tasks/task-closure-permissions"
 import { resolveCrewSnapshotsForAssignment } from "@/lib/tasks/crew-relation"
@@ -252,12 +251,6 @@ export function TaskRowActions({
   }
 
   async function handleConfirmDelete() {
-    logDeleteTrace("ui.task-row-actions.handleConfirmDelete", {
-      entity: "task",
-      id: task.id,
-      code: task.code,
-    })
-
     setIsDeleting(true)
     const result = await deleteTask(task.id)
     setIsDeleting(false)

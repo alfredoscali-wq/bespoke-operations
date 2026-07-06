@@ -10,7 +10,6 @@ import {
   canSoftDeleteWorkOrder,
   WORK_ORDER_SOFT_DELETE_BLOCKED_MESSAGE,
 } from "@/lib/tasks/work-order-deletion-policy"
-import { logDeleteTrace } from "@/lib/supabase/delete-trace"
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { TaskCrewAssignmentCell } from "@/components/obras/task-crew-assignment-cell"
 import {
@@ -173,12 +172,6 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
 
   async function handleConfirmDelete() {
     if (!deleteTarget) return
-
-    logDeleteTrace("ui.project-tabs.tasks-tab.handleConfirmDelete", {
-      entity: "task",
-      id: deleteTarget.id,
-      code: deleteTarget.code,
-    })
 
     setIsDeleting(true)
 

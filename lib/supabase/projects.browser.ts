@@ -9,7 +9,6 @@ import {
   patchProject,
   type SupabaseProjectsClient,
 } from "@/lib/supabase/projects.queries"
-import { logDeleteTrace } from "@/lib/supabase/delete-trace"
 import type { Project, ProjectHistoryEvent } from "@/lib/types/projects"
 import type {
   CreateProjectPayload,
@@ -54,7 +53,6 @@ export async function archiveProject(
   id: string,
   client: SupabaseProjectsClient = createBrowserProjectsClient()
 ): Promise<ProjectsRepositoryResult<void>> {
-  logDeleteTrace("browser.archiveProject", { entity: "project", id })
   return archiveProjectWhenEligible(client, id)
 }
 

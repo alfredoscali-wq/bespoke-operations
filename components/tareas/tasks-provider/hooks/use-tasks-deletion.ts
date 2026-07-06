@@ -16,7 +16,6 @@ import {
   WORK_ORDER_SOFT_DELETE_BLOCKED_MESSAGE,
 } from "@/lib/tasks/work-order-deletion-policy"
 import { TASK_DELETE_USER_MESSAGE } from "@/lib/operations/user-messages"
-import { logDeleteTrace } from "@/lib/supabase/delete-trace"
 import { recordTaskDeleteAudit } from "@/lib/audit/tasks-audit"
 import type { Task } from "@/lib/types/tasks"
 
@@ -54,12 +53,6 @@ export function useTasksDeletion({
         return { success: false, message: "Orden de trabajo no encontrada." }
       }
 
-      logDeleteTrace("provider.deleteTask", {
-        entity: "task",
-        id,
-        code: existing.code,
-      })
-
       if (options?.administration) {
         if (!usesSupabase) {
           return { success: false, message: TASK_DELETE_USER_MESSAGE }
@@ -68,7 +61,6 @@ export function useTasksDeletion({
         try {
           await deleteWorkOrderThroughAdminApi(id)
         } catch (error) {
-          console.error("[TASK ADMIN DELETE]", error)
           return {
             success: false,
             message:
@@ -102,14 +94,12 @@ export function useTasksDeletion({
         const result = await deleteTaskInSupabase(id, client)
 
         if (result.error) {
-          console.error("[TASK DELETE]", result.error)
           return {
             success: false,
             message: result.error.message ?? TASK_DELETE_USER_MESSAGE,
           }
         }
-      } catch (error) {
-        console.error("[TASK DELETE]", error)
+      } catch {
         return {
           success: false,
           message: TASK_DELETE_USER_MESSAGE,

@@ -19,7 +19,6 @@ import {
   WORK_ORDER_SOFT_DELETE_BLOCKED_MESSAGE,
 } from "@/lib/tasks/work-order-deletion-policy"
 import { TASK_DELETE_USER_MESSAGE } from "@/lib/operations/user-messages"
-import { logDeleteTrace } from "@/lib/supabase/delete-trace"
 import type { Task } from "@/lib/types/tasks"
 import type { UpdateTaskPayload } from "@/lib/types/supabase/tasks"
 import { Button } from "@/components/ui/button"
@@ -182,12 +181,6 @@ export function TaskAdminRowActions({
   }
 
   async function handleConfirmDelete() {
-    logDeleteTrace("ui.task-admin-row-actions.handleConfirmDelete", {
-      entity: "task",
-      id: task.id,
-      code: task.code,
-    })
-
     setIsDeleting(true)
     const result = await deleteTask(task.id, { administration: true })
     setIsDeleting(false)

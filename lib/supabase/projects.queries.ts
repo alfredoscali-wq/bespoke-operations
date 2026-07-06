@@ -16,7 +16,6 @@ import type {
   ProjectsRepositoryResult,
   UpdateProjectPayload,
 } from "@/lib/types/supabase/projects"
-import { logDeleteTrace } from "@/lib/supabase/delete-trace"
 import { findActiveTasksForProject } from "@/lib/supabase/tasks.queries"
 import {
   PROJECT_ARCHIVE_BLOCKED_ACTIVE_TASKS_MESSAGE,
@@ -151,8 +150,6 @@ export async function archiveProjectRecord(
   client: SupabaseProjectsClient,
   id: string
 ): Promise<ProjectsRepositoryResult<void>> {
-  logDeleteTrace("queries.archiveProjectRecord", { entity: "project", id })
-
   // Do not chain .select() — soft delete sets deleted_at, so return=representation
   // would re-read the row under SELECT RLS (deleted_at IS NULL) and fail with 42501
   // even when the UPDATE succeeded.
@@ -162,28 +159,9 @@ export async function archiveProjectRecord(
     .eq("id", id)
     .is("deleted_at", null)
 
-  console.info("[PROJECT DELETE]", {
-    table: "projects",
-    projectId: id,
-    message: "UPDATE executed",
-    error: error ?? null,
-  })
-
   if (error) {
-    console.error("[PROJECT DELETE]", {
-      table: "projects",
-      projectId: id,
-      error,
-    })
     return { data: null, error: mapSupabaseError(error) }
   }
-
-  console.info("[DELETE TRACE]", {
-    layer: "queries.archiveProjectRecord.result",
-    entity: "project",
-    id,
-    success: true,
-  })
 
   return { data: undefined, error: null }
 }
@@ -192,11 +170,6 @@ export async function archiveProjectWhenEligible(
   client: SupabaseProjectsClient,
   id: string
 ): Promise<ProjectsRepositoryResult<void>> {
-  logDeleteTrace("queries.archiveProjectWhenEligible", {
-    entity: "project",
-    id,
-  })
-
   const projectResult = await fetchProjectById(client, id)
   if (projectResult.error || !projectResult.data) {
     return {

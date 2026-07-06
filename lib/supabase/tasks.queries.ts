@@ -12,15 +12,7 @@ import type {
   TasksRepositoryResult,
   UpdateTaskPayload,
 } from "@/lib/types/supabase/tasks"
-import {
-  buildTaskSoftDeleteRequestUrl,
-  logTaskSoftDeleteAttempt,
-  logTaskSoftDeleteResult,
-  serializeTaskDeleteError,
-} from "@/lib/supabase/tasks-delete-diagnostics"
 import { TASK_DELETE_USER_MESSAGE } from "@/lib/operations/user-messages"
-import { logDeleteTrace } from "@/lib/supabase/delete-trace"
-import { getSupabaseEnv } from "@/lib/supabase/env"
 import { ACTIVE_TASK_STATUSES } from "@/lib/tasks/status-groups"
 import {
   canAdminModifyWorkOrder,
@@ -78,11 +70,9 @@ export function mapSupabaseTaskError(error: {
     }
   }
 
-  const serialized = serializeTaskDeleteError(error)
-
   return {
     code: "UNKNOWN" as const,
-    message: serialized.message,
+    message: error.message,
   }
 }
 
@@ -259,44 +249,13 @@ export async function softDeleteTask(
     }
   }
 
-  const payload = { deleted_at: new Date().toISOString() }
-
-  logDeleteTrace("queries.softDeleteTask", { entity: "task", id })
-  logTaskSoftDeleteAttempt({ taskId: id, payload })
-
-  const { error, status, statusText } = await client
+  const { error } = await client
     .from("tasks")
-    .update(payload)
+    .update({ deleted_at: new Date().toISOString() })
     .eq("id", id)
     .is("deleted_at", null)
 
-  const serializedError = error ? serializeTaskDeleteError(error) : null
-
-  console.info("[TASK DELETE]", {
-    table: "tasks",
-    taskId: id,
-    message: "UPDATE executed",
-    error: serializedError ?? null,
-  })
-
-  logTaskSoftDeleteResult({
-    taskId: id,
-    error: serializedError,
-    status,
-    statusText,
-  })
-
   if (error) {
-    const { url } = getSupabaseEnv()
-    if (url) {
-      console.error("[TASK DELETE]", {
-        table: "tasks",
-        url: buildTaskSoftDeleteRequestUrl(url, id),
-        payload,
-        error: serializedError,
-      })
-    }
-
     return {
       data: null,
       error: {
@@ -350,37 +309,13 @@ export async function softDeleteWorkOrderFromAdmin(
     }
   }
 
-  const payload = { deleted_at: new Date().toISOString() }
-
-  logDeleteTrace("queries.softDeleteWorkOrderFromAdmin", { entity: "task", id })
-  logTaskSoftDeleteAttempt({ taskId: id, payload })
-
-  const { error, status, statusText } = await client
+  const { error } = await client
     .from("tasks")
-    .update(payload)
+    .update({ deleted_at: new Date().toISOString() })
     .eq("id", id)
     .is("deleted_at", null)
 
-  const serializedError = error ? serializeTaskDeleteError(error) : null
-
-  logTaskSoftDeleteResult({
-    taskId: id,
-    error: serializedError,
-    status,
-    statusText,
-  })
-
   if (error) {
-    const { url } = getSupabaseEnv()
-    if (url) {
-      console.error("[TASK DELETE]", {
-        table: "tasks",
-        url: buildTaskSoftDeleteRequestUrl(url, id),
-        payload,
-        error: serializedError,
-      })
-    }
-
     return {
       data: null,
       error: {
