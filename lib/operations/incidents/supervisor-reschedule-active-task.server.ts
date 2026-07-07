@@ -2,6 +2,8 @@ import "server-only"
 
 import { buildAuditDescription } from "@/lib/audit/build-audit-description"
 import { writeAuditLog } from "@/lib/audit/audit-service"
+import { INCIDENT_SUPERVISOR_ACTIONS } from "@/lib/audit/incidents-audit.shared"
+import { recordIncidentSupervisorActionAudit } from "@/lib/audit/incidents-audit.server"
 import {
   buildTaskCrewMetadata,
   buildTaskScheduleMetadata,
@@ -298,6 +300,22 @@ export async function supervisorRescheduleActiveTaskFromIncident(
     } catch (auditError) {
       logOperationError("Supervisor reschedule RC3.1 audit", auditError)
     }
+
+    await recordIncidentSupervisorActionAudit({
+      sessionUser,
+      companyId,
+      incidentId: incident.id,
+      client: readClient,
+      supervisorAction: INCIDENT_SUPERVISOR_ACTIONS.RESCHEDULE,
+      previousIncidentStatus: incident.status,
+      note: successfulPlan.incidentEventComment,
+      previousDueDate: taskResult.data.dueDate ?? null,
+      newDueDate: afterTask.dueDate ?? null,
+      previousCrewId: taskResult.data.crewId ?? null,
+      newCrewId: afterTask.crewId ?? null,
+      previousCrewName: taskResult.data.crew ?? null,
+      newCrewName: afterTask.crew ?? null,
+    })
 
     const refreshedIncident = await getTaskIncidentById(
       validatedIncidentId,

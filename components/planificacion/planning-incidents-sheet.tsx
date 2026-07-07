@@ -747,7 +747,8 @@ export function PlanningIncidentsSheet({
                   await transitionOperationsIncidentStatus(
                     selectedIncident.id,
                     selectedIncident.status,
-                    "RECHAZADA"
+                    "RECHAZADA",
+                    { auditExplicitClosure: true }
                   )
 
                   setCloseOpen(false)
@@ -773,7 +774,8 @@ export function PlanningIncidentsSheet({
                   await transitionOperationsIncidentStatus(
                     selectedIncident.id,
                     selectedIncident.status,
-                    "RESUELTA"
+                    "RESUELTA",
+                    { auditExplicitClosure: true }
                   )
 
                   setCloseOpen(false)

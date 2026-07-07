@@ -26,6 +26,7 @@ export const AUDIT_ENTITY_TYPE_LABELS: Record<AuditEntityType, string> = {
   session: "Sesión",
   mobile_device: "Dispositivo móvil",
   work_team_shift: "Jornada operativa",
+  incident: "Incidencia",
 }
 
 export const AUDIT_SEVERITY_LABELS: Record<AuditSeverity, string> = {
@@ -82,6 +83,9 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   MOBILE_DEVICE_BLOCKED: "Dispositivo bloqueado",
   SHIFT_STARTED: "Jornada iniciada",
   SHIFT_FINISHED: "Jornada finalizada",
+  INCIDENT_CREATED: "Incidencia reportada",
+  INCIDENT_SUPERVISOR_ACTION: "Acción de supervisor sobre incidencia",
+  INCIDENT_CLOSED: "Incidencia cerrada",
 }
 
 export function formatAuditModuleLabel(module: AuditModule | string): string {

@@ -143,6 +143,12 @@ export function buildAuditDescription(input: BuildAuditDescriptionInput): string
       return label ? `Jornada iniciada: ${label}.` : "Jornada iniciada."
     case AUDIT_ACTIONS.SHIFT_FINISHED:
       return label ? `Jornada finalizada: ${label}.` : "Jornada finalizada."
+    case AUDIT_ACTIONS.INCIDENT_CREATED:
+      return fallback || (label ? `Incidencia reportada: ${label}.` : "Incidencia reportada.")
+    case AUDIT_ACTIONS.INCIDENT_SUPERVISOR_ACTION:
+      return fallback || "Acción de supervisor sobre incidencia."
+    case AUDIT_ACTIONS.INCIDENT_CLOSED:
+      return fallback || "Incidencia cerrada."
     default:
       return fallback || "Evento registrado en Historial del Sistema."
   }

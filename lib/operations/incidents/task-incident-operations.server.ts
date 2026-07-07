@@ -1,6 +1,14 @@
 import "server-only"
 
 import type { SessionUser } from "@/lib/auth/types"
+import {
+  shouldRecordIncidentClosedAudit,
+  shouldRecordIncidentSupervisorAudit,
+} from "@/lib/audit/incidents-audit.shared"
+import {
+  recordIncidentClosedAudit,
+  recordIncidentSupervisorActionFromEventType,
+} from "@/lib/audit/incidents-audit.server"
 import { logOperationError } from "@/lib/operations/user-messages"
 import { resolveTenantCompanyId } from "@/lib/operations/tenant-scope"
 import { createClient } from "@/lib/supabase/server"
@@ -144,11 +152,30 @@ export async function updateOperationsIncidentStatus(
   try {
     const context = await createOperationsWriteContext(sessionUser)
     const validated = validateUpdateIncidentStatusRequest(request)
+    const before = await getTaskIncidentByIdService(context, incidentId)
     const data = await updateTaskIncidentStatusService(
       context,
       incidentId,
       validated
     )
+
+    if (
+      shouldRecordIncidentClosedAudit({
+        auditExplicitClosure: validated.auditExplicitClosure,
+        status: validated.status,
+      })
+    ) {
+      await recordIncidentClosedAudit({
+        sessionUser,
+        companyId: context.companyId,
+        incidentId,
+        client: context.client,
+        previousIncidentStatus: before.status,
+        closureResult: validated.status,
+        note: validated.comment,
+      })
+    }
+
     return { ok: true, data }
   } catch (error) {
     if (error instanceof TaskIncidentError) {
@@ -173,11 +200,25 @@ export async function addOperationsIncidentEvent(
   try {
     const context = await createOperationsWriteContext(sessionUser)
     const validated = validateAddIncidentEventRequest(request)
+    const before = await getTaskIncidentByIdService(context, incidentId)
     const data = await addTaskIncidentEventService(
       context,
       incidentId,
       validated
     )
+
+    if (shouldRecordIncidentSupervisorAudit(validated.eventType)) {
+      await recordIncidentSupervisorActionFromEventType({
+        sessionUser,
+        companyId: context.companyId,
+        incidentId,
+        client: context.client,
+        eventType: validated.eventType,
+        previousIncidentStatus: before.status,
+        note: validated.comment,
+      })
+    }
+
     return { ok: true, data }
   } catch (error) {
     if (error instanceof TaskIncidentError) {

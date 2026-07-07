@@ -21,6 +21,7 @@ import { FilterableKpiCard } from "@/components/ui/filterable-kpi-card"
 import { KpiCardGrid } from "@/components/ui/kpi-card-grid"
 import {
   formatAuditDisplayTimestamp,
+  resolveAuditEntryDescription,
   resolveAuditStatusLabel,
 } from "@/lib/audit/display-utils"
 import {
@@ -353,7 +354,7 @@ export function HistorialModule() {
                         ) : null}
                       </TableCell>
                       <TableCell className="max-w-[16rem] truncate text-sm">
-                        {entry.description}
+                        {resolveAuditEntryDescription(entry)}
                       </TableCell>
                       <TableCell className="text-sm">
                         {resolveAuditStatusLabel(entry)}

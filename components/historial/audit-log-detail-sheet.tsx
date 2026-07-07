@@ -8,6 +8,7 @@ import {
   formatAuditDisplayTimestamp,
   formatAuditMetadataForDisplay,
   parseAuditChangesFromMetadata,
+  resolveAuditEntryDescription,
   resolveAuditStatusLabel,
 } from "@/lib/audit/display-utils"
 import {
@@ -61,7 +62,7 @@ function AuditTimeline({ entries }: { entries: AuditLogEntry[] }) {
               {formatAuditDisplayTimestamp(item.createdAt)}
             </p>
             <AuditActionBadge entry={item} />
-            <p className="text-sm font-medium">{item.description}</p>
+            <p className="text-sm font-medium">{resolveAuditEntryDescription(item)}</p>
             <p className="text-xs text-muted-foreground">{item.performedByName}</p>
           </div>
           {index < entries.length - 1 ? (
@@ -143,7 +144,10 @@ export function AuditLogDetailSheet({
               </div>
             }
           />
-          <DetailRow label="Descripción" value={entry.description} />
+          <DetailRow
+            label="Descripción"
+            value={resolveAuditEntryDescription(entry)}
+          />
           <DetailRow
             label="Estado"
             value={

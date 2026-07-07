@@ -187,6 +187,10 @@ export function validateUpdateIncidentStatusRequest(
       record.requiresSupervisorAction,
       "requiresSupervisorAction"
     ),
+    auditExplicitClosure: readOptionalBoolean(
+      record.auditExplicitClosure,
+      "auditExplicitClosure"
+    ),
   }
 }
 

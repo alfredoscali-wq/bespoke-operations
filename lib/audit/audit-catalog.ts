@@ -252,6 +252,21 @@ export const AUDIT_ACTION_DEFINITIONS: Record<AuditAction, AuditActionDefinition
       entityType: AUDIT_ENTITY_TYPES.WORK_TEAM_SHIFT,
       severity: AUDIT_SEVERITIES.INFO,
     },
+    [AUDIT_ACTIONS.INCIDENT_CREATED]: {
+      module: AUDIT_MODULES.TAREAS,
+      entityType: AUDIT_ENTITY_TYPES.INCIDENT,
+      severity: AUDIT_SEVERITIES.WARNING,
+    },
+    [AUDIT_ACTIONS.INCIDENT_SUPERVISOR_ACTION]: {
+      module: AUDIT_MODULES.TAREAS,
+      entityType: AUDIT_ENTITY_TYPES.INCIDENT,
+      severity: AUDIT_SEVERITIES.WARNING,
+    },
+    [AUDIT_ACTIONS.INCIDENT_CLOSED]: {
+      module: AUDIT_MODULES.TAREAS,
+      entityType: AUDIT_ENTITY_TYPES.INCIDENT,
+      severity: AUDIT_SEVERITIES.INFO,
+    },
   }
 
 export function isAuditAction(value: string): value is AuditAction {

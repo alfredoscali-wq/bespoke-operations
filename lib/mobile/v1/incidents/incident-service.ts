@@ -2,6 +2,10 @@ import "server-only"
 
 import type { MobileAuthContext } from "@/lib/mobile/v1/auth/mobile-auth-context"
 import { MobileApiError } from "@/lib/mobile/v1/errors"
+import {
+  recordIncidentCreatedAudit,
+  resolveMobileReporterName,
+} from "@/lib/audit/incidents-audit.server"
 import type { MobileCreateIncidentRequest } from "@/lib/mobile/v1/incidents/validate-incident-request"
 import type { MobileIncidentCreatedResponse } from "@/lib/mobile/v1/incidents/types"
 import { mapIncidentResponseToMobileCreated } from "@/lib/mobile/v1/incidents/types"
@@ -65,6 +69,24 @@ export async function createMobileIncident(
         requiresSupervisorAction: request.requiresSupervisorAction,
       }
     )
+
+    const employeeName = await resolveMobileReporterName({
+      employeeId: auth.employeeId,
+      client: context.admin,
+    })
+
+    await recordIncidentCreatedAudit({
+      auth,
+      incidentId: incident.id,
+      taskId: request.taskId,
+      task: context.task,
+      incidentTypeId: request.incidentTypeId,
+      comment: request.comment,
+      crewId: context.workTeamId,
+      workTeamId: context.workTeamId,
+      mobileDeviceId: request.deviceId,
+      employeeName,
+    })
 
     return mapIncidentResponseToMobileCreated(incident)
   } catch (error) {

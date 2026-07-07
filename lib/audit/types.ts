@@ -30,6 +30,7 @@ export const AUDIT_ENTITY_TYPES = {
   SESSION: "session",
   MOBILE_DEVICE: "mobile_device",
   WORK_TEAM_SHIFT: "work_team_shift",
+  INCIDENT: "incident",
 } as const
 
 export type AuditEntityType =
@@ -83,6 +84,9 @@ export const AUDIT_ACTIONS = {
   MOBILE_DEVICE_BLOCKED: "MOBILE_DEVICE_BLOCKED",
   SHIFT_STARTED: "SHIFT_STARTED",
   SHIFT_FINISHED: "SHIFT_FINISHED",
+  INCIDENT_CREATED: "INCIDENT_CREATED",
+  INCIDENT_SUPERVISOR_ACTION: "INCIDENT_SUPERVISOR_ACTION",
+  INCIDENT_CLOSED: "INCIDENT_CLOSED",
 } as const
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS]

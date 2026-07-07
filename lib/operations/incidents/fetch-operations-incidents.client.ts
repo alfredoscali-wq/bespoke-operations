@@ -119,14 +119,17 @@ export async function transitionOperationsIncidentStatus(
     currentStatus === "REPORTADA" &&
     (nextStatus === "RESUELTA" || nextStatus === "RECHAZADA")
   ) {
+    const { auditExplicitClosure, ...rest } = body ?? {}
+
     await updateOperationsIncidentStatus(incidentId, {
       status: "EN_ANALISIS",
-      ...body,
+      ...rest,
     })
 
     return updateOperationsIncidentStatus(incidentId, {
       status: nextStatus,
-      ...body,
+      ...rest,
+      ...(auditExplicitClosure ? { auditExplicitClosure: true } : {}),
     })
   }
 

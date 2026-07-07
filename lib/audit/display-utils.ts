@@ -1,4 +1,5 @@
 import type { AuditFieldChange } from "@/lib/audit/metadata-changes"
+import { resolveIncidentAuditDisplayDescription } from "@/lib/audit/incidents-audit.shared"
 import type { AuditLogEntry } from "@/lib/audit/types"
 
 export function formatAuditDisplayTimestamp(value: string): string {
@@ -54,6 +55,18 @@ export function resolveAuditStatusLabel(entry: AuditLogEntry): string {
   return "OK"
 }
 
+export function resolveAuditEntryDescription(entry: AuditLogEntry): string {
+  if (entry.entityType === "incident") {
+    return resolveIncidentAuditDisplayDescription({
+      action: entry.action,
+      description: entry.description,
+      metadata: entry.metadata,
+    })
+  }
+
+  return entry.description
+}
+
 export function buildAuditExportRow(entry: AuditLogEntry): Record<string, string> {
   return {
     Fecha: formatAuditDisplayTimestamp(entry.createdAt),
@@ -61,7 +74,7 @@ export function buildAuditExportRow(entry: AuditLogEntry): Record<string, string
     Modulo: entry.module,
     Accion: entry.action,
     Entidad: entry.entityLabel ?? "",
-    Descripcion: entry.description,
+    Descripcion: resolveAuditEntryDescription(entry),
     Estado: resolveAuditStatusLabel(entry),
     Severidad: entry.severity,
     "Tipo entidad": entry.entityType,

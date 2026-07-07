@@ -75,6 +75,12 @@ const APPROVAL_ACTIONS = new Set<string>([
   AUDIT_ACTIONS.TASK_CLOSE,
   AUDIT_ACTIONS.USER_ROLE_CHANGE,
   AUDIT_ACTIONS.USER_PASSWORD_RESET,
+  AUDIT_ACTIONS.INCIDENT_CLOSED,
+])
+
+const WARNING_ACTIONS = new Set<string>([
+  AUDIT_ACTIONS.INCIDENT_CREATED,
+  AUDIT_ACTIONS.INCIDENT_SUPERVISOR_ACTION,
 ])
 
 export function resolveAuditActionVisualGroup(
@@ -87,6 +93,7 @@ export function resolveAuditActionVisualGroup(
   if (DELETE_ACTIONS.has(action)) return "delete"
   if (APPROVAL_ACTIONS.has(action)) return "approval"
   if (EDIT_ACTIONS.has(action)) return "edit"
+  if (WARNING_ACTIONS.has(action)) return "warning"
   if (severity === "CRITICAL") return "error"
   if (severity === "WARNING") return "warning"
   return "other"

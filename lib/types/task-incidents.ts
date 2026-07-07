@@ -96,6 +96,7 @@ export type UpdateIncidentStatusRequest = {
   comment?: string | null
   canContinue?: boolean
   requiresSupervisorAction?: boolean
+  auditExplicitClosure?: boolean
 }
 
 export type AddIncidentPhotoRequest = {

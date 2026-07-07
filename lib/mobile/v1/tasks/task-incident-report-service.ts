@@ -1,5 +1,9 @@
 import "server-only"
 
+import {
+  recordIncidentCreatedAudit,
+  resolveMobileReporterName,
+} from "@/lib/audit/incidents-audit.server"
 import { fetchIncidentTypesForServiceType } from "@/lib/mobile/v1/incidents/incident-type-queries"
 import { MobileApiError } from "@/lib/mobile/v1/errors"
 import { assertMobileTaskExecutionAccess } from "@/lib/mobile/v1/tasks/task-execution-access"
@@ -80,6 +84,26 @@ export async function reportMobileTaskIncident(
       }
     )
     createdIncidentId = incident.id
+
+    const employeeName = await resolveMobileReporterName({
+      employeeId: context.auth.employeeId,
+      client: context.admin,
+    })
+
+    await recordIncidentCreatedAudit({
+      auth: context.auth,
+      incidentId: incident.id,
+      taskId: context.task.id,
+      task: context.task,
+      incidentTypeId: incidentType.id,
+      incidentTypeLabel: incidentType.name,
+      incidentTypeCode: incidentType.code,
+      comment: observation,
+      crewId: context.workTeamId,
+      workTeamId: context.workTeamId,
+      mobileDeviceId: request.deviceId,
+      employeeName,
+    })
   } catch (error) {
     if (error instanceof TaskIncidentError) {
       throw mapTaskIncidentErrorToMobile(error)
