@@ -84,7 +84,9 @@ export function useTasksLoad({ companyId, isAuthReady }: UseTasksLoadParams) {
     }
   }, [companyId, isAuthReady])
 
-  const refreshTasksFromServer = useCallback(async (): Promise<TaskMutationResult> => {
+  const refreshTasksFromServer = useCallback(async (options?: {
+    silent?: boolean
+  }): Promise<TaskMutationResult> => {
     try {
       const client = createBrowserTasksClient()
       const result = await listTasks(companyId, client)
@@ -99,8 +101,11 @@ export function useTasksLoad({ companyId, isAuthReady }: UseTasksLoadParams) {
       }
 
       setTasks(result.data)
-      clearDetailCache()
-      setDetailVersion((version) => version + 1)
+
+      if (!options?.silent) {
+        clearDetailCache()
+        setDetailVersion((version) => version + 1)
+      }
 
       return { success: true }
     } catch (error) {

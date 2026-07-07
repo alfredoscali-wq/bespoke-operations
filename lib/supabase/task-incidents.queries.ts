@@ -211,6 +211,33 @@ export async function fetchActiveTaskIncidentByTaskId(
   }
 }
 
+export async function fetchActiveIncidentTaskIdSet(
+  client: SupabaseTaskIncidentsClient,
+  companyId: string,
+  taskIds: string[]
+): Promise<TaskIncidentsRepositoryResult<Set<string>>> {
+  if (taskIds.length === 0) {
+    return { data: new Set<string>(), error: null }
+  }
+
+  const { data, error } = await client
+    .from("task_incidents")
+    .select("task_id")
+    .eq("company_id", companyId)
+    .in("task_id", taskIds)
+    .in("status", ACTIVE_INCIDENT_STATUSES)
+    .is("deleted_at", null)
+
+  if (error) {
+    return { data: null, error: mapSupabaseTaskIncidentError(error) }
+  }
+
+  return {
+    data: new Set((data ?? []).map((row) => row.task_id)),
+    error: null,
+  }
+}
+
 export async function insertTaskIncident(
   client: SupabaseTaskIncidentsClient,
   payload: CreateTaskIncidentPayload

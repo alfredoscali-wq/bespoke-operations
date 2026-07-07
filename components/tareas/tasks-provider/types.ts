@@ -102,5 +102,7 @@ export type TasksContextValue = {
     title: string,
     uploadedBy?: string
   ) => void
-  refreshTasksFromServer: () => Promise<TaskMutationResult>
+  refreshTasksFromServer: (options?: {
+    silent?: boolean
+  }) => Promise<TaskMutationResult>
 }

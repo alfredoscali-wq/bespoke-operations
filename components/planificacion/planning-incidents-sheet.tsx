@@ -1,30 +1,19 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import {
-  ArrowLeft,
-  CalendarClock,
-  CheckCircle2,
-  Loader2,
-  MessageSquare,
-  Play,
-  XCircle,
-} from "lucide-react"
+import { ArrowLeft, Loader2 } from "lucide-react"
 
 import { useAuth } from "@/components/auth/auth-provider"
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { useEmployees } from "@/components/rrhh/employees-provider"
-import { TaskAdminDetailView } from "@/components/tareas/task-admin-detail-view"
+import { PlanningIncidentResolveDialog } from "@/components/planificacion/planning-incident-resolve-dialog"
+import { PlanningIncidentTaskContextPanel } from "@/components/planificacion/planning-incident-task-context-panel"
 import { TaskAdminIncidentRecordPanel } from "@/components/tareas/task-admin-incident-record-panel"
-import { TaskIncidentCancelDialog } from "@/components/tareas/task-incident-cancel-dialog"
-import { TaskRescheduleDialog } from "@/components/tareas/task-reschedule-dialog"
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import {
-  addOperationsIncidentEvent,
   fetchOperationsIncidentById,
-  rescheduleActiveTaskFromIncident,
-  transitionOperationsIncidentStatus,
+  resolveOperationsIncident,
 } from "@/lib/operations/incidents/fetch-operations-incidents.client"
 import {
   buildPlanningIncidentListItems,
@@ -32,9 +21,9 @@ import {
   resolvePlanningIncidentTypeLabel,
 } from "@/lib/planificacion/planning-incidents"
 import {
-  buildContinueIncidentSupervisorPlan,
-  diagnoseSupervisorRescheduleFromTaskStatus,
-} from "@/lib/planificacion/planning-incidents-supervisor-actions"
+  buildPlanningIncidentResolveSuccessMessage,
+  PLANNING_INCIDENT_RESOLVE_PRIMARY_ACTION_LABEL,
+} from "@/lib/planificacion/planning-incidents-resolve"
 import {
   normalizePlanningIncidentSelectionId,
   resolvePlanningIncidentSheetViewPhase,
@@ -44,15 +33,8 @@ import { formatTaskDateTime } from "@/lib/tasks/constants"
 import { canCloseWorkOrder } from "@/lib/tasks/task-closure-permissions"
 import type { IncidentResponse, IncidentSummary } from "@/lib/types/task-incidents"
 import type { IncidentType } from "@/lib/types/incident-types"
+import type { PlanningIncidentResolvePayload } from "@/lib/planificacion/planning-incidents-resolve"
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import {
   Sheet,
   SheetContent,
@@ -89,16 +71,7 @@ export function PlanningIncidentsSheet({
   const { companyId } = useTenantCompanyId()
   const { crews } = useCrews()
   const { employees } = useEmployees()
-  const {
-    tasks,
-    getTask,
-    getDetail,
-    detailVersion,
-    rescheduleTaskFromIncident,
-    rescheduleTaskFromOverdue,
-    cancelTask,
-    refreshTasksFromServer,
-  } = useTasks()
+  const { tasks, getTask, refreshTasksFromServer } = useTasks()
 
   const [selectedIncident, setSelectedIncident] =
     useState<IncidentResponse | null>(null)
@@ -108,13 +81,11 @@ export function PlanningIncidentsSheet({
   const [detailLoading, setDetailLoading] = useState(false)
   const [detailError, setDetailError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null)
   const [isPending, setIsPending] = useState(false)
-  const [rescheduleOpen, setRescheduleOpen] = useState(false)
-  const [cancelOpen, setCancelOpen] = useState(false)
-  const [closeOpen, setCloseOpen] = useState(false)
+  const [resolveOpen, setResolveOpen] = useState(false)
 
   const canSupervise = canCloseWorkOrder(sessionUser?.systemRole)
-  const actorName = sessionUser?.displayName?.trim() || "Supervisor"
   const supervisorActionsDisabled =
     isPending || detailLoading || !selectedIncident
 
@@ -142,12 +113,8 @@ export function PlanningIncidentsSheet({
       return null
     }
 
-    return (
-      listItems.find((item) => item.id === selectedIncidentId) ??
-      incidents.find((item) => item.id === selectedIncidentId) ??
-      null
-    )
-  }, [incidents, listItems, selectedIncidentId])
+    return listItems.find((item) => item.id === selectedIncidentId) ?? null
+  }, [listItems, selectedIncidentId])
 
   const selectedTask = useMemo(() => {
     if (!selectedListItem) {
@@ -159,15 +126,7 @@ export function PlanningIncidentsSheet({
       tasks.find((task) => task.id === selectedListItem.taskId) ??
       null
     )
-  }, [getTask, selectedListItem, tasks, detailVersion])
-
-  const selectedTaskDetail = useMemo(() => {
-    if (!selectedListItem) {
-      return undefined
-    }
-
-    return getDetail(selectedListItem.taskId)
-  }, [getDetail, selectedListItem, detailVersion])
+  }, [getTask, selectedListItem, tasks])
 
   const incidentTypeLabel = useMemo(() => {
     const incidentTypeId =
@@ -180,14 +139,15 @@ export function PlanningIncidentsSheet({
     return resolvePlanningIncidentTypeLabel(incidentTypeId, incidentTypes)
   }, [incidentTypes, selectedIncident, selectedListItem])
 
+  const reporterLabel = selectedListItem?.operatorLabel ?? null
+
   useEffect(() => {
     if (!open) {
       setSelectedIncident(null)
       setDetailError(null)
       setActionError(null)
-      setRescheduleOpen(false)
-      setCancelOpen(false)
-      setCloseOpen(false)
+      setActionSuccess(null)
+      setResolveOpen(false)
       return
     }
 
@@ -249,12 +209,14 @@ export function PlanningIncidentsSheet({
         "No fue posible identificar la incidencia seleccionada. Actualice la bandeja e intente nuevamente."
       )
       setActionError(null)
+      setActionSuccess(null)
       return
     }
 
     onSelectedIncidentIdChange(normalizedIncidentId)
     setSelectedIncident(null)
     setActionError(null)
+    setActionSuccess(null)
     setDetailError(null)
   }
 
@@ -262,6 +224,7 @@ export function PlanningIncidentsSheet({
     onSelectedIncidentIdChange(null)
     setSelectedIncident(null)
     setActionError(null)
+    setActionSuccess(null)
     setDetailError(null)
   }
 
@@ -291,34 +254,50 @@ export function PlanningIncidentsSheet({
   async function reloadIncidentContext() {
     await onRefresh()
 
+    const refreshResult = await refreshTasksFromServer()
+    if (!refreshResult.success) {
+      throw new Error(
+        refreshResult.message ??
+          "La incidencia fue resuelta pero no fue posible refrescar las OT."
+      )
+    }
+
     if (!selectedIncidentId) {
       return
     }
 
     const detail = await fetchOperationsIncidentById(selectedIncidentId)
-    setSelectedIncident(detail)
 
-    if (
-      detail.status === "RESUELTA" ||
-      detail.status === "RECHAZADA"
-    ) {
+    if (detail.status === "RESUELTA" || detail.status === "RECHAZADA") {
       onSelectedIncidentIdChange(null)
+      setSelectedIncident(null)
+      return
     }
+
+    setSelectedIncident(detail)
   }
 
-  async function runIncidentAction(action: () => Promise<void>) {
+  async function handleResolveIncident(payload: PlanningIncidentResolvePayload) {
+    if (!selectedIncident) {
+      throw new Error("Incidencia no disponible.")
+    }
+
     setIsPending(true)
     setActionError(null)
+    setActionSuccess(null)
 
     try {
-      await action()
+      await resolveOperationsIncident(selectedIncident.id, payload)
+      setActionSuccess(buildPlanningIncidentResolveSuccessMessage(payload.action))
       await reloadIncidentContext()
-    } catch (actionFailure) {
-      setActionError(
-        actionFailure instanceof Error
-          ? actionFailure.message
-          : "No fue posible completar la acción."
-      )
+    } catch (resolveError) {
+      const message =
+        resolveError instanceof Error
+          ? resolveError.message
+          : "No fue posible resolver la incidencia."
+
+      setActionError(message)
+      throw resolveError
     } finally {
       setIsPending(false)
     }
@@ -329,12 +308,12 @@ export function PlanningIncidentsSheet({
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent
           side="right"
-          className="flex w-full flex-col gap-0 p-0 sm:max-w-4xl"
+          className="flex w-full flex-col gap-0 p-0 sm:max-w-3xl"
         >
           <SheetHeader className="border-b px-6 py-4 text-left">
             <SheetTitle>Incidencias activas</SheetTitle>
             <SheetDescription>
-              Gestione las excepciones operativas sin salir de planificación.
+              Revise la incidencia y tome una decisión operativa.
             </SheetDescription>
           </SheetHeader>
 
@@ -354,6 +333,16 @@ export function PlanningIncidentsSheet({
                 role="alert"
               >
                 {actionError}
+              </p>
+            ) : null}
+
+            {actionSuccess ? (
+              <p
+                className="mb-4 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300"
+                role="status"
+                data-testid="planning-incident-resolve-success"
+              >
+                {actionSuccess}
               </p>
             ) : null}
 
@@ -464,119 +453,48 @@ export function PlanningIncidentsSheet({
                     <Skeleton className="h-24 w-full" />
                     <Skeleton className="h-64 w-full" />
                   </div>
-                ) : selectedIncident ? (
-                  <TaskAdminIncidentRecordPanel
-                    incident={selectedIncident}
-                    incidentTypeLabel={incidentTypeLabel}
-                  />
-                ) : detailError ? null : (
-                  <p className="text-sm text-muted-foreground">
-                    No fue posible cargar el detalle de la incidencia.
-                  </p>
-                )}
+                ) : (
+                  <>
+                    {selectedTask ? (
+                      <PlanningIncidentTaskContextPanel
+                        task={selectedTask}
+                        crewLabel={selectedListItem?.crewLabel ?? "—"}
+                        operatorLabel={reporterLabel}
+                      />
+                    ) : selectedListItem ? (
+                      <p className="text-sm text-muted-foreground">
+                        No fue posible cargar el contexto reducido de la OT.
+                      </p>
+                    ) : null}
 
-                {selectedTask && selectedTaskDetail ? (
-                  <TaskAdminDetailView
-                    task={selectedTask}
-                    detail={selectedTaskDetail}
-                    embedded
-                  />
-                ) : !detailLoading && selectedListItem ? (
-                  <p className="text-sm text-muted-foreground">
-                    No fue posible cargar el expediente técnico de la OT
-                    asociada.
-                  </p>
-                ) : null}
+                    {selectedIncident ? (
+                      <TaskAdminIncidentRecordPanel
+                        incident={selectedIncident}
+                        incidentTypeLabel={incidentTypeLabel}
+                        reporterLabel={reporterLabel}
+                      />
+                    ) : detailError ? null : (
+                      <p className="text-sm text-muted-foreground">
+                        No fue posible cargar el detalle de la incidencia.
+                      </p>
+                    )}
+                  </>
+                )}
               </div>
             )}
           </div>
 
           {selectedIncidentId && canSupervise ? (
-            <SheetFooter className="shrink-0 border-t bg-background px-6 py-4 sm:flex-row sm:flex-wrap sm:justify-end sm:gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                disabled={supervisorActionsDisabled}
-                className="gap-1.5"
-                onClick={() => {
-                  if (!selectedIncident) {
-                    return
-                  }
-
-                  void runIncidentAction(async () => {
-                    await addOperationsIncidentEvent(selectedIncident.id, {
-                      eventType: "REQUEST_INFO",
-                      comment: "Se solicitó información adicional al operario.",
-                    })
-
-                    if (selectedIncident.status === "REPORTADA") {
-                      await transitionOperationsIncidentStatus(
-                        selectedIncident.id,
-                        selectedIncident.status,
-                        "EN_ANALISIS"
-                      )
-                    }
-                  })
-                }}
-              >
-                <MessageSquare className="size-4" />
-                Solicitar información
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={supervisorActionsDisabled}
-                className="gap-1.5"
-                onClick={() => setRescheduleOpen(true)}
-              >
-                <CalendarClock className="size-4" />
-                Replanificar
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={supervisorActionsDisabled}
-                className="gap-1.5"
-                onClick={() => setCancelOpen(true)}
-              >
-                <XCircle className="size-4" />
-                Cancelar OT
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={supervisorActionsDisabled}
-                className="gap-1.5"
-                onClick={() => setCloseOpen(true)}
-              >
-                <CheckCircle2 className="size-4" />
-                Cerrar incidencia
-              </Button>
+            <SheetFooter
+              className="shrink-0 border-t bg-background px-6 py-4 sm:flex-row sm:justify-end"
+              data-testid="planning-incidents-primary-actions"
+            >
               <Button
                 type="button"
                 disabled={supervisorActionsDisabled}
                 className="gap-1.5"
-                onClick={() => {
-                  if (!selectedIncident) {
-                    return
-                  }
-
-                  void runIncidentAction(async () => {
-                    const continuePlan = buildContinueIncidentSupervisorPlan()
-
-                    await addOperationsIncidentEvent(selectedIncident.id, {
-                      eventType: continuePlan.incidentEventType,
-                      comment: continuePlan.incidentEventComment,
-                    })
-
-                    await transitionOperationsIncidentStatus(
-                      selectedIncident.id,
-                      selectedIncident.status,
-                      continuePlan.nextIncidentStatus,
-                      { canContinue: continuePlan.canContinue }
-                    )
-                  })
-                }}
+                data-testid="planning-incident-resolve-primary-action"
+                onClick={() => setResolveOpen(true)}
               >
                 {isPending ? (
                   <>
@@ -584,10 +502,7 @@ export function PlanningIncidentsSheet({
                     Procesando...
                   </>
                 ) : (
-                  <>
-                    <Play className="size-4" />
-                    Continuar
-                  </>
+                  PLANNING_INCIDENT_RESOLVE_PRIMARY_ACTION_LABEL
                 )}
               </Button>
             </SheetFooter>
@@ -595,198 +510,12 @@ export function PlanningIncidentsSheet({
         </SheetContent>
       </Sheet>
 
-      {selectedTask ? (
-        <>
-          <TaskRescheduleDialog
-            open={rescheduleOpen}
-            onOpenChange={setRescheduleOpen}
-            task={selectedTask}
-            rescheduledBy={actorName}
-            isSubmitting={isPending}
-            onConfirm={async (input) => {
-              if (!selectedIncident) {
-                return
-              }
-
-              await runIncidentAction(async () => {
-                const rescheduleDiagnosis = diagnoseSupervisorRescheduleFromTaskStatus(
-                  selectedTask.status
-                )
-
-                if (!rescheduleDiagnosis.allowed) {
-                  throw new Error(rescheduleDiagnosis.reason)
-                }
-
-                if (
-                  rescheduleDiagnosis.workflowAction ===
-                  "reschedule-from-active-incident"
-                ) {
-                  await rescheduleActiveTaskFromIncident(selectedIncident.id, {
-                    ...input,
-                    rescheduledBy: actorName,
-                  })
-
-                  const refreshResult = await refreshTasksFromServer()
-                  if (!refreshResult.success) {
-                    throw new Error(
-                      refreshResult.message ??
-                        "La OT fue replanificada pero no fue posible refrescar la planificación."
-                    )
-                  }
-
-                  return
-                }
-
-                const rescheduleTask =
-                  rescheduleDiagnosis.workflowAction === "reschedule-from-overdue"
-                    ? rescheduleTaskFromOverdue
-                    : rescheduleTaskFromIncident
-
-                const result = await rescheduleTask(selectedTask.id, {
-                  ...input,
-                  actor: actorName,
-                })
-
-                if (!result.success) {
-                  throw new Error(
-                    result.message ??
-                      "No fue posible replanificar la orden de trabajo."
-                  )
-                }
-
-                await addOperationsIncidentEvent(selectedIncident.id, {
-                  eventType: "RESCHEDULE",
-                  comment: input.reason?.trim() || "OT replanificada.",
-                })
-
-                if (selectedIncident.status === "REPORTADA") {
-                  await transitionOperationsIncidentStatus(
-                    selectedIncident.id,
-                    selectedIncident.status,
-                    "EN_ANALISIS"
-                  )
-                }
-              })
-
-              setRescheduleOpen(false)
-            }}
-          />
-
-          <TaskIncidentCancelDialog
-            open={cancelOpen}
-            onOpenChange={setCancelOpen}
-            isSubmitting={isPending}
-            onConfirm={async (input) => {
-              if (!selectedIncident) {
-                return
-              }
-
-              await runIncidentAction(async () => {
-                const result = await cancelTask(selectedTask.id, {
-                  ...input,
-                  actor: actorName,
-                })
-
-                if (!result.success) {
-                  throw new Error(
-                    result.message ??
-                      "No fue posible cancelar la orden de trabajo."
-                  )
-                }
-
-                await addOperationsIncidentEvent(selectedIncident.id, {
-                  eventType: "CANCEL_TASK",
-                  comment: input.observation?.trim() || "OT cancelada.",
-                })
-
-                await transitionOperationsIncidentStatus(
-                  selectedIncident.id,
-                  selectedIncident.status,
-                  "RECHAZADA"
-                )
-              })
-
-              setCancelOpen(false)
-            }}
-          />
-        </>
-      ) : null}
-
-      <Dialog open={closeOpen} onOpenChange={setCloseOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Cerrar incidencia</DialogTitle>
-            <DialogDescription>
-              Seleccione cómo desea cerrar la incidencia activa.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2 sm:justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={isPending}
-              onClick={() => setCloseOpen(false)}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={isPending}
-              onClick={() =>
-                void runIncidentAction(async () => {
-                  if (!selectedIncident) {
-                    return
-                  }
-
-                  await addOperationsIncidentEvent(selectedIncident.id, {
-                    eventType: "CLOSED",
-                    comment: "Incidencia cerrada como rechazada.",
-                  })
-
-                  await transitionOperationsIncidentStatus(
-                    selectedIncident.id,
-                    selectedIncident.status,
-                    "RECHAZADA",
-                    { auditExplicitClosure: true }
-                  )
-
-                  setCloseOpen(false)
-                })
-              }
-            >
-              Rechazar
-            </Button>
-            <Button
-              type="button"
-              disabled={isPending}
-              onClick={() =>
-                void runIncidentAction(async () => {
-                  if (!selectedIncident) {
-                    return
-                  }
-
-                  await addOperationsIncidentEvent(selectedIncident.id, {
-                    eventType: "CLOSED",
-                    comment: "Incidencia cerrada como resuelta.",
-                  })
-
-                  await transitionOperationsIncidentStatus(
-                    selectedIncident.id,
-                    selectedIncident.status,
-                    "RESUELTA",
-                    { auditExplicitClosure: true }
-                  )
-
-                  setCloseOpen(false)
-                })
-              }
-            >
-              Resolver
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <PlanningIncidentResolveDialog
+        open={resolveOpen}
+        onOpenChange={setResolveOpen}
+        isSubmitting={isPending}
+        onConfirm={handleResolveIncident}
+      />
     </>
   )
 }

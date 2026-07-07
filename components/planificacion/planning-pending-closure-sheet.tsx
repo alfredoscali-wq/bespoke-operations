@@ -5,7 +5,7 @@ import { ArrowLeft, CheckCircle2, Loader2 } from "lucide-react"
 
 import { useAuth } from "@/components/auth/auth-provider"
 import { useCrews } from "@/components/cuadrillas/crews-provider"
-import { TaskAdminDetailView } from "@/components/tareas/task-admin-detail-view"
+import { PlanningPendingClosureDetailPanel } from "@/components/planificacion/planning-pending-closure-detail-panel"
 import { TaskClosureRejectDialog } from "@/components/tareas/task-closure-reject-dialog"
 import { useTasks } from "@/components/tareas/tasks-provider"
 import {
@@ -14,6 +14,7 @@ import {
   resolvePendingClosureSubmittedAt,
   resolveTaskCrewOperatorLabel,
 } from "@/lib/planificacion/planning-pending-closure"
+import { PLANNING_PENDING_CLOSURE_DETAIL_LOAD_ERROR } from "@/lib/planificacion/planning-pending-closure-detail"
 import {
   normalizePlanningPendingClosureSelectionId,
   resolvePlanningPendingClosureSheetViewPhase,
@@ -142,7 +143,7 @@ export function PlanningPendingClosureSheet({
 
     const detail = getDetail(selectedTaskId)
     if (!detail) {
-      setDetailError("No fue posible cargar el expediente técnico de la OT.")
+      setDetailError(PLANNING_PENDING_CLOSURE_DETAIL_LOAD_ERROR)
       setDetailLoading(false)
       return
     }
@@ -196,7 +197,7 @@ export function PlanningPendingClosureSheet({
 
     const detail = getDetail(selectedTaskId)
     if (!detail) {
-      setDetailError("No fue posible cargar el expediente técnico de la OT.")
+      setDetailError(PLANNING_PENDING_CLOSURE_DETAIL_LOAD_ERROR)
       setDetailLoading(false)
       return
     }
@@ -231,8 +232,8 @@ export function PlanningPendingClosureSheet({
           <SheetHeader className="border-b px-6 py-4 text-left">
             <SheetTitle>Órdenes pendientes de aprobación</SheetTitle>
             <SheetDescription>
-              Revise el expediente técnico y apruebe o solicite corrección sin
-              salir de planificación.
+              Revise la ejecución y apruebe o solicite corrección sin salir de
+              planificación.
             </SheetDescription>
           </SheetHeader>
 
@@ -348,14 +349,18 @@ export function PlanningPendingClosureSheet({
                     <Skeleton className="h-64 w-full" />
                   </div>
                 ) : selectedTask && selectedDetail ? (
-                  <TaskAdminDetailView
+                  <PlanningPendingClosureDetailPanel
                     task={selectedTask}
                     detail={selectedDetail}
-                    embedded
+                    crewLabel={selectedTask.crew?.trim() || "—"}
+                    operatorLabel={resolveTaskCrewOperatorLabel(
+                      selectedTask,
+                      crews
+                    )}
                   />
                 ) : detailError ? null : (
                   <p className="text-sm text-muted-foreground">
-                    No fue posible cargar el expediente técnico de la OT.
+                    {PLANNING_PENDING_CLOSURE_DETAIL_LOAD_ERROR}
                   </p>
                 )}
               </div>
@@ -363,7 +368,10 @@ export function PlanningPendingClosureSheet({
           </div>
 
           {selectedTaskId && canClose ? (
-            <SheetFooter className="shrink-0 border-t bg-background px-6 py-4 sm:flex-row sm:flex-wrap sm:justify-end sm:gap-2">
+            <SheetFooter
+              className="shrink-0 border-t bg-background px-6 py-4 sm:flex-row sm:flex-wrap sm:justify-end sm:gap-2"
+              data-testid="planning-pending-closure-primary-actions"
+            >
               <Button
                 type="button"
                 variant="outline"

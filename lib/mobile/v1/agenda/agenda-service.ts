@@ -10,8 +10,12 @@ import type {
   MobileAgendaTodayResponse,
 } from "@/lib/mobile/v1/agenda/types"
 import { resolveMobileWorkTeam } from "@/lib/mobile/v1/shifts/resolve-work-team"
-import { resolveTaskOperationalTitle } from "@/lib/tasks/work-order"
+import {
+  fetchMobileActiveIncidentTaskIdSet,
+  resolveMobileHasActiveIncidentForTask,
+} from "@/lib/mobile/v1/tasks/task-active-incident-guard"
 import { resolveDispatchOperationalOrder } from "@/lib/planificacion/planning-operational-order-core"
+import { resolveTaskOperationalTitle } from "@/lib/tasks/work-order"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { Task } from "@/lib/types/tasks"
 import { fetchActiveWorkTeamShift } from "@/lib/work-team-shifts/work-team-shifts.queries"
@@ -29,7 +33,10 @@ function summarizeObservations(value: string | undefined): string | null {
   return `${trimmed.slice(0, 157)}...`
 }
 
-function mapTaskToAgendaItem(task: Task): MobileAgendaTaskItem {
+function mapTaskToAgendaItem(
+  task: Task,
+  activeIncidentTaskIds: ReadonlySet<string>
+): MobileAgendaTaskItem {
   const customerOrAssetName =
     task.customerName?.trim() || task.projectName?.trim() || "—"
 
@@ -52,6 +59,10 @@ function mapTaskToAgendaItem(task: Task): MobileAgendaTaskItem {
     longitude: task.longitude ?? null,
     executionOrder: resolveDispatchOperationalOrder(task),
     dispatchOrder: task.dispatchOrder ?? null,
+    hasActiveIncident: resolveMobileHasActiveIncidentForTask(
+      task,
+      activeIncidentTaskIds
+    ),
   }
 }
 
@@ -85,11 +96,20 @@ export async function getMobileAgendaToday(
     today
   )
 
+  const sortedTasks = sortAgendaTasks(tasks)
+  const activeIncidentTaskIds = await fetchMobileActiveIncidentTaskIdSet(
+    admin,
+    auth.companyId,
+    sortedTasks.map((task) => task.id)
+  )
+
   return {
     shiftActive: true,
     workTeamId: resolved.workTeamId,
     workTeamName: resolved.workTeamName,
-    items: sortAgendaTasks(tasks).map(mapTaskToAgendaItem),
+    items: sortedTasks.map((task) =>
+      mapTaskToAgendaItem(task, activeIncidentTaskIds)
+    ),
   }
 }
 

@@ -3,6 +3,7 @@ import "server-only"
 import { uploadTaskEvidencePhoto } from "@/lib/supabase/task-photos.queries"
 import { MobileApiError } from "@/lib/mobile/v1/errors"
 import { assertMobileTaskExecutionAccess } from "@/lib/mobile/v1/tasks/task-execution-access"
+import { assertMobileTaskExecutionNotBlockedByActiveIncident } from "@/lib/mobile/v1/tasks/task-active-incident-guard"
 import { appendChecklistPhotoId } from "@/lib/mobile/v1/tasks/task-checklist-service"
 import type {
   MobileTaskChecklistPhotoRequest,
@@ -20,6 +21,8 @@ export async function uploadMobileTaskChecklistPhoto(
     request.deviceId,
     { allowedStatuses: ["en-curso"] }
   )
+
+  await assertMobileTaskExecutionNotBlockedByActiveIncident(context)
 
   console.debug("[Mobile API checklist-photos]", {
     taskId: context.task.id,

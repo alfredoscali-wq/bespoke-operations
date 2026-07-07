@@ -58,12 +58,12 @@ test("selection flow moves from LIST to LOADING to DETAIL", () => {
   )
 })
 
-test("selection flow surfaces missing expediente as ERROR", () => {
+test("selection flow surfaces missing detail as ERROR", () => {
   assert.equal(
     resolvePlanningPendingClosureSheetViewPhase({
       selectedTaskId: EXISTING_TASK_ID,
       detailLoading: false,
-      detailError: "No fue posible cargar el expediente técnico.",
+      detailError: "No fue posible cargar el detalle de la OT.",
       hasSelectedTask: true,
       hasSelectedDetail: false,
     }),

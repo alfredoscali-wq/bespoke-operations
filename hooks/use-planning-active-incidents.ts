@@ -18,12 +18,16 @@ export function usePlanningActiveIncidents(
   const [isLoading, setIsLoading] = useState(enabled)
   const [error, setError] = useState<string | null>(null)
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (options?: { silent?: boolean }) => {
     if (!enabled) {
       return
     }
 
-    setIsLoading(true)
+    const silent = options?.silent === true
+
+    if (!silent) {
+      setIsLoading(true)
+    }
 
     try {
       const data = await fetchActiveOperationsIncidents()
@@ -36,7 +40,9 @@ export function usePlanningActiveIncidents(
           : "No fue posible cargar las incidencias activas."
       )
     } finally {
-      setIsLoading(false)
+      if (!silent) {
+        setIsLoading(false)
+      }
     }
   }, [enabled])
 

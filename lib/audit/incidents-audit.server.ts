@@ -6,8 +6,10 @@ import {
   buildIncidentClosedMetadata,
   buildIncidentCreatedDescription,
   buildIncidentCreatedMetadata,
+  buildIncidentResolveSupervisorActionMetadata,
   buildIncidentSupervisorActionDescription,
   buildIncidentSupervisorActionMetadata,
+  INCIDENT_SUPERVISOR_ACTIONS,
   mapIncidentEventTypeToSupervisorAction,
   resolveIncidentAuditEntityLabel,
   resolveSupervisorActionResultStatus,
@@ -213,6 +215,67 @@ export async function recordIncidentSupervisorActionAudit(input: {
       }),
     })
   }, "Incident supervisor action audit")
+}
+
+export async function recordIncidentResolveSupervisorActionAudit(input: {
+  sessionUser: SessionUser
+  companyId: string
+  incidentId: string
+  client: SupabaseTaskIncidentsClient
+  action: "continue" | "reprogram" | "cancel"
+  previousIncidentStatus: TaskIncidentStatus
+  message?: string | null
+  reason?: string | null
+  previousTaskStatus?: string | null
+  nextTaskStatus?: string | null
+}): Promise<void> {
+  const base = await loadIncidentAuditBase({
+    companyId: input.companyId,
+    incidentId: input.incidentId,
+    client: input.client,
+  })
+
+  if (!base) {
+    return
+  }
+
+  const entityLabel = resolveIncidentAuditEntityLabel({
+    taskCode: base.taskCode,
+    incidentId: input.incidentId,
+  })
+
+  const supervisorAction =
+    input.action === "continue"
+      ? INCIDENT_SUPERVISOR_ACTIONS.CONTINUE
+      : input.action === "reprogram"
+        ? INCIDENT_SUPERVISOR_ACTIONS.REPROGRAM
+        : INCIDENT_SUPERVISOR_ACTIONS.CANCEL_TASK
+
+  await recordIncidentAuditBestEffort(async () => {
+    await recordAuditEventServer({
+      module: AUDIT_MODULES.TAREAS,
+      action: AUDIT_ACTIONS.INCIDENT_SUPERVISOR_ACTION,
+      entityType: AUDIT_ENTITY_TYPES.INCIDENT,
+      entityId: input.incidentId,
+      entityLabel,
+      description: buildIncidentSupervisorActionDescription(
+        supervisorAction,
+        base.taskCode
+      ),
+      performedBy: { kind: "user", sessionUser: input.sessionUser },
+      metadata: buildIncidentResolveSupervisorActionMetadata({
+        base,
+        action: input.action,
+        previousIncidentStatus: input.previousIncidentStatus,
+        actorEmployeeId: input.sessionUser.employeeId ?? "",
+        actorName: input.sessionUser.displayName,
+        message: input.message,
+        reason: input.reason,
+        previousTaskStatus: input.previousTaskStatus,
+        nextTaskStatus: input.nextTaskStatus,
+      }),
+    })
+  }, "Incident resolve supervisor action audit")
 }
 
 export async function recordIncidentSupervisorActionFromEventType(input: {

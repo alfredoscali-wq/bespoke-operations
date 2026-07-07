@@ -145,6 +145,48 @@ export type RescheduleActiveTaskFromIncidentInput = TaskRescheduleInput & {
   supervisor?: string
 }
 
+export async function resolveOperationsIncident(
+  incidentId: string,
+  body:
+    | { action: "continue"; message: string }
+    | { action: "reprogram"; reason: string }
+    | { action: "cancel"; reason: string }
+): Promise<{ incident: IncidentResponse; task: Task }> {
+  const response = await fetch(
+    `/api/operations/incidents/${encodeURIComponent(incidentId)}/resolve`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    }
+  )
+
+  let payload:
+    | { success: true; data: IncidentResponse; task: Task }
+    | { success: false; message: string; code?: string }
+
+  try {
+    payload = (await response.json()) as typeof payload
+  } catch {
+    throw new Error("No fue posible resolver la incidencia.")
+  }
+
+  if (!response.ok || !payload.success) {
+    throw new Error(
+      payload.success === false
+        ? payload.message
+        : "No fue posible resolver la incidencia."
+    )
+  }
+
+  return {
+    incident: payload.data,
+    task: payload.task,
+  }
+}
+
 export async function rescheduleActiveTaskFromIncident(
   incidentId: string,
   body: RescheduleActiveTaskFromIncidentInput

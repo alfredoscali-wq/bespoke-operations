@@ -11,6 +11,10 @@ import {
   readOperationalChecklistResponses,
 } from "@/lib/mobile/v1/tasks/checklist-execution"
 import { MobileApiError } from "@/lib/mobile/v1/errors"
+import { resolveMobileTaskHasActiveIncident } from "@/lib/mobile/v1/tasks/task-active-incident.shared"
+import {
+  resolveTaskHasActiveIncidentRecord,
+} from "@/lib/mobile/v1/tasks/task-active-incident-guard"
 import { resolveMobileWorkTeam } from "@/lib/mobile/v1/shifts/resolve-work-team"
 import type {
   MobileTaskChecklistItem,
@@ -112,7 +116,8 @@ function mapTaskToDetailResponse(
   task: Task,
   nextWork: MobileTaskNextWorkItem | null,
   checklist: MobileTaskChecklistItem[],
-  referencePhotos: MobileTaskReferencePhoto[]
+  referencePhotos: MobileTaskReferencePhoto[],
+  hasActiveIncident: boolean
 ): MobileTaskDetailResponse {
   const technology = getTaskTechnologyLabel(task)
   const contractedPlan = formatContractedPlanLabel(task.contractedPlan)
@@ -141,6 +146,7 @@ function mapTaskToDetailResponse(
     evidenceRequirements: mapEvidenceRequirements(task),
     referencePhotos,
     nextWork,
+    hasActiveIncident,
   }
 }
 
@@ -232,11 +238,21 @@ export async function getMobileTaskDetail(
     ? []
     : mapReferencePhotos(referencePhotosResult.data)
 
+  const hasActiveIncidentRecord = await resolveTaskHasActiveIncidentRecord(
+    admin,
+    task.id
+  )
+  const hasActiveIncident = resolveMobileTaskHasActiveIncident({
+    taskStatus: task.status,
+    hasActiveIncidentRecord,
+  })
+
   return mapTaskToDetailResponse(
     task,
     mapNextWorkItem(nextTask),
     checklist,
-    mapReferencePhotos(referencePhotosResult.data)
+    referencePhotos,
+    hasActiveIncident
   )
 }
 

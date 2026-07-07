@@ -21,6 +21,7 @@ export type MobileApiErrorCode =
   | "INCIDENT_NOT_FOUND"
   | "INCIDENT_ALREADY_ACTIVE"
   | "INVALID_INCIDENT_STATUS"
+  | "TASK_BLOCKED_BY_ACTIVE_INCIDENT"
 
 export class MobileApiError extends Error {
   readonly code: MobileApiErrorCode

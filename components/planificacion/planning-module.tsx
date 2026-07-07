@@ -101,6 +101,7 @@ import { sortTasksByDispatchRoute } from "@/lib/tasks/dispatch-order"
 import { listPendingClosureTasksForPlanningDate } from "@/lib/planificacion/planning-pending-closure"
 
 import { usePlanningActiveIncidents } from "@/hooks/use-planning-active-incidents"
+import { usePlanningOperationalPolling } from "@/hooks/use-planning-operational-polling"
 
 
 
@@ -166,6 +167,12 @@ function PlanningModuleContent() {
     error: activeIncidentsError,
     refresh: refreshActiveIncidents,
   } = usePlanningActiveIncidents()
+
+  usePlanningOperationalPolling({
+    enabled: isTasksReady,
+    refreshTasksFromServer,
+    refreshActiveIncidents,
+  })
 
 
 

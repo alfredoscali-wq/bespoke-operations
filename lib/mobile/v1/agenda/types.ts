@@ -18,6 +18,7 @@ export type MobileAgendaTaskItem = {
   longitude: number | null
   executionOrder: number | null
   dispatchOrder: number | null
+  hasActiveIncident: boolean
 }
 
 export type MobileAgendaTodayResponse = {

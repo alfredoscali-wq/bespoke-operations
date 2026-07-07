@@ -8,6 +8,7 @@ import {
 } from "@/lib/mobile/v1/tasks/checklist-execution"
 import { MobileApiError } from "@/lib/mobile/v1/errors"
 import { assertMobileTaskExecutionAccess } from "@/lib/mobile/v1/tasks/task-execution-access"
+import { assertMobileTaskExecutionNotBlockedByActiveIncident } from "@/lib/mobile/v1/tasks/task-active-incident-guard"
 import type {
   MobileTaskSubmitForApprovalRequest,
   MobileTaskSubmitForApprovalResponse,
@@ -26,6 +27,8 @@ export async function submitMobileTaskForApproval(
     request.deviceId,
     { allowedStatuses: ["en-curso"] }
   )
+
+  await assertMobileTaskExecutionNotBlockedByActiveIncident(context)
 
   const template = await fetchOperationalChecklistTemplate(
     context.admin,

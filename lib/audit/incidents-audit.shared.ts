@@ -3,6 +3,7 @@ import type { TaskIncidentStatus } from "@/lib/types/task-incidents"
 export const INCIDENT_SUPERVISOR_ACTIONS = {
   REQUEST_INFO: "request-info",
   CONTINUE: "continue",
+  REPROGRAM: "reprogram",
   RESCHEDULE: "reschedule",
   CANCEL_TASK: "cancel-task",
 } as const
@@ -102,6 +103,8 @@ export function buildIncidentSupervisorActionDescription(
       return `Supervisor solicitó información${otSuffix}.`
     case INCIDENT_SUPERVISOR_ACTIONS.CONTINUE:
       return `Supervisor continuó la OT${otSuffix}.`
+    case INCIDENT_SUPERVISOR_ACTIONS.REPROGRAM:
+      return `Supervisor reprogramó la OT${otSuffix}.`
     case INCIDENT_SUPERVISOR_ACTIONS.RESCHEDULE:
       return `Supervisor replanificó la OT${otSuffix}.`
     case INCIDENT_SUPERVISOR_ACTIONS.CANCEL_TASK:
@@ -166,6 +169,33 @@ export function buildIncidentCreatedMetadata(input: {
     source: "mobile-field-agent",
     workTeamId: input.workTeamId ?? null,
     mobileDeviceId: input.mobileDeviceId ?? null,
+  }
+}
+
+export function buildIncidentResolveSupervisorActionMetadata(input: {
+  base: IncidentAuditMetadataBase
+  action: "continue" | "reprogram" | "cancel"
+  previousIncidentStatus: TaskIncidentStatus
+  actorEmployeeId: string
+  actorName: string
+  message?: string | null
+  reason?: string | null
+  previousTaskStatus?: string | null
+  nextTaskStatus?: string | null
+}): Record<string, unknown> {
+  return {
+    ...input.base,
+    supervisorAction: input.action,
+    action: input.action,
+    previousIncidentStatus: input.previousIncidentStatus,
+    nextIncidentStatus: "RESUELTA" as TaskIncidentStatus,
+    actorEmployeeId: input.actorEmployeeId,
+    actorName: input.actorName,
+    message: input.message ?? null,
+    reason: input.reason ?? null,
+    previousTaskStatus: input.previousTaskStatus ?? null,
+    nextTaskStatus: input.nextTaskStatus ?? null,
+    source: "operations",
   }
 }
 
@@ -240,6 +270,8 @@ export function resolveIncidentAuditDisplayDescription(entry: {
           ? "REQUEST_INFO"
           : supervisorAction === "continue"
             ? "CONTINUE"
+            : supervisorAction === "reprogram"
+            ? "REPROGRAM"
             : supervisorAction === "reschedule"
               ? "RESCHEDULE"
               : supervisorAction === "cancel-task"

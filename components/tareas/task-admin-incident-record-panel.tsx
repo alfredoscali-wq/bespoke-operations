@@ -24,6 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 type TaskAdminIncidentRecordPanelProps = {
   incident: IncidentResponse | null
   incidentTypeLabel: string
+  reporterLabel?: string | null
   isLoading?: boolean
 }
 
@@ -51,6 +52,7 @@ async function signIncidentPhotoPath(
 export function TaskAdminIncidentRecordPanel({
   incident,
   incidentTypeLabel,
+  reporterLabel,
   isLoading = false,
 }: TaskAdminIncidentRecordPanelProps) {
   const { getEmployee } = useEmployees()
@@ -133,14 +135,26 @@ export function TaskAdminIncidentRecordPanel({
       <CardContent className="space-y-6">
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
+            <p className="text-xs text-muted-foreground">Tipo</p>
+            <p className="mt-1 text-sm font-semibold">{incidentTypeLabel}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Reportada</p>
+            <p className="mt-1 text-sm font-medium">
+              {formatTaskDateTime(incident.createdAt)}
+            </p>
+          </div>
+          {reporterLabel ? (
+            <div className="sm:col-span-2">
+              <p className="text-xs text-muted-foreground">Operario</p>
+              <p className="mt-1 text-sm font-medium">{reporterLabel}</p>
+            </div>
+          ) : null}
+          <div>
             <p className="text-xs text-muted-foreground">Estado</p>
             <Badge variant="outline" className="mt-1">
               {PLANNING_INCIDENT_STATUS_LABELS[incident.status]}
             </Badge>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Tipo</p>
-            <p className="mt-1 text-sm font-medium">{incidentTypeLabel}</p>
           </div>
         </div>
 

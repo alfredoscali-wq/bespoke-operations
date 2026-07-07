@@ -62,6 +62,7 @@ export type MobileTaskDetailResponse = {
   evidenceRequirements: MobileTaskEvidenceRequirement[]
   referencePhotos: MobileTaskReferencePhoto[]
   nextWork: MobileTaskNextWorkItem | null
+  hasActiveIncident: boolean
 }
 
 export type MobileTaskStartRequest = {
