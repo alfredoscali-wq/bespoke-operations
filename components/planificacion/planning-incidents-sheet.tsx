@@ -23,6 +23,7 @@ import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import {
   addOperationsIncidentEvent,
   fetchOperationsIncidentById,
+  rescheduleActiveTaskFromIncident,
   transitionOperationsIncidentStatus,
 } from "@/lib/operations/incidents/fetch-operations-incidents.client"
 import {
@@ -30,6 +31,10 @@ import {
   PLANNING_INCIDENT_STATUS_LABELS,
   resolvePlanningIncidentTypeLabel,
 } from "@/lib/planificacion/planning-incidents"
+import {
+  buildContinueIncidentSupervisorPlan,
+  diagnoseSupervisorRescheduleFromTaskStatus,
+} from "@/lib/planificacion/planning-incidents-supervisor-actions"
 import {
   normalizePlanningIncidentSelectionId,
   resolvePlanningIncidentSheetViewPhase,
@@ -89,9 +94,10 @@ export function PlanningIncidentsSheet({
     getTask,
     getDetail,
     detailVersion,
-    resumeTaskFromIncident,
     rescheduleTaskFromIncident,
+    rescheduleTaskFromOverdue,
     cancelTask,
+    refreshTasksFromServer,
   } = useTasks()
 
   const [selectedIncident, setSelectedIncident] =
@@ -556,30 +562,18 @@ export function PlanningIncidentsSheet({
                   }
 
                   void runIncidentAction(async () => {
-                    if (selectedTask) {
-                      const result = await resumeTaskFromIncident(
-                        selectedTask.id,
-                        actorName
-                      )
-
-                      if (!result.success) {
-                        throw new Error(
-                          result.message ??
-                            "No fue posible continuar la orden de trabajo."
-                        )
-                      }
-                    }
+                    const continuePlan = buildContinueIncidentSupervisorPlan()
 
                     await addOperationsIncidentEvent(selectedIncident.id, {
-                      eventType: "CONTINUE",
-                      comment: "El supervisor autorizó continuar la ejecución.",
+                      eventType: continuePlan.incidentEventType,
+                      comment: continuePlan.incidentEventComment,
                     })
 
                     await transitionOperationsIncidentStatus(
                       selectedIncident.id,
                       selectedIncident.status,
-                      "RESUELTA",
-                      { canContinue: true }
+                      continuePlan.nextIncidentStatus,
+                      { canContinue: continuePlan.canContinue }
                     )
                   })
                 }}
@@ -615,7 +609,40 @@ export function PlanningIncidentsSheet({
               }
 
               await runIncidentAction(async () => {
-                const result = await rescheduleTaskFromIncident(selectedTask.id, {
+                const rescheduleDiagnosis = diagnoseSupervisorRescheduleFromTaskStatus(
+                  selectedTask.status
+                )
+
+                if (!rescheduleDiagnosis.allowed) {
+                  throw new Error(rescheduleDiagnosis.reason)
+                }
+
+                if (
+                  rescheduleDiagnosis.workflowAction ===
+                  "reschedule-from-active-incident"
+                ) {
+                  await rescheduleActiveTaskFromIncident(selectedIncident.id, {
+                    ...input,
+                    rescheduledBy: actorName,
+                  })
+
+                  const refreshResult = await refreshTasksFromServer()
+                  if (!refreshResult.success) {
+                    throw new Error(
+                      refreshResult.message ??
+                        "La OT fue replanificada pero no fue posible refrescar la planificación."
+                    )
+                  }
+
+                  return
+                }
+
+                const rescheduleTask =
+                  rescheduleDiagnosis.workflowAction === "reschedule-from-overdue"
+                    ? rescheduleTaskFromOverdue
+                    : rescheduleTaskFromIncident
+
+                const result = await rescheduleTask(selectedTask.id, {
                   ...input,
                   actor: actorName,
                 })

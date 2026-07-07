@@ -1,9 +1,11 @@
+import type { TaskRescheduleInput } from "@/lib/tasks/reschedule"
 import type {
   AddIncidentEventRequest,
   IncidentResponse,
   IncidentSummary,
   UpdateIncidentStatusRequest,
 } from "@/lib/types/task-incidents"
+import type { Task } from "@/lib/types/tasks"
 
 type OperationsIncidentApiResponse<T> =
   | { success: true; data: T }
@@ -132,4 +134,49 @@ export async function transitionOperationsIncidentStatus(
     status: nextStatus,
     ...body,
   })
+}
+
+export type RescheduleActiveTaskFromIncidentInput = TaskRescheduleInput & {
+  crewId?: string | null
+  crew?: string
+  supervisor?: string
+}
+
+export async function rescheduleActiveTaskFromIncident(
+  incidentId: string,
+  body: RescheduleActiveTaskFromIncidentInput
+): Promise<{ incident: IncidentResponse; task: Task }> {
+  const response = await fetch(
+    `/api/operations/incidents/${encodeURIComponent(incidentId)}/reschedule-task`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    }
+  )
+
+  let payload:
+    | { success: true; data: IncidentResponse; task: Task }
+    | { success: false; message: string; code?: string }
+
+  try {
+    payload = (await response.json()) as typeof payload
+  } catch {
+    throw new Error("No fue posible replanificar la orden de trabajo.")
+  }
+
+  if (!response.ok || !payload.success) {
+    throw new Error(
+      payload.success === false
+        ? payload.message
+        : "No fue posible replanificar la orden de trabajo."
+    )
+  }
+
+  return {
+    incident: payload.data,
+    task: payload.task,
+  }
 }

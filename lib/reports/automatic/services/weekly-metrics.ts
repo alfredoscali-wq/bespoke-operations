@@ -177,17 +177,22 @@ export function buildWeeklyProductionCounts(
   }
 }
 
+/**
+ * `activeIncidentsCount` debe provenir de `task_incidents` activas
+ * (status REPORTADA | EN_ANALISIS), filtradas por `company_id`.
+ */
 export function buildWeeklyReportAlerts(input: {
   tasks: Task[]
   projects: Project[]
   absentOperarioIds: Set<string>
+  activeIncidentsCount: number
 }): WeeklyReportAlerts {
   return {
     overdueTasks: input.tasks.filter((task) => isTaskVencida(task)).length,
     pendingApprovalTasks: input.tasks.filter(
       (task) => task.status === "pendiente-cierre" || task.status === "en-aprobacion"
     ).length,
-    openIncidents: input.tasks.filter((task) => task.status === "incidencia").length,
+    openIncidents: input.activeIncidentsCount,
     absentOperarios: input.absentOperarioIds.size,
     stoppedProjects: input.projects.filter((project) => project.status === "paused")
       .length,

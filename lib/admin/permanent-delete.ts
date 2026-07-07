@@ -17,7 +17,9 @@ import {
   assertTaskPermanentDeleteAllowed,
   PERMANENT_DELETE_NOT_IMPLEMENTED_MESSAGE,
 } from "@/lib/admin/permanent-delete-policy"
+import { collectTaskIncidentPhotoStoragePaths } from "@/lib/admin/permanent-delete-task-records-plan"
 import type { PermanentDeleteEntityType } from "@/lib/admin/permanent-delete-types"
+import { TASK_INCIDENT_PHOTOS_STORAGE_BUCKET } from "@/lib/supabase/task-incident-photos.storage"
 
 export type { PermanentDeleteEntityType } from "@/lib/admin/permanent-delete-types"
 
@@ -61,10 +63,68 @@ async function removeStorageObjects(
   }
 }
 
+async function permanentDeleteTaskIncidents(
+  client: SupabaseAdminClient,
+  taskId: string
+) {
+  const { data: incidents, error: incidentsReadError } = await client
+    .from("task_incidents")
+    .select("id")
+    .eq("task_id", taskId)
+
+  if (incidentsReadError) {
+    throw new Error(
+      `No se pudieron leer incidencias de la orden de trabajo: ${incidentsReadError.message}`
+    )
+  }
+
+  const incidentIds = (incidents ?? []).map((row) => row.id)
+
+  if (incidentIds.length === 0) {
+    return
+  }
+
+  const { data: incidentPhotos, error: incidentPhotosReadError } = await client
+    .from("task_incident_photos")
+    .select("storage_path, thumbnail_path")
+    .in("incident_id", incidentIds)
+
+  if (incidentPhotosReadError) {
+    throw new Error(
+      `No se pudieron leer fotografías de incidencias: ${incidentPhotosReadError.message}`
+    )
+  }
+
+  const storagePaths = collectTaskIncidentPhotoStoragePaths(incidentPhotos ?? [])
+
+  if (storagePaths.length > 0) {
+    await removeStorageObjects(
+      client,
+      storagePaths.map((storage_path) => ({
+        storage_bucket: TASK_INCIDENT_PHOTOS_STORAGE_BUCKET,
+        storage_path,
+      }))
+    )
+  }
+
+  const { error: incidentsDeleteError } = await client
+    .from("task_incidents")
+    .delete()
+    .eq("task_id", taskId)
+
+  if (incidentsDeleteError) {
+    throw new Error(
+      `No se pudieron eliminar incidencias: ${incidentsDeleteError.message}`
+    )
+  }
+}
+
 async function permanentDeleteTaskRecords(
   client: SupabaseAdminClient,
   taskId: string
 ) {
+  await permanentDeleteTaskIncidents(client, taskId)
+
   const { data: evidences, error: evidencesReadError } = await client
     .from("evidences")
     .select("storage_bucket, storage_path")

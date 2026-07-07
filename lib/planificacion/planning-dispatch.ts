@@ -104,8 +104,14 @@ export function listReopenablePlanningTaskIds(
     .map((task) => task.id)
 }
 
+/**
+ * KPI de incidencias: usar `activeIncidentsCount` desde `task_incidents`
+ * (p. ej. `usePlanningActiveIncidents` / API operations). No inferir desde
+ * `tasks.status = incidencia` (legacy pre-RC3.1).
+ */
 export function computePlanningDispatchKpis(
-  tasks: Task[]
+  tasks: Task[],
+  activeIncidentsCount: number
 ): PlanningDispatchKpis {
   return {
     plannedCount: tasks.length,
@@ -116,7 +122,7 @@ export function computePlanningDispatchKpis(
     completedCount: tasks.filter(
       (task) => isTaskArchivedStatus(task.status)
     ).length,
-    incidentsCount: tasks.filter((task) => task.status === "incidencia").length,
+    incidentsCount: activeIncidentsCount,
   }
 }
 

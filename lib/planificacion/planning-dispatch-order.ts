@@ -1,8 +1,12 @@
 import {
+  collectOccupiedDispatchOrdersForConfirm,
+} from "@/lib/planificacion/planning-dynamic"
+import {
   buildOperationalOrderFieldUpdates,
   filterOperationalOrderScope,
   resolvePlanningExecutionOrder,
 } from "@/lib/planificacion/planning-operational-order-core"
+import { resolveTaskCrewId } from "@/lib/tasks/crew-relation"
 import type { Crew } from "@/lib/types/crews"
 import type { Task } from "@/lib/types/tasks"
 
@@ -50,6 +54,59 @@ export function buildDispatchOrderAssignmentUpdates(input: {
 }
 
 /** Copies execution_order into dispatch_order for tasks entering the operations lane. */
+function assignNextAvailableDispatchOrder(
+  occupied: Set<number>,
+  desiredOrder?: number | null
+): number {
+  if (desiredOrder != null && desiredOrder > 0) {
+    const normalized = Math.floor(desiredOrder)
+    if (!occupied.has(normalized)) {
+      return normalized
+    }
+  }
+
+  let candidate = 1
+  while (occupied.has(candidate)) {
+    candidate += 1
+  }
+
+  return candidate
+}
+
+/** Removes a task from its frozen operations route (clears dispatch_order only). */
+export function buildDispatchOrderScopeLeaveUpdates(input: {
+  task: Pick<Task, "id" | "dispatchOrder">
+}): DispatchOrderUpdate[] {
+  if (input.task.dispatchOrder == null || input.task.dispatchOrder <= 0) {
+    return []
+  }
+
+  return [{ taskId: input.task.id, dispatchOrder: null }]
+}
+
+/** Assigns dispatch_order in the destination scope after due_date/crew_id are updated. */
+export function buildDispatchOrderDestinationAssignmentUpdates(input: {
+  tasks: Task[]
+  dueDate: string
+  crewId: string
+  taskId: string
+  crews: CrewRef[]
+  desiredOrder?: number | null
+}): DispatchOrderUpdate[] {
+  const { tasks, dueDate, crewId, taskId, crews, desiredOrder } = input
+  const routeScope = filterOperationalOrderScope(tasks, dueDate, crewId, crews).filter(
+    (task) => task.status !== "programada"
+  )
+  const occupied = collectOccupiedDispatchOrdersForConfirm(routeScope, new Set([taskId]))
+
+  return [
+    {
+      taskId,
+      dispatchOrder: assignNextAvailableDispatchOrder(occupied, desiredOrder),
+    },
+  ]
+}
+
 export function buildDispatchOrderConfirmUpdates(
   tasks: Task[],
   taskIds: string[],

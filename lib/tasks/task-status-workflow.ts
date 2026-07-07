@@ -13,6 +13,7 @@ export type TaskWorkflowAction =
   | "resume-from-incident"
   | "reschedule-from-incident"
   | "reschedule-from-overdue"
+  | "reschedule-from-active-incident"
   | "approve"
   | "reject"
   | "cancel"
@@ -43,6 +44,7 @@ const WORKFLOW_TRANSITIONS: Record<
   "resume-from-incident": { from: ["incidencia"], to: "en-curso" },
   "reschedule-from-incident": { from: ["incidencia"], to: "asignada" },
   "reschedule-from-overdue": { from: ["vencida"], to: "asignada" },
+  "reschedule-from-active-incident": { from: ["en-curso"], to: "asignada" },
   approve: { from: PENDING_CLOSURE_STATUSES, to: "finalizada" },
   reject: { from: PENDING_CLOSURE_STATUSES, to: "en-curso" },
   cancel: {
@@ -221,6 +223,8 @@ export function getWorkflowHistoryEntry(
     "resume-from-incident": "Orden de trabajo reanudada",
     "reschedule-from-incident": "Orden de trabajo reprogramada",
     "reschedule-from-overdue": "Orden de trabajo reprogramada",
+    "reschedule-from-active-incident":
+      "Orden de trabajo reprogramada desde incidencia activa",
     approve: "Orden de trabajo finalizada",
     reject: "Cierre rechazado",
     cancel: "Orden de trabajo cancelada",

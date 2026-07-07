@@ -24,6 +24,7 @@ import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
 import { fetchCrews } from "@/lib/supabase/crews.queries"
 import { fetchEmployeeAvailabilities } from "@/lib/supabase/employee-availability.queries"
 import { fetchProjects } from "@/lib/supabase/projects.queries"
+import { fetchActiveTaskIncidents } from "@/lib/supabase/task-incidents.queries"
 import { fetchTasks } from "@/lib/supabase/tasks.queries"
 import type { EmployeeAvailability } from "@/lib/types/availability"
 
@@ -34,6 +35,7 @@ export type WeeklyReportSourceData = {
   crews: Awaited<ReturnType<typeof fetchCrews>>["data"]
   projects: Awaited<ReturnType<typeof fetchProjects>>["data"]
   availabilities: EmployeeAvailability[]
+  activeIncidentsCount: number
 }
 
 async function countCustomersByStatus(
@@ -100,12 +102,14 @@ export async function fetchWeeklyReportSourceData(
     crewsResult,
     projectsResult,
     availabilitiesResult,
+    activeIncidentsResult,
   ] = await Promise.all([
     countCustomersByStatus(companyId),
     fetchTasks(client, companyId),
     fetchCrews(client, companyId),
     fetchProjects(client, companyId),
     fetchEmployeeAvailabilities(client, companyId),
+    fetchActiveTaskIncidents(client, companyId),
   ])
 
   const errors = [
@@ -113,6 +117,7 @@ export async function fetchWeeklyReportSourceData(
     crewsResult.error,
     projectsResult.error,
     availabilitiesResult.error,
+    activeIncidentsResult.error,
   ].filter(Boolean)
 
   if (errors.length > 0) {
@@ -126,6 +131,7 @@ export async function fetchWeeklyReportSourceData(
     crews: crewsResult.data ?? [],
     projects: projectsResult.data ?? [],
     availabilities: availabilitiesResult.data ?? [],
+    activeIncidentsCount: activeIncidentsResult.data?.length ?? 0,
   }
 }
 
@@ -166,6 +172,7 @@ export function buildWeeklyAutomaticReport(
     tasks,
     projects,
     absentOperarioIds,
+    activeIncidentsCount: source.activeIncidentsCount,
   })
 
   const partialReport = {

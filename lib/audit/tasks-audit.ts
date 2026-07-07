@@ -134,6 +134,7 @@ export function mapWorkflowActionToAuditAction(
       return AUDIT_ACTIONS.TASK_REQUEST_CLOSE
     case "reschedule-from-incident":
     case "reschedule-from-overdue":
+    case "reschedule-from-active-incident":
       return AUDIT_ACTIONS.TASK_RESCHEDULE
     case "approve":
       return AUDIT_ACTIONS.TASK_FINISH
