@@ -4,9 +4,9 @@ import { useEffect, useRef } from "react"
 import { usePathname, useRouter } from "next/navigation"
 
 import { useAuth } from "@/components/auth/auth-provider"
+import { resolvePostLoginPathFromSessionUser } from "@/lib/auth/module-access"
 import {
   CHANGE_PASSWORD_PATH,
-  getDefaultPostLoginPath,
   isPasswordChangeGuardAllowedPath,
 } from "@/lib/auth/routes"
 
@@ -46,7 +46,7 @@ export function PasswordChangeGuard() {
       return
     }
 
-    const destination = getDefaultPostLoginPath(sessionUser.systemRole)
+    const destination = resolvePostLoginPathFromSessionUser(sessionUser)
 
     if (pathname === destination) {
       lastRedirectRef.current = null

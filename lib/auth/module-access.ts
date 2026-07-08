@@ -4,7 +4,11 @@ import {
   normalizeModuleVisibility,
   resolveModuleKeyFromPathname,
 } from "@/lib/roles/app-modules"
+import type { SessionUser } from "@/lib/auth/types"
+import { getDefaultPostLoginPath, PROFILE_PATH } from "@/lib/auth/routes"
 import { isSystemRole } from "@/lib/auth/system-role"
+import { resolveHomePathFromModuleVisibility } from "@/lib/navigation/build-nav-from-modules"
+import type { SystemRole } from "@/lib/types/employees"
 
 export function getMetadataAllowedModules(
   metadata: Record<string, unknown> | undefined
@@ -54,4 +58,63 @@ export function getMetadataSystemRoleFromUser(
 ) {
   const role = metadata?.system_role
   return isSystemRole(role) ? role : null
+}
+
+export function resolveModuleVisibilityFromMetadata(
+  metadata: Record<string, unknown> | undefined
+) {
+  const allowedModules = getMetadataAllowedModules(metadata)
+
+  if (!allowedModules) {
+    return null
+  }
+
+  return normalizeModuleVisibility(
+    Object.fromEntries(allowedModules.map((key) => [key, true]))
+  )
+}
+
+export function resolvePostLoginPathFromAuthMetadata(
+  systemRole: SystemRole | null | undefined,
+  metadata: Record<string, unknown> | undefined
+): string {
+  if (systemRole === "operario") {
+    return "/operario"
+  }
+
+  const visibility = resolveModuleVisibilityFromMetadata(metadata)
+
+  if (!visibility) {
+    return getDefaultPostLoginPath(systemRole)
+  }
+
+  return resolveHomePathFromModuleVisibility(visibility)
+}
+
+export function resolvePostLoginPathFromSessionUser(
+  sessionUser: Pick<SessionUser, "systemRole" | "roleId" | "moduleVisibility">
+): string {
+  if (sessionUser.systemRole === "operario") {
+    return "/operario"
+  }
+
+  if (!sessionUser.roleId) {
+    return getDefaultPostLoginPath(sessionUser.systemRole)
+  }
+
+  return resolveHomePathFromModuleVisibility(sessionUser.moduleVisibility)
+}
+
+export function resolveAccessDeniedRedirectPath(
+  systemRole: SystemRole | null | undefined,
+  metadata: Record<string, unknown> | undefined,
+  currentPathname: string
+): string {
+  const fallback = resolvePostLoginPathFromAuthMetadata(systemRole, metadata)
+
+  if (fallback === currentPathname) {
+    return PROFILE_PATH
+  }
+
+  return fallback
 }

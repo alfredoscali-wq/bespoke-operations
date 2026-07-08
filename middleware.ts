@@ -1,9 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server"
 
-import { canAccessPathWithMetadata } from "@/lib/auth/module-access"
+import {
+  canAccessPathWithMetadata,
+  resolveAccessDeniedRedirectPath,
+  resolvePostLoginPathFromAuthMetadata,
+} from "@/lib/auth/module-access"
 import { getMetadataSystemRole } from "@/lib/auth/system-role"
 import {
-  getDefaultPostLoginPath,
   canAccessPlanificacionOperativa,
   isAuthPublicPath,
   isDashboardPath,
@@ -57,7 +60,7 @@ export async function middleware(request: NextRequest) {
     const redirectUrl = request.nextUrl.clone()
     redirectUrl.pathname = sanitizeRedirectPath(
       destination,
-      getDefaultPostLoginPath(systemRole)
+      resolvePostLoginPathFromAuthMetadata(systemRole, user.user_metadata)
     )
     redirectUrl.search = ""
     return NextResponse.redirect(redirectUrl)
@@ -82,7 +85,10 @@ export async function middleware(request: NextRequest) {
       isOperarioPortalPath(pathname)
     ) {
       const redirectUrl = request.nextUrl.clone()
-      redirectUrl.pathname = "/"
+      redirectUrl.pathname = resolvePostLoginPathFromAuthMetadata(
+        systemRole,
+        user.user_metadata
+      )
       redirectUrl.search = ""
       return NextResponse.redirect(redirectUrl)
     }
@@ -99,7 +105,11 @@ export async function middleware(request: NextRequest) {
       !canAccessPlanificacionOperativa(systemRole, user.user_metadata)
     ) {
       const redirectUrl = request.nextUrl.clone()
-      redirectUrl.pathname = getDefaultPostLoginPath(systemRole)
+      redirectUrl.pathname = resolveAccessDeniedRedirectPath(
+        systemRole,
+        user.user_metadata,
+        pathname
+      )
       redirectUrl.search = ""
       return NextResponse.redirect(redirectUrl)
     }
@@ -109,7 +119,11 @@ export async function middleware(request: NextRequest) {
       !canAccessPathWithMetadata(pathname, user.user_metadata)
     ) {
       const redirectUrl = request.nextUrl.clone()
-      redirectUrl.pathname = getDefaultPostLoginPath(systemRole)
+      redirectUrl.pathname = resolveAccessDeniedRedirectPath(
+        systemRole,
+        user.user_metadata,
+        pathname
+      )
       redirectUrl.search = ""
       return NextResponse.redirect(redirectUrl)
     }

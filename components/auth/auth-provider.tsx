@@ -12,10 +12,8 @@ import { useRouter } from "next/navigation"
 import type { User } from "@supabase/supabase-js"
 
 import { resolveSignInEmailCandidates } from "@/lib/auth/auth-identity"
-import {
-  getDefaultPostLoginPath,
-  sanitizeRedirectPath,
-} from "@/lib/auth/routes"
+import { resolvePostLoginPathFromSessionUser } from "@/lib/auth/module-access"
+import { sanitizeRedirectPath } from "@/lib/auth/routes"
 import { buildSessionUserFromAuthUser } from "@/lib/auth/resolve-session-user"
 import type { SessionUser } from "@/lib/auth/types"
 import { recordUserSessionAudit } from "@/lib/audit/users-audit"
@@ -198,7 +196,7 @@ export function redirectAfterSignIn(
 ) {
   const destination = sanitizeRedirectPath(
     nextPath,
-    getDefaultPostLoginPath(sessionUser.systemRole)
+    resolvePostLoginPathFromSessionUser(sessionUser)
   )
 
   router.push(destination)

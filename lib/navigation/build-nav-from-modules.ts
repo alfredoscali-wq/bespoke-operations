@@ -1,3 +1,4 @@
+import { PROFILE_PATH } from "@/lib/auth/routes"
 import {
   APP_MODULE_DEFINITIONS,
   type AppModuleKey,
@@ -90,5 +91,5 @@ export function resolveHomePathFromModuleVisibility(
   }
 
   const firstItem = getAllNavItemsFromModuleVisibility(visibility)[0]
-  return firstItem?.href ?? "/"
+  return firstItem?.href ?? PROFILE_PATH
 }

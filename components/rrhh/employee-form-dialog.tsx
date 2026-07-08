@@ -3,8 +3,12 @@
 import { useEffect, useMemo, useState } from "react"
 
 import {
-  EMPLOYEE_DEPARTMENT_OPTIONS,
-  EMPLOYEE_TYPE_OPTIONS,
+  buildEmployeeFormAreaOptions,
+  buildEmployeeFormTypeOptions,
+  EMPLOYEE_FORM_AREA_OPTIONS,
+  resolveEmployeeFormDepartmentDefault,
+} from "@/lib/employees/employee-form-catalog"
+import {
   EMPLOYMENT_STATUS_OPTIONS,
 } from "@/lib/employees/constants"
 import type {
@@ -75,7 +79,7 @@ const emptyForm: EmployeeFormState = {
   email: "",
   phone: "",
   jobTitle: "",
-  department: EMPLOYEE_DEPARTMENT_OPTIONS[0],
+  department: EMPLOYEE_FORM_AREA_OPTIONS[0],
   employeeType: "operario",
   employmentStatus: "active",
   hireDate: "",
@@ -124,6 +128,22 @@ export function EmployeeFormDialog({
     [form.employmentStatus, form.terminationDate]
   )
 
+  const areaOptions = useMemo(
+    () =>
+      buildEmployeeFormAreaOptions(
+        mode === "edit" ? employee?.department ?? form.department : undefined
+      ),
+    [mode, employee?.department, form.department]
+  )
+
+  const employeeTypeOptions = useMemo(
+    () =>
+      buildEmployeeFormTypeOptions(
+        mode === "edit" ? form.employeeType : undefined
+      ),
+    [mode, form.employeeType]
+  )
+
   useEffect(() => {
     if (!open) return
 
@@ -140,7 +160,7 @@ export function EmployeeFormDialog({
             email: employee.email ?? "",
             phone: employee.phone ?? "",
             jobTitle: employee.jobTitle,
-            department: employee.department || EMPLOYEE_DEPARTMENT_OPTIONS[0],
+            department: resolveEmployeeFormDepartmentDefault(employee.department),
             employeeType: employee.employeeType,
             employmentStatus: employee.employmentStatus,
             hireDate: employee.hireDate ?? "",
@@ -319,18 +339,18 @@ export function EmployeeFormDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="department">Departamento</Label>
+              <Label htmlFor="department">Área</Label>
               <Select
                 value={form.department}
                 onValueChange={(value) => updateField("department", value)}
               >
                 <SelectTrigger id="department" className="w-full">
-                  <SelectValue placeholder="Seleccione departamento" />
+                  <SelectValue placeholder="Seleccione área" />
                 </SelectTrigger>
                 <SelectContent>
-                  {EMPLOYEE_DEPARTMENT_OPTIONS.map((department) => (
-                    <SelectItem key={department} value={department}>
-                      {department}
+                  {areaOptions.map((area) => (
+                    <SelectItem key={area} value={area}>
+                      {area}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -348,7 +368,7 @@ export function EmployeeFormDialog({
                   <SelectValue placeholder="Seleccione tipo" />
                 </SelectTrigger>
                 <SelectContent>
-                  {EMPLOYEE_TYPE_OPTIONS.map((option) => (
+                  {employeeTypeOptions.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
                     </SelectItem>
