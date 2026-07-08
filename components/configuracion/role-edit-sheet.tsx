@@ -85,7 +85,7 @@ export function RoleEditSheet({
       setError(
         submitError instanceof Error
           ? submitError.message
-          : "No se pudo guardar el rol."
+          : "No se pudo guardar el área."
       )
     }
   }
@@ -94,9 +94,9 @@ export function RoleEditSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="flex w-full flex-col sm:max-w-lg">
         <SheetHeader>
-          <SheetTitle>{role?.name ?? "Editar Rol"}</SheetTitle>
+          <SheetTitle>{role?.name ?? "Editar Área"}</SheetTitle>
           <SheetDescription>
-            Defina qué módulos del sistema serán visibles para este rol.
+            Defina qué pantallas del sistema estarán habilitadas para esta Área.
           </SheetDescription>
         </SheetHeader>
 
@@ -136,7 +136,7 @@ export function RoleEditSheet({
 
           {isAdministratorRole ? (
             <p className="text-sm text-muted-foreground">
-              El rol Administrador mantiene acceso completo y no puede
+              El Área Administrador mantiene acceso completo y no puede
               restringir Configuración.
             </p>
           ) : null}

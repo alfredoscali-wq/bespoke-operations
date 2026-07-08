@@ -12,9 +12,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { canViewIncidentTypes } from "@/lib/incident-types/incident-type-permissions"
-import { canManageRoles } from "@/lib/roles/role-utils"
-import { canViewWorkOrderTypeChecklist } from "@/lib/work-order-types/checklist-permissions"
+import {
+  canAccessSettingsConfigWebModule,
+  canManageCompanyAreasWeb,
+} from "@/lib/roles/web-module-access"
 
 type ConfigLinkItem = {
   title: string
@@ -63,14 +64,9 @@ function ConfigItemRow({ item }: { item: ConfigLinkItem }) {
 
 export function ConfigurationHubPanel() {
   const { sessionUser } = useAuth()
-  const canAccessWorkOrderTypes = canViewWorkOrderTypeChecklist(
-    sessionUser?.systemRole
-  )
-  const canAccessIncidentTypes = canViewIncidentTypes(sessionUser?.systemRole)
-  const canAccessRoles = canManageRoles(
-    sessionUser?.roleCode,
-    sessionUser?.systemRole
-  )
+  const canAccessWorkOrderTypes = canAccessSettingsConfigWebModule(sessionUser)
+  const canAccessIncidentTypes = canAccessSettingsConfigWebModule(sessionUser)
+  const canAccessAreas = canManageCompanyAreasWeb(sessionUser)
 
   const categories: ConfigCategory[] = [
     {
@@ -118,12 +114,12 @@ export function ConfigurationHubPanel() {
       label: "Seguridad",
       icon: Shield,
       items: [
-        ...(canAccessRoles
+        ...(canAccessAreas
           ? [
               {
-                title: "Roles",
+                title: "Áreas",
                 description:
-                  "Defina qué módulos puede visualizar cada rol de su empresa.",
+                  "Configure qué pantallas puede utilizar cada Área de su empresa.",
                 href: "/configuracion/roles",
               },
             ]
@@ -168,7 +164,7 @@ export function ConfigurationHubPanel() {
                     <>Identidad y datos institucionales de la organización.</>
                   )}
                   {category.id === "security" && (
-                    <>Accesos, roles y políticas de la plataforma.</>
+                    <>Accesos, áreas y políticas de la plataforma.</>
                   )}
                 </CardDescription>
               </CardHeader>

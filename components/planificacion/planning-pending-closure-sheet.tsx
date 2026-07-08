@@ -20,7 +20,7 @@ import {
   resolvePlanningPendingClosureSheetViewPhase,
 } from "@/lib/planificacion/planning-pending-closure-sheet-state"
 import { formatTaskDateTime } from "@/lib/tasks/constants"
-import { canCloseWorkOrder } from "@/lib/tasks/task-closure-permissions"
+import { canUsePlanningWebOperationalActions } from "@/lib/roles/web-module-access"
 import { formatTaskAdminDisplayCode } from "@/lib/tasks/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -69,7 +69,7 @@ export function PlanningPendingClosureSheet({
     [tasks, date, crews, detailVersion]
   )
 
-  const canClose = canCloseWorkOrder(sessionUser?.systemRole)
+  const canClose = canUsePlanningWebOperationalActions(sessionUser)
 
   const selectedTask = useMemo(() => {
     if (!selectedTaskId) {

@@ -1,33 +1,23 @@
 "use client"
 
 import Link from "next/link"
-import { useState } from "react"
-import { ChevronRight, Plus } from "lucide-react"
+import { useMemo, useState } from "react"
+import { ChevronRight } from "lucide-react"
 
 import { useAuth } from "@/components/auth/auth-provider"
-import { RoleCreateSheet } from "@/components/configuracion/role-create-sheet"
 import { RoleEditSheet } from "@/components/configuracion/role-edit-sheet"
 import { useCompanyRoles } from "@/components/configuracion/use-company-roles"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { canManageRoles } from "@/lib/roles/role-utils"
+import { listFixedCompanyAreas } from "@/lib/roles/company-areas"
+import { canManageCompanyAreasWeb } from "@/lib/roles/web-module-access"
 import type { CompanyRole } from "@/lib/types/company-roles"
 
 export function RolesConfigModule() {
-  const { roles, isLoading, isSaving, error, createRole, updateRoleModules } =
+  const { roles, isLoading, isSaving, error, updateRoleModules } =
     useCompanyRoles()
-  const [createOpen, setCreateOpen] = useState(false)
   const [editRole, setEditRole] = useState<CompanyRole | null>(null)
 
-  async function handleCreate(input: {
-    name: string
-    copyFromRoleId: string
-  }) {
-    const result = await createRole(input)
-    if (!result.success) {
-      throw new Error(result.message)
-    }
-  }
+  const fixedAreas = useMemo(() => listFixedCompanyAreas(roles), [roles])
 
   async function handleSave(moduleVisibility: CompanyRole["moduleVisibility"]) {
     if (!editRole) {
@@ -41,18 +31,14 @@ export function RolesConfigModule() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="company-areas-config">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Roles</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Áreas</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Defina qué módulos puede visualizar cada rol de su empresa.
+            Configure qué pantallas puede utilizar cada Área de su empresa.
           </p>
         </div>
-        <Button className="gap-2" onClick={() => setCreateOpen(true)}>
-          <Plus className="size-4" />
-          Nuevo Rol
-        </Button>
       </div>
 
       {error ? (
@@ -63,27 +49,23 @@ export function RolesConfigModule() {
 
       {isLoading ? (
         <div className="rounded-xl border bg-muted/20 px-6 py-16 text-center text-sm text-muted-foreground">
-          Cargando roles...
+          Cargando áreas...
         </div>
       ) : (
         <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
           <ul className="divide-y">
-            {roles.map((role) => (
-              <li key={role.id}>
+            {fixedAreas.map((area) => (
+              <li key={area.id}>
                 <button
                   type="button"
                   className="flex w-full items-center justify-between gap-4 px-4 py-4 text-left transition-colors hover:bg-muted/30"
-                  onClick={() => setEditRole(role)}
+                  data-testid={`company-area-item-${area.code}`}
+                  onClick={() => setEditRole(area)}
                 >
                   <div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium">{role.name}</p>
-                      {role.isSystem ? (
-                        <Badge variant="secondary">Sistema</Badge>
-                      ) : null}
-                    </div>
+                    <p className="font-medium">{area.name}</p>
                     <p className="mt-0.5 text-sm text-muted-foreground">
-                      {role.code}
+                      {area.code}
                     </p>
                   </div>
                   <ChevronRight className="size-4 text-muted-foreground" />
@@ -93,14 +75,6 @@ export function RolesConfigModule() {
           </ul>
         </div>
       )}
-
-      <RoleCreateSheet
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        roles={roles}
-        isSubmitting={isSaving}
-        onSubmit={handleCreate}
-      />
 
       <RoleEditSheet
         open={Boolean(editRole)}
@@ -119,10 +93,7 @@ export function RolesConfigModule() {
 
 export function RoleAccessGuard({ children }: { children: React.ReactNode }) {
   const { sessionUser, isAuthReady } = useAuth()
-  const canManage = canManageRoles(
-    sessionUser?.roleCode,
-    sessionUser?.systemRole
-  )
+  const canManage = canManageCompanyAreasWeb(sessionUser)
 
   if (!isAuthReady) {
     return (
@@ -137,7 +108,7 @@ export function RoleAccessGuard({ children }: { children: React.ReactNode }) {
       <div className="rounded-xl border bg-muted/20 px-6 py-16 text-center">
         <p className="text-sm font-medium text-foreground">Acceso restringido</p>
         <p className="mt-1 text-sm text-muted-foreground">
-          Solo administradores pueden gestionar roles.
+          Solo administradores pueden gestionar áreas.
         </p>
         <Button asChild variant="outline" className="mt-4">
           <Link href="/configuracion">Volver a Configuración</Link>

@@ -26,7 +26,7 @@ import { TaskIncidentCancelDialog } from "@/components/tareas/task-incident-canc
 import { WorkOrderPermanentDeleteDialog } from "@/components/tareas/work-order-permanent-delete-dialog"
 import { TASK_DELETE_USER_MESSAGE } from "@/lib/operations/user-messages"
 import { useIsSystemAdministrator } from "@/lib/auth/use-is-system-administrator"
-import { canAssignWorkOrderCrew } from "@/lib/tasks/task-closure-permissions"
+import { canUseWorkOrdersWebOperationalActions } from "@/lib/roles/web-module-access"
 import { resolveCrewSnapshotsForAssignment } from "@/lib/tasks/crew-relation"
 import {
   canSoftDeleteWorkOrder,
@@ -82,7 +82,7 @@ export function TaskRowActions({
   const { sessionUser } = useAuth()
   const { getCrew, crews } = useCrews()
   const isSystemAdministrator = useIsSystemAdministrator()
-  const canAssignCrew = canAssignWorkOrderCrew(sessionUser?.systemRole)
+  const canAssignCrew = canUseWorkOrdersWebOperationalActions(sessionUser)
   const isWorkOrder = isWorkOrderTask(task)
   const menuPolicy = isWorkOrder ? resolveWorkOrderRowMenuPolicy(task) : null
 

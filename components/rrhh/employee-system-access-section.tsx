@@ -206,7 +206,7 @@ export function EmployeeSystemAccessSection({
           <AccessField
             icon={Shield}
             iconClassName="bg-violet-50 text-violet-600"
-            label="Rol"
+            label="Área"
             value={
               roles.find((role) => role.id === employee.roleId)?.name ??
               SYSTEM_ROLE_LABELS[employee.systemRole]

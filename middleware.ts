@@ -96,7 +96,7 @@ export async function middleware(request: NextRequest) {
 
     if (
       isPlanificacionOperativaPath(pathname) &&
-      !canAccessPlanificacionOperativa(systemRole)
+      !canAccessPlanificacionOperativa(systemRole, user.user_metadata)
     ) {
       const redirectUrl = request.nextUrl.clone()
       redirectUrl.pathname = getDefaultPostLoginPath(systemRole)

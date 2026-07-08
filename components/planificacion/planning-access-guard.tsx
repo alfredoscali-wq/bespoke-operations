@@ -1,8 +1,10 @@
 "use client"
 
 import Link from "next/link"
+
+import { useAuth } from "@/components/auth/auth-provider"
 import { useOperationalProfile } from "@/components/operations/operational-profile-provider"
-import { profileCanAccessPlanificacion } from "@/lib/operations/operational-profile"
+import { canAccessPlanningWebModule } from "@/lib/roles/web-module-access"
 import { Button } from "@/components/ui/button"
 
 export function PlanningAccessGuard({
@@ -10,9 +12,10 @@ export function PlanningAccessGuard({
 }: {
   children: React.ReactNode
 }) {
-  const { profile } = useOperationalProfile()
+  const { sessionUser } = useAuth()
+  const { homePath } = useOperationalProfile()
 
-  if (profileCanAccessPlanificacion(profile)) {
+  if (canAccessPlanningWebModule(sessionUser)) {
     return children
   }
 
@@ -22,11 +25,10 @@ export function PlanningAccessGuard({
         Acceso restringido
       </h2>
       <p className="max-w-md text-sm text-muted-foreground">
-        Planificación Operativa está disponible únicamente para Supervisores y
-        Administradores.
+        Planificación Operativa no está habilitada para su Área.
       </p>
       <Button asChild variant="outline">
-        <Link href="/operations/calendar">Volver al Calendario Operativo</Link>
+        <Link href={homePath}>Volver al inicio</Link>
       </Button>
     </div>
   )

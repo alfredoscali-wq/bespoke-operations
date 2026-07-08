@@ -1,4 +1,5 @@
 import type { SystemRole } from "@/lib/types/employees"
+import { canAccessPlanificacionFromAuthMetadata } from "@/lib/roles/web-module-access"
 import { isMobileApiPublicPath } from "@/lib/mobile/v1/routing"
 
 export const LOGIN_PATH = "/login"
@@ -98,9 +99,10 @@ export function isPlanificacionOperativaPath(pathname: string): boolean {
 }
 
 export function canAccessPlanificacionOperativa(
-  systemRole: SystemRole | null | undefined
+  systemRole: SystemRole | null | undefined,
+  metadata?: Record<string, unknown>
 ): boolean {
-  return systemRole === "administrador" || systemRole === "supervisor"
+  return canAccessPlanificacionFromAuthMetadata(metadata, systemRole)
 }
 
 export function getDefaultPostLoginPath(

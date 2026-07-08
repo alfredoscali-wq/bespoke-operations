@@ -1,3 +1,7 @@
+import {
+  mapAreaCodeToSystemRole,
+  resolveFixedAreaCode,
+} from "@/lib/roles/company-areas"
 import type { SystemRole } from "@/lib/types/employees"
 import {
   createFullModuleVisibility,
@@ -9,18 +13,11 @@ import { slugifyCode } from "@/lib/utils/code-slug"
 export const ADMINISTRATOR_ROLE_CODE = "administrador"
 
 export function mapRoleCodeToSystemRole(code: string): SystemRole {
-  switch (code) {
-    case "administrador":
-      return "administrador"
-    case "supervisor":
-      return "supervisor"
-    case "operario":
-      return "operario"
-    case "administrativo":
-    case "rrhh":
-    default:
-      return "administrativo"
-  }
+  return mapAreaCodeToSystemRole(code)
+}
+
+export function mapLegacyRoleCodeToAreaCode(code: string): string | null {
+  return resolveFixedAreaCode(code)
 }
 
 export function resolveEffectiveModuleVisibility(input: {

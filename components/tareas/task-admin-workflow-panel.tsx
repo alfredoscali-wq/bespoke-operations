@@ -6,7 +6,7 @@ import { useAuth } from "@/components/auth/auth-provider"
 import { TaskClosureRejectDialog } from "@/components/tareas/task-closure-reject-dialog"
 import { TaskOperationalWorkflowActions } from "@/components/tareas/task-operational-workflow-actions"
 import { useTasks } from "@/components/tareas/tasks-provider"
-import { canCloseWorkOrder } from "@/lib/tasks/task-closure-permissions"
+import { canUseWorkOrdersWebOperationalActions } from "@/lib/roles/web-module-access"
 import { isPendingClosureStatus } from "@/lib/tasks/task-status-workflow"
 import type { Task } from "@/lib/types/tasks"
 
@@ -28,7 +28,7 @@ export function TaskAdminWorkflowPanel({ task }: TaskAdminWorkflowPanelProps) {
   const [isPending, setIsPending] = useState(false)
   const [feedback, setFeedback] = useState<string | null>(null)
 
-  const canClose = canCloseWorkOrder(sessionUser?.systemRole)
+  const canClose = canUseWorkOrdersWebOperationalActions(sessionUser)
   const actorName = sessionUser?.displayName?.trim() || "Supervisor"
 
   const showPanel =

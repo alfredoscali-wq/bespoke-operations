@@ -1,10 +1,15 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 
 import { useCompanyRoles } from "@/components/configuracion/use-company-roles"
-import { SYSTEM_ROLE_LABELS, SYSTEM_ROLE_OPTIONS } from "@/lib/employees/constants"
+import { SYSTEM_ROLE_LABELS } from "@/lib/employees/constants"
 import type { Employee, UpdateEmployeeInput } from "@/lib/types/employees"
+import {
+  isCustomCompanyRole,
+  listFixedCompanyAreas,
+  resolveDefaultAreaCodeForSystemRole,
+} from "@/lib/roles/company-areas"
 import { mapRoleCodeToSystemRole } from "@/lib/roles/role-utils"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -69,6 +74,16 @@ export function EmployeeSystemAccessDialog({
   const [baselineForm, setBaselineForm] = useState<SystemAccessFormState>(() =>
     buildFormState(employee)
   )
+  const fixedAreas = useMemo(() => listFixedCompanyAreas(roles), [roles])
+  const areaOptions = useMemo(() => {
+    const selectedRole = roles.find((role) => role.id === form.roleId)
+
+    if (selectedRole && isCustomCompanyRole(selectedRole)) {
+      return [selectedRole, ...fixedAreas.filter((area) => area.id !== selectedRole.id)]
+    }
+
+    return fixedAreas
+  }, [fixedAreas, form.roleId, roles])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -97,27 +112,29 @@ export function EmployeeSystemAccessDialog({
     }
 
     const fallbackRole =
-      roles.find((role) => role.code === employee.systemRole) ?? roles[0]
+      roles.find(
+        (role) => role.code === resolveDefaultAreaCodeForSystemRole(employee.systemRole)
+      ) ?? fixedAreas[0]
 
     if (fallbackRole) {
       setForm((current) => ({ ...current, roleId: fallbackRole.id }))
       setBaselineForm((current) => ({ ...current, roleId: fallbackRole.id }))
     }
-  }, [employee.systemRole, form.roleId, open, roles])
+  }, [employee.systemRole, fixedAreas, form.roleId, open, roles])
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     setError(null)
 
     if (!form.roleId) {
-      setError("Seleccione un rol para el empleado.")
+      setError("Seleccione un Área para el empleado.")
       return
     }
 
     const selectedRole = roles.find((role) => role.id === form.roleId)
 
     if (!selectedRole) {
-      setError("El rol seleccionado no es válido.")
+      setError("El Área seleccionada no es válida.")
       return
     }
 
@@ -153,7 +170,7 @@ export function EmployeeSystemAccessDialog({
           <DialogHeader>
             <DialogTitle>Editar acceso al sistema</DialogTitle>
             <DialogDescription>
-              Configure el rol y permisos de acceso para{" "}
+              Configure el Área y permisos de acceso para{" "}
               {employee.preferredName?.trim() ||
                 [employee.firstName, employee.lastName].filter(Boolean).join(" ")}
               . El usuario de acceso será el DNI registrado en RRHH.
@@ -191,7 +208,7 @@ export function EmployeeSystemAccessDialog({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="employeeRole">Rol</Label>
+              <Label htmlFor="employeeArea">Área</Label>
               <Select
                 value={form.roleId}
                 onValueChange={(value) =>
@@ -202,20 +219,20 @@ export function EmployeeSystemAccessDialog({
                 }
                 disabled={isLoadingRoles}
               >
-                <SelectTrigger id="employeeRole" className="w-full">
-                  <SelectValue placeholder="Seleccione rol" />
+                <SelectTrigger id="employeeArea" className="w-full">
+                  <SelectValue placeholder="Seleccione un Área" />
                 </SelectTrigger>
                 <SelectContent>
-                  {roles.map((role) => (
-                    <SelectItem key={role.id} value={role.id}>
-                      {role.name}
+                  {areaOptions.map((area) => (
+                    <SelectItem key={area.id} value={area.id}>
+                      {area.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {!form.roleId && roles.length === 0 ? (
+              {!form.roleId && fixedAreas.length === 0 ? (
                 <p className="text-xs text-muted-foreground">
-                  Rol legacy: {SYSTEM_ROLE_LABELS[employee.systemRole]}
+                  Área legacy: {SYSTEM_ROLE_LABELS[employee.systemRole]}
                 </p>
               ) : null}
             </div>

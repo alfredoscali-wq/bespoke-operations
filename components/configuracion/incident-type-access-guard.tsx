@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useAuth } from "@/components/auth/auth-provider"
 import { IncidentTypesConfigModule } from "@/components/configuracion/incident-types-config-module"
 import { Button } from "@/components/ui/button"
-import { canViewIncidentTypes } from "@/lib/incident-types/incident-type-permissions"
+import { canAccessSettingsConfigWebModule } from "@/lib/roles/web-module-access"
 
 export function IncidentTypeAccessGuard({
   children,
@@ -22,13 +22,12 @@ export function IncidentTypeAccessGuard({
     )
   }
 
-  if (!canViewIncidentTypes(sessionUser?.systemRole)) {
+  if (!canAccessSettingsConfigWebModule(sessionUser)) {
     return (
       <div className="rounded-xl border bg-muted/20 px-6 py-16 text-center">
         <p className="text-sm font-medium text-foreground">Acceso restringido</p>
         <p className="mt-1 text-sm text-muted-foreground">
-          Solo administradores y supervisores pueden configurar los tipos de
-          incidencia.
+          Configuración no está habilitada para su Área.
         </p>
         <Button asChild variant="outline" className="mt-4">
           <Link href="/configuracion">Volver a Configuración</Link>

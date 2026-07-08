@@ -30,7 +30,7 @@ import {
 } from "@/lib/planificacion/planning-incidents-sheet-state"
 import { fetchIncidentTypes } from "@/lib/supabase/incident-types.browser"
 import { formatTaskDateTime } from "@/lib/tasks/constants"
-import { canCloseWorkOrder } from "@/lib/tasks/task-closure-permissions"
+import { canUsePlanningWebOperationalActions } from "@/lib/roles/web-module-access"
 import type { IncidentResponse, IncidentSummary } from "@/lib/types/task-incidents"
 import type { IncidentType } from "@/lib/types/incident-types"
 import type { PlanningIncidentResolvePayload } from "@/lib/planificacion/planning-incidents-resolve"
@@ -85,7 +85,7 @@ export function PlanningIncidentsSheet({
   const [isPending, setIsPending] = useState(false)
   const [resolveOpen, setResolveOpen] = useState(false)
 
-  const canSupervise = canCloseWorkOrder(sessionUser?.systemRole)
+  const canSupervise = canUsePlanningWebOperationalActions(sessionUser)
   const supervisorActionsDisabled =
     isPending || detailLoading || !selectedIncident
 

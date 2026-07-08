@@ -24,7 +24,7 @@ import {
   type SupervisorResolveActiveIncidentRequest,
 } from "@/lib/operations/incidents/supervisor-resolve-active-incident-plan"
 import { resolveTenantCompanyId } from "@/lib/operations/tenant-scope"
-import { canCloseWorkOrder } from "@/lib/tasks/task-closure-permissions"
+import { canUsePlanningWebOperationalActions } from "@/lib/roles/web-module-access"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { fetchTaskById } from "@/lib/supabase/tasks.queries"
@@ -158,7 +158,7 @@ export async function supervisorResolveActiveIncident(
 
     const preconditionValidation =
       validateSupervisorResolveActiveIncidentPreconditions({
-        canSupervise: canCloseWorkOrder(sessionUser.systemRole),
+        canSupervise: canUsePlanningWebOperationalActions(sessionUser),
         task: taskResult.data,
         incident: {
           id: incident.id,

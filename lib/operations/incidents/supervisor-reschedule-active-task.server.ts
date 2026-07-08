@@ -25,7 +25,7 @@ import {
 import { resolveTenantCompanyId } from "@/lib/operations/tenant-scope"
 import { resolveRescheduleReasonLabel } from "@/lib/tasks/reschedule"
 import type { TaskRescheduleInput } from "@/lib/tasks/reschedule"
-import { canCloseWorkOrder } from "@/lib/tasks/task-closure-permissions"
+import { canUsePlanningWebOperationalActions } from "@/lib/roles/web-module-access"
 import { resolveTaskCrewId } from "@/lib/tasks/crew-relation"
 import { fetchCrews } from "@/lib/supabase/crews.queries"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -188,7 +188,7 @@ export async function supervisorRescheduleActiveTaskFromIncident(
       : null
 
     const preconditionValidation = validateSupervisorRescheduleActiveTaskPreconditions({
-      canSupervise: canCloseWorkOrder(sessionUser.systemRole),
+      canSupervise: canUsePlanningWebOperationalActions(sessionUser),
       task: taskResult.data,
       incident: {
         id: incident.id,
