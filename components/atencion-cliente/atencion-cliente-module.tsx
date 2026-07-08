@@ -10,6 +10,7 @@ import {
   MiAgendaSection,
   MiAgendaViewToggle,
 } from "@/components/atencion-cliente/mi-agenda-section"
+import { EquipoSection } from "@/components/atencion-cliente/equipo-section"
 import { MisRetencionesSection } from "@/components/atencion-cliente/mis-retenciones-section"
 import { RetencionesAsignadasSection } from "@/components/atencion-cliente/retenciones-asignadas-section"
 import { MiJornadaSection } from "@/components/atencion-cliente/mi-jornada-section"
@@ -39,7 +40,9 @@ export function AtencionClienteModule() {
     refreshDashboard,
     canAssignRetencion,
     canViewAssignedRetenciones,
+    canViewEquipoReport,
   } = useAtencionCliente()
+  const [moduleView, setModuleView] = useState<"personal" | "equipo">("personal")
   const [search, setSearch] = useState("")
   const [debouncedSearch, setDebouncedSearch] = useState("")
   const [formOpen, setFormOpen] = useState(false)
@@ -105,6 +108,31 @@ export function AtencionClienteModule() {
         </div>
       </div>
 
+      {canViewEquipoReport ? (
+        <div className="inline-flex rounded-lg border p-1">
+          <Button
+            type="button"
+            size="sm"
+            variant={moduleView === "personal" ? "default" : "ghost"}
+            onClick={() => setModuleView("personal")}
+          >
+            Mi panel
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={moduleView === "equipo" ? "default" : "ghost"}
+            onClick={() => setModuleView("equipo")}
+          >
+            Equipo
+          </Button>
+        </div>
+      ) : null}
+
+      {moduleView === "equipo" && canViewEquipoReport ? (
+        <EquipoSection />
+      ) : (
+        <>
       <AtencionClienteSummary
         dashboardFilter={dashboardFilter}
         onDashboardFilterChange={setDashboardFilter}
@@ -211,6 +239,8 @@ export function AtencionClienteModule() {
         open={assignRetencionOpen}
         onOpenChange={setAssignRetencionOpen}
       />
+        </>
+      )}
     </div>
   )
 }

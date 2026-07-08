@@ -283,22 +283,20 @@ export async function fetchCompletedSeguimientosForEmployeeToday(
   }
 }
 
-export async function countSeguimientosResueltosForEmployeeToday(
+export async function countSeguimientosResueltosForEmployeeInRange(
   client: SupabaseCustomerSeguimientosClient,
   companyId: string,
   employeeId: string,
-  referenceDate: Date
+  bounds: { start: string; end: string }
 ): Promise<CustomerSeguimientosRepositoryResult<number>> {
-  const { start, end } = getDayBoundsIso(referenceDate)
-
   const { data: completedRows, error } = await client
     .from("customer_seguimientos")
     .select("id")
     .eq("company_id", companyId)
     .eq("completed_by_employee_id", employeeId)
     .eq("status", "completado")
-    .gte("completed_at", start)
-    .lt("completed_at", end)
+    .gte("completed_at", bounds.start)
+    .lt("completed_at", bounds.end)
     .is("deleted_at", null)
     .not("completion_action", "is", null)
 
@@ -338,6 +336,20 @@ export async function countSeguimientosResueltosForEmployeeToday(
   }
 }
 
+export async function countSeguimientosResueltosForEmployeeToday(
+  client: SupabaseCustomerSeguimientosClient,
+  companyId: string,
+  employeeId: string,
+  referenceDate: Date
+): Promise<CustomerSeguimientosRepositoryResult<number>> {
+  const { start, end } = getDayBoundsIso(referenceDate)
+
+  return countSeguimientosResueltosForEmployeeInRange(client, companyId, employeeId, {
+    start,
+    end,
+  })
+}
+
 export async function fetchAtencionClienteKpiSummary(
   client: SupabaseCustomerSeguimientosClient,
   companyId: string,
@@ -369,12 +381,10 @@ export async function fetchAtencionClienteKpiSummary(
       .gte("created_at", start)
       .lt("created_at", end)
       .is("deleted_at", null),
-    countSeguimientosResueltosForEmployeeToday(
-      client,
-      companyId,
-      employeeId,
-      referenceDate
-    ),
+    countSeguimientosResueltosForEmployeeInRange(client, companyId, employeeId, {
+      start,
+      end,
+    }),
     client
       .from("customer_seguimientos")
       .select("id", { count: "exact", head: true })

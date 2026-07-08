@@ -36,6 +36,7 @@
     "test:customer-retenciones-mapper": "npx tsx --test scripts/test-customer-retenciones-mapper.mjs",
     "test:customer-retenciones-access": "npx tsx --test scripts/test-customer-retenciones-access.mjs",
     "test:customer-retenciones-supervision": "npx tsx --test scripts/test-customer-retenciones-supervision.mjs",
+    "test:atencion-cliente-equipo-report": "npx tsx --test scripts/test-atencion-cliente-equipo-report.mjs",
     "test:customer-retenciones-rls-alignment": "npx tsx --test scripts/test-customer-retenciones-rls-alignment.mjs",
     "test:customer-retenciones-jornada-kpis": "npx tsx --test scripts/test-customer-retenciones-jornada-kpis.mjs",
     "db:rc1-1": "node scripts/apply-rc1-1-migration.mjs",

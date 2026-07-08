@@ -20,6 +20,7 @@ import {
   filterAgendaForWeekView,
 } from "@/lib/customer-seguimientos/agenda"
 import { canAssignCustomerRetencion, canViewAssignedCustomerRetenciones } from "@/lib/customer-retenciones/access"
+import { canViewEquipoIndividualReport } from "@/lib/atencion-cliente-equipo/access"
 import {
   buildJornadaEntries,
   type JornadaEntry,
@@ -120,6 +121,7 @@ type AtencionClienteContextValue = {
   jornadaEntries: JornadaEntry[]
   canAssignRetencion: boolean
   canViewAssignedRetenciones: boolean
+  canViewEquipoReport: boolean
   loadAtencionPage: (query: CustomerAtencionListQuery) => Promise<void>
   refreshDashboard: () => Promise<void>
   fetchAtencionById: (id: string) => Promise<CustomerAtencion | null>
@@ -188,6 +190,7 @@ export function AtencionClienteProvider({
   const canViewAssignedRetenciones = canViewAssignedCustomerRetenciones(
     sessionUser?.roleCode
   )
+  const canViewEquipoReport = canViewEquipoIndividualReport(sessionUser?.roleCode)
 
   const loadAtencionPage = useCallback(
     async (query: CustomerAtencionListQuery) => {
@@ -732,6 +735,7 @@ export function AtencionClienteProvider({
       jornadaEntries,
       canAssignRetencion,
       canViewAssignedRetenciones,
+      canViewEquipoReport,
       loadAtencionPage,
       refreshDashboard,
       fetchAtencionById,
@@ -751,6 +755,7 @@ export function AtencionClienteProvider({
       assignedRetenciones,
       canAssignRetencion,
       canViewAssignedRetenciones,
+      canViewEquipoReport,
       completeRetencion,
       completeSeguimiento,
       completeSeguimientoWithFollowUp,
