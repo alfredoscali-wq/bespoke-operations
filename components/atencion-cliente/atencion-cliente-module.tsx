@@ -10,7 +10,10 @@ import {
   MiAgendaSection,
   MiAgendaViewToggle,
 } from "@/components/atencion-cliente/mi-agenda-section"
+import { MisRetencionesSection } from "@/components/atencion-cliente/mis-retenciones-section"
+import { RetencionesAsignadasSection } from "@/components/atencion-cliente/retenciones-asignadas-section"
 import { MiJornadaSection } from "@/components/atencion-cliente/mi-jornada-section"
+import { RetencionAssignDialog } from "@/components/atencion-cliente/retencion-assign-dialog"
 import { useAtencionCliente } from "@/components/atencion-cliente/atencion-cliente-provider"
 import { DEFAULT_ATENCION_PAGE_SIZE } from "@/lib/customer-atenciones/atencion-list"
 import type { AtencionClienteDashboardFilter } from "@/lib/customer-seguimientos/kpis"
@@ -34,10 +37,13 @@ export function AtencionClienteModule() {
     listPage,
     loadAtencionPage,
     refreshDashboard,
+    canAssignRetencion,
+    canViewAssignedRetenciones,
   } = useAtencionCliente()
   const [search, setSearch] = useState("")
   const [debouncedSearch, setDebouncedSearch] = useState("")
   const [formOpen, setFormOpen] = useState(false)
+  const [assignRetencionOpen, setAssignRetencionOpen] = useState(false)
   const [page, setPage] = useState(1)
   const [agendaView, setAgendaView] = useState<"hoy" | "semana">("hoy")
   const [dashboardFilter, setDashboardFilter] =
@@ -83,13 +89,20 @@ export function AtencionClienteModule() {
             Atención al Cliente
           </h1>
           <p className="text-sm text-muted-foreground">
-            Nueva atención, seguimientos y actividad del día.
+            Nueva atención, retenciones, seguimientos y actividad del día.
           </p>
         </div>
-        <Button size="lg" onClick={() => setFormOpen(true)}>
-          <Plus className="mr-2 size-4" />
-          Nueva Atención
-        </Button>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          {canAssignRetencion ? (
+            <Button size="lg" variant="outline" onClick={() => setAssignRetencionOpen(true)}>
+              Asignar Retención
+            </Button>
+          ) : null}
+          <Button size="lg" onClick={() => setFormOpen(true)}>
+            <Plus className="mr-2 size-4" />
+            Nueva Atención
+          </Button>
+        </div>
       </div>
 
       <AtencionClienteSummary
@@ -109,6 +122,8 @@ export function AtencionClienteModule() {
         </div>
       ) : null}
 
+      {canViewAssignedRetenciones ? <RetencionesAsignadasSection /> : null}
+
       <div className="grid gap-6 xl:grid-cols-2">
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-3">
@@ -120,6 +135,9 @@ export function AtencionClienteModule() {
           <MiAgendaSection
             view={agendaView}
             highlighted={dashboardFilter === "agenda_seguimientos"}
+          />
+          <MisRetencionesSection
+            highlighted={dashboardFilter === "retenciones_activas"}
           />
         </div>
 
@@ -189,6 +207,10 @@ export function AtencionClienteModule() {
       </Card>
 
       <AtencionFormDialog open={formOpen} onOpenChange={setFormOpen} />
+      <RetencionAssignDialog
+        open={assignRetencionOpen}
+        onOpenChange={setAssignRetencionOpen}
+      />
     </div>
   )
 }

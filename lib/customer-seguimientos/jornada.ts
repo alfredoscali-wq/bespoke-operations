@@ -3,10 +3,12 @@ import {
   formatCustomerAtencionMotivoLabel,
   formatCustomerAtencionResultadoLabel,
 } from "@/lib/customer-atenciones/format"
+import { formatCustomerRetencionResultadoLabel } from "@/lib/customer-retenciones/format"
 import type { CustomerAtencion } from "@/lib/types/customer-atenciones"
+import type { CustomerRetencionJornadaRow } from "@/lib/types/customer-retenciones"
 import type { CustomerSeguimientoJornadaRow } from "@/lib/types/customer-seguimientos"
 
-export type JornadaEntryKind = "atencion" | "seguimiento"
+export type JornadaEntryKind = "atencion" | "seguimiento" | "retencion"
 
 export type JornadaEntry = {
   id: string
@@ -21,7 +23,12 @@ export type JornadaEntry = {
   atencionResultado?: CustomerAtencion["resultado"]
 }
 
-export type JornadaFilter = "all" | "atenciones" | "resueltas" | "seguimientos"
+export type JornadaFilter =
+  | "all"
+  | "atenciones"
+  | "resueltas"
+  | "seguimientos"
+  | "retenciones"
 
 export function buildAtencionJornadaEntry(
   atencion: CustomerAtencion,
@@ -57,15 +64,33 @@ export function buildSeguimientoJornadaEntry(
   }
 }
 
+export function buildRetencionJornadaEntry(
+  retencion: CustomerRetencionJornadaRow
+): JornadaEntry {
+  return {
+    id: retencion.id,
+    kind: "retencion",
+    occurredAt: retencion.completedAt,
+    customerId: retencion.customerId,
+    customerName: retencion.customerName,
+    title: "Retención",
+    subtitle: retencion.customerName,
+    detail: `${formatCustomerRetencionResultadoLabel(retencion.resultado)} · ${retencion.resolution}`,
+    tone: retencion.resultado === "retenido" ? "green" : "neutral",
+  }
+}
+
 export function buildJornadaEntries(input: {
   atenciones: Array<{ atencion: CustomerAtencion; customerName: string }>
   seguimientos: CustomerSeguimientoJornadaRow[]
+  retenciones?: CustomerRetencionJornadaRow[]
 }): JornadaEntry[] {
   const entries = [
     ...input.atenciones.map(({ atencion, customerName }) =>
       buildAtencionJornadaEntry(atencion, customerName)
     ),
     ...input.seguimientos.map(buildSeguimientoJornadaEntry),
+    ...(input.retenciones ?? []).map(buildRetencionJornadaEntry),
   ]
 
   return entries.sort(
@@ -88,6 +113,8 @@ export function filterJornadaEntries(
       )
     case "seguimientos":
       return entries.filter((entry) => entry.kind === "seguimiento")
+    case "retenciones":
+      return entries.filter((entry) => entry.kind === "retencion")
     default:
       return entries
   }

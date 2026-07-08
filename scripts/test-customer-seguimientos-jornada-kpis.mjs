@@ -104,11 +104,12 @@ test("filtros de jornada respetan KPIs clickeables", () => {
   )
 })
 
-test("KPI resueltas no incluye seguimientos completados", () => {
+test("KPI resueltas incluye atenciones resueltas y seguimientos resueltos del día", () => {
   const summary = {
-    atencionesHoy: 3,
+    atencionesHoy: 2,
     resueltas: 2,
-    seguimientosPendientes: 4,
+    seguimientosPendientes: 0,
+    retencionesActivas: 0,
   }
 
   assert.equal(getAtencionClienteKpiValue(summary, "resueltas"), 2)

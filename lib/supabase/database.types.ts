@@ -349,6 +349,96 @@ export type Database = {
           },
         ]
       }
+      customer_retenciones: {
+        Row: {
+          id: string
+          company_id: string
+          customer_id: string
+          assigned_employee_id: string
+          assigned_by_employee_id: string
+          motivo_baja: string
+          detail: string
+          status: string
+          resultado: string | null
+          resolution: string | null
+          completed_at: string | null
+          completed_by_employee_id: string | null
+          created_at: string
+          updated_at: string
+          deleted_at: string | null
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          customer_id: string
+          assigned_employee_id: string
+          assigned_by_employee_id: string
+          motivo_baja: string
+          detail: string
+          status?: string
+          resultado?: string | null
+          resolution?: string | null
+          completed_at?: string | null
+          completed_by_employee_id?: string | null
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          customer_id?: string
+          assigned_employee_id?: string
+          assigned_by_employee_id?: string
+          motivo_baja?: string
+          detail?: string
+          status?: string
+          resultado?: string | null
+          resolution?: string | null
+          completed_at?: string | null
+          completed_by_employee_id?: string | null
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_retenciones_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_retenciones_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_retenciones_assigned_employee_id_fkey"
+            columns: ["assigned_employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_retenciones_assigned_by_employee_id_fkey"
+            columns: ["assigned_by_employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_retenciones_completed_by_employee_id_fkey"
+            columns: ["completed_by_employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           id: string
@@ -1387,6 +1477,12 @@ export type CustomerSeguimientoInsert =
   Database["public"]["Tables"]["customer_seguimientos"]["Insert"]
 export type CustomerSeguimientoUpdate =
   Database["public"]["Tables"]["customer_seguimientos"]["Update"]
+export type CustomerRetencionRow =
+  Database["public"]["Tables"]["customer_retenciones"]["Row"]
+export type CustomerRetencionInsert =
+  Database["public"]["Tables"]["customer_retenciones"]["Insert"]
+export type CustomerRetencionUpdate =
+  Database["public"]["Tables"]["customer_retenciones"]["Update"]
 export type CustomerRow = Database["public"]["Tables"]["customers"]["Row"]
 export type CustomerInsert = Database["public"]["Tables"]["customers"]["Insert"]
 export type CustomerUpdate = Database["public"]["Tables"]["customers"]["Update"]

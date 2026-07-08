@@ -4,23 +4,27 @@ export type AtencionClienteKpiKey =
   | "atenciones_hoy"
   | "resueltas"
   | "seguimientos_pendientes"
+  | "retenciones_activas"
 
 export type AtencionClienteDashboardFilter =
   | "none"
   | "jornada_atenciones"
   | "jornada_resueltas"
   | "agenda_seguimientos"
+  | "retenciones_activas"
 
 export type AtencionClienteKpiSummary = {
   atencionesHoy: number
   resueltas: number
   seguimientosPendientes: number
+  retencionesActivas: number
 }
 
 export const ATENCION_CLIENTE_KPI_ORDER: AtencionClienteKpiKey[] = [
   "atenciones_hoy",
   "resueltas",
   "seguimientos_pendientes",
+  "retenciones_activas",
 ]
 
 export const ATENCION_CLIENTE_KPI_LABELS: Record<AtencionClienteKpiKey, string> =
@@ -28,6 +32,7 @@ export const ATENCION_CLIENTE_KPI_LABELS: Record<AtencionClienteKpiKey, string> 
     atenciones_hoy: "Atenciones hoy",
     resueltas: "Resueltas",
     seguimientos_pendientes: "Seguimientos pendientes",
+    retenciones_activas: "Retenciones activas",
   }
 
 export const ATENCION_CLIENTE_KPI_TONE: Record<AtencionClienteKpiKey, VisualTone> =
@@ -35,11 +40,13 @@ export const ATENCION_CLIENTE_KPI_TONE: Record<AtencionClienteKpiKey, VisualTone
     atenciones_hoy: "blue",
     resueltas: "green",
     seguimientos_pendientes: "amber",
+    retenciones_activas: "violet",
   }
 
 /**
- * Resueltas cuenta solo Atenciones con resultado `resuelta` del día.
- * Los Seguimientos completados aparecen en Mi Jornada pero no en este KPI.
+ * Resueltas suma Atenciones con resultado `resuelta` del día más
+ * Seguimientos completados hoy como resueltos por el empleado actual.
+ * No incluye Retenciones finalizadas.
  */
 export function getAtencionClienteKpiValue(
   summary: AtencionClienteKpiSummary,
@@ -52,6 +59,8 @@ export function getAtencionClienteKpiValue(
       return summary.resueltas
     case "seguimientos_pendientes":
       return summary.seguimientosPendientes
+    case "retenciones_activas":
+      return summary.retencionesActivas
   }
 }
 
@@ -63,6 +72,7 @@ export function mapKpiKeyToDashboardFilter(
     atenciones_hoy: "jornada_atenciones",
     resueltas: "jornada_resueltas",
     seguimientos_pendientes: "agenda_seguimientos",
+    retenciones_activas: "retenciones_activas",
   }
 
   return current === next[key] ? "none" : next[key]
@@ -70,13 +80,17 @@ export function mapKpiKeyToDashboardFilter(
 
 export function mapDashboardFilterToJornadaFilter(
   filter: AtencionClienteDashboardFilter
-): "all" | "atenciones" | "resueltas" {
+): "all" | "atenciones" | "resueltas" | "retenciones" {
   if (filter === "jornada_atenciones") {
     return "atenciones"
   }
 
   if (filter === "jornada_resueltas") {
     return "resueltas"
+  }
+
+  if (filter === "retenciones_activas") {
+    return "all"
   }
 
   return "all"

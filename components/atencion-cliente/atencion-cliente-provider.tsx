@@ -19,6 +19,7 @@ import {
   filterAgendaForTodayView,
   filterAgendaForWeekView,
 } from "@/lib/customer-seguimientos/agenda"
+import { canAssignCustomerRetencion, canViewAssignedCustomerRetenciones } from "@/lib/customer-retenciones/access"
 import {
   buildJornadaEntries,
   type JornadaEntry,
@@ -39,6 +40,16 @@ import {
   listAtencionPage,
 } from "@/lib/supabase/customer-atenciones.browser"
 import {
+  createCustomerRetencion,
+  getActiveRetencionesCount,
+  getCustomerRetencionById as loadCustomerRetencionById,
+  listAssignedRetencionesForCompany,
+  listAtencionClienteAssignees,
+  listCompletedRetencionesToday,
+  listPendingRetencionesForEmployee,
+  markCustomerRetencionCompleted,
+} from "@/lib/supabase/customer-retenciones.browser"
+import {
   createCustomerSeguimiento,
   getAtencionClienteDashboardSummary,
   getCustomerSeguimientoById as loadCustomerSeguimientoById,
@@ -54,6 +65,14 @@ import type {
   CustomerAtencionListPage,
   NewCustomerAtencionInput,
 } from "@/lib/types/customer-atenciones"
+import type {
+  AtencionClienteAssigneeOption,
+  CompleteCustomerRetencionInput,
+  CustomerRetencion,
+  CustomerRetencionActiveRow,
+  CustomerRetencionSupervisionRow,
+  NewCustomerRetencionInput,
+} from "@/lib/types/customer-retenciones"
 import type {
   CompleteCustomerSeguimientoInput,
   CompleteCustomerSeguimientoWithFollowUpInput,
@@ -75,10 +94,17 @@ type SeguimientoMutationResult = {
   nextSeguimiento?: CustomerSeguimiento
 }
 
+type RetencionMutationResult = {
+  success: boolean
+  message?: string
+  retencion?: CustomerRetencion
+}
+
 const EMPTY_SUMMARY: AtencionClienteKpiSummary = {
   atencionesHoy: 0,
   resueltas: 0,
   seguimientosPendientes: 0,
+  retencionesActivas: 0,
 }
 
 type AtencionClienteContextValue = {
@@ -89,13 +115,26 @@ type AtencionClienteContextValue = {
   dashboardSummary: AtencionClienteKpiSummary
   isDashboardLoading: boolean
   pendingSeguimientos: CustomerSeguimientoAgendaRow[]
+  pendingRetenciones: CustomerRetencionActiveRow[]
+  assignedRetenciones: CustomerRetencionSupervisionRow[]
   jornadaEntries: JornadaEntry[]
+  canAssignRetencion: boolean
+  canViewAssignedRetenciones: boolean
   loadAtencionPage: (query: CustomerAtencionListQuery) => Promise<void>
   refreshDashboard: () => Promise<void>
   fetchAtencionById: (id: string) => Promise<CustomerAtencion | null>
   fetchSeguimientoById: (id: string) => Promise<CustomerSeguimiento | null>
+  fetchRetencionById: (id: string) => Promise<CustomerRetencion | null>
   searchCustomers: (query: string, limit?: number) => Promise<Customer[]>
+  listAssignees: () => Promise<AtencionClienteAssigneeOption[]>
   createAtencion: (input: NewCustomerAtencionInput) => Promise<AtencionMutationResult>
+  assignRetencion: (
+    input: NewCustomerRetencionInput
+  ) => Promise<RetencionMutationResult>
+  completeRetencion: (
+    id: string,
+    input: CompleteCustomerRetencionInput
+  ) => Promise<RetencionMutationResult>
   completeSeguimiento: (
     id: string,
     input: CompleteCustomerSeguimientoInput
@@ -133,11 +172,22 @@ export function AtencionClienteProvider({
   const [pendingSeguimientos, setPendingSeguimientos] = useState<
     CustomerSeguimientoAgendaRow[]
   >([])
+  const [pendingRetenciones, setPendingRetenciones] = useState<
+    CustomerRetencionActiveRow[]
+  >([])
+  const [assignedRetenciones, setAssignedRetenciones] = useState<
+    CustomerRetencionSupervisionRow[]
+  >([])
   const [jornadaEntries, setJornadaEntries] = useState<JornadaEntry[]>([])
   const atencionCacheRef = useRef<Map<string, CustomerAtencion>>(new Map())
   const seguimientoCacheRef = useRef<Map<string, CustomerSeguimiento>>(new Map())
+  const retencionCacheRef = useRef<Map<string, CustomerRetencion>>(new Map())
 
   const employeeId = sessionUser?.employeeId?.trim() ?? ""
+  const canAssignRetencion = canAssignCustomerRetencion(sessionUser?.roleCode)
+  const canViewAssignedRetenciones = canViewAssignedCustomerRetenciones(
+    sessionUser?.roleCode
+  )
 
   const loadAtencionPage = useCallback(
     async (query: CustomerAtencionListQuery) => {
@@ -173,6 +223,8 @@ export function AtencionClienteProvider({
     if (!isAuthReady || !companyId || !employeeId) {
       setDashboardSummary(EMPTY_SUMMARY)
       setPendingSeguimientos([])
+      setPendingRetenciones([])
+      setAssignedRetenciones([])
       setJornadaEntries([])
       setIsDashboardLoading(false)
       return
@@ -182,20 +234,43 @@ export function AtencionClienteProvider({
     const referenceDate = new Date()
 
     try {
-      const [summaryResult, pendingResult, atencionesResult, seguimientosResult] =
-        await Promise.all([
-          getAtencionClienteDashboardSummary(companyId, employeeId, referenceDate),
-          listPendingSeguimientosForEmployee(
-            companyId,
-            employeeId,
-            referenceDate
-          ),
-          listEmployeeAtencionesToday(companyId, employeeId, referenceDate),
-          listCompletedSeguimientosToday(companyId, employeeId, referenceDate),
-        ])
+      const [
+        summaryResult,
+        pendingResult,
+        pendingRetencionesResult,
+        retencionesCountResult,
+        atencionesResult,
+        seguimientosResult,
+        retencionesResult,
+        assignedRetencionesResult,
+      ] = await Promise.all([
+        getAtencionClienteDashboardSummary(companyId, employeeId, referenceDate),
+        listPendingSeguimientosForEmployee(
+          companyId,
+          employeeId,
+          referenceDate
+        ),
+        listPendingRetencionesForEmployee(companyId, employeeId),
+        getActiveRetencionesCount(companyId, employeeId),
+        listEmployeeAtencionesToday(companyId, employeeId, referenceDate),
+        listCompletedSeguimientosToday(companyId, employeeId, referenceDate),
+        listCompletedRetencionesToday(companyId, employeeId, referenceDate),
+        canViewAssignedRetenciones
+          ? listAssignedRetencionesForCompany(companyId)
+          : Promise.resolve({ data: [], error: null }),
+      ])
 
-      setDashboardSummary(summaryResult.data ?? EMPTY_SUMMARY)
+      setDashboardSummary({
+        ...(summaryResult.data ?? {
+          atencionesHoy: 0,
+          resueltas: 0,
+          seguimientosPendientes: 0,
+        }),
+        retencionesActivas: retencionesCountResult.data ?? 0,
+      })
       setPendingSeguimientos(pendingResult.data ?? [])
+      setPendingRetenciones(pendingRetencionesResult.data ?? [])
+      setAssignedRetenciones(assignedRetencionesResult.data ?? [])
 
       const atenciones = atencionesResult.data ?? []
       const customerIds = [
@@ -203,6 +278,7 @@ export function AtencionClienteProvider({
           ...atenciones.map((atencion) => atencion.customerId),
           ...(pendingResult.data ?? []).map((item) => item.customerId),
           ...(seguimientosResult.data ?? []).map((item) => item.customerId),
+          ...(retencionesResult.data ?? []).map((item) => item.customerId),
         ]),
       ]
 
@@ -228,12 +304,13 @@ export function AtencionClienteProvider({
               customerNameById.get(atencion.customerId) ?? "Cliente",
           })),
           seguimientos: seguimientosResult.data ?? [],
+          retenciones: retencionesResult.data ?? [],
         })
       )
     } finally {
       setIsDashboardLoading(false)
     }
-  }, [companyId, employeeId, isAuthReady])
+  }, [canViewAssignedRetenciones, companyId, employeeId, isAuthReady])
 
   const fetchAtencionById = useCallback(
     async (id: string) => {
@@ -280,6 +357,38 @@ export function AtencionClienteProvider({
     },
     [companyId]
   )
+
+  const fetchRetencionById = useCallback(
+    async (id: string) => {
+      const cached = retencionCacheRef.current.get(id)
+      if (cached) {
+        return cached
+      }
+
+      if (!companyId) {
+        return null
+      }
+
+      const result = await loadCustomerRetencionById(id, companyId)
+
+      if (!result.data) {
+        return null
+      }
+
+      retencionCacheRef.current.set(id, result.data)
+      return result.data
+    },
+    [companyId]
+  )
+
+  const listAssignees = useCallback(async () => {
+    if (!companyId) {
+      return []
+    }
+
+    const result = await listAtencionClienteAssignees(companyId)
+    return result.data ?? []
+  }, [companyId])
 
   const searchCustomers = useCallback(
     async (query: string, limit = 8) => {
@@ -379,6 +488,108 @@ export function AtencionClienteProvider({
       openRestrictedDialog,
       refreshDashboard,
     ]
+  )
+
+  const assignRetencion = useCallback(
+    async (input: NewCustomerRetencionInput): Promise<RetencionMutationResult> => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return DEMO_WRITE_BLOCKED_MUTATION_RESULT
+      }
+
+      if (!canAssignRetencion) {
+        return {
+          success: false,
+          message: "No tenés permiso para asignar retenciones.",
+        }
+      }
+
+      if (!companyId || !employeeId) {
+        return { success: false, message: "Sesión no disponible." }
+      }
+
+      if (!input.detail.trim()) {
+        return {
+          success: false,
+          message: "Completá el detalle de la solicitud.",
+        }
+      }
+
+      const result = await createCustomerRetencion({
+        companyId,
+        customerId: input.customerId,
+        assignedEmployeeId: input.assignedEmployeeId,
+        assignedByEmployeeId: employeeId,
+        motivoBaja: input.motivoBaja,
+        detail: input.detail,
+      })
+
+      if (result.error || !result.data) {
+        return {
+          success: false,
+          message: result.error?.message ?? "No se pudo asignar la retención.",
+        }
+      }
+
+      retencionCacheRef.current.set(result.data.id, result.data)
+      await refreshDashboard()
+
+      return { success: true, retencion: result.data }
+    },
+    [
+      canAssignRetencion,
+      companyId,
+      employeeId,
+      isReadOnly,
+      openRestrictedDialog,
+      refreshDashboard,
+    ]
+  )
+
+  const completeRetencion = useCallback(
+    async (
+      id: string,
+      input: CompleteCustomerRetencionInput
+    ): Promise<RetencionMutationResult> => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return DEMO_WRITE_BLOCKED_MUTATION_RESULT
+      }
+
+      if (!companyId || !employeeId) {
+        return { success: false, message: "Sesión no disponible." }
+      }
+
+      if (!input.resolution.trim()) {
+        return {
+          success: false,
+          message: "Completá las observaciones finales.",
+        }
+      }
+
+      const result = await markCustomerRetencionCompleted(
+        id,
+        {
+          status: "finalizada",
+          resultado: input.resultado,
+          resolution: input.resolution,
+          completedAt: new Date().toISOString(),
+          completedByEmployeeId: employeeId,
+        },
+        companyId
+      )
+
+      if (result.error || !result.data) {
+        return {
+          success: false,
+          message: result.error?.message ?? "No se pudo finalizar la retención.",
+        }
+      }
+
+      retencionCacheRef.current.set(id, result.data)
+      await refreshDashboard()
+
+      return { success: true, retencion: result.data }
+    },
+    [companyId, employeeId, isReadOnly, openRestrictedDialog, refreshDashboard]
   )
 
   const completeSeguimiento = useCallback(
@@ -516,32 +727,48 @@ export function AtencionClienteProvider({
       dashboardSummary,
       isDashboardLoading,
       pendingSeguimientos,
+      pendingRetenciones,
+      assignedRetenciones,
       jornadaEntries,
+      canAssignRetencion,
+      canViewAssignedRetenciones,
       loadAtencionPage,
       refreshDashboard,
       fetchAtencionById,
       fetchSeguimientoById,
+      fetchRetencionById,
       searchCustomers,
+      listAssignees,
       createAtencion,
+      assignRetencion,
+      completeRetencion,
       completeSeguimiento,
       completeSeguimientoWithFollowUp,
       getAgendaItems,
     }),
     [
+      assignRetencion,
+      assignedRetenciones,
+      canAssignRetencion,
+      canViewAssignedRetenciones,
+      completeRetencion,
       completeSeguimiento,
       completeSeguimientoWithFollowUp,
       createAtencion,
       dashboardSummary,
       fetchAtencionById,
+      fetchRetencionById,
       fetchSeguimientoById,
       getAgendaItems,
       isDashboardLoading,
       isListLoading,
       isReady,
       jornadaEntries,
+      listAssignees,
       listPage,
       listQuery,
       loadAtencionPage,
+      pendingRetenciones,
       pendingSeguimientos,
       refreshDashboard,
       searchCustomers,

@@ -283,6 +283,61 @@ export async function fetchCompletedSeguimientosForEmployeeToday(
   }
 }
 
+export async function countSeguimientosResueltosForEmployeeToday(
+  client: SupabaseCustomerSeguimientosClient,
+  companyId: string,
+  employeeId: string,
+  referenceDate: Date
+): Promise<CustomerSeguimientosRepositoryResult<number>> {
+  const { start, end } = getDayBoundsIso(referenceDate)
+
+  const { data: completedRows, error } = await client
+    .from("customer_seguimientos")
+    .select("id")
+    .eq("company_id", companyId)
+    .eq("completed_by_employee_id", employeeId)
+    .eq("status", "completado")
+    .gte("completed_at", start)
+    .lt("completed_at", end)
+    .is("deleted_at", null)
+    .not("completion_action", "is", null)
+
+  if (error) {
+    return { data: null, error: mapSupabaseCustomerSeguimientoError(error) }
+  }
+
+  const completedIds = (completedRows ?? []).map((row) => row.id)
+
+  if (completedIds.length === 0) {
+    return { data: 0, error: null }
+  }
+
+  const { data: followUpRows, error: followUpError } = await client
+    .from("customer_seguimientos")
+    .select("previous_seguimiento_id")
+    .eq("company_id", companyId)
+    .in("previous_seguimiento_id", completedIds)
+    .is("deleted_at", null)
+
+  if (followUpError) {
+    return {
+      data: null,
+      error: mapSupabaseCustomerSeguimientoError(followUpError),
+    }
+  }
+
+  const spawnedParentIds = new Set(
+    (followUpRows ?? [])
+      .map((row) => row.previous_seguimiento_id)
+      .filter((id): id is string => Boolean(id))
+  )
+
+  return {
+    data: completedIds.filter((id) => !spawnedParentIds.has(id)).length,
+    error: null,
+  }
+}
+
 export async function fetchAtencionClienteKpiSummary(
   client: SupabaseCustomerSeguimientosClient,
   companyId: string,
@@ -291,7 +346,12 @@ export async function fetchAtencionClienteKpiSummary(
 ): Promise<CustomerSeguimientosRepositoryResult<AtencionClienteKpiSummary>> {
   const { start, end } = getDayBoundsIso(referenceDate)
 
-  const [atencionesResult, resueltasResult, pendientesResult] = await Promise.all([
+  const [
+    atencionesResult,
+    resueltasAtencionesResult,
+    seguimientosResueltosResult,
+    pendientesResult,
+  ] = await Promise.all([
     client
       .from("customer_atenciones")
       .select("id", { count: "exact", head: true })
@@ -309,6 +369,12 @@ export async function fetchAtencionClienteKpiSummary(
       .gte("created_at", start)
       .lt("created_at", end)
       .is("deleted_at", null),
+    countSeguimientosResueltosForEmployeeToday(
+      client,
+      companyId,
+      employeeId,
+      referenceDate
+    ),
     client
       .from("customer_seguimientos")
       .select("id", { count: "exact", head: true })
@@ -325,10 +391,17 @@ export async function fetchAtencionClienteKpiSummary(
     }
   }
 
-  if (resueltasResult.error) {
+  if (resueltasAtencionesResult.error) {
     return {
       data: null,
-      error: mapSupabaseCustomerSeguimientoError(resueltasResult.error),
+      error: mapSupabaseCustomerSeguimientoError(resueltasAtencionesResult.error),
+    }
+  }
+
+  if (seguimientosResueltosResult.error) {
+    return {
+      data: null,
+      error: seguimientosResueltosResult.error,
     }
   }
 
@@ -342,8 +415,11 @@ export async function fetchAtencionClienteKpiSummary(
   return {
     data: {
       atencionesHoy: atencionesResult.count ?? 0,
-      resueltas: resueltasResult.count ?? 0,
+      resueltas:
+        (resueltasAtencionesResult.count ?? 0) +
+        (seguimientosResueltosResult.data ?? 0),
       seguimientosPendientes: pendientesResult.count ?? 0,
+      retencionesActivas: 0,
     },
     error: null,
   }
