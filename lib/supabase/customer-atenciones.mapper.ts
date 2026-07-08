@@ -3,7 +3,7 @@ import type {
   CustomerAtencionRow,
 } from "@/lib/supabase/database.types"
 import {
-  CUSTOMER_ATENCION_SPRINT_1_0_RESULTADO,
+  CUSTOMER_ATENCION_DEFAULT_RESULTADO,
   type CustomerAtencion,
   type CustomerAtencionChannel,
   type CustomerAtencionMotivo,
@@ -50,7 +50,7 @@ function parseResultado(value: string): CustomerAtencionResultado {
     return value
   }
 
-  return CUSTOMER_ATENCION_SPRINT_1_0_RESULTADO
+  return CUSTOMER_ATENCION_DEFAULT_RESULTADO
 }
 
 export function mapCustomerAtencionRowToCustomerAtencion(
@@ -83,6 +83,6 @@ export function mapCreateCustomerAtencionPayloadToInsert(
     motivo: payload.motivo,
     detail: payload.detail.trim(),
     resolution: payload.resolution.trim(),
-    resultado: CUSTOMER_ATENCION_SPRINT_1_0_RESULTADO,
+    resultado: payload.resultado ?? CUSTOMER_ATENCION_DEFAULT_RESULTADO,
   }
 }

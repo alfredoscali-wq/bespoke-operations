@@ -11,6 +11,7 @@ import type { Customer } from "@/lib/types/customers"
 import type {
   CustomerAtencionChannel,
   CustomerAtencionMotivo,
+  CustomerAtencionResultado,
   NewCustomerAtencionInput,
 } from "@/lib/types/customer-atenciones"
 import { Button } from "@/components/ui/button"
@@ -43,6 +44,10 @@ type AtencionFormState = {
   motivo: CustomerAtencionMotivo | ""
   detail: string
   resolution: string
+  resultado: CustomerAtencionResultado
+  seguimientoDate: string
+  seguimientoTime: string
+  seguimientoObservation: string
 }
 
 const emptyForm: AtencionFormState = {
@@ -50,6 +55,10 @@ const emptyForm: AtencionFormState = {
   motivo: "",
   detail: "",
   resolution: "",
+  resultado: "resuelta",
+  seguimientoDate: "",
+  seguimientoTime: "",
+  seguimientoObservation: "",
 }
 
 type AtencionFormDialogProps = {
@@ -193,12 +202,28 @@ export function AtencionFormDialog({
       return
     }
 
+    if (form.resultado === "requiere_seguimiento") {
+      if (!form.seguimientoDate.trim() || !form.seguimientoObservation.trim()) {
+        setError("Completá la fecha y observación del seguimiento.")
+        return
+      }
+    }
+
     const input: NewCustomerAtencionInput = {
       customerId: selectedCustomer.id,
       channel: form.channel,
       motivo: form.motivo,
       detail: form.detail,
       resolution: form.resolution,
+      resultado: form.resultado,
+      seguimiento:
+        form.resultado === "requiere_seguimiento"
+          ? {
+              scheduledDate: form.seguimientoDate,
+              scheduledTime: form.seguimientoTime.trim() || null,
+              observation: form.seguimientoObservation,
+            }
+          : undefined,
     }
 
     setIsSubmitting(true)
@@ -222,18 +247,18 @@ export function AtencionFormDialog({
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <ProtectedFormDialogContent
-          className="max-w-lg"
+          className="sm:max-w-[50rem]"
           onRequestClose={requestClose}
           isDirty={isDirty}
         >
           <DialogHeader>
             <DialogTitle>Nueva Atención</DialogTitle>
             <DialogDescription>
-              Registrá una atención resuelta al cliente.
+              Registrá la atención al cliente y su resultado.
             </DialogDescription>
           </DialogHeader>
 
-          <form className="space-y-4" onSubmit={handleSubmit}>
+          <form className="space-y-3" onSubmit={handleSubmit}>
             <CustomerSearchField
               onSearch={handleCustomerSearch}
               onSelect={setSelectedCustomer}
@@ -248,7 +273,7 @@ export function AtencionFormDialog({
               </p>
             ) : null}
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-3">
               <div className="space-y-2">
                 <Label htmlFor="atencion-channel">Canal</Label>
                 <Select
@@ -260,7 +285,7 @@ export function AtencionFormDialog({
                     }))
                   }
                 >
-                  <SelectTrigger id="atencion-channel">
+                  <SelectTrigger id="atencion-channel" className="w-full">
                     <SelectValue placeholder="Seleccionar" />
                   </SelectTrigger>
                   <SelectContent>
@@ -284,7 +309,7 @@ export function AtencionFormDialog({
                     }))
                   }
                 >
-                  <SelectTrigger id="atencion-motivo">
+                  <SelectTrigger id="atencion-motivo" className="w-full">
                     <SelectValue placeholder="Seleccionar" />
                   </SelectTrigger>
                   <SelectContent>
@@ -296,43 +321,118 @@ export function AtencionFormDialog({
                   </SelectContent>
                 </Select>
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="atencion-resultado">Resultado</Label>
+                <Select
+                  value={form.resultado}
+                  onValueChange={(value) =>
+                    setForm((current) => ({
+                      ...current,
+                      resultado: value as CustomerAtencionResultado,
+                    }))
+                  }
+                >
+                  <SelectTrigger id="atencion-resultado" className="w-full">
+                    <SelectValue placeholder="Seleccionar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="resuelta">Resuelta</SelectItem>
+                    <SelectItem value="requiere_seguimiento">
+                      Requiere seguimiento
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="atencion-detail">Detalle</Label>
-              <Textarea
-                id="atencion-detail"
-                value={form.detail}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    detail: event.target.value,
-                  }))
-                }
-                rows={3}
-                placeholder="Descripción de la consulta o problema"
-              />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="atencion-detail">Detalle</Label>
+                <Textarea
+                  id="atencion-detail"
+                  value={form.detail}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      detail: event.target.value,
+                    }))
+                  }
+                  rows={2}
+                  placeholder="Descripción de la consulta o problema"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="atencion-resolution">Resolución</Label>
+                <Textarea
+                  id="atencion-resolution"
+                  value={form.resolution}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      resolution: event.target.value,
+                    }))
+                  }
+                  rows={2}
+                  placeholder="Qué se hizo para resolver la atención"
+                />
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="atencion-resolution">Resolución</Label>
-              <Textarea
-                id="atencion-resolution"
-                value={form.resolution}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    resolution: event.target.value,
-                  }))
-                }
-                rows={3}
-                placeholder="Qué se hizo para resolver la atención"
-              />
-            </div>
-
-            <p className="text-sm text-muted-foreground">
-              Resultado: <span className="font-medium text-foreground">Resuelta</span>
-            </p>
+            {form.resultado === "requiere_seguimiento" ? (
+              <div className="space-y-3 rounded-lg border px-3 py-3">
+                <p className="text-sm font-medium">Próximo seguimiento</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="atencion-seguimiento-date">Fecha</Label>
+                    <Input
+                      id="atencion-seguimiento-date"
+                      type="date"
+                      value={form.seguimientoDate}
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          seguimientoDate: event.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="atencion-seguimiento-time">
+                      Hora (opcional)
+                    </Label>
+                    <Input
+                      id="atencion-seguimiento-time"
+                      type="time"
+                      value={form.seguimientoTime}
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          seguimientoTime: event.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="atencion-seguimiento-observation">
+                    Observación / motivo del próximo contacto
+                  </Label>
+                  <Textarea
+                    id="atencion-seguimiento-observation"
+                    value={form.seguimientoObservation}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        seguimientoObservation: event.target.value,
+                      }))
+                    }
+                    rows={2}
+                  />
+                </div>
+              </div>
+            ) : null}
 
             {error ? (
               <p className="text-sm text-destructive">{error}</p>

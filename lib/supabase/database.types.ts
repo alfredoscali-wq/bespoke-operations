@@ -249,6 +249,106 @@ export type Database = {
           },
         ]
       }
+      customer_seguimientos: {
+        Row: {
+          id: string
+          company_id: string
+          customer_id: string
+          source_atencion_id: string | null
+          previous_seguimiento_id: string | null
+          assigned_employee_id: string
+          scheduled_date: string
+          scheduled_time: string | null
+          observation: string
+          status: string
+          completion_action: string | null
+          completed_at: string | null
+          completed_by_employee_id: string | null
+          created_at: string
+          updated_at: string
+          deleted_at: string | null
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          customer_id: string
+          source_atencion_id?: string | null
+          previous_seguimiento_id?: string | null
+          assigned_employee_id: string
+          scheduled_date: string
+          scheduled_time?: string | null
+          observation: string
+          status?: string
+          completion_action?: string | null
+          completed_at?: string | null
+          completed_by_employee_id?: string | null
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          customer_id?: string
+          source_atencion_id?: string | null
+          previous_seguimiento_id?: string | null
+          assigned_employee_id?: string
+          scheduled_date?: string
+          scheduled_time?: string | null
+          observation?: string
+          status?: string
+          completion_action?: string | null
+          completed_at?: string | null
+          completed_by_employee_id?: string | null
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_seguimientos_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_seguimientos_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_seguimientos_source_atencion_id_fkey"
+            columns: ["source_atencion_id"]
+            isOneToOne: false
+            referencedRelation: "customer_atenciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_seguimientos_previous_seguimiento_id_fkey"
+            columns: ["previous_seguimiento_id"]
+            isOneToOne: false
+            referencedRelation: "customer_seguimientos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_seguimientos_assigned_employee_id_fkey"
+            columns: ["assigned_employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_seguimientos_completed_by_employee_id_fkey"
+            columns: ["completed_by_employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           id: string
@@ -1281,6 +1381,12 @@ export type CustomerAtencionInsert =
   Database["public"]["Tables"]["customer_atenciones"]["Insert"]
 export type CustomerAtencionUpdate =
   Database["public"]["Tables"]["customer_atenciones"]["Update"]
+export type CustomerSeguimientoRow =
+  Database["public"]["Tables"]["customer_seguimientos"]["Row"]
+export type CustomerSeguimientoInsert =
+  Database["public"]["Tables"]["customer_seguimientos"]["Insert"]
+export type CustomerSeguimientoUpdate =
+  Database["public"]["Tables"]["customer_seguimientos"]["Update"]
 export type CustomerRow = Database["public"]["Tables"]["customers"]["Row"]
 export type CustomerInsert = Database["public"]["Tables"]["customers"]["Insert"]
 export type CustomerUpdate = Database["public"]["Tables"]["customers"]["Update"]

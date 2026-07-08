@@ -19,9 +19,29 @@ export type CustomerAtencionResultado =
   | "requiere_seguimiento"
   | "ot_creada"
 
-/** Sprint 1.0: único resultado permitido al registrar una atención. */
-export const CUSTOMER_ATENCION_SPRINT_1_0_RESULTADO: CustomerAtencionResultado =
+/** Sprint 1.0 default; Sprint 2.0 allows `requiere_seguimiento` on create. */
+export const CUSTOMER_ATENCION_DEFAULT_RESULTADO: CustomerAtencionResultado =
   "resuelta"
+
+/** @deprecated Use CUSTOMER_ATENCION_DEFAULT_RESULTADO */
+export const CUSTOMER_ATENCION_SPRINT_1_0_RESULTADO =
+  CUSTOMER_ATENCION_DEFAULT_RESULTADO
+
+export type NewCustomerAtencionSeguimientoInput = {
+  scheduledDate: string
+  scheduledTime?: string | null
+  observation: string
+}
+
+export type NewCustomerAtencionInput = {
+  customerId: string
+  channel: CustomerAtencionChannel
+  motivo: CustomerAtencionMotivo
+  detail: string
+  resolution: string
+  resultado?: CustomerAtencionResultado
+  seguimiento?: NewCustomerAtencionSeguimientoInput
+}
 
 export interface CustomerAtencion {
   id: string
@@ -56,12 +76,4 @@ export type CustomerAtencionListPage = {
   total: number
   page: number
   pageSize: number
-}
-
-export type NewCustomerAtencionInput = {
-  customerId: string
-  channel: CustomerAtencionChannel
-  motivo: CustomerAtencionMotivo
-  detail: string
-  resolution: string
 }
