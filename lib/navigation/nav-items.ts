@@ -6,6 +6,7 @@ import {
   CalendarRange,
   Camera,
   Contact,
+  Headset,
   History,
   LayoutDashboard,
   ListChecks,
@@ -81,6 +82,15 @@ export const customersNavItem: NavItem = {
   icon: Contact,
   pageTitle: "Clientes",
   description: "Directorio de clientes para operaciones de campo.",
+}
+
+export const atencionClienteNavItem: NavItem = {
+  title: "Atención al Cliente",
+  href: "/atencion-cliente",
+  icon: Headset,
+  pageTitle: "Atención al Cliente",
+  description:
+    "Registro y seguimiento de atenciones, contactos y gestión comercial del cliente.",
 }
 
 export const projectsNavItem: NavItem = {

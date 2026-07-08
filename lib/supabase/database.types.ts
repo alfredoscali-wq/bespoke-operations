@@ -182,6 +182,73 @@ export type Database = {
         }
         Relationships: []
       }
+      customer_atenciones: {
+        Row: {
+          id: string
+          company_id: string
+          customer_id: string
+          attended_by_employee_id: string
+          channel: string
+          motivo: string
+          detail: string
+          resolution: string
+          resultado: string
+          created_at: string
+          updated_at: string
+          deleted_at: string | null
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          customer_id: string
+          attended_by_employee_id: string
+          channel: string
+          motivo: string
+          detail: string
+          resolution: string
+          resultado: string
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          customer_id?: string
+          attended_by_employee_id?: string
+          channel?: string
+          motivo?: string
+          detail?: string
+          resolution?: string
+          resultado?: string
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_atenciones_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_atenciones_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_atenciones_attended_by_employee_id_fkey"
+            columns: ["attended_by_employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           id: string
@@ -1208,6 +1275,12 @@ export type Database = {
 export type CompanyRow = Database["public"]["Tables"]["companies"]["Row"]
 export type CompanyInsert = Database["public"]["Tables"]["companies"]["Insert"]
 export type CompanyUpdate = Database["public"]["Tables"]["companies"]["Update"]
+export type CustomerAtencionRow =
+  Database["public"]["Tables"]["customer_atenciones"]["Row"]
+export type CustomerAtencionInsert =
+  Database["public"]["Tables"]["customer_atenciones"]["Insert"]
+export type CustomerAtencionUpdate =
+  Database["public"]["Tables"]["customer_atenciones"]["Update"]
 export type CustomerRow = Database["public"]["Tables"]["customers"]["Row"]
 export type CustomerInsert = Database["public"]["Tables"]["customers"]["Insert"]
 export type CustomerUpdate = Database["public"]["Tables"]["customers"]["Update"]
