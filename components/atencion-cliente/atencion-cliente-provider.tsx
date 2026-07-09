@@ -59,6 +59,14 @@ import {
   markCustomerSeguimientoCompleted,
 } from "@/lib/supabase/customer-seguimientos.browser"
 import { searchCustomers as searchCustomersInSupabase } from "@/lib/supabase/customers.browser"
+import {
+  createCustomerRecuperacion,
+  getCustomerRecuperacionById as loadCustomerRecuperacionById,
+  getRecuperacionesTodayCount,
+  listRecuperacionesForEmployee,
+  listRecuperacionesTodayForEmployee,
+} from "@/lib/supabase/customer-recuperaciones.browser"
+import { mapNewCustomerRecuperacionInputToPayload } from "@/lib/supabase/customer-recuperaciones.mapper"
 import { createClient } from "@/lib/supabase/client"
 import type { Customer } from "@/lib/types/customers"
 import type {
@@ -74,6 +82,11 @@ import type {
   CustomerRetencionSupervisionRow,
   NewCustomerRetencionInput,
 } from "@/lib/types/customer-retenciones"
+import type {
+  CustomerRecuperacion,
+  CustomerRecuperacionActivityRow,
+  NewCustomerRecuperacionInput,
+} from "@/lib/types/customer-recuperaciones"
 import type {
   CompleteCustomerSeguimientoInput,
   CompleteCustomerSeguimientoWithFollowUpInput,
@@ -101,11 +114,18 @@ type RetencionMutationResult = {
   retencion?: CustomerRetencion
 }
 
+type RecuperacionMutationResult = {
+  success: boolean
+  message?: string
+  recuperacion?: CustomerRecuperacion
+}
+
 const EMPTY_SUMMARY: AtencionClienteKpiSummary = {
   atencionesHoy: 0,
   resueltas: 0,
   seguimientosPendientes: 0,
   retencionesActivas: 0,
+  recuperosHoy: 0,
 }
 
 type AtencionClienteContextValue = {
@@ -118,6 +138,7 @@ type AtencionClienteContextValue = {
   pendingSeguimientos: CustomerSeguimientoAgendaRow[]
   pendingRetenciones: CustomerRetencionActiveRow[]
   assignedRetenciones: CustomerRetencionSupervisionRow[]
+  myRecuperaciones: CustomerRecuperacionActivityRow[]
   jornadaEntries: JornadaEntry[]
   canAssignRetencion: boolean
   canViewAssignedRetenciones: boolean
@@ -127,6 +148,7 @@ type AtencionClienteContextValue = {
   fetchAtencionById: (id: string) => Promise<CustomerAtencion | null>
   fetchSeguimientoById: (id: string) => Promise<CustomerSeguimiento | null>
   fetchRetencionById: (id: string) => Promise<CustomerRetencion | null>
+  fetchRecuperacionById: (id: string) => Promise<CustomerRecuperacion | null>
   searchCustomers: (query: string, limit?: number) => Promise<Customer[]>
   listAssignees: () => Promise<AtencionClienteAssigneeOption[]>
   createAtencion: (input: NewCustomerAtencionInput) => Promise<AtencionMutationResult>
@@ -137,6 +159,9 @@ type AtencionClienteContextValue = {
     id: string,
     input: CompleteCustomerRetencionInput
   ) => Promise<RetencionMutationResult>
+  createRecuperacion: (
+    input: NewCustomerRecuperacionInput
+  ) => Promise<RecuperacionMutationResult>
   completeSeguimiento: (
     id: string,
     input: CompleteCustomerSeguimientoInput
@@ -180,10 +205,14 @@ export function AtencionClienteProvider({
   const [assignedRetenciones, setAssignedRetenciones] = useState<
     CustomerRetencionSupervisionRow[]
   >([])
+  const [myRecuperaciones, setMyRecuperaciones] = useState<
+    CustomerRecuperacionActivityRow[]
+  >([])
   const [jornadaEntries, setJornadaEntries] = useState<JornadaEntry[]>([])
   const atencionCacheRef = useRef<Map<string, CustomerAtencion>>(new Map())
   const seguimientoCacheRef = useRef<Map<string, CustomerSeguimiento>>(new Map())
   const retencionCacheRef = useRef<Map<string, CustomerRetencion>>(new Map())
+  const recuperacionCacheRef = useRef<Map<string, CustomerRecuperacion>>(new Map())
 
   const employeeId = sessionUser?.employeeId?.trim() ?? ""
   const canAssignRetencion = canAssignCustomerRetencion(sessionUser?.roleCode)
@@ -228,6 +257,7 @@ export function AtencionClienteProvider({
       setPendingSeguimientos([])
       setPendingRetenciones([])
       setAssignedRetenciones([])
+      setMyRecuperaciones([])
       setJornadaEntries([])
       setIsDashboardLoading(false)
       return
@@ -246,6 +276,9 @@ export function AtencionClienteProvider({
         seguimientosResult,
         retencionesResult,
         assignedRetencionesResult,
+        recuperacionesResult,
+        recuperacionesTodayResult,
+        recuperacionesCountResult,
       ] = await Promise.all([
         getAtencionClienteDashboardSummary(companyId, employeeId, referenceDate),
         listPendingSeguimientosForEmployee(
@@ -261,6 +294,9 @@ export function AtencionClienteProvider({
         canViewAssignedRetenciones
           ? listAssignedRetencionesForCompany(companyId)
           : Promise.resolve({ data: [], error: null }),
+        listRecuperacionesForEmployee(companyId, employeeId),
+        listRecuperacionesTodayForEmployee(companyId, employeeId, referenceDate),
+        getRecuperacionesTodayCount(companyId, employeeId, referenceDate),
       ])
 
       setDashboardSummary({
@@ -268,12 +304,15 @@ export function AtencionClienteProvider({
           atencionesHoy: 0,
           resueltas: 0,
           seguimientosPendientes: 0,
+          recuperosHoy: 0,
         }),
         retencionesActivas: retencionesCountResult.data ?? 0,
+        recuperosHoy: recuperacionesCountResult.data ?? 0,
       })
       setPendingSeguimientos(pendingResult.data ?? [])
       setPendingRetenciones(pendingRetencionesResult.data ?? [])
       setAssignedRetenciones(assignedRetencionesResult.data ?? [])
+      setMyRecuperaciones(recuperacionesResult.data ?? [])
 
       const atenciones = atencionesResult.data ?? []
       const customerIds = [
@@ -308,6 +347,7 @@ export function AtencionClienteProvider({
           })),
           seguimientos: seguimientosResult.data ?? [],
           retenciones: retencionesResult.data ?? [],
+          recuperaciones: recuperacionesTodayResult.data ?? [],
         })
       )
     } finally {
@@ -379,6 +419,29 @@ export function AtencionClienteProvider({
       }
 
       retencionCacheRef.current.set(id, result.data)
+      return result.data
+    },
+    [companyId]
+  )
+
+  const fetchRecuperacionById = useCallback(
+    async (id: string) => {
+      const cached = recuperacionCacheRef.current.get(id)
+      if (cached) {
+        return cached
+      }
+
+      if (!companyId) {
+        return null
+      }
+
+      const result = await loadCustomerRecuperacionById(id, companyId)
+
+      if (!result.data) {
+        return null
+      }
+
+      recuperacionCacheRef.current.set(id, result.data)
       return result.data
     },
     [companyId]
@@ -595,6 +658,72 @@ export function AtencionClienteProvider({
     [companyId, employeeId, isReadOnly, openRestrictedDialog, refreshDashboard]
   )
 
+  const createRecuperacion = useCallback(
+    async (
+      input: NewCustomerRecuperacionInput
+    ): Promise<RecuperacionMutationResult> => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return DEMO_WRITE_BLOCKED_MUTATION_RESULT
+      }
+
+      if (!companyId || !employeeId) {
+        return { success: false, message: "Sesión no disponible." }
+      }
+
+      if (!input.offer.trim()) {
+        return {
+          success: false,
+          message: "Completá la oferta o promoción realizada.",
+        }
+      }
+
+      if (!input.observation.trim()) {
+        return {
+          success: false,
+          message: "Completá la observación de la gestión.",
+        }
+      }
+
+      if (input.mode === "existing" && !input.customerId) {
+        return {
+          success: false,
+          message: "Seleccioná un cliente existente.",
+        }
+      }
+
+      if (input.mode === "manual") {
+        if (
+          !input.manualCustomerName.trim() ||
+          !input.manualZone.trim() ||
+          !input.manualPhone.trim()
+        ) {
+          return {
+            success: false,
+            message: "Completá nombre, zona y teléfono para la carga manual.",
+          }
+        }
+      }
+
+      const result = await createCustomerRecuperacion(
+        mapNewCustomerRecuperacionInputToPayload(input, companyId, employeeId)
+      )
+
+      if (result.error || !result.data) {
+        return {
+          success: false,
+          message:
+            result.error?.message ?? "No se pudo registrar la gestión de recupero.",
+        }
+      }
+
+      recuperacionCacheRef.current.set(result.data.id, result.data)
+      await refreshDashboard()
+
+      return { success: true, recuperacion: result.data }
+    },
+    [companyId, employeeId, isReadOnly, openRestrictedDialog, refreshDashboard]
+  )
+
   const completeSeguimiento = useCallback(
     async (
       id: string,
@@ -732,6 +861,7 @@ export function AtencionClienteProvider({
       pendingSeguimientos,
       pendingRetenciones,
       assignedRetenciones,
+      myRecuperaciones,
       jornadaEntries,
       canAssignRetencion,
       canViewAssignedRetenciones,
@@ -741,11 +871,13 @@ export function AtencionClienteProvider({
       fetchAtencionById,
       fetchSeguimientoById,
       fetchRetencionById,
+      fetchRecuperacionById,
       searchCustomers,
       listAssignees,
       createAtencion,
       assignRetencion,
       completeRetencion,
+      createRecuperacion,
       completeSeguimiento,
       completeSeguimientoWithFollowUp,
       getAgendaItems,
@@ -760,8 +892,10 @@ export function AtencionClienteProvider({
       completeSeguimiento,
       completeSeguimientoWithFollowUp,
       createAtencion,
+      createRecuperacion,
       dashboardSummary,
       fetchAtencionById,
+      fetchRecuperacionById,
       fetchRetencionById,
       fetchSeguimientoById,
       getAgendaItems,
@@ -773,6 +907,7 @@ export function AtencionClienteProvider({
       listPage,
       listQuery,
       loadAtencionPage,
+      myRecuperaciones,
       pendingRetenciones,
       pendingSeguimientos,
       refreshDashboard,

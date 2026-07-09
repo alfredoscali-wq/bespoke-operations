@@ -439,6 +439,79 @@ export type Database = {
           },
         ]
       }
+      customer_recuperaciones: {
+        Row: {
+          id: string
+          company_id: string
+          customer_id: string | null
+          manual_customer_name: string | null
+          manual_zone: string | null
+          manual_phone: string | null
+          performed_by_employee_id: string
+          channel: string
+          offer: string
+          observation: string
+          resultado: string
+          created_at: string
+          updated_at: string
+          deleted_at: string | null
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          customer_id?: string | null
+          manual_customer_name?: string | null
+          manual_zone?: string | null
+          manual_phone?: string | null
+          performed_by_employee_id: string
+          channel: string
+          offer: string
+          observation: string
+          resultado: string
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          customer_id?: string | null
+          manual_customer_name?: string | null
+          manual_zone?: string | null
+          manual_phone?: string | null
+          performed_by_employee_id?: string
+          channel?: string
+          offer?: string
+          observation?: string
+          resultado?: string
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_recuperaciones_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_recuperaciones_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_recuperaciones_performed_by_employee_id_fkey"
+            columns: ["performed_by_employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           id: string
@@ -1483,6 +1556,12 @@ export type CustomerRetencionInsert =
   Database["public"]["Tables"]["customer_retenciones"]["Insert"]
 export type CustomerRetencionUpdate =
   Database["public"]["Tables"]["customer_retenciones"]["Update"]
+export type CustomerRecuperacionRow =
+  Database["public"]["Tables"]["customer_recuperaciones"]["Row"]
+export type CustomerRecuperacionInsert =
+  Database["public"]["Tables"]["customer_recuperaciones"]["Insert"]
+export type CustomerRecuperacionUpdate =
+  Database["public"]["Tables"]["customer_recuperaciones"]["Update"]
 export type CustomerRow = Database["public"]["Tables"]["customers"]["Row"]
 export type CustomerInsert = Database["public"]["Tables"]["customers"]["Insert"]
 export type CustomerUpdate = Database["public"]["Tables"]["customers"]["Update"]

@@ -56,6 +56,8 @@ test("KPI Resueltas suma atenciones resueltas y seguimientos realmente resueltos
     retencionesGestionadas: 2,
     clientesRetenidos: 1,
     noRetenidos: 1,
+    recuperosGestionados: 0,
+    clientesRecuperados: 0,
   })
 
   assert.equal(kpis.atenciones, 4)
@@ -65,6 +67,8 @@ test("KPI Resueltas suma atenciones resueltas y seguimientos realmente resueltos
   assert.equal(kpis.retencionesGestionadas, 2)
   assert.equal(kpis.clientesRetenidos, 1)
   assert.equal(kpis.noRetenidos, 1)
+  assert.equal(kpis.recuperosGestionados, 0)
+  assert.equal(kpis.clientesRecuperados, 0)
 })
 
 test("actividad del período combina atenciones, seguimientos y retenciones", () => {
@@ -109,10 +113,24 @@ test("actividad del período combina atenciones, seguimientos y retenciones", ()
         resolution: "Acuerdo alcanzado con el cliente",
       },
     ],
+    recuperaciones: [
+      {
+        id: "recupero-1",
+        kind: "recupero",
+        occurredAt: "2026-07-08T16:00:00.000Z",
+        displayName: "Excliente",
+        zoneLabel: "Sur",
+        channel: "whatsapp",
+        offer: "Descuento",
+        resultado: "recuperado",
+        observation: "Volvió",
+      },
+    ],
   })
 
-  assert.equal(entries.length, 3)
-  assert.equal(entries[0]?.kind, "retencion")
-  assert.equal(entries[1]?.kind, "atencion")
-  assert.equal(entries[2]?.kind, "seguimiento")
+  assert.equal(entries.length, 4)
+  assert.equal(entries[0]?.kind, "recupero")
+  assert.equal(entries[1]?.kind, "retencion")
+  assert.equal(entries[2]?.kind, "atencion")
+  assert.equal(entries[3]?.kind, "seguimiento")
 })

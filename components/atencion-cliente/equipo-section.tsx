@@ -8,6 +8,7 @@ import {
   Headset,
   ShieldCheck,
   UserCheck,
+  UserPlus,
   UserX,
 } from "lucide-react"
 
@@ -73,6 +74,18 @@ const KPI_CONFIG = [
     label: "No retenidos",
     icon: UserX,
     tone: "neutral" as const,
+  },
+  {
+    key: "recuperosGestionados",
+    label: "Recuperos gestionados",
+    icon: UserPlus,
+    tone: "orange" as const,
+  },
+  {
+    key: "clientesRecuperados",
+    label: "Clientes recuperados",
+    icon: UserCheck,
+    tone: "green" as const,
   },
 ] as const
 

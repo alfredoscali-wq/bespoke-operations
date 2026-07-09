@@ -51,6 +51,7 @@ test("KPI retenciones activas usa conteo del empleado actual", () => {
     resueltas: 1,
     seguimientosPendientes: 3,
     retencionesActivas: 4,
+    recuperosHoy: 0,
   }
 
   assert.equal(getAtencionClienteKpiValue(summary, "retenciones_activas"), 4)

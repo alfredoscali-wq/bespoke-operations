@@ -13,7 +13,9 @@ import {
 import { EquipoSection } from "@/components/atencion-cliente/equipo-section"
 import { MisRetencionesSection } from "@/components/atencion-cliente/mis-retenciones-section"
 import { RetencionesAsignadasSection } from "@/components/atencion-cliente/retenciones-asignadas-section"
+import { MiRecuperoSection } from "@/components/atencion-cliente/mi-recupero-section"
 import { MiJornadaSection } from "@/components/atencion-cliente/mi-jornada-section"
+import { RecuperoFormDialog } from "@/components/atencion-cliente/recupero-form-dialog"
 import { RetencionAssignDialog } from "@/components/atencion-cliente/retencion-assign-dialog"
 import { useAtencionCliente } from "@/components/atencion-cliente/atencion-cliente-provider"
 import { DEFAULT_ATENCION_PAGE_SIZE } from "@/lib/customer-atenciones/atencion-list"
@@ -46,6 +48,7 @@ export function AtencionClienteModule() {
   const [search, setSearch] = useState("")
   const [debouncedSearch, setDebouncedSearch] = useState("")
   const [formOpen, setFormOpen] = useState(false)
+  const [recuperoFormOpen, setRecuperoFormOpen] = useState(false)
   const [assignRetencionOpen, setAssignRetencionOpen] = useState(false)
   const [page, setPage] = useState(1)
   const [agendaView, setAgendaView] = useState<"hoy" | "semana">("hoy")
@@ -92,7 +95,7 @@ export function AtencionClienteModule() {
             Atención al Cliente
           </h1>
           <p className="text-sm text-muted-foreground">
-            Nueva atención, retenciones, seguimientos y actividad del día.
+            Nueva atención, recupero, retenciones, seguimientos y actividad del día.
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
@@ -101,6 +104,14 @@ export function AtencionClienteModule() {
               Asignar Retención
             </Button>
           ) : null}
+          <Button
+            size="lg"
+            variant="outline"
+            onClick={() => setRecuperoFormOpen(true)}
+          >
+            <Plus className="mr-2 size-4" />
+            Nueva Gestión de Recupero
+          </Button>
           <Button size="lg" onClick={() => setFormOpen(true)}>
             <Plus className="mr-2 size-4" />
             Nueva Atención
@@ -180,6 +191,7 @@ export function AtencionClienteModule() {
               dashboardFilter === "jornada_resueltas"
             }
           />
+          <MiRecuperoSection highlighted={dashboardFilter === "mi_recupero"} />
         </div>
       </div>
 
@@ -235,6 +247,10 @@ export function AtencionClienteModule() {
       </Card>
 
       <AtencionFormDialog open={formOpen} onOpenChange={setFormOpen} />
+      <RecuperoFormDialog
+        open={recuperoFormOpen}
+        onOpenChange={setRecuperoFormOpen}
+      />
       <RetencionAssignDialog
         open={assignRetencionOpen}
         onOpenChange={setAssignRetencionOpen}

@@ -3,12 +3,14 @@ import {
   formatCustomerAtencionMotivoLabel,
   formatCustomerAtencionResultadoLabel,
 } from "@/lib/customer-atenciones/format"
+import { formatCustomerRecuperacionResultadoLabel } from "@/lib/customer-recuperaciones/format"
 import { formatCustomerRetencionResultadoLabel } from "@/lib/customer-retenciones/format"
 import type { CustomerAtencion } from "@/lib/types/customer-atenciones"
+import type { CustomerRecuperacionJornadaRow } from "@/lib/types/customer-recuperaciones"
 import type { CustomerRetencionJornadaRow } from "@/lib/types/customer-retenciones"
 import type { CustomerSeguimientoJornadaRow } from "@/lib/types/customer-seguimientos"
 
-export type JornadaEntryKind = "atencion" | "seguimiento" | "retencion"
+export type JornadaEntryKind = "atencion" | "seguimiento" | "retencion" | "recupero"
 
 export type JornadaEntry = {
   id: string
@@ -21,6 +23,7 @@ export type JornadaEntry = {
   detail: string
   tone: "green" | "blue" | "neutral"
   atencionResultado?: CustomerAtencion["resultado"]
+  recuperacionResultado?: CustomerRecuperacionJornadaRow["resultado"]
 }
 
 export type JornadaFilter =
@@ -29,6 +32,7 @@ export type JornadaFilter =
   | "resueltas"
   | "seguimientos"
   | "retenciones"
+  | "recuperos"
 
 export function buildAtencionJornadaEntry(
   atencion: CustomerAtencion,
@@ -80,10 +84,35 @@ export function buildRetencionJornadaEntry(
   }
 }
 
+export function buildRecuperacionJornadaEntry(
+  recuperacion: CustomerRecuperacionJornadaRow
+): JornadaEntry {
+  const tone =
+    recuperacion.resultado === "recuperado"
+      ? "green"
+      : recuperacion.resultado === "interesado"
+        ? "blue"
+        : "neutral"
+
+  return {
+    id: recuperacion.id,
+    kind: "recupero",
+    occurredAt: recuperacion.occurredAt,
+    customerId: recuperacion.id,
+    customerName: recuperacion.displayName,
+    title: "Recupero",
+    subtitle: recuperacion.displayName,
+    detail: `${formatCustomerRecuperacionResultadoLabel(recuperacion.resultado)} · ${recuperacion.offer}`,
+    tone,
+    recuperacionResultado: recuperacion.resultado,
+  }
+}
+
 export function buildJornadaEntries(input: {
   atenciones: Array<{ atencion: CustomerAtencion; customerName: string }>
   seguimientos: CustomerSeguimientoJornadaRow[]
   retenciones?: CustomerRetencionJornadaRow[]
+  recuperaciones?: CustomerRecuperacionJornadaRow[]
 }): JornadaEntry[] {
   const entries = [
     ...input.atenciones.map(({ atencion, customerName }) =>
@@ -91,6 +120,7 @@ export function buildJornadaEntries(input: {
     ),
     ...input.seguimientos.map(buildSeguimientoJornadaEntry),
     ...(input.retenciones ?? []).map(buildRetencionJornadaEntry),
+    ...(input.recuperaciones ?? []).map(buildRecuperacionJornadaEntry),
   ]
 
   return entries.sort(
@@ -115,6 +145,8 @@ export function filterJornadaEntries(
       return entries.filter((entry) => entry.kind === "seguimiento")
     case "retenciones":
       return entries.filter((entry) => entry.kind === "retencion")
+    case "recuperos":
+      return entries.filter((entry) => entry.kind === "recupero")
     default:
       return entries
   }

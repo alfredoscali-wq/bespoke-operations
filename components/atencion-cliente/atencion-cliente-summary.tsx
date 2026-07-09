@@ -1,6 +1,6 @@
 "use client"
 
-import { CheckCircle2, ClipboardList, Headset, ShieldCheck } from "lucide-react"
+import { CheckCircle2, ClipboardList, Headset, ShieldCheck, UserPlus } from "lucide-react"
 
 import { useAtencionCliente } from "@/components/atencion-cliente/atencion-cliente-provider"
 import { FilterableKpiCard } from "@/components/ui/filterable-kpi-card"
@@ -19,6 +19,7 @@ const KPI_ICONS = {
   resueltas: CheckCircle2,
   seguimientos_pendientes: ClipboardList,
   retenciones_activas: ShieldCheck,
+  recuperos_hoy: UserPlus,
 } as const
 
 type AtencionClienteSummaryProps = {

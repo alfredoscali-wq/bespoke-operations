@@ -430,6 +430,7 @@ export async function fetchAtencionClienteKpiSummary(
         (seguimientosResueltosResult.data ?? 0),
       seguimientosPendientes: pendientesResult.count ?? 0,
       retencionesActivas: 0,
+      recuperosHoy: 0,
     },
     error: null,
   }

@@ -5,6 +5,7 @@ export type AtencionClienteKpiKey =
   | "resueltas"
   | "seguimientos_pendientes"
   | "retenciones_activas"
+  | "recuperos_hoy"
 
 export type AtencionClienteDashboardFilter =
   | "none"
@@ -12,12 +13,14 @@ export type AtencionClienteDashboardFilter =
   | "jornada_resueltas"
   | "agenda_seguimientos"
   | "retenciones_activas"
+  | "mi_recupero"
 
 export type AtencionClienteKpiSummary = {
   atencionesHoy: number
   resueltas: number
   seguimientosPendientes: number
   retencionesActivas: number
+  recuperosHoy: number
 }
 
 export const ATENCION_CLIENTE_KPI_ORDER: AtencionClienteKpiKey[] = [
@@ -25,6 +28,7 @@ export const ATENCION_CLIENTE_KPI_ORDER: AtencionClienteKpiKey[] = [
   "resueltas",
   "seguimientos_pendientes",
   "retenciones_activas",
+  "recuperos_hoy",
 ]
 
 export const ATENCION_CLIENTE_KPI_LABELS: Record<AtencionClienteKpiKey, string> =
@@ -33,6 +37,7 @@ export const ATENCION_CLIENTE_KPI_LABELS: Record<AtencionClienteKpiKey, string> 
     resueltas: "Resueltas",
     seguimientos_pendientes: "Seguimientos pendientes",
     retenciones_activas: "Retenciones activas",
+    recuperos_hoy: "Recuperos hoy",
   }
 
 export const ATENCION_CLIENTE_KPI_TONE: Record<AtencionClienteKpiKey, VisualTone> =
@@ -41,6 +46,7 @@ export const ATENCION_CLIENTE_KPI_TONE: Record<AtencionClienteKpiKey, VisualTone
     resueltas: "green",
     seguimientos_pendientes: "amber",
     retenciones_activas: "violet",
+    recuperos_hoy: "orange",
   }
 
 /**
@@ -61,6 +67,8 @@ export function getAtencionClienteKpiValue(
       return summary.seguimientosPendientes
     case "retenciones_activas":
       return summary.retencionesActivas
+    case "recuperos_hoy":
+      return summary.recuperosHoy
   }
 }
 
@@ -73,6 +81,7 @@ export function mapKpiKeyToDashboardFilter(
     resueltas: "jornada_resueltas",
     seguimientos_pendientes: "agenda_seguimientos",
     retenciones_activas: "retenciones_activas",
+    recuperos_hoy: "mi_recupero",
   }
 
   return current === next[key] ? "none" : next[key]
@@ -80,7 +89,7 @@ export function mapKpiKeyToDashboardFilter(
 
 export function mapDashboardFilterToJornadaFilter(
   filter: AtencionClienteDashboardFilter
-): "all" | "atenciones" | "resueltas" | "retenciones" {
+): "all" | "atenciones" | "resueltas" | "retenciones" | "recuperos" {
   if (filter === "jornada_atenciones") {
     return "atenciones"
   }
@@ -91,6 +100,10 @@ export function mapDashboardFilterToJornadaFilter(
 
   if (filter === "retenciones_activas") {
     return "all"
+  }
+
+  if (filter === "mi_recupero") {
+    return "recuperos"
   }
 
   return "all"

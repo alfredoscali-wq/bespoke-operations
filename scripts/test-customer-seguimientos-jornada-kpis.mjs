@@ -110,6 +110,7 @@ test("KPI resueltas incluye atenciones resueltas y seguimientos resueltos del d√
     resueltas: 2,
     seguimientosPendientes: 0,
     retencionesActivas: 0,
+    recuperosHoy: 0,
   }
 
   assert.equal(getAtencionClienteKpiValue(summary, "resueltas"), 2)

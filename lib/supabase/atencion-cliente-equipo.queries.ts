@@ -12,7 +12,13 @@ import {
 import { buildJornadaEntries } from "@/lib/customer-seguimientos/jornada"
 import { mapCustomerAtencionRowToCustomerAtencion } from "@/lib/supabase/customer-atenciones.mapper"
 import { countSeguimientosResueltosForEmployeeInRange } from "@/lib/supabase/customer-seguimientos.queries"
+import {
+  getCustomerRecuperacionDisplayName,
+  getCustomerRecuperacionZoneLabel,
+} from "@/lib/customer-recuperaciones/format"
+import { mapCustomerRecuperacionRowToCustomerRecuperacion } from "@/lib/supabase/customer-recuperaciones.mapper"
 import type { Database } from "@/lib/supabase/database.types"
+import type { CustomerRecuperacionJornadaRow } from "@/lib/types/customer-recuperaciones"
 import type { CustomerRetencionJornadaRow } from "@/lib/types/customer-retenciones"
 import type { CustomerSeguimientoJornadaRow } from "@/lib/types/customer-seguimientos"
 
@@ -101,6 +107,7 @@ export async function fetchEquipoIndividualReport(
     seguimientosCompletadosResult,
     seguimientosPendientesResult,
     retencionesResult,
+    recuperacionesResult,
     employeeName,
   ] = await Promise.all([
     client
@@ -158,6 +165,17 @@ export async function fetchEquipoIndividualReport(
       .lt("completed_at", bounds.end)
       .is("deleted_at", null)
       .order("completed_at", { ascending: false }),
+    client
+      .from("customer_recuperaciones")
+      .select(
+        "id, customer_id, manual_customer_name, manual_zone, channel, offer, observation, resultado, created_at"
+      )
+      .eq("company_id", companyId)
+      .eq("performed_by_employee_id", employeeId)
+      .gte("created_at", bounds.start)
+      .lt("created_at", bounds.end)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false }),
     loadEmployeeDisplayName(client, companyId, employeeId),
   ])
 
@@ -200,6 +218,10 @@ export async function fetchEquipoIndividualReport(
     return { data: null, error: mapQueryError(retencionesResult.error) }
   }
 
+  if (recuperacionesResult.error) {
+    return { data: null, error: mapQueryError(recuperacionesResult.error) }
+  }
+
   const atencionRows = atencionesResult.data ?? []
   const seguimientoRows = (seguimientosCompletadosResult.data ?? []).filter(
     (row) => row.completed_at && row.completion_action
@@ -207,6 +229,7 @@ export async function fetchEquipoIndividualReport(
   const retencionRows = (retencionesResult.data ?? []).filter(
     (row) => row.completed_at && row.resultado && row.resolution
   )
+  const recuperacionRows = recuperacionesResult.data ?? []
 
   const customerNameById = await loadCustomerNamesById(
     client,
@@ -216,6 +239,9 @@ export async function fetchEquipoIndividualReport(
         ...atencionRows.map((row) => row.customer_id),
         ...seguimientoRows.map((row) => row.customer_id),
         ...retencionRows.map((row) => row.customer_id),
+        ...recuperacionRows
+          .map((row) => row.customer_id)
+          .filter((id): id is string => Boolean(id)),
       ]),
     ]
   )
@@ -249,6 +275,46 @@ export async function fetchEquipoIndividualReport(
     (row) => row.resultado === "no_retenido"
   ).length
 
+  const recuperaciones: CustomerRecuperacionJornadaRow[] = recuperacionRows.map(
+    (row) => {
+      const mapped = mapCustomerRecuperacionRowToCustomerRecuperacion({
+        id: row.id,
+        company_id: companyId,
+        customer_id: row.customer_id,
+        manual_customer_name: row.manual_customer_name,
+        manual_zone: row.manual_zone,
+        manual_phone: null,
+        performed_by_employee_id: employeeId,
+        channel: row.channel,
+        offer: row.offer,
+        observation: row.observation,
+        resultado: row.resultado,
+        created_at: row.created_at,
+        updated_at: row.created_at,
+        deleted_at: null,
+      })
+      const customerName = row.customer_id
+        ? customerNameById.get(row.customer_id)
+        : undefined
+
+      return {
+        id: row.id,
+        kind: "recupero" as const,
+        occurredAt: row.created_at,
+        displayName: getCustomerRecuperacionDisplayName(mapped, customerName),
+        zoneLabel: getCustomerRecuperacionZoneLabel(mapped, customerName),
+        channel: mapped.channel,
+        offer: row.offer,
+        resultado: mapped.resultado,
+        observation: row.observation,
+      }
+    }
+  )
+
+  const clientesRecuperados = recuperaciones.filter(
+    (row) => row.resultado === "recuperado"
+  ).length
+
   const activity = buildJornadaEntries({
     atenciones: atencionRows.map((row) => ({
       atencion: mapCustomerAtencionRowToCustomerAtencion(row),
@@ -256,6 +322,7 @@ export async function fetchEquipoIndividualReport(
     })),
     seguimientos,
     retenciones,
+    recuperaciones,
   })
 
   return {
@@ -273,6 +340,8 @@ export async function fetchEquipoIndividualReport(
         retencionesGestionadas: retenciones.length,
         clientesRetenidos,
         noRetenidos,
+        recuperosGestionados: recuperaciones.length,
+        clientesRecuperados,
       }),
       activity,
     },
