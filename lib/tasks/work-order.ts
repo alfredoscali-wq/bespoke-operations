@@ -1,3 +1,4 @@
+import { resolveNextPlanningQueuePosition } from "@/lib/planificacion/planning-dynamic"
 import { resolveCrewSnapshotsForAssignment } from "@/lib/tasks/crew-relation"
 import type { CreateTaskPayload } from "@/lib/types/supabase/tasks"
 import type { UpdateTaskPayload } from "@/lib/types/supabase/tasks"
@@ -1041,16 +1042,38 @@ export function buildWorkOrderFormFromTask(task: Task): WorkOrderFormInput {
 export function buildWorkOrderUpdatePayload(input: {
   form: WorkOrderFormInput
   task: Task
+  existingTasks: Task[]
   customerId?: string | null
   crew?: Pick<Crew, "id" | "name" | "supervisor"> | null
 }): UpdateTaskPayload {
   const payload = buildWorkOrderCreatePayload({
     form: input.form,
-    existingTasks: [input.task],
+    existingTasks: input.existingTasks,
     customerId: input.customerId ?? input.task.customerId,
     checklist: input.task.checklist,
     crew: input.crew ?? null,
   })
+
+  const nextCrewId = payload.crewId?.trim() || null
+  const nextDueDate = payload.dueDate?.trim() || null
+  const crewChanged =
+    (input.task.crewId?.trim() || null) !== nextCrewId
+  const dateChanged =
+    (input.task.dueDate?.trim() || null) !== nextDueDate
+  const shouldRecalculateExecutionOrder =
+    isWorkOrderTask(input.task) &&
+    input.task.status === "programada" &&
+    Boolean(nextCrewId && nextDueDate) &&
+    (crewChanged || dateChanged)
+
+  const executionOrder = shouldRecalculateExecutionOrder
+    ? resolveNextPlanningQueuePosition({
+        tasks: input.existingTasks,
+        dueDate: nextDueDate!,
+        crewId: nextCrewId!,
+        excludeTaskId: input.task.id,
+      })
+    : undefined
 
   return {
     title: payload.title,
@@ -1083,5 +1106,6 @@ export function buildWorkOrderUpdatePayload(input: {
     paymentMethod: payload.paymentMethod,
     latitude: payload.latitude,
     longitude: payload.longitude,
+    ...(executionOrder !== undefined ? { executionOrder } : {}),
   }
 }

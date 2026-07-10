@@ -900,6 +900,7 @@ export function TaskWorkOrderDialog({
     const payload = buildWorkOrderUpdatePayload({
       form,
       task,
+      existingTasks,
       customerId,
       crew: selectedCrew ?? null,
     })
