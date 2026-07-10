@@ -30,6 +30,7 @@ import { formatTaskDate } from "@/lib/tasks/constants"
 import {
   formatContractedPlanLabel,
   formatAmountToCollectDisplay,
+  formatWorkOrderPaymentMethodLabel,
   isNewInstallationTask,
 } from "@/lib/tasks/commercial-plan"
 import { isWorkOrderTask } from "@/lib/tasks/work-order"
@@ -235,6 +236,15 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
         "—"
       ),
     },
+    ...(liveTask.customerDni?.trim()
+      ? [
+          {
+            icon: FileText,
+            label: "DNI / CUIT",
+            value: liveTask.customerDni.trim(),
+          },
+        ]
+      : []),
     {
       icon: MapPin,
       label: "Dirección",
@@ -396,15 +406,26 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
           </Card>
         ) : null}
 
-        {isWorkOrderTask(liveTask) && liveTask.amountToCollect != null ? (
+        {isWorkOrderTask(liveTask) &&
+        (liveTask.amountToCollect != null || liveTask.paymentMethod) ? (
           <Card className="shadow-sm">
             <CardHeader>
               <CardTitle>Importe a cobrar</CardTitle>
             </CardHeader>
-            <CardContent>
-              <p className="text-base font-semibold">
-                {formatAmountToCollectDisplay(liveTask.amountToCollect)}
-              </p>
+            <CardContent className="space-y-3">
+              {liveTask.amountToCollect != null ? (
+                <p className="text-base font-semibold">
+                  {formatAmountToCollectDisplay(liveTask.amountToCollect)}
+                </p>
+              ) : null}
+              {liveTask.paymentMethod ? (
+                <div>
+                  <p className="text-xs text-muted-foreground">Medio de pago</p>
+                  <p className="text-sm font-medium">
+                    {formatWorkOrderPaymentMethodLabel(liveTask.paymentMethod)}
+                  </p>
+                </div>
+              ) : null}
             </CardContent>
           </Card>
         ) : null}

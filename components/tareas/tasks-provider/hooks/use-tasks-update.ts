@@ -141,6 +141,12 @@ export function useTasksUpdate({
       ...(payload.amountToCollect !== undefined
         ? { amountToCollect: payload.amountToCollect ?? undefined }
         : {}),
+      ...(payload.customerDni !== undefined
+        ? { customerDni: payload.customerDni ?? undefined }
+        : {}),
+      ...(payload.paymentMethod !== undefined
+        ? { paymentMethod: payload.paymentMethod ?? undefined }
+        : {}),
       ...(payload.originalScheduledDate !== undefined
         ? { originalScheduledDate: payload.originalScheduledDate ?? undefined }
         : {}),

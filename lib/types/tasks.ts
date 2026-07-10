@@ -51,6 +51,7 @@ export type Task = {
   customerCompany?: string
   customerName?: string
   customerPhone?: string
+  customerDni?: string
   customerId?: string
   serviceAddress?: string
   latitude?: number
@@ -93,6 +94,7 @@ export type Task = {
   contractedPlan?: string | null
   installationCost?: number | null
   amountToCollect?: number | null
+  paymentMethod?: string | null
   taskMetadata?: Record<string, unknown>
   executionOrder?: number | null
   dispatchOrder?: number | null

@@ -22,6 +22,7 @@ import { isCambioDomicilioTask } from "@/lib/tasks/cambio-domicilio"
 import {
   formatAmountToCollectDisplay,
   formatContractedPlanLabel,
+  formatWorkOrderPaymentMethodLabel,
 } from "@/lib/tasks/commercial-plan"
 import { formatTaskDate } from "@/lib/tasks/constants"
 import {
@@ -150,6 +151,15 @@ function TaskAdminInfoPanelContent({
         "—"
       ),
     },
+    ...(liveTask.customerDni?.trim()
+      ? [
+          {
+            icon: FileText,
+            label: "DNI / CUIT",
+            value: liveTask.customerDni.trim(),
+          },
+        ]
+      : []),
     {
       icon: MapPin,
       label: "Dirección",
@@ -171,6 +181,10 @@ function TaskAdminInfoPanelContent({
     isWorkOrderTask(liveTask) && liveTask.amountToCollect != null
       ? formatAmountToCollectDisplay(liveTask.amountToCollect)
       : "—"
+  const paymentMethodLabel =
+    isWorkOrderTask(liveTask) && liveTask.paymentMethod
+      ? formatWorkOrderPaymentMethodLabel(liveTask.paymentMethod) ?? "—"
+      : null
 
   return (
     <div className="space-y-4 lg:col-span-2">
@@ -180,7 +194,7 @@ function TaskAdminInfoPanelContent({
         </CardHeader>
         <CardContent>
           {isWorkOrderTask(liveTask) ? (
-            <div className="mb-4 grid gap-3 sm:grid-cols-3">
+            <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <TaskAdminMetricCard
                 icon="📡"
                 label="Tecnología"
@@ -196,6 +210,13 @@ function TaskAdminInfoPanelContent({
                 label="Importe a cobrar"
                 value={amountLabel}
               />
+              {paymentMethodLabel ? (
+                <TaskAdminMetricCard
+                  icon="💳"
+                  label="Medio de pago"
+                  value={paymentMethodLabel}
+                />
+              ) : null}
             </div>
           ) : null}
 

@@ -24,7 +24,9 @@ import {
   parseAmountToCollectInput,
   resolveContractedPlanFromForm,
   resolveCurrentContractedPlanFromForm,
+  resolvePaymentMethodFromForm,
   type ContractedPlan,
+  type WorkOrderPaymentMethod,
 } from "@/lib/tasks/commercial-plan"
 import {
   formatScheduledTimeForInput,
@@ -256,6 +258,7 @@ export type WorkOrderFormInput = {
   serviceType: WorkOrderServiceType | ""
   customerName: string
   customerPhone: string
+  customerDni: string
   customerEmail: string
   customerId: string
   scheduledDate: string
@@ -295,6 +298,7 @@ export type WorkOrderFormInput = {
   observationsForCrew: string
   contractedPlan: ContractedPlan | ""
   amountToCollect: string
+  paymentMethod: WorkOrderPaymentMethod | ""
   latitude: number | null
   longitude: number | null
   currentLatitude: number | null
@@ -308,6 +312,7 @@ export function getDefaultWorkOrderForm(): WorkOrderFormInput {
     serviceType: "",
     customerName: "",
     customerPhone: "",
+    customerDni: "",
     customerEmail: "",
     customerId: "",
     scheduledDate: new Date().toISOString().slice(0, 10),
@@ -347,6 +352,7 @@ export function getDefaultWorkOrderForm(): WorkOrderFormInput {
     observationsForCrew: "",
     contractedPlan: "",
     amountToCollect: "",
+    paymentMethod: "",
     latitude: null,
     longitude: null,
     currentLatitude: null,
@@ -801,6 +807,7 @@ export function buildWorkOrderCreatePayload(input: {
       : form.sharedLocation.trim()
   const contractedPlan = resolveContractedPlanFromForm(form)
   const amountToCollect = parseAmountToCollectInput(form.amountToCollect)
+  const paymentMethod = resolvePaymentMethodFromForm(form.paymentMethod)
   const latitude =
     form.serviceType === "cambio-domicilio"
       ? form.newLatitude ?? form.latitude
@@ -819,6 +826,10 @@ export function buildWorkOrderCreatePayload(input: {
     projectName: customerName,
     customerName,
     customerPhone: form.customerPhone.trim() || undefined,
+    customerDni:
+      form.serviceType === "instalacion-nueva"
+        ? form.customerDni.trim() || undefined
+        : undefined,
     customerCompany: form.customerCompany.trim() || undefined,
     customerId: customerId ?? undefined,
     serviceAddress: serviceAddress || undefined,
@@ -844,6 +855,8 @@ export function buildWorkOrderCreatePayload(input: {
     taskMetadata: buildTaskMetadata(form),
     contractedPlan: contractedPlan ?? undefined,
     amountToCollect: amountToCollect ?? undefined,
+    paymentMethod:
+      form.serviceType === "instalacion-nueva" ? paymentMethod : undefined,
     latitude: latitude ?? undefined,
     longitude: longitude ?? undefined,
   }
@@ -982,6 +995,7 @@ export function buildWorkOrderFormFromTask(task: Task): WorkOrderFormInput {
     serviceType: (task.serviceType as WorkOrderServiceType) ?? "",
     customerName: task.customerName ?? "",
     customerPhone: task.customerPhone ?? "",
+    customerDni: task.customerDni ?? "",
     customerEmail: readTaskMetadataString(metadata.email),
     customerId: task.customerId ?? "",
     customerCompany: task.customerCompany ?? "",
@@ -1008,6 +1022,8 @@ export function buildWorkOrderFormFromTask(task: Task): WorkOrderFormInput {
     province: readTaskMetadataString(metadata.provincia),
     postalCode: readTaskMetadataString(metadata.codigoPostal),
     amountToCollect: formatAmountToCollectFormValue(task.amountToCollect),
+    paymentMethod:
+      (task.paymentMethod as WorkOrderFormInput["paymentMethod"]) ?? "",
     serviceReason:
       (readTaskMetadataString(metadata.reason) as WorkOrderFormInput["serviceReason"]) ||
       "",
@@ -1042,6 +1058,7 @@ export function buildWorkOrderUpdatePayload(input: {
     projectName: payload.projectName,
     customerName: payload.customerName,
     customerPhone: payload.customerPhone,
+    customerDni: payload.customerDni,
     customerCompany: payload.customerCompany,
     customerId: payload.customerId,
     serviceAddress: payload.serviceAddress,
@@ -1063,6 +1080,7 @@ export function buildWorkOrderUpdatePayload(input: {
     taskMetadata: payload.taskMetadata,
     contractedPlan: payload.contractedPlan,
     amountToCollect: payload.amountToCollect,
+    paymentMethod: payload.paymentMethod,
     latitude: payload.latitude,
     longitude: payload.longitude,
   }

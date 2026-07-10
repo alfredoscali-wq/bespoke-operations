@@ -251,15 +251,17 @@ function CustomerSearchField({
 function CustomerFields({
   form,
   updateField,
-  readOnlyContact = false,
+  readOnlyName = false,
 }: {
   form: WorkOrderFormInput
   updateField: <K extends keyof WorkOrderFormInput>(
     key: K,
     value: WorkOrderFormInput[K]
   ) => void
-  readOnlyContact?: boolean
+  readOnlyName?: boolean
 }) {
+  const showDniField = isNewInstallationWorkOrder(form.serviceType)
+
   return (
     <div className="space-y-4">
       <div className="space-y-2">
@@ -268,10 +270,21 @@ function CustomerFields({
           id="wo-customer-name"
           value={form.customerName}
           onChange={(event) => updateField("customerName", event.target.value)}
-          readOnly={readOnlyContact}
-          className={readOnlyContact ? "bg-muted/40" : undefined}
+          readOnly={readOnlyName}
+          className={readOnlyName ? "bg-muted/40" : undefined}
         />
       </div>
+      {showDniField ? (
+        <div className="space-y-2">
+          <Label htmlFor="wo-customer-dni">DNI / CUIT</Label>
+          <Input
+            id="wo-customer-dni"
+            value={form.customerDni}
+            onChange={(event) => updateField("customerDni", event.target.value)}
+            placeholder="Documento o CUIT del futuro cliente"
+          />
+        </div>
+      ) : null}
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="wo-phone">Teléfono</Label>
@@ -281,8 +294,7 @@ function CustomerFields({
             onChange={(event) =>
               updateField("customerPhone", event.target.value)
             }
-            readOnly={readOnlyContact}
-            className={readOnlyContact ? "bg-muted/40" : undefined}
+            placeholder="Ingresar teléfono de contacto"
           />
           {form.customerPhone.trim() && (
             <p className="text-xs">
@@ -803,6 +815,7 @@ export function TaskWorkOrderDialog({
 
       const customerResult = await createCustomer({
         name: form.customerName.trim(),
+        dni: form.customerDni.trim() || undefined,
         phone: form.customerPhone.trim() || undefined,
         email: form.customerEmail.trim() || undefined,
         address: form.address.trim() || undefined,
@@ -1038,7 +1051,7 @@ export function TaskWorkOrderDialog({
               <CustomerFields
                 form={form}
                 updateField={updateField}
-                readOnlyContact={
+                readOnlyName={
                   requiresCustomerLookup(form.serviceType) && customerSelected
                 }
               />
@@ -1056,6 +1069,11 @@ export function TaskWorkOrderDialog({
             <WorkOrderAmountToCollectField
               value={form.amountToCollect}
               onChange={(value) => updateField("amountToCollect", value)}
+              paymentMethod={form.paymentMethod}
+              onPaymentMethodChange={(value) =>
+                updateField("paymentMethod", value)
+              }
+              showPaymentMethod={isNewInstallationWorkOrder(form.serviceType)}
             />
           ) : null}
 

@@ -71,6 +71,7 @@ export function mapTaskRowToTask(row: TaskRow): Task {
     customerCompany: row.customer_company ?? undefined,
     customerName: row.customer_name ?? undefined,
     customerPhone: row.customer_phone ?? undefined,
+    customerDni: row.customer_dni?.trim() || undefined,
     customerId: row.customer_id ?? undefined,
     serviceAddress: row.service_address ?? undefined,
     latitude: mapNullableNumber(row.latitude),
@@ -113,6 +114,7 @@ export function mapTaskRowToTask(row: TaskRow): Task {
     contractedPlan: row.contracted_plan?.trim() || undefined,
     installationCost: mapNullableNumber(row.installation_cost),
     amountToCollect: mapNullableNumber(row.amount_to_collect),
+    paymentMethod: row.payment_method?.trim() || undefined,
     taskMetadata: parseTaskMetadata(row.task_metadata),
     executionOrder: row.execution_order ?? undefined,
     dispatchOrder: row.dispatch_order ?? undefined,
@@ -131,6 +133,7 @@ export function mapCreatePayloadToInsert(payload: CreateTaskPayload): TaskInsert
     customer_company: payload.customerCompany?.trim() || null,
     customer_name: payload.customerName?.trim() || null,
     customer_phone: payload.customerPhone?.trim() || null,
+    customer_dni: payload.customerDni?.trim() || null,
     customer_id: payload.customerId ?? null,
     service_address: payload.serviceAddress?.trim() || null,
     latitude: payload.latitude ?? null,
@@ -159,6 +162,7 @@ export function mapCreatePayloadToInsert(payload: CreateTaskPayload): TaskInsert
     contracted_plan: payload.contractedPlan?.trim() || null,
     installation_cost: payload.installationCost ?? null,
     amount_to_collect: payload.amountToCollect ?? null,
+    payment_method: payload.paymentMethod ?? null,
     task_metadata: (payload.taskMetadata ?? {}) as Json,
     execution_order: payload.executionOrder ?? null,
     dispatch_order: payload.dispatchOrder ?? null,
@@ -188,6 +192,9 @@ export function mapUpdatePayloadToUpdate(payload: UpdateTaskPayload): TaskUpdate
   }
   if (payload.customerPhone !== undefined) {
     update.customer_phone = payload.customerPhone?.trim() || null
+  }
+  if (payload.customerDni !== undefined) {
+    update.customer_dni = payload.customerDni?.trim() || null
   }
   if (payload.customerId !== undefined) {
     update.customer_id = payload.customerId
@@ -282,6 +289,9 @@ export function mapUpdatePayloadToUpdate(payload: UpdateTaskPayload): TaskUpdate
   }
   if (payload.amountToCollect !== undefined) {
     update.amount_to_collect = payload.amountToCollect
+  }
+  if (payload.paymentMethod !== undefined) {
+    update.payment_method = payload.paymentMethod
   }
   if (payload.taskMetadata !== undefined) {
     update.task_metadata = payload.taskMetadata as Json

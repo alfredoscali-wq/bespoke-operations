@@ -987,6 +987,7 @@ export type Database = {
           customer_company: string | null
           customer_name: string | null
           customer_phone: string | null
+          customer_dni: string | null
           customer_id: string | null
           service_address: string | null
           latitude: number | null
@@ -1031,6 +1032,7 @@ export type Database = {
           contracted_plan: string | null
           installation_cost: number | null
           amount_to_collect: number | null
+          payment_method: string | null
           task_metadata: Json
           execution_order: number | null
           dispatch_order: number | null
@@ -1047,6 +1049,7 @@ export type Database = {
           customer_company?: string | null
           customer_name?: string | null
           customer_phone?: string | null
+          customer_dni?: string | null
           customer_id?: string | null
           service_address?: string | null
           latitude?: number | null
@@ -1091,6 +1094,7 @@ export type Database = {
           contracted_plan?: string | null
           installation_cost?: number | null
           amount_to_collect?: number | null
+          payment_method?: string | null
           task_metadata?: Json
           execution_order?: number | null
           dispatch_order?: number | null
@@ -1107,6 +1111,7 @@ export type Database = {
           customer_company?: string | null
           customer_name?: string | null
           customer_phone?: string | null
+          customer_dni?: string | null
           customer_id?: string | null
           service_address?: string | null
           latitude?: number | null
@@ -1151,6 +1156,7 @@ export type Database = {
           contracted_plan?: string | null
           installation_cost?: number | null
           amount_to_collect?: number | null
+          payment_method?: string | null
           task_metadata?: Json
           execution_order?: number | null
           dispatch_order?: number | null

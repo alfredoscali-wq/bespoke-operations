@@ -115,6 +115,53 @@ export function formatAmountToCollectFormValue(
   return String(value)
 }
 
+export type WorkOrderPaymentMethod =
+  | "efectivo"
+  | "transferencia"
+  | "mercadopago"
+  | "tarjeta"
+  | "otro"
+
+export const WORK_ORDER_PAYMENT_METHOD_OPTIONS: {
+  value: WorkOrderPaymentMethod
+  label: string
+}[] = [
+  { value: "efectivo", label: "Efectivo" },
+  { value: "transferencia", label: "Transferencia" },
+  { value: "mercadopago", label: "Mercado Pago" },
+  { value: "tarjeta", label: "Tarjeta" },
+  { value: "otro", label: "Otro" },
+]
+
+const PAYMENT_METHOD_LABELS: Record<WorkOrderPaymentMethod, string> = {
+  efectivo: "Efectivo",
+  transferencia: "Transferencia",
+  mercadopago: "Mercado Pago",
+  tarjeta: "Tarjeta",
+  otro: "Otro",
+}
+
+export function formatWorkOrderPaymentMethodLabel(
+  method: string | null | undefined
+): string | null {
+  if (!method?.trim()) return null
+  return (
+    PAYMENT_METHOD_LABELS[method as WorkOrderPaymentMethod] ?? method.trim()
+  )
+}
+
+export function resolvePaymentMethodFromForm(
+  value: string
+): WorkOrderPaymentMethod | undefined {
+  const trimmed = value.trim()
+  if (!trimmed) return undefined
+
+  const allowed = WORK_ORDER_PAYMENT_METHOD_OPTIONS.map((option) => option.value)
+  return allowed.includes(trimmed as WorkOrderPaymentMethod)
+    ? (trimmed as WorkOrderPaymentMethod)
+    : undefined
+}
+
 export function resolveContractedPlanFromForm(
   form: CommercialFormSlice & {
     serviceType: string | ""
