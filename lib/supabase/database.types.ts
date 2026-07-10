@@ -363,6 +363,7 @@ export type Database = {
           resolution: string | null
           completed_at: string | null
           completed_by_employee_id: string | null
+          administration_pending_at: string | null
           created_at: string
           updated_at: string
           deleted_at: string | null
@@ -380,6 +381,7 @@ export type Database = {
           resolution?: string | null
           completed_at?: string | null
           completed_by_employee_id?: string | null
+          administration_pending_at?: string | null
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
@@ -397,6 +399,7 @@ export type Database = {
           resolution?: string | null
           completed_at?: string | null
           completed_by_employee_id?: string | null
+          administration_pending_at?: string | null
           created_at?: string
           updated_at?: string
           deleted_at?: string | null

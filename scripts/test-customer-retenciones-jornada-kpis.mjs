@@ -11,19 +11,31 @@ import {
   mapKpiKeyToDashboardFilter,
 } from "../lib/customer-seguimientos/kpis.ts"
 
-test("mi jornada incorpora retenciones finalizadas hoy", () => {
-  const entry = buildRetencionJornadaEntry({
+test("mi jornada incorpora retenido y persiste_baja", () => {
+  const retained = buildRetencionJornadaEntry({
     id: "retencion-1",
     kind: "retencion",
-    completedAt: "2026-07-08T14:30:00.000Z",
+    occurredAt: "2026-07-08T14:30:00.000Z",
     customerId: "customer-1",
     customerName: "Cliente X",
     resultado: "retenido",
     resolution: "Acuerdo alcanzado con el cliente",
   })
 
-  assert.equal(entry.kind, "retencion")
-  assert.match(entry.detail, /Retenido/)
+  assert.equal(retained.kind, "retencion")
+  assert.match(retained.detail, /Retenido/)
+
+  const derived = buildRetencionJornadaEntry({
+    id: "retencion-2",
+    kind: "retencion",
+    occurredAt: "2026-07-08T15:30:00.000Z",
+    customerId: "customer-2",
+    customerName: "Cliente Y",
+    resultado: "persiste_baja",
+    resolution: "Derivada a Administración",
+  })
+
+  assert.match(derived.detail, /Persiste con la baja/)
 
   const entries = buildJornadaEntries({
     atenciones: [],
@@ -32,20 +44,28 @@ test("mi jornada incorpora retenciones finalizadas hoy", () => {
       {
         id: "retencion-1",
         kind: "retencion",
-        completedAt: "2026-07-08T14:30:00.000Z",
+        occurredAt: "2026-07-08T14:30:00.000Z",
         customerId: "customer-1",
         customerName: "Cliente X",
         resultado: "retenido",
         resolution: "Acuerdo alcanzado con el cliente",
       },
+      {
+        id: "retencion-2",
+        kind: "retencion",
+        occurredAt: "2026-07-08T15:30:00.000Z",
+        customerId: "customer-2",
+        customerName: "Cliente Y",
+        resultado: "persiste_baja",
+        resolution: "Derivada a Administración",
+      },
     ],
   })
 
-  assert.equal(entries.length, 1)
-  assert.equal(entries[0]?.kind, "retencion")
+  assert.equal(entries.length, 2)
 })
 
-test("KPI retenciones activas usa conteo del empleado actual", () => {
+test("KPI gestiones de baja activas usa conteo del empleado actual", () => {
   const summary = {
     atencionesHoy: 2,
     resueltas: 1,
@@ -61,7 +81,7 @@ test("KPI retenciones activas usa conteo del empleado actual", () => {
   )
 })
 
-test("filtro jornada retenciones aísla entradas completadas", () => {
+test("filtro jornada retenciones aísla entradas de gestión de baja", () => {
   const entries = buildJornadaEntries({
     atenciones: [
       {
@@ -86,7 +106,7 @@ test("filtro jornada retenciones aísla entradas completadas", () => {
       {
         id: "retencion-1",
         kind: "retencion",
-        completedAt: "2026-07-08T14:30:00.000Z",
+        occurredAt: "2026-07-08T14:30:00.000Z",
         customerId: "customer-2",
         customerName: "Cliente X",
         resultado: "retenido",

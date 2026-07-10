@@ -70,8 +70,8 @@ const KPI_CONFIG = [
     tone: "green" as const,
   },
   {
-    key: "noRetenidos",
-    label: "No retenidos",
+    key: "bajasProcedidas",
+    label: "Bajas procedidas",
     icon: UserX,
     tone: "neutral" as const,
   },

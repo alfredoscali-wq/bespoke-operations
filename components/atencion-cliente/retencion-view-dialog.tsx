@@ -71,11 +71,17 @@ export function RetencionViewDialog({
   open,
   onOpenChange,
 }: RetencionViewDialogProps) {
-  const { fetchRetencionById } = useAtencionCliente()
+  const {
+    fetchRetencionById,
+    canMarkRetencionReadyForRetiro,
+    markRetencionReadyForRetiro,
+  } = useAtencionCliente()
   const [displayRow, setDisplayRow] = useState<CustomerRetencionSupervisionRow | null>(
     listRow
   )
   const [isLoading, setIsLoading] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     setDisplayRow(listRow)
@@ -102,6 +108,7 @@ export function RetencionViewDialog({
           resultado: retencion.resultado ?? null,
           resolution: retencion.resolution ?? null,
           completedAt: retencion.completedAt ?? null,
+          administrationPendingAt: retencion.administrationPendingAt ?? null,
         })
       }
 
@@ -117,6 +124,13 @@ export function RetencionViewDialog({
     }
   }, [fetchRetencionById, listRow, open, retencionId])
 
+  useEffect(() => {
+    if (!open) {
+      setError(null)
+      setIsSubmitting(false)
+    }
+  }, [open])
+
   const formattedCreatedAt = useMemo(() => {
     if (!displayRow) {
       return ""
@@ -125,18 +139,51 @@ export function RetencionViewDialog({
     return new Date(displayRow.createdAt).toLocaleString("es-AR")
   }, [displayRow])
 
+  const canMarkReady =
+    canMarkRetencionReadyForRetiro &&
+    displayRow?.status === "pendiente_administracion"
+
+  async function handleMarkReadyForRetiro() {
+    if (!retencionId) {
+      return
+    }
+
+    setIsSubmitting(true)
+    setError(null)
+
+    const result = await markRetencionReadyForRetiro(retencionId)
+
+    if (!result.success) {
+      setError(result.message ?? "No se pudo marcar listo para retiro.")
+      setIsSubmitting(false)
+      return
+    }
+
+    if (result.retencion && displayRow) {
+      setDisplayRow({
+        ...displayRow,
+        status: result.retencion.status,
+      })
+    }
+
+    setIsSubmitting(false)
+    onOpenChange(false)
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[50rem]">
         <DialogHeader>
-          <DialogTitle>Consultar retención</DialogTitle>
+          <DialogTitle>Consultar gestión de baja</DialogTitle>
           <DialogDescription>
-            Vista de supervisión. Solo lectura.
+            {canMarkReady
+              ? "Revisá la gestión y marcala lista para retiro cuando el trámite esté cumplimentado."
+              : "Vista de supervisión."}
           </DialogDescription>
         </DialogHeader>
 
         {!displayRow || isLoading ? (
-          <p className="text-sm text-muted-foreground">Cargando retención…</p>
+          <p className="text-sm text-muted-foreground">Cargando gestión…</p>
         ) : (
           <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-2">
@@ -157,11 +204,7 @@ export function RetencionViewDialog({
                   <dd className="font-medium">{displayRow.assignedEmployeeName}</dd>
                 </div>
                 <div>
-                  <dt className="text-muted-foreground">Asignada por</dt>
-                  <dd className="font-medium">{displayRow.assignedByEmployeeName}</dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground">Fecha de asignación</dt>
+                  <dt className="text-muted-foreground">Iniciada</dt>
                   <dd className="font-medium">{formattedCreatedAt}</dd>
                 </div>
                 <div className="sm:col-span-2">
@@ -171,17 +214,19 @@ export function RetencionViewDialog({
                   </dd>
                 </div>
                 <div className="sm:col-span-2">
-                  <dt className="text-muted-foreground">Detalle original</dt>
+                  <dt className="text-muted-foreground">Detalle inicial</dt>
                   <dd>{displayRow.detail}</dd>
                 </div>
                 {displayRow.resolution ? (
                   <div className="sm:col-span-2">
-                    <dt className="text-muted-foreground">Resolución final</dt>
+                    <dt className="text-muted-foreground">Gestión de Atención al Cliente</dt>
                     <dd>{displayRow.resolution}</dd>
                   </div>
                 ) : null}
               </dl>
             </div>
+
+            {error ? <p className="text-sm text-destructive">{error}</p> : null}
           </div>
         )}
 
@@ -189,6 +234,15 @@ export function RetencionViewDialog({
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Cerrar
           </Button>
+          {canMarkReady ? (
+            <Button
+              type="button"
+              disabled={isSubmitting || isLoading}
+              onClick={() => void handleMarkReadyForRetiro()}
+            >
+              {isSubmitting ? "Guardando…" : "Marcar listo para retiro"}
+            </Button>
+          ) : null}
         </DialogFooter>
       </DialogContent>
     </Dialog>

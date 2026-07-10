@@ -121,7 +121,7 @@ test("reporte individual expone KPIs de recupero del período", () => {
     seguimientosPendientes: 0,
     retencionesGestionadas: 0,
     clientesRetenidos: 0,
-    noRetenidos: 0,
+    bajasProcedidas: 0,
     recuperosGestionados: 3,
     clientesRecuperados: 1,
   })

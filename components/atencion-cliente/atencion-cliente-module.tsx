@@ -16,7 +16,7 @@ import { RetencionesAsignadasSection } from "@/components/atencion-cliente/reten
 import { MiRecuperoSection } from "@/components/atencion-cliente/mi-recupero-section"
 import { MiJornadaSection } from "@/components/atencion-cliente/mi-jornada-section"
 import { RecuperoFormDialog } from "@/components/atencion-cliente/recupero-form-dialog"
-import { RetencionAssignDialog } from "@/components/atencion-cliente/retencion-assign-dialog"
+import { RetencionCreateDialog } from "@/components/atencion-cliente/retencion-create-dialog"
 import { useAtencionCliente } from "@/components/atencion-cliente/atencion-cliente-provider"
 import { DEFAULT_ATENCION_PAGE_SIZE } from "@/lib/customer-atenciones/atencion-list"
 import type { AtencionClienteDashboardFilter } from "@/lib/customer-seguimientos/kpis"
@@ -40,7 +40,6 @@ export function AtencionClienteModule() {
     listPage,
     loadAtencionPage,
     refreshDashboard,
-    canAssignRetencion,
     canViewAssignedRetenciones,
     canViewEquipoReport,
   } = useAtencionCliente()
@@ -49,7 +48,7 @@ export function AtencionClienteModule() {
   const [debouncedSearch, setDebouncedSearch] = useState("")
   const [formOpen, setFormOpen] = useState(false)
   const [recuperoFormOpen, setRecuperoFormOpen] = useState(false)
-  const [assignRetencionOpen, setAssignRetencionOpen] = useState(false)
+  const [createRetencionOpen, setCreateRetencionOpen] = useState(false)
   const [page, setPage] = useState(1)
   const [agendaView, setAgendaView] = useState<"hoy" | "semana">("hoy")
   const [dashboardFilter, setDashboardFilter] =
@@ -99,11 +98,13 @@ export function AtencionClienteModule() {
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
-          {canAssignRetencion ? (
-            <Button size="lg" variant="outline" onClick={() => setAssignRetencionOpen(true)}>
-              Asignar Retención
-            </Button>
-          ) : null}
+          <Button
+            size="lg"
+            variant="outline"
+            onClick={() => setCreateRetencionOpen(true)}
+          >
+            Nueva gestión de baja
+          </Button>
           <Button
             size="lg"
             variant="outline"
@@ -251,9 +252,9 @@ export function AtencionClienteModule() {
         open={recuperoFormOpen}
         onOpenChange={setRecuperoFormOpen}
       />
-      <RetencionAssignDialog
-        open={assignRetencionOpen}
-        onOpenChange={setAssignRetencionOpen}
+      <RetencionCreateDialog
+        open={createRetencionOpen}
+        onOpenChange={setCreateRetencionOpen}
       />
         </>
       )}

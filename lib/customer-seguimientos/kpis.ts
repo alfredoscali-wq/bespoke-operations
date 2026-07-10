@@ -36,7 +36,7 @@ export const ATENCION_CLIENTE_KPI_LABELS: Record<AtencionClienteKpiKey, string> 
     atenciones_hoy: "Atenciones hoy",
     resueltas: "Resueltas",
     seguimientos_pendientes: "Seguimientos pendientes",
-    retenciones_activas: "Retenciones activas",
+    retenciones_activas: "Gestiones de baja activas",
     recuperos_hoy: "Recuperos hoy",
   }
 

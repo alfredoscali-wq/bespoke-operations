@@ -29,7 +29,8 @@ import { cn } from "@/lib/utils"
 
 const FILTER_OPTIONS: Array<{ value: AssignedRetencionFilter; label: string }> = [
   { value: "todas", label: "Todas" },
-  { value: "pendientes", label: "Pendientes" },
+  { value: "pendientes_administracion", label: "Pendientes de Administración" },
+  { value: "pendientes_retiro", label: "Pendientes de retiro" },
   { value: "finalizadas", label: "Finalizadas" },
 ]
 
@@ -41,7 +42,7 @@ function RetencionFilterToggle({
   onFilterChange: (filter: AssignedRetencionFilter) => void
 }) {
   return (
-    <div className="inline-flex rounded-lg border p-1">
+    <div className="inline-flex flex-wrap gap-1 rounded-lg border p-1">
       {FILTER_OPTIONS.map((option) => (
         <Button
           key={option.value}
@@ -120,15 +121,15 @@ export function RetencionesAsignadasSection() {
     <>
       <Card>
         <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle>Retenciones asignadas</CardTitle>
+          <CardTitle>Gestiones de baja</CardTitle>
           <RetencionFilterToggle filter={filter} onFilterChange={setFilter} />
         </CardHeader>
         <CardContent className="space-y-3">
           {isDashboardLoading ? (
-            <p className="text-sm text-muted-foreground">Cargando retenciones…</p>
+            <p className="text-sm text-muted-foreground">Cargando gestiones…</p>
           ) : visibleRetenciones.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No hay retenciones para este filtro.
+              No hay gestiones para este filtro.
             </p>
           ) : (
             visibleRetenciones.map((item) => (

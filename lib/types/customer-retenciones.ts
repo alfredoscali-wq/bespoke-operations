@@ -1,6 +1,13 @@
-export type CustomerRetencionStatus = "pendiente" | "finalizada"
+export type CustomerRetencionStatus =
+  | "en_gestion"
+  | "pendiente_administracion"
+  | "pendiente_retiro"
+  | "finalizada"
 
-export type CustomerRetencionResultado = "retenido" | "no_retenido"
+export type CustomerRetencionResultado =
+  | "retenido"
+  | "persiste_baja"
+  | "no_retenido"
 
 export type CustomerRetencionMotivoBaja =
   | "precio_situacion_economica"
@@ -26,6 +33,7 @@ export interface CustomerRetencion {
   resolution?: string | null
   completedAt?: string | null
   completedByEmployeeId?: string | null
+  administrationPendingAt?: string | null
   createdAt: string
   updatedAt: string
   deletedAt?: string | null
@@ -39,6 +47,9 @@ export type CustomerRetencionActiveRow = Pick<
   | "detail"
   | "createdAt"
   | "assignedByEmployeeId"
+  | "status"
+  | "resultado"
+  | "resolution"
 > & {
   customerName: string
   assignedByEmployeeName: string
@@ -46,20 +57,19 @@ export type CustomerRetencionActiveRow = Pick<
 
 export type NewCustomerRetencionInput = {
   customerId: string
-  assignedEmployeeId: string
   motivoBaja: CustomerRetencionMotivoBaja
   detail: string
 }
 
-export type CompleteCustomerRetencionInput = {
-  resultado: CustomerRetencionResultado
+export type ResolveCustomerRetencionInput = {
+  resultado: "retenido" | "persiste_baja"
   resolution: string
 }
 
 export type CustomerRetencionJornadaRow = {
   id: string
   kind: "retencion"
-  completedAt: string
+  occurredAt: string
   customerId: string
   customerName: string
   resultado: CustomerRetencionResultado
@@ -84,6 +94,7 @@ export type CustomerRetencionSupervisionRow = Pick<
   | "resolution"
   | "completedAt"
   | "createdAt"
+  | "administrationPendingAt"
 > & {
   customerName: string
   assignedEmployeeName: string

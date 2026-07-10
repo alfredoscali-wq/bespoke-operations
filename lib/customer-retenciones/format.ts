@@ -19,11 +19,14 @@ const MOTIVO_BAJA_LABELS: Record<CustomerRetencionMotivoBaja, string> = {
 
 const RESULTADO_LABELS: Record<CustomerRetencionResultado, string> = {
   retenido: "Retenido",
-  no_retenido: "No retenido",
+  persiste_baja: "Persiste con la baja",
+  no_retenido: "No retenido (histórico)",
 }
 
 const STATUS_LABELS: Record<CustomerRetencionStatus, string> = {
-  pendiente: "Pendiente",
+  en_gestion: "En gestión",
+  pendiente_administracion: "Pendiente de Administración",
+  pendiente_retiro: "Coordinar retiro",
   finalizada: "Finalizada",
 }
 
@@ -48,7 +51,16 @@ export function formatCustomerRetencionStatusLabel(
 export function getCustomerRetencionStatusTone(
   status: CustomerRetencionStatus
 ): VisualTone {
-  return status === "pendiente" ? "amber" : "blue"
+  switch (status) {
+    case "en_gestion":
+      return "amber"
+    case "pendiente_administracion":
+      return "blue"
+    case "pendiente_retiro":
+      return "violet"
+    default:
+      return "green"
+  }
 }
 
 export function getCustomerRetencionResultadoTone(
@@ -61,6 +73,13 @@ export const CUSTOMER_RETENCION_MOTIVO_BAJA_OPTIONS = (
   Object.entries(MOTIVO_BAJA_LABELS) as [CustomerRetencionMotivoBaja, string][]
 ).map(([value, label]) => ({ value, label }))
 
-export const CUSTOMER_RETENCION_RESULTADO_OPTIONS = (
-  Object.entries(RESULTADO_LABELS) as [CustomerRetencionResultado, string][]
-).map(([value, label]) => ({ value, label }))
+export const CUSTOMER_RETENCION_RESOLVE_RESULTADO_OPTIONS = [
+  { value: "retenido" as const, label: "Retenido" },
+  { value: "persiste_baja" as const, label: "Persiste con la baja" },
+]
+
+export function isCustomerRetencionBajaProcedidaResultado(
+  resultado: CustomerRetencionResultado
+): boolean {
+  return resultado === "persiste_baja" || resultado === "no_retenido"
+}

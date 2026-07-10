@@ -1,17 +1,23 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 
 import { useAtencionCliente } from "@/components/atencion-cliente/atencion-cliente-provider"
 import { RetencionWorkDialog } from "@/components/atencion-cliente/retencion-work-dialog"
-import { formatCustomerRetencionMotivoBajaLabel } from "@/lib/customer-retenciones/format"
+import {
+  formatCustomerRetencionMotivoBajaLabel,
+  formatCustomerRetencionStatusLabel,
+  getCustomerRetencionStatusTone,
+} from "@/lib/customer-retenciones/format"
 import type { CustomerRetencionActiveRow } from "@/lib/types/customer-retenciones"
+import { Badge } from "@/components/ui/badge"
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { STATUS_BADGE_BASE, STATUS_TONE_STYLES } from "@/lib/ui/visual-tokens"
 import { cn } from "@/lib/utils"
 
 type MisRetencionesSectionProps = {
@@ -25,6 +31,8 @@ function RetencionItemButton({
   item: CustomerRetencionActiveRow
   onOpen: (id: string) => void
 }) {
+  const statusTone = getCustomerRetencionStatusTone(item.status)
+
   return (
     <button
       type="button"
@@ -36,12 +44,15 @@ function RetencionItemButton({
         <span className="text-xs text-muted-foreground">
           {new Date(item.createdAt).toLocaleDateString("es-AR")}
         </span>
+        <Badge
+          variant="outline"
+          className={cn(STATUS_BADGE_BASE, STATUS_TONE_STYLES[statusTone])}
+        >
+          {formatCustomerRetencionStatusLabel(item.status)}
+        </Badge>
       </div>
       <p className="text-sm text-muted-foreground">
         {formatCustomerRetencionMotivoBajaLabel(item.motivoBaja)}
-      </p>
-      <p className="text-sm text-muted-foreground">
-        Asignada por {item.assignedByEmployeeName}
       </p>
       <p className="line-clamp-2 text-sm">{item.detail}</p>
     </button>
@@ -60,14 +71,14 @@ export function MisRetencionesSection({
     <>
       <Card className={cn(highlighted && "ring-2 ring-primary/20")}>
         <CardHeader>
-          <CardTitle>Mis Retenciones</CardTitle>
+          <CardTitle>Mis gestiones de baja</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {isDashboardLoading ? (
-            <p className="text-sm text-muted-foreground">Cargando retenciones…</p>
+            <p className="text-sm text-muted-foreground">Cargando gestiones…</p>
           ) : pendingRetenciones.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No tenés retenciones activas asignadas.
+              No tenés gestiones de baja activas.
             </p>
           ) : (
             pendingRetenciones.map((item) => (

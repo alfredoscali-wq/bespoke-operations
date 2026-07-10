@@ -30,13 +30,19 @@ test("migración sprint 3.0 crea customer_retenciones con RLS multi-tenant", () 
   )
 })
 
-test("insert exige auth_can_assign_customer_retencion", () => {
-  const insertPolicyMatch = migrationSql.match(
+test("insert exige creación autoasignada por Atención al Cliente", () => {
+  const sprint6Path = join(
+    __dirname,
+    "../supabase/migrations/20260929000100_customer_retenciones_sprint_6_0.sql"
+  )
+  const sprint6Sql = readFileSync(sprint6Path, "utf8")
+  const insertPolicyMatch = sprint6Sql.match(
     /CREATE POLICY customer_retenciones_insert_policy[\s\S]*?;/
   )
 
   assert.ok(insertPolicyMatch)
-  assert.match(insertPolicyMatch[0], /public\.auth_can_assign_customer_retencion\(\)/)
+  assert.match(insertPolicyMatch[0], /auth_can_create_customer_retencion\(\)/)
+  assert.match(insertPolicyMatch[0], /assigned_employee_id = public\.auth_user_employee_id\(\)/)
 })
 
 test("función de integridad valida relaciones multi-tenant", () => {

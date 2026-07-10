@@ -34,19 +34,17 @@ import {
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 
-type AssignFormState = {
+type CreateFormState = {
   motivoBaja: CustomerRetencionMotivoBaja | ""
   detail: string
-  assignedEmployeeId: string
 }
 
-const emptyForm: AssignFormState = {
+const emptyForm: CreateFormState = {
   motivoBaja: "",
   detail: "",
-  assignedEmployeeId: "",
 }
 
-type RetencionAssignDialogProps = {
+type RetencionCreateDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
 }
@@ -83,9 +81,9 @@ function CustomerSearchField({
 
   return (
     <div className="relative space-y-2">
-      <Label htmlFor="retencion-customer-search">Cliente</Label>
+      <Label htmlFor="retencion-create-customer-search">Cliente</Label>
       <Input
-        id="retencion-customer-search"
+        id="retencion-create-customer-search"
         value={query}
         onChange={(event) => {
           setQuery(event.target.value)
@@ -124,17 +122,14 @@ function CustomerSearchField({
   )
 }
 
-export function RetencionAssignDialog({
+export function RetencionCreateDialog({
   open,
   onOpenChange,
-}: RetencionAssignDialogProps) {
-  const { searchCustomers, listAssignees, assignRetencion } = useAtencionCliente()
-  const [form, setForm] = useState<AssignFormState>(emptyForm)
-  const [baselineForm, setBaselineForm] = useState<AssignFormState>(emptyForm)
+}: RetencionCreateDialogProps) {
+  const { searchCustomers, createRetencion } = useAtencionCliente()
+  const [form, setForm] = useState<CreateFormState>(emptyForm)
+  const [baselineForm, setBaselineForm] = useState<CreateFormState>(emptyForm)
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
-  const [assignees, setAssignees] = useState<
-    Array<{ id: string; displayName: string }>
-  >([])
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -159,9 +154,7 @@ export function RetencionAssignDialog({
     setBaselineForm(emptyForm)
     setSelectedCustomer(null)
     setError(null)
-
-    void listAssignees().then(setAssignees)
-  }, [listAssignees, open])
+  }, [open])
 
   const handleCustomerSearch = useCallback(
     (query: string) => searchCustomers(query),
@@ -177,14 +170,13 @@ export function RetencionAssignDialog({
       return
     }
 
-    if (!form.motivoBaja || !form.assignedEmployeeId || !form.detail.trim()) {
-      setError("Completá motivo, responsable y detalle.")
+    if (!form.motivoBaja || !form.detail.trim()) {
+      setError("Completá motivo y detalle.")
       return
     }
 
     const input: NewCustomerRetencionInput = {
       customerId: selectedCustomer.id,
-      assignedEmployeeId: form.assignedEmployeeId,
       motivoBaja: form.motivoBaja,
       detail: form.detail,
     }
@@ -192,10 +184,10 @@ export function RetencionAssignDialog({
     setIsSubmitting(true)
 
     try {
-      const result = await assignRetencion(input)
+      const result = await createRetencion(input)
 
       if (!result.success) {
-        setError(result.message ?? "No se pudo asignar la retención.")
+        setError(result.message ?? "No se pudo iniciar la gestión de baja.")
         return
       }
 
@@ -214,9 +206,10 @@ export function RetencionAssignDialog({
           isDirty={isDirty}
         >
           <DialogHeader>
-            <DialogTitle>Asignar Retención</DialogTitle>
+            <DialogTitle>Nueva gestión de baja</DialogTitle>
             <DialogDescription>
-              Derivá una solicitud de baja al equipo de Atención al Cliente.
+              Registrá la solicitud de baja del cliente e iniciá el intento de
+              retención.
             </DialogDescription>
           </DialogHeader>
 
@@ -226,60 +219,34 @@ export function RetencionAssignDialog({
               onSelect={setSelectedCustomer}
             />
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="retencion-motivo">Motivo de baja</Label>
-                <Select
-                  value={form.motivoBaja}
-                  onValueChange={(value) =>
-                    setForm((current) => ({
-                      ...current,
-                      motivoBaja: value as CustomerRetencionMotivoBaja,
-                    }))
-                  }
-                >
-                  <SelectTrigger id="retencion-motivo" className="w-full">
-                    <SelectValue placeholder="Seleccionar" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CUSTOMER_RETENCION_MOTIVO_BAJA_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="retencion-responsable">Responsable</Label>
-                <Select
-                  value={form.assignedEmployeeId}
-                  onValueChange={(value) =>
-                    setForm((current) => ({
-                      ...current,
-                      assignedEmployeeId: value,
-                    }))
-                  }
-                >
-                  <SelectTrigger id="retencion-responsable" className="w-full">
-                    <SelectValue placeholder="Seleccionar" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {assignees.map((assignee) => (
-                      <SelectItem key={assignee.id} value={assignee.id}>
-                        {assignee.displayName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="retencion-create-motivo">Motivo de baja</Label>
+              <Select
+                value={form.motivoBaja}
+                onValueChange={(value) =>
+                  setForm((current) => ({
+                    ...current,
+                    motivoBaja: value as CustomerRetencionMotivoBaja,
+                  }))
+                }
+              >
+                <SelectTrigger id="retencion-create-motivo" className="w-full">
+                  <SelectValue placeholder="Seleccionar" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CUSTOMER_RETENCION_MOTIVO_BAJA_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="retencion-detail">Detalle de la solicitud</Label>
+              <Label htmlFor="retencion-create-detail">Detalle inicial</Label>
               <Textarea
-                id="retencion-detail"
+                id="retencion-create-detail"
                 value={form.detail}
                 onChange={(event) =>
                   setForm((current) => ({
@@ -299,7 +266,7 @@ export function RetencionAssignDialog({
                 Cancelar
               </Button>
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Guardando…" : "Asignar retención"}
+                {isSubmitting ? "Guardando…" : "Iniciar gestión"}
               </Button>
             </DialogFooter>
           </form>

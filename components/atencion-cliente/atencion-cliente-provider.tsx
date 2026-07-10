@@ -19,7 +19,10 @@ import {
   filterAgendaForTodayView,
   filterAgendaForWeekView,
 } from "@/lib/customer-seguimientos/agenda"
-import { canAssignCustomerRetencion, canViewAssignedCustomerRetenciones } from "@/lib/customer-retenciones/access"
+import {
+  canMarkCustomerRetencionReadyForRetiro,
+  canViewAssignedCustomerRetenciones,
+} from "@/lib/customer-retenciones/access"
 import { canViewEquipoIndividualReport } from "@/lib/atencion-cliente-equipo/access"
 import {
   buildJornadaEntries,
@@ -42,13 +45,15 @@ import {
 } from "@/lib/supabase/customer-atenciones.browser"
 import {
   createCustomerRetencion,
+  deriveCustomerRetencionToAdministration,
+  finalizeRetainedCustomerRetencion,
   getActiveRetencionesCount,
   getCustomerRetencionById as loadCustomerRetencionById,
   listAssignedRetencionesForCompany,
   listAtencionClienteAssignees,
-  listCompletedRetencionesToday,
-  listPendingRetencionesForEmployee,
-  markCustomerRetencionCompleted,
+  listActiveRetencionesForEmployee,
+  listRetencionJornadaRowsForEmployeeToday,
+  markCustomerRetencionReadyForRetiro,
 } from "@/lib/supabase/customer-retenciones.browser"
 import {
   createCustomerSeguimiento,
@@ -76,11 +81,11 @@ import type {
 } from "@/lib/types/customer-atenciones"
 import type {
   AtencionClienteAssigneeOption,
-  CompleteCustomerRetencionInput,
   CustomerRetencion,
   CustomerRetencionActiveRow,
   CustomerRetencionSupervisionRow,
   NewCustomerRetencionInput,
+  ResolveCustomerRetencionInput,
 } from "@/lib/types/customer-retenciones"
 import type {
   CustomerRecuperacion,
@@ -140,7 +145,7 @@ type AtencionClienteContextValue = {
   assignedRetenciones: CustomerRetencionSupervisionRow[]
   myRecuperaciones: CustomerRecuperacionActivityRow[]
   jornadaEntries: JornadaEntry[]
-  canAssignRetencion: boolean
+  canMarkRetencionReadyForRetiro: boolean
   canViewAssignedRetenciones: boolean
   canViewEquipoReport: boolean
   loadAtencionPage: (query: CustomerAtencionListQuery) => Promise<void>
@@ -152,13 +157,14 @@ type AtencionClienteContextValue = {
   searchCustomers: (query: string, limit?: number) => Promise<Customer[]>
   listAssignees: () => Promise<AtencionClienteAssigneeOption[]>
   createAtencion: (input: NewCustomerAtencionInput) => Promise<AtencionMutationResult>
-  assignRetencion: (
+  createRetencion: (
     input: NewCustomerRetencionInput
   ) => Promise<RetencionMutationResult>
-  completeRetencion: (
+  resolveRetencion: (
     id: string,
-    input: CompleteCustomerRetencionInput
+    input: ResolveCustomerRetencionInput
   ) => Promise<RetencionMutationResult>
+  markRetencionReadyForRetiro: (id: string) => Promise<RetencionMutationResult>
   createRecuperacion: (
     input: NewCustomerRecuperacionInput
   ) => Promise<RecuperacionMutationResult>
@@ -215,7 +221,9 @@ export function AtencionClienteProvider({
   const recuperacionCacheRef = useRef<Map<string, CustomerRecuperacion>>(new Map())
 
   const employeeId = sessionUser?.employeeId?.trim() ?? ""
-  const canAssignRetencion = canAssignCustomerRetencion(sessionUser?.roleCode)
+  const canMarkRetencionReadyForRetiro = canMarkCustomerRetencionReadyForRetiro(
+    sessionUser?.roleCode
+  )
   const canViewAssignedRetenciones = canViewAssignedCustomerRetenciones(
     sessionUser?.roleCode
   )
@@ -286,11 +294,15 @@ export function AtencionClienteProvider({
           employeeId,
           referenceDate
         ),
-        listPendingRetencionesForEmployee(companyId, employeeId),
+        listActiveRetencionesForEmployee(companyId, employeeId),
         getActiveRetencionesCount(companyId, employeeId),
         listEmployeeAtencionesToday(companyId, employeeId, referenceDate),
         listCompletedSeguimientosToday(companyId, employeeId, referenceDate),
-        listCompletedRetencionesToday(companyId, employeeId, referenceDate),
+        listRetencionJornadaRowsForEmployeeToday(
+          companyId,
+          employeeId,
+          referenceDate
+        ),
         canViewAssignedRetenciones
           ? listAssignedRetencionesForCompany(companyId)
           : Promise.resolve({ data: [], error: null }),
@@ -556,17 +568,10 @@ export function AtencionClienteProvider({
     ]
   )
 
-  const assignRetencion = useCallback(
+  const createRetencion = useCallback(
     async (input: NewCustomerRetencionInput): Promise<RetencionMutationResult> => {
       if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
         return DEMO_WRITE_BLOCKED_MUTATION_RESULT
-      }
-
-      if (!canAssignRetencion) {
-        return {
-          success: false,
-          message: "No tenés permiso para asignar retenciones.",
-        }
       }
 
       if (!companyId || !employeeId) {
@@ -583,7 +588,7 @@ export function AtencionClienteProvider({
       const result = await createCustomerRetencion({
         companyId,
         customerId: input.customerId,
-        assignedEmployeeId: input.assignedEmployeeId,
+        assignedEmployeeId: employeeId,
         assignedByEmployeeId: employeeId,
         motivoBaja: input.motivoBaja,
         detail: input.detail,
@@ -592,7 +597,7 @@ export function AtencionClienteProvider({
       if (result.error || !result.data) {
         return {
           success: false,
-          message: result.error?.message ?? "No se pudo asignar la retención.",
+          message: result.error?.message ?? "No se pudo iniciar la gestión de baja.",
         }
       }
 
@@ -601,20 +606,13 @@ export function AtencionClienteProvider({
 
       return { success: true, retencion: result.data }
     },
-    [
-      canAssignRetencion,
-      companyId,
-      employeeId,
-      isReadOnly,
-      openRestrictedDialog,
-      refreshDashboard,
-    ]
+    [companyId, employeeId, isReadOnly, openRestrictedDialog, refreshDashboard]
   )
 
-  const completeRetencion = useCallback(
+  const resolveRetencion = useCallback(
     async (
       id: string,
-      input: CompleteCustomerRetencionInput
+      input: ResolveCustomerRetencionInput
     ): Promise<RetencionMutationResult> => {
       if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
         return DEMO_WRITE_BLOCKED_MUTATION_RESULT
@@ -627,26 +625,38 @@ export function AtencionClienteProvider({
       if (!input.resolution.trim()) {
         return {
           success: false,
-          message: "Completá las observaciones finales.",
+          message: "Completá las observaciones de la gestión.",
         }
       }
 
-      const result = await markCustomerRetencionCompleted(
-        id,
-        {
-          status: "finalizada",
-          resultado: input.resultado,
-          resolution: input.resolution,
-          completedAt: new Date().toISOString(),
-          completedByEmployeeId: employeeId,
-        },
-        companyId
-      )
+      const result =
+        input.resultado === "retenido"
+          ? await finalizeRetainedCustomerRetencion(
+              id,
+              {
+                status: "finalizada",
+                resultado: "retenido",
+                resolution: input.resolution,
+                completedAt: new Date().toISOString(),
+                completedByEmployeeId: employeeId,
+              },
+              companyId
+            )
+          : await deriveCustomerRetencionToAdministration(
+              id,
+              {
+                status: "pendiente_administracion",
+                resultado: "persiste_baja",
+                resolution: input.resolution,
+                administrationPendingAt: new Date().toISOString(),
+              },
+              companyId
+            )
 
       if (result.error || !result.data) {
         return {
           success: false,
-          message: result.error?.message ?? "No se pudo finalizar la retención.",
+          message: result.error?.message ?? "No se pudo registrar la gestión.",
         }
       }
 
@@ -656,6 +666,51 @@ export function AtencionClienteProvider({
       return { success: true, retencion: result.data }
     },
     [companyId, employeeId, isReadOnly, openRestrictedDialog, refreshDashboard]
+  )
+
+  const markRetencionReadyForRetiroHandler = useCallback(
+    async (id: string): Promise<RetencionMutationResult> => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return DEMO_WRITE_BLOCKED_MUTATION_RESULT
+      }
+
+      if (!canMarkRetencionReadyForRetiro) {
+        return {
+          success: false,
+          message: "No tenés permiso para marcar listo para retiro.",
+        }
+      }
+
+      if (!companyId) {
+        return { success: false, message: "Sesión no disponible." }
+      }
+
+      const result = await markCustomerRetencionReadyForRetiro(
+        id,
+        { status: "pendiente_retiro" },
+        companyId
+      )
+
+      if (result.error || !result.data) {
+        return {
+          success: false,
+          message:
+            result.error?.message ?? "No se pudo marcar listo para retiro.",
+        }
+      }
+
+      retencionCacheRef.current.set(id, result.data)
+      await refreshDashboard()
+
+      return { success: true, retencion: result.data }
+    },
+    [
+      canMarkRetencionReadyForRetiro,
+      companyId,
+      isReadOnly,
+      openRestrictedDialog,
+      refreshDashboard,
+    ]
   )
 
   const createRecuperacion = useCallback(
@@ -863,7 +918,7 @@ export function AtencionClienteProvider({
       assignedRetenciones,
       myRecuperaciones,
       jornadaEntries,
-      canAssignRetencion,
+      canMarkRetencionReadyForRetiro,
       canViewAssignedRetenciones,
       canViewEquipoReport,
       loadAtencionPage,
@@ -875,24 +930,24 @@ export function AtencionClienteProvider({
       searchCustomers,
       listAssignees,
       createAtencion,
-      assignRetencion,
-      completeRetencion,
+      createRetencion,
+      resolveRetencion,
+      markRetencionReadyForRetiro: markRetencionReadyForRetiroHandler,
       createRecuperacion,
       completeSeguimiento,
       completeSeguimientoWithFollowUp,
       getAgendaItems,
     }),
     [
-      assignRetencion,
       assignedRetenciones,
-      canAssignRetencion,
+      canMarkRetencionReadyForRetiro,
       canViewAssignedRetenciones,
       canViewEquipoReport,
-      completeRetencion,
       completeSeguimiento,
       completeSeguimientoWithFollowUp,
       createAtencion,
       createRecuperacion,
+      createRetencion,
       dashboardSummary,
       fetchAtencionById,
       fetchRecuperacionById,
@@ -907,10 +962,12 @@ export function AtencionClienteProvider({
       listPage,
       listQuery,
       loadAtencionPage,
+      markRetencionReadyForRetiroHandler,
       myRecuperaciones,
       pendingRetenciones,
       pendingSeguimientos,
       refreshDashboard,
+      resolveRetencion,
       searchCustomers,
     ]
   )

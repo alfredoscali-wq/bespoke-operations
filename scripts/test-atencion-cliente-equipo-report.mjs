@@ -55,7 +55,7 @@ test("KPI Resueltas suma atenciones resueltas y seguimientos realmente resueltos
     seguimientosPendientes: 3,
     retencionesGestionadas: 2,
     clientesRetenidos: 1,
-    noRetenidos: 1,
+    bajasProcedidas: 1,
     recuperosGestionados: 0,
     clientesRecuperados: 0,
   })
@@ -66,7 +66,7 @@ test("KPI Resueltas suma atenciones resueltas y seguimientos realmente resueltos
   assert.equal(kpis.seguimientosPendientes, 3)
   assert.equal(kpis.retencionesGestionadas, 2)
   assert.equal(kpis.clientesRetenidos, 1)
-  assert.equal(kpis.noRetenidos, 1)
+  assert.equal(kpis.bajasProcedidas, 1)
   assert.equal(kpis.recuperosGestionados, 0)
   assert.equal(kpis.clientesRecuperados, 0)
 })
@@ -106,7 +106,7 @@ test("actividad del período combina atenciones, seguimientos y retenciones", ()
       {
         id: "retencion-1",
         kind: "retencion",
-        completedAt: "2026-07-08T14:30:00.000Z",
+        occurredAt: "2026-07-08T14:30:00.000Z",
         customerId: "customer-3",
         customerName: "Cliente X",
         resultado: "retenido",

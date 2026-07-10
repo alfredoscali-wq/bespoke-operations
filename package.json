@@ -44,6 +44,7 @@
     "test:customer-recuperaciones-jornada-kpis": "npx tsx --test scripts/test-customer-recuperaciones-jornada-kpis.mjs",
     "test:work-order-contact-commercial-hotfix": "npx tsx --test scripts/test-work-order-contact-commercial-hotfix.mjs",
     "test:work-order-execution-order-edit-hotfix": "npx tsx --test scripts/test-work-order-execution-order-edit-hotfix.mjs",
+    "test:customer-retenciones-sprint-6-0": "npx tsx --test scripts/test-customer-retenciones-sprint-6-0.mjs",
     "db:rc1-1": "node scripts/apply-rc1-1-migration.mjs",
     "prepare:clientes": "npx tsx scripts/prepare-commercial-migration.ts",
     "import:clientes": "npx tsx scripts/run-commercial-import.ts",

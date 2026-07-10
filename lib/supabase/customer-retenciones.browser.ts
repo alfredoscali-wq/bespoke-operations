@@ -1,13 +1,15 @@
 import { createClient } from "@/lib/supabase/client"
 import {
-  completeCustomerRetencion,
   countActiveRetencionesForEmployee,
+  deriveCustomerRetencionToAdministration as deriveCustomerRetencionToAdministrationQuery,
+  fetchActiveRetencionesForEmployee,
   fetchAssignedRetencionesForCompany,
   fetchAtencionClienteAssignees,
-  fetchCompletedRetencionesToday,
   fetchCustomerRetencionById,
-  fetchPendingRetencionesForEmployee,
+  fetchRetencionJornadaRowsForEmployeeToday,
+  finalizeCustomerRetencionRetained,
   insertCustomerRetencion,
+  markCustomerRetencionReadyForRetiro as markCustomerRetencionReadyForRetiroQuery,
   type SupabaseCustomerRetencionesClient,
 } from "@/lib/supabase/customer-retenciones.queries"
 import type {
@@ -20,7 +22,9 @@ import type {
 import type {
   CreateCustomerRetencionPayload,
   CustomerRetencionesRepositoryResult,
-  UpdateCustomerRetencionCompletePayload,
+  DeriveCustomerRetencionToAdministrationPayload,
+  FinalizeCustomerRetencionRetainedPayload,
+  MarkCustomerRetencionReadyForRetiroPayload,
 } from "@/lib/types/supabase/customer-retenciones"
 
 export function createBrowserCustomerRetencionesClient(): SupabaseCustomerRetencionesClient {
@@ -34,12 +38,12 @@ export async function listAtencionClienteAssignees(
   return fetchAtencionClienteAssignees(client, companyId)
 }
 
-export async function listPendingRetencionesForEmployee(
+export async function listActiveRetencionesForEmployee(
   companyId: string,
   employeeId: string,
   client: SupabaseCustomerRetencionesClient = createBrowserCustomerRetencionesClient()
 ): Promise<CustomerRetencionesRepositoryResult<CustomerRetencionActiveRow[]>> {
-  return fetchPendingRetencionesForEmployee(client, companyId, employeeId)
+  return fetchActiveRetencionesForEmployee(client, companyId, employeeId)
 }
 
 export async function listAssignedRetencionesForCompany(
@@ -64,13 +68,41 @@ export async function createCustomerRetencion(
   return insertCustomerRetencion(client, payload)
 }
 
-export async function markCustomerRetencionCompleted(
+export async function finalizeRetainedCustomerRetencion(
   id: string,
-  payload: UpdateCustomerRetencionCompletePayload,
+  payload: FinalizeCustomerRetencionRetainedPayload,
   companyId?: string,
   client: SupabaseCustomerRetencionesClient = createBrowserCustomerRetencionesClient()
 ): Promise<CustomerRetencionesRepositoryResult<CustomerRetencion>> {
-  return completeCustomerRetencion(client, id, payload, companyId)
+  return finalizeCustomerRetencionRetained(client, id, payload, companyId)
+}
+
+export async function deriveCustomerRetencionToAdministration(
+  id: string,
+  payload: DeriveCustomerRetencionToAdministrationPayload,
+  companyId?: string,
+  client: SupabaseCustomerRetencionesClient = createBrowserCustomerRetencionesClient()
+): Promise<CustomerRetencionesRepositoryResult<CustomerRetencion>> {
+  return deriveCustomerRetencionToAdministrationQuery(
+    client,
+    id,
+    payload,
+    companyId
+  )
+}
+
+export async function markCustomerRetencionReadyForRetiro(
+  id: string,
+  payload: MarkCustomerRetencionReadyForRetiroPayload,
+  companyId?: string,
+  client: SupabaseCustomerRetencionesClient = createBrowserCustomerRetencionesClient()
+): Promise<CustomerRetencionesRepositoryResult<CustomerRetencion>> {
+  return markCustomerRetencionReadyForRetiroQuery(
+    client,
+    id,
+    payload,
+    companyId
+  )
 }
 
 export async function getActiveRetencionesCount(
@@ -81,13 +113,13 @@ export async function getActiveRetencionesCount(
   return countActiveRetencionesForEmployee(client, companyId, employeeId)
 }
 
-export async function listCompletedRetencionesToday(
+export async function listRetencionJornadaRowsForEmployeeToday(
   companyId: string,
   employeeId: string,
   referenceDate: Date = new Date(),
   client: SupabaseCustomerRetencionesClient = createBrowserCustomerRetencionesClient()
 ): Promise<CustomerRetencionesRepositoryResult<CustomerRetencionJornadaRow[]>> {
-  return fetchCompletedRetencionesToday(
+  return fetchRetencionJornadaRowsForEmployeeToday(
     client,
     companyId,
     employeeId,

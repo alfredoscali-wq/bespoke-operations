@@ -8,7 +8,7 @@ export type EquipoIndividualReportKpis = {
   seguimientosPendientes: number
   retencionesGestionadas: number
   clientesRetenidos: number
-  noRetenidos: number
+  bajasProcedidas: number
   recuperosGestionados: number
   clientesRecuperados: number
 }
@@ -37,7 +37,7 @@ export function buildEquipoIndividualReportKpis(input: {
   seguimientosPendientes: number
   retencionesGestionadas: number
   clientesRetenidos: number
-  noRetenidos: number
+  bajasProcedidas: number
   recuperosGestionados: number
   clientesRecuperados: number
 }): EquipoIndividualReportKpis {
@@ -51,7 +51,7 @@ export function buildEquipoIndividualReportKpis(input: {
     seguimientosPendientes: input.seguimientosPendientes,
     retencionesGestionadas: input.retencionesGestionadas,
     clientesRetenidos: input.clientesRetenidos,
-    noRetenidos: input.noRetenidos,
+    bajasProcedidas: input.bajasProcedidas,
     recuperosGestionados: input.recuperosGestionados,
     clientesRecuperados: input.clientesRecuperados,
   }

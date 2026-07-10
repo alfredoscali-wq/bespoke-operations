@@ -10,6 +10,7 @@ import {
   type EquipoReportPeriod,
 } from "@/lib/atencion-cliente-equipo/period"
 import { buildJornadaEntries } from "@/lib/customer-seguimientos/jornada"
+import { countBajasProcedidasInPeriod } from "@/lib/supabase/customer-retenciones.queries"
 import { mapCustomerAtencionRowToCustomerAtencion } from "@/lib/supabase/customer-atenciones.mapper"
 import { countSeguimientosResueltosForEmployeeInRange } from "@/lib/supabase/customer-seguimientos.queries"
 import {
@@ -156,15 +157,14 @@ export async function fetchEquipoIndividualReport(
     client
       .from("customer_retenciones")
       .select(
-        "id, customer_id, resultado, resolution, completed_at, completed_by_employee_id"
+        "id, customer_id, resultado, resolution, completed_at, completed_by_employee_id, administration_pending_at, assigned_employee_id, status"
       )
       .eq("company_id", companyId)
-      .eq("completed_by_employee_id", employeeId)
-      .eq("status", "finalizada")
-      .gte("completed_at", bounds.start)
-      .lt("completed_at", bounds.end)
+      .or(
+        `and(status.eq.finalizada,completed_by_employee_id.eq.${employeeId},completed_at.gte.${bounds.start},completed_at.lt.${bounds.end}),and(assigned_employee_id.eq.${employeeId},resultado.eq.persiste_baja,administration_pending_at.gte.${bounds.start},administration_pending_at.lt.${bounds.end})`
+      )
       .is("deleted_at", null)
-      .order("completed_at", { ascending: false }),
+      .order("created_at", { ascending: false }),
     client
       .from("customer_recuperaciones")
       .select(
@@ -226,9 +226,18 @@ export async function fetchEquipoIndividualReport(
   const seguimientoRows = (seguimientosCompletadosResult.data ?? []).filter(
     (row) => row.completed_at && row.completion_action
   )
-  const retencionRows = (retencionesResult.data ?? []).filter(
-    (row) => row.completed_at && row.resultado && row.resolution
-  )
+  const retencionRows = (retencionesResult.data ?? []).filter((row) => {
+    if (row.resultado === "persiste_baja") {
+      return Boolean(row.administration_pending_at && row.resolution?.trim())
+    }
+
+    return Boolean(
+      row.status === "finalizada" &&
+        row.completed_at &&
+        row.resultado &&
+        row.resolution?.trim()
+    )
+  })
   const recuperacionRows = recuperacionesResult.data ?? []
 
   const customerNameById = await loadCustomerNamesById(
@@ -258,22 +267,28 @@ export async function fetchEquipoIndividualReport(
     })
   )
 
-  const retenciones: CustomerRetencionJornadaRow[] = retencionRows.map((row) => ({
-    id: row.id,
-    kind: "retencion" as const,
-    completedAt: row.completed_at!,
-    customerId: row.customer_id,
-    customerName: customerNameById.get(row.customer_id) ?? "Cliente",
-    resultado: row.resultado as CustomerRetencionJornadaRow["resultado"],
-    resolution: row.resolution!,
-  }))
+  const retenciones: CustomerRetencionJornadaRow[] = retencionRows
+    .map((row) => ({
+      id: row.id,
+      kind: "retencion" as const,
+      occurredAt:
+        row.resultado === "persiste_baja"
+          ? row.administration_pending_at!
+          : row.completed_at!,
+      customerId: row.customer_id,
+      customerName: customerNameById.get(row.customer_id) ?? "Cliente",
+      resultado: row.resultado as CustomerRetencionJornadaRow["resultado"],
+      resolution: row.resolution!,
+    }))
+    .sort(
+      (left, right) =>
+        new Date(right.occurredAt).getTime() - new Date(left.occurredAt).getTime()
+    )
 
   const clientesRetenidos = retenciones.filter(
     (row) => row.resultado === "retenido"
   ).length
-  const noRetenidos = retenciones.filter(
-    (row) => row.resultado === "no_retenido"
-  ).length
+  const bajasProcedidas = countBajasProcedidasInPeriod(retencionRows, bounds)
 
   const recuperaciones: CustomerRecuperacionJornadaRow[] = recuperacionRows.map(
     (row) => {
@@ -339,7 +354,7 @@ export async function fetchEquipoIndividualReport(
         seguimientosPendientes: seguimientosPendientesResult.count ?? 0,
         retencionesGestionadas: retenciones.length,
         clientesRetenidos,
-        noRetenidos,
+        bajasProcedidas,
         recuperosGestionados: recuperaciones.length,
         clientesRecuperados,
       }),

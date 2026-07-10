@@ -13,12 +13,23 @@ export type CreateCustomerRetencionPayload = {
   detail: string
 }
 
-export type UpdateCustomerRetencionCompletePayload = {
-  status: CustomerRetencionStatus
-  resultado: CustomerRetencionResultado
+export type FinalizeCustomerRetencionRetainedPayload = {
+  status: "finalizada"
+  resultado: "retenido"
   resolution: string
   completedAt: string
   completedByEmployeeId: string
+}
+
+export type DeriveCustomerRetencionToAdministrationPayload = {
+  status: "pendiente_administracion"
+  resultado: "persiste_baja"
+  resolution: string
+  administrationPendingAt: string
+}
+
+export type MarkCustomerRetencionReadyForRetiroPayload = {
+  status: "pendiente_retiro"
 }
 
 export type CustomerRetencionesRepositoryErrorCode =
@@ -36,3 +47,5 @@ export type CustomerRetencionesRepositoryResult<T> =
         message: string
       }
     }
+
+export type { CustomerRetencionStatus, CustomerRetencionResultado }

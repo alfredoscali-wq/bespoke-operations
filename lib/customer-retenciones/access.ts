@@ -1,17 +1,20 @@
-const RETENCION_ASSIGN_ROLE_CODES = new Set(["administrador", "administracion"])
+const RETENCION_SUPERVISION_ROLE_CODES = new Set([
+  "administrador",
+  "administracion",
+])
 
-export function canAssignCustomerRetencion(
+export function canViewAssignedCustomerRetenciones(
   roleCode: string | null | undefined
 ): boolean {
   if (!roleCode) {
     return false
   }
 
-  return RETENCION_ASSIGN_ROLE_CODES.has(roleCode)
+  return RETENCION_SUPERVISION_ROLE_CODES.has(roleCode)
 }
 
-export function canViewAssignedCustomerRetenciones(
+export function canMarkCustomerRetencionReadyForRetiro(
   roleCode: string | null | undefined
 ): boolean {
-  return canAssignCustomerRetencion(roleCode)
+  return canViewAssignedCustomerRetenciones(roleCode)
 }

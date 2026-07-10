@@ -74,10 +74,10 @@ export function buildRetencionJornadaEntry(
   return {
     id: retencion.id,
     kind: "retencion",
-    occurredAt: retencion.completedAt,
+    occurredAt: retencion.occurredAt,
     customerId: retencion.customerId,
     customerName: retencion.customerName,
-    title: "Retención",
+    title: "Gestión de baja",
     subtitle: retencion.customerName,
     detail: `${formatCustomerRetencionResultadoLabel(retencion.resultado)} · ${retencion.resolution}`,
     tone: retencion.resultado === "retenido" ? "green" : "neutral",
