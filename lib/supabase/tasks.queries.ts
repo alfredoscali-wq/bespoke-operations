@@ -409,3 +409,62 @@ export async function findActiveTasksForProject(
     error: null,
   }
 }
+
+export async function fetchTaskCompanyId(
+  client: SupabaseTasksClient,
+  taskId: string
+): Promise<TasksRepositoryResult<string>> {
+  const { data, error } = await client
+    .from("tasks")
+    .select("company_id")
+    .eq("id", taskId)
+    .is("deleted_at", null)
+    .maybeSingle()
+
+  if (error) {
+    return { data: null, error: mapSupabaseTaskError(error) }
+  }
+
+  if (!data?.company_id) {
+    return {
+      data: null,
+      error: {
+        code: "NOT_FOUND",
+        message: "Orden de trabajo no encontrada.",
+      },
+    }
+  }
+
+  return { data: data.company_id, error: null }
+}
+
+/** Next free execution_order for (company, due_date, crew_id), aligned with the unique index. */
+export async function fetchNextExecutionOrderForCrewDate(
+  client: SupabaseTasksClient,
+  input: {
+    companyId: string
+    dueDate: string
+    crewId: string
+    excludeTaskId: string
+  }
+): Promise<TasksRepositoryResult<number>> {
+  const { data, error } = await client
+    .from("tasks")
+    .select("execution_order")
+    .eq("company_id", input.companyId)
+    .eq("due_date", input.dueDate)
+    .eq("crew_id", input.crewId)
+    .neq("id", input.excludeTaskId)
+    .is("deleted_at", null)
+    .not("execution_order", "is", null)
+    .order("execution_order", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) {
+    return { data: null, error: mapSupabaseTaskError(error) }
+  }
+
+  const maxOrder = data?.execution_order ?? 0
+  return { data: maxOrder + 1, error: null }
+}

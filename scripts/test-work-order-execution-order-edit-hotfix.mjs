@@ -38,7 +38,7 @@ function makeProgramadaOt(overrides = {}) {
   }
 }
 
-test("cambio de cuadrilla recalcula execution_order al siguiente libre", () => {
+test("cambio de cuadrilla no envía executionOrder desde el builder", () => {
   const task = makeProgramadaOt({ id: "task-1", crewId: "crew-a", executionOrder: 1 })
   const peer = makeProgramadaOt({
     id: "task-2",
@@ -59,10 +59,11 @@ test("cambio de cuadrilla recalcula execution_order al siguiente libre", () => {
     crew: { id: "crew-b", name: "Cuadrilla B", supervisor: "Supervisor B" },
   })
 
-  assert.equal(payload.executionOrder, 2)
+  assert.equal("executionOrder" in payload, false)
+  assert.equal(payload.crewId, "crew-b")
 })
 
-test("cambio de fecha recalcula execution_order al siguiente libre", () => {
+test("cambio de fecha no envía executionOrder desde el builder", () => {
   const task = makeProgramadaOt({
     id: "task-1",
     dueDate: "2026-07-10",
@@ -88,10 +89,11 @@ test("cambio de fecha recalcula execution_order al siguiente libre", () => {
     crew: { id: "crew-a", name: "Cuadrilla A", supervisor: "Supervisor A" },
   })
 
-  assert.equal(payload.executionOrder, 3)
+  assert.equal("executionOrder" in payload, false)
+  assert.equal(payload.dueDate, "2026-07-11")
 })
 
-test("cambio de cuadrilla y fecha recalcula para la combinación destino", () => {
+test("cambio de cuadrilla y fecha no envía executionOrder desde el builder", () => {
   const task = makeProgramadaOt({
     id: "task-1",
     crewId: "crew-a",
@@ -120,32 +122,17 @@ test("cambio de cuadrilla y fecha recalcula para la combinación destino", () =>
     crew: { id: "crew-b", name: "Cuadrilla B", supervisor: "Supervisor B" },
   })
 
-  assert.equal(payload.executionOrder, 2)
+  assert.equal("executionOrder" in payload, false)
+  assert.equal(payload.crewId, "crew-b")
+  assert.equal(payload.dueDate, "2026-07-11")
 })
 
-test("excluye la propia OT al calcular el siguiente execution_order", () => {
+test("builder sigue enviando crewId y dueDate destino para recálculo server-side", () => {
   const task = makeProgramadaOt({
     id: "task-1",
     crewId: "crew-a",
     dueDate: "2026-07-10",
     executionOrder: 1,
-  })
-  const staleDestinationRow = makeProgramadaOt({
-    id: "task-1",
-    crewId: "crew-b",
-    crew: "Cuadrilla B",
-    dueDate: "2026-07-11",
-    startDate: "2026-07-11",
-    executionOrder: 5,
-  })
-  const peer = makeProgramadaOt({
-    id: "task-2",
-    code: "TSK-OT-002",
-    crewId: "crew-b",
-    crew: "Cuadrilla B",
-    dueDate: "2026-07-11",
-    startDate: "2026-07-11",
-    executionOrder: 3,
   })
   const form = {
     ...buildWorkOrderFormFromTask(task),
@@ -156,14 +143,16 @@ test("excluye la propia OT al calcular el siguiente execution_order", () => {
   const payload = buildWorkOrderUpdatePayload({
     form,
     task,
-    existingTasks: [staleDestinationRow, peer],
+    existingTasks: [task],
     crew: { id: "crew-b", name: "Cuadrilla B", supervisor: "Supervisor B" },
   })
 
-  assert.equal(payload.executionOrder, 4)
+  assert.equal(payload.crewId, "crew-b")
+  assert.equal(payload.dueDate, "2026-07-11")
+  assert.equal("executionOrder" in payload, false)
 })
 
-test("sin cambios de cuadrilla ni fecha mantiene execution_order actual", () => {
+test("sin cambios de cuadrilla ni fecha no envía executionOrder", () => {
   const task = makeProgramadaOt({
     id: "task-1",
     crewId: "crew-a",

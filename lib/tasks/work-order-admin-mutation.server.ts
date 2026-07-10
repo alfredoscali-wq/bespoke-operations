@@ -1,11 +1,18 @@
 import "server-only"
 
 import {
+  fetchNextExecutionOrderForCrewDate,
   fetchTaskById,
+  fetchTaskCompanyId,
   patchTask,
   softDeleteWorkOrderFromAdmin,
   type SupabaseTasksClient,
 } from "@/lib/supabase/tasks.queries"
+import {
+  buildAdminWorkOrderPatchPayload,
+  resolveAdminWorkOrderExecutionOrderDestination,
+  shouldRecalculateAdminWorkOrderExecutionOrder,
+} from "@/lib/tasks/work-order-admin-execution-order"
 import {
   canAdminModifyWorkOrder,
   WORK_ORDER_ADMIN_MUTATION_BLOCKED_MESSAGE,
@@ -69,7 +76,54 @@ export async function updateWorkOrderFromAdmin(
   assertAdminWorkOrderMutable(existing.status)
 
   const { status: _status, ...fieldsOnly } = payload
-  const result = await patchTask(client, taskId, fieldsOnly)
+
+  let authoritativeExecutionOrder: number | undefined
+
+  if (shouldRecalculateAdminWorkOrderExecutionOrder(existing, fieldsOnly)) {
+    const destination = resolveAdminWorkOrderExecutionOrderDestination(
+      existing,
+      fieldsOnly
+    )
+
+    if (!destination) {
+      throw new WorkOrderAdminMutationError(
+        "No fue posible determinar la cuadrilla o fecha destino para la orden de trabajo.",
+        400
+      )
+    }
+
+    const companyResult = await fetchTaskCompanyId(client, taskId)
+    if (companyResult.error || !companyResult.data) {
+      throw new WorkOrderAdminMutationError(
+        companyResult.error?.message ?? "Orden de trabajo no encontrada.",
+        404
+      )
+    }
+
+    const nextOrderResult = await fetchNextExecutionOrderForCrewDate(client, {
+      companyId: companyResult.data,
+      dueDate: destination.dueDate,
+      crewId: destination.crewId,
+      excludeTaskId: taskId,
+    })
+
+    if (nextOrderResult.error || nextOrderResult.data == null) {
+      throw new WorkOrderAdminMutationError(
+        nextOrderResult.error?.message ??
+          "No fue posible calcular el orden de ejecución para la orden de trabajo.",
+        500
+      )
+    }
+
+    authoritativeExecutionOrder = nextOrderResult.data
+  }
+
+  const patchPayload = buildAdminWorkOrderPatchPayload(
+    fieldsOnly,
+    authoritativeExecutionOrder
+  )
+
+  const result = await patchTask(client, taskId, patchPayload)
 
   if (result.error || !result.data) {
     throw new WorkOrderAdminMutationError(
