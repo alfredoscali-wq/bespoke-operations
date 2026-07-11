@@ -389,6 +389,57 @@ export function buildExecutionOrderDragUpdates(
   })
 }
 
+export function buildExecutionOrderPositionUpdates(
+  tasks: Task[],
+  taskId: string,
+  desiredOrder: number,
+  crews: CrewRef[] = []
+): ExecutionOrderUpdate[] {
+  const task = tasks.find((item) => item.id === taskId)
+  if (!task || !isOperationalOrderReorderable(task)) {
+    return []
+  }
+
+  const crewId = resolveTaskCrewId(task, crews)
+  if (!crewId) {
+    return []
+  }
+
+  return buildOperationalOrderAssignmentUpdates({
+    tasks,
+    dueDate: task.dueDate,
+    crewId,
+    taskId,
+    desiredOrder,
+    crews,
+  })
+}
+
+export function countOperationalOrderReorderablesForTask(
+  tasks: Task[],
+  taskId: string,
+  crews: CrewRef[] = []
+): number {
+  const task = tasks.find((item) => item.id === taskId)
+  if (!task) {
+    return 0
+  }
+
+  const crewId = resolveTaskCrewId(task, crews)
+  if (!crewId) {
+    return 0
+  }
+
+  const scope = filterPlanningExecutionOrderScope(
+    tasks,
+    task.dueDate,
+    crewId,
+    crews
+  )
+
+  return scope.filter(isOperationalOrderReorderable).length
+}
+
 export function buildExecutionOrderSwapUpdates(
   tasks: Task[],
   taskId: string,

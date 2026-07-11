@@ -4,6 +4,7 @@ import { useMemo } from "react"
 import dynamic from "next/dynamic"
 import { Loader2, RefreshCw } from "lucide-react"
 
+import { PlanningTaskOrderInput } from "@/components/planificacion/planning-task-order-input"
 import { Button } from "@/components/ui/button"
 import type { Task } from "@/lib/types/tasks"
 import type { Crew } from "@/lib/types/crews"
@@ -15,6 +16,12 @@ import {
   PLANNING_PIN_COLOR_SELECTED,
   PLANNING_PIN_COLOR_VENCIDA,
 } from "@/lib/planificacion/planning-map-markers"
+import {
+  countOperationalOrderReorderablesForTask,
+  isOperationalOrderReorderable,
+} from "@/lib/planificacion/planning-execution-order"
+import { resolveTaskRouteOrder } from "@/lib/tasks/dispatch-order"
+import { resolveTaskCrewId } from "@/lib/tasks/crew-relation"
 import {
   resolvePlanningTaskClientLabel,
   resolvePlanningTaskCrewLabel,
@@ -55,6 +62,9 @@ type PlanningMapProps = {
   mapRefreshError?: string | null
   activeCrewFilterId?: string | null
   crews?: Pick<Crew, "id" | "name">[]
+  allScopeTasks?: Task[]
+  reorderingTaskId?: string | null
+  onMoveTaskToPosition?: (taskId: string, position: number) => void
 }
 
 export type PlanningMapMarker = {
@@ -118,6 +128,95 @@ function PlanningMapLegend({
   )
 }
 
+function PlanningMapSelectedTaskOverlay({
+  task,
+  isEditMode,
+  allScopeTasks,
+  crews,
+  reorderingTaskId,
+  onMoveTaskToPosition,
+}: {
+  task: Task
+  isEditMode: boolean
+  allScopeTasks: Task[]
+  crews: Pick<Crew, "id" | "name">[]
+  reorderingTaskId: string | null
+  onMoveTaskToPosition?: (taskId: string, position: number) => void
+}) {
+  const currentOrder = resolveTaskRouteOrder(task)
+  const canEditOrder =
+    isEditMode &&
+    isOperationalOrderReorderable(task) &&
+    resolveTaskCrewId(task, crews) != null &&
+    onMoveTaskToPosition != null
+  const maxOrder = useMemo(
+    () => countOperationalOrderReorderablesForTask(allScopeTasks, task.id, crews),
+    [allScopeTasks, task.id, crews]
+  )
+  const isReordering = reorderingTaskId === task.id
+
+  return (
+    <div
+      className={cn(
+        "absolute bottom-4 left-4 z-[500] max-w-xs rounded-lg border bg-background/95 p-3 shadow-lg backdrop-blur",
+        canEditOrder ? "pointer-events-auto" : "pointer-events-none"
+      )}
+      onClick={(event) => event.stopPropagation()}
+      onPointerDown={(event) => event.stopPropagation()}
+    >
+      <p className="text-sm font-semibold text-foreground">
+        {task.code} · {resolvePlanningTaskClientLabel(task)}
+      </p>
+      <dl className="mt-2 space-y-1 text-xs text-muted-foreground">
+        <div className="flex justify-between gap-3">
+          <dt>Tipo</dt>
+          <dd className="text-right font-medium text-foreground">
+            {resolvePlanningTaskServiceLabel(task)}
+          </dd>
+        </div>
+        <div className="flex justify-between gap-3">
+          <dt>Cuadrilla</dt>
+          <dd className="text-right font-medium text-foreground">
+            {resolvePlanningTaskCrewLabel(task)}
+          </dd>
+        </div>
+        {!isEditMode ? (
+          <>
+            <div className="flex justify-between gap-3">
+              <dt>Duración</dt>
+              <dd className="text-right font-medium text-foreground">
+                {task.estimatedDuration || "—"}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt>Turno</dt>
+              <dd className="text-right font-medium text-foreground">
+                {resolvePlanningTaskShiftDisplayLabel(task)}
+              </dd>
+            </div>
+          </>
+        ) : null}
+        <div className="flex items-center justify-between gap-3 pt-1">
+          <dt>Orden</dt>
+          <dd className="text-right font-medium text-foreground">
+            {canEditOrder ? (
+              <PlanningTaskOrderInput
+                taskId={task.id}
+                currentOrder={currentOrder}
+                maxOrder={maxOrder}
+                disabled={isReordering}
+                onMoveToPosition={onMoveTaskToPosition!}
+              />
+            ) : (
+              (currentOrder ?? "—")
+            )}
+          </dd>
+        </div>
+      </dl>
+    </div>
+  )
+}
+
 export function PlanningMap({
   tasks,
   selectedTaskId,
@@ -134,6 +233,9 @@ export function PlanningMap({
   mapRefreshError = null,
   activeCrewFilterId = null,
   crews = [],
+  allScopeTasks = [],
+  reorderingTaskId = null,
+  onMoveTaskToPosition,
 }: PlanningMapProps) {
   const markers = buildPlanningMapMarkers(tasks)
   const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null
@@ -149,11 +251,11 @@ export function PlanningMap({
   return (
     <section
       className={cn(
-        "flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border bg-card shadow-sm",
+        "flex min-h-0 flex-col overflow-hidden rounded-xl border bg-card shadow-sm",
         className
       )}
     >
-      <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b px-4 py-2">
         <div>
           <h2 className="text-sm font-semibold text-foreground">Mapa de planificación</h2>
           {mapRefreshError ? (
@@ -199,38 +301,15 @@ export function PlanningMap({
           crews={crews}
         />
 
-        {selectedTask && !isEditMode ? (
-          <div className="pointer-events-none absolute bottom-4 left-4 z-[500] max-w-xs rounded-lg border bg-background/95 p-3 shadow-lg backdrop-blur">
-            <p className="text-sm font-semibold text-foreground">
-              {resolvePlanningTaskClientLabel(selectedTask)}
-            </p>
-            <dl className="mt-2 space-y-1 text-xs text-muted-foreground">
-              <div className="flex justify-between gap-3">
-                <dt>Tipo</dt>
-                <dd className="text-right font-medium text-foreground">
-                  {resolvePlanningTaskServiceLabel(selectedTask)}
-                </dd>
-              </div>
-              <div className="flex justify-between gap-3">
-                <dt>Duración</dt>
-                <dd className="text-right font-medium text-foreground">
-                  {selectedTask.estimatedDuration || "—"}
-                </dd>
-              </div>
-              <div className="flex justify-between gap-3">
-                <dt>Turno</dt>
-                <dd className="text-right font-medium text-foreground">
-                  {resolvePlanningTaskShiftDisplayLabel(selectedTask)}
-                </dd>
-              </div>
-              <div className="flex justify-between gap-3">
-                <dt>Cuadrilla sugerida</dt>
-                <dd className="text-right font-medium text-foreground">
-                  {resolvePlanningTaskCrewLabel(selectedTask)}
-                </dd>
-              </div>
-            </dl>
-          </div>
+        {selectedTask ? (
+          <PlanningMapSelectedTaskOverlay
+            task={selectedTask}
+            isEditMode={isEditMode}
+            allScopeTasks={allScopeTasks}
+            crews={crews}
+            reorderingTaskId={reorderingTaskId}
+            onMoveTaskToPosition={onMoveTaskToPosition}
+          />
         ) : null}
       </div>
 

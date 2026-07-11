@@ -149,13 +149,14 @@ test("row id de planificación sigue convención estable para scroll", () => {
   assert.equal(`planning-task-row-${taskId}`, "planning-task-row-abc-123")
 })
 
-test("sticky map mantiene clases operativas esperadas", async () => {
+test("planning module usa layout mapa grande con lista scrolleable", async () => {
   const file = await import("node:fs/promises").then((fs) =>
     fs.readFile("components/planificacion/planning-module.tsx", "utf8")
   )
 
-  assert.match(file, /sticky top-16/)
-  assert.match(file, /min-h-\[38vh\]/)
+  assert.match(file, /h-\[52vh\]/)
+  assert.match(file, /lg:h-\[60vh\]/)
+  assert.match(file, /min-h-0 flex-1/)
 })
 
 test("planning map canvas abre popup al seleccionar marker cuando hay GPS", async () => {

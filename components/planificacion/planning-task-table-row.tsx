@@ -2,16 +2,23 @@
 
 import { MapPinOff, Pencil } from "lucide-react"
 
+import { PlanningTaskOrderInput } from "@/components/planificacion/planning-task-order-input"
 import { TaskStatusBadge } from "@/components/tareas/task-badges"
 import { Button } from "@/components/ui/button"
+import {
+  countOperationalOrderReorderablesForTask,
+  isOperationalOrderReorderable,
+} from "@/lib/planificacion/planning-execution-order"
 import { getTaskStatusSurfaceClass } from "@/lib/tasks/status-visual"
 import { formatDispatchOrderBadge, resolveTaskRouteOrder } from "@/lib/tasks/dispatch-order"
+import { resolveTaskCrewId } from "@/lib/tasks/crew-relation"
 import {
   resolvePlanningTaskClientLabel,
   resolvePlanningTaskLocality,
   resolvePlanningTaskShiftDisplayLabel,
   resolveTaskPlanningCoordinates,
 } from "@/lib/planificacion/planning-utils"
+import type { Crew } from "@/lib/types/crews"
 import type { Task } from "@/lib/types/tasks"
 import { cn } from "@/lib/utils"
 
@@ -24,10 +31,13 @@ type PlanningTaskTableRowProps = {
   canMoveDown: boolean
   isReordering?: boolean
   rowId?: string
+  allScopeTasks: Task[]
+  crews: Pick<Crew, "id" | "name">[]
   onSelect: () => void
   onEdit?: () => void
   onMoveUp?: () => void
   onMoveDown?: () => void
+  onMoveToPosition?: (taskId: string, position: number) => void
 }
 
 export function PlanningTaskTableRow({
@@ -39,14 +49,28 @@ export function PlanningTaskTableRow({
   canMoveDown,
   isReordering = false,
   rowId,
+  allScopeTasks,
+  crews,
   onSelect,
   onEdit,
   onMoveUp,
   onMoveDown,
+  onMoveToPosition,
 }: PlanningTaskTableRowProps) {
-  const orderLabel = formatDispatchOrderBadge(resolveTaskRouteOrder(task))
+  const currentOrder = resolveTaskRouteOrder(task)
+  const orderLabel = formatDispatchOrderBadge(currentOrder)
   const shiftLabel = resolvePlanningTaskShiftDisplayLabel(task)
   const showOrderControls = !readOnly && (canMoveUp || canMoveDown)
+  const canEditOrder =
+    !readOnly &&
+    isOperationalOrderReorderable(task) &&
+    resolveTaskCrewId(task, crews) != null &&
+    onMoveToPosition != null
+  const maxOrder = countOperationalOrderReorderablesForTask(
+    allScopeTasks,
+    task.id,
+    crews
+  )
   const hasGps = resolveTaskPlanningCoordinates(task) != null
 
   return (
@@ -74,11 +98,19 @@ export function PlanningTaskTableRow({
         />
       </td>
 
-      <td className="w-10 px-2 py-2 text-center align-middle">
-        {orderLabel ? (
+      <td className="w-14 px-2 py-2 text-center align-middle">
+        {canEditOrder ? (
+          <PlanningTaskOrderInput
+            taskId={task.id}
+            currentOrder={currentOrder}
+            maxOrder={maxOrder}
+            disabled={isReordering}
+            onMoveToPosition={onMoveToPosition!}
+          />
+        ) : orderLabel ? (
           <span
             className="inline-flex size-7 items-center justify-center rounded-full bg-muted text-sm font-medium text-foreground"
-            aria-label={`Orden operativo ${resolveTaskRouteOrder(task)}`}
+            aria-label={`Orden operativo ${currentOrder}`}
           >
             {orderLabel}
           </span>
@@ -212,4 +244,3 @@ export function PlanningTaskTableRow({
     </tr>
   )
 }
-

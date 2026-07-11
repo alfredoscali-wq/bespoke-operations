@@ -52,6 +52,8 @@ import {
 
 import {
 
+  buildExecutionOrderPositionUpdates,
+
   buildExecutionOrderSwapUpdates,
 
 } from "@/lib/planificacion/planning-execution-order"
@@ -96,7 +98,7 @@ import {
 
 } from "@/lib/planificacion/planning-utils"
 
-import { sortTasksByDispatchRoute } from "@/lib/tasks/dispatch-order"
+import { sortTasksByDispatchRoute, resolveTaskRouteOrder } from "@/lib/tasks/dispatch-order"
 
 import { listPendingClosureTasksForPlanningDate } from "@/lib/planificacion/planning-pending-closure"
 
@@ -456,6 +458,100 @@ function PlanningModuleContent() {
 
 
 
+  const handleMoveTaskToPosition = useCallback(
+
+    async (taskId: string, targetPosition: number) => {
+
+      const task = planningOrderScopeTasks.find((entry) => entry.id === taskId)
+
+      if (!task) {
+
+        return
+
+      }
+
+
+
+      const currentOrder = resolveTaskRouteOrder(task)
+
+      if (currentOrder === targetPosition) {
+
+        return
+
+      }
+
+
+
+      const updates = buildExecutionOrderPositionUpdates(
+
+        planningOrderScopeTasks,
+
+        taskId,
+
+        targetPosition,
+
+        crews
+
+      )
+
+
+
+      if (updates.length === 0) {
+
+        return
+
+      }
+
+
+
+      setReorderingTaskId(taskId)
+
+
+
+      try {
+
+        const result = await applyExecutionOrderUpdates(updates, crews)
+
+
+
+        if (!result.success) {
+
+          throw new Error(
+
+            result.message ?? "No se pudo actualizar el orden operativo."
+
+          )
+
+        }
+
+      } catch (error) {
+
+        console.error(error)
+
+        setDispatchError(
+
+          error instanceof Error
+
+            ? error.message
+
+            : "No se pudo actualizar el orden operativo."
+
+        )
+
+      } finally {
+
+        setReorderingTaskId(null)
+
+      }
+
+    },
+
+    [planningOrderScopeTasks, crews, applyExecutionOrderUpdates]
+
+  )
+
+
+
   const handlePlanCrew = useCallback(
 
     async (crewId: string) => {
@@ -744,6 +840,12 @@ function PlanningModuleContent() {
 
     crews: activeCrews,
 
+    allScopeTasks: planningOrderScopeTasks,
+
+    reorderingTaskId,
+
+    onMoveTaskToPosition: isEditingMode ? handleMoveTaskToPosition : undefined,
+
   }
 
 
@@ -766,7 +868,7 @@ function PlanningModuleContent() {
 
   return (
 
-    <div className="flex min-h-[calc(100vh-8rem)] flex-col gap-2">
+    <div className="flex h-[calc(100vh-4rem)] flex-col gap-2">
 
       <PlanningToolbar
 
@@ -934,7 +1036,7 @@ function PlanningModuleContent() {
 
 
 
-        <div className="sticky top-16 z-20 lg:top-16">
+        <div className="flex min-h-0 flex-1 flex-col gap-2">
 
           <PlanningMap
 
@@ -942,65 +1044,71 @@ function PlanningModuleContent() {
 
             mapRefreshError={mapRefreshError}
 
-            className="min-h-[38vh] max-h-[42vh] w-full min-w-0 flex-[2] max-lg:static max-lg:max-h-none max-lg:min-h-[52vh]"
+            className="h-[52vh] shrink-0 lg:h-[60vh]"
+
+          />
+
+
+
+          <PlanningTaskList
+
+            mode={dispatchMode}
+
+            tasks={listTasks}
+
+            allScopeTasks={planningOrderScopeTasks}
+
+            crews={crews}
+
+            crewIdsInOrder={crewIdsInOrder}
+
+            selectedTaskId={selectedTaskId}
+
+            reorderingTaskId={reorderingTaskId}
+
+            onSelectTask={setSelectedTaskId}
+
+            onEditTask={
+
+              isEditingMode
+
+                ? (taskId) => {
+
+                    const task = tasks.find((entry) => entry.id === taskId)
+
+                    if (task && isTaskPlanningEditable(task)) {
+
+                      setAdjustSheetTaskId(taskId)
+
+                    }
+
+                  }
+
+                : undefined
+
+            }
+
+            onMoveTaskOrder={
+
+              isEditingMode ? handleMoveTaskOrder : undefined
+
+            }
+
+            onMoveTaskToPosition={
+
+              isEditingMode ? handleMoveTaskToPosition : undefined
+
+            }
+
+            isTaskEditable={isEditingMode ? isTaskPlanningEditable : undefined}
+
+            activeCrewFilterName={activeCrewFilterName}
+
+            className="min-h-0 flex-1"
 
           />
 
         </div>
-
-
-
-        <PlanningTaskList
-
-          mode={dispatchMode}
-
-          tasks={listTasks}
-
-          allScopeTasks={planningOrderScopeTasks}
-
-          crews={crews}
-
-          crewIdsInOrder={crewIdsInOrder}
-
-          selectedTaskId={selectedTaskId}
-
-          reorderingTaskId={reorderingTaskId}
-
-          onSelectTask={setSelectedTaskId}
-
-          onEditTask={
-
-            isEditingMode
-
-              ? (taskId) => {
-
-                  const task = tasks.find((entry) => entry.id === taskId)
-
-                  if (task && isTaskPlanningEditable(task)) {
-
-                    setAdjustSheetTaskId(taskId)
-
-                  }
-
-                }
-
-              : undefined
-
-          }
-
-          onMoveTaskOrder={
-
-            isEditingMode ? handleMoveTaskOrder : undefined
-
-          }
-
-          isTaskEditable={isEditingMode ? isTaskPlanningEditable : undefined}
-
-          activeCrewFilterName={activeCrewFilterName}
-
-          className="w-full shrink-0"
-
-        />
 
       </div>
 

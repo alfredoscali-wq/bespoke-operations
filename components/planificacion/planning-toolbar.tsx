@@ -14,7 +14,7 @@ type PlanningToolbarProps = {
 
 export function PlanningToolbar({ date, onDateChange }: PlanningToolbarProps) {
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
       <div className="max-w-xs">
         <Label htmlFor="planning-date">Fecha</Label>
         <Input
@@ -22,7 +22,7 @@ export function PlanningToolbar({ date, onDateChange }: PlanningToolbarProps) {
           type="date"
           value={date}
           onChange={(event) => onDateChange(event.target.value)}
-          className="mt-2"
+          className="mt-1"
         />
       </div>
 

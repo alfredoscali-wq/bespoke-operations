@@ -58,6 +58,8 @@ type PlanningTaskListProps = {
 
   onMoveTaskOrder?: (taskId: string, direction: "up" | "down") => void
 
+  onMoveTaskToPosition?: (taskId: string, position: number) => void
+
   isTaskEditable?: (task: Task) => boolean
 
   activeCrewFilterName?: string | null
@@ -89,6 +91,8 @@ export function PlanningTaskList({
   onEditTask,
 
   onMoveTaskOrder,
+
+  onMoveTaskToPosition,
 
   isTaskEditable,
 
@@ -368,6 +372,10 @@ export function PlanningTaskList({
 
                       isReordering={reorderingTaskId === task.id}
 
+                      allScopeTasks={allScopeTasks}
+
+                      crews={crews}
+
                       onSelect={() => onSelectTask(task.id)}
 
                       onEdit={
@@ -395,6 +403,16 @@ export function PlanningTaskList({
                         onMoveTaskOrder && canMoveDown
 
                           ? () => onMoveTaskOrder(task.id, "down")
+
+                          : undefined
+
+                      }
+
+                      onMoveToPosition={
+
+                        onMoveTaskToPosition && rowEditable
+
+                          ? onMoveTaskToPosition
 
                           : undefined
 
