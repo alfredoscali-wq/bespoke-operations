@@ -3,7 +3,13 @@
 import { useCallback } from "react"
 
 import { buildPlanningConfirmDispatchUpdates } from "@/lib/planificacion/planning-incremental"
-import { collectExecutionOrderScopeClearUpdates } from "@/lib/planificacion/planning-execution-order"
+import {
+  buildCompactExecutionOrderUpdates,
+  collectExecutionOrderScopeClearUpdates,
+  collectExecutionOrderScopesFromTaskIds,
+  mergeExecutionOrderUpdatesIntoTasks,
+  type ExecutionOrderUpdate,
+} from "@/lib/planificacion/planning-execution-order"
 import { filterOperationalOrderScope } from "@/lib/planificacion/planning-operational-order-core"
 import { resolveTaskCrewId } from "@/lib/tasks/crew-relation"
 import { canPerformTaskAction } from "@/lib/tasks/task-status-workflow"
@@ -63,11 +69,52 @@ type UseTasksPlanningParams = {
       suppressAudit?: boolean
     }
   ) => Promise<TaskMutationResult>
+  applyExecutionOrderUpdates: (
+    updates: ExecutionOrderUpdate[],
+    crews?: CrewRef[]
+  ) => Promise<TaskMutationResult>
+}
+
+async function compactExecutionOrderScopes(
+  workingTasks: Task[],
+  scopes: ReturnType<typeof collectExecutionOrderScopesFromTaskIds>,
+  crews: CrewRef[],
+  applyExecutionOrderUpdates: UseTasksPlanningParams["applyExecutionOrderUpdates"],
+  excludeTaskIds: string[] = []
+): Promise<
+  | { success: true; tasks: Task[] }
+  | { success: false; message: string }
+> {
+  let nextTasks = workingTasks
+
+  for (const scope of scopes) {
+    const updates = buildCompactExecutionOrderUpdates({
+      tasks: nextTasks,
+      dueDate: scope.dueDate,
+      crewId: scope.crewId,
+      crews,
+      excludeTaskIds,
+    })
+
+    if (updates.length === 0) {
+      continue
+    }
+
+    const result = await applyExecutionOrderUpdates(updates, crews)
+    if (!result.success) {
+      return { success: false as const, message: result.message ?? "No fue posible actualizar el orden de ejecución." }
+    }
+
+    nextTasks = mergeExecutionOrderUpdatesIntoTasks(nextTasks, updates)
+  }
+
+  return { success: true, tasks: nextTasks }
 }
 
 export function useTasksPlanning({
   tasks,
   updateTaskFields,
+  applyExecutionOrderUpdates,
 }: UseTasksPlanningParams) {
   const confirmPlanningTasks = useCallback(
     async (
@@ -93,8 +140,27 @@ export function useTasksPlanning({
         }
       }
 
-      const dispatchUpdates = buildPlanningConfirmDispatchUpdates({
+      const affectedScopes = collectExecutionOrderScopesFromTaskIds(
         tasks,
+        ids,
+        crews
+      )
+
+      const preCompactResult = await compactExecutionOrderScopes(
+        tasks,
+        affectedScopes,
+        crews,
+        applyExecutionOrderUpdates
+      )
+
+      if (!preCompactResult.success) {
+        return preCompactResult
+      }
+
+      let workingTasks = preCompactResult.tasks
+
+      const dispatchUpdates = buildPlanningConfirmDispatchUpdates({
+        tasks: workingTasks,
         confirmingTaskIds: ids,
         crews,
       })
@@ -124,11 +190,33 @@ export function useTasksPlanning({
         if (!result.success) {
           return result
         }
+
+        workingTasks = workingTasks.map((task) =>
+          task.id === update.taskId
+            ? {
+                ...task,
+                status: "asignada",
+                dispatchOrder: update.dispatchOrder,
+                executionOrder: null,
+              }
+            : task
+        )
+      }
+
+      const postCompactResult = await compactExecutionOrderScopes(
+        workingTasks,
+        affectedScopes,
+        crews,
+        applyExecutionOrderUpdates
+      )
+
+      if (!postCompactResult.success) {
+        return postCompactResult
       }
 
       return { success: true }
     },
-    [tasks, updateTaskFields]
+    [tasks, updateTaskFields, applyExecutionOrderUpdates]
   )
 
   const reopenPlanningTasks = useCallback(

@@ -66,6 +66,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
   const { confirmPlanningTasks, reopenPlanningTasks } = useTasksPlanning({
     tasks,
     updateTaskFields,
+    applyExecutionOrderUpdates,
   })
 
   const {
@@ -88,6 +89,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       isReadOnly,
       openRestrictedDialog,
       setDetailVersion,
+      applyExecutionOrderUpdates,
     })
 
   const {

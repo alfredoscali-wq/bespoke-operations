@@ -1,6 +1,8 @@
 import {
   buildOperationalOrderFieldUpdates,
   buildOperationalOrderRemovalFieldUpdates,
+  buildAvailableOperationalOrderSlots,
+  collectFrozenOperationalOrdersForScope,
   compareOperationalOrderTasks,
   filterOperationalOrderScope,
   filterPlanningExecutionOrderScope,
@@ -9,9 +11,6 @@ import {
   resolveOperationalOrderValue,
   sortOperationalOrderScope,
 } from "@/lib/planificacion/planning-operational-order-core"
-import {
-  collectFrozenPlanningRouteOrders,
-} from "@/lib/planificacion/planning-dynamic"
 import {
   dedupeDispatchOrderUpdates,
   type DispatchOrderUpdate,
@@ -26,6 +25,11 @@ type CrewRef = Pick<Crew, "id" | "name">
 export type ExecutionOrderUpdate = {
   taskId: string
   executionOrder: number | null
+}
+
+export type ExecutionOrderScopeKey = {
+  dueDate: string
+  crewId: string
 }
 
 export type PlanningTaskUpdateBatch = {
@@ -77,6 +81,121 @@ export function resolveOperarioExecutionOrderHeader(
     heading: "Orden de ejecución",
     text: badge,
   }
+}
+
+export function mergeExecutionOrderUpdatesIntoTasks(
+  tasks: Task[],
+  updates: ExecutionOrderUpdate[]
+): Task[] {
+  if (updates.length === 0) {
+    return tasks
+  }
+
+  const byTaskId = new Map(updates.map((update) => [update.taskId, update]))
+
+  return tasks.map((task) => {
+    const update = byTaskId.get(task.id)
+    if (!update) {
+      return task
+    }
+
+    return {
+      ...task,
+      executionOrder: update.executionOrder,
+    }
+  })
+}
+
+export function collectExecutionOrderScopesFromTaskIds(
+  tasks: Task[],
+  taskIds: string[],
+  crews: CrewRef[] = []
+): ExecutionOrderScopeKey[] {
+  const scopes = new Map<string, ExecutionOrderScopeKey>()
+
+  for (const taskId of taskIds) {
+    const task = tasks.find((item) => item.id === taskId)
+    if (!task || task.status !== "programada") {
+      continue
+    }
+
+    const crewId = resolveTaskCrewId(task, crews)
+    if (!crewId) {
+      continue
+    }
+
+    const key = `${task.dueDate}::${crewId}`
+    scopes.set(key, { dueDate: task.dueDate, crewId })
+  }
+
+  return [...scopes.values()]
+}
+
+export function buildCompactExecutionOrderUpdates(input: {
+  tasks: Task[]
+  dueDate: string
+  crewId: string
+  crews?: CrewRef[]
+  excludeTaskIds?: string[]
+}): ExecutionOrderUpdate[] {
+  const { tasks, dueDate, crewId, crews = [], excludeTaskIds = [] } = input
+  const excluded = new Set(excludeTaskIds)
+  const routeScope = filterOperationalOrderScope(tasks, dueDate, crewId, crews)
+  const reorderable = sortOperationalOrderScope(
+    filterPlanningExecutionOrderScope(tasks, dueDate, crewId, crews).filter(
+      (task) =>
+        isOperationalOrderReorderable(task) && !excluded.has(task.id)
+    ),
+    crews
+  )
+
+  if (reorderable.length === 0) {
+    return []
+  }
+
+  const frozenOrders = collectFrozenOperationalOrdersForScope(routeScope)
+  const slots = buildAvailableOperationalOrderSlots(
+    frozenOrders,
+    reorderable.length,
+    1
+  )
+  const updates: ExecutionOrderUpdate[] = []
+
+  reorderable.forEach((task, index) => {
+    const nextOrder = slots[index]!
+    if (task.executionOrder !== nextOrder) {
+      updates.push({
+        taskId: task.id,
+        executionOrder: nextOrder,
+      })
+    }
+  })
+
+  return updates
+}
+
+export function buildCompactExecutionOrderUpdatesForScopes(input: {
+  tasks: Task[]
+  scopes: ExecutionOrderScopeKey[]
+  crews?: CrewRef[]
+  excludeTaskIds?: string[]
+}): ExecutionOrderUpdate[] {
+  const { tasks, scopes, crews = [], excludeTaskIds = [] } = input
+  const updates: ExecutionOrderUpdate[] = []
+
+  for (const scope of scopes) {
+    updates.push(
+      ...buildCompactExecutionOrderUpdates({
+        tasks,
+        dueDate: scope.dueDate,
+        crewId: scope.crewId,
+        crews,
+        excludeTaskIds,
+      })
+    )
+  }
+
+  return dedupeExecutionOrderUpdates(updates)
 }
 
 export type ExecutionOrderPersistPlan = {
@@ -282,7 +401,8 @@ export function buildOperationalOrderAssignmentUpdates(input: {
       taskId: updateTaskId,
       executionOrder: order,
     }),
-    collectFrozenOrders: () => collectFrozenPlanningRouteOrders(routeScope),
+    collectFrozenOrders: () =>
+      collectFrozenOperationalOrdersForScope(routeScope),
   })
 }
 
@@ -308,7 +428,8 @@ export function buildOperationalOrderRemovalUpdates(input: {
       executionOrder: order,
     }),
     isClearable: (task) => isOperationalOrderReorderable(task),
-    collectFrozenOrders: () => collectFrozenPlanningRouteOrders(routeScope),
+    collectFrozenOrders: () =>
+      collectFrozenOperationalOrdersForScope(routeScope),
   })
 }
 

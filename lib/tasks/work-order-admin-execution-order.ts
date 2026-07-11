@@ -1,6 +1,8 @@
 import type { UpdateTaskPayload } from "@/lib/types/supabase/tasks"
 import type { Task } from "@/lib/types/tasks"
 
+import { resolveNextPlanningQueuePosition } from "@/lib/planificacion/planning-dynamic"
+
 export function resolveAdminWorkOrderExecutionOrderDestination(
   existing: Pick<Task, "crewId" | "dueDate">,
   payload: Pick<UpdateTaskPayload, "crewId" | "dueDate">
@@ -49,6 +51,15 @@ export function computeNextExecutionOrderFromMax(
   maxExecutionOrder: number | null | undefined
 ): number {
   return Math.max(0, maxExecutionOrder ?? 0) + 1
+}
+
+export function resolveFirstAvailableExecutionOrderForScope(input: {
+  tasks: Task[]
+  dueDate: string
+  crewId: string
+  excludeTaskId?: string
+}): number {
+  return resolveNextPlanningQueuePosition(input)
 }
 
 export function buildAdminWorkOrderPatchPayload(

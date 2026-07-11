@@ -1,10 +1,15 @@
 import "server-only"
 
 import {
+  buildCompactExecutionOrderUpdates,
+} from "@/lib/planificacion/planning-execution-order"
+import {
   fetchNextExecutionOrderForCrewDate,
   fetchTaskById,
   fetchTaskCompanyId,
+  fetchTasksForOperationalOrderScope,
   patchTask,
+  persistExecutionOrderUpdates,
   softDeleteWorkOrderFromAdmin,
   type SupabaseTasksClient,
 } from "@/lib/supabase/tasks.queries"
@@ -65,6 +70,55 @@ async function fetchTaskForAdminMutation(
   return result.data
 }
 
+async function compactProgramadaScopeAfterRemoval(
+  client: SupabaseTasksClient,
+  input: {
+    companyId: string
+    dueDate: string
+    crewId: string
+    excludeTaskId?: string
+  }
+): Promise<void> {
+  const scopeResult = await fetchTasksForOperationalOrderScope(client, {
+    companyId: input.companyId,
+    dueDate: input.dueDate,
+    crewId: input.crewId,
+  })
+
+  if (scopeResult.error || !scopeResult.data) {
+    throw new WorkOrderAdminMutationError(
+      scopeResult.error?.message ??
+        "No fue posible normalizar el orden de ejecución de la cuadrilla.",
+      500
+    )
+  }
+
+  const compactUpdates = buildCompactExecutionOrderUpdates({
+    tasks: scopeResult.data,
+    dueDate: input.dueDate,
+    crewId: input.crewId,
+    excludeTaskIds: input.excludeTaskId ? [input.excludeTaskId] : [],
+  })
+
+  if (compactUpdates.length === 0) {
+    return
+  }
+
+  const persistResult = await persistExecutionOrderUpdates(
+    client,
+    compactUpdates,
+    scopeResult.data
+  )
+
+  if (persistResult.error) {
+    throw new WorkOrderAdminMutationError(
+      persistResult.error.message ??
+        "No fue posible normalizar el orden de ejecución de la cuadrilla.",
+      persistResult.error.code === "DUPLICATE_EXECUTION_ORDER" ? 409 : 500
+    )
+  }
+}
+
 export async function updateWorkOrderFromAdmin(
   client: SupabaseTasksClient,
   taskId: string,
@@ -100,8 +154,26 @@ export async function updateWorkOrderFromAdmin(
       )
     }
 
+    const companyId = companyResult.data
+    const originCrewId = existing.crewId?.trim() || null
+    const originDueDate = existing.dueDate?.trim() || null
+
+    if (
+      existing.status === "programada" &&
+      originCrewId &&
+      originDueDate &&
+      (originCrewId !== destination.crewId || originDueDate !== destination.dueDate)
+    ) {
+      await compactProgramadaScopeAfterRemoval(client, {
+        companyId,
+        dueDate: originDueDate,
+        crewId: originCrewId,
+        excludeTaskId: taskId,
+      })
+    }
+
     const nextOrderResult = await fetchNextExecutionOrderForCrewDate(client, {
-      companyId: companyResult.data,
+      companyId,
       dueDate: destination.dueDate,
       crewId: destination.crewId,
       excludeTaskId: taskId,
@@ -145,6 +217,14 @@ export async function deleteWorkOrderFromAdmin(
   const existing = await fetchTaskForAdminMutation(client, taskId)
   assertAdminWorkOrderMutable(existing.status)
 
+  const originCrewId = existing.crewId?.trim() || null
+  const originDueDate = existing.dueDate?.trim() || null
+  const shouldCompactOrigin =
+    existing.status === "programada" && Boolean(originCrewId && originDueDate)
+
+  const companyResult = await fetchTaskCompanyId(client, taskId)
+  const companyId = companyResult.data
+
   const result = await softDeleteWorkOrderFromAdmin(client, taskId)
 
   if (result.error) {
@@ -152,5 +232,13 @@ export async function deleteWorkOrderFromAdmin(
       result.error.message ?? "No fue posible eliminar la orden de trabajo.",
       result.error.code === "CONFLICT" ? 409 : 500
     )
+  }
+
+  if (shouldCompactOrigin && companyId && originCrewId && originDueDate) {
+    await compactProgramadaScopeAfterRemoval(client, {
+      companyId,
+      dueDate: originDueDate,
+      crewId: originCrewId,
+    })
   }
 }

@@ -7,6 +7,9 @@ import {
   DEMO_WRITE_BLOCKED_TASK_RESULT,
 } from "@/lib/demo/demo-write-block"
 import {
+  buildCompactExecutionOrderUpdates,
+} from "@/lib/planificacion/planning-execution-order"
+import {
   createBrowserTasksClient,
   deleteTask as deleteTaskInSupabase,
 } from "@/lib/supabase/tasks.browser"
@@ -17,6 +20,7 @@ import {
 } from "@/lib/tasks/work-order-deletion-policy"
 import { TASK_DELETE_USER_MESSAGE } from "@/lib/operations/user-messages"
 import { recordTaskDeleteAudit } from "@/lib/audit/tasks-audit"
+import { resolveTaskCrewId } from "@/lib/tasks/crew-relation"
 import type { Task } from "@/lib/types/tasks"
 
 import { deleteCachedDetail } from "../detail-cache"
@@ -29,6 +33,9 @@ type UseTasksDeletionParams = {
   isReadOnly: boolean
   openRestrictedDialog: () => void
   setDetailVersion: React.Dispatch<React.SetStateAction<number>>
+  applyExecutionOrderUpdates: (
+    updates: import("@/lib/planificacion/planning-execution-order").ExecutionOrderUpdate[]
+  ) => Promise<TaskMutationResult>
 }
 
 export function useTasksDeletion({
@@ -38,6 +45,7 @@ export function useTasksDeletion({
   isReadOnly,
   openRestrictedDialog,
   setDetailVersion,
+  applyExecutionOrderUpdates,
 }: UseTasksDeletionParams) {
   const deleteTask = useCallback(
     async (
@@ -52,6 +60,11 @@ export function useTasksDeletion({
       if (!existing) {
         return { success: false, message: "Orden de trabajo no encontrada." }
       }
+
+      const originCrewId = resolveTaskCrewId(existing)?.trim() || null
+      const originDueDate = existing.dueDate?.trim() || null
+      const shouldCompactOrigin =
+        existing.status === "programada" && Boolean(originCrewId && originDueDate)
 
       if (options?.administration) {
         if (!usesSupabase) {
@@ -106,6 +119,23 @@ export function useTasksDeletion({
         }
       }
 
+      const remainingTasks = tasks.filter((item) => item.id !== id)
+
+      if (shouldCompactOrigin && originCrewId && originDueDate) {
+        const compactUpdates = buildCompactExecutionOrderUpdates({
+          tasks: remainingTasks,
+          dueDate: originDueDate,
+          crewId: originCrewId,
+        })
+
+        if (compactUpdates.length > 0) {
+          const compactResult = await applyExecutionOrderUpdates(compactUpdates)
+          if (!compactResult.success) {
+            return compactResult
+          }
+        }
+      }
+
       setTasks((current) => current.filter((item) => item.id !== id))
       deleteCachedDetail(id)
       setDetailVersion((version) => version + 1)
@@ -113,7 +143,15 @@ export function useTasksDeletion({
 
       return { success: true }
     },
-    [tasks, usesSupabase, isReadOnly, openRestrictedDialog, setDetailVersion, setTasks]
+    [
+      tasks,
+      usesSupabase,
+      isReadOnly,
+      openRestrictedDialog,
+      setDetailVersion,
+      setTasks,
+      applyExecutionOrderUpdates,
+    ]
   )
 
   const removeTaskLocally = useCallback((id: string) => {

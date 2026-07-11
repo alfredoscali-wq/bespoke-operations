@@ -23,6 +23,11 @@ import {
   WORK_ORDER_SOFT_DELETE_BLOCKED_MESSAGE,
 } from "@/lib/tasks/work-order-deletion-policy"
 import type { TaskStatus } from "@/lib/types/tasks"
+import {
+  buildExecutionOrderPersistPlan,
+  type ExecutionOrderUpdate,
+} from "@/lib/planificacion/planning-execution-order"
+import { resolveNextPlanningQueuePosition } from "@/lib/planificacion/planning-dynamic"
 
 export type SupabaseTasksClient = SupabaseClient<Database>
 
@@ -438,7 +443,33 @@ export async function fetchTaskCompanyId(
   return { data: data.company_id, error: null }
 }
 
-/** Next free execution_order for (company, due_date, crew_id), aligned with the unique index. */
+export async function fetchTasksForOperationalOrderScope(
+  client: SupabaseTasksClient,
+  input: {
+    companyId: string
+    dueDate: string
+    crewId: string
+  }
+): Promise<TasksRepositoryResult<Task[]>> {
+  const { data, error } = await client
+    .from("tasks")
+    .select("*")
+    .eq("company_id", input.companyId)
+    .eq("due_date", input.dueDate)
+    .eq("crew_id", input.crewId)
+    .is("deleted_at", null)
+
+  if (error) {
+    return { data: null, error: mapSupabaseTaskError(error) }
+  }
+
+  return {
+    data: (data ?? []).map(mapTaskRowToTask),
+    error: null,
+  }
+}
+
+/** First available execution_order for (company, due_date, crew_id), respecting frozen slots. */
 export async function fetchNextExecutionOrderForCrewDate(
   client: SupabaseTasksClient,
   input: {
@@ -448,23 +479,57 @@ export async function fetchNextExecutionOrderForCrewDate(
     excludeTaskId: string
   }
 ): Promise<TasksRepositoryResult<number>> {
-  const { data, error } = await client
-    .from("tasks")
-    .select("execution_order")
-    .eq("company_id", input.companyId)
-    .eq("due_date", input.dueDate)
-    .eq("crew_id", input.crewId)
-    .neq("id", input.excludeTaskId)
-    .is("deleted_at", null)
-    .not("execution_order", "is", null)
-    .order("execution_order", { ascending: false })
-    .limit(1)
-    .maybeSingle()
+  const scopeResult = await fetchTasksForOperationalOrderScope(client, {
+    companyId: input.companyId,
+    dueDate: input.dueDate,
+    crewId: input.crewId,
+  })
 
-  if (error) {
-    return { data: null, error: mapSupabaseTaskError(error) }
+  if (scopeResult.error || !scopeResult.data) {
+    return {
+      data: null,
+      error:
+        scopeResult.error ??
+        ({
+          code: "UNKNOWN" as const,
+          message:
+            "No fue posible calcular el orden de ejecución para la orden de trabajo.",
+        }),
+    }
   }
 
-  const maxOrder = data?.execution_order ?? 0
-  return { data: maxOrder + 1, error: null }
+  return {
+    data: resolveNextPlanningQueuePosition({
+      tasks: scopeResult.data,
+      dueDate: input.dueDate,
+      crewId: input.crewId,
+      excludeTaskId: input.excludeTaskId,
+    }),
+    error: null,
+  }
+}
+
+export async function persistExecutionOrderUpdates(
+  client: SupabaseTasksClient,
+  updates: ExecutionOrderUpdate[],
+  tasks: Task[]
+): Promise<TasksRepositoryResult<void>> {
+  const plan = buildExecutionOrderPersistPlan(updates, tasks, [])
+
+  for (const phase of plan.phases) {
+    for (const update of phase) {
+      const result = await patchTask(client, update.taskId, {
+        executionOrder: update.executionOrder,
+      })
+
+      if (result.error) {
+        return {
+          data: null,
+          error: result.error,
+        }
+      }
+    }
+  }
+
+  return { data: undefined, error: null }
 }

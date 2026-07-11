@@ -163,7 +163,7 @@ export function collectFrozenOperationalOrdersForScope(
   return frozenOrders
 }
 
-function buildAvailableOperationalOrderSlots(
+export function buildAvailableOperationalOrderSlots(
   frozenOrders: Set<number>,
   reorderableCount: number,
   minimumSlot: number
@@ -240,6 +240,7 @@ export function buildOperationalOrderFieldUpdates<T extends { taskId: string }>(
     crews,
     readOrder,
     writeUpdate,
+    collectFrozenOrders,
   } = input
   const reorderable = scope.filter(isOperationalOrderReorderable)
 
@@ -247,7 +248,9 @@ export function buildOperationalOrderFieldUpdates<T extends { taskId: string }>(
     return []
   }
 
-  const frozenOrders = collectFrozenOperationalOrdersForScope(scope)
+  const frozenOrders = collectFrozenOrders
+    ? collectFrozenOrders(scope)
+    : collectFrozenOperationalOrdersForScope(scope)
   const sequence = buildReorderableSequence(
     scope,
     taskId,
@@ -303,7 +306,9 @@ export function buildOperationalOrderRemovalFieldUpdates<T extends { taskId: str
     readOrder,
     writeUpdate,
     isClearable,
+    collectFrozenOrders,
   } = input
+  const routeScope = filterOperationalOrderScope(tasks, dueDate, crewId, crews)
   const scope = filterPlanningExecutionOrderScope(tasks, dueDate, crewId, crews)
   const remaining = scope.filter(
     (task) =>
@@ -323,7 +328,9 @@ export function buildOperationalOrderRemovalFieldUpdates<T extends { taskId: str
     return updates
   }
 
-  const frozenOrders = collectFrozenOperationalOrdersForScope(scope)
+  const frozenOrders = collectFrozenOrders
+    ? collectFrozenOrders(routeScope)
+    : collectFrozenOperationalOrdersForScope(routeScope)
   const sequence = sortOperationalOrderScope(remaining, crews)
   const slots = buildAvailableOperationalOrderSlots(
     frozenOrders,

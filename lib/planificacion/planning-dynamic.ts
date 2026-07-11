@@ -1,7 +1,7 @@
-import { filterOperationalOrderScope } from "@/lib/planificacion/planning-operational-order-core"
 import {
+  filterOperationalOrderScope,
+  isOperationalOrderReorderable,
   resolveDispatchOperationalOrder,
-  resolveOperationalOrderValue,
   resolvePlanningExecutionOrder,
 } from "@/lib/planificacion/planning-operational-order-core"
 import { taskMatchesCrewId } from "@/lib/tasks/crew-relation"
@@ -129,7 +129,52 @@ export function collectOccupiedDispatchOrdersForConfirm(
   return occupied
 }
 
-/** Siguiente posición al final de la cola vigente (execution + dispatch), respetando OT congeladas. */
+/** Posiciones ya ocupadas en la ruta operativa del scope (programada + no reordenables). */
+export function collectOccupiedOperationalOrderSlots(
+  routeScope: Task[],
+  options?: { excludeTaskId?: string }
+): Set<number> {
+  const occupied = collectFrozenPlanningRouteOrders(routeScope)
+
+  for (const task of routeScope) {
+    if (options?.excludeTaskId && task.id === options.excludeTaskId) {
+      continue
+    }
+
+    if (isOperationalOrderReorderable(task)) {
+      const order = resolvePlanningExecutionOrder(task)
+      if (order != null && order > 0) {
+        occupied.add(Math.floor(order))
+      }
+      continue
+    }
+
+    const order = resolveDispatchOperationalOrder(task)
+    if (order != null && order > 0) {
+      occupied.add(Math.floor(order))
+    }
+  }
+
+  return occupied
+}
+
+export function resolveFirstAvailableOperationalOrderSlot(
+  occupied: Set<number>
+): number {
+  let candidate = 1
+
+  while (occupied.has(candidate)) {
+    candidate += 1
+
+    if (candidate > 10_000) {
+      break
+    }
+  }
+
+  return candidate
+}
+
+/** Primer slot operacional libre para una OT programada nueva, respetando ocupación y congelados. */
 export function resolveNextPlanningQueuePosition(input: {
   tasks: Task[]
   dueDate: string
@@ -143,21 +188,12 @@ export function resolveNextPlanningQueuePosition(input: {
     dueDate,
     crewId,
     crews
-  ).filter((task) => task.id !== excludeTaskId)
+  )
+  const occupied = collectOccupiedOperationalOrderSlots(routeScope, {
+    excludeTaskId,
+  })
 
-  const maxOrder = routeScope.reduce((max, task) => {
-    if (
-      !isTaskInDynamicPlanningPool(task.status) &&
-      !isPlanningRouteFrozenTask(task)
-    ) {
-      return max
-    }
-
-    const order = resolveOperationalOrderValue(task)
-    return Math.max(max, order ?? 0)
-  }, 0)
-
-  return maxOrder + 1
+  return resolveFirstAvailableOperationalOrderSlot(occupied)
 }
 
 export function resolvePlanningQueueOrderForTask(
