@@ -23,15 +23,19 @@ export type ObraTaskInsertCandidate = {
   status: TaskStatus
 }
 
+export type ObraTaskInsertIntegrityResult =
+  | { ok: true; status: TaskStatus }
+  | { ok: false; message: string }
+
 /**
- * Mirror of DB trigger rules for Obra task INSERT hardening (OBRAS OPS 1.0).
- * Authoritative enforcement remains in enforce_task_status_workflow.
+ * Mirror of enforce_task_status_workflow INSERT rules after OBRAS OPS 1.0 hotfix.
+ * Authoritative enforcement remains in DB: active Obra forces status=asignada.
  */
 export function validateObraTaskInsertIntegrity(input: {
   task: ObraTaskInsertCandidate
   project?: ObraInsertProjectRef | null
   crew?: ObraInsertCrewRef | null
-}): { ok: true } | { ok: false; message: string } {
+}): ObraTaskInsertIntegrityResult {
   const { task, project, crew } = input
 
   if (task.projectId && task.crewId) {
@@ -49,14 +53,26 @@ export function validateObraTaskInsertIntegrity(input: {
     }
   }
 
-  if (task.status === "asignada" && task.projectId) {
+  if (task.projectId) {
     if (
       !project ||
       project.id !== task.projectId ||
       project.companyId !== task.companyId ||
-      Boolean(project.deletedAt) ||
-      project.status !== "active"
+      Boolean(project.deletedAt)
     ) {
+      return {
+        ok: false,
+        message:
+          "La obra no existe, está eliminada o no pertenece al mismo tenant.",
+      }
+    }
+
+    // Hotfix: projects.status is source of truth for active Obras.
+    if (project.status === "active") {
+      return { ok: true, status: "asignada" }
+    }
+
+    if (task.status === "asignada") {
       return {
         ok: false,
         message:
@@ -64,7 +80,15 @@ export function validateObraTaskInsertIntegrity(input: {
       }
     }
 
-    return { ok: true }
+    if (task.status !== "programada") {
+      return {
+        ok: false,
+        message:
+          "Las órdenes de trabajo nuevas deben crearse en estado programada.",
+      }
+    }
+
+    return { ok: true, status: "programada" }
   }
 
   if (task.status !== "programada") {
@@ -75,7 +99,7 @@ export function validateObraTaskInsertIntegrity(input: {
     }
   }
 
-  return { ok: true }
+  return { ok: true, status: "programada" }
 }
 
 /** Module key for Obras in APP_MODULE_KEYS is "projects". */

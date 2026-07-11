@@ -29,6 +29,11 @@ const MIGRATION_PATH = join(
   "supabase/migrations/20261001000100_obras_ops_1_0_start_project_dispatch.sql"
 )
 
+const HOTFIX_MIGRATION_PATH = join(
+  process.cwd(),
+  "supabase/migrations/20261002000100_obras_ops_1_0_active_project_task_status_hotfix.sql"
+)
+
 function makeObraTask(overrides = {}) {
   return {
     id: "task-1",
@@ -333,6 +338,9 @@ test("hardening: asignada con project same-tenant active → permitida", () => {
     crew: makeCrew(),
   })
   assert.equal(result.ok, true)
+  if (result.ok) {
+    assert.equal(result.status, "asignada")
+  }
 })
 
 test("hardening: asignada con project de otro tenant → rechazada", () => {
@@ -343,7 +351,7 @@ test("hardening: asignada con project de otro tenant → rechazada", () => {
   })
   assert.equal(result.ok, false)
   if (!result.ok) {
-    assert.match(result.message, /obra activa del mismo tenant/i)
+    assert.match(result.message, /tenant|obra/i)
   }
 })
 
@@ -386,6 +394,9 @@ test("hardening: obra con crew same-tenant → permitida", () => {
     crew: makeCrew(),
   })
   assert.equal(result.ok, true)
+  if (result.ok) {
+    assert.equal(result.status, "programada")
+  }
 })
 
 test("hardening: obra con crew de otro tenant → rechazada", () => {
@@ -465,4 +476,102 @@ test("hardening: migración exige project same-tenant active y crew same-tenant"
   assert.match(sql, /NEW\.project_id IS NOT NULL AND NEW\.crew_id IS NOT NULL/)
   assert.doesNotMatch(sql, /GRANT EXECUTE[\s\S]*TO authenticated/)
   assert.doesNotMatch(sql, /CREATE POLICY/)
+})
+
+test("hotfix: obra active + cliente envía programada → fuerza asignada", () => {
+  const result = validateObraTaskInsertIntegrity({
+    task: makeAsignadaInsert({ status: "programada" }),
+    project: makeActiveProject(),
+    crew: makeCrew(),
+  })
+  assert.equal(result.ok, true)
+  if (result.ok) {
+    assert.equal(result.status, "asignada")
+  }
+})
+
+test("hotfix: obra active + cliente envía asignada → queda asignada", () => {
+  const result = validateObraTaskInsertIntegrity({
+    task: makeAsignadaInsert({ status: "asignada" }),
+    project: makeActiveProject(),
+    crew: makeCrew(),
+  })
+  assert.equal(result.ok, true)
+  if (result.ok) {
+    assert.equal(result.status, "asignada")
+  }
+})
+
+test("hotfix: obra planned + tarea nueva → mantiene programada", () => {
+  const result = validateObraTaskInsertIntegrity({
+    task: makeAsignadaInsert({ status: "programada" }),
+    project: makeActiveProject({ status: "planned" }),
+    crew: makeCrew(),
+  })
+  assert.equal(result.ok, true)
+  if (result.ok) {
+    assert.equal(result.status, "programada")
+  }
+})
+
+test("hotfix: obra reabierta closed→active + nueva tarea → asignada", () => {
+  const reopened = makeActiveProject({ status: "active" })
+  const clientStatus = resolveProjectTaskCreateStatus(reopened.status)
+  assert.equal(clientStatus, "asignada")
+
+  const evenIfClientSendsProgramada = validateObraTaskInsertIntegrity({
+    task: makeAsignadaInsert({ status: "programada" }),
+    project: reopened,
+    crew: makeCrew(),
+  })
+  assert.equal(evenIfClientSendsProgramada.ok, true)
+  if (evenIfClientSendsProgramada.ok) {
+    assert.equal(evenIfClientSendsProgramada.status, "asignada")
+  }
+})
+
+test("hotfix: UI tasks-tab resolve + DB force alineados en obra active", () => {
+  const projectStatus = "active"
+  const uiStatus = resolveProjectTaskCreateStatus(projectStatus)
+  assert.equal(uiStatus, "asignada")
+
+  const dbEffective = validateObraTaskInsertIntegrity({
+    task: makeAsignadaInsert({ status: uiStatus }),
+    project: makeActiveProject({ status: projectStatus }),
+    crew: makeCrew(),
+  })
+  assert.equal(dbEffective.ok, true)
+  if (dbEffective.ok) {
+    assert.equal(dbEffective.status, "asignada")
+  }
+
+  const dbForceFromWrongClient = validateObraTaskInsertIntegrity({
+    task: makeAsignadaInsert({ status: "programada" }),
+    project: makeActiveProject({ status: projectStatus }),
+    crew: makeCrew(),
+  })
+  assert.equal(dbForceFromWrongClient.ok, true)
+  if (dbForceFromWrongClient.ok) {
+    assert.equal(dbForceFromWrongClient.status, "asignada")
+  }
+})
+
+test("hotfix: migración fuerza NEW.status := asignada en obra active", () => {
+  const sql = readFileSync(HOTFIX_MIGRATION_PATH, "utf8")
+
+  assert.match(sql, /NEW\.status := 'asignada'::public\.task_status/)
+  assert.match(sql, /v_project_status = 'active'::public\.project_status/)
+  assert.match(sql, /p\.company_id = NEW\.company_id/)
+  assert.match(sql, /p\.deleted_at IS NULL/)
+  assert.match(sql, /c\.company_id = NEW\.company_id/)
+  assert.match(sql, /c\.deleted_at IS NULL/)
+  assert.doesNotMatch(sql, /CREATE POLICY/)
+  assert.doesNotMatch(sql, /GRANT EXECUTE/)
+  assert.doesNotMatch(sql, /start_project_operational_dispatch/)
+})
+
+test("hotfix: migración original 20261001000100 no fue modificada por este hotfix", () => {
+  const original = readFileSync(MIGRATION_PATH, "utf8")
+  assert.doesNotMatch(original, /NEW\.status := 'asignada'/)
+  assert.match(original, /start_project_operational_dispatch/)
 })
