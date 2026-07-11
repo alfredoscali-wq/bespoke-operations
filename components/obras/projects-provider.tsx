@@ -39,6 +39,7 @@ import {
   listProjects,
   updateProject as updateProjectInSupabase,
 } from "@/lib/supabase/projects.browser"
+import { startProjectThroughApi } from "@/lib/supabase/projects-start-api.client"
 import { PROJECT_DELETE_USER_MESSAGE, logOperationError } from "@/lib/operations/user-messages"
 import {
   isProjectAuditableFieldUpdate,
@@ -62,6 +63,8 @@ type ProjectMutationResult = {
   success: boolean
   message?: string
   project?: Project
+  dispatchedCount?: number
+  dispatchedTaskIds?: string[]
 }
 
 type ProjectsContextValue = {
@@ -77,6 +80,7 @@ type ProjectsContextValue = {
     id: string,
     newStatus: ProjectStatus
   ) => Promise<ProjectMutationResult>
+  startProject: (id: string) => Promise<ProjectMutationResult>
   pauseProject: (
     id: string,
     input: PauseProjectInput
@@ -331,6 +335,59 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
     [projects, updateProject, persistHistoryEvent]
   )
 
+  const startProject = useCallback(
+    async (id: string): Promise<ProjectMutationResult> => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return DEMO_WRITE_BLOCKED_MUTATION_RESULT
+      }
+
+      const existing = projects.find((project) => project.id === id)
+      if (!existing) {
+        return { success: false, message: "Obra no encontrada." }
+      }
+
+      if (existing.status !== "planned") {
+        return {
+          success: false,
+          message: "Solo se puede iniciar una obra en estado Planificada.",
+        }
+      }
+
+      if (!usesSupabase) {
+        return {
+          success: false,
+          message: "No fue posible iniciar la obra. Intente nuevamente.",
+        }
+      }
+
+      const apiResult = await startProjectThroughApi(id)
+      if (!apiResult.success) {
+        return { success: false, message: apiResult.message }
+      }
+
+      const updatedProject: Project = {
+        ...existing,
+        status: "active",
+      }
+
+      setProjects((current) =>
+        current.map((project) =>
+          project.id === id ? updatedProject : project
+        )
+      )
+      cacheProjectDetail(updatedProject)
+      historyCache.delete(id)
+
+      return {
+        success: true,
+        project: updatedProject,
+        dispatchedCount: apiResult.data.dispatchedCount,
+        dispatchedTaskIds: apiResult.data.dispatchedTaskIds,
+      }
+    },
+    [projects, usesSupabase, isReadOnly, openRestrictedDialog]
+  )
+
   const pauseProject = useCallback(
     async (id: string, input: PauseProjectInput) => {
       const existing = projects.find((project) => project.id === id)
@@ -522,6 +579,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
       addProject,
       updateProject,
       transitionProjectStatus,
+      startProject,
       pauseProject,
       resumeProject,
       finalizeProject,
@@ -539,6 +597,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
       addProject,
       updateProject,
       transitionProjectStatus,
+      startProject,
       pauseProject,
       resumeProject,
       finalizeProject,

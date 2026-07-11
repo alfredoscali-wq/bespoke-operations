@@ -61,14 +61,20 @@ export async function fetchProjects(
 
 export async function fetchProjectById(
   client: SupabaseProjectsClient,
-  id: string
+  id: string,
+  companyId?: string
 ): Promise<ProjectsRepositoryResult<Project>> {
-  const { data, error } = await client
+  let query = client
     .from("projects")
     .select("*")
     .eq("id", id)
     .is("deleted_at", null)
-    .maybeSingle()
+
+  if (companyId) {
+    query = query.eq("company_id", companyId)
+  }
+
+  const { data, error } = await query.maybeSingle()
 
   if (error) {
     return { data: null, error: mapSupabaseError(error) }

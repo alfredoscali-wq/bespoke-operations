@@ -25,6 +25,10 @@ import type { Task } from "@/lib/types/tasks"
 import { formatTaskDate } from "@/lib/tasks/constants"
 import { getTaskStatusSurfaceClass } from "@/lib/tasks/status-visual"
 import { compareDateOnly } from "@/lib/dates/date-only"
+import {
+  canEditProjectTaskFromObras,
+  resolveProjectTaskCreateStatus,
+} from "@/lib/projects/project-start-dispatch"
 import { getTasksForProject } from "@/lib/tasks/utils"
 import { resolveCrewSnapshotsForAssignment, isTaskCrewArchived } from "@/lib/tasks/crew-relation"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -98,6 +102,15 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
   }
 
   function openEditDialog(task: Task) {
+    if (!canEditProjectTaskFromObras(task)) {
+      setFeedback({
+        type: "error",
+        message:
+          "Esta tarea ya inició su ejecución y no puede editarse libremente desde Obras.",
+      })
+      return
+    }
+
     setDialogMode("edit")
     setSelectedTask(task)
     setDialogOpen(true)
@@ -117,6 +130,12 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
     estimatedDuration: string
   }) {
     if (dialogMode === "edit" && selectedTask) {
+      if (!canEditProjectTaskFromObras(selectedTask)) {
+        throw new Error(
+          "Esta tarea ya inició su ejecución y no puede editarse libremente desde Obras."
+        )
+      }
+
       const selectedCrew = getCrew(payload.crewId)
       const snapshots = resolveCrewSnapshotsForAssignment(selectedCrew)
 
@@ -162,6 +181,7 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
       dueDate: payload.dueDate,
       estimatedDuration: payload.estimatedDuration,
       checklist: defaultChecklist,
+      status: resolveProjectTaskCreateStatus(project.status),
     })
 
     setFeedback({
@@ -196,6 +216,7 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
 
   function renderActions(task: Task) {
     const canDelete = canSoftDeleteWorkOrder(task.status)
+    const canEdit = canEditProjectTaskFromObras(task)
 
     return (
       <DropdownMenu>
@@ -206,10 +227,17 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => openEditDialog(task)}>
-            <Pencil className="size-4" />
-            Editar
-          </DropdownMenuItem>
+          {canEdit ? (
+            <DropdownMenuItem onClick={() => openEditDialog(task)}>
+              <Pencil className="size-4" />
+              Editar
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem disabled>
+              <Pencil className="size-4" />
+              Editar
+            </DropdownMenuItem>
+          )}
           {canDelete ? (
             <DropdownMenuItem
               variant="destructive"

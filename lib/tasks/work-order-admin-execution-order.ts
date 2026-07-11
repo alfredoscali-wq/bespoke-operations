@@ -24,9 +24,14 @@ export function resolveAdminWorkOrderExecutionOrderDestination(
 }
 
 export function shouldRecalculateAdminWorkOrderExecutionOrder(
-  existing: Pick<Task, "status" | "crewId" | "dueDate">,
+  existing: Pick<Task, "status" | "crewId" | "dueDate" | "projectId">,
   payload: Pick<UpdateTaskPayload, "crewId" | "dueDate">
 ): boolean {
+  // Obras OPS 1.0: tareas de Obra no participan de la cola de Planificación.
+  if (existing.projectId) {
+    return false
+  }
+
   if (existing.status !== "programada") {
     return false
   }

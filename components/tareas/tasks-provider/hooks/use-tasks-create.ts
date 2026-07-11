@@ -22,6 +22,7 @@ import {
   isWorkOrderTask,
 } from "@/lib/tasks/work-order"
 import { resolveNextPlanningQueuePosition } from "@/lib/planificacion/planning-dynamic"
+import { shouldApplyPlanningQueueSideEffectsForTask } from "@/lib/projects/project-start-dispatch"
 import { recordTaskCreateAudit } from "@/lib/audit/tasks-audit"
 import type { CreateTaskPayload } from "@/lib/types/supabase/tasks"
 import type { Task } from "@/lib/types/tasks"
@@ -88,6 +89,7 @@ export function useTasksCreate({
       const crewId = payload.crewId?.trim() || null
       const dueDate = payload.dueDate?.trim()
       if (
+        shouldApplyPlanningQueueSideEffectsForTask(payload) &&
         isWorkOrderTask(payload as Task) &&
         crewId &&
         dueDate &&

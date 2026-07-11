@@ -11,11 +11,17 @@ import {
 } from "lucide-react"
 
 import { useProjects } from "@/components/obras/projects-provider"
+import { useTasks } from "@/components/tareas/tasks-provider"
 import { ProjectEditDialog } from "@/components/obras/project-edit-dialog"
 import { ProjectPauseDialog } from "@/components/obras/project-pause-dialog"
 import type { PauseProjectInput, Project, ProjectDetail } from "@/lib/types/projects"
 import { getProjectActions } from "@/lib/projects/utils"
 import { PROJECT_STATUS_LABELS } from "@/lib/projects/constants"
+import {
+  buildStartProjectDispatchHistoryDescription,
+  validateStartProjectDispatch,
+} from "@/lib/projects/project-start-dispatch"
+import { getTasksForProject } from "@/lib/tasks/utils"
 import { ProjectDetailStats } from "@/components/obras/project-detail-stats"
 import { ProjectOverviewTab } from "@/components/obras/project-tabs/overview-tab"
 import { ProjectTasksTab } from "@/components/obras/project-tabs/tasks-tab"
@@ -61,7 +67,7 @@ export function ProjectDetailView({
   const {
     getProject,
     updateProject,
-    transitionProjectStatus,
+    startProject,
     pauseProject,
     resumeProject,
     finalizeProject,
@@ -73,6 +79,7 @@ export function ProjectDetailView({
 
   const project = getProject(initialProject.id) ?? initialProject
   const actions = getProjectActions(project.status)
+  const { tasks, refreshTasksFromServer } = useTasks()
 
   const [history, setHistory] = useState(initialDetail.history)
   const [feedback, setFeedback] = useState<string | null>(null)
@@ -186,12 +193,43 @@ export function ProjectDetailView({
       case "edit":
         setEditOpen(true)
         break
-      case "start":
-        void runAction(
-          () => transitionProjectStatus(project.id, "active"),
-          `Obra actualizada a ${PROJECT_STATUS_LABELS.active}.`
-        )
+      case "start": {
+        const projectTasks = getTasksForProject(project, tasks)
+        const validation = validateStartProjectDispatch({
+          projectStatus: project.status,
+          tasks: projectTasks,
+        })
+
+        if (!validation.ok) {
+          setError(validation.message)
+          setFeedback(null)
+          return
+        }
+
+        void (async () => {
+          setError(null)
+          setFeedback(null)
+          setIsBusy(true)
+
+          const result = await startProject(project.id)
+          setIsBusy(false)
+
+          if (!result.success) {
+            setError(result.message ?? "No se pudo completar la acción.")
+            return
+          }
+
+          setFeedback(
+            buildStartProjectDispatchHistoryDescription(
+              result.dispatchedCount ?? validation.dispatchableTasks.length
+            )
+          )
+          const loaded = await loadHistory(project.id)
+          setHistory(loaded)
+          await refreshTasksFromServer()
+        })()
         break
+      }
       case "pause":
         setPauseOpen(true)
         break
