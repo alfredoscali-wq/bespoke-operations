@@ -82,6 +82,7 @@ export function ProjectTaskChecklistEditor({
             <OperationalChecklistItemRow
               key={item.id}
               item={toWorkOrderTypeChecklistItemShape(item)}
+              layout="stacked"
               disabled={disabled}
               onUpdate={handleUpdate}
               onDelete={handleDelete}

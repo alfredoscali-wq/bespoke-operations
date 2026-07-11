@@ -304,7 +304,7 @@ export function ProjectTaskDialog({
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <ProtectedFormDialogContent
-          className="max-h-[90dvh] overflow-y-auto sm:max-w-lg"
+          className="max-h-[90dvh] overflow-y-auto sm:max-w-xl"
           onRequestClose={requestClose}
           isDirty={isDirty}
         >
