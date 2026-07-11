@@ -13,7 +13,10 @@ import {
   readOperationalChecklistResponses,
   type OperationalChecklistDisplayItem,
 } from "@/lib/tasks/operational-checklist-responses"
-import { isWorkOrderTask } from "@/lib/tasks/work-order"
+import {
+  readOperationalChecklistTemplate,
+  shouldShowOperationalChecklistForTask,
+} from "@/lib/tasks/operational-checklist-template"
 import type { TaskPhoto } from "@/lib/types/task-photos"
 import type { Task } from "@/lib/types/tasks"
 import {
@@ -69,8 +72,11 @@ export function TaskAdminOperationalChecklist({
     [items]
   )
 
+  const shouldShowChecklist =
+    shouldShowOperationalChecklistForTask(task) || hasStoredResponses
+
   useEffect(() => {
-    if (!isWorkOrderTask(task)) {
+    if (!shouldShowChecklist) {
       setItems([])
       setExecutionPhotos([])
       setIsLoading(false)
@@ -84,10 +90,19 @@ export function TaskAdminOperationalChecklist({
       setLoadError(null)
 
       try {
-        const serviceType = task.serviceType?.trim() || ""
-        const templateResult = serviceType
-          ? await fetchWorkOrderTypeChecklistItems(companyId, serviceType)
-          : { data: [], error: null }
+        const embeddedTemplate = task.projectId
+          ? readOperationalChecklistTemplate(task)
+          : []
+
+        const templateResult =
+          embeddedTemplate.length > 0
+            ? { data: embeddedTemplate, error: null }
+            : task.serviceType?.trim()
+              ? await fetchWorkOrderTypeChecklistItems(
+                  companyId,
+                  task.serviceType.trim()
+                )
+              : { data: [], error: null }
 
         if (cancelled) {
           return
@@ -141,9 +156,9 @@ export function TaskAdminOperationalChecklist({
     return () => {
       cancelled = true
     }
-  }, [companyId, responses, task])
+  }, [companyId, responses, shouldShowChecklist, task])
 
-  if (!isWorkOrderTask(task)) {
+  if (!shouldShowChecklist) {
     return null
   }
 

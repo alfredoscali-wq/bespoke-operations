@@ -29,6 +29,10 @@ export function ProjectHealthBadge({
   health,
   className,
 }: ProjectHealthBadgeProps) {
+  if (health === "risk") {
+    return null
+  }
+
   const variant = getProjectHealthVariant(health)
   const label = getProjectHealthLabel(health)
 

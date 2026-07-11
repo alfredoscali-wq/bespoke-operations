@@ -8,10 +8,9 @@ import { useTasks } from "@/components/tareas/tasks-provider"
 import { TASK_DELETE_USER_MESSAGE } from "@/lib/operations/user-messages"
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { TaskCrewAssignmentCell } from "@/components/obras/task-crew-assignment-cell"
-import {
-  defaultChecklist,
-  ProjectTaskDialog,
-} from "@/components/obras/project-task-dialog"
+import { ProjectTaskDialog } from "@/components/obras/project-task-dialog"
+import { mergeTaskMetadataWithTemplate } from "@/lib/tasks/operational-checklist-template"
+import type { OperationalChecklistTemplateItem } from "@/lib/tasks/operational-checklist-template"
 import {
   TaskPriorityBadge,
   TaskStatusBadge,
@@ -129,6 +128,7 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
     startDate: string
     dueDate: string
     estimatedDuration: string
+    operationalChecklistTemplate: OperationalChecklistTemplateItem[]
   }) {
     if (dialogMode === "edit" && selectedTask) {
       if (!canEditProjectTaskFromObras(selectedTask)) {
@@ -150,6 +150,10 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
         crewId: snapshots.crewId,
         crew: snapshots.crew || payload.crew,
         estimatedDuration: payload.estimatedDuration,
+        taskMetadata: mergeTaskMetadataWithTemplate(
+          selectedTask,
+          payload.operationalChecklistTemplate
+        ),
       })
 
       if (!result.success) {
@@ -181,7 +185,11 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
       startDate: payload.startDate,
       dueDate: payload.dueDate,
       estimatedDuration: payload.estimatedDuration,
-      checklist: defaultChecklist,
+      checklist: [],
+      taskMetadata: mergeTaskMetadataWithTemplate(
+        {},
+        payload.operationalChecklistTemplate
+      ),
       status: resolveProjectTaskCreateStatus(project.status),
     })
 

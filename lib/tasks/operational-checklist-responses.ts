@@ -1,4 +1,5 @@
 import type { MobileTaskChecklistResponseValue } from "@/lib/mobile/v1/tasks/types"
+import type { OperationalChecklistTemplateLike } from "@/lib/tasks/operational-checklist-template"
 import type { WorkOrderTypeChecklistItem } from "@/lib/types/work-order-type-checklist"
 import type { Task } from "@/lib/types/tasks"
 import type { ChecklistFieldType } from "@/lib/work-order-types/checklist-field-types"
@@ -78,7 +79,7 @@ export function operationalChecklistResponseHasValue(
 }
 
 export function buildOperationalChecklistDisplayItems(input: {
-  template: WorkOrderTypeChecklistItem[]
+  template: Array<OperationalChecklistTemplateLike | WorkOrderTypeChecklistItem>
   responses: OperationalChecklistResponses
   includeUnanswered?: boolean
 }): OperationalChecklistDisplayItem[] {

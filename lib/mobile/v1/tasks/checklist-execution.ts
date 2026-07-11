@@ -14,6 +14,10 @@ import {
   readOperationalChecklistResponses,
   type OperationalChecklistResponses,
 } from "@/lib/tasks/operational-checklist-responses"
+import {
+  mapTemplateToMobileItems,
+  readOperationalChecklistTemplate,
+} from "@/lib/tasks/operational-checklist-template"
 import type { Task } from "@/lib/types/tasks"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
@@ -99,4 +103,20 @@ export async function fetchOperationalChecklistTemplate(
     companyId,
     serviceType?.trim() || ""
   )
+}
+
+export async function fetchOperationalChecklistTemplateForTask(
+  client: SupabaseClient,
+  companyId: string,
+  task: Pick<Task, "projectId" | "serviceType" | "taskMetadata">
+): Promise<MobileOperationalChecklistItem[]> {
+  if (task.projectId) {
+    const embedded = readOperationalChecklistTemplate(task)
+    if (embedded.length > 0) {
+      return mapTemplateToMobileItems(embedded)
+    }
+    return []
+  }
+
+  return fetchOperationalChecklistTemplate(client, companyId, task.serviceType)
 }

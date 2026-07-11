@@ -37,6 +37,12 @@ import {
   isFormStateDirty,
   useProtectedFormDialog,
 } from "@/components/ui/protected-form-dialog"
+import { ProjectTaskChecklistEditor } from "@/components/obras/project-task-checklist-editor"
+import {
+  normalizeOperationalChecklistTemplate,
+  readOperationalChecklistTemplate,
+  type OperationalChecklistTemplateItem,
+} from "@/lib/tasks/operational-checklist-template"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -79,6 +85,7 @@ type ProjectTaskDialogProps = {
     startDate: string
     dueDate: string
     estimatedDuration: string
+    operationalChecklistTemplate: OperationalChecklistTemplateItem[]
   }) => Promise<void>
 }
 
@@ -147,10 +154,20 @@ export function ProjectTaskDialog({
   const [baselineForm, setBaselineForm] = useState<TaskFormState>(() =>
     buildCreateForm(project)
   )
+  const [checklistTemplate, setChecklistTemplate] = useState<
+    OperationalChecklistTemplateItem[]
+  >([])
+  const [baselineChecklistTemplate, setBaselineChecklistTemplate] = useState<
+    OperationalChecklistTemplateItem[]
+  >([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const isDirty = isFormStateDirty(form, baselineForm)
+  const isFormDirty = isFormStateDirty(form, baselineForm)
+  const isChecklistDirty =
+    JSON.stringify(normalizeOperationalChecklistTemplate(checklistTemplate)) !==
+    JSON.stringify(normalizeOperationalChecklistTemplate(baselineChecklistTemplate))
+  const isDirty = isFormDirty || isChecklistDirty
   const {
     handleOpenChange,
     requestClose,
@@ -183,8 +200,15 @@ export function ProjectTaskDialog({
             crewId: assignableCrews[0]?.id ?? "",
           }
 
+    const nextChecklist =
+      mode === "edit" && task
+        ? readOperationalChecklistTemplate(task)
+        : []
+
     setForm(nextForm)
     setBaselineForm(nextForm)
+    setChecklistTemplate(nextChecklist)
+    setBaselineChecklistTemplate(nextChecklist)
   }, [open, mode, project, task, assignableCrews, crews])
 
   function updateField<K extends keyof TaskFormState>(
@@ -245,6 +269,9 @@ export function ProjectTaskDialog({
         startDate: form.startDate,
         dueDate: form.dueDate,
         estimatedDuration: form.estimatedDuration.trim(),
+        operationalChecklistTemplate: normalizeOperationalChecklistTemplate(
+          checklistTemplate
+        ),
       })
 
       forceClose()
@@ -414,6 +441,12 @@ export function ProjectTaskDialog({
               </Select>
             </div>
           )}
+
+          <ProjectTaskChecklistEditor
+            items={checklistTemplate}
+            onChange={setChecklistTemplate}
+            disabled={isSubmitting}
+          />
 
           {error && (
             <p className="text-sm text-destructive" role="alert">

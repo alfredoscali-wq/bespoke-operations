@@ -1,7 +1,6 @@
 "use client"
 
 import {
-  AlertTriangle,
   Ban,
   Building2,
   CheckCircle2,
@@ -45,14 +44,6 @@ const MANAGEMENT_KPIS = [
     tone: "red" as const,
     format: (value: number) => String(value),
     href: moduleFilterUrls.projects.health("overdue"),
-  },
-  {
-    key: "riskProjects" as const,
-    label: "Obras en riesgo",
-    icon: AlertTriangle,
-    tone: "yellow" as const,
-    format: (value: number) => String(value),
-    href: moduleFilterUrls.projects.health("risk"),
   },
   {
     key: "pendingTasks" as const,

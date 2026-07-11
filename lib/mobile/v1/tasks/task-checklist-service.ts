@@ -3,7 +3,7 @@ import "server-only"
 import { recordTaskMobileWorkflowAudit } from "@/lib/audit/tasks-audit.server"
 import {
   buildTaskMetadataWithResponses,
-  fetchOperationalChecklistTemplate,
+  fetchOperationalChecklistTemplateForTask,
   mergeChecklistResponseValue,
   mergeChecklistWithResponses,
   readOperationalChecklistResponses,
@@ -20,7 +20,7 @@ import { mapTaskRowToTask } from "@/lib/supabase/tasks.mapper"
 import type { Json } from "@/lib/supabase/database.types"
 
 function findTemplateItem(
-  template: Awaited<ReturnType<typeof fetchOperationalChecklistTemplate>>,
+  template: Awaited<ReturnType<typeof fetchOperationalChecklistTemplateForTask>>,
   itemId: string
 ) {
   return template.find((item) => item.id === itemId) ?? null
@@ -30,10 +30,10 @@ async function persistChecklistResponses(
   context: Awaited<ReturnType<typeof assertMobileTaskExecutionAccess>>,
   responses: ReturnType<typeof readOperationalChecklistResponses>
 ): Promise<MobileTaskChecklistItem[]> {
-  const template = await fetchOperationalChecklistTemplate(
+  const template = await fetchOperationalChecklistTemplateForTask(
     context.admin,
     context.auth.companyId,
-    context.task.serviceType
+    context.task
   )
 
   const { data, error } = await context.admin
@@ -71,10 +71,10 @@ export async function updateMobileTaskChecklistResponse(
 
   await assertMobileTaskExecutionNotBlockedByActiveIncident(context)
 
-  const template = await fetchOperationalChecklistTemplate(
+  const template = await fetchOperationalChecklistTemplateForTask(
     context.admin,
     context.auth.companyId,
-    context.task.serviceType
+    context.task
   )
 
   const templateItem = findTemplateItem(template, request.itemId)
@@ -166,10 +166,10 @@ export async function appendChecklistPhotoId(
   checklistItemId: string,
   photoId: string
 ): Promise<MobileTaskChecklistItem[]> {
-  const template = await fetchOperationalChecklistTemplate(
+  const template = await fetchOperationalChecklistTemplateForTask(
     context.admin,
     context.auth.companyId,
-    context.task.serviceType
+    context.task
   )
 
   const templateItem = findTemplateItem(template, checklistItemId)

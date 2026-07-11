@@ -53,6 +53,7 @@
     "test:obras-ops-1-0-dispatch": "npx tsx --test scripts/test-obras-ops-1-0-dispatch.mjs",
     "test:obras-ops-1-1-gps": "npx tsx --test scripts/test-obras-ops-1-1-gps.mjs",
     "test:obras-ops-1-2-operational-closure": "npx tsx --test scripts/test-obras-ops-1-2-operational-closure.mjs",
+    "test:obras-ops-1-3-checklist": "npx tsx --test scripts/test-obras-ops-1-3-checklist.mjs",
     "db:rc1-1": "node scripts/apply-rc1-1-migration.mjs",
     "prepare:clientes": "npx tsx scripts/prepare-commercial-migration.ts",
     "import:clientes": "npx tsx scripts/run-commercial-import.ts",

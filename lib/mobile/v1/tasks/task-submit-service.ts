@@ -2,7 +2,7 @@ import "server-only"
 
 import { recordTaskMobileWorkflowAudit } from "@/lib/audit/tasks-audit.server"
 import {
-  fetchOperationalChecklistTemplate,
+  fetchOperationalChecklistTemplateForTask,
   readOperationalChecklistResponses,
   validateOperationalChecklistComplete,
 } from "@/lib/mobile/v1/tasks/checklist-execution"
@@ -30,10 +30,10 @@ export async function submitMobileTaskForApproval(
 
   await assertMobileTaskExecutionNotBlockedByActiveIncident(context)
 
-  const template = await fetchOperationalChecklistTemplate(
+  const template = await fetchOperationalChecklistTemplateForTask(
     context.admin,
     context.auth.companyId,
-    context.task.serviceType
+    context.task
   )
 
   const responses = readOperationalChecklistResponses(context.task)

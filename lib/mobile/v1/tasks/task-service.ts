@@ -5,10 +5,10 @@ import { fetchTodayAgendaTasks } from "@/lib/mobile/v1/agenda/agenda-queries"
 import { isFieldAgentAgendaTaskVisible } from "@/lib/mobile/v1/agenda/agenda-task-visibility"
 import { sortAgendaTasks } from "@/lib/mobile/v1/agenda/sort-agenda-tasks"
 import type { MobileAuthContext } from "@/lib/mobile/v1/auth/mobile-auth-context"
-import { fetchOperationalChecklistForServiceType } from "@/lib/mobile/v1/checklist/checklist-queries"
 import {
   mergeChecklistWithResponses,
   readOperationalChecklistResponses,
+  fetchOperationalChecklistTemplateForTask,
 } from "@/lib/mobile/v1/tasks/checklist-execution"
 import { MobileApiError } from "@/lib/mobile/v1/errors"
 import { resolveMobileTaskHasActiveIncident } from "@/lib/mobile/v1/tasks/task-active-incident.shared"
@@ -219,11 +219,8 @@ export async function getMobileTaskDetail(
   const nextTask =
     currentIndex >= 0 ? agendaTasks[currentIndex + 1] : undefined
 
-  const operationalChecklistTemplate = await fetchOperationalChecklistForServiceType(
-    admin,
-    auth.companyId,
-    task.serviceType?.trim() || ""
-  )
+  const operationalChecklistTemplate =
+    await fetchOperationalChecklistTemplateForTask(admin, auth.companyId, task)
 
   const checklist =
     task.status === "en-curso"
