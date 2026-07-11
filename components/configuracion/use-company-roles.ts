@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react"
 
+import { useAuth } from "@/components/auth/auth-provider"
 import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
+import { syncRoleMetadataClient } from "@/lib/auth/sync-employee-metadata.client"
 import {
   addCompanyRole,
   fetchCompanyRoles,
@@ -13,6 +15,7 @@ import type { CompanyRole } from "@/lib/types/company-roles"
 
 export function useCompanyRoles() {
   const { companyId, isAuthReady } = useTenantCompanyId()
+  const { sessionUser, refreshSession } = useAuth()
   const [roles, setRoles] = useState<CompanyRole[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -87,18 +90,33 @@ export function useCompanyRoles() {
 
       if (!result.success) {
         setError(result.message)
-      } else {
-        setRoles((current) =>
-          current
-            .map((item) => (item.id === role.id ? result.role : item))
-            .sort((left, right) => left.sortOrder - right.sortOrder)
-        )
+        setIsSaving(false)
+        return result
       }
+
+      const syncResult = await syncRoleMetadataClient(role.id)
+
+      if (!syncResult.success) {
+        const message = `La configuración se guardó, pero no se pudo sincronizar el acceso de los usuarios afectados: ${syncResult.message}`
+        setError(message)
+        setIsSaving(false)
+        return { success: false as const, message }
+      }
+
+      if (sessionUser?.roleId === role.id) {
+        await refreshSession()
+      }
+
+      setRoles((current) =>
+        current
+          .map((item) => (item.id === role.id ? result.role : item))
+          .sort((left, right) => left.sortOrder - right.sortOrder)
+      )
 
       setIsSaving(false)
       return result
     },
-    []
+    [refreshSession, sessionUser?.roleId]
   )
 
   return {

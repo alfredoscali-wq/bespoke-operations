@@ -13,6 +13,7 @@ import {
   resolveFixedAreaCode,
 } from "../lib/roles/company-areas.ts"
 import {
+  APP_MODULE_KEYS,
   createFullModuleVisibility,
   getVisibleModuleKeys,
 } from "../lib/roles/app-modules.ts"
@@ -50,7 +51,10 @@ test("roles legacy se resuelven a códigos de área fijos", () => {
 })
 
 test("Administrador mantiene acceso total por catálogo de módulos", () => {
-  assert.equal(getVisibleModuleKeys(createFullModuleVisibility()).length, 17)
+  assert.equal(
+    getVisibleModuleKeys(createFullModuleVisibility()).length,
+    APP_MODULE_KEYS.length
+  )
 })
 
 test("Operario no tiene módulos administrativos habilitados por defecto", () => {

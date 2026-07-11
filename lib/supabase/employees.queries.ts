@@ -107,6 +107,28 @@ export async function fetchEmployeeById(
   }
 }
 
+export async function fetchActiveEmployeeIdsByRoleId(
+  client: SupabaseEmployeesClient,
+  roleId: string,
+  companyId: string
+): Promise<EmployeesRepositoryResult<string[]>> {
+  const { data, error } = await client
+    .from("employees")
+    .select("id")
+    .eq("company_id", companyId)
+    .eq("role_id", roleId)
+    .is("deleted_at", null)
+
+  if (error) {
+    return { data: null, error: mapSupabaseEmployeeError(error) }
+  }
+
+  return {
+    data: (data ?? []).map((row) => row.id),
+    error: null,
+  }
+}
+
 export async function fetchEmployeeByCode(
   client: SupabaseEmployeesClient,
   employeeCode: string,

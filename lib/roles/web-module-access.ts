@@ -1,7 +1,10 @@
 import { getMetadataAllowedModules } from "@/lib/auth/module-access"
 import type { SessionUser } from "@/lib/auth/types"
 import type { AppModuleKey } from "@/lib/roles/app-modules"
-import { ADMINISTRATOR_ROLE_CODE } from "@/lib/roles/role-utils"
+import {
+  ADMINISTRATOR_ROLE_CODE,
+  isAdministradorAuthMetadata,
+} from "@/lib/roles/role-utils"
 import type { SystemRole } from "@/lib/types/employees"
 
 export function isAdministradorSessionUser(
@@ -36,7 +39,7 @@ export function hasWebModuleAccessFromMetadata(
   moduleKey: AppModuleKey,
   systemRole: SystemRole | null | undefined = null
 ): boolean {
-  if (systemRole === "administrador") {
+  if (isAdministradorAuthMetadata(metadata, systemRole)) {
     return true
   }
 

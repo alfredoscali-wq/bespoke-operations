@@ -2,7 +2,10 @@ import "server-only"
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { fetchCompanyRoleById } from "@/lib/supabase/company-roles.queries"
-import { fetchEmployeeById } from "@/lib/supabase/employees.queries"
+import {
+  fetchActiveEmployeeIdsByRoleId,
+  fetchEmployeeById,
+} from "@/lib/supabase/employees.queries"
 import {
   buildSessionRoleContext,
   serializeModuleVisibilityForMetadata,
@@ -44,6 +47,7 @@ export async function syncEmployeeAuthMetadata(
       national_id: employee.nationalId ?? null,
       system_role: systemRole,
       role_id: role?.id ?? employee.roleId ?? null,
+      role_code: role?.code ?? null,
       allowed_modules: serializeModuleVisibilityForMetadata(
         sessionRole.moduleVisibility
       ),
@@ -55,4 +59,89 @@ export async function syncEmployeeAuthMetadata(
   }
 
   return { success: true }
+}
+
+export type SyncEmployeesByRoleResult =
+  | {
+      success: true
+      syncedCount: number
+      skippedWithoutAppUser: number
+    }
+  | {
+      success: false
+      error: string
+      failedEmployeeId?: string
+    }
+
+export async function syncEmployeesAuthMetadataByRoleId(input: {
+  roleId: string
+  companyId: string
+}): Promise<SyncEmployeesByRoleResult> {
+  const admin = createAdminClient()
+  const roleResult = await fetchCompanyRoleById(admin, input.roleId)
+
+  if (roleResult.error || !roleResult.data) {
+    return {
+      success: false,
+      error: roleResult.error?.message ?? "Área no encontrada.",
+    }
+  }
+
+  if (roleResult.data.companyId !== input.companyId) {
+    return {
+      success: false,
+      error: "El área no pertenece a la empresa indicada.",
+    }
+  }
+
+  const employeesResult = await fetchActiveEmployeeIdsByRoleId(
+    admin,
+    input.roleId,
+    input.companyId
+  )
+
+  if (employeesResult.error || !employeesResult.data) {
+    return {
+      success: false,
+      error:
+        employeesResult.error?.message ??
+        "No fue posible listar empleados del área.",
+    }
+  }
+
+  let syncedCount = 0
+  let skippedWithoutAppUser = 0
+
+  for (const employeeId of employeesResult.data) {
+    const employeeResult = await fetchEmployeeById(admin, employeeId)
+
+    if (employeeResult.error || !employeeResult.data) {
+      return {
+        success: false,
+        error:
+          employeeResult.error?.message ??
+          "No fue posible obtener un empleado del área.",
+        failedEmployeeId: employeeId,
+      }
+    }
+
+    if (!employeeResult.data.appUserId) {
+      skippedWithoutAppUser += 1
+      continue
+    }
+
+    const result = await syncEmployeeAuthMetadata(employeeId)
+
+    if (!result.success) {
+      return {
+        success: false,
+        error: result.error,
+        failedEmployeeId: employeeId,
+      }
+    }
+
+    syncedCount += 1
+  }
+
+  return { success: true, syncedCount, skippedWithoutAppUser }
 }

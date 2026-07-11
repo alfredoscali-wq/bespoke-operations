@@ -40,6 +40,30 @@ export function canManageRoles(
   )
 }
 
+export function getMetadataRoleCode(
+  metadata: Record<string, unknown> | undefined
+): string | null {
+  return typeof metadata?.role_code === "string"
+    ? metadata.role_code.trim() || null
+    : null
+}
+
+/** Auth metadata/JWT: aligned with isAdministradorSessionUser semantics. */
+export function isAdministradorAuthMetadata(
+  metadata: Record<string, unknown> | undefined,
+  systemRole: SystemRole | null | undefined = null
+): boolean {
+  const resolvedSystemRole =
+    systemRole ??
+    (typeof metadata?.system_role === "string" ? metadata.system_role : null)
+
+  if (resolvedSystemRole === "administrador") {
+    return true
+  }
+
+  return getMetadataRoleCode(metadata) === ADMINISTRATOR_ROLE_CODE
+}
+
 export function slugifyRoleCode(name: string): string {
   return slugifyCode(name, "rol")
 }

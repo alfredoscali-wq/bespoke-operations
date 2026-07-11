@@ -1,9 +1,9 @@
 import type { AppModuleKey } from "@/lib/roles/app-modules"
 import {
-  canAccessPathWithModules,
   normalizeModuleVisibility,
   resolveModuleKeyFromPathname,
 } from "@/lib/roles/app-modules"
+import { hasWebModuleAccessFromMetadata } from "@/lib/roles/web-module-access"
 import type { SessionUser } from "@/lib/auth/types"
 import { getDefaultPostLoginPath, PROFILE_PATH } from "@/lib/auth/routes"
 import { isSystemRole } from "@/lib/auth/system-role"
@@ -28,23 +28,17 @@ export function canAccessPathWithMetadata(
   pathname: string,
   metadata: Record<string, unknown> | undefined
 ): boolean {
-  const allowedModules = getMetadataAllowedModules(metadata)
-
-  if (!allowedModules) {
-    return true
-  }
-
   const moduleKey = resolveModuleKeyFromPathname(pathname)
 
   if (!moduleKey) {
     return true
   }
 
-  const visibility = normalizeModuleVisibility(
-    Object.fromEntries(allowedModules.map((key) => [key, true]))
+  return hasWebModuleAccessFromMetadata(
+    metadata,
+    moduleKey,
+    getMetadataSystemRoleFromUser(metadata)
   )
-
-  return canAccessPathWithModules(pathname, visibility)
 }
 
 export function getMetadataRoleId(

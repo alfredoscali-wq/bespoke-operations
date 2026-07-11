@@ -10,6 +10,7 @@ import {
 } from "react"
 
 import { useDemoMode } from "@/components/demo/demo-mode-provider"
+import { useAuth } from "@/components/auth/auth-provider"
 import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import {
   blockDemoWrite,
@@ -93,6 +94,7 @@ function sortEmployees(employees: Employee[]): Employee[] {
 export function EmployeesProvider({ children }: { children: React.ReactNode }) {
   const { isReadOnly, openRestrictedDialog } = useDemoMode()
   const { companyId, isAuthReady } = useTenantCompanyId()
+  const { sessionUser, refreshSession } = useAuth()
   const [employees, setEmployees] = useState<Employee[]>([])
   const [isEmployeesReady, setIsEmployeesReady] = useState(false)
   const [usesSupabase, setUsesSupabase] = useState(false)
@@ -241,7 +243,19 @@ export function EmployeesProvider({ children }: { children: React.ReactNode }) {
               })
             }
             if (input.roleId !== undefined || input.systemRole !== undefined) {
-              void syncEmployeeMetadataClient(result.data.id)
+              const syncResult = await syncEmployeeMetadataClient(result.data.id)
+
+              if (!syncResult.success) {
+                return {
+                  success: false,
+                  message: `El empleado se actualizó, pero no se pudo sincronizar su acceso web: ${syncResult.message}`,
+                  employee: result.data,
+                }
+              }
+
+              if (sessionUser?.employeeId === result.data.id) {
+                await refreshSession()
+              }
             }
             recordEmployeeEditAudit(existing, input, result.data)
           }
@@ -263,7 +277,7 @@ export function EmployeesProvider({ children }: { children: React.ReactNode }) {
         }
       }
     },
-    [usesSupabase, employees]
+    [usesSupabase, employees, sessionUser?.employeeId, refreshSession]
   )
 
   const provisionEmployeeAccess = useCallback(
