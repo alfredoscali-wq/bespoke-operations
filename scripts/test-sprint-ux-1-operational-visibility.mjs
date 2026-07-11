@@ -155,7 +155,8 @@ test("planning module usa layout mapa grande con lista scrolleable", async () =>
   )
 
   assert.match(file, /h-\[52vh\]/)
-  assert.match(file, /lg:h-\[60vh\]/)
+  assert.match(file, /lg:max-h-\[60vh\]/)
+  assert.match(file, /minmax\(15rem,1fr\)/)
   assert.match(file, /min-h-0 flex-1/)
 })
 

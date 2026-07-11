@@ -1036,7 +1036,7 @@ function PlanningModuleContent() {
 
 
 
-        <div className="flex min-h-0 flex-1 flex-col gap-2">
+        <div className="flex min-h-0 flex-1 flex-col gap-2 lg:grid lg:grid-rows-[minmax(0,60vh)_minmax(15rem,1fr)]">
 
           <PlanningMap
 
@@ -1044,7 +1044,7 @@ function PlanningModuleContent() {
 
             mapRefreshError={mapRefreshError}
 
-            className="h-[52vh] shrink-0 lg:h-[60vh]"
+            className="h-[52vh] min-h-0 shrink-0 lg:h-full lg:max-h-[60vh]"
 
           />
 
@@ -1104,7 +1104,7 @@ function PlanningModuleContent() {
 
             activeCrewFilterName={activeCrewFilterName}
 
-            className="min-h-0 flex-1"
+            className="min-h-0 flex-1 lg:h-full"
 
           />
 

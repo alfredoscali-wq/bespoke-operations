@@ -276,7 +276,7 @@ export function PlanningTaskList({
 
       className={cn(
 
-        "flex min-h-0 h-full w-full shrink-0 flex-col overflow-hidden rounded-xl border bg-card shadow-sm",
+        "flex min-h-0 h-full w-full flex-col overflow-hidden rounded-xl border bg-card shadow-sm",
 
         className
 

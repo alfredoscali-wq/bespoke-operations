@@ -25,6 +25,7 @@ import {
   resolvePlanningTaskServiceLabel,
   type PlanningMapViewConfig,
 } from "@/lib/planificacion/planning-utils"
+import { resolvePlanningMapBaseLayerConfig } from "@/lib/planificacion/planning-map-tiles"
 
 import "leaflet/dist/leaflet.css"
 
@@ -260,10 +261,8 @@ export function PlanningMapCanvas({
       attributionControl: true,
     })
 
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-    }).addTo(map)
+    const baseLayerConfig = resolvePlanningMapBaseLayerConfig()
+    L.tileLayer(baseLayerConfig.url, baseLayerConfig.options).addTo(map)
 
     markerLayerRef.current = L.layerGroup().addTo(map)
     mapRef.current = map

@@ -8,6 +8,10 @@ import {
   countOperationalOrderReorderablesForTask,
   parseOperationalOrderInput,
 } from "../lib/planificacion/planning-execution-order.ts"
+import {
+  PLANNING_MAP_DEFAULT_BASE_LAYER,
+  resolvePlanningMapBaseLayerConfig,
+} from "../lib/planificacion/planning-map-tiles.ts"
 import { resolveTaskRouteOrder } from "../lib/tasks/dispatch-order.ts"
 import { buildPlanningMarkersViewKey } from "../lib/planificacion/planning-map-markers.ts"
 
@@ -89,8 +93,9 @@ test("summary compacto conserva información funcional", async () => {
 test("mapa usa altura significativamente mayor en escritorio", async () => {
   const file = await readFile("components/planificacion/planning-module.tsx", "utf8")
 
-  assert.match(file, /lg:h-\[60vh\]/)
+  assert.match(file, /lg:max-h-\[60vh\]/)
   assert.match(file, /h-\[52vh\]/)
+  assert.match(file, /minmax\(15rem,1fr\)/)
   assert.doesNotMatch(file, /max-h-\[42vh\]/)
 })
 
@@ -325,4 +330,31 @@ test("toolbar mantiene selector de fecha con espaciado reducido", async () => {
   assert.match(file, /type="date"/)
   assert.match(file, /Ir a Órdenes de Trabajo/)
   assert.match(file, /gap-2/)
+})
+
+test("resolvePlanningMapBaseLayerConfig expone satélite por defecto sin API key", () => {
+  assert.equal(PLANNING_MAP_DEFAULT_BASE_LAYER, "satellite")
+
+  const config = resolvePlanningMapBaseLayerConfig()
+  assert.equal(config.id, "satellite")
+  assert.match(config.url, /World_Imagery/)
+  assert.ok(config.options.attribution)
+  assert.equal(config.options.maxZoom, 19)
+})
+
+test("planning map usa capa satelital Esri por defecto", async () => {
+  const tilesFile = await readFile(
+    "lib/planificacion/planning-map-tiles.ts",
+    "utf8"
+  )
+  const canvasFile = await readFile(
+    "components/planificacion/planning-map-canvas.tsx",
+    "utf8"
+  )
+
+  assert.match(tilesFile, /PLANNING_MAP_DEFAULT_BASE_LAYER[\s\S]*"satellite"/)
+  assert.match(tilesFile, /World_Imagery/)
+  assert.match(tilesFile, /attribution:/)
+  assert.match(canvasFile, /resolvePlanningMapBaseLayerConfig/)
+  assert.doesNotMatch(canvasFile, /tile\.openstreetmap\.org/)
 })
