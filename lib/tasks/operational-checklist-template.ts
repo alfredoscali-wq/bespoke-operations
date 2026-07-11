@@ -69,16 +69,23 @@ export function readOperationalChecklistTemplate(
 }
 
 export function normalizeOperationalChecklistTemplate(
-  items: OperationalChecklistTemplateItem[]
+  items: OperationalChecklistTemplateItem[],
+  options: { dropEmptyTitles?: boolean } = {}
 ): OperationalChecklistTemplateItem[] {
-  return [...items]
+  const dropEmptyTitles = options.dropEmptyTitles ?? true
+  const normalized = [...items]
     .sort((left, right) => left.sortOrder - right.sortOrder)
     .map((item, index) => ({
       ...item,
       title: item.title.trim(),
       sortOrder: index + 1,
     }))
-    .filter((item) => item.title.length > 0)
+
+  if (!dropEmptyTitles) {
+    return normalized
+  }
+
+  return normalized.filter((item) => item.title.length > 0)
 }
 
 export function createOperationalChecklistTemplateItem(
@@ -96,13 +103,14 @@ export function createOperationalChecklistTemplateItem(
 export function reorderOperationalChecklistTemplateItems(
   items: OperationalChecklistTemplateItem[],
   draggedId: string,
-  targetId: string
+  targetId: string,
+  options: { dropEmptyTitles?: boolean } = {}
 ): OperationalChecklistTemplateItem[] {
   if (draggedId === targetId) {
     return items
   }
 
-  const ordered = normalizeOperationalChecklistTemplate(items)
+  const ordered = normalizeOperationalChecklistTemplate(items, options)
   const fromIndex = ordered.findIndex((item) => item.id === draggedId)
   const toIndex = ordered.findIndex((item) => item.id === targetId)
 
@@ -113,7 +121,7 @@ export function reorderOperationalChecklistTemplateItems(
   const [moved] = ordered.splice(fromIndex, 1)
   ordered.splice(toIndex, 0, moved)
 
-  return normalizeOperationalChecklistTemplate(ordered)
+  return normalizeOperationalChecklistTemplate(ordered, options)
 }
 
 export function mergeTaskMetadataWithTemplate(

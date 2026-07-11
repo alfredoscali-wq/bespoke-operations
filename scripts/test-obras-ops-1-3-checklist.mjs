@@ -163,6 +163,38 @@ test("3. sin template ni service_type devuelve checklist vacío", () => {
   assert.equal(mapTemplateToMobileItems([]).length, 0)
 })
 
+test("hotfix: agregar ítem conserva fila borrador con título vacío en editor", () => {
+  const draftItem = createOperationalChecklistTemplateItem(1)
+
+  const editorItems = normalizeOperationalChecklistTemplate(
+    [draftItem],
+    { dropEmptyTitles: false }
+  )
+
+  assert.equal(editorItems.length, 1)
+  assert.equal(editorItems[0].id, draftItem.id)
+  assert.equal(editorItems[0].title, "")
+  assert.equal(editorItems[0].sortOrder, 1)
+
+  const persistedItems = normalizeOperationalChecklistTemplate(editorItems)
+
+  assert.equal(persistedItems.length, 0)
+})
+
+test("hotfix: simular handler Agregar ítem agrega fila editable", () => {
+  const existing = makeTemplateSnapshot()
+  const nextItem = createOperationalChecklistTemplateItem(existing.length + 1)
+
+  const afterAdd = normalizeOperationalChecklistTemplate(
+    [...existing, nextItem],
+    { dropEmptyTitles: false }
+  )
+
+  assert.equal(afterAdd.length, 3)
+  assert.equal(afterAdd[2].id, nextItem.id)
+  assert.equal(afterAdd[2].title, "")
+})
+
 test("4. crear OT persiste template en task_metadata", () => {
   const items = normalizeOperationalChecklistTemplate([
     {

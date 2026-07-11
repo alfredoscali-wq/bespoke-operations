@@ -165,8 +165,16 @@ export function ProjectTaskDialog({
 
   const isFormDirty = isFormStateDirty(form, baselineForm)
   const isChecklistDirty =
-    JSON.stringify(normalizeOperationalChecklistTemplate(checklistTemplate)) !==
-    JSON.stringify(normalizeOperationalChecklistTemplate(baselineChecklistTemplate))
+    JSON.stringify(
+      normalizeOperationalChecklistTemplate(checklistTemplate, {
+        dropEmptyTitles: false,
+      })
+    ) !==
+    JSON.stringify(
+      normalizeOperationalChecklistTemplate(baselineChecklistTemplate, {
+        dropEmptyTitles: false,
+      })
+    )
   const isDirty = isFormDirty || isChecklistDirty
   const {
     handleOpenChange,

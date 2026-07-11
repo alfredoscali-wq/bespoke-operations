@@ -19,6 +19,8 @@ type ProjectTaskChecklistEditorProps = {
   disabled?: boolean
 }
 
+const EDITOR_TEMPLATE_NORMALIZE_OPTIONS = { dropEmptyTitles: false } as const
+
 export function ProjectTaskChecklistEditor({
   items,
   onChange,
@@ -28,7 +30,9 @@ export function ProjectTaskChecklistEditor({
   const [dropTargetId, setDropTargetId] = useState<string | null>(null)
 
   function updateItems(next: OperationalChecklistTemplateItem[]) {
-    onChange(normalizeOperationalChecklistTemplate(next))
+    onChange(
+      normalizeOperationalChecklistTemplate(next, EDITOR_TEMPLATE_NORMALIZE_OPTIONS)
+    )
   }
 
   function handleAddItem() {
@@ -89,7 +93,8 @@ export function ProjectTaskChecklistEditor({
                     reorderOperationalChecklistTemplateItems(
                       items,
                       draggedId,
-                      targetId
+                      targetId,
+                      EDITOR_TEMPLATE_NORMALIZE_OPTIONS
                     )
                   )
                 }
