@@ -39,9 +39,11 @@ export function EmploymentStatusBadge({
 
 export function EmployeeTypeBadge({
   employeeType,
+  displayName,
   className,
 }: {
   employeeType: EmployeeType
+  displayName?: string
   className?: string
 }) {
   return (
@@ -49,7 +51,7 @@ export function EmployeeTypeBadge({
       variant="outline"
       className={cn("font-medium", EMPLOYEE_TYPE_STYLES[employeeType], className)}
     >
-      {EMPLOYEE_TYPE_LABELS[employeeType]}
+      {displayName ?? EMPLOYEE_TYPE_LABELS[employeeType]}
     </Badge>
   )
 }

@@ -10,6 +10,7 @@ import {
 } from "lucide-react"
 
 import { useEmployees } from "@/components/rrhh/employees-provider"
+import { useEmployeeTypes } from "@/components/configuracion/use-employee-types"
 import { executeEmployeeImport } from "@/lib/employees/employee-import/execute"
 import { parseEmployeeImportFile } from "@/lib/employees/employee-import/parse"
 import { downloadEmployeeImportTemplate } from "@/lib/employees/employee-import/template"
@@ -84,6 +85,7 @@ export function EmployeesImportDialog({
   onImported,
 }: EmployeesImportDialogProps) {
   const { employees, addEmployee, editEmployee } = useEmployees()
+  const { items: employeeTypes } = useEmployeeTypes()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [step, setStep] = useState<ImportStep>("upload")
@@ -96,8 +98,8 @@ export function EmployeesImportDialog({
     useState<EmployeeImportExecutionResult | null>(null)
 
   const validationContext = useMemo<EmployeeImportValidationContext>(
-    () => ({ employees }),
-    [employees]
+    () => ({ employees, employeeTypes }),
+    [employees, employeeTypes]
   )
 
   const summary = useMemo(() => summarizeImportRows(rows), [rows])
@@ -273,7 +275,9 @@ export function EmployeesImportDialog({
                           .filter(Boolean)
                           .join(" ") || "—"}
                       </TableCell>
-                      <TableCell>{getPreviewEmployeeTypeLabel(row)}</TableCell>
+                      <TableCell>
+                        {getPreviewEmployeeTypeLabel(row, employeeTypes)}
+                      </TableCell>
                       <TableCell>{getPreviewRoleLabel(row)}</TableCell>
                       <TableCell>{getPreviewAccessLabel(row)}</TableCell>
                       <TableCell className="min-w-[220px]">

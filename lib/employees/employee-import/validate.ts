@@ -1,6 +1,5 @@
 import {
   normalizeImportRowData,
-  resolveImportEmployeeType,
   resolveImportEmploymentStatus,
   resolveImportSystemAccess,
   resolveImportSystemRole,
@@ -13,9 +12,12 @@ import type {
   ImportValidationLevel,
 } from "@/lib/employees/employee-import/types"
 import type { Employee, NewEmployeeInput } from "@/lib/types/employees"
+import type { EmployeeTypeCatalog } from "@/lib/types/employee-types"
+import { resolveImportEmployeeTypeFromCatalog } from "@/lib/employees/employee-import/resolve-type"
 
 export type EmployeeImportValidationContext = {
   employees: Employee[]
+  employeeTypes: EmployeeTypeCatalog[]
 }
 
 function resolveRowStatus(issues: EmployeeImportIssue[]): ImportValidationLevel {
@@ -27,14 +29,18 @@ function resolveRowStatus(issues: EmployeeImportIssue[]): ImportValidationLevel 
 
 function buildEmployeePayload(
   data: EmployeeImportRowData,
-  employeeCode: string
+  employeeCode: string,
+  context: EmployeeImportValidationContext
 ): NewEmployeeInput | null {
-  const employeeType = resolveImportEmployeeType(data.employeeType)
+  const resolvedType = resolveImportEmployeeTypeFromCatalog(
+    data.employeeType,
+    context.employeeTypes
+  )
   const employmentStatus = resolveImportEmploymentStatus(data.employmentStatus)
   const systemAccess = resolveImportSystemAccess(data.systemAccess)
   const systemRole = resolveImportSystemRole(data.systemRole)
 
-  if (!employeeType || !employmentStatus || systemAccess === null || !systemRole) {
+  if (!resolvedType || !employmentStatus || systemAccess === null || !systemRole) {
     return null
   }
 
@@ -49,7 +55,8 @@ function buildEmployeePayload(
     phone: data.phone.trim() || undefined,
     jobTitle: data.jobTitle.trim(),
     department: data.department.trim() || undefined,
-    employeeType,
+    employeeTypeId: resolvedType.employeeTypeId,
+    employeeType: resolvedType.employeeType,
     employmentStatus,
     hireDate: data.hireDate.trim() || undefined,
     notes: data.notes.trim(),
@@ -127,12 +134,17 @@ export function validateImportRow(
       field: "employeeType",
       message: "Tipo Empleado obligatorio",
     })
-  } else if (!resolveImportEmployeeType(normalized.employeeType)) {
+  } else if (
+    !resolveImportEmployeeTypeFromCatalog(
+      normalized.employeeType,
+      context.employeeTypes
+    )
+  ) {
     issues.push({
       level: "error",
       field: "employeeType",
       message:
-        "Tipo Empleado inválido (operario, supervisor, administrativo, gerente, otro)",
+        "Tipo Empleado no encontrado. Use un código válido (operator, supervisor, administrative, manager, other) o el nombre configurado.",
     })
   }
 
@@ -182,7 +194,9 @@ export function applyValidationToRow(
   const issues = validateImportRow(row.rowNumber, data, context, usedNationalIds)
   const status = resolveRowStatus(issues)
   const payload =
-    status === "valid" ? buildEmployeePayload(data, employeeCode) ?? undefined : undefined
+    status === "valid"
+      ? buildEmployeePayload(data, employeeCode, context) ?? undefined
+      : undefined
 
   if (status === "valid" && data.nationalId.trim()) {
     usedNationalIds.add(data.nationalId.trim().toLowerCase())
@@ -273,7 +287,13 @@ export function getPreviewRoleLabel(row: EmployeeImportReviewRow): string {
   return resolved ?? (row.data.systemRole.trim() || "operario")
 }
 
-export function getPreviewEmployeeTypeLabel(row: EmployeeImportReviewRow): string {
-  const resolved = resolveImportEmployeeType(row.data.employeeType)
-  return resolved ?? (row.data.employeeType.trim() || "—")
+export function getPreviewEmployeeTypeLabel(
+  row: EmployeeImportReviewRow,
+  employeeTypes: EmployeeTypeCatalog[]
+): string {
+  const resolved = resolveImportEmployeeTypeFromCatalog(
+    row.data.employeeType,
+    employeeTypes
+  )
+  return resolved?.displayName ?? (row.data.employeeType.trim() || "—")
 }

@@ -2,6 +2,7 @@ import {
   EMPLOYEE_TYPE_LABELS,
   SYSTEM_ROLE_LABELS,
 } from "@/lib/employees/constants"
+import { getEmployeeTypeDisplayName, isSupervisorEmployeeType, resolveLegacyEmployeeTypeFromCatalogCode } from "@/lib/employees/employee-type-legacy"
 import type {
   Employee,
   EmployeeFilters,
@@ -13,11 +14,13 @@ import type {
   EmploymentStatus,
   SystemRole,
 } from "@/lib/types/employees"
+import type { EmployeeTypeCatalog } from "@/lib/types/employee-types"
 
 export const defaultEmployeeFilters: EmployeeFilters = {
   search: "",
   employmentStatus: "all",
   department: "all",
+  employeeTypeId: "all",
   systemRole: "all",
   systemAccess: "all",
   provision: "all",
@@ -104,9 +107,9 @@ export function isEmployeeAvailable(
 }
 
 export function isSupervisorEmployee(
-  employee: Pick<Employee, "employeeType">
+  employee: Pick<Employee, "employeeType" | "employeeTypeRecord">
 ): boolean {
-  return employee.employeeType === "supervisor"
+  return isSupervisorEmployeeType(employee)
 }
 
 export function getSupervisorEmployees(employees: Employee[]): Employee[] {
@@ -155,6 +158,7 @@ function employeeMatchesSearch(
     employee.nationalId ?? "",
     employee.email ?? "",
     employee.jobTitle,
+    getEmployeeTypeDisplayName(employee),
     EMPLOYEE_TYPE_LABELS[employee.employeeType],
     SYSTEM_ROLE_LABELS[employee.systemRole],
   ]
@@ -164,9 +168,34 @@ function employeeMatchesSearch(
   )
 }
 
+export function employeeMatchesEmployeeTypeFilter(
+  employee: Pick<Employee, "employeeTypeId" | "employeeType">,
+  filterTypeId: string,
+  catalog: EmployeeTypeCatalog[]
+): boolean {
+  if (employee.employeeTypeId === filterTypeId) {
+    return true
+  }
+
+  if (employee.employeeTypeId) {
+    return false
+  }
+
+  const selected = catalog.find((item) => item.id === filterTypeId)
+  if (!selected) {
+    return false
+  }
+
+  return (
+    employee.employeeType ===
+    resolveLegacyEmployeeTypeFromCatalogCode(selected.code)
+  )
+}
+
 export function filterEmployees(
   employees: EmployeeListItem[],
-  filters: EmployeeFilters
+  filters: EmployeeFilters,
+  options?: { employeeTypeCatalog?: EmployeeTypeCatalog[] }
 ): EmployeeListItem[] {
   const query = filters.search.trim().toLowerCase()
 
@@ -180,6 +209,16 @@ export function filterEmployees(
     const matchesDepartment =
       filters.department === "all" ||
       employee.department === filters.department
+
+    const matchesEmployeeType =
+      filters.employeeTypeId === "all" ||
+      (options?.employeeTypeCatalog
+        ? employeeMatchesEmployeeTypeFilter(
+            employee,
+            filters.employeeTypeId,
+            options.employeeTypeCatalog
+          )
+        : employee.employeeTypeId === filters.employeeTypeId)
 
     const matchesSystemRole =
       filters.systemRole === "all" ||
@@ -201,6 +240,7 @@ export function filterEmployees(
       matchesSearch &&
       matchesStatus &&
       matchesDepartment &&
+      matchesEmployeeType &&
       matchesSystemRole &&
       matchesSystemAccess &&
       matchesProvision

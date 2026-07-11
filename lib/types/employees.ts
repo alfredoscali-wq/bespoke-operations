@@ -1,3 +1,5 @@
+import type { EmployeeTypeCatalog } from "@/lib/types/employee-types"
+
 export type EmploymentStatus =
   | "active"
   | "vacation"
@@ -34,6 +36,11 @@ export type Employee = {
   jobTitle: string
   department: string
   employeeType: EmployeeType
+  employeeTypeId?: string | null
+  employeeTypeRecord?: Pick<
+    EmployeeTypeCatalog,
+    "id" | "code" | "name" | "isActive"
+  > | null
   employmentStatus: EmploymentStatus
   hireDate?: string
   terminationDate?: string
@@ -99,6 +106,7 @@ export type EmployeeFilters = {
   search: string
   employmentStatus: EmploymentStatus | "all"
   department: string | "all"
+  employeeTypeId: string | "all"
   systemRole: SystemRole | "all"
   systemAccess: EmployeeSystemAccessFilter
   provision: "all" | "pending" | "provisioned"
@@ -116,6 +124,7 @@ export type NewEmployeeInput = {
   jobTitle?: string
   department?: string
   employeeType?: EmployeeType
+  employeeTypeId?: string | null
   employmentStatus?: EmploymentStatus
   hireDate?: string
   terminationDate?: string

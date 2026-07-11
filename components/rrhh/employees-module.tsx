@@ -10,8 +10,10 @@ import { EmployeesFiltersBar } from "@/components/rrhh/employees-filters"
 import { useEmployees } from "@/components/rrhh/employees-provider"
 import { EmployeesSummaryCards } from "@/components/rrhh/employees-summary-cards"
 import { EmployeesTable } from "@/components/rrhh/employees-table"
+import { useEmployeeTypes } from "@/components/configuracion/use-employee-types"
 import { TableRowsSkeleton } from "@/components/ui/kpi-grid-skeleton"
 import { downloadEmployeeImportTemplate } from "@/lib/employees/employee-import/template"
+import { buildEmployeeTypeFilterOptions } from "@/lib/employees/employee-type-form"
 import {
   buildEmployeeListItems,
   defaultEmployeeFilters,
@@ -35,6 +37,7 @@ import {
 
 export function EmployeesModule() {
   const { employees, addEmployee } = useEmployees()
+  const { items: employeeTypes } = useEmployeeTypes()
   const searchParams = useSearchParams()
   const [filters, setFilters] = useState<EmployeeFilters>(defaultEmployeeFilters)
   const [activeKpi, setActiveKpi] = useState<keyof EmployeeSummary | null>(null)
@@ -74,9 +77,17 @@ export function EmployeesModule() {
     [employees]
   )
 
+  const employeeTypeFilterOptions = useMemo(
+    () => buildEmployeeTypeFilterOptions(employeeTypes, employees),
+    [employeeTypes, employees]
+  )
+
   const filteredEmployees = useMemo(
-    () => filterEmployees(listItems, filters),
-    [listItems, filters]
+    () =>
+      filterEmployees(listItems, filters, {
+        employeeTypeCatalog: employeeTypes,
+      }),
+    [listItems, filters, employeeTypes]
   )
 
   function handleKpiClick(key: keyof EmployeeSummary) {
@@ -157,6 +168,7 @@ export function EmployeesModule() {
             }}
             resultCount={filteredEmployees.length}
             departments={departments}
+            employeeTypeOptions={employeeTypeFilterOptions}
           />
           {isHydratingFilters && employees.length === 0 ? (
             <TableRowsSkeleton rows={8} columns={6} />

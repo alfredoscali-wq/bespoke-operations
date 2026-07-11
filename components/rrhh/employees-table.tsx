@@ -17,6 +17,7 @@ import {
   getEmployeeFullName,
   sortEmployees,
 } from "@/lib/employees/utils"
+import { getEmployeeTypeDisplayName } from "@/lib/employees/employee-type-legacy"
 import { EntityActionFeedback } from "@/components/ui/entity-action-feedback"
 import type {
   EmployeeListItem,
@@ -238,6 +239,9 @@ export function EmployeesTable({ employees }: EmployeesTableProps) {
                     className={column.className}
                   />
                 ))}
+                <TableHead className="min-w-[140px] text-muted-foreground">
+                  Tipo de empleado
+                </TableHead>
                 <TableHead className="w-[120px] text-muted-foreground">
                   Teléfono
                 </TableHead>
@@ -289,6 +293,9 @@ export function EmployeesTable({ employees }: EmployeesTableProps) {
                       ) : (
                         "—"
                       )}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {getEmployeeTypeDisplayName(employee)}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {employee.phone ? (
@@ -356,6 +363,10 @@ export function EmployeesTable({ employees }: EmployeesTableProps) {
                   ) : (
                     "—"
                   )}
+                </p>
+                <p>
+                  <span className="text-muted-foreground">Tipo de empleado:</span>{" "}
+                  {getEmployeeTypeDisplayName(employee)}
                 </p>
                 <p>
                   <span className="text-muted-foreground">Teléfono:</span>{" "}

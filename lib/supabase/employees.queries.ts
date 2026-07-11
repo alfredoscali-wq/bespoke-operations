@@ -21,6 +21,9 @@ import type {
 
 export type SupabaseEmployeesClient = SupabaseClient<Database>
 
+const EMPLOYEE_SELECT =
+  "*, employee_types(id, code, name, is_active)" as const
+
 export function mapSupabaseEmployeeError(error: {
   code?: string
   message: string
@@ -60,7 +63,7 @@ export async function fetchEmployees(
 ): Promise<EmployeesRepositoryResult<Employee[]>> {
   const { data, error } = await client
     .from("employees")
-    .select("*")
+    .select(EMPLOYEE_SELECT)
     .eq("company_id", companyId)
     .is("deleted_at", null)
     .order("last_name", { ascending: true })
@@ -82,7 +85,7 @@ export async function fetchEmployeeById(
 ): Promise<EmployeesRepositoryResult<Employee>> {
   const { data, error } = await client
     .from("employees")
-    .select("*")
+    .select(EMPLOYEE_SELECT)
     .eq("id", id)
     .is("deleted_at", null)
     .maybeSingle()
@@ -136,7 +139,7 @@ export async function fetchEmployeeByCode(
 ): Promise<EmployeesRepositoryResult<Employee>> {
   const { data, error } = await client
     .from("employees")
-    .select("*")
+    .select(EMPLOYEE_SELECT)
     .eq("company_id", companyId)
     .eq("employee_code", employeeCode.trim())
     .is("deleted_at", null)
@@ -168,7 +171,7 @@ export async function fetchEmployeeByAppUserId(
 ): Promise<EmployeesRepositoryResult<Employee>> {
   const { data, error } = await client
     .from("employees")
-    .select("*")
+    .select(EMPLOYEE_SELECT)
     .eq("app_user_id", appUserId)
     .is("deleted_at", null)
     .maybeSingle()
@@ -200,7 +203,7 @@ export async function insertEmployee(
   const { data, error } = await client
     .from("employees")
     .insert(mapCreateEmployeePayloadToInsert(payload))
-    .select("*")
+    .select(EMPLOYEE_SELECT)
     .single()
 
   if (error) {
@@ -235,7 +238,7 @@ export async function patchEmployee(
     .update(update)
     .eq("id", id)
     .is("deleted_at", null)
-    .select("*")
+    .select(EMPLOYEE_SELECT)
     .maybeSingle()
 
   if (error) {

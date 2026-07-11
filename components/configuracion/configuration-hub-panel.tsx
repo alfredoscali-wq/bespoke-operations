@@ -101,6 +101,16 @@ export function ConfigurationHubPanel() {
       label: "Empresa",
       icon: Building2,
       items: [
+        ...(canAccessWorkOrderTypes
+          ? [
+              {
+                title: "Tipos de empleados",
+                description:
+                  "Clasificación configurable del personal para RRHH y operaciones.",
+                href: "/configuracion/tipos-empleado",
+              },
+            ]
+          : []),
         {
           title: "Datos de la Empresa",
           description:

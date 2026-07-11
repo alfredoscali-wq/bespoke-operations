@@ -2,18 +2,20 @@
 
 import { useEffect, useMemo, useState } from "react"
 
+import { useEmployeeTypes } from "@/components/configuracion/use-employee-types"
 import {
   buildEmployeeFormAreaOptions,
-  buildEmployeeFormTypeOptions,
   EMPLOYEE_FORM_AREA_OPTIONS,
   resolveEmployeeFormDepartmentDefault,
 } from "@/lib/employees/employee-form-catalog"
 import {
-  EMPLOYMENT_STATUS_OPTIONS,
-} from "@/lib/employees/constants"
+  buildEmployeeFormTypeOptions,
+  resolveDefaultEmployeeTypeId,
+} from "@/lib/employees/employee-type-form"
+import { resolveEmployeeTypePersistence } from "@/lib/employees/employee-type-legacy"
+import { EMPLOYMENT_STATUS_OPTIONS } from "@/lib/employees/constants"
 import type {
   Employee,
-  EmployeeType,
   EmploymentStatus,
   NewEmployeeInput,
 } from "@/lib/types/employees"
@@ -62,29 +64,31 @@ type EmployeeFormState = {
   phone: string
   jobTitle: string
   department: string
-  employeeType: EmployeeType
+  employeeTypeId: string
   employmentStatus: EmploymentStatus
   hireDate: string
   terminationDate: string
   notes: string
 }
 
-const emptyForm: EmployeeFormState = {
-  employeeCode: "",
-  firstName: "",
-  lastName: "",
-  preferredName: "",
-  nationalId: "",
-  birthDate: "",
-  email: "",
-  phone: "",
-  jobTitle: "",
-  department: EMPLOYEE_FORM_AREA_OPTIONS[0],
-  employeeType: "operario",
-  employmentStatus: "active",
-  hireDate: "",
-  terminationDate: "",
-  notes: "",
+function buildEmptyForm(defaultTypeId: string | null): EmployeeFormState {
+  return {
+    employeeCode: "",
+    firstName: "",
+    lastName: "",
+    preferredName: "",
+    nationalId: "",
+    birthDate: "",
+    email: "",
+    phone: "",
+    jobTitle: "",
+    department: EMPLOYEE_FORM_AREA_OPTIONS[0],
+    employeeTypeId: defaultTypeId ?? "",
+    employmentStatus: "active",
+    hireDate: "",
+    terminationDate: "",
+    notes: "",
+  }
 }
 
 function buildNextEmployeeCode(existingCodes: string[]): string {
@@ -107,8 +111,15 @@ export function EmployeeFormDialog({
   onSubmit,
 }: EmployeeFormDialogProps) {
   const { employees } = useEmployees()
-  const [form, setForm] = useState<EmployeeFormState>(emptyForm)
-  const [baselineForm, setBaselineForm] = useState<EmployeeFormState>(emptyForm)
+  const { items: employeeTypes, isLoading: isLoadingTypes } = useEmployeeTypes()
+  const defaultTypeId = useMemo(
+    () => resolveDefaultEmployeeTypeId(employeeTypes),
+    [employeeTypes]
+  )
+  const [form, setForm] = useState<EmployeeFormState>(buildEmptyForm(null))
+  const [baselineForm, setBaselineForm] = useState<EmployeeFormState>(
+    buildEmptyForm(null)
+  )
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -139,9 +150,10 @@ export function EmployeeFormDialog({
   const employeeTypeOptions = useMemo(
     () =>
       buildEmployeeFormTypeOptions(
-        mode === "edit" ? form.employeeType : undefined
+        employeeTypes,
+        mode === "edit" ? form.employeeTypeId : undefined
       ),
-    [mode, form.employeeType]
+    [employeeTypes, mode, form.employeeTypeId]
   )
 
   useEffect(() => {
@@ -161,17 +173,18 @@ export function EmployeeFormDialog({
             phone: employee.phone ?? "",
             jobTitle: employee.jobTitle,
             department: resolveEmployeeFormDepartmentDefault(employee.department),
-            employeeType: employee.employeeType,
+            employeeTypeId:
+              employee.employeeTypeId ?? defaultTypeId ?? "",
             employmentStatus: employee.employmentStatus,
             hireDate: employee.hireDate ?? "",
             terminationDate: employee.terminationDate ?? "",
             notes: employee.notes,
           }
-        : emptyForm
+        : buildEmptyForm(defaultTypeId)
 
     setForm(nextForm)
     setBaselineForm(nextForm)
-  }, [open, mode, employee])
+  }, [open, mode, employee, defaultTypeId])
 
   function updateField<K extends keyof EmployeeFormState>(
     key: K,
@@ -199,6 +212,11 @@ export function EmployeeFormDialog({
       return
     }
 
+    if (!form.employeeTypeId) {
+      setError("Seleccione un tipo de empleado.")
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
@@ -206,6 +224,11 @@ export function EmployeeFormDialog({
         mode === "edit" && employee
           ? employee.employeeCode
           : buildNextEmployeeCode(employees.map((item) => item.employeeCode))
+
+      const typeFields = resolveEmployeeTypePersistence({
+        employeeTypeId: form.employeeTypeId,
+        catalog: employeeTypes,
+      })
 
       await onSubmit({
         employeeCode,
@@ -218,7 +241,8 @@ export function EmployeeFormDialog({
         phone: form.phone.trim() || undefined,
         jobTitle: form.jobTitle.trim(),
         department: form.department.trim(),
-        employeeType: form.employeeType,
+        employeeTypeId: typeFields.employeeTypeId,
+        employeeType: typeFields.employeeType,
         employmentStatus: form.employmentStatus,
         hireDate: form.hireDate || undefined,
         terminationDate: form.terminationDate || undefined,
@@ -239,7 +263,8 @@ export function EmployeeFormDialog({
   const isValid =
     form.firstName.trim() !== "" &&
     form.lastName.trim() !== "" &&
-    form.jobTitle.trim() !== ""
+    form.jobTitle.trim() !== "" &&
+    form.employeeTypeId !== ""
 
   return (
     <>
@@ -339,13 +364,13 @@ export function EmployeeFormDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="department">Área</Label>
+              <Label htmlFor="department">Departamento / Área organizacional</Label>
               <Select
                 value={form.department}
                 onValueChange={(value) => updateField("department", value)}
               >
                 <SelectTrigger id="department" className="w-full">
-                  <SelectValue placeholder="Seleccione área" />
+                  <SelectValue placeholder="Seleccione departamento" />
                 </SelectTrigger>
                 <SelectContent>
                   {areaOptions.map((area) => (
@@ -357,14 +382,13 @@ export function EmployeeFormDialog({
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="employeeType">Tipo de empleado</Label>
+              <Label htmlFor="employeeTypeId">Tipo de empleado</Label>
               <Select
-                value={form.employeeType}
-                onValueChange={(value) =>
-                  updateField("employeeType", value as EmployeeType)
-                }
+                value={form.employeeTypeId}
+                onValueChange={(value) => updateField("employeeTypeId", value)}
+                disabled={isLoadingTypes || employeeTypeOptions.length === 0}
               >
-                <SelectTrigger id="employeeType" className="w-full">
+                <SelectTrigger id="employeeTypeId" className="w-full">
                   <SelectValue placeholder="Seleccione tipo" />
                 </SelectTrigger>
                 <SelectContent>

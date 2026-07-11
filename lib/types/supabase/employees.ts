@@ -17,6 +17,7 @@ export type CreateEmployeePayload = {
   jobTitle?: string
   department?: string
   employeeType?: EmployeeType
+  employeeTypeId?: string | null
   employmentStatus?: EmploymentStatus
   hireDate?: string | null
   terminationDate?: string | null
@@ -41,6 +42,7 @@ export type UpdateEmployeePayload = Partial<{
   jobTitle: string
   department: string
   employeeType: EmployeeType
+  employeeTypeId: string | null
   employmentStatus: EmploymentStatus
   hireDate: string | null
   terminationDate: string | null

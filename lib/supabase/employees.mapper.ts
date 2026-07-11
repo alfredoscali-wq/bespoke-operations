@@ -1,8 +1,9 @@
-import type {
-  EmployeeInsert,
-  EmployeeRow,
-  EmployeeUpdate,
-} from "@/lib/supabase/database.types"
+import type { EmployeeRow } from "@/lib/supabase/database.types"
+import {
+  mapEmployeeTypeJoinedRow,
+  type EmployeeTypeJoinedRow,
+} from "@/lib/supabase/employee-types.mapper"
+import type { EmployeeInsert, EmployeeUpdate } from "@/lib/supabase/database.types"
 import type { Employee } from "@/lib/types/employees"
 import type {
   CreateEmployeePayload,
@@ -15,7 +16,11 @@ function trimOptional(value: string | null | undefined): string | null {
   return trimmed === "" ? null : trimmed
 }
 
-export function mapEmployeeRowToEmployee(row: EmployeeRow): Employee {
+export function mapEmployeeRowToEmployee(
+  row: EmployeeRow & {
+    employee_types?: EmployeeTypeJoinedRow | null
+  }
+): Employee {
   return {
     id: row.id,
     companyId: row.company_id,
@@ -30,6 +35,8 @@ export function mapEmployeeRowToEmployee(row: EmployeeRow): Employee {
     jobTitle: row.job_title,
     department: row.department,
     employeeType: row.employee_type,
+    employeeTypeId: row.employee_type_id,
+    employeeTypeRecord: mapEmployeeTypeJoinedRow(row.employee_types ?? null),
     employmentStatus: row.employment_status,
     hireDate: row.hire_date ?? undefined,
     terminationDate: row.termination_date ?? undefined,
@@ -61,6 +68,7 @@ export function mapCreateEmployeePayloadToInsert(
     job_title: payload.jobTitle?.trim() ?? "",
     department: payload.department?.trim() ?? "",
     employee_type: payload.employeeType ?? "operario",
+    employee_type_id: payload.employeeTypeId ?? null,
     employment_status: payload.employmentStatus ?? "active",
     hire_date: payload.hireDate ?? null,
     termination_date: payload.terminationDate ?? null,
@@ -111,6 +119,9 @@ export function mapUpdateEmployeePayloadToUpdate(
   }
   if (payload.employeeType !== undefined) {
     update.employee_type = payload.employeeType
+  }
+  if (payload.employeeTypeId !== undefined) {
+    update.employee_type_id = payload.employeeTypeId
   }
   if (payload.employmentStatus !== undefined) {
     update.employment_status = payload.employmentStatus

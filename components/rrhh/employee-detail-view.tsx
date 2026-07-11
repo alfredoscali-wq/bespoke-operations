@@ -18,7 +18,7 @@ import {
 import { EmploymentStatusBadge, EmployeeTypeBadge } from "@/components/rrhh/employee-badges"
 import { EmployeeSystemAccessSection } from "@/components/rrhh/employee-system-access-section"
 import { TelLink } from "@/components/ui/tel-link"
-import { EMPLOYEE_TYPE_LABELS } from "@/lib/employees/constants"
+import { getEmployeeTypeDisplayName } from "@/lib/employees/employee-type-legacy"
 import { EmployeeFormDialog } from "@/components/rrhh/employee-form-dialog"
 import { useEmployees } from "@/components/rrhh/employees-provider"
 import {
@@ -135,7 +135,10 @@ export function EmployeeDetailView({ employee }: EmployeeDetailViewProps) {
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <EmploymentStatusBadge status={employee.employmentStatus} />
-              <EmployeeTypeBadge employeeType={employee.employeeType} />
+              <EmployeeTypeBadge
+                employeeType={employee.employeeType}
+                displayName={getEmployeeTypeDisplayName(employee)}
+              />
               <span className="font-mono text-xs text-muted-foreground">
                 {employee.employeeCode}
               </span>
@@ -249,7 +252,7 @@ export function EmployeeDetailView({ employee }: EmployeeDetailViewProps) {
             icon={User}
             iconClassName="bg-indigo-50 text-indigo-600"
             label="Tipo de empleado"
-            value={EMPLOYEE_TYPE_LABELS[employee.employeeType]}
+            value={getEmployeeTypeDisplayName(employee)}
           />
           <DetailField
             icon={Calendar}

@@ -28,6 +28,7 @@ type EmployeesFiltersBarProps = {
   onChange: (filters: EmployeeFilters) => void
   resultCount: number
   departments: string[]
+  employeeTypeOptions: Array<{ value: string; label: string }>
 }
 
 export function EmployeesFiltersBar({
@@ -35,11 +36,13 @@ export function EmployeesFiltersBar({
   onChange,
   resultCount,
   departments,
+  employeeTypeOptions,
 }: EmployeesFiltersBarProps) {
   const hasActiveFilters =
     filters.search !== "" ||
     filters.employmentStatus !== "all" ||
     filters.department !== "all" ||
+    filters.employeeTypeId !== "all" ||
     filters.systemRole !== "all" ||
     filters.systemAccess !== "all" ||
     filters.provision !== "all"
@@ -67,7 +70,7 @@ export function EmployeesFiltersBar({
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <Select
           value={filters.employmentStatus}
           onValueChange={(value) =>
@@ -99,6 +102,23 @@ export function EmployeesFiltersBar({
             {departments.map((department) => (
               <SelectItem key={department} value={department}>
                 {department}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={filters.employeeTypeId}
+          onValueChange={(value) => update("employeeTypeId", value)}
+        >
+          <SelectTrigger className={FILTER_SELECT_TRIGGER_CLASS}>
+            <SelectValue placeholder="Tipo de empleado" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los tipos</SelectItem>
+            {employeeTypeOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
               </SelectItem>
             ))}
           </SelectContent>

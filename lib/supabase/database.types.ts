@@ -851,6 +851,53 @@ export type Database = {
         }
         Relationships: []
       }
+      employee_types: {
+        Row: {
+          id: string
+          company_id: string
+          code: string
+          name: string
+          description: string | null
+          is_active: boolean
+          sort_order: number
+          created_at: string
+          updated_at: string
+          deleted_at: string | null
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          code: string
+          name: string
+          description?: string | null
+          is_active?: boolean
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          code?: string
+          name?: string
+          description?: string | null
+          is_active?: boolean
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_types_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employees: {
         Row: {
           id: string
@@ -866,6 +913,7 @@ export type Database = {
           job_title: string
           department: string
           employee_type: EmployeeType
+          employee_type_id: string | null
           employment_status: EmploymentStatus
           hire_date: string | null
           termination_date: string | null
@@ -894,6 +942,7 @@ export type Database = {
           job_title?: string
           department?: string
           employee_type?: EmployeeType
+          employee_type_id?: string | null
           employment_status?: EmploymentStatus
           hire_date?: string | null
           termination_date?: string | null
@@ -922,6 +971,7 @@ export type Database = {
           job_title?: string
           department?: string
           employee_type?: EmployeeType
+          employee_type_id?: string | null
           employment_status?: EmploymentStatus
           hire_date?: string | null
           termination_date?: string | null
