@@ -386,6 +386,11 @@ export function PlanningMapCanvas({
           Math.max(map.getZoom(), PLANNING_MAP_SINGLE_MARKER_ZOOM - 1),
           { duration: PLANNING_MAP_FLY_DURATION_SECONDS }
         )
+
+        const markerRef = markerRefsRef.current.get(selectedTaskId)
+        if (markerRef && !isEditModeRef.current) {
+          markerRef.marker.openPopup()
+        }
       }
     }
 

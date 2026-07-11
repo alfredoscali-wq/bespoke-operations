@@ -68,6 +68,17 @@ export function buildCalendarWeekDays(weekStart: string): CalendarWeekDay[] {
   })
 }
 
+export function formatCalendarDayLabel(date: string): string {
+  const parsed = new Date(`${date}T12:00:00`)
+
+  return parsed.toLocaleDateString("es-AR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  })
+}
+
 export function formatWeekRangeLabel(weekStart: string): string {
   const weekEnd = getWeekEnd(weekStart)
   const start = new Date(`${weekStart}T12:00:00`)

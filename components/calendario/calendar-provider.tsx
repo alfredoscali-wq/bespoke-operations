@@ -13,6 +13,7 @@ import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { useEmployees } from "@/components/rrhh/employees-provider"
 import { useTasks } from "@/components/tareas/tasks-provider"
 import {
+  addDays,
   buildCalendarEvents,
   buildCalendarWeekDays,
   filterCalendarEvents,
@@ -23,6 +24,7 @@ import {
   sortCalendarEvents,
 } from "@/lib/calendar/calendar-utils"
 import { filterCalendarOperationalTasks } from "@/lib/tasks/status-groups"
+import { toDateOnly } from "@/lib/availability/utils"
 import type {
   CalendarEvent,
   CalendarFilters,
@@ -31,7 +33,11 @@ import type {
 } from "@/lib/types/calendar"
 import { defaultCalendarFilters } from "@/lib/types/calendar"
 
+export type CalendarTemporalView = "week" | "day"
+
 type CalendarContextValue = {
+  temporalView: CalendarTemporalView
+  selectedDate: string
   weekStart: string
   weekDays: CalendarWeekDay[]
   eventsByDate: Record<string, CalendarEvent[]>
@@ -39,9 +45,10 @@ type CalendarContextValue = {
   filters: CalendarFilters
   selectedEvent: CalendarEvent | null
   setFilters: (filters: CalendarFilters) => void
-  goToPreviousWeek: () => void
-  goToNextWeek: () => void
+  goToPreviousPeriod: () => void
+  goToNextPeriod: () => void
   goToToday: () => void
+  showWeekView: () => void
   selectEvent: (event: CalendarEvent | null) => void
 }
 
@@ -53,6 +60,8 @@ export function CalendarProvider({ children }: { children: React.ReactNode }) {
   const { crews } = useCrews()
   const { employees, getEmployee } = useEmployees()
   const [weekStart, setWeekStart] = useState(() => getWeekStart())
+  const [temporalView, setTemporalView] = useState<CalendarTemporalView>("week")
+  const [selectedDate, setSelectedDate] = useState(() => toDateOnly())
   const [filters, setFilters] = useState<CalendarFilters>(defaultCalendarFilters)
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
 
@@ -112,20 +121,40 @@ export function CalendarProvider({ children }: { children: React.ReactNode }) {
     [operationalTasks, availabilityRecords, crews, crewAvailabilityContext, weekStart]
   )
 
-  const goToPreviousWeek = useCallback(() => {
-    setWeekStart((current) => shiftWeek(current, -1))
-  }, [])
+  const goToPreviousPeriod = useCallback(() => {
+    if (temporalView === "day") {
+      setSelectedDate((current) => addDays(current, -1))
+      return
+    }
 
-  const goToNextWeek = useCallback(() => {
+    setWeekStart((current) => shiftWeek(current, -1))
+  }, [temporalView])
+
+  const goToNextPeriod = useCallback(() => {
+    if (temporalView === "day") {
+      setSelectedDate((current) => addDays(current, 1))
+      return
+    }
+
     setWeekStart((current) => shiftWeek(current, 1))
-  }, [])
+  }, [temporalView])
 
   const goToToday = useCallback(() => {
-    setWeekStart(getWeekStart())
+    const today = toDateOnly()
+    setSelectedDate(today)
+    setWeekStart(getWeekStart(today))
+    setTemporalView("day")
   }, [])
+
+  const showWeekView = useCallback(() => {
+    setTemporalView("week")
+    setWeekStart(getWeekStart(selectedDate))
+  }, [selectedDate])
 
   const value = useMemo(
     () => ({
+      temporalView,
+      selectedDate,
       weekStart,
       weekDays,
       eventsByDate,
@@ -133,21 +162,25 @@ export function CalendarProvider({ children }: { children: React.ReactNode }) {
       filters,
       selectedEvent,
       setFilters,
-      goToPreviousWeek,
-      goToNextWeek,
+      goToPreviousPeriod,
+      goToNextPeriod,
       goToToday,
+      showWeekView,
       selectEvent: setSelectedEvent,
     }),
     [
+      temporalView,
+      selectedDate,
       weekStart,
       weekDays,
       eventsByDate,
       summary,
       filters,
       selectedEvent,
-      goToPreviousWeek,
-      goToNextWeek,
+      goToPreviousPeriod,
+      goToNextPeriod,
       goToToday,
+      showWeekView,
     ]
   )
 

@@ -6,6 +6,7 @@ import Link from "next/link"
 
 import { CalendarCriticalPendingBanner } from "@/components/calendario/calendar-critical-pending-banner"
 import { CalendarCriticalPendingSheet } from "@/components/calendario/calendar-critical-pending-sheet"
+import { CalendarDayOperationsView } from "@/components/calendario/calendar-day-operations-view"
 import { CalendarEventDetailSheet } from "@/components/calendario/calendar-event-detail-sheet"
 import { CalendarKpiSheet } from "@/components/calendario/calendar-kpi-sheet"
 import { CalendarLegend } from "@/components/calendario/calendar-legend"
@@ -21,7 +22,10 @@ import {
 } from "@/components/calendario/calendar-ui-provider"
 import { CalendarViewSelector } from "@/components/calendario/calendar-view-selector"
 import { CalendarWeekView } from "@/components/calendario/calendar-week-view"
-import { formatWeekRangeLabel } from "@/lib/calendar/calendar-utils"
+import {
+  formatCalendarDayLabel,
+  formatWeekRangeLabel,
+} from "@/lib/calendar/calendar-utils"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -32,15 +36,22 @@ import {
 
 function CalendarModuleContent() {
   const {
+    temporalView,
+    selectedDate,
     weekStart,
     summary,
-    goToPreviousWeek,
-    goToNextWeek,
+    goToPreviousPeriod,
+    goToNextPeriod,
     goToToday,
+    showWeekView,
   } = useCalendar()
 
   const { viewMode, setViewMode, quickFilters, setQuickFilters, projectFilterLabel } =
     useCalendarUI()
+
+  const isDayView = temporalView === "day"
+  const previousLabel = isDayView ? "Día anterior" : "Semana anterior"
+  const nextLabel = isDayView ? "Día siguiente" : "Semana siguiente"
 
   return (
     <div className="space-y-8">
@@ -70,22 +81,29 @@ function CalendarModuleContent() {
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <CardTitle className="text-base font-semibold">
-                Vista semanal
+                {isDayView ? "Vista operativa del día" : "Vista semanal"}
               </CardTitle>
               <p className="mt-1 text-sm text-muted-foreground">
-                {formatWeekRangeLabel(weekStart)}
+                {isDayView
+                  ? formatCalendarDayLabel(selectedDate)
+                  : formatWeekRangeLabel(weekStart)}
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              {isDayView ? (
+                <Button variant="outline" size="sm" onClick={showWeekView}>
+                  Vista semanal
+                </Button>
+              ) : null}
               <Button
                 variant="outline"
                 size="sm"
-                onClick={goToPreviousWeek}
+                onClick={goToPreviousPeriod}
                 className="gap-1"
               >
                 <ChevronLeft className="size-4" />
-                Semana anterior
+                {previousLabel}
               </Button>
               <Button variant="outline" size="sm" onClick={goToToday}>
                 Hoy
@@ -93,10 +111,10 @@ function CalendarModuleContent() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={goToNextWeek}
+                onClick={goToNextPeriod}
                 className="gap-1"
               >
-                Semana siguiente
+                {nextLabel}
                 <ChevronRight className="size-4" />
               </Button>
             </div>
@@ -111,7 +129,11 @@ function CalendarModuleContent() {
             onChange={setQuickFilters}
           />
           <CalendarLegend />
-          <CalendarWeekView />
+          {isDayView ? (
+            <CalendarDayOperationsView date={selectedDate} />
+          ) : (
+            <CalendarWeekView />
+          )}
         </CardContent>
       </Card>
 

@@ -934,15 +934,19 @@ function PlanningModuleContent() {
 
 
 
-        <PlanningMap
+        <div className="sticky top-16 z-20 lg:top-16">
 
-          {...mapProps}
+          <PlanningMap
 
-          mapRefreshError={mapRefreshError}
+            {...mapProps}
 
-          className="min-h-[58vh] w-full min-w-0 flex-[2]"
+            mapRefreshError={mapRefreshError}
 
-        />
+            className="min-h-[38vh] max-h-[42vh] w-full min-w-0 flex-[2] max-lg:static max-lg:max-h-none max-lg:min-h-[52vh]"
+
+          />
+
+        </div>
 
 
 

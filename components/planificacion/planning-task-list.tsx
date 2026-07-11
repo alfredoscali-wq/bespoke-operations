@@ -2,7 +2,7 @@
 
 
 
-import { useMemo } from "react"
+import { useEffect, useMemo } from "react"
 
 
 
@@ -119,6 +119,56 @@ export function PlanningTaskList({
     [tasks, crews]
 
   )
+
+
+
+  useEffect(() => {
+
+    if (!selectedTaskId) {
+
+      return
+
+    }
+
+
+
+    const row = document.getElementById(`planning-task-row-${selectedTaskId}`)
+
+    if (!row) {
+
+      return
+
+    }
+
+
+
+    const viewport = row.closest('[data-slot="scroll-area-viewport"]')
+
+    if (!(viewport instanceof HTMLElement)) {
+
+      return
+
+    }
+
+
+
+    const rowRect = row.getBoundingClientRect()
+
+    const viewportRect = viewport.getBoundingClientRect()
+
+    const isVisible =
+
+      rowRect.top >= viewportRect.top && rowRect.bottom <= viewportRect.bottom
+
+
+
+    if (!isVisible) {
+
+      row.scrollIntoView({ block: "nearest", behavior: "smooth" })
+
+    }
+
+  }, [selectedTaskId, sortedTasks])
 
 
 
@@ -303,6 +353,8 @@ export function PlanningTaskList({
                       key={task.id}
 
                       task={task}
+
+                      rowId={`planning-task-row-${task.id}`}
 
                       crewColor={crewColor}
 

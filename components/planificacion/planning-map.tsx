@@ -186,7 +186,7 @@ export function PlanningMap({
         ) : null}
       </div>
 
-      <div className="relative min-h-[420px] flex-1">
+      <div className="relative min-h-[280px] flex-1 lg:min-h-0">
         <PlanningMapCanvas
           markers={markers}
           selectedTaskId={selectedTaskId}
