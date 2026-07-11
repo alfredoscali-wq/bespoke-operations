@@ -6,6 +6,14 @@ import type {
   UpdateProjectPayload,
 } from "@/lib/types/supabase/projects"
 
+function mapNumericCoord(
+  value: number | string | null | undefined
+): number | null {
+  if (value == null) return null
+  const parsed = typeof value === "number" ? value : Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
 export function mapProjectRowToProject(row: ProjectRow): Project {
   return {
     id: row.id,
@@ -19,6 +27,8 @@ export function mapProjectRowToProject(row: ProjectRow): Project {
     endDate: row.end_date ?? undefined,
     supervisor: row.supervisor,
     location: row.location,
+    latitude: mapNumericCoord(row.latitude),
+    longitude: mapNumericCoord(row.longitude),
     description: row.description,
     pauseReason: (row.pause_reason as ProjectPauseReason | null) ?? undefined,
     pauseNotes: row.pause_notes ?? undefined,
@@ -42,6 +52,8 @@ export function mapCreatePayloadToInsert(
     end_date: payload.endDate?.trim() || null,
     supervisor: payload.supervisor.trim(),
     location: payload.location.trim(),
+    latitude: payload.latitude ?? null,
+    longitude: payload.longitude ?? null,
     description: payload.description.trim(),
   }
 }
@@ -67,6 +79,8 @@ export function mapUpdatePayloadToUpdate(
     update.supervisor = payload.supervisor.trim()
   }
   if (payload.location !== undefined) update.location = payload.location.trim()
+  if (payload.latitude !== undefined) update.latitude = payload.latitude
+  if (payload.longitude !== undefined) update.longitude = payload.longitude
   if (payload.description !== undefined) {
     update.description = payload.description.trim()
   }

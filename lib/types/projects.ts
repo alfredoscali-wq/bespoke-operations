@@ -45,6 +45,9 @@ export type Project = {
   endDate?: string
   supervisor: string
   location: string
+  /** GPS operativo único de la Obra (OBRAS OPS 1.1). */
+  latitude?: number | null
+  longitude?: number | null
   description: string
   pauseReason?: ProjectPauseReason
   pauseNotes?: string
@@ -115,6 +118,10 @@ export type NewProjectInput = {
   client: string
   type: ProjectType
   location: string
+  /** Link Maps / coordenadas inline; opcional. Se resuelve a latitude/longitude al guardar. */
+  sharedLocation?: string
+  latitude?: number | null
+  longitude?: number | null
   description: string
   startDate?: string
   endDate?: string

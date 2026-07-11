@@ -51,6 +51,7 @@
     "test:work-order-admin-execution-order-hotfix": "npx tsx --test scripts/test-work-order-admin-execution-order-hotfix.mjs",
     "test:customer-retenciones-sprint-6-0": "npx tsx --test scripts/test-customer-retenciones-sprint-6-0.mjs",
     "test:obras-ops-1-0-dispatch": "npx tsx --test scripts/test-obras-ops-1-0-dispatch.mjs",
+    "test:obras-ops-1-1-gps": "npx tsx --test scripts/test-obras-ops-1-1-gps.mjs",
     "db:rc1-1": "node scripts/apply-rc1-1-migration.mjs",
     "prepare:clientes": "npx tsx scripts/prepare-commercial-migration.ts",
     "import:clientes": "npx tsx scripts/run-commercial-import.ts",

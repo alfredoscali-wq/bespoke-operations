@@ -4,8 +4,10 @@ import { useEffect, useState } from "react"
 import { Plus } from "lucide-react"
 
 import { ProjectSupervisorSelect } from "@/components/obras/project-supervisor-select"
+import { SharedLocationInput } from "@/components/tareas/shared-location-input"
 import type { NewProjectInput, Project, ProjectType } from "@/lib/types/projects"
 import { PROJECT_TYPE_OPTIONS } from "@/lib/projects/constants"
+import { enrichProjectInputWithResolvedGps } from "@/lib/location/client/enrich-project-payload"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -42,6 +44,9 @@ const emptyForm: NewProjectInput = {
   client: "",
   type: "fiber",
   location: "",
+  sharedLocation: "",
+  latitude: null,
+  longitude: null,
   description: "",
   startDate: "",
   endDate: "",
@@ -52,6 +57,8 @@ export function NewProjectDialog({ onSubmit }: NewProjectDialogProps) {
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState<NewProjectInput>(emptyForm)
   const [baselineForm, setBaselineForm] = useState<NewProjectInput>(emptyForm)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [gpsError, setGpsError] = useState<string | null>(null)
 
   const isDirty = isFormStateDirty(form, baselineForm)
   const {
@@ -67,6 +74,8 @@ export function NewProjectDialog({ onSubmit }: NewProjectDialogProps) {
     if (open) {
       setForm(emptyForm)
       setBaselineForm(emptyForm)
+      setGpsError(null)
+      setIsSubmitting(false)
     }
   }, [open])
 
@@ -75,16 +84,29 @@ export function NewProjectDialog({ onSubmit }: NewProjectDialogProps) {
     value: NewProjectInput[K]
   ) {
     setForm((current) => ({ ...current, [key]: value }))
+    if (key === "sharedLocation") {
+      setGpsError(null)
+    }
   }
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
+    setGpsError(null)
+    setIsSubmitting(true)
     try {
-      await onSubmit(form)
+      const enriched = await enrichProjectInputWithResolvedGps(form)
+      await onSubmit(enriched)
       setForm(emptyForm)
       forceClose()
     } catch (error) {
       console.error("[PROJECT CREATE]", error)
+      setGpsError(
+        error instanceof Error
+          ? error.message
+          : "No se pudo resolver la ubicación GPS."
+      )
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -177,13 +199,26 @@ export function NewProjectDialog({ onSubmit }: NewProjectDialogProps) {
             />
 
             <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="location">Ubicación</Label>
+              <Label htmlFor="location">Ubicación / dirección</Label>
               <Input
                 id="location"
                 value={form.location}
                 onChange={(event) => updateField("location", event.target.value)}
                 placeholder="Monterrey, N.L. — Col. Mitras"
               />
+            </div>
+
+            <div className="sm:col-span-2">
+              <SharedLocationInput
+                id="project-gps"
+                label="Ubicación GPS (opcional)"
+                value={form.sharedLocation ?? ""}
+                onChange={(value) => updateField("sharedLocation", value)}
+                placeholder="https://maps.app.goo.gl/... o lat,lng"
+              />
+              {gpsError ? (
+                <p className="mt-1 text-xs text-destructive">{gpsError}</p>
+              ) : null}
             </div>
 
             <div className="space-y-2 sm:col-span-2">
@@ -224,11 +259,15 @@ export function NewProjectDialog({ onSubmit }: NewProjectDialogProps) {
         </form>
 
         <DialogFooter>
-          <Button variant="outline" onClick={requestClose}>
+          <Button variant="outline" onClick={requestClose} disabled={isSubmitting}>
             Cancelar
           </Button>
-          <Button type="submit" form="new-project-form" disabled={!isValid}>
-            Crear Obra
+          <Button
+            type="submit"
+            form="new-project-form"
+            disabled={!isValid || isSubmitting}
+          >
+            {isSubmitting ? "Creando..." : "Crear Obra"}
           </Button>
         </DialogFooter>
         </ProtectedFormDialogContent>

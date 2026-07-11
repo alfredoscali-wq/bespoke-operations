@@ -30,6 +30,8 @@ const PROJECT_UPDATE_FIELD_LABELS: Partial<Record<keyof UpdateProjectPayload, st
     client: "client",
     type: "type",
     location: "location",
+    latitude: "latitude",
+    longitude: "longitude",
     description: "description",
     startDate: "startDate",
     endDate: "endDate",

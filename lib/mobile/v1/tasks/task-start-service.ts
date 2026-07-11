@@ -11,6 +11,8 @@ import {
   calculateDistanceMeters,
   isWithinTaskStartRadius,
 } from "@/lib/mobile/v1/tasks/geo-utils"
+import { resolveTaskStartCoordinates } from "@/lib/mobile/v1/tasks/resolve-task-start-coordinates"
+import { buildTaskStartLocationRequiredMessage } from "@/lib/mobile/v1/tasks/task-start-coordinates"
 import type {
   MobileTaskStartRequest,
   MobileTaskStartResponse,
@@ -150,10 +152,16 @@ export async function startMobileTask(
     )
   }
 
-  if (task.latitude == null || task.longitude == null) {
+  const startCoordinates = await resolveTaskStartCoordinates(
+    admin,
+    auth.companyId,
+    task
+  )
+
+  if (!startCoordinates) {
     throw new MobileApiError(
       "TASK_LOCATION_REQUIRED",
-      "La orden de trabajo no tiene ubicación registrada.",
+      buildTaskStartLocationRequiredMessage(Boolean(task.projectId)),
       409
     )
   }
@@ -161,16 +169,16 @@ export async function startMobileTask(
   const distanceToClientMeters = calculateDistanceMeters(
     request.latitude,
     request.longitude,
-    task.latitude,
-    task.longitude
+    startCoordinates.latitude,
+    startCoordinates.longitude
   )
 
   if (
     !isWithinTaskStartRadius(
       request.latitude,
       request.longitude,
-      task.latitude,
-      task.longitude
+      startCoordinates.latitude,
+      startCoordinates.longitude
     )
   ) {
     throw new MobileApiError(

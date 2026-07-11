@@ -138,6 +138,9 @@ export function ProjectDetailView({
     startDate?: string
     endDate?: string
     supervisor: string
+    latitude?: number | null
+    longitude?: number | null
+    sharedLocation?: string
   }) {
     setIsBusy(true)
     const result = await updateProject(project.id, {
@@ -150,6 +153,8 @@ export function ProjectDetailView({
       startDate: form.startDate || null,
       endDate: form.endDate || null,
       supervisor: form.supervisor,
+      latitude: form.latitude ?? null,
+      longitude: form.longitude ?? null,
     })
     setIsBusy(false)
 
@@ -198,6 +203,8 @@ export function ProjectDetailView({
         const validation = validateStartProjectDispatch({
           projectStatus: project.status,
           tasks: projectTasks,
+          latitude: project.latitude,
+          longitude: project.longitude,
         })
 
         if (!validation.ok) {

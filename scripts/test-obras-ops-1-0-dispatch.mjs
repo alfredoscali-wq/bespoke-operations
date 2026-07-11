@@ -46,11 +46,19 @@ function makeObraTask(overrides = {}) {
   }
 }
 
+const VALID_GPS = { latitude: 25.6866, longitude: -100.3161 }
+
+function withGps(input = {}) {
+  return { ...VALID_GPS, ...input }
+}
+
 test("obra planned puede iniciar con tareas válidas", () => {
-  const result = validateStartProjectDispatch({
-    projectStatus: "planned",
-    tasks: [makeObraTask()],
-  })
+  const result = validateStartProjectDispatch(
+    withGps({
+      projectStatus: "planned",
+      tasks: [makeObraTask()],
+    })
+  )
 
   assert.equal(result.ok, true)
   if (result.ok) {
@@ -59,10 +67,12 @@ test("obra planned puede iniciar con tareas válidas", () => {
 })
 
 test("obra sin tareas no puede iniciar", () => {
-  const result = validateStartProjectDispatch({
-    projectStatus: "planned",
-    tasks: [],
-  })
+  const result = validateStartProjectDispatch(
+    withGps({
+      projectStatus: "planned",
+      tasks: [],
+    })
+  )
 
   assert.equal(result.ok, false)
   if (!result.ok) {
@@ -71,10 +81,12 @@ test("obra sin tareas no puede iniciar", () => {
 })
 
 test("obra con tarea programada sin cuadrilla no puede iniciar", () => {
-  const result = validateStartProjectDispatch({
-    projectStatus: "planned",
-    tasks: [makeObraTask({ crewId: null, code: "TSK-OB-NOCREW" })],
-  })
+  const result = validateStartProjectDispatch(
+    withGps({
+      projectStatus: "planned",
+      tasks: [makeObraTask({ crewId: null, code: "TSK-OB-NOCREW" })],
+    })
+  )
 
   assert.equal(result.ok, false)
   if (!result.ok) {
@@ -84,10 +96,12 @@ test("obra con tarea programada sin cuadrilla no puede iniciar", () => {
 })
 
 test("obra con tarea programada sin fecha no puede iniciar", () => {
-  const result = validateStartProjectDispatch({
-    projectStatus: "planned",
-    tasks: [makeObraTask({ dueDate: "", code: "TSK-OB-NODATE" })],
-  })
+  const result = validateStartProjectDispatch(
+    withGps({
+      projectStatus: "planned",
+      tasks: [makeObraTask({ dueDate: "", code: "TSK-OB-NODATE" })],
+    })
+  )
 
   assert.equal(result.ok, false)
   if (!result.ok) {
@@ -97,10 +111,12 @@ test("obra con tarea programada sin fecha no puede iniciar", () => {
 })
 
 test("solo planned puede iniciar", () => {
-  const result = validateStartProjectDispatch({
-    projectStatus: "active",
-    tasks: [makeObraTask()],
-  })
+  const result = validateStartProjectDispatch(
+    withGps({
+      projectStatus: "active",
+      tasks: [makeObraTask()],
+    })
+  )
 
   assert.equal(result.ok, false)
   if (!result.ok) {
@@ -109,10 +125,12 @@ test("solo planned puede iniciar", () => {
 })
 
 test("tarea con fecha futura también es despachable a asignada", () => {
-  const result = validateStartProjectDispatch({
-    projectStatus: "planned",
-    tasks: [makeObraTask({ dueDate: "2099-01-01" })],
-  })
+  const result = validateStartProjectDispatch(
+    withGps({
+      projectStatus: "planned",
+      tasks: [makeObraTask({ dueDate: "2099-01-01" })],
+    })
+  )
 
   assert.equal(result.ok, true)
   if (result.ok) {

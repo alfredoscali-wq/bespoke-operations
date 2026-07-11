@@ -27,7 +27,9 @@ function mapRpcErrorMessage(message: string): { status: number; code: string } {
     normalized.includes("no tiene tareas") ||
     normalized.includes("sin cuadrilla") ||
     normalized.includes("sin fecha") ||
-    normalized.includes("no hay tareas programadas")
+    normalized.includes("no hay tareas programadas") ||
+    normalized.includes("ubicación gps") ||
+    normalized.includes("ubicacion gps")
   ) {
     return { status: 409, code: "VALIDATION" }
   }

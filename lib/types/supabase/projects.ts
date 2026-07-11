@@ -17,6 +17,8 @@ export type UpdateProjectPayload = Partial<{
   endDate?: string | null
   supervisor: string
   location: string
+  latitude?: number | null
+  longitude?: number | null
   description: string
   pauseReason?: string | null
   pauseNotes?: string | null

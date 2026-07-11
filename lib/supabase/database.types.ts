@@ -625,6 +625,8 @@ export type Database = {
           end_date: string | null
           supervisor: string
           location: string
+          latitude: number | null
+          longitude: number | null
           description: string
           pause_reason: string | null
           pause_notes: string | null
@@ -646,6 +648,8 @@ export type Database = {
           end_date?: string | null
           supervisor: string
           location: string
+          latitude?: number | null
+          longitude?: number | null
           description?: string
           pause_reason?: string | null
           pause_notes?: string | null
@@ -667,6 +671,8 @@ export type Database = {
           end_date?: string | null
           supervisor?: string
           location?: string
+          latitude?: number | null
+          longitude?: number | null
           description?: string
           pause_reason?: string | null
           pause_notes?: string | null

@@ -3,8 +3,12 @@
 import { useEffect, useState } from "react"
 
 import { ProjectSupervisorSelect } from "@/components/obras/project-supervisor-select"
+import { SharedLocationInput } from "@/components/tareas/shared-location-input"
 import type { NewProjectInput, Project, ProjectType } from "@/lib/types/projects"
 import { PROJECT_TYPE_OPTIONS } from "@/lib/projects/constants"
+import { hasProjectGps } from "@/lib/projects/project-gps"
+import { formatCoordinate } from "@/lib/gps/coordinates"
+import { enrichProjectInputWithResolvedGps } from "@/lib/location/client/enrich-project-payload"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -45,6 +49,9 @@ function projectToForm(project: Project): NewProjectInput {
     client: project.client,
     type: project.type,
     location: project.location,
+    sharedLocation: "",
+    latitude: project.latitude ?? null,
+    longitude: project.longitude ?? null,
     description: project.description,
     startDate: project.startDate ?? "",
     endDate: project.endDate ?? "",
@@ -63,6 +70,8 @@ export function ProjectEditDialog({
   const [baselineForm, setBaselineForm] = useState<NewProjectInput>(() =>
     projectToForm(project)
   )
+  const [gpsError, setGpsError] = useState<string | null>(null)
+  const [isResolvingGps, setIsResolvingGps] = useState(false)
 
   const isDirty = isFormStateDirty(form, baselineForm)
   const {
@@ -79,6 +88,8 @@ export function ProjectEditDialog({
       const nextForm = projectToForm(project)
       setForm(nextForm)
       setBaselineForm(nextForm)
+      setGpsError(null)
+      setIsResolvingGps(false)
     }
   }, [open, project])
 
@@ -87,12 +98,28 @@ export function ProjectEditDialog({
     value: NewProjectInput[K]
   ) {
     setForm((current) => ({ ...current, [key]: value }))
+    if (key === "sharedLocation") {
+      setGpsError(null)
+    }
   }
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
-    await onSubmit(form)
-    forceClose()
+    setGpsError(null)
+    setIsResolvingGps(true)
+    try {
+      const enriched = await enrichProjectInputWithResolvedGps(form)
+      await onSubmit(enriched)
+      forceClose()
+    } catch (error) {
+      setGpsError(
+        error instanceof Error
+          ? error.message
+          : "No se pudo resolver la ubicación GPS."
+      )
+    } finally {
+      setIsResolvingGps(false)
+    }
   }
 
   const isValid =
@@ -101,6 +128,9 @@ export function ProjectEditDialog({
     form.client.trim() !== "" &&
     form.location.trim() !== "" &&
     form.supervisor.trim() !== ""
+
+  const busy = isSubmitting || isResolvingGps
+  const gpsLoaded = hasProjectGps(form)
 
   return (
     <>
@@ -176,12 +206,35 @@ export function ProjectEditDialog({
             />
 
             <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="edit-location">Ubicación</Label>
+              <Label htmlFor="edit-location">Ubicación / dirección</Label>
               <Input
                 id="edit-location"
                 value={form.location}
                 onChange={(event) => updateField("location", event.target.value)}
               />
+            </div>
+
+            <div className="sm:col-span-2 space-y-2">
+              {gpsLoaded ? (
+                <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                  GPS cargado: {formatCoordinate(form.latitude as number)},{" "}
+                  {formatCoordinate(form.longitude as number)}
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Sin GPS. Requerido para iniciar la Obra y para Field Agent.
+                </p>
+              )}
+              <SharedLocationInput
+                id="edit-project-gps"
+                label="Ubicación GPS"
+                value={form.sharedLocation ?? ""}
+                onChange={(value) => updateField("sharedLocation", value)}
+                placeholder="Pegue un link o coordenadas para agregar/corregir"
+              />
+              {gpsError ? (
+                <p className="text-xs text-destructive">{gpsError}</p>
+              ) : null}
             </div>
 
             <div className="space-y-2 sm:col-span-2">
@@ -225,16 +278,16 @@ export function ProjectEditDialog({
             type="button"
             variant="outline"
             onClick={requestClose}
-            disabled={isSubmitting}
+            disabled={busy}
           >
             Cancelar
           </Button>
           <Button
             type="submit"
             form="edit-project-form"
-            disabled={!isValid || isSubmitting}
+            disabled={!isValid || busy}
           >
-            {isSubmitting ? "Guardando..." : "Guardar cambios"}
+            {busy ? "Guardando..." : "Guardar cambios"}
           </Button>
         </DialogFooter>
         </ProtectedFormDialogContent>

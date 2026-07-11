@@ -1,5 +1,9 @@
 import type { ProjectStatus } from "@/lib/types/projects"
 import type { Task, TaskStatus } from "@/lib/types/tasks"
+import {
+  hasProjectGps,
+  PROJECT_GPS_REQUIRED_TO_START_MESSAGE,
+} from "@/lib/projects/project-gps"
 
 export type ProjectStartDispatchTask = Pick<
   Task,
@@ -22,11 +26,25 @@ function hasDueDate(task: ProjectStartDispatchTask): boolean {
 export function validateStartProjectDispatch(input: {
   projectStatus: ProjectStatus
   tasks: ProjectStartDispatchTask[]
+  latitude?: number | null
+  longitude?: number | null
 }): ProjectStartDispatchValidation {
   if (input.projectStatus !== "planned") {
     return {
       ok: false,
       message: "Solo se puede iniciar una obra en estado Planificada.",
+    }
+  }
+
+  if (
+    !hasProjectGps({
+      latitude: input.latitude,
+      longitude: input.longitude,
+    })
+  ) {
+    return {
+      ok: false,
+      message: PROJECT_GPS_REQUIRED_TO_START_MESSAGE,
     }
   }
 
