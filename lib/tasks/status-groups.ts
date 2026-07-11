@@ -12,6 +12,16 @@ export const ACTIVE_TASK_STATUSES: TaskStatus[] = [
   "en-aprobacion",
 ]
 
+/** Estados que bloquean finalizar Obra (incluye legacy pendiente por seguridad). */
+export const PROJECT_FINALIZE_BLOCKING_TASK_STATUSES: readonly string[] = [
+  ...ACTIVE_TASK_STATUSES,
+  "pendiente",
+]
+
+export function isProjectFinalizeBlockingTaskStatus(status: string): boolean {
+  return PROJECT_FINALIZE_BLOCKING_TASK_STATUSES.includes(status)
+}
+
 export const CANCELLABLE_TASK_STATUSES: TaskStatus[] = [
   "programada",
   "asignada",

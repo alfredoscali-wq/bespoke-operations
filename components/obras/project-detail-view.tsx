@@ -21,6 +21,10 @@ import {
   buildStartProjectDispatchHistoryDescription,
   validateStartProjectDispatch,
 } from "@/lib/projects/project-start-dispatch"
+import {
+  buildFinalizeProjectHistoryDescription,
+  validateFinalizeProject,
+} from "@/lib/projects/project-finalize"
 import { getTasksForProject } from "@/lib/tasks/utils"
 import { ProjectDetailStats } from "@/components/obras/project-detail-stats"
 import { ProjectOverviewTab } from "@/components/obras/project-tabs/overview-tab"
@@ -246,12 +250,43 @@ export function ProjectDetailView({
           `Obra actualizada a ${PROJECT_STATUS_LABELS.active}.`
         )
         break
-      case "finalize":
-        void runAction(
-          () => finalizeProject(project.id),
-          `Obra actualizada a ${PROJECT_STATUS_LABELS.closed}.`
-        )
+      case "finalize": {
+        const projectTasks = getTasksForProject(project, tasks)
+        const validation = validateFinalizeProject({
+          projectStatus: project.status,
+          projectId: project.id,
+          tasks: projectTasks,
+        })
+
+        if (!validation.ok) {
+          setError(validation.message)
+          setFeedback(null)
+          return
+        }
+
+        void (async () => {
+          setError(null)
+          setFeedback(null)
+          setIsBusy(true)
+
+          const result = await finalizeProject(project.id)
+          setIsBusy(false)
+
+          if (!result.success) {
+            setError(result.message ?? "No se pudo completar la acción.")
+            return
+          }
+
+          setFeedback(
+            buildFinalizeProjectHistoryDescription(
+              project.status === "paused" ? "paused" : "active"
+            )
+          )
+          const loaded = await loadHistory(project.id)
+          setHistory(loaded)
+        })()
         break
+      }
       case "archive":
         setArchiveOpen(true)
         break

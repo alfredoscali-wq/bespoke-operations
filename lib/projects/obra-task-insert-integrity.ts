@@ -108,3 +108,6 @@ export function canAccessObrasModuleForStart(
 ): boolean {
   return hasWebModuleAccess(sessionUser, "projects")
 }
+
+/** OBRAS OPS 1.2: mismo gate de módulo que iniciar obra. */
+export const canAccessObrasModuleForFinalize = canAccessObrasModuleForStart

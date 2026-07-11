@@ -40,6 +40,7 @@ import {
   updateProject as updateProjectInSupabase,
 } from "@/lib/supabase/projects.browser"
 import { startProjectThroughApi } from "@/lib/supabase/projects-start-api.client"
+import { finalizeProjectThroughApi } from "@/lib/supabase/projects-finalize-api.client"
 import { PROJECT_DELETE_USER_MESSAGE, logOperationError } from "@/lib/operations/user-messages"
 import {
   isProjectAuditableFieldUpdate,
@@ -451,10 +452,57 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
   )
 
   const finalizeProject = useCallback(
-    async (id: string) => {
-      return transitionProjectStatus(id, "closed", "finalized")
+    async (id: string): Promise<ProjectMutationResult> => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return DEMO_WRITE_BLOCKED_MUTATION_RESULT
+      }
+
+      const existing = projects.find((project) => project.id === id)
+      if (!existing) {
+        return { success: false, message: "Obra no encontrada." }
+      }
+
+      if (existing.status !== "active" && existing.status !== "paused") {
+        const validation = canTransitionProjectStatus(existing.status, "closed")
+        return {
+          success: false,
+          message:
+            validation.message ??
+            "Solo se puede finalizar una obra en estado Activa o Pausada.",
+        }
+      }
+
+      if (!usesSupabase) {
+        return {
+          success: false,
+          message: "No fue posible finalizar la obra. Intente nuevamente.",
+        }
+      }
+
+      const apiResult = await finalizeProjectThroughApi(id)
+      if (!apiResult.success) {
+        return { success: false, message: apiResult.message }
+      }
+
+      const updatedProject: Project = {
+        ...existing,
+        status: "closed",
+      }
+
+      setProjects((current) =>
+        current.map((project) =>
+          project.id === id ? updatedProject : project
+        )
+      )
+      cacheProjectDetail(updatedProject)
+      historyCache.delete(id)
+
+      return {
+        success: true,
+        project: updatedProject,
+      }
     },
-    [transitionProjectStatus]
+    [projects, usesSupabase, isReadOnly, openRestrictedDialog]
   )
 
   const reopenProject = useCallback(

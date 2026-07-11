@@ -2,14 +2,10 @@
 
 import { useMemo, useState } from "react"
 import Link from "next/link"
-import { AlertTriangle, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react"
+import { AlertTriangle, Eye, MoreHorizontal, Pencil, Plus, Trash2, ClipboardCheck } from "lucide-react"
 
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { TASK_DELETE_USER_MESSAGE } from "@/lib/operations/user-messages"
-import {
-  canSoftDeleteWorkOrder,
-  WORK_ORDER_SOFT_DELETE_BLOCKED_MESSAGE,
-} from "@/lib/tasks/work-order-deletion-policy"
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { TaskCrewAssignmentCell } from "@/components/obras/task-crew-assignment-cell"
 import {
@@ -29,6 +25,8 @@ import {
   canEditProjectTaskFromObras,
   resolveProjectTaskCreateStatus,
 } from "@/lib/projects/project-start-dispatch"
+import { resolveProjectTaskRowActions } from "@/lib/projects/project-task-row-actions"
+import { ProjectTaskClosureReviewSheet } from "@/components/obras/project-task-closure-review-sheet"
 import { getTasksForProject } from "@/lib/tasks/utils"
 import { resolveCrewSnapshotsForAssignment, isTaskCrewArchived } from "@/lib/tasks/crew-relation"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -76,6 +74,9 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
   const [dialogMode, setDialogMode] = useState<DialogMode>("create")
   const [selectedTask, setSelectedTask] = useState<Task | undefined>()
   const [deleteTarget, setDeleteTarget] = useState<Task | null>(null)
+  const [closureReviewTaskId, setClosureReviewTaskId] = useState<string | null>(
+    null
+  )
   const [isDeleting, setIsDeleting] = useState(false)
   const [feedback, setFeedback] = useState<{
     type: "success" | "error"
@@ -215,8 +216,7 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
   }
 
   function renderActions(task: Task) {
-    const canDelete = canSoftDeleteWorkOrder(task.status)
-    const canEdit = canEditProjectTaskFromObras(task)
+    const actions = resolveProjectTaskRowActions(task)
 
     return (
       <DropdownMenu>
@@ -227,7 +227,21 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          {canEdit ? (
+          {actions.showReviewClosure ? (
+            <DropdownMenuItem onClick={() => setClosureReviewTaskId(task.id)}>
+              <ClipboardCheck className="size-4" />
+              Revisar cierre
+            </DropdownMenuItem>
+          ) : null}
+          {actions.showView ? (
+            <DropdownMenuItem asChild>
+              <Link href={`/tareas/${task.id}`}>
+                <Eye className="size-4" />
+                Ver
+              </Link>
+            </DropdownMenuItem>
+          ) : null}
+          {actions.showEdit ? (
             <DropdownMenuItem onClick={() => openEditDialog(task)}>
               <Pencil className="size-4" />
               Editar
@@ -238,7 +252,7 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
               Editar
             </DropdownMenuItem>
           )}
-          {canDelete ? (
+          {actions.showDelete ? (
             <DropdownMenuItem
               variant="destructive"
               onClick={() => setDeleteTarget(task)}
@@ -410,6 +424,16 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
         task={selectedTask}
         existingTasks={tasks}
         onSubmit={handleCreateOrEdit}
+      />
+
+      <ProjectTaskClosureReviewSheet
+        open={closureReviewTaskId !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setClosureReviewTaskId(null)
+          }
+        }}
+        taskId={closureReviewTaskId}
       />
 
       <Dialog
