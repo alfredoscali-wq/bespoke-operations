@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils"
 type CalendarEventCardProps = {
   event: CalendarEvent
   density?: "default" | "dense"
+  crewAccentColor?: string
   onClick: (event: CalendarEvent) => void
 }
 
@@ -200,6 +201,7 @@ function CalendarTaskCardContent({
 export function CalendarEventCard({
   event,
   density = "default",
+  crewAccentColor,
   onClick,
 }: CalendarEventCardProps) {
   const isTask = event.type === "TASK"
@@ -216,8 +218,14 @@ export function CalendarEventCard({
       className={cn(
         "w-full rounded-lg border text-left shadow-sm transition-colors",
         isDense ? "px-2 py-1.5" : "px-3 py-2.5",
+        crewAccentColor && "border-l-[3px]",
         getEventStyles(event)
       )}
+      style={
+        crewAccentColor
+          ? { borderLeftColor: crewAccentColor }
+          : undefined
+      }
     >
       {isTask ? (
         <CalendarTaskCardContent

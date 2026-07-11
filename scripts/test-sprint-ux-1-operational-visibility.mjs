@@ -195,3 +195,87 @@ test("calendar module alterna vista semanal y diaria", async () => {
   assert.match(file, /Vista semanal/)
   assert.match(file, /goToToday/)
 })
+
+test("encabezado de día en semana es interactivo y abre vista diaria", async () => {
+  const weekView = await import("node:fs/promises").then((fs) =>
+    fs.readFile("components/calendario/calendar-week-view.tsx", "utf8")
+  )
+  const provider = await import("node:fs/promises").then((fs) =>
+    fs.readFile("components/calendario/calendar-provider.tsx", "utf8")
+  )
+
+  assert.match(weekView, /openDayView\(day\.date\)/)
+  assert.match(weekView, /cursor-pointer/)
+  assert.match(weekView, /hover:bg-muted/)
+  assert.match(weekView, /focus-visible:ring/)
+  assert.match(weekView, /<button[\s\S]*openDayView\(day\.date\)[\s\S]*<\/button>[\s\S]*<div className="space-y-1\.5 p-2">/)
+  assert.match(provider, /openDayView/)
+  assert.match(provider, /setTemporalView\("day"\)/)
+  assert.match(provider, /setSelectedDate\(date\)/)
+})
+
+test("tarjetas OT en semana mantienen selectEvent sin abrir vista diaria", async () => {
+  const weekView = await import("node:fs/promises").then((fs) =>
+    fs.readFile("components/calendario/calendar-week-view.tsx", "utf8")
+  )
+
+  assert.match(weekView, /onClick=\{selectEvent\}/)
+  assert.match(weekView, /onClick=\{\(\) => openDayView\(day\.date\)\}/)
+})
+
+test("vista diaria usa selectedDate y no queda limitada a hoy", async () => {
+  const moduleFile = await import("node:fs/promises").then((fs) =>
+    fs.readFile("components/calendario/calendar-module.tsx", "utf8")
+  )
+  const dayView = await import("node:fs/promises").then((fs) =>
+    fs.readFile("components/calendario/calendar-day-operations-view.tsx", "utf8")
+  )
+
+  assert.match(moduleFile, /CalendarDayOperationsView date=\{selectedDate\}/)
+  assert.match(dayView, /displayEventsByDate\[date\]/)
+})
+
+test("vista diaria preserva identificación visual por cuadrilla", async () => {
+  const dayView = await import("node:fs/promises").then((fs) =>
+    fs.readFile("components/calendario/calendar-day-operations-view.tsx", "utf8")
+  )
+
+  assert.match(dayView, /buildPlanningCrewColorIndex/)
+  assert.match(dayView, /PLANNING_CREW_PIN_COLORS/)
+  assert.match(dayView, /crewAccentColor/)
+  assert.match(dayView, /backgroundColor: crewColor/)
+})
+
+test("showWeekView vuelve a semana de la fecha seleccionada", async () => {
+  const provider = await import("node:fs/promises").then((fs) =>
+    fs.readFile("components/calendario/calendar-provider.tsx", "utf8")
+  )
+
+  assert.match(provider, /showWeekView/)
+  assert.match(provider, /setWeekStart\(getWeekStart\(selectedDate\)\)/)
+})
+
+test("botón Hoy abre vista diaria del día actual", async () => {
+  const provider = await import("node:fs/promises").then((fs) =>
+    fs.readFile("components/calendario/calendar-provider.tsx", "utf8")
+  )
+
+  assert.match(provider, /goToToday/)
+  assert.match(provider, /setSelectedDate\(today\)/)
+  assert.match(provider, /setTemporalView\("day"\)/)
+})
+
+test("navegación día anterior/siguiente avanza selectedDate en vista day", async () => {
+  const provider = await import("node:fs/promises").then((fs) =>
+    fs.readFile("components/calendario/calendar-provider.tsx", "utf8")
+  )
+
+  assert.match(provider, /temporalView === "day"/)
+  assert.match(provider, /addDays\(current, -1\)/)
+  assert.match(provider, /addDays\(current, 1\)/)
+})
+
+test("openDayView sincroniza semana de la fecha seleccionada", () => {
+  const date = "2026-07-13"
+  assert.equal(getWeekStart(date), "2026-07-13")
+})

@@ -49,6 +49,7 @@ type CalendarContextValue = {
   goToNextPeriod: () => void
   goToToday: () => void
   showWeekView: () => void
+  openDayView: (date: string) => void
   selectEvent: (event: CalendarEvent | null) => void
 }
 
@@ -151,6 +152,12 @@ export function CalendarProvider({ children }: { children: React.ReactNode }) {
     setWeekStart(getWeekStart(selectedDate))
   }, [selectedDate])
 
+  const openDayView = useCallback((date: string) => {
+    setSelectedDate(date)
+    setWeekStart(getWeekStart(date))
+    setTemporalView("day")
+  }, [])
+
   const value = useMemo(
     () => ({
       temporalView,
@@ -166,6 +173,7 @@ export function CalendarProvider({ children }: { children: React.ReactNode }) {
       goToNextPeriod,
       goToToday,
       showWeekView,
+      openDayView,
       selectEvent: setSelectedEvent,
     }),
     [
@@ -181,6 +189,7 @@ export function CalendarProvider({ children }: { children: React.ReactNode }) {
       goToNextPeriod,
       goToToday,
       showWeekView,
+      openDayView,
     ]
   )
 

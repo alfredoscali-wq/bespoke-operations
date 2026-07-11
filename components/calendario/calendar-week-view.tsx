@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 
 export function CalendarWeekView() {
-  const { weekDays, selectEvent } = useCalendar()
+  const { weekDays, selectEvent, openDayView } = useCalendar()
   const { displayEventsByDate } = useCalendarUI()
   const [expandedDays, setExpandedDays] = useState<Record<string, boolean>>({})
 
@@ -40,10 +40,14 @@ export function CalendarWeekView() {
                 day.isToday && "border-primary/40 ring-1 ring-primary/15"
               )}
             >
-              <div
+              <button
+                type="button"
+                onClick={() => openDayView(day.date)}
+                aria-label={`Ver vista operativa del ${day.weekday} ${day.label}`}
                 className={cn(
-                  "border-b px-3 py-2.5",
-                  day.isToday && "bg-primary/[0.04]"
+                  "w-full border-b px-3 py-2.5 text-left transition-colors",
+                  "cursor-pointer hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-inset",
+                  day.isToday && "bg-primary/[0.04] hover:bg-primary/[0.08]"
                 )}
               >
                 <div className="flex items-center justify-between gap-2">
@@ -61,7 +65,7 @@ export function CalendarWeekView() {
                     </span>
                   ) : null}
                 </div>
-              </div>
+              </button>
 
               <div className="space-y-1.5 p-2">
                 {dayEvents.length === 0 ? (
