@@ -41,13 +41,20 @@ import {
   blockDemoWrite,
   DEMO_WRITE_BLOCKED_MUTATION_RESULT,
 } from "@/lib/demo/demo-write-block"
+import { DEMO_RESTRICTED_DIALOG_MESSAGE } from "@/lib/demo/constants"
 import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import {
   createCustomerAtencion,
+  getSharedInboxKpiSummary,
   listEmployeeAtencionesToday,
   listSharedInboxConsultations,
-  getSharedInboxKpiSummary,
 } from "@/lib/supabase/customer-atenciones.browser"
+import {
+  deferConsultationManagement,
+  resolveConsultationManagement,
+  startConsultationManagement,
+  type ConsultationManagementMutationResult,
+} from "@/lib/supabase/customer-atenciones-management.browser"
 import {
   createBrowserCustomerAtencionesClient,
   getCustomerAtencionById as loadCustomerAtencionById,
@@ -88,6 +95,7 @@ import type {
   CustomerAtencion,
   CustomerAtencionInboxRow,
   CustomerAtencionListPage,
+  CustomerAtencionNextStep,
   NewCustomerAtencionInput,
 } from "@/lib/types/customer-atenciones"
 import type {
@@ -181,6 +189,19 @@ type AtencionClienteContextValue = {
   searchCustomers: (query: string, limit?: number) => Promise<Customer[]>
   listAssignees: () => Promise<AtencionClienteAssigneeOption[]>
   createAtencion: (input: NewCustomerAtencionInput) => Promise<AtencionMutationResult>
+  refreshAtencionById: (id: string) => Promise<CustomerAtencion | null>
+  startConsultationManagement: (
+    atencionId: string
+  ) => Promise<ConsultationManagementMutationResult>
+  resolveConsultation: (
+    atencionId: string,
+    resolution: string
+  ) => Promise<ConsultationManagementMutationResult>
+  deferConsultation: (
+    atencionId: string,
+    nextStep: CustomerAtencionNextStep
+  ) => Promise<ConsultationManagementMutationResult>
+  currentEmployeeId: string
   createRetencion: (
     input: NewCustomerRetencionInput
   ) => Promise<RetencionMutationResult>
@@ -454,6 +475,25 @@ export function AtencionClienteProvider({
     [companyId]
   )
 
+  const refreshAtencionById = useCallback(
+    async (id: string) => {
+      if (!companyId) {
+        return null
+      }
+
+      const result = await loadCustomerAtencionById(id, companyId)
+
+      if (!result.data) {
+        atencionCacheRef.current.delete(id)
+        return null
+      }
+
+      atencionCacheRef.current.set(id, result.data)
+      return result.data
+    },
+    [companyId]
+  )
+
   const fetchSeguimientoById = useCallback(
     async (id: string) => {
       const cached = seguimientoCacheRef.current.get(id)
@@ -616,6 +656,59 @@ export function AtencionClienteProvider({
       refreshDashboard,
       refreshSharedInbox,
     ]
+  )
+
+  const runConsultationManagementMutation = useCallback(
+    async (
+      atencionId: string,
+      mutation: () => Promise<ConsultationManagementMutationResult>
+    ): Promise<ConsultationManagementMutationResult> => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return {
+          success: false,
+          message: DEMO_RESTRICTED_DIALOG_MESSAGE,
+        }
+      }
+
+      const result = await mutation()
+
+      if (result.success) {
+        await Promise.all([
+          refreshAtencionById(atencionId),
+          refreshSharedInbox(),
+        ])
+      }
+
+      return result
+    },
+    [isReadOnly, openRestrictedDialog, refreshAtencionById, refreshSharedInbox]
+  )
+
+  const startConsultationManagementHandler = useCallback(
+    async (atencionId: string) => {
+      return runConsultationManagementMutation(atencionId, () =>
+        startConsultationManagement(atencionId)
+      )
+    },
+    [runConsultationManagementMutation]
+  )
+
+  const resolveConsultationHandler = useCallback(
+    async (atencionId: string, resolution: string) => {
+      return runConsultationManagementMutation(atencionId, () =>
+        resolveConsultationManagement(atencionId, resolution)
+      )
+    },
+    [runConsultationManagementMutation]
+  )
+
+  const deferConsultationHandler = useCallback(
+    async (atencionId: string, nextStep: CustomerAtencionNextStep) => {
+      return runConsultationManagementMutation(atencionId, () =>
+        deferConsultationManagement(atencionId, nextStep)
+      )
+    },
+    [runConsultationManagementMutation]
   )
 
   const createRetencion = useCallback(
@@ -980,12 +1073,17 @@ export function AtencionClienteProvider({
       refreshSharedInbox,
       refreshDashboard,
       fetchAtencionById,
+      refreshAtencionById,
       fetchSeguimientoById,
       fetchRetencionById,
       fetchRecuperacionById,
       searchCustomers,
       listAssignees,
       createAtencion,
+      startConsultationManagement: startConsultationManagementHandler,
+      resolveConsultation: resolveConsultationHandler,
+      deferConsultation: deferConsultationHandler,
+      currentEmployeeId: employeeId,
       createRetencion,
       resolveRetencion,
       markRetencionReadyForRetiro: markRetencionReadyForRetiroHandler,
@@ -1002,9 +1100,9 @@ export function AtencionClienteProvider({
       completeSeguimiento,
       completeSeguimientoWithFollowUp,
       createAtencion,
-      createRecuperacion,
-      createRetencion,
+      deferConsultationHandler,
       dashboardSummary,
+      employeeId,
       fetchAtencionById,
       fetchRecuperacionById,
       fetchRetencionById,
@@ -1024,13 +1122,18 @@ export function AtencionClienteProvider({
       myRecuperaciones,
       pendingRetenciones,
       pendingSeguimientos,
+      refreshAtencionById,
       refreshDashboard,
       refreshSharedInbox,
+      resolveConsultationHandler,
       resolveRetencion,
       searchCustomers,
       sharedInboxKpis,
       sharedInboxQuery,
       sharedInboxRows,
+      startConsultationManagementHandler,
+      createRecuperacion,
+      createRetencion,
     ]
   )
 
