@@ -9,8 +9,11 @@ import { TASK_DELETE_USER_MESSAGE } from "@/lib/operations/user-messages"
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { TaskCrewAssignmentCell } from "@/components/obras/task-crew-assignment-cell"
 import { ProjectTaskDialog } from "@/components/obras/project-task-dialog"
-import { mergeTaskMetadataWithTemplate } from "@/lib/tasks/operational-checklist-template"
-import type { OperationalChecklistTemplateItem } from "@/lib/tasks/operational-checklist-template"
+import {
+  mergeTaskMetadataWithTemplate,
+  readOperationalChecklistTemplate,
+  type OperationalChecklistTemplateItem,
+} from "@/lib/tasks/operational-checklist-template"
 import {
   TaskPriorityBadge,
   TaskStatusBadge,
@@ -29,13 +32,11 @@ import { ProjectTaskClosureReviewSheet } from "@/components/obras/project-task-c
 import { getTasksForProject } from "@/lib/tasks/utils"
 import { resolveCrewSnapshotsForAssignment, isTaskCrewArchived } from "@/lib/tasks/crew-relation"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card"
 import {
   Dialog,
@@ -51,14 +52,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 
 type ProjectTasksTabProps = {
   project: Project
@@ -227,7 +220,18 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
     const actions = resolveProjectTaskRowActions(task)
 
     return (
-      <DropdownMenu>
+      <div className="flex shrink-0 items-center gap-1">
+        {actions.showReviewClosure ? (
+          <Button
+            size="sm"
+            className="h-8 gap-1 px-2.5 text-xs"
+            onClick={() => setClosureReviewTaskId(task.id)}
+          >
+            <ClipboardCheck className="size-3.5" />
+            Revisar cierre
+          </Button>
+        ) : null}
+        <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon" className="size-8">
             <MoreHorizontal className="size-4" />
@@ -235,12 +239,6 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          {actions.showReviewClosure ? (
-            <DropdownMenuItem onClick={() => setClosureReviewTaskId(task.id)}>
-              <ClipboardCheck className="size-4" />
-              Revisar cierre
-            </DropdownMenuItem>
-          ) : null}
           {actions.showView ? (
             <DropdownMenuItem asChild>
               <Link href={`/tareas/${task.id}`}>
@@ -271,22 +269,22 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
           ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
+      </div>
     )
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h3 className="text-sm font-semibold">Órdenes de trabajo de la obra</h3>
+          <h3 className="text-sm font-semibold">Órdenes de trabajo</h3>
           <p className="text-xs text-muted-foreground">
-            {projectTasks.length}{" "}
-            {projectTasks.length === 1 ? "orden de trabajo registrada" : "órdenes de trabajo registradas"}
+            {projectTasks.length} OT
           </p>
         </div>
         <Button size="sm" className="gap-1.5 self-start" onClick={openCreateDialog}>
           <Plus className="size-4" />
-          Nueva Orden de Trabajo
+          Nueva OT
         </Button>
       </div>
 
@@ -329,99 +327,58 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
           </CardContent>
         </Card>
       ) : (
-        <>
-          <div className="hidden overflow-hidden rounded-xl border bg-card shadow-sm lg:block">
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead className="w-[100px]">Código</TableHead>
-                  <TableHead>Orden de trabajo</TableHead>
-                  <TableHead>Cuadrilla</TableHead>
-                  <TableHead>Fecha límite</TableHead>
-                  <TableHead>Prioridad</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead className="w-[60px]" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {projectTasks.map((task) => (
-                  <TableRow
-                    key={task.id}
-                    className={getTaskStatusSurfaceClass(task.status)}
-                  >
-                    <TableCell className="font-mono text-xs font-medium">
-                      {task.code}
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      <Link
-                        href={`/tareas/${task.id}`}
-                        className="hover:text-primary"
-                      >
-                        {task.title}
-                      </Link>
-                    </TableCell>
-                    <TableCell>
-                      <TaskCrewAssignmentCell task={task} getCrew={getCrew} />
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {formatTaskDate(task.dueDate)}
-                    </TableCell>
-                    <TableCell>
-                      <TaskPriorityBadge priority={task.priority} />
-                    </TableCell>
-                    <TableCell>
-                      <TaskStatusBadge status={task.status} />
-                    </TableCell>
-                    <TableCell>{renderActions(task)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+        <div className="space-y-2">
+          {projectTasks.map((task) => {
+            const hasChecklist =
+              readOperationalChecklistTemplate(task).length > 0
 
-          <div className="space-y-3 lg:hidden">
-            {projectTasks.map((task) => (
-              <Card
+            return (
+              <article
                 key={task.id}
-                size="sm"
-                className={getTaskStatusSurfaceClass(task.status, {
-                  accent: false,
-                  ring: true,
-                })}
+                className={`rounded-lg border bg-card p-3 shadow-sm ${getTaskStatusSurfaceClass(task.status, { accent: false, ring: true })}`}
               >
-                <CardHeader className="pb-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 space-y-1">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <p className="font-mono text-xs font-medium text-primary">
                         {task.code}
                       </p>
-                      <CardTitle className="text-sm leading-snug">
-                        <Link href={`/tareas/${task.id}`} className="hover:text-primary">
-                          {task.title}
-                        </Link>
-                      </CardTitle>
-                      <CardDescription>
-                        <TaskCrewAssignmentCell
-                          task={task}
-                          getCrew={getCrew}
-                          compact
-                        />
-                      </CardDescription>
+                      <TaskStatusBadge status={task.status} />
+                      <TaskPriorityBadge priority={task.priority} />
+                      {hasChecklist ? (
+                        <Badge variant="outline" className="text-[10px]">
+                          Checklist
+                        </Badge>
+                      ) : null}
                     </div>
-                    {renderActions(task)}
+                    <div>
+                      <Link
+                        href={`/tareas/${task.id}`}
+                        className="text-sm font-medium text-foreground hover:text-primary"
+                      >
+                        {task.title}
+                      </Link>
+                      {task.description?.trim() ? (
+                        <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
+                          {task.description}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                      <TaskCrewAssignmentCell
+                        task={task}
+                        getCrew={getCrew}
+                        compact
+                      />
+                      <span>{formatTaskDate(task.dueDate)}</span>
+                    </div>
                   </div>
-                </CardHeader>
-                <CardContent className="flex flex-wrap items-center gap-2">
-                  <TaskPriorityBadge priority={task.priority} />
-                  <TaskStatusBadge status={task.status} />
-                  <span className="text-xs text-muted-foreground">
-                    {formatTaskDate(task.dueDate)}
-                  </span>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </>
+                  {renderActions(task)}
+                </div>
+              </article>
+            )
+          })}
+        </div>
       )}
 
       <ProjectTaskDialog

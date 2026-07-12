@@ -1,105 +1,80 @@
 "use client"
 
-import {
-  Ban,
-  Building2,
-  CheckCircle2,
-  CircleDot,
-  ListChecks,
-  PauseCircle,
-  TrendingUp,
-} from "lucide-react"
+import { Building2, CheckCircle2, CircleDot, Layers } from "lucide-react"
 
-import { useProjectsUI } from "@/components/obras/projects-ui-provider"
+import { useProjects } from "@/components/obras/projects-provider"
 import { FilterableKpiCard } from "@/components/ui/filterable-kpi-card"
 import { KpiCardGrid } from "@/components/ui/kpi-card-grid"
-import { moduleFilterUrls } from "@/lib/navigation/query-filters"
-import {
-  OPERATIONAL_PROJECT_CATEGORY_KPI_LABELS,
-  OPERATIONAL_PROJECT_CATEGORY_KPI_TONE,
-  OPERATIONAL_PROJECT_CATEGORY_ORDER,
-} from "@/lib/projects/operational-project-category"
+import type { ProjectStatus } from "@/lib/types/projects"
 
-const CATEGORY_ICONS = {
-  "sin-iniciar": Building2,
-  "en-ejecucion": CircleDot,
-  detenida: PauseCircle,
-  finalizada: CheckCircle2,
-  cancelada: Ban,
-} as const
+type ProjectsOperationalSummaryProps = {
+  activeStatusFilter: ProjectStatus | "all"
+  onStatusFilterChange: (status: ProjectStatus | "all") => void
+}
 
-const MANAGEMENT_KPIS = [
+const STATUS_KPIS = [
   {
-    key: "averageProgress" as const,
-    label: "Avance promedio",
-    icon: TrendingUp,
+    key: "all" as const,
+    label: "Total de Obras",
+    icon: Layers,
     tone: "neutral" as const,
-    format: (value: number) => `${value}%`,
-    href: undefined,
+    matches: () => true,
   },
   {
-    key: "overdueProjects" as const,
-    label: "Obras vencidas",
-    icon: Ban,
-    tone: "red" as const,
-    format: (value: number) => String(value),
-    href: moduleFilterUrls.projects.health("overdue"),
+    key: "active" as const,
+    label: "Activas",
+    icon: CircleDot,
+    tone: "green" as const,
+    matches: (status: ProjectStatus) => status === "active",
   },
   {
-    key: "pendingTasks" as const,
-    label: "OT programadas",
-    icon: ListChecks,
+    key: "planned" as const,
+    label: "Planificadas",
+    icon: Building2,
     tone: "blue" as const,
-    format: (value: number) => String(value),
-    href: "/tareas",
+    matches: (status: ProjectStatus) => status === "planned",
+  },
+  {
+    key: "closed" as const,
+    label: "Finalizadas",
+    icon: CheckCircle2,
+    tone: "neutral" as const,
+    matches: (status: ProjectStatus) => status === "closed",
   },
 ]
 
-export function ProjectsOperationalSummary() {
-  const {
-    operationalSummary,
-    managementSummary,
-    selectedCategory,
-    openCategory,
-  } = useProjectsUI()
+export function ProjectsOperationalSummary({
+  activeStatusFilter,
+  onStatusFilterChange,
+}: ProjectsOperationalSummaryProps) {
+  const { projects } = useProjects()
 
   return (
-    <div className="space-y-5">
-      <KpiCardGrid layout="operational">
-        {OPERATIONAL_PROJECT_CATEGORY_ORDER.map((category) => {
-          const Icon = CATEGORY_ICONS[category]
+    <KpiCardGrid layout="standard">
+      {STATUS_KPIS.map((item) => {
+        const Icon = item.icon
+        const value =
+          item.key === "all"
+            ? projects.length
+            : projects.filter((project) => item.matches(project.status)).length
+        const isActive =
+          item.key === "all"
+            ? activeStatusFilter === "all"
+            : activeStatusFilter === item.key
 
-          return (
-            <FilterableKpiCard
-              key={category}
-              label={OPERATIONAL_PROJECT_CATEGORY_KPI_LABELS[category]}
-              value={operationalSummary[category]}
-              icon={Icon}
-              tone={OPERATIONAL_PROJECT_CATEGORY_KPI_TONE[category]}
-              isActive={selectedCategory === category}
-              onClick={() => openCategory(category)}
-            />
-          )
-        })}
-      </KpiCardGrid>
-
-      <KpiCardGrid layout="standard">
-        {MANAGEMENT_KPIS.map((item) => {
-          const Icon = item.icon
-          const value = managementSummary[item.key]
-
-          return (
-            <FilterableKpiCard
-              key={item.key}
-              label={item.label}
-              value={item.format(value)}
-              icon={Icon}
-              tone={item.tone}
-              href={item.href}
-            />
-          )
-        })}
-      </KpiCardGrid>
-    </div>
+        return (
+          <FilterableKpiCard
+            key={item.key}
+            compact
+            label={item.label}
+            value={value}
+            icon={Icon}
+            tone={item.tone}
+            isActive={isActive}
+            onClick={() => onStatusFilterChange(item.key)}
+          />
+        )
+      })}
+    </KpiCardGrid>
   )
 }

@@ -1,22 +1,16 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
-import {
-  AlertTriangle,
-  ArrowLeft,
-  CalendarDays,
-  MoreHorizontal,
-} from "lucide-react"
+import { AlertTriangle } from "lucide-react"
 
 import { useProjects } from "@/components/obras/projects-provider"
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { ProjectEditDialog } from "@/components/obras/project-edit-dialog"
 import { ProjectPauseDialog } from "@/components/obras/project-pause-dialog"
 import type { PauseProjectInput, Project, ProjectDetail } from "@/lib/types/projects"
+import { ProjectDetailOperationalHeader } from "@/components/obras/project-detail-operational-header"
 import { getProjectActions } from "@/lib/projects/utils"
-import { PROJECT_STATUS_LABELS } from "@/lib/projects/constants"
 import {
   buildStartProjectDispatchHistoryDescription,
   validateStartProjectDispatch,
@@ -26,7 +20,7 @@ import {
   validateFinalizeProject,
 } from "@/lib/projects/project-finalize"
 import { getTasksForProject } from "@/lib/tasks/utils"
-import { ProjectDetailStats } from "@/components/obras/project-detail-stats"
+import { PROJECT_STATUS_LABELS } from "@/lib/projects/constants"
 import { ProjectOverviewTab } from "@/components/obras/project-tabs/overview-tab"
 import { ProjectTasksTab } from "@/components/obras/project-tabs/tasks-tab"
 import { ProjectEvidenceTab } from "@/components/obras/project-tabs/evidence-tab"
@@ -35,10 +29,6 @@ import { ProjectHistoryTab } from "@/components/obras/project-tabs/history-tab"
 import { ProjectCostsTab } from "@/components/obras/project-tabs/costs-tab"
 import { ProjectCrewsTab } from "@/components/obras/project-tabs/crews-tab"
 import { ProjectMaterialsTab } from "@/components/obras/project-tabs/materials-tab"
-import {
-  ProjectStatusBadge,
-  ProjectTypeBadge,
-} from "@/components/obras/project-badges"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
@@ -49,13 +39,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 type ProjectDetailViewProps = {
@@ -312,118 +295,40 @@ export function ProjectDetailView({
   )
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="space-y-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="-ml-2 h-8 gap-1.5 text-muted-foreground"
-            asChild
-          >
-            <Link href="/obras">
-              <ArrowLeft className="size-4" />
-              Volver a obras
-            </Link>
-          </Button>
+    <div className="space-y-5">
+      <ProjectDetailOperationalHeader
+        project={project}
+        tasks={tasks}
+        isBusy={isBusy}
+        primaryActions={primaryActions}
+        secondaryActions={secondaryActions}
+        onAction={handleAction}
+        onEditLocation={() => setEditOpen(true)}
+      />
 
-          <div className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-mono text-xs font-medium text-primary">
-                {project.code}
-              </span>
-              <ProjectTypeBadge type={project.type} />
-              <ProjectStatusBadge status={project.status} />
-            </div>
-            <h2 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-              {project.name}
-            </h2>
-            <p className="text-sm text-muted-foreground">{project.client}</p>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2 self-start">
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={() => handleAction("view_planning")}
-            disabled={isBusy}
-          >
-            <CalendarDays className="size-4" />
-            Ver planificación
-          </Button>
-
-          {primaryActions.map((action) => (
-            <Button
-              key={action.id}
-              size="sm"
-              variant={action.variant ?? "default"}
-              onClick={() => handleAction(action.id)}
-              disabled={isBusy}
-            >
-              {action.label}
-            </Button>
-          ))}
-
-          {secondaryActions.length > 0 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-1.5">
-                  Acciones
-                  <MoreHorizontal className="size-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {secondaryActions.map((action, index) => (
-                  <div key={action.id}>
-                    {action.variant === "destructive" && index > 0 && (
-                      <DropdownMenuSeparator />
-                    )}
-                    <DropdownMenuItem
-                      variant={
-                        action.variant === "destructive"
-                          ? "destructive"
-                          : "default"
-                      }
-                      onClick={() => handleAction(action.id)}
-                      disabled={isBusy}
-                    >
-                      {action.label}
-                    </DropdownMenuItem>
-                  </div>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div>
-      </div>
-
-      {feedback && (
+      {feedback ? (
         <Alert>
           <AlertDescription>{feedback}</AlertDescription>
         </Alert>
-      )}
+      ) : null}
 
-      {error && (
+      {error ? (
         <Alert variant="destructive">
           <AlertTriangle className="size-4" />
           <AlertDescription>{error}</AlertDescription>
         </Alert>
-      )}
-
-      <ProjectDetailStats project={project} />
+      ) : null}
 
       <Tabs defaultValue="overview" className="space-y-4">
         <div className="overflow-x-auto">
           <TabsList variant="line" className="w-full min-w-max justify-start">
             <TabsTrigger value="overview">Resumen</TabsTrigger>
             <TabsTrigger value="tasks">Órdenes de Trabajo</TabsTrigger>
+            <TabsTrigger value="evidence">Evidencias</TabsTrigger>
+            <TabsTrigger value="history">Historial</TabsTrigger>
             <TabsTrigger value="crews">Cuadrillas</TabsTrigger>
             <TabsTrigger value="materials">Materiales</TabsTrigger>
-            <TabsTrigger value="evidence">Evidencias</TabsTrigger>
             <TabsTrigger value="documents">Documentos</TabsTrigger>
-            <TabsTrigger value="history">Historial</TabsTrigger>
             <TabsTrigger value="costs">Costos</TabsTrigger>
           </TabsList>
         </div>

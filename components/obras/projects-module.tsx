@@ -21,12 +21,7 @@ import {
   parseProjectOperationalCategoryQuery,
   parseProjectStatusQuery,
 } from "@/lib/navigation/query-filters"
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import type { ProjectStatus } from "@/lib/types/projects"
 
 export function ProjectsModule() {
   return (
@@ -41,8 +36,8 @@ function ProjectsModuleContent() {
   const { projects, addProject } = useProjects()
   const {
     filteredProjects: categoryFilteredProjects,
-    selectedCategory,
     selectCategory,
+    closeCategory,
     metricsByProjectId,
   } = useProjectsUI()
   const [filters, setFilters] = useState(defaultProjectFilters)
@@ -65,6 +60,14 @@ function ProjectsModuleContent() {
     }
   }, [searchParams, selectCategory])
 
+  function handleStatusKpiChange(status: ProjectStatus | "all") {
+    closeCategory()
+    setFilters((current) => ({
+      ...current,
+      status,
+    }))
+  }
+
   const displayedProjects = useMemo(() => {
     const filtered = filterProjects(categoryFilteredProjects, filters)
 
@@ -79,33 +82,34 @@ function ProjectsModuleContent() {
   }, [categoryFilteredProjects, filters, metricsByProjectId])
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <p className="max-w-2xl text-sm text-muted-foreground">
-          Gestión de obras de fibra óptica, cámaras, wireless, postes y
-          mantenimiento.
-        </p>
+    <div className="space-y-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+            Obras
+          </h1>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Centro operativo de obras y órdenes de trabajo.
+          </p>
+        </div>
         <NewProjectDialog onSubmit={addProject} />
       </div>
 
-      <ProjectsOperationalSummary />
+      <ProjectsOperationalSummary
+        activeStatusFilter={filters.status}
+        onStatusFilterChange={handleStatusKpiChange}
+      />
 
-      <Card className="shadow-sm">
-        <CardHeader className="gap-4 border-b">
-          <CardTitle className="text-base">Obras</CardTitle>
-        </CardHeader>
+      <div className="space-y-3 rounded-xl border bg-card p-4 shadow-sm">
+        <ProjectsFilters
+          filters={filters}
+          onChange={setFilters}
+          resultCount={displayedProjects.length}
+          operationalMode
+        />
 
-        <CardContent className="space-y-4 pt-4">
-          <ProjectsFilters
-            filters={filters}
-            onChange={setFilters}
-            resultCount={displayedProjects.length}
-            operationalMode
-          />
-
-          <ProjectsOperationalList projects={displayedProjects} />
-        </CardContent>
-      </Card>
+        <ProjectsOperationalList projects={displayedProjects} />
+      </div>
     </div>
   )
 }

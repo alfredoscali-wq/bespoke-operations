@@ -70,7 +70,7 @@ export function ProjectsFilters({
 
   const hasActiveFilters =
     filters.search !== "" ||
-    (!operationalMode && filters.status !== "all") ||
+    filters.status !== "all" ||
     filters.type !== "all" ||
     filters.supervisor !== "all"
 
@@ -86,8 +86,8 @@ export function ProjectsFilters({
   }
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+    <div className="space-y-2.5">
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
         <div className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -98,34 +98,7 @@ export function ProjectsFilters({
           />
         </div>
 
-        <div
-          className={
-            operationalMode
-              ? "grid grid-cols-1 gap-2 sm:grid-cols-2 lg:w-auto lg:min-w-[360px]"
-              : "grid grid-cols-1 gap-2 sm:grid-cols-3 lg:w-auto lg:min-w-[540px]"
-          }
-        >
-          {!operationalMode && (
-            <Select
-              value={filters.status}
-              onValueChange={(value) =>
-                update("status", value as ProjectFilters["status"])
-              }
-            >
-              <SelectTrigger className={FILTER_SELECT_TRIGGER_CLASS}>
-                <SelectValue placeholder="Estado" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos los estados</SelectItem>
-                {PROJECT_STATUS_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:w-auto lg:min-w-[420px]">
           <Select
             value={filters.type}
             onValueChange={(value) =>
@@ -154,20 +127,23 @@ export function ProjectsFilters({
               onValueChange={(value) => update("supervisor", value)}
               disabled={supervisorFilterOptions.length === 0}
             >
-              <SelectTrigger id="filter-supervisor" className="h-9 w-full bg-background">
+              <SelectTrigger
+                id="filter-supervisor"
+                className="h-9 w-full bg-background"
+              >
                 <SelectValue
                   placeholder={
                     supervisorFilterOptions.length === 0
-                      ? "Sin supervisores disponibles"
+                      ? "Sin supervisores"
                       : "Supervisor"
                   }
                 />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos los supervisores</SelectItem>
+                <SelectItem value="all">Todos</SelectItem>
                 {supervisorFilterOptions.length === 0 ? (
                   <SelectItem value="__none__" disabled>
-                    Sin supervisores disponibles
+                    Sin supervisores
                   </SelectItem>
                 ) : (
                   supervisorFilterOptions.map((option) => (
@@ -179,21 +155,36 @@ export function ProjectsFilters({
               </SelectContent>
             </Select>
           </div>
+
+          {!operationalMode ? (
+            <Select
+              value={filters.status}
+              onValueChange={(value) =>
+                update("status", value as ProjectFilters["status"])
+              }
+            >
+              <SelectTrigger className={FILTER_SELECT_TRIGGER_CLASS}>
+                <SelectValue placeholder="Estado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los estados</SelectItem>
+                {PROJECT_STATUS_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : null}
         </div>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
         <span>
           {resultCount}{" "}
-          {operationalMode
-            ? resultCount === 1
-              ? "obra encontrada"
-              : "obras encontradas"
-            : resultCount === 1
-              ? "obra encontrada"
-              : "obras encontradas"}
+          {resultCount === 1 ? "obra encontrada" : "obras encontradas"}
         </span>
-        {hasActiveFilters && (
+        {hasActiveFilters ? (
           <Button
             variant="ghost"
             size="sm"
@@ -203,7 +194,7 @@ export function ProjectsFilters({
             <X className="size-3" />
             Limpiar filtros
           </Button>
-        )}
+        ) : null}
       </div>
     </div>
   )
