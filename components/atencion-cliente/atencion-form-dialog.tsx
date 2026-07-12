@@ -6,12 +6,14 @@ import { useAtencionCliente } from "@/components/atencion-cliente/atencion-clien
 import {
   CUSTOMER_ATENCION_CHANNEL_OPTIONS,
   CUSTOMER_ATENCION_MOTIVO_OPTIONS,
+  CUSTOMER_ATENCION_NEXT_STEP_OPTIONS,
 } from "@/lib/customer-atenciones/format"
 import type { Customer } from "@/lib/types/customers"
 import type {
   CustomerAtencionChannel,
   CustomerAtencionMotivo,
-  CustomerAtencionResultado,
+  CustomerAtencionNextStep,
+  NewConsultationDecision,
   NewCustomerAtencionInput,
 } from "@/lib/types/customer-atenciones"
 import { Button } from "@/components/ui/button"
@@ -38,27 +40,24 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { cn } from "@/lib/utils"
 
 type AtencionFormState = {
   channel: CustomerAtencionChannel | ""
   motivo: CustomerAtencionMotivo | ""
   detail: string
+  decision: NewConsultationDecision
   resolution: string
-  resultado: CustomerAtencionResultado
-  seguimientoDate: string
-  seguimientoTime: string
-  seguimientoObservation: string
+  nextStep: CustomerAtencionNextStep | ""
 }
 
 const emptyForm: AtencionFormState = {
   channel: "",
   motivo: "",
   detail: "",
+  decision: "resolver_ahora",
   resolution: "",
-  resultado: "resuelta",
-  seguimientoDate: "",
-  seguimientoTime: "",
-  seguimientoObservation: "",
+  nextStep: "",
 }
 
 type AtencionFormDialogProps = {
@@ -197,16 +196,19 @@ export function AtencionFormDialog({
       return
     }
 
-    if (!form.detail.trim() || !form.resolution.trim()) {
-      setError("Completá el detalle y la resolución.")
+    if (!form.detail.trim()) {
+      setError("Completá la descripción de la consulta.")
       return
     }
 
-    if (form.resultado === "requiere_seguimiento") {
-      if (!form.seguimientoDate.trim() || !form.seguimientoObservation.trim()) {
-        setError("Completá la fecha y observación del seguimiento.")
-        return
-      }
+    if (form.decision === "resolver_ahora" && !form.resolution.trim()) {
+      setError("Completá la resolución de la consulta.")
+      return
+    }
+
+    if (form.decision === "continuar_gestion" && !form.nextStep) {
+      setError("Seleccioná el próximo paso para continuar la gestión.")
+      return
     }
 
     const input: NewCustomerAtencionInput = {
@@ -214,15 +216,12 @@ export function AtencionFormDialog({
       channel: form.channel,
       motivo: form.motivo,
       detail: form.detail,
-      resolution: form.resolution,
-      resultado: form.resultado,
-      seguimiento:
-        form.resultado === "requiere_seguimiento"
-          ? {
-              scheduledDate: form.seguimientoDate,
-              scheduledTime: form.seguimientoTime.trim() || null,
-              observation: form.seguimientoObservation,
-            }
+      decision: form.decision,
+      resolution:
+        form.decision === "resolver_ahora" ? form.resolution : undefined,
+      nextStep:
+        form.decision === "continuar_gestion" && form.nextStep
+          ? form.nextStep
           : undefined,
     }
 
@@ -243,6 +242,15 @@ export function AtencionFormDialog({
     }
   }
 
+  const submitLabel =
+    form.decision === "resolver_ahora"
+      ? isSubmitting
+        ? "Guardando…"
+        : "Guardar consulta resuelta"
+      : isSubmitting
+        ? "Guardando…"
+        : "Guardar para continuar"
+
   return (
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -254,7 +262,7 @@ export function AtencionFormDialog({
           <DialogHeader>
             <DialogTitle>Nueva Atención</DialogTitle>
             <DialogDescription>
-              Registrá la atención al cliente y su resultado.
+              Registrá la consulta del cliente y definí qué ocurre a continuación.
             </DialogDescription>
           </DialogHeader>
 
@@ -273,7 +281,7 @@ export function AtencionFormDialog({
               </p>
             ) : null}
 
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="atencion-channel">Canal</Label>
                 <Select
@@ -321,48 +329,67 @@ export function AtencionFormDialog({
                   </SelectContent>
                 </Select>
               </div>
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="atencion-resultado">Resultado</Label>
-                <Select
-                  value={form.resultado}
-                  onValueChange={(value) =>
+            <div className="space-y-2">
+              <Label htmlFor="atencion-detail">Descripción</Label>
+              <Textarea
+                id="atencion-detail"
+                value={form.detail}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    detail: event.target.value,
+                  }))
+                }
+                rows={3}
+                placeholder="Descripción de la consulta o problema"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>¿Qué ocurrió con la consulta?</Label>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Button
+                  type="button"
+                  variant={
+                    form.decision === "resolver_ahora" ? "default" : "outline"
+                  }
+                  className={cn(
+                    "h-auto min-h-10 whitespace-normal py-2",
+                    form.decision === "resolver_ahora" && "ring-2 ring-primary"
+                  )}
+                  onClick={() =>
                     setForm((current) => ({
                       ...current,
-                      resultado: value as CustomerAtencionResultado,
+                      decision: "resolver_ahora",
                     }))
                   }
                 >
-                  <SelectTrigger id="atencion-resultado" className="w-full">
-                    <SelectValue placeholder="Seleccionar" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="resuelta">Resuelta</SelectItem>
-                    <SelectItem value="requiere_seguimiento">
-                      Requiere seguimiento
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
+                  Resolver ahora
+                </Button>
+                <Button
+                  type="button"
+                  variant={
+                    form.decision === "continuar_gestion" ? "default" : "outline"
+                  }
+                  className={cn(
+                    "h-auto min-h-10 whitespace-normal py-2",
+                    form.decision === "continuar_gestion" && "ring-2 ring-primary"
+                  )}
+                  onClick={() =>
+                    setForm((current) => ({
+                      ...current,
+                      decision: "continuar_gestion",
+                    }))
+                  }
+                >
+                  Continuar gestión
+                </Button>
               </div>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="atencion-detail">Detalle</Label>
-                <Textarea
-                  id="atencion-detail"
-                  value={form.detail}
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      detail: event.target.value,
-                    }))
-                  }
-                  rows={2}
-                  placeholder="Descripción de la consulta o problema"
-                />
-              </div>
-
+            {form.decision === "resolver_ahora" ? (
               <div className="space-y-2">
                 <Label htmlFor="atencion-resolution">Resolución</Label>
                 <Textarea
@@ -374,65 +401,35 @@ export function AtencionFormDialog({
                       resolution: event.target.value,
                     }))
                   }
-                  rows={2}
-                  placeholder="Qué se hizo para resolver la atención"
+                  rows={3}
+                  placeholder="Qué se hizo para resolver la consulta"
                 />
               </div>
-            </div>
-
-            {form.resultado === "requiere_seguimiento" ? (
-              <div className="space-y-3 rounded-lg border px-3 py-3">
-                <p className="text-sm font-medium">Próximo seguimiento</p>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="atencion-seguimiento-date">Fecha</Label>
-                    <Input
-                      id="atencion-seguimiento-date"
-                      type="date"
-                      value={form.seguimientoDate}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          seguimientoDate: event.target.value,
-                        }))
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="atencion-seguimiento-time">
-                      Hora (opcional)
-                    </Label>
-                    <Input
-                      id="atencion-seguimiento-time"
-                      type="time"
-                      value={form.seguimientoTime}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          seguimientoTime: event.target.value,
-                        }))
-                      }
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="atencion-seguimiento-observation">
-                    Observación / motivo del próximo contacto
-                  </Label>
-                  <Textarea
-                    id="atencion-seguimiento-observation"
-                    value={form.seguimientoObservation}
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        seguimientoObservation: event.target.value,
-                      }))
-                    }
-                    rows={2}
-                  />
-                </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="atencion-next-step">Próximo paso</Label>
+                <Select
+                  value={form.nextStep}
+                  onValueChange={(value) =>
+                    setForm((current) => ({
+                      ...current,
+                      nextStep: value as CustomerAtencionNextStep,
+                    }))
+                  }
+                >
+                  <SelectTrigger id="atencion-next-step" className="w-full">
+                    <SelectValue placeholder="Seleccionar próximo paso" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CUSTOMER_ATENCION_NEXT_STEP_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            ) : null}
+            )}
 
             {error ? (
               <p className="text-sm text-destructive">{error}</p>
@@ -443,7 +440,7 @@ export function AtencionFormDialog({
                 Cancelar
               </Button>
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Guardando…" : "Registrar atención"}
+                {submitLabel}
               </Button>
             </DialogFooter>
           </form>

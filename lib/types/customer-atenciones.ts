@@ -44,6 +44,8 @@ export const CUSTOMER_ATENCION_DEFAULT_RESULTADO: CustomerAtencionResultado =
 export const CUSTOMER_ATENCION_SPRINT_1_0_RESULTADO =
   CUSTOMER_ATENCION_DEFAULT_RESULTADO
 
+export type NewConsultationDecision = "resolver_ahora" | "continuar_gestion"
+
 export type NewCustomerAtencionSeguimientoInput = {
   scheduledDate: string
   scheduledTime?: string | null
@@ -55,9 +57,9 @@ export type NewCustomerAtencionInput = {
   channel: CustomerAtencionChannel
   motivo: CustomerAtencionMotivo
   detail: string
-  resolution: string
-  resultado?: CustomerAtencionResultado
-  seguimiento?: NewCustomerAtencionSeguimientoInput
+  decision: NewConsultationDecision
+  resolution?: string
+  nextStep?: CustomerAtencionNextStep
 }
 
 export interface CustomerAtencion {

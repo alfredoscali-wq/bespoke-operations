@@ -33,6 +33,7 @@
     "test:customer-atenciones-mapper": "npx tsx --test scripts/test-customer-atenciones-mapper.mjs",
     "test:customer-atenciones-sprint-2-0": "npx tsx --test scripts/test-customer-atenciones-sprint-2-0.mjs",
     "test:customer-atenciones-sprint-2-1-shared-inbox": "npx tsx --test scripts/test-customer-atenciones-sprint-2-1-shared-inbox.mjs",
+    "test:customer-atenciones-sprint-2-2-new-consultation": "npx tsx --test scripts/test-customer-atenciones-sprint-2-2-new-consultation.mjs",
     "test:atencion-cliente-module-access": "npx tsx --test scripts/test-atencion-cliente-module-access.mjs",
     "test:customer-atenciones-rls-alignment": "npx tsx --test scripts/test-customer-atenciones-rls-alignment.mjs",
     "test:customer-seguimientos-mapper": "npx tsx --test scripts/test-customer-seguimientos-mapper.mjs",

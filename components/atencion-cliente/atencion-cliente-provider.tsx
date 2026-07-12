@@ -16,6 +16,10 @@ import {
   type CustomerAtencionListQuery,
 } from "@/lib/customer-atenciones/atencion-list"
 import {
+  buildNewConsultationCreationFields,
+  validateNewConsultationInput,
+} from "@/lib/customer-atenciones/consultation"
+import {
   type SharedInboxKpiSummary,
   type SharedInboxQuery,
 } from "@/lib/customer-atenciones/shared-inbox"
@@ -39,7 +43,7 @@ import {
 } from "@/lib/demo/demo-write-block"
 import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import {
-  createCustomerAtencionWithSeguimiento,
+  createCustomerAtencion,
   listEmployeeAtencionesToday,
   listSharedInboxConsultations,
   getSharedInboxKpiSummary,
@@ -557,39 +561,30 @@ export function AtencionClienteProvider({
         }
       }
 
-      const resultado = input.resultado ?? "resuelta"
-      const needsSeguimiento =
-        resultado === "requiere_seguimiento" && Boolean(input.seguimiento)
+      const validationError = validateNewConsultationInput(input)
 
-      if (resultado === "requiere_seguimiento" && !input.seguimiento) {
-        return {
-          success: false,
-          message: "Completá los datos del seguimiento programado.",
-        }
+      if (validationError) {
+        return { success: false, message: validationError }
       }
 
-      const result = await createCustomerAtencionWithSeguimiento(
-        {
-          companyId,
-          customerId: input.customerId,
-          attendedByEmployeeId: employeeId,
-          channel: input.channel,
-          motivo: input.motivo,
-          detail: input.detail,
-          resolution: input.resolution,
-          resultado,
-        },
-        needsSeguimiento && input.seguimiento
-          ? {
-              companyId,
-              customerId: input.customerId,
-              assignedEmployeeId: employeeId,
-              scheduledDate: input.seguimiento.scheduledDate,
-              scheduledTime: input.seguimiento.scheduledTime ?? null,
-              observation: input.seguimiento.observation,
-            }
-          : null
-      )
+      const creation = buildNewConsultationCreationFields(input)
+
+      if ("error" in creation) {
+        return { success: false, message: creation.error }
+      }
+
+      const result = await createCustomerAtencion({
+        companyId,
+        customerId: input.customerId,
+        attendedByEmployeeId: employeeId,
+        channel: input.channel,
+        motivo: input.motivo,
+        detail: input.detail,
+        resolution: creation.resolution,
+        resultado: creation.resultado,
+        status: creation.status,
+        nextStep: creation.nextStep,
+      })
 
       if (result.error || !result.data) {
         return {
@@ -598,13 +593,7 @@ export function AtencionClienteProvider({
         }
       }
 
-      atencionCacheRef.current.set(result.data.atencion.id, result.data.atencion)
-      if (result.data.seguimiento) {
-        seguimientoCacheRef.current.set(
-          result.data.seguimiento.id,
-          result.data.seguimiento
-        )
-      }
+      atencionCacheRef.current.set(result.data.id, result.data)
 
       await Promise.all([
         loadAtencionPage({ ...listQuery, page: 1 }),
@@ -614,8 +603,7 @@ export function AtencionClienteProvider({
 
       return {
         success: true,
-        atencion: result.data.atencion,
-        seguimiento: result.data.seguimiento,
+        atencion: result.data,
       }
     },
     [

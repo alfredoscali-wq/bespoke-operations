@@ -86,3 +86,7 @@ export const CUSTOMER_ATENCION_CHANNEL_OPTIONS = (
 export const CUSTOMER_ATENCION_MOTIVO_OPTIONS = (
   Object.entries(MOTIVO_LABELS) as [CustomerAtencionMotivo, string][]
 ).map(([value, label]) => ({ value, label }))
+
+export const CUSTOMER_ATENCION_NEXT_STEP_OPTIONS = (
+  Object.entries(NEXT_STEP_LABELS) as [CustomerAtencionNextStep, string][]
+).map(([value, label]) => ({ value, label }))

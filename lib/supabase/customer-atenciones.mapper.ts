@@ -3,6 +3,7 @@ import {
   deriveNextStepForNewConsultation,
   isCustomerAtencionNextStep,
   isCustomerAtencionStatus,
+  resolveInitialConsultationStatusFromNextStep,
 } from "@/lib/customer-atenciones/consultation"
 import type {
   CustomerAtencionInsert,
@@ -107,7 +108,10 @@ export function mapCreateCustomerAtencionPayloadToInsert(
 ): CustomerAtencionInsert {
   const resultado = payload.resultado ?? CUSTOMER_ATENCION_DEFAULT_RESULTADO
   const status =
-    payload.status ?? deriveConsultationStatusFromResultado(resultado)
+    payload.status ??
+    (payload.nextStep
+      ? resolveInitialConsultationStatusFromNextStep(payload.nextStep)
+      : deriveConsultationStatusFromResultado(resultado))
   const nextStep =
     payload.nextStep !== undefined
       ? payload.nextStep
