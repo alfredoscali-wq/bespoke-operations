@@ -19,6 +19,23 @@ export type CustomerAtencionResultado =
   | "requiere_seguimiento"
   | "ot_creada"
 
+export type CustomerAtencionStatus =
+  | "nueva"
+  | "para_resolver"
+  | "en_gestion"
+  | "pendiente"
+  | "resuelta"
+
+export type CustomerAtencionNextStep =
+  | "realizar_retencion"
+  | "resolver_facturacion"
+  | "analizar_problema_tecnico"
+  | "contactar_cliente"
+  | "esperar_cliente"
+  | "esperar_administracion"
+  | "coordinar_retiro"
+  | "generar_ot"
+
 /** Sprint 1.0 default; Sprint 2.0 allows `requiere_seguimiento` on create. */
 export const CUSTOMER_ATENCION_DEFAULT_RESULTADO: CustomerAtencionResultado =
   "resuelta"
@@ -53,6 +70,10 @@ export interface CustomerAtencion {
   detail: string
   resolution: string
   resultado: CustomerAtencionResultado
+  status: CustomerAtencionStatus
+  nextStep?: CustomerAtencionNextStep | null
+  activeManagementEmployeeId?: string | null
+  activeManagementStartedAt?: string | null
   createdAt: string
   updatedAt: string
   deletedAt?: string | null

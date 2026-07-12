@@ -1,7 +1,9 @@
 import type {
   CustomerAtencionChannel,
   CustomerAtencionMotivo,
+  CustomerAtencionNextStep,
   CustomerAtencionResultado,
+  CustomerAtencionStatus,
 } from "@/lib/types/customer-atenciones"
 
 export type CreateCustomerAtencionPayload = {
@@ -13,6 +15,8 @@ export type CreateCustomerAtencionPayload = {
   detail: string
   resolution: string
   resultado?: CustomerAtencionResultado
+  status?: CustomerAtencionStatus
+  nextStep?: CustomerAtencionNextStep | null
 }
 
 export type CustomerAtencionesRepositoryErrorCode =

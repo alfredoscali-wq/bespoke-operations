@@ -50,6 +50,10 @@ export async function createCustomerAtencion(
   return insertCustomerAtencion(client, payload)
 }
 
+/**
+ * Creates atención and optional seguimiento sequentially.
+ * Atomicity: atención + consulta_creada event (DB trigger); seguimiento is best-effort.
+ */
 export async function createCustomerAtencionWithSeguimiento(
   atencionPayload: CreateCustomerAtencionPayload,
   seguimientoPayload: CreateCustomerSeguimientoPayload | null,

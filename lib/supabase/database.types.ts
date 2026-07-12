@@ -193,6 +193,10 @@ export type Database = {
           detail: string
           resolution: string
           resultado: string
+          status: string
+          next_step: string | null
+          active_management_employee_id: string | null
+          active_management_started_at: string | null
           created_at: string
           updated_at: string
           deleted_at: string | null
@@ -207,6 +211,10 @@ export type Database = {
           detail: string
           resolution: string
           resultado: string
+          status?: string
+          next_step?: string | null
+          active_management_employee_id?: string | null
+          active_management_started_at?: string | null
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
@@ -221,6 +229,10 @@ export type Database = {
           detail?: string
           resolution?: string
           resultado?: string
+          status?: string
+          next_step?: string | null
+          active_management_employee_id?: string | null
+          active_management_started_at?: string | null
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
@@ -243,6 +255,77 @@ export type Database = {
           {
             foreignKeyName: "customer_atenciones_attended_by_employee_id_fkey"
             columns: ["attended_by_employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_atenciones_active_management_employee_id_fkey"
+            columns: ["active_management_employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_atencion_events: {
+        Row: {
+          id: string
+          company_id: string
+          customer_atencion_id: string
+          employee_id: string
+          action_type: string
+          detail: string | null
+          previous_status: string | null
+          new_status: string | null
+          previous_next_step: string | null
+          new_next_step: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          customer_atencion_id: string
+          employee_id: string
+          action_type: string
+          detail?: string | null
+          previous_status?: string | null
+          new_status?: string | null
+          previous_next_step?: string | null
+          new_next_step?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          customer_atencion_id?: string
+          employee_id?: string
+          action_type?: string
+          detail?: string | null
+          previous_status?: string | null
+          new_status?: string | null
+          previous_next_step?: string | null
+          new_next_step?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_atencion_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_atencion_events_customer_atencion_id_fkey"
+            columns: ["customer_atencion_id"]
+            isOneToOne: false
+            referencedRelation: "customer_atenciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_atencion_events_employee_id_fkey"
+            columns: ["employee_id"]
             isOneToOne: false
             referencedRelation: "employees"
             referencedColumns: ["id"]
@@ -1609,6 +1692,12 @@ export type CustomerAtencionInsert =
   Database["public"]["Tables"]["customer_atenciones"]["Insert"]
 export type CustomerAtencionUpdate =
   Database["public"]["Tables"]["customer_atenciones"]["Update"]
+export type CustomerAtencionEventRow =
+  Database["public"]["Tables"]["customer_atencion_events"]["Row"]
+export type CustomerAtencionEventInsert =
+  Database["public"]["Tables"]["customer_atencion_events"]["Insert"]
+export type CustomerAtencionEventUpdate =
+  Database["public"]["Tables"]["customer_atencion_events"]["Update"]
 export type CustomerSeguimientoRow =
   Database["public"]["Tables"]["customer_seguimientos"]["Row"]
 export type CustomerSeguimientoInsert =

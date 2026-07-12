@@ -1,3 +1,9 @@
+import {
+  deriveConsultationStatusFromResultado,
+  deriveNextStepForNewConsultation,
+  isCustomerAtencionNextStep,
+  isCustomerAtencionStatus,
+} from "@/lib/customer-atenciones/consultation"
 import type {
   CustomerAtencionInsert,
   CustomerAtencionRow,
@@ -7,7 +13,9 @@ import {
   type CustomerAtencion,
   type CustomerAtencionChannel,
   type CustomerAtencionMotivo,
+  type CustomerAtencionNextStep,
   type CustomerAtencionResultado,
+  type CustomerAtencionStatus,
 } from "@/lib/types/customer-atenciones"
 import type { CreateCustomerAtencionPayload } from "@/lib/types/supabase/customer-atenciones"
 
@@ -53,6 +61,24 @@ function parseResultado(value: string): CustomerAtencionResultado {
   return CUSTOMER_ATENCION_DEFAULT_RESULTADO
 }
 
+function parseStatus(value: string | null | undefined): CustomerAtencionStatus {
+  if (value && isCustomerAtencionStatus(value)) {
+    return value
+  }
+
+  return "nueva"
+}
+
+function parseNextStep(
+  value: string | null | undefined
+): CustomerAtencionNextStep | null {
+  if (value && isCustomerAtencionNextStep(value)) {
+    return value
+  }
+
+  return null
+}
+
 export function mapCustomerAtencionRowToCustomerAtencion(
   row: CustomerAtencionRow
 ): CustomerAtencion {
@@ -66,6 +92,10 @@ export function mapCustomerAtencionRowToCustomerAtencion(
     detail: row.detail,
     resolution: row.resolution,
     resultado: parseResultado(row.resultado),
+    status: parseStatus(row.status),
+    nextStep: parseNextStep(row.next_step),
+    activeManagementEmployeeId: row.active_management_employee_id,
+    activeManagementStartedAt: row.active_management_started_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
@@ -75,6 +105,14 @@ export function mapCustomerAtencionRowToCustomerAtencion(
 export function mapCreateCustomerAtencionPayloadToInsert(
   payload: CreateCustomerAtencionPayload
 ): CustomerAtencionInsert {
+  const resultado = payload.resultado ?? CUSTOMER_ATENCION_DEFAULT_RESULTADO
+  const status =
+    payload.status ?? deriveConsultationStatusFromResultado(resultado)
+  const nextStep =
+    payload.nextStep !== undefined
+      ? payload.nextStep
+      : deriveNextStepForNewConsultation(resultado)
+
   return {
     company_id: payload.companyId,
     customer_id: payload.customerId,
@@ -83,6 +121,10 @@ export function mapCreateCustomerAtencionPayloadToInsert(
     motivo: payload.motivo,
     detail: payload.detail.trim(),
     resolution: payload.resolution.trim(),
-    resultado: payload.resultado ?? CUSTOMER_ATENCION_DEFAULT_RESULTADO,
+    resultado,
+    status,
+    next_step: nextStep,
+    active_management_employee_id: null,
+    active_management_started_at: null,
   }
 }
