@@ -1,90 +1,32 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react"
+import { Plus } from "lucide-react"
 
-import { AtencionClienteSummary } from "@/components/atencion-cliente/atencion-cliente-summary"
 import { AtencionFormDialog } from "@/components/atencion-cliente/atencion-form-dialog"
-import { AtencionesList } from "@/components/atencion-cliente/atenciones-list"
-import {
-  MiAgendaSection,
-  MiAgendaViewToggle,
-} from "@/components/atencion-cliente/mi-agenda-section"
+import { ConsultationInboxSection } from "@/components/atencion-cliente/consultation-inbox-section"
+import { ConsultationInboxSummary } from "@/components/atencion-cliente/consultation-inbox-summary"
 import { EquipoSection } from "@/components/atencion-cliente/equipo-section"
-import { MisRetencionesSection } from "@/components/atencion-cliente/mis-retenciones-section"
-import { RetencionesAsignadasSection } from "@/components/atencion-cliente/retenciones-asignadas-section"
-import { MiRecuperoSection } from "@/components/atencion-cliente/mi-recupero-section"
-import { MiJornadaSection } from "@/components/atencion-cliente/mi-jornada-section"
-import { RecuperoFormDialog } from "@/components/atencion-cliente/recupero-form-dialog"
-import { RetencionCreateDialog } from "@/components/atencion-cliente/retencion-create-dialog"
 import { useAtencionCliente } from "@/components/atencion-cliente/atencion-cliente-provider"
-import { DEFAULT_ATENCION_PAGE_SIZE } from "@/lib/customer-atenciones/atencion-list"
-import type { AtencionClienteDashboardFilter } from "@/lib/customer-seguimientos/kpis"
-import { TableRowsSkeleton } from "@/components/ui/kpi-grid-skeleton"
+import type { SharedInboxQuery } from "@/lib/customer-atenciones/shared-inbox"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { FILTER_CLEAR_BUTTON_CLASS } from "@/lib/ui/visual-tokens"
 
-const SEARCH_DEBOUNCE_MS = 300
+const DEFAULT_SHARED_INBOX_QUERY: SharedInboxQuery = {
+  statusFilter: "all",
+  motivo: "all",
+  channel: "all",
+}
 
 export function AtencionClienteModule() {
-  const {
-    isReady,
-    isListLoading,
-    listPage,
-    loadAtencionPage,
-    refreshDashboard,
-    canViewAssignedRetenciones,
-    canViewEquipoReport,
-  } = useAtencionCliente()
+  const { loadSharedInbox, canViewEquipoReport } = useAtencionCliente()
   const [moduleView, setModuleView] = useState<"personal" | "equipo">("personal")
-  const [search, setSearch] = useState("")
-  const [debouncedSearch, setDebouncedSearch] = useState("")
   const [formOpen, setFormOpen] = useState(false)
-  const [recuperoFormOpen, setRecuperoFormOpen] = useState(false)
-  const [createRetencionOpen, setCreateRetencionOpen] = useState(false)
-  const [page, setPage] = useState(1)
-  const [agendaView, setAgendaView] = useState<"hoy" | "semana">("hoy")
-  const [dashboardFilter, setDashboardFilter] =
-    useState<AtencionClienteDashboardFilter>("none")
+  const [sharedInboxQuery, setSharedInboxQuery] =
+    useState<SharedInboxQuery>(DEFAULT_SHARED_INBOX_QUERY)
 
   useEffect(() => {
-    void refreshDashboard()
-  }, [refreshDashboard])
-
-  useEffect(() => {
-    const timeout = window.setTimeout(() => {
-      setDebouncedSearch(search.trim())
-    }, SEARCH_DEBOUNCE_MS)
-
-    return () => {
-      window.clearTimeout(timeout)
-    }
-  }, [search])
-
-  useEffect(() => {
-    setPage(1)
-  }, [debouncedSearch])
-
-  useEffect(() => {
-    void loadAtencionPage({
-      page,
-      pageSize: DEFAULT_ATENCION_PAGE_SIZE,
-      search: debouncedSearch,
-    })
-  }, [debouncedSearch, loadAtencionPage, page])
-
-  const items = listPage?.items ?? []
-  const totalResults = listPage?.total ?? 0
-  const pageSize = listPage?.pageSize ?? DEFAULT_ATENCION_PAGE_SIZE
-  const totalPages = Math.max(1, Math.ceil(totalResults / pageSize))
-  const hasActiveFilter = dashboardFilter !== "none"
+    void loadSharedInbox(sharedInboxQuery)
+  }, [loadSharedInbox, sharedInboxQuery])
 
   return (
     <div className="space-y-6">
@@ -94,30 +36,13 @@ export function AtencionClienteModule() {
             Atención al Cliente
           </h1>
           <p className="text-sm text-muted-foreground">
-            Nueva atención, recupero, retenciones, seguimientos y actividad del día.
+            Bandeja compartida de consultas de la empresa.
           </p>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Button
-            size="lg"
-            variant="outline"
-            onClick={() => setCreateRetencionOpen(true)}
-          >
-            Nueva gestión de baja
-          </Button>
-          <Button
-            size="lg"
-            variant="outline"
-            onClick={() => setRecuperoFormOpen(true)}
-          >
-            <Plus className="mr-2 size-4" />
-            Nueva Gestión de Recupero
-          </Button>
-          <Button size="lg" onClick={() => setFormOpen(true)}>
-            <Plus className="mr-2 size-4" />
-            Nueva Atención
-          </Button>
-        </div>
+        <Button size="lg" onClick={() => setFormOpen(true)}>
+          <Plus className="mr-2 size-4" />
+          Nueva Atención
+        </Button>
       </div>
 
       {canViewEquipoReport ? (
@@ -145,117 +70,22 @@ export function AtencionClienteModule() {
         <EquipoSection />
       ) : (
         <>
-      <AtencionClienteSummary
-        dashboardFilter={dashboardFilter}
-        onDashboardFilterChange={setDashboardFilter}
-      />
-
-      {hasActiveFilter ? (
-        <div className="flex items-center justify-end">
-          <button
-            type="button"
-            className={FILTER_CLEAR_BUTTON_CLASS}
-            onClick={() => setDashboardFilter("none")}
-          >
-            Quitar filtro
-          </button>
-        </div>
-      ) : null}
-
-      {canViewAssignedRetenciones ? <RetencionesAsignadasSection /> : null}
-
-      <div className="grid gap-6 xl:grid-cols-2">
-        <div className="space-y-3">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-sm font-medium text-muted-foreground">
-              Lo que tengo que hacer
-            </p>
-            <MiAgendaViewToggle view={agendaView} onViewChange={setAgendaView} />
-          </div>
-          <MiAgendaSection
-            view={agendaView}
-            highlighted={dashboardFilter === "agenda_seguimientos"}
-          />
-          <MisRetencionesSection
-            highlighted={dashboardFilter === "retenciones_activas"}
-          />
-        </div>
-
-        <div className="space-y-3">
-          <p className="text-sm font-medium text-muted-foreground">
-            Lo que ya hice
-          </p>
-          <MiJornadaSection
-            dashboardFilter={dashboardFilter}
-            highlighted={
-              dashboardFilter === "jornada_atenciones" ||
-              dashboardFilter === "jornada_resueltas"
+          <ConsultationInboxSummary
+            activeFilter={sharedInboxQuery.statusFilter}
+            onFilterChange={(statusFilter) =>
+              setSharedInboxQuery((current) => ({
+                ...current,
+                statusFilter,
+              }))
             }
           />
-          <MiRecuperoSection highlighted={dashboardFilter === "mi_recupero"} />
-        </div>
-      </div>
 
-      <Card>
-        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle>Registro general de atenciones</CardTitle>
-          <Input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Buscar por cliente"
-            className="max-w-sm"
+          <ConsultationInboxSection
+            query={sharedInboxQuery}
+            onQueryChange={setSharedInboxQuery}
           />
-        </CardHeader>
-        <CardContent>
-          {!isReady || isListLoading ? (
-            <TableRowsSkeleton rows={8} columns={6} />
-          ) : (
-            <>
-              <AtencionesList items={items} />
-              {totalResults > pageSize ? (
-                <div className="mt-4 flex items-center justify-between">
-                  <p className="text-sm text-muted-foreground">
-                    {totalResults.toLocaleString("es-AR")} atenciones
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      disabled={page <= 1}
-                      onClick={() => setPage((current) => Math.max(1, current - 1))}
-                    >
-                      <ChevronLeft className="size-4" />
-                    </Button>
-                    <span className="text-sm text-muted-foreground">
-                      Página {page} de {totalPages}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      disabled={page >= totalPages}
-                      onClick={() =>
-                        setPage((current) => Math.min(totalPages, current + 1))
-                      }
-                    >
-                      <ChevronRight className="size-4" />
-                    </Button>
-                  </div>
-                </div>
-              ) : null}
-            </>
-          )}
-        </CardContent>
-      </Card>
 
-      <AtencionFormDialog open={formOpen} onOpenChange={setFormOpen} />
-      <RecuperoFormDialog
-        open={recuperoFormOpen}
-        onOpenChange={setRecuperoFormOpen}
-      />
-      <RetencionCreateDialog
-        open={createRetencionOpen}
-        onOpenChange={setCreateRetencionOpen}
-      />
+          <AtencionFormDialog open={formOpen} onOpenChange={setFormOpen} />
         </>
       )}
     </div>

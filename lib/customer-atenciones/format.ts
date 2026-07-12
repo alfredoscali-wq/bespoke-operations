@@ -1,7 +1,9 @@
 import type {
   CustomerAtencionChannel,
   CustomerAtencionMotivo,
+  CustomerAtencionNextStep,
   CustomerAtencionResultado,
+  CustomerAtencionStatus,
 } from "@/lib/types/customer-atenciones"
 
 const CHANNEL_LABELS: Record<CustomerAtencionChannel, string> = {
@@ -28,6 +30,25 @@ const RESULTADO_LABELS: Record<CustomerAtencionResultado, string> = {
   ot_creada: "OT creada",
 }
 
+const STATUS_LABELS: Record<CustomerAtencionStatus, string> = {
+  nueva: "Nueva",
+  para_resolver: "Para resolver",
+  en_gestion: "En gestión",
+  pendiente: "Pendiente",
+  resuelta: "Resuelta",
+}
+
+const NEXT_STEP_LABELS: Record<CustomerAtencionNextStep, string> = {
+  realizar_retencion: "Realizar retención",
+  resolver_facturacion: "Resolver facturación",
+  analizar_problema_tecnico: "Analizar problema técnico",
+  contactar_cliente: "Contactar cliente",
+  esperar_cliente: "Esperar cliente",
+  esperar_administracion: "Esperar Administración",
+  coordinar_retiro: "Coordinar retiro",
+  generar_ot: "Generar OT",
+}
+
 export function formatCustomerAtencionChannelLabel(
   channel: CustomerAtencionChannel
 ): string {
@@ -44,6 +65,18 @@ export function formatCustomerAtencionResultadoLabel(
   resultado: CustomerAtencionResultado
 ): string {
   return RESULTADO_LABELS[resultado] ?? resultado
+}
+
+export function formatCustomerAtencionStatusLabel(
+  status: CustomerAtencionStatus
+): string {
+  return STATUS_LABELS[status] ?? status
+}
+
+export function formatCustomerAtencionNextStepLabel(
+  nextStep: CustomerAtencionNextStep
+): string {
+  return NEXT_STEP_LABELS[nextStep] ?? nextStep
 }
 
 export const CUSTOMER_ATENCION_CHANNEL_OPTIONS = (

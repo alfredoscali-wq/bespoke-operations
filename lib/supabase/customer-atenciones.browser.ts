@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/client"
 import {
   fetchCustomerAtencionById,
+  fetchSharedInboxConsultations,
+  fetchSharedInboxKpiSummary,
   insertCustomerAtencion,
   listCustomerAtencionesPaginated,
   type SupabaseCustomerAtencionesClient,
@@ -9,8 +11,10 @@ import { mapCustomerAtencionRowToCustomerAtencion } from "@/lib/supabase/custome
 import { fetchEmployeeAtencionesForDay } from "@/lib/supabase/customer-seguimientos.queries"
 import { insertCustomerSeguimiento } from "@/lib/supabase/customer-seguimientos.queries"
 import type { CustomerAtencionListQuery } from "@/lib/customer-atenciones/atencion-list"
+import type { SharedInboxQuery } from "@/lib/customer-atenciones/shared-inbox"
 import type {
   CustomerAtencion,
+  CustomerAtencionInboxRow,
   CustomerAtencionListPage,
 } from "@/lib/types/customer-atenciones"
 import type { CustomerSeguimiento } from "@/lib/types/customer-seguimientos"
@@ -18,6 +22,7 @@ import type {
   CreateCustomerAtencionPayload,
   CustomerAtencionesRepositoryResult,
 } from "@/lib/types/supabase/customer-atenciones"
+import type { SharedInboxKpiSummary } from "@/lib/customer-atenciones/shared-inbox"
 import type {
   CreateCustomerSeguimientoPayload,
   CustomerSeguimientosRepositoryResult,
@@ -33,6 +38,23 @@ export async function listAtencionPage(
   client: SupabaseCustomerAtencionesClient = createBrowserCustomerAtencionesClient()
 ): Promise<CustomerAtencionesRepositoryResult<CustomerAtencionListPage>> {
   return listCustomerAtencionesPaginated(client, companyId, query)
+}
+
+export async function getSharedInboxKpiSummary(
+  companyId: string,
+  referenceDate: Date = new Date(),
+  client: SupabaseCustomerAtencionesClient = createBrowserCustomerAtencionesClient()
+): Promise<CustomerAtencionesRepositoryResult<SharedInboxKpiSummary>> {
+  return fetchSharedInboxKpiSummary(client, companyId, referenceDate)
+}
+
+export async function listSharedInboxConsultations(
+  companyId: string,
+  query: SharedInboxQuery,
+  referenceDate: Date = new Date(),
+  client: SupabaseCustomerAtencionesClient = createBrowserCustomerAtencionesClient()
+): Promise<CustomerAtencionesRepositoryResult<CustomerAtencionInboxRow[]>> {
+  return fetchSharedInboxConsultations(client, companyId, query, referenceDate)
 }
 
 export async function getCustomerAtencionById(

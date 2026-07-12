@@ -16,6 +16,10 @@ import {
   type CustomerAtencionListQuery,
 } from "@/lib/customer-atenciones/atencion-list"
 import {
+  type SharedInboxKpiSummary,
+  type SharedInboxQuery,
+} from "@/lib/customer-atenciones/shared-inbox"
+import {
   filterAgendaForTodayView,
   filterAgendaForWeekView,
 } from "@/lib/customer-seguimientos/agenda"
@@ -37,6 +41,8 @@ import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import {
   createCustomerAtencionWithSeguimiento,
   listEmployeeAtencionesToday,
+  listSharedInboxConsultations,
+  getSharedInboxKpiSummary,
 } from "@/lib/supabase/customer-atenciones.browser"
 import {
   createBrowserCustomerAtencionesClient,
@@ -76,6 +82,7 @@ import { createClient } from "@/lib/supabase/client"
 import type { Customer } from "@/lib/types/customers"
 import type {
   CustomerAtencion,
+  CustomerAtencionInboxRow,
   CustomerAtencionListPage,
   NewCustomerAtencionInput,
 } from "@/lib/types/customer-atenciones"
@@ -133,6 +140,13 @@ const EMPTY_SUMMARY: AtencionClienteKpiSummary = {
   recuperosHoy: 0,
 }
 
+const EMPTY_SHARED_INBOX_KPIS: SharedInboxKpiSummary = {
+  nuevas: 0,
+  para_resolver: 0,
+  pendientes: 0,
+  resueltas_hoy: 0,
+}
+
 type AtencionClienteContextValue = {
   listPage: CustomerAtencionListPage | null
   isListLoading: boolean
@@ -148,7 +162,13 @@ type AtencionClienteContextValue = {
   canMarkRetencionReadyForRetiro: boolean
   canViewAssignedRetenciones: boolean
   canViewEquipoReport: boolean
+  sharedInboxKpis: SharedInboxKpiSummary
+  sharedInboxRows: CustomerAtencionInboxRow[]
+  sharedInboxQuery: SharedInboxQuery
+  isSharedInboxLoading: boolean
   loadAtencionPage: (query: CustomerAtencionListQuery) => Promise<void>
+  loadSharedInbox: (query: SharedInboxQuery) => Promise<void>
+  refreshSharedInbox: () => Promise<void>
   refreshDashboard: () => Promise<void>
   fetchAtencionById: (id: string) => Promise<CustomerAtencion | null>
   fetchSeguimientoById: (id: string) => Promise<CustomerSeguimiento | null>
@@ -215,6 +235,17 @@ export function AtencionClienteProvider({
     CustomerRecuperacionActivityRow[]
   >([])
   const [jornadaEntries, setJornadaEntries] = useState<JornadaEntry[]>([])
+  const [sharedInboxKpis, setSharedInboxKpis] =
+    useState<SharedInboxKpiSummary>(EMPTY_SHARED_INBOX_KPIS)
+  const [sharedInboxRows, setSharedInboxRows] = useState<CustomerAtencionInboxRow[]>(
+    []
+  )
+  const [sharedInboxQuery, setSharedInboxQuery] = useState<SharedInboxQuery>({
+    statusFilter: "all",
+    motivo: "all",
+    channel: "all",
+  })
+  const [isSharedInboxLoading, setIsSharedInboxLoading] = useState(true)
   const atencionCacheRef = useRef<Map<string, CustomerAtencion>>(new Map())
   const seguimientoCacheRef = useRef<Map<string, CustomerSeguimiento>>(new Map())
   const retencionCacheRef = useRef<Map<string, CustomerRetencion>>(new Map())
@@ -258,6 +289,35 @@ export function AtencionClienteProvider({
     },
     [companyId, isAuthReady]
   )
+
+  const loadSharedInbox = useCallback(
+    async (query: SharedInboxQuery) => {
+      if (!isAuthReady || !companyId) {
+        return
+      }
+
+      setIsSharedInboxLoading(true)
+      setSharedInboxQuery(query)
+
+      try {
+        const referenceDate = new Date()
+        const [kpiResult, rowsResult] = await Promise.all([
+          getSharedInboxKpiSummary(companyId, referenceDate),
+          listSharedInboxConsultations(companyId, query, referenceDate),
+        ])
+
+        setSharedInboxKpis(kpiResult.data ?? EMPTY_SHARED_INBOX_KPIS)
+        setSharedInboxRows(rowsResult.data ?? [])
+      } finally {
+        setIsSharedInboxLoading(false)
+      }
+    },
+    [companyId, isAuthReady]
+  )
+
+  const refreshSharedInbox = useCallback(async () => {
+    await loadSharedInbox(sharedInboxQuery)
+  }, [loadSharedInbox, sharedInboxQuery])
 
   const refreshDashboard = useCallback(async () => {
     if (!isAuthReady || !companyId || !employeeId) {
@@ -549,6 +609,7 @@ export function AtencionClienteProvider({
       await Promise.all([
         loadAtencionPage({ ...listQuery, page: 1 }),
         refreshDashboard(),
+        refreshSharedInbox(),
       ])
 
       return {
@@ -565,6 +626,7 @@ export function AtencionClienteProvider({
       loadAtencionPage,
       openRestrictedDialog,
       refreshDashboard,
+      refreshSharedInbox,
     ]
   )
 
@@ -921,7 +983,13 @@ export function AtencionClienteProvider({
       canMarkRetencionReadyForRetiro,
       canViewAssignedRetenciones,
       canViewEquipoReport,
+      sharedInboxKpis,
+      sharedInboxRows,
+      sharedInboxQuery,
+      isSharedInboxLoading,
       loadAtencionPage,
+      loadSharedInbox,
+      refreshSharedInbox,
       refreshDashboard,
       fetchAtencionById,
       fetchSeguimientoById,
@@ -957,18 +1025,24 @@ export function AtencionClienteProvider({
       isDashboardLoading,
       isListLoading,
       isReady,
+      isSharedInboxLoading,
       jornadaEntries,
       listAssignees,
       listPage,
       listQuery,
       loadAtencionPage,
+      loadSharedInbox,
       markRetencionReadyForRetiroHandler,
       myRecuperaciones,
       pendingRetenciones,
       pendingSeguimientos,
       refreshDashboard,
+      refreshSharedInbox,
       resolveRetencion,
       searchCustomers,
+      sharedInboxKpis,
+      sharedInboxQuery,
+      sharedInboxRows,
     ]
   )
 

@@ -98,3 +98,23 @@ export type CustomerAtencionListPage = {
   page: number
   pageSize: number
 }
+
+export type CustomerAtencionInboxRow = Pick<
+  CustomerAtencion,
+  | "id"
+  | "customerId"
+  | "channel"
+  | "motivo"
+  | "detail"
+  | "status"
+  | "nextStep"
+  | "attendedByEmployeeId"
+  | "activeManagementEmployeeId"
+  | "activeManagementStartedAt"
+  | "createdAt"
+  | "updatedAt"
+> & {
+  customerName: string
+  attendedByEmployeeName: string
+  activeManagementEmployeeName?: string | null
+}
