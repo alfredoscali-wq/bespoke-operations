@@ -6,11 +6,16 @@ import { ArrowLeft } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 
 import { useAtencionCliente } from "@/components/atencion-cliente/atencion-cliente-provider"
+import { RetentionResultDialog } from "@/components/atencion-cliente/retention-result-dialog"
 import {
   canStartConsultationManagement,
   isConsultationManagedByAnotherEmployee,
   isConsultationManagedByEmployee,
 } from "@/lib/customer-atenciones/consultation-management"
+import {
+  isActiveRetentionConsultationForEmployee,
+  isRetentionConsultation,
+} from "@/lib/customer-atenciones/retention-flow"
 import {
   CUSTOMER_ATENCION_NEXT_STEP_OPTIONS,
   formatCustomerAtencionChannelLabel,
@@ -27,6 +32,7 @@ import type {
 import type { Customer } from "@/lib/types/customers"
 import type { Employee } from "@/lib/types/employees"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import {
   Card,
   CardContent,
@@ -91,6 +97,7 @@ export function AtencionDetailScreen({ atencionId }: AtencionDetailScreenProps) 
   const [deferNextStep, setDeferNextStep] = useState<CustomerAtencionNextStep | "">(
     ""
   )
+  const [isRetentionDialogOpen, setIsRetentionDialogOpen] = useState(false)
 
   const loadDetail = useCallback(async () => {
     setIsLoading(true)
@@ -205,6 +212,10 @@ export function AtencionDetailScreen({ atencionId }: AtencionDetailScreenProps) 
     atencion,
     currentEmployeeId
   )
+  const isActiveRetention = isActiveRetentionConsultationForEmployee(
+    atencion,
+    currentEmployeeId
+  )
   const isManagedByAnother = isConsultationManagedByAnotherEmployee(
     atencion,
     currentEmployeeId
@@ -268,9 +279,19 @@ export function AtencionDetailScreen({ atencionId }: AtencionDetailScreenProps) 
           <DetailField
             label="Próximo paso"
             value={
-              atencion.nextStep
-                ? formatCustomerAtencionNextStepLabel(atencion.nextStep)
-                : "—"
+              <span className="inline-flex flex-wrap items-center gap-2">
+                {atencion.nextStep
+                  ? formatCustomerAtencionNextStepLabel(atencion.nextStep)
+                  : "—"}
+                {isRetentionConsultation(atencion) ? (
+                  <Badge
+                    variant="outline"
+                    className="border-rose-200 bg-rose-500/10 text-rose-800"
+                  >
+                    Retención
+                  </Badge>
+                ) : null}
+              </span>
             }
           />
         </CardContent>
@@ -331,7 +352,25 @@ export function AtencionDetailScreen({ atencionId }: AtencionDetailScreenProps) 
         </Card>
       ) : null}
 
-      {isManagedByCurrentEmployee ? (
+      {isActiveRetention ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Retención en curso</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Estás gestionando un intento de retención
+              {atencion.activeManagementStartedAt
+                ? ` desde ${new Date(atencion.activeManagementStartedAt).toLocaleString("es-AR")}`
+                : null}
+              .
+            </p>
+            <Button onClick={() => setIsRetentionDialogOpen(true)}>
+              Registrar resultado de retención
+            </Button>
+          </CardContent>
+        </Card>
+      ) : isManagedByCurrentEmployee ? (
         <Card>
           <CardHeader>
             <CardTitle>Gestión en curso</CardTitle>
@@ -389,6 +428,35 @@ export function AtencionDetailScreen({ atencionId }: AtencionDetailScreenProps) 
           </CardContent>
         </Card>
       ) : null}
+
+      <RetentionResultDialog
+        open={isRetentionDialogOpen}
+        onOpenChange={setIsRetentionDialogOpen}
+        onResolve={async (resolution) => {
+          setActionError(null)
+          const result = await resolveConsultation(atencionId, resolution)
+          if (!result.success) {
+            setActionError(result.message)
+            return { success: false, message: result.message }
+          }
+          await loadDetail()
+          return { success: true }
+        }}
+        onDefer={async (nextStep, detail) => {
+          setActionError(null)
+          const result = await deferConsultation(
+            atencionId,
+            nextStep as CustomerAtencionNextStep,
+            detail
+          )
+          if (!result.success) {
+            setActionError(result.message)
+            return { success: false, message: result.message }
+          }
+          await loadDetail()
+          return { success: true }
+        }}
+      />
 
       {actionError ? (
         <p className="text-sm text-destructive">{actionError}</p>

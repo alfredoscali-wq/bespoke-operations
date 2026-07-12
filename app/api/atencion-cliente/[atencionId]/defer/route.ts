@@ -16,7 +16,7 @@ export async function POST(
   }
 
   const body = (await request.json().catch(() => null)) as
-    | { nextStep?: string }
+    | { nextStep?: string; detail?: string }
     | null
 
   const nextStepResult = validateDeferConsultationNextStep(body?.nextStep)
@@ -29,6 +29,9 @@ export async function POST(
     })
   }
 
+  const detail =
+    typeof body?.detail === "string" ? body.detail.trim() || undefined : undefined
+
   const { atencionId } = await context.params
 
   const result = await deferCustomerAtencionConsultation({
@@ -36,6 +39,7 @@ export async function POST(
     atencionId,
     employeeId: auth.employeeId,
     nextStep: nextStepResult,
+    detail,
   })
 
   return consultationManagementResultToResponse(result)

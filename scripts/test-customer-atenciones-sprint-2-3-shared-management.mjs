@@ -368,7 +368,7 @@ test("46. acción exitosa refresca Bandeja", () => {
 
 test("47. acción exitosa refresca KPIs", () => {
   assert.match(providerSource, /refreshSharedInbox/)
-  assert.match(providerSource, /getSharedInboxKpiSummary/)
+  assert.match(providerSource, /loadSharedInboxBundle/)
 })
 
 test("48. Bandeja refleja en_gestion", () => {

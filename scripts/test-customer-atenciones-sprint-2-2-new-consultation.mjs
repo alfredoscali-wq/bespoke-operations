@@ -339,7 +339,7 @@ test("25. refresh KPIs después de crear", () => {
     providerSource.indexOf("const createRetencion")
   )
   assert.match(createBlock, /refreshSharedInbox\(\)/)
-  assert.match(providerSource, /getSharedInboxKpiSummary/)
+  assert.match(providerSource, /loadSharedInboxBundle/)
 })
 
 test("26. Resuelta aparece correctamente", () => {

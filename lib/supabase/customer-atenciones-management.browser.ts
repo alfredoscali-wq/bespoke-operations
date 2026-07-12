@@ -79,9 +79,13 @@ export function resolveConsultationManagement(
 
 export function deferConsultationManagement(
   atencionId: string,
-  nextStep: CustomerAtencionNextStep
+  nextStep: CustomerAtencionNextStep,
+  detail?: string
 ): Promise<ConsultationManagementMutationResult> {
-  return postConsultationManagement(`/api/atencion-cliente/${atencionId}/defer`, {
-    nextStep,
-  })
+  const body: Record<string, unknown> = { nextStep }
+  if (detail) {
+    body.detail = detail
+  }
+
+  return postConsultationManagement(`/api/atencion-cliente/${atencionId}/defer`, body)
 }

@@ -6,12 +6,14 @@ import {
   type CustomerAtencionListQuery,
 } from "@/lib/customer-atenciones/atencion-list"
 import {
+  computeOperationalWorkCounts,
   computeSharedInboxKpis,
   filterSharedInboxRows,
   getConsultationDayBoundsIso,
   SHARED_INBOX_MAX_ROWS,
   sortSharedInboxRows,
   type SharedInboxKpiSummary,
+  type SharedInboxOperationalCounts,
   type SharedInboxQuery,
 } from "@/lib/customer-atenciones/shared-inbox"
 import type { Database } from "@/lib/supabase/database.types"
@@ -216,6 +218,46 @@ async function fetchSharedInboxSourceRows(
     data: rows.map((row) =>
       mapRowToInboxRow(row, customerNameById, employeeNameById)
     ),
+    error: null,
+  }
+}
+
+export type SharedInboxBundle = {
+  kpis: SharedInboxKpiSummary
+  operationalCounts: SharedInboxOperationalCounts
+  rows: CustomerAtencionInboxRow[]
+}
+
+export async function fetchSharedInboxBundle(
+  client: SupabaseCustomerAtencionesClient,
+  companyId: string,
+  query: SharedInboxQuery,
+  referenceDate: Date = new Date()
+): Promise<CustomerAtencionesRepositoryResult<SharedInboxBundle>> {
+  const sourceResult = await fetchSharedInboxSourceRows(client, companyId)
+
+  if (sourceResult.error || !sourceResult.data) {
+    return {
+      data: null,
+      error: sourceResult.error ?? {
+        code: "UNKNOWN",
+        message: "No se pudieron cargar las consultas.",
+      },
+    }
+  }
+
+  const filtered = filterSharedInboxRows(
+    sourceResult.data,
+    query,
+    referenceDate
+  )
+
+  return {
+    data: {
+      kpis: computeSharedInboxKpis(sourceResult.data, referenceDate),
+      operationalCounts: computeOperationalWorkCounts(sourceResult.data),
+      rows: sortSharedInboxRows(filtered, query.statusFilter),
+    },
     error: null,
   }
 }

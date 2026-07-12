@@ -2,6 +2,7 @@ import type {
   CustomerAtencionChannel,
   CustomerAtencionInboxRow,
   CustomerAtencionMotivo,
+  CustomerAtencionNextStep,
   CustomerAtencionStatus,
 } from "@/lib/types/customer-atenciones"
 
@@ -22,10 +23,47 @@ export type SharedInboxKpiKey =
   | "pendientes"
   | "resueltas_hoy"
 
+export type SharedInboxOperationalCategory =
+  | "retenciones"
+  | "administracion"
+  | "tecnica"
+  | "contactar_cliente"
+
+export type SharedInboxOperationalCounts = Record<
+  SharedInboxOperationalCategory,
+  number
+>
+
+export const SHARED_INBOX_OPERATIONAL_CATEGORY_ORDER: SharedInboxOperationalCategory[] =
+  ["retenciones", "administracion", "tecnica", "contactar_cliente"]
+
+export const SHARED_INBOX_OPERATIONAL_CATEGORY_CONFIG: Record<
+  SharedInboxOperationalCategory,
+  { label: string; nextSteps: readonly CustomerAtencionNextStep[] }
+> = {
+  retenciones: {
+    label: "Retenciones",
+    nextSteps: ["realizar_retencion"],
+  },
+  administracion: {
+    label: "Administración",
+    nextSteps: ["resolver_facturacion", "esperar_administracion"],
+  },
+  tecnica: {
+    label: "Técnica",
+    nextSteps: ["analizar_problema_tecnico", "generar_ot"],
+  },
+  contactar_cliente: {
+    label: "Contactar cliente",
+    nextSteps: ["contactar_cliente"],
+  },
+}
+
 export type SharedInboxQuery = {
   statusFilter: SharedInboxStatusFilter
   motivo?: CustomerAtencionMotivo | "all"
   channel?: CustomerAtencionChannel | "all"
+  operationalCategory?: SharedInboxOperationalCategory | null
 }
 
 export type SharedInboxKpiSummary = Record<SharedInboxKpiKey, number>
@@ -112,6 +150,77 @@ export function computeSharedInboxKpis(
   }
 }
 
+export function getOperationalCategoryForNextStep(
+  nextStep: CustomerAtencionNextStep | null | undefined
+): SharedInboxOperationalCategory | null {
+  if (!nextStep) {
+    return null
+  }
+
+  for (const category of SHARED_INBOX_OPERATIONAL_CATEGORY_ORDER) {
+    if (
+      SHARED_INBOX_OPERATIONAL_CATEGORY_CONFIG[category].nextSteps.includes(
+        nextStep
+      )
+    ) {
+      return category
+    }
+  }
+
+  return null
+}
+
+export function matchesOperationalCategory(
+  row: Pick<CustomerAtencionInboxRow, "status" | "nextStep">,
+  category: SharedInboxOperationalCategory
+): boolean {
+  if (row.status === "resuelta" || !row.nextStep) {
+    return false
+  }
+
+  return SHARED_INBOX_OPERATIONAL_CATEGORY_CONFIG[category].nextSteps.includes(
+    row.nextStep
+  )
+}
+
+export function computeOperationalWorkCounts(
+  rows: CustomerAtencionInboxRow[]
+): SharedInboxOperationalCounts {
+  const counts: SharedInboxOperationalCounts = {
+    retenciones: 0,
+    administracion: 0,
+    tecnica: 0,
+    contactar_cliente: 0,
+  }
+
+  for (const row of rows) {
+    if (row.status === "resuelta") {
+      continue
+    }
+
+    const category = getOperationalCategoryForNextStep(row.nextStep)
+    if (category) {
+      counts[category] += 1
+    }
+  }
+
+  return counts
+}
+
+export function getVisibleOperationalCategories(
+  counts: SharedInboxOperationalCounts
+): SharedInboxOperationalCategory[] {
+  return SHARED_INBOX_OPERATIONAL_CATEGORY_ORDER.filter(
+    (category) => counts[category] > 0
+  )
+}
+
+export function hasOperationalWorkCounts(
+  counts: SharedInboxOperationalCounts
+): boolean {
+  return getVisibleOperationalCategories(counts).length > 0
+}
+
 export function mapSharedInboxKpiToStatusFilter(
   kpi: SharedInboxKpiKey | "none"
 ): SharedInboxStatusFilter {
@@ -156,6 +265,13 @@ export function filterSharedInboxRows(
     }
 
     if (query.channel && query.channel !== "all" && row.channel !== query.channel) {
+      return false
+    }
+
+    if (
+      query.operationalCategory &&
+      !matchesOperationalCategory(row, query.operationalCategory)
+    ) {
       return false
     }
 

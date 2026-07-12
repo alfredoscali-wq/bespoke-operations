@@ -91,11 +91,13 @@ export async function deferCustomerAtencionConsultation(input: {
   atencionId: string
   employeeId: string
   nextStep: string
+  detail?: string | null
 }): Promise<ConsultationManagementServerResult> {
   return callConsultationManagementRpc("defer_customer_atencion_consultation", {
     p_company_id: input.companyId,
     p_atencion_id: input.atencionId,
     p_employee_id: input.employeeId,
     p_next_step: input.nextStep,
+    p_detail: input.detail ?? null,
   })
 }

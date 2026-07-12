@@ -15,6 +15,7 @@ import {
   CUSTOMER_ATENCION_MOTIVO_OPTIONS,
 } from "@/lib/customer-atenciones/format"
 import { truncateConsultationDetail } from "@/lib/customer-atenciones/shared-inbox"
+import { isRetentionConsultation } from "@/lib/customer-atenciones/retention-flow"
 import type { CustomerAtencionInboxRow } from "@/lib/types/customer-atenciones"
 import type {
   SharedInboxQuery,
@@ -89,6 +90,14 @@ function ConsultationInboxCard({ item }: { item: CustomerAtencionInboxRow }) {
             >
               {formatCustomerAtencionStatusLabel(item.status)}
             </Badge>
+            {isRetentionConsultation(item) ? (
+              <Badge
+                variant="outline"
+                className="border-rose-200 bg-rose-500/10 text-xs text-rose-800"
+              >
+                Retención
+              </Badge>
+            ) : null}
           </div>
 
           <p className="text-sm text-foreground">
@@ -141,6 +150,7 @@ export function ConsultationInboxSection({
   const { sharedInboxRows, isSharedInboxLoading } = useAtencionCliente()
   const hasOperationalFilters =
     query.statusFilter !== "all" ||
+    Boolean(query.operationalCategory) ||
     (query.motivo && query.motivo !== "all") ||
     (query.channel && query.channel !== "all")
 
@@ -158,6 +168,7 @@ export function ConsultationInboxSection({
                   statusFilter: "all",
                   motivo: "all",
                   channel: "all",
+                  operationalCategory: null,
                 })
               }
             >
@@ -180,6 +191,7 @@ export function ConsultationInboxSection({
                   onQueryChange({
                     ...query,
                     statusFilter: option.value,
+                    operationalCategory: null,
                   })
                 }
               >

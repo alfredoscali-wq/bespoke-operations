@@ -6,6 +6,7 @@ import { Plus } from "lucide-react"
 import { AtencionFormDialog } from "@/components/atencion-cliente/atencion-form-dialog"
 import { ConsultationInboxSection } from "@/components/atencion-cliente/consultation-inbox-section"
 import { ConsultationInboxSummary } from "@/components/atencion-cliente/consultation-inbox-summary"
+import { ConsultationOperationalWorkSection } from "@/components/atencion-cliente/consultation-operational-work-section"
 import { EquipoSection } from "@/components/atencion-cliente/equipo-section"
 import { useAtencionCliente } from "@/components/atencion-cliente/atencion-cliente-provider"
 import type { SharedInboxQuery } from "@/lib/customer-atenciones/shared-inbox"
@@ -15,6 +16,7 @@ const DEFAULT_SHARED_INBOX_QUERY: SharedInboxQuery = {
   statusFilter: "all",
   motivo: "all",
   channel: "all",
+  operationalCategory: null,
 }
 
 export function AtencionClienteModule() {
@@ -76,8 +78,14 @@ export function AtencionClienteModule() {
               setSharedInboxQuery((current) => ({
                 ...current,
                 statusFilter,
+                operationalCategory: null,
               }))
             }
+          />
+
+          <ConsultationOperationalWorkSection
+            query={sharedInboxQuery}
+            onQueryChange={setSharedInboxQuery}
           />
 
           <ConsultationInboxSection

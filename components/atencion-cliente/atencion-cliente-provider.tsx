@@ -19,9 +19,10 @@ import {
   buildNewConsultationCreationFields,
   validateNewConsultationInput,
 } from "@/lib/customer-atenciones/consultation"
-import {
-  type SharedInboxKpiSummary,
-  type SharedInboxQuery,
+import type {
+  SharedInboxKpiSummary,
+  SharedInboxOperationalCounts,
+  SharedInboxQuery,
 } from "@/lib/customer-atenciones/shared-inbox"
 import {
   filterAgendaForTodayView,
@@ -45,9 +46,8 @@ import { DEMO_RESTRICTED_DIALOG_MESSAGE } from "@/lib/demo/constants"
 import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import {
   createCustomerAtencion,
-  getSharedInboxKpiSummary,
+  loadSharedInboxBundle,
   listEmployeeAtencionesToday,
-  listSharedInboxConsultations,
 } from "@/lib/supabase/customer-atenciones.browser"
 import {
   deferConsultationManagement,
@@ -159,6 +159,13 @@ const EMPTY_SHARED_INBOX_KPIS: SharedInboxKpiSummary = {
   resueltas_hoy: 0,
 }
 
+const EMPTY_SHARED_INBOX_OPERATIONAL_COUNTS: SharedInboxOperationalCounts = {
+  retenciones: 0,
+  administracion: 0,
+  tecnica: 0,
+  contactar_cliente: 0,
+}
+
 type AtencionClienteContextValue = {
   listPage: CustomerAtencionListPage | null
   isListLoading: boolean
@@ -175,6 +182,7 @@ type AtencionClienteContextValue = {
   canViewAssignedRetenciones: boolean
   canViewEquipoReport: boolean
   sharedInboxKpis: SharedInboxKpiSummary
+  sharedInboxOperationalCounts: SharedInboxOperationalCounts
   sharedInboxRows: CustomerAtencionInboxRow[]
   sharedInboxQuery: SharedInboxQuery
   isSharedInboxLoading: boolean
@@ -199,7 +207,8 @@ type AtencionClienteContextValue = {
   ) => Promise<ConsultationManagementMutationResult>
   deferConsultation: (
     atencionId: string,
-    nextStep: CustomerAtencionNextStep
+    nextStep: CustomerAtencionNextStep,
+    detail?: string
   ) => Promise<ConsultationManagementMutationResult>
   currentEmployeeId: string
   createRetencion: (
@@ -262,6 +271,8 @@ export function AtencionClienteProvider({
   const [jornadaEntries, setJornadaEntries] = useState<JornadaEntry[]>([])
   const [sharedInboxKpis, setSharedInboxKpis] =
     useState<SharedInboxKpiSummary>(EMPTY_SHARED_INBOX_KPIS)
+  const [sharedInboxOperationalCounts, setSharedInboxOperationalCounts] =
+    useState<SharedInboxOperationalCounts>(EMPTY_SHARED_INBOX_OPERATIONAL_COUNTS)
   const [sharedInboxRows, setSharedInboxRows] = useState<CustomerAtencionInboxRow[]>(
     []
   )
@@ -269,6 +280,7 @@ export function AtencionClienteProvider({
     statusFilter: "all",
     motivo: "all",
     channel: "all",
+    operationalCategory: null,
   })
   const [isSharedInboxLoading, setIsSharedInboxLoading] = useState(true)
   const atencionCacheRef = useRef<Map<string, CustomerAtencion>>(new Map())
@@ -326,13 +338,18 @@ export function AtencionClienteProvider({
 
       try {
         const referenceDate = new Date()
-        const [kpiResult, rowsResult] = await Promise.all([
-          getSharedInboxKpiSummary(companyId, referenceDate),
-          listSharedInboxConsultations(companyId, query, referenceDate),
-        ])
+        const bundleResult = await loadSharedInboxBundle(
+          companyId,
+          query,
+          referenceDate
+        )
 
-        setSharedInboxKpis(kpiResult.data ?? EMPTY_SHARED_INBOX_KPIS)
-        setSharedInboxRows(rowsResult.data ?? [])
+        setSharedInboxKpis(bundleResult.data?.kpis ?? EMPTY_SHARED_INBOX_KPIS)
+        setSharedInboxOperationalCounts(
+          bundleResult.data?.operationalCounts ??
+            EMPTY_SHARED_INBOX_OPERATIONAL_COUNTS
+        )
+        setSharedInboxRows(bundleResult.data?.rows ?? [])
       } finally {
         setIsSharedInboxLoading(false)
       }
@@ -703,9 +720,13 @@ export function AtencionClienteProvider({
   )
 
   const deferConsultationHandler = useCallback(
-    async (atencionId: string, nextStep: CustomerAtencionNextStep) => {
+    async (
+      atencionId: string,
+      nextStep: CustomerAtencionNextStep,
+      detail?: string
+    ) => {
       return runConsultationManagementMutation(atencionId, () =>
-        deferConsultationManagement(atencionId, nextStep)
+        deferConsultationManagement(atencionId, nextStep, detail)
       )
     },
     [runConsultationManagementMutation]
@@ -1065,6 +1086,7 @@ export function AtencionClienteProvider({
       canViewAssignedRetenciones,
       canViewEquipoReport,
       sharedInboxKpis,
+      sharedInboxOperationalCounts,
       sharedInboxRows,
       sharedInboxQuery,
       isSharedInboxLoading,
@@ -1129,6 +1151,7 @@ export function AtencionClienteProvider({
       resolveRetencion,
       searchCustomers,
       sharedInboxKpis,
+      sharedInboxOperationalCounts,
       sharedInboxQuery,
       sharedInboxRows,
       startConsultationManagementHandler,

@@ -35,6 +35,7 @@
     "test:customer-atenciones-sprint-2-1-shared-inbox": "npx tsx --test scripts/test-customer-atenciones-sprint-2-1-shared-inbox.mjs",
     "test:customer-atenciones-sprint-2-2-new-consultation": "npx tsx --test scripts/test-customer-atenciones-sprint-2-2-new-consultation.mjs",
     "test:customer-atenciones-sprint-2-3-shared-management": "npx tsx --test scripts/test-customer-atenciones-sprint-2-3-shared-management.mjs",
+    "test:customer-atenciones-sprint-2-4-retention-flow": "npx tsx --test scripts/test-customer-atenciones-sprint-2-4-retention-flow.mjs",
     "test:atencion-cliente-module-access": "npx tsx --test scripts/test-atencion-cliente-module-access.mjs",
     "test:customer-atenciones-rls-alignment": "npx tsx --test scripts/test-customer-atenciones-rls-alignment.mjs",
     "test:customer-seguimientos-mapper": "npx tsx --test scripts/test-customer-seguimientos-mapper.mjs",
