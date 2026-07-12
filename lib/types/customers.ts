@@ -61,6 +61,13 @@ export type CustomerListPage = {
   pageSize: number
 }
 
+/** Campos mínimos para alta rápida desde Nueva Atención (cliente no registrado). */
+export type QuickCustomerInput = {
+  name: string
+  phone?: string
+  dni?: string
+}
+
 export type NewCustomerInput = {
   name: string
   externalCustomerCode?: string

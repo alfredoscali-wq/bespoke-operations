@@ -138,6 +138,59 @@ export async function uploadTaskReferencePhotoFile(input: {
   })
 }
 
+export async function deleteTaskReferencePhoto(input: {
+  taskId: string
+  photoId: string
+}): Promise<
+  | { data: { deleted: true }; error: null }
+  | {
+      data: null
+      error: {
+        code: "VALIDATION" | "NOT_FOUND" | "FORBIDDEN" | "UNKNOWN"
+        message: string
+      }
+    }
+> {
+  try {
+    const response = await fetch(
+      `/api/tasks/${encodeURIComponent(input.taskId)}/reference-photos/${encodeURIComponent(input.photoId)}`,
+      { method: "DELETE" }
+    )
+
+    const body = (await response.json().catch(() => null)) as {
+      success?: boolean
+      message?: string
+      code?: string
+    } | null
+
+    if (!response.ok || !body?.success) {
+      return {
+        data: null,
+        error: {
+          code:
+            body?.code === "VALIDATION" ||
+            body?.code === "NOT_FOUND" ||
+            body?.code === "FORBIDDEN"
+              ? body.code
+              : "UNKNOWN",
+          message:
+            body?.message ?? "No se pudo eliminar la fotografia de referencia.",
+        },
+      }
+    }
+
+    return { data: { deleted: true }, error: null }
+  } catch {
+    return {
+      data: null,
+      error: {
+        code: "UNKNOWN",
+        message: "No se pudo eliminar la fotografia de referencia.",
+      },
+    }
+  }
+}
+
 export async function uploadOperationalStepPhoto(input: {
   taskId: string
   operationalStepId: string

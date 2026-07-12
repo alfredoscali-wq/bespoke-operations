@@ -1,3 +1,4 @@
+import { validateQuickCustomerInput } from "@/lib/customers/quick-customer"
 import type {
   CustomerAtencionNextStep,
   CustomerAtencionResultado,
@@ -173,8 +174,23 @@ export function buildNewConsultationCreationFields(
 export function validateNewConsultationInput(
   input: NewCustomerAtencionInput
 ): string | null {
-  if (!input.customerId.trim()) {
-    return "Seleccioná un cliente."
+  const customerId = input.customerId?.trim() ?? ""
+  const quickCustomer = input.quickCustomer
+
+  if (customerId && quickCustomer) {
+    return "Indicá un cliente existente o datos manuales, no ambos."
+  }
+
+  if (!customerId && !quickCustomer) {
+    return "Seleccioná un cliente o completá los datos del cliente no registrado."
+  }
+
+  if (quickCustomer) {
+    const quickCustomerError = validateQuickCustomerInput(quickCustomer)
+
+    if (quickCustomerError) {
+      return quickCustomerError
+    }
   }
 
   if (!input.channel) {

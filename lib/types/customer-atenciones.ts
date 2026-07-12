@@ -1,3 +1,5 @@
+import type { QuickCustomerInput } from "@/lib/types/customers"
+
 export type CustomerAtencionChannel =
   | "telefono"
   | "whatsapp"
@@ -53,7 +55,8 @@ export type NewCustomerAtencionSeguimientoInput = {
 }
 
 export type NewCustomerAtencionInput = {
-  customerId: string
+  customerId?: string
+  quickCustomer?: QuickCustomerInput
   channel: CustomerAtencionChannel
   motivo: CustomerAtencionMotivo
   detail: string

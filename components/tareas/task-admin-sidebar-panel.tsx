@@ -2,6 +2,7 @@
 
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { TaskAdminReferencePhotos } from "@/components/tareas/task-admin-reference-photos"
+import { canAdminModifyWorkOrder } from "@/lib/tasks/work-order-admin-mutation"
 import type { Task } from "@/lib/types/tasks"
 import {
   Card,
@@ -29,7 +30,11 @@ export function TaskAdminSidebarPanel({ task }: TaskAdminSidebarPanelProps) {
 
   return (
     <div className="space-y-4">
-      <TaskAdminReferencePhotos taskId={liveTask.id} compact />
+      <TaskAdminReferencePhotos
+        taskId={liveTask.id}
+        compact
+        canDeleteReferencePhotos={canAdminModifyWorkOrder(liveTask.status)}
+      />
 
       <Card className="shadow-sm">
         <CardHeader className="pb-3">

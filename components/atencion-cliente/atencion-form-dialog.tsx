@@ -8,7 +8,7 @@ import {
   CUSTOMER_ATENCION_MOTIVO_OPTIONS,
   CUSTOMER_ATENCION_NEXT_STEP_OPTIONS,
 } from "@/lib/customer-atenciones/format"
-import type { Customer } from "@/lib/types/customers"
+import type { Customer, QuickCustomerInput } from "@/lib/types/customers"
 import type {
   CustomerAtencionChannel,
   CustomerAtencionMotivo,
@@ -41,6 +41,20 @@ import {
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
+
+type CustomerSelectionMode = "existing" | "unregistered"
+
+type QuickCustomerFormState = {
+  name: string
+  phone: string
+  dni: string
+}
+
+const emptyQuickCustomerForm: QuickCustomerFormState = {
+  name: "",
+  phone: "",
+  dni: "",
+}
 
 type AtencionFormState = {
   channel: CustomerAtencionChannel | ""
@@ -107,12 +121,12 @@ function CustomerSearchField({
           setIsOpen(true)
         }}
         onFocus={() => setIsOpen(true)}
-        placeholder="Buscar por nombre, DNI o código"
+        placeholder="Buscar por nombre, DNI o codigo"
       />
       {isOpen && (query.trim() || isSearching) ? (
         <div className="absolute z-20 mt-1 max-h-48 w-full overflow-auto rounded-md border bg-background shadow-md">
           {isSearching ? (
-            <p className="px-3 py-2 text-sm text-muted-foreground">Buscando…</p>
+            <p className="px-3 py-2 text-sm text-muted-foreground">Buscando...</p>
           ) : results.length === 0 ? (
             <p className="px-3 py-2 text-sm text-muted-foreground">
               Sin resultados
@@ -142,6 +156,57 @@ function CustomerSearchField({
   )
 }
 
+function QuickCustomerFields({
+  value,
+  onChange,
+}: {
+  value: QuickCustomerFormState
+  onChange: (next: QuickCustomerFormState) => void
+}) {
+  return (
+    <div className="space-y-3 rounded-md border p-3">
+      <p className="text-sm text-muted-foreground">
+        Completa los datos minimos. Se registrara al cliente y luego la consulta.
+      </p>
+      <div className="space-y-2">
+        <Label htmlFor="atencion-quick-customer-name">Nombre *</Label>
+        <Input
+          id="atencion-quick-customer-name"
+          value={value.name}
+          onChange={(event) =>
+            onChange({ ...value, name: event.target.value })
+          }
+          placeholder="Juan Perez"
+        />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="atencion-quick-customer-phone">Telefono</Label>
+          <Input
+            id="atencion-quick-customer-phone"
+            value={value.phone}
+            onChange={(event) =>
+              onChange({ ...value, phone: event.target.value })
+            }
+            placeholder="11 1234-5678"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="atencion-quick-customer-dni">DNI</Label>
+          <Input
+            id="atencion-quick-customer-dni"
+            value={value.dni}
+            onChange={(event) =>
+              onChange({ ...value, dni: event.target.value })
+            }
+            placeholder="Opcional"
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function AtencionFormDialog({
   open,
   onOpenChange,
@@ -150,12 +215,23 @@ export function AtencionFormDialog({
   const { searchCustomers, createAtencion } = useAtencionCliente()
   const [form, setForm] = useState<AtencionFormState>(emptyForm)
   const [baselineForm, setBaselineForm] = useState<AtencionFormState>(emptyForm)
+  const [customerMode, setCustomerMode] =
+    useState<CustomerSelectionMode>("existing")
+  const [baselineCustomerMode, setBaselineCustomerMode] =
+    useState<CustomerSelectionMode>("existing")
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
+  const [quickCustomerForm, setQuickCustomerForm] =
+    useState<QuickCustomerFormState>(emptyQuickCustomerForm)
+  const [baselineQuickCustomerForm, setBaselineQuickCustomerForm] =
+    useState<QuickCustomerFormState>(emptyQuickCustomerForm)
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const isDirty =
-    isFormStateDirty(form, baselineForm) || selectedCustomer !== null
+    isFormStateDirty(form, baselineForm) ||
+    customerMode !== baselineCustomerMode ||
+    selectedCustomer !== null ||
+    isFormStateDirty(quickCustomerForm, baselineQuickCustomerForm)
 
   const {
     handleOpenChange,
@@ -173,7 +249,11 @@ export function AtencionFormDialog({
 
     setForm(emptyForm)
     setBaselineForm(emptyForm)
+    setCustomerMode("existing")
+    setBaselineCustomerMode("existing")
     setSelectedCustomer(null)
+    setQuickCustomerForm(emptyQuickCustomerForm)
+    setBaselineQuickCustomerForm(emptyQuickCustomerForm)
     setError(null)
   }, [open])
 
@@ -186,33 +266,49 @@ export function AtencionFormDialog({
     event.preventDefault()
     setError(null)
 
-    if (!selectedCustomer) {
-      setError("Seleccioná un cliente.")
+    if (customerMode === "existing" && !selectedCustomer) {
+      setError("Selecciona un cliente.")
+      return
+    }
+
+    if (customerMode === "unregistered" && !quickCustomerForm.name.trim()) {
+      setError("Completa el nombre del cliente.")
       return
     }
 
     if (!form.channel || !form.motivo) {
-      setError("Completá canal y motivo.")
+      setError("Completa canal y motivo.")
       return
     }
 
     if (!form.detail.trim()) {
-      setError("Completá la descripción de la consulta.")
+      setError("Completa la descripcion de la consulta.")
       return
     }
 
     if (form.decision === "resolver_ahora" && !form.resolution.trim()) {
-      setError("Completá la resolución de la consulta.")
+      setError("Completa la resolucion de la consulta.")
       return
     }
 
     if (form.decision === "continuar_gestion" && !form.nextStep) {
-      setError("Seleccioná el próximo paso para continuar la gestión.")
+      setError("Selecciona el proximo paso para continuar la gestion.")
       return
     }
 
+    const quickCustomer: QuickCustomerInput | undefined =
+      customerMode === "unregistered"
+        ? {
+            name: quickCustomerForm.name.trim(),
+            phone: quickCustomerForm.phone.trim() || undefined,
+            dni: quickCustomerForm.dni.trim() || undefined,
+          }
+        : undefined
+
     const input: NewCustomerAtencionInput = {
-      customerId: selectedCustomer.id,
+      customerId:
+        customerMode === "existing" ? selectedCustomer?.id : undefined,
+      quickCustomer,
       channel: form.channel,
       motivo: form.motivo,
       detail: form.detail,
@@ -231,7 +327,7 @@ export function AtencionFormDialog({
       const result = await createAtencion(input)
 
       if (!result.success) {
-        setError(result.message ?? "No se pudo registrar la atención.")
+        setError(result.message ?? "No se pudo registrar la atencion.")
         return
       }
 
@@ -245,10 +341,10 @@ export function AtencionFormDialog({
   const submitLabel =
     form.decision === "resolver_ahora"
       ? isSubmitting
-        ? "Guardando…"
+        ? "Guardando..."
         : "Guardar consulta resuelta"
       : isSubmitting
-        ? "Guardando…"
+        ? "Guardando..."
         : "Guardar para continuar"
 
   return (
@@ -260,26 +356,71 @@ export function AtencionFormDialog({
           isDirty={isDirty}
         >
           <DialogHeader>
-            <DialogTitle>Nueva Atención</DialogTitle>
+            <DialogTitle>Nueva Atencion</DialogTitle>
             <DialogDescription>
-              Registrá la consulta del cliente y definí qué ocurre a continuación.
+              Registra la consulta del cliente y define que ocurre a continuacion.
             </DialogDescription>
           </DialogHeader>
 
           <form className="space-y-3" onSubmit={handleSubmit}>
-            <CustomerSearchField
-              onSearch={handleCustomerSearch}
-              onSelect={setSelectedCustomer}
-            />
+            <div className="space-y-2">
+              <Label>Cliente</Label>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Button
+                  type="button"
+                  variant={customerMode === "existing" ? "default" : "outline"}
+                  className={cn(
+                    "h-auto min-h-10 whitespace-normal py-2",
+                    customerMode === "existing" && "ring-2 ring-primary"
+                  )}
+                  onClick={() => {
+                    setCustomerMode("existing")
+                    setQuickCustomerForm(emptyQuickCustomerForm)
+                  }}
+                >
+                  Cliente registrado
+                </Button>
+                <Button
+                  type="button"
+                  variant={
+                    customerMode === "unregistered" ? "default" : "outline"
+                  }
+                  className={cn(
+                    "h-auto min-h-10 whitespace-normal py-2",
+                    customerMode === "unregistered" && "ring-2 ring-primary"
+                  )}
+                  onClick={() => {
+                    setCustomerMode("unregistered")
+                    setSelectedCustomer(null)
+                  }}
+                >
+                  Cliente no registrado
+                </Button>
+              </div>
+            </div>
 
-            {selectedCustomer ? (
-              <p className="text-sm text-muted-foreground">
-                Cliente seleccionado:{" "}
-                <span className="font-medium text-foreground">
-                  {selectedCustomer.name}
-                </span>
-              </p>
-            ) : null}
+            {customerMode === "existing" ? (
+              <>
+                <CustomerSearchField
+                  onSearch={handleCustomerSearch}
+                  onSelect={setSelectedCustomer}
+                />
+
+                {selectedCustomer ? (
+                  <p className="text-sm text-muted-foreground">
+                    Cliente seleccionado:{" "}
+                    <span className="font-medium text-foreground">
+                      {selectedCustomer.name}
+                    </span>
+                  </p>
+                ) : null}
+              </>
+            ) : (
+              <QuickCustomerFields
+                value={quickCustomerForm}
+                onChange={setQuickCustomerForm}
+              />
+            )}
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
@@ -332,7 +473,7 @@ export function AtencionFormDialog({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="atencion-detail">Descripción</Label>
+              <Label htmlFor="atencion-detail">Descripcion</Label>
               <Textarea
                 id="atencion-detail"
                 value={form.detail}
@@ -343,12 +484,12 @@ export function AtencionFormDialog({
                   }))
                 }
                 rows={3}
-                placeholder="Descripción de la consulta o problema"
+                placeholder="Descripcion de la consulta o problema"
               />
             </div>
 
             <div className="space-y-2">
-              <Label>¿Qué ocurrió con la consulta?</Label>
+              <Label>Que ocurrio con la consulta?</Label>
               <div className="grid gap-2 sm:grid-cols-2">
                 <Button
                   type="button"
@@ -384,14 +525,14 @@ export function AtencionFormDialog({
                     }))
                   }
                 >
-                  Continuar gestión
+                  Continuar gestion
                 </Button>
               </div>
             </div>
 
             {form.decision === "resolver_ahora" ? (
               <div className="space-y-2">
-                <Label htmlFor="atencion-resolution">Resolución</Label>
+                <Label htmlFor="atencion-resolution">Resolucion</Label>
                 <Textarea
                   id="atencion-resolution"
                   value={form.resolution}
@@ -402,12 +543,12 @@ export function AtencionFormDialog({
                     }))
                   }
                   rows={3}
-                  placeholder="Qué se hizo para resolver la consulta"
+                  placeholder="Que se hizo para resolver la consulta"
                 />
               </div>
             ) : (
               <div className="space-y-2">
-                <Label htmlFor="atencion-next-step">Próximo paso</Label>
+                <Label htmlFor="atencion-next-step">Proximo paso</Label>
                 <Select
                   value={form.nextStep}
                   onValueChange={(value) =>
@@ -418,7 +559,7 @@ export function AtencionFormDialog({
                   }
                 >
                   <SelectTrigger id="atencion-next-step" className="w-full">
-                    <SelectValue placeholder="Seleccionar próximo paso" />
+                    <SelectValue placeholder="Seleccionar proximo paso" />
                   </SelectTrigger>
                   <SelectContent>
                     {CUSTOMER_ATENCION_NEXT_STEP_OPTIONS.map((option) => (

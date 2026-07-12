@@ -10,6 +10,7 @@ import {
   sanitizeTaskPhotoFileName,
   validateTaskReferencePhotoFile,
 } from "@/lib/supabase/task-photos.storage"
+import { WORK_ORDER_ADMIN_MUTATION_BLOCKED_MESSAGE } from "@/lib/tasks/work-order-admin-mutation"
 import type {
   TaskPhoto,
   TaskPhotoType,
@@ -48,13 +49,24 @@ function mapSupabaseError(error: { message?: string; code?: string }) {
   if (error.code === "22P02") {
     return {
       code: "VALIDATION" as const,
-      message: "Datos de la fotografía inválidos.",
+      message: "Datos de la fotografia invalidos.",
+    }
+  }
+
+  if (
+    error.code === "42501" ||
+    (error.message ?? "").toLowerCase().includes("row-level security")
+  ) {
+    return {
+      code: "VALIDATION" as const,
+      message:
+        "No se pudo eliminar la fotografia por permisos de base de datos.",
     }
   }
 
   return {
     code: "UNKNOWN" as const,
-    message: error.message ?? "No fue posible completar la operación.",
+    message: error.message ?? "No fue posible completar la operacion.",
   }
 }
 
@@ -356,4 +368,93 @@ export async function countTaskEvidencePhotos(
   }
 
   return { data: count ?? 0, error: null }
+}
+
+export async function softDeleteTaskReferencePhoto(
+  client: SupabaseTaskPhotosClient,
+  input: { taskId: string; photoId: string }
+): Promise<TaskPhotosRepositoryResult<{ deleted: true }>> {
+  const { data: task, error: taskError } = await client
+    .from("tasks")
+    .select("status")
+    .eq("id", input.taskId)
+    .maybeSingle()
+
+  if (taskError) {
+    return { data: null, error: mapSupabaseError(taskError) }
+  }
+
+  if (!task) {
+    return {
+      data: null,
+      error: {
+        code: "NOT_FOUND",
+        message: "Orden de trabajo no encontrada.",
+      },
+    }
+  }
+
+  if (task.status !== "programada") {
+    return {
+      data: null,
+      error: {
+        code: "VALIDATION",
+        message: WORK_ORDER_ADMIN_MUTATION_BLOCKED_MESSAGE,
+      },
+    }
+  }
+
+  const { data: photo, error: photoError } = await client
+    .from("task_photos")
+    .select("id, photo_type, deleted_at")
+    .eq("id", input.photoId)
+    .eq("task_id", input.taskId)
+    .maybeSingle()
+
+  if (photoError) {
+    return { data: null, error: mapSupabaseError(photoError) }
+  }
+
+  if (!photo) {
+    return {
+      data: null,
+      error: {
+        code: "NOT_FOUND",
+        message: "Fotografia no encontrada.",
+      },
+    }
+  }
+
+  if (photo.deleted_at) {
+    return {
+      data: null,
+      error: {
+        code: "VALIDATION",
+        message: "Esta fotografia ya fue eliminada.",
+      },
+    }
+  }
+
+  if (photo.photo_type !== "reference") {
+    return {
+      data: null,
+      error: {
+        code: "VALIDATION",
+        message: "Solo se pueden eliminar fotografias de referencia.",
+      },
+    }
+  }
+
+  const { error } = await client
+    .from("task_photos")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", input.photoId)
+    .eq("task_id", input.taskId)
+    .is("deleted_at", null)
+
+  if (error) {
+    return { data: null, error: mapSupabaseError(error) }
+  }
+
+  return { data: { deleted: true }, error: null }
 }

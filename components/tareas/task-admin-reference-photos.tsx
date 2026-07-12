@@ -1,9 +1,14 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 
+import { useDemoMode } from "@/components/demo/demo-mode-provider"
 import { TaskPhotoViewerDialog } from "@/components/tareas/task-photo-viewer-dialog"
-import { listTaskReferencePhotos } from "@/lib/supabase/task-photos.browser"
+import { blockDemoWrite } from "@/lib/demo/demo-write-block"
+import {
+  deleteTaskReferencePhoto,
+  listTaskReferencePhotos,
+} from "@/lib/supabase/task-photos.browser"
 import type { TaskPhoto } from "@/lib/types/task-photos"
 import {
   Card,
@@ -14,48 +19,75 @@ import {
 
 type TaskAdminReferencePhotosProps = {
   taskId: string
+  canDeleteReferencePhotos?: boolean
   compact?: boolean
 }
 
 export function TaskAdminReferencePhotos({
   taskId,
+  canDeleteReferencePhotos = false,
   compact = false,
 }: TaskAdminReferencePhotosProps) {
+  const { isReadOnly, openRestrictedDialog } = useDemoMode()
   const [photos, setPhotos] = useState<TaskPhoto[]>([])
   const [loadError, setLoadError] = useState<string | null>(null)
   const [selectedPhoto, setSelectedPhoto] = useState<TaskPhoto | null>(null)
   const [viewerOpen, setViewerOpen] = useState(false)
 
-  useEffect(() => {
-    let cancelled = false
+  const loadPhotos = useCallback(async () => {
+    const result = await listTaskReferencePhotos(taskId)
 
-    async function fetchPhotos() {
-      const result = await listTaskReferencePhotos(taskId)
-      if (cancelled) return
-
-      if (result.error) {
-        setPhotos([])
-        setLoadError(result.error.message)
-        return
-      }
-
-      setLoadError(null)
-      setPhotos(result.data ?? [])
+    if (result.error) {
+      setPhotos([])
+      setLoadError(result.error.message)
+      return
     }
 
-    void fetchPhotos()
-
-    return () => {
-      cancelled = true
-    }
+    setLoadError(null)
+    setPhotos(result.data ?? [])
   }, [taskId])
+
+  useEffect(() => {
+    void loadPhotos()
+  }, [loadPhotos])
+
+  async function handleDeleteSelectedPhoto(): Promise<{
+    success: boolean
+    message?: string
+  }> {
+    if (!selectedPhoto) {
+      return { success: false, message: "Fotografia no seleccionada." }
+    }
+
+    if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+      return {
+        success: false,
+        message: "La plataforma demo no permite eliminar fotografias.",
+      }
+    }
+
+    const result = await deleteTaskReferencePhoto({
+      taskId,
+      photoId: selectedPhoto.id,
+    })
+
+    if (result.error || !result.data) {
+      return {
+        success: false,
+        message: result.error?.message ?? "No se pudo eliminar la fotografia.",
+      }
+    }
+
+    await loadPhotos()
+    return { success: true }
+  }
 
   return (
     <>
       <Card className="shadow-sm">
         <CardHeader className="pb-3">
           <CardTitle className="text-base">
-            Fotografías de referencia
+            Fotografias de referencia
             {photos.length > 0 ? ` (${photos.length})` : ""}
           </CardTitle>
         </CardHeader>
@@ -66,7 +98,7 @@ export function TaskAdminReferencePhotos({
             </p>
           ) : photos.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted-foreground">
-              No hay fotografías de referencia cargadas al crear la orden.
+              No hay fotografias de referencia cargadas al crear la orden.
             </p>
           ) : (
             <div
@@ -109,6 +141,8 @@ export function TaskAdminReferencePhotos({
         photo={selectedPhoto}
         open={viewerOpen}
         onOpenChange={setViewerOpen}
+        canDelete={canDeleteReferencePhotos}
+        onDelete={canDeleteReferencePhotos ? handleDeleteSelectedPhoto : undefined}
       />
     </>
   )

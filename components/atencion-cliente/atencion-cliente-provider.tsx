@@ -11,6 +11,7 @@ import {
 
 import { useAuth } from "@/components/auth/auth-provider"
 import { useDemoMode } from "@/components/demo/demo-mode-provider"
+import { mapQuickCustomerToCreatePayload } from "@/lib/customers/quick-customer"
 import {
   DEFAULT_ATENCION_PAGE_SIZE,
   type CustomerAtencionListQuery,
@@ -80,7 +81,7 @@ import {
   listPendingSeguimientosForEmployee,
   markCustomerSeguimientoCompleted,
 } from "@/lib/supabase/customer-seguimientos.browser"
-import { searchCustomers as searchCustomersInSupabase } from "@/lib/supabase/customers.browser"
+import { searchCustomers as searchCustomersInSupabase, createCustomer as createCustomerInSupabase } from "@/lib/supabase/customers.browser"
 import {
   createCustomerRecuperacion,
   getCustomerRecuperacionById as loadCustomerRecuperacionById,
@@ -630,9 +631,28 @@ export function AtencionClienteProvider({
         return { success: false, message: creation.error }
       }
 
+      let customerId = input.customerId?.trim() ?? ""
+
+      if (input.quickCustomer) {
+        const customerResult = await createCustomerInSupabase(
+          mapQuickCustomerToCreatePayload(input.quickCustomer, companyId)
+        )
+
+        if (customerResult.error || !customerResult.data) {
+          return {
+            success: false,
+            message:
+              customerResult.error?.message ??
+              "No se pudo registrar al cliente.",
+          }
+        }
+
+        customerId = customerResult.data.id
+      }
+
       const result = await createCustomerAtencion({
         companyId,
-        customerId: input.customerId,
+        customerId,
         attendedByEmployeeId: employeeId,
         channel: input.channel,
         motivo: input.motivo,
