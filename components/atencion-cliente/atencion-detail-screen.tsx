@@ -6,7 +6,12 @@ import { ArrowLeft } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 
 import { useAtencionCliente } from "@/components/atencion-cliente/atencion-cliente-provider"
+import { AdministrationResultDialog } from "@/components/atencion-cliente/administration-result-dialog"
 import { RetentionResultDialog } from "@/components/atencion-cliente/retention-result-dialog"
+import {
+  isActiveAdministrationConsultationForEmployee,
+  isAdministrationConsultation,
+} from "@/lib/customer-atenciones/administration-flow"
 import {
   canStartConsultationManagement,
   isConsultationManagedByAnotherEmployee,
@@ -98,6 +103,8 @@ export function AtencionDetailScreen({ atencionId }: AtencionDetailScreenProps) 
     ""
   )
   const [isRetentionDialogOpen, setIsRetentionDialogOpen] = useState(false)
+  const [isAdministrationDialogOpen, setIsAdministrationDialogOpen] =
+    useState(false)
 
   const loadDetail = useCallback(async () => {
     setIsLoading(true)
@@ -216,6 +223,10 @@ export function AtencionDetailScreen({ atencionId }: AtencionDetailScreenProps) 
     atencion,
     currentEmployeeId
   )
+  const isActiveAdministration = isActiveAdministrationConsultationForEmployee(
+    atencion,
+    currentEmployeeId
+  )
   const isManagedByAnother = isConsultationManagedByAnotherEmployee(
     atencion,
     currentEmployeeId
@@ -289,6 +300,14 @@ export function AtencionDetailScreen({ atencionId }: AtencionDetailScreenProps) 
                     className="border-rose-200 bg-rose-500/10 text-rose-800"
                   >
                     Retención
+                  </Badge>
+                ) : null}
+                {isAdministrationConsultation(atencion) ? (
+                  <Badge
+                    variant="outline"
+                    className="border-amber-200 bg-amber-500/10 text-amber-800"
+                  >
+                    Administración
                   </Badge>
                 ) : null}
               </span>
@@ -370,6 +389,24 @@ export function AtencionDetailScreen({ atencionId }: AtencionDetailScreenProps) 
             </Button>
           </CardContent>
         </Card>
+      ) : isActiveAdministration ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Administración en curso</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Estás gestionando esta consulta administrativa
+              {atencion.activeManagementStartedAt
+                ? ` desde ${new Date(atencion.activeManagementStartedAt).toLocaleString("es-AR")}`
+                : null}
+              .
+            </p>
+            <Button onClick={() => setIsAdministrationDialogOpen(true)}>
+              Registrar resultado administrativo
+            </Button>
+          </CardContent>
+        </Card>
       ) : isManagedByCurrentEmployee ? (
         <Card>
           <CardHeader>
@@ -432,6 +469,35 @@ export function AtencionDetailScreen({ atencionId }: AtencionDetailScreenProps) 
       <RetentionResultDialog
         open={isRetentionDialogOpen}
         onOpenChange={setIsRetentionDialogOpen}
+        onResolve={async (resolution) => {
+          setActionError(null)
+          const result = await resolveConsultation(atencionId, resolution)
+          if (!result.success) {
+            setActionError(result.message)
+            return { success: false, message: result.message }
+          }
+          await loadDetail()
+          return { success: true }
+        }}
+        onDefer={async (nextStep, detail) => {
+          setActionError(null)
+          const result = await deferConsultation(
+            atencionId,
+            nextStep as CustomerAtencionNextStep,
+            detail
+          )
+          if (!result.success) {
+            setActionError(result.message)
+            return { success: false, message: result.message }
+          }
+          await loadDetail()
+          return { success: true }
+        }}
+      />
+
+      <AdministrationResultDialog
+        open={isAdministrationDialogOpen}
+        onOpenChange={setIsAdministrationDialogOpen}
         onResolve={async (resolution) => {
           setActionError(null)
           const result = await resolveConsultation(atencionId, resolution)

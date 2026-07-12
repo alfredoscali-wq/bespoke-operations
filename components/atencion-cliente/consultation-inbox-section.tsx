@@ -15,6 +15,7 @@ import {
   CUSTOMER_ATENCION_MOTIVO_OPTIONS,
 } from "@/lib/customer-atenciones/format"
 import { truncateConsultationDetail } from "@/lib/customer-atenciones/shared-inbox"
+import { isAdministrationConsultation } from "@/lib/customer-atenciones/administration-flow"
 import { isRetentionConsultation } from "@/lib/customer-atenciones/retention-flow"
 import type { CustomerAtencionInboxRow } from "@/lib/types/customer-atenciones"
 import type {
@@ -96,6 +97,14 @@ function ConsultationInboxCard({ item }: { item: CustomerAtencionInboxRow }) {
                 className="border-rose-200 bg-rose-500/10 text-xs text-rose-800"
               >
                 Retención
+              </Badge>
+            ) : null}
+            {isAdministrationConsultation(item) ? (
+              <Badge
+                variant="outline"
+                className="border-amber-200 bg-amber-500/10 text-xs text-amber-800"
+              >
+                Administración
               </Badge>
             ) : null}
           </div>

@@ -5,6 +5,7 @@ import {
   createEmptyModuleVisibility,
   resolveModuleKeyFromPathname,
 } from "../lib/roles/app-modules.ts"
+import { canAccessAtencionClienteModule } from "../lib/customer-atenciones/module-access.ts"
 import { hasWebModuleAccess } from "../lib/roles/web-module-access.ts"
 
 function buildSessionUser(overrides) {
@@ -47,7 +48,7 @@ test("administrador tiene acceso web al módulo atencion_cliente", () => {
   assert.equal(hasWebModuleAccess(sessionUser, "atencion_cliente"), true)
 })
 
-test("administrativo con atencion_cliente visible puede acceder", () => {
+test("atencion_cliente con visibility puede acceder", () => {
   const sessionUser = buildSessionUser({
     systemRole: "administrativo",
     roleCode: "atencion_cliente",
@@ -58,6 +59,21 @@ test("administrativo con atencion_cliente visible puede acceder", () => {
   })
 
   assert.equal(hasWebModuleAccess(sessionUser, "atencion_cliente"), true)
+  assert.equal(canAccessAtencionClienteModule(sessionUser), true)
+})
+
+test("administracion con visibility puede acceder", () => {
+  const sessionUser = buildSessionUser({
+    systemRole: "administrativo",
+    roleCode: "administracion",
+    moduleVisibility: {
+      ...createEmptyModuleVisibility(),
+      atencion_cliente: true,
+    },
+  })
+
+  assert.equal(hasWebModuleAccess(sessionUser, "atencion_cliente"), true)
+  assert.equal(canAccessAtencionClienteModule(sessionUser), true)
 })
 
 test("administrativo sin atencion_cliente visible no puede acceder", () => {
