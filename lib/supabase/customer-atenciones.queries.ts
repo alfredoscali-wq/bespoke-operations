@@ -7,7 +7,6 @@ import {
 } from "@/lib/customer-atenciones/atencion-list"
 import {
   computeOperationalWorkCounts,
-  computeSharedInboxKpis,
   filterSharedInboxRows,
   getConsultationDayBoundsIso,
   SHARED_INBOX_MAX_ROWS,
@@ -16,6 +15,7 @@ import {
   type SharedInboxOperationalCounts,
   type SharedInboxQuery,
 } from "@/lib/customer-atenciones/shared-inbox"
+import type { CustomerAtencionStatus } from "@/lib/types/customer-atenciones"
 import type { Database } from "@/lib/supabase/database.types"
 import {
   mapCreateCustomerAtencionPayloadToInsert,
@@ -39,6 +39,28 @@ const ATENCION_LIST_SELECT =
 
 const ATENCION_INBOX_SELECT =
   "id, customer_id, channel, motivo, detail, status, next_step, attended_by_employee_id, active_management_employee_id, active_management_started_at, created_at, updated_at"
+
+const SHARED_INBOX_ACTIVE_STATUSES: CustomerAtencionStatus[] = [
+  "nueva",
+  "para_resolver",
+  "en_gestion",
+  "pendiente",
+]
+
+type SharedInboxSourceRow = {
+  id: string
+  customer_id: string
+  channel: string
+  motivo: string
+  detail: string
+  status: string
+  next_step: string | null
+  attended_by_employee_id: string
+  active_management_employee_id: string | null
+  active_management_started_at: string | null
+  created_at: string
+  updated_at: string
+}
 
 export function mapSupabaseCustomerAtencionError(error: {
   code?: string
@@ -123,20 +145,7 @@ async function loadEmployeeNamesById(
 }
 
 function mapRowToInboxRow(
-  row: {
-    id: string
-    customer_id: string
-    channel: string
-    motivo: string
-    detail: string
-    status: string
-    next_step: string | null
-    attended_by_employee_id: string
-    active_management_employee_id: string | null
-    active_management_started_at: string | null
-    created_at: string
-    updated_at: string
-  },
+  row: SharedInboxSourceRow,
   customerNameById: Map<string, string>,
   employeeNameById: Map<string, string>
 ): CustomerAtencionInboxRow {
@@ -181,23 +190,11 @@ function mapRowToInboxRow(
   }
 }
 
-async function fetchSharedInboxSourceRows(
+async function mapSharedInboxSourceRows(
   client: SupabaseCustomerAtencionesClient,
-  companyId: string
-): Promise<CustomerAtencionesRepositoryResult<CustomerAtencionInboxRow[]>> {
-  const { data, error } = await client
-    .from("customer_atenciones")
-    .select(ATENCION_INBOX_SELECT)
-    .eq("company_id", companyId)
-    .is("deleted_at", null)
-    .order("created_at", { ascending: true })
-    .limit(SHARED_INBOX_MAX_ROWS)
-
-  if (error) {
-    return { data: null, error: mapSupabaseCustomerAtencionError(error) }
-  }
-
-  const rows = data ?? []
+  companyId: string,
+  rows: SharedInboxSourceRow[]
+): Promise<CustomerAtencionInboxRow[]> {
   const customerIds = [...new Set(rows.map((row) => row.customer_id))]
   const employeeIds = [
     ...new Set(
@@ -214,10 +211,116 @@ async function fetchSharedInboxSourceRows(
     loadEmployeeNamesById(client, companyId, employeeIds),
   ])
 
+  return rows.map((row) =>
+    mapRowToInboxRow(row, customerNameById, employeeNameById)
+  )
+}
+
+async function fetchSharedInboxSourceRows(
+  client: SupabaseCustomerAtencionesClient,
+  companyId: string
+): Promise<CustomerAtencionesRepositoryResult<CustomerAtencionInboxRow[]>> {
+  const [activeResult, resolvedResult] = await Promise.all([
+    client
+      .from("customer_atenciones")
+      .select(ATENCION_INBOX_SELECT)
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .in("status", SHARED_INBOX_ACTIVE_STATUSES)
+      .order("created_at", { ascending: true }),
+    client
+      .from("customer_atenciones")
+      .select(ATENCION_INBOX_SELECT)
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .eq("status", "resuelta")
+      .order("updated_at", { ascending: false })
+      .limit(SHARED_INBOX_MAX_ROWS),
+  ])
+
+  if (activeResult.error) {
+    return { data: null, error: mapSupabaseCustomerAtencionError(activeResult.error) }
+  }
+
+  if (resolvedResult.error) {
+    return {
+      data: null,
+      error: mapSupabaseCustomerAtencionError(resolvedResult.error),
+    }
+  }
+
+  const rowsById = new Map<string, SharedInboxSourceRow>()
+
+  for (const row of activeResult.data ?? []) {
+    rowsById.set(row.id, row)
+  }
+
+  for (const row of resolvedResult.data ?? []) {
+    rowsById.set(row.id, row)
+  }
+
   return {
-    data: rows.map((row) =>
-      mapRowToInboxRow(row, customerNameById, employeeNameById)
-    ),
+    data: await mapSharedInboxSourceRows(client, companyId, [...rowsById.values()]),
+    error: null,
+  }
+}
+
+async function fetchSharedInboxStatusCount(
+  client: SupabaseCustomerAtencionesClient,
+  companyId: string,
+  status: CustomerAtencionStatus
+): Promise<CustomerAtencionesRepositoryResult<number>> {
+  const { count, error } = await client
+    .from("customer_atenciones")
+    .select("id", { count: "exact", head: true })
+    .eq("company_id", companyId)
+    .eq("status", status)
+    .is("deleted_at", null)
+
+  if (error) {
+    return { data: null, error: mapSupabaseCustomerAtencionError(error) }
+  }
+
+  return {
+    data: count ?? 0,
+    error: null,
+  }
+}
+
+export async function fetchSharedInboxKpiSummaryFromDb(
+  client: SupabaseCustomerAtencionesClient,
+  companyId: string,
+  referenceDate: Date = new Date()
+): Promise<CustomerAtencionesRepositoryResult<SharedInboxKpiSummary>> {
+  const [
+    nuevasResult,
+    paraResolverResult,
+    pendientesResult,
+    resueltasHoyResult,
+  ] = await Promise.all([
+    fetchSharedInboxStatusCount(client, companyId, "nueva"),
+    fetchSharedInboxStatusCount(client, companyId, "para_resolver"),
+    fetchSharedInboxStatusCount(client, companyId, "pendiente"),
+    fetchSharedInboxResolvedTodayCount(client, companyId, referenceDate),
+  ])
+
+  const firstError =
+    nuevasResult.error ??
+    paraResolverResult.error ??
+    pendientesResult.error ??
+    resueltasHoyResult.error
+
+  if (firstError) {
+    return { data: null, error: firstError }
+  }
+
+  return {
+    data: {
+      nuevas: nuevasResult.data ?? 0,
+      para_resolver: paraResolverResult.data ?? 0,
+      pendientes: pendientesResult.data ?? 0,
+      resueltas_hoy: resueltasHoyResult.data ?? 0,
+    },
     error: null,
   }
 }
@@ -234,7 +337,10 @@ export async function fetchSharedInboxBundle(
   query: SharedInboxQuery,
   referenceDate: Date = new Date()
 ): Promise<CustomerAtencionesRepositoryResult<SharedInboxBundle>> {
-  const sourceResult = await fetchSharedInboxSourceRows(client, companyId)
+  const [sourceResult, kpisResult] = await Promise.all([
+    fetchSharedInboxSourceRows(client, companyId),
+    fetchSharedInboxKpiSummaryFromDb(client, companyId, referenceDate),
+  ])
 
   if (sourceResult.error || !sourceResult.data) {
     return {
@@ -242,6 +348,16 @@ export async function fetchSharedInboxBundle(
       error: sourceResult.error ?? {
         code: "UNKNOWN",
         message: "No se pudieron cargar las consultas.",
+      },
+    }
+  }
+
+  if (kpisResult.error || !kpisResult.data) {
+    return {
+      data: null,
+      error: kpisResult.error ?? {
+        code: "UNKNOWN",
+        message: "No se pudieron cargar los KPIs de la bandeja.",
       },
     }
   }
@@ -254,7 +370,7 @@ export async function fetchSharedInboxBundle(
 
   return {
     data: {
-      kpis: computeSharedInboxKpis(sourceResult.data, referenceDate),
+      kpis: kpisResult.data,
       operationalCounts: computeOperationalWorkCounts(sourceResult.data),
       rows: sortSharedInboxRows(filtered, query.statusFilter),
     },
@@ -267,22 +383,7 @@ export async function fetchSharedInboxKpiSummary(
   companyId: string,
   referenceDate: Date = new Date()
 ): Promise<CustomerAtencionesRepositoryResult<SharedInboxKpiSummary>> {
-  const sourceResult = await fetchSharedInboxSourceRows(client, companyId)
-
-  if (sourceResult.error || !sourceResult.data) {
-    return {
-      data: null,
-      error: sourceResult.error ?? {
-        code: "UNKNOWN",
-        message: "No se pudieron cargar las consultas.",
-      },
-    }
-  }
-
-  return {
-    data: computeSharedInboxKpis(sourceResult.data, referenceDate),
-    error: null,
-  }
+  return fetchSharedInboxKpiSummaryFromDb(client, companyId, referenceDate)
 }
 
 export async function fetchSharedInboxConsultations(

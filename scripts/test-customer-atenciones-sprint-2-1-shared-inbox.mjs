@@ -26,6 +26,10 @@ const inboxCardPath = join(
   __dirname,
   "../components/atencion-cliente/consultation-inbox-section.tsx"
 )
+const queriesPath = join(
+  __dirname,
+  "../lib/supabase/customer-atenciones.queries.ts"
+)
 
 const referenceDate = new Date("2026-07-12T15:00:00.000Z")
 
@@ -360,5 +364,29 @@ test("labels de estado y próximo paso centralizados", () => {
   assert.equal(
     formatCustomerAtencionNextStepLabel("esperar_administracion"),
     "Esperar Administración"
+  )
+})
+
+test("31. KPIs de bandeja usan conteos company-wide en la base de datos", () => {
+  const queriesSource = readFileSync(queriesPath, "utf8")
+
+  assert.match(queriesSource, /fetchSharedInboxKpiSummaryFromDb/)
+  assert.match(queriesSource, /fetchSharedInboxResolvedTodayCount/)
+  assert.match(queriesSource, /fetchSharedInboxStatusCount/)
+  assert.doesNotMatch(
+    queriesSource,
+    /kpis: computeSharedInboxKpis\(sourceResult\.data/
+  )
+})
+
+test("32. Bandeja carga consultas activas y resueltas recientes por separado", () => {
+  const queriesSource = readFileSync(queriesPath, "utf8")
+
+  assert.match(queriesSource, /SHARED_INBOX_ACTIVE_STATUSES/)
+  assert.match(queriesSource, /\.in\("status", SHARED_INBOX_ACTIVE_STATUSES\)/)
+  assert.match(queriesSource, /\.eq\("status", "resuelta"\)/)
+  assert.match(
+    queriesSource,
+    /\.order\("updated_at", \{ ascending: false \}\)/
   )
 })
