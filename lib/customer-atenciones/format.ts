@@ -42,7 +42,7 @@ const NEXT_STEP_LABELS: Record<CustomerAtencionNextStep, string> = {
   realizar_retencion: "Realizar retención",
   resolver_facturacion: "Resolver facturación",
   analizar_problema_tecnico: "Analizar problema técnico",
-  contactar_cliente: "Contactar cliente",
+  contactar_cliente: "Derivar a Ventas",
   esperar_cliente: "Esperar cliente",
   esperar_administracion: "Esperar Administración",
   coordinar_retiro: "Coordinar retiro",

@@ -24,6 +24,7 @@ import {
 import {
   filterSharedInboxRows,
 } from "../lib/customer-atenciones/shared-inbox.ts"
+import { formatCustomerAtencionNextStepLabel } from "../lib/customer-atenciones/format.ts"
 import {
   computeOperationalWorkCounts,
   getOperationalCategoryForNextStep,
@@ -585,7 +586,7 @@ test("UX-8. Técnica clasifica generar_ot", () => {
   assert.equal(getOperationalCategoryForNextStep("generar_ot"), "tecnica")
 })
 
-test("UX-9. Contactar cliente clasifica contactar_cliente", () => {
+test("UX-9. Derivar a Ventas clasifica contactar_cliente", () => {
   assert.equal(
     getOperationalCategoryForNextStep("contactar_cliente"),
     "contactar_cliente"
@@ -670,7 +671,7 @@ test("UX-16. clic Técnica filtra ambos next_step", () => {
   assert.equal(filtered.length, 2)
 })
 
-test("UX-17. clic Contactar cliente filtra correctamente", () => {
+test("UX-17. clic Ventas filtra correctamente", () => {
   assert.equal(
     matchesOperationalCategory(
       operationalRow({ nextStep: "contactar_cliente" }),
@@ -809,5 +810,16 @@ test("UX-33. categorías definidas en helper central", () => {
   assert.equal(
     SHARED_INBOX_OPERATIONAL_CATEGORY_CONFIG.tecnica.nextSteps.length,
     2
+  )
+})
+
+test("UX-34. contactar_cliente se muestra como Ventas en clasificación operativa", () => {
+  assert.equal(
+    SHARED_INBOX_OPERATIONAL_CATEGORY_CONFIG.contactar_cliente.label,
+    "Ventas"
+  )
+  assert.equal(
+    formatCustomerAtencionNextStepLabel("contactar_cliente"),
+    "Derivar a Ventas"
   )
 })

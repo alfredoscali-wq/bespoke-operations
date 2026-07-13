@@ -54,7 +54,7 @@ export const SHARED_INBOX_OPERATIONAL_CATEGORY_CONFIG: Record<
     nextSteps: ["analizar_problema_tecnico", "generar_ot"],
   },
   contactar_cliente: {
-    label: "Contactar cliente",
+    label: "Ventas",
     nextSteps: ["contactar_cliente"],
   },
 }
