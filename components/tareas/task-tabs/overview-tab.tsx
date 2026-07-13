@@ -33,7 +33,7 @@ import {
   formatWorkOrderPaymentMethodLabel,
   isNewInstallationTask,
 } from "@/lib/tasks/commercial-plan"
-import { isWorkOrderTask } from "@/lib/tasks/work-order"
+import { isWorkOrderTask, resolveInstallationIpForDisplay } from "@/lib/tasks/work-order"
 import { isCambioDomicilioTask } from "@/lib/tasks/cambio-domicilio"
 import { isTaskVencida } from "@/lib/tasks/vencida-status"
 import { OverdueTaskInfoPanel } from "@/components/tareas/overdue-task-info-panel"
@@ -259,6 +259,7 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
   ]
 
   const infoItems = isService ? serviceInfoItems : obraInfoItems
+  const installationIp = resolveInstallationIpForDisplay(liveTask)
 
   return (
     <div className="grid gap-6 lg:grid-cols-3">
@@ -389,19 +390,30 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
       <div className="space-y-6">
         {taskRequiresFtthInstallation(liveTask) ? (
           <WorkOrderFtthInstallationDetail task={liveTask} />
-        ) : isNewInstallationTask(liveTask) && liveTask.contractedPlan ? (
+        ) : isNewInstallationTask(liveTask) &&
+          (liveTask.contractedPlan || installationIp) ? (
           <Card className="shadow-sm">
             <CardHeader>
               <CardTitle>Información comercial</CardTitle>
-              <CardDescription>Plan contratado</CardDescription>
+              <CardDescription>Datos comerciales de la instalación</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div>
-                <p className="text-xs text-muted-foreground">Plan contratado</p>
-                <p className="text-base font-semibold">
-                  {formatContractedPlanLabel(liveTask.contractedPlan) ?? "—"}
-                </p>
-              </div>
+              {liveTask.contractedPlan ? (
+                <div>
+                  <p className="text-xs text-muted-foreground">Plan contratado</p>
+                  <p className="text-base font-semibold">
+                    {formatContractedPlanLabel(liveTask.contractedPlan) ?? "—"}
+                  </p>
+                </div>
+              ) : null}
+              {installationIp ? (
+                <div>
+                  <p className="text-xs text-muted-foreground">
+                    IP de Instalación
+                  </p>
+                  <p className="text-base font-semibold">{installationIp}</p>
+                </div>
+              ) : null}
             </CardContent>
           </Card>
         ) : null}

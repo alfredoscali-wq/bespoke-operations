@@ -8,6 +8,9 @@ import { useCallback, useEffect, useState } from "react"
 import { useAtencionCliente } from "@/components/atencion-cliente/atencion-cliente-provider"
 import { AdministrationResultDialog } from "@/components/atencion-cliente/administration-result-dialog"
 import { RetentionResultDialog } from "@/components/atencion-cliente/retention-result-dialog"
+import { TechnicalResultDialog } from "@/components/atencion-cliente/technical-result-dialog"
+import { MorosoTrackingBlock } from "@/components/atencion-cliente/moroso-tracking-block"
+import { OtLinkBlock } from "@/components/atencion-cliente/ot-link-block"
 import {
   isActiveAdministrationConsultationForEmployee,
   isAdministrationConsultation,
@@ -21,6 +24,11 @@ import {
   isActiveRetentionConsultationForEmployee,
   isRetentionConsultation,
 } from "@/lib/customer-atenciones/retention-flow"
+import {
+  isActiveTechnicalConsultationForEmployee,
+  isTechnicalConsultation,
+} from "@/lib/customer-atenciones/technical-flow"
+import { isMorosoConsultation } from "@/lib/customer-atenciones/moroso-flow"
 import {
   CUSTOMER_ATENCION_NEXT_STEP_OPTIONS,
   formatCustomerAtencionChannelLabel,
@@ -105,6 +113,7 @@ export function AtencionDetailScreen({ atencionId }: AtencionDetailScreenProps) 
   const [isRetentionDialogOpen, setIsRetentionDialogOpen] = useState(false)
   const [isAdministrationDialogOpen, setIsAdministrationDialogOpen] =
     useState(false)
+  const [isTechnicalDialogOpen, setIsTechnicalDialogOpen] = useState(false)
 
   const loadDetail = useCallback(async () => {
     setIsLoading(true)
@@ -227,6 +236,10 @@ export function AtencionDetailScreen({ atencionId }: AtencionDetailScreenProps) 
     atencion,
     currentEmployeeId
   )
+  const isActiveTechnical = isActiveTechnicalConsultationForEmployee(
+    atencion,
+    currentEmployeeId
+  )
   const isManagedByAnother = isConsultationManagedByAnotherEmployee(
     atencion,
     currentEmployeeId
@@ -310,6 +323,22 @@ export function AtencionDetailScreen({ atencionId }: AtencionDetailScreenProps) 
                     Administración
                   </Badge>
                 ) : null}
+                {isTechnicalConsultation(atencion) ? (
+                  <Badge
+                    variant="outline"
+                    className="border-violet-200 bg-violet-500/10 text-violet-800"
+                  >
+                    Técnica
+                  </Badge>
+                ) : null}
+                {isMorosoConsultation(atencion) ? (
+                  <Badge
+                    variant="outline"
+                    className="border-orange-200 bg-orange-500/10 text-orange-800"
+                  >
+                    Morosos
+                  </Badge>
+                ) : null}
               </span>
             }
           />
@@ -334,6 +363,22 @@ export function AtencionDetailScreen({ atencionId }: AtencionDetailScreenProps) 
             <DetailField label="Qué se hizo" value={atencion.resolution} />
           </CardContent>
         </Card>
+      ) : null}
+
+      {isMorosoConsultation(atencion) && atencion.status !== "resuelta" ? (
+        <MorosoTrackingBlock
+          atencionId={atencion.id}
+          trackingStatus={atencion.morosoTrackingStatus}
+        />
+      ) : null}
+
+      {atencion.nextStep === "generar_ot" && atencion.status !== "resuelta" ? (
+        <OtLinkBlock
+          atencionId={atencion.id}
+          linkedTaskId={atencion.linkedTaskId}
+          linkedTaskCode={atencion.linkedTaskCode}
+          otLinkedAt={atencion.otLinkedAt}
+        />
       ) : null}
 
       {isManagedByAnother ? (
@@ -407,6 +452,24 @@ export function AtencionDetailScreen({ atencionId }: AtencionDetailScreenProps) 
             </Button>
           </CardContent>
         </Card>
+      ) : isActiveTechnical ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Gestión técnica en curso</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Estás gestionando esta consulta técnica
+              {atencion.activeManagementStartedAt
+                ? ` desde ${new Date(atencion.activeManagementStartedAt).toLocaleString("es-AR")}`
+                : null}
+              .
+            </p>
+            <Button onClick={() => setIsTechnicalDialogOpen(true)}>
+              Registrar resultado técnico
+            </Button>
+          </CardContent>
+        </Card>
       ) : isManagedByCurrentEmployee ? (
         <Card>
           <CardHeader>
@@ -436,7 +499,7 @@ export function AtencionDetailScreen({ atencionId }: AtencionDetailScreenProps) 
             </div>
 
             <div className="space-y-2 border-t pt-4">
-              <Label htmlFor="consultation-defer-next-step">Continuar después</Label>
+              <Label htmlFor="consultation-defer-next-step">Próximo paso</Label>
               <Select
                 value={deferNextStep}
                 onValueChange={(value) =>
@@ -459,7 +522,7 @@ export function AtencionDetailScreen({ atencionId }: AtencionDetailScreenProps) 
                 onClick={handleDefer}
                 disabled={isDeferring}
               >
-                {isDeferring ? "Guardando…" : "Continuar después"}
+                {isDeferring ? "Guardando…" : "Definir próximo paso"}
               </Button>
             </div>
           </CardContent>
@@ -498,6 +561,35 @@ export function AtencionDetailScreen({ atencionId }: AtencionDetailScreenProps) 
       <AdministrationResultDialog
         open={isAdministrationDialogOpen}
         onOpenChange={setIsAdministrationDialogOpen}
+        onResolve={async (resolution) => {
+          setActionError(null)
+          const result = await resolveConsultation(atencionId, resolution)
+          if (!result.success) {
+            setActionError(result.message)
+            return { success: false, message: result.message }
+          }
+          await loadDetail()
+          return { success: true }
+        }}
+        onDefer={async (nextStep, detail) => {
+          setActionError(null)
+          const result = await deferConsultation(
+            atencionId,
+            nextStep as CustomerAtencionNextStep,
+            detail
+          )
+          if (!result.success) {
+            setActionError(result.message)
+            return { success: false, message: result.message }
+          }
+          await loadDetail()
+          return { success: true }
+        }}
+      />
+
+      <TechnicalResultDialog
+        open={isTechnicalDialogOpen}
+        onOpenChange={setIsTechnicalDialogOpen}
         onResolve={async (resolution) => {
           setActionError(null)
           const result = await resolveConsultation(atencionId, resolution)

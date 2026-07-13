@@ -58,6 +58,9 @@ export type MobileTaskDetailResponse = {
   amountToCollect: number | null
   technology: string | null
   contractedPlan: string | null
+  installationIp: string | null
+  serviceReason: string | null
+  serviceDetail: string | null
   checklist: MobileTaskChecklistItem[]
   evidenceRequirements: MobileTaskEvidenceRequirement[]
   referencePhotos: MobileTaskReferencePhoto[]

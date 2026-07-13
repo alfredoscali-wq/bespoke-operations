@@ -6,6 +6,8 @@ import {
   normalizeScheduledTimeForDb,
 } from "@/lib/tasks/scheduling"
 import {
+  mergeMaterialsNeededIntoMetadata,
+  readMaterialsNeededFromTask,
   resolveEstimatedDurationFromForm,
   resolveScheduledTimeFromShift,
   WORK_ORDER_DURATION_PRESET_MINUTES,
@@ -36,6 +38,7 @@ export type PlanningEditFormState = {
   estimatedDurationPreset: WorkOrderDurationPreset | ""
   estimatedDurationCustomMinutes: string
   operationalOrder: string
+  materialsNeeded: string
 }
 
 export const EMPTY_PLANNING_EDIT_FORM: PlanningEditFormState = {
@@ -44,6 +47,7 @@ export const EMPTY_PLANNING_EDIT_FORM: PlanningEditFormState = {
   estimatedDurationPreset: "",
   estimatedDurationCustomMinutes: "",
   operationalOrder: "",
+  materialsNeeded: "",
 }
 
 export function buildPlanningEditFormFromTask(
@@ -66,6 +70,7 @@ export function buildPlanningEditFormFromTask(
       allTasks,
       crews,
     }),
+    materialsNeeded: readMaterialsNeededFromTask(task),
   }
 }
 
@@ -214,10 +219,13 @@ export function buildPlanningTaskUpdateBatch(input: {
     supervisor: snapshots.supervisor,
     scheduledTime: normalizeScheduledTimeForDb(resolveScheduledTimeFromShift(shift)),
     estimatedDuration: resolvePlanningEditEstimatedDuration(form),
-    taskMetadata: {
-      ...(task.taskMetadata ?? {}),
-      shift,
-    },
+    taskMetadata: mergeMaterialsNeededIntoMetadata(
+      {
+        ...(task.taskMetadata ?? {}),
+        shift,
+      },
+      form.materialsNeeded
+    ),
   }
 
   const taskOrderUpdate = executionOrderUpdates.find(

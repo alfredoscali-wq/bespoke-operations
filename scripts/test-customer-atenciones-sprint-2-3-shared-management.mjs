@@ -278,10 +278,12 @@ test("29. próximo paso requerido", () => {
 
 for (const nextStep of [
   "realizar_retencion",
-  "resolver_facturacion",
-  "analizar_problema_tecnico",
+  "resolver_consulta_tecnica",
+  "derivar_admin_facturacion",
+  "derivar_admin_morosos",
+  "derivar_admin_gestion",
   "contactar_cliente",
-  "coordinar_retiro",
+  "seguimiento_cliente",
   "generar_ot",
 ]) {
   test(`30. acción interna ${nextStep} → para_resolver`, () => {
@@ -290,7 +292,7 @@ for (const nextStep of [
   })
 }
 
-for (const nextStep of ["esperar_cliente", "esperar_administracion"]) {
+for (const nextStep of ["esperar_cliente"]) {
   test(`31. espera ${nextStep} → pendiente`, () => {
     assert.equal(resolveDeferConsultationStatus(nextStep), "pendiente")
   })
@@ -336,7 +338,7 @@ test("40. detalle muestra Iniciar gestión cuando corresponde", () => {
 
 test("41. detalle muestra Resolver/Continuar al active employee", () => {
   assert.match(detailSource, /Resolver Consulta/)
-  assert.match(detailSource, /Continuar después/)
+  assert.match(detailSource, /Definir próximo paso/)
   assert.match(detailSource, /isConsultationManagedByEmployee/)
 })
 

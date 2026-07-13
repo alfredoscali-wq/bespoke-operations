@@ -29,7 +29,7 @@ import {
   resolveFinalTechnologyFromTask,
   resolveTechnologyLabel,
 } from "@/lib/tasks/ftth-installation"
-import { isWorkOrderTask } from "@/lib/tasks/work-order"
+import { isWorkOrderTask, resolveInstallationIpForDisplay } from "@/lib/tasks/work-order"
 import { isFieldServiceTask } from "@/lib/tasks/utils"
 import type { Project } from "@/lib/types/projects"
 import type { Task } from "@/lib/types/tasks"
@@ -177,6 +177,7 @@ function TaskAdminInfoPanelContent({
   const technologyLabel =
     resolveTechnologyLabel(resolveFinalTechnologyFromTask(liveTask)) ?? "—"
   const planLabel = formatContractedPlanLabel(liveTask.contractedPlan) ?? "—"
+  const installationIp = resolveInstallationIpForDisplay(liveTask)
   const amountLabel =
     isWorkOrderTask(liveTask) && liveTask.amountToCollect != null
       ? formatAmountToCollectDisplay(liveTask.amountToCollect)
@@ -205,6 +206,13 @@ function TaskAdminInfoPanelContent({
                 label="Plan contratado"
                 value={planLabel}
               />
+              {installationIp ? (
+                <TaskAdminMetricCard
+                  icon="🌐"
+                  label="IP de Instalación"
+                  value={installationIp}
+                />
+              ) : null}
               <TaskAdminMetricCard
                 icon="💰"
                 label="Importe a cobrar"

@@ -205,7 +205,7 @@ test("12. no muestra simultáneamente acciones genéricas confusas", () => {
 
 test("13. otro next_step conserva UI genérica", () => {
   assert.match(detailSource, /Resolver Consulta/)
-  assert.match(detailSource, /Continuar después/)
+  assert.match(detailSource, /Definir próximo paso/)
 })
 
 test("14. otro empleado no puede registrar resultado", () => {
@@ -310,8 +310,9 @@ test("32. status → pendiente", () => {
   assert.match(migration24Sql, /THEN 'pendiente'/)
 })
 
-test("33. next_step → esperar_administracion", () => {
-  assert.equal(RETENTION_FIRM_BAJA_NEXT_STEP, "esperar_administracion")
+test("33. next_step → derivar_admin_gestion", () => {
+  assert.equal(RETENTION_FIRM_BAJA_NEXT_STEP, "derivar_admin_gestion")
+  // Sprint 2.4 historically wrote esperar_administracion; 2.8 remaps it.
   assert.match(migration24Sql, /'esperar_administracion'/)
 })
 
@@ -348,7 +349,7 @@ test("41. evento previous_next_step = realizar_retencion", () => {
   assert.match(migration24Sql, /v_previous_next_step/)
 })
 
-test("42. evento new_next_step = esperar_administracion", () => {
+test("42. evento new_next_step conserva v_next_step (histórico esperar_administracion)", () => {
   assert.match(migration24Sql, /v_next_step/)
 })
 
@@ -362,16 +363,20 @@ test("44. mutación + evento atómicos", () => {
   assert.match(migration24Sql, /INSERT INTO public\.customer_atencion_events/)
 })
 
-test("45. aparece en Pendientes", () => {
+test("45. baja firme aparece en Para Resolver por derivar_admin_gestion", () => {
   const waiting = inboxRow({
-    status: "pendiente",
+    status: "para_resolver",
     nextStep: RETENTION_FIRM_BAJA_NEXT_STEP,
   })
-  const filtered = filterSharedInboxRows([waiting], {
-    statusFilter: "pendiente",
-    motivo: "all",
-    channel: "all",
-  })
+  const filtered = filterSharedInboxRows(
+    [waiting],
+    {
+      statusFilter: "para_resolver",
+      motivo: "all",
+      channel: "all",
+    },
+    new Date("2026-07-12T15:00:00.000Z")
+  )
   assert.equal(filtered.length, 1)
 })
 
@@ -451,7 +456,7 @@ test("isRetentionConsultation detecta realizar_retencion", () => {
   assert.equal(isRetentionConsultation({ nextStep: "contactar_cliente" }), false)
 })
 
-test("buildRetentionFirmBajaDeferInput mapea esperar_administracion", () => {
+test("buildRetentionFirmBajaDeferInput mapea derivar_admin_gestion", () => {
   const input = buildRetentionFirmBajaDeferInput("Mudanza sin cobertura")
   assert.equal(input.nextStep, RETENTION_FIRM_BAJA_NEXT_STEP)
   assert.equal(input.detail, "Mudanza sin cobertura")
@@ -561,29 +566,33 @@ test("UX-4. Retenciones clasifica realizar_retencion", () => {
   )
 })
 
-test("UX-5. Administración clasifica resolver_facturacion", () => {
+test("UX-5. Administración clasifica derivar_admin_facturacion", () => {
   assert.equal(
-    getOperationalCategoryForNextStep("resolver_facturacion"),
+    getOperationalCategoryForNextStep("derivar_admin_facturacion"),
     "administracion"
   )
 })
 
-test("UX-6. Administración clasifica esperar_administracion", () => {
+test("UX-6. Administración clasifica derivar_admin_gestion", () => {
   assert.equal(
-    getOperationalCategoryForNextStep("esperar_administracion"),
+    getOperationalCategoryForNextStep("derivar_admin_gestion"),
     "administracion"
   )
 })
 
-test("UX-7. Técnica clasifica analizar_problema_tecnico", () => {
+test("UX-7. Técnica clasifica resolver_consulta_tecnica", () => {
   assert.equal(
-    getOperationalCategoryForNextStep("analizar_problema_tecnico"),
+    getOperationalCategoryForNextStep("resolver_consulta_tecnica"),
     "tecnica"
   )
 })
 
-test("UX-8. Técnica clasifica generar_ot", () => {
-  assert.equal(getOperationalCategoryForNextStep("generar_ot"), "tecnica")
+test("UX-8. generar_ot clasifica en categoría Pendiente de generar OT", () => {
+  assert.equal(getOperationalCategoryForNextStep("generar_ot"), "generar_ot")
+  assert.equal(
+    SHARED_INBOX_OPERATIONAL_CATEGORY_CONFIG.generar_ot.label,
+    "Pendiente de generar OT"
+  )
 })
 
 test("UX-9. Derivar a Ventas clasifica contactar_cliente", () => {
@@ -606,6 +615,7 @@ test("UX-11. resueltas no cuentan", () => {
     operationalRow({ nextStep: "realizar_retencion", status: "resuelta" }),
   ])
   assert.equal(counts.retenciones, 0)
+  assert.equal(counts.generar_ot, 0)
 })
 
 test("UX-12. conteos usan Consultas activas", () => {
@@ -641,11 +651,12 @@ test("UX-14. clic Retenciones filtra correctamente", () => {
   assert.equal(filtered[0].id, "r1")
 })
 
-test("UX-15. clic Administración filtra ambos next_step", () => {
+test("UX-15. clic Administración filtra next_steps admin", () => {
   const rows = [
-    operationalRow({ id: "a1", nextStep: "resolver_facturacion" }),
-    operationalRow({ id: "a2", nextStep: "esperar_administracion" }),
-    operationalRow({ id: "a3", nextStep: "realizar_retencion" }),
+    operationalRow({ id: "a1", nextStep: "derivar_admin_facturacion" }),
+    operationalRow({ id: "a2", nextStep: "derivar_admin_gestion" }),
+    operationalRow({ id: "a3", nextStep: "derivar_admin_morosos" }),
+    operationalRow({ id: "a4", nextStep: "realizar_retencion" }),
   ]
   const filtered = filterSharedInboxRows(rows, {
     statusFilter: "all",
@@ -653,12 +664,12 @@ test("UX-15. clic Administración filtra ambos next_step", () => {
     channel: "all",
     operationalCategory: "administracion",
   })
-  assert.equal(filtered.length, 2)
+  assert.equal(filtered.length, 3)
 })
 
-test("UX-16. clic Técnica filtra ambos next_step", () => {
+test("UX-16. clic Técnica filtra solo resolver_consulta_tecnica", () => {
   const rows = [
-    operationalRow({ id: "t1", nextStep: "analizar_problema_tecnico" }),
+    operationalRow({ id: "t1", nextStep: "resolver_consulta_tecnica" }),
     operationalRow({ id: "t2", nextStep: "generar_ot" }),
     operationalRow({ id: "t3", nextStep: "contactar_cliente" }),
   ]
@@ -668,7 +679,23 @@ test("UX-16. clic Técnica filtra ambos next_step", () => {
     channel: "all",
     operationalCategory: "tecnica",
   })
-  assert.equal(filtered.length, 2)
+  assert.equal(filtered.length, 1)
+  assert.equal(filtered[0].id, "t1")
+})
+
+test("UX-16b. clic Pendiente de generar OT filtra generar_ot", () => {
+  const rows = [
+    operationalRow({ id: "ot1", nextStep: "generar_ot" }),
+    operationalRow({ id: "ot2", nextStep: "resolver_consulta_tecnica" }),
+  ]
+  const filtered = filterSharedInboxRows(rows, {
+    statusFilter: "all",
+    motivo: "all",
+    channel: "all",
+    operationalCategory: "generar_ot",
+  })
+  assert.equal(filtered.length, 1)
+  assert.equal(filtered[0].id, "ot1")
 })
 
 test("UX-17. clic Ventas filtra correctamente", () => {
@@ -751,8 +778,8 @@ test("UX-23. Cliente retenido desaparece de Retenciones", () => {
 test("UX-24. Baja sigue firme desaparece de Retenciones", () => {
   const counts = computeOperationalWorkCounts([
     operationalRow({
-      status: "pendiente",
-      nextStep: "esperar_administracion",
+      status: "para_resolver",
+      nextStep: "derivar_admin_gestion",
     }),
   ])
   assert.equal(counts.retenciones, 0)
@@ -761,8 +788,8 @@ test("UX-24. Baja sigue firme desaparece de Retenciones", () => {
 test("UX-25. Baja sigue firme aparece en Administración", () => {
   const counts = computeOperationalWorkCounts([
     operationalRow({
-      status: "pendiente",
-      nextStep: "esperar_administracion",
+      status: "para_resolver",
+      nextStep: "derivar_admin_gestion",
     }),
   ])
   assert.equal(counts.administracion, 1)
@@ -805,11 +832,26 @@ test("UX-33. categorías definidas en helper central", () => {
   )
   assert.equal(
     SHARED_INBOX_OPERATIONAL_CATEGORY_CONFIG.administracion.nextSteps.length,
-    2
+    3
   )
   assert.equal(
     SHARED_INBOX_OPERATIONAL_CATEGORY_CONFIG.tecnica.nextSteps.length,
-    2
+    1
+  )
+  assert.equal(
+    SHARED_INBOX_OPERATIONAL_CATEGORY_CONFIG.generar_ot.nextSteps.length,
+    1
+  )
+  assert.deepEqual(
+    computeOperationalWorkCounts([]),
+    {
+      retenciones: 0,
+      administracion: 0,
+      morosos: 0,
+      tecnica: 0,
+      contactar_cliente: 0,
+      generar_ot: 0,
+    }
   )
 })
 

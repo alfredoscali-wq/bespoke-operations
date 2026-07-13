@@ -31,6 +31,7 @@ import {
   buildLocationFormFromTask,
   buildScheduleFormFromTask,
   isWorkOrderTask,
+  mergeInstallationCommercialMetadata,
   type WorkOrderFormInput,
 } from "@/lib/tasks/work-order"
 import { WorkOrderTechnologyPlanFields } from "@/components/tareas/work-order-technology-plan-fields"
@@ -81,6 +82,7 @@ type TaskEditDialogProps = {
     amountToCollect?: number | null
     contractedPlan?: string | null
     sharedLocation?: string | null
+    taskMetadata?: Record<string, unknown>
   }) => Promise<void>
 }
 
@@ -99,7 +101,7 @@ type TaskFormState = {
   sharedLocation: string
   commercial: Pick<
     WorkOrderFormInput,
-    "serviceType" | "technology" | "contractedPlan"
+    "serviceType" | "technology" | "contractedPlan" | "installationIp"
   >
 }
 
@@ -220,6 +222,15 @@ export function TaskEditDialog({
       return
     }
 
+    if (
+      showCommercialFields &&
+      form.commercial.technology === "wireless" &&
+      !form.commercial.installationIp.trim()
+    ) {
+      setError("La IP de Instalación es obligatoria.")
+      return
+    }
+
     const resolvedTaskType: TaskType = showCommercialFields
       ? form.commercial.technology === "wireless"
         ? "wireless"
@@ -240,6 +251,10 @@ export function TaskEditDialog({
             ...(showCommercialFields
               ? {
                   contractedPlan: resolveContractedPlanFromForm(form.commercial),
+                  taskMetadata: mergeInstallationCommercialMetadata(
+                    task.taskMetadata,
+                    form.commercial
+                  ),
                 }
               : {}),
           }

@@ -8,7 +8,7 @@ import { isConsultationManagedByEmployee } from "@/lib/customer-atenciones/consu
 export const RETENTION_NEXT_STEP = "realizar_retencion" as const satisfies CustomerAtencionNextStep
 
 export const RETENTION_FIRM_BAJA_NEXT_STEP =
-  "esperar_administracion" as const satisfies CustomerAtencionNextStep
+  "derivar_admin_gestion" as const satisfies CustomerAtencionNextStep
 
 export type RetentionOutcome = "cliente_retenido" | "baja_sigue_firme"
 

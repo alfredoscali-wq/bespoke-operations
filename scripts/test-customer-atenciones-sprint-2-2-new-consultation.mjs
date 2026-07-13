@@ -114,10 +114,12 @@ test("3. Resolver ahora requiere resolución", () => {
 
 for (const nextStep of [
   "realizar_retencion",
-  "resolver_facturacion",
-  "analizar_problema_tecnico",
+  "resolver_consulta_tecnica",
+  "derivar_admin_facturacion",
+  "derivar_admin_morosos",
+  "derivar_admin_gestion",
   "contactar_cliente",
-  "coordinar_retiro",
+  "seguimiento_cliente",
   "generar_ot",
 ]) {
   test(`4–9. Continuar + ${nextStep} → para_resolver`, () => {
@@ -137,7 +139,7 @@ for (const nextStep of [
   })
 }
 
-for (const nextStep of ["esperar_cliente", "esperar_administracion"]) {
+for (const nextStep of ["esperar_cliente"]) {
   test(`10–11. Continuar + ${nextStep} → pendiente`, () => {
     const fields = buildNewConsultationCreationFields({
       decision: "continuar_gestion",
@@ -285,7 +287,7 @@ test("22. consulta_creada conserva status inicial", () => {
   const fields = buildNewConsultationCreationFields({
     decision: "continuar_gestion",
     detail: baseInput.detail,
-    nextStep: "resolver_facturacion",
+    nextStep: "derivar_admin_facturacion",
   })
 
   assert.ok(!("error" in fields))

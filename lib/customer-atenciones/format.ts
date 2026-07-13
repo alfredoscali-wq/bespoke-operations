@@ -38,16 +38,30 @@ const STATUS_LABELS: Record<CustomerAtencionStatus, string> = {
   resuelta: "Resuelta",
 }
 
+/** Ordered Próximo Paso menu (Resolve → Derivaciones → Seguimiento → Operación). */
 const NEXT_STEP_LABELS: Record<CustomerAtencionNextStep, string> = {
   realizar_retencion: "Realizar retención",
-  resolver_facturacion: "Resolver facturación",
-  analizar_problema_tecnico: "Analizar problema técnico",
+  resolver_consulta_tecnica: "Resolver consulta técnica",
+  derivar_admin_facturacion: "Derivar Administración - Facturación",
+  derivar_admin_morosos: "Derivar Administración - Morosos",
+  derivar_admin_gestion: "Derivar Administración - Gestión administrativa",
   contactar_cliente: "Derivar a Ventas",
+  seguimiento_cliente: "Seguimiento con cliente",
   esperar_cliente: "Esperar cliente",
-  esperar_administracion: "Esperar Administración",
-  coordinar_retiro: "Coordinar retiro",
   generar_ot: "Generar OT",
 }
+
+export const CUSTOMER_ATENCION_NEXT_STEP_MENU_ORDER = [
+  "realizar_retencion",
+  "resolver_consulta_tecnica",
+  "derivar_admin_facturacion",
+  "derivar_admin_morosos",
+  "derivar_admin_gestion",
+  "contactar_cliente",
+  "seguimiento_cliente",
+  "esperar_cliente",
+  "generar_ot",
+] as const satisfies readonly CustomerAtencionNextStep[]
 
 export function formatCustomerAtencionChannelLabel(
   channel: CustomerAtencionChannel
@@ -87,6 +101,8 @@ export const CUSTOMER_ATENCION_MOTIVO_OPTIONS = (
   Object.entries(MOTIVO_LABELS) as [CustomerAtencionMotivo, string][]
 ).map(([value, label]) => ({ value, label }))
 
-export const CUSTOMER_ATENCION_NEXT_STEP_OPTIONS = (
-  Object.entries(NEXT_STEP_LABELS) as [CustomerAtencionNextStep, string][]
-).map(([value, label]) => ({ value, label }))
+export const CUSTOMER_ATENCION_NEXT_STEP_OPTIONS =
+  CUSTOMER_ATENCION_NEXT_STEP_MENU_ORDER.map((value) => ({
+    value,
+    label: NEXT_STEP_LABELS[value],
+  }))

@@ -15,30 +15,55 @@ export const CUSTOMER_ATENCION_STATUS_VALUES = [
   "resuelta",
 ] as const satisfies readonly CustomerAtencionStatus[]
 
+/**
+ * Sprint 2.8 — Próximo Paso options (action to take, not owning area).
+ */
 export const CUSTOMER_ATENCION_NEXT_STEP_VALUES = [
   "realizar_retencion",
-  "resolver_facturacion",
-  "analizar_problema_tecnico",
+  "resolver_consulta_tecnica",
+  "derivar_admin_facturacion",
+  "derivar_admin_morosos",
+  "derivar_admin_gestion",
   "contactar_cliente",
+  "seguimiento_cliente",
   "esperar_cliente",
-  "esperar_administracion",
-  "coordinar_retiro",
   "generar_ot",
 ] as const satisfies readonly CustomerAtencionNextStep[]
 
+/** Internal company work → Para Resolver. */
 export const CONSULTATION_INTERNAL_ACTION_NEXT_STEPS = [
   "realizar_retencion",
-  "resolver_facturacion",
-  "analizar_problema_tecnico",
+  "resolver_consulta_tecnica",
+  "derivar_admin_facturacion",
+  "derivar_admin_morosos",
+  "derivar_admin_gestion",
   "contactar_cliente",
-  "coordinar_retiro",
+  "seguimiento_cliente",
   "generar_ot",
 ] as const satisfies readonly CustomerAtencionNextStep[]
 
+/**
+ * External actor wait → Pendiente status and Pendientes KPI.
+ * Only esperar_cliente (client / third party outside the company).
+ */
 export const CONSULTATION_WAITING_NEXT_STEPS = [
   "esperar_cliente",
-  "esperar_administracion",
 ] as const satisfies readonly CustomerAtencionNextStep[]
+
+export const CONSULTATION_EXTERNAL_WAIT_NEXT_STEPS =
+  CONSULTATION_WAITING_NEXT_STEPS
+
+export const CONSULTATION_PARA_RESOLVER_KPI_NEXT_STEPS =
+  CONSULTATION_INTERNAL_ACTION_NEXT_STEPS
+
+/**
+ * "Nuevas" KPI = active consultations created on the reference date.
+ * Kept for operational volume; may be redefined or removed later.
+ */
+export const SHARED_INBOX_NUEVAS_KPI_CREATED_TODAY = true
+
+/** Sprint 2.8 delivered the Próximo Paso menu restructuring. */
+export const CONTINUAR_GESTION_MENU_REVIEW_PLANNED = false
 
 export const CONTINUAR_GESTION_DEFAULT_RESOLUTION =
   "Consulta registrada para continuar gestión."
@@ -101,15 +126,27 @@ export function isConsultationWaitingNextStep(
   return (CONSULTATION_WAITING_NEXT_STEPS as readonly string[]).includes(nextStep)
 }
 
+export function isConsultationExternalWaitNextStep(
+  nextStep: CustomerAtencionNextStep
+): boolean {
+  return (CONSULTATION_EXTERNAL_WAIT_NEXT_STEPS as readonly string[]).includes(
+    nextStep
+  )
+}
+
+export function isConsultationParaResolverKpiNextStep(
+  nextStep: CustomerAtencionNextStep
+): boolean {
+  return (CONSULTATION_PARA_RESOLVER_KPI_NEXT_STEPS as readonly string[]).includes(
+    nextStep
+  )
+}
+
 export function resolveInitialConsultationStatusFromNextStep(
   nextStep: CustomerAtencionNextStep
 ): CustomerAtencionStatus {
   if (isConsultationWaitingNextStep(nextStep)) {
     return "pendiente"
-  }
-
-  if (isConsultationInternalActionNextStep(nextStep)) {
-    return "para_resolver"
   }
 
   return "para_resolver"

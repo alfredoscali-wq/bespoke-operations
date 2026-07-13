@@ -20,6 +20,7 @@ import {
   OperarioTaskLocationCard,
   OperarioTaskReferencePhotos,
   OperarioTaskServiceInfoCard,
+  OperarioTaskWorkInfoCard,
 } from "@/components/operario/operario-task-field-sections"
 import { isOperarioWorkerTaskAccessible } from "@/lib/data/operario"
 import { OperarioFtthInstallationCard } from "@/components/operario/operario-ftth-installation-card"
@@ -244,11 +245,12 @@ export function OperarioTaskDetailScreen({ id }: OperarioTaskDetailScreenProps) 
         </Alert>
       ) : null}
 
-      {/* 3. Cliente · 4. Dirección · 5. Información del servicio */}
+      {/* 3. Cliente · 4. Dirección · 5. Información del servicio · Trabajo */}
       <div className="space-y-2">
         <OperarioTaskClientCard task={activeTask} />
         <OperarioTaskLocationCard task={activeTask} />
         <OperarioTaskServiceInfoCard task={activeTask} />
+        <OperarioTaskWorkInfoCard task={activeTask} />
       </div>
 
       {/* 6. Observaciones */}

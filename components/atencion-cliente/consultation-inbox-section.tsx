@@ -16,7 +16,9 @@ import {
 } from "@/lib/customer-atenciones/format"
 import { truncateConsultationDetail } from "@/lib/customer-atenciones/shared-inbox"
 import { isAdministrationConsultation } from "@/lib/customer-atenciones/administration-flow"
+import { isMorosoConsultation } from "@/lib/customer-atenciones/moroso-flow"
 import { isRetentionConsultation } from "@/lib/customer-atenciones/retention-flow"
+import { isTechnicalConsultation } from "@/lib/customer-atenciones/technical-flow"
 import type { CustomerAtencionInboxRow } from "@/lib/types/customer-atenciones"
 import type {
   SharedInboxQuery,
@@ -105,6 +107,22 @@ function ConsultationInboxCard({ item }: { item: CustomerAtencionInboxRow }) {
                 className="border-amber-200 bg-amber-500/10 text-xs text-amber-800"
               >
                 Administración
+              </Badge>
+            ) : null}
+            {isTechnicalConsultation(item) ? (
+              <Badge
+                variant="outline"
+                className="border-violet-200 bg-violet-500/10 text-xs text-violet-800"
+              >
+                Técnica
+              </Badge>
+            ) : null}
+            {isMorosoConsultation(item) ? (
+              <Badge
+                variant="outline"
+                className="border-orange-200 bg-orange-500/10 text-xs text-orange-800"
+              >
+                Morosos
               </Badge>
             ) : null}
           </div>

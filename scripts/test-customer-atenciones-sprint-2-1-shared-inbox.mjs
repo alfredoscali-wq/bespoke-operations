@@ -58,6 +58,7 @@ const sampleRows = [
   row({
     id: "2",
     status: "para_resolver",
+    nextStep: "realizar_retencion",
     attendedByEmployeeId: "employee-2",
     attendedByEmployeeName: "María",
     createdAt: "2026-07-11T09:00:00.000Z",
@@ -66,6 +67,7 @@ const sampleRows = [
   row({
     id: "3",
     status: "en_gestion",
+    nextStep: "derivar_admin_facturacion",
     attendedByEmployeeId: "employee-1",
     activeManagementEmployeeId: "employee-3",
     activeManagementEmployeeName: "Pedro",
@@ -74,6 +76,7 @@ const sampleRows = [
   row({
     id: "4",
     status: "pendiente",
+    nextStep: "esperar_cliente",
     attendedByEmployeeId: "employee-2",
     attendedByEmployeeName: "María",
     createdAt: "2026-07-10T08:00:00.000Z",
@@ -94,15 +97,15 @@ const sampleRows = [
   }),
 ]
 
-test("1. KPI Nuevas cuenta status nueva", () => {
-  assert.equal(computeSharedInboxKpis(sampleRows, referenceDate).nuevas, 1)
+test("1. KPI Nuevas cuenta consultas activas creadas hoy", () => {
+  assert.equal(computeSharedInboxKpis(sampleRows, referenceDate).nuevas, 2)
 })
 
-test("2. KPI Para resolver cuenta para_resolver", () => {
-  assert.equal(computeSharedInboxKpis(sampleRows, referenceDate).para_resolver, 1)
+test("2. KPI Para resolver cuenta trabajo interno pendiente", () => {
+  assert.equal(computeSharedInboxKpis(sampleRows, referenceDate).para_resolver, 2)
 })
 
-test("3. KPI Pendientes cuenta pendiente", () => {
+test("3. KPI Pendientes cuenta espera de actor externo", () => {
   assert.equal(computeSharedInboxKpis(sampleRows, referenceDate).pendientes, 1)
 })
 
@@ -115,9 +118,9 @@ test("5. Resueltas anteriores no cuentan en Resueltas hoy", () => {
   assert.equal(computeSharedInboxKpis(onlyOld, referenceDate).resueltas_hoy, 0)
 })
 
-test("6. en_gestion no cuenta en Para resolver", () => {
+test("6. en_gestion con próximo paso interno cuenta en Para resolver", () => {
   const kpis = computeSharedInboxKpis(sampleRows, referenceDate)
-  assert.equal(kpis.para_resolver, 1)
+  assert.equal(kpis.para_resolver, 2)
   assert.equal(
     sampleRows.filter((item) => item.status === "en_gestion").length,
     1
@@ -134,8 +137,8 @@ test("7. KPIs no filtran por attended_by_employee_id", () => {
 
   assert.notEqual(employeeOneOnly.length, sampleRows.length)
   assert.notEqual(employeeTwoOnly.length, sampleRows.length)
-  assert.equal(computeSharedInboxKpis(sampleRows, referenceDate).nuevas, 1)
-  assert.equal(computeSharedInboxKpis(employeeOneOnly, referenceDate).nuevas, 1)
+  assert.equal(computeSharedInboxKpis(sampleRows, referenceDate).nuevas, 2)
+  assert.equal(computeSharedInboxKpis(employeeOneOnly, referenceDate).nuevas, 2)
 })
 
 test("8. Bandeja contiene Consultas de distintos empleados", () => {
@@ -161,9 +164,9 @@ test("10. filtro Nuevas", () => {
     statusFilter: "nueva",
     motivo: "all",
     channel: "all",
-  })
-  assert.equal(filtered.length, 1)
-  assert.equal(filtered[0]?.status, "nueva")
+  }, referenceDate)
+  assert.equal(filtered.length, 2)
+  assert.ok(filtered.every((item) => item.createdAt.startsWith("2026-07-12")))
 })
 
 test("11. filtro Para resolver", () => {
@@ -171,9 +174,15 @@ test("11. filtro Para resolver", () => {
     statusFilter: "para_resolver",
     motivo: "all",
     channel: "all",
-  })
-  assert.equal(filtered.length, 1)
-  assert.equal(filtered[0]?.status, "para_resolver")
+  }, referenceDate)
+  assert.equal(filtered.length, 2)
+  assert.ok(
+    filtered.every(
+      (item) =>
+        item.nextStep === "realizar_retencion" ||
+        item.nextStep === "derivar_admin_facturacion"
+    )
+  )
 })
 
 test("12. filtro En gestión", () => {
@@ -191,9 +200,9 @@ test("13. filtro Pendientes", () => {
     statusFilter: "pendiente",
     motivo: "all",
     channel: "all",
-  })
+  }, referenceDate)
   assert.equal(filtered.length, 1)
-  assert.equal(filtered[0]?.status, "pendiente")
+  assert.equal(filtered[0]?.nextStep, "esperar_cliente")
 })
 
 test("14. filtro Resueltas", () => {
@@ -241,11 +250,11 @@ test("20. muestra motivo", () => {
 test("21. muestra próximo paso", () => {
   const withStep = row({
     id: "7",
-    nextStep: "resolver_facturacion",
+    nextStep: "derivar_admin_facturacion",
   })
   assert.equal(
     formatCustomerAtencionNextStepLabel(withStep.nextStep),
-    "Resolver facturación"
+    "Derivar Administración - Facturación"
   )
 })
 
@@ -281,12 +290,17 @@ test("25. creación con seguimiento actualiza Bandeja", () => {
   const created = row({
     id: "9",
     status: deriveConsultationStatusFromResultado("requiere_seguimiento"),
+    nextStep: "esperar_cliente",
   })
-  const filtered = filterSharedInboxRows([...sampleRows, created], {
-    statusFilter: "pendiente",
-    motivo: "all",
-    channel: "all",
-  })
+  const filtered = filterSharedInboxRows(
+    [...sampleRows, created],
+    {
+      statusFilter: "pendiente",
+      motivo: "all",
+      channel: "all",
+    },
+    referenceDate
+  )
   assert.equal(filtered.length, 2)
 })
 
@@ -362,8 +376,8 @@ test("mapSharedInboxKpiToStatusFilter enlaza KPIs clicables", () => {
 test("labels de estado y próximo paso centralizados", () => {
   assert.equal(formatCustomerAtencionStatusLabel("pendiente"), "Pendiente")
   assert.equal(
-    formatCustomerAtencionNextStepLabel("esperar_administracion"),
-    "Esperar Administración"
+    formatCustomerAtencionNextStepLabel("derivar_admin_gestion"),
+    "Derivar Administración - Gestión administrativa"
   )
 })
 
@@ -372,7 +386,8 @@ test("31. KPIs de bandeja usan conteos company-wide en la base de datos", () => 
 
   assert.match(queriesSource, /fetchSharedInboxKpiSummaryFromDb/)
   assert.match(queriesSource, /fetchSharedInboxResolvedTodayCount/)
-  assert.match(queriesSource, /fetchSharedInboxStatusCount/)
+  assert.match(queriesSource, /fetchSharedInboxActiveNextStepCount/)
+  assert.match(queriesSource, /fetchSharedInboxNuevasKpiCount/)
   assert.doesNotMatch(
     queriesSource,
     /kpis: computeSharedInboxKpis\(sourceResult\.data/

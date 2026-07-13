@@ -525,7 +525,7 @@ export function AtencionFormDialog({
                     }))
                   }
                 >
-                  Continuar gestion
+                  Continuar con próximo paso
                 </Button>
               </div>
             </div>
@@ -548,7 +548,7 @@ export function AtencionFormDialog({
               </div>
             ) : (
               <div className="space-y-2">
-                <Label htmlFor="atencion-next-step">Proximo paso</Label>
+                <Label htmlFor="atencion-next-step">Próximo paso</Label>
                 <Select
                   value={form.nextStep}
                   onValueChange={(value) =>

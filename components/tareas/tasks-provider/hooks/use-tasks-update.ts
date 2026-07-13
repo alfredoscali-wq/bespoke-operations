@@ -147,6 +147,9 @@ export function useTasksUpdate({
       ...(payload.paymentMethod !== undefined
         ? { paymentMethod: payload.paymentMethod ?? undefined }
         : {}),
+      ...(payload.taskMetadata !== undefined
+        ? { taskMetadata: payload.taskMetadata }
+        : {}),
       ...(payload.originalScheduledDate !== undefined
         ? { originalScheduledDate: payload.originalScheduledDate ?? undefined }
         : {}),

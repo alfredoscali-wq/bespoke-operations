@@ -89,3 +89,121 @@ export function deferConsultationManagement(
 
   return postConsultationManagement(`/api/atencion-cliente/${atencionId}/defer`, body)
 }
+
+export type MorosoTrackingApiResponse =
+  | {
+      success: true
+      atencionId: string
+      previousTrackingStatus: string | null
+      newTrackingStatus: string
+    }
+  | {
+      success: false
+      message: string
+      code?: string
+    }
+
+export type MorosoTrackingMutationResult =
+  | {
+      success: true
+      atencionId: string
+      previousTrackingStatus: string | null
+      newTrackingStatus: string
+    }
+  | { success: false; message: string; code?: string }
+
+export async function updateMorosoTrackingManagement(
+  atencionId: string,
+  trackingStatus: string
+): Promise<MorosoTrackingMutationResult> {
+  const response = await fetch(`/api/atencion-cliente/${atencionId}/moroso-tracking`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ trackingStatus }),
+  })
+
+  const payload = (await response.json().catch(() => null)) as
+    | MorosoTrackingApiResponse
+    | null
+
+  if (!response.ok || !payload || payload.success !== true) {
+    return {
+      success: false,
+      message:
+        payload && payload.success === false
+          ? payload.message
+          : "No se pudo actualizar el seguimiento de morosos.",
+      code:
+        payload && payload.success === false ? payload.code : undefined,
+    }
+  }
+
+  return {
+    success: true,
+    atencionId: payload.atencionId,
+    previousTrackingStatus: payload.previousTrackingStatus,
+    newTrackingStatus: payload.newTrackingStatus,
+  }
+}
+
+export type OtLinkApiResponse =
+  | {
+      success: true
+      atencionId: string
+      linkedTaskId: string
+      linkedTaskCode: string
+      otLinkedAt: string
+      otLinkedByEmployeeId: string
+    }
+  | {
+      success: false
+      message: string
+      code?: string
+    }
+
+export type OtLinkMutationResult =
+  | {
+      success: true
+      atencionId: string
+      linkedTaskId: string
+      linkedTaskCode: string
+      otLinkedAt: string
+      otLinkedByEmployeeId: string
+    }
+  | { success: false; message: string; code?: string }
+
+export async function linkConsultationOtManagement(
+  atencionId: string,
+  taskId: string
+): Promise<OtLinkMutationResult> {
+  const response = await fetch(`/api/atencion-cliente/${atencionId}/link-ot`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ taskId }),
+  })
+
+  const payload = (await response.json().catch(() => null)) as
+    | OtLinkApiResponse
+    | null
+
+  if (!response.ok || !payload || payload.success !== true) {
+    return {
+      success: false,
+      message:
+        payload && payload.success === false
+          ? payload.message
+          : "No se pudo vincular la OT a la consulta.",
+      code:
+        payload && payload.success === false ? payload.code : undefined,
+    }
+  }
+
+  return {
+    success: true,
+    atencionId: payload.atencionId,
+    linkedTaskId: payload.linkedTaskId,
+    linkedTaskCode: payload.linkedTaskCode,
+    otLinkedAt: payload.otLinkedAt,
+    otLinkedByEmployeeId: payload.otLinkedByEmployeeId,
+  }
+}

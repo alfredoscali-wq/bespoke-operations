@@ -6,6 +6,11 @@ import type {
   CustomerAtencionStatus,
 } from "@/lib/types/customer-atenciones"
 
+import {
+  isConsultationExternalWaitNextStep,
+  isConsultationParaResolverKpiNextStep,
+} from "@/lib/customer-atenciones/consultation"
+
 export const SHARED_INBOX_MAX_ROWS = 250
 
 export type SharedInboxStatusFilter =
@@ -28,6 +33,8 @@ export type SharedInboxOperationalCategory =
   | "administracion"
   | "tecnica"
   | "contactar_cliente"
+  | "morosos"
+  | "generar_ot"
 
 export type SharedInboxOperationalCounts = Record<
   SharedInboxOperationalCategory,
@@ -35,7 +42,14 @@ export type SharedInboxOperationalCounts = Record<
 >
 
 export const SHARED_INBOX_OPERATIONAL_CATEGORY_ORDER: SharedInboxOperationalCategory[] =
-  ["retenciones", "administracion", "tecnica", "contactar_cliente"]
+  [
+    "retenciones",
+    "administracion",
+    "morosos",
+    "tecnica",
+    "contactar_cliente",
+    "generar_ot",
+  ]
 
 export const SHARED_INBOX_OPERATIONAL_CATEGORY_CONFIG: Record<
   SharedInboxOperationalCategory,
@@ -47,15 +61,27 @@ export const SHARED_INBOX_OPERATIONAL_CATEGORY_CONFIG: Record<
   },
   administracion: {
     label: "Administración",
-    nextSteps: ["resolver_facturacion", "esperar_administracion"],
+    nextSteps: [
+      "derivar_admin_facturacion",
+      "derivar_admin_gestion",
+      "derivar_admin_morosos",
+    ],
+  },
+  morosos: {
+    label: "Morosos",
+    nextSteps: ["derivar_admin_morosos"],
   },
   tecnica: {
     label: "Técnica",
-    nextSteps: ["analizar_problema_tecnico", "generar_ot"],
+    nextSteps: ["resolver_consulta_tecnica"],
   },
   contactar_cliente: {
     label: "Ventas",
     nextSteps: ["contactar_cliente"],
+  },
+  generar_ot: {
+    label: "Pendiente de generar OT",
+    nextSteps: ["generar_ot"],
   },
 }
 
@@ -115,6 +141,65 @@ export function isConsultationResolvedToday(
   return row.updatedAt >= start && row.updatedAt < end
 }
 
+export function isConsultationCreatedToday(
+  row: Pick<CustomerAtencionInboxRow, "status" | "createdAt">,
+  referenceDate: Date
+): boolean {
+  if (row.status === "resuelta") {
+    return false
+  }
+
+  const { start, end } = getConsultationDayBoundsIso(referenceDate)
+  return row.createdAt >= start && row.createdAt < end
+}
+
+export function matchesParaResolverKpi(
+  row: Pick<CustomerAtencionInboxRow, "status" | "nextStep">
+): boolean {
+  if (row.status === "resuelta" || !row.nextStep) {
+    return false
+  }
+
+  return isConsultationParaResolverKpiNextStep(row.nextStep)
+}
+
+export function matchesPendientesKpi(
+  row: Pick<CustomerAtencionInboxRow, "status" | "nextStep">
+): boolean {
+  if (row.status === "resuelta" || !row.nextStep) {
+    return false
+  }
+
+  return isConsultationExternalWaitNextStep(row.nextStep)
+}
+
+export function matchesNuevasKpi(
+  row: Pick<CustomerAtencionInboxRow, "status" | "createdAt">,
+  referenceDate: Date = new Date()
+): boolean {
+  return isConsultationCreatedToday(row, referenceDate)
+}
+
+export function matchesMainKpiFilter(
+  row: CustomerAtencionInboxRow,
+  kpi: SharedInboxKpiKey,
+  referenceDate: Date = new Date()
+): boolean {
+  if (kpi === "nuevas") {
+    return matchesNuevasKpi(row, referenceDate)
+  }
+
+  if (kpi === "para_resolver") {
+    return matchesParaResolverKpi(row)
+  }
+
+  if (kpi === "pendientes") {
+    return matchesPendientesKpi(row)
+  }
+
+  return isConsultationResolvedToday(row, referenceDate)
+}
+
 export function computeSharedInboxKpis(
   rows: CustomerAtencionInboxRow[],
   referenceDate: Date = new Date()
@@ -125,15 +210,15 @@ export function computeSharedInboxKpis(
   let resueltas_hoy = 0
 
   for (const row of rows) {
-    if (row.status === "nueva") {
+    if (matchesNuevasKpi(row, referenceDate)) {
       nuevas += 1
     }
 
-    if (row.status === "para_resolver") {
+    if (matchesParaResolverKpi(row)) {
       para_resolver += 1
     }
 
-    if (row.status === "pendiente") {
+    if (matchesPendientesKpi(row)) {
       pendientes += 1
     }
 
@@ -189,8 +274,10 @@ export function computeOperationalWorkCounts(
   const counts: SharedInboxOperationalCounts = {
     retenciones: 0,
     administracion: 0,
+    morosos: 0,
     tecnica: 0,
     contactar_cliente: 0,
+    generar_ot: 0,
   }
 
   for (const row of rows) {
@@ -198,9 +285,11 @@ export function computeOperationalWorkCounts(
       continue
     }
 
-    const category = getOperationalCategoryForNextStep(row.nextStep)
-    if (category) {
-      counts[category] += 1
+    // Morosos also rolls into Administración: a row may match multiple categories.
+    for (const category of SHARED_INBOX_OPERATIONAL_CATEGORY_ORDER) {
+      if (matchesOperationalCategory(row, category)) {
+        counts[category] += 1
+      }
     }
   }
 
@@ -243,20 +332,41 @@ export function mapSharedInboxKpiToStatusFilter(
   return "all"
 }
 
+function matchesStatusFilter(
+  row: CustomerAtencionInboxRow,
+  statusFilter: SharedInboxStatusFilter,
+  referenceDate: Date
+): boolean {
+  if (statusFilter === "resueltas_hoy") {
+    return isConsultationResolvedToday(row, referenceDate)
+  }
+
+  if (statusFilter === "nueva") {
+    return matchesNuevasKpi(row, referenceDate)
+  }
+
+  if (statusFilter === "para_resolver") {
+    return matchesParaResolverKpi(row)
+  }
+
+  if (statusFilter === "pendiente") {
+    return matchesPendientesKpi(row)
+  }
+
+  if (statusFilter === "all") {
+    return true
+  }
+
+  return row.status === statusFilter
+}
+
 export function filterSharedInboxRows(
   rows: CustomerAtencionInboxRow[],
   query: SharedInboxQuery,
   referenceDate: Date = new Date()
 ): CustomerAtencionInboxRow[] {
   return rows.filter((row) => {
-    if (query.statusFilter === "resueltas_hoy") {
-      if (!isConsultationResolvedToday(row, referenceDate)) {
-        return false
-      }
-    } else if (
-      query.statusFilter !== "all" &&
-      row.status !== query.statusFilter
-    ) {
+    if (!matchesStatusFilter(row, query.statusFilter, referenceDate)) {
       return false
     }
 

@@ -3,13 +3,11 @@
 import { useEffect, useState } from "react"
 
 import {
-  mapAdministrationOutcomeToAction,
-  buildAdministrationDeferInput,
-  buildAdministrationResolvedInput,
-  validateAdministrationDeferDetail,
-  validateAdministrationResolvedResolution,
-  type AdministrationOutcome,
-} from "@/lib/customer-atenciones/administration-flow"
+  mapTechnicalOutcomeToAction,
+  validateTechnicalDeferDetail,
+  validateTechnicalResolvedResolution,
+  type TechnicalOutcome,
+} from "@/lib/customer-atenciones/technical-flow"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -24,16 +22,16 @@ import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 
 const OUTCOME_OPTIONS: {
-  value: AdministrationOutcome
+  value: TechnicalOutcome
   label: string
 }[] = [
-  { value: "gestion_resuelta", label: "Gestión resuelta" },
+  { value: "consulta_resuelta", label: "Consulta técnica resuelta" },
   { value: "seguimiento_con_cliente", label: "Seguimiento con cliente" },
-  { value: "esperando_documentacion", label: "Esperando documentación" },
-  { value: "confirmar_baja", label: "Confirmar baja" },
+  { value: "pendiente_generar_ot", label: "Pendiente de generar OT" },
+  { value: "esperando_cliente", label: "Esperar cliente" },
 ]
 
-type AdministrationResultDialogProps = {
+type TechnicalResultDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   onResolve: (resolution: string) => Promise<{ success: boolean; message?: string }>
@@ -43,13 +41,13 @@ type AdministrationResultDialogProps = {
   ) => Promise<{ success: boolean; message?: string }>
 }
 
-export function AdministrationResultDialog({
+export function TechnicalResultDialog({
   open,
   onOpenChange,
   onResolve,
   onDefer,
-}: AdministrationResultDialogProps) {
-  const [outcome, setOutcome] = useState<AdministrationOutcome | null>(null)
+}: TechnicalResultDialogProps) {
+  const [outcome, setOutcome] = useState<TechnicalOutcome | null>(null)
   const [note, setNote] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -68,40 +66,35 @@ export function AdministrationResultDialog({
     setError(null)
 
     if (!outcome) {
-      setError("Seleccioná el resultado de la gestión administrativa.")
+      setError("Seleccioná el resultado de la gestión técnica.")
       return
     }
 
     setIsSubmitting(true)
 
     try {
-      const action = mapAdministrationOutcomeToAction(outcome)
+      const action = mapTechnicalOutcomeToAction(outcome)
 
       if (action.kind === "resolve") {
-        const resolutionResult = validateAdministrationResolvedResolution(note)
+        const resolutionResult = validateTechnicalResolvedResolution(note)
         if (typeof resolutionResult !== "string") {
           setError(resolutionResult.error)
           return
         }
 
-        const result = await onResolve(
-          buildAdministrationResolvedInput(resolutionResult).resolution
-        )
-
+        const result = await onResolve(resolutionResult)
         if (!result.success) {
           setError(result.message ?? "No se pudo registrar el resultado.")
           return
         }
       } else {
-        const detailResult = validateAdministrationDeferDetail(note)
+        const detailResult = validateTechnicalDeferDetail(note)
         if (typeof detailResult !== "string") {
           setError(detailResult.error)
           return
         }
 
-        const deferInput = buildAdministrationDeferInput(action.nextStep!, detailResult)
-        const result = await onDefer(deferInput.nextStep, deferInput.detail)
-
+        const result = await onDefer(action.nextStep!, detailResult)
         if (!result.success) {
           setError(result.message ?? "No se pudo registrar el resultado.")
           return
@@ -114,30 +107,15 @@ export function AdministrationResultDialog({
     }
   }
 
-  const noteLabel =
-    outcome === "gestion_resuelta"
-      ? "Resolución administrativa"
-      : "Detalle operativo"
-
-  const notePlaceholder =
-    outcome === "gestion_resuelta"
-      ? "Ej.: gestión administrativa completa…"
-      : outcome === "seguimiento_con_cliente"
-        ? "Ej.: informar a Atención para validar con el cliente…"
-        : outcome === "esperando_documentacion"
-          ? "Ej.: se solicitó documentación al cliente…"
-          : outcome === "confirmar_baja"
-            ? "Ej.: baja confirmada, pendiente generar OT…"
-            : ""
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Resultado administrativo</DialogTitle>
+            <DialogTitle>Resultado técnico</DialogTitle>
             <DialogDescription>
-              Registrá el resultado de la gestión administrativa sobre esta consulta.
+              Registrá el resultado de la intervención técnica. Atención puede
+              validar con el cliente después.
             </DialogDescription>
           </DialogHeader>
 
@@ -164,25 +142,14 @@ export function AdministrationResultDialog({
 
             {outcome ? (
               <div className="space-y-2">
-                <Label htmlFor="administration-note">{noteLabel}</Label>
+                <Label htmlFor="technical-note">Detalle / resolución</Label>
                 <Textarea
-                  id="administration-note"
+                  id="technical-note"
                   value={note}
                   onChange={(event) => setNote(event.target.value)}
                   rows={4}
-                  placeholder={notePlaceholder}
+                  placeholder="Describí el resultado técnico…"
                 />
-                {outcome === "confirmar_baja" ? (
-                  <p className="text-xs text-muted-foreground">
-                    La consulta quedará en Pendiente de generar OT. No se creará
-                    ninguna OT en este paso.
-                  </p>
-                ) : null}
-                {outcome === "seguimiento_con_cliente" ? (
-                  <p className="text-xs text-muted-foreground">
-                    Atención al Cliente deberá validar el resultado con el cliente.
-                  </p>
-                ) : null}
               </div>
             ) : null}
 

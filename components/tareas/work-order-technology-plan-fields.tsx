@@ -12,6 +12,7 @@ import {
   type WorkOrderTechnology,
 } from "@/lib/tasks/work-order"
 import { cn } from "@/lib/utils"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -23,7 +24,7 @@ import {
 
 type CommercialFormSlice = Pick<
   WorkOrderFormInput,
-  "serviceType" | "technology" | "contractedPlan"
+  "serviceType" | "technology" | "contractedPlan" | "installationIp"
 >
 
 type WorkOrderTechnologyPlanFieldsProps<T extends CommercialFormSlice> = {
@@ -56,6 +57,9 @@ export function WorkOrderTechnologyPlanFields<T extends CommercialFormSlice>({
       "contractedPlan" as keyof T,
       sanitizePlanForTechnology(form.contractedPlan, value) as T[keyof T]
     )
+    if (value !== "wireless") {
+      updateField("installationIp" as keyof T, "" as T[keyof T])
+    }
   }
 
   return (
@@ -124,6 +128,24 @@ export function WorkOrderTechnologyPlanFields<T extends CommercialFormSlice>({
               })}
             </div>
           )}
+        </div>
+      ) : null}
+
+      {isWireless ? (
+        <div className="space-y-2">
+          <Label htmlFor="installation-ip">IP de Instalación *</Label>
+          <Input
+            id="installation-ip"
+            value={form.installationIp}
+            onChange={(event) =>
+              updateField(
+                "installationIp" as keyof T,
+                event.target.value as T[keyof T]
+              )
+            }
+            placeholder="Ej: 192.168.100.15"
+            autoComplete="off"
+          />
         </div>
       ) : null}
     </div>

@@ -137,6 +137,7 @@ export function TaskRowActions({
     contractedPlan?: string | null
     amountToCollect?: number | null
     sharedLocation?: string | null
+    taskMetadata?: Record<string, unknown>
   }) {
     const selectedCrew = getCrew(payload.crewId)
     const snapshots = resolveCrewSnapshotsForAssignment(selectedCrew)
@@ -163,6 +164,9 @@ export function TaskRowActions({
         : {}),
       ...(payload.sharedLocation !== undefined
         ? { sharedLocation: payload.sharedLocation }
+        : {}),
+      ...(payload.taskMetadata !== undefined
+        ? { taskMetadata: payload.taskMetadata }
         : {}),
     })
 

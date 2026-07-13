@@ -15,6 +15,7 @@ import {
   resolveFinalTechnologyFromTask,
   resolveTechnologyLabel,
 } from "@/lib/tasks/ftth-installation"
+import { resolveInstallationIpForDisplay, resolveServiceTechnicalWorkInfoFromTask } from "@/lib/tasks/work-order"
 import { isCambioDomicilioTask, parseCambioDomicilioFromTask } from "@/lib/tasks/cambio-domicilio"
 import { buildGoogleMapsNavigationUrl, hasCoordinates } from "@/lib/gps"
 import type { Task } from "@/lib/types/tasks"
@@ -219,6 +220,7 @@ export function OperarioTaskServiceInfoCard({
       (currentTechnology === finalTechnology ? task.contractedPlan : null)
   )
   const finalPlanLabel = formatContractedPlanLabel(task.contractedPlan)
+  const installationIp = resolveInstallationIpForDisplay(task)
   const amountLabel =
     task.amountToCollect != null
       ? formatAmountToCollectDisplay(task.amountToCollect)
@@ -229,7 +231,7 @@ export function OperarioTaskServiceInfoCard({
     (currentTechnologyLabel || finalTechnologyLabel || currentPlanLabel || finalPlanLabel)
   const hasSimpleInfo =
     !isDualTechnology &&
-    (finalTechnologyLabel || finalPlanLabel || amountLabel)
+    (finalTechnologyLabel || finalPlanLabel || installationIp || amountLabel)
 
   if (!hasDualInfo && !hasSimpleInfo) {
     return null
@@ -274,8 +276,47 @@ export function OperarioTaskServiceInfoCard({
         {finalPlanLabel ? (
           <ServiceInfoRow label="Plan contratado" value={finalPlanLabel} />
         ) : null}
+        {installationIp ? (
+          <ServiceInfoRow label="IP de Instalación" value={installationIp} />
+        ) : null}
         {amountLabel ? (
           <ServiceInfoRow label="Importe a cobrar" value={amountLabel} />
+        ) : null}
+      </div>
+    </section>
+  )
+}
+
+type OperarioTaskWorkInfoCardProps = {
+  task: Task
+}
+
+export function OperarioTaskWorkInfoCard({ task }: OperarioTaskWorkInfoCardProps) {
+  const workInfo = resolveServiceTechnicalWorkInfoFromTask(task)
+  if (!workInfo) {
+    return null
+  }
+
+  if (!workInfo.reasonLabel && !workInfo.detail) {
+    return null
+  }
+
+  return (
+    <section className="rounded-xl border bg-card px-4 py-3 shadow-sm">
+      <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        Información del Trabajo
+      </h2>
+      <div>
+        {workInfo.reasonLabel ? (
+          <ServiceInfoRow label="Motivo" value={workInfo.reasonLabel} />
+        ) : null}
+        {workInfo.detail ? (
+          <div className="border-b border-border/60 py-2 last:border-0 last:pb-0">
+            <p className="text-xs text-muted-foreground">Detalle</p>
+            <p className="mt-1 whitespace-pre-wrap text-sm font-semibold leading-snug text-foreground">
+              {workInfo.detail}
+            </p>
+          </div>
         ) : null}
       </div>
     </section>

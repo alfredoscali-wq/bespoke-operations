@@ -5,6 +5,7 @@ import {
   isCustomerAtencionStatus,
   resolveInitialConsultationStatusFromNextStep,
 } from "@/lib/customer-atenciones/consultation"
+import { DEFAULT_MOROSO_TRACKING_STATUS, isMorosoTrackingStatus } from "@/lib/customer-atenciones/moroso-flow"
 import type {
   CustomerAtencionInsert,
   CustomerAtencionRow,
@@ -17,6 +18,7 @@ import {
   type CustomerAtencionNextStep,
   type CustomerAtencionResultado,
   type CustomerAtencionStatus,
+  type MorosoTrackingStatus,
 } from "@/lib/types/customer-atenciones"
 import type { CreateCustomerAtencionPayload } from "@/lib/types/supabase/customer-atenciones"
 
@@ -80,6 +82,16 @@ function parseNextStep(
   return null
 }
 
+function parseMorosoTrackingStatus(
+  value: string | null | undefined
+): MorosoTrackingStatus | null {
+  if (value && isMorosoTrackingStatus(value)) {
+    return value
+  }
+
+  return null
+}
+
 export function mapCustomerAtencionRowToCustomerAtencion(
   row: CustomerAtencionRow
 ): CustomerAtencion {
@@ -95,6 +107,11 @@ export function mapCustomerAtencionRowToCustomerAtencion(
     resultado: parseResultado(row.resultado),
     status: parseStatus(row.status),
     nextStep: parseNextStep(row.next_step),
+    morosoTrackingStatus: parseMorosoTrackingStatus(row.moroso_tracking_status),
+    linkedTaskId: row.linked_task_id ?? null,
+    linkedTaskCode: row.linked_task_code ?? null,
+    otLinkedAt: row.ot_linked_at ?? null,
+    otLinkedByEmployeeId: row.ot_linked_by_employee_id ?? null,
     activeManagementEmployeeId: row.active_management_employee_id,
     activeManagementStartedAt: row.active_management_started_at,
     createdAt: row.created_at,
@@ -128,6 +145,8 @@ export function mapCreateCustomerAtencionPayloadToInsert(
     resultado,
     status,
     next_step: nextStep,
+    moroso_tracking_status:
+      nextStep === "derivar_admin_morosos" ? DEFAULT_MOROSO_TRACKING_STATUS : null,
     active_management_employee_id: null,
     active_management_started_at: null,
   }

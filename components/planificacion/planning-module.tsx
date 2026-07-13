@@ -28,6 +28,8 @@ import { PlanningTaskAdjustSheet } from "@/components/planificacion/planning-tas
 
 import { PlanningTaskList } from "@/components/planificacion/planning-task-list"
 
+import { PlanningPrintMaterialsDialog } from "@/components/planificacion/planning-print-materials-dialog"
+
 import { PlanningToolbar } from "@/components/planificacion/planning-toolbar"
 
 import { useTasks } from "@/components/tareas/tasks-provider"
@@ -153,6 +155,8 @@ function PlanningModuleContent() {
     useState<string | null>(null)
 
   const [incidentsSheetOpen, setIncidentsSheetOpen] = useState(false)
+
+  const [printMaterialsOpen, setPrintMaterialsOpen] = useState(false)
 
   const [selectedPlanningIncidentId, setSelectedPlanningIncidentId] = useState<
     string | null
@@ -892,6 +896,8 @@ function PlanningModuleContent() {
 
         }}
 
+        onPrintMaterials={() => setPrintMaterialsOpen(true)}
+
       />
 
 
@@ -1131,6 +1137,22 @@ function PlanningModuleContent() {
           }
 
         }}
+
+      />
+
+      <PlanningPrintMaterialsDialog
+
+        open={printMaterialsOpen}
+
+        onOpenChange={setPrintMaterialsOpen}
+
+        planningDate={date}
+
+        tasks={filteredTasks}
+
+        crews={activeCrews}
+
+        initialCrewId={crewFilterId}
 
       />
 

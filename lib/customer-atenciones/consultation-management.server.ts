@@ -7,6 +7,18 @@ import {
   type ConsultationManagementErrorCode,
   type ConsultationManagementRpcResult,
 } from "@/lib/customer-atenciones/consultation-management"
+import {
+  mapMorosoTrackingRpcError,
+  parseMorosoTrackingRpcResult,
+  type MorosoTrackingErrorCode,
+  type MorosoTrackingRpcResult,
+} from "@/lib/customer-atenciones/moroso-management"
+import {
+  mapOtLinkRpcError,
+  parseOtLinkRpcResult,
+  type OtLinkErrorCode,
+  type OtLinkRpcResult,
+} from "@/lib/customer-atenciones/ot-link"
 import { logOperationError } from "@/lib/operations/user-messages"
 
 export type ConsultationManagementServerResult =
@@ -100,4 +112,112 @@ export async function deferCustomerAtencionConsultation(input: {
     p_next_step: input.nextStep,
     p_detail: input.detail ?? null,
   })
+}
+
+export type MorosoTrackingServerResult =
+  | { ok: true; data: MorosoTrackingRpcResult }
+  | {
+      ok: false
+      status: number
+      message: string
+      code: MorosoTrackingErrorCode
+    }
+
+async function callMorosoTrackingRpc(
+  args: Record<string, unknown>
+): Promise<MorosoTrackingServerResult> {
+  const admin = createAdminClient()
+
+  const { data, error } = await (admin as unknown as AdminRpcClient).rpc(
+    "update_customer_atencion_moroso_tracking",
+    args
+  )
+
+  if (error) {
+    logOperationError("MOROSO TRACKING", error)
+    const mapped = mapMorosoTrackingRpcError(error.message || "")
+    return {
+      ok: false,
+      status: mapped.status,
+      message: mapped.message,
+      code: mapped.code,
+    }
+  }
+
+  const parsed = parseMorosoTrackingRpcResult(data)
+  if (!parsed) {
+    return {
+      ok: false,
+      status: 500,
+      message: "No se pudo actualizar el seguimiento de morosos.",
+      code: "RPC_EMPTY",
+    }
+  }
+
+  return { ok: true, data: parsed }
+}
+
+export async function updateCustomerAtencionMorosoTracking(input: {
+  companyId: string
+  atencionId: string
+  employeeId: string
+  trackingStatus: string
+}): Promise<MorosoTrackingServerResult> {
+  return callMorosoTrackingRpc({
+    p_company_id: input.companyId,
+    p_atencion_id: input.atencionId,
+    p_employee_id: input.employeeId,
+    p_tracking_status: input.trackingStatus,
+  })
+}
+
+export type OtLinkServerResult =
+  | { ok: true; data: OtLinkRpcResult }
+  | {
+      ok: false
+      status: number
+      message: string
+      code: OtLinkErrorCode
+    }
+
+export async function linkCustomerAtencionToTask(input: {
+  companyId: string
+  atencionId: string
+  employeeId: string
+  taskId: string
+}): Promise<OtLinkServerResult> {
+  const admin = createAdminClient()
+
+  const { data, error } = await (admin as unknown as AdminRpcClient).rpc(
+    "link_customer_atencion_to_task",
+    {
+      p_company_id: input.companyId,
+      p_atencion_id: input.atencionId,
+      p_employee_id: input.employeeId,
+      p_task_id: input.taskId,
+    }
+  )
+
+  if (error) {
+    logOperationError("OT LINK", error)
+    const mapped = mapOtLinkRpcError(error.message || "")
+    return {
+      ok: false,
+      status: mapped.status,
+      message: mapped.message,
+      code: mapped.code,
+    }
+  }
+
+  const parsed = parseOtLinkRpcResult(data)
+  if (!parsed) {
+    return {
+      ok: false,
+      status: 500,
+      message: "No se pudo vincular la OT a la consulta.",
+      code: "RPC_EMPTY",
+    }
+  }
+
+  return { ok: true, data: parsed }
 }

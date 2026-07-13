@@ -7,6 +7,7 @@ import {
 } from "@/lib/customer-atenciones/atencion-list"
 import {
   computeOperationalWorkCounts,
+  computeSharedInboxKpis,
   filterSharedInboxRows,
   getConsultationDayBoundsIso,
   SHARED_INBOX_MAX_ROWS,
@@ -15,6 +16,10 @@ import {
   type SharedInboxOperationalCounts,
   type SharedInboxQuery,
 } from "@/lib/customer-atenciones/shared-inbox"
+import {
+  CONSULTATION_EXTERNAL_WAIT_NEXT_STEPS,
+  CONSULTATION_PARA_RESOLVER_KPI_NEXT_STEPS,
+} from "@/lib/customer-atenciones/consultation"
 import type { CustomerAtencionStatus } from "@/lib/types/customer-atenciones"
 import type { Database } from "@/lib/supabase/database.types"
 import {
@@ -161,6 +166,11 @@ function mapRowToInboxRow(
     resultado: "resuelta",
     status: row.status,
     next_step: row.next_step,
+    moroso_tracking_status: null,
+    linked_task_id: null,
+    linked_task_code: null,
+    ot_linked_at: null,
+    ot_linked_by_employee_id: null,
     active_management_employee_id: row.active_management_employee_id,
     active_management_started_at: row.active_management_started_at,
     created_at: row.created_at,
@@ -265,16 +275,42 @@ async function fetchSharedInboxSourceRows(
   }
 }
 
-async function fetchSharedInboxStatusCount(
+async function fetchSharedInboxActiveNextStepCount(
   client: SupabaseCustomerAtencionesClient,
   companyId: string,
-  status: CustomerAtencionStatus
+  nextSteps: readonly string[]
 ): Promise<CustomerAtencionesRepositoryResult<number>> {
   const { count, error } = await client
     .from("customer_atenciones")
     .select("id", { count: "exact", head: true })
     .eq("company_id", companyId)
-    .eq("status", status)
+    .in("status", SHARED_INBOX_ACTIVE_STATUSES)
+    .in("next_step", [...nextSteps])
+    .is("deleted_at", null)
+
+  if (error) {
+    return { data: null, error: mapSupabaseCustomerAtencionError(error) }
+  }
+
+  return {
+    data: count ?? 0,
+    error: null,
+  }
+}
+
+async function fetchSharedInboxNuevasKpiCount(
+  client: SupabaseCustomerAtencionesClient,
+  companyId: string,
+  referenceDate: Date = new Date()
+): Promise<CustomerAtencionesRepositoryResult<number>> {
+  const { start, end } = getConsultationDayBoundsIso(referenceDate)
+  const { count, error } = await client
+    .from("customer_atenciones")
+    .select("id", { count: "exact", head: true })
+    .eq("company_id", companyId)
+    .in("status", SHARED_INBOX_ACTIVE_STATUSES)
+    .gte("created_at", start)
+    .lt("created_at", end)
     .is("deleted_at", null)
 
   if (error) {
@@ -298,9 +334,17 @@ export async function fetchSharedInboxKpiSummaryFromDb(
     pendientesResult,
     resueltasHoyResult,
   ] = await Promise.all([
-    fetchSharedInboxStatusCount(client, companyId, "nueva"),
-    fetchSharedInboxStatusCount(client, companyId, "para_resolver"),
-    fetchSharedInboxStatusCount(client, companyId, "pendiente"),
+    fetchSharedInboxNuevasKpiCount(client, companyId, referenceDate),
+    fetchSharedInboxActiveNextStepCount(
+      client,
+      companyId,
+      CONSULTATION_PARA_RESOLVER_KPI_NEXT_STEPS
+    ),
+    fetchSharedInboxActiveNextStepCount(
+      client,
+      companyId,
+      CONSULTATION_EXTERNAL_WAIT_NEXT_STEPS
+    ),
     fetchSharedInboxResolvedTodayCount(client, companyId, referenceDate),
   ])
 
@@ -352,15 +396,10 @@ export async function fetchSharedInboxBundle(
     }
   }
 
-  if (kpisResult.error || !kpisResult.data) {
-    return {
-      data: null,
-      error: kpisResult.error ?? {
-        code: "UNKNOWN",
-        message: "No se pudieron cargar los KPIs de la bandeja.",
-      },
-    }
-  }
+  const kpis =
+    kpisResult.error || !kpisResult.data
+      ? computeSharedInboxKpis(sourceResult.data, referenceDate)
+      : kpisResult.data
 
   const filtered = filterSharedInboxRows(
     sourceResult.data,
@@ -370,7 +409,7 @@ export async function fetchSharedInboxBundle(
 
   return {
     data: {
-      kpis: kpisResult.data,
+      kpis,
       operationalCounts: computeOperationalWorkCounts(sourceResult.data),
       rows: sortSharedInboxRows(filtered, query.statusFilter),
     },
@@ -465,6 +504,11 @@ function mapRowToListRow(
     resultado: row.resultado,
     status: "resuelta",
     next_step: null,
+    moroso_tracking_status: null,
+    linked_task_id: null,
+    linked_task_code: null,
+    ot_linked_at: null,
+    ot_linked_by_employee_id: null,
     active_management_employee_id: null,
     active_management_started_at: null,
     created_at: row.created_at,

@@ -6,7 +6,9 @@ import {
   FileText,
   Headphones,
   Phone,
+  Receipt,
   UserCheck,
+  Wrench,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 
@@ -25,18 +27,22 @@ import { cn } from "@/lib/utils"
 const OPERATIONAL_ICONS: Record<SharedInboxOperationalCategory, LucideIcon> = {
   retenciones: UserCheck,
   administracion: FileText,
+  morosos: Receipt,
   tecnica: Headphones,
   contactar_cliente: Phone,
+  generar_ot: Wrench,
 }
 
 const OPERATIONAL_TONES = {
   retenciones: "red",
   administracion: "amber",
+  morosos: "orange",
   tecnica: "violet",
   contactar_cliente: "blue",
+  generar_ot: "gray",
 } as const satisfies Record<
   SharedInboxOperationalCategory,
-  "red" | "amber" | "violet" | "blue"
+  "red" | "amber" | "violet" | "blue" | "orange" | "gray"
 >
 
 type ConsultationOperationalWorkSectionProps = {
@@ -106,7 +112,7 @@ export function ConsultationOperationalWorkSection({
               No hay trabajo clasificado pendiente.
             </p>
           ) : (
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
               {visibleCategories.map((category) => {
                 const Icon = OPERATIONAL_ICONS[category]
                 const config = SHARED_INBOX_OPERATIONAL_CATEGORY_CONFIG[category]

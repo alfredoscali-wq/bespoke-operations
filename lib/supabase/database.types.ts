@@ -195,6 +195,11 @@ export type Database = {
           resultado: string
           status: string
           next_step: string | null
+          moroso_tracking_status: string | null
+          linked_task_id: string | null
+          linked_task_code: string | null
+          ot_linked_at: string | null
+          ot_linked_by_employee_id: string | null
           active_management_employee_id: string | null
           active_management_started_at: string | null
           created_at: string
@@ -213,6 +218,11 @@ export type Database = {
           resultado: string
           status?: string
           next_step?: string | null
+          moroso_tracking_status?: string | null
+          linked_task_id?: string | null
+          linked_task_code?: string | null
+          ot_linked_at?: string | null
+          ot_linked_by_employee_id?: string | null
           active_management_employee_id?: string | null
           active_management_started_at?: string | null
           created_at?: string
@@ -231,6 +241,11 @@ export type Database = {
           resultado?: string
           status?: string
           next_step?: string | null
+          moroso_tracking_status?: string | null
+          linked_task_id?: string | null
+          linked_task_code?: string | null
+          ot_linked_at?: string | null
+          ot_linked_by_employee_id?: string | null
           active_management_employee_id?: string | null
           active_management_started_at?: string | null
           created_at?: string

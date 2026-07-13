@@ -54,7 +54,11 @@ import {
   deferConsultationManagement,
   resolveConsultationManagement,
   startConsultationManagement,
+  updateMorosoTrackingManagement,
+  linkConsultationOtManagement,
   type ConsultationManagementMutationResult,
+  type MorosoTrackingMutationResult,
+  type OtLinkMutationResult,
 } from "@/lib/supabase/customer-atenciones-management.browser"
 import {
   createBrowserCustomerAtencionesClient,
@@ -163,8 +167,10 @@ const EMPTY_SHARED_INBOX_KPIS: SharedInboxKpiSummary = {
 const EMPTY_SHARED_INBOX_OPERATIONAL_COUNTS: SharedInboxOperationalCounts = {
   retenciones: 0,
   administracion: 0,
+  morosos: 0,
   tecnica: 0,
   contactar_cliente: 0,
+  generar_ot: 0,
 }
 
 type AtencionClienteContextValue = {
@@ -211,6 +217,14 @@ type AtencionClienteContextValue = {
     nextStep: CustomerAtencionNextStep,
     detail?: string
   ) => Promise<ConsultationManagementMutationResult>
+  updateMorosoTracking: (
+    atencionId: string,
+    trackingStatus: string
+  ) => Promise<MorosoTrackingMutationResult>
+  linkConsultationOt: (
+    atencionId: string,
+    taskId: string
+  ) => Promise<OtLinkMutationResult>
   currentEmployeeId: string
   createRetencion: (
     input: NewCustomerRetencionInput
@@ -752,6 +766,71 @@ export function AtencionClienteProvider({
     [runConsultationManagementMutation]
   )
 
+  const updateMorosoTrackingHandler = useCallback(
+    async (
+      atencionId: string,
+      trackingStatus: string
+    ): Promise<MorosoTrackingMutationResult> => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return {
+          success: false,
+          message: DEMO_RESTRICTED_DIALOG_MESSAGE,
+        }
+      }
+
+      const result = await updateMorosoTrackingManagement(
+        atencionId,
+        trackingStatus
+      )
+
+      if (result.success) {
+        await Promise.all([
+          refreshAtencionById(atencionId),
+          refreshSharedInbox(),
+        ])
+      }
+
+      return result
+    },
+    [
+      isReadOnly,
+      openRestrictedDialog,
+      refreshAtencionById,
+      refreshSharedInbox,
+    ]
+  )
+
+  const linkConsultationOtHandler = useCallback(
+    async (
+      atencionId: string,
+      taskId: string
+    ): Promise<OtLinkMutationResult> => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return {
+          success: false,
+          message: DEMO_RESTRICTED_DIALOG_MESSAGE,
+        }
+      }
+
+      const result = await linkConsultationOtManagement(atencionId, taskId)
+
+      if (result.success) {
+        await Promise.all([
+          refreshAtencionById(atencionId),
+          refreshSharedInbox(),
+        ])
+      }
+
+      return result
+    },
+    [
+      isReadOnly,
+      openRestrictedDialog,
+      refreshAtencionById,
+      refreshSharedInbox,
+    ]
+  )
+
   const createRetencion = useCallback(
     async (input: NewCustomerRetencionInput): Promise<RetencionMutationResult> => {
       if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
@@ -1125,6 +1204,8 @@ export function AtencionClienteProvider({
       startConsultationManagement: startConsultationManagementHandler,
       resolveConsultation: resolveConsultationHandler,
       deferConsultation: deferConsultationHandler,
+      updateMorosoTracking: updateMorosoTrackingHandler,
+      linkConsultationOt: linkConsultationOtHandler,
       currentEmployeeId: employeeId,
       createRetencion,
       resolveRetencion,
@@ -1143,6 +1224,8 @@ export function AtencionClienteProvider({
       completeSeguimientoWithFollowUp,
       createAtencion,
       deferConsultationHandler,
+      updateMorosoTrackingHandler,
+      linkConsultationOtHandler,
       dashboardSummary,
       employeeId,
       fetchAtencionById,

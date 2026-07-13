@@ -304,6 +304,12 @@ test("helpers de validación de catálogo", () => {
   assert.equal(isCustomerAtencionStatus("pendiente"), true)
   assert.equal(isCustomerAtencionStatus("invalid"), false)
   assert.equal(isCustomerAtencionNextStep("contactar_cliente"), true)
+  assert.equal(isCustomerAtencionNextStep("resolver_consulta_tecnica"), true)
+  assert.equal(isCustomerAtencionNextStep("derivar_admin_morosos"), true)
+  assert.equal(isCustomerAtencionNextStep("seguimiento_cliente"), true)
+  assert.equal(isCustomerAtencionNextStep("resolver_facturacion"), false)
+  assert.equal(isCustomerAtencionNextStep("analizar_problema_tecnico"), false)
+  assert.equal(isCustomerAtencionNextStep("esperar_administracion"), false)
   assert.equal(isCustomerAtencionNextStep("invalid"), false)
 })
 

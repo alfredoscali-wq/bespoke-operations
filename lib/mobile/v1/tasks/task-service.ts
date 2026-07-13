@@ -28,7 +28,11 @@ import {
   getTaskTechnologyLabel,
 } from "@/lib/tasks/commercial-plan"
 import { taskMatchesCrewId } from "@/lib/tasks/crew-relation"
-import { resolveTaskOperationalTitle } from "@/lib/tasks/work-order"
+import {
+  resolveInstallationIpForDisplay,
+  resolveServiceTechnicalWorkInfoFromTask,
+  resolveTaskOperationalTitle,
+} from "@/lib/tasks/work-order"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { fetchTaskReferencePhotos } from "@/lib/supabase/task-photos.queries"
 import { mapTaskRowToTask } from "@/lib/supabase/tasks.mapper"
@@ -121,6 +125,8 @@ function mapTaskToDetailResponse(
 ): MobileTaskDetailResponse {
   const technology = getTaskTechnologyLabel(task)
   const contractedPlan = formatContractedPlanLabel(task.contractedPlan)
+  const installationIp = resolveInstallationIpForDisplay(task)
+  const workInfo = resolveServiceTechnicalWorkInfoFromTask(task)
 
   return {
     id: task.id,
@@ -142,6 +148,9 @@ function mapTaskToDetailResponse(
       task.amountToCollect == null ? null : Number(task.amountToCollect),
     technology,
     contractedPlan,
+    installationIp,
+    serviceReason: workInfo?.reasonLabel ?? null,
+    serviceDetail: workInfo?.detail ?? null,
     checklist,
     evidenceRequirements: mapEvidenceRequirements(task),
     referencePhotos,

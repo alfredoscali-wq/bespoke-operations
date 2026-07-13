@@ -28,15 +28,27 @@ export type CustomerAtencionStatus =
   | "pendiente"
   | "resuelta"
 
+/**
+ * Sprint 2.8 — next step encodes the pending action, not the owning area.
+ * External wait: esperar_cliente only → status pendiente.
+ */
 export type CustomerAtencionNextStep =
   | "realizar_retencion"
-  | "resolver_facturacion"
-  | "analizar_problema_tecnico"
+  | "resolver_consulta_tecnica"
+  | "derivar_admin_facturacion"
+  | "derivar_admin_morosos"
+  | "derivar_admin_gestion"
   | "contactar_cliente"
+  | "seguimiento_cliente"
   | "esperar_cliente"
-  | "esperar_administracion"
-  | "coordinar_retiro"
   | "generar_ot"
+
+export type MorosoTrackingStatus =
+  | "cupon_pendiente_enviar"
+  | "cupon_enviado"
+  | "esperando_acreditacion"
+  | "pago_acreditado"
+  | "servicio_rehabilitado"
 
 /** Sprint 1.0 default; Sprint 2.0 allows `requiere_seguimiento` on create. */
 export const CUSTOMER_ATENCION_DEFAULT_RESULTADO: CustomerAtencionResultado =
@@ -79,6 +91,11 @@ export interface CustomerAtencion {
   nextStep?: CustomerAtencionNextStep | null
   activeManagementEmployeeId?: string | null
   activeManagementStartedAt?: string | null
+  morosoTrackingStatus?: MorosoTrackingStatus | null
+  linkedTaskId?: string | null
+  linkedTaskCode?: string | null
+  otLinkedAt?: string | null
+  otLinkedByEmployeeId?: string | null
   createdAt: string
   updatedAt: string
   deletedAt?: string | null
@@ -97,13 +114,6 @@ export type CustomerAtencionListRow = Pick<
   customerName: string
 }
 
-export type CustomerAtencionListPage = {
-  items: CustomerAtencionListRow[]
-  total: number
-  page: number
-  pageSize: number
-}
-
 export type CustomerAtencionInboxRow = Pick<
   CustomerAtencion,
   | "id"
@@ -116,10 +126,19 @@ export type CustomerAtencionInboxRow = Pick<
   | "attendedByEmployeeId"
   | "activeManagementEmployeeId"
   | "activeManagementStartedAt"
+  | "linkedTaskId"
+  | "linkedTaskCode"
   | "createdAt"
   | "updatedAt"
 > & {
   customerName: string
   attendedByEmployeeName: string
   activeManagementEmployeeName?: string | null
+}
+
+export type CustomerAtencionListPage = {
+  items: CustomerAtencionListRow[]
+  total: number
+  page: number
+  pageSize: number
 }

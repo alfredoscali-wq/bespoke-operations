@@ -204,6 +204,68 @@ export const SERVICE_TECHNICAL_REASON_OPTIONS: {
   { value: "otro", label: "Otro" },
 ]
 
+export function formatServiceTechnicalReasonLabel(
+  reason: string | null | undefined
+): string | null {
+  if (!reason?.trim()) {
+    return null
+  }
+
+  const trimmed = reason.trim()
+  const option = SERVICE_TECHNICAL_REASON_OPTIONS.find(
+    (item) => item.value === trimmed
+  )
+  return option?.label ?? trimmed
+}
+
+export type ServiceTechnicalWorkInfo = {
+  reasonLabel: string | null
+  detail: string | null
+}
+
+/** Motivo/Detalle de Service Técnico (solo lectura; null si no aplica). */
+export function resolveServiceTechnicalWorkInfoFromTask(
+  task: Pick<Task, "serviceType" | "taskMetadata">
+): ServiceTechnicalWorkInfo | null {
+  if (task.serviceType !== "service-tecnico") {
+    return null
+  }
+
+  const metadata = task.taskMetadata ?? {}
+  const reason =
+    typeof metadata.reason === "string" ? metadata.reason : ""
+  const detail =
+    typeof metadata.detail === "string" ? metadata.detail : ""
+
+  return {
+    reasonLabel: formatServiceTechnicalReasonLabel(reason),
+    detail: detail.length > 0 ? detail : null,
+  }
+}
+
+/** Texto libre de planificación para hoja de preparación futura. */
+export function readMaterialsNeededFromTask(
+  task: Pick<Task, "taskMetadata">
+): string {
+  const value = task.taskMetadata?.materialsNeeded
+  return typeof value === "string" ? value : ""
+}
+
+export function mergeMaterialsNeededIntoMetadata(
+  existing: Record<string, unknown> | undefined,
+  materialsNeeded: string
+): Record<string, unknown> {
+  const next: Record<string, unknown> = { ...(existing ?? {}) }
+
+  if (materialsNeeded.length > 0) {
+    next.materialsNeeded = materialsNeeded
+  } else {
+    delete next.materialsNeeded
+  }
+
+  return next
+}
+
 const LEGACY_WORK_ORDER_SERVICE_TYPE_LABELS: Record<string, string> = {
   reclamo: "Reclamo",
   "inspeccion-tecnica": "Inspección técnica",
@@ -297,6 +359,7 @@ export type WorkOrderFormInput = {
   newSharedLocation: string
   observationsForCrew: string
   contractedPlan: ContractedPlan | ""
+  installationIp: string
   amountToCollect: string
   paymentMethod: WorkOrderPaymentMethod | ""
   latitude: number | null
@@ -351,6 +414,7 @@ export function getDefaultWorkOrderForm(): WorkOrderFormInput {
     newSharedLocation: "",
     observationsForCrew: "",
     contractedPlan: "",
+    installationIp: "",
     amountToCollect: "",
     paymentMethod: "",
     latitude: null,
@@ -436,12 +500,18 @@ function buildTaskMetadata(input: WorkOrderFormInput): Record<string, unknown> {
   let metadata: Record<string, unknown>
 
   switch (input.serviceType) {
-    case "instalacion-nueva":
+    case "instalacion-nueva": {
+      const technology = input.technology || "fiber"
+      const installationIp = input.installationIp.trim()
       metadata = {
         email,
-        technology: input.technology || "fiber",
+        technology,
+        ...(technology === "wireless" && installationIp
+          ? { installationIp }
+          : {}),
       }
       break
+    }
     case "cambio-domicilio":
       metadata = {
         email,
@@ -644,6 +714,15 @@ export function validateWorkOrderForm(
       }
       if (!resolveContractedPlanFromForm(input)) {
         return { valid: false, message: "Seleccione el plan contratado." }
+      }
+      if (
+        input.technology === "wireless" &&
+        !input.installationIp.trim()
+      ) {
+        return {
+          valid: false,
+          message: "La IP de Instalación es obligatoria.",
+        }
       }
       break
     case "cambio-domicilio":
@@ -876,11 +955,53 @@ export function resolveWorkOrderTechnologyFromTask(
   return ""
 }
 
+export function readInstallationIpFromTask(
+  task: Pick<Task, "taskMetadata">
+): string {
+  return readTaskMetadataString(task.taskMetadata?.installationIp)
+}
+
+/** IP de instalación for display: only Wireless, omit when missing (legacy OTs). */
+export function resolveInstallationIpForDisplay(
+  task: Pick<Task, "type" | "taskMetadata" | "serviceType">
+): string | null {
+  if (resolveWorkOrderTechnologyFromTask(task) !== "wireless") {
+    return null
+  }
+
+  const installationIp = readInstallationIpFromTask(task)
+  return installationIp || null
+}
+
+export function mergeInstallationCommercialMetadata(
+  existing: Record<string, unknown> | undefined,
+  commercial: Pick<WorkOrderFormInput, "technology" | "installationIp">
+): Record<string, unknown> {
+  const next: Record<string, unknown> = { ...(existing ?? {}) }
+
+  if (commercial.technology) {
+    next.technology = commercial.technology
+  }
+
+  if (commercial.technology === "wireless") {
+    const installationIp = commercial.installationIp.trim()
+    if (installationIp) {
+      next.installationIp = installationIp
+    } else {
+      delete next.installationIp
+    }
+  } else {
+    delete next.installationIp
+  }
+
+  return next
+}
+
 export function buildCommercialFormFromTask(
   task: Task
 ): Pick<
   WorkOrderFormInput,
-  "serviceType" | "technology" | "contractedPlan"
+  "serviceType" | "technology" | "contractedPlan" | "installationIp"
 > {
   const technology = resolveWorkOrderTechnologyFromTask(task)
   const contractedPlan =
@@ -895,6 +1016,8 @@ export function buildCommercialFormFromTask(
     serviceType: (task.serviceType as WorkOrderServiceType) ?? "",
     technology,
     contractedPlan,
+    installationIp:
+      technology === "wireless" ? readInstallationIpFromTask(task) : "",
   }
 }
 

@@ -76,7 +76,7 @@ function buildSessionUser(overrides) {
 function atencion(overrides) {
   return {
     status: "en_gestion",
-    nextStep: "resolver_facturacion",
+    nextStep: "derivar_admin_facturacion",
     activeManagementEmployeeId: "employee-1",
     ...overrides,
   }
@@ -91,7 +91,7 @@ function inboxRow(overrides) {
     motivo: "facturacion",
     detail: "Consulta",
     status: "para_resolver",
-    nextStep: "resolver_facturacion",
+    nextStep: "derivar_admin_facturacion",
     attendedByEmployeeId: "employee-1",
     attendedByEmployeeName: "Cintia",
     activeManagementEmployeeId: null,
@@ -147,16 +147,16 @@ test("6. actor seguro registra employee_id, no área", () => {
 
 // Especialización Administración
 
-test("7. resolver_facturacion clasifica como Administración", () => {
+test("7. derivar_admin_facturacion clasifica como Administración", () => {
   assert.equal(
-    isAdministrationConsultation({ nextStep: "resolver_facturacion" }),
+    isAdministrationConsultation({ nextStep: "derivar_admin_facturacion" }),
     true
   )
 })
 
-test("8. esperar_administracion clasifica como Administración", () => {
+test("8. derivar_admin_gestion clasifica como Administración", () => {
   assert.equal(
-    isAdministrationConsultation({ nextStep: "esperar_administracion" }),
+    isAdministrationConsultation({ nextStep: "derivar_admin_gestion" }),
     true
   )
 })
@@ -178,12 +178,12 @@ test("11. UI genérica se oculta durante Administración activa", () => {
   assert.match(detailSource, /: isManagedByCurrentEmployee \?/)
 })
 
-test("12. formulario ofrece Facturación resuelta", () => {
-  assert.match(administrationDialogSource, /Facturación resuelta/)
+test("12. formulario ofrece Gestión resuelta", () => {
+  assert.match(administrationDialogSource, /Gestión resuelta/)
 })
 
-test("13. formulario ofrece Cliente con deuda", () => {
-  assert.match(administrationDialogSource, /Cliente con deuda/)
+test("13. formulario ofrece Seguimiento con cliente", () => {
+  assert.match(administrationDialogSource, /Seguimiento con cliente/)
 })
 
 test("14. formulario ofrece Esperando documentación", () => {
@@ -194,7 +194,7 @@ test("15. formulario ofrece Confirmar baja", () => {
   assert.match(administrationDialogSource, /Confirmar baja/)
 })
 
-test("16. Facturación resuelta requiere resolución", () => {
+test("16. Gestión resuelta requiere resolución", () => {
   assert.ok("error" in validateAdministrationResolvedResolution(""))
 })
 
@@ -202,16 +202,16 @@ test("17. defer administrativo requiere detalle", () => {
   assert.ok("error" in validateAdministrationDeferDetail(""))
 })
 
-test("18. Facturación resuelta usa resolve", () => {
-  assert.deepEqual(mapAdministrationOutcomeToAction("facturacion_resuelta"), {
+test("18. Gestión resuelta usa resolve", () => {
+  assert.deepEqual(mapAdministrationOutcomeToAction("gestion_resuelta"), {
     kind: "resolve",
   })
 })
 
-test("19. Cliente con deuda → esperar_cliente", () => {
-  assert.deepEqual(mapAdministrationOutcomeToAction("cliente_con_deuda"), {
+test("19. Seguimiento con cliente → seguimiento_cliente", () => {
+  assert.deepEqual(mapAdministrationOutcomeToAction("seguimiento_con_cliente"), {
     kind: "defer",
-    nextStep: "esperar_cliente",
+    nextStep: "seguimiento_cliente",
   })
 })
 
@@ -236,17 +236,17 @@ test("22. Confirmar baja prepara generar_ot sin crear OT", () => {
   assert.doesNotMatch(administrationDialogSource, /createWorkOrder|insertWorkOrder|from\("@\/lib\/tasks/i)
 })
 
-test("23. Facturación resuelta persiste resolución real", () => {
+test("23. Gestión resuelta persiste resolución real", () => {
   const input = buildAdministrationResolvedInput("Cupón corregido")
   assert.equal(input.resolution, "Cupón corregido")
 })
 
 test("24. defer administrativo persiste detalle real", () => {
   const input = buildAdministrationDeferInput(
-    "esperar_cliente",
-    "Cliente con deuda informada"
+    "seguimiento_cliente",
+    "Seguimiento acordado con el cliente"
   )
-  assert.equal(input.detail, "Cliente con deuda informada")
+  assert.equal(input.detail, "Seguimiento acordado con el cliente")
 })
 
 test("25. otro empleado no puede registrar resultado administrativo", () => {
@@ -291,16 +291,16 @@ test("28. provider compartido sin bifurcación por área", () => {
   assert.match(providerSource, /loadSharedInboxBundle/)
 })
 
-test("29. confirmar baja filtra en bandeja como generar_ot pendiente", () => {
+test("29. confirmar baja filtra en bandeja como Pendiente de generar OT", () => {
   const row = inboxRow({
-    status: "pendiente",
+    status: "para_resolver",
     nextStep: "generar_ot",
   })
   const filtered = filterSharedInboxRows([row], {
-    statusFilter: "pendiente",
+    statusFilter: "all",
     motivo: "all",
     channel: "all",
-    operationalCategory: "tecnica",
+    operationalCategory: "generar_ot",
   })
   assert.equal(filtered.length, 1)
 })
