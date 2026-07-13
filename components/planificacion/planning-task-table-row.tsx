@@ -1,6 +1,6 @@
 "use client"
 
-import { MapPinOff, Pencil } from "lucide-react"
+import { AlertCircle, MapPinOff, Pencil } from "lucide-react"
 
 import { PlanningTaskOrderInput } from "@/components/planificacion/planning-task-order-input"
 import { TaskStatusBadge } from "@/components/tareas/task-badges"
@@ -12,6 +12,9 @@ import {
 import { getTaskStatusSurfaceClass } from "@/lib/tasks/status-visual"
 import { formatDispatchOrderBadge, resolveTaskRouteOrder } from "@/lib/tasks/dispatch-order"
 import { resolveTaskCrewId } from "@/lib/tasks/crew-relation"
+import {
+  hasPlanningTaskCrewObservations,
+} from "@/lib/planificacion/planning-task-observations"
 import {
   resolvePlanningTaskClientLabel,
   resolvePlanningTaskLocality,
@@ -72,6 +75,7 @@ export function PlanningTaskTableRow({
     crews
   )
   const hasGps = resolveTaskPlanningCoordinates(task) != null
+  const hasObservations = hasPlanningTaskCrewObservations(task)
 
   return (
     <tr
@@ -187,17 +191,28 @@ export function PlanningTaskTableRow({
       </td>
 
       <td className="min-w-[140px] px-2 py-2 align-middle">
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation()
-            onSelect()
-          }}
-          className="max-w-[220px] truncate text-left text-sm text-foreground hover:underline"
-          title={resolvePlanningTaskClientLabel(task)}
-        >
-          {resolvePlanningTaskClientLabel(task)}
-        </button>
+        <div className="flex max-w-[220px] items-center gap-1.5">
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation()
+              onSelect()
+            }}
+            className="truncate text-left text-sm text-foreground hover:underline"
+            title={resolvePlanningTaskClientLabel(task)}
+          >
+            {resolvePlanningTaskClientLabel(task)}
+          </button>
+          {hasObservations ? (
+            <span
+              className="inline-flex shrink-0 text-amber-600"
+              title="Observaciones para revisar"
+            >
+              <AlertCircle className="size-3.5" aria-hidden />
+              <span className="sr-only">Observaciones para revisar</span>
+            </span>
+          ) : null}
+        </div>
       </td>
 
       <td className="min-w-[120px] px-2 py-2 align-middle">

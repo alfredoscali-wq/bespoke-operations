@@ -5,6 +5,7 @@ import dynamic from "next/dynamic"
 import { Loader2, RefreshCw } from "lucide-react"
 
 import { PlanningTaskOrderInput } from "@/components/planificacion/planning-task-order-input"
+import { PlanningTaskObservationsBlock } from "@/components/planificacion/planning-task-observations-block"
 import { Button } from "@/components/ui/button"
 import type { Task } from "@/lib/types/tasks"
 import type { Crew } from "@/lib/types/crews"
@@ -158,7 +159,7 @@ function PlanningMapSelectedTaskOverlay({
   return (
     <div
       className={cn(
-        "absolute bottom-4 left-4 z-[500] max-w-xs rounded-lg border bg-background/95 p-3 shadow-lg backdrop-blur",
+        "absolute bottom-4 left-4 z-[500] max-w-sm rounded-lg border bg-background/95 p-3 shadow-lg backdrop-blur",
         canEditOrder ? "pointer-events-auto" : "pointer-events-none"
       )}
       onClick={(event) => event.stopPropagation()}
@@ -213,6 +214,11 @@ function PlanningMapSelectedTaskOverlay({
           </dd>
         </div>
       </dl>
+
+      <PlanningTaskObservationsBlock
+        task={task}
+        title="Observaciones para la cuadrilla"
+      />
     </div>
   )
 }
