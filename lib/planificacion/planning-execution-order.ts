@@ -292,8 +292,32 @@ export function buildExecutionOrderPersistPlan(
     return task?.executionOrder != null
   })
 
+  // Phase 1 clears every ordered sibling in the crew/date scope for the unique
+  // index. Phase 2 must rewrite the *full* intended sequence — including OTs whose
+  // order did not change — otherwise stable priorities are left null after clear.
+  const finalByTaskId = new Map<string, number | null>()
+
+  for (const clear of phaseOne) {
+    const task = tasks.find((item) => item.id === clear.taskId)
+    if (task?.executionOrder != null) {
+      finalByTaskId.set(task.id, task.executionOrder)
+    }
+  }
+
+  for (const change of changes) {
+    finalByTaskId.set(change.taskId, change.executionOrder)
+  }
+
+  const phaseTwo = [...finalByTaskId.entries()]
+    .filter(([, executionOrder]) => executionOrder != null)
+    .map(([taskId, executionOrder]) => ({
+      taskId,
+      executionOrder: executionOrder as number,
+    }))
+    .sort((left, right) => left.executionOrder - right.executionOrder)
+
   return {
-    phases: [phaseOne, changes],
+    phases: [phaseOne, phaseTwo],
   }
 }
 

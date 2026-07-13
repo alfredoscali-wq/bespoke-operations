@@ -431,9 +431,97 @@ test("persistencia en dos fases para compactación", () => {
 
   assert.equal(plan.phases.length, 2)
   assert.ok(plan.phases[0].every((update) => update.executionOrder === null))
+  // Phase 2 must restore the full scope sequence after the unique-index clear,
+  // not only the compacting diff (p-4 → 3).
   assert.deepEqual(
-    plan.phases[1].map((update) => update.executionOrder).sort((a, b) => (a ?? 0) - (b ?? 0)),
-    [3]
+    plan.phases[1].map((update) => ({
+      taskId: update.taskId,
+      executionOrder: update.executionOrder,
+    })),
+    [
+      { taskId: "p-1", executionOrder: 1 },
+      { taskId: "p-2", executionOrder: 2 },
+      { taskId: "p-4", executionOrder: 3 },
+    ]
+  )
+})
+
+test("asignar orden a OT B conserva posición 1 de OT A", () => {
+  const tasks = [
+    makeProgramada("ot-a", 1),
+    makeProgramada("ot-b", null),
+  ]
+
+  const updates = buildExecutionOrderPositionUpdates(tasks, "ot-b", 2)
+  const plan = buildExecutionOrderPersistPlan(updates, tasks)
+  const merged = mergeExecutionOrderUpdatesIntoTasks(tasks, updates)
+
+  assert.deepEqual(ordersForScope(merged), [1, 2])
+  assert.equal(plan.phases.length, 2)
+  assert.deepEqual(
+    plan.phases[1].map((update) => ({
+      taskId: update.taskId,
+      executionOrder: update.executionOrder,
+    })),
+    [
+      { taskId: "ot-a", executionOrder: 1 },
+      { taskId: "ot-b", executionOrder: 2 },
+    ]
+  )
+})
+
+test("asignar OT C a orden 2 desplaza OT B y conserva OT A", () => {
+  const tasks = [
+    makeProgramada("ot-a", 1),
+    makeProgramada("ot-b", 2),
+    makeProgramada("ot-c", 3),
+  ]
+
+  const updates = buildExecutionOrderPositionUpdates(tasks, "ot-c", 2)
+  const merged = mergeExecutionOrderUpdatesIntoTasks(tasks, updates)
+
+  assert.equal(merged.find((task) => task.id === "ot-a")?.executionOrder, 1)
+  assert.equal(merged.find((task) => task.id === "ot-c")?.executionOrder, 2)
+  assert.equal(merged.find((task) => task.id === "ot-b")?.executionOrder, 3)
+
+  const plan = buildExecutionOrderPersistPlan(updates, tasks)
+  assert.deepEqual(
+    plan.phases[1].map((update) => ({
+      taskId: update.taskId,
+      executionOrder: update.executionOrder,
+    })),
+    [
+      { taskId: "ot-a", executionOrder: 1 },
+      { taskId: "ot-c", executionOrder: 2 },
+      { taskId: "ot-b", executionOrder: 3 },
+    ]
+  )
+})
+
+test("asignar OT D a orden libre 4 conserva 1-2-3", () => {
+  const tasks = [
+    makeProgramada("ot-a", 1),
+    makeProgramada("ot-b", 2),
+    makeProgramada("ot-c", 3),
+    makeProgramada("ot-d", null),
+  ]
+
+  const updates = buildExecutionOrderPositionUpdates(tasks, "ot-d", 4)
+  const merged = mergeExecutionOrderUpdatesIntoTasks(tasks, updates)
+  const plan = buildExecutionOrderPersistPlan(updates, tasks)
+
+  assert.deepEqual(ordersForScope(merged), [1, 2, 3, 4])
+  assert.deepEqual(
+    plan.phases[1].map((update) => ({
+      taskId: update.taskId,
+      executionOrder: update.executionOrder,
+    })),
+    [
+      { taskId: "ot-a", executionOrder: 1 },
+      { taskId: "ot-b", executionOrder: 2 },
+      { taskId: "ot-c", executionOrder: 3 },
+      { taskId: "ot-d", executionOrder: 4 },
+    ]
   )
 })
 
