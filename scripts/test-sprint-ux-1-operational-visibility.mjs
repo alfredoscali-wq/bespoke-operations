@@ -154,9 +154,9 @@ test("planning module usa layout mapa grande con lista scrolleable", async () =>
     fs.readFile("components/planificacion/planning-module.tsx", "utf8")
   )
 
-  assert.match(file, /h-\[52vh\]/)
-  assert.match(file, /lg:max-h-\[60vh\]/)
-  assert.match(file, /minmax\(15rem,1fr\)/)
+  assert.match(file, /min-h-\[18rem\]/)
+  assert.match(file, /minmax\(18rem,1\.25fr\)/)
+  assert.match(file, /minmax\(14rem,1fr\)/)
   assert.match(file, /min-h-0 flex-1/)
 })
 

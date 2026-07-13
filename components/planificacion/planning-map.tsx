@@ -39,7 +39,7 @@ const PlanningMapCanvas = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex h-full min-h-[420px] items-center justify-center rounded-xl border bg-muted/20">
+      <div className="flex h-full min-h-[15rem] items-center justify-center rounded-xl border bg-muted/20">
         <Loader2 className="size-6 animate-spin text-muted-foreground" />
       </div>
     ),
@@ -288,7 +288,7 @@ export function PlanningMap({
         ) : null}
       </div>
 
-      <div className="relative min-h-[280px] flex-1 lg:min-h-0">
+      <div className="relative min-h-[15rem] flex-1">
         <PlanningMapCanvas
           markers={markers}
           selectedTaskId={selectedTaskId}

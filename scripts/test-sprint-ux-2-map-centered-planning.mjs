@@ -93,9 +93,9 @@ test("summary compacto conserva información funcional", async () => {
 test("mapa usa altura significativamente mayor en escritorio", async () => {
   const file = await readFile("components/planificacion/planning-module.tsx", "utf8")
 
-  assert.match(file, /lg:max-h-\[60vh\]/)
-  assert.match(file, /h-\[52vh\]/)
-  assert.match(file, /minmax\(15rem,1fr\)/)
+  assert.match(file, /min-h-\[18rem\]/)
+  assert.match(file, /minmax\(18rem,1\.25fr\)/)
+  assert.match(file, /minmax\(14rem,1fr\)/)
   assert.doesNotMatch(file, /max-h-\[42vh\]/)
 })
 

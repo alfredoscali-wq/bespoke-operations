@@ -868,7 +868,7 @@ function PlanningModuleContent() {
 
   return (
 
-    <div className="flex h-[calc(100vh-4rem)] flex-col gap-2">
+    <div className="flex min-h-[calc(100vh-4rem)] flex-col gap-2">
 
       <PlanningToolbar
 
@@ -1036,7 +1036,7 @@ function PlanningModuleContent() {
 
 
 
-        <div className="flex min-h-0 flex-1 flex-col gap-2 lg:grid lg:grid-rows-[minmax(0,60vh)_minmax(15rem,1fr)]">
+        <div className="flex min-h-0 flex-1 flex-col gap-2 lg:grid lg:grid-rows-[minmax(18rem,1.25fr)_minmax(14rem,1fr)]">
 
           <PlanningMap
 
@@ -1044,7 +1044,7 @@ function PlanningModuleContent() {
 
             mapRefreshError={mapRefreshError}
 
-            className="h-[52vh] min-h-0 shrink-0 lg:h-full lg:max-h-[60vh]"
+            className="min-h-[18rem] shrink-0 lg:min-h-[18rem]"
 
           />
 
