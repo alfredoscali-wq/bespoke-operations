@@ -1,7 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 
 import {
-  canAccessPathWithMetadata,
   resolveAccessDeniedRedirectPath,
   resolvePostLoginPathFromAuthMetadata,
 } from "@/lib/auth/module-access"
@@ -103,20 +102,6 @@ export async function middleware(request: NextRequest) {
     if (
       isPlanificacionOperativaPath(pathname) &&
       !canAccessPlanificacionOperativa(systemRole, user.user_metadata)
-    ) {
-      const redirectUrl = request.nextUrl.clone()
-      redirectUrl.pathname = resolveAccessDeniedRedirectPath(
-        systemRole,
-        user.user_metadata,
-        pathname
-      )
-      redirectUrl.search = ""
-      return NextResponse.redirect(redirectUrl)
-    }
-
-    if (
-      isDashboardPath(pathname) &&
-      !canAccessPathWithMetadata(pathname, user.user_metadata)
     ) {
       const redirectUrl = request.nextUrl.clone()
       redirectUrl.pathname = resolveAccessDeniedRedirectPath(

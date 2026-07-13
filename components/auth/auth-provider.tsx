@@ -17,6 +17,7 @@ import { sanitizeRedirectPath } from "@/lib/auth/routes"
 import { buildSessionUserFromAuthUser } from "@/lib/auth/resolve-session-user"
 import type { SessionUser } from "@/lib/auth/types"
 import { recordUserSessionAudit } from "@/lib/audit/users-audit"
+import { syncMyMetadataClient } from "@/lib/auth/sync-employee-metadata.client"
 import { fetchCompanyRole } from "@/lib/supabase/company-roles.browser"
 import { getEmployeeByAppUserId } from "@/lib/supabase/employees.browser"
 import { createClient } from "@/lib/supabase/client"
@@ -48,48 +49,63 @@ async function resolveSessionUserFromAuthUser(
   return buildSessionUserFromAuthUser(user, employee, role)
 }
 
+async function bootstrapAuthenticatedSession(): Promise<SessionUser | null> {
+  const supabase = createClient()
+  const { data: refreshData, error: refreshError } =
+    await supabase.auth.refreshSession()
+
+  let user = refreshData.session?.user ?? null
+
+  if (!user && !refreshError) {
+    const { data } = await supabase.auth.getUser()
+    user = data.user ?? null
+  }
+
+  if (!user) {
+    return null
+  }
+
+  const preliminary = await resolveSessionUserFromAuthUser(user)
+
+  if (preliminary.employeeId && preliminary.roleId) {
+    await syncMyMetadataClient()
+    await supabase.auth.refreshSession()
+    const { data } = await supabase.auth.getUser()
+    user = data.user ?? user
+  }
+
+  return resolveSessionUserFromAuthUser(user)
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const [sessionUser, setSessionUser] = useState<SessionUser | null>(null)
   const [isAuthReady, setIsAuthReady] = useState(false)
 
   const refreshSession = useCallback(async () => {
-    const supabase = createClient()
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser()
+    const resolved = await bootstrapAuthenticatedSession()
 
-    if (error || !user) {
+    if (!resolved) {
       setSessionUser(null)
       return null
     }
 
-    const resolved = await resolveSessionUserFromAuthUser(user)
     setSessionUser(resolved)
     return resolved
   }, [])
 
   useEffect(() => {
     let cancelled = false
-    const supabase = createClient()
 
     async function initializeAuth() {
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser()
+        const resolved = await bootstrapAuthenticatedSession()
 
-        if (cancelled) return
-
-        if (user) {
-          const resolved = await resolveSessionUserFromAuthUser(user)
-          if (!cancelled) {
-            setSessionUser(resolved)
-          }
-        } else {
-          setSessionUser(null)
+        if (cancelled) {
+          return
         }
+
+        setSessionUser(resolved)
       } finally {
         if (!cancelled) {
           setIsAuthReady(true)
@@ -99,6 +115,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     void initializeAuth()
 
+    const supabase = createClient()
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -133,7 +150,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         })
 
         if (!error && data.user) {
-          const resolved = await resolveSessionUserFromAuthUser(data.user)
+          const resolved = await bootstrapAuthenticatedSession()
+
+          if (!resolved) {
+            throw new Error("No se pudo iniciar sesión.")
+          }
+
           setSessionUser(resolved)
           void recordUserSessionAudit("USER_LOGIN")
           return resolved

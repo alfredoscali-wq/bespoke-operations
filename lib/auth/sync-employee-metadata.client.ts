@@ -22,6 +22,21 @@ async function readSyncErrorMessage(response: Response): Promise<string> {
   }
 }
 
+export async function syncMyMetadataClient(): Promise<SyncEmployeeMetadataResult> {
+  const response = await fetch("/api/auth/sync-my-metadata", {
+    method: "POST",
+  })
+
+  if (!response.ok) {
+    return {
+      success: false,
+      message: await readSyncErrorMessage(response),
+    }
+  }
+
+  return { success: true }
+}
+
 export async function syncEmployeeMetadataClient(
   employeeId: string
 ): Promise<SyncEmployeeMetadataResult> {
