@@ -18,6 +18,10 @@ import {
   mapTemplateToMobileItems,
   readOperationalChecklistTemplate,
 } from "@/lib/tasks/operational-checklist-template"
+import {
+  resolveWorkOrderTechnologyFromTask,
+  type WorkOrderTechnology,
+} from "@/lib/tasks/work-order"
 import type { Task } from "@/lib/types/tasks"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
@@ -96,19 +100,21 @@ export function mergeChecklistWithResponses(
 export async function fetchOperationalChecklistTemplate(
   client: SupabaseClient,
   companyId: string,
-  serviceType: string | null | undefined
+  serviceType: string | null | undefined,
+  technology?: WorkOrderTechnology | "" | null
 ): Promise<MobileOperationalChecklistItem[]> {
   return fetchOperationalChecklistForServiceType(
     client,
     companyId,
-    serviceType?.trim() || ""
+    serviceType?.trim() || "",
+    technology
   )
 }
 
 export async function fetchOperationalChecklistTemplateForTask(
   client: SupabaseClient,
   companyId: string,
-  task: Pick<Task, "projectId" | "serviceType" | "taskMetadata">
+  task: Pick<Task, "projectId" | "serviceType" | "taskMetadata" | "type">
 ): Promise<MobileOperationalChecklistItem[]> {
   if (task.projectId) {
     const embedded = readOperationalChecklistTemplate(task)
@@ -118,5 +124,10 @@ export async function fetchOperationalChecklistTemplateForTask(
     return []
   }
 
-  return fetchOperationalChecklistTemplate(client, companyId, task.serviceType)
+  return fetchOperationalChecklistTemplate(
+    client,
+    companyId,
+    task.serviceType,
+    resolveWorkOrderTechnologyFromTask(task)
+  )
 }

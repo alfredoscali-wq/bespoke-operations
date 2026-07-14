@@ -5,7 +5,7 @@ import { Loader2 } from "lucide-react"
 
 import { TaskPhotoViewerDialog } from "@/components/tareas/task-photo-viewer-dialog"
 import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
-import { fetchWorkOrderTypeChecklistItems } from "@/lib/supabase/work-order-type-checklist.browser"
+import { fetchResolvedWorkOrderTypeChecklistItems } from "@/lib/supabase/work-order-type-checklist.browser"
 import { listTaskEvidencePhotos } from "@/lib/supabase/task-photos.browser"
 import {
   buildOperationalChecklistDisplayItems,
@@ -17,6 +17,7 @@ import {
   readOperationalChecklistTemplate,
   shouldShowOperationalChecklistForTask,
 } from "@/lib/tasks/operational-checklist-template"
+import { resolveWorkOrderTechnologyFromTask } from "@/lib/tasks/work-order"
 import type { TaskPhoto } from "@/lib/types/task-photos"
 import type { Task } from "@/lib/types/tasks"
 import {
@@ -98,9 +99,10 @@ export function TaskAdminOperationalChecklist({
           embeddedTemplate.length > 0
             ? { data: embeddedTemplate, error: null }
             : task.serviceType?.trim()
-              ? await fetchWorkOrderTypeChecklistItems(
+              ? await fetchResolvedWorkOrderTypeChecklistItems(
                   companyId,
-                  task.serviceType.trim()
+                  task.serviceType.trim(),
+                  resolveWorkOrderTechnologyFromTask(task)
                 )
               : { data: [], error: null }
 

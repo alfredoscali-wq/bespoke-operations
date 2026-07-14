@@ -67,7 +67,7 @@ export function PlanningPendingClosureDetailPanel({
           >
             <CardHeader className="pb-3">
               <CardTitle className="text-base">
-                Observaciones del técnico
+                Trabajo Realizado
               </CardTitle>
             </CardHeader>
             <CardContent>

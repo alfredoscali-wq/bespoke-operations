@@ -206,10 +206,10 @@ export function PlanningTaskTableRow({
           {hasObservations ? (
             <span
               className="inline-flex shrink-0 text-amber-600"
-              title="Observaciones para revisar"
+              title="Información para la Cuadrilla"
             >
               <AlertCircle className="size-3.5" aria-hidden />
-              <span className="sr-only">Observaciones para revisar</span>
+              <span className="sr-only">Información para la Cuadrilla</span>
             </span>
           ) : null}
         </div>

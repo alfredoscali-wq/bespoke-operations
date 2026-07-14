@@ -543,8 +543,8 @@ function WorkOrderCrewInfoFields({
     <section className="space-y-4">
       <SectionTitle>Información para la Cuadrilla</SectionTitle>
       <div className="space-y-2">
-        <Label htmlFor="wo-observations-crew">
-          Observaciones para la cuadrilla
+        <Label htmlFor="wo-observations-crew" className="sr-only">
+          Información para la Cuadrilla
         </Label>
         <Textarea
           id="wo-observations-crew"
@@ -552,7 +552,7 @@ function WorkOrderCrewInfoFields({
           onChange={(event) =>
             updateField("observationsForCrew", event.target.value)
           }
-          placeholder="Casa amarilla. Portón negro. Llamar antes de llegar."
+          placeholder="Instrucciones operativas para el técnico. Ej.: Casa amarilla. Portón negro. Llamar antes de llegar."
           rows={3}
         />
       </div>
@@ -1100,20 +1100,6 @@ export function TaskWorkOrderDialog({
               photosDisabled={isSubmitting}
               onPhotosError={setPhotosError}
             />
-          )}
-
-          {showScheduling && (
-            <section className="space-y-4">
-              <SectionTitle>Observaciones</SectionTitle>
-              <Textarea
-                value={form.observations}
-                onChange={(event) =>
-                  updateField("observations", event.target.value)
-                }
-                placeholder="Notas administrativas internas"
-                rows={3}
-              />
-            </section>
           )}
 
           {photosError && (

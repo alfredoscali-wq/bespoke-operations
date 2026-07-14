@@ -41,7 +41,7 @@ test("hasPlanningTaskCrewObservations ignora espacios", () => {
   )
 })
 
-test("planning task row muestra indicador de observaciones junto al cliente", () => {
+test("planning task row muestra indicador de información para la cuadrilla junto al cliente", () => {
   const source = readFileSync(
     join(__dirname, "../components/planificacion/planning-task-table-row.tsx"),
     "utf8"
@@ -49,7 +49,7 @@ test("planning task row muestra indicador de observaciones junto al cliente", ()
 
   assert.match(source, /AlertCircle/)
   assert.match(source, /hasPlanningTaskCrewObservations/)
-  assert.match(source, /Observaciones para revisar/)
+  assert.match(source, /Información para la Cuadrilla/)
 })
 
 test("planning map overlay muestra observaciones debajo del detalle", () => {
@@ -59,5 +59,5 @@ test("planning map overlay muestra observaciones debajo del detalle", () => {
   )
 
   assert.match(source, /PlanningTaskObservationsBlock/)
-  assert.match(source, /Observaciones para la cuadrilla/)
+  assert.match(source, /Información para la Cuadrilla/)
 })

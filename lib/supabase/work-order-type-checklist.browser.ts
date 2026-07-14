@@ -5,6 +5,7 @@ import {
   listWorkOrderTypeChecklistItems,
   persistChecklistSortOrderUpdates,
   resolveNextChecklistSortOrder,
+  resolveWorkOrderTypeChecklistItems,
   updateWorkOrderTypeChecklistItem,
   type SupabaseChecklistClient,
 } from "@/lib/supabase/work-order-type-checklist.queries"
@@ -13,6 +14,11 @@ import type {
   WorkOrderTypeChecklistItemInput,
 } from "@/lib/types/work-order-type-checklist"
 import type { ChecklistSortOrderUpdate } from "@/lib/work-order-types/checklist-reorder"
+import {
+  DEFAULT_CHECKLIST_TECHNOLOGY_SCOPE,
+  type ChecklistTechnologyScope,
+} from "@/lib/work-order-types/checklist-technology"
+import type { WorkOrderTechnology } from "@/lib/tasks/work-order"
 
 export function createBrowserChecklistClient(): SupabaseChecklistClient {
   return createClient()
@@ -21,14 +27,36 @@ export function createBrowserChecklistClient(): SupabaseChecklistClient {
 export async function fetchWorkOrderTypeChecklistItems(
   companyId: string,
   serviceType: string,
+  technology: ChecklistTechnologyScope = DEFAULT_CHECKLIST_TECHNOLOGY_SCOPE,
   client: SupabaseChecklistClient = createBrowserChecklistClient()
 ) {
-  return listWorkOrderTypeChecklistItems(client, companyId, serviceType)
+  return listWorkOrderTypeChecklistItems(
+    client,
+    companyId,
+    serviceType,
+    technology
+  )
+}
+
+/** Runtime resolve: exact tech → todas → []. */
+export async function fetchResolvedWorkOrderTypeChecklistItems(
+  companyId: string,
+  serviceType: string,
+  technology?: WorkOrderTechnology | "" | null,
+  client: SupabaseChecklistClient = createBrowserChecklistClient()
+) {
+  return resolveWorkOrderTypeChecklistItems(
+    client,
+    companyId,
+    serviceType,
+    technology
+  )
 }
 
 export async function addWorkOrderTypeChecklistItem(
   companyId: string,
   serviceType: string,
+  technology: ChecklistTechnologyScope,
   item: WorkOrderTypeChecklistItemInput,
   client: SupabaseChecklistClient = createBrowserChecklistClient()
 ): Promise<
@@ -38,12 +66,14 @@ export async function addWorkOrderTypeChecklistItem(
   const sortOrder = await resolveNextChecklistSortOrder(
     client,
     companyId,
-    serviceType
+    serviceType,
+    technology
   )
 
   const result = await createWorkOrderTypeChecklistItem(client, {
     companyId,
     serviceType,
+    technology,
     sortOrder,
     item,
   })

@@ -67,6 +67,7 @@ export function validateMobileTaskChecklistResponseRequest(
 
 export function validateMobileTaskSubmitRequest(body: unknown): {
   deviceId: string
+  trabajoRealizado: string
 } {
   if (!body || typeof body !== "object") {
     throw new MobileApiError("INVALID_REQUEST", "Cuerpo JSON inválido.", 400)
@@ -76,6 +77,10 @@ export function validateMobileTaskSubmitRequest(body: unknown): {
 
   return {
     deviceId: readRequiredString(record.deviceId, "deviceId"),
+    trabajoRealizado: readRequiredString(
+      record.trabajoRealizado,
+      "trabajoRealizado"
+    ),
   }
 }
 

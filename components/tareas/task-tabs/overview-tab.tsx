@@ -34,6 +34,7 @@ import {
   isNewInstallationTask,
 } from "@/lib/tasks/commercial-plan"
 import { isWorkOrderTask, resolveInstallationIpForDisplay } from "@/lib/tasks/work-order"
+import { readTrabajoRealizadoFromTask } from "@/lib/tasks/trabajo-realizado"
 import { isCambioDomicilioTask } from "@/lib/tasks/cambio-domicilio"
 import { isTaskVencida } from "@/lib/tasks/vencida-status"
 import { OverdueTaskInfoPanel } from "@/components/tareas/overdue-task-info-panel"
@@ -142,6 +143,7 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
 
   const sharedLocationText = liveTask.sharedLocation?.trim()
   const crewObservations = liveTask.observationsForCrew?.trim()
+  const trabajoRealizado = readTrabajoRealizadoFromTask(liveTask)
   const gpsLoaded = hasResolvedCoordinates(
     liveTask.latitude,
     liveTask.longitude
@@ -360,10 +362,10 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
                 ) : null}
                 <div>
                   <p className="text-xs text-muted-foreground">
-                    Observaciones para la cuadrilla
+                    Información para la Cuadrilla
                   </p>
                   <p className="whitespace-pre-wrap font-medium">
-                    {crewObservations || "Sin observaciones"}
+                    {crewObservations || "Sin información"}
                   </p>
                 </div>
               </div>
@@ -388,6 +390,22 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
       </Card>
 
       <div className="space-y-6">
+        {trabajoRealizado ? (
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle>Trabajo Realizado</CardTitle>
+              <CardDescription>
+                Documentación del operario al solicitar el cierre
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+                {trabajoRealizado}
+              </p>
+            </CardContent>
+          </Card>
+        ) : null}
+
         {taskRequiresFtthInstallation(liveTask) ? (
           <WorkOrderFtthInstallationDetail task={liveTask} />
         ) : isNewInstallationTask(liveTask) &&

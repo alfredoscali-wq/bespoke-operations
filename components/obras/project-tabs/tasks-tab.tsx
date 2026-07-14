@@ -113,6 +113,7 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
     code: string
     title: string
     description: string
+    observationsForCrew: string
     type: Task["type"]
     priority: Task["priority"]
     supervisor: string
@@ -136,6 +137,7 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
       const result = await editTask(selectedTask.id, {
         title: payload.title,
         description: payload.description,
+        observationsForCrew: payload.observationsForCrew,
         priority: payload.priority,
         dueDate: payload.dueDate,
         startDate: payload.startDate,
@@ -167,6 +169,7 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
       code: payload.code,
       title: payload.title,
       description: payload.description,
+      observationsForCrew: payload.observationsForCrew,
       projectId: project.id,
       projectCode: project.code,
       projectName: project.name,

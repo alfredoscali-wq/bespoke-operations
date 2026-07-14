@@ -109,6 +109,37 @@ test("historial breve limita eventos recientes", () => {
   )
 })
 
+test("observaciones del técnico priorizan Trabajo Realizado", () => {
+  const fromTrabajo = resolvePendingClosureTechnicianObservations(
+    {
+      operationalSteps: [
+        {
+          id: "step-1",
+          label: "Cierre",
+          observation: "Paso operativo",
+          completedAt: "2026-06-11T12:00:00",
+        },
+      ],
+      taskMetadata: {
+        trabajoRealizado: "  Se cambió ONT y se configuró router.  ",
+      },
+    },
+    {
+      comments: [
+        {
+          id: "cm-1",
+          author: "Operario",
+          role: "operario",
+          content: "Comentario alterno",
+          timestamp: "2026-06-11T13:00:00",
+        },
+      ],
+    }
+  )
+
+  assert.equal(fromTrabajo, "Se cambió ONT y se configuró router.")
+})
+
 test("observaciones del técnico priorizan pasos operativos", () => {
   const fromSteps = resolvePendingClosureTechnicianObservations(
     {

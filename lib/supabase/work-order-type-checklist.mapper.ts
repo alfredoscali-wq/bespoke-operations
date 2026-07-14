@@ -2,6 +2,10 @@ import type { Database } from "@/lib/supabase/database.types"
 import type { WorkOrderTypeChecklistItem } from "@/lib/types/work-order-type-checklist"
 import type { ChecklistFieldType } from "@/lib/work-order-types/checklist-field-types"
 import { isChecklistFieldType } from "@/lib/work-order-types/checklist-field-types"
+import {
+  normalizeChecklistTechnologyScope,
+  type ChecklistTechnologyScope,
+} from "@/lib/work-order-types/checklist-technology"
 
 export type WorkOrderTypeChecklistItemRow =
   Database["public"]["Tables"]["work_order_type_checklist_items"]["Row"]
@@ -23,6 +27,7 @@ export function mapChecklistItemRowToItem(
     id: row.id,
     companyId: row.company_id,
     serviceType: row.service_type,
+    technology: normalizeChecklistTechnologyScope(row.technology),
     title: row.title,
     fieldType: mapFieldType(row.field_type),
     required: row.required,
@@ -35,6 +40,7 @@ export function mapChecklistItemRowToItem(
 export function mapChecklistItemInsert(input: {
   companyId: string
   serviceType: string
+  technology: ChecklistTechnologyScope
   title: string
   fieldType: ChecklistFieldType
   required: boolean
@@ -43,6 +49,7 @@ export function mapChecklistItemInsert(input: {
   return {
     company_id: input.companyId,
     service_type: input.serviceType,
+    technology: input.technology,
     title: input.title.trim(),
     field_type: input.fieldType,
     required: input.required,

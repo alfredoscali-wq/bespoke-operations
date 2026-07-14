@@ -38,7 +38,10 @@ export type TasksContextValue = {
   removeTaskLocally: (id: string) => void
   removeTasksByCustomerId: (customerId: string) => void
   startTask: (id: string) => Promise<TaskMutationResult>
-  submitTaskForApproval: (id: string) => Promise<TaskMutationResult>
+  submitTaskForApproval: (
+    id: string,
+    options?: { trabajoRealizado?: string }
+  ) => Promise<TaskMutationResult>
   approveTask: (id: string) => Promise<TaskMutationResult>
   rejectTask: (id: string, reason: string) => Promise<TaskMutationResult>
   cancelTask: (

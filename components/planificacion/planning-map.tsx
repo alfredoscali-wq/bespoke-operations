@@ -217,7 +217,7 @@ function PlanningMapSelectedTaskOverlay({
 
       <PlanningTaskObservationsBlock
         task={task}
-        title="Observaciones para la cuadrilla"
+        title="Información para la Cuadrilla"
       />
     </div>
   )

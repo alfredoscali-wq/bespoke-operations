@@ -77,6 +77,7 @@ type ProjectTaskDialogProps = {
     code: string
     title: string
     description: string
+    observationsForCrew: string
     type: TaskType
     priority: TaskPriority
     supervisor: string
@@ -92,6 +93,7 @@ type ProjectTaskDialogProps = {
 type TaskFormState = {
   title: string
   description: string
+  observationsForCrew: string
   type: TaskType
   priority: TaskPriority
   crewId: string
@@ -110,6 +112,7 @@ function buildCreateForm(project: Project): TaskFormState {
   return {
     title: "",
     description: "",
+    observationsForCrew: "",
     type: projectTypeToTaskType(project.type),
     priority: "media",
     crewId: "",
@@ -123,6 +126,7 @@ function buildEditForm(task: Task, crews: { id: string; name: string }[]): TaskF
   return {
     title: task.title,
     description: task.description,
+    observationsForCrew: task.observationsForCrew ?? "",
     type: task.type,
     priority: task.priority,
     crewId: resolveTaskCrewId(task, crews) ?? "",
@@ -269,6 +273,7 @@ export function ProjectTaskDialog({
         code,
         title: form.title.trim(),
         description: form.description.trim(),
+        observationsForCrew: form.observationsForCrew.trim(),
         type: form.type,
         priority: form.priority,
         supervisor: inheritedSupervisor || snapshots.supervisor,
@@ -345,7 +350,20 @@ export function ProjectTaskDialog({
               onChange={(event) =>
                 updateField("description", event.target.value)
               }
-              placeholder="Detalle de la actividad..."
+              placeholder="Detalle administrativo interno de la OT..."
+              rows={2}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="task-crew-info">Información para la Cuadrilla</Label>
+            <Textarea
+              id="task-crew-info"
+              value={form.observationsForCrew}
+              onChange={(event) =>
+                updateField("observationsForCrew", event.target.value)
+              }
+              placeholder="Instrucciones operativas para el técnico..."
               rows={3}
             />
           </div>

@@ -5,6 +5,7 @@ import { AlertTriangle, ClipboardCheck, Loader2, Play } from "lucide-react"
 
 import { useOperario } from "@/components/operario/operario-provider"
 import { OperarioTaskIncidentDialog } from "@/components/operario/operario-task-incident-dialog"
+import { OperarioTaskTrabajoRealizadoDialog } from "@/components/operario/operario-task-trabajo-realizado-dialog"
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { getOperationalStepPhotoCounts, getTaskEvidencePhotoCount } from "@/lib/supabase/task-photos.browser"
 import { hasOperationalSteps } from "@/lib/operational-steps/utils"
@@ -42,6 +43,7 @@ export function OperarioTaskClosureFooter({
   const [evidenceCount, setEvidenceCount] = useState(0)
   const [isPending, setIsPending] = useState(false)
   const [incidentDialogOpen, setIncidentDialogOpen] = useState(false)
+  const [trabajoDialogOpen, setTrabajoDialogOpen] = useState(false)
 
   useEffect(() => {
     if (usesSteps) {
@@ -146,7 +148,7 @@ export function OperarioTaskClosureFooter({
     onActionMessage?.("Trabajo iniciado.")
   }
 
-  async function handleRequestClosure() {
+  function handleRequestClosureClick() {
     onActionError?.(null)
     onActionMessage?.(null)
 
@@ -157,8 +159,15 @@ export function OperarioTaskClosureFooter({
       return
     }
 
+    setTrabajoDialogOpen(true)
+  }
+
+  async function handleConfirmTrabajoRealizado(trabajoRealizado: string) {
+    onActionError?.(null)
+    onActionMessage?.(null)
     setIsPending(true)
-    const result = await submitTaskForApproval(task.id)
+
+    const result = await submitTaskForApproval(task.id, { trabajoRealizado })
     setIsPending(false)
 
     if (!result.success) {
@@ -166,6 +175,7 @@ export function OperarioTaskClosureFooter({
       return
     }
 
+    setTrabajoDialogOpen(false)
     onActionMessage?.("Trabajo enviado. Pendiente de cierre por supervisor.")
   }
 
@@ -226,7 +236,7 @@ export function OperarioTaskClosureFooter({
                 type="button"
                 size="lg"
                 className="h-14 gap-2 rounded-2xl bg-emerald-600 text-base font-semibold hover:bg-emerald-700"
-                onClick={handleRequestClosure}
+                onClick={handleRequestClosureClick}
                 disabled={isPending || closureBlocked}
               >
                 {isPending ? (
@@ -251,6 +261,13 @@ export function OperarioTaskClosureFooter({
           ) : null}
         </div>
       </div>
+
+      <OperarioTaskTrabajoRealizadoDialog
+        open={trabajoDialogOpen}
+        onOpenChange={setTrabajoDialogOpen}
+        onConfirm={handleConfirmTrabajoRealizado}
+        isSubmitting={isPending}
+      />
 
       <OperarioTaskIncidentDialog
         open={incidentDialogOpen}

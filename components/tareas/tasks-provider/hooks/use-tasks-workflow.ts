@@ -12,6 +12,10 @@ import {
 } from "@/lib/tasks/task-status-workflow"
 import { hasOperationalSteps } from "@/lib/operational-steps/utils"
 import { applyWorkOrderApprovalEffects } from "@/lib/tasks/work-order-approval-effects"
+import {
+  mergeTrabajoRealizadoIntoMetadata,
+  validateTrabajoRealizado,
+} from "@/lib/tasks/trabajo-realizado"
 import type { UpdateTaskPayload } from "@/lib/types/supabase/tasks"
 import type { Task, TaskStatus } from "@/lib/types/tasks"
 
@@ -44,6 +48,7 @@ export function useTasksWorkflow({
         evidenceCount?: number
         stepPhotoCounts?: Record<string, number>
         historyNote?: string
+        trabajoRealizado?: string
       }
     ): Promise<TaskMutationResult> => {
       const task = tasks.find((item) => item.id === id)
@@ -67,6 +72,20 @@ export function useTasksWorkflow({
         workflowAction === "approve"
       ) {
         fields.rejectionReason = ""
+      }
+
+      if (workflowAction === "submit-for-approval") {
+        const trabajoValidation = validateTrabajoRealizado(
+          options?.trabajoRealizado
+        )
+        if (!trabajoValidation.ok) {
+          return { success: false, message: trabajoValidation.message }
+        }
+
+        fields.taskMetadata = mergeTrabajoRealizadoIntoMetadata(
+          task.taskMetadata,
+          trabajoValidation.value
+        )
       }
 
       return updateTaskFields(
@@ -106,7 +125,7 @@ export function useTasksWorkflow({
   )
 
   const submitTaskForApproval = useCallback(
-    async (id: string) => {
+    async (id: string, options?: { trabajoRealizado?: string }) => {
       const task = tasks.find((item) => item.id === id)
       if (!task) {
         return { success: false, message: "Orden de trabajo no encontrada." }
@@ -118,6 +137,7 @@ export function useTasksWorkflow({
 
         return applyWorkflowTransition(id, "submit-for-approval", {
           stepPhotoCounts,
+          trabajoRealizado: options?.trabajoRealizado,
         })
       }
 
@@ -126,6 +146,7 @@ export function useTasksWorkflow({
 
       return applyWorkflowTransition(id, "submit-for-approval", {
         evidenceCount,
+        trabajoRealizado: options?.trabajoRealizado,
       })
     },
     [tasks, applyWorkflowTransition]

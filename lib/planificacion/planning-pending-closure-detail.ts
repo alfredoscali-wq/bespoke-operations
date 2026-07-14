@@ -4,6 +4,7 @@ import type {
   TaskEvidence,
   TaskHistoryEvent,
 } from "@/lib/types/tasks"
+import { readTrabajoRealizadoFromTask } from "@/lib/tasks/trabajo-realizado"
 
 export const PLANNING_PENDING_CLOSURE_DETAIL_SECTIONS = [
   "ot",
@@ -57,9 +58,14 @@ export function selectPendingClosureBriefHistory(
 }
 
 export function resolvePendingClosureTechnicianObservations(
-  task: Pick<Task, "operationalSteps">,
+  task: Pick<Task, "operationalSteps" | "taskMetadata">,
   detail?: Pick<TaskDetail, "comments">
 ): string | null {
+  const trabajoRealizado = readTrabajoRealizadoFromTask(task)
+  if (trabajoRealizado) {
+    return trabajoRealizado
+  }
+
   const stepObservations = (task.operationalSteps ?? [])
     .map((step) => step.observation?.trim())
     .filter((value): value is string => Boolean(value))

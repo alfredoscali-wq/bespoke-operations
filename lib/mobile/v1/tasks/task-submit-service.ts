@@ -14,6 +14,10 @@ import type {
   MobileTaskSubmitForApprovalResponse,
 } from "@/lib/mobile/v1/tasks/types"
 import { getTransitionForAction } from "@/lib/tasks/task-status-workflow"
+import {
+  mergeTrabajoRealizadoIntoMetadata,
+  validateTrabajoRealizado,
+} from "@/lib/tasks/trabajo-realizado"
 import { mapTaskRowToTask } from "@/lib/supabase/tasks.mapper"
 
 export async function submitMobileTaskForApproval(
@@ -29,6 +33,15 @@ export async function submitMobileTaskForApproval(
   )
 
   await assertMobileTaskExecutionNotBlockedByActiveIncident(context)
+
+  const trabajoValidation = validateTrabajoRealizado(request.trabajoRealizado)
+  if (!trabajoValidation.ok) {
+    throw new MobileApiError(
+      "TASK_TRABAJO_REALIZADO_REQUIRED",
+      trabajoValidation.message,
+      409
+    )
+  }
 
   const template = await fetchOperationalChecklistTemplateForTask(
     context.admin,
@@ -48,10 +61,17 @@ export async function submitMobileTaskForApproval(
   }
 
   const { to } = getTransitionForAction("submit-for-approval")
+  const nextMetadata = mergeTrabajoRealizadoIntoMetadata(
+    context.task.taskMetadata,
+    trabajoValidation.value
+  )
 
   const { data, error } = await context.admin
     .from("tasks")
-    .update({ status: to })
+    .update({
+      status: to,
+      task_metadata: nextMetadata,
+    })
     .eq("id", context.task.id)
     .eq("company_id", context.auth.companyId)
     .is("deleted_at", null)

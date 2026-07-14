@@ -137,6 +137,8 @@ export type MobileTaskReportIncidentResponse = {
 
 export type MobileTaskSubmitForApprovalRequest = {
   deviceId: string
+  /** Free-text documentation of work actually performed (required to close). */
+  trabajoRealizado: string
 }
 
 export type MobileTaskSubmitForApprovalResponse = {

@@ -334,7 +334,7 @@ export function OperarioTaskCrewNotes({ task }: OperarioTaskCrewNotesProps) {
   return (
     <section className="rounded-xl border bg-card px-4 py-3 shadow-sm">
       <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        Observaciones
+        Información para la Cuadrilla
       </h2>
       <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-foreground">
         {notes}

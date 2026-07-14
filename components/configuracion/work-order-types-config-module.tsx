@@ -8,6 +8,11 @@ import {
   WORK_ORDER_SERVICE_TYPE_OPTIONS,
   type WorkOrderServiceType,
 } from "@/lib/tasks/work-order"
+import {
+  CHECKLIST_TECHNOLOGY_SCOPE_OPTIONS,
+  DEFAULT_CHECKLIST_TECHNOLOGY_SCOPE,
+  type ChecklistTechnologyScope,
+} from "@/lib/work-order-types/checklist-technology"
 
 type WorkOrderTypesConfigModuleProps = {
   readOnly?: boolean
@@ -19,10 +24,17 @@ export function WorkOrderTypesConfigModule({
   const [selectedType, setSelectedType] = useState<WorkOrderServiceType>(
     WORK_ORDER_SERVICE_TYPE_OPTIONS[0]?.value ?? "instalacion-nueva"
   )
+  const [selectedTechnology, setSelectedTechnology] =
+    useState<ChecklistTechnologyScope>(DEFAULT_CHECKLIST_TECHNOLOGY_SCOPE)
 
   const selectedLabel =
     WORK_ORDER_SERVICE_TYPE_OPTIONS.find((option) => option.value === selectedType)
       ?.label ?? selectedType
+
+  const selectedTechnologyLabel =
+    CHECKLIST_TECHNOLOGY_SCOPE_OPTIONS.find(
+      (option) => option.value === selectedTechnology
+    )?.label ?? selectedTechnology
 
   return (
     <div className="space-y-6">
@@ -31,7 +43,8 @@ export function WorkOrderTypesConfigModule({
           Tipos de Orden de Trabajo
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Configure el checklist operativo asociado a cada tipo de OT de su empresa.
+          Configure el checklist operativo por tipo de OT y tecnología. Si no hay
+          checklist específico, se usa el de Todas.
         </p>
       </div>
 
@@ -67,11 +80,40 @@ export function WorkOrderTypesConfigModule({
           </ul>
         </section>
 
-        <section className="rounded-xl border bg-card p-4 shadow-sm md:p-6">
+        <section className="space-y-4 rounded-xl border bg-card p-4 shadow-sm md:p-6">
+          <div className="space-y-2">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Tecnología
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {CHECKLIST_TECHNOLOGY_SCOPE_OPTIONS.map((option) => {
+                const selected = option.value === selectedTechnology
+
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setSelectedTechnology(option.value)}
+                    className={cn(
+                      "rounded-lg border px-3 py-1.5 text-sm transition-colors",
+                      selected
+                        ? "border-primary bg-primary/10 font-medium text-primary"
+                        : "border-border text-foreground hover:bg-muted/50"
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
           <OperationalChecklistEditor
-            key={selectedType}
+            key={`${selectedType}:${selectedTechnology}`}
             serviceType={selectedType}
             serviceTypeLabel={selectedLabel}
+            technology={selectedTechnology}
+            technologyLabel={selectedTechnologyLabel}
             readOnly={readOnly}
           />
         </section>

@@ -184,6 +184,7 @@ export function toWorkOrderTypeChecklistItemShape(
     id: item.id,
     companyId,
     serviceType: "obra-task",
+    technology: "todas",
     title: item.title,
     fieldType: item.fieldType,
     required: item.required,

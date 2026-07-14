@@ -11,7 +11,7 @@ type PlanningTaskObservationsBlockProps = {
 export function PlanningTaskObservationsBlock({
   task,
   className,
-  title = "Observaciones",
+  title = "Información para la Cuadrilla",
 }: PlanningTaskObservationsBlockProps) {
   const observations = resolvePlanningTaskCrewObservations(task)
 

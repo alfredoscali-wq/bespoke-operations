@@ -17,8 +17,12 @@ import {
   reorderChecklistItemsById,
 } from "@/lib/work-order-types/checklist-reorder"
 import { DEFAULT_CHECKLIST_FIELD_TYPE } from "@/lib/work-order-types/checklist-field-types"
+import type { ChecklistTechnologyScope } from "@/lib/work-order-types/checklist-technology"
 
-export function useWorkOrderTypeChecklist(serviceType: WorkOrderServiceType | null) {
+export function useWorkOrderTypeChecklist(
+  serviceType: WorkOrderServiceType | null,
+  technology: ChecklistTechnologyScope
+) {
   const { companyId, isAuthReady } = useTenantCompanyId()
   const [items, setItems] = useState<WorkOrderTypeChecklistItem[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -34,7 +38,11 @@ export function useWorkOrderTypeChecklist(serviceType: WorkOrderServiceType | nu
     setIsLoading(true)
     setError(null)
 
-    const result = await fetchWorkOrderTypeChecklistItems(companyId, serviceType)
+    const result = await fetchWorkOrderTypeChecklistItems(
+      companyId,
+      serviceType,
+      technology
+    )
 
     if (result.error || !result.data) {
       setError(result.error?.message ?? "No se pudo cargar el checklist.")
@@ -44,7 +52,7 @@ export function useWorkOrderTypeChecklist(serviceType: WorkOrderServiceType | nu
     }
 
     setIsLoading(false)
-  }, [companyId, serviceType])
+  }, [companyId, serviceType, technology])
 
   useEffect(() => {
     if (!isAuthReady) {
@@ -62,11 +70,16 @@ export function useWorkOrderTypeChecklist(serviceType: WorkOrderServiceType | nu
     setIsSaving(true)
     setError(null)
 
-    const result = await addWorkOrderTypeChecklistItem(companyId, serviceType, {
-      title: "Nuevo ítem",
-      fieldType: DEFAULT_CHECKLIST_FIELD_TYPE,
-      required: false,
-    })
+    const result = await addWorkOrderTypeChecklistItem(
+      companyId,
+      serviceType,
+      technology,
+      {
+        title: "Nuevo ítem",
+        fieldType: DEFAULT_CHECKLIST_FIELD_TYPE,
+        required: false,
+      }
+    )
 
     if (!result.success) {
       setError(result.message)
@@ -77,7 +90,7 @@ export function useWorkOrderTypeChecklist(serviceType: WorkOrderServiceType | nu
     }
 
     setIsSaving(false)
-  }, [companyId, serviceType])
+  }, [companyId, serviceType, technology])
 
   const updateItem = useCallback(
     async (

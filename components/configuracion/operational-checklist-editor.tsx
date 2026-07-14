@@ -7,16 +7,21 @@ import { OperationalChecklistItemRow } from "@/components/configuracion/operatio
 import { useWorkOrderTypeChecklist } from "@/components/configuracion/use-work-order-type-checklist"
 import { Button } from "@/components/ui/button"
 import type { WorkOrderServiceType } from "@/lib/tasks/work-order"
+import type { ChecklistTechnologyScope } from "@/lib/work-order-types/checklist-technology"
 
 type OperationalChecklistEditorProps = {
   serviceType: WorkOrderServiceType
   serviceTypeLabel: string
+  technology: ChecklistTechnologyScope
+  technologyLabel: string
   readOnly?: boolean
 }
 
 export function OperationalChecklistEditor({
   serviceType,
   serviceTypeLabel,
+  technology,
+  technologyLabel,
   readOnly = false,
 }: OperationalChecklistEditorProps) {
   const {
@@ -28,7 +33,7 @@ export function OperationalChecklistEditor({
     updateItem,
     deleteItem,
     reorderItems,
-  } = useWorkOrderTypeChecklist(serviceType)
+  } = useWorkOrderTypeChecklist(serviceType, technology)
 
   const [draggedId, setDraggedId] = useState<string | null>(null)
   const [dropTargetId, setDropTargetId] = useState<string | null>(null)
@@ -41,7 +46,14 @@ export function OperationalChecklistEditor({
         </h2>
         <p className="text-sm text-muted-foreground">
           Ítems de verificación para{" "}
-          <span className="font-medium text-foreground">{serviceTypeLabel}</span>.
+          <span className="font-medium text-foreground">{serviceTypeLabel}</span>
+          {" · "}
+          <span className="font-medium text-foreground">{technologyLabel}</span>.
+          {technology === "todas" ? (
+            <span className="block mt-1 text-xs">
+              Se usa cuando no hay checklist específico para Fibra o Wireless.
+            </span>
+          ) : null}
         </p>
       </div>
 
@@ -56,7 +68,7 @@ export function OperationalChecklistEditor({
       ) : items.length === 0 ? (
         <div className="rounded-xl border border-dashed bg-muted/15 px-4 py-10 text-center">
           <p className="text-sm font-medium text-foreground">
-            Este tipo de OT aún no tiene ítems de checklist.
+            Este tipo de OT aún no tiene ítems de checklist para esta tecnología.
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
             Agregue el primer ítem para definir el recorrido operativo.

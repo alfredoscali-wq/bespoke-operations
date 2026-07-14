@@ -8,9 +8,9 @@ import { fetchOperationalChecklistForServiceType } from "@/lib/mobile/v1/checkli
 import type { MobileOperationalChecklistItem } from "@/lib/mobile/v1/checklist/types"
 import { resolveMobileWorkTeam } from "@/lib/mobile/v1/shifts/resolve-work-team"
 import {
-  calculateDistanceMeters,
-  isWithinTaskStartRadius,
+  evaluateTaskStartDistancePolicy,
 } from "@/lib/mobile/v1/tasks/geo-utils"
+import { resolveWorkOrderTechnologyFromTask } from "@/lib/tasks/work-order"
 import { resolveTaskStartCoordinates } from "@/lib/mobile/v1/tasks/resolve-task-start-coordinates"
 import { buildTaskStartLocationRequiredMessage } from "@/lib/mobile/v1/tasks/task-start-coordinates"
 import type {
@@ -166,24 +166,20 @@ export async function startMobileTask(
     )
   }
 
-  const distanceToClientMeters = calculateDistanceMeters(
-    request.latitude,
-    request.longitude,
-    startCoordinates.latitude,
-    startCoordinates.longitude
-  )
+  const distancePolicy = evaluateTaskStartDistancePolicy({
+    operatorLatitude: request.latitude,
+    operatorLongitude: request.longitude,
+    targetLatitude: startCoordinates.latitude,
+    targetLongitude: startCoordinates.longitude,
+  })
 
-  if (
-    !isWithinTaskStartRadius(
-      request.latitude,
-      request.longitude,
-      startCoordinates.latitude,
-      startCoordinates.longitude
-    )
-  ) {
+  const distanceToClientMeters = distancePolicy.distanceToClientMeters
+
+  if (distancePolicy.shouldBlock) {
     throw new MobileApiError(
       "TASK_LOCATION_OUT_OF_RANGE",
-      `Se encuentra a ${Math.round(distanceToClientMeters)} metros del domicilio del cliente.`,
+      distancePolicy.message ??
+        `Se encuentra a ${Math.round(distanceToClientMeters)} metros del domicilio del cliente.`,
       409
     )
   }
@@ -221,7 +217,8 @@ export async function startMobileTask(
     await fetchOperationalChecklistForServiceType(
       admin,
       auth.companyId,
-      updatedTask.serviceType?.trim() || ""
+      updatedTask.serviceType?.trim() || "",
+      resolveWorkOrderTechnologyFromTask(updatedTask)
     )
   )
 

@@ -1391,6 +1391,7 @@ export type Database = {
           id: string
           company_id: string
           service_type: string
+          technology: string
           title: string
           required: boolean
           field_type: string
@@ -1402,6 +1403,7 @@ export type Database = {
           id?: string
           company_id: string
           service_type: string
+          technology?: string
           title: string
           required?: boolean
           field_type: string
@@ -1413,6 +1415,7 @@ export type Database = {
           id?: string
           company_id?: string
           service_type?: string
+          technology?: string
           title?: string
           required?: boolean
           field_type?: string

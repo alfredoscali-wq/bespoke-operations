@@ -18,8 +18,7 @@ type TaskAdminSidebarPanelProps = {
 function resolveAdminObservations(task: Task): string {
   return (
     task.observationsForCrew?.trim() ||
-    task.description?.trim() ||
-    "Sin observaciones"
+    "Sin información para la cuadrilla"
   )
 }
 
@@ -38,7 +37,7 @@ export function TaskAdminSidebarPanel({ task }: TaskAdminSidebarPanelProps) {
 
       <Card className="shadow-sm">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Observaciones</CardTitle>
+          <CardTitle className="text-base">Información para la Cuadrilla</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">

@@ -1,10 +1,12 @@
 import type { WorkOrderServiceType } from "@/lib/tasks/work-order"
 import type { ChecklistFieldType } from "@/lib/work-order-types/checklist-field-types"
+import type { ChecklistTechnologyScope } from "@/lib/work-order-types/checklist-technology"
 
 export type WorkOrderTypeChecklistItem = {
   id: string
   companyId: string
   serviceType: WorkOrderServiceType | string
+  technology: ChecklistTechnologyScope
   title: string
   fieldType: ChecklistFieldType
   required: boolean
