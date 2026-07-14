@@ -6,6 +6,7 @@ import test from "node:test"
 
 import {
   evaluateTaskStartDistancePolicy,
+  getTaskStartDistanceEnforcementRuntimeSnapshot,
   isTaskStartDistanceEnforcementEnabled,
   TASK_START_DISTANCE_ENFORCEMENT_ENABLED,
   TASK_START_DISTANCE_ENFORCEMENT_ENV,
@@ -26,6 +27,12 @@ test("enforcement está desactivado por defecto (sin env)", () => {
     false
   )
   assert.equal(TASK_START_DISTANCE_ENFORCEMENT_ENABLED, false)
+
+  const snapshot = getTaskStartDistanceEnforcementRuntimeSnapshot({})
+  assert.equal(snapshot.envPresent, false)
+  assert.equal(snapshot.envTruthy, false)
+  assert.equal(snapshot.effectiveEnabled, false)
+  assert.equal(snapshot.constantDefaultEnabled, false)
 })
 
 test("enforcement se puede reactivar por env", () => {

@@ -9,6 +9,7 @@ import type { MobileOperationalChecklistItem } from "@/lib/mobile/v1/checklist/t
 import { resolveMobileWorkTeam } from "@/lib/mobile/v1/shifts/resolve-work-team"
 import {
   evaluateTaskStartDistancePolicy,
+  getTaskStartDistanceEnforcementRuntimeSnapshot,
 } from "@/lib/mobile/v1/tasks/geo-utils"
 import { resolveWorkOrderTechnologyFromTask } from "@/lib/tasks/work-order"
 import { resolveTaskStartCoordinates } from "@/lib/mobile/v1/tasks/resolve-task-start-coordinates"
@@ -174,6 +175,17 @@ export async function startMobileTask(
   })
 
   const distanceToClientMeters = distancePolicy.distanceToClientMeters
+  const enforcementRuntime = getTaskStartDistanceEnforcementRuntimeSnapshot()
+
+  // Ops diagnostic only — does not alter allow/deny. Never logs raw env values.
+  console.warn("[Mobile API][task-start-distance]", {
+    taskId: task.id,
+    distanceMeters: Math.round(distanceToClientMeters),
+    withinRadius: distancePolicy.withinRadius,
+    shouldBlock: distancePolicy.shouldBlock,
+    policyEnforcementEnabled: distancePolicy.enforcementEnabled,
+    runtime: enforcementRuntime,
+  })
 
   if (distancePolicy.shouldBlock) {
     throw new MobileApiError(

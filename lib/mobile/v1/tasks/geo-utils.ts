@@ -24,10 +24,42 @@ export function isTaskStartDistanceEnforcementEnabled(
 
 /**
  * @deprecated Prefer isTaskStartDistanceEnforcementEnabled().
- * Kept as a documented default for tests/docs; runtime uses the env helper.
+ * Kept as a documented default for tests/docs; runtime gate uses the env helper.
  */
 export const TASK_START_DISTANCE_ENFORCEMENT_ENABLED = false
 
+/**
+ * Safe runtime snapshot for ops diagnostics (no raw env contents / secrets).
+ * Effective enforcement comes from process.env via dynamic key lookup — NOT from
+ * the deprecated boolean constant above.
+ */
+export type TaskStartDistanceEnforcementRuntimeSnapshot = {
+  envKey: typeof TASK_START_DISTANCE_ENFORCEMENT_ENV
+  /** True when the env key exists and is non-blank after trim. */
+  envPresent: boolean
+  /** True when the env value is one of: true | 1 | yes (case-insensitive). */
+  envTruthy: boolean
+  /** Documented compile-time default constant (not used by the gate). */
+  constantDefaultEnabled: boolean
+  /** Value actually used by evaluateTaskStartDistancePolicy(). */
+  effectiveEnabled: boolean
+}
+
+export function getTaskStartDistanceEnforcementRuntimeSnapshot(
+  env: NodeJS.ProcessEnv | Record<string, string | undefined> = process.env
+): TaskStartDistanceEnforcementRuntimeSnapshot {
+  const raw = env[TASK_START_DISTANCE_ENFORCEMENT_ENV]
+  const envPresent = !(raw == null || String(raw).trim() === "")
+  const envTruthy = isTaskStartDistanceEnforcementEnabled(env)
+
+  return {
+    envKey: TASK_START_DISTANCE_ENFORCEMENT_ENV,
+    envPresent,
+    envTruthy,
+    constantDefaultEnabled: TASK_START_DISTANCE_ENFORCEMENT_ENABLED,
+    effectiveEnabled: envTruthy,
+  }
+}
 /**
  * Great-circle distance between two WGS84 coordinates, in meters.
  */
