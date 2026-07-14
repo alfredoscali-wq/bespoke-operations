@@ -6,6 +6,7 @@ import {
   fetchSharedInboxKpiSummary,
   insertCustomerAtencion,
   listCustomerAtencionesPaginated,
+  type SharedInboxBundle,
   type SupabaseCustomerAtencionesClient,
 } from "@/lib/supabase/customer-atenciones.queries"
 import { mapCustomerAtencionRowToCustomerAtencion } from "@/lib/supabase/customer-atenciones.mapper"
@@ -14,7 +15,6 @@ import { insertCustomerSeguimiento } from "@/lib/supabase/customer-seguimientos.
 import type { CustomerAtencionListQuery } from "@/lib/customer-atenciones/atencion-list"
 import type {
   SharedInboxKpiSummary,
-  SharedInboxOperationalCounts,
   SharedInboxQuery,
 } from "@/lib/customer-atenciones/shared-inbox"
 import type {
@@ -49,13 +49,7 @@ export async function loadSharedInboxBundle(
   query: SharedInboxQuery,
   referenceDate: Date = new Date(),
   client: SupabaseCustomerAtencionesClient = createBrowserCustomerAtencionesClient()
-): Promise<
-  CustomerAtencionesRepositoryResult<{
-    kpis: SharedInboxKpiSummary
-    operationalCounts: SharedInboxOperationalCounts
-    rows: CustomerAtencionInboxRow[]
-  }>
-> {
+): Promise<CustomerAtencionesRepositoryResult<SharedInboxBundle>> {
   return fetchSharedInboxBundle(client, companyId, query, referenceDate)
 }
 
