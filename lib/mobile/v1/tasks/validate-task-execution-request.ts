@@ -70,17 +70,51 @@ export function validateMobileTaskSubmitRequest(body: unknown): {
   trabajoRealizado: string
 } {
   if (!body || typeof body !== "object") {
+    console.warn("[Mobile API][submit-for-approval]", {
+      validation: "INVALID_REQUEST_BODY_SHAPE",
+      httpStatus: 400,
+      message: "Cuerpo JSON inválido.",
+      bodyType: body === null ? "null" : typeof body,
+    })
     throw new MobileApiError("INVALID_REQUEST", "Cuerpo JSON inválido.", 400)
   }
 
   const record = body as Record<string, unknown>
 
-  return {
-    deviceId: readRequiredString(record.deviceId, "deviceId"),
-    trabajoRealizado: readRequiredString(
+  try {
+    const deviceId = readRequiredString(record.deviceId, "deviceId")
+    const trabajoRealizado = readRequiredString(
       record.trabajoRealizado,
       "trabajoRealizado"
-    ),
+    )
+    return { deviceId, trabajoRealizado }
+  } catch (error) {
+    if (error instanceof MobileApiError) {
+      const missingDeviceId =
+        typeof record.deviceId !== "string" || !record.deviceId.trim()
+      const missingTrabajo =
+        typeof record.trabajoRealizado !== "string" ||
+        !record.trabajoRealizado.trim()
+
+      console.warn("[Mobile API][submit-for-approval]", {
+        validation: "INVALID_REQUEST_REQUIRED_FIELD",
+        httpStatus: 400,
+        code: error.code,
+        message: error.message,
+        failingField: missingDeviceId
+          ? "deviceId"
+          : missingTrabajo
+            ? "trabajoRealizado"
+            : "unknown",
+        keys: Object.keys(record),
+        hasDeviceIdKey: Object.prototype.hasOwnProperty.call(record, "deviceId"),
+        hasTrabajoRealizadoKey: Object.prototype.hasOwnProperty.call(
+          record,
+          "trabajoRealizado"
+        ),
+      })
+    }
+    throw error
   }
 }
 

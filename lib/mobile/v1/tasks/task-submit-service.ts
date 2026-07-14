@@ -36,6 +36,13 @@ export async function submitMobileTaskForApproval(
 
   const trabajoValidation = validateTrabajoRealizado(request.trabajoRealizado)
   if (!trabajoValidation.ok) {
+    // Diagnostic only — business rule returns 409 (not 400).
+    console.warn("[Mobile API][submit-for-approval]", {
+      taskId,
+      validation: "TASK_TRABAJO_REALIZADO_REQUIRED",
+      httpStatus: 409,
+      message: trabajoValidation.message,
+    })
     throw new MobileApiError(
       "TASK_TRABAJO_REALIZADO_REQUIRED",
       trabajoValidation.message,
@@ -53,6 +60,14 @@ export async function submitMobileTaskForApproval(
   const validation = validateOperationalChecklistComplete(template, responses)
 
   if (!validation.allowed) {
+    // Diagnostic only — business rule returns 409 (not 400).
+    console.warn("[Mobile API][submit-for-approval]", {
+      taskId,
+      validation: "TASK_CHECKLIST_INCOMPLETE",
+      httpStatus: 409,
+      message:
+        validation.message ?? "Debe completar el checklist antes de finalizar.",
+    })
     throw new MobileApiError(
       "TASK_CHECKLIST_INCOMPLETE",
       validation.message ?? "Debe completar el checklist antes de finalizar.",

@@ -59,8 +59,16 @@ export function TaskAdminOperationalChecklist({
   const [loadError, setLoadError] = useState<string | null>(null)
   const [items, setItems] = useState<OperationalChecklistDisplayItem[]>([])
   const [executionPhotos, setExecutionPhotos] = useState<TaskPhoto[]>([])
-  const [selectedPhoto, setSelectedPhoto] = useState<TaskPhoto | null>(null)
+  const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null)
   const [viewerOpen, setViewerOpen] = useState(false)
+
+  const selectedPhoto = useMemo(
+    () =>
+      executionPhotos.find((photo) => photo.id === selectedPhotoId) ??
+      executionPhotos[0] ??
+      null,
+    [executionPhotos, selectedPhotoId]
+  )
 
   const responses = useMemo(
     () => readOperationalChecklistResponses(task),
@@ -223,10 +231,11 @@ export function TaskAdminOperationalChecklist({
                         key={photo.id}
                         type="button"
                         onClick={() => {
-                          setSelectedPhoto(photo)
+                          setSelectedPhotoId(photo.id)
                           setViewerOpen(true)
                         }}
                         className="group w-28 shrink-0 overflow-hidden rounded-lg border bg-muted/20 text-left transition hover:border-primary/40 sm:w-32"
+                        data-testid="checklist-evidence-thumbnail"
                       >
                         {photo.signedUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
@@ -252,6 +261,7 @@ export function TaskAdminOperationalChecklist({
 
       <TaskPhotoViewerDialog
         photo={selectedPhoto}
+        photos={executionPhotos}
         open={viewerOpen}
         onOpenChange={setViewerOpen}
       />

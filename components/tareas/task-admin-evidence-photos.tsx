@@ -107,6 +107,7 @@ export function TaskAdminEvidencePhotos({
 
       <TaskPhotoViewerDialog
         photo={selectedPhoto}
+        photos={photos}
         open={viewerOpen}
         onOpenChange={setViewerOpen}
       />

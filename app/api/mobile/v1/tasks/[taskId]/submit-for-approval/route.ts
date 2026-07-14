@@ -1,3 +1,4 @@
+import { MobileApiError } from "@/lib/mobile/v1/errors"
 import { submitMobileTaskForApproval } from "@/lib/mobile/v1/tasks/task-submit-service"
 import { validateMobileTaskSubmitRequest } from "@/lib/mobile/v1/tasks/validate-task-execution-request"
 import { validateMobileTaskDetailRequest } from "@/lib/mobile/v1/tasks/task-service"
@@ -9,6 +10,37 @@ type RouteContext = {
   params: Promise<{ taskId: string }>
 }
 
+/** Temporary: safe body shape for submit-for-approval 400 diagnosis. */
+function describeSubmitBody(body: unknown): Record<string, unknown> {
+  if (body === null || typeof body !== "object") {
+    return {
+      bodyType: body === null ? "null" : typeof body,
+      keys: [],
+    }
+  }
+
+  const record = body as Record<string, unknown>
+  const trabajo = record.trabajoRealizado
+
+  return {
+    bodyType: "object",
+    keys: Object.keys(record),
+    hasDeviceId: typeof record.deviceId === "string",
+    deviceIdPresent:
+      typeof record.deviceId === "string" && record.deviceId.trim().length > 0,
+    deviceIdType: typeof record.deviceId,
+    hasTrabajoRealizado: Object.prototype.hasOwnProperty.call(
+      record,
+      "trabajoRealizado"
+    ),
+    trabajoRealizadoType: trabajo === null ? "null" : typeof trabajo,
+    trabajoRealizadoLength:
+      typeof trabajo === "string" ? trabajo.length : null,
+    trabajoRealizadoTrimmedEmpty:
+      typeof trabajo === "string" ? trabajo.trim().length === 0 : null,
+  }
+}
+
 export async function POST(request: Request, context: RouteContext) {
   return handleProtectedMobileRoute(request, async (mobileContext) => {
     const { taskId } = await context.params
@@ -17,6 +49,13 @@ export async function POST(request: Request, context: RouteContext) {
     try {
       body = await request.json()
     } catch {
+      console.warn("[Mobile API][submit-for-approval]", {
+        requestId: mobileContext.request.requestId,
+        taskId,
+        validation: "INVALID_JSON_BODY",
+        httpStatus: 400,
+        message: "Cuerpo JSON inválido.",
+      })
       return mobileApiErrorResponse(
         mobileContext.request,
         "INVALID_REQUEST",
@@ -25,16 +64,45 @@ export async function POST(request: Request, context: RouteContext) {
       )
     }
 
-    const submitRequest = validateMobileTaskSubmitRequest(body)
-    validateMobileTaskDetailRequest(taskId, submitRequest.deviceId)
+    console.warn("[Mobile API][submit-for-approval]", {
+      requestId: mobileContext.request.requestId,
+      taskId,
+      step: "body_received",
+      body: describeSubmitBody(body),
+    })
 
-    const result = await submitMobileTaskForApproval(
-      mobileContext.auth,
-      taskId.trim(),
-      submitRequest
-    )
+    try {
+      const submitRequest = validateMobileTaskSubmitRequest(body)
+      validateMobileTaskDetailRequest(taskId, submitRequest.deviceId)
 
-    return mobileApiSuccessResponse(mobileContext.request, result)
+      console.warn("[Mobile API][submit-for-approval]", {
+        requestId: mobileContext.request.requestId,
+        taskId,
+        step: "request_validation_ok",
+        deviceIdPresent: true,
+        trabajoRealizadoLength: submitRequest.trabajoRealizado.length,
+      })
+
+      const result = await submitMobileTaskForApproval(
+        mobileContext.auth,
+        taskId.trim(),
+        submitRequest
+      )
+
+      return mobileApiSuccessResponse(mobileContext.request, result)
+    } catch (error) {
+      if (error instanceof MobileApiError) {
+        console.warn("[Mobile API][submit-for-approval]", {
+          requestId: mobileContext.request.requestId,
+          taskId,
+          validation: error.code,
+          httpStatus: error.status,
+          message: error.message,
+          body: describeSubmitBody(body),
+        })
+      }
+      throw error
+    }
   })
 }
 
