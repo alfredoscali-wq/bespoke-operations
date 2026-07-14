@@ -759,11 +759,21 @@ test("UX-20. clic mini-KPI limpia filtro de estado", () => {
 })
 
 test("UX-21. categoría activa tiene estado visual", () => {
-  assert.match(operationalSectionSource, /isActive=\{query\.operationalCategory === category\}/)
+  assert.match(
+    operationalSectionSource,
+    /const isActive = query\.operationalCategory === category/
+  )
+  assert.match(operationalSectionSource, /isActive=\{isActive\}/)
+  assert.match(operationalSectionSource, /✓ \$\{config\.label\}/)
 })
 
-test("UX-22. se puede quitar filtro operativo", () => {
-  assert.match(operationalSectionSource, /operationalCategory: isActive \? null : category/)
+test("UX-22. filtro operativo es sticky y se limpia con acción explícita", () => {
+  assert.match(operationalSectionSource, /operationalCategory: category/)
+  assert.doesNotMatch(
+    operationalSectionSource,
+    /operationalCategory: isActive \? null : category/
+  )
+  assert.match(operationalSectionSource, /Limpiar filtro/)
   assert.match(inboxSource, /operationalCategory: null/)
 })
 

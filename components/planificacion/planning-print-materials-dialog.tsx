@@ -94,13 +94,6 @@ export function PlanningPrintMaterialsDialog({
       return
     }
 
-    if (result.report.rows.length === 0) {
-      setError(
-        "No hay materiales cargados para esta cuadrilla en la fecha seleccionada."
-      )
-      return
-    }
-
     const printed = printPlanningMaterialsReport(result.report)
     if (!printed) {
       setError(
@@ -150,7 +143,7 @@ export function PlanningPrintMaterialsDialog({
               </p>
               {report.rows.length === 0 ? (
                 <p className="mt-2 text-muted-foreground">
-                  No hay materiales cargados para esta cuadrilla.
+                  No hay materiales registrados para esta cuadrilla.
                 </p>
               ) : (
                 <ul className="mt-3 space-y-3">
@@ -195,7 +188,7 @@ export function PlanningPrintMaterialsDialog({
             type="button"
             className="gap-2"
             onClick={handlePrint}
-            disabled={!crewId || (report?.rows.length ?? 0) === 0}
+            disabled={!crewId}
           >
             <Printer className="size-4" />
             Imprimir

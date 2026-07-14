@@ -6,16 +6,24 @@ import {
   type CustomerAtencionListQuery,
 } from "@/lib/customer-atenciones/atencion-list"
 import {
+  computeHistoricalDaySummary,
   computeOperationalWorkCounts,
   computeSharedInboxKpis,
+  filterSharedInboxDiscoveryRows,
   filterSharedInboxRows,
+  getConsultationDayBoundsFromDateOnly,
   getConsultationDayBoundsIso,
+  normalizeSharedInboxCreatedDate,
+  normalizeSharedInboxSearch,
+  resolveSharedInboxReferenceDate,
   SHARED_INBOX_MAX_ROWS,
   sortSharedInboxRows,
+  type SharedInboxHistoricalDaySummary,
   type SharedInboxKpiSummary,
   type SharedInboxOperationalCounts,
   type SharedInboxQuery,
 } from "@/lib/customer-atenciones/shared-inbox"
+import { toLocalDateOnly } from "@/lib/dates/date-only"
 import {
   CONSULTATION_EXTERNAL_WAIT_NEXT_STEPS,
   CONSULTATION_PARA_RESOLVER_KPI_NEXT_STEPS,
@@ -226,47 +234,231 @@ async function mapSharedInboxSourceRows(
   )
 }
 
-async function fetchSharedInboxSourceRows(
+async function findSharedInboxCustomerIdsBySearch(
   client: SupabaseCustomerAtencionesClient,
-  companyId: string
-): Promise<CustomerAtencionesRepositoryResult<CustomerAtencionInboxRow[]>> {
-  const [activeResult, resolvedResult] = await Promise.all([
-    client
-      .from("customer_atenciones")
-      .select(ATENCION_INBOX_SELECT)
-      .eq("company_id", companyId)
-      .is("deleted_at", null)
-      .in("status", SHARED_INBOX_ACTIVE_STATUSES)
-      .order("created_at", { ascending: true }),
-    client
-      .from("customer_atenciones")
-      .select(ATENCION_INBOX_SELECT)
-      .eq("company_id", companyId)
-      .is("deleted_at", null)
-      .eq("status", "resuelta")
-      .order("updated_at", { ascending: false })
-      .limit(SHARED_INBOX_MAX_ROWS),
-  ])
+  companyId: string,
+  search: string
+): Promise<CustomerAtencionesRepositoryResult<string[]>> {
+  const pattern = escapeAtencionSearchPattern(search)
+  const { data, error } = await client
+    .from("customers")
+    .select("id")
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .or(
+      [
+        `name.ilike.${pattern}`,
+        `phone.ilike.${pattern}`,
+        `customer_number.ilike.${pattern}`,
+        `external_customer_code.ilike.${pattern}`,
+        `dni.ilike.${pattern}`,
+      ].join(",")
+    )
+    .limit(200)
 
-  if (activeResult.error) {
-    return { data: null, error: mapSupabaseCustomerAtencionError(activeResult.error) }
+  if (error) {
+    return { data: null, error: mapSupabaseCustomerAtencionError(error) }
   }
 
-  if (resolvedResult.error) {
-    return {
-      data: null,
-      error: mapSupabaseCustomerAtencionError(resolvedResult.error),
+  return {
+    data: (data ?? []).map((row) => row.id),
+    error: null,
+  }
+}
+
+type SharedInboxAtencionesFilterBuilder = {
+  gte: (column: string, value: string) => SharedInboxAtencionesFilterBuilder
+  lt: (column: string, value: string) => SharedInboxAtencionesFilterBuilder
+  or: (filters: string) => SharedInboxAtencionesFilterBuilder
+  ilike: (column: string, pattern: string) => SharedInboxAtencionesFilterBuilder
+}
+
+function applySharedInboxDiscoveryFilters<T extends SharedInboxAtencionesFilterBuilder>(
+  query: T,
+  options: {
+    createdDate: string | null
+    search: string
+    matchingCustomerIds: string[]
+  }
+): T {
+  let next = query
+
+  if (options.createdDate) {
+    const bounds = getConsultationDayBoundsFromDateOnly(options.createdDate)
+    if (bounds) {
+      next = next.gte("created_at", bounds.start).lt("created_at", bounds.end) as T
     }
+  }
+
+  if (options.search) {
+    const pattern = escapeAtencionSearchPattern(options.search)
+    if (options.matchingCustomerIds.length > 0) {
+      next = next.or(
+        `detail.ilike.${pattern},customer_id.in.(${options.matchingCustomerIds.join(",")})`
+      ) as T
+    } else {
+      next = next.ilike("detail", pattern) as T
+    }
+  }
+
+  return next
+}
+
+async function fetchSharedInboxSourceRows(
+  client: SupabaseCustomerAtencionesClient,
+  companyId: string,
+  query: SharedInboxQuery = {
+    statusFilter: "all",
+  },
+  now: Date = new Date()
+): Promise<CustomerAtencionesRepositoryResult<CustomerAtencionInboxRow[]>> {
+  const createdDate =
+    normalizeSharedInboxCreatedDate(query.createdDate) ?? toLocalDateOnly(now)
+  const search = normalizeSharedInboxSearch(query.search)
+  const bounds = getConsultationDayBoundsFromDateOnly(createdDate)
+  const isToday = createdDate === toLocalDateOnly(now)
+  const operational =
+    isToday &&
+    !search &&
+    query.statusFilter !== "resuelta" &&
+    query.statusFilter !== "resueltas_hoy"
+
+  let matchingCustomerIds: string[] = []
+  if (search) {
+    const customerSearch = await findSharedInboxCustomerIdsBySearch(
+      client,
+      companyId,
+      search
+    )
+    if (customerSearch.error || !customerSearch.data) {
+      return {
+        data: null,
+        error: customerSearch.error ?? {
+          code: "UNKNOWN",
+          message: "No se pudieron buscar clientes para la bandeja.",
+        },
+      }
+    }
+    matchingCustomerIds = customerSearch.data
   }
 
   const rowsById = new Map<string, SharedInboxSourceRow>()
 
-  for (const row of activeResult.data ?? []) {
-    rowsById.set(row.id, row)
+  function absorb(rows: SharedInboxSourceRow[] | null | undefined) {
+    for (const row of rows ?? []) {
+      rowsById.set(row.id, row)
+    }
   }
 
-  for (const row of resolvedResult.data ?? []) {
-    rowsById.set(row.id, row)
+  if (search) {
+    let filteredQuery = client
+      .from("customer_atenciones")
+      .select(ATENCION_INBOX_SELECT)
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+
+    filteredQuery = applySharedInboxDiscoveryFilters(filteredQuery, {
+      createdDate,
+      search,
+      matchingCustomerIds,
+    })
+
+    const { data, error } = await filteredQuery
+      .order("created_at", { ascending: true })
+      .limit(SHARED_INBOX_MAX_ROWS)
+
+    if (error) {
+      return { data: null, error: mapSupabaseCustomerAtencionError(error) }
+    }
+
+    absorb(data)
+  } else if (operational && bounds) {
+    const [activeResult, createdDayResult, resolvedDayResult] = await Promise.all([
+      client
+        .from("customer_atenciones")
+        .select(ATENCION_INBOX_SELECT)
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .in("status", SHARED_INBOX_ACTIVE_STATUSES)
+        .order("created_at", { ascending: true }),
+      client
+        .from("customer_atenciones")
+        .select(ATENCION_INBOX_SELECT)
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .gte("created_at", bounds.start)
+        .lt("created_at", bounds.end)
+        .order("created_at", { ascending: true })
+        .limit(SHARED_INBOX_MAX_ROWS),
+      client
+        .from("customer_atenciones")
+        .select(ATENCION_INBOX_SELECT)
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .eq("status", "resuelta")
+        .gte("updated_at", bounds.start)
+        .lt("updated_at", bounds.end)
+        .order("updated_at", { ascending: false })
+        .limit(SHARED_INBOX_MAX_ROWS),
+    ])
+
+    if (activeResult.error) {
+      return { data: null, error: mapSupabaseCustomerAtencionError(activeResult.error) }
+    }
+    if (createdDayResult.error) {
+      return {
+        data: null,
+        error: mapSupabaseCustomerAtencionError(createdDayResult.error),
+      }
+    }
+    if (resolvedDayResult.error) {
+      return {
+        data: null,
+        error: mapSupabaseCustomerAtencionError(resolvedDayResult.error),
+      }
+    }
+
+    absorb(activeResult.data)
+    absorb(createdDayResult.data)
+    absorb(resolvedDayResult.data)
+  } else if (bounds) {
+    const [createdDayResult, resolvedDayResult] = await Promise.all([
+      client
+        .from("customer_atenciones")
+        .select(ATENCION_INBOX_SELECT)
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .gte("created_at", bounds.start)
+        .lt("created_at", bounds.end)
+        .order("created_at", { ascending: true })
+        .limit(SHARED_INBOX_MAX_ROWS),
+      client
+        .from("customer_atenciones")
+        .select(ATENCION_INBOX_SELECT)
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .eq("status", "resuelta")
+        .gte("updated_at", bounds.start)
+        .lt("updated_at", bounds.end)
+        .order("updated_at", { ascending: false })
+        .limit(SHARED_INBOX_MAX_ROWS),
+    ])
+
+    if (createdDayResult.error) {
+      return {
+        data: null,
+        error: mapSupabaseCustomerAtencionError(createdDayResult.error),
+      }
+    }
+    if (resolvedDayResult.error) {
+      return {
+        data: null,
+        error: mapSupabaseCustomerAtencionError(resolvedDayResult.error),
+      }
+    }
+
+    absorb(createdDayResult.data)
+    absorb(resolvedDayResult.data)
   }
 
   return {
@@ -308,7 +500,6 @@ async function fetchSharedInboxNuevasKpiCount(
     .from("customer_atenciones")
     .select("id", { count: "exact", head: true })
     .eq("company_id", companyId)
-    .in("status", SHARED_INBOX_ACTIVE_STATUSES)
     .gte("created_at", start)
     .lt("created_at", end)
     .is("deleted_at", null)
@@ -373,6 +564,7 @@ export type SharedInboxBundle = {
   kpis: SharedInboxKpiSummary
   operationalCounts: SharedInboxOperationalCounts
   rows: CustomerAtencionInboxRow[]
+  historicalDaySummary: SharedInboxHistoricalDaySummary | null
 }
 
 export async function fetchSharedInboxBundle(
@@ -381,10 +573,20 @@ export async function fetchSharedInboxBundle(
   query: SharedInboxQuery,
   referenceDate: Date = new Date()
 ): Promise<CustomerAtencionesRepositoryResult<SharedInboxBundle>> {
-  const [sourceResult, kpisResult] = await Promise.all([
-    fetchSharedInboxSourceRows(client, companyId),
-    fetchSharedInboxKpiSummaryFromDb(client, companyId, referenceDate),
-  ])
+  const now = referenceDate
+  const dayReference = resolveSharedInboxReferenceDate(query, now)
+  const queryWithDate: SharedInboxQuery = {
+    ...query,
+    createdDate:
+      normalizeSharedInboxCreatedDate(query.createdDate) ?? toLocalDateOnly(now),
+  }
+
+  const sourceResult = await fetchSharedInboxSourceRows(
+    client,
+    companyId,
+    queryWithDate,
+    now
+  )
 
   if (sourceResult.error || !sourceResult.data) {
     return {
@@ -396,22 +598,32 @@ export async function fetchSharedInboxBundle(
     }
   }
 
-  const kpis =
-    kpisResult.error || !kpisResult.data
-      ? computeSharedInboxKpis(sourceResult.data, referenceDate)
-      : kpisResult.data
-
+  const discoveryRows = filterSharedInboxDiscoveryRows(
+    sourceResult.data,
+    queryWithDate,
+    dayReference,
+    now
+  )
+  const kpis = computeSharedInboxKpis(discoveryRows, dayReference)
   const filtered = filterSharedInboxRows(
     sourceResult.data,
-    query,
-    referenceDate
+    queryWithDate,
+    dayReference,
+    now
   )
+
+  const createdDate = normalizeSharedInboxCreatedDate(queryWithDate.createdDate)
+  const historicalDaySummary =
+    createdDate && createdDate !== toLocalDateOnly(now)
+      ? computeHistoricalDaySummary(discoveryRows, createdDate, dayReference)
+      : null
 
   return {
     data: {
       kpis,
-      operationalCounts: computeOperationalWorkCounts(sourceResult.data),
-      rows: sortSharedInboxRows(filtered, query.statusFilter),
+      operationalCounts: computeOperationalWorkCounts(discoveryRows),
+      rows: sortSharedInboxRows(filtered, queryWithDate.statusFilter),
+      historicalDaySummary,
     },
     error: null,
   }
@@ -431,7 +643,20 @@ export async function fetchSharedInboxConsultations(
   query: SharedInboxQuery,
   referenceDate: Date = new Date()
 ): Promise<CustomerAtencionesRepositoryResult<CustomerAtencionInboxRow[]>> {
-  const sourceResult = await fetchSharedInboxSourceRows(client, companyId)
+  const now = referenceDate
+  const dayReference = resolveSharedInboxReferenceDate(query, now)
+  const queryWithDate: SharedInboxQuery = {
+    ...query,
+    createdDate:
+      normalizeSharedInboxCreatedDate(query.createdDate) ?? toLocalDateOnly(now),
+  }
+
+  const sourceResult = await fetchSharedInboxSourceRows(
+    client,
+    companyId,
+    queryWithDate,
+    now
+  )
 
   if (sourceResult.error || !sourceResult.data) {
     return {
@@ -445,12 +670,13 @@ export async function fetchSharedInboxConsultations(
 
   const filtered = filterSharedInboxRows(
     sourceResult.data,
-    query,
-    referenceDate
+    queryWithDate,
+    dayReference,
+    now
   )
 
   return {
-    data: sortSharedInboxRows(filtered, query.statusFilter),
+    data: sortSharedInboxRows(filtered, queryWithDate.statusFilter),
     error: null,
   }
 }

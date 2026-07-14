@@ -143,3 +143,28 @@ test("HTML escapa contenido y preserva saltos en pre", () => {
   assert.match(html, /<pre class="materials-body">/)
   assert.match(html, /Cuadrilla Norte/)
 })
+
+test("sin materiales genera informe vacío con mensaje", () => {
+  const result = buildPlanningMaterialsReport({
+    tasks: [
+      makeTask({
+        taskMetadata: {},
+      }),
+    ],
+    crews,
+    planningDate: "2026-07-13",
+    crewId: "crew-a",
+  })
+
+  assert.equal(result.ok, true)
+  if (!result.ok) return
+  assert.equal(result.report.rows.length, 0)
+
+  const html = buildPlanningMaterialsReportHtml(result.report)
+  assert.match(
+    html,
+    /No hay materiales registrados para esta cuadrilla\./
+  )
+  assert.match(html, /Informe de Materiales por Cuadrilla/)
+  assert.match(html, /Cuadrilla Norte/)
+})

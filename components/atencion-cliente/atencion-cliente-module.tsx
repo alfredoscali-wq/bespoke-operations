@@ -10,25 +10,49 @@ import { ConsultationOperationalWorkSection } from "@/components/atencion-client
 import { EquipoSection } from "@/components/atencion-cliente/equipo-section"
 import { useAtencionCliente } from "@/components/atencion-cliente/atencion-cliente-provider"
 import type { SharedInboxQuery } from "@/lib/customer-atenciones/shared-inbox"
+import { toLocalDateOnly } from "@/lib/dates/date-only"
 import { Button } from "@/components/ui/button"
+import { EntityActionFeedback } from "@/components/ui/entity-action-feedback"
 
-const DEFAULT_SHARED_INBOX_QUERY: SharedInboxQuery = {
-  statusFilter: "all",
-  motivo: "all",
-  channel: "all",
-  operationalCategory: null,
+function createDefaultSharedInboxQuery(): SharedInboxQuery {
+  return {
+    statusFilter: "all",
+    motivo: "all",
+    channel: "all",
+    operationalCategory: null,
+    createdDate: toLocalDateOnly(),
+    search: "",
+  }
 }
 
 export function AtencionClienteModule() {
-  const { loadSharedInbox, canViewEquipoReport } = useAtencionCliente()
+  const {
+    loadSharedInbox,
+    canViewEquipoReport,
+    actionFeedback,
+    clearActionFeedback,
+  } = useAtencionCliente()
   const [moduleView, setModuleView] = useState<"personal" | "equipo">("personal")
   const [formOpen, setFormOpen] = useState(false)
-  const [sharedInboxQuery, setSharedInboxQuery] =
-    useState<SharedInboxQuery>(DEFAULT_SHARED_INBOX_QUERY)
+  const [sharedInboxQuery, setSharedInboxQuery] = useState<SharedInboxQuery>(
+    createDefaultSharedInboxQuery
+  )
 
   useEffect(() => {
     void loadSharedInbox(sharedInboxQuery)
   }, [loadSharedInbox, sharedInboxQuery])
+
+  useEffect(() => {
+    if (!actionFeedback) {
+      return
+    }
+
+    const timer = window.setTimeout(() => {
+      clearActionFeedback()
+    }, 5000)
+
+    return () => window.clearTimeout(timer)
+  }, [actionFeedback, clearActionFeedback])
 
   return (
     <div className="space-y-6">
@@ -38,7 +62,8 @@ export function AtencionClienteModule() {
             Atención al Cliente
           </h1>
           <p className="text-sm text-muted-foreground">
-            Bandeja compartida de consultas de la empresa.
+            Bandeja operativa del día: consultas que requieren acción. Use fecha,
+            estado o búsqueda para ver historial.
           </p>
         </div>
         <Button size="lg" onClick={() => setFormOpen(true)}>
@@ -46,6 +71,8 @@ export function AtencionClienteModule() {
           Nueva Atención
         </Button>
       </div>
+
+      <EntityActionFeedback message={actionFeedback} />
 
       {canViewEquipoReport ? (
         <div className="inline-flex rounded-lg border p-1">

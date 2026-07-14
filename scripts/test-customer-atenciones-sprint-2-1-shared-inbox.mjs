@@ -93,12 +93,14 @@ const sampleRows = [
     status: "resuelta",
     attendedByEmployeeId: "employee-2",
     attendedByEmployeeName: "María",
+    createdAt: "2026-07-11T10:00:00.000Z",
     updatedAt: "2026-07-11T14:00:00.000Z",
   }),
 ]
 
-test("1. KPI Nuevas cuenta consultas activas creadas hoy", () => {
-  assert.equal(computeSharedInboxKpis(sampleRows, referenceDate).nuevas, 2)
+test("1. KPI Consultas Recibidas Hoy cuenta todas las creadas hoy", () => {
+  // ids 1, 3 y 5 (resuelta) fueron creadas hoy; 2/4/6 no
+  assert.equal(computeSharedInboxKpis(sampleRows, referenceDate).nuevas, 3)
 })
 
 test("2. KPI Para resolver cuenta trabajo interno pendiente", () => {
@@ -137,8 +139,8 @@ test("7. KPIs no filtran por attended_by_employee_id", () => {
 
   assert.notEqual(employeeOneOnly.length, sampleRows.length)
   assert.notEqual(employeeTwoOnly.length, sampleRows.length)
-  assert.equal(computeSharedInboxKpis(sampleRows, referenceDate).nuevas, 2)
-  assert.equal(computeSharedInboxKpis(employeeOneOnly, referenceDate).nuevas, 2)
+  assert.equal(computeSharedInboxKpis(sampleRows, referenceDate).nuevas, 3)
+  assert.equal(computeSharedInboxKpis(employeeOneOnly, referenceDate).nuevas, 3)
 })
 
 test("8. Bandeja contiene Consultas de distintos empleados", () => {
@@ -159,13 +161,13 @@ test("9. filtro Todas", () => {
   )
 })
 
-test("10. filtro Nuevas", () => {
+test("10. filtro Ingresadas (creadas en el día de referencia)", () => {
   const filtered = filterSharedInboxRows(sampleRows, {
     statusFilter: "nueva",
     motivo: "all",
     channel: "all",
   }, referenceDate)
-  assert.equal(filtered.length, 2)
+  assert.equal(filtered.length, 3)
   assert.ok(filtered.every((item) => item.createdAt.startsWith("2026-07-12")))
 })
 

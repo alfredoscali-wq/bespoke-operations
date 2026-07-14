@@ -1,9 +1,11 @@
 "use client"
 
 import Link from "next/link"
-import { ChevronRight } from "lucide-react"
+import { ChevronRight, Search } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
 
 import { useAtencionCliente } from "@/components/atencion-cliente/atencion-cliente-provider"
+import { ConsultationHistoricalDaySummaryCard } from "@/components/atencion-cliente/consultation-historical-day-summary-card"
 import {
   formatCustomerAtencionChannelLabel,
   formatCustomerAtencionMotivoLabel,
@@ -14,11 +16,16 @@ import {
   CUSTOMER_ATENCION_CHANNEL_OPTIONS,
   CUSTOMER_ATENCION_MOTIVO_OPTIONS,
 } from "@/lib/customer-atenciones/format"
-import { truncateConsultationDetail } from "@/lib/customer-atenciones/shared-inbox"
+import {
+  normalizeSharedInboxCreatedDate,
+  normalizeSharedInboxSearch,
+  truncateConsultationDetail,
+} from "@/lib/customer-atenciones/shared-inbox"
 import { isAdministrationConsultation } from "@/lib/customer-atenciones/administration-flow"
 import { isMorosoConsultation } from "@/lib/customer-atenciones/moroso-flow"
 import { isRetentionConsultation } from "@/lib/customer-atenciones/retention-flow"
 import { isTechnicalConsultation } from "@/lib/customer-atenciones/technical-flow"
+import { toLocalDateOnly } from "@/lib/dates/date-only"
 import type { CustomerAtencionInboxRow } from "@/lib/types/customer-atenciones"
 import type {
   SharedInboxQuery,
@@ -32,6 +39,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   Select,
   SelectContent,
@@ -40,18 +49,32 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
-import { FILTER_CLEAR_BUTTON_CLASS } from "@/lib/ui/visual-tokens"
+import {
+  FILTER_CLEAR_BUTTON_CLASS,
+  FILTER_SEARCH_INPUT_CLASS,
+} from "@/lib/ui/visual-tokens"
 
 const STATUS_FILTER_OPTIONS: { value: SharedInboxStatusFilter; label: string }[] =
   [
     { value: "all", label: "Todas" },
-    { value: "nueva", label: "Nuevas" },
+    { value: "nueva", label: "Ingresadas" },
     { value: "para_resolver", label: "Para resolver" },
     { value: "en_gestion", label: "En gestión" },
     { value: "pendiente", label: "Pendientes" },
     { value: "resuelta", label: "Resueltas" },
     { value: "resueltas_hoy", label: "Resueltas hoy" },
   ]
+
+function createDefaultInboxQuery(): SharedInboxQuery {
+  return {
+    statusFilter: "all",
+    motivo: "all",
+    channel: "all",
+    operationalCategory: null,
+    createdDate: toLocalDateOnly(),
+    search: "",
+  }
+}
 
 function statusBadgeClassName(status: CustomerAtencionInboxRow["status"]): string {
   switch (status) {
@@ -174,35 +197,125 @@ export function ConsultationInboxSection({
   query,
   onQueryChange,
 }: ConsultationInboxSectionProps) {
-  const { sharedInboxRows, isSharedInboxLoading } = useAtencionCliente()
+  const { sharedInboxRows, isSharedInboxLoading, sharedInboxHistoricalDaySummary } =
+    useAtencionCliente()
+  const [searchDraft, setSearchDraft] = useState(query.search ?? "")
+  const queryRef = useRef(query)
+  queryRef.current = query
+
+  useEffect(() => {
+    setSearchDraft(query.search ?? "")
+  }, [query.search])
+
+  useEffect(() => {
+    const normalizedDraft = normalizeSharedInboxSearch(searchDraft)
+    const normalizedQuery = normalizeSharedInboxSearch(queryRef.current.search)
+
+    if (normalizedDraft === normalizedQuery) {
+      return
+    }
+
+    const timer = window.setTimeout(() => {
+      onQueryChange({
+        ...queryRef.current,
+        search: normalizedDraft,
+      })
+    }, 300)
+
+    return () => window.clearTimeout(timer)
+  }, [searchDraft, onQueryChange])
+
+
+  const createdDate = normalizeSharedInboxCreatedDate(query.createdDate)
+  const activeSearch = normalizeSharedInboxSearch(query.search)
+  const isDefaultOperationalDay = createdDate === toLocalDateOnly()
+  const hasDiscoveryFilters =
+    Boolean(activeSearch) ||
+    (Boolean(createdDate) && !isDefaultOperationalDay)
   const hasOperationalFilters =
     query.statusFilter !== "all" ||
     Boolean(query.operationalCategory) ||
     (query.motivo && query.motivo !== "all") ||
-    (query.channel && query.channel !== "all")
+    (query.channel && query.channel !== "all") ||
+    hasDiscoveryFilters
+
+  const showDiscoveryChips =
+    Boolean(activeSearch) ||
+    (Boolean(createdDate) && !isDefaultOperationalDay)
+  function clearFilters() {
+    setSearchDraft("")
+    onQueryChange(createDefaultInboxQuery())
+  }
 
   return (
     <Card>
       <CardHeader className="space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle>Bandeja de Consultas</CardTitle>
+          <CardTitle>Bandeja operativa</CardTitle>
           {hasOperationalFilters ? (
             <button
               type="button"
               className={FILTER_CLEAR_BUTTON_CLASS}
-              onClick={() =>
-                onQueryChange({
-                  statusFilter: "all",
-                  motivo: "all",
-                  channel: "all",
-                  operationalCategory: null,
-                })
-              }
+              onClick={clearFilters}
             >
-              Ver todas
+              Limpiar filtros
             </button>
           ) : null}
         </div>
+
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+          <div className="relative min-w-0 flex-1">
+            <Label htmlFor="consultation-inbox-search" className="sr-only">
+              Buscar consulta
+            </Label>
+            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              id="consultation-inbox-search"
+              value={searchDraft}
+              onChange={(event) => setSearchDraft(event.target.value)}
+              placeholder="Buscar consulta..."
+              className={FILTER_SEARCH_INPUT_CLASS}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="consultation-inbox-date">Fecha</Label>
+            <Input
+              id="consultation-inbox-date"
+              type="date"
+              value={createdDate ?? ""}
+              onChange={(event) =>
+                onQueryChange({
+                  ...query,
+                  createdDate: event.target.value || null,
+                })
+              }
+              className="h-9 w-full bg-background sm:w-[180px]"
+            />
+          </div>
+        </div>
+
+        {showDiscoveryChips ? (
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            {createdDate && !isDefaultOperationalDay ? (
+              <Badge variant="secondary" className="font-normal">
+                Fecha:{" "}
+                {new Date(`${createdDate}T12:00:00`).toLocaleDateString("es-AR")}
+              </Badge>
+            ) : null}
+            {activeSearch ? (
+              <Badge variant="secondary" className="font-normal">
+                Búsqueda: {activeSearch}
+              </Badge>
+            ) : null}
+          </div>
+        ) : null}
+
+        {sharedInboxHistoricalDaySummary ? (
+          <ConsultationHistoricalDaySummaryCard
+            summary={sharedInboxHistoricalDaySummary}
+          />
+        ) : null}
 
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
           <div className="flex flex-wrap gap-2">

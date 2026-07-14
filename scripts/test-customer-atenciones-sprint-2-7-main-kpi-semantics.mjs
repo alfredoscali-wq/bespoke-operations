@@ -9,6 +9,7 @@ import {
   CONSULTATION_PARA_RESOLVER_KPI_NEXT_STEPS,
   CONTINUAR_GESTION_MENU_REVIEW_PLANNED,
   SHARED_INBOX_NUEVAS_KPI_CREATED_TODAY,
+  SHARED_INBOX_RECIBIDAS_HOY_INCLUDES_RESOLVED,
 } from "../lib/customer-atenciones/consultation.ts"
 import {
   computeSharedInboxKpis,
@@ -104,16 +105,23 @@ test("4. Resueltas hoy permanece sin cambios", () => {
   assert.equal(computeSharedInboxKpis([row], referenceDate).resueltas_hoy, 1)
 })
 
-test("5. Nuevas cuenta consultas activas creadas hoy", () => {
+test("5. Consultas Recibidas Hoy cuenta todas las creadas hoy, incluidas resueltas", () => {
   const rows = [
     inboxRow({ id: "today", createdAt: "2026-07-12T08:00:00.000Z" }),
+    inboxRow({
+      id: "today-resolved",
+      status: "resuelta",
+      nextStep: null,
+      createdAt: "2026-07-12T09:00:00.000Z",
+      updatedAt: "2026-07-12T11:00:00.000Z",
+    }),
     inboxRow({
       id: "yesterday",
       createdAt: "2026-07-11T08:00:00.000Z",
     }),
   ]
 
-  assert.equal(computeSharedInboxKpis(rows, referenceDate).nuevas, 1)
+  assert.equal(computeSharedInboxKpis(rows, referenceDate).nuevas, 2)
 })
 
 test("6. filtro Para resolver alinea con la regla funcional", () => {
@@ -154,6 +162,7 @@ test("7. filtro Pendientes alinea con espera externa", () => {
 
 test("8. constantes de clasificación funcional documentadas", () => {
   assert.equal(SHARED_INBOX_NUEVAS_KPI_CREATED_TODAY, true)
+  assert.equal(SHARED_INBOX_RECIBIDAS_HOY_INCLUDES_RESOLVED, true)
   assert.equal(CONTINUAR_GESTION_MENU_REVIEW_PLANNED, false)
   assert.ok(CONSULTATION_PARA_RESOLVER_KPI_NEXT_STEPS.includes("derivar_admin_gestion"))
   assert.ok(!CONSULTATION_PARA_RESOLVER_KPI_NEXT_STEPS.includes("esperar_administracion"))

@@ -22,6 +22,7 @@ import {
   type SharedInboxOperationalCounts,
   type SharedInboxQuery,
 } from "@/lib/customer-atenciones/shared-inbox"
+import { FILTER_CLEAR_BUTTON_CLASS } from "@/lib/ui/visual-tokens"
 import { cn } from "@/lib/utils"
 
 const OPERATIONAL_ICONS: Record<SharedInboxOperationalCategory, LucideIcon> = {
@@ -62,6 +63,7 @@ export function ConsultationOperationalWorkSection({
     sharedInboxOperationalCounts
   )
   const hasWork = hasOperationalWorkCounts(sharedInboxOperationalCounts)
+  const hasActiveOperationalFilter = Boolean(query.operationalCategory)
 
   useEffect(() => {
     if (!isSharedInboxLoading) {
@@ -70,12 +72,18 @@ export function ConsultationOperationalWorkSection({
   }, [hasWork, isSharedInboxLoading])
 
   function handleCategoryClick(category: SharedInboxOperationalCategory) {
-    const isActive = query.operationalCategory === category
-
+    // Sticky filter: re-clicking the same KPI keeps the filter active.
     onQueryChange({
       ...query,
       statusFilter: "all",
-      operationalCategory: isActive ? null : category,
+      operationalCategory: category,
+    })
+  }
+
+  function handleClearOperationalFilter() {
+    onQueryChange({
+      ...query,
+      operationalCategory: null,
     })
   }
 
@@ -92,7 +100,7 @@ export function ConsultationOperationalWorkSection({
             Trabajo por resolver
           </p>
           <p className="text-xs text-muted-foreground">
-            Clasificación operativa por próximo paso
+            Carga pendiente actual por área (no incluye historial resuelto)
           </p>
         </div>
         <ChevronDown
@@ -112,28 +120,48 @@ export function ConsultationOperationalWorkSection({
               No hay trabajo clasificado pendiente.
             </p>
           ) : (
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-              {visibleCategories.map((category) => {
-                const Icon = OPERATIONAL_ICONS[category]
-                const config = SHARED_INBOX_OPERATIONAL_CATEGORY_CONFIG[category]
+            <div className="space-y-3">
+              {hasActiveOperationalFilter ? (
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    className={FILTER_CLEAR_BUTTON_CLASS}
+                    onClick={handleClearOperationalFilter}
+                  >
+                    Limpiar filtro
+                  </button>
+                </div>
+              ) : null}
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+                {visibleCategories.map((category) => {
+                  const Icon = OPERATIONAL_ICONS[category]
+                  const config =
+                    SHARED_INBOX_OPERATIONAL_CATEGORY_CONFIG[category]
+                  const isActive = query.operationalCategory === category
 
-                return (
-                  <FilterableKpiCard
-                    key={category}
-                    compact
-                    label={config.label}
-                    value={formatOperationalCount(
-                      sharedInboxOperationalCounts,
-                      category
-                    )}
-                    icon={Icon}
-                    tone={OPERATIONAL_TONES[category]}
-                    isActive={query.operationalCategory === category}
-                    isLoading={isSharedInboxLoading}
-                    onClick={() => handleCategoryClick(category)}
-                  />
-                )
-              })}
+                  return (
+                    <FilterableKpiCard
+                      key={category}
+                      compact
+                      label={isActive ? `✓ ${config.label}` : config.label}
+                      value={formatOperationalCount(
+                        sharedInboxOperationalCounts,
+                        category
+                      )}
+                      icon={Icon}
+                      tone={OPERATIONAL_TONES[category]}
+                      isActive={isActive}
+                      isLoading={isSharedInboxLoading}
+                      onClick={() => handleCategoryClick(category)}
+                      ariaLabel={
+                        isActive
+                          ? `${config.label}: filtro activo`
+                          : `${config.label}`
+                      }
+                    />
+                  )
+                })}
+              </div>
             </div>
           )}
         </div>

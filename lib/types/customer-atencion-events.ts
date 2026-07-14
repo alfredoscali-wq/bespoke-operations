@@ -10,6 +10,7 @@ export type CustomerAtencionEventActionType =
   | "consulta_pendiente"
   | "consulta_resuelta"
   | "proximo_paso_cambiado"
+  | "consulta_ot_vinculada"
 
 export interface CustomerAtencionEvent {
   id: string

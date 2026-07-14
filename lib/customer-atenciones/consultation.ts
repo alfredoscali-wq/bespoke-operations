@@ -61,6 +61,8 @@ export const CONSULTATION_PARA_RESOLVER_KPI_NEXT_STEPS =
  * Kept for operational volume; may be redefined or removed later.
  */
 export const SHARED_INBOX_NUEVAS_KPI_CREATED_TODAY = true
+/** Volumen de entrada del día (KPI Ingresadas Hoy): incluye resueltas del mismo día. */
+export const SHARED_INBOX_RECIBIDAS_HOY_INCLUDES_RESOLVED = true
 
 /** Sprint 2.8 delivered the Próximo Paso menu restructuring. */
 export const CONTINUAR_GESTION_MENU_REVIEW_PLANNED = false

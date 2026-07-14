@@ -106,7 +106,7 @@ export function buildPlanningMaterialsReportHtml(
 ): string {
   const rowsHtml =
     report.rows.length === 0
-      ? `<p class="empty">No hay materiales cargados para esta cuadrilla en la fecha seleccionada.</p>`
+      ? `<p class="empty">No hay materiales registrados para esta cuadrilla.</p>`
       : report.rows
           .map(
             (row) => `
@@ -193,21 +193,43 @@ export function printPlanningMaterialsReport(
     return false
   }
 
+  // Build HTML before opening the window so a failure never yields a blank tab.
   const html = buildPlanningMaterialsReportHtml(report)
-  const printWindow = window.open("", "_blank", "noopener,noreferrer,width=900,height=700")
-  if (!printWindow) {
+
+  // Do not pass noopener/noreferrer in windowFeatures: browsers still open a
+  // blank tab but return null (or a disconnected Window), so document.write
+  // never runs and the print window stays empty.
+  const printWindow = window.open("", "_blank", "width=900,height=700")
+  if (!printWindow || printWindow.closed) {
     return false
   }
 
-  printWindow.document.open()
-  printWindow.document.write(html)
-  printWindow.document.close()
-  printWindow.focus()
+  try {
+    printWindow.document.open()
+    printWindow.document.write(html)
+    printWindow.document.close()
+  } catch {
+    printWindow.close()
+    return false
+  }
+
+  const triggerPrint = () => {
+    try {
+      printWindow.focus()
+      printWindow.print()
+    } catch {
+      // If print is blocked, content remains visible for manual print.
+    }
+  }
 
   // Allow layout/paint before the print dialog.
-  printWindow.setTimeout(() => {
-    printWindow.print()
-  }, 250)
+  if (printWindow.document.readyState === "complete") {
+    printWindow.setTimeout(triggerPrint, 250)
+  } else {
+    printWindow.addEventListener("load", () => {
+      printWindow.setTimeout(triggerPrint, 100)
+    })
+  }
 
   return true
 }

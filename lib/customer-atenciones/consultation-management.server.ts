@@ -8,6 +8,13 @@ import {
   type ConsultationManagementRpcResult,
 } from "@/lib/customer-atenciones/consultation-management"
 import {
+  CONSULTATION_HARD_DELETE_FAILED_MESSAGE,
+  mapConsultationHardDeleteRpcError,
+  parseConsultationHardDeleteRpcResult,
+  type ConsultationHardDeleteErrorCode,
+  type ConsultationHardDeleteRpcResult,
+} from "@/lib/customer-atenciones/consultation-hard-delete"
+import {
   mapMorosoTrackingRpcError,
   parseMorosoTrackingRpcResult,
   type MorosoTrackingErrorCode,
@@ -215,6 +222,55 @@ export async function linkCustomerAtencionToTask(input: {
       ok: false,
       status: 500,
       message: "No se pudo vincular la OT a la consulta.",
+      code: "RPC_EMPTY",
+    }
+  }
+
+  return { ok: true, data: parsed }
+}
+
+export type ConsultationHardDeleteServerResult =
+  | { ok: true; data: ConsultationHardDeleteRpcResult }
+  | {
+      ok: false
+      status: number
+      message: string
+      code: ConsultationHardDeleteErrorCode
+    }
+
+export async function hardDeleteCustomerAtencionConsultation(input: {
+  companyId: string
+  atencionId: string
+  employeeId: string
+}): Promise<ConsultationHardDeleteServerResult> {
+  const admin = createAdminClient()
+
+  const { data, error } = await (admin as unknown as AdminRpcClient).rpc(
+    "hard_delete_customer_atencion_consultation",
+    {
+      p_company_id: input.companyId,
+      p_atencion_id: input.atencionId,
+      p_employee_id: input.employeeId,
+    }
+  )
+
+  if (error) {
+    logOperationError("CONSULTATION HARD DELETE", error)
+    const mapped = mapConsultationHardDeleteRpcError(error.message || "")
+    return {
+      ok: false,
+      status: mapped.status,
+      message: mapped.message,
+      code: mapped.code,
+    }
+  }
+
+  const parsed = parseConsultationHardDeleteRpcResult(data)
+  if (!parsed) {
+    return {
+      ok: false,
+      status: 500,
+      message: CONSULTATION_HARD_DELETE_FAILED_MESSAGE,
       code: "RPC_EMPTY",
     }
   }

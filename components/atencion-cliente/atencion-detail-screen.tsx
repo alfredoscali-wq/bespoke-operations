@@ -1,16 +1,21 @@
 "use client"
 
 import Link from "next/link"
-import { notFound } from "next/navigation"
-import { ArrowLeft } from "lucide-react"
+import { notFound, useRouter } from "next/navigation"
+import { ArrowLeft, Trash2 } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 
 import { useAtencionCliente } from "@/components/atencion-cliente/atencion-cliente-provider"
 import { AdministrationResultDialog } from "@/components/atencion-cliente/administration-result-dialog"
+import { ConsultationEventsTimeline } from "@/components/atencion-cliente/consultation-events-timeline"
+import { ConsultationPermanentDeleteDialog } from "@/components/atencion-cliente/consultation-permanent-delete-dialog"
+import { ConsultationSituationSummaryCard } from "@/components/atencion-cliente/consultation-situation-summary-card"
 import { RetentionResultDialog } from "@/components/atencion-cliente/retention-result-dialog"
 import { TechnicalResultDialog } from "@/components/atencion-cliente/technical-result-dialog"
 import { MorosoTrackingBlock } from "@/components/atencion-cliente/moroso-tracking-block"
 import { OtLinkBlock } from "@/components/atencion-cliente/ot-link-block"
+import { useIsSystemAdministrator } from "@/lib/auth/use-is-system-administrator"
+import { canDeleteCustomerAtencionConsultation } from "@/lib/customer-atenciones/consultation-hard-delete"
 import {
   isActiveAdministrationConsultationForEmployee,
   isAdministrationConsultation,
@@ -30,14 +35,20 @@ import {
 } from "@/lib/customer-atenciones/technical-flow"
 import { isMorosoConsultation } from "@/lib/customer-atenciones/moroso-flow"
 import {
+  buildConsultationSituationSummary,
+  buildConsultationTimelineCards,
+} from "@/lib/customer-atenciones/consultation-expediente"
+import {
   CUSTOMER_ATENCION_NEXT_STEP_OPTIONS,
   formatCustomerAtencionChannelLabel,
   formatCustomerAtencionMotivoLabel,
   formatCustomerAtencionNextStepLabel,
   formatCustomerAtencionStatusLabel,
 } from "@/lib/customer-atenciones/format"
+import { listCustomerAtencionEventsByAtencionId } from "@/lib/supabase/customer-atencion-events.browser"
 import { getCustomerById } from "@/lib/supabase/customers.browser"
 import { getEmployeeById } from "@/lib/supabase/employees.browser"
+import type { CustomerAtencionEvent } from "@/lib/types/customer-atencion-events"
 import type {
   CustomerAtencion,
   CustomerAtencionNextStep,
@@ -90,17 +101,24 @@ function formatEmployeeName(employee: Employee | null | undefined): string {
 }
 
 export function AtencionDetailScreen({ atencionId }: AtencionDetailScreenProps) {
+  const router = useRouter()
+  const isSystemAdministrator = useIsSystemAdministrator()
   const {
     refreshAtencionById,
     currentEmployeeId,
     startConsultationManagement,
     resolveConsultation,
     deferConsultation,
+    permanentDeleteConsultation,
   } = useAtencionCliente()
   const [atencion, setAtencion] = useState<CustomerAtencion | null>(null)
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [creatorEmployee, setCreatorEmployee] = useState<Employee | null>(null)
   const [activeEmployee, setActiveEmployee] = useState<Employee | null>(null)
+  const [events, setEvents] = useState<CustomerAtencionEvent[]>([])
+  const [eventEmployeeNamesById, setEventEmployeeNamesById] = useState<
+    Record<string, string>
+  >({})
   const [isLoading, setIsLoading] = useState(true)
   const [actionError, setActionError] = useState<string | null>(null)
   const [isStarting, setIsStarting] = useState(false)
@@ -114,6 +132,7 @@ export function AtencionDetailScreen({ atencionId }: AtencionDetailScreenProps) 
   const [isAdministrationDialogOpen, setIsAdministrationDialogOpen] =
     useState(false)
   const [isTechnicalDialogOpen, setIsTechnicalDialogOpen] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
 
   const loadDetail = useCallback(async () => {
     setIsLoading(true)
@@ -126,18 +145,36 @@ export function AtencionDetailScreen({ atencionId }: AtencionDetailScreenProps) 
         return
       }
 
-      const [customerResult, creatorResult, activeResult] = await Promise.all([
-        getCustomerById(loadedAtencion.customerId),
-        getEmployeeById(loadedAtencion.attendedByEmployeeId),
-        loadedAtencion.activeManagementEmployeeId
-          ? getEmployeeById(loadedAtencion.activeManagementEmployeeId)
-          : Promise.resolve({ data: null, error: null }),
-      ])
+      const [customerResult, creatorResult, activeResult, eventsResult] =
+        await Promise.all([
+          getCustomerById(loadedAtencion.customerId),
+          getEmployeeById(loadedAtencion.attendedByEmployeeId),
+          loadedAtencion.activeManagementEmployeeId
+            ? getEmployeeById(loadedAtencion.activeManagementEmployeeId)
+            : Promise.resolve({ data: null, error: null }),
+          listCustomerAtencionEventsByAtencionId(
+            loadedAtencion.companyId,
+            loadedAtencion.id
+          ),
+        ])
+
+      const loadedEvents = eventsResult.data ?? []
+      const uniqueEmployeeIds = [
+        ...new Set(loadedEvents.map((event) => event.employeeId)),
+      ]
+      const employeeResults = await Promise.all(
+        uniqueEmployeeIds.map(async (employeeId) => {
+          const result = await getEmployeeById(employeeId)
+          return [employeeId, formatEmployeeName(result.data)] as const
+        })
+      )
 
       setAtencion(loadedAtencion)
       setCustomer(customerResult.data)
       setCreatorEmployee(creatorResult.data)
       setActiveEmployee(activeResult.data)
+      setEvents(loadedEvents)
+      setEventEmployeeNamesById(Object.fromEntries(employeeResults))
     } finally {
       setIsLoading(false)
     }
@@ -245,24 +282,50 @@ export function AtencionDetailScreen({ atencionId }: AtencionDetailScreenProps) 
     currentEmployeeId
   )
   const canStart = canStartConsultationManagement(atencion.status)
+  const canDelete = canDeleteCustomerAtencionConsultation(
+    isSystemAdministrator ? "administrador" : null
+  )
+  const situationSummary = buildConsultationSituationSummary(atencion, events)
+  const timelineCards = buildConsultationTimelineCards(events)
+  const lastActorName = situationSummary.lastActorEmployeeId
+    ? (eventEmployeeNamesById[situationSummary.lastActorEmployeeId] ?? "—")
+    : "—"
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Button variant="outline" size="icon" asChild>
-          <Link href="/atencion-cliente" aria-label="Volver a la bandeja">
-            <ArrowLeft className="size-4" />
-          </Link>
-        </Button>
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Detalle de Consulta
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Creada el {new Date(atencion.createdAt).toLocaleString("es-AR")}
-          </p>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="icon" asChild>
+            <Link href="/atencion-cliente" aria-label="Volver a la bandeja">
+              <ArrowLeft className="size-4" />
+            </Link>
+          </Button>
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Detalle de Consulta
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Creada el {new Date(atencion.createdAt).toLocaleString("es-AR")}
+            </p>
+          </div>
         </div>
+        {canDelete ? (
+          <Button
+            type="button"
+            variant="outline"
+            className="gap-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
+            onClick={() => setIsDeleteDialogOpen(true)}
+          >
+            <Trash2 className="size-4" />
+            Eliminar consulta
+          </Button>
+        ) : null}
       </div>
+
+      <ConsultationSituationSummaryCard
+        summary={situationSummary}
+        lastActorName={lastActorName}
+      />
 
       <Card>
         <CardHeader>
@@ -528,6 +591,26 @@ export function AtencionDetailScreen({ atencionId }: AtencionDetailScreenProps) 
           </CardContent>
         </Card>
       ) : null}
+
+      <ConsultationEventsTimeline
+        cards={timelineCards}
+        employeeNamesById={eventEmployeeNamesById}
+      />
+
+      <ConsultationPermanentDeleteDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+        onConfirm={async () => {
+          setActionError(null)
+          const result = await permanentDeleteConsultation(atencionId)
+          if (!result.success) {
+            setActionError(result.message)
+            return { success: false, message: result.message }
+          }
+          router.push("/atencion-cliente")
+          return { success: true }
+        }}
+      />
 
       <RetentionResultDialog
         open={isRetentionDialogOpen}

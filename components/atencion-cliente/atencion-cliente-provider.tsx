@@ -21,10 +21,12 @@ import {
   validateNewConsultationInput,
 } from "@/lib/customer-atenciones/consultation"
 import type {
+  SharedInboxHistoricalDaySummary,
   SharedInboxKpiSummary,
   SharedInboxOperationalCounts,
   SharedInboxQuery,
 } from "@/lib/customer-atenciones/shared-inbox"
+import { toLocalDateOnly } from "@/lib/dates/date-only"
 import {
   filterAgendaForTodayView,
   filterAgendaForWeekView,
@@ -56,10 +58,15 @@ import {
   startConsultationManagement,
   updateMorosoTrackingManagement,
   linkConsultationOtManagement,
+  permanentDeleteConsultationManagement,
+  type ConsultationHardDeleteMutationResult,
   type ConsultationManagementMutationResult,
   type MorosoTrackingMutationResult,
   type OtLinkMutationResult,
 } from "@/lib/supabase/customer-atenciones-management.browser"
+import {
+  CONSULTATION_HARD_DELETE_SUCCESS_MESSAGE,
+} from "@/lib/customer-atenciones/consultation-hard-delete"
 import {
   createBrowserCustomerAtencionesClient,
   getCustomerAtencionById as loadCustomerAtencionById,
@@ -191,6 +198,7 @@ type AtencionClienteContextValue = {
   sharedInboxKpis: SharedInboxKpiSummary
   sharedInboxOperationalCounts: SharedInboxOperationalCounts
   sharedInboxRows: CustomerAtencionInboxRow[]
+  sharedInboxHistoricalDaySummary: SharedInboxHistoricalDaySummary | null
   sharedInboxQuery: SharedInboxQuery
   isSharedInboxLoading: boolean
   loadAtencionPage: (query: CustomerAtencionListQuery) => Promise<void>
@@ -225,6 +233,11 @@ type AtencionClienteContextValue = {
     atencionId: string,
     taskId: string
   ) => Promise<OtLinkMutationResult>
+  permanentDeleteConsultation: (
+    atencionId: string
+  ) => Promise<ConsultationHardDeleteMutationResult>
+  actionFeedback: string | null
+  clearActionFeedback: () => void
   currentEmployeeId: string
   createRetencion: (
     input: NewCustomerRetencionInput
@@ -291,13 +304,20 @@ export function AtencionClienteProvider({
   const [sharedInboxRows, setSharedInboxRows] = useState<CustomerAtencionInboxRow[]>(
     []
   )
+  const [
+    sharedInboxHistoricalDaySummary,
+    setSharedInboxHistoricalDaySummary,
+  ] = useState<SharedInboxHistoricalDaySummary | null>(null)
   const [sharedInboxQuery, setSharedInboxQuery] = useState<SharedInboxQuery>({
     statusFilter: "all",
     motivo: "all",
     channel: "all",
     operationalCategory: null,
+    createdDate: toLocalDateOnly(),
+    search: "",
   })
   const [isSharedInboxLoading, setIsSharedInboxLoading] = useState(true)
+  const [actionFeedback, setActionFeedback] = useState<string | null>(null)
   const atencionCacheRef = useRef<Map<string, CustomerAtencion>>(new Map())
   const seguimientoCacheRef = useRef<Map<string, CustomerSeguimiento>>(new Map())
   const retencionCacheRef = useRef<Map<string, CustomerRetencion>>(new Map())
@@ -365,6 +385,9 @@ export function AtencionClienteProvider({
             EMPTY_SHARED_INBOX_OPERATIONAL_COUNTS
         )
         setSharedInboxRows(bundleResult.data?.rows ?? [])
+        setSharedInboxHistoricalDaySummary(
+          bundleResult.data?.historicalDaySummary ?? null
+        )
       } finally {
         setIsSharedInboxLoading(false)
       }
@@ -831,6 +854,33 @@ export function AtencionClienteProvider({
     ]
   )
 
+  const permanentDeleteConsultationHandler = useCallback(
+    async (
+      atencionId: string
+    ): Promise<ConsultationHardDeleteMutationResult> => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return {
+          success: false,
+          message: DEMO_RESTRICTED_DIALOG_MESSAGE,
+        }
+      }
+
+      const result = await permanentDeleteConsultationManagement(atencionId)
+
+      if (result.success) {
+        setActionFeedback(CONSULTATION_HARD_DELETE_SUCCESS_MESSAGE)
+        await Promise.all([refreshSharedInbox(), refreshDashboard()])
+      }
+
+      return result
+    },
+    [isReadOnly, openRestrictedDialog, refreshDashboard, refreshSharedInbox]
+  )
+
+  const clearActionFeedback = useCallback(() => {
+    setActionFeedback(null)
+  }, [])
+
   const createRetencion = useCallback(
     async (input: NewCustomerRetencionInput): Promise<RetencionMutationResult> => {
       if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
@@ -1187,6 +1237,7 @@ export function AtencionClienteProvider({
       sharedInboxKpis,
       sharedInboxOperationalCounts,
       sharedInboxRows,
+      sharedInboxHistoricalDaySummary,
       sharedInboxQuery,
       isSharedInboxLoading,
       loadAtencionPage,
@@ -1206,6 +1257,9 @@ export function AtencionClienteProvider({
       deferConsultation: deferConsultationHandler,
       updateMorosoTracking: updateMorosoTrackingHandler,
       linkConsultationOt: linkConsultationOtHandler,
+      permanentDeleteConsultation: permanentDeleteConsultationHandler,
+      actionFeedback,
+      clearActionFeedback,
       currentEmployeeId: employeeId,
       createRetencion,
       resolveRetencion,
@@ -1226,6 +1280,9 @@ export function AtencionClienteProvider({
       deferConsultationHandler,
       updateMorosoTrackingHandler,
       linkConsultationOtHandler,
+      permanentDeleteConsultationHandler,
+      actionFeedback,
+      clearActionFeedback,
       dashboardSummary,
       employeeId,
       fetchAtencionById,
@@ -1257,6 +1314,7 @@ export function AtencionClienteProvider({
       sharedInboxOperationalCounts,
       sharedInboxQuery,
       sharedInboxRows,
+      sharedInboxHistoricalDaySummary,
       startConsultationManagementHandler,
       createRecuperacion,
       createRetencion,

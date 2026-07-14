@@ -1,3 +1,4 @@
+import type { CustomerAtencionEventActionType } from "@/lib/types/customer-atencion-events"
 import type {
   CustomerAtencionChannel,
   CustomerAtencionMotivo,
@@ -91,6 +92,22 @@ export function formatCustomerAtencionNextStepLabel(
   nextStep: CustomerAtencionNextStep
 ): string {
   return NEXT_STEP_LABELS[nextStep] ?? nextStep
+}
+
+const EVENT_ACTION_LABELS: Record<CustomerAtencionEventActionType, string> = {
+  consulta_creada: "Creación de la consulta",
+  gestion_iniciada: "Inicio de gestión",
+  gestion_registrada: "Registro de gestión",
+  consulta_pendiente: "Consulta pendiente / devolución",
+  consulta_resuelta: "Resolución",
+  proximo_paso_cambiado: "Cambio de próximo paso",
+  consulta_ot_vinculada: "Vinculación con OT",
+}
+
+export function formatCustomerAtencionEventActionLabel(
+  actionType: CustomerAtencionEventActionType
+): string {
+  return EVENT_ACTION_LABELS[actionType] ?? actionType
 }
 
 export const CUSTOMER_ATENCION_CHANNEL_OPTIONS = (

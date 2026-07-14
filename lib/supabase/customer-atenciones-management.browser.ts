@@ -207,3 +207,59 @@ export async function linkConsultationOtManagement(
     otLinkedByEmployeeId: payload.otLinkedByEmployeeId,
   }
 }
+
+export type ConsultationHardDeleteApiResponse =
+  | {
+      success: true
+      atencionId: string
+      deletedEvents: number
+      clearedSeguimientos: number
+    }
+  | {
+      success: false
+      message: string
+      code?: string
+    }
+
+export type ConsultationHardDeleteMutationResult =
+  | {
+      success: true
+      atencionId: string
+      deletedEvents: number
+      clearedSeguimientos: number
+    }
+  | { success: false; message: string; code?: string }
+
+export async function permanentDeleteConsultationManagement(
+  atencionId: string
+): Promise<ConsultationHardDeleteMutationResult> {
+  const response = await fetch(
+    `/api/atencion-cliente/${atencionId}/permanent-delete`,
+    {
+      method: "POST",
+    }
+  )
+
+  const payload = (await response.json().catch(() => null)) as
+    | ConsultationHardDeleteApiResponse
+    | null
+
+  if (!response.ok || !payload || payload.success !== true) {
+    return {
+      success: false,
+      message:
+        payload && payload.success === false
+          ? payload.message
+          : "No se pudo eliminar la consulta. Intente nuevamente.",
+      code:
+        payload && payload.success === false ? payload.code : undefined,
+    }
+  }
+
+  return {
+    success: true,
+    atencionId: payload.atencionId,
+    deletedEvents: payload.deletedEvents,
+    clearedSeguimientos: payload.clearedSeguimientos,
+  }
+}
