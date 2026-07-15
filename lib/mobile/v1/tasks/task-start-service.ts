@@ -22,6 +22,9 @@ import { taskMatchesCrewId } from "@/lib/tasks/crew-relation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { mapTaskRowToTask } from "@/lib/supabase/tasks.mapper"
 import type { Task } from "@/lib/types/tasks"
+import { resolveOperationalEventActorFromMobile } from "@/lib/tasks/operational-event-actor"
+import { buildStartedOperationalEvent } from "@/lib/tasks/operational-events"
+import { recordOperationalEventOnce } from "@/lib/tasks/record-operational-event.server"
 import { fetchActiveWorkTeamShift } from "@/lib/work-team-shifts/work-team-shifts.queries"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
@@ -224,6 +227,21 @@ export async function startMobileTask(
     accuracyMeters: request.accuracyMeters,
     distanceToClientMeters,
   })
+
+  try {
+    await recordOperationalEventOnce({
+      event: buildStartedOperationalEvent({
+        companyId: auth.companyId,
+        task,
+        actor: resolveOperationalEventActorFromMobile(auth),
+        source: "mobile",
+        latitude: request.latitude,
+        longitude: request.longitude,
+      }),
+    })
+  } catch {
+    // Non-blocking operational history.
+  }
 
   const checklist = mapOperationalChecklist(
     await fetchOperationalChecklistForServiceType(

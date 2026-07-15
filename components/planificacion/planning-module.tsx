@@ -3,6 +3,11 @@
 
 
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { isWorkOrderTask } from "@/lib/tasks/work-order"
+import {
+  countOperationallyOverdueTasks,
+  filterOperationallyOverdueTasks,
+} from "@/lib/tasks/operational-overdue"
 
 
 
@@ -129,6 +134,8 @@ function PlanningModuleContent() {
 
   )
 
+  const [overdueFilterActive, setOverdueFilterActive] = useState(false)
+
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
 
   const [adjustSheetTaskId, setAdjustSheetTaskId] = useState<string | null>(null)
@@ -234,19 +241,22 @@ function PlanningModuleContent() {
 
 
 
+  const overdueCount = useMemo(
+    () => countOperationallyOverdueTasks(tasks.filter(isWorkOrderTask)),
+    [tasks]
+  )
+
   const filteredTasks = useMemo(() => {
-
-    if (isConfirmedMode) {
-
-      return filterConfirmedDispatchTasksForPlanning(tasks, { date })
-
+    if (overdueFilterActive) {
+      return filterOperationallyOverdueTasks(tasks.filter(isWorkOrderTask))
     }
 
-
+    if (isConfirmedMode) {
+      return filterConfirmedDispatchTasksForPlanning(tasks, { date })
+    }
 
     return filterPlanningOperationalViewTasks(tasks, { date })
-
-  }, [tasks, date, isConfirmedMode])
+  }, [tasks, date, isConfirmedMode, overdueFilterActive])
 
 
 
@@ -930,6 +940,10 @@ function PlanningModuleContent() {
 
           programmedCount={filteredTasks.length}
 
+          overdueCount={overdueCount}
+
+          overdueFilterActive={overdueFilterActive}
+
           crewSummaries={crewSummaries}
 
           crewIdsInOrder={crewIdsInOrder}
@@ -950,6 +964,18 @@ function PlanningModuleContent() {
 
             setCrewFilterId(null)
 
+            setOverdueFilterActive(false)
+
+            setCrewActionError(null)
+
+          }}
+
+          onSelectOverdue={() => {
+
+            setCrewFilterId(null)
+
+            setOverdueFilterActive(true)
+
             setCrewActionError(null)
 
           }}
@@ -957,6 +983,8 @@ function PlanningModuleContent() {
           onSelectCrew={(crewId) => {
 
             setCrewFilterId(crewId)
+
+            setOverdueFilterActive(false)
 
             setCrewActionError(null)
 

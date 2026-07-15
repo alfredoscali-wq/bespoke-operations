@@ -86,7 +86,7 @@ export function useTasksDeletion({
         setTasks((current) => current.filter((item) => item.id !== id))
         deleteCachedDetail(id)
         setDetailVersion((version) => version + 1)
-        recordTaskDeleteAudit(existing)
+        recordTaskDeleteAudit(existing, { administration: true })
 
         return { success: true }
       }

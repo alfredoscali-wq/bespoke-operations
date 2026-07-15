@@ -61,9 +61,10 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     approveTask,
     rejectTask,
     assignCrew,
-  } = useTasksWorkflow({ tasks, updateTaskFields })
+  } = useTasksWorkflow({ companyId, tasks, updateTaskFields })
 
   const { confirmPlanningTasks, reopenPlanningTasks } = useTasksPlanning({
+    companyId,
     tasks,
     updateTaskFields,
     applyExecutionOrderUpdates,
@@ -76,6 +77,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     rescheduleTaskFromIncident,
     rescheduleTaskFromOverdue,
   } = useTasksIncidents({
+    companyId,
     tasks,
     updateTaskFields,
     applyExecutionOrderUpdates,

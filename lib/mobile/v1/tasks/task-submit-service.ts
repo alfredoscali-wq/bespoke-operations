@@ -18,6 +18,16 @@ import {
   mergeTrabajoRealizadoIntoMetadata,
   validateTrabajoRealizado,
 } from "@/lib/tasks/trabajo-realizado"
+import { resolveOperationalEventActorFromMobile } from "@/lib/tasks/operational-event-actor"
+import {
+  buildChecklistCompletedOperationalEvent,
+  buildPendingClosureOperationalEvent,
+  buildTrabajoRealizadoOperationalEvent,
+} from "@/lib/tasks/operational-events"
+import {
+  recordOperationalEventOnce,
+  recordOperationalEventSafe,
+} from "@/lib/tasks/record-operational-event.server"
 import { mapTaskRowToTask } from "@/lib/supabase/tasks.mapper"
 
 export async function submitMobileTaskForApproval(
@@ -98,6 +108,40 @@ export async function submitMobileTaskForApproval(
   }
 
   const updatedTask = mapTaskRowToTask(data)
+
+  try {
+    const actor = resolveOperationalEventActorFromMobile(context.auth)
+
+    await recordOperationalEventOnce({
+      event: buildChecklistCompletedOperationalEvent({
+        companyId: context.auth.companyId,
+        task: context.task,
+        actor,
+        source: "mobile",
+      }),
+    })
+
+    await recordOperationalEventSafe(
+      buildTrabajoRealizadoOperationalEvent({
+        companyId: context.auth.companyId,
+        task: context.task,
+        actor,
+        trabajoRealizado: trabajoValidation.value,
+        source: "mobile",
+      })
+    )
+
+    await recordOperationalEventSafe(
+      buildPendingClosureOperationalEvent({
+        companyId: context.auth.companyId,
+        task: context.task,
+        actor,
+        source: "mobile",
+      })
+    )
+  } catch {
+    // Non-blocking operational history.
+  }
 
   try {
     await recordTaskMobileWorkflowAudit({

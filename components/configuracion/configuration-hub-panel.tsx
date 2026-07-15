@@ -92,6 +92,12 @@ export function ConfigurationHubPanel() {
                   "Clasificación de incidencias reportadas durante la ejecución de OT.",
                 href: "/configuracion/tipos-incidencia",
               },
+              {
+                title: "Motivos",
+                description:
+                  "Motivos de cancelación y reprogramación de Órdenes de Trabajo.",
+                href: "/configuracion/motivos",
+              },
             ]
           : []),
       ],

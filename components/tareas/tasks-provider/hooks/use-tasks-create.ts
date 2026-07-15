@@ -2,6 +2,7 @@
 
 import { useCallback } from "react"
 
+import { useAuth } from "@/components/auth/auth-provider"
 import {
   blockDemoWrite,
   DemoWriteBlockedError,
@@ -24,6 +25,9 @@ import {
 import { resolveNextPlanningQueuePosition } from "@/lib/planificacion/planning-dynamic"
 import { shouldApplyPlanningQueueSideEffectsForTask } from "@/lib/projects/project-start-dispatch"
 import { recordTaskCreateAudit } from "@/lib/audit/tasks-audit"
+import { resolveOperationalEventActor } from "@/lib/tasks/operational-event-actor"
+import { buildCreatedOperationalEvent } from "@/lib/tasks/operational-events"
+import { recordTaskOperationalEvent } from "@/lib/supabase/operational-control.browser"
 import type { CreateTaskPayload } from "@/lib/types/supabase/tasks"
 import type { Task } from "@/lib/types/tasks"
 
@@ -46,6 +50,8 @@ export function useTasksCreate({
   isReadOnly,
   openRestrictedDialog,
 }: UseTasksCreateParams) {
+  const { sessionUser } = useAuth()
+
   const addTask = useCallback(
     async (input: CreateTaskPayload): Promise<Task> => {
       if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
@@ -118,9 +124,31 @@ export function useTasksCreate({
       cacheDetail(result.data.id, getTaskDetail(result.data))
       setTasks((current) => [result.data!, ...current])
       recordTaskCreateAudit(result.data)
+
+      if (companyId) {
+        void recordTaskOperationalEvent(
+          buildCreatedOperationalEvent({
+            companyId,
+            task: result.data,
+            actor: resolveOperationalEventActor(sessionUser),
+            description: result.data.code?.trim()
+              ? `Código ${result.data.code.trim()}`
+              : "",
+          })
+        )
+      }
+
       return result.data
     },
-    [tasks, usesSupabase, isReadOnly, openRestrictedDialog, companyId, setTasks]
+    [
+      tasks,
+      usesSupabase,
+      isReadOnly,
+      openRestrictedDialog,
+      companyId,
+      setTasks,
+      sessionUser,
+    ]
   )
 
   return { addTask }

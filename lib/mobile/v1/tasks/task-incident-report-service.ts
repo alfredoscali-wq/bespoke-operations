@@ -13,6 +13,9 @@ import type {
 } from "@/lib/mobile/v1/tasks/types"
 import { createTaskIncidentService } from "@/lib/task-incidents/task-incident.service"
 import { TaskIncidentError } from "@/lib/task-incidents/task-incident-errors"
+import { resolveOperationalEventActorFromMobile } from "@/lib/tasks/operational-event-actor"
+import { buildIncidentOperationalEvent } from "@/lib/tasks/operational-events"
+import { recordOperationalEventSafe } from "@/lib/tasks/record-operational-event.server"
 
 function mapTaskIncidentErrorToMobile(error: TaskIncidentError): MobileApiError {
   const code =
@@ -114,6 +117,23 @@ export async function reportMobileTaskIncident(
 
   // RC3.1: task_incidents is the source of truth. The OT remains en-curso so the
   // operator can continue after supervisor resolution without a legacy status hop.
+
+  try {
+    await recordOperationalEventSafe(
+      buildIncidentOperationalEvent({
+        companyId: context.auth.companyId,
+        task: context.task,
+        actor: resolveOperationalEventActorFromMobile(context.auth),
+        reasonLabel: incidentType.name,
+        observation: observation ?? "",
+        incidentId: createdIncidentId,
+        source: "mobile",
+      })
+    )
+  } catch {
+    // Non-blocking operational history.
+  }
+
   return {
     id: context.task.id,
     status: context.task.status,

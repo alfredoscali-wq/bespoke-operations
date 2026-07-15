@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { ArrowRight, BarChart3, FileClock } from "lucide-react"
+import { ArrowRight, BarChart3, FileClock, UserRoundSearch } from "lucide-react"
 
 import { ReportesSectionNav } from "@/components/reportes/reportes-section-nav"
 import {
@@ -16,6 +16,13 @@ const reportSections = [
     description:
       "Indicadores, productividad por cuadrilla, localidades y exportación según período.",
     icon: BarChart3,
+  },
+  {
+    href: "/reportes/por-empleado",
+    title: "Reportes por Empleado",
+    description:
+      "Ficha de rendimiento individual adaptable al área: técnica, ventas, atención, RRHH o supervisión.",
+    icon: UserRoundSearch,
   },
   {
     href: "/reportes/automaticos",
@@ -36,12 +43,12 @@ export function ReportsDashboardModule() {
           Dashboard Ejecutivo
         </h2>
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-          Punto de entrada unificado para consultar indicadores operativos y
-          gestionar reportes automáticos.
+          Punto de entrada unificado para consultar indicadores operativos,
+          individuales y gestionar reportes automáticos.
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {reportSections.map((section) => {
           const Icon = section.icon
 

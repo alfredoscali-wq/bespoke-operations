@@ -6,8 +6,8 @@ import { notFound, useRouter } from "next/navigation"
 import { TaskAdminDetailView } from "@/components/tareas/task-admin-detail-view"
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { useAuth } from "@/components/auth/auth-provider"
-import { ARCHIVE_WORK_ORDER_STATUS } from "@/lib/tasks/task-list-scope"
-import { canPermanentlyDeleteWorkOrder } from "@/lib/tasks/work-order-deletion-policy"
+import { isArchiveWorkOrderStatus } from "@/lib/tasks/task-list-scope"
+import { canShowAdminSoftDeleteInArchive } from "@/lib/tasks/work-order-deletion-policy"
 
 type TaskDetailPageClientProps = {
   id: string
@@ -37,13 +37,13 @@ export function TaskDetailPageClient({
     notFound()
   }
 
-  if (requireArchived && task.status !== ARCHIVE_WORK_ORDER_STATUS) {
+  if (requireArchived && !isArchiveWorkOrderStatus(task.status)) {
     notFound()
   }
 
   const showPermanentDelete =
     requireArchived &&
-    canPermanentlyDeleteWorkOrder(sessionUser?.systemRole, task.status)
+    canShowAdminSoftDeleteInArchive(sessionUser?.systemRole, task.status)
 
   function handlePermanentDeleteSuccess(_message: string) {
     removeTaskLocally(id)
@@ -58,6 +58,7 @@ export function TaskDetailPageClient({
       backHref={backHref}
       showPermanentDelete={showPermanentDelete}
       onPermanentDeleteSuccess={handlePermanentDeleteSuccess}
+      timelineRefreshKey={detailVersion}
     />
   )
 }

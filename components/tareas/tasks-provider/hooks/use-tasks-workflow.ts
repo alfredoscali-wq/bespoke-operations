@@ -2,6 +2,7 @@
 
 import { useCallback } from "react"
 
+import { useAuth } from "@/components/auth/auth-provider"
 import { getTaskEvidencePhotoCount, getOperationalStepPhotoCounts } from "@/lib/supabase/task-photos.browser"
 import {
   canPerformTaskAction,
@@ -16,12 +17,24 @@ import {
   mergeTrabajoRealizadoIntoMetadata,
   validateTrabajoRealizado,
 } from "@/lib/tasks/trabajo-realizado"
+import { resolveOperationalEventActor } from "@/lib/tasks/operational-event-actor"
+import {
+  buildApprovedOperationalEvent,
+  buildAssignedOperationalEvent,
+  buildChecklistCompletedOperationalEvent,
+  buildPendingClosureOperationalEvent,
+  buildRejectedOperationalEvent,
+  buildStartedOperationalEvent,
+  buildTrabajoRealizadoOperationalEvent,
+} from "@/lib/tasks/operational-events"
+import { recordTaskOperationalEvent } from "@/lib/supabase/operational-control.browser"
 import type { UpdateTaskPayload } from "@/lib/types/supabase/tasks"
 import type { Task, TaskStatus } from "@/lib/types/tasks"
 
 import type { TaskMutationResult } from "../types"
 
 type UseTasksWorkflowParams = {
+  companyId: string
   tasks: Task[]
   updateTaskFields: (
     id: string,
@@ -37,9 +50,17 @@ type UseTasksWorkflowParams = {
 }
 
 export function useTasksWorkflow({
+  companyId,
   tasks,
   updateTaskFields,
 }: UseTasksWorkflowParams) {
+  const { sessionUser } = useAuth()
+
+  const resolveActor = useCallback(
+    () => resolveOperationalEventActor(sessionUser),
+    [sessionUser]
+  )
+
   const applyWorkflowTransition = useCallback(
     async (
       id: string,
@@ -66,6 +87,7 @@ export function useTasksWorkflow({
 
       const { to } = getTransitionForAction(workflowAction)
       const fields: UpdateTaskPayload = { status: to }
+      const actor = resolveActor()
 
       if (
         workflowAction === "submit-for-approval" ||
@@ -88,14 +110,57 @@ export function useTasksWorkflow({
         )
       }
 
-      return updateTaskFields(
+      const result = await updateTaskFields(
         id,
         fields,
         workflowAction,
-        options?.historyNote
+        options?.historyNote,
+        actor.fullName
       )
+
+      if (result.success && companyId) {
+        if (workflowAction === "start") {
+          void recordTaskOperationalEvent(
+            buildStartedOperationalEvent({ companyId, task, actor, source: "web" })
+          )
+        } else if (workflowAction === "submit-for-approval") {
+          void recordTaskOperationalEvent(
+            buildChecklistCompletedOperationalEvent({
+              companyId,
+              task,
+              actor,
+              source: "web",
+            })
+          )
+          if (options?.trabajoRealizado?.trim()) {
+            void recordTaskOperationalEvent(
+              buildTrabajoRealizadoOperationalEvent({
+                companyId,
+                task,
+                actor,
+                trabajoRealizado: options.trabajoRealizado,
+                source: "web",
+              })
+            )
+          }
+          void recordTaskOperationalEvent(
+            buildPendingClosureOperationalEvent({
+              companyId,
+              task,
+              actor,
+              source: "web",
+            })
+          )
+        } else if (workflowAction === "approve") {
+          void recordTaskOperationalEvent(
+            buildApprovedOperationalEvent({ companyId, task, actor })
+          )
+        }
+      }
+
+      return result
     },
-    [tasks, updateTaskFields]
+    [companyId, tasks, updateTaskFields, resolveActor]
   )
 
   const changeTaskStatus = useCallback(
@@ -186,14 +251,29 @@ export function useTasksWorkflow({
       }
 
       const { to } = getTransitionForAction("reject")
-      return updateTaskFields(
+      const actor = resolveActor()
+      const result = await updateTaskFields(
         id,
         { status: to, rejectionReason: trimmedReason },
         "reject",
-        `Motivo: ${trimmedReason}`
+        `Motivo: ${trimmedReason}`,
+        actor.fullName
       )
+
+      if (result.success && companyId) {
+        void recordTaskOperationalEvent(
+          buildRejectedOperationalEvent({
+            companyId,
+            task,
+            actor,
+            reason: trimmedReason,
+          })
+        )
+      }
+
+      return result
     },
-    [tasks, updateTaskFields]
+    [companyId, tasks, updateTaskFields, resolveActor]
   )
 
   const assignCrew = useCallback(
@@ -214,6 +294,7 @@ export function useTasksWorkflow({
         crew: crewName,
         supervisor: crewId ? supervisor : "",
       }
+      const actor = resolveActor()
 
       const nextStatus = resolveStatusAfterCrewAssignment(
         existing.status,
@@ -222,22 +303,46 @@ export function useTasksWorkflow({
         options
       )
 
+      let result: TaskMutationResult
+
       if (nextStatus) {
         const validation = canPerformTaskAction(existing, "assign-crew")
         if (!validation.allowed) {
           return { success: false, message: validation.message }
         }
 
-        return updateTaskFields(
+        result = await updateTaskFields(
           id,
           { ...payload, status: nextStatus },
-          "assign-crew"
+          "assign-crew",
+          undefined,
+          actor.fullName
+        )
+      } else {
+        result = await updateTaskFields(
+          id,
+          payload,
+          undefined,
+          undefined,
+          actor.fullName
         )
       }
 
-      return updateTaskFields(id, payload)
+      if (result.success && companyId && crewId) {
+        void recordTaskOperationalEvent(
+          buildAssignedOperationalEvent({
+            companyId,
+            task: existing,
+            actor,
+            crewName,
+            supervisor,
+          })
+        )
+      }
+
+      return result
     },
-    [tasks, updateTaskFields]
+    [companyId, tasks, updateTaskFields, resolveActor]
   )
 
   return {

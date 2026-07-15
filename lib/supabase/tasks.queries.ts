@@ -19,6 +19,7 @@ import {
   WORK_ORDER_ADMIN_MUTATION_BLOCKED_MESSAGE,
 } from "@/lib/tasks/work-order-admin-mutation"
 import {
+  canAdminSoftDeleteWorkOrder,
   canSoftDeleteWorkOrder,
   WORK_ORDER_SOFT_DELETE_BLOCKED_MESSAGE,
 } from "@/lib/tasks/work-order-deletion-policy"
@@ -304,7 +305,7 @@ export async function softDeleteWorkOrderFromAdmin(
     }
   }
 
-  if (!canAdminModifyWorkOrder(existingTask.status as TaskStatus)) {
+  if (!canAdminSoftDeleteWorkOrder(existingTask.status as TaskStatus)) {
     return {
       data: null,
       error: {

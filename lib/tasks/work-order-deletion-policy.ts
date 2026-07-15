@@ -1,6 +1,7 @@
 import { isTaskArchivedStatus } from "@/lib/tasks/task-archived-status"
 import { isPendingClosureStatus } from "@/lib/tasks/task-status-workflow"
 import { isCancellableTaskStatus } from "@/lib/tasks/status-groups"
+import { isArchiveWorkOrderStatus } from "@/lib/tasks/task-list-scope"
 import type { Task, TaskStatus } from "@/lib/types/tasks"
 
 export const WORK_ORDER_SOFT_DELETE_BLOCKED_MESSAGE =
@@ -14,6 +15,13 @@ export function canSoftDeleteWorkOrder(status: TaskStatus): boolean {
   return status === "programada"
 }
 
+/**
+ * Admin soft-delete statuses (reuses deleted_at). Includes planning + Archivo OT.
+ */
+export function canAdminSoftDeleteWorkOrder(status: TaskStatus): boolean {
+  return status === "programada" || isArchiveWorkOrderStatus(status)
+}
+
 export const WORK_ORDER_PERMANENT_DELETE_ARCHIVED_ONLY_MESSAGE =
   "Solo se pueden eliminar definitivamente órdenes de trabajo del Archivo OT."
 
@@ -22,6 +30,14 @@ export function canPermanentlyDeleteWorkOrder(
   status: TaskStatus
 ): boolean {
   return systemRole === "administrador" && isTaskArchivedStatus(status)
+}
+
+/** Admin-only "Eliminar definitivamente" in Archivo OT (incl. canceladas). */
+export function canShowAdminSoftDeleteInArchive(
+  systemRole: string | null | undefined,
+  status: TaskStatus
+): boolean {
+  return systemRole === "administrador" && isArchiveWorkOrderStatus(status)
 }
 
 export type WorkOrderRowMenuPolicy = {

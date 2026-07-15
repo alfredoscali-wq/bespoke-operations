@@ -22,6 +22,8 @@ import {
   canAdminModifyWorkOrder,
   WORK_ORDER_ADMIN_MUTATION_BLOCKED_MESSAGE,
 } from "@/lib/tasks/work-order-admin-mutation"
+import { canAdminSoftDeleteWorkOrder } from "@/lib/tasks/work-order-deletion-policy"
+import { isArchiveWorkOrderStatus } from "@/lib/tasks/task-list-scope"
 import type { Task } from "@/lib/types/tasks"
 import type { UpdateTaskPayload } from "@/lib/types/supabase/tasks"
 import type { SessionUser } from "@/lib/auth/session"
@@ -41,6 +43,28 @@ function assertAdminWorkOrderMutable(status: Task["status"]): void {
     throw new WorkOrderAdminMutationError(
       WORK_ORDER_ADMIN_MUTATION_BLOCKED_MESSAGE,
       409
+    )
+  }
+}
+
+function assertAdminWorkOrderSoftDeletable(
+  status: Task["status"],
+  sessionUser: SessionUser
+): void {
+  if (!canAdminSoftDeleteWorkOrder(status)) {
+    throw new WorkOrderAdminMutationError(
+      WORK_ORDER_ADMIN_MUTATION_BLOCKED_MESSAGE,
+      409
+    )
+  }
+
+  if (
+    isArchiveWorkOrderStatus(status) &&
+    sessionUser.systemRole !== "administrador"
+  ) {
+    throw new WorkOrderAdminMutationError(
+      "Solo un administrador del sistema puede eliminar definitivamente una orden del Archivo OT.",
+      403
     )
   }
 }
@@ -215,7 +239,7 @@ export async function deleteWorkOrderFromAdmin(
 ): Promise<void> {
   assertWritableAdminRole(sessionUser)
   const existing = await fetchTaskForAdminMutation(client, taskId)
-  assertAdminWorkOrderMutable(existing.status)
+  assertAdminWorkOrderSoftDeletable(existing.status, sessionUser)
 
   const originCrewId = existing.crewId?.trim() || null
   const originDueDate = existing.dueDate?.trim() || null

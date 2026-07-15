@@ -17,9 +17,13 @@ import { cn } from "@/lib/utils"
 
 /** Azul institucional — KPI OT Programadas (distinto del azul de cuadrilla 1). */
 export const PLANNING_KPI_PROGRAMMED_COLOR = "#1e40af"
+/** Ámbar — KPI OT Vencidas. */
+export const PLANNING_KPI_OVERDUE_COLOR = "#b45309"
 
 type PlanningOperationalSummaryProps = {
   programmedCount: number
+  overdueCount?: number
+  overdueFilterActive?: boolean
   crewSummaries: PlanningCrewSummary[]
   crewIdsInOrder: string[]
   crewNamesById: Record<string, string>
@@ -29,6 +33,7 @@ type PlanningOperationalSummaryProps = {
   processingCrewId?: string | null
   crewActionError?: string | null
   onSelectAll: () => void
+  onSelectOverdue?: () => void
   onSelectCrew: (crewId: string) => void
   onPlanCrew?: (crewId: string) => void
   onModifyCrew?: (crewId: string) => void
@@ -169,6 +174,8 @@ function PlanningCrewOperationsKpiCard({
 
 export function PlanningOperationalSummary({
   programmedCount,
+  overdueCount = 0,
+  overdueFilterActive = false,
   crewSummaries,
   crewIdsInOrder,
   crewNamesById,
@@ -178,6 +185,7 @@ export function PlanningOperationalSummary({
   processingCrewId = null,
   crewActionError = null,
   onSelectAll,
+  onSelectOverdue,
   onSelectCrew,
   onPlanCrew,
   onModifyCrew,
@@ -193,15 +201,26 @@ export function PlanningOperationalSummary({
 
   return (
     <section className={cn("w-full", className)}>
-      <div className="flex w-full gap-2">
+      <div className="flex w-full flex-wrap gap-2">
         <PlanningOperationsKpiCard
           label="OT Programadas"
           otCount={programmedCount}
           backgroundColor={PLANNING_KPI_PROGRAMMED_COLOR}
-          isActive={activeCrewFilterId == null}
+          isActive={activeCrewFilterId == null && !overdueFilterActive}
           onClick={onSelectAll}
           ariaLabel={`OT Programadas: ${programmedCount}. Mostrar todas las órdenes.`}
         />
+
+        {overdueCount > 0 && onSelectOverdue ? (
+          <PlanningOperationsKpiCard
+            label="⚠ OT Vencidas"
+            otCount={overdueCount}
+            backgroundColor={PLANNING_KPI_OVERDUE_COLOR}
+            isActive={overdueFilterActive}
+            onClick={onSelectOverdue}
+            ariaLabel={`OT Vencidas: ${overdueCount}. Filtrar órdenes vencidas.`}
+          />
+        ) : null}
 
         {crewLegendItems.map((item) => {
           const summary = summariesByCrewId.get(item.crewId)
@@ -219,7 +238,7 @@ export function PlanningOperationalSummary({
               key={item.crewId}
               item={item}
               summary={summary}
-              isActive={activeCrewFilterId === item.crewId}
+              isActive={activeCrewFilterId === item.crewId && !overdueFilterActive}
               buttonVisibility={buttonVisibility}
               isProcessing={processingCrewId === item.crewId}
               onClick={() => onSelectCrew(item.crewId)}

@@ -20,8 +20,10 @@ import {
 import type { CreateTaskPayload } from "@/lib/types/supabase/tasks"
 import { parseTaskStatusQuery } from "@/lib/navigation/query-filters"
 import {
+  ARCHIVE_OT_STATUS_FILTER_OPTIONS,
   filterActiveWorkOrders,
   filterArchivedWorkOrders,
+  type ArchiveOtStatusFilter,
 } from "@/lib/tasks/task-list-scope"
 import { Button } from "@/components/ui/button"
 
@@ -40,6 +42,8 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
   const { crews } = useCrews()
   const isArchiveView = mode === "archive"
   const [filters, setFilters] = useState(defaultTaskFilters)
+  const [archiveStatusFilter, setArchiveStatusFilter] =
+    useState<ArchiveOtStatusFilter>("all")
   const [currentPage, setCurrentPage] = useState(1)
   const [workOrderOpen, setWorkOrderOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
@@ -65,15 +69,15 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [filters, mode])
+  }, [filters, mode, archiveStatusFilter])
 
   const scopedTasks = useMemo(() => {
     if (isArchiveView) {
-      return filterArchivedWorkOrders(tasks)
+      return filterArchivedWorkOrders(tasks, archiveStatusFilter)
     }
 
     return filterActiveWorkOrders(tasks)
-  }, [tasks, isArchiveView])
+  }, [tasks, isArchiveView, archiveStatusFilter])
 
   const displayedTasks = useMemo(() => {
     return filterAndSortTasks(scopedTasks, filters, crews)
@@ -120,9 +124,27 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
     <div className="space-y-4">
       {isArchiveView ? (
         <p className="text-sm text-muted-foreground">
-          Histórico de órdenes finalizadas en solo lectura. No requiere acción
-          manual de archivado.
+          Historial operativo de OT finalizadas, canceladas y pendientes de
+          cierre. Las canceladas permanecen visibles; no se eliminan.
         </p>
+      ) : null}
+
+      {isArchiveView ? (
+        <div className="flex flex-wrap gap-2">
+          {ARCHIVE_OT_STATUS_FILTER_OPTIONS.map((option) => (
+            <Button
+              key={option.value}
+              type="button"
+              size="sm"
+              variant={
+                archiveStatusFilter === option.value ? "default" : "outline"
+              }
+              onClick={() => setArchiveStatusFilter(option.value)}
+            >
+              {option.label}
+            </Button>
+          ))}
+        </div>
       ) : null}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -163,7 +185,7 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
         onChange={setFilters}
         resultCount={displayedTasks.length}
         crewOptions={crewOptions}
-        operationalMode={isArchiveView}
+        operationalMode={false}
         showSort
       />
 

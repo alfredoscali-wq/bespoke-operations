@@ -6,6 +6,8 @@ import { TaskAdminIncidentRecordPanel } from "@/components/tareas/task-admin-inc
 import { TaskAdminInfoPanel } from "@/components/tareas/task-admin-info-panel"
 import { TaskAdminSidebarPanel } from "@/components/tareas/task-admin-sidebar-panel"
 import { TaskAdminWorkflowPanel } from "@/components/tareas/task-admin-workflow-panel"
+import { TaskCancellationRecordPanel } from "@/components/tareas/task-cancellation-record-panel"
+import { TaskOperationalTimeline } from "@/components/tareas/task-operational-timeline"
 import type { IncidentResponse } from "@/lib/types/task-incidents"
 import type { Task, TaskDetail } from "@/lib/types/tasks"
 
@@ -20,10 +22,12 @@ type TaskAdminDetailViewProps = {
   incident?: IncidentResponse | null
   incidentTypeLabel?: string
   isIncidentDetailLoading?: boolean
+  timelineRefreshKey?: number | string
 }
 
 export function TaskAdminDetailView({
   task,
+  detail,
   backHref,
   embedded = false,
   showWorkflowPanel = false,
@@ -32,6 +36,7 @@ export function TaskAdminDetailView({
   incident = null,
   incidentTypeLabel = "—",
   isIncidentDetailLoading = false,
+  timelineRefreshKey = 0,
 }: TaskAdminDetailViewProps) {
   return (
     <div className="space-y-6">
@@ -42,6 +47,15 @@ export function TaskAdminDetailView({
       />
 
       {showWorkflowPanel ? <TaskAdminWorkflowPanel task={task} /> : null}
+
+      <TaskCancellationRecordPanel
+        task={task}
+        relatedIncidentLabel={
+          incident
+            ? `${incidentTypeLabel} · ${incident.id.slice(0, 8)}`
+            : task.incidentReason || null
+        }
+      />
 
       {incident || isIncidentDetailLoading ? (
         <TaskAdminIncidentRecordPanel
@@ -55,6 +69,11 @@ export function TaskAdminDetailView({
         <TaskAdminInfoPanel task={task} embedded={embedded} />
         <TaskAdminSidebarPanel task={task} />
       </div>
+
+      <TaskOperationalTimeline
+        taskId={task.id}
+        refreshKey={timelineRefreshKey}
+      />
 
       {showPermanentDelete && onPermanentDeleteSuccess ? (
         <TaskAdminArchivePermanentDelete

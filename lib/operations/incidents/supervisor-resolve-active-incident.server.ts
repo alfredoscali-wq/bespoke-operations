@@ -32,6 +32,15 @@ import { getTaskIncidentById } from "@/lib/supabase/task-incidents.repository"
 import { mapTaskIncidentToResponse } from "@/lib/task-incidents/map-incident-response"
 import { TaskIncidentError } from "@/lib/task-incidents/task-incident-errors"
 import { validateIncidentIdParam } from "@/lib/task-incidents/validate-task-incident-input"
+import { resolveOperationalEventActor } from "@/lib/tasks/operational-event-actor"
+import {
+  buildCancelOperationalEvent,
+  buildRescheduleOperationalEvent,
+} from "@/lib/tasks/operational-motivos"
+import {
+  buildIncidentResolvedOperationalEvent,
+} from "@/lib/tasks/operational-events"
+import { recordOperationalEventSafe } from "@/lib/tasks/record-operational-event.server"
 import type { IncidentResponse } from "@/lib/types/task-incidents"
 import type { Task } from "@/lib/types/tasks"
 
@@ -259,6 +268,60 @@ export async function supervisorResolveActiveIncident(
       })
     } catch (auditError) {
       logOperationError("Supervisor resolve RC3.2.1 incident audit", auditError)
+    }
+
+    try {
+      const actor = resolveOperationalEventActor(sessionUser)
+      await recordOperationalEventSafe(
+        buildIncidentResolvedOperationalEvent({
+          companyId,
+          task: taskResult.data,
+          actor,
+          action: plan.action,
+          comment: plan.comment,
+          incidentId: incident.id,
+        })
+      )
+
+      if (plan.action === "cancel") {
+        await recordOperationalEventSafe(
+          buildCancelOperationalEvent({
+            companyId,
+            task: taskResult.data,
+            reason: plan.cancellationReason ?? "incidencia",
+            observation: plan.cancellationObservation ?? plan.comment ?? "",
+            actor,
+            motivoLabel: plan.cancellationReason ?? "Cancelación por incidencia",
+            relatedIncidentId: incident.id,
+          })
+        )
+      }
+
+      if (plan.action === "reprogram") {
+        await recordOperationalEventSafe(
+          buildRescheduleOperationalEvent({
+            companyId,
+            task: taskResult.data,
+            reschedule: {
+              dueDate: afterTask.dueDate,
+              scheduledTime: afterTask.scheduledTime ?? "08:00",
+              reason: "conflicto-agenda",
+              notes: plan.comment ?? "",
+              rescheduledBy: actor.fullName,
+              crewId: afterTask.crewId ?? taskResult.data.crewId ?? null,
+              crew: afterTask.crew ?? taskResult.data.crew ?? "",
+              supervisor: afterTask.supervisor ?? taskResult.data.supervisor ?? "",
+            },
+            actor,
+            motivoLabel: "Reprogramación desde incidencia",
+          })
+        )
+      }
+    } catch (historyError) {
+      logOperationError(
+        "Supervisor resolve RC3.2.1 operational history",
+        historyError
+      )
     }
 
     const refreshedIncident = await getTaskIncidentById(

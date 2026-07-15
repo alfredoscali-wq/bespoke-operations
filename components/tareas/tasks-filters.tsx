@@ -304,6 +304,12 @@ export function taskMatchesAdminSearch(
     serviceAddress?: string
     locality?: string | null
     workOrderNumber?: string
+    observationsForCrew?: string
+    description?: string
+    cancellationReason?: string
+    cancellationObservation?: string
+    rescheduleReason?: string
+    rescheduleNotes?: string
   },
   query: string
 ): boolean {
@@ -323,6 +329,12 @@ export function taskMatchesAdminSearch(
     task.serviceAddress,
     task.locality,
     task.customerPhone,
+    task.observationsForCrew,
+    task.description,
+    task.cancellationReason,
+    task.cancellationObservation,
+    task.rescheduleReason,
+    task.rescheduleNotes,
   ]
 
   const customerName = task.customerName?.trim()

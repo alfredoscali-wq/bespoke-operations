@@ -23,7 +23,7 @@ import {
 } from "@/components/tareas/task-action-dialogs"
 import { TaskWorkOrderDialog } from "@/components/tareas/task-work-order-dialog"
 import { TaskIncidentCancelDialog } from "@/components/tareas/task-incident-cancel-dialog"
-import { WorkOrderPermanentDeleteDialog } from "@/components/tareas/work-order-permanent-delete-dialog"
+import { WorkOrderAdminSoftDeleteDialog } from "@/components/tareas/work-order-admin-soft-delete-dialog"
 import { TASK_DELETE_USER_MESSAGE } from "@/lib/operations/user-messages"
 import { useIsSystemAdministrator } from "@/lib/auth/use-is-system-administrator"
 import { canUseWorkOrdersWebOperationalActions } from "@/lib/roles/web-module-access"
@@ -33,6 +33,7 @@ import {
   resolveWorkOrderRowMenuPolicy,
   WORK_ORDER_SOFT_DELETE_BLOCKED_MESSAGE,
 } from "@/lib/tasks/work-order-deletion-policy"
+import { canAdminModifyWorkOrder } from "@/lib/tasks/work-order-admin-mutation"
 import { isWorkOrderTask } from "@/lib/tasks/work-order"
 import type { Task } from "@/lib/types/tasks"
 import type { UpdateTaskPayload } from "@/lib/types/supabase/tasks"
@@ -76,7 +77,6 @@ export function TaskRowActions({
     assignCrew,
     cancelTask,
     reopenPlanningTasks,
-    removeTaskLocally,
     tasks,
   } = useTasks()
   const { sessionUser } = useAuth()
@@ -90,9 +90,13 @@ export function TaskRowActions({
   const [statusOpen, setStatusOpen] = useState(false)
   const [crewOpen, setCrewOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
-  const [permanentDeleteOpen, setPermanentDeleteOpen] = useState(false)
+  const [adminSoftDeleteOpen, setAdminSoftDeleteOpen] = useState(false)
   const [cancelOpen, setCancelOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isAdminSoftDeleting, setIsAdminSoftDeleting] = useState(false)
+  const [adminSoftDeleteError, setAdminSoftDeleteError] = useState<string | null>(
+    null
+  )
   const [isCancelling, setIsCancelling] = useState(false)
   const [isReopeningPlanning, setIsReopeningPlanning] = useState(false)
 
@@ -101,6 +105,10 @@ export function TaskRowActions({
   const canSoftDelete = isWorkOrder
     ? menuPolicy?.showSoftDelete ?? false
     : canSoftDeleteWorkOrder(task.status)
+  const canAdminSoftDelete =
+    isSystemAdministrator &&
+    isWorkOrder &&
+    canAdminModifyWorkOrder(task.status)
 
   async function handleUpdateWorkOrder(
     taskId: string,
@@ -274,6 +282,28 @@ export function TaskRowActions({
     })
   }
 
+  async function handleConfirmAdminSoftDelete() {
+    setIsAdminSoftDeleting(true)
+    setAdminSoftDeleteError(null)
+
+    const result = await deleteTask(task.id, { administration: true })
+
+    setIsAdminSoftDeleting(false)
+
+    if (!result.success) {
+      setAdminSoftDeleteError(
+        result.message ?? TASK_DELETE_USER_MESSAGE
+      )
+      return
+    }
+
+    setAdminSoftDeleteOpen(false)
+    onFeedback({
+      variant: "success",
+      message: "Orden de trabajo eliminada definitivamente.",
+    })
+  }
+
   const viewHref = `/tareas/${task.id}`
   const viewLabel = menuPolicy?.viewLabel ?? "Ver detalle"
 
@@ -341,7 +371,7 @@ export function TaskRowActions({
             </DropdownMenuItem>
           ) : null}
 
-          {canSoftDelete ? (
+          {canSoftDelete && !canAdminSoftDelete ? (
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem
@@ -354,12 +384,15 @@ export function TaskRowActions({
             </>
           ) : null}
 
-          {isSystemAdministrator && isWorkOrder ? (
+          {canAdminSoftDelete ? (
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="text-destructive focus:text-destructive"
-                onClick={() => setPermanentDeleteOpen(true)}
+                onClick={() => {
+                  setAdminSoftDeleteError(null)
+                  setAdminSoftDeleteOpen(true)
+                }}
               >
                 <Trash2 className="size-4" />
                 Eliminar definitivamente
@@ -446,15 +479,13 @@ export function TaskRowActions({
         </DialogContent>
       </Dialog>
 
-      <WorkOrderPermanentDeleteDialog
-        open={permanentDeleteOpen}
-        onOpenChange={setPermanentDeleteOpen}
-        taskId={task.id}
+      <WorkOrderAdminSoftDeleteDialog
+        open={adminSoftDeleteOpen}
+        onOpenChange={setAdminSoftDeleteOpen}
         taskLabel={task.code || task.title}
-        onSuccess={(message) => {
-          removeTaskLocally(task.id)
-          onFeedback({ variant: "success", message })
-        }}
+        onConfirm={handleConfirmAdminSoftDelete}
+        isSubmitting={isAdminSoftDeleting}
+        error={adminSoftDeleteError}
       />
     </>
   )

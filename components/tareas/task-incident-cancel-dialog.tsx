@@ -1,11 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
+import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import {
-  TASK_INCIDENT_REASONS,
-  type TaskIncidentReason,
-} from "@/lib/tasks/incidents"
+  DEFAULT_CANCELACION_MOTIVO_OPTIONS,
+  motivoOptionsFromCatalog,
+} from "@/lib/tasks/operational-motivos"
+import { listOperationalMotivos } from "@/lib/supabase/operational-control.browser"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -29,7 +31,7 @@ type TaskIncidentCancelDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   onConfirm: (input: {
-    reason: TaskIncidentReason
+    reason: string
     observation: string
   }) => Promise<void>
   isSubmitting?: boolean
@@ -41,9 +43,41 @@ export function TaskIncidentCancelDialog({
   onConfirm,
   isSubmitting = false,
 }: TaskIncidentCancelDialogProps) {
-  const [reason, setReason] = useState<TaskIncidentReason | "">("")
+  const { companyId, isAuthReady } = useTenantCompanyId()
+  const [reason, setReason] = useState("")
   const [observation, setObservation] = useState("")
   const [error, setError] = useState<string | null>(null)
+  const [motivoOptions, setMotivoOptions] = useState<
+    Array<{ value: string; label: string }>
+  >([...DEFAULT_CANCELACION_MOTIVO_OPTIONS])
+
+  useEffect(() => {
+    if (!open || !isAuthReady || !companyId) {
+      return
+    }
+
+    let cancelled = false
+
+    async function loadMotivos() {
+      const result = await listOperationalMotivos(
+        companyId,
+        "cancelacion",
+        true
+      )
+      if (cancelled) return
+      setMotivoOptions(
+        motivoOptionsFromCatalog(
+          result.data ?? [],
+          DEFAULT_CANCELACION_MOTIVO_OPTIONS
+        )
+      )
+    }
+
+    void loadMotivos()
+    return () => {
+      cancelled = true
+    }
+  }, [open, companyId, isAuthReady])
 
   function handleOpenChange(nextOpen: boolean) {
     if (!nextOpen) {
@@ -60,14 +94,8 @@ export function TaskIncidentCancelDialog({
       return
     }
 
-    const trimmedObservation = observation.trim()
-    if (!trimmedObservation) {
-      setError("Indique la observación de cancelación.")
-      return
-    }
-
     setError(null)
-    await onConfirm({ reason, observation: trimmedObservation })
+    await onConfirm({ reason, observation: observation.trim() })
     setReason("")
     setObservation("")
   }
@@ -78,25 +106,24 @@ export function TaskIncidentCancelDialog({
         <DialogHeader>
           <DialogTitle>Cancelar Orden de Trabajo</DialogTitle>
           <DialogDescription>
-            La orden de trabajo quedará cancelada. Indique el motivo y una observación para
-            dejar registro en el historial.
+            La OT permanecerá en el historial operativo. El motivo es
+            obligatorio.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="cancel-reason">Motivo *</Label>
+            <Label htmlFor="cancel-reason">Motivo</Label>
             <Select
-              value={reason}
-              onValueChange={(value) =>
-                setReason(value as TaskIncidentReason)
-              }
+              value={reason || undefined}
+              onValueChange={setReason}
+              disabled={isSubmitting}
             >
               <SelectTrigger id="cancel-reason">
-                <SelectValue placeholder="Seleccione un motivo" />
+                <SelectValue placeholder="Seleccionar motivo" />
               </SelectTrigger>
               <SelectContent>
-                {TASK_INCIDENT_REASONS.map((option) => (
+                {motivoOptions.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
                   </SelectItem>
@@ -106,13 +133,14 @@ export function TaskIncidentCancelDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="cancel-observation">Observación *</Label>
+            <Label htmlFor="cancel-observation">Observaciones</Label>
             <Textarea
               id="cancel-observation"
               value={observation}
               onChange={(event) => setObservation(event.target.value)}
-              placeholder="Detalle la decisión de cancelación"
-              rows={4}
+              placeholder="Detalle adicional (opcional)"
+              disabled={isSubmitting}
+              rows={3}
             />
           </div>
 
@@ -123,7 +151,7 @@ export function TaskIncidentCancelDialog({
           ) : null}
         </div>
 
-        <DialogFooter className="gap-2 sm:gap-0">
+        <DialogFooter>
           <Button
             type="button"
             variant="outline"
@@ -138,7 +166,7 @@ export function TaskIncidentCancelDialog({
             onClick={() => void handleConfirm()}
             disabled={isSubmitting}
           >
-            Cancelar Orden de Trabajo
+            {isSubmitting ? "Cancelando..." : "Confirmar cancelación"}
           </Button>
         </DialogFooter>
       </DialogContent>

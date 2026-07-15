@@ -2,6 +2,7 @@
 
 import { useCallback } from "react"
 
+import { useAuth } from "@/components/auth/auth-provider"
 import { buildPlanningConfirmDispatchUpdates } from "@/lib/planificacion/planning-incremental"
 import {
   buildCompactExecutionOrderUpdates,
@@ -12,6 +13,12 @@ import {
 } from "@/lib/planificacion/planning-execution-order"
 import { filterOperationalOrderScope } from "@/lib/planificacion/planning-operational-order-core"
 import { resolveTaskCrewId } from "@/lib/tasks/crew-relation"
+import { resolveOperationalEventActor } from "@/lib/tasks/operational-event-actor"
+import {
+  buildAssignedOperationalEvent,
+  buildPlanningConfirmedOperationalEvent,
+} from "@/lib/tasks/operational-events"
+import { recordTaskOperationalEvent } from "@/lib/supabase/operational-control.browser"
 import { canPerformTaskAction } from "@/lib/tasks/task-status-workflow"
 import type { Crew } from "@/lib/types/crews"
 import type { Task } from "@/lib/types/tasks"
@@ -57,6 +64,7 @@ function resolveReopenExecutionOrder(
 }
 
 type UseTasksPlanningParams = {
+  companyId: string
   tasks: Task[]
   updateTaskFields: (
     id: string,
@@ -112,10 +120,13 @@ async function compactExecutionOrderScopes(
 }
 
 export function useTasksPlanning({
+  companyId,
   tasks,
   updateTaskFields,
   applyExecutionOrderUpdates,
 }: UseTasksPlanningParams) {
+  const { sessionUser } = useAuth()
+
   const confirmPlanningTasks = useCallback(
     async (
       ids: string[],
@@ -173,7 +184,10 @@ export function useTasksPlanning({
         }
       }
 
+      const actor = resolveOperationalEventActor(sessionUser)
+
       for (const update of dispatchUpdates) {
+        const task = workingTasks.find((item) => item.id === update.taskId)
         const result = await updateTaskFields(
           update.taskId,
           {
@@ -183,7 +197,7 @@ export function useTasksPlanning({
           },
           "confirm-planning",
           "Planificación confirmada para la jornada.",
-          undefined,
+          actor.fullName,
           { suppressAudit: true }
         )
 
@@ -191,15 +205,36 @@ export function useTasksPlanning({
           return result
         }
 
-        workingTasks = workingTasks.map((task) =>
-          task.id === update.taskId
+        if (companyId && task) {
+          void recordTaskOperationalEvent(
+            buildPlanningConfirmedOperationalEvent({
+              companyId,
+              task,
+              actor,
+              crewName: task.crew ?? "",
+              dueDate: task.dueDate,
+            })
+          )
+          void recordTaskOperationalEvent(
+            buildAssignedOperationalEvent({
+              companyId,
+              task,
+              actor,
+              crewName: task.crew ?? "",
+              supervisor: task.supervisor ?? "",
+            })
+          )
+        }
+
+        workingTasks = workingTasks.map((item) =>
+          item.id === update.taskId
             ? {
-                ...task,
+                ...item,
                 status: "asignada",
                 dispatchOrder: update.dispatchOrder,
                 executionOrder: null,
               }
-            : task
+            : item
         )
       }
 
@@ -216,7 +251,13 @@ export function useTasksPlanning({
 
       return { success: true }
     },
-    [tasks, updateTaskFields, applyExecutionOrderUpdates]
+    [
+      companyId,
+      tasks,
+      updateTaskFields,
+      applyExecutionOrderUpdates,
+      sessionUser,
+    ]
   )
 
   const reopenPlanningTasks = useCallback(

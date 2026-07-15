@@ -27,6 +27,10 @@ import { resolveRescheduleReasonLabel } from "@/lib/tasks/reschedule"
 import type { TaskRescheduleInput } from "@/lib/tasks/reschedule"
 import { canUsePlanningWebOperationalActions } from "@/lib/roles/web-module-access"
 import { resolveTaskCrewId } from "@/lib/tasks/crew-relation"
+import { resolveOperationalEventActor } from "@/lib/tasks/operational-event-actor"
+import { buildRescheduleOperationalEvent } from "@/lib/tasks/operational-motivos"
+import { buildIncidentResolvedOperationalEvent } from "@/lib/tasks/operational-events"
+import { recordOperationalEventSafe } from "@/lib/tasks/record-operational-event.server"
 import { fetchCrews } from "@/lib/supabase/crews.queries"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
@@ -316,6 +320,36 @@ export async function supervisorRescheduleActiveTaskFromIncident(
       previousCrewName: taskResult.data.crew ?? null,
       newCrewName: afterTask.crew ?? null,
     })
+
+    try {
+      const actor = resolveOperationalEventActor(sessionUser)
+      await recordOperationalEventSafe(
+        buildIncidentResolvedOperationalEvent({
+          companyId,
+          task: taskResult.data,
+          actor,
+          action: "reprogram",
+          comment: successfulPlan.incidentEventComment,
+          incidentId: incident.id,
+        })
+      )
+      await recordOperationalEventSafe(
+        buildRescheduleOperationalEvent({
+          companyId,
+          task: taskResult.data,
+          reschedule: successfulPlan.rescheduleInput,
+          actor,
+          motivoLabel: resolveRescheduleReasonLabel(
+            successfulPlan.rescheduleInput.reason
+          ),
+        })
+      )
+    } catch (historyError) {
+      logOperationError(
+        "Supervisor reschedule RC3.1 operational history",
+        historyError
+      )
+    }
 
     const refreshedIncident = await getTaskIncidentById(
       validatedIncidentId,

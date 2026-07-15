@@ -2,6 +2,7 @@
 
 import { useCallback } from "react"
 
+import { useAuth } from "@/components/auth/auth-provider"
 import { resolveIncidentReasonLabel } from "@/lib/tasks/incidents"
 import {
   canPerformTaskAction,
@@ -21,12 +22,23 @@ import {
   validateTaskRescheduleInput,
   type TaskRescheduleInput,
 } from "@/lib/tasks/reschedule"
+import { resolveOperationalEventActor } from "@/lib/tasks/operational-event-actor"
+import {
+  buildCancelOperationalEvent,
+  buildRescheduleOperationalEvent,
+} from "@/lib/tasks/operational-motivos"
+import {
+  buildIncidentOperationalEvent,
+  buildResumedOperationalEvent,
+} from "@/lib/tasks/operational-events"
+import { recordTaskOperationalEvent } from "@/lib/supabase/operational-control.browser"
 import type { UpdateTaskPayload } from "@/lib/types/supabase/tasks"
 import type { Task } from "@/lib/types/tasks"
 
 import type { TaskMutationResult } from "../types"
 
 type UseTasksIncidentsParams = {
+  companyId: string
   tasks: Task[]
   updateTaskFields: (
     id: string,
@@ -45,10 +57,19 @@ type UseTasksIncidentsParams = {
 }
 
 export function useTasksIncidents({
+  companyId,
   tasks,
   updateTaskFields,
   applyExecutionOrderUpdates,
 }: UseTasksIncidentsParams) {
+  const { sessionUser } = useAuth()
+
+  const resolveActor = useCallback(
+    (fallbackDisplayName?: string | null) =>
+      resolveOperationalEventActor(sessionUser, fallbackDisplayName),
+    [sessionUser]
+  )
+
   const cancelTask = useCallback(
     async (
       id: string,
@@ -70,23 +91,19 @@ export function useTasksIncidents({
         return { success: false, message: "Indique el motivo de cancelación." }
       }
 
-      if (!observation) {
-        return {
-          success: false,
-          message: "Indique la observación de cancelación.",
-        }
-      }
-
       const validation = canPerformTaskAction(task, "cancel")
       if (!validation.allowed) {
         return { success: false, message: validation.message }
       }
 
       const { to } = getTransitionForAction("cancel")
+      const motivoLabel = resolveIncidentReasonLabel(reason)
       const historyNote = [
-        `Motivo: ${resolveIncidentReasonLabel(reason)}`,
-        `Observación: ${observation}`,
-      ].join("\n")
+        `Motivo: ${motivoLabel}`,
+        observation ? `Observación: ${observation}` : null,
+      ]
+        .filter(Boolean)
+        .join("\n")
 
       const crewId = resolveTaskCrewId(task)
       if (crewId && isOperationalOrderReorderable(task)) {
@@ -106,7 +123,8 @@ export function useTasksIncidents({
         }
       }
 
-      return updateTaskFields(
+      const actor = resolveActor(options?.actor)
+      const result = await updateTaskFields(
         id,
         {
           status: to,
@@ -115,10 +133,31 @@ export function useTasksIncidents({
         },
         "cancel",
         historyNote,
-        options?.actor
+        actor.fullName
       )
+
+      if (result.success && companyId) {
+        void recordTaskOperationalEvent(
+          buildCancelOperationalEvent({
+            companyId,
+            task,
+            reason,
+            observation,
+            actor,
+            motivoLabel,
+          })
+        )
+      }
+
+      return result
     },
-    [tasks, updateTaskFields, applyExecutionOrderUpdates]
+    [
+      companyId,
+      tasks,
+      updateTaskFields,
+      applyExecutionOrderUpdates,
+      resolveActor,
+    ]
   )
 
   const reportTaskIncident = useCallback(
@@ -156,12 +195,14 @@ export function useTasksIncidents({
       }
 
       const { to } = getTransitionForAction("report-incident")
+      const reasonLabel = resolveIncidentReasonLabel(reason)
       const historyNote = [
-        `Motivo: ${resolveIncidentReasonLabel(reason)}`,
+        `Motivo: ${reasonLabel}`,
         `Observación: ${observation}`,
       ].join("\n")
+      const actor = resolveActor(reportedBy)
 
-      return updateTaskFields(
+      const result = await updateTaskFields(
         id,
         {
           status: to,
@@ -172,14 +213,28 @@ export function useTasksIncidents({
         },
         "report-incident",
         historyNote,
-        reportedBy
+        actor.fullName
       )
+
+      if (result.success && companyId) {
+        void recordTaskOperationalEvent(
+          buildIncidentOperationalEvent({
+            companyId,
+            task,
+            actor,
+            reasonLabel,
+            observation,
+          })
+        )
+      }
+
+      return result
     },
-    [tasks, updateTaskFields]
+    [companyId, tasks, updateTaskFields, resolveActor]
   )
 
   const resumeTaskFromIncident = useCallback(
-    async (id: string, actor?: string): Promise<TaskMutationResult> => {
+    async (id: string, actorName?: string): Promise<TaskMutationResult> => {
       const task = tasks.find((item) => item.id === id)
       if (!task) {
         return { success: false, message: "Orden de trabajo no encontrada." }
@@ -191,15 +246,28 @@ export function useTasksIncidents({
       }
 
       const { to } = getTransitionForAction("resume-from-incident")
-      return updateTaskFields(
+      const actor = resolveActor(actorName)
+      const result = await updateTaskFields(
         id,
         { status: to },
         "resume-from-incident",
         "La orden de trabajo volvió a En curso para continuar la ejecución.",
-        actor
+        actor.fullName
       )
+
+      if (result.success && companyId) {
+        void recordTaskOperationalEvent(
+          buildResumedOperationalEvent({
+            companyId,
+            task,
+            actor,
+          })
+        )
+      }
+
+      return result
     },
-    [tasks, updateTaskFields]
+    [companyId, tasks, updateTaskFields, resolveActor]
   )
 
   const applyTaskReschedule = useCallback(
@@ -291,16 +359,36 @@ export function useTasksIncidents({
         }
       }
 
-      return updateTaskFields(
+      const actor = resolveActor(rescheduledBy)
+      const result = await updateTaskFields(
         id,
         updatePayload,
         workflowAction,
         buildTaskRescheduleHistoryNote(rescheduleInput),
-        rescheduledBy,
+        actor.fullName,
         { rescheduleInput }
       )
+
+      if (result.success && companyId) {
+        void recordTaskOperationalEvent(
+          buildRescheduleOperationalEvent({
+            companyId,
+            task,
+            reschedule: rescheduleInput,
+            actor,
+          })
+        )
+      }
+
+      return result
     },
-    [tasks, updateTaskFields, applyExecutionOrderUpdates]
+    [
+      companyId,
+      tasks,
+      updateTaskFields,
+      applyExecutionOrderUpdates,
+      resolveActor,
+    ]
   )
 
   const rescheduleTaskFromIncident = useCallback(

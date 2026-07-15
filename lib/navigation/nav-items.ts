@@ -73,7 +73,7 @@ export const archivoOtNavItem: NavItem = {
   icon: Archive,
   pageTitle: "Archivo OT",
   description:
-    "Histórico de órdenes de trabajo finalizadas en solo lectura.",
+    "Historial operativo de OT finalizadas, canceladas y pendientes de cierre.",
 }
 
 export const customersNavItem: NavItem = {

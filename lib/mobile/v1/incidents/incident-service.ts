@@ -88,6 +88,31 @@ export async function createMobileIncident(
       employeeName,
     })
 
+    try {
+      const { resolveOperationalEventActorFromMobile } = await import(
+        "@/lib/tasks/operational-event-actor"
+      )
+      const { buildIncidentOperationalEvent } = await import(
+        "@/lib/tasks/operational-events"
+      )
+      const { recordOperationalEventSafe } = await import(
+        "@/lib/tasks/record-operational-event.server"
+      )
+      await recordOperationalEventSafe(
+        buildIncidentOperationalEvent({
+          companyId: auth.companyId,
+          task: context.task,
+          actor: resolveOperationalEventActorFromMobile(auth),
+          reasonLabel: "Incidencia de campo",
+          observation: request.comment?.trim() ?? "",
+          incidentId: incident.id,
+          source: "mobile",
+        })
+      )
+    } catch {
+      // Non-blocking operational history.
+    }
+
     return mapIncidentResponseToMobileCreated(incident)
   } catch (error) {
     if (error instanceof TaskIncidentError) {

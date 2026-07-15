@@ -7,6 +7,7 @@ import {
   mergeChecklistResponseValue,
   mergeChecklistWithResponses,
   readOperationalChecklistResponses,
+  validateOperationalChecklistComplete,
 } from "@/lib/mobile/v1/tasks/checklist-execution"
 import { MobileApiError } from "@/lib/mobile/v1/errors"
 import { assertMobileTaskExecutionAccess } from "@/lib/mobile/v1/tasks/task-execution-access"
@@ -16,6 +17,9 @@ import type {
   MobileTaskChecklistResponseRequest,
   MobileTaskChecklistResponseUpdate,
 } from "@/lib/mobile/v1/tasks/types"
+import { resolveOperationalEventActorFromMobile } from "@/lib/tasks/operational-event-actor"
+import { buildChecklistCompletedOperationalEvent } from "@/lib/tasks/operational-events"
+import { recordOperationalEventOnce } from "@/lib/tasks/record-operational-event.server"
 import { mapTaskRowToTask } from "@/lib/supabase/tasks.mapper"
 import type { Json } from "@/lib/supabase/database.types"
 
@@ -24,6 +28,39 @@ function findTemplateItem(
   itemId: string
 ) {
   return template.find((item) => item.id === itemId) ?? null
+}
+
+async function maybeRecordChecklistCompleted(input: {
+  context: Awaited<ReturnType<typeof assertMobileTaskExecutionAccess>>
+  template: Awaited<ReturnType<typeof fetchOperationalChecklistTemplateForTask>>
+  beforeResponses: ReturnType<typeof readOperationalChecklistResponses>
+  afterResponses: ReturnType<typeof readOperationalChecklistResponses>
+}): Promise<void> {
+  const wasComplete = validateOperationalChecklistComplete(
+    input.template,
+    input.beforeResponses
+  ).allowed
+  const isComplete = validateOperationalChecklistComplete(
+    input.template,
+    input.afterResponses
+  ).allowed
+
+  if (wasComplete || !isComplete) {
+    return
+  }
+
+  try {
+    await recordOperationalEventOnce({
+      event: buildChecklistCompletedOperationalEvent({
+        companyId: input.context.auth.companyId,
+        task: input.context.task,
+        actor: resolveOperationalEventActorFromMobile(input.context.auth),
+        source: "mobile",
+      }),
+    })
+  } catch {
+    // Non-blocking operational history.
+  }
 }
 
 async function persistChecklistResponses(
@@ -129,6 +166,12 @@ export async function updateMobileTaskChecklistResponse(
   }
 
   const checklist = await persistChecklistResponses(context, nextResponses)
+  await maybeRecordChecklistCompleted({
+    context,
+    template,
+    beforeResponses: currentResponses,
+    afterResponses: nextResponses,
+  })
   const updatedTask = mapTaskRowToTask(
     (
       await context.admin
@@ -193,5 +236,12 @@ export async function appendChecklistPhotoId(
     [checklistItemId]: mergeChecklistResponseValue(currentValue, { photoIds }),
   }
 
-  return persistChecklistResponses(context, nextResponses)
+  const checklist = await persistChecklistResponses(context, nextResponses)
+  await maybeRecordChecklistCompleted({
+    context,
+    template,
+    beforeResponses: currentResponses,
+    afterResponses: nextResponses,
+  })
+  return checklist
 }

@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { BarChart3, FileClock, LayoutDashboard } from "lucide-react"
+import { BarChart3, FileClock, LayoutDashboard, UserRoundSearch } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
@@ -18,6 +18,12 @@ const reportesSections = [
     label: "Reportes Operativos",
     icon: BarChart3,
     match: (pathname: string) => pathname.startsWith("/reportes/operativos"),
+  },
+  {
+    href: "/reportes/por-empleado",
+    label: "Reportes por Empleado",
+    icon: UserRoundSearch,
+    match: (pathname: string) => pathname.startsWith("/reportes/por-empleado"),
   },
   {
     href: "/reportes/automaticos",

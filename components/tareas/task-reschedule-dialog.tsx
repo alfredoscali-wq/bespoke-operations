@@ -5,12 +5,17 @@ import { useEffect, useMemo, useState } from "react"
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { toDateOnly } from "@/lib/availability/utils"
 import { getCrewsForTaskSelection } from "@/lib/crews/status-workflow"
+import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import {
   getTaskRescheduleFormDefaults,
-  TASK_RESCHEDULE_REASONS,
   validateTaskRescheduleInput,
   type TaskRescheduleInput,
 } from "@/lib/tasks/reschedule"
+import {
+  defaultRescheduleMotivoOptions,
+  motivoOptionsFromCatalog,
+} from "@/lib/tasks/operational-motivos"
+import { listOperationalMotivos } from "@/lib/supabase/operational-control.browser"
 import { resolveCrewSnapshotsForAssignment } from "@/lib/tasks/crew-relation"
 import type { Task } from "@/lib/types/tasks"
 import { Button } from "@/components/ui/button"
@@ -55,6 +60,7 @@ export function TaskRescheduleDialog({
   isSubmitting = false,
 }: TaskRescheduleDialogProps) {
   const { crews, getCrew } = useCrews()
+  const { companyId, isAuthReady } = useTenantCompanyId()
   const defaults = useMemo(() => getTaskRescheduleFormDefaults(task), [task])
   const crewOptions = useMemo(
     () => getCrewsForTaskSelection(crews, task.crewId),
@@ -69,6 +75,37 @@ export function TaskRescheduleDialog({
     defaults.crewId || KEEP_CREW_VALUE
   )
   const [error, setError] = useState<string | null>(null)
+  const [motivoOptions, setMotivoOptions] = useState(
+    defaultRescheduleMotivoOptions()
+  )
+
+  useEffect(() => {
+    if (!open || !isAuthReady || !companyId) {
+      return
+    }
+
+    let cancelled = false
+
+    async function loadMotivos() {
+      const result = await listOperationalMotivos(
+        companyId,
+        "reprogramacion",
+        true
+      )
+      if (cancelled) return
+      setMotivoOptions(
+        motivoOptionsFromCatalog(
+          result.data ?? [],
+          defaultRescheduleMotivoOptions()
+        )
+      )
+    }
+
+    void loadMotivos()
+    return () => {
+      cancelled = true
+    }
+  }, [open, companyId, isAuthReady])
 
   useEffect(() => {
     if (!open) return
@@ -175,7 +212,7 @@ export function TaskRescheduleDialog({
                 <SelectValue placeholder="Seleccione un motivo" />
               </SelectTrigger>
               <SelectContent>
-                {TASK_RESCHEDULE_REASONS.map((option) => (
+                {motivoOptions.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
                   </SelectItem>

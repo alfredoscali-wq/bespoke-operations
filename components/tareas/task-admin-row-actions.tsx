@@ -6,7 +6,7 @@ import { Eye, Pencil, Trash2 } from "lucide-react"
 
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { TaskWorkOrderDialog } from "@/components/tareas/task-work-order-dialog"
-import { PermanentDeleteRowAction } from "@/components/admin/permanent-delete-row-action"
+import { WorkOrderAdminSoftDeleteDialog } from "@/components/tareas/work-order-admin-soft-delete-dialog"
 import { useAuth } from "@/components/auth/auth-provider"
 import {
   canAdminModifyWorkOrder,
@@ -14,7 +14,7 @@ import {
   WORK_ORDER_ADMIN_MUTATION_BLOCKED_TOOLTIP,
 } from "@/lib/tasks/work-order-admin-mutation"
 import {
-  canPermanentlyDeleteWorkOrder,
+  canShowAdminSoftDeleteInArchive,
   canSoftDeleteWorkOrder,
   WORK_ORDER_SOFT_DELETE_BLOCKED_MESSAGE,
 } from "@/lib/tasks/work-order-deletion-policy"
@@ -95,6 +95,94 @@ function AdminRowActionButton({
   )
 }
 
+/** Archivo OT list — same admin soft-delete flow as TaskRowActions / detail. */
+function TaskAdminArchiveRowActions({
+  task,
+  viewHref,
+  systemRole,
+  deleteTask,
+  removeTaskLocally,
+  onFeedback,
+}: {
+  task: Task
+  viewHref: string
+  systemRole: string | null | undefined
+  deleteTask: (
+    id: string,
+    options?: { administration?: boolean }
+  ) => Promise<{ success: boolean; message?: string }>
+  removeTaskLocally: (id: string) => void
+  onFeedback: TaskAdminRowActionsProps["onFeedback"]
+}) {
+  const [open, setOpen] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const taskLabel = task.code?.trim() || task.title?.trim() || task.id
+  const canSoftDelete = canShowAdminSoftDeleteInArchive(systemRole, task.status)
+
+  async function handleConfirm() {
+    setIsSubmitting(true)
+    setError(null)
+
+    const result = await deleteTask(task.id, { administration: true })
+
+    setIsSubmitting(false)
+
+    if (!result.success) {
+      setError(result.message ?? TASK_DELETE_USER_MESSAGE)
+      return
+    }
+
+    setOpen(false)
+    removeTaskLocally(task.id)
+    onFeedback({
+      variant: "success",
+      message: "Orden de trabajo eliminada definitivamente.",
+    })
+  }
+
+  return (
+    <>
+      <div className="flex items-center justify-end gap-0.5">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-8"
+          asChild
+          title="Ver detalle"
+        >
+          <Link href={viewHref}>
+            <Eye className="size-4" />
+            <span className="sr-only">Ver detalle</span>
+          </Link>
+        </Button>
+
+        {canSoftDelete ? (
+          <AdminRowActionButton
+            label="Eliminar definitivamente"
+            destructive
+            onClick={() => {
+              setError(null)
+              setOpen(true)
+            }}
+          >
+            <Trash2 className="size-4" />
+          </AdminRowActionButton>
+        ) : null}
+      </div>
+
+      <WorkOrderAdminSoftDeleteDialog
+        open={open}
+        onOpenChange={setOpen}
+        taskLabel={taskLabel}
+        onConfirm={handleConfirm}
+        isSubmitting={isSubmitting}
+        error={error}
+      />
+    </>
+  )
+}
+
 export function TaskAdminRowActions({
   task,
   onFeedback,
@@ -111,39 +199,15 @@ export function TaskAdminRowActions({
   const viewHref = detailHref ?? `/tareas/${task.id}`
 
   if (readOnly) {
-    const taskLabel = task.code?.trim() || task.title?.trim() || task.id
-    const canPermanentDelete = canPermanentlyDeleteWorkOrder(
-      sessionUser?.systemRole,
-      task.status
-    )
-
     return (
-      <div className="flex items-center justify-end gap-0.5">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-8"
-          asChild
-          title="Ver detalle"
-        >
-          <Link href={viewHref}>
-            <Eye className="size-4" />
-            <span className="sr-only">Ver detalle</span>
-          </Link>
-        </Button>
-
-        {canPermanentDelete ? (
-          <PermanentDeleteRowAction
-            entityType="task"
-            entityId={task.id}
-            entityLabel={taskLabel}
-            onSuccess={(message) => {
-              removeTaskLocally(task.id)
-              onFeedback({ variant: "success", message })
-            }}
-          />
-        ) : null}
-      </div>
+      <TaskAdminArchiveRowActions
+        task={task}
+        viewHref={viewHref}
+        systemRole={sessionUser?.systemRole}
+        deleteTask={deleteTask}
+        removeTaskLocally={removeTaskLocally}
+        onFeedback={onFeedback}
+      />
     )
   }
 
