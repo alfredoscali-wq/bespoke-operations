@@ -247,7 +247,7 @@ test("migraciÃ³n finalize_project_operational: FOR UPDATE y multi-tenant", () =>
   assert.match(sql, /GRANT EXECUTE[\s\S]*TO service_role/)
 })
 
-test("migraciÃ³n: atomicidad â€” solo actualiza project si no hay OT abiertas", () => {
+test("migraciÃ³n: atomicidad âÿÿ solo actualiza project si no hay OT abiertas", () => {
   const sql = readFileSync(MIGRATION_PATH, "utf8")
   const openCountIdx = sql.indexOf("v_open_task_count")
   const updateIdx = sql.indexOf("UPDATE public.projects")
@@ -292,7 +292,7 @@ test("API finalize: module access permitido con projects", () => {
   assert.equal(canAccessObrasModuleForFinalize, canAccessObrasModuleForStart)
 })
 
-test("reapertura closed â†’ active sin regresiÃ³n", () => {
+test("reapertura closed âÿÿ active sin regresiÃ³n", () => {
   const reopen = canTransitionProjectStatus("closed", "active")
   assert.equal(reopen.allowed, true)
 
@@ -342,14 +342,26 @@ test("acciÃ³n Eliminar programada disponible", () => {
   assert.equal(canSoftDeleteWorkOrder("programada"), true)
 })
 
-test("acciÃ³n Eliminar asignada no disponible", () => {
+test("accion Eliminar asignada de Obra disponible si no inicio", () => {
   const actions = resolveProjectTaskRowActions(
     makeObraTask({ status: "asignada" })
   )
+  assert.equal(actions.showDelete, true)
+  assert.equal(
+    canSoftDeleteWorkOrder(makeObraTask({ status: "asignada" })),
+    true
+  )
+})
+
+test("accion Eliminar asignada sin Obra no disponible", () => {
+  const actions = resolveProjectTaskRowActions({
+    status: "asignada",
+    projectId: undefined,
+  })
   assert.equal(actions.showDelete, false)
 })
 
-test("acciÃ³n Eliminar estados posteriores no disponible", () => {
+test("accion Eliminar estados posteriores no disponible", () => {
   for (const status of [
     "vencida",
     "en-curso",
@@ -380,13 +392,13 @@ test("en-aprobacion tambiÃ©n muestra Revisar cierre", () => {
   assert.equal(actions.showReviewClosure, true)
 })
 
-test("aprobar cierre: pendiente-cierre â†’ finalizada", () => {
+test("aprobar cierre: pendiente-cierre âÿÿ finalizada", () => {
   const transition = getTransitionForAction("approve")
   assert.ok(transition.from.includes("pendiente-cierre"))
   assert.equal(transition.to, "finalizada")
 })
 
-test("rechazar cierre: pendiente-cierre â†’ en-curso", () => {
+test("rechazar cierre: pendiente-cierre âÿÿ en-curso", () => {
   const transition = getTransitionForAction("reject")
   assert.ok(transition.from.includes("pendiente-cierre"))
   assert.equal(transition.to, "en-curso")

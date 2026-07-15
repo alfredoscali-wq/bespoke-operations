@@ -10,16 +10,89 @@ export const WORK_ORDER_SOFT_DELETE_BLOCKED_MESSAGE =
 export const WORK_ORDER_PERMANENT_DELETE_FORBIDDEN_MESSAGE =
   "Solo un administrador del sistema puede eliminar definitivamente una orden de trabajo."
 
-/** Soft delete is allowed only while the OT is still in planning (programada). */
-export function canSoftDeleteWorkOrder(status: TaskStatus): boolean {
-  return status === "programada"
+/** Snapshot used by soft-delete gates (UI + repository). */
+export type SoftDeleteWorkOrderCandidate = Pick<Task, "status"> &
+  Partial<
+    Pick<
+      Task,
+      | "projectId"
+      | "progress"
+      | "completedAt"
+      | "closedAt"
+      | "operationalSteps"
+    >
+  >
+
+function hasUnstartedProjectAssignmentSignals(
+  task: SoftDeleteWorkOrderCandidate
+): boolean {
+  if (task.completedAt || task.closedAt) {
+    return false
+  }
+
+  if ((task.progress ?? 0) > 0) {
+    return false
+  }
+
+  if (task.operationalSteps?.some((step) => Boolean(step.completedAt))) {
+    return false
+  }
+
+  return true
 }
 
 /**
- * Admin soft-delete statuses (reuses deleted_at). Includes planning + Archivo OT.
+ * OTs created under an Obra activa start as `asignada` before field work begins.
+ * Soft-delete is allowed only while they remain unstarted.
  */
-export function canAdminSoftDeleteWorkOrder(status: TaskStatus): boolean {
-  return status === "programada" || isArchiveWorkOrderStatus(status)
+export function canSoftDeleteUnstartedProjectAssignment(
+  task: SoftDeleteWorkOrderCandidate
+): boolean {
+  if (task.status !== "asignada") {
+    return false
+  }
+
+  if (!task.projectId?.trim()) {
+    return false
+  }
+
+  return hasUnstartedProjectAssignmentSignals(task)
+}
+
+/**
+ * Soft delete is allowed while the OT is still in planning (`programada`), or for
+ * unstarted Obra assignments (`asignada` + projectId, never started).
+ *
+ * Passing only a status string keeps the legacy contract: only `programada`.
+ */
+export function canSoftDeleteWorkOrder(
+  input: TaskStatus | SoftDeleteWorkOrderCandidate
+): boolean {
+  if (typeof input === "string") {
+    return input === "programada"
+  }
+
+  if (input.status === "programada") {
+    return true
+  }
+
+  return canSoftDeleteUnstartedProjectAssignment(input)
+}
+
+/**
+ * Admin soft-delete statuses (reuses deleted_at).
+ * Includes planning, unstarted Obra assignments, and Archivo OT.
+ */
+export function canAdminSoftDeleteWorkOrder(
+  input: TaskStatus | SoftDeleteWorkOrderCandidate
+): boolean {
+  if (typeof input === "string") {
+    return input === "programada" || isArchiveWorkOrderStatus(input)
+  }
+
+  return (
+    canSoftDeleteWorkOrder(input) || isArchiveWorkOrderStatus(input.status)
+  )
 }
 
 export const WORK_ORDER_PERMANENT_DELETE_ARCHIVED_ONLY_MESSAGE =
@@ -52,7 +125,7 @@ export type WorkOrderRowMenuPolicy = {
 }
 
 export function resolveWorkOrderRowMenuPolicy(
-  task: Pick<Task, "status">
+  task: SoftDeleteWorkOrderCandidate
 ): WorkOrderRowMenuPolicy {
   const { status } = task
 
@@ -100,7 +173,7 @@ export function resolveWorkOrderRowMenuPolicy(
       showView: true,
       viewLabel: "Ver",
       showEdit: false,
-      showSoftDelete: false,
+      showSoftDelete: canSoftDeleteWorkOrder(task),
       showCancel: isCancellableTaskStatus(status),
       showReopenPlanning: status === "asignada",
       showAssignCrew: false,
@@ -112,7 +185,7 @@ export function resolveWorkOrderRowMenuPolicy(
     showView: true,
     viewLabel: "Ver",
     showEdit: true,
-    showSoftDelete: canSoftDeleteWorkOrder(status),
+    showSoftDelete: canSoftDeleteWorkOrder(task),
     showCancel: false,
     showReopenPlanning: false,
     showAssignCrew: true,

@@ -11,12 +11,20 @@ export type ProjectTaskRowActions = {
 }
 
 export function resolveProjectTaskRowActions(
-  task: Pick<Task, "projectId" | "status">
+  task: Pick<
+    Task,
+    | "projectId"
+    | "status"
+    | "progress"
+    | "completedAt"
+    | "closedAt"
+    | "operationalSteps"
+  >
 ): ProjectTaskRowActions {
   return {
     showView: true,
     showEdit: canEditProjectTaskFromObras(task),
-    showDelete: canSoftDeleteWorkOrder(task.status),
+    showDelete: canSoftDeleteWorkOrder(task),
     showReviewClosure: isPendingClosureStatus(task.status),
   }
 }

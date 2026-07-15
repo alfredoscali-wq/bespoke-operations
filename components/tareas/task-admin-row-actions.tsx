@@ -212,7 +212,7 @@ export function TaskAdminRowActions({
   }
 
   const canModify = canAdminModifyWorkOrder(task.status)
-  const canDelete = canSoftDeleteWorkOrder(task.status)
+  const canDelete = canSoftDeleteWorkOrder(task)
 
   function handleEditClick() {
     if (!canModify) {

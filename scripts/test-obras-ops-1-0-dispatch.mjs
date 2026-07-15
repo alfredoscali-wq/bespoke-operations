@@ -272,9 +272,24 @@ test("nueva tarea en obra active nace asignada; planned nace programada", () => 
   assert.equal(resolveProjectTaskCreateStatus("paused"), "programada")
 })
 
-test("soft delete de asignada permanece bloqueado", () => {
+test("soft delete de asignada sin obra permanece bloqueado", () => {
   assert.equal(canSoftDeleteWorkOrder("asignada"), false)
+  assert.equal(canSoftDeleteWorkOrder({ status: "asignada" }), false)
   assert.equal(canSoftDeleteWorkOrder("programada"), true)
+})
+
+test("soft delete de asignada de Obra sin iniciar está permitido", () => {
+  assert.equal(
+    canSoftDeleteWorkOrder({ status: "asignada", projectId: "project-a" }),
+    true
+  )
+  assert.equal(
+    canSoftDeleteWorkOrder({
+      status: "en-curso",
+      projectId: "project-a",
+    }),
+    false
+  )
 })
 
 test("parse RPC result multi-tenant payload", () => {

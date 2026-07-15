@@ -48,10 +48,10 @@ function assertAdminWorkOrderMutable(status: Task["status"]): void {
 }
 
 function assertAdminWorkOrderSoftDeletable(
-  status: Task["status"],
+  task: Task,
   sessionUser: SessionUser
 ): void {
-  if (!canAdminSoftDeleteWorkOrder(status)) {
+  if (!canAdminSoftDeleteWorkOrder(task)) {
     throw new WorkOrderAdminMutationError(
       WORK_ORDER_ADMIN_MUTATION_BLOCKED_MESSAGE,
       409
@@ -59,7 +59,7 @@ function assertAdminWorkOrderSoftDeletable(
   }
 
   if (
-    isArchiveWorkOrderStatus(status) &&
+    isArchiveWorkOrderStatus(task.status) &&
     sessionUser.systemRole !== "administrador"
   ) {
     throw new WorkOrderAdminMutationError(
@@ -239,7 +239,7 @@ export async function deleteWorkOrderFromAdmin(
 ): Promise<void> {
   assertWritableAdminRole(sessionUser)
   const existing = await fetchTaskForAdminMutation(client, taskId)
-  assertAdminWorkOrderSoftDeletable(existing.status, sessionUser)
+  assertAdminWorkOrderSoftDeletable(existing, sessionUser)
 
   const originCrewId = existing.crewId?.trim() || null
   const originDueDate = existing.dueDate?.trim() || null

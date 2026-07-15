@@ -104,7 +104,7 @@ export function TaskRowActions({
   const useWorkOrderEditForm = isWorkOrder
   const canSoftDelete = isWorkOrder
     ? menuPolicy?.showSoftDelete ?? false
-    : canSoftDeleteWorkOrder(task.status)
+    : canSoftDeleteWorkOrder(task)
   const canAdminSoftDelete =
     isSystemAdministrator &&
     isWorkOrder &&

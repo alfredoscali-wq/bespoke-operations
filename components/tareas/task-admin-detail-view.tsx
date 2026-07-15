@@ -5,6 +5,7 @@ import { TaskAdminDetailHeader } from "@/components/tareas/task-admin-detail-hea
 import { TaskAdminIncidentRecordPanel } from "@/components/tareas/task-admin-incident-record-panel"
 import { TaskAdminInfoPanel } from "@/components/tareas/task-admin-info-panel"
 import { TaskAdminSidebarPanel } from "@/components/tareas/task-admin-sidebar-panel"
+import { TaskAdminSoftDeleteAction } from "@/components/tareas/task-admin-soft-delete-action"
 import { TaskAdminWorkflowPanel } from "@/components/tareas/task-admin-workflow-panel"
 import { TaskCancellationRecordPanel } from "@/components/tareas/task-cancellation-record-panel"
 import { TaskOperationalTimeline } from "@/components/tareas/task-operational-timeline"
@@ -74,6 +75,8 @@ export function TaskAdminDetailView({
           task={task}
           onSuccess={onPermanentDeleteSuccess}
         />
+      ) : !embedded ? (
+        <TaskAdminSoftDeleteAction task={task} />
       ) : null}
     </div>
   )

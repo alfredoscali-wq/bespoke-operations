@@ -91,7 +91,7 @@ export function useTasksDeletion({
         return { success: true }
       }
 
-      if (!canSoftDeleteWorkOrder(existing.status)) {
+      if (!canSoftDeleteWorkOrder(existing)) {
         return {
           success: false,
           message: WORK_ORDER_SOFT_DELETE_BLOCKED_MESSAGE,
