@@ -68,10 +68,9 @@ test("origen admin compactable excluyendo OT movida", () => {
   })
 
   assert.deepEqual(
-    updates
-      .filter((update) => update.taskId !== "moving")
-      .map((update) => [update.taskId, update.executionOrder]),
+    updates.map((update) => [update.taskId, update.executionOrder]),
     [
+      ["moving", null],
       ["peer-3", 2],
       ["peer-4", 3],
     ]

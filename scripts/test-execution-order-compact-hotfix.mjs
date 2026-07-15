@@ -364,9 +364,31 @@ test("admin crew change compacta origen excluyendo OT movida", () => {
   })
 
   const merged = mergeExecutionOrderUpdatesIntoTasks(tasks, updates)
+  assert.equal(
+    merged.find((task) => task.id === "moving-task")?.executionOrder,
+    null
+  )
   assert.deepEqual(
     ordersForScope(merged.filter((task) => task.id !== "moving-task")),
     [1, 2, 3]
+  )
+
+  const plan = buildExecutionOrderPersistPlan(updates, tasks)
+  assert.ok(plan.phases[0].some((update) => update.taskId === "moving-task"))
+  assert.equal(
+    plan.phases[1].find((update) => update.taskId === "moving-task"),
+    undefined
+  )
+  assert.deepEqual(
+    plan.phases[1].map((update) => ({
+      taskId: update.taskId,
+      executionOrder: update.executionOrder,
+    })),
+    [
+      { taskId: "p-1", executionOrder: 1 },
+      { taskId: "p-3", executionOrder: 2 },
+      { taskId: "p-4", executionOrder: 3 },
+    ]
   )
 })
 

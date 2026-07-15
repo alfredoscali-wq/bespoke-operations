@@ -141,16 +141,41 @@ export function buildCompactExecutionOrderUpdates(input: {
   const { tasks, dueDate, crewId, crews = [], excludeTaskIds = [] } = input
   const excluded = new Set(excludeTaskIds)
   const routeScope = filterOperationalOrderScope(tasks, dueDate, crewId, crews)
+  const planningScope = filterPlanningExecutionOrderScope(
+    tasks,
+    dueDate,
+    crewId,
+    crews
+  )
   const reorderable = sortOperationalOrderScope(
-    filterPlanningExecutionOrderScope(tasks, dueDate, crewId, crews).filter(
+    planningScope.filter(
       (task) =>
         isOperationalOrderReorderable(task) && !excluded.has(task.id)
     ),
     crews
   )
 
+  const updates: ExecutionOrderUpdate[] = []
+
+  // OTs leaving this crew/date must release their execution_order before peers
+  // reclaim those slots. Otherwise the two-phase persist plan clears the scope
+  // and then restores the leaving OT's original order, colliding with a peer
+  // under tasks_execution_order_crew_date_unique (false "Ya existe otra OT…").
+  for (const task of planningScope) {
+    if (
+      excluded.has(task.id) &&
+      isOperationalOrderReorderable(task) &&
+      task.executionOrder != null
+    ) {
+      updates.push({
+        taskId: task.id,
+        executionOrder: null,
+      })
+    }
+  }
+
   if (reorderable.length === 0) {
-    return []
+    return updates
   }
 
   const frozenOrders = collectFrozenOperationalOrdersForScope(routeScope)
@@ -159,7 +184,6 @@ export function buildCompactExecutionOrderUpdates(input: {
     reorderable.length,
     1
   )
-  const updates: ExecutionOrderUpdate[] = []
 
   reorderable.forEach((task, index) => {
     const nextOrder = slots[index]!
