@@ -14,7 +14,6 @@ import type { Task, TaskDetail } from "@/lib/types/tasks"
 type TaskAdminDetailViewProps = {
   task: Task
   detail: TaskDetail
-  backHref?: string
   embedded?: boolean
   showWorkflowPanel?: boolean
   showPermanentDelete?: boolean
@@ -28,7 +27,6 @@ type TaskAdminDetailViewProps = {
 export function TaskAdminDetailView({
   task,
   detail,
-  backHref,
   embedded = false,
   showWorkflowPanel = false,
   showPermanentDelete = false,
@@ -40,11 +38,7 @@ export function TaskAdminDetailView({
 }: TaskAdminDetailViewProps) {
   return (
     <div className="space-y-6">
-      <TaskAdminDetailHeader
-        task={task}
-        backHref={backHref}
-        embedded={embedded}
-      />
+      <TaskAdminDetailHeader task={task} embedded={embedded} />
 
       {showWorkflowPanel ? <TaskAdminWorkflowPanel task={task} /> : null}
 

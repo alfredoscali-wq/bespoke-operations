@@ -1,6 +1,6 @@
 "use client"
 
-import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
 
 import { TaskAdminExecutionStatusBadge } from "@/components/tareas/task-admin-execution-status-badge"
@@ -11,28 +11,27 @@ import { Button } from "@/components/ui/button"
 
 type TaskAdminDetailHeaderProps = {
   task: Task
-  backHref?: string
   embedded?: boolean
 }
 
 export function TaskAdminDetailHeader({
   task,
-  backHref = "/tareas",
   embedded = false,
 }: TaskAdminDetailHeaderProps) {
+  const router = useRouter()
+
   return (
     <div className="space-y-3">
       {!embedded ? (
         <Button
+          type="button"
           variant="ghost"
           size="sm"
           className="-ml-2 h-8 gap-1.5 text-muted-foreground"
-          asChild
+          onClick={() => router.back()}
         >
-          <Link href={backHref}>
-            <ArrowLeft className="size-4" />
-            Volver
-          </Link>
+          <ArrowLeft className="size-4" />
+          Volver
         </Button>
       ) : null}
 

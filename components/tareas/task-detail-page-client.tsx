@@ -55,7 +55,6 @@ export function TaskDetailPageClient({
     <TaskAdminDetailView
       task={task}
       detail={detail}
-      backHref={backHref}
       showPermanentDelete={showPermanentDelete}
       onPermanentDeleteSuccess={handlePermanentDeleteSuccess}
       timelineRefreshKey={detailVersion}
