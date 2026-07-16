@@ -13,13 +13,14 @@ import {
 import { SYSTEM_AUDIT_ACTOR_NAME } from "@/lib/audit/system-actor"
 import { resolveTenantCompanyId } from "@/lib/operations/tenant-scope"
 import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
-import type {
-  AuditLogEntry,
-  AuditLogQuery,
-  AuditLogQueryResult,
-  AuditLogStats,
-  AuditLogStatsQuery,
-  WriteAuditLogInput,
+import {
+  AUDIT_ACTIONS,
+  type AuditLogEntry,
+  type AuditLogQuery,
+  type AuditLogQueryResult,
+  type AuditLogStats,
+  type AuditLogStatsQuery,
+  type WriteAuditLogInput,
 } from "@/lib/audit/types"
 import type { SupabaseAdminClient } from "@/lib/supabase/admin"
 
@@ -78,23 +79,41 @@ function resolvePerformedByFields(input: WriteAuditLogInput) {
   }
 }
 
+function isForceDeleteModuleEntityPair(
+  module: WriteAuditLogInput["module"],
+  entityType: WriteAuditLogInput["entityType"]
+): boolean {
+  return (
+    (module === "tareas" && entityType === "task") ||
+    (module === "obras" && entityType === "project")
+  )
+}
+
 export function validateWriteAuditLogInput(input: WriteAuditLogInput): void {
   if (!isAuditAction(input.action)) {
     throw new Error(`Acción de auditoría no reconocida: ${input.action}`)
   }
 
-  const definition = resolveAuditActionDefinition(input.action)
+  if (input.action === AUDIT_ACTIONS.FORCE_DELETE) {
+    if (!isForceDeleteModuleEntityPair(input.module, input.entityType)) {
+      throw new Error(
+        `FORCE_DELETE solo admite módulo/entidad tareas/task u obras/project.`
+      )
+    }
+  } else {
+    const definition = resolveAuditActionDefinition(input.action)
 
-  if (input.module !== definition.module) {
-    throw new Error(
-      `El módulo ${input.module} no corresponde a la acción ${input.action}.`
-    )
-  }
+    if (input.module !== definition.module) {
+      throw new Error(
+        `El módulo ${input.module} no corresponde a la acción ${input.action}.`
+      )
+    }
 
-  if (input.entityType !== definition.entityType) {
-    throw new Error(
-      `La entidad ${input.entityType} no corresponde a la acción ${input.action}.`
-    )
+    if (input.entityType !== definition.entityType) {
+      throw new Error(
+        `La entidad ${input.entityType} no corresponde a la acción ${input.action}.`
+      )
+    }
   }
 
   if (!input.description.trim()) {

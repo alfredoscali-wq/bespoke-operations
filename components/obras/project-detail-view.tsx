@@ -10,6 +10,7 @@ import { ProjectEditDialog } from "@/components/obras/project-edit-dialog"
 import { ProjectPauseDialog } from "@/components/obras/project-pause-dialog"
 import type { PauseProjectInput, Project, ProjectDetail } from "@/lib/types/projects"
 import { ProjectDetailOperationalHeader } from "@/components/obras/project-detail-operational-header"
+import { ForceDeleteAction } from "@/components/admin/force-delete-action"
 import { getProjectActions } from "@/lib/projects/utils"
 import {
   buildStartProjectDispatchHistoryDescription,
@@ -60,13 +61,14 @@ export function ProjectDetailView({
     finalizeProject,
     archiveProject,
     reopenProject,
+    removeProjectLocally,
     loadHistory,
     getHistory,
   } = useProjects()
 
   const project = getProject(initialProject.id) ?? initialProject
   const actions = getProjectActions(project.status)
-  const { tasks, refreshTasksFromServer } = useTasks()
+  const { tasks, refreshTasksFromServer, removeTaskLocally } = useTasks()
 
   const [history, setHistory] = useState(initialDetail.history)
   const [feedback, setFeedback] = useState<string | null>(null)
@@ -305,6 +307,25 @@ export function ProjectDetailView({
         onAction={handleAction}
         onEditLocation={() => setEditOpen(true)}
       />
+
+      <div className="flex justify-end">
+        <ForceDeleteAction
+          entityType="project"
+          entityId={project.id}
+          entityLabel={project.code?.trim() || project.name?.trim() || project.id}
+          disabled={isBusy}
+          onSuccess={async (message) => {
+            const projectTasks = getTasksForProject(project, tasks)
+            for (const task of projectTasks) {
+              removeTaskLocally(task.id)
+            }
+            removeProjectLocally(project.id)
+            await refreshTasksFromServer()
+            setFeedback(message)
+            router.push("/obras")
+          }}
+        />
+      </div>
 
       {feedback ? (
         <Alert>

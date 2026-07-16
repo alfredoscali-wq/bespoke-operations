@@ -90,6 +90,7 @@ type ProjectsContextValue = {
   finalizeProject: (id: string) => Promise<ProjectMutationResult>
   archiveProject: (id: string) => Promise<ProjectMutationResult>
   reopenProject: (id: string) => Promise<ProjectMutationResult>
+  removeProjectLocally: (id: string) => void
   getProject: (id: string) => Project | undefined
   getDetail: (id: string) => ProjectDetail | undefined
   getHistory: (id: string) => ProjectHistoryEvent[]
@@ -559,6 +560,12 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
     [projects, usesSupabase, persistHistoryEvent]
   )
 
+  const removeProjectLocally = useCallback((id: string) => {
+    setProjects((current) => current.filter((project) => project.id !== id))
+    detailCache.delete(id)
+    historyCache.delete(id)
+  }, [])
+
   const loadHistory = useCallback(
     async (id: string) => {
       if (historyCache.has(id)) {
@@ -633,6 +640,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
       finalizeProject,
       archiveProject,
       reopenProject,
+      removeProjectLocally,
       getProject,
       getDetail,
       getHistory,
@@ -651,6 +659,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
       finalizeProject,
       archiveProject,
       reopenProject,
+      removeProjectLocally,
       getProject,
       getDetail,
       getHistory,

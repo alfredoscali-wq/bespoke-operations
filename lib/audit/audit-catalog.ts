@@ -107,6 +107,12 @@ export const AUDIT_ACTION_DEFINITIONS: Record<AuditAction, AuditActionDefinition
       entityType: AUDIT_ENTITY_TYPES.TASK,
       severity: AUDIT_SEVERITIES.CRITICAL,
     },
+    // Catalog anchor; writeAuditLog allows TAREAS/task or OBRAS/project for FORCE_DELETE.
+    [AUDIT_ACTIONS.FORCE_DELETE]: {
+      module: AUDIT_MODULES.SISTEMA,
+      entityType: AUDIT_ENTITY_TYPES.TASK,
+      severity: AUDIT_SEVERITIES.CRITICAL,
+    },
     [AUDIT_ACTIONS.PLANNING_CONFIRMED]: {
       module: AUDIT_MODULES.TAREAS,
       entityType: AUDIT_ENTITY_TYPES.TASK,

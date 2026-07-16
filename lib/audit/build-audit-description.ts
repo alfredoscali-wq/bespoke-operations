@@ -71,6 +71,10 @@ export function buildAuditDescription(input: BuildAuditDescriptionInput): string
       return label
         ? `Orden de trabajo eliminada definitivamente: ${label}.`
         : "Orden de trabajo eliminada definitivamente."
+    case AUDIT_ACTIONS.FORCE_DELETE:
+      return label
+        ? `Eliminación forzada (Administrador): ${label}.`
+        : "Eliminación forzada (Administrador)."
     case AUDIT_ACTIONS.PLANNING_CONFIRMED:
       return input.fallback?.trim() || "Planificación confirmada."
     case AUDIT_ACTIONS.PROJECT_CREATE:

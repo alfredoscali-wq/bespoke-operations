@@ -7,6 +7,7 @@ import { Eye, Pencil, Trash2 } from "lucide-react"
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { TaskWorkOrderDialog } from "@/components/tareas/task-work-order-dialog"
 import { WorkOrderAdminSoftDeleteDialog } from "@/components/tareas/work-order-admin-soft-delete-dialog"
+import { ForceDeleteAction } from "@/components/admin/force-delete-action"
 import { useAuth } from "@/components/auth/auth-provider"
 import {
   canAdminModifyWorkOrder,
@@ -19,6 +20,7 @@ import {
   WORK_ORDER_SOFT_DELETE_BLOCKED_MESSAGE,
 } from "@/lib/tasks/work-order-deletion-policy"
 import { TASK_DELETE_USER_MESSAGE } from "@/lib/operations/user-messages"
+import { formatTaskAdminDisplayCode } from "@/lib/tasks/utils"
 import type { Task } from "@/lib/types/tasks"
 import type { UpdateTaskPayload } from "@/lib/types/supabase/tasks"
 import { Button } from "@/components/ui/button"
@@ -169,6 +171,17 @@ function TaskAdminArchiveRowActions({
             <Trash2 className="size-4" />
           </AdminRowActionButton>
         ) : null}
+
+        <ForceDeleteAction
+          entityType="task"
+          entityId={task.id}
+          entityLabel={taskLabel}
+          presentation="icon"
+          onSuccess={(message) => {
+            removeTaskLocally(task.id)
+            onFeedback({ variant: "success", message })
+          }}
+        />
       </div>
 
       <WorkOrderAdminSoftDeleteDialog
@@ -213,6 +226,16 @@ export function TaskAdminRowActions({
 
   const canModify = canAdminModifyWorkOrder(task.status)
   const canDelete = canSoftDeleteWorkOrder(task)
+  const taskLabel =
+    formatTaskAdminDisplayCode(task.code) || task.title?.trim() || task.id
+
+  function handleForceDeleteSuccess(message: string) {
+    removeTaskLocally(task.id)
+    onFeedback({
+      variant: "success",
+      message,
+    })
+  }
 
   function handleEditClick() {
     if (!canModify) {
@@ -298,6 +321,14 @@ export function TaskAdminRowActions({
             <Trash2 className="size-4" />
           </AdminRowActionButton>
         ) : null}
+
+        <ForceDeleteAction
+          entityType="task"
+          entityId={task.id}
+          entityLabel={taskLabel}
+          presentation="icon"
+          onSuccess={handleForceDeleteSuccess}
+        />
       </div>
 
       <TaskWorkOrderDialog

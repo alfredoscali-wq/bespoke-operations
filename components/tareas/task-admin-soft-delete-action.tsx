@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Trash2 } from "lucide-react"
 
+import { ForceDeleteAction } from "@/components/admin/force-delete-action"
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { Button } from "@/components/ui/button"
 import {
@@ -14,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { formatTaskAdminDisplayCode } from "@/lib/tasks/utils"
 import { canSoftDeleteWorkOrder } from "@/lib/tasks/work-order-deletion-policy"
 import type { Task } from "@/lib/types/tasks"
 
@@ -21,7 +23,7 @@ type TaskAdminSoftDeleteActionProps = {
   task: Task
 }
 
-/** Soft-delete on OT detail — same confirmation dialog as list row actions. */
+/** Soft-delete + admin force-delete on OT detail. */
 export function TaskAdminSoftDeleteAction({
   task,
 }: TaskAdminSoftDeleteActionProps) {
@@ -30,10 +32,8 @@ export function TaskAdminSoftDeleteAction({
   const [open, setOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const canDelete = canSoftDeleteWorkOrder(task)
-
-  if (!canDelete) {
-    return null
-  }
+  const taskLabel =
+    formatTaskAdminDisplayCode(task.code) || task.title?.trim() || task.id
 
   async function handleConfirmDelete() {
     setIsDeleting(true)
@@ -49,18 +49,32 @@ export function TaskAdminSoftDeleteAction({
     router.back()
   }
 
+  function handleForceDeleteSuccess() {
+    removeTaskLocally(task.id)
+    router.back()
+  }
+
   return (
     <>
-      <div className="flex justify-end border-t pt-6">
-        <Button
-          type="button"
-          variant="destructive"
-          className="gap-1.5"
-          onClick={() => setOpen(true)}
-        >
-          <Trash2 className="size-4" />
-          Eliminar
-        </Button>
+      <div className="flex flex-wrap justify-end gap-2 border-t pt-6">
+        <ForceDeleteAction
+          entityType="task"
+          entityId={task.id}
+          entityLabel={taskLabel}
+          onSuccess={handleForceDeleteSuccess}
+        />
+
+        {canDelete ? (
+          <Button
+            type="button"
+            variant="destructive"
+            className="gap-1.5"
+            onClick={() => setOpen(true)}
+          >
+            <Trash2 className="size-4" />
+            Eliminar
+          </Button>
+        ) : null}
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>

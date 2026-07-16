@@ -24,6 +24,7 @@ import {
 import { TaskWorkOrderDialog } from "@/components/tareas/task-work-order-dialog"
 import { TaskIncidentCancelDialog } from "@/components/tareas/task-incident-cancel-dialog"
 import { WorkOrderAdminSoftDeleteDialog } from "@/components/tareas/work-order-admin-soft-delete-dialog"
+import { ForceDeleteAction } from "@/components/admin/force-delete-action"
 import { TASK_DELETE_USER_MESSAGE } from "@/lib/operations/user-messages"
 import { useIsSystemAdministrator } from "@/lib/auth/use-is-system-administrator"
 import { canUseWorkOrdersWebOperationalActions } from "@/lib/roles/web-module-access"
@@ -74,6 +75,7 @@ export function TaskRowActions({
     editTask,
     changeTaskStatus,
     deleteTask,
+    removeTaskLocally,
     assignCrew,
     cancelTask,
     reopenPlanningTasks,
@@ -397,6 +399,22 @@ export function TaskRowActions({
                 <Trash2 className="size-4" />
                 Eliminar definitivamente
               </DropdownMenuItem>
+            </>
+          ) : null}
+
+          {isSystemAdministrator && isWorkOrder ? (
+            <>
+              <DropdownMenuSeparator />
+              <ForceDeleteAction
+                entityType="task"
+                entityId={task.id}
+                entityLabel={task.code?.trim() || task.title?.trim() || task.id}
+                presentation="menu-item"
+                onSuccess={(message) => {
+                  removeTaskLocally(task.id)
+                  onFeedback({ variant: "success", message })
+                }}
+              />
             </>
           ) : null}
         </DropdownMenuContent>

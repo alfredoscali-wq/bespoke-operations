@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Trash2 } from "lucide-react"
 
+import { ForceDeleteAction } from "@/components/admin/force-delete-action"
 import { WorkOrderAdminSoftDeleteDialog } from "@/components/tareas/work-order-admin-soft-delete-dialog"
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { Button } from "@/components/ui/button"
@@ -47,7 +48,13 @@ export function TaskAdminArchivePermanentDelete({
 
   return (
     <>
-      <div className="flex justify-end border-t pt-6">
+      <div className="flex flex-wrap justify-end gap-2 border-t pt-6">
+        <ForceDeleteAction
+          entityType="task"
+          entityId={task.id}
+          entityLabel={taskLabel}
+          onSuccess={onSuccess}
+        />
         <Button
           type="button"
           variant="destructive"

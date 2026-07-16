@@ -6,6 +6,7 @@ import { AlertTriangle, Eye, MoreHorizontal, Pencil, Plus, Trash2, ClipboardChec
 
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { TASK_DELETE_USER_MESSAGE } from "@/lib/operations/user-messages"
+import { ForceDeleteAction } from "@/components/admin/force-delete-action"
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { TaskCrewAssignmentCell } from "@/components/obras/task-crew-assignment-cell"
 import { ProjectTaskDialog } from "@/components/obras/project-task-dialog"
@@ -60,7 +61,7 @@ type ProjectTasksTabProps = {
 type DialogMode = "create" | "edit"
 
 export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
-  const { tasks, addTask, editTask, deleteTask } = useTasks()
+  const { tasks, addTask, editTask, deleteTask, removeTaskLocally } = useTasks()
   const { getCrew } = useCrews()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogMode, setDialogMode] = useState<DialogMode>("create")
@@ -270,6 +271,16 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
               Eliminar
             </DropdownMenuItem>
           ) : null}
+          <ForceDeleteAction
+            entityType="task"
+            entityId={task.id}
+            entityLabel={task.code?.trim() || task.title?.trim() || task.id}
+            presentation="menu-item"
+            onSuccess={(message) => {
+              removeTaskLocally(task.id)
+              setFeedback({ type: "success", message })
+            }}
+          />
         </DropdownMenuContent>
       </DropdownMenu>
       </div>
