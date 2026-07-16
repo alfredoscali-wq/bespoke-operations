@@ -2,14 +2,25 @@
 
 import { useMemo, useState } from "react"
 import Link from "next/link"
-import { AlertTriangle, Eye, MoreHorizontal, Pencil, Plus, Trash2, ClipboardCheck } from "lucide-react"
+import {
+  AlertTriangle,
+  CalendarClock,
+  Eye,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Trash2,
+  ClipboardCheck,
+} from "lucide-react"
 
+import { useAuth } from "@/components/auth/auth-provider"
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { TASK_DELETE_USER_MESSAGE } from "@/lib/operations/user-messages"
 import { ForceDeleteAction } from "@/components/admin/force-delete-action"
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { TaskCrewAssignmentCell } from "@/components/obras/task-crew-assignment-cell"
 import { ProjectTaskDialog } from "@/components/obras/project-task-dialog"
+import { ProjectTaskRescheduleDialog } from "@/components/obras/project-task-reschedule-dialog"
 import {
   mergeTaskMetadataWithTemplate,
   readOperationalChecklistTemplate,
@@ -28,6 +39,7 @@ import {
   canEditProjectTaskFromObras,
   resolveProjectTaskCreateStatus,
 } from "@/lib/projects/project-start-dispatch"
+import { canRescheduleProjectTaskFromSession } from "@/lib/projects/project-task-reschedule"
 import { resolveProjectTaskRowActions } from "@/lib/projects/project-task-row-actions"
 import { ProjectTaskClosureReviewSheet } from "@/components/obras/project-task-closure-review-sheet"
 import { getTasksForProject } from "@/lib/tasks/utils"
@@ -61,12 +73,22 @@ type ProjectTasksTabProps = {
 type DialogMode = "create" | "edit"
 
 export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
-  const { tasks, addTask, editTask, deleteTask, removeTaskLocally } = useTasks()
+  const { sessionUser } = useAuth()
+  const {
+    tasks,
+    addTask,
+    editTask,
+    deleteTask,
+    removeTaskLocally,
+    rescheduleProjectTask,
+  } = useTasks()
   const { getCrew } = useCrews()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogMode, setDialogMode] = useState<DialogMode>("create")
   const [selectedTask, setSelectedTask] = useState<Task | undefined>()
   const [deleteTarget, setDeleteTarget] = useState<Task | null>(null)
+  const [rescheduleTarget, setRescheduleTarget] = useState<Task | null>(null)
+  const [isRescheduling, setIsRescheduling] = useState(false)
   const [closureReviewTaskId, setClosureReviewTaskId] = useState<string | null>(
     null
   )
@@ -75,6 +97,11 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
     type: "success" | "error"
     message: string
   } | null>(null)
+
+  const actorName =
+    sessionUser?.displayName?.trim() ||
+    sessionUser?.email?.trim() ||
+    "Usuario"
 
   const projectTasks = useMemo(
     () =>
@@ -220,8 +247,56 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
     })
   }
 
+  function openRescheduleDialog(task: Task) {
+    if (!canRescheduleProjectTaskFromSession(sessionUser, task)) {
+      setFeedback({
+        type: "error",
+        message:
+          "No tiene permisos para reprogramar esta orden de trabajo o su estado no lo permite.",
+      })
+      return
+    }
+
+    setRescheduleTarget(task)
+  }
+
+  async function handleRescheduleConfirm(input: {
+    dueDate: string
+    scheduledTime: string
+    reason: string
+    notes?: string
+    rescheduledBy: string
+  }) {
+    if (!rescheduleTarget) return
+
+    setIsRescheduling(true)
+    const result = await rescheduleProjectTask(rescheduleTarget.id, {
+      ...input,
+      actor: actorName,
+    })
+    setIsRescheduling(false)
+
+    if (!result.success) {
+      setFeedback({
+        type: "error",
+        message: result.message ?? "No se pudo reprogramar la orden de trabajo.",
+      })
+      return
+    }
+
+    setRescheduleTarget(null)
+    setFeedback({
+      type: "success",
+      message: "OT reprogramada correctamente.",
+    })
+  }
+
   function renderActions(task: Task) {
     const actions = resolveProjectTaskRowActions(task)
+    const showReschedule = canRescheduleProjectTaskFromSession(
+      sessionUser,
+      task
+    )
 
     return (
       <div className="flex shrink-0 items-center gap-1">
@@ -233,6 +308,17 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
           >
             <ClipboardCheck className="size-3.5" />
             Revisar cierre
+          </Button>
+        ) : null}
+        {showReschedule ? (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 gap-1 px-2.5 text-xs"
+            onClick={() => openRescheduleDialog(task)}
+          >
+            <CalendarClock className="size-3.5" />
+            Reprogramar OT
           </Button>
         ) : null}
         <DropdownMenu>
@@ -249,6 +335,12 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
                 <Eye className="size-4" />
                 Ver
               </Link>
+            </DropdownMenuItem>
+          ) : null}
+          {showReschedule ? (
+            <DropdownMenuItem onClick={() => openRescheduleDialog(task)}>
+              <CalendarClock className="size-4" />
+              Reprogramar OT
             </DropdownMenuItem>
           ) : null}
           {actions.showEdit ? (
@@ -414,6 +506,19 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
         }}
         taskId={closureReviewTaskId}
       />
+
+      {rescheduleTarget ? (
+        <ProjectTaskRescheduleDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setRescheduleTarget(null)
+          }}
+          task={rescheduleTarget}
+          rescheduledBy={actorName}
+          isSubmitting={isRescheduling}
+          onConfirm={handleRescheduleConfirm}
+        />
+      ) : null}
 
       <Dialog
         open={deleteTarget !== null}

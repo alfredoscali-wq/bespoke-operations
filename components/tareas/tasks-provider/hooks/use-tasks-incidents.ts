@@ -3,6 +3,7 @@
 import { useCallback } from "react"
 
 import { useAuth } from "@/components/auth/auth-provider"
+import { resolveProjectTaskRescheduleTargetStatus } from "@/lib/projects/project-task-reschedule"
 import { resolveIncidentReasonLabel } from "@/lib/tasks/incidents"
 import {
   canPerformTaskAction,
@@ -275,7 +276,9 @@ export function useTasksIncidents({
       id: string,
       workflowAction: Extract<
         TaskWorkflowAction,
-        "reschedule-from-incident" | "reschedule-from-overdue"
+        | "reschedule-from-incident"
+        | "reschedule-from-overdue"
+        | "reschedule-obra"
       >,
       input: TaskRescheduleInput & { actor?: string }
     ): Promise<TaskMutationResult> => {
@@ -312,16 +315,29 @@ export function useTasksIncidents({
 
       const { to } = getTransitionForAction(workflowAction)
       const targetStatus =
-        workflowAction === "reschedule-from-overdue"
-          ? getInitialTaskStatus({
-              crewId: input.crewId ?? task.crewId,
-              crew: input.crew ?? task.crew,
-            })
-          : to
-      const rescheduleInput: TaskRescheduleInput = {
-        ...input,
-        rescheduledBy,
-      }
+        workflowAction === "reschedule-obra"
+          ? resolveProjectTaskRescheduleTargetStatus(task)
+          : workflowAction === "reschedule-from-overdue"
+            ? getInitialTaskStatus({
+                crewId: input.crewId ?? task.crewId,
+                crew: input.crew ?? task.crew,
+              })
+            : to
+
+      // Obra reschedule never changes crew — only schedule fields.
+      const rescheduleInput: TaskRescheduleInput =
+        workflowAction === "reschedule-obra"
+          ? {
+              dueDate: input.dueDate,
+              scheduledTime: input.scheduledTime,
+              reason: input.reason,
+              notes: input.notes,
+              rescheduledBy,
+            }
+          : {
+              ...input,
+              rescheduledBy,
+            }
       const updatePayload = buildTaskRescheduleUpdatePayload(
         task,
         rescheduleInput,
@@ -360,11 +376,18 @@ export function useTasksIncidents({
       }
 
       const actor = resolveActor(rescheduledBy)
+      const historyNote =
+        workflowAction === "reschedule-obra"
+          ? [
+              `Anterior: ${task.dueDate} ${task.scheduledTime?.trim() || "—"}.`,
+              buildTaskRescheduleHistoryNote(rescheduleInput),
+            ].join(" ")
+          : buildTaskRescheduleHistoryNote(rescheduleInput)
       const result = await updateTaskFields(
         id,
         updatePayload,
         workflowAction,
-        buildTaskRescheduleHistoryNote(rescheduleInput),
+        historyNote,
         actor.fullName,
         { rescheduleInput }
       )
@@ -411,11 +434,22 @@ export function useTasksIncidents({
     [applyTaskReschedule]
   )
 
+  const rescheduleProjectTask = useCallback(
+    async (
+      id: string,
+      input: TaskRescheduleInput & { actor?: string }
+    ): Promise<TaskMutationResult> => {
+      return applyTaskReschedule(id, "reschedule-obra", input)
+    },
+    [applyTaskReschedule]
+  )
+
   return {
     cancelTask,
     reportTaskIncident,
     resumeTaskFromIncident,
     rescheduleTaskFromIncident,
     rescheduleTaskFromOverdue,
+    rescheduleProjectTask,
   }
 }

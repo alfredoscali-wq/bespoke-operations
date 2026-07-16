@@ -135,6 +135,7 @@ export function mapWorkflowActionToAuditAction(
     case "reschedule-from-incident":
     case "reschedule-from-overdue":
     case "reschedule-from-active-incident":
+    case "reschedule-obra":
       return AUDIT_ACTIONS.TASK_RESCHEDULE
     case "approve":
       return AUDIT_ACTIONS.TASK_FINISH
@@ -245,10 +246,19 @@ export function recordTaskRescheduleAudit(
   input: TaskRescheduleInput,
   workflowAction: TaskWorkflowAction
 ) {
+  const entityLabel = resolveTaskEntityLabel(before)
+  const description =
+    workflowAction === "reschedule-obra"
+      ? entityLabel
+        ? `OT reprogramada: ${entityLabel}.`
+        : "OT reprogramada."
+      : undefined
+
   recordTaskAuditEvent({
     action: AUDIT_ACTIONS.TASK_RESCHEDULE,
     task: before,
     workflowAction,
+    description,
     metadata: {
       ...buildTaskScheduleMetadata(before, after),
       ...buildTaskCrewMetadata(before, after),
@@ -258,6 +268,10 @@ export function recordTaskRescheduleAudit(
       observaciones: input.notes?.trim() || null,
       rescheduledBy: input.rescheduledBy.trim(),
       rescheduledAt: after.rescheduledAt ?? new Date().toISOString(),
+      previousDate: before.dueDate,
+      previousTime: before.scheduledTime ?? null,
+      newDate: after.dueDate,
+      newTime: after.scheduledTime ?? null,
     },
   })
 }

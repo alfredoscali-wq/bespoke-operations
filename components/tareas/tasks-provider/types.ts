@@ -84,6 +84,10 @@ export type TasksContextValue = {
     id: string,
     input: TaskRescheduleInput & { actor?: string }
   ) => Promise<TaskMutationResult>
+  rescheduleProjectTask: (
+    id: string,
+    input: TaskRescheduleInput & { actor?: string }
+  ) => Promise<TaskMutationResult>
   toggleChecklistItem: (taskId: string, itemId: string) => void
   syncOperationalStepsProgress: (
     taskId: string,
