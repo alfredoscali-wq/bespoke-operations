@@ -101,6 +101,7 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
   const hasActiveFilter =
     filters.search.trim() !== "" ||
     filters.type !== "all" ||
+    (isArchiveView && filters.workOrderType !== "all") ||
     filters.priority !== "all" ||
     filters.crew !== "all" ||
     (!isArchiveView && filters.status !== defaultTaskFilters.status)
@@ -186,6 +187,7 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
         resultCount={displayedTasks.length}
         crewOptions={crewOptions}
         operationalMode={false}
+        showWorkOrderTypeFilter={isArchiveView}
         showSort
       />
 

@@ -17,6 +17,11 @@ import {
   TASK_STATUS_OPTIONS,
   TASK_TYPE_OPTIONS,
 } from "@/lib/tasks/constants"
+import {
+  ARCHIVE_OT_TYPE_FILTER_OPTIONS,
+  type WorkOrderOtTypeFilterValue,
+  taskMatchesWorkOrderOtTypeFilter,
+} from "@/lib/tasks/work-order-ot-type-filter"
 import { compareDateOnly } from "@/lib/dates/date-only"
 import { compareTasksByDispatchRoute } from "@/lib/tasks/dispatch-order"
 import { Button } from "@/components/ui/button"
@@ -37,6 +42,7 @@ export type TaskFilters = {
   search: string
   status: TaskStatus | "all"
   type: TaskType | "all"
+  workOrderType: WorkOrderOtTypeFilterValue
   priority: TaskPriority | "all"
   crew: string | "all"
   sortField: TaskSortField
@@ -47,6 +53,7 @@ export const defaultTaskFilters: TaskFilters = {
   search: "",
   status: "all",
   type: "all",
+  workOrderType: "all",
   priority: "all",
   crew: "all",
   sortField: "dueDate",
@@ -60,6 +67,7 @@ type TasksFiltersProps = {
   showSort?: boolean
   crewOptions?: CrewFilterOption[]
   operationalMode?: boolean
+  showWorkOrderTypeFilter?: boolean
 }
 
 const sortOptions: { value: TaskSortField; label: string }[] = [
@@ -102,6 +110,7 @@ export function TasksFiltersBar({
   showSort = true,
   crewOptions = [],
   operationalMode = false,
+  showWorkOrderTypeFilter = false,
 }: TasksFiltersProps) {
   const visibleSortOptions = operationalMode ? operationalSortOptions : sortOptions
 
@@ -109,6 +118,7 @@ export function TasksFiltersBar({
     filters.search !== "" ||
     (!operationalMode && filters.status !== "all") ||
     filters.type !== "all" ||
+    (showWorkOrderTypeFilter && filters.workOrderType !== "all") ||
     filters.priority !== "all" ||
     filters.crew !== "all"
 
@@ -137,7 +147,9 @@ export function TasksFiltersBar({
           className={
             operationalMode
               ? "grid grid-cols-2 gap-2 sm:grid-cols-3 xl:w-auto xl:min-w-[480px]"
-              : "grid grid-cols-2 gap-2 sm:grid-cols-4 xl:w-auto xl:min-w-[640px]"
+              : showWorkOrderTypeFilter
+                ? "grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5 xl:w-auto xl:min-w-[800px]"
+                : "grid grid-cols-2 gap-2 sm:grid-cols-4 xl:w-auto xl:min-w-[640px]"
           }
         >
           {!operationalMode && (
@@ -179,6 +191,29 @@ export function TasksFiltersBar({
               ))}
             </SelectContent>
           </Select>
+
+          {showWorkOrderTypeFilter ? (
+            <Select
+              value={filters.workOrderType}
+              onValueChange={(value) =>
+                update(
+                  "workOrderType",
+                  value as TaskFilters["workOrderType"]
+                )
+              }
+            >
+              <SelectTrigger className={FILTER_SELECT_TRIGGER_CLASS}>
+                <SelectValue placeholder="Tipo de OT" />
+              </SelectTrigger>
+              <SelectContent>
+                {ARCHIVE_OT_TYPE_FILTER_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : null}
 
           <Select
             value={filters.priority}
@@ -387,6 +422,8 @@ export function filterAndSortTasks<
     projectName: string
     status: TaskStatus
     type: TaskType
+    projectId?: string
+    serviceType?: string | null
     priority: TaskPriority
     crew: string
     crewId?: string
@@ -414,6 +451,7 @@ export function filterAndSortTasks<
       matchesSearch &&
       (filters.status === "all" || task.status === filters.status) &&
       (filters.type === "all" || task.type === filters.type) &&
+      taskMatchesWorkOrderOtTypeFilter(task, filters.workOrderType) &&
       (filters.priority === "all" || task.priority === filters.priority) &&
       taskMatchesCrewFilter(task, filters.crew, crews)
     )
