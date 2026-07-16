@@ -3,6 +3,7 @@
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { TaskAdminReferencePhotos } from "@/components/tareas/task-admin-reference-photos"
 import { canAdminModifyWorkOrder } from "@/lib/tasks/work-order-admin-mutation"
+import { readTrabajoRealizadoFromTask } from "@/lib/tasks/trabajo-realizado"
 import type { Task } from "@/lib/types/tasks"
 import {
   Card,
@@ -26,6 +27,7 @@ export function TaskAdminSidebarPanel({ task }: TaskAdminSidebarPanelProps) {
   const { getTask } = useTasks()
   const liveTask = getTask(task.id) ?? task
   const observations = resolveAdminObservations(liveTask)
+  const trabajoRealizado = readTrabajoRealizadoFromTask(liveTask)
 
   return (
     <div className="space-y-4">
@@ -45,6 +47,22 @@ export function TaskAdminSidebarPanel({ task }: TaskAdminSidebarPanelProps) {
           </p>
         </CardContent>
       </Card>
+
+      {trabajoRealizado ? (
+        <Card
+          className="shadow-sm"
+          data-testid="task-admin-trabajo-realizado"
+        >
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Trabajo Realizado</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+              {trabajoRealizado}
+            </p>
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   )
 }
