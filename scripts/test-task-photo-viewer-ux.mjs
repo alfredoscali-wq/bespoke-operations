@@ -32,9 +32,13 @@ assert(viewer.includes("ArrowLeft"), "viewer supports keyboard prev")
 assert(viewer.includes("ArrowRight"), "viewer supports keyboard next")
 assert(viewer.includes("addEventListener(\"wheel\""), "viewer wheel zoom")
 assert(viewer.includes("handleDoubleClick"), "viewer double-click zoom")
+assert(viewer.includes("translate(${pan.x}px, ${pan.y}px) scale"), "viewer pans with translate")
+assert(viewer.includes("onPointerDown"), "viewer supports drag pan")
 assert(viewer.includes("object-contain"), "viewer preserves aspect ratio")
 assert(viewer.includes("overlayClassName="), "viewer uses dark overlay")
 assert(viewer.includes("showCloseButton"), "viewer keeps close X")
+assert(viewer.includes("task-photo-viewer-zoom-in"), "viewer has zoom in control")
+assert(viewer.includes("task-photo-viewer-zoom-out"), "viewer has zoom out control")
 assert(
   dialogUi.includes("overlayClassName?: string"),
   "DialogContent supports overlayClassName"
