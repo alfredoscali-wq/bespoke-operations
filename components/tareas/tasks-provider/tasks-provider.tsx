@@ -63,7 +63,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     assignCrew,
   } = useTasksWorkflow({ companyId, tasks, updateTaskFields })
 
-  const { confirmPlanningTasks, reopenPlanningTasks } = useTasksPlanning({
+  const { confirmPlanningTasks, reopenPlanningTasks, returnPlanningTaskToAtencion } = useTasksPlanning({
     companyId,
     tasks,
     updateTaskFields,
@@ -135,6 +135,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       cancelTask,
       confirmPlanningTasks,
       reopenPlanningTasks,
+      returnPlanningTaskToAtencion,
       applyExecutionOrderUpdates,
       reportTaskIncident,
       resumeTaskFromIncident,
@@ -169,6 +170,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       cancelTask,
       confirmPlanningTasks,
       reopenPlanningTasks,
+      returnPlanningTaskToAtencion,
       applyExecutionOrderUpdates,
       reportTaskIncident,
       resumeTaskFromIncident,

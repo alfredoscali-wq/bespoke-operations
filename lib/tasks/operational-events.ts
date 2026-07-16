@@ -59,6 +59,39 @@ export function buildPlanningConfirmedOperationalEvent(
   })
 }
 
+export function buildPlanningReturnedOperationalEvent(
+  input: BaseEventInput & {
+    reason: string
+    previousCrewName?: string
+    previousDueDate?: string
+    previousScheduledTime?: string | null
+  }
+): TaskOperationalEventInsert {
+  const crew = input.previousCrewName?.trim()
+  const dueDate = input.previousDueDate?.trim()
+  const scheduledTime = input.previousScheduledTime?.trim()
+  const details = [
+    crew ? `Cuadrilla anterior: ${crew}` : "",
+    dueDate ? `Fecha anterior: ${dueDate}` : "",
+    scheduledTime ? `Hora anterior: ${scheduledTime}` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ")
+
+  return baseEvent(input, {
+    eventType: "planning_returned",
+    title: "OT devuelta por planificación",
+    description: details,
+    observations: input.reason.trim(),
+    payload: {
+      reason: input.reason.trim(),
+      previousCrewName: crew ?? "",
+      previousDueDate: dueDate ?? "",
+      previousScheduledTime: scheduledTime ?? "",
+    },
+  })
+}
+
 export function buildAssignedOperationalEvent(
   input: BaseEventInput & {
     crewName?: string

@@ -7,6 +7,7 @@ export type TaskWorkflowAction =
   | "assign-crew"
   | "confirm-planning"
   | "reopen-planning"
+  | "return-to-atencion"
   | "start"
   | "submit-for-approval"
   | "report-incident"
@@ -39,6 +40,7 @@ const WORKFLOW_TRANSITIONS: Record<
   "assign-crew": { from: ["programada"], to: "asignada" },
   "confirm-planning": { from: ["programada"], to: "asignada" },
   "reopen-planning": { from: ["asignada", "vencida"], to: "programada" },
+  "return-to-atencion": { from: ["asignada", "vencida"], to: "programada" },
   start: { from: ["asignada"], to: "en-curso" },
   "submit-for-approval": { from: ["en-curso"], to: "pendiente-cierre" },
   "report-incident": { from: ["en-curso"], to: "incidencia" },
@@ -225,6 +227,7 @@ export function getWorkflowHistoryEntry(
     "assign-crew": "Cuadrilla asignada",
     "confirm-planning": "Planificación confirmada",
     "reopen-planning": "Planificación reabierta para replanificación",
+    "return-to-atencion": "OT devuelta por planificación",
     start: "Trabajo iniciado",
     "submit-for-approval": "Cierre solicitado por operario",
     "report-incident": "Operario reportó incidencia",

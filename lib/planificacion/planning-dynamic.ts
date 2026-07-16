@@ -5,6 +5,7 @@ import {
   resolvePlanningExecutionOrder,
 } from "@/lib/planificacion/planning-operational-order-core"
 import { taskMatchesCrewId } from "@/lib/tasks/crew-relation"
+import { hasActivePlanningReturn } from "@/lib/tasks/planning-return"
 import { isWorkOrderTask } from "@/lib/tasks/work-order"
 import type { Crew } from "@/lib/types/crews"
 import type { Task, TaskStatus } from "@/lib/types/tasks"
@@ -57,6 +58,10 @@ export function filterPlanningOperationalViewTasks(
 ): Task[] {
   return tasks.filter((task) => {
     if (!isWorkOrderTask(task) || task.dueDate !== filters.date) {
+      return false
+    }
+
+    if (hasActivePlanningReturn(task)) {
       return false
     }
 

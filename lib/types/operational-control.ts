@@ -23,6 +23,7 @@ export type OperationalMotivoInput = {
 export type TaskOperationalEventType =
   | "created"
   | "planning_confirmed"
+  | "planning_returned"
   | "assigned"
   | "rescheduled"
   | "started"

@@ -34,6 +34,10 @@ import {
 import type { UpdateTaskPayload } from "@/lib/types/supabase/tasks"
 import type { Task } from "@/lib/types/tasks"
 import type { TaskRescheduleInput } from "@/lib/tasks/reschedule"
+import {
+  clearPlanningReturnMetadata,
+  shouldClearPlanningReturnOnScheduleUpdate,
+} from "@/lib/tasks/planning-return"
 
 import { cacheDetail, getCachedDetail } from "../detail-cache"
 import type { TaskMutationOptions, TaskMutationResult } from "../types"
@@ -201,8 +205,19 @@ export function useTasksUpdate({
 
       try {
         const client = createBrowserTasksClient()
+        const payloadWithPlanningReturnClear =
+          shouldClearPlanningReturnOnScheduleUpdate(existing, payload.dueDate)
+            ? {
+                ...payload,
+                taskMetadata: clearPlanningReturnMetadata(
+                  payload.taskMetadata ?? existing.taskMetadata
+                ),
+              }
+            : payload
         const enrichedPayload =
-          await enrichUpdateTaskPayloadWithResolvedLocation(payload)
+          await enrichUpdateTaskPayloadWithResolvedLocation(
+            payloadWithPlanningReturnClear
+          )
         const result = await updateTaskInSupabase(id, enrichedPayload, client)
 
         if (result.data) {

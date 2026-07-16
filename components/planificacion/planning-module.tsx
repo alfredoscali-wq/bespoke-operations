@@ -30,6 +30,7 @@ import { PlanningPendingClosureSheet } from "@/components/planificacion/planning
 import { PlanningSuccessBanner } from "@/components/planificacion/planning-success-banner"
 
 import { PlanningTaskAdjustSheet } from "@/components/planificacion/planning-task-adjust-sheet"
+import { PlanningReturnToAtencionDialog } from "@/components/planificacion/planning-return-to-atencion-dialog"
 
 import { PlanningTaskList } from "@/components/planificacion/planning-task-list"
 
@@ -106,6 +107,7 @@ import {
 } from "@/lib/planificacion/planning-utils"
 
 import { sortTasksByDispatchRoute, resolveTaskRouteOrder } from "@/lib/tasks/dispatch-order"
+import { canReturnPlanningTaskToAtencion } from "@/lib/tasks/planning-return"
 
 import { listPendingClosureTasksForPlanningDate } from "@/lib/planificacion/planning-pending-closure"
 
@@ -118,7 +120,7 @@ function PlanningModuleContent() {
 
   const { sessionUser } = useAuth()
 
-  const { tasks, isTasksReady, applyExecutionOrderUpdates, confirmPlanningTasks, reopenPlanningTasks, refreshTasksFromServer } =
+  const { tasks, isTasksReady, applyExecutionOrderUpdates, confirmPlanningTasks, reopenPlanningTasks, returnPlanningTaskToAtencion, refreshTasksFromServer } =
 
     useTasks()
 
@@ -139,6 +141,8 @@ function PlanningModuleContent() {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
 
   const [adjustSheetTaskId, setAdjustSheetTaskId] = useState<string | null>(null)
+  const [returnDialogTaskId, setReturnDialogTaskId] = useState<string | null>(null)
+  const [isReturningToAtencion, setIsReturningToAtencion] = useState(false)
 
   const [reorderingTaskId, setReorderingTaskId] = useState<string | null>(null)
 
@@ -362,6 +366,14 @@ function PlanningModuleContent() {
 
   )
 
+  const returnDialogTask = useMemo(
+
+    () => tasks.find((task) => task.id === returnDialogTaskId) ?? null,
+
+    [tasks, returnDialogTaskId]
+
+  )
+
 
 
   const crewIdsInOrder = useMemo(
@@ -565,6 +577,58 @@ function PlanningModuleContent() {
   )
 
 
+
+  const handleReturnToAtencion = useCallback(
+    async (reason: string) => {
+      if (!returnDialogTask) {
+        return
+      }
+
+      setIsReturningToAtencion(true)
+      setDispatchError(null)
+
+      try {
+        const result = await returnPlanningTaskToAtencion(
+          returnDialogTask.id,
+          { reason },
+          crews
+        )
+
+        if (!result.success) {
+          setDispatchError(
+            result.message ??
+              "No fue posible devolver la OT a Atención al Cliente."
+          )
+          return
+        }
+
+        if (selectedTaskId === returnDialogTask.id) {
+          setSelectedTaskId(null)
+        }
+
+        if (adjustSheetTaskId === returnDialogTask.id) {
+          setAdjustSheetTaskId(null)
+        }
+
+        setReturnDialogTaskId(null)
+        setSuccessMessage({
+          id: crypto.randomUUID(),
+          title: "OT devuelta a Atención",
+          description:
+            "La orden salió de Planificación y quedó disponible en Órdenes de Trabajo.",
+        })
+      } finally {
+        setIsReturningToAtencion(false)
+      }
+    },
+    [
+      adjustSheetTaskId,
+      crews,
+      returnDialogTask,
+      returnPlanningTaskToAtencion,
+      selectedTaskId,
+    ]
+  )
 
   const handlePlanCrew = useCallback(
 
@@ -1122,6 +1186,22 @@ function PlanningModuleContent() {
 
             }
 
+            onReturnToAtencion={
+
+              isEditingMode
+
+                ? (taskId) => setReturnDialogTaskId(taskId)
+
+                : undefined
+
+            }
+
+            isTaskReturnable={
+
+              isEditingMode ? canReturnPlanningTaskToAtencion : undefined
+
+            }
+
             onMoveTaskOrder={
 
               isEditingMode ? handleMoveTaskOrder : undefined
@@ -1166,6 +1246,18 @@ function PlanningModuleContent() {
 
         }}
 
+      />
+
+      <PlanningReturnToAtencionDialog
+        open={returnDialogTaskId != null}
+        onOpenChange={(open) => {
+          if (!open && !isReturningToAtencion) {
+            setReturnDialogTaskId(null)
+          }
+        }}
+        task={returnDialogTask}
+        isSubmitting={isReturningToAtencion}
+        onConfirm={handleReturnToAtencion}
       />
 
       <PlanningPrintMaterialsDialog

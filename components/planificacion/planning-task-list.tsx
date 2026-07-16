@@ -56,6 +56,10 @@ type PlanningTaskListProps = {
 
   onEditTask?: (taskId: string) => void
 
+  onReturnToAtencion?: (taskId: string) => void
+
+  isTaskReturnable?: (task: Task) => boolean
+
   onMoveTaskOrder?: (taskId: string, direction: "up" | "down") => void
 
   onMoveTaskToPosition?: (taskId: string, position: number) => void
@@ -89,6 +93,10 @@ export function PlanningTaskList({
   onSelectTask,
 
   onEditTask,
+
+  onReturnToAtencion,
+
+  isTaskReturnable,
 
   onMoveTaskOrder,
 
@@ -332,7 +340,7 @@ export function PlanningTaskList({
 
                   <th className="px-2 py-2.5">Estado</th>
 
-                  <th className="w-10 px-2 py-2.5" aria-label="Editar" />
+                  <th className="w-[72px] px-2 py-2.5" aria-label="Acciones" />
 
                 </tr>
 
@@ -345,6 +353,9 @@ export function PlanningTaskList({
                   const crewColor = resolveCrewBandColor(task)
 
                   const rowEditable = isRowEditable(task)
+                  const rowReturnable = isTaskReturnable
+                    ? isTaskReturnable(task)
+                    : false
 
                   const { canMoveUp, canMoveDown } = resolveMoveAvailability(task)
 
@@ -383,6 +394,16 @@ export function PlanningTaskList({
                         onEditTask && rowEditable
 
                           ? () => onEditTask(task.id)
+
+                          : undefined
+
+                      }
+
+                      onReturnToAtencion={
+
+                        onReturnToAtencion && rowReturnable
+
+                          ? () => onReturnToAtencion(task.id)
 
                           : undefined
 

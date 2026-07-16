@@ -1,6 +1,6 @@
 "use client"
 
-import { AlertCircle, MapPinOff, Pencil } from "lucide-react"
+import { AlertCircle, CornerUpLeft, MapPinOff, Pencil } from "lucide-react"
 
 import { PlanningTaskOrderInput } from "@/components/planificacion/planning-task-order-input"
 import { TaskStatusBadge } from "@/components/tareas/task-badges"
@@ -38,6 +38,7 @@ type PlanningTaskTableRowProps = {
   crews: Pick<Crew, "id" | "name">[]
   onSelect: () => void
   onEdit?: () => void
+  onReturnToAtencion?: () => void
   onMoveUp?: () => void
   onMoveDown?: () => void
   onMoveToPosition?: (taskId: string, position: number) => void
@@ -56,6 +57,7 @@ export function PlanningTaskTableRow({
   crews,
   onSelect,
   onEdit,
+  onReturnToAtencion,
   onMoveUp,
   onMoveDown,
   onMoveToPosition,
@@ -237,24 +239,42 @@ export function PlanningTaskTableRow({
       </td>
 
       <td className="whitespace-nowrap px-2 py-2 align-middle">
-        {!readOnly && onEdit ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            className="size-7 text-muted-foreground hover:text-foreground"
-            onClick={(event) => {
-              event.stopPropagation()
-              onEdit()
-            }}
-            aria-label="Ajustar planificación"
-            title="Ajustar planificación"
-          >
-            <Pencil className="size-3.5" />
-          </Button>
-        ) : (
-          <span className="inline-block size-7" aria-hidden />
-        )}
+        <div className="flex items-center gap-0.5">
+          {!readOnly && onReturnToAtencion ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="size-7 text-muted-foreground hover:text-foreground"
+              onClick={(event) => {
+                event.stopPropagation()
+                onReturnToAtencion()
+              }}
+              aria-label="Devolver a Atención"
+              title="Devolver a Atención"
+            >
+              <CornerUpLeft className="size-3.5" />
+            </Button>
+          ) : null}
+          {!readOnly && onEdit ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="size-7 text-muted-foreground hover:text-foreground"
+              onClick={(event) => {
+                event.stopPropagation()
+                onEdit()
+              }}
+              aria-label="Ajustar planificación"
+              title="Ajustar planificación"
+            >
+              <Pencil className="size-3.5" />
+            </Button>
+          ) : (
+            <span className="inline-block size-7" aria-hidden />
+          )}
+        </div>
       </td>
     </tr>
   )

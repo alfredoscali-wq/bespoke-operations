@@ -60,6 +60,11 @@ export type TasksContextValue = {
     ids: string[],
     crews?: Pick<import("@/lib/types/crews").Crew, "id" | "name">[]
   ) => Promise<TaskMutationResult>
+  returnPlanningTaskToAtencion: (
+    id: string,
+    input: { reason: string },
+    crews?: Pick<import("@/lib/types/crews").Crew, "id" | "name">[]
+  ) => Promise<TaskMutationResult>
   applyExecutionOrderUpdates: (
     updates: ExecutionOrderUpdate[],
     crews?: Pick<import("@/lib/types/crews").Crew, "id" | "name">[]

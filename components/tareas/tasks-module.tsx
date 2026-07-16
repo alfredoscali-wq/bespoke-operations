@@ -18,13 +18,15 @@ import {
   TasksFiltersBar,
 } from "@/components/tareas/tasks-filters"
 import type { CreateTaskPayload } from "@/lib/types/supabase/tasks"
-import { parseTaskStatusQuery } from "@/lib/navigation/query-filters"
+import { parseTaskStatusQuery, parsePlanningReturnedQuery } from "@/lib/navigation/query-filters"
 import {
   ARCHIVE_OT_STATUS_FILTER_OPTIONS,
   filterActiveWorkOrders,
   filterArchivedWorkOrders,
   type ArchiveOtStatusFilter,
 } from "@/lib/tasks/task-list-scope"
+import { filterPlanningReturnedTasks } from "@/lib/tasks/planning-return"
+import { TasksPlanningReturnedKpi } from "@/components/tareas/tasks-planning-returned-kpi"
 import { Button } from "@/components/ui/button"
 
 const TASKS_PAGE_SIZE = 25
@@ -48,6 +50,8 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
   const [workOrderOpen, setWorkOrderOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [feedback, setFeedback] = useState<string | null>(null)
+  const [planningReturnedFilterActive, setPlanningReturnedFilterActive] =
+    useState(false)
 
   useEffect(() => {
     const status = parseTaskStatusQuery(searchParams.get("status"))
@@ -55,6 +59,16 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
       setFilters((current) => ({ ...current, status }))
     }
   }, [searchParams])
+
+  useEffect(() => {
+    if (mode !== "active") {
+      return
+    }
+
+    setPlanningReturnedFilterActive(
+      parsePlanningReturnedQuery(searchParams.get("planningReturned"))
+    )
+  }, [mode, searchParams])
 
   useEffect(() => {
     if (mode !== "active") {
@@ -69,7 +83,7 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [filters, mode, archiveStatusFilter])
+  }, [filters, mode, archiveStatusFilter, planningReturnedFilterActive])
 
   const scopedTasks = useMemo(() => {
     if (isArchiveView) {
@@ -80,8 +94,12 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
   }, [tasks, isArchiveView, archiveStatusFilter])
 
   const displayedTasks = useMemo(() => {
-    return filterAndSortTasks(scopedTasks, filters, crews)
-  }, [scopedTasks, filters, crews])
+    const filtered = filterAndSortTasks(scopedTasks, filters, crews)
+    if (!isArchiveView && planningReturnedFilterActive) {
+      return filterPlanningReturnedTasks(filtered)
+    }
+    return filtered
+  }, [scopedTasks, filters, crews, isArchiveView, planningReturnedFilterActive])
 
   const totalPages = Math.max(
     1,
@@ -104,7 +122,23 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
     (isArchiveView && filters.workOrderType !== "all") ||
     filters.priority !== "all" ||
     filters.crew !== "all" ||
+    planningReturnedFilterActive ||
     (!isArchiveView && filters.status !== defaultTaskFilters.status)
+
+  function handlePlanningReturnedKpiToggle() {
+    const nextActive = !planningReturnedFilterActive
+    setPlanningReturnedFilterActive(nextActive)
+
+    const params = new URLSearchParams(searchParams.toString())
+    if (nextActive) {
+      params.set("planningReturned", "1")
+    } else {
+      params.delete("planningReturned")
+    }
+
+    const query = params.toString()
+    router.replace(query ? `/tareas?${query}` : "/tareas", { scroll: false })
+  }
 
   async function handleCreateWorkOrder(payload: CreateTaskPayload) {
     return addTask(payload)
@@ -180,6 +214,16 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
           ) : null}
         </div>
       </div>
+
+      {!isArchiveView ? (
+        <div className="max-w-sm">
+          <TasksPlanningReturnedKpi
+            tasks={scopedTasks}
+            isActive={planningReturnedFilterActive}
+            onToggle={handlePlanningReturnedKpiToggle}
+          />
+        </div>
+      ) : null}
 
       <TasksFiltersBar
         filters={filters}

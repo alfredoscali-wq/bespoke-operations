@@ -17,7 +17,16 @@ import { resolveOperationalEventActor } from "@/lib/tasks/operational-event-acto
 import {
   buildAssignedOperationalEvent,
   buildPlanningConfirmedOperationalEvent,
+  buildPlanningReturnedOperationalEvent,
 } from "@/lib/tasks/operational-events"
+import {
+  buildPlanningReturnToAtencionUpdate,
+  canReturnPlanningTaskToAtencion,
+  clearPlanningReturnMetadata,
+  hasActivePlanningReturn,
+  validatePlanningReturnReason,
+} from "@/lib/tasks/planning-return"
+import { recordTaskPlanningReturnAudit } from "@/lib/audit/tasks-audit"
 import { recordTaskOperationalEvent } from "@/lib/supabase/operational-control.browser"
 import { canPerformTaskAction } from "@/lib/tasks/task-status-workflow"
 import type { Crew } from "@/lib/types/crews"
@@ -194,6 +203,11 @@ export function useTasksPlanning({
             status: "asignada",
             dispatchOrder: update.dispatchOrder,
             executionOrder: null,
+            ...(task && hasActivePlanningReturn(task)
+              ? {
+                  taskMetadata: clearPlanningReturnMetadata(task.taskMetadata),
+                }
+              : {}),
           },
           "confirm-planning",
           "Planificación confirmada para la jornada.",
@@ -341,8 +355,131 @@ export function useTasksPlanning({
     [tasks, updateTaskFields]
   )
 
+  const returnPlanningTaskToAtencion = useCallback(
+    async (
+      id: string,
+      input: { reason: string },
+      crews: CrewRef[] = []
+    ): Promise<TaskMutationResult> => {
+      const task = tasks.find((item) => item.id === id)
+      if (!task) {
+        return { success: false, message: "Orden de trabajo no encontrada." }
+      }
+
+      if (!canReturnPlanningTaskToAtencion(task)) {
+        return {
+          success: false,
+          message:
+            "Solo se pueden devolver OT que aún no hayan comenzado su ejecución.",
+        }
+      }
+
+      const reasonValidation = validatePlanningReturnReason(input.reason)
+      if (!reasonValidation.allowed) {
+        return {
+          success: false,
+          message: reasonValidation.message,
+        }
+      }
+
+      const workflowAction =
+        task.status === "asignada" || task.status === "vencida"
+          ? ("return-to-atencion" as const)
+          : undefined
+
+      if (workflowAction) {
+        const validation = canPerformTaskAction(task, workflowAction)
+        if (!validation.allowed) {
+          return { success: false, message: validation.message }
+        }
+      }
+
+      const actor = resolveOperationalEventActor(sessionUser)
+      const scopeClears = collectExecutionOrderScopeClearUpdates(tasks, [id], crews)
+
+      for (const clear of scopeClears) {
+        const result = await updateTaskFields(
+          clear.taskId,
+          { executionOrder: null },
+          undefined,
+          undefined,
+          undefined,
+          { suppressAudit: true }
+        )
+
+        if (!result.success) {
+          return result
+        }
+      }
+
+      const updatePayload = buildPlanningReturnToAtencionUpdate(task, {
+        reason: input.reason,
+        returnedBy: actor.fullName,
+      })
+
+      const result = await updateTaskFields(
+        id,
+        updatePayload,
+        workflowAction,
+        "OT devuelta a Atención al Cliente para revisión.",
+        actor.fullName,
+        { suppressAudit: true }
+      )
+
+      if (!result.success || !result.task) {
+        return result
+      }
+
+      recordTaskPlanningReturnAudit(task, result.task, {
+        reason: input.reason,
+        returnedBy: actor.fullName,
+      })
+
+      if (companyId) {
+        void recordTaskOperationalEvent(
+          buildPlanningReturnedOperationalEvent({
+            companyId,
+            task,
+            actor,
+            reason: input.reason,
+            previousCrewName: task.crew,
+            previousDueDate: task.dueDate,
+            previousScheduledTime: task.scheduledTime,
+          })
+        )
+      }
+
+      const affectedScopes = collectExecutionOrderScopesFromTaskIds(
+        tasks,
+        [id],
+        crews
+      )
+      const compactResult = await compactExecutionOrderScopes(
+        tasks.map((item) => (item.id === id ? result.task! : item)),
+        affectedScopes,
+        crews,
+        applyExecutionOrderUpdates,
+        [id]
+      )
+
+      if (!compactResult.success) {
+        return compactResult
+      }
+
+      return { success: true, task: result.task }
+    },
+    [
+      applyExecutionOrderUpdates,
+      companyId,
+      sessionUser,
+      tasks,
+      updateTaskFields,
+    ]
+  )
+
   return {
     confirmPlanningTasks,
     reopenPlanningTasks,
+    returnPlanningTaskToAtencion,
   }
 }

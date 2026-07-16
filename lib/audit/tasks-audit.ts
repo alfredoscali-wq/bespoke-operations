@@ -276,6 +276,34 @@ export function recordTaskRescheduleAudit(
   })
 }
 
+export function recordTaskPlanningReturnAudit(
+  before: Task,
+  after: Task,
+  input: { reason: string; returnedBy: string }
+) {
+  const entityLabel = resolveTaskEntityLabel(before)
+
+  recordTaskAuditEvent({
+    action: AUDIT_ACTIONS.TASK_UPDATE,
+    task: before,
+    workflowAction: "return-to-atencion",
+    description: entityLabel
+      ? `OT devuelta por planificación: ${entityLabel}.`
+      : "OT devuelta por planificación.",
+    metadata: {
+      ...buildTaskScheduleMetadata(before, after),
+      ...buildTaskCrewMetadata(before, after),
+      ...buildTaskStatusMetadata(before, after),
+      motivo: input.reason.trim(),
+      devueltaPor: input.returnedBy.trim(),
+      devueltaAt: after.taskMetadata?.planningReturnAt ?? new Date().toISOString(),
+      cuadrillaAnterior: before.crew?.trim() || null,
+      fechaAnterior: before.dueDate,
+      horaAnterior: before.scheduledTime ?? null,
+    },
+  })
+}
+
 export function recordTaskWorkflowStatusAudit(
   action: AuditAction,
   before: Task,

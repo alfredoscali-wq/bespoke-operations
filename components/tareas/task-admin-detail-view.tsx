@@ -8,6 +8,7 @@ import { TaskAdminSidebarPanel } from "@/components/tareas/task-admin-sidebar-pa
 import { TaskAdminSoftDeleteAction } from "@/components/tareas/task-admin-soft-delete-action"
 import { TaskAdminWorkflowPanel } from "@/components/tareas/task-admin-workflow-panel"
 import { TaskCancellationRecordPanel } from "@/components/tareas/task-cancellation-record-panel"
+import { TaskPlanningReturnRecordPanel } from "@/components/tareas/task-planning-return-record-panel"
 import { TaskOperationalTimeline } from "@/components/tareas/task-operational-timeline"
 import type { IncidentResponse } from "@/lib/types/task-incidents"
 import type { Task, TaskDetail } from "@/lib/types/tasks"
@@ -51,6 +52,8 @@ export function TaskAdminDetailView({
             : task.incidentReason || null
         }
       />
+
+      <TaskPlanningReturnRecordPanel task={task} />
 
       {incident || isIncidentDetailLoading ? (
         <TaskAdminIncidentRecordPanel
