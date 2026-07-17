@@ -73,7 +73,7 @@ test("fecha de creación filtra por día local", () => {
   assert.ok(getConsultationDayBoundsFromDateOnly(dateOnly))
 })
 
-test("combina fecha + búsqueda + filtros existentes", () => {
+test("búsqueda global: no restringe por fecha ni re-filtra en memoria", () => {
   const localDay = new Date("2026-07-14T15:20:00.000Z")
   const dateOnly = `${localDay.getFullYear()}-${String(localDay.getMonth() + 1).padStart(2, "0")}-${String(localDay.getDate()).padStart(2, "0")}`
 
@@ -89,21 +89,23 @@ test("combina fecha + búsqueda + filtros existentes", () => {
       createdAt: "2026-07-10T15:20:00.000Z",
     }),
     makeRow({
-      id: "other-name",
+      id: "matched-by-db",
       customerName: "María Gómez",
       createdAt: "2026-07-14T12:00:00.000Z",
       detail: "Consulta de facturación",
     }),
   ]
 
+  // La búsqueda es global: la base de datos ya hizo el matching (incluyendo
+  // teléfono, DNI, número de cliente, código externo y dirección), por lo que
+  // ninguna fila devuelta se descarta en memoria ni se limita por fecha.
   const filtered = filterSharedInboxRows(rows, {
     statusFilter: "all",
     createdDate: dateOnly,
     search: "Pérez",
   })
 
-  assert.equal(filtered.length, 1)
-  assert.equal(filtered[0]?.id, "match")
+  assert.equal(filtered.length, 3)
 })
 
 test("sin fecha ni búsqueda no restringe el listado", () => {

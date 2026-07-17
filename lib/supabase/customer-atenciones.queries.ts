@@ -252,6 +252,7 @@ async function findSharedInboxCustomerIdsBySearch(
         `customer_number.ilike.${pattern}`,
         `external_customer_code.ilike.${pattern}`,
         `dni.ilike.${pattern}`,
+        `address.ilike.${pattern}`,
       ].join(",")
     )
     .limit(200)
@@ -357,14 +358,16 @@ async function fetchSharedInboxSourceRows(
       .eq("company_id", companyId)
       .is("deleted_at", null)
 
+    // Global search: intentionally not scoped to the selected day. The
+    // operator must be able to locate any consultation of the company.
     filteredQuery = applySharedInboxDiscoveryFilters(filteredQuery, {
-      createdDate,
+      createdDate: null,
       search,
       matchingCustomerIds,
     })
 
     const { data, error } = await filteredQuery
-      .order("created_at", { ascending: true })
+      .order("created_at", { ascending: false })
       .limit(SHARED_INBOX_MAX_ROWS)
 
     if (error) {

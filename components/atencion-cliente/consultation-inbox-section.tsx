@@ -1,13 +1,10 @@
 "use client"
 
-import Link from "next/link"
-import { ChevronRight, Search } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { useRouter } from "next/navigation"
 
 import { useAtencionCliente } from "@/components/atencion-cliente/atencion-cliente-provider"
 import { ConsultationHistoricalDaySummaryCard } from "@/components/atencion-cliente/consultation-historical-day-summary-card"
 import {
-  formatCustomerAtencionChannelLabel,
   formatCustomerAtencionMotivoLabel,
   formatCustomerAtencionNextStepLabel,
   formatCustomerAtencionStatusLabel,
@@ -19,12 +16,7 @@ import {
 import {
   normalizeSharedInboxCreatedDate,
   normalizeSharedInboxSearch,
-  truncateConsultationDetail,
 } from "@/lib/customer-atenciones/shared-inbox"
-import { isAdministrationConsultation } from "@/lib/customer-atenciones/administration-flow"
-import { isMorosoConsultation } from "@/lib/customer-atenciones/moroso-flow"
-import { isRetentionConsultation } from "@/lib/customer-atenciones/retention-flow"
-import { isTechnicalConsultation } from "@/lib/customer-atenciones/technical-flow"
 import { toLocalDateOnly } from "@/lib/dates/date-only"
 import type { CustomerAtencionInboxRow } from "@/lib/types/customer-atenciones"
 import type {
@@ -48,20 +40,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { cn } from "@/lib/utils"
 import {
-  FILTER_CLEAR_BUTTON_CLASS,
-  FILTER_SEARCH_INPUT_CLASS,
-} from "@/lib/ui/visual-tokens"
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { cn } from "@/lib/utils"
+import { FILTER_CLEAR_BUTTON_CLASS } from "@/lib/ui/visual-tokens"
 
+/** Visible daily-operation filters; other statuses remain supported internally. */
 const STATUS_FILTER_OPTIONS: { value: SharedInboxStatusFilter; label: string }[] =
   [
     { value: "all", label: "Todas" },
-    { value: "nueva", label: "Ingresadas" },
-    { value: "para_resolver", label: "Para resolver" },
-    { value: "en_gestion", label: "En gestión" },
     { value: "pendiente", label: "Pendientes" },
-    { value: "resuelta", label: "Resueltas" },
+    { value: "para_resolver", label: "Para resolver" },
     { value: "resueltas_hoy", label: "Resueltas hoy" },
   ]
 
@@ -93,138 +88,130 @@ function statusBadgeClassName(status: CustomerAtencionInboxRow["status"]): strin
   }
 }
 
-function ConsultationInboxCard({ item }: { item: CustomerAtencionInboxRow }) {
-  const createdTime = new Date(item.createdAt).toLocaleTimeString("es-AR", {
+function formatRowDate(isoDate: string): string {
+  const date = new Date(isoDate)
+  const day = date.toLocaleDateString("es-AR", {
+    day: "2-digit",
+    month: "2-digit",
+  })
+  const time = date.toLocaleTimeString("es-AR", {
     hour: "2-digit",
     minute: "2-digit",
   })
 
+  return `${day} · ${time}`
+}
+
+/** Contextual side panel is available on desktop/notebook; mobile keeps page navigation. */
+const CONTEXTUAL_DETAIL_MEDIA_QUERY = "(min-width: 1024px)"
+
+function ConsultationInboxTableRow({
+  item,
+  rowNumber,
+  isSelected,
+  onSelect,
+}: {
+  item: CustomerAtencionInboxRow
+  rowNumber: number
+  isSelected: boolean
+  onSelect?: (atencionId: string) => void
+}) {
+  const router = useRouter()
+  const assignedName =
+    item.status === "en_gestion" && item.activeManagementEmployeeName
+      ? item.activeManagementEmployeeName
+      : null
+
+  function openConsultation() {
+    if (
+      onSelect &&
+      typeof window !== "undefined" &&
+      window.matchMedia(CONTEXTUAL_DETAIL_MEDIA_QUERY).matches
+    ) {
+      onSelect(item.id)
+      return
+    }
+
+    router.push(`/atencion-cliente/${item.id}`)
+  }
+
   return (
-    <Link
-      href={`/atencion-cliente/${item.id}`}
-      className="block rounded-lg border px-4 py-3 transition-colors hover:bg-muted/40"
+    <TableRow
+      className="cursor-pointer"
+      role="link"
+      tabIndex={0}
+      aria-label={`Abrir consulta de ${item.customerName}`}
+      data-state={isSelected ? "selected" : undefined}
+      onClick={openConsultation}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault()
+          openConsultation()
+        }
+      }}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1 space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-sm font-semibold text-foreground">
-              {item.customerName}
-            </p>
-            <Badge
-              variant="outline"
-              className={cn("text-xs", statusBadgeClassName(item.status))}
-            >
-              {formatCustomerAtencionStatusLabel(item.status)}
-            </Badge>
-            {isRetentionConsultation(item) ? (
-              <Badge
-                variant="outline"
-                className="border-rose-200 bg-rose-500/10 text-xs text-rose-800"
-              >
-                Retención
-              </Badge>
-            ) : null}
-            {isAdministrationConsultation(item) ? (
-              <Badge
-                variant="outline"
-                className="border-amber-200 bg-amber-500/10 text-xs text-amber-800"
-              >
-                Administración
-              </Badge>
-            ) : null}
-            {isTechnicalConsultation(item) ? (
-              <Badge
-                variant="outline"
-                className="border-violet-200 bg-violet-500/10 text-xs text-violet-800"
-              >
-                Técnica
-              </Badge>
-            ) : null}
-            {isMorosoConsultation(item) ? (
-              <Badge
-                variant="outline"
-                className="border-orange-200 bg-orange-500/10 text-xs text-orange-800"
-              >
-                Morosos
-              </Badge>
-            ) : null}
-          </div>
-
-          <p className="text-sm text-foreground">
-            {truncateConsultationDetail(item.detail)}
-          </p>
-
-          <p className="text-xs text-muted-foreground">
-            {formatCustomerAtencionMotivoLabel(item.motivo)} ·{" "}
-            {formatCustomerAtencionChannelLabel(item.channel)}
-          </p>
-
-          <p className="text-xs text-muted-foreground">
-            Registrada por {item.attendedByEmployeeName} · {createdTime}
-          </p>
-
-          {item.nextStep ? (
-            <p className="text-xs font-medium text-foreground">
-              Próximo paso: {formatCustomerAtencionNextStepLabel(item.nextStep)}
-            </p>
-          ) : null}
-
-          {item.status === "en_gestion" &&
-          item.activeManagementEmployeeName &&
-          item.activeManagementStartedAt ? (
-            <p className="text-xs text-sky-800">
-              En gestión por {item.activeManagementEmployeeName} desde{" "}
-              {new Date(item.activeManagementStartedAt).toLocaleTimeString("es-AR", {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </p>
-          ) : null}
+      <TableCell className="w-10 text-xs text-muted-foreground">
+        {rowNumber}
+      </TableCell>
+      <TableCell className="min-w-[180px]">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="truncate text-sm font-medium text-foreground">
+            {item.customerName}
+          </span>
+          <Badge
+            variant="outline"
+            className={cn("shrink-0 text-xs", statusBadgeClassName(item.status))}
+          >
+            {formatCustomerAtencionStatusLabel(item.status)}
+          </Badge>
         </div>
-
-        <ChevronRight className="mt-1 size-4 shrink-0 text-muted-foreground" />
-      </div>
-    </Link>
+      </TableCell>
+      <TableCell className="min-w-[140px]">
+        <span className="block truncate text-sm text-muted-foreground">
+          {formatCustomerAtencionMotivoLabel(item.motivo)}
+        </span>
+      </TableCell>
+      <TableCell className="min-w-[180px]">
+        {item.nextStep ? (
+          <span className="block truncate text-sm text-foreground">
+            {formatCustomerAtencionNextStepLabel(item.nextStep)}
+          </span>
+        ) : (
+          <span className="text-sm text-muted-foreground">—</span>
+        )}
+      </TableCell>
+      <TableCell className="min-w-[140px]">
+        {assignedName ? (
+          <span className="block truncate text-sm text-foreground">
+            {assignedName}
+          </span>
+        ) : (
+          <span className="text-sm text-muted-foreground">Sin asignar</span>
+        )}
+      </TableCell>
+      <TableCell className="text-xs whitespace-nowrap text-muted-foreground">
+        {formatRowDate(item.createdAt)}
+      </TableCell>
+    </TableRow>
   )
 }
 
 type ConsultationInboxSectionProps = {
   query: SharedInboxQuery
   onQueryChange: (query: SharedInboxQuery) => void
+  /** Open the consultation in the side work panel (desktop only). */
+  onSelectConsultation?: (atencionId: string) => void
+  selectedConsultationId?: string | null
 }
 
 export function ConsultationInboxSection({
   query,
   onQueryChange,
+  onSelectConsultation,
+  selectedConsultationId,
 }: ConsultationInboxSectionProps) {
   const { sharedInboxRows, isSharedInboxLoading, sharedInboxHistoricalDaySummary } =
     useAtencionCliente()
-  const [searchDraft, setSearchDraft] = useState(query.search ?? "")
-  const queryRef = useRef(query)
-  queryRef.current = query
-
-  useEffect(() => {
-    setSearchDraft(query.search ?? "")
-  }, [query.search])
-
-  useEffect(() => {
-    const normalizedDraft = normalizeSharedInboxSearch(searchDraft)
-    const normalizedQuery = normalizeSharedInboxSearch(queryRef.current.search)
-
-    if (normalizedDraft === normalizedQuery) {
-      return
-    }
-
-    const timer = window.setTimeout(() => {
-      onQueryChange({
-        ...queryRef.current,
-        search: normalizedDraft,
-      })
-    }, 300)
-
-    return () => window.clearTimeout(timer)
-  }, [searchDraft, onQueryChange])
-
 
   const createdDate = normalizeSharedInboxCreatedDate(query.createdDate)
   const activeSearch = normalizeSharedInboxSearch(query.search)
@@ -242,62 +229,24 @@ export function ConsultationInboxSection({
   const showDiscoveryChips =
     Boolean(activeSearch) ||
     (Boolean(createdDate) && !isDefaultOperationalDay)
+
   function clearFilters() {
-    setSearchDraft("")
     onQueryChange(createDefaultInboxQuery())
   }
 
   return (
     <Card>
-      <CardHeader className="space-y-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle>Bandeja operativa</CardTitle>
-          {hasOperationalFilters ? (
-            <button
-              type="button"
-              className={FILTER_CLEAR_BUTTON_CLASS}
-              onClick={clearFilters}
-            >
-              Limpiar filtros
-            </button>
-          ) : null}
-        </div>
-
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
-          <div className="relative min-w-0 flex-1">
-            <Label htmlFor="consultation-inbox-search" className="sr-only">
-              Buscar consulta
-            </Label>
-            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              id="consultation-inbox-search"
-              value={searchDraft}
-              onChange={(event) => setSearchDraft(event.target.value)}
-              placeholder="Buscar consulta..."
-              className={FILTER_SEARCH_INPUT_CLASS}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="consultation-inbox-date">Fecha</Label>
-            <Input
-              id="consultation-inbox-date"
-              type="date"
-              value={createdDate ?? ""}
-              onChange={(event) =>
-                onQueryChange({
-                  ...query,
-                  createdDate: event.target.value || null,
-                })
-              }
-              className="h-9 w-full bg-background sm:w-[180px]"
-            />
-          </div>
+      <CardHeader className="space-y-5 pb-2">
+        <div className="flex flex-col gap-1">
+          <CardTitle>Bandeja de Consultas</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Trabajo pendiente y seguimiento del día
+          </p>
         </div>
 
         {showDiscoveryChips ? (
           <div className="flex flex-wrap items-center gap-2 text-xs">
-            {createdDate && !isDefaultOperationalDay ? (
+            {createdDate && !isDefaultOperationalDay && !activeSearch ? (
               <Badge variant="secondary" className="font-normal">
                 Fecha:{" "}
                 {new Date(`${createdDate}T12:00:00`).toLocaleDateString("es-AR")}
@@ -305,7 +254,7 @@ export function ConsultationInboxSection({
             ) : null}
             {activeSearch ? (
               <Badge variant="secondary" className="font-normal">
-                Búsqueda: {activeSearch}
+                Búsqueda global: {activeSearch}
               </Badge>
             ) : null}
           </div>
@@ -317,7 +266,7 @@ export function ConsultationInboxSection({
           />
         ) : null}
 
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+        <div className="space-y-4">
           <div className="flex flex-wrap gap-2">
             {STATUS_FILTER_OPTIONS.map((option) => (
               <Button
@@ -340,7 +289,28 @@ export function ConsultationInboxSection({
             ))}
           </div>
 
-          <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+            <div className="flex items-center gap-2">
+              <Label
+                htmlFor="consultation-inbox-date"
+                className="text-xs text-muted-foreground"
+              >
+                Fecha
+              </Label>
+              <Input
+                id="consultation-inbox-date"
+                type="date"
+                value={createdDate ?? ""}
+                onChange={(event) =>
+                  onQueryChange({
+                    ...query,
+                    createdDate: event.target.value || null,
+                  })
+                }
+                className="h-9 w-[160px] bg-background"
+              />
+            </div>
+
             <Select
               value={query.motivo ?? "all"}
               onValueChange={(value) =>
@@ -384,21 +354,65 @@ export function ConsultationInboxSection({
                 ))}
               </SelectContent>
             </Select>
+
+            {hasOperationalFilters ? (
+              <button
+                type="button"
+                className={cn(FILTER_CLEAR_BUTTON_CLASS, "sm:ml-auto")}
+                onClick={clearFilters}
+              >
+                Limpiar filtros
+              </button>
+            ) : null}
           </div>
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-3">
+      <CardContent className="pt-4">
         {isSharedInboxLoading ? (
           <p className="text-sm text-muted-foreground">Cargando consultas…</p>
         ) : sharedInboxRows.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">
+          <p className="py-10 text-center text-sm text-muted-foreground">
             No hay consultas para los filtros seleccionados.
           </p>
         ) : (
-          sharedInboxRows.map((item) => (
-            <ConsultationInboxCard key={item.id} item={item} />
-          ))
+          <div className="max-h-[34rem] overflow-auto rounded-lg border border-border/50">
+            <Table>
+              <TableHeader className="sticky top-0 z-10 bg-card">
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="w-10 text-xs text-muted-foreground">
+                    Nº
+                  </TableHead>
+                  <TableHead className="text-xs text-muted-foreground">
+                    Cliente
+                  </TableHead>
+                  <TableHead className="text-xs text-muted-foreground">
+                    Motivo
+                  </TableHead>
+                  <TableHead className="text-xs text-muted-foreground">
+                    Próxima Acción
+                  </TableHead>
+                  <TableHead className="text-xs text-muted-foreground">
+                    Asignado
+                  </TableHead>
+                  <TableHead className="text-xs text-muted-foreground">
+                    Fecha
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sharedInboxRows.map((item, index) => (
+                  <ConsultationInboxTableRow
+                    key={item.id}
+                    item={item}
+                    rowNumber={index + 1}
+                    isSelected={item.id === selectedConsultationId}
+                    onSelect={onSelectConsultation}
+                  />
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         )}
       </CardContent>
     </Card>

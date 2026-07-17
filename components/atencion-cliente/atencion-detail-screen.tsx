@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { notFound, useRouter } from "next/navigation"
-import { ArrowLeft, Trash2 } from "lucide-react"
+import { ArrowLeft, Trash2, X } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 
 import { useAtencionCliente } from "@/components/atencion-cliente/atencion-cliente-provider"
@@ -45,6 +45,11 @@ import {
   formatCustomerAtencionNextStepLabel,
   formatCustomerAtencionStatusLabel,
 } from "@/lib/customer-atenciones/format"
+import {
+  formatCustomerAddressLabel,
+  formatCustomerStatusLabel,
+  formatCustomerTechnologyLabel,
+} from "@/lib/customers/format"
 import { listCustomerAtencionEventsByAtencionId } from "@/lib/supabase/customer-atencion-events.browser"
 import { getCustomerById } from "@/lib/supabase/customers.browser"
 import { getEmployeeById } from "@/lib/supabase/employees.browser"
@@ -75,6 +80,16 @@ import { Textarea } from "@/components/ui/textarea"
 
 type AtencionDetailScreenProps = {
   atencionId: string
+  /**
+   * "page" keeps the standalone detail page layout (default).
+   * "panel" renders the same logic inside the workbench side panel:
+   * compact header with close button, client block and timeline before actions.
+   */
+  presentation?: "page" | "panel"
+  /** Panel mode: request the parent to close the side panel. */
+  onRequestClose?: () => void
+  /** Panel mode: notify the parent that consultation data changed. */
+  onDataChanged?: () => void
 }
 
 function DetailField({
@@ -100,7 +115,13 @@ function formatEmployeeName(employee: Employee | null | undefined): string {
   return `${employee.firstName} ${employee.lastName}`.trim() || "—"
 }
 
-export function AtencionDetailScreen({ atencionId }: AtencionDetailScreenProps) {
+export function AtencionDetailScreen({
+  atencionId,
+  presentation = "page",
+  onRequestClose,
+  onDataChanged,
+}: AtencionDetailScreenProps) {
+  const isPanel = presentation === "panel"
   const router = useRouter()
   const isSystemAdministrator = useIsSystemAdministrator()
   const {
@@ -184,6 +205,11 @@ export function AtencionDetailScreen({ atencionId }: AtencionDetailScreenProps) 
     void loadDetail()
   }, [loadDetail])
 
+  const reloadAfterAction = useCallback(async () => {
+    await loadDetail()
+    onDataChanged?.()
+  }, [loadDetail, onDataChanged])
+
   async function handleStartManagement() {
     setActionError(null)
     setIsStarting(true)
@@ -193,11 +219,11 @@ export function AtencionDetailScreen({ atencionId }: AtencionDetailScreenProps) 
 
       if (!result.success) {
         setActionError(result.message)
-        await loadDetail()
+        await reloadAfterAction()
         return
       }
 
-      await loadDetail()
+      await reloadAfterAction()
     } finally {
       setIsStarting(false)
     }
@@ -222,7 +248,7 @@ export function AtencionDetailScreen({ atencionId }: AtencionDetailScreenProps) 
       }
 
       setResolution("")
-      await loadDetail()
+      await reloadAfterAction()
     } finally {
       setIsResolving(false)
     }
@@ -247,7 +273,7 @@ export function AtencionDetailScreen({ atencionId }: AtencionDetailScreenProps) 
       }
 
       setDeferNextStep("")
-      await loadDetail()
+      await reloadAfterAction()
     } finally {
       setIsDeferring(false)
     }
@@ -258,6 +284,14 @@ export function AtencionDetailScreen({ atencionId }: AtencionDetailScreenProps) 
   }
 
   if (!atencion) {
+    if (isPanel) {
+      return (
+        <p className="text-sm text-muted-foreground">
+          No se encontró la consulta.
+        </p>
+      )
+    }
+
     notFound()
   }
 
@@ -291,17 +325,32 @@ export function AtencionDetailScreen({ atencionId }: AtencionDetailScreenProps) 
     ? (eventEmployeeNamesById[situationSummary.lastActorEmployeeId] ?? "—")
     : "—"
 
+  const customerAddressLabel = customer
+    ? formatCustomerAddressLabel(customer)
+    : null
+  const customerTechnologyLabel = customer
+    ? formatCustomerTechnologyLabel(customer.technology)
+    : null
+
   return (
-    <div className="space-y-6">
+    <div className={isPanel ? "space-y-4" : "space-y-6"}>
       <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <Button variant="outline" size="icon" asChild>
-            <Link href="/atencion-cliente" aria-label="Volver a la bandeja">
-              <ArrowLeft className="size-4" />
-            </Link>
-          </Button>
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">
+        <div className="flex min-w-0 items-center gap-3">
+          {isPanel ? null : (
+            <Button variant="outline" size="icon" asChild>
+              <Link href="/atencion-cliente" aria-label="Volver a la bandeja">
+                <ArrowLeft className="size-4" />
+              </Link>
+            </Button>
+          )}
+          <div className="min-w-0">
+            <h1
+              className={
+                isPanel
+                  ? "truncate text-lg font-semibold tracking-tight"
+                  : "text-2xl font-semibold tracking-tight"
+              }
+            >
               Detalle de Consulta
             </h1>
             <p className="text-sm text-muted-foreground">
@@ -309,23 +358,89 @@ export function AtencionDetailScreen({ atencionId }: AtencionDetailScreenProps) 
             </p>
           </div>
         </div>
-        {canDelete ? (
-          <Button
-            type="button"
-            variant="outline"
-            className="gap-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
-            onClick={() => setIsDeleteDialogOpen(true)}
-          >
-            <Trash2 className="size-4" />
-            Eliminar consulta
-          </Button>
-        ) : null}
+        <div className="flex shrink-0 items-center gap-2">
+          {canDelete ? (
+            isPanel ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                onClick={() => setIsDeleteDialogOpen(true)}
+                aria-label="Eliminar consulta"
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                className="gap-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                onClick={() => setIsDeleteDialogOpen(true)}
+              >
+                <Trash2 className="size-4" />
+                Eliminar consulta
+              </Button>
+            )
+          ) : null}
+          {isPanel ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={onRequestClose}
+              aria-label="Cerrar detalle"
+            >
+              <X className="size-4" />
+            </Button>
+          ) : null}
+        </div>
       </div>
 
       <ConsultationSituationSummaryCard
         summary={situationSummary}
         lastActorName={lastActorName}
       />
+
+      {isPanel && customer ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Cliente</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <DetailField
+              label="Nombre"
+              value={
+                <Link
+                  href={`/clientes/${customer.id}`}
+                  className="text-primary hover:underline"
+                >
+                  {customer.name}
+                </Link>
+              }
+            />
+            {customer.customerNumber ? (
+              <DetailField label="Nº de cliente" value={customer.customerNumber} />
+            ) : null}
+            {customer.phone ? (
+              <DetailField label="Teléfono" value={customer.phone} />
+            ) : null}
+            {customerAddressLabel ? (
+              <DetailField label="Dirección" value={customerAddressLabel} />
+            ) : null}
+            {customerTechnologyLabel ? (
+              <DetailField label="Tecnología" value={customerTechnologyLabel} />
+            ) : null}
+            {customer.contractedPlan ? (
+              <DetailField label="Plan" value={customer.contractedPlan} />
+            ) : null}
+            <DetailField
+              label="Estado del servicio"
+              value={formatCustomerStatusLabel(customer.status)}
+            />
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader>
@@ -441,6 +556,13 @@ export function AtencionDetailScreen({ atencionId }: AtencionDetailScreenProps) 
           linkedTaskId={atencion.linkedTaskId}
           linkedTaskCode={atencion.linkedTaskCode}
           otLinkedAt={atencion.otLinkedAt}
+        />
+      ) : null}
+
+      {isPanel ? (
+        <ConsultationEventsTimeline
+          cards={timelineCards}
+          employeeNamesById={eventEmployeeNamesById}
         />
       ) : null}
 
@@ -592,10 +714,12 @@ export function AtencionDetailScreen({ atencionId }: AtencionDetailScreenProps) 
         </Card>
       ) : null}
 
-      <ConsultationEventsTimeline
-        cards={timelineCards}
-        employeeNamesById={eventEmployeeNamesById}
-      />
+      {isPanel ? null : (
+        <ConsultationEventsTimeline
+          cards={timelineCards}
+          employeeNamesById={eventEmployeeNamesById}
+        />
+      )}
 
       <ConsultationPermanentDeleteDialog
         open={isDeleteDialogOpen}
@@ -607,7 +731,12 @@ export function AtencionDetailScreen({ atencionId }: AtencionDetailScreenProps) 
             setActionError(result.message)
             return { success: false, message: result.message }
           }
-          router.push("/atencion-cliente")
+          if (isPanel) {
+            onDataChanged?.()
+            onRequestClose?.()
+          } else {
+            router.push("/atencion-cliente")
+          }
           return { success: true }
         }}
       />
@@ -622,7 +751,7 @@ export function AtencionDetailScreen({ atencionId }: AtencionDetailScreenProps) 
             setActionError(result.message)
             return { success: false, message: result.message }
           }
-          await loadDetail()
+          await reloadAfterAction()
           return { success: true }
         }}
         onDefer={async (nextStep, detail) => {
@@ -636,7 +765,7 @@ export function AtencionDetailScreen({ atencionId }: AtencionDetailScreenProps) 
             setActionError(result.message)
             return { success: false, message: result.message }
           }
-          await loadDetail()
+          await reloadAfterAction()
           return { success: true }
         }}
       />
@@ -651,7 +780,7 @@ export function AtencionDetailScreen({ atencionId }: AtencionDetailScreenProps) 
             setActionError(result.message)
             return { success: false, message: result.message }
           }
-          await loadDetail()
+          await reloadAfterAction()
           return { success: true }
         }}
         onDefer={async (nextStep, detail) => {
@@ -665,7 +794,7 @@ export function AtencionDetailScreen({ atencionId }: AtencionDetailScreenProps) 
             setActionError(result.message)
             return { success: false, message: result.message }
           }
-          await loadDetail()
+          await reloadAfterAction()
           return { success: true }
         }}
       />
@@ -680,7 +809,7 @@ export function AtencionDetailScreen({ atencionId }: AtencionDetailScreenProps) 
             setActionError(result.message)
             return { success: false, message: result.message }
           }
-          await loadDetail()
+          await reloadAfterAction()
           return { success: true }
         }}
         onDefer={async (nextStep, detail) => {
@@ -694,7 +823,7 @@ export function AtencionDetailScreen({ atencionId }: AtencionDetailScreenProps) 
             setActionError(result.message)
             return { success: false, message: result.message }
           }
-          await loadDetail()
+          await reloadAfterAction()
           return { success: true }
         }}
       />

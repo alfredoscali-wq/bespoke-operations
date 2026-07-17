@@ -588,7 +588,11 @@ export function filterSharedInboxDiscoveryRows(
     { ...query, statusFilter: "all" },
     now
   )
+  const searching = Boolean(normalizeSharedInboxSearch(query.search))
 
+  // Note: operationalCategory is intentionally excluded from discovery.
+  // Dashboard KPIs / work-queue counts must stay global for the jornada;
+  // category only filters the consultation table (see filterSharedInboxRows).
   return rows.filter((row) => {
     if (query.motivo && query.motivo !== "all" && row.motivo !== query.motivo) {
       return false
@@ -598,15 +602,13 @@ export function filterSharedInboxDiscoveryRows(
       return false
     }
 
-    if (
-      query.operationalCategory &&
-      !matchesOperationalCategory(row, query.operationalCategory)
-    ) {
-      return false
-    }
-
-    if (!matchesSharedInboxSearch(row, query.search)) {
-      return false
+    if (searching) {
+      // Global search: the database already matched customer identity fields
+      // (name, phone, DNI, customer number, external code, address) plus the
+      // consultation detail. Re-filtering in memory would incorrectly drop
+      // matches on fields the inbox row does not carry, and the search is not
+      // scoped to the selected day.
+      return true
     }
 
     if (operational) {
@@ -634,9 +636,16 @@ export function filterSharedInboxRows(
     now
   )
 
-  return discovered.filter((row) =>
-    matchesStatusFilter(row, query.statusFilter, referenceDate, query, now)
-  )
+  return discovered.filter((row) => {
+    if (
+      query.operationalCategory &&
+      !matchesOperationalCategory(row, query.operationalCategory)
+    ) {
+      return false
+    }
+
+    return matchesStatusFilter(row, query.statusFilter, referenceDate, query, now)
+  })
 }
 
 function compareActiveRows(

@@ -1,18 +1,19 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { Plus } from "lucide-react"
+import { useCallback, useEffect, useState } from "react"
 
 import { AtencionFormDialog } from "@/components/atencion-cliente/atencion-form-dialog"
 import { ConsultationInboxSection } from "@/components/atencion-cliente/consultation-inbox-section"
-import { ConsultationInboxSummary } from "@/components/atencion-cliente/consultation-inbox-summary"
-import { ConsultationOperationalWorkSection } from "@/components/atencion-cliente/consultation-operational-work-section"
+import { ConsultationWorkPanel } from "@/components/atencion-cliente/consultation-work-panel"
+import { ConsultationKpiStrip } from "@/components/atencion-cliente/consultation-kpi-strip"
+import { ConsultationWorkbenchHeader } from "@/components/atencion-cliente/consultation-workbench-header"
 import { EquipoSection } from "@/components/atencion-cliente/equipo-section"
 import { useAtencionCliente } from "@/components/atencion-cliente/atencion-cliente-provider"
 import type { SharedInboxQuery } from "@/lib/customer-atenciones/shared-inbox"
 import { toLocalDateOnly } from "@/lib/dates/date-only"
 import { Button } from "@/components/ui/button"
 import { EntityActionFeedback } from "@/components/ui/entity-action-feedback"
+import { cn } from "@/lib/utils"
 
 function createDefaultSharedInboxQuery(): SharedInboxQuery {
   return {
@@ -37,10 +38,29 @@ export function AtencionClienteModule() {
   const [sharedInboxQuery, setSharedInboxQuery] = useState<SharedInboxQuery>(
     createDefaultSharedInboxQuery
   )
+  const [selectedConsultationId, setSelectedConsultationId] = useState<
+    string | null
+  >(null)
+  const [expandedConsultationId, setExpandedConsultationId] = useState<
+    string | null
+  >(null)
 
   useEffect(() => {
     void loadSharedInbox(sharedInboxQuery)
   }, [loadSharedInbox, sharedInboxQuery])
+
+  const refreshInboxAfterPanelAction = useCallback(() => {
+    void loadSharedInbox(sharedInboxQuery)
+  }, [loadSharedInbox, sharedInboxQuery])
+
+  const handleSelectConsultation = useCallback((atencionId: string) => {
+    setSelectedConsultationId(atencionId)
+    setExpandedConsultationId(atencionId)
+  }, [])
+
+  const handleCloseDetail = useCallback(() => {
+    setExpandedConsultationId(null)
+  }, [])
 
   useEffect(() => {
     if (!actionFeedback) {
@@ -56,21 +76,12 @@ export function AtencionClienteModule() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Atención al Cliente
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Bandeja operativa del día: consultas que requieren acción. Use fecha,
-            estado o búsqueda para ver historial.
-          </p>
-        </div>
-        <Button size="lg" onClick={() => setFormOpen(true)}>
-          <Plus className="mr-2 size-4" />
-          Nueva Atención
-        </Button>
-      </div>
+      <ConsultationWorkbenchHeader
+        query={sharedInboxQuery}
+        onQueryChange={setSharedInboxQuery}
+        onCreateClick={() => setFormOpen(true)}
+        showSearch={moduleView === "personal"}
+      />
 
       <EntityActionFeedback message={actionFeedback} />
 
@@ -99,26 +110,33 @@ export function AtencionClienteModule() {
         <EquipoSection />
       ) : (
         <>
-          <ConsultationInboxSummary
-            activeFilter={sharedInboxQuery.statusFilter}
-            onFilterChange={(statusFilter) =>
-              setSharedInboxQuery((current) => ({
-                ...current,
-                statusFilter,
-                operationalCategory: null,
-              }))
-            }
-          />
-
-          <ConsultationOperationalWorkSection
+          <ConsultationKpiStrip
             query={sharedInboxQuery}
             onQueryChange={setSharedInboxQuery}
           />
 
-          <ConsultationInboxSection
-            query={sharedInboxQuery}
-            onQueryChange={setSharedInboxQuery}
-          />
+          <div
+            className={cn(
+              "grid items-start gap-6",
+              expandedConsultationId &&
+                "lg:grid-cols-[minmax(0,60fr)_minmax(0,40fr)]"
+            )}
+          >
+            <ConsultationInboxSection
+              query={sharedInboxQuery}
+              onQueryChange={setSharedInboxQuery}
+              onSelectConsultation={handleSelectConsultation}
+              selectedConsultationId={selectedConsultationId}
+            />
+
+            {expandedConsultationId ? (
+              <ConsultationWorkPanel
+                atencionId={expandedConsultationId}
+                onClose={handleCloseDetail}
+                onDataChanged={refreshInboxAfterPanelAction}
+              />
+            ) : null}
+          </div>
 
           <AtencionFormDialog open={formOpen} onOpenChange={setFormOpen} />
         </>

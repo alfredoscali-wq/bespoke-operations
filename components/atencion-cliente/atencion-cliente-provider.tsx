@@ -26,6 +26,12 @@ import type {
   SharedInboxOperationalCounts,
   SharedInboxQuery,
 } from "@/lib/customer-atenciones/shared-inbox"
+import {
+  computeHistoricalDaySummary,
+  normalizeSharedInboxCreatedDate,
+  normalizeSharedInboxSearch,
+  resolveSharedInboxReferenceDate,
+} from "@/lib/customer-atenciones/shared-inbox"
 import { toLocalDateOnly } from "@/lib/dates/date-only"
 import {
   filterAgendaForTodayView,
@@ -49,6 +55,7 @@ import { DEMO_RESTRICTED_DIALOG_MESSAGE } from "@/lib/demo/constants"
 import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import {
   createCustomerAtencion,
+  listSharedInboxConsultations,
   loadSharedInboxBundle,
   listEmployeeAtencionesToday,
 } from "@/lib/supabase/customer-atenciones.browser"
@@ -201,6 +208,7 @@ type AtencionClienteContextValue = {
   sharedInboxHistoricalDaySummary: SharedInboxHistoricalDaySummary | null
   sharedInboxQuery: SharedInboxQuery
   isSharedInboxLoading: boolean
+  isSharedInboxDashboardLoading: boolean
   loadAtencionPage: (query: CustomerAtencionListQuery) => Promise<void>
   loadSharedInbox: (query: SharedInboxQuery) => Promise<void>
   refreshSharedInbox: () => Promise<void>
@@ -317,11 +325,25 @@ export function AtencionClienteProvider({
     search: "",
   })
   const [isSharedInboxLoading, setIsSharedInboxLoading] = useState(true)
+  const [isSharedInboxDashboardLoading, setIsSharedInboxDashboardLoading] =
+    useState(true)
   const [actionFeedback, setActionFeedback] = useState<string | null>(null)
   const atencionCacheRef = useRef<Map<string, CustomerAtencion>>(new Map())
   const seguimientoCacheRef = useRef<Map<string, CustomerSeguimiento>>(new Map())
   const retencionCacheRef = useRef<Map<string, CustomerRetencion>>(new Map())
   const recuperacionCacheRef = useRef<Map<string, CustomerRecuperacion>>(new Map())
+  const sharedInboxDashboardLoadedRef = useRef(false)
+
+  function createJornadaDashboardQuery(referenceDate: Date): SharedInboxQuery {
+    return {
+      statusFilter: "all",
+      motivo: "all",
+      channel: "all",
+      operationalCategory: null,
+      createdDate: toLocalDateOnly(referenceDate),
+      search: "",
+    }
+  }
 
   const employeeId = sessionUser?.employeeId?.trim() ?? ""
   const canMarkRetencionReadyForRetiro = canMarkCustomerRetencionReadyForRetiro(
@@ -373,29 +395,72 @@ export function AtencionClienteProvider({
 
       try {
         const referenceDate = new Date()
-        const bundleResult = await loadSharedInboxBundle(
-          companyId,
-          query,
-          referenceDate
-        )
+        const jornadaQuery = createJornadaDashboardQuery(referenceDate)
+        const shouldLoadDashboard = !sharedInboxDashboardLoadedRef.current
+        const createdDate =
+          normalizeSharedInboxCreatedDate(query.createdDate) ??
+          toLocalDateOnly(referenceDate)
+        const searching = Boolean(normalizeSharedInboxSearch(query.search))
+        const isHistoricalDay =
+          createdDate !== toLocalDateOnly(referenceDate) && !searching
 
-        setSharedInboxKpis(bundleResult.data?.kpis ?? EMPTY_SHARED_INBOX_KPIS)
-        setSharedInboxOperationalCounts(
-          bundleResult.data?.operationalCounts ??
-            EMPTY_SHARED_INBOX_OPERATIONAL_COUNTS
-        )
-        setSharedInboxRows(bundleResult.data?.rows ?? [])
-        setSharedInboxHistoricalDaySummary(
-          bundleResult.data?.historicalDaySummary ?? null
-        )
+        if (shouldLoadDashboard) {
+          setIsSharedInboxDashboardLoading(true)
+        }
+
+        const [dashboardResult, rowsResult, historicalRowsResult] =
+          await Promise.all([
+            shouldLoadDashboard
+              ? loadSharedInboxBundle(companyId, jornadaQuery, referenceDate)
+              : Promise.resolve(null),
+            listSharedInboxConsultations(companyId, query, referenceDate),
+            isHistoricalDay
+              ? listSharedInboxConsultations(
+                  companyId,
+                  {
+                    ...jornadaQuery,
+                    createdDate,
+                  },
+                  referenceDate
+                )
+              : Promise.resolve(null),
+          ])
+
+        if (dashboardResult) {
+          setSharedInboxKpis(
+            dashboardResult.data?.kpis ?? EMPTY_SHARED_INBOX_KPIS
+          )
+          setSharedInboxOperationalCounts(
+            dashboardResult.data?.operationalCounts ??
+              EMPTY_SHARED_INBOX_OPERATIONAL_COUNTS
+          )
+          sharedInboxDashboardLoadedRef.current = true
+        }
+
+        setSharedInboxRows(rowsResult.data ?? [])
+
+        if (historicalRowsResult?.data && isHistoricalDay) {
+          setSharedInboxHistoricalDaySummary(
+            computeHistoricalDaySummary(
+              historicalRowsResult.data,
+              createdDate,
+              resolveSharedInboxReferenceDate({ createdDate }, referenceDate)
+            )
+          )
+        } else {
+          setSharedInboxHistoricalDaySummary(null)
+        }
       } finally {
         setIsSharedInboxLoading(false)
+        setIsSharedInboxDashboardLoading(false)
       }
     },
     [companyId, isAuthReady]
   )
 
   const refreshSharedInbox = useCallback(async () => {
+    // Force a fresh jornada dashboard load after mutations.
+    sharedInboxDashboardLoadedRef.current = false
     await loadSharedInbox(sharedInboxQuery)
   }, [loadSharedInbox, sharedInboxQuery])
 
@@ -1240,6 +1305,7 @@ export function AtencionClienteProvider({
       sharedInboxHistoricalDaySummary,
       sharedInboxQuery,
       isSharedInboxLoading,
+      isSharedInboxDashboardLoading,
       loadAtencionPage,
       loadSharedInbox,
       refreshSharedInbox,
@@ -1294,6 +1360,7 @@ export function AtencionClienteProvider({
       isListLoading,
       isReady,
       isSharedInboxLoading,
+      isSharedInboxDashboardLoading,
       jornadaEntries,
       listAssignees,
       listPage,
