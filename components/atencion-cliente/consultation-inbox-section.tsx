@@ -4,10 +4,10 @@ import { useRouter } from "next/navigation"
 
 import { useAtencionCliente } from "@/components/atencion-cliente/atencion-cliente-provider"
 import { ConsultationHistoricalDaySummaryCard } from "@/components/atencion-cliente/consultation-historical-day-summary-card"
+import { ConsultationStatusBadge } from "@/components/atencion-cliente/consultation-status-badge"
 import {
   formatCustomerAtencionMotivoLabel,
   formatCustomerAtencionNextStepLabel,
-  formatCustomerAtencionStatusLabel,
 } from "@/lib/customer-atenciones/format"
 import {
   CUSTOMER_ATENCION_CHANNEL_OPTIONS,
@@ -17,7 +17,6 @@ import {
   normalizeSharedInboxCreatedDate,
   normalizeSharedInboxSearch,
 } from "@/lib/customer-atenciones/shared-inbox"
-import { toLocalDateOnly } from "@/lib/dates/date-only"
 import type { CustomerAtencionInboxRow } from "@/lib/types/customer-atenciones"
 import type {
   SharedInboxQuery,
@@ -66,25 +65,8 @@ function createDefaultInboxQuery(): SharedInboxQuery {
     motivo: "all",
     channel: "all",
     operationalCategory: null,
-    createdDate: toLocalDateOnly(),
+    createdDate: null,
     search: "",
-  }
-}
-
-function statusBadgeClassName(status: CustomerAtencionInboxRow["status"]): string {
-  switch (status) {
-    case "nueva":
-      return "border-blue-200 bg-blue-500/10 text-blue-700"
-    case "para_resolver":
-      return "border-amber-200 bg-amber-500/10 text-amber-800"
-    case "en_gestion":
-      return "border-sky-200 bg-sky-500/10 text-sky-800"
-    case "pendiente":
-      return "border-violet-200 bg-violet-500/10 text-violet-700"
-    case "resuelta":
-      return "border-emerald-200 bg-emerald-500/10 text-emerald-700"
-    default:
-      return ""
   }
 }
 
@@ -158,12 +140,7 @@ function ConsultationInboxTableRow({
           <span className="truncate text-sm font-medium text-foreground">
             {item.customerName}
           </span>
-          <Badge
-            variant="outline"
-            className={cn("shrink-0 text-xs", statusBadgeClassName(item.status))}
-          >
-            {formatCustomerAtencionStatusLabel(item.status)}
-          </Badge>
+          <ConsultationStatusBadge status={item.status} />
         </div>
       </TableCell>
       <TableCell className="min-w-[140px]">
@@ -215,10 +192,8 @@ export function ConsultationInboxSection({
 
   const createdDate = normalizeSharedInboxCreatedDate(query.createdDate)
   const activeSearch = normalizeSharedInboxSearch(query.search)
-  const isDefaultOperationalDay = createdDate === toLocalDateOnly()
   const hasDiscoveryFilters =
-    Boolean(activeSearch) ||
-    (Boolean(createdDate) && !isDefaultOperationalDay)
+    Boolean(activeSearch) || Boolean(createdDate)
   const hasOperationalFilters =
     query.statusFilter !== "all" ||
     Boolean(query.operationalCategory) ||
@@ -226,9 +201,7 @@ export function ConsultationInboxSection({
     (query.channel && query.channel !== "all") ||
     hasDiscoveryFilters
 
-  const showDiscoveryChips =
-    Boolean(activeSearch) ||
-    (Boolean(createdDate) && !isDefaultOperationalDay)
+  const showDiscoveryChips = Boolean(activeSearch) || Boolean(createdDate)
 
   function clearFilters() {
     onQueryChange(createDefaultInboxQuery())
@@ -240,13 +213,13 @@ export function ConsultationInboxSection({
         <div className="flex flex-col gap-1">
           <CardTitle>Bandeja de Consultas</CardTitle>
           <p className="text-xs text-muted-foreground">
-            Trabajo pendiente y seguimiento del día
+            Consultas según los filtros seleccionados
           </p>
         </div>
 
         {showDiscoveryChips ? (
           <div className="flex flex-wrap items-center gap-2 text-xs">
-            {createdDate && !isDefaultOperationalDay && !activeSearch ? (
+            {createdDate ? (
               <Badge variant="secondary" className="font-normal">
                 Fecha:{" "}
                 {new Date(`${createdDate}T12:00:00`).toLocaleDateString("es-AR")}
@@ -301,6 +274,7 @@ export function ConsultationInboxSection({
                 id="consultation-inbox-date"
                 type="date"
                 value={createdDate ?? ""}
+                placeholder="Seleccionar fecha..."
                 onChange={(event) =>
                   onQueryChange({
                     ...query,
@@ -309,6 +283,20 @@ export function ConsultationInboxSection({
                 }
                 className="h-9 w-[160px] bg-background"
               />
+              {createdDate ? (
+                <button
+                  type="button"
+                  className={FILTER_CLEAR_BUTTON_CLASS}
+                  onClick={() =>
+                    onQueryChange({
+                      ...query,
+                      createdDate: null,
+                    })
+                  }
+                >
+                  Limpiar fecha
+                </button>
+              ) : null}
             </div>
 
             <Select

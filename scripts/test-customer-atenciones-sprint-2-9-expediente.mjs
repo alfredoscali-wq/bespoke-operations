@@ -24,7 +24,7 @@ test("área responsable: seguimiento → Atención al Cliente", () => {
 test("área responsable: técnica / admin / ventas", () => {
   assert.equal(
     getConsultationExpedienteAreaForNextStep("resolver_consulta_tecnica").label,
-    "Técnica"
+    "Área Técnica"
   )
   assert.equal(
     getConsultationExpedienteAreaForNextStep("derivar_admin_facturacion").label,
@@ -53,8 +53,8 @@ test("intervención técnica se deduce del próximo paso anterior", () => {
     newNextStep: "seguimiento_cliente",
   })
 
-  assert.equal(area.label, "Técnica")
-  assert.equal(formatConsultationExpedienteAreaLabel(area), "🛠 Técnica")
+  assert.equal(area.label, "Área Técnica")
+  assert.equal(formatConsultationExpedienteAreaLabel(area), "🛠 Área Técnica")
 })
 
 test("labels de acciones del expediente", () => {
@@ -130,9 +130,11 @@ test("situación actual usa estado vigente y último comentario del historial", 
   )
 
   assert.equal(summary.statusLabel, "Para resolver")
-  assert.equal(summary.responsibleAreaLabel, "👤 Atención al Cliente")
-  assert.equal(summary.nextStepLabel, "Seguimiento con cliente")
-  assert.equal(summary.lastInterventionAreaLabel, "🛠 Técnica")
+  assert.equal(summary.responsibleAreaLabel, "Atención al Cliente")
+  assert.equal(summary.managementTypeLabel, "Contacto con el cliente")
+  assert.equal(summary.situationLabel, "Pendiente de contactar al cliente")
+  assert.equal(summary.nextStepLabel, "Pendiente de contactar al cliente")
+  assert.equal(summary.lastInterventionAreaLabel, "Área Técnica")
   assert.equal(summary.lastActorEmployeeId, "emp-2")
   assert.match(summary.lastComment ?? "", /reinicio remoto/)
   assert.match(summary.lastComment ?? "", /\n/)
@@ -172,10 +174,13 @@ test("timeline conserva comentarios y orden cronológico ASC", () => {
   assert.equal(cards[0]?.id, "e1")
   assert.equal(cards[1]?.id, "e2")
   assert.equal(cards[0]?.actionLabel, "Creación de la consulta")
+  assert.equal(cards[0]?.narrativeLead, "creó la consulta.")
   assert.equal(cards[1]?.comment, "Comentario técnico completo\nsegunda línea")
+  assert.equal(cards[1]?.commentLabel, "Resultado")
   assert.equal(cards[1]?.previousStatusLabel, "En gestión")
   assert.equal(cards[1]?.newStatusLabel, "Para resolver")
   assert.equal(cards[1]?.previousNextStepLabel, "Resolver consulta técnica")
   assert.equal(cards[1]?.newNextStepLabel, "Seguimiento con cliente")
-  assert.equal(cards[1]?.areaLabel, "🛠 Técnica")
+  assert.equal(cards[1]?.areaLabel, "Área Técnica")
+  assert.match(cards[1]?.closingNote ?? "", /Atención al Cliente/)
 })

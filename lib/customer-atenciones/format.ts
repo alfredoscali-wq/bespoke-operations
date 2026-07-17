@@ -41,7 +41,7 @@ const STATUS_LABELS: Record<CustomerAtencionStatus, string> = {
 
 /** Ordered Próximo Paso menu (Resolve → Derivaciones → Seguimiento → Operación). */
 const NEXT_STEP_LABELS: Record<CustomerAtencionNextStep, string> = {
-  realizar_retencion: "Realizar retención",
+  realizar_retencion: "Realizar Retención",
   resolver_consulta_tecnica: "Resolver consulta técnica",
   derivar_admin_facturacion: "Derivar Administración - Facturación",
   derivar_admin_morosos: "Derivar Administración - Morosos",

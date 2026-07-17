@@ -27,12 +27,12 @@ export function ConsultationWorkPanel({
       className="hidden animate-in fade-in-0 slide-in-from-right-2 duration-200 lg:block"
     >
       <div className="overflow-hidden rounded-xl border bg-card shadow-sm lg:sticky lg:top-4 lg:flex lg:max-h-[calc(100vh-5rem)] lg:flex-col">
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b bg-muted/20 px-4 py-3">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border/50 bg-gradient-to-r from-sky-500/[0.06] to-violet-500/[0.05] px-3 py-2.5">
           <div>
-            <h2 className="text-sm font-semibold tracking-tight">
+            <h2 className="text-[13px] font-semibold tracking-tight">
               Detalle de la Consulta
             </h2>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-[11px] text-muted-foreground">
               Gestioná la consulta sin perder la bandeja
             </p>
           </div>
@@ -40,7 +40,7 @@ export function ConsultationWorkPanel({
             type="button"
             variant="outline"
             size="sm"
-            className="gap-2"
+            className="h-8 gap-1.5 bg-background/80 shadow-sm"
             onClick={onClose}
           >
             <X className="size-3.5" />
@@ -48,7 +48,7 @@ export function ConsultationWorkPanel({
           </Button>
         </div>
 
-        <div className="min-h-0 overflow-y-auto p-4">
+        <div className="min-h-0 space-y-2.5 overflow-y-auto bg-muted/10 p-2.5">
           <AtencionDetailScreen
             key={atencionId}
             atencionId={atencionId}

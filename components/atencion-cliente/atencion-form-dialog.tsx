@@ -6,7 +6,6 @@ import { useAtencionCliente } from "@/components/atencion-cliente/atencion-clien
 import {
   CUSTOMER_ATENCION_CHANNEL_OPTIONS,
   CUSTOMER_ATENCION_MOTIVO_OPTIONS,
-  CUSTOMER_ATENCION_NEXT_STEP_OPTIONS,
 } from "@/lib/customer-atenciones/format"
 import type { Customer, QuickCustomerInput } from "@/lib/types/customers"
 import type {
@@ -72,6 +71,47 @@ const emptyForm: AtencionFormState = {
   decision: "resolver_ahora",
   resolution: "",
   nextStep: "",
+}
+
+/** Presentation-only area choice for the continue-management cascade (UX 2.1). */
+type ContinuationArea =
+  | "atencion_cliente"
+  | "tecnica"
+  | "administracion"
+  | "ventas"
+
+const CONTINUATION_AREA_OPTIONS: { value: ContinuationArea; label: string }[] =
+  [
+    { value: "atencion_cliente", label: "Atención al Cliente" },
+    { value: "tecnica", label: "Área Técnica" },
+    { value: "administracion", label: "Administración" },
+    { value: "ventas", label: "Ventas" },
+  ]
+
+const ATENCION_CLIENTE_NEXT_STEP_OPTIONS: {
+  value: CustomerAtencionNextStep
+  label: string
+}[] = [
+  { value: "seguimiento_cliente", label: "Volver a contactar al cliente" },
+  { value: "esperar_cliente", label: "Esperando respuesta del cliente" },
+  { value: "realizar_retencion", label: "Realizar Retención" },
+]
+
+const ADMINISTRACION_NEXT_STEP_OPTIONS: {
+  value: CustomerAtencionNextStep
+  label: string
+}[] = [
+  { value: "derivar_admin_facturacion", label: "Facturación" },
+  { value: "derivar_admin_morosos", label: "Deuda / Morosidad" },
+  { value: "derivar_admin_gestion", label: "Gestión administrativa" },
+]
+
+/** Areas that map 1:1 to an existing next_step slug (no second selector). */
+const DIRECT_AREA_NEXT_STEP: Partial<
+  Record<ContinuationArea, CustomerAtencionNextStep>
+> = {
+  tecnica: "resolver_consulta_tecnica",
+  ventas: "contactar_cliente",
 }
 
 type AtencionFormDialogProps = {
@@ -226,12 +266,17 @@ export function AtencionFormDialog({
     useState<QuickCustomerFormState>(emptyQuickCustomerForm)
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  /** Presentation-only: which area continues management (UX 2.1 cascade). */
+  const [continuationArea, setContinuationArea] = useState<
+    ContinuationArea | ""
+  >("")
 
   const isDirty =
     isFormStateDirty(form, baselineForm) ||
     customerMode !== baselineCustomerMode ||
     selectedCustomer !== null ||
-    isFormStateDirty(quickCustomerForm, baselineQuickCustomerForm)
+    isFormStateDirty(quickCustomerForm, baselineQuickCustomerForm) ||
+    continuationArea !== ""
 
   const {
     handleOpenChange,
@@ -254,6 +299,7 @@ export function AtencionFormDialog({
     setSelectedCustomer(null)
     setQuickCustomerForm(emptyQuickCustomerForm)
     setBaselineQuickCustomerForm(emptyQuickCustomerForm)
+    setContinuationArea("")
     setError(null)
   }, [open])
 
@@ -345,7 +391,7 @@ export function AtencionFormDialog({
         : "Guardar consulta resuelta"
       : isSubmitting
         ? "Guardando..."
-        : "Guardar para continuar"
+        : "Guardar y continuar gestión"
 
   return (
     <>
@@ -489,7 +535,7 @@ export function AtencionFormDialog({
             </div>
 
             <div className="space-y-2">
-              <Label>Que ocurrio con la consulta?</Label>
+              <Label>Resultado de la atención</Label>
               <div className="grid gap-2 sm:grid-cols-2">
                 <Button
                   type="button"
@@ -500,14 +546,16 @@ export function AtencionFormDialog({
                     "h-auto min-h-10 whitespace-normal py-2",
                     form.decision === "resolver_ahora" && "ring-2 ring-primary"
                   )}
-                  onClick={() =>
+                  onClick={() => {
+                    setContinuationArea("")
                     setForm((current) => ({
                       ...current,
                       decision: "resolver_ahora",
+                      nextStep: "",
                     }))
-                  }
+                  }}
                 >
-                  Resolver ahora
+                  Consulta resuelta durante el contacto
                 </Button>
                 <Button
                   type="button"
@@ -525,14 +573,14 @@ export function AtencionFormDialog({
                     }))
                   }
                 >
-                  Continuar con próximo paso
+                  Requiere continuar la gestión
                 </Button>
               </div>
             </div>
 
             {form.decision === "resolver_ahora" ? (
               <div className="space-y-2">
-                <Label htmlFor="atencion-resolution">Resolucion</Label>
+                <Label htmlFor="atencion-resolution">Resolución</Label>
                 <Textarea
                   id="atencion-resolution"
                   value={form.resolution}
@@ -547,28 +595,109 @@ export function AtencionFormDialog({
                 />
               </div>
             ) : (
-              <div className="space-y-2">
-                <Label htmlFor="atencion-next-step">Próximo paso</Label>
-                <Select
-                  value={form.nextStep}
-                  onValueChange={(value) =>
-                    setForm((current) => ({
-                      ...current,
-                      nextStep: value as CustomerAtencionNextStep,
-                    }))
-                  }
-                >
-                  <SelectTrigger id="atencion-next-step" className="w-full">
-                    <SelectValue placeholder="Seleccionar proximo paso" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CUSTOMER_ATENCION_NEXT_STEP_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="atencion-continuation-area">
+                    ¿Quién debe continuar la gestión?
+                  </Label>
+                  <Select
+                    value={continuationArea}
+                    onValueChange={(value) => {
+                      const area = value as ContinuationArea
+                      setContinuationArea(area)
+                      const directNextStep = DIRECT_AREA_NEXT_STEP[area]
+                      setForm((current) => ({
+                        ...current,
+                        nextStep: directNextStep ?? "",
+                      }))
+                    }}
+                  >
+                    <SelectTrigger
+                      id="atencion-continuation-area"
+                      className="w-full"
+                    >
+                      <SelectValue placeholder="Seleccionar área" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CONTINUATION_AREA_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {continuationArea === "atencion_cliente" ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="atencion-next-step">
+                      ¿Qué debe hacer Atención al Cliente?
+                    </Label>
+                    <Select
+                      value={form.nextStep}
+                      onValueChange={(value) =>
+                        setForm((current) => ({
+                          ...current,
+                          nextStep: value as CustomerAtencionNextStep,
+                        }))
+                      }
+                    >
+                      <SelectTrigger id="atencion-next-step" className="w-full">
+                        <SelectValue placeholder="Seleccionar una acción" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ATENCION_CLIENTE_NEXT_STEP_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : null}
+
+                {continuationArea === "administracion" ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="atencion-admin-next-step">
+                      Tipo de gestión administrativa
+                    </Label>
+                    <Select
+                      value={form.nextStep}
+                      onValueChange={(value) =>
+                        setForm((current) => ({
+                          ...current,
+                          nextStep: value as CustomerAtencionNextStep,
+                        }))
+                      }
+                    >
+                      <SelectTrigger
+                        id="atencion-admin-next-step"
+                        className="w-full"
+                      >
+                        <SelectValue placeholder="Seleccionar tipo de gestión" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ADMINISTRACION_NEXT_STEP_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : null}
+
+                {continuationArea === "tecnica" ? (
+                  <p className="text-sm text-muted-foreground">
+                    Derivar a Área Técnica
+                  </p>
+                ) : null}
+
+                {continuationArea === "ventas" ? (
+                  <p className="text-sm text-muted-foreground">
+                    Derivar a Ventas
+                  </p>
+                ) : null}
               </div>
             )}
 

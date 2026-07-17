@@ -10,7 +10,6 @@ import { ConsultationWorkbenchHeader } from "@/components/atencion-cliente/consu
 import { EquipoSection } from "@/components/atencion-cliente/equipo-section"
 import { useAtencionCliente } from "@/components/atencion-cliente/atencion-cliente-provider"
 import type { SharedInboxQuery } from "@/lib/customer-atenciones/shared-inbox"
-import { toLocalDateOnly } from "@/lib/dates/date-only"
 import { Button } from "@/components/ui/button"
 import { EntityActionFeedback } from "@/components/ui/entity-action-feedback"
 import { cn } from "@/lib/utils"
@@ -21,7 +20,7 @@ function createDefaultSharedInboxQuery(): SharedInboxQuery {
     motivo: "all",
     channel: "all",
     operationalCategory: null,
-    createdDate: toLocalDateOnly(),
+    createdDate: null,
     search: "",
   }
 }

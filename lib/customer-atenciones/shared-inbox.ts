@@ -57,7 +57,7 @@ export const SHARED_INBOX_OPERATIONAL_CATEGORY_CONFIG: Record<
   { label: string; nextSteps: readonly CustomerAtencionNextStep[] }
 > = {
   retenciones: {
-    label: "Retenciones",
+    label: "Realizar Retención",
     nextSteps: ["realizar_retencion"],
   },
   administracion: {
@@ -195,24 +195,20 @@ export function resolveSharedInboxReferenceDate(
 }
 
 /**
- * Operational daily board: selected day is today, no search, and the status
- * filter is not an explicit resolved view.
+ * Operational daily board (pre–UX 2.2): selected day is today, no search, and
+ * the status filter is not an explicit resolved view.
+ *
+ * After UX 2.2 the inbox default is an empty date (= all consultations). Any
+ * selected date — including today — is an explicit calendar filter and must
+ * not reopen the old "all active work" operational board.
  */
 export function isOperationalInboxView(
   query: Pick<SharedInboxQuery, "createdDate" | "search" | "statusFilter">,
   now: Date = new Date()
 ): boolean {
-  const createdDate = normalizeSharedInboxCreatedDate(query.createdDate)
-  if (!createdDate) {
-    return false
-  }
-
-  const isToday = createdDate === toLocalDateOnly(now)
-  const searching = Boolean(normalizeSharedInboxSearch(query.search))
-  const wantsResolved =
-    query.statusFilter === "resuelta" || query.statusFilter === "resueltas_hoy"
-
-  return isToday && !searching && !wantsResolved
+  void query
+  void now
+  return false
 }
 
 export function matchesSharedInboxCreatedDate(
@@ -584,10 +580,8 @@ export function filterSharedInboxDiscoveryRows(
   referenceDate: Date = new Date(),
   now: Date = new Date()
 ): CustomerAtencionInboxRow[] {
-  const operational = isOperationalInboxView(
-    { ...query, statusFilter: "all" },
-    now
-  )
+  void referenceDate
+  void now
   const searching = Boolean(normalizeSharedInboxSearch(query.search))
 
   // Note: operationalCategory is intentionally excluded from discovery.
@@ -605,21 +599,12 @@ export function filterSharedInboxDiscoveryRows(
     if (searching) {
       // Global search: the database already matched customer identity fields
       // (name, phone, DNI, customer number, external code, address) plus the
-      // consultation detail. Re-filtering in memory would incorrectly drop
-      // matches on fields the inbox row does not carry, and the search is not
-      // scoped to the selected day.
-      return true
+      // consultation detail. Re-filtering its text in memory would incorrectly
+      // drop matches on fields the inbox row does not carry.
     }
 
-    if (operational) {
-      return true
-    }
-
-    if (!normalizeSharedInboxCreatedDate(query.createdDate)) {
-      return true
-    }
-
-    return matchesSharedInboxHistoricalDay(row, query.createdDate, referenceDate)
+    // Empty date → keep all rows; selected date → exact calendar day of createdAt.
+    return matchesSharedInboxCreatedDate(row, query.createdDate)
   })
 }
 

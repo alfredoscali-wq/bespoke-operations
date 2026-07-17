@@ -1,5 +1,8 @@
 "use client"
 
+import { History } from "lucide-react"
+
+import { PanelSectionCard } from "@/components/atencion-cliente/consultation-detail-panel-ui"
 import {
   Card,
   CardContent,
@@ -12,109 +15,121 @@ import type { ConsultationTimelineCard } from "@/lib/customer-atenciones/consult
 type ConsultationEventsTimelineProps = {
   cards: ConsultationTimelineCard[]
   employeeNamesById: Record<string, string>
+  presentation?: "page" | "panel"
 }
 
-function TransitionRow({
-  label,
-  previous,
-  next,
+function TimelineFact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[10px] leading-none text-muted-foreground">{label}</p>
+      <p className="mt-0.5 whitespace-pre-wrap text-[12px] font-medium leading-snug text-foreground">
+        {value}
+      </p>
+    </div>
+  )
+}
+
+function TimelineBody({
+  cards,
+  employeeNamesById,
 }: {
-  label: string
-  previous: string | null
-  next: string | null
+  cards: ConsultationTimelineCard[]
+  employeeNamesById: Record<string, string>
 }) {
-  if (!previous && !next) {
-    return null
+  if (cards.length === 0) {
+    return (
+      <p className="py-1.5 text-xs text-muted-foreground">
+        Todavía no hay intervenciones registradas.
+      </p>
+    )
   }
 
   return (
-    <p className="text-xs text-muted-foreground">
-      <span className="font-medium text-foreground/80">{label}:</span>{" "}
-      {previous ?? "—"} → {next ?? "—"}
-    </p>
+    <div className="space-y-2.5 py-1">
+      {cards.map((card, index) => {
+        const eventDate = new Date(card.createdAt)
+        const actorName = employeeNamesById[card.employeeId] ?? "Un operador"
+
+        return (
+          <div key={card.id} className="relative flex gap-2.5">
+            {index < cards.length - 1 ? (
+              <span className="absolute top-6 left-[11px] h-[calc(100%+2px)] w-px bg-border" />
+            ) : null}
+            <div className="relative z-10 flex size-6 shrink-0 items-center justify-center rounded-full border bg-background">
+              <span className="size-1.5 rounded-full bg-sky-500" />
+            </div>
+            <div className="min-w-0 flex-1 rounded-md border bg-background/70 px-2.5 py-2">
+              <p className="text-[10px] text-muted-foreground">
+                {eventDate.toLocaleDateString("es-AR")}{" "}
+                {eventDate.toLocaleTimeString("es-AR", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </p>
+              <p className="mt-1 text-[13px] leading-snug text-foreground">
+                <span className="font-semibold">{actorName}</span>{" "}
+                {card.narrativeLead}
+              </p>
+
+              {card.facts.length > 0 ? (
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  {card.facts.map((fact) => (
+                    <TimelineFact
+                      key={`${card.id}-${fact.label}`}
+                      label={fact.label}
+                      value={fact.value}
+                    />
+                  ))}
+                </div>
+              ) : null}
+
+              {card.comment && card.commentLabel ? (
+                <div className="mt-2 rounded border bg-muted/30 px-2 py-1.5">
+                  <TimelineFact label={card.commentLabel} value={card.comment} />
+                </div>
+              ) : null}
+
+              {card.closingNote ? (
+                <p className="mt-2 text-[12px] leading-snug text-muted-foreground">
+                  {card.closingNote}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        )
+      })}
+    </div>
   )
 }
 
 export function ConsultationEventsTimeline({
   cards,
   employeeNamesById,
+  presentation = "page",
 }: ConsultationEventsTimelineProps) {
+  if (presentation === "panel") {
+    return (
+      <PanelSectionCard
+        title="Expediente / Timeline"
+        icon={History}
+        tone="blue"
+        contentClassName="px-3 py-1.5"
+      >
+        <TimelineBody cards={cards} employeeNamesById={employeeNamesById} />
+      </PanelSectionCard>
+    )
+  }
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Historial de intervenciones</CardTitle>
+        <CardTitle>Expediente de la consulta</CardTitle>
         <CardDescription>
-          Expediente completo de la consulta, del más antiguo al más reciente.
+          Historia completa de la gestión, del más antiguo al más reciente.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {cards.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Todavía no hay intervenciones registradas.
-          </p>
-        ) : (
-          <div className="space-y-4">
-            {cards.map((card, index) => {
-              const eventDate = new Date(card.createdAt)
-
-              return (
-                <div key={card.id} className="relative flex gap-3">
-                  {index < cards.length - 1 ? (
-                    <span className="absolute top-8 left-[15px] h-[calc(100%+4px)] w-px bg-border" />
-                  ) : null}
-                  <div className="relative z-10 flex size-8 shrink-0 items-center justify-center rounded-full border bg-background">
-                    <span className="size-2 rounded-full bg-primary" />
-                  </div>
-                  <div className="min-w-0 flex-1 rounded-lg border bg-card p-3 shadow-sm">
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <p className="text-sm font-medium text-foreground">
-                        {card.actionLabel}
-                      </p>
-                      <span className="text-[11px] text-muted-foreground">
-                        {eventDate.toLocaleDateString("es-AR")}{" "}
-                        {eventDate.toLocaleTimeString("es-AR", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {card.areaLabel}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Usuario:{" "}
-                      <span className="font-medium text-foreground">
-                        {employeeNamesById[card.employeeId] ?? "—"}
-                      </span>
-                    </p>
-                    <div className="mt-2 space-y-1">
-                      <TransitionRow
-                        label="Estado"
-                        previous={card.previousStatusLabel}
-                        next={card.newStatusLabel}
-                      />
-                      <TransitionRow
-                        label="Próximo paso"
-                        previous={card.previousNextStepLabel}
-                        next={card.newNextStepLabel}
-                      />
-                    </div>
-                    {card.comment ? (
-                      <div className="mt-2 rounded-md border bg-muted/30 p-2">
-                        <p className="text-[11px] text-muted-foreground">
-                          Comentario
-                        </p>
-                        <p className="whitespace-pre-wrap text-sm text-foreground">
-                          {card.comment}
-                        </p>
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
+        <TimelineBody cards={cards} employeeNamesById={employeeNamesById} />
       </CardContent>
     </Card>
   )
