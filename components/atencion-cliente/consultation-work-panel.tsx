@@ -1,54 +1,51 @@
 "use client"
 
-import { X } from "lucide-react"
-
 import { AtencionDetailScreen } from "@/components/atencion-cliente/atencion-detail-screen"
-import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 type ConsultationWorkPanelProps = {
   atencionId: string
+  open: boolean
   onClose: () => void
   onDataChanged: () => void
 }
 
 /**
- * Contextual side panel (UX 1.1): rendered only while a consultation is
- * selected. Reuses the existing detail screen in panel mode, with its own
- * scroll so the bandeja keeps its context untouched.
+ * UX 2.7 — large centered expediente modal with sticky context header.
+ * Reuses AtencionDetailScreen in panel presentation.
  */
 export function ConsultationWorkPanel({
   atencionId,
+  open,
   onClose,
   onDataChanged,
 }: ConsultationWorkPanelProps) {
   return (
-    <aside
-      aria-label="Detalle de la consulta"
-      className="hidden animate-in fade-in-0 slide-in-from-right-2 duration-200 lg:block"
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) {
+          onClose()
+        }
+      }}
     >
-      <div className="overflow-hidden rounded-xl border bg-card shadow-sm lg:sticky lg:top-4 lg:flex lg:max-h-[calc(100vh-5rem)] lg:flex-col">
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border/50 bg-gradient-to-r from-sky-500/[0.06] to-violet-500/[0.05] px-3 py-2.5">
-          <div>
-            <h2 className="text-[13px] font-semibold tracking-tight">
-              Detalle de la Consulta
-            </h2>
-            <p className="text-[11px] text-muted-foreground">
-              Gestioná la consulta sin perder la bandeja
-            </p>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-8 gap-1.5 bg-background/80 shadow-sm"
-            onClick={onClose}
-          >
-            <X className="size-3.5" />
-            Cerrar detalle
-          </Button>
-        </div>
+      <DialogContent
+        showCloseButton
+        aria-describedby={undefined}
+        className="flex h-[90vh] w-[85vw] max-w-[85vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-[85vw]"
+        overlayClassName="bg-black/40 supports-backdrop-filter:backdrop-blur-[2px]"
+      >
+        <DialogTitle className="sr-only">Expediente de Atención</DialogTitle>
+        <DialogDescription className="sr-only">
+          Expediente completo de la consulta seleccionada.
+        </DialogDescription>
 
-        <div className="min-h-0 space-y-2.5 overflow-y-auto bg-muted/10 p-2.5">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-muted/10">
           <AtencionDetailScreen
             key={atencionId}
             atencionId={atencionId}
@@ -57,7 +54,7 @@ export function ConsultationWorkPanel({
             onDataChanged={onDataChanged}
           />
         </div>
-      </div>
-    </aside>
+      </DialogContent>
+    </Dialog>
   )
 }

@@ -202,6 +202,59 @@ export function formatConsultationIngressDateTime(isoDate: string): string {
   return `${day} - ${time}`
 }
 
+/**
+ * Presentation-only expediente reference derived from the consultation id.
+ * Does not invent a DB column — short stable display code for the sticky header.
+ */
+export function formatConsultationExpedienteCode(atencionId: string): string {
+  const compact = atencionId.replace(/-/g, "").toUpperCase()
+  return `AT-${compact.slice(0, 5)}`
+}
+
+/** Relative age for prioritization: "Hace 2 horas", "Hace 3 días", etc. */
+export function formatConsultationRelativeAge(
+  isoDate: string,
+  now: Date = new Date()
+): string {
+  const created = new Date(isoDate).getTime()
+  if (Number.isNaN(created)) {
+    return "—"
+  }
+
+  const diffMs = Math.max(0, now.getTime() - created)
+  const minutes = Math.floor(diffMs / 60_000)
+
+  if (minutes < 1) {
+    return "Hace unos segundos"
+  }
+  if (minutes < 60) {
+    return minutes === 1 ? "Hace 1 minuto" : `Hace ${minutes} minutos`
+  }
+
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) {
+    return hours === 1 ? "Hace 1 hora" : `Hace ${hours} horas`
+  }
+
+  const days = Math.floor(hours / 24)
+  if (days < 7) {
+    return days === 1 ? "Hace 1 día" : `Hace ${days} días`
+  }
+
+  const weeks = Math.floor(days / 7)
+  if (weeks < 5) {
+    return weeks === 1 ? "Hace 1 semana" : `Hace ${weeks} semanas`
+  }
+
+  const months = Math.floor(days / 30)
+  if (months < 12) {
+    return months === 1 ? "Hace 1 mes" : `Hace ${months} meses`
+  }
+
+  const years = Math.floor(days / 365)
+  return years === 1 ? "Hace 1 año" : `Hace ${years} años`
+}
+
 /** Date/time for narrative sentences: 17/07/2026 a las 01:29 */
 export function formatConsultationNarrativeDateTime(isoDate: string): string {
   const date = new Date(isoDate)
@@ -334,6 +387,35 @@ export function buildConsultationSituationNarrative(
     managementTypeLabel: null,
     closingNote: null,
   }
+}
+
+/** Plain paragraphs for the sticky situation band (UX 2.7). */
+export function formatConsultationSituationBand(
+  narrative: ConsultationSituationNarrative
+): string[] {
+  const paragraphs: string[] = [
+    `La consulta se encuentra ${narrative.statusEmphasis}.`,
+  ]
+
+  if (narrative.handoff?.kind === "derivation") {
+    let line = `Actualmente está asignada a ${narrative.handoff.areaLabel}`
+    if (narrative.managementTypeLabel) {
+      line += ` (${narrative.managementTypeLabel})`
+    }
+    line += `. Derivada por ${narrative.handoff.actorName} el ${narrative.handoff.dateTime}.`
+    paragraphs.push(line)
+  } else if (narrative.handoff?.kind === "atencion") {
+    const description = narrative.handoff.description.trim()
+    paragraphs.push(
+      description.toLowerCase().startsWith("se encuentra")
+        ? `Actualmente ${description.charAt(0).toLowerCase()}${description.slice(1)}`
+        : description
+    )
+  } else if (narrative.closingNote) {
+    paragraphs.push(narrative.closingNote)
+  }
+
+  return paragraphs
 }
 
 export function getConsultationExpedienteAreaForNextStep(
@@ -488,6 +570,8 @@ export type ConsultationTimelineCard = {
   createdAt: string
   employeeId: string
   areaLabel: string
+  /** Uppercase expediente event title (UX 2.7). */
+  eventTitle: string
   /** Short lead after the operator name, e.g. "creó la consulta." */
   narrativeLead: string
   facts: ConsultationTimelineFact[]
@@ -516,6 +600,68 @@ export function buildConsultationTimelineCards(
   return events.map((event) => buildTimelineCard(event, context))
 }
 
+function resolveExpedienteEventTitle(
+  event: Pick<
+    CustomerAtencionEvent,
+    "actionType" | "previousNextStep" | "newNextStep"
+  >
+): string {
+  switch (event.actionType) {
+    case "consulta_creada":
+      return "CREACIÓN DE LA CONSULTA"
+    case "gestion_iniciada":
+      return "INICIO DE GESTIÓN"
+    case "consulta_resuelta":
+      return "CIERRE DE CONSULTA"
+    case "consulta_ot_vinculada":
+      return "GENERACIÓN DE OT"
+    case "gestion_registrada":
+    case "consulta_pendiente": {
+      const area = getInterveningAreaForEvent(event)
+      switch (area.key) {
+        case "administracion":
+        case "morosos":
+          return event.actionType === "consulta_pendiente"
+            ? "RESPUESTA DE ADMINISTRACIÓN"
+            : "GESTIÓN ADMINISTRATIVA"
+        case "tecnica":
+        case "generar_ot":
+          return "ANÁLISIS TÉCNICO"
+        case "ventas":
+          return "GESTIÓN COMERCIAL"
+        case "retenciones":
+          return "GESTIÓN DE RETENCIÓN"
+        default:
+          return "CONTACTO CON CLIENTE"
+      }
+    }
+    case "proximo_paso_cambiado": {
+      switch (event.newNextStep) {
+        case "seguimiento_cliente":
+          return "CONTACTO CON CLIENTE"
+        case "esperar_cliente":
+          return "ESPERA DE RESPUESTA DEL CLIENTE"
+        case "realizar_retencion":
+          return "DERIVACIÓN A RETENCIÓN"
+        case "resolver_consulta_tecnica":
+          return "DERIVACIÓN A ÁREA TÉCNICA"
+        case "derivar_admin_facturacion":
+        case "derivar_admin_morosos":
+        case "derivar_admin_gestion":
+          return "DERIVACIÓN A ADMINISTRACIÓN"
+        case "contactar_cliente":
+          return "DERIVACIÓN A VENTAS"
+        case "generar_ot":
+          return "GENERACIÓN DE OT"
+        default:
+          return "ACTUALIZACIÓN DE LA GESTIÓN"
+      }
+    }
+    default:
+      return "REGISTRO EN EL EXPEDIENTE"
+  }
+}
+
 function buildTimelineCard(
   event: CustomerAtencionEvent,
   context: ConsultationTimelineContext
@@ -523,11 +669,13 @@ function buildTimelineCard(
   const area = getInterveningAreaForEvent(event)
   const areaLabel = formatConsultationExpedienteAreaPlainLabel(area)
   const comment = event.detail?.trim() ? event.detail.trim() : null
+  const eventTitle = resolveExpedienteEventTitle(event)
   const base = {
     id: event.id,
     createdAt: event.createdAt,
     employeeId: event.employeeId,
     areaLabel,
+    eventTitle,
     actionLabel: formatCustomerAtencionEventActionLabel(event.actionType),
     previousStatusLabel: formatOptionalStatus(event.previousStatus),
     newStatusLabel: formatOptionalStatus(event.newStatus),
@@ -575,7 +723,7 @@ function buildTimelineCard(
         facts: [{ label: "Área", value: areaLabel }],
         closingNote: describeNextStepHandoff(event.newNextStep),
         comment,
-        commentLabel: comment ? "Gestión realizada" : null,
+        commentLabel: comment ? "Información registrada" : null,
       }
 
     case "consulta_pendiente":
@@ -585,7 +733,7 @@ function buildTimelineCard(
         facts: [{ label: "Área", value: areaLabel }],
         closingNote: describeNextStepHandoff(event.newNextStep),
         comment,
-        commentLabel: comment ? "Resultado" : null,
+        commentLabel: comment ? "Resultado de esa gestión" : null,
       }
 
     case "consulta_resuelta":
@@ -595,7 +743,7 @@ function buildTimelineCard(
         facts: [],
         closingNote: "Consulta resuelta.",
         comment: comment ?? context.resolution?.trim() ?? null,
-        commentLabel: "Motivo de cierre",
+        commentLabel: "Resultado de esa gestión",
       }
 
     case "proximo_paso_cambiado":
@@ -605,7 +753,7 @@ function buildTimelineCard(
         facts: [{ label: "Área", value: areaLabel }],
         closingNote: describeNextStepHandoff(event.newNextStep),
         comment,
-        commentLabel: comment ? "Observaciones" : null,
+        commentLabel: comment ? "Información registrada" : null,
       }
 
     case "consulta_ot_vinculada":
@@ -615,7 +763,7 @@ function buildTimelineCard(
         facts: [{ label: "Área", value: areaLabel }],
         closingNote: null,
         comment,
-        commentLabel: comment ? "Detalle" : null,
+        commentLabel: comment ? "Información registrada" : null,
       }
 
     default:
@@ -625,7 +773,7 @@ function buildTimelineCard(
         facts: [{ label: "Área", value: areaLabel }],
         closingNote: describeNextStepHandoff(event.newNextStep),
         comment,
-        commentLabel: comment ? "Detalle" : null,
+        commentLabel: comment ? "Información registrada" : null,
       }
   }
 }

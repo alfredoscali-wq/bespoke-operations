@@ -84,9 +84,7 @@ function formatRowDate(isoDate: string): string {
   return `${day} · ${time}`
 }
 
-/** Contextual side panel is available on desktop/notebook; mobile keeps page navigation. */
-const CONTEXTUAL_DETAIL_MEDIA_QUERY = "(min-width: 1024px)"
-
+/** Open the expediente modal on all breakpoints when a parent handler is provided. */
 function ConsultationInboxTableRow({
   item,
   rowNumber,
@@ -105,11 +103,7 @@ function ConsultationInboxTableRow({
       : null
 
   function openConsultation() {
-    if (
-      onSelect &&
-      typeof window !== "undefined" &&
-      window.matchMedia(CONTEXTUAL_DETAIL_MEDIA_QUERY).matches
-    ) {
+    if (onSelect) {
       onSelect(item.id)
       return
     }

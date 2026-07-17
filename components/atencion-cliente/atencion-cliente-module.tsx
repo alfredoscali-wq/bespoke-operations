@@ -12,7 +12,6 @@ import { useAtencionCliente } from "@/components/atencion-cliente/atencion-clien
 import type { SharedInboxQuery } from "@/lib/customer-atenciones/shared-inbox"
 import { Button } from "@/components/ui/button"
 import { EntityActionFeedback } from "@/components/ui/entity-action-feedback"
-import { cn } from "@/lib/utils"
 
 function createDefaultSharedInboxQuery(): SharedInboxQuery {
   return {
@@ -114,28 +113,21 @@ export function AtencionClienteModule() {
             onQueryChange={setSharedInboxQuery}
           />
 
-          <div
-            className={cn(
-              "grid items-start gap-6",
-              expandedConsultationId &&
-                "lg:grid-cols-[minmax(0,60fr)_minmax(0,40fr)]"
-            )}
-          >
-            <ConsultationInboxSection
-              query={sharedInboxQuery}
-              onQueryChange={setSharedInboxQuery}
-              onSelectConsultation={handleSelectConsultation}
-              selectedConsultationId={selectedConsultationId}
-            />
+          <ConsultationInboxSection
+            query={sharedInboxQuery}
+            onQueryChange={setSharedInboxQuery}
+            onSelectConsultation={handleSelectConsultation}
+            selectedConsultationId={selectedConsultationId}
+          />
 
-            {expandedConsultationId ? (
-              <ConsultationWorkPanel
-                atencionId={expandedConsultationId}
-                onClose={handleCloseDetail}
-                onDataChanged={refreshInboxAfterPanelAction}
-              />
-            ) : null}
-          </div>
+          {expandedConsultationId ? (
+            <ConsultationWorkPanel
+              atencionId={expandedConsultationId}
+              open
+              onClose={handleCloseDetail}
+              onDataChanged={refreshInboxAfterPanelAction}
+            />
+          ) : null}
 
           <AtencionFormDialog open={formOpen} onOpenChange={setFormOpen} />
         </>
