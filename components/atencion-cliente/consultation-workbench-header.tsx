@@ -56,14 +56,11 @@ export function ConsultationWorkbenchHeader({
   }, [searchDraft, onQueryChange])
 
   return (
-    <header className="flex flex-col gap-4 lg:flex-row lg:items-center">
-      <div className="shrink-0 lg:w-72">
-        <h1 className="text-2xl font-semibold tracking-tight">
+    <header className="flex flex-col gap-2.5 lg:flex-row lg:items-center">
+      <div className="shrink-0 lg:w-64">
+        <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
           Gestión de Consultas
         </h1>
-        <p className="text-sm text-muted-foreground">
-          Centro de gestión y seguimiento de clientes
-        </p>
       </div>
 
       {showSearch ? (
@@ -71,13 +68,13 @@ export function ConsultationWorkbenchHeader({
           <Label htmlFor="consultation-workbench-search" className="sr-only">
             Buscar consulta
           </Label>
-          <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             id="consultation-workbench-search"
             value={searchDraft}
             onChange={(event) => setSearchDraft(event.target.value)}
             placeholder="Buscar cliente, teléfono, consulta, OT o DNI..."
-            className="h-11 rounded-lg bg-background pl-10 text-sm shadow-sm"
+            className="h-10 rounded-lg bg-background pl-9 text-sm shadow-sm"
           />
         </div>
       ) : (
@@ -85,7 +82,7 @@ export function ConsultationWorkbenchHeader({
       )}
 
       <div className="shrink-0 lg:ml-auto">
-        <Button size="lg" className="shadow-sm" onClick={onCreateClick}>
+        <Button className="shadow-sm" onClick={onCreateClick}>
           <Plus className="mr-2 size-4" />
           Nueva Consulta
         </Button>

@@ -1,26 +1,36 @@
 "use client"
 
 import {
-  CheckCircle2,
-  CircleDot,
-  ClipboardList,
-  FileText,
-  Headphones,
+  BriefcaseBusiness,
+  CircleCheckBig,
+  ClipboardPlus,
+  Clock3,
   Inbox,
-  Phone,
+  LayoutList,
+  PhoneCall,
+  TrendingUp,
+  Wallet,
   Wrench,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
-import { useMemo } from "react"
+import { useEffect, useMemo } from "react"
 
 import { useAtencionCliente } from "@/components/atencion-cliente/atencion-cliente-provider"
 import { FilterableKpiCard } from "@/components/ui/filterable-kpi-card"
-import type {
-  SharedInboxOperationalCategory,
-  SharedInboxQuery,
-  SharedInboxStatusFilter,
+import {
+  getVisibleOperationalWorkTrays,
+  isSharedInboxUiWorkTray,
+  SHARED_INBOX_WORK_TRAY_LABELS,
+  type SharedInboxOperationalCategory,
+  type SharedInboxQuery,
+  type SharedInboxStatusFilter,
+  type SharedInboxWorkTray,
 } from "@/lib/customer-atenciones/shared-inbox"
 import type { VisualTone } from "@/lib/ui/visual-tokens"
+import { KPI_TONE_STYLES } from "@/lib/ui/visual-tokens"
+import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
+import { cn } from "@/lib/utils"
 
 type KpiStripCard = {
   key: string
@@ -35,8 +45,7 @@ type KpiStripCard = {
 )
 
 /**
- * Compact KPI strip for the workbench. Every card reuses an existing filter
- * (status filter or operational category); no new filtering logic is added.
+ * RC 3.0.6 / 3.0.7 — KPI icons + ultra-dense area work trays.
  */
 const KPI_STRIP_CARDS: KpiStripCard[] = [
   {
@@ -48,74 +57,149 @@ const KPI_STRIP_CARDS: KpiStripCard[] = [
     kind: "informational",
   },
   {
-    key: "en_gestion",
-    label: "En Gestión",
-    icon: CircleDot,
-    tone: "orange",
-    hint: "Consultas tomadas por un operador (de la bandeja actual)",
-    kind: "status",
-    statusFilter: "en_gestion",
-  },
-  {
-    key: "accion_cliente",
-    label: "Acción del Cliente",
-    icon: ClipboardList,
-    tone: "violet",
-    hint: "Espera de acción externa (no histórico)",
-    kind: "status",
-    statusFilter: "pendiente",
-  },
-  {
-    key: "accion_tecnica",
-    label: "Acción de Técnica",
-    icon: Headphones,
-    tone: "violet",
-    kind: "category",
-    category: "tecnica",
-  },
-  {
-    key: "accion_administracion",
-    label: "Acción de Administración",
-    icon: FileText,
-    tone: "amber",
-    kind: "category",
-    category: "administracion",
-  },
-  {
-    key: "accion_ventas",
-    label: "Acción de Ventas",
-    icon: Phone,
-    tone: "blue",
-    kind: "category",
-    category: "contactar_cliente",
-  },
-  {
-    key: "generar_ot",
-    label: "OT por Generar",
-    icon: Wrench,
-    tone: "gray",
-    kind: "category",
-    category: "generar_ot",
-  },
-  {
     key: "resueltas_hoy",
     label: "Resueltas Hoy",
-    icon: CheckCircle2,
+    icon: CircleCheckBig,
     tone: "green",
     hint: "Cerradas en el día seleccionado",
     kind: "status",
     statusFilter: "resueltas_hoy",
   },
+  {
+    key: "generar_ot",
+    label: "OT por Generar",
+    icon: ClipboardPlus,
+    tone: "gray",
+    hint: "Consultas listas para generar OT.",
+    kind: "category",
+    category: "generar_ot",
+  },
 ]
 
 const INDICATOR_KPI_KEYS = ["nuevas", "resueltas_hoy", "generar_ot"] as const
 
-const WORK_QUEUE_KPI_KEYS = [
-  "accion_cliente",
-  "accion_tecnica",
-  "accion_administracion",
-  "accion_ventas",
-] as const
+const WORK_TRAY_ICONS: Record<
+  Extract<
+    SharedInboxWorkTray,
+    | "espera_cliente"
+    | "retenciones"
+    | "tecnica"
+    | "administracion"
+    | "morosos"
+    | "ventas"
+  >,
+  LucideIcon
+> = {
+  espera_cliente: Clock3,
+  retenciones: PhoneCall,
+  tecnica: Wrench,
+  administracion: BriefcaseBusiness,
+  morosos: Wallet,
+  ventas: TrendingUp,
+}
+
+const WORK_TRAY_TONES: Record<keyof typeof WORK_TRAY_ICONS, VisualTone> = {
+  espera_cliente: "violet",
+  retenciones: "amber",
+  tecnica: "violet",
+  administracion: "amber",
+  morosos: "amber",
+  ventas: "blue",
+}
+
+/**
+ * RC 3.0.9 — KPI hierarchy: icon + name, then dominant value.
+ * Card height stays at the RC 3.0.8 intermediate size.
+ */
+const COMPACT_CARD_CLASS = cn(
+  "min-h-[5.25rem]",
+  "[&_[data-slot=card-content]]:flex-row-reverse [&_[data-slot=card-content]]:items-start [&_[data-slot=card-content]]:gap-2.5 [&_[data-slot=card-content]]:px-3.5 [&_[data-slot=card-content]]:py-3",
+  "[&_[data-slot=card-content]_p:first-child]:text-[13px] [&_[data-slot=card-content]_p:first-child]:font-medium [&_[data-slot=card-content]_p:first-child]:leading-snug [&_[data-slot=card-content]_p:first-child]:text-foreground/80",
+  "[&_[data-slot=card-content]_p:nth-child(2)]:mt-1 [&_[data-slot=card-content]_p:nth-child(2)]:text-2xl [&_[data-slot=card-content]_p:nth-child(2)]:font-semibold [&_[data-slot=card-content]_p:nth-child(2)]:leading-none [&_[data-slot=card-content]_p:nth-child(2)]:tracking-tight",
+  "[&_[data-slot=card-content]>div:last-child]:mt-0.5 [&_[data-slot=card-content]>div:last-child]:size-6 [&_[data-slot=card-content]>div:last-child]:shrink-0",
+  "[&_[data-slot=card-content]>div:last-child_svg]:size-3"
+)
+
+/** RC 3.0.7 — responsive tray grid (1 / 2 / 3 / 6). */
+function workTrayGridClass(columnCount: number) {
+  const desktopCols = Math.min(Math.max(columnCount, 1), 6)
+
+  return cn(
+    "grid gap-1.5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
+    desktopCols === 1 && "xl:grid-cols-1",
+    desktopCols === 2 && "xl:grid-cols-2",
+    desktopCols === 3 && "xl:grid-cols-3",
+    desktopCols === 4 && "xl:grid-cols-4",
+    desktopCols === 5 && "xl:grid-cols-5",
+    desktopCols === 6 && "xl:grid-cols-6"
+  )
+}
+
+const SECTION_TITLE_CLASS =
+  "text-[15px] font-semibold tracking-tight text-foreground sm:text-base"
+
+type WorkTrayChipProps = {
+  label: string
+  value: string
+  icon: LucideIcon
+  tone: VisualTone
+  isActive: boolean
+  onClick: () => void
+  ariaLabel: string
+}
+
+function WorkTrayChip({
+  label,
+  value,
+  icon: Icon,
+  tone,
+  isActive,
+  onClick,
+  ariaLabel,
+}: WorkTrayChipProps) {
+  const styles = KPI_TONE_STYLES[tone]
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={ariaLabel}
+      aria-pressed={isActive}
+      className={cn(
+        "flex h-8 w-full min-w-0 items-center gap-1.5 rounded-md border px-2 text-left transition-colors",
+        styles.card,
+        "hover:brightness-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30",
+        isActive && "ring-2 ring-primary/25"
+      )}
+    >
+      <span
+        className={cn(
+          "flex size-5 shrink-0 items-center justify-center rounded",
+          styles.icon
+        )}
+        aria-hidden
+      >
+        <Icon className={cn("size-3", styles.iconColor)} />
+      </span>
+      <span className="min-w-0 flex-1 truncate text-[11px] font-medium leading-none text-foreground/80">
+        {label}
+      </span>
+      <span className="shrink-0 text-base font-semibold tabular-nums leading-none text-foreground">
+        {value}
+      </span>
+    </button>
+  )
+}
+
+function WorkTrayChipSkeleton() {
+  return (
+    <div className="flex h-8 w-full items-center gap-1.5 rounded-md border bg-card px-2">
+      <Skeleton className="size-5 shrink-0 rounded" />
+      <Skeleton className="h-2.5 min-w-0 flex-1" />
+      <Skeleton className="h-3.5 w-5 shrink-0" />
+    </div>
+  )
+}
 
 type ConsultationKpiStripProps = {
   query: SharedInboxQuery
@@ -129,18 +213,31 @@ export function ConsultationKpiStrip({
   const {
     sharedInboxKpis,
     sharedInboxOperationalCounts,
-    sharedInboxRows,
+    sharedInboxWorkTrayCounts,
     isSharedInboxDashboardLoading,
+    isSharedInboxLoading,
   } = useAtencionCliente()
 
-  // Presentational count only: "En gestión" over the rows already loaded for
-  // the inbox (there is no dedicated backend KPI for this status).
-  const enGestionCount = useMemo(
-    () => sharedInboxRows.filter((row) => row.status === "en_gestion").length,
-    [sharedInboxRows]
+  const visibleTrays = useMemo(
+    () => getVisibleOperationalWorkTrays(sharedInboxWorkTrayCounts),
+    [sharedInboxWorkTrayCounts]
   )
 
-  function resolveValue(card: KpiStripCard): number {
+  const traysLoading = isSharedInboxDashboardLoading || isSharedInboxLoading
+
+  // Drop filters for trays removed from the UI (RC 3.0.6).
+  useEffect(() => {
+    if (query.workTray && !isSharedInboxUiWorkTray(query.workTray)) {
+      onQueryChange({
+        ...query,
+        workTray: null,
+        statusFilter: "all",
+        operationalCategory: null,
+      })
+    }
+  }, [onQueryChange, query])
+
+  function resolveIndicatorValue(card: KpiStripCard): number {
     if (card.kind === "category") {
       return sharedInboxOperationalCounts[card.category]
     }
@@ -149,18 +246,18 @@ export function ConsultationKpiStrip({
       return sharedInboxKpis.nuevas
     }
 
-    if (card.key === "accion_cliente") {
-      return sharedInboxKpis.pendientes
-    }
-
     if (card.key === "resueltas_hoy") {
       return sharedInboxKpis.resueltas_hoy
     }
 
-    return enGestionCount
+    return 0
   }
 
-  function resolveIsActive(card: KpiStripCard): boolean {
+  function resolveIndicatorIsActive(card: KpiStripCard): boolean {
+    if (query.workTray) {
+      return false
+    }
+
     if (card.kind === "status") {
       return (
         query.statusFilter === card.statusFilter && !query.operationalCategory
@@ -174,25 +271,47 @@ export function ConsultationKpiStrip({
     return false
   }
 
-  function handleClick(card: KpiStripCard) {
+  function handleIndicatorClick(card: KpiStripCard) {
     if (card.kind === "status") {
-      // Same behavior as the status chips: set filter, clear category.
       onQueryChange({
         ...query,
         statusFilter: card.statusFilter,
         operationalCategory: null,
+        workTray: null,
       })
       return
     }
 
     if (card.kind === "category") {
-      // Sticky filter, same behavior the operational cards had before.
       onQueryChange({
         ...query,
         statusFilter: "all",
         operationalCategory: card.category,
+        workTray: null,
       })
     }
+  }
+
+  function selectWorkTray(tray: SharedInboxWorkTray) {
+    if (!isSharedInboxUiWorkTray(tray)) {
+      return
+    }
+
+    onQueryChange({
+      ...query,
+      statusFilter: "all",
+      operationalCategory: null,
+      workTray: tray,
+    })
+  }
+
+  function selectAllTrays() {
+    onQueryChange({
+      ...query,
+      statusFilter: "all",
+      operationalCategory: null,
+      workTray: null,
+    })
   }
 
   function getKpiCard(key: string): KpiStripCard {
@@ -205,59 +324,94 @@ export function ConsultationKpiStrip({
     return card
   }
 
-  function renderKpiCard(card: KpiStripCard, compact: boolean) {
+  function renderIndicatorCard(card: KpiStripCard) {
     return (
       <FilterableKpiCard
         key={card.key}
-        compact={compact}
+        compact
         label={card.label}
         value={
           isSharedInboxDashboardLoading
             ? "…"
-            : resolveValue(card).toLocaleString("es-AR")
+            : resolveIndicatorValue(card).toLocaleString("es-AR")
         }
         icon={card.icon}
         tone={card.tone}
-        hint={!compact && card.hint ? card.hint : undefined}
-        isActive={resolveIsActive(card)}
+        isActive={resolveIndicatorIsActive(card)}
         isLoading={isSharedInboxDashboardLoading}
         onClick={
-          card.kind === "informational" ? undefined : () => handleClick(card)
+          card.kind === "informational"
+            ? undefined
+            : () => handleIndicatorClick(card)
         }
         ariaLabel={card.hint ? `${card.label}: ${card.hint}` : card.label}
-        cardClassName={
-          compact
-            ? "[&_p:first-child]:overflow-visible [&_p:first-child]:whitespace-normal [&_p:first-child]:text-clip"
-            : "min-h-[8.25rem]"
-        }
+        cardClassName={COMPACT_CARD_CLASS}
       />
     )
   }
 
   return (
-    <section className="space-y-5">
-      <div className="space-y-3 rounded-xl border bg-card/40 p-4">
-        <div>
-          <h2 className="text-sm font-semibold tracking-tight">Indicadores</h2>
-          <p className="text-xs text-muted-foreground">¿Cómo está el día?</p>
-        </div>
-        <div className="grid gap-3 md:grid-cols-3">
-          {INDICATOR_KPI_KEYS.map((key) => renderKpiCard(getKpiCard(key), false))}
+    <section className="space-y-2.5">
+      <div className="space-y-2 rounded-lg border bg-card/40 px-3 py-2.5">
+        <h2 className={SECTION_TITLE_CLASS}>Indicadores</h2>
+        <div className="grid gap-2 sm:grid-cols-3">
+          {INDICATOR_KPI_KEYS.map((key) =>
+            renderIndicatorCard(getKpiCard(key))
+          )}
         </div>
       </div>
 
-      <div className="space-y-3 rounded-xl border bg-muted/20 p-4">
-        <div>
-          <h2 className="text-sm font-semibold tracking-tight">
-            Bandejas de Trabajo
-          </h2>
+      <div className="space-y-1.5 rounded-lg border bg-muted/20 px-3 py-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className={SECTION_TITLE_CLASS}>Bandejas de Trabajo</h2>
+          <Button
+            type="button"
+            size="sm"
+            variant={
+              query.workTray == null || !isSharedInboxUiWorkTray(query.workTray)
+                ? "default"
+                : "outline"
+            }
+            className="h-7 gap-1 px-2.5 text-xs"
+            onClick={selectAllTrays}
+          >
+            <LayoutList className="size-3" aria-hidden />
+            Todas
+          </Button>
+        </div>
+
+        {traysLoading ? (
+          <div className={workTrayGridClass(6)}>
+            {Array.from({ length: 6 }).map((_, index) => (
+              <WorkTrayChipSkeleton key={`tray-skeleton-${index}`} />
+            ))}
+          </div>
+        ) : visibleTrays.length === 0 ? (
           <p className="text-xs text-muted-foreground">
-            ¿Dónde tengo trabajo pendiente?
+            No hay consultas pendientes en bandejas de área.
           </p>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {WORK_QUEUE_KPI_KEYS.map((key) => renderKpiCard(getKpiCard(key), true))}
-        </div>
+        ) : (
+          <div className={workTrayGridClass(visibleTrays.length)}>
+            {visibleTrays.map((tray) => {
+              const Icon = WORK_TRAY_ICONS[tray as keyof typeof WORK_TRAY_ICONS]
+              const label = SHARED_INBOX_WORK_TRAY_LABELS[tray]
+              const value = sharedInboxWorkTrayCounts[tray]
+
+              return (
+                <WorkTrayChip
+                  key={tray}
+                  label={label}
+                  value={value.toLocaleString("es-AR")}
+                  icon={Icon}
+                  tone={WORK_TRAY_TONES[tray as keyof typeof WORK_TRAY_TONES]}
+                  isActive={query.workTray === tray}
+                  onClick={() => selectWorkTray(tray)}
+                  ariaLabel={`${label}: ${value} consultas`}
+                />
+              )
+            })}
+          </div>
+        )}
       </div>
     </section>
   )

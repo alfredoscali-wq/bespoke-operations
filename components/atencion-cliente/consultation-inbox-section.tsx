@@ -65,6 +65,7 @@ function createDefaultInboxQuery(): SharedInboxQuery {
     motivo: "all",
     channel: "all",
     operationalCategory: null,
+    workTray: null,
     createdDate: null,
     search: "",
   }
@@ -191,6 +192,7 @@ export function ConsultationInboxSection({
   const hasOperationalFilters =
     query.statusFilter !== "all" ||
     Boolean(query.operationalCategory) ||
+    Boolean(query.workTray) ||
     (query.motivo && query.motivo !== "all") ||
     (query.channel && query.channel !== "all") ||
     hasDiscoveryFilters
@@ -203,9 +205,11 @@ export function ConsultationInboxSection({
 
   return (
     <Card>
-      <CardHeader className="space-y-5 pb-2">
-        <div className="flex flex-col gap-1">
-          <CardTitle>Bandeja de Consultas</CardTitle>
+      <CardHeader className="space-y-3 pb-2 pt-4">
+        <div className="flex flex-col gap-0.5">
+          <CardTitle className="text-[15px] font-semibold tracking-tight text-foreground sm:text-base">
+            Bandeja de Consultas
+          </CardTitle>
           <p className="text-xs text-muted-foreground">
             Consultas según los filtros seleccionados
           </p>
@@ -235,25 +239,31 @@ export function ConsultationInboxSection({
 
         <div className="space-y-4">
           <div className="flex flex-wrap gap-2">
-            {STATUS_FILTER_OPTIONS.map((option) => (
-              <Button
-                key={option.value}
-                type="button"
-                size="sm"
-                variant={
-                  query.statusFilter === option.value ? "default" : "outline"
-                }
-                onClick={() =>
-                  onQueryChange({
-                    ...query,
-                    statusFilter: option.value,
-                    operationalCategory: null,
-                  })
-                }
-              >
-                {option.label}
-              </Button>
-            ))}
+            {STATUS_FILTER_OPTIONS.map((option) => {
+              const isActive =
+                !query.workTray &&
+                !query.operationalCategory &&
+                query.statusFilter === option.value
+
+              return (
+                <Button
+                  key={option.value}
+                  type="button"
+                  size="sm"
+                  variant={isActive ? "default" : "outline"}
+                  onClick={() =>
+                    onQueryChange({
+                      ...query,
+                      statusFilter: option.value,
+                      operationalCategory: null,
+                      workTray: null,
+                    })
+                  }
+                >
+                  {option.label}
+                </Button>
+              )
+            })}
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">

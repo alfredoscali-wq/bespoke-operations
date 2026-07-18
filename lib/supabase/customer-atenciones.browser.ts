@@ -7,6 +7,7 @@ import {
   insertCustomerAtencion,
   listCustomerAtencionesPaginated,
   type SharedInboxBundle,
+  type SharedInboxConsultationsPage,
   type SupabaseCustomerAtencionesClient,
 } from "@/lib/supabase/customer-atenciones.queries"
 import { mapCustomerAtencionRowToCustomerAtencion } from "@/lib/supabase/customer-atenciones.mapper"
@@ -19,7 +20,6 @@ import type {
 } from "@/lib/customer-atenciones/shared-inbox"
 import type {
   CustomerAtencion,
-  CustomerAtencionInboxRow,
   CustomerAtencionListPage,
 } from "@/lib/types/customer-atenciones"
 import type { CustomerSeguimiento } from "@/lib/types/customer-seguimientos"
@@ -66,7 +66,7 @@ export async function listSharedInboxConsultations(
   query: SharedInboxQuery,
   referenceDate: Date = new Date(),
   client: SupabaseCustomerAtencionesClient = createBrowserCustomerAtencionesClient()
-): Promise<CustomerAtencionesRepositoryResult<CustomerAtencionInboxRow[]>> {
+): Promise<CustomerAtencionesRepositoryResult<SharedInboxConsultationsPage>> {
   return fetchSharedInboxConsultations(client, companyId, query, referenceDate)
 }
 

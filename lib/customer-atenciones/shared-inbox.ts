@@ -86,11 +86,71 @@ export const SHARED_INBOX_OPERATIONAL_CATEGORY_CONFIG: Record<
   },
 }
 
+/**
+ * RC 3.0.2 / 3.0.3 — exclusive work trays. Each non-resolved consultation maps
+ * to exactly one tray (see resolveOperationalWorkTray).
+ */
+export type SharedInboxWorkTray =
+  | "por_tomar"
+  | "en_gestion"
+  | "espera_cliente"
+  | "retenciones"
+  | "tecnica"
+  | "administracion"
+  | "morosos"
+  | "ventas"
+  | "generar_ot"
+
+export type SharedInboxWorkTrayCounts = Record<SharedInboxWorkTray, number>
+
+export const SHARED_INBOX_WORK_TRAY_ORDER: SharedInboxWorkTray[] = [
+  "por_tomar",
+  "en_gestion",
+  "espera_cliente",
+  "retenciones",
+  "tecnica",
+  "administracion",
+  "morosos",
+  "ventas",
+  "generar_ot",
+]
+
+/**
+ * RC 3.0.6 — trays shown in the workbench UI.
+ * Assignment rules for por_tomar / en_gestion / generar_ot remain in
+ * resolveOperationalWorkTray; those trays are just not exposed as filters
+ * (OT lives in KPIs; Disponibles / En gestión se ven vía "Todas").
+ */
+export const SHARED_INBOX_UI_WORK_TRAYS: SharedInboxWorkTray[] = [
+  "espera_cliente",
+  "retenciones",
+  "tecnica",
+  "administracion",
+  "morosos",
+  "ventas",
+]
+
+export const SHARED_INBOX_WORK_TRAY_LABELS: Record<SharedInboxWorkTray, string> =
+  {
+    /** RC 3.0.2: consultas disponibles en bandeja compartida (sin ownership). */
+    por_tomar: "Disponibles",
+    en_gestion: "En gestión (Atención)",
+    espera_cliente: "Espera del Cliente",
+    retenciones: "Retenciones",
+    tecnica: "Técnica",
+    administracion: "Administración",
+    morosos: "Morosos",
+    ventas: "Ventas",
+    generar_ot: "Generar OT",
+  }
+
 export type SharedInboxQuery = {
   statusFilter: SharedInboxStatusFilter
   motivo?: CustomerAtencionMotivo | "all"
   channel?: CustomerAtencionChannel | "all"
   operationalCategory?: SharedInboxOperationalCategory | null
+  /** RC 3.0.3 — exclusive operational tray filter for the inbox table. */
+  workTray?: SharedInboxWorkTray | null
   /** Calendar day (YYYY-MM-DD) for created_at; empty/null = no date filter. */
   createdDate?: string | null
   /** Partial search across customer identity fields and consultation detail. */
@@ -493,6 +553,7 @@ export function computeOperationalWorkCounts(
     }
 
     // Morosos also rolls into Administración: a row may match multiple categories.
+    // Kept for legacy KPI category cards; work trays use exclusive assignment.
     for (const category of SHARED_INBOX_OPERATIONAL_CATEGORY_ORDER) {
       if (matchesOperationalCategory(row, category)) {
         counts[category] += 1
@@ -501,6 +562,107 @@ export function computeOperationalWorkCounts(
   }
 
   return counts
+}
+
+/**
+ * Exclusive tray for RC 3.0.3. Specialized next_step wins over en_gestion so a
+ * taken technical consultation stays in Técnica, not En gestión.
+ */
+export function resolveOperationalWorkTray(
+  row: Pick<
+    CustomerAtencionInboxRow,
+    "status" | "nextStep" | "activeManagementEmployeeId"
+  >
+): SharedInboxWorkTray | null {
+  if (row.status === "resuelta") {
+    return null
+  }
+
+  switch (row.nextStep) {
+    case "esperar_cliente":
+      return "espera_cliente"
+    case "realizar_retencion":
+      return "retenciones"
+    case "resolver_consulta_tecnica":
+      return "tecnica"
+    case "derivar_admin_morosos":
+      return "morosos"
+    case "derivar_admin_facturacion":
+    case "derivar_admin_gestion":
+      return "administracion"
+    case "contactar_cliente":
+      return "ventas"
+    case "generar_ot":
+      return "generar_ot"
+    default:
+      break
+  }
+
+  if (row.status === "en_gestion") {
+    return "en_gestion"
+  }
+
+  if (
+    row.status === "para_resolver" ||
+    row.status === "pendiente" ||
+    row.status === "nueva"
+  ) {
+    return "por_tomar"
+  }
+
+  return null
+}
+
+export function matchesOperationalWorkTray(
+  row: Pick<
+    CustomerAtencionInboxRow,
+    "status" | "nextStep" | "activeManagementEmployeeId"
+  >,
+  tray: SharedInboxWorkTray
+): boolean {
+  return resolveOperationalWorkTray(row) === tray
+}
+
+export function computeOperationalTrayCounts(
+  rows: CustomerAtencionInboxRow[]
+): SharedInboxWorkTrayCounts {
+  const counts: SharedInboxWorkTrayCounts = {
+    por_tomar: 0,
+    en_gestion: 0,
+    espera_cliente: 0,
+    retenciones: 0,
+    tecnica: 0,
+    administracion: 0,
+    morosos: 0,
+    ventas: 0,
+    generar_ot: 0,
+  }
+
+  for (const row of rows) {
+    const tray = resolveOperationalWorkTray(row)
+    if (tray) {
+      counts[tray] += 1
+    }
+  }
+
+  return counts
+}
+
+export function getVisibleOperationalWorkTrays(
+  counts: SharedInboxWorkTrayCounts
+): SharedInboxWorkTray[] {
+  return SHARED_INBOX_UI_WORK_TRAYS.filter((tray) => counts[tray] > 0)
+}
+
+export function isSharedInboxUiWorkTray(
+  tray: SharedInboxWorkTray | null | undefined
+): tray is SharedInboxWorkTray {
+  return Boolean(
+    tray &&
+      (SHARED_INBOX_UI_WORK_TRAYS as readonly SharedInboxWorkTray[]).includes(
+        tray
+      )
+  )
 }
 
 export function getVisibleOperationalCategories(
@@ -622,6 +784,11 @@ export function filterSharedInboxRows(
   )
 
   return discovered.filter((row) => {
+    // Exclusive tray filter takes precedence over status/category chips.
+    if (query.workTray) {
+      return matchesOperationalWorkTray(row, query.workTray)
+    }
+
     if (
       query.operationalCategory &&
       !matchesOperationalCategory(row, query.operationalCategory)

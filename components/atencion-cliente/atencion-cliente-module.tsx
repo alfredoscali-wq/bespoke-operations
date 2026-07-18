@@ -19,6 +19,7 @@ function createDefaultSharedInboxQuery(): SharedInboxQuery {
     motivo: "all",
     channel: "all",
     operationalCategory: null,
+    workTray: null,
     createdDate: null,
     search: "",
   }
@@ -73,7 +74,7 @@ export function AtencionClienteModule() {
   }, [actionFeedback, clearActionFeedback])
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <ConsultationWorkbenchHeader
         query={sharedInboxQuery}
         onQueryChange={setSharedInboxQuery}
@@ -84,10 +85,11 @@ export function AtencionClienteModule() {
       <EntityActionFeedback message={actionFeedback} />
 
       {canViewEquipoReport ? (
-        <div className="inline-flex rounded-lg border p-1">
+        <div className="inline-flex rounded-md border p-0.5">
           <Button
             type="button"
             size="sm"
+            className="h-7 px-2.5 text-xs"
             variant={moduleView === "personal" ? "default" : "ghost"}
             onClick={() => setModuleView("personal")}
           >
@@ -96,6 +98,7 @@ export function AtencionClienteModule() {
           <Button
             type="button"
             size="sm"
+            className="h-7 px-2.5 text-xs"
             variant={moduleView === "equipo" ? "default" : "ghost"}
             onClick={() => setModuleView("equipo")}
           >

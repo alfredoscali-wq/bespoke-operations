@@ -25,6 +25,7 @@ import type {
   SharedInboxKpiSummary,
   SharedInboxOperationalCounts,
   SharedInboxQuery,
+  SharedInboxWorkTrayCounts,
 } from "@/lib/customer-atenciones/shared-inbox"
 import {
   computeHistoricalDaySummary,
@@ -187,6 +188,18 @@ const EMPTY_SHARED_INBOX_OPERATIONAL_COUNTS: SharedInboxOperationalCounts = {
   generar_ot: 0,
 }
 
+const EMPTY_SHARED_INBOX_WORK_TRAY_COUNTS: SharedInboxWorkTrayCounts = {
+  por_tomar: 0,
+  en_gestion: 0,
+  espera_cliente: 0,
+  retenciones: 0,
+  tecnica: 0,
+  administracion: 0,
+  morosos: 0,
+  ventas: 0,
+  generar_ot: 0,
+}
+
 type AtencionClienteContextValue = {
   listPage: CustomerAtencionListPage | null
   isListLoading: boolean
@@ -204,6 +217,7 @@ type AtencionClienteContextValue = {
   canViewEquipoReport: boolean
   sharedInboxKpis: SharedInboxKpiSummary
   sharedInboxOperationalCounts: SharedInboxOperationalCounts
+  sharedInboxWorkTrayCounts: SharedInboxWorkTrayCounts
   sharedInboxRows: CustomerAtencionInboxRow[]
   sharedInboxHistoricalDaySummary: SharedInboxHistoricalDaySummary | null
   sharedInboxQuery: SharedInboxQuery
@@ -309,6 +323,8 @@ export function AtencionClienteProvider({
     useState<SharedInboxKpiSummary>(EMPTY_SHARED_INBOX_KPIS)
   const [sharedInboxOperationalCounts, setSharedInboxOperationalCounts] =
     useState<SharedInboxOperationalCounts>(EMPTY_SHARED_INBOX_OPERATIONAL_COUNTS)
+  const [sharedInboxWorkTrayCounts, setSharedInboxWorkTrayCounts] =
+    useState<SharedInboxWorkTrayCounts>(EMPTY_SHARED_INBOX_WORK_TRAY_COUNTS)
   const [sharedInboxRows, setSharedInboxRows] = useState<CustomerAtencionInboxRow[]>(
     []
   )
@@ -321,6 +337,7 @@ export function AtencionClienteProvider({
     motivo: "all",
     channel: "all",
     operationalCategory: null,
+    workTray: null,
     createdDate: toLocalDateOnly(),
     search: "",
   })
@@ -340,6 +357,7 @@ export function AtencionClienteProvider({
       motivo: "all",
       channel: "all",
       operationalCategory: null,
+      workTray: null,
       createdDate: toLocalDateOnly(referenceDate),
       search: "",
     }
@@ -437,12 +455,16 @@ export function AtencionClienteProvider({
           sharedInboxDashboardLoadedRef.current = true
         }
 
-        setSharedInboxRows(rowsResult.data ?? [])
+        setSharedInboxRows(rowsResult.data?.rows ?? [])
+        setSharedInboxWorkTrayCounts(
+          rowsResult.data?.workTrayCounts ??
+            EMPTY_SHARED_INBOX_WORK_TRAY_COUNTS
+        )
 
         if (historicalRowsResult?.data && isHistoricalDay) {
           setSharedInboxHistoricalDaySummary(
             computeHistoricalDaySummary(
-              historicalRowsResult.data,
+              historicalRowsResult.data.rows,
               createdDate,
               resolveSharedInboxReferenceDate({ createdDate }, referenceDate)
             )
@@ -1301,6 +1323,7 @@ export function AtencionClienteProvider({
       canViewEquipoReport,
       sharedInboxKpis,
       sharedInboxOperationalCounts,
+      sharedInboxWorkTrayCounts,
       sharedInboxRows,
       sharedInboxHistoricalDaySummary,
       sharedInboxQuery,
@@ -1379,6 +1402,7 @@ export function AtencionClienteProvider({
       searchCustomers,
       sharedInboxKpis,
       sharedInboxOperationalCounts,
+      sharedInboxWorkTrayCounts,
       sharedInboxQuery,
       sharedInboxRows,
       sharedInboxHistoricalDaySummary,

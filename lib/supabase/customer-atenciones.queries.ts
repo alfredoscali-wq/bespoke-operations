@@ -7,6 +7,7 @@ import {
 } from "@/lib/customer-atenciones/atencion-list"
 import {
   computeHistoricalDaySummary,
+  computeOperationalTrayCounts,
   computeOperationalWorkCounts,
   computeSharedInboxKpis,
   filterSharedInboxDiscoveryRows,
@@ -22,6 +23,7 @@ import {
   type SharedInboxKpiSummary,
   type SharedInboxOperationalCounts,
   type SharedInboxQuery,
+  type SharedInboxWorkTrayCounts,
 } from "@/lib/customer-atenciones/shared-inbox"
 import { toLocalDateOnly } from "@/lib/dates/date-only"
 import {
@@ -505,8 +507,14 @@ export async function fetchSharedInboxKpiSummaryFromDb(
 export type SharedInboxBundle = {
   kpis: SharedInboxKpiSummary
   operationalCounts: SharedInboxOperationalCounts
+  workTrayCounts: SharedInboxWorkTrayCounts
   rows: CustomerAtencionInboxRow[]
   historicalDaySummary: SharedInboxHistoricalDaySummary | null
+}
+
+export type SharedInboxConsultationsPage = {
+  rows: CustomerAtencionInboxRow[]
+  workTrayCounts: SharedInboxWorkTrayCounts
 }
 
 export async function fetchSharedInboxBundle(
@@ -564,6 +572,7 @@ export async function fetchSharedInboxBundle(
     data: {
       kpis,
       operationalCounts: computeOperationalWorkCounts(discoveryRows),
+      workTrayCounts: computeOperationalTrayCounts(discoveryRows),
       rows: sortSharedInboxRows(filtered, queryWithDate.statusFilter),
       historicalDaySummary,
     },
@@ -584,7 +593,7 @@ export async function fetchSharedInboxConsultations(
   companyId: string,
   query: SharedInboxQuery,
   referenceDate: Date = new Date()
-): Promise<CustomerAtencionesRepositoryResult<CustomerAtencionInboxRow[]>> {
+): Promise<CustomerAtencionesRepositoryResult<SharedInboxConsultationsPage>> {
   const now = referenceDate
   const dayReference = resolveSharedInboxReferenceDate(query, now)
   const queryWithDate: SharedInboxQuery = {
@@ -609,6 +618,12 @@ export async function fetchSharedInboxConsultations(
     }
   }
 
+  const discoveryRows = filterSharedInboxDiscoveryRows(
+    sourceResult.data,
+    queryWithDate,
+    dayReference,
+    now
+  )
   const filtered = filterSharedInboxRows(
     sourceResult.data,
     queryWithDate,
@@ -617,7 +632,10 @@ export async function fetchSharedInboxConsultations(
   )
 
   return {
-    data: sortSharedInboxRows(filtered, queryWithDate.statusFilter),
+    data: {
+      rows: sortSharedInboxRows(filtered, queryWithDate.statusFilter),
+      workTrayCounts: computeOperationalTrayCounts(discoveryRows),
+    },
     error: null,
   }
 }
