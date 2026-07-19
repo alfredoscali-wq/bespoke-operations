@@ -673,7 +673,7 @@ export function AtencionDetailScreen({
         <p className="mt-1">Actualmente la gestión se encuentra en curso.</p>
       </>
     )
-  } else if (atencion.status !== "resuelta" && !atencion.linkedTaskId) {
+  } else {
     if (canStart) {
       const startAsContinue =
         Boolean(areaReturn) ||
