@@ -2,12 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react"
 
+import { ActiveManagementBanner } from "@/components/atencion-cliente/active-management-banner"
 import { AtencionFormDialog } from "@/components/atencion-cliente/atencion-form-dialog"
 import { ConsultationInboxSection } from "@/components/atencion-cliente/consultation-inbox-section"
 import { ConsultationWorkPanel } from "@/components/atencion-cliente/consultation-work-panel"
 import { ConsultationKpiStrip } from "@/components/atencion-cliente/consultation-kpi-strip"
 import { ConsultationWorkbenchHeader } from "@/components/atencion-cliente/consultation-workbench-header"
 import { EquipoSection } from "@/components/atencion-cliente/equipo-section"
+import { ExclusiveManagementDialog } from "@/components/atencion-cliente/exclusive-management-dialog"
 import { useAtencionCliente } from "@/components/atencion-cliente/atencion-cliente-provider"
 import type { SharedInboxQuery } from "@/lib/customer-atenciones/shared-inbox"
 import { Button } from "@/components/ui/button"
@@ -31,6 +33,9 @@ export function AtencionClienteModule() {
     canViewEquipoReport,
     actionFeedback,
     clearActionFeedback,
+    myActiveManagement,
+    cancelConsultationManagement,
+    refreshMyActiveManagement,
   } = useAtencionCliente()
   const [moduleView, setModuleView] = useState<"personal" | "equipo">("personal")
   const [formOpen, setFormOpen] = useState(false)
@@ -43,10 +48,16 @@ export function AtencionClienteModule() {
   const [expandedConsultationId, setExpandedConsultationId] = useState<
     string | null
   >(null)
+  const [isCancellingActive, setIsCancellingActive] = useState(false)
+  const [exclusiveDialogOpen, setExclusiveDialogOpen] = useState(false)
 
   useEffect(() => {
     void loadSharedInbox(sharedInboxQuery)
   }, [loadSharedInbox, sharedInboxQuery])
+
+  useEffect(() => {
+    void refreshMyActiveManagement()
+  }, [refreshMyActiveManagement])
 
   const refreshInboxAfterPanelAction = useCallback(() => {
     void loadSharedInbox(sharedInboxQuery)
@@ -60,6 +71,39 @@ export function AtencionClienteModule() {
   const handleCloseDetail = useCallback(() => {
     setExpandedConsultationId(null)
   }, [])
+
+  const handleContinueActiveManagement = useCallback(() => {
+    if (!myActiveManagement) {
+      return
+    }
+    setExclusiveDialogOpen(false)
+    handleSelectConsultation(myActiveManagement.atencionId)
+  }, [handleSelectConsultation, myActiveManagement])
+
+  const handleCancelActiveManagement = useCallback(async () => {
+    if (!myActiveManagement) {
+      return
+    }
+
+    setIsCancellingActive(true)
+    try {
+      const result = await cancelConsultationManagement(
+        myActiveManagement.atencionId
+      )
+      if (result.success) {
+        setExclusiveDialogOpen(false)
+        if (expandedConsultationId === myActiveManagement.atencionId) {
+          setExpandedConsultationId(null)
+        }
+      }
+    } finally {
+      setIsCancellingActive(false)
+    }
+  }, [
+    cancelConsultationManagement,
+    expandedConsultationId,
+    myActiveManagement,
+  ])
 
   useEffect(() => {
     if (!actionFeedback) {
@@ -83,6 +127,17 @@ export function AtencionClienteModule() {
       />
 
       <EntityActionFeedback message={actionFeedback} />
+
+      {moduleView === "personal" && myActiveManagement ? (
+        <ActiveManagementBanner
+          active={myActiveManagement}
+          onContinue={handleContinueActiveManagement}
+          isCancelling={isCancellingActive}
+          onCancel={() => {
+            void handleCancelActiveManagement()
+          }}
+        />
+      ) : null}
 
       {canViewEquipoReport ? (
         <div className="inline-flex rounded-md border p-0.5">
@@ -129,12 +184,26 @@ export function AtencionClienteModule() {
               open
               onClose={handleCloseDetail}
               onDataChanged={refreshInboxAfterPanelAction}
+              onExclusiveManagementBlocked={() => setExclusiveDialogOpen(true)}
             />
           ) : null}
 
           <AtencionFormDialog open={formOpen} onOpenChange={setFormOpen} />
         </>
       )}
+
+      {myActiveManagement ? (
+        <ExclusiveManagementDialog
+          open={exclusiveDialogOpen}
+          onOpenChange={setExclusiveDialogOpen}
+          active={myActiveManagement}
+          isCancelling={isCancellingActive}
+          onContinue={handleContinueActiveManagement}
+          onCancelActive={() => {
+            void handleCancelActiveManagement()
+          }}
+        />
+      ) : null}
     </div>
   )
 }

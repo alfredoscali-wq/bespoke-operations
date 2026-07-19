@@ -51,7 +51,9 @@ function PanelTimelineEntry({
       ? card.comment
       : null
   const hasRegisteredInfo = card.facts.length > 0 || Boolean(infoComment)
-  const hasResult = Boolean(resultComment) || Boolean(card.closingNote)
+  const actionTitle = card.eventTitle
+    .toLocaleLowerCase("es-AR")
+    .replace(/^\w/, (letter) => letter.toUpperCase())
 
   return (
     <article className="relative grid grid-cols-[6.75rem_1rem_minmax(0,1fr)] gap-x-3 pb-5">
@@ -59,11 +61,10 @@ function PanelTimelineEntry({
         <span className="absolute top-4 left-[calc(6.75rem+0.5rem-0.5px)] h-[calc(100%-0.25rem)] w-px bg-slate-200" />
       ) : null}
 
-      {/* Metadata — left of the rail (mockup composition) */}
       <div className="min-w-0 pt-0.5 text-right">
         <p className="text-[11px] leading-tight text-slate-500">{date}</p>
         <p className="mt-0.5 text-[11px] leading-tight text-slate-500">{time}</p>
-        <p className="mt-1.5 text-[11px] leading-snug text-slate-500">
+        <p className="mt-1.5 text-[11px] leading-snug font-medium text-slate-600">
           {actorName}
         </p>
       </div>
@@ -72,16 +73,21 @@ function PanelTimelineEntry({
         <span className="size-2.5 shrink-0 rounded-full bg-sky-500 ring-[3px] ring-white" />
       </div>
 
-      {/* Content — single reading column, capped width */}
       <div className="min-w-0 max-w-2xl border-b border-slate-200/80 pb-5">
-        <h3 className="text-[15px] leading-snug font-bold tracking-wide text-sky-700 uppercase">
-          {card.eventTitle}
+        <p className="text-[11px] font-medium tracking-wide text-sky-700">
+          {card.areaLabel}
+        </p>
+        <h3 className="mt-0.5 text-[14px] leading-snug font-semibold text-slate-900">
+          {actionTitle}
         </h3>
+        <p className="mt-1 text-[12px] leading-snug text-slate-600">
+          {actorName} {card.narrativeLead}
+        </p>
 
         {hasRegisteredInfo ? (
           <div className="mt-3 space-y-1.5">
-            <p className="text-[12px] font-semibold text-slate-700">
-              Información registrada
+            <p className="text-[11px] font-semibold text-slate-700">
+              Qué realizó
             </p>
             {card.facts.map((fact) => (
               <p
@@ -100,21 +106,25 @@ function PanelTimelineEntry({
           </div>
         ) : null}
 
-        {hasResult ? (
-          <div className="mt-3.5 space-y-1.5">
-            <p className="text-[12px] font-semibold text-slate-700">
-              Resultado de esa gestión
+        {resultComment ? (
+          <div className="mt-3 space-y-1">
+            <p className="text-[11px] font-semibold text-slate-700">
+              Resultado obtenido
             </p>
-            {resultComment ? (
-              <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-slate-700">
-                {resultComment}
-              </p>
-            ) : null}
-            {card.closingNote ? (
-              <p className="text-[13px] leading-relaxed text-slate-600">
-                {card.closingNote}
-              </p>
-            ) : null}
+            <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-slate-700">
+              {resultComment}
+            </p>
+          </div>
+        ) : null}
+
+        {card.closingNote ? (
+          <div className="mt-3 space-y-1">
+            <p className="text-[11px] font-semibold text-slate-700">
+              Próximo paso generado
+            </p>
+            <p className="text-[13px] leading-relaxed text-slate-600">
+              {card.closingNote}
+            </p>
           </div>
         ) : null}
       </div>
@@ -224,7 +234,7 @@ export function ConsultationEventsTimeline({
           <div className="mb-4 flex items-center gap-2">
             <History className="size-4 text-sky-600" aria-hidden />
             <h2 className="text-[11px] font-bold tracking-wide text-sky-700 uppercase">
-              Historial del expediente
+              Historial de la consulta
             </h2>
           </div>
           {empty}
@@ -251,7 +261,7 @@ export function ConsultationEventsTimeline({
         <div className="mb-5 flex items-center gap-2">
           <History className="size-4 text-sky-600" aria-hidden />
           <h2 className="text-[11px] font-bold tracking-wide text-sky-700 uppercase">
-            Historial del expediente
+            Historial de la consulta
           </h2>
         </div>
         <div>

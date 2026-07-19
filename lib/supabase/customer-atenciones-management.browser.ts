@@ -70,11 +70,70 @@ export function startConsultationManagement(
 
 export function resolveConsultationManagement(
   atencionId: string,
-  resolution: string
+  resolution: string,
+  followUpActions: string[] = []
 ): Promise<ConsultationManagementMutationResult> {
   return postConsultationManagement(`/api/atencion-cliente/${atencionId}/resolve`, {
     resolution,
+    followUpActions,
   })
+}
+
+export function cancelConsultationManagement(
+  atencionId: string
+): Promise<ConsultationManagementMutationResult> {
+  return postConsultationManagement(
+    `/api/atencion-cliente/${atencionId}/cancel-management`
+  )
+}
+
+export function touchConsultationManagementActivity(
+  atencionId: string
+): Promise<ConsultationManagementMutationResult> {
+  return postConsultationManagement(
+    `/api/atencion-cliente/${atencionId}/touch-management`
+  )
+}
+
+export async function releaseExpiredConsultationManagements(): Promise<
+  | { success: true; releasedCount: number; timeoutMinutes: number }
+  | { success: false; message: string; code?: string }
+> {
+  const response = await fetch(
+    "/api/atencion-cliente/release-expired-managements",
+    { method: "POST" }
+  )
+
+  const payload = (await response.json().catch(() => null)) as
+    | {
+        success: true
+        releasedCount: number
+        timeoutMinutes: number
+      }
+    | {
+        success: false
+        message: string
+        code?: string
+      }
+    | null
+
+  if (!response.ok || !payload || payload.success !== true) {
+    return {
+      success: false,
+      message:
+        payload && payload.success === false
+          ? payload.message
+          : "No se pudieron liberar gestiones expiradas.",
+      code:
+        payload && payload.success === false ? payload.code : undefined,
+    }
+  }
+
+  return {
+    success: true,
+    releasedCount: payload.releasedCount,
+    timeoutMinutes: payload.timeoutMinutes,
+  }
 }
 
 export function deferConsultationManagement(

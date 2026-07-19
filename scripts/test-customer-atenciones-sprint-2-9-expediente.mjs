@@ -140,6 +140,55 @@ test("situación actual usa estado vigente y último comentario del historial", 
   assert.match(summary.lastComment ?? "", /\n/)
 })
 
+test("timeline omite gestion_iniciada (RC 3.1.4)", () => {
+  const cards = buildConsultationTimelineCards([
+    {
+      id: "e1",
+      companyId: "c1",
+      customerAtencionId: "a1",
+      employeeId: "emp-1",
+      actionType: "consulta_creada",
+      detail: null,
+      previousStatus: null,
+      newStatus: "nueva",
+      previousNextStep: null,
+      newNextStep: null,
+      createdAt: "2026-07-14T09:00:00.000Z",
+    },
+    {
+      id: "e2",
+      companyId: "c1",
+      customerAtencionId: "a1",
+      employeeId: "emp-1",
+      actionType: "gestion_iniciada",
+      detail: null,
+      previousStatus: "para_resolver",
+      newStatus: "en_gestion",
+      previousNextStep: "seguimiento_cliente",
+      newNextStep: "seguimiento_cliente",
+      createdAt: "2026-07-14T09:05:00.000Z",
+    },
+    {
+      id: "e3",
+      companyId: "c1",
+      customerAtencionId: "a1",
+      employeeId: "emp-1",
+      actionType: "consulta_resuelta",
+      detail: "Cliente conforme",
+      previousStatus: "en_gestion",
+      newStatus: "resuelta",
+      previousNextStep: "seguimiento_cliente",
+      newNextStep: null,
+      createdAt: "2026-07-14T10:00:00.000Z",
+    },
+  ])
+
+  assert.equal(cards.length, 2)
+  assert.equal(cards[0]?.id, "e1")
+  assert.equal(cards[1]?.id, "e3")
+  assert.ok(!cards.some((card) => card.eventTitle.includes("INICIO")))
+})
+
 test("timeline conserva comentarios y orden cronológico ASC", () => {
   const cards = buildConsultationTimelineCards([
     {
@@ -176,11 +225,11 @@ test("timeline conserva comentarios y orden cronológico ASC", () => {
   assert.equal(cards[0]?.actionLabel, "Creación de la consulta")
   assert.equal(cards[0]?.narrativeLead, "creó la consulta.")
   assert.equal(cards[1]?.comment, "Comentario técnico completo\nsegunda línea")
-  assert.equal(cards[1]?.commentLabel, "Resultado")
+  assert.equal(cards[1]?.commentLabel, "Resultado de esa gestión")
   assert.equal(cards[1]?.previousStatusLabel, "En gestión")
   assert.equal(cards[1]?.newStatusLabel, "Para resolver")
   assert.equal(cards[1]?.previousNextStepLabel, "Resolver consulta técnica")
-  assert.equal(cards[1]?.newNextStepLabel, "Seguimiento con cliente")
+  assert.equal(cards[1]?.newNextStepLabel, "Requiere contacto con el cliente")
   assert.equal(cards[1]?.areaLabel, "Área Técnica")
   assert.match(cards[1]?.closingNote ?? "", /Atención al Cliente/)
 })

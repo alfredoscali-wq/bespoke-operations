@@ -7,7 +7,9 @@ import {
   Clock3,
   Inbox,
   LayoutList,
+  MonitorPlay,
   PhoneCall,
+  Store,
   TrendingUp,
   Wallet,
   Wrench,
@@ -26,6 +28,7 @@ import {
   type SharedInboxStatusFilter,
   type SharedInboxWorkTray,
 } from "@/lib/customer-atenciones/shared-inbox"
+import type { CustomerAtencionMotivo } from "@/lib/types/customer-atenciones"
 import type { VisualTone } from "@/lib/ui/visual-tokens"
 import { KPI_TONE_STYLES } from "@/lib/ui/visual-tokens"
 import { Button } from "@/components/ui/button"
@@ -45,7 +48,7 @@ type KpiStripCard = {
 )
 
 /**
- * RC 3.0.6 / 3.0.7 — KPI icons + ultra-dense area work trays.
+ * RC 3.2.1 — strategic indicators only (module health).
  */
 const KPI_STRIP_CARDS: KpiStripCard[] = [
   {
@@ -78,18 +81,17 @@ const KPI_STRIP_CARDS: KpiStripCard[] = [
 
 const INDICATOR_KPI_KEYS = ["nuevas", "resueltas_hoy", "generar_ot"] as const
 
-const WORK_TRAY_ICONS: Record<
-  Extract<
-    SharedInboxWorkTray,
-    | "espera_cliente"
-    | "retenciones"
-    | "tecnica"
-    | "administracion"
-    | "morosos"
-    | "ventas"
-  >,
-  LucideIcon
-> = {
+type UiWorkTray = Extract<
+  SharedInboxWorkTray,
+  | "espera_cliente"
+  | "retenciones"
+  | "tecnica"
+  | "administracion"
+  | "morosos"
+  | "ventas"
+>
+
+const WORK_TRAY_ICONS: Record<UiWorkTray, LucideIcon> = {
   espera_cliente: Clock3,
   retenciones: PhoneCall,
   tecnica: Wrench,
@@ -98,7 +100,7 @@ const WORK_TRAY_ICONS: Record<
   ventas: TrendingUp,
 }
 
-const WORK_TRAY_TONES: Record<keyof typeof WORK_TRAY_ICONS, VisualTone> = {
+const WORK_TRAY_TONES: Record<UiWorkTray, VisualTone> = {
   espera_cliente: "violet",
   retenciones: "amber",
   tecnica: "violet",
@@ -107,9 +109,34 @@ const WORK_TRAY_TONES: Record<keyof typeof WORK_TRAY_ICONS, VisualTone> = {
   ventas: "blue",
 }
 
+type MotivoWorkCard = {
+  key: "consulta_comercial" | "consulta_tv"
+  label: string
+  icon: LucideIcon
+  tone: VisualTone
+  motivo: CustomerAtencionMotivo
+}
+
+/** RC 3.2.1 — commercial motivo queues live with operational trays. */
+const MOTIVO_WORK_CARDS: MotivoWorkCard[] = [
+  {
+    key: "consulta_comercial",
+    label: "Consulta Comercial",
+    icon: Store,
+    tone: "blue",
+    motivo: "consulta_comercial",
+  },
+  {
+    key: "consulta_tv",
+    label: "Consulta sobre TV",
+    icon: MonitorPlay,
+    tone: "violet",
+    motivo: "consulta_tv",
+  },
+]
+
 /**
- * RC 3.0.9 — KPI hierarchy: icon + name, then dominant value.
- * Card height stays at the RC 3.0.8 intermediate size.
+ * RC 3.0.9 / 3.2.1 — main indicator card hierarchy.
  */
 const COMPACT_CARD_CLASS = cn(
   "min-h-[5.25rem]",
@@ -120,12 +147,12 @@ const COMPACT_CARD_CLASS = cn(
   "[&_[data-slot=card-content]>div:last-child_svg]:size-3"
 )
 
-/** RC 3.0.7 — responsive tray grid (1 / 2 / 3 / 6). */
-function workTrayGridClass(columnCount: number) {
+/** RC 3.2.1 — responsive queue grid (fills without empty holes). */
+function workQueueGridClass(columnCount: number) {
   const desktopCols = Math.min(Math.max(columnCount, 1), 6)
 
   return cn(
-    "grid gap-1.5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
+    "grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
     desktopCols === 1 && "xl:grid-cols-1",
     desktopCols === 2 && "xl:grid-cols-2",
     desktopCols === 3 && "xl:grid-cols-3",
@@ -138,7 +165,7 @@ function workTrayGridClass(columnCount: number) {
 const SECTION_TITLE_CLASS =
   "text-[15px] font-semibold tracking-tight text-foreground sm:text-base"
 
-type WorkTrayChipProps = {
+type WorkQueueCardProps = {
   label: string
   value: string
   icon: LucideIcon
@@ -148,7 +175,10 @@ type WorkTrayChipProps = {
   ariaLabel: string
 }
 
-function WorkTrayChip({
+/**
+ * RC 3.2.1 — mini card (~60–70% of a main KPI): icon, name, dominant count.
+ */
+function WorkQueueCard({
   label,
   value,
   icon: Icon,
@@ -156,7 +186,7 @@ function WorkTrayChip({
   isActive,
   onClick,
   ariaLabel,
-}: WorkTrayChipProps) {
+}: WorkQueueCardProps) {
   const styles = KPI_TONE_STYLES[tone]
 
   return (
@@ -166,40 +196,63 @@ function WorkTrayChip({
       aria-label={ariaLabel}
       aria-pressed={isActive}
       className={cn(
-        "flex h-8 w-full min-w-0 items-center gap-1.5 rounded-md border px-2 text-left transition-colors",
+        "flex min-h-[3.5rem] w-full min-w-0 flex-col gap-1.5 rounded-lg border px-3 py-2.5 text-left shadow-sm transition-colors",
         styles.card,
         "hover:brightness-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30",
         isActive && "ring-2 ring-primary/25"
       )}
     >
-      <span
-        className={cn(
-          "flex size-5 shrink-0 items-center justify-center rounded",
-          styles.icon
-        )}
-        aria-hidden
-      >
-        <Icon className={cn("size-3", styles.iconColor)} />
-      </span>
-      <span className="min-w-0 flex-1 truncate text-[11px] font-medium leading-none text-foreground/80">
-        {label}
-      </span>
-      <span className="shrink-0 text-base font-semibold tabular-nums leading-none text-foreground">
+      <div className="flex items-start justify-between gap-2">
+        <span className="min-w-0 text-[12px] font-medium leading-snug text-foreground/80">
+          {label}
+        </span>
+        <span
+          className={cn(
+            "flex size-6 shrink-0 items-center justify-center rounded-md",
+            styles.icon
+          )}
+          aria-hidden
+        >
+          <Icon className={cn("size-3.5", styles.iconColor)} />
+        </span>
+      </div>
+      <span className="text-xl font-semibold tabular-nums leading-none tracking-tight text-foreground">
         {value}
       </span>
     </button>
   )
 }
 
-function WorkTrayChipSkeleton() {
+function WorkQueueCardSkeleton() {
   return (
-    <div className="flex h-8 w-full items-center gap-1.5 rounded-md border bg-card px-2">
-      <Skeleton className="size-5 shrink-0 rounded" />
-      <Skeleton className="h-2.5 min-w-0 flex-1" />
-      <Skeleton className="h-3.5 w-5 shrink-0" />
+    <div className="flex min-h-[3.5rem] w-full flex-col gap-1.5 rounded-lg border bg-card px-3 py-2.5 shadow-sm">
+      <div className="flex items-start justify-between gap-2">
+        <Skeleton className="h-3 w-20" />
+        <Skeleton className="size-6 shrink-0 rounded-md" />
+      </div>
+      <Skeleton className="h-5 w-8" />
     </div>
   )
 }
+
+type WorkQueueItem =
+  | {
+      kind: "tray"
+      key: UiWorkTray
+      label: string
+      value: number
+      icon: LucideIcon
+      tone: VisualTone
+    }
+  | {
+      kind: "motivo"
+      key: MotivoWorkCard["key"]
+      label: string
+      value: number
+      icon: LucideIcon
+      tone: VisualTone
+      motivo: CustomerAtencionMotivo
+    }
 
 type ConsultationKpiStripProps = {
   query: SharedInboxQuery
@@ -223,7 +276,45 @@ export function ConsultationKpiStrip({
     [sharedInboxWorkTrayCounts]
   )
 
+  const workQueueItems = useMemo((): WorkQueueItem[] => {
+    const trays: WorkQueueItem[] = visibleTrays
+      .filter((tray): tray is UiWorkTray => tray in WORK_TRAY_ICONS)
+      .map((tray) => ({
+        kind: "tray",
+        key: tray,
+        label: SHARED_INBOX_WORK_TRAY_LABELS[tray],
+        value: sharedInboxWorkTrayCounts[tray],
+        icon: WORK_TRAY_ICONS[tray],
+        tone: WORK_TRAY_TONES[tray],
+      }))
+
+    const motivos: WorkQueueItem[] = MOTIVO_WORK_CARDS.filter((card) => {
+      const value =
+        card.key === "consulta_comercial"
+          ? sharedInboxKpis.consulta_comercial
+          : sharedInboxKpis.consulta_tv
+      return value > 0
+    }).map((card) => ({
+      kind: "motivo" as const,
+      key: card.key,
+      label: card.label,
+      value:
+        card.key === "consulta_comercial"
+          ? sharedInboxKpis.consulta_comercial
+          : sharedInboxKpis.consulta_tv,
+      icon: card.icon,
+      tone: card.tone,
+      motivo: card.motivo,
+    }))
+
+    return [...trays, ...motivos]
+  }, [sharedInboxKpis, sharedInboxWorkTrayCounts, visibleTrays])
+
   const traysLoading = isSharedInboxDashboardLoading || isSharedInboxLoading
+  const hasMotivoFilter = Boolean(query.motivo && query.motivo !== "all")
+  const isAllQueuesSelected =
+    (query.workTray == null || !isSharedInboxUiWorkTray(query.workTray)) &&
+    !hasMotivoFilter
 
   // Drop filters for trays removed from the UI (RC 3.0.6).
   useEffect(() => {
@@ -236,6 +327,23 @@ export function ConsultationKpiStrip({
       })
     }
   }, [onQueryChange, query])
+
+  // Clear motivo filter when its queue card disappears (count → 0).
+  useEffect(() => {
+    if (!hasMotivoFilter || traysLoading) {
+      return
+    }
+
+    const stillVisible = workQueueItems.some(
+      (item) => item.kind === "motivo" && item.motivo === query.motivo
+    )
+    if (!stillVisible) {
+      onQueryChange({
+        ...query,
+        motivo: "all",
+      })
+    }
+  }, [hasMotivoFilter, onQueryChange, query, traysLoading, workQueueItems])
 
   function resolveIndicatorValue(card: KpiStripCard): number {
     if (card.kind === "category") {
@@ -254,7 +362,7 @@ export function ConsultationKpiStrip({
   }
 
   function resolveIndicatorIsActive(card: KpiStripCard): boolean {
-    if (query.workTray) {
+    if (query.workTray || hasMotivoFilter) {
       return false
     }
 
@@ -278,6 +386,7 @@ export function ConsultationKpiStrip({
         statusFilter: card.statusFilter,
         operationalCategory: null,
         workTray: null,
+        motivo: "all",
       })
       return
     }
@@ -288,6 +397,7 @@ export function ConsultationKpiStrip({
         statusFilter: "all",
         operationalCategory: card.category,
         workTray: null,
+        motivo: "all",
       })
     }
   }
@@ -302,6 +412,17 @@ export function ConsultationKpiStrip({
       statusFilter: "all",
       operationalCategory: null,
       workTray: tray,
+      motivo: "all",
+    })
+  }
+
+  function selectMotivoQueue(motivo: CustomerAtencionMotivo) {
+    onQueryChange({
+      ...query,
+      statusFilter: "all",
+      operationalCategory: null,
+      workTray: null,
+      motivo,
     })
   }
 
@@ -311,6 +432,7 @@ export function ConsultationKpiStrip({
       statusFilter: "all",
       operationalCategory: null,
       workTray: null,
+      motivo: "all",
     })
   }
 
@@ -354,24 +476,20 @@ export function ConsultationKpiStrip({
     <section className="space-y-2.5">
       <div className="space-y-2 rounded-lg border bg-card/40 px-3 py-2.5">
         <h2 className={SECTION_TITLE_CLASS}>Indicadores</h2>
-        <div className="grid gap-2 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           {INDICATOR_KPI_KEYS.map((key) =>
             renderIndicatorCard(getKpiCard(key))
           )}
         </div>
       </div>
 
-      <div className="space-y-1.5 rounded-lg border bg-muted/20 px-3 py-2">
+      <div className="space-y-2 rounded-lg border bg-muted/20 px-3 py-2.5">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className={SECTION_TITLE_CLASS}>Bandejas de Trabajo</h2>
+          <h2 className={SECTION_TITLE_CLASS}>Trabajo Pendiente por Área</h2>
           <Button
             type="button"
             size="sm"
-            variant={
-              query.workTray == null || !isSharedInboxUiWorkTray(query.workTray)
-                ? "default"
-                : "outline"
-            }
+            variant={isAllQueuesSelected ? "default" : "outline"}
             className="h-7 gap-1 px-2.5 text-xs"
             onClick={selectAllTrays}
           >
@@ -381,32 +499,39 @@ export function ConsultationKpiStrip({
         </div>
 
         {traysLoading ? (
-          <div className={workTrayGridClass(6)}>
+          <div className={workQueueGridClass(6)}>
             {Array.from({ length: 6 }).map((_, index) => (
-              <WorkTrayChipSkeleton key={`tray-skeleton-${index}`} />
+              <WorkQueueCardSkeleton key={`tray-skeleton-${index}`} />
             ))}
           </div>
-        ) : visibleTrays.length === 0 ? (
+        ) : workQueueItems.length === 0 ? (
           <p className="text-xs text-muted-foreground">
-            No hay consultas pendientes en bandejas de área.
+            No hay consultas pendientes en colas de trabajo.
           </p>
         ) : (
-          <div className={workTrayGridClass(visibleTrays.length)}>
-            {visibleTrays.map((tray) => {
-              const Icon = WORK_TRAY_ICONS[tray as keyof typeof WORK_TRAY_ICONS]
-              const label = SHARED_INBOX_WORK_TRAY_LABELS[tray]
-              const value = sharedInboxWorkTrayCounts[tray]
+          <div className={workQueueGridClass(workQueueItems.length)}>
+            {workQueueItems.map((item) => {
+              const isActive =
+                item.kind === "tray"
+                  ? query.workTray === item.key
+                  : query.motivo === item.motivo
 
               return (
-                <WorkTrayChip
-                  key={tray}
-                  label={label}
-                  value={value.toLocaleString("es-AR")}
-                  icon={Icon}
-                  tone={WORK_TRAY_TONES[tray as keyof typeof WORK_TRAY_TONES]}
-                  isActive={query.workTray === tray}
-                  onClick={() => selectWorkTray(tray)}
-                  ariaLabel={`${label}: ${value} consultas`}
+                <WorkQueueCard
+                  key={item.key}
+                  label={item.label}
+                  value={item.value.toLocaleString("es-AR")}
+                  icon={item.icon}
+                  tone={item.tone}
+                  isActive={isActive}
+                  onClick={() => {
+                    if (item.kind === "tray") {
+                      selectWorkTray(item.key)
+                      return
+                    }
+                    selectMotivoQueue(item.motivo)
+                  }}
+                  ariaLabel={`${item.label}: ${item.value} consultas`}
                 />
               )
             })}

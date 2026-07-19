@@ -19,6 +19,7 @@ export const CONSULTATION_DEFER_DEFAULT_RESOLUTION =
 
 export type ConsultationManagementErrorCode =
   | "CONSULTATION_ALREADY_IN_MANAGEMENT"
+  | "CONSULTATION_OPERATOR_ALREADY_MANAGING"
   | "CONSULTATION_NOT_AVAILABLE_FOR_MANAGEMENT"
   | "CONSULTATION_NOT_FOUND"
   | "CONSULTATION_MANAGEMENT_ACTOR_MISMATCH"
@@ -167,7 +168,22 @@ export function mapConsultationManagementRpcError(
   ) {
     return {
       code: "CONSULTATION_ALREADY_IN_MANAGEMENT",
-      message: "Esta Consulta ya está siendo gestionada por otra persona.",
+      message: normalized.includes("manager_employee_id=")
+        ? normalized
+        : "Esta Consulta ya está siendo gestionada por otra persona.",
+      status: 409,
+    }
+  }
+
+  if (
+    normalized.includes("CONSULTATION_OPERATOR_ALREADY_MANAGING") ||
+    normalized.includes("Ya tenés otra consulta en gestión")
+  ) {
+    return {
+      code: "CONSULTATION_OPERATOR_ALREADY_MANAGING",
+      message: normalized.includes("blocking_atencion_id=")
+        ? normalized
+        : "Ya tenés otra consulta en gestión. Finalizala o cancelala antes de comenzar una nueva.",
       status: 409,
     }
   }

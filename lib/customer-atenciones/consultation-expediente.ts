@@ -4,6 +4,10 @@ import {
   formatCustomerAtencionNextStepLabel,
   formatCustomerAtencionStatusLabel,
 } from "@/lib/customer-atenciones/format"
+import {
+  formatResolveFollowUpClosingNote,
+  parseResolveEventDetail,
+} from "@/lib/customer-atenciones/consultation-follow-up"
 import { getOperationalCategoryForNextStep } from "@/lib/customer-atenciones/shared-inbox"
 import type { CustomerAtencionEvent } from "@/lib/types/customer-atencion-events"
 import type {
@@ -144,6 +148,170 @@ export function describeNextStepSituation(
   }
 
   return NEXT_STEP_SITUATION[nextStep] ?? null
+}
+
+/**
+ * RC 3.1.7 — inbox column "Situación Actual": current responsibility / outcome,
+ * never an imperative action verb ("Derivar a…").
+ */
+export function formatConsultationInboxSituationLabel(row: {
+  status: CustomerAtencionStatus
+  nextStep?: CustomerAtencionNextStep | null
+}): string {
+  if (row.status === "resuelta") {
+    return "Consulta resuelta"
+  }
+
+  switch (row.nextStep) {
+    case "contactar_cliente":
+      return "Derivada a Ventas"
+    case "resolver_consulta_tecnica":
+      return "Derivada a Técnica"
+    case "derivar_admin_facturacion":
+    case "derivar_admin_morosos":
+    case "derivar_admin_gestion":
+      return "Derivada a Administración"
+    case "esperar_cliente":
+      return "Esperando respuesta del cliente"
+    case "realizar_retencion":
+      return "Pendiente de retención"
+    case "generar_ot":
+      return "OT pendiente de generar"
+    case "seguimiento_cliente":
+      return row.status === "en_gestion"
+        ? "En gestión por Atención al Cliente"
+        : "Pendiente de contactar al cliente"
+    default:
+      break
+  }
+
+  if (row.status === "en_gestion") {
+    return "En gestión por Atención al Cliente"
+  }
+
+  if (row.status === "nueva") {
+    return "Pendiente de atención"
+  }
+
+  return formatCustomerAtencionStatusLabel(row.status)
+}
+
+/**
+ * RC 3.1.8 — compact badge for the "Estado actual" executive card.
+ * Aligned with bandeja / responsible area, not imperative actions.
+ */
+export function formatConsultationEstadoActualBadge(row: {
+  status: CustomerAtencionStatus
+  nextStep?: CustomerAtencionNextStep | null
+}): string {
+  if (row.status === "resuelta") {
+    return "Resuelta"
+  }
+
+  switch (row.nextStep) {
+    case "contactar_cliente":
+      return "En Ventas"
+    case "resolver_consulta_tecnica":
+      return "En Técnica"
+    case "derivar_admin_facturacion":
+    case "derivar_admin_morosos":
+    case "derivar_admin_gestion":
+      return "En Administración"
+    case "esperar_cliente":
+      return "Esperando Cliente"
+    case "realizar_retencion":
+      return "En Atención al Cliente"
+    case "generar_ot":
+      return "OT pendiente"
+    case "seguimiento_cliente":
+      return "En Atención al Cliente"
+    default:
+      break
+  }
+
+  if (row.status === "en_gestion" || row.status === "nueva") {
+    return "En Atención al Cliente"
+  }
+
+  return formatCustomerAtencionStatusLabel(row.status)
+}
+
+/**
+ * RC 3.2.4 — contextual one-sentence summary for the "Estado actual" card.
+ * Describes what is happening now; does not narrate area handoffs.
+ * `derivedBy` is ignored (kept for call-site compatibility).
+ */
+export function formatConsultationEstadoActualSummary(
+  row: {
+    status: CustomerAtencionStatus
+    nextStep?: CustomerAtencionNextStep | null
+  },
+  _options?: { derivedBy?: string | null }
+): string {
+  if (row.status === "resuelta") {
+    return "La consulta fue resuelta correctamente."
+  }
+
+  switch (row.nextStep) {
+    case "contactar_cliente":
+      return "Se está evaluando la solicitud comercial del cliente."
+    case "resolver_consulta_tecnica":
+      return "Se está analizando el inconveniente técnico informado por el cliente."
+    case "derivar_admin_facturacion":
+    case "derivar_admin_morosos":
+    case "derivar_admin_gestion":
+      return "Se está analizando la consulta administrativa o de facturación."
+    case "esperar_cliente":
+      return "Se está esperando una respuesta del cliente para continuar la gestión."
+    case "realizar_retencion":
+      return "El operador se encuentra gestionando la consulta."
+    case "generar_ot":
+      return "La consulta está pendiente de generar una Orden de Trabajo."
+    case "seguimiento_cliente":
+      return "El operador se encuentra gestionando la consulta."
+    default:
+      if (row.status === "en_gestion") {
+        return "El operador se encuentra gestionando la consulta."
+      }
+      if (row.status === "nueva") {
+        return "La consulta está pendiente de atención."
+      }
+      return `La consulta se encuentra ${formatCustomerAtencionStatusLabel(row.status).toLowerCase()}.`
+  }
+}
+
+/** True when "derivada por X" would repeat the area that currently owns the case. */
+export function isRedundantEstadoActualDerivation(
+  row: {
+    status: CustomerAtencionStatus
+    nextStep?: CustomerAtencionNextStep | null
+  },
+  derivedBy: string | null | undefined
+): boolean {
+  const from = derivedBy?.trim()
+  if (!from) {
+    return false
+  }
+
+  const current =
+    describeNextStepSituation(row.nextStep)?.responsibleAreaLabel ??
+    (row.status === "resuelta" ? null : "Atención al Cliente")
+
+  if (!current) {
+    return false
+  }
+
+  return normalizeAreaLabel(from) === normalizeAreaLabel(current)
+}
+
+function normalizeAreaLabel(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/^area\s+/, "")
+    .replace(/\s+/g, " ")
+    .trim()
 }
 
 /** Past-tense handoff sentence for timeline narratives. */
@@ -295,8 +463,11 @@ export type ConsultationSituationNarrative = {
     | {
         kind: "derivation"
         areaLabel: string
+        /** Area that performed the derivation (e.g. Atención al Cliente). */
+        fromAreaLabel: string
         actorName: string
         dateTime: string
+        dateTimeIso: string | null
       }
     | {
         kind: "atencion"
@@ -343,8 +514,14 @@ export function buildConsultationSituationNarrative(
       handoff: {
         kind: "derivation",
         areaLabel: situation?.responsibleAreaLabel ?? "—",
+        fromAreaLabel: handoffEvent
+          ? formatConsultationExpedienteAreaPlainLabel(
+              getInterveningAreaForEvent(handoffEvent)
+            )
+          : "Atención al Cliente",
         actorName,
         dateTime,
+        dateTimeIso: handoffEvent?.createdAt ?? null,
       },
       managementTypeLabel: situation?.managementTypeLabel ?? null,
       closingNote: null,
@@ -516,7 +693,9 @@ export function buildConsultationSituationSummary(
 ): ConsultationSituationSummary {
   const situation = describeNextStepSituation(atencion.nextStep)
   const responsible = getResponsibleAreaForAtencion(atencion)
-  const lastEvent = events.length > 0 ? events[events.length - 1] : null
+  const lastEvent =
+    [...events].reverse().find((event) => !isConsultationTimelineNoiseEvent(event)) ??
+    null
   const lastWithComment = findLastEventWithComment(events)
 
   const responsibleAreaLabel =
@@ -541,9 +720,19 @@ export function buildConsultationSituationSummary(
       : "—",
     lastUpdatedAt: lastEvent?.createdAt ?? atencion.updatedAt,
     lastActorEmployeeId: lastEvent?.employeeId ?? null,
-    lastComment:
-      lastWithComment?.detail?.trim() ||
-      (atencion.status === "resuelta" ? atencion.resolution?.trim() || null : null),
+    lastComment: (() => {
+      if (lastWithComment?.detail?.trim()) {
+        if (lastWithComment.actionType === "consulta_resuelta") {
+          return (
+            parseResolveEventDetail(lastWithComment.detail).resolution || null
+          )
+        }
+        return lastWithComment.detail.trim()
+      }
+      return atencion.status === "resuelta"
+        ? atencion.resolution?.trim() || null
+        : null
+    })(),
   }
 }
 
@@ -551,9 +740,13 @@ function findLastEventWithComment(
   events: readonly CustomerAtencionEvent[]
 ): CustomerAtencionEvent | null {
   for (let index = events.length - 1; index >= 0; index -= 1) {
-    const detail = events[index]?.detail?.trim()
+    const event = events[index]
+    if (!event || isConsultationTimelineNoiseEvent(event)) {
+      continue
+    }
+    const detail = event.detail?.trim()
     if (detail) {
-      return events[index] ?? null
+      return event
     }
   }
 
@@ -593,11 +786,20 @@ export type ConsultationTimelineContext = {
   resolution?: string | null
 }
 
+/** RC 3.1.4 — UI-only ownership take; not real operational work. */
+export function isConsultationTimelineNoiseEvent(
+  event: Pick<CustomerAtencionEvent, "actionType">
+): boolean {
+  return event.actionType === "gestion_iniciada"
+}
+
 export function buildConsultationTimelineCards(
   events: readonly CustomerAtencionEvent[],
   context: ConsultationTimelineContext = {}
 ): ConsultationTimelineCard[] {
-  return events.map((event) => buildTimelineCard(event, context))
+  return events
+    .filter((event) => !isConsultationTimelineNoiseEvent(event))
+    .map((event) => buildTimelineCard(event, context))
 }
 
 function resolveExpedienteEventTitle(
@@ -615,6 +817,8 @@ function resolveExpedienteEventTitle(
       return "CIERRE DE CONSULTA"
     case "consulta_ot_vinculada":
       return "GENERACIÓN DE OT"
+    case "gestion_liberada_por_inactividad":
+      return "GESTIÓN LIBERADA POR INACTIVIDAD"
     case "gestion_registrada":
     case "consulta_pendiente": {
       const area = getInterveningAreaForEvent(event)
@@ -736,15 +940,23 @@ function buildTimelineCard(
         commentLabel: comment ? "Resultado de esa gestión" : null,
       }
 
-    case "consulta_resuelta":
+    case "consulta_resuelta": {
+      const resolved = parseResolveEventDetail(comment ?? event.detail)
+      const followUpNote = formatResolveFollowUpClosingNote(
+        resolved.followUpActions
+      )
       return {
         ...base,
         narrativeLead: "resolvió la consulta.",
         facts: [],
-        closingNote: "Consulta resuelta.",
-        comment: comment ?? context.resolution?.trim() ?? null,
+        closingNote: followUpNote ?? "Consulta resuelta.",
+        comment:
+          resolved.resolution ||
+          context.resolution?.trim() ||
+          null,
         commentLabel: "Resultado de esa gestión",
       }
+    }
 
     case "proximo_paso_cambiado":
       return {
@@ -764,6 +976,18 @@ function buildTimelineCard(
         closingNote: null,
         comment,
         commentLabel: comment ? "Información registrada" : null,
+      }
+
+    case "gestion_liberada_por_inactividad":
+      return {
+        ...base,
+        narrativeLead: "liberó la gestión por inactividad.",
+        facts: [{ label: "Área", value: areaLabel }],
+        closingNote:
+          event.detail?.trim() ||
+          "El bloqueo exclusivo se liberó automáticamente.",
+        comment: null,
+        commentLabel: null,
       }
 
     default:

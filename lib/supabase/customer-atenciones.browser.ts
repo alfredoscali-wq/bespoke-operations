@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/client"
 import {
   fetchCustomerAtencionById,
+  fetchOperatorActiveManagementRow,
   fetchSharedInboxBundle,
   fetchSharedInboxConsultations,
   fetchSharedInboxKpiSummary,
@@ -20,6 +21,7 @@ import type {
 } from "@/lib/customer-atenciones/shared-inbox"
 import type {
   CustomerAtencion,
+  CustomerAtencionInboxRow,
   CustomerAtencionListPage,
 } from "@/lib/types/customer-atenciones"
 import type { CustomerSeguimiento } from "@/lib/types/customer-seguimientos"
@@ -76,6 +78,14 @@ export async function getCustomerAtencionById(
   client: SupabaseCustomerAtencionesClient = createBrowserCustomerAtencionesClient()
 ): Promise<CustomerAtencionesRepositoryResult<CustomerAtencion>> {
   return fetchCustomerAtencionById(client, id, companyId)
+}
+
+export async function getOperatorActiveManagement(
+  companyId: string,
+  employeeId: string,
+  client: SupabaseCustomerAtencionesClient = createBrowserCustomerAtencionesClient()
+): Promise<CustomerAtencionesRepositoryResult<CustomerAtencionInboxRow | null>> {
+  return fetchOperatorActiveManagementRow(client, companyId, employeeId)
 }
 
 export async function createCustomerAtencion(

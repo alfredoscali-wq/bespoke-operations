@@ -11,6 +11,7 @@ import {
   evaluateTaskStartDistancePolicy,
   getTaskStartDistanceEnforcementRuntimeSnapshot,
 } from "@/lib/mobile/v1/tasks/geo-utils"
+import { resolveMobileTaskCommercialFields } from "@/lib/mobile/v1/tasks/task-commercial-fields"
 import { resolveWorkOrderTechnologyFromTask } from "@/lib/tasks/work-order"
 import { resolveTaskStartCoordinates } from "@/lib/mobile/v1/tasks/resolve-task-start-coordinates"
 import { buildTaskStartLocationRequiredMessage } from "@/lib/mobile/v1/tasks/task-start-coordinates"
@@ -275,5 +276,6 @@ export async function startMobileTask(
     status: updatedTask.status,
     startedAt,
     checklist,
+    ...resolveMobileTaskCommercialFields(updatedTask),
   }
 }

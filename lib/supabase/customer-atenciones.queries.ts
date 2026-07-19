@@ -53,7 +53,7 @@ const ATENCION_LIST_SELECT =
   "id, customer_id, channel, motivo, resultado, created_at, attended_by_employee_id"
 
 const ATENCION_INBOX_SELECT =
-  "id, customer_id, channel, motivo, detail, status, next_step, attended_by_employee_id, active_management_employee_id, active_management_started_at, created_at, updated_at"
+  "id, customer_id, channel, motivo, detail, status, next_step, attended_by_employee_id, active_management_employee_id, active_management_started_at, active_management_last_activity_at, linked_task_id, linked_task_code, follow_up_actions, created_at, updated_at"
 
 const SHARED_INBOX_ACTIVE_STATUSES: CustomerAtencionStatus[] = [
   "nueva",
@@ -73,6 +73,10 @@ type SharedInboxSourceRow = {
   attended_by_employee_id: string
   active_management_employee_id: string | null
   active_management_started_at: string | null
+  active_management_last_activity_at: string | null
+  linked_task_id: string | null
+  linked_task_code: string | null
+  follow_up_actions: string[] | null
   created_at: string
   updated_at: string
 }
@@ -177,12 +181,15 @@ function mapRowToInboxRow(
     status: row.status,
     next_step: row.next_step,
     moroso_tracking_status: null,
-    linked_task_id: null,
-    linked_task_code: null,
+    linked_task_id: row.linked_task_id ?? null,
+    linked_task_code: row.linked_task_code ?? null,
     ot_linked_at: null,
     ot_linked_by_employee_id: null,
     active_management_employee_id: row.active_management_employee_id,
     active_management_started_at: row.active_management_started_at,
+    active_management_last_activity_at:
+      row.active_management_last_activity_at ?? null,
+    follow_up_actions: row.follow_up_actions ?? [],
     created_at: row.created_at,
     updated_at: row.updated_at,
     deleted_at: null,
@@ -205,6 +212,10 @@ function mapRowToInboxRow(
       ? employeeNameById.get(mapped.activeManagementEmployeeId) ?? "Empleado"
       : null,
     activeManagementStartedAt: mapped.activeManagementStartedAt,
+    activeManagementLastActivityAt: mapped.activeManagementLastActivityAt,
+    linkedTaskId: mapped.linkedTaskId,
+    linkedTaskCode: mapped.linkedTaskCode,
+    followUpActions: mapped.followUpActions,
     createdAt: mapped.createdAt,
     updatedAt: mapped.updatedAt,
   }
@@ -364,6 +375,7 @@ async function fetchSharedInboxSourceRows(
     })
 
     const { data, error } = await filteredQuery
+      .order("updated_at", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(SHARED_INBOX_MAX_ROWS)
 
@@ -381,6 +393,7 @@ async function fetchSharedInboxSourceRows(
       .is("deleted_at", null)
       .gte("created_at", bounds.start)
       .lt("created_at", bounds.end)
+      .order("updated_at", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(SHARED_INBOX_MAX_ROWS)
 
@@ -395,6 +408,7 @@ async function fetchSharedInboxSourceRows(
       .select(ATENCION_INBOX_SELECT)
       .eq("company_id", companyId)
       .is("deleted_at", null)
+      .order("updated_at", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(SHARED_INBOX_MAX_ROWS)
 
@@ -458,6 +472,32 @@ async function fetchSharedInboxNuevasKpiCount(
   }
 }
 
+async function fetchSharedInboxMotivoTodayCount(
+  client: SupabaseCustomerAtencionesClient,
+  companyId: string,
+  motivo: "consulta_comercial" | "consulta_tv",
+  referenceDate: Date = new Date()
+): Promise<CustomerAtencionesRepositoryResult<number>> {
+  const { start, end } = getConsultationDayBoundsIso(referenceDate)
+  const { count, error } = await client
+    .from("customer_atenciones")
+    .select("id", { count: "exact", head: true })
+    .eq("company_id", companyId)
+    .eq("motivo", motivo)
+    .gte("created_at", start)
+    .lt("created_at", end)
+    .is("deleted_at", null)
+
+  if (error) {
+    return { data: null, error: mapSupabaseCustomerAtencionError(error) }
+  }
+
+  return {
+    data: count ?? 0,
+    error: null,
+  }
+}
+
 export async function fetchSharedInboxKpiSummaryFromDb(
   client: SupabaseCustomerAtencionesClient,
   companyId: string,
@@ -468,6 +508,8 @@ export async function fetchSharedInboxKpiSummaryFromDb(
     paraResolverResult,
     pendientesResult,
     resueltasHoyResult,
+    consultaComercialResult,
+    consultaTvResult,
   ] = await Promise.all([
     fetchSharedInboxNuevasKpiCount(client, companyId, referenceDate),
     fetchSharedInboxActiveNextStepCount(
@@ -481,13 +523,27 @@ export async function fetchSharedInboxKpiSummaryFromDb(
       CONSULTATION_EXTERNAL_WAIT_NEXT_STEPS
     ),
     fetchSharedInboxResolvedTodayCount(client, companyId, referenceDate),
+    fetchSharedInboxMotivoTodayCount(
+      client,
+      companyId,
+      "consulta_comercial",
+      referenceDate
+    ),
+    fetchSharedInboxMotivoTodayCount(
+      client,
+      companyId,
+      "consulta_tv",
+      referenceDate
+    ),
   ])
 
   const firstError =
     nuevasResult.error ??
     paraResolverResult.error ??
     pendientesResult.error ??
-    resueltasHoyResult.error
+    resueltasHoyResult.error ??
+    consultaComercialResult.error ??
+    consultaTvResult.error
 
   if (firstError) {
     return { data: null, error: firstError }
@@ -499,6 +555,8 @@ export async function fetchSharedInboxKpiSummaryFromDb(
       para_resolver: paraResolverResult.data ?? 0,
       pendientes: pendientesResult.data ?? 0,
       resueltas_hoy: resueltasHoyResult.data ?? 0,
+      consulta_comercial: consultaComercialResult.data ?? 0,
+      consulta_tv: consultaTvResult.data ?? 0,
     },
     error: null,
   }
@@ -696,6 +754,8 @@ function mapRowToListRow(
     ot_linked_by_employee_id: null,
     active_management_employee_id: null,
     active_management_started_at: null,
+    active_management_last_activity_at: null,
+    follow_up_actions: [],
     created_at: row.created_at,
     updated_at: row.created_at,
     deleted_at: null,
@@ -728,6 +788,7 @@ export async function listCustomerAtencionesPaginated(
     .select(ATENCION_LIST_SELECT, { count: "exact" })
     .eq("company_id", companyId)
     .is("deleted_at", null)
+    .order("updated_at", { ascending: false })
     .order("created_at", { ascending: false })
 
   if (search) {
@@ -824,6 +885,38 @@ export async function fetchCustomerAtencionById(
     data: mapCustomerAtencionRowToCustomerAtencion(data),
     error: null,
   }
+}
+
+/**
+ * RC 3.2.3 — the operator's single en_gestion consultation (if any),
+ * independent of inbox filters.
+ */
+export async function fetchOperatorActiveManagementRow(
+  client: SupabaseCustomerAtencionesClient,
+  companyId: string,
+  employeeId: string
+): Promise<CustomerAtencionesRepositoryResult<CustomerAtencionInboxRow | null>> {
+  const { data, error } = await client
+    .from("customer_atenciones")
+    .select(ATENCION_INBOX_SELECT)
+    .eq("company_id", companyId)
+    .eq("status", "en_gestion")
+    .eq("active_management_employee_id", employeeId)
+    .is("deleted_at", null)
+    .order("active_management_started_at", { ascending: false })
+    .limit(1)
+
+  if (error) {
+    return { data: null, error: mapSupabaseCustomerAtencionError(error) }
+  }
+
+  const rows = (data ?? []) as SharedInboxSourceRow[]
+  if (rows.length === 0) {
+    return { data: null, error: null }
+  }
+
+  const mapped = await mapSharedInboxSourceRows(client, companyId, rows)
+  return { data: mapped[0] ?? null, error: null }
 }
 
 export async function insertCustomerAtencion(

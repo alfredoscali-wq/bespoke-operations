@@ -202,6 +202,8 @@ export type Database = {
           ot_linked_by_employee_id: string | null
           active_management_employee_id: string | null
           active_management_started_at: string | null
+          active_management_last_activity_at: string | null
+          follow_up_actions: string[]
           created_at: string
           updated_at: string
           deleted_at: string | null
@@ -225,6 +227,8 @@ export type Database = {
           ot_linked_by_employee_id?: string | null
           active_management_employee_id?: string | null
           active_management_started_at?: string | null
+          active_management_last_activity_at?: string | null
+          follow_up_actions?: string[]
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
@@ -248,6 +252,8 @@ export type Database = {
           ot_linked_by_employee_id?: string | null
           active_management_employee_id?: string | null
           active_management_started_at?: string | null
+          active_management_last_activity_at?: string | null
+          follow_up_actions?: string[]
           created_at?: string
           updated_at?: string
           deleted_at?: string | null

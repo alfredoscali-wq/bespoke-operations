@@ -23,13 +23,9 @@ import type {
   MobileTaskNextWorkItem,
   MobileTaskReferencePhoto,
 } from "@/lib/mobile/v1/tasks/types"
-import {
-  formatContractedPlanLabel,
-  getTaskTechnologyLabel,
-} from "@/lib/tasks/commercial-plan"
+import { resolveMobileTaskCommercialFields } from "@/lib/mobile/v1/tasks/task-commercial-fields"
 import { taskMatchesCrewId } from "@/lib/tasks/crew-relation"
 import {
-  resolveInstallationIpForDisplay,
   resolveServiceTechnicalWorkInfoFromTask,
   resolveTaskOperationalTitle,
 } from "@/lib/tasks/work-order"
@@ -123,9 +119,7 @@ function mapTaskToDetailResponse(
   referencePhotos: MobileTaskReferencePhoto[],
   hasActiveIncident: boolean
 ): MobileTaskDetailResponse {
-  const technology = getTaskTechnologyLabel(task)
-  const contractedPlan = formatContractedPlanLabel(task.contractedPlan)
-  const installationIp = resolveInstallationIpForDisplay(task)
+  const commercialFields = resolveMobileTaskCommercialFields(task)
   const workInfo = resolveServiceTechnicalWorkInfoFromTask(task)
 
   return {
@@ -144,11 +138,7 @@ function mapTaskToDetailResponse(
     latitude: task.latitude ?? null,
     longitude: task.longitude ?? null,
     observations: task.observationsForCrew?.trim() || null,
-    amountToCollect:
-      task.amountToCollect == null ? null : Number(task.amountToCollect),
-    technology,
-    contractedPlan,
-    installationIp,
+    ...commercialFields,
     serviceReason: workInfo?.reasonLabel ?? null,
     serviceDetail: workInfo?.detail ?? null,
     checklist,

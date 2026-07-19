@@ -11,6 +11,7 @@ export type CustomerAtencionEventActionType =
   | "consulta_resuelta"
   | "proximo_paso_cambiado"
   | "consulta_ot_vinculada"
+  | "gestion_liberada_por_inactividad"
 
 export interface CustomerAtencionEvent {
   id: string

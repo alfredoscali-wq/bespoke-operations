@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ChevronLeft, ChevronRight, FileSpreadsheet, Plus } from "lucide-react"
 
@@ -27,6 +27,13 @@ import {
 } from "@/lib/tasks/task-list-scope"
 import { filterPlanningReturnedTasks } from "@/lib/tasks/planning-return"
 import { TasksPlanningReturnedKpi } from "@/components/tareas/tasks-planning-returned-kpi"
+import { formatConsultationExpedienteCode } from "@/lib/customer-atenciones/consultation-expediente"
+import {
+  clearConsultationOtCreatePrefill,
+  readConsultationOtCreatePrefill,
+  type ConsultationOtCreatePrefill,
+} from "@/lib/customer-atenciones/consultation-ot-create"
+import { linkConsultationOtManagement } from "@/lib/supabase/customer-atenciones-management.browser"
 import { Button } from "@/components/ui/button"
 
 const TASKS_PAGE_SIZE = 25
@@ -52,6 +59,8 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
   const [feedback, setFeedback] = useState<string | null>(null)
   const [planningReturnedFilterActive, setPlanningReturnedFilterActive] =
     useState(false)
+  const [consultationPrefill, setConsultationPrefill] =
+    useState<ConsultationOtCreatePrefill | null>(null)
 
   useEffect(() => {
     const status = parseTaskStatusQuery(searchParams.get("status"))
@@ -69,6 +78,49 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
       parsePlanningReturnedQuery(searchParams.get("planningReturned"))
     )
   }, [mode, searchParams])
+
+  // RC 3.2.6 — open Nueva OT from Gestión de Consultas with prefill + auto-link.
+  useEffect(() => {
+    if (mode !== "active") {
+      return
+    }
+
+    if (searchParams.get("nuevaOt") !== "1") {
+      return
+    }
+
+    const atencionId = searchParams.get("atencionId")?.trim() || ""
+    if (!atencionId) {
+      return
+    }
+
+    const stored = readConsultationOtCreatePrefill(atencionId)
+    const customerId =
+      stored?.customerId || searchParams.get("customerId")?.trim() || ""
+
+    if (!customerId) {
+      return
+    }
+
+    setConsultationPrefill(
+      stored ?? {
+        atencionId,
+        customerId,
+        expedienteCode: formatConsultationExpedienteCode(atencionId),
+        motivoLabel: "Consulta",
+        initialObservations: "",
+        technicalHistory: null,
+      }
+    )
+    setWorkOrderOpen(true)
+
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete("nuevaOt")
+    params.delete("atencionId")
+    params.delete("customerId")
+    const query = params.toString()
+    router.replace(query ? `/tareas?${query}` : "/tareas", { scroll: false })
+  }, [mode, router, searchParams])
 
   useEffect(() => {
     if (mode !== "active") {
@@ -144,7 +196,47 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
     return addTask(payload)
   }
 
-  function handleWorkOrderCreated(result: WorkOrderCreateResult) {
+  const handleWorkOrderOpenChange = useCallback((open: boolean) => {
+    setWorkOrderOpen(open)
+    if (!open) {
+      setConsultationPrefill((current) => {
+        if (current) {
+          clearConsultationOtCreatePrefill(current.atencionId)
+        }
+        return null
+      })
+    }
+  }, [])
+
+  async function handleWorkOrderCreated(result: WorkOrderCreateResult) {
+    const atencionId = consultationPrefill?.atencionId
+
+    if (atencionId) {
+      const linkResult = await linkConsultationOtManagement(
+        atencionId,
+        result.task.id
+      )
+      clearConsultationOtCreatePrefill(atencionId)
+      setConsultationPrefill(null)
+
+      if (!linkResult.success) {
+        setFeedback(
+          result.photoUpload.failedPhotos > 0
+            ? `La OT se creó, pero no se pudo vincular a la consulta: ${linkResult.message} Algunas fotos no pudieron cargarse.`
+            : `La OT se creó, pero no se pudo vincular a la consulta: ${linkResult.message}`
+        )
+        return
+      }
+
+      setFeedback(
+        result.photoUpload.failedPhotos > 0
+          ? "OT creada y vinculada a la consulta. Algunas fotos no pudieron cargarse."
+          : "Orden de trabajo creada y vinculada a la consulta."
+      )
+      router.push(`/atencion-cliente/${atencionId}`)
+      return
+    }
+
     if (result.photoUpload.failedPhotos > 0) {
       setFeedback(
         "La orden fue creada correctamente. Algunas fotos no pudieron cargarse."
@@ -282,10 +374,11 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
         <>
           <TaskWorkOrderDialog
             open={workOrderOpen}
-            onOpenChange={setWorkOrderOpen}
+            onOpenChange={handleWorkOrderOpenChange}
             existingTasks={tasks}
             onSubmit={handleCreateWorkOrder}
             onTaskCreated={handleWorkOrderCreated}
+            consultationPrefill={consultationPrefill}
           />
 
           <WorkOrderImportDialog

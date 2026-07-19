@@ -26,9 +26,15 @@ const OUTCOME_OPTIONS: {
   label: string
 }[] = [
   { value: "consulta_resuelta", label: "Consulta técnica resuelta" },
-  { value: "seguimiento_con_cliente", label: "Seguimiento con cliente" },
+  {
+    value: "seguimiento_con_cliente",
+    label: "Requiere contacto con el cliente",
+  },
   { value: "pendiente_generar_ot", label: "Pendiente de generar OT" },
-  { value: "esperando_cliente", label: "Esperar cliente" },
+  {
+    value: "esperando_cliente",
+    label: "Esperar respuesta del cliente",
+  },
 ]
 
 type TechnicalResultDialogProps = {
@@ -39,6 +45,8 @@ type TechnicalResultDialogProps = {
     nextStep: string,
     detail: string
   ) => Promise<{ success: boolean; message?: string }>
+  /** RC 3.2.2 — render inside the expediente (no modal). */
+  presentation?: "dialog" | "inline"
 }
 
 export function TechnicalResultDialog({
@@ -46,20 +54,22 @@ export function TechnicalResultDialog({
   onOpenChange,
   onResolve,
   onDefer,
+  presentation = "dialog",
 }: TechnicalResultDialogProps) {
   const [outcome, setOutcome] = useState<TechnicalOutcome | null>(null)
   const [note, setNote] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const isInline = presentation === "inline"
 
   useEffect(() => {
-    if (!open) {
+    if (!open && !isInline) {
       setOutcome(null)
       setNote("")
       setError(null)
       setIsSubmitting(false)
     }
-  }, [open])
+  }, [open, isInline])
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -102,75 +112,101 @@ export function TechnicalResultDialog({
       }
 
       onOpenChange(false)
+      if (isInline) {
+        setOutcome(null)
+        setNote("")
+      }
     } finally {
       setIsSubmitting(false)
     }
   }
 
+  const form = (
+    <form onSubmit={handleSubmit} className={cn(isInline && "space-y-3")}>
+      {!isInline ? (
+        <DialogHeader>
+          <DialogTitle>Resultado técnico</DialogTitle>
+          <DialogDescription>
+            Registrá el resultado de la intervención técnica. Atención puede
+            validar con el cliente después.
+          </DialogDescription>
+        </DialogHeader>
+      ) : null}
+
+      <div className={cn("space-y-4", isInline ? "py-0" : "py-4")}>
+        <div className="space-y-2">
+          <Label>¿Qué resultado tuvo el análisis técnico?</Label>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {OUTCOME_OPTIONS.map((option) => (
+              <Button
+                key={option.value}
+                type="button"
+                variant={outcome === option.value ? "default" : "outline"}
+                className={cn(
+                  "h-auto whitespace-normal py-3 text-left",
+                  outcome === option.value && "ring-2 ring-primary/30"
+                )}
+                onClick={() => setOutcome(option.value)}
+              >
+                {option.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        {outcome ? (
+          <div className="space-y-2">
+            <Label htmlFor="technical-note">Detalle / resolución</Label>
+            <Textarea
+              id="technical-note"
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              rows={4}
+              placeholder="Describí el resultado técnico…"
+            />
+          </div>
+        ) : null}
+
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      </div>
+
+      {isInline ? (
+        <Button
+          type="submit"
+          className="h-10 w-full text-[13px] font-semibold"
+          disabled={isSubmitting || !outcome}
+        >
+          {isSubmitting ? "Registrando…" : "Registrar gestión"}
+        </Button>
+      ) : (
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isSubmitting}
+          >
+            Cancelar
+          </Button>
+          <Button type="submit" disabled={isSubmitting || !outcome}>
+            {isSubmitting ? "Guardando…" : "Registrar gestión"}
+          </Button>
+        </DialogFooter>
+      )}
+    </form>
+  )
+
+  if (isInline) {
+    return (
+      <div className="rounded-md border border-slate-200 bg-slate-50/80 px-3 py-2.5">
+        {form}
+      </div>
+    )
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <form onSubmit={handleSubmit}>
-          <DialogHeader>
-            <DialogTitle>Resultado técnico</DialogTitle>
-            <DialogDescription>
-              Registrá el resultado de la intervención técnica. Atención puede
-              validar con el cliente después.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>¿Qué ocurrió?</Label>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {OUTCOME_OPTIONS.map((option) => (
-                  <Button
-                    key={option.value}
-                    type="button"
-                    variant={outcome === option.value ? "default" : "outline"}
-                    className={cn(
-                      "h-auto whitespace-normal py-3 text-left",
-                      outcome === option.value && "ring-2 ring-primary/30"
-                    )}
-                    onClick={() => setOutcome(option.value)}
-                  >
-                    {option.label}
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            {outcome ? (
-              <div className="space-y-2">
-                <Label htmlFor="technical-note">Detalle / resolución</Label>
-                <Textarea
-                  id="technical-note"
-                  value={note}
-                  onChange={(event) => setNote(event.target.value)}
-                  rows={4}
-                  placeholder="Describí el resultado técnico…"
-                />
-              </div>
-            ) : null}
-
-            {error ? <p className="text-sm text-destructive">{error}</p> : null}
-          </div>
-
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isSubmitting}
-            >
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={isSubmitting || !outcome}>
-              {isSubmitting ? "Guardando…" : "Registrar resultado"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
+      <DialogContent className="sm:max-w-lg">{form}</DialogContent>
     </Dialog>
   )
 }

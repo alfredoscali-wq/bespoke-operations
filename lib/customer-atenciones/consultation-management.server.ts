@@ -96,13 +96,81 @@ export async function resolveCustomerAtencionConsultation(input: {
   atencionId: string
   employeeId: string
   resolution: string
+  followUpActions?: string[]
 }): Promise<ConsultationManagementServerResult> {
   return callConsultationManagementRpc("resolve_customer_atencion_consultation", {
     p_company_id: input.companyId,
     p_atencion_id: input.atencionId,
     p_employee_id: input.employeeId,
     p_resolution: input.resolution,
+    p_follow_up_actions: input.followUpActions ?? [],
   })
+}
+
+export async function cancelCustomerAtencionManagement(input: {
+  companyId: string
+  atencionId: string
+  employeeId: string
+}): Promise<ConsultationManagementServerResult> {
+  return callConsultationManagementRpc("cancel_customer_atencion_management", {
+    p_company_id: input.companyId,
+    p_atencion_id: input.atencionId,
+    p_employee_id: input.employeeId,
+  })
+}
+
+export async function touchCustomerAtencionManagementActivity(input: {
+  companyId: string
+  atencionId: string
+  employeeId: string
+}): Promise<ConsultationManagementServerResult> {
+  return callConsultationManagementRpc(
+    "touch_customer_atencion_management_activity",
+    {
+      p_company_id: input.companyId,
+      p_atencion_id: input.atencionId,
+      p_employee_id: input.employeeId,
+    }
+  )
+}
+
+export async function releaseExpiredCustomerAtencionManagements(input: {
+  companyId: string
+}): Promise<
+  | { ok: true; releasedCount: number; timeoutMinutes: number }
+  | {
+      ok: false
+      status: number
+      message: string
+      code: ConsultationManagementErrorCode
+    }
+> {
+  const admin = createAdminClient()
+
+  const { data, error } = await (admin as unknown as AdminRpcClient).rpc(
+    "release_expired_customer_atencion_managements",
+    { p_company_id: input.companyId }
+  )
+
+  if (error) {
+    logOperationError("CONSULTATION MANAGEMENT", error)
+    const mapped = mapConsultationManagementRpcError(error.message || "")
+    return {
+      ok: false,
+      status: mapped.status,
+      message: mapped.message,
+      code: mapped.code,
+    }
+  }
+
+  const record =
+    data && typeof data === "object" ? (data as Record<string, unknown>) : null
+  const releasedCount =
+    typeof record?.released_count === "number" ? record.released_count : 0
+  const timeoutMinutes =
+    typeof record?.timeout_minutes === "number" ? record.timeout_minutes : 15
+
+  return { ok: true, releasedCount, timeoutMinutes }
 }
 
 export async function deferCustomerAtencionConsultation(input: {

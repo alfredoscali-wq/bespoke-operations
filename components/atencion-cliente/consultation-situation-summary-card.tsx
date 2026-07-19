@@ -1,25 +1,44 @@
 "use client"
 
-import { CircleDot } from "lucide-react"
+import {
+  CircleDot,
+  Clock3,
+  MessageSquareText,
+  UserRound,
+} from "lucide-react"
 
 import { PanelSectionCard } from "@/components/atencion-cliente/consultation-detail-panel-ui"
+import { Badge } from "@/components/ui/badge"
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import type {
-  ConsultationSituationNarrative,
-  ConsultationSituationSummary,
+import {
+  formatConsultationEstadoActualBadge,
+  formatConsultationEstadoActualSummary,
+  formatConsultationIngressDateTime,
+  isRedundantEstadoActualDerivation,
+  type ConsultationSituationNarrative,
+  type ConsultationSituationSummary,
 } from "@/lib/customer-atenciones/consultation-expediente"
-import type { CustomerAtencionStatus } from "@/lib/types/customer-atenciones"
+import type {
+  CustomerAtencionNextStep,
+  CustomerAtencionStatus,
+} from "@/lib/types/customer-atenciones"
+import { cn } from "@/lib/utils"
 
 type ConsultationSituationSummaryCardProps = {
   summary: ConsultationSituationSummary
   status: CustomerAtencionStatus
+  nextStep?: CustomerAtencionNextStep | null
   narrative: ConsultationSituationNarrative
   lastActorName: string
+  /** Creation detail written when the consultation was opened. */
+  initialObservations?: string | null
+  /** Person currently responsible when the consultation is in management. */
+  responsiblePersonName?: string
   presentation?: "page" | "panel"
 }
 
@@ -27,19 +46,23 @@ function SituationField({
   label,
   value,
   preserveWhitespace = false,
+  className,
 }: {
   label: string
   value: React.ReactNode
   preserveWhitespace?: boolean
+  className?: string
 }) {
   return (
-    <div className="space-y-1">
-      <p className="text-xs text-muted-foreground">{label}</p>
+    <div className={className}>
+      <p className="text-[10px] font-medium tracking-wide text-slate-500 uppercase">
+        {label}
+      </p>
       <div
         className={
           preserveWhitespace
-            ? "whitespace-pre-wrap text-sm font-medium text-foreground"
-            : "text-sm font-medium text-foreground"
+            ? "mt-0.5 whitespace-pre-wrap text-[12px] font-medium leading-snug text-slate-800"
+            : "mt-0.5 text-[12px] font-medium leading-snug text-slate-800"
         }
       >
         {value}
@@ -98,21 +121,125 @@ function SituationNarrativeBody({
   )
 }
 
+function formatSituationDateTime(iso: string): string {
+  return new Date(iso).toLocaleString("es-AR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+}
+
+function CompactMetaColumn({
+  icon: Icon,
+  label,
+  children,
+  className,
+}: {
+  icon: typeof UserRound
+  label: string
+  children: React.ReactNode
+  className?: string
+}) {
+  return (
+    <div className={cn("min-w-0", className)}>
+      <div className="flex items-center gap-1.5">
+        <Icon className="size-3 shrink-0 text-slate-400" aria-hidden />
+        <p className="text-[10px] font-semibold tracking-wide text-slate-500 uppercase">
+          {label}
+        </p>
+      </div>
+      <div className="mt-1 text-[12px] leading-snug text-slate-800">
+        {children}
+      </div>
+    </div>
+  )
+}
+
 export function ConsultationSituationSummaryCard({
   summary,
+  status,
+  nextStep = null,
   narrative,
   lastActorName,
+  initialObservations,
   presentation = "page",
 }: ConsultationSituationSummaryCardProps) {
   if (presentation === "panel") {
+    const derivation =
+      narrative.handoff?.kind === "derivation" ? narrative.handoff : null
+    const rawDerivedBy = derivation?.fromAreaLabel?.trim() || null
+    const derivedBy =
+      rawDerivedBy &&
+      !isRedundantEstadoActualDerivation({ status, nextStep }, rawDerivedBy)
+        ? rawDerivedBy
+        : null
+    const badgeLabel = formatConsultationEstadoActualBadge({
+      status,
+      nextStep,
+    })
+    const summarySentence = formatConsultationEstadoActualSummary({
+      status,
+      nextStep,
+    })
+    const observations = initialObservations?.trim() || null
+    const lastInterventionUser =
+      lastActorName !== "—" ? lastActorName : summary.lastInterventionAreaLabel
+    const lastInterventionWhen = formatConsultationIngressDateTime(
+      summary.lastUpdatedAt
+    )
+
     return (
       <PanelSectionCard
-        title="Situación Actual"
+        title="Estado actual"
         icon={CircleDot}
         tone="green"
-        contentClassName="px-3 py-2"
+        className="w-full"
+        contentClassName="space-y-2.5 px-3 py-2.5"
+        headerEnd={
+          <Badge
+            variant="secondary"
+            className="h-auto max-w-[14rem] whitespace-normal px-2 py-0.5 text-left text-[10px] font-semibold leading-tight"
+          >
+            {badgeLabel}
+          </Badge>
+        }
       >
-        <SituationNarrativeBody narrative={narrative} />
+        <p className="text-[13px] leading-snug font-medium text-slate-900">
+          {summarySentence}
+        </p>
+
+        <div className="grid grid-cols-1 gap-2.5 border-t border-slate-200/70 pt-2.5 sm:grid-cols-3 sm:gap-0">
+          <CompactMetaColumn
+            icon={UserRound}
+            label="Derivada por"
+            className="sm:pr-3"
+          >
+            <p className="font-medium">{derivedBy ?? "—"}</p>
+          </CompactMetaColumn>
+
+          <CompactMetaColumn
+            icon={MessageSquareText}
+            label="Observaciones iniciales"
+            className="sm:border-l sm:border-slate-200/70 sm:px-3"
+          >
+            <p className="line-clamp-3 whitespace-pre-wrap font-medium">
+              {observations ?? "—"}
+            </p>
+          </CompactMetaColumn>
+
+          <CompactMetaColumn
+            icon={Clock3}
+            label="Última intervención"
+            className="sm:border-l sm:border-slate-200/70 sm:pl-3"
+          >
+            <p className="font-semibold tracking-wide text-slate-900 uppercase">
+              {lastInterventionUser}
+            </p>
+            <p className="mt-0.5 text-slate-600">{lastInterventionWhen}</p>
+          </CompactMetaColumn>
+        </div>
       </PanelSectionCard>
     )
   }
@@ -131,7 +258,7 @@ export function ConsultationSituationSummaryCard({
           />
           <SituationField
             label="Última actualización"
-            value={new Date(summary.lastUpdatedAt).toLocaleString("es-AR")}
+            value={formatSituationDateTime(summary.lastUpdatedAt)}
           />
           <SituationField label="Usuario" value={lastActorName} />
           <div className="sm:col-span-2">

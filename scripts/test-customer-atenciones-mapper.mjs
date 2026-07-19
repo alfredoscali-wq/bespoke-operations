@@ -35,7 +35,7 @@ test("mapper convierte fila de customer_atenciones al dominio", () => {
   assert.equal(mapped.companyId, "company-1")
   assert.equal(mapped.customerId, "customer-1")
   assert.equal(mapped.channel, "whatsapp")
-  assert.equal(mapped.motivo, "consulta")
+  assert.equal(mapped.motivo, "otro")
   assert.equal(mapped.resultado, "resuelta")
   assert.equal(mapped.status, "resuelta")
   assert.equal(mapped.nextStep, null)
@@ -47,7 +47,7 @@ test("insert del sprint 2.0 deriva status resuelta y next_step null", () => {
     customerId: "customer-1",
     attendedByEmployeeId: "employee-1",
     channel: "telefono",
-    motivo: "reclamo",
+    motivo: "facturacion",
     detail: "Cliente reclama demora",
     resolution: "Se coordinó visita técnica",
   })
@@ -66,13 +66,30 @@ test("insert con requiere_seguimiento deriva status pendiente", () => {
     customerId: "customer-1",
     attendedByEmployeeId: "employee-1",
     channel: "telefono",
-    motivo: "consulta",
+    motivo: "consulta_comercial",
     detail: "Callback",
     resolution: "Programado",
     resultado: "requiere_seguimiento",
   })
 
   assert.equal(insert.status, "pendiente")
+})
+
+test("mapper RC 3.1.6 mapea motivos legacy", () => {
+  assert.equal(
+    mapCustomerAtencionRowToCustomerAtencion({
+      ...sampleRow,
+      motivo: "retencion",
+    }).motivo,
+    "baja"
+  )
+  assert.equal(
+    mapCustomerAtencionRowToCustomerAtencion({
+      ...sampleRow,
+      motivo: "solicitud",
+    }).motivo,
+    "otro"
+  )
 })
 
 test("mapper normaliza valores desconocidos con defaults seguros", () => {

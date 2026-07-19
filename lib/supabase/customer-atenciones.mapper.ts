@@ -5,6 +5,7 @@ import {
   isCustomerAtencionStatus,
   resolveInitialConsultationStatusFromNextStep,
 } from "@/lib/customer-atenciones/consultation"
+import { normalizeConsultationFollowUpActions } from "@/lib/customer-atenciones/consultation-follow-up"
 import { DEFAULT_MOROSO_TRACKING_STATUS, isMorosoTrackingStatus } from "@/lib/customer-atenciones/moroso-flow"
 import type {
   CustomerAtencionInsert,
@@ -36,14 +37,22 @@ function parseChannel(value: string): CustomerAtencionChannel {
 }
 
 function parseMotivo(value: string): CustomerAtencionMotivo {
+  // RC 3.1.6 — legacy values mapped for rows not yet migrated.
+  if (value === "consulta" || value === "reclamo" || value === "solicitud") {
+    return "otro"
+  }
+  if (value === "retencion") {
+    return "baja"
+  }
+
   if (
-    value === "consulta" ||
-    value === "reclamo" ||
-    value === "solicitud" ||
     value === "problema_tecnico" ||
     value === "facturacion" ||
+    value === "cambio_plan_tecnologia" ||
+    value === "consulta_comercial" ||
+    value === "consulta_tv" ||
+    value === "nuevo_servicio" ||
     value === "baja" ||
-    value === "retencion" ||
     value === "otro"
   ) {
     return value
@@ -114,6 +123,11 @@ export function mapCustomerAtencionRowToCustomerAtencion(
     otLinkedByEmployeeId: row.ot_linked_by_employee_id ?? null,
     activeManagementEmployeeId: row.active_management_employee_id,
     activeManagementStartedAt: row.active_management_started_at,
+    activeManagementLastActivityAt:
+      row.active_management_last_activity_at ?? null,
+    followUpActions: normalizeConsultationFollowUpActions(
+      row.follow_up_actions
+    ),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
@@ -149,5 +163,6 @@ export function mapCreateCustomerAtencionPayloadToInsert(
       nextStep === "derivar_admin_morosos" ? DEFAULT_MOROSO_TRACKING_STATUS : null,
     active_management_employee_id: null,
     active_management_started_at: null,
+    active_management_last_activity_at: null,
   }
 }

@@ -14,16 +14,28 @@ const CHANNEL_LABELS: Record<CustomerAtencionChannel, string> = {
   otro: "Otro",
 }
 
+/** RC 3.1.6 — reason the customer contacted (ordered for the form select). */
 const MOTIVO_LABELS: Record<CustomerAtencionMotivo, string> = {
-  consulta: "Consulta",
-  reclamo: "Reclamo",
-  solicitud: "Solicitud",
   problema_tecnico: "Problema técnico",
   facturacion: "Facturación",
-  baja: "Baja",
-  retencion: "Retención",
+  cambio_plan_tecnologia: "Cambio de Plan / Tecnología",
+  consulta_comercial: "Consulta Comercial",
+  consulta_tv: "Consulta sobre TV",
+  nuevo_servicio: "Nuevo servicio",
+  baja: "Baja del servicio",
   otro: "Otro",
 }
+
+export const CUSTOMER_ATENCION_MOTIVO_ORDER = [
+  "problema_tecnico",
+  "facturacion",
+  "cambio_plan_tecnologia",
+  "consulta_comercial",
+  "consulta_tv",
+  "nuevo_servicio",
+  "baja",
+  "otro",
+] as const satisfies readonly CustomerAtencionMotivo[]
 
 const RESULTADO_LABELS: Record<CustomerAtencionResultado, string> = {
   resuelta: "Resuelta",
@@ -47,8 +59,8 @@ const NEXT_STEP_LABELS: Record<CustomerAtencionNextStep, string> = {
   derivar_admin_morosos: "Derivar Administración - Morosos",
   derivar_admin_gestion: "Derivar Administración - Gestión administrativa",
   contactar_cliente: "Derivar a Ventas",
-  seguimiento_cliente: "Seguimiento con cliente",
-  esperar_cliente: "Esperar cliente",
+  seguimiento_cliente: "Requiere contacto con el cliente",
+  esperar_cliente: "Esperar respuesta del cliente",
   generar_ot: "Generar OT",
 }
 
@@ -102,6 +114,7 @@ const EVENT_ACTION_LABELS: Record<CustomerAtencionEventActionType, string> = {
   consulta_resuelta: "Resolución",
   proximo_paso_cambiado: "Cambio de próximo paso",
   consulta_ot_vinculada: "Vinculación con OT",
+  gestion_liberada_por_inactividad: "Gestión liberada por inactividad",
 }
 
 export function formatCustomerAtencionEventActionLabel(
@@ -114,9 +127,12 @@ export const CUSTOMER_ATENCION_CHANNEL_OPTIONS = (
   Object.entries(CHANNEL_LABELS) as [CustomerAtencionChannel, string][]
 ).map(([value, label]) => ({ value, label }))
 
-export const CUSTOMER_ATENCION_MOTIVO_OPTIONS = (
-  Object.entries(MOTIVO_LABELS) as [CustomerAtencionMotivo, string][]
-).map(([value, label]) => ({ value, label }))
+export const CUSTOMER_ATENCION_MOTIVO_OPTIONS = CUSTOMER_ATENCION_MOTIVO_ORDER.map(
+  (value) => ({
+    value,
+    label: MOTIVO_LABELS[value],
+  })
+)
 
 export const CUSTOMER_ATENCION_NEXT_STEP_OPTIONS =
   CUSTOMER_ATENCION_NEXT_STEP_MENU_ORDER.map((value) => ({

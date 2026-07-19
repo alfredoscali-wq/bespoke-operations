@@ -13,6 +13,8 @@ type ConsultationWorkPanelProps = {
   open: boolean
   onClose: () => void
   onDataChanged: () => void
+  /** RC 3.2.3 — parent should open the exclusive-management dialog. */
+  onExclusiveManagementBlocked?: () => void
 }
 
 /**
@@ -24,6 +26,7 @@ export function ConsultationWorkPanel({
   open,
   onClose,
   onDataChanged,
+  onExclusiveManagementBlocked,
 }: ConsultationWorkPanelProps) {
   return (
     <Dialog
@@ -52,6 +55,7 @@ export function ConsultationWorkPanel({
             presentation="panel"
             onRequestClose={onClose}
             onDataChanged={onDataChanged}
+            onExclusiveManagementBlocked={onExclusiveManagementBlocked}
           />
         </div>
       </DialogContent>

@@ -56,14 +56,18 @@ import { DEMO_RESTRICTED_DIALOG_MESSAGE } from "@/lib/demo/constants"
 import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import {
   createCustomerAtencion,
+  getOperatorActiveManagement,
   listSharedInboxConsultations,
   loadSharedInboxBundle,
   listEmployeeAtencionesToday,
 } from "@/lib/supabase/customer-atenciones.browser"
 import {
+  cancelConsultationManagement,
   deferConsultationManagement,
+  releaseExpiredConsultationManagements,
   resolveConsultationManagement,
   startConsultationManagement,
+  touchConsultationManagementActivity,
   updateMorosoTrackingManagement,
   linkConsultationOtManagement,
   permanentDeleteConsultationManagement,
@@ -75,6 +79,10 @@ import {
 import {
   CONSULTATION_HARD_DELETE_SUCCESS_MESSAGE,
 } from "@/lib/customer-atenciones/consultation-hard-delete"
+import {
+  findOperatorActiveManagement,
+  type OperatorActiveManagement,
+} from "@/lib/customer-atenciones/consultation-exclusive-management"
 import {
   createBrowserCustomerAtencionesClient,
   getCustomerAtencionById as loadCustomerAtencionById,
@@ -177,6 +185,8 @@ const EMPTY_SHARED_INBOX_KPIS: SharedInboxKpiSummary = {
   para_resolver: 0,
   pendientes: 0,
   resueltas_hoy: 0,
+  consulta_comercial: 0,
+  consulta_tv: 0,
 }
 
 const EMPTY_SHARED_INBOX_OPERATIONAL_COUNTS: SharedInboxOperationalCounts = {
@@ -223,6 +233,9 @@ type AtencionClienteContextValue = {
   sharedInboxQuery: SharedInboxQuery
   isSharedInboxLoading: boolean
   isSharedInboxDashboardLoading: boolean
+  /** RC 3.2.3 — the operator's single active en_gestion (if any). */
+  myActiveManagement: OperatorActiveManagement | null
+  refreshMyActiveManagement: () => Promise<void>
   loadAtencionPage: (query: CustomerAtencionListQuery) => Promise<void>
   loadSharedInbox: (query: SharedInboxQuery) => Promise<void>
   refreshSharedInbox: () => Promise<void>
@@ -238,9 +251,16 @@ type AtencionClienteContextValue = {
   startConsultationManagement: (
     atencionId: string
   ) => Promise<ConsultationManagementMutationResult>
+  cancelConsultationManagement: (
+    atencionId: string
+  ) => Promise<ConsultationManagementMutationResult>
+  touchConsultationManagementActivity: (
+    atencionId: string
+  ) => Promise<ConsultationManagementMutationResult>
   resolveConsultation: (
     atencionId: string,
-    resolution: string
+    resolution: string,
+    followUpActions?: string[]
   ) => Promise<ConsultationManagementMutationResult>
   deferConsultation: (
     atencionId: string,
@@ -328,6 +348,8 @@ export function AtencionClienteProvider({
   const [sharedInboxRows, setSharedInboxRows] = useState<CustomerAtencionInboxRow[]>(
     []
   )
+  const [myActiveManagement, setMyActiveManagement] =
+    useState<OperatorActiveManagement | null>(null)
   const [
     sharedInboxHistoricalDaySummary,
     setSharedInboxHistoricalDaySummary,
@@ -412,6 +434,9 @@ export function AtencionClienteProvider({
       setSharedInboxQuery(query)
 
       try {
+        // RC 3.2.5 — release idle locks before painting the bandeja.
+        await releaseExpiredConsultationManagements()
+
         const referenceDate = new Date()
         const jornadaQuery = createJornadaDashboardQuery(referenceDate)
         const shouldLoadDashboard = !sharedInboxDashboardLoadedRef.current
@@ -461,6 +486,20 @@ export function AtencionClienteProvider({
             EMPTY_SHARED_INBOX_WORK_TRAY_COUNTS
         )
 
+        if (employeeId) {
+          void getOperatorActiveManagement(companyId, employeeId).then(
+            (activeResult) => {
+              if (activeResult.data) {
+                setMyActiveManagement(
+                  findOperatorActiveManagement([activeResult.data], employeeId)
+                )
+              } else {
+                setMyActiveManagement(null)
+              }
+            }
+          )
+        }
+
         if (historicalRowsResult?.data && isHistoricalDay) {
           setSharedInboxHistoricalDaySummary(
             computeHistoricalDaySummary(
@@ -477,14 +516,31 @@ export function AtencionClienteProvider({
         setIsSharedInboxDashboardLoading(false)
       }
     },
-    [companyId, isAuthReady]
+    [companyId, employeeId, isAuthReady]
   )
+
+  const refreshMyActiveManagement = useCallback(async () => {
+    if (!isAuthReady || !companyId || !employeeId) {
+      setMyActiveManagement(null)
+      return
+    }
+
+    const result = await getOperatorActiveManagement(companyId, employeeId)
+    if (result.error || !result.data) {
+      setMyActiveManagement(null)
+      return
+    }
+
+    setMyActiveManagement(
+      findOperatorActiveManagement([result.data], employeeId)
+    )
+  }, [companyId, employeeId, isAuthReady])
 
   const refreshSharedInbox = useCallback(async () => {
     // Force a fresh jornada dashboard load after mutations.
     sharedInboxDashboardLoadedRef.current = false
-    await loadSharedInbox(sharedInboxQuery)
-  }, [loadSharedInbox, sharedInboxQuery])
+    await Promise.all([loadSharedInbox(sharedInboxQuery), refreshMyActiveManagement()])
+  }, [loadSharedInbox, refreshMyActiveManagement, sharedInboxQuery])
 
   const refreshDashboard = useCallback(async () => {
     if (!isAuthReady || !companyId || !employeeId) {
@@ -854,10 +910,37 @@ export function AtencionClienteProvider({
     [runConsultationManagementMutation]
   )
 
-  const resolveConsultationHandler = useCallback(
-    async (atencionId: string, resolution: string) => {
+  const cancelConsultationManagementHandler = useCallback(
+    async (atencionId: string) => {
       return runConsultationManagementMutation(atencionId, () =>
-        resolveConsultationManagement(atencionId, resolution)
+        cancelConsultationManagement(atencionId)
+      )
+    },
+    [runConsultationManagementMutation]
+  )
+
+  const touchConsultationManagementActivityHandler = useCallback(
+    async (atencionId: string) => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return {
+          success: false as const,
+          message: DEMO_RESTRICTED_DIALOG_MESSAGE,
+        }
+      }
+
+      return touchConsultationManagementActivity(atencionId)
+    },
+    [isReadOnly, openRestrictedDialog]
+  )
+
+  const resolveConsultationHandler = useCallback(
+    async (
+      atencionId: string,
+      resolution: string,
+      followUpActions: string[] = []
+    ) => {
+      return runConsultationManagementMutation(atencionId, () =>
+        resolveConsultationManagement(atencionId, resolution, followUpActions)
       )
     },
     [runConsultationManagementMutation]
@@ -1329,6 +1412,8 @@ export function AtencionClienteProvider({
       sharedInboxQuery,
       isSharedInboxLoading,
       isSharedInboxDashboardLoading,
+      myActiveManagement,
+      refreshMyActiveManagement,
       loadAtencionPage,
       loadSharedInbox,
       refreshSharedInbox,
@@ -1342,6 +1427,9 @@ export function AtencionClienteProvider({
       listAssignees,
       createAtencion,
       startConsultationManagement: startConsultationManagementHandler,
+      cancelConsultationManagement: cancelConsultationManagementHandler,
+      touchConsultationManagementActivity:
+        touchConsultationManagementActivityHandler,
       resolveConsultation: resolveConsultationHandler,
       deferConsultation: deferConsultationHandler,
       updateMorosoTracking: updateMorosoTrackingHandler,
@@ -1396,6 +1484,7 @@ export function AtencionClienteProvider({
       pendingSeguimientos,
       refreshAtencionById,
       refreshDashboard,
+      refreshMyActiveManagement,
       refreshSharedInbox,
       resolveConsultationHandler,
       resolveRetencion,
@@ -1406,7 +1495,10 @@ export function AtencionClienteProvider({
       sharedInboxQuery,
       sharedInboxRows,
       sharedInboxHistoricalDaySummary,
+      myActiveManagement,
       startConsultationManagementHandler,
+      cancelConsultationManagementHandler,
+      touchConsultationManagementActivityHandler,
       createRecuperacion,
       createRetencion,
     ]

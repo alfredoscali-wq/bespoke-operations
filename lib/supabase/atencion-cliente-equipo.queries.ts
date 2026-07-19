@@ -119,6 +119,7 @@ export async function fetchEquipoIndividualReport(
       .gte("created_at", bounds.start)
       .lt("created_at", bounds.end)
       .is("deleted_at", null)
+      .order("updated_at", { ascending: false })
       .order("created_at", { ascending: false }),
     client
       .from("customer_atenciones")

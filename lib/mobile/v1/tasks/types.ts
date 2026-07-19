@@ -59,6 +59,8 @@ export type MobileTaskDetailResponse = {
   technology: string | null
   contractedPlan: string | null
   installationIp: string | null
+  /** Snake_case alias for legacy Field Agent clients. */
+  installation_ip: string | null
   serviceReason: string | null
   serviceDetail: string | null
   checklist: MobileTaskChecklistItem[]
@@ -80,6 +82,11 @@ export type MobileTaskStartResponse = {
   status: TaskStatus
   startedAt: string
   checklist: MobileTaskChecklistItem[]
+  technology: string | null
+  contractedPlan: string | null
+  installationIp: string | null
+  installation_ip: string | null
+  amountToCollect: number | null
 }
 
 export type MobileTaskIncidentType = {

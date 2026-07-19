@@ -1,8 +1,13 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
 
-import { useAtencionCliente } from "@/components/atencion-cliente/atencion-cliente-provider"
+import {
+  buildConsultationOtCreateHref,
+  buildConsultationOtCreatePrefill,
+  storeConsultationOtCreatePrefill,
+} from "@/lib/customer-atenciones/consultation-ot-create"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -10,50 +15,49 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 
 type OtLinkBlockProps = {
   atencionId: string
+  customerId: string
+  motivoLabel: string
+  initialObservations?: string | null
+  technicalHistory?: string | null
   linkedTaskId?: string | null
   linkedTaskCode?: string | null
   otLinkedAt?: string | null
 }
 
+/**
+ * RC 3.2.6 — origin point for OT creation (reuses /tareas Nueva OT).
+ * Manual ID linking removed.
+ */
 export function OtLinkBlock({
   atencionId,
+  customerId,
+  motivoLabel,
+  initialObservations,
+  technicalHistory,
   linkedTaskId,
   linkedTaskCode,
   otLinkedAt,
 }: OtLinkBlockProps) {
-  const { linkConsultationOt } = useAtencionCliente()
-  const [taskId, setTaskId] = useState("")
-  const [error, setError] = useState<string | null>(null)
-  const [isSaving, setIsSaving] = useState(false)
+  const router = useRouter()
 
-  useEffect(() => {
-    setError(null)
-  }, [linkedTaskId])
-
-  async function handleLink() {
-    setError(null)
-    const trimmed = taskId.trim()
-    if (!trimmed) {
-      setError("Indicá el ID de la OT a vincular.")
-      return
-    }
-
-    setIsSaving(true)
-    try {
-      const result = await linkConsultationOt(atencionId, trimmed)
-      if (!result.success) {
-        setError(result.message)
-        return
-      }
-      setTaskId("")
-    } finally {
-      setIsSaving(false)
-    }
+  function handleCreateWorkOrder() {
+    const prefill = buildConsultationOtCreatePrefill({
+      atencionId,
+      customerId,
+      motivoLabel,
+      initialObservations,
+      technicalHistory,
+    })
+    storeConsultationOtCreatePrefill(prefill)
+    router.push(
+      buildConsultationOtCreateHref({
+        atencionId,
+        customerId,
+      })
+    )
   }
 
   return (
@@ -62,18 +66,16 @@ export function OtLinkBlock({
         <CardTitle>Pendiente de generar OT</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <p className="text-sm text-muted-foreground">
-          La gestión está lista para crear la Orden de Trabajo. Vinculá la OT
-          generada para conservar trazabilidad sin cerrar la consulta.
-        </p>
-
         {linkedTaskId ? (
           <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
             <p>
               OT vinculada:{" "}
-              <span className="font-medium text-foreground">
+              <Link
+                href={`/tareas/${linkedTaskId}`}
+                className="font-medium text-foreground underline-offset-2 hover:underline"
+              >
                 {linkedTaskCode ?? linkedTaskId}
-              </span>
+              </Link>
             </p>
             {otLinkedAt ? (
               <p className="text-xs text-muted-foreground">
@@ -82,21 +84,16 @@ export function OtLinkBlock({
             ) : null}
           </div>
         ) : (
-          <div className="space-y-2">
-            <Label htmlFor="ot-task-id">ID de la OT</Label>
-            <Input
-              id="ot-task-id"
-              value={taskId}
-              onChange={(event) => setTaskId(event.target.value)}
-              placeholder="UUID de la orden de trabajo"
-            />
-            <Button onClick={handleLink} disabled={isSaving}>
-              {isSaving ? "Vinculando…" : "Vincular OT"}
+          <>
+            <p className="text-sm text-muted-foreground">
+              Creá la Orden de Trabajo desde el formulario habitual. Al
+              guardarla se vinculará automáticamente a esta consulta.
+            </p>
+            <Button type="button" onClick={handleCreateWorkOrder}>
+              Crear Orden de Trabajo
             </Button>
-          </div>
+          </>
         )}
-
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
       </CardContent>
     </Card>
   )

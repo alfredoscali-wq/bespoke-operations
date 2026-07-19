@@ -6,7 +6,6 @@ import {
   ArrowLeft,
   Clock3,
   FolderOpen,
-  Info,
   Trash2,
   UserRound,
 } from "lucide-react"
@@ -14,8 +13,11 @@ import { useCallback, useEffect, useState, type ReactNode } from "react"
 
 import { useAtencionCliente } from "@/components/atencion-cliente/atencion-cliente-provider"
 import { AdministrationResultDialog } from "@/components/atencion-cliente/administration-result-dialog"
+import { ExclusiveManagementDialog } from "@/components/atencion-cliente/exclusive-management-dialog"
+import { LockedConsultationDialog } from "@/components/atencion-cliente/locked-consultation-dialog"
 import {
   ConsultationDecisionCenter,
+  type ConsultationAssistantOption,
   type ConsultationDecisionAction,
 } from "@/components/atencion-cliente/consultation-decision-center"
 import { ConsultationEventsTimeline } from "@/components/atencion-cliente/consultation-events-timeline"
@@ -37,6 +39,25 @@ import {
   isConsultationManagedByEmployee,
 } from "@/lib/customer-atenciones/consultation-management"
 import {
+  buildLockedConsultationInfo,
+  parseLockedManagementFromError,
+  type LockedConsultationInfo,
+} from "@/lib/customer-atenciones/consultation-management-lock"
+import {
+  detectManagementAssistantReturn,
+  getManagementAssistantNextStepMessage,
+  getManagementAssistantOptionLabel,
+  getManagementAssistantOptionsAfterAreaReturn,
+  getManagementAssistantOptionsAfterTecnica,
+  MANAGEMENT_ASSISTANT_INITIAL_OPTIONS,
+  managementAssistantOptionToNextStep,
+  type ManagementAssistantOptionId,
+} from "@/lib/customer-atenciones/consultation-management-assistant"
+import {
+  CONSULTATION_FOLLOW_UP_ACTION_OPTIONS,
+  type ConsultationFollowUpAction,
+} from "@/lib/customer-atenciones/consultation-follow-up"
+import {
   isActiveRetentionConsultationForEmployee,
   isRetentionConsultation,
 } from "@/lib/customer-atenciones/retention-flow"
@@ -53,7 +74,6 @@ import {
   formatConsultationExpedienteCode,
   formatConsultationIngressDateTime,
   formatConsultationRelativeAge,
-  formatConsultationSituationBand,
 } from "@/lib/customer-atenciones/consultation-expediente"
 import {
   CUSTOMER_ATENCION_NEXT_STEP_OPTIONS,
@@ -77,6 +97,7 @@ import type { Customer } from "@/lib/types/customers"
 import type { Employee } from "@/lib/types/employees"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Card,
   CardContent,
@@ -105,6 +126,8 @@ type AtencionDetailScreenProps = {
   onRequestClose?: () => void
   /** Panel mode: notify the parent that consultation data changed. */
   onDataChanged?: () => void
+  /** RC 3.2.3 — notify parent to show exclusive-management dialog. */
+  onExclusiveManagementBlocked?: () => void
 }
 
 function DetailField({
@@ -138,6 +161,7 @@ export function AtencionDetailScreen({
   presentation = "page",
   onRequestClose,
   onDataChanged,
+  onExclusiveManagementBlocked,
 }: AtencionDetailScreenProps) {
   const isPanel = presentation === "panel"
   const router = useRouter()
@@ -149,6 +173,10 @@ export function AtencionDetailScreen({
     resolveConsultation,
     deferConsultation,
     permanentDeleteConsultation,
+    myActiveManagement,
+    refreshMyActiveManagement,
+    cancelConsultationManagement,
+    touchConsultationManagementActivity,
   } = useAtencionCliente()
   const [atencion, setAtencion] = useState<CustomerAtencion | null>(null)
   const [customer, setCustomer] = useState<Customer | null>(null)
@@ -161,6 +189,12 @@ export function AtencionDetailScreen({
   const [isLoading, setIsLoading] = useState(true)
   const [actionError, setActionError] = useState<string | null>(null)
   const [isStarting, setIsStarting] = useState(false)
+  const [exclusiveDialogOpen, setExclusiveDialogOpen] = useState(false)
+  const [isCancellingExclusive, setIsCancellingExclusive] = useState(false)
+  const [lockedDialogOpen, setLockedDialogOpen] = useState(false)
+  const [lockedInfo, setLockedInfo] = useState<LockedConsultationInfo | null>(
+    null
+  )
   const [isResolving, setIsResolving] = useState(false)
   const [isDeferring, setIsDeferring] = useState(false)
   const [resolution, setResolution] = useState("")
@@ -174,6 +208,13 @@ export function AtencionDetailScreen({
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [selectedPanelAction, setSelectedPanelAction] =
     useState<PanelFormActionId | null>(null)
+  const [selectedAssistantOptionId, setSelectedAssistantOptionId] =
+    useState<ManagementAssistantOptionId | null>(null)
+  /** RC 3.2.0 — optional post-resolve follow-up (default: no). */
+  const [followUpNeeded, setFollowUpNeeded] = useState(false)
+  const [selectedFollowUpActions, setSelectedFollowUpActions] = useState<
+    ConsultationFollowUpAction[]
+  >([])
 
   const loadDetail = useCallback(async () => {
     setIsLoading(true)
@@ -227,35 +268,136 @@ export function AtencionDetailScreen({
 
   useEffect(() => {
     setSelectedPanelAction(null)
+    setSelectedAssistantOptionId(null)
     setResolution("")
     setActionError(null)
   }, [atencionId])
 
+  // RC 3.2.5 — keep exclusive lock alive while the operator works the expediente.
+  useEffect(() => {
+    if (
+      !atencion ||
+      atencion.id !== atencionId ||
+      !currentEmployeeId ||
+      !isConsultationManagedByEmployee(atencion, currentEmployeeId)
+    ) {
+      return
+    }
+
+    let cancelled = false
+
+    async function touch() {
+      const result = await touchConsultationManagementActivity(atencionId)
+      if (cancelled || result.success) {
+        return
+      }
+      if (result.code === "CONSULTATION_MANAGEMENT_ACTOR_MISMATCH") {
+        await loadDetail()
+      }
+    }
+
+    void touch()
+    const intervalId = window.setInterval(() => {
+      void touch()
+    }, 2 * 60_000)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(intervalId)
+    }
+  }, [
+    atencion,
+    atencionId,
+    currentEmployeeId,
+    loadDetail,
+    touchConsultationManagementActivity,
+  ])
+
   const reloadAfterAction = useCallback(async () => {
     setSelectedPanelAction(null)
+    setSelectedAssistantOptionId(null)
     await loadDetail()
     onDataChanged?.()
   }, [loadDetail, onDataChanged])
 
-  function togglePanelFormAction(actionId: PanelFormActionId) {
-    setSelectedPanelAction((current) =>
-      current === actionId ? null : actionId
-    )
+  function notifyExclusiveManagementBlocked() {
+    if (onExclusiveManagementBlocked) {
+      onExclusiveManagementBlocked()
+      return
+    }
+    setExclusiveDialogOpen(true)
+  }
+
+  function openLockedConsultationDialog(info: LockedConsultationInfo) {
+    setLockedInfo(info)
+    setLockedDialogOpen(true)
   }
 
   async function handleStartManagement() {
     setActionError(null)
+
+    if (
+      atencion &&
+      isConsultationManagedByAnotherEmployee(atencion, currentEmployeeId)
+    ) {
+      openLockedConsultationDialog(
+        buildLockedConsultationInfo({
+          managerEmployeeId: atencion.activeManagementEmployeeId,
+          managerName:
+            formatEmployeeName(activeEmployee) === "—"
+              ? "Otro operador"
+              : formatEmployeeName(activeEmployee),
+          startedAt: atencion.activeManagementStartedAt,
+        })
+      )
+      return
+    }
+
+    // RC 3.2.3 — block a second concurrent management for this operator.
+    if (
+      myActiveManagement &&
+      myActiveManagement.atencionId !== atencionId
+    ) {
+      notifyExclusiveManagementBlocked()
+      return
+    }
+
     setIsStarting(true)
 
     try {
       const result = await startConsultationManagement(atencionId)
 
       if (!result.success) {
+        if (result.code === "CONSULTATION_OPERATOR_ALREADY_MANAGING") {
+          await refreshMyActiveManagement()
+          notifyExclusiveManagementBlocked()
+          return
+        }
+        if (result.code === "CONSULTATION_ALREADY_IN_MANAGEMENT") {
+          const parsed = parseLockedManagementFromError(result.message)
+          openLockedConsultationDialog(
+            buildLockedConsultationInfo({
+              managerEmployeeId:
+                parsed.managerEmployeeId ??
+                atencion?.activeManagementEmployeeId,
+              managerName:
+                formatEmployeeName(activeEmployee) === "—"
+                  ? "Otro operador"
+                  : formatEmployeeName(activeEmployee),
+              startedAt:
+                parsed.startedAt ?? atencion?.activeManagementStartedAt,
+            })
+          )
+          await reloadAfterAction()
+          return
+        }
         setActionError(result.message)
         await reloadAfterAction()
         return
       }
 
+      // Ownership is required for defer/resolve; historial hides gestion_iniciada.
+      // RC 3.2.2 — assistant / area form appears immediately after start.
       await reloadAfterAction()
     } finally {
       setIsStarting(false)
@@ -270,10 +412,19 @@ export function AtencionDetailScreen({
       return
     }
 
+    if (followUpNeeded && selectedFollowUpActions.length === 0) {
+      setActionError("Seleccioná al menos una acción posterior.")
+      return
+    }
+
     setIsResolving(true)
 
     try {
-      const result = await resolveConsultation(atencionId, resolution)
+      const result = await resolveConsultation(
+        atencionId,
+        resolution,
+        followUpNeeded ? selectedFollowUpActions : []
+      )
 
       if (!result.success) {
         setActionError(result.message)
@@ -281,6 +432,8 @@ export function AtencionDetailScreen({
       }
 
       setResolution("")
+      setFollowUpNeeded(false)
+      setSelectedFollowUpActions([])
       await reloadAfterAction()
     } finally {
       setIsResolving(false)
@@ -448,11 +601,11 @@ export function AtencionDetailScreen({
 
   const expedienteCode = formatConsultationExpedienteCode(atencion.id)
   const relativeAge = formatConsultationRelativeAge(atencion.createdAt)
-  const situationBandParagraphs =
-    formatConsultationSituationBand(situationNarrative)
+  const areaReturn = detectManagementAssistantReturn(atencion, events)
+  const responsiblePersonName = activeEmployee
+    ? formatEmployeeName(activeEmployee)
+    : undefined
 
-  let decisionPrimary: ConsultationDecisionAction | null = null
-  const decisionSecondary: ConsultationDecisionAction[] = []
   const decisionAdministrative: ConsultationDecisionAction[] = canDelete
     ? [
         {
@@ -464,10 +617,15 @@ export function AtencionDetailScreen({
     : []
 
   let decisionStatusMessage: ReactNode = null
+  let decisionPrimary: ConsultationDecisionAction | null = null
+  let assistantOptionIds: ManagementAssistantOptionId[] = []
+  let showGuidedAssistant = false
+  /** RC 3.2.2 — area result forms render inline in the expediente (no modal gate). */
+  let showAreaResultInline = false
 
   if (atencion.status === "resuelta" && !canDelete) {
     decisionStatusMessage =
-      "Esta consulta ya está resuelta. No hay acciones disponibles."
+      "Esta consulta ya está resuelta. No hay gestiones pendientes."
   } else if (isManagedByAnother) {
     decisionStatusMessage = (
       <>
@@ -486,327 +644,224 @@ export function AtencionDetailScreen({
     )
   } else if (atencion.status !== "resuelta") {
     if (canStart) {
+      const startAsContinue =
+        Boolean(areaReturn) ||
+        events.some(
+          (event) =>
+            event.actionType === "consulta_pendiente" ||
+            event.actionType === "gestion_registrada" ||
+            event.actionType === "proximo_paso_cambiado"
+        )
+
       decisionPrimary = {
         id: "start",
-        label: isStarting ? "Iniciando…" : "Iniciar gestión",
+        label: isStarting
+          ? "Iniciando…"
+          : startAsContinue
+            ? "Continuar gestión"
+            : "Iniciar gestión",
         onClick: () => {
           void handleStartManagement()
         },
         disabled: isStarting,
       }
-    } else if (isActiveRetention) {
-      decisionPrimary = {
-        id: "retention_result",
-        label: "Registrar respuesta",
-        onClick: () => setIsRetentionDialogOpen(true),
-      }
-    } else if (isActiveAdministration) {
-      decisionPrimary = {
-        id: "admin_result",
-        label: "Registrar respuesta",
-        onClick: () => setIsAdministrationDialogOpen(true),
-      }
-      if (isMorosoConsultation(atencion)) {
-        decisionSecondary.push({
-          id: "moroso_tracking",
-          label: "Registrar gestión de morosos",
-          onClick: () => togglePanelFormAction("moroso_tracking"),
-          active: selectedPanelAction === "moroso_tracking",
-        })
-      }
-    } else if (isActiveTechnical) {
-      decisionPrimary = {
-        id: "technical_result",
-        label: "Registrar respuesta",
-        onClick: () => setIsTechnicalDialogOpen(true),
-      }
-    } else if (atencion.nextStep === "generar_ot") {
-      decisionPrimary = {
-        id: "link_ot",
-        label: atencion.linkedTaskId ? "Ver OT vinculada" : "Generar OT",
-        onClick: () => togglePanelFormAction("link_ot"),
-        active: selectedPanelAction === "link_ot",
-      }
-      if (isGeneralManagement) {
-        decisionSecondary.push(
-          {
-            id: "resolve",
-            label: "Resolver consulta",
-            onClick: () => togglePanelFormAction("resolve"),
-            active: selectedPanelAction === "resolve",
-          },
-          {
-            id: "contactar",
-            label: "Contactar cliente",
-            onClick: () => {
-              void handleDeferTo("seguimiento_cliente")
-            },
-            disabled: isDeferring,
-          },
-          {
-            id: "esperar",
-            label: "Esperar cliente",
-            onClick: () => {
-              void handleDeferTo("esperar_cliente")
-            },
-            disabled: isDeferring,
-          },
-          {
-            id: "derivar_tecnica",
-            label: "Derivar a Técnica",
-            onClick: () => {
-              void handleDeferTo("resolver_consulta_tecnica")
-            },
-            disabled: isDeferring,
-          },
-          {
-            id: "derivar_admin_facturacion",
-            label: "Derivar a Administración — Facturación",
-            onClick: () => {
-              void handleDeferTo("derivar_admin_facturacion")
-            },
-            disabled: isDeferring,
-          },
-          {
-            id: "derivar_admin_morosos",
-            label: "Derivar a Administración — Morosos",
-            onClick: () => {
-              void handleDeferTo("derivar_admin_morosos")
-            },
-            disabled: isDeferring,
-          },
-          {
-            id: "derivar_admin_gestion",
-            label: "Derivar a Administración — Gestión",
-            onClick: () => {
-              void handleDeferTo("derivar_admin_gestion")
-            },
-            disabled: isDeferring,
-          },
-          {
-            id: "derivar_ventas",
-            label: "Derivar a Ventas",
-            onClick: () => {
-              void handleDeferTo("contactar_cliente")
-            },
-            disabled: isDeferring,
-          }
-        )
+    } else if (isActiveRetention || isActiveAdministration || isActiveTechnical) {
+      // RC 3.2.2 — no intermediate "Registrar gestión" modal; form is inline.
+      showAreaResultInline = true
+      if (isActiveAdministration && isMorosoConsultation(atencion)) {
+        assistantOptionIds = ["moroso_tracking"]
+        showGuidedAssistant = true
       }
     } else if (isGeneralManagement) {
-      const primaryByNextStep: Partial<
-        Record<
-          NonNullable<CustomerAtencion["nextStep"]>,
-          { id: string; label: string; run: () => void }
-        >
-      > = {
-        seguimiento_cliente: {
-          id: "contactar",
-          label: "Contactar cliente",
-          run: () => {
-            void handleDeferTo("seguimiento_cliente")
-          },
-        },
-        esperar_cliente: {
-          id: "esperar",
-          label: "Esperar cliente",
-          run: () => {
-            void handleDeferTo("esperar_cliente")
-          },
-        },
-      }
+      // RC 3.2.2 — assistant opens immediately while managing (no Continuar gate).
+      showGuidedAssistant = true
 
-      const contextualPrimary = atencion.nextStep
-        ? primaryByNextStep[atencion.nextStep]
-        : null
-
-      if (contextualPrimary) {
-        decisionPrimary = {
-          id: contextualPrimary.id,
-          label: contextualPrimary.label,
-          onClick: contextualPrimary.run,
-          disabled: isDeferring,
-        }
-        decisionSecondary.push({
-          id: "resolve",
-          label: "Resolver consulta",
-          onClick: () => togglePanelFormAction("resolve"),
-          active: selectedPanelAction === "resolve",
-        })
+      if (areaReturn?.kind === "tecnica") {
+        assistantOptionIds = getManagementAssistantOptionsAfterTecnica(
+          atencion.nextStep
+        )
+      } else if (areaReturn) {
+        assistantOptionIds = getManagementAssistantOptionsAfterAreaReturn(
+          areaReturn.kind,
+          atencion.nextStep
+        )
+      } else if (atencion.nextStep === "generar_ot") {
+        assistantOptionIds = [
+          "link_ot",
+          "resolve",
+          "esperar_cliente",
+          "seguimiento_cliente",
+          "resolver_consulta_tecnica",
+        ]
       } else {
-        decisionPrimary = {
-          id: "resolve",
-          label: "Resolver consulta",
-          onClick: () => togglePanelFormAction("resolve"),
-          active: selectedPanelAction === "resolve",
+        assistantOptionIds = [...MANAGEMENT_ASSISTANT_INITIAL_OPTIONS]
+        if (isMorosoConsultation(atencion)) {
+          assistantOptionIds.push("moroso_tracking")
         }
       }
-
-      const pushSecondary = (
-        id: string,
-        label: string,
-        run: () => void,
-        options?: { active?: boolean; disabled?: boolean }
-      ) => {
-        if (decisionPrimary?.id === id) return
-        if (decisionSecondary.some((action) => action.id === id)) return
-        decisionSecondary.push({
-          id,
-          label,
-          onClick: run,
-          active: options?.active,
-          disabled: options?.disabled,
-        })
-      }
-
-      if (!contextualPrimary) {
-        pushSecondary(
-          "contactar",
-          "Contactar cliente",
-          () => {
-            void handleDeferTo("seguimiento_cliente")
-          },
-          { disabled: isDeferring }
-        )
-        pushSecondary(
-          "esperar",
-          "Esperar cliente",
-          () => {
-            void handleDeferTo("esperar_cliente")
-          },
-          { disabled: isDeferring }
-        )
-      } else if (contextualPrimary.id === "contactar") {
-        pushSecondary(
-          "esperar",
-          "Esperar cliente",
-          () => {
-            void handleDeferTo("esperar_cliente")
-          },
-          { disabled: isDeferring }
-        )
-      } else if (contextualPrimary.id === "esperar") {
-        pushSecondary(
-          "contactar",
-          "Contactar cliente",
-          () => {
-            void handleDeferTo("seguimiento_cliente")
-          },
-          { disabled: isDeferring }
-        )
-      }
-
-      if (atencion.nextStep !== "realizar_retencion") {
-        pushSecondary(
-          "retencion",
-          "Realizar retención",
-          () => {
-            void handleDeferTo("realizar_retencion")
-          },
-          { disabled: isDeferring }
-        )
-      }
-      if (atencion.nextStep !== "resolver_consulta_tecnica") {
-        pushSecondary(
-          "derivar_tecnica",
-          "Derivar a Técnica",
-          () => {
-            void handleDeferTo("resolver_consulta_tecnica")
-          },
-          { disabled: isDeferring }
-        )
-      }
-      if (atencion.nextStep !== "derivar_admin_facturacion") {
-        pushSecondary(
-          "derivar_admin_facturacion",
-          "Derivar a Administración — Facturación",
-          () => {
-            void handleDeferTo("derivar_admin_facturacion")
-          },
-          { disabled: isDeferring }
-        )
-      }
-      if (atencion.nextStep !== "derivar_admin_morosos") {
-        pushSecondary(
-          "derivar_admin_morosos",
-          "Derivar a Administración — Morosos",
-          () => {
-            void handleDeferTo("derivar_admin_morosos")
-          },
-          { disabled: isDeferring }
-        )
-      }
-      if (atencion.nextStep !== "derivar_admin_gestion") {
-        pushSecondary(
-          "derivar_admin_gestion",
-          "Derivar a Administración — Gestión",
-          () => {
-            void handleDeferTo("derivar_admin_gestion")
-          },
-          { disabled: isDeferring }
-        )
-      }
-      if (atencion.nextStep !== "contactar_cliente") {
-        pushSecondary(
-          "derivar_ventas",
-          "Derivar a Ventas",
-          () => {
-            void handleDeferTo("contactar_cliente")
-          },
-          { disabled: isDeferring }
-        )
-      }
-      pushSecondary(
-        "generar_ot",
-        "Generar OT",
-        () => {
-          void handleDeferTo("generar_ot")
-        },
-        { disabled: isDeferring }
-      )
-
-      if (isMorosoConsultation(atencion)) {
-        pushSecondary(
-          "moroso_tracking",
-          "Registrar gestión de morosos",
-          () => togglePanelFormAction("moroso_tracking"),
-          { active: selectedPanelAction === "moroso_tracking" }
-        )
-      }
-    } else if (isMorosoConsultation(atencion)) {
-      decisionPrimary = {
-        id: "moroso_tracking",
-        label: "Registrar gestión de morosos",
-        onClick: () => togglePanelFormAction("moroso_tracking"),
-        active: selectedPanelAction === "moroso_tracking",
-      }
+    } else if (isMorosoConsultation(atencion) && isManagedByCurrentEmployee) {
+      showGuidedAssistant = true
+      assistantOptionIds = ["moroso_tracking"]
     }
   }
 
+  const effectiveAssistantOptionId =
+    selectedAssistantOptionId &&
+    assistantOptionIds.includes(selectedAssistantOptionId)
+      ? selectedAssistantOptionId
+      : null
+
+  const assistantOptions: ConsultationAssistantOption[] = showGuidedAssistant
+    ? assistantOptionIds.map((id) => ({
+        id,
+        label: getManagementAssistantOptionLabel(id, {
+          afterTecnica: areaReturn?.kind === "tecnica",
+        }),
+        selected: effectiveAssistantOptionId === id,
+        disabled: isDeferring || isResolving,
+        onSelect: () => {
+          setSelectedAssistantOptionId(id)
+          setActionError(null)
+          if (id !== "resolve") {
+            setFollowUpNeeded(false)
+            setSelectedFollowUpActions([])
+          }
+          if (id === "link_ot") {
+            setSelectedPanelAction("link_ot")
+          } else if (id === "moroso_tracking") {
+            setSelectedPanelAction("moroso_tracking")
+          } else {
+            setSelectedPanelAction(id === "resolve" ? "resolve" : null)
+          }
+        },
+      }))
+    : []
+
+  const nextStepMessage =
+    effectiveAssistantOptionId != null
+      ? effectiveAssistantOptionId === "resolve" &&
+        followUpNeeded &&
+        selectedFollowUpActions.includes("generar_ot")
+        ? "La consulta quedará cerrada. Quedará registrada la necesidad de generar una Orden de Trabajo."
+        : getManagementAssistantNextStepMessage(effectiveAssistantOptionId)
+      : null
+
+  async function handleRegisterManagement() {
+    if (!effectiveAssistantOptionId) {
+      setActionError("Seleccioná cómo continúa esta atención.")
+      return
+    }
+
+    if (effectiveAssistantOptionId === "resolve") {
+      await handleResolve()
+      return
+    }
+
+    if (effectiveAssistantOptionId === "link_ot") {
+      setSelectedPanelAction("link_ot")
+      return
+    }
+
+    if (effectiveAssistantOptionId === "moroso_tracking") {
+      setSelectedPanelAction("moroso_tracking")
+      return
+    }
+
+    const nextStep = managementAssistantOptionToNextStep(
+      effectiveAssistantOptionId
+    )
+    if (!nextStep) {
+      setActionError("No se pudo determinar el próximo paso.")
+      return
+    }
+
+    await handleDeferTo(nextStep)
+  }
+
   const resolveForm =
-    selectedPanelAction === "resolve" && isGeneralManagement ? (
-      <div className="space-y-2 rounded-md border border-slate-200 bg-slate-50/80 px-3 py-3">
-        <Label htmlFor="consultation-resolution-panel">Resolución</Label>
-        <Textarea
-          id="consultation-resolution-panel"
-          value={resolution}
-          onChange={(event) => setResolution(event.target.value)}
-          rows={3}
-          placeholder="Qué se hizo para resolver la consulta"
-        />
-        <Button
-          size="sm"
-          className="w-full"
-          onClick={handleResolve}
-          disabled={isResolving}
-        >
-          {isResolving ? "Guardando…" : "Finalizar gestión"}
-        </Button>
+    effectiveAssistantOptionId === "resolve" &&
+    (isGeneralManagement || showGuidedAssistant) ? (
+      <div className="space-y-3">
+        <div className="space-y-2 rounded-md border border-slate-200 bg-slate-50/80 px-3 py-2.5">
+          <Label htmlFor="consultation-resolution-panel">
+            ¿Qué se hizo para resolver la consulta?
+          </Label>
+          <Textarea
+            id="consultation-resolution-panel"
+            value={resolution}
+            onChange={(event) => setResolution(event.target.value)}
+            rows={3}
+            placeholder="Describí el resultado de la atención"
+          />
+        </div>
+
+        <div className="space-y-2 rounded-md border border-slate-200 bg-white px-3 py-2.5">
+          <p className="text-[13px] font-semibold text-slate-900">
+            ¿Es necesario realizar alguna acción adicional?
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <label className="flex cursor-pointer items-center gap-2 text-[13px] text-slate-700">
+              <input
+                type="radio"
+                name="consultation-follow-up-needed"
+                checked={!followUpNeeded}
+                onChange={() => {
+                  setFollowUpNeeded(false)
+                  setSelectedFollowUpActions([])
+                }}
+                className="size-3.5 accent-sky-600"
+              />
+              No
+            </label>
+            <label className="flex cursor-pointer items-center gap-2 text-[13px] text-slate-700">
+              <input
+                type="radio"
+                name="consultation-follow-up-needed"
+                checked={followUpNeeded}
+                onChange={() => setFollowUpNeeded(true)}
+                className="size-3.5 accent-sky-600"
+              />
+              Sí
+            </label>
+          </div>
+
+          {followUpNeeded ? (
+            <div className="mt-2 space-y-2 border-t border-slate-200/80 pt-2">
+              {CONSULTATION_FOLLOW_UP_ACTION_OPTIONS.map((action) => {
+                const checked = selectedFollowUpActions.includes(action.id)
+                return (
+                  <label
+                    key={action.id}
+                    className="flex cursor-pointer items-start gap-2.5 text-[13px] text-slate-800"
+                  >
+                    <Checkbox
+                      checked={checked}
+                      onCheckedChange={(value) => {
+                        const isOn = value === true
+                        setSelectedFollowUpActions((current) => {
+                          if (isOn) {
+                            return current.includes(action.id)
+                              ? current
+                              : [...current, action.id]
+                          }
+                          return current.filter((id) => id !== action.id)
+                        })
+                      }}
+                      className="mt-0.5"
+                    />
+                    <span className="leading-snug font-medium">{action.label}</span>
+                  </label>
+                )
+              })}
+            </div>
+          ) : null}
+        </div>
       </div>
     ) : null
 
   const morosoForm =
-    selectedPanelAction === "moroso_tracking" &&
+    (effectiveAssistantOptionId === "moroso_tracking" ||
+      selectedPanelAction === "moroso_tracking") &&
     isMorosoConsultation(atencion) &&
     atencion.status !== "resuelta" ? (
       <MorosoTrackingBlock
@@ -815,34 +870,194 @@ export function AtencionDetailScreen({
       />
     ) : null
 
-  const otForm =
-    selectedPanelAction === "link_ot" &&
-    atencion.nextStep === "generar_ot" &&
-    atencion.status !== "resuelta" ? (
-      <OtLinkBlock
-        atencionId={atencion.id}
-        linkedTaskId={atencion.linkedTaskId}
-        linkedTaskCode={atencion.linkedTaskCode}
-        otLinkedAt={atencion.otLinkedAt}
+  const technicalHistoryForOt = events
+    .filter(
+      (event) =>
+        (event.actionType === "consulta_pendiente" ||
+          event.actionType === "gestion_registrada") &&
+        Boolean(event.detail?.trim())
+    )
+    .slice(-3)
+    .map((event) => event.detail!.trim())
+    .join(" · ")
+
+  const needsOtCreation =
+    Boolean(atencion.linkedTaskId) ||
+    atencion.nextStep === "generar_ot" ||
+    Boolean(atencion.followUpActions?.includes("generar_ot"))
+
+  const otLinkBlock = needsOtCreation ? (
+    <OtLinkBlock
+      atencionId={atencion.id}
+      customerId={atencion.customerId}
+      motivoLabel={formatCustomerAtencionMotivoLabel(atencion.motivo)}
+      initialObservations={atencion.detail}
+      technicalHistory={technicalHistoryForOt || atencion.resolution || null}
+      linkedTaskId={atencion.linkedTaskId}
+      linkedTaskCode={atencion.linkedTaskCode}
+      otLinkedAt={atencion.otLinkedAt}
+    />
+  ) : null
+
+  const otForm = null
+
+  const handleAreaResultResolve = async (resolutionText: string) => {
+    setActionError(null)
+    const result = await resolveConsultation(atencionId, resolutionText)
+    if (!result.success) {
+      setActionError(result.message)
+      return { success: false, message: result.message }
+    }
+    await reloadAfterAction()
+    return { success: true }
+  }
+
+  const handleAreaResultDefer = async (nextStep: string, detail: string) => {
+    setActionError(null)
+    const result = await deferConsultation(
+      atencionId,
+      nextStep as CustomerAtencionNextStep,
+      detail
+    )
+    if (!result.success) {
+      setActionError(result.message)
+      return { success: false, message: result.message }
+    }
+    await reloadAfterAction()
+    return { success: true }
+  }
+
+  const areaInlineResultForm =
+    showAreaResultInline && isPanel ? (
+      isActiveRetention ? (
+        <RetentionResultDialog
+          presentation="inline"
+          open
+          onOpenChange={() => undefined}
+          onResolve={handleAreaResultResolve}
+          onDefer={handleAreaResultDefer}
+        />
+      ) : isActiveAdministration ? (
+        <AdministrationResultDialog
+          presentation="inline"
+          open
+          onOpenChange={() => undefined}
+          onResolve={handleAreaResultResolve}
+          onDefer={handleAreaResultDefer}
+        />
+      ) : isActiveTechnical ? (
+        <TechnicalResultDialog
+          presentation="inline"
+          open
+          onOpenChange={() => undefined}
+          onResolve={handleAreaResultResolve}
+          onDefer={handleAreaResultDefer}
+        />
+      ) : null
+    ) : null
+
+  const assistantDetail =
+    !isManagedByAnother && atencion.status !== "resuelta" ? (
+      <>
+        {resolveForm}
+        {morosoForm}
+        {otForm}
+        {areaInlineResultForm}
+      </>
+    ) : null
+
+  const assistantConfirm: ConsultationDecisionAction | null =
+    showGuidedAssistant &&
+    effectiveAssistantOptionId &&
+    effectiveAssistantOptionId !== "link_ot" &&
+    effectiveAssistantOptionId !== "moroso_tracking"
+      ? {
+          id: "register",
+          label: isResolving || isDeferring ? "Registrando…" : "Registrar gestión",
+          onClick: () => {
+            void handleRegisterManagement()
+          },
+          disabled: isResolving || isDeferring,
+        }
+      : null
+
+  const flowContextBanner =
+    areaReturn && isGeneralManagement && atencion.status !== "resuelta" ? (
+      <div className="rounded-md border border-violet-200/80 bg-violet-50/70 px-3 py-2.5">
+        <p className="text-[13px] font-semibold text-violet-900">
+          {areaReturn.headline}
+        </p>
+        <p className="mt-1 text-[12px] text-slate-600">
+          {areaReturn.dateTime}
+          {areaReturn.actorEmployeeId
+            ? ` · ${eventEmployeeNamesById[areaReturn.actorEmployeeId] ?? "Operador"}`
+            : null}
+        </p>
+        {areaReturn.summary ? (
+          <p className="mt-1.5 whitespace-pre-wrap text-[12px] leading-snug text-slate-700">
+            {areaReturn.summary}
+          </p>
+        ) : null}
+      </div>
+    ) : null
+
+  const currentStateBlock = (
+    <ConsultationSituationSummaryCard
+      summary={situationSummary}
+      status={atencion.status}
+      nextStep={atencion.nextStep}
+      narrative={situationNarrative}
+      lastActorName={lastActorName}
+      initialObservations={atencion.detail}
+      responsiblePersonName={responsiblePersonName}
+      presentation="panel"
+    />
+  )
+
+  const exclusiveManagementDialog =
+    !onExclusiveManagementBlocked && myActiveManagement ? (
+      <ExclusiveManagementDialog
+        open={exclusiveDialogOpen}
+        onOpenChange={setExclusiveDialogOpen}
+        active={myActiveManagement}
+        isCancelling={isCancellingExclusive}
+        onContinue={() => {
+          setExclusiveDialogOpen(false)
+          if (myActiveManagement.atencionId !== atencionId) {
+            router.push(
+              `/atencion-cliente/${myActiveManagement.atencionId}`
+            )
+          }
+        }}
+        onCancelActive={() => {
+          void (async () => {
+            setIsCancellingExclusive(true)
+            try {
+              const result = await cancelConsultationManagement(
+                myActiveManagement.atencionId
+              )
+              if (result.success) {
+                setExclusiveDialogOpen(false)
+                await refreshMyActiveManagement()
+                await reloadAfterAction()
+              } else {
+                setActionError(result.message)
+              }
+            } finally {
+              setIsCancellingExclusive(false)
+            }
+          })()
+        }}
       />
     ) : null
 
-  const decisionPrimaryDetail =
-    !isManagedByAnother && atencion.status !== "resuelta"
-      ? (decisionPrimary?.id === "resolve" && resolveForm) ||
-        (decisionPrimary?.id === "link_ot" && otForm) ||
-        (decisionPrimary?.id === "moroso_tracking" && morosoForm) ||
-        null
-      : null
-
-  const decisionDetail =
-    !isManagedByAnother && atencion.status !== "resuelta" ? (
-      <>
-        {decisionPrimary?.id !== "resolve" ? resolveForm : null}
-        {decisionPrimary?.id !== "moroso_tracking" ? morosoForm : null}
-        {decisionPrimary?.id !== "link_ot" ? otForm : null}
-      </>
-    ) : null
+  const lockedConsultationDialog = lockedInfo ? (
+    <LockedConsultationDialog
+      open={lockedDialogOpen}
+      onOpenChange={setLockedDialogOpen}
+      lock={lockedInfo}
+    />
+  ) : null
 
   if (isPanel) {
     return (
@@ -914,60 +1129,41 @@ export function AtencionDetailScreen({
               </div>
             </div>
           </header>
-
-          <div className="flex items-start gap-2.5 bg-sky-50/90 px-5 py-3.5 pr-14 sm:px-6 sm:pr-14">
-            <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-700">
-              <Info className="size-3" aria-hidden />
-            </span>
-            <div className="min-w-0 max-w-3xl space-y-1">
-              {situationBandParagraphs.map((paragraph, index) => {
-                if (index === 0) {
-                  const marker = situationNarrative.statusEmphasis
-                  const [before, after] = paragraph.split(marker)
-                  return (
-                    <p
-                      key={paragraph}
-                      className="text-[13px] leading-snug text-slate-700"
-                    >
-                      {before}
-                      <span className="font-bold text-slate-900">{marker}</span>
-                      {after}
-                    </p>
-                  )
-                }
-
-                return (
-                  <p
-                    key={paragraph}
-                    className="text-[12px] leading-snug text-slate-600"
-                  >
-                    {paragraph}
-                  </p>
-                )
-              })}
-            </div>
-          </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 pt-5 pb-4 sm:px-6">
-          <ConsultationEventsTimeline
-            cards={timelineCards}
-            employeeNamesById={eventEmployeeNamesById}
-            presentation="panel"
-          />
-
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 pt-4 pb-4 sm:px-6">
           <ConsultationDecisionCenter
+            currentState={currentStateBlock}
+            flowContext={flowContextBanner}
             statusMessage={decisionStatusMessage}
+            title={
+              canStart
+                ? "Para comenzar"
+                : showGuidedAssistant || showAreaResultInline
+                  ? "¿Cómo continúa esta atención?"
+                  : "Gestión en curso"
+            }
             primary={decisionPrimary}
-            primaryDetail={decisionPrimaryDetail}
-            secondary={decisionSecondary}
-            detail={decisionDetail}
+            options={assistantOptions}
+            nextStepMessage={nextStepMessage}
+            detail={assistantDetail}
+            confirm={assistantConfirm}
             administrative={decisionAdministrative}
           />
+
+          {otLinkBlock ? <div className="mt-4">{otLinkBlock}</div> : null}
 
           {actionError ? (
             <p className="mt-3 text-sm text-destructive">{actionError}</p>
           ) : null}
+
+          <div className="mt-6">
+            <ConsultationEventsTimeline
+              cards={timelineCards}
+              employeeNamesById={eventEmployeeNamesById}
+              presentation="panel"
+            />
+          </div>
         </div>
 
         <ConsultationPermanentDeleteDialog
@@ -1072,6 +1268,9 @@ export function AtencionDetailScreen({
             return { success: true }
           }}
         />
+
+        {exclusiveManagementDialog}
+        {lockedConsultationDialog}
       </div>
     )
   }
@@ -1191,14 +1390,7 @@ export function AtencionDetailScreen({
         />
       ) : null}
 
-      {atencion.nextStep === "generar_ot" && atencion.status !== "resuelta" ? (
-        <OtLinkBlock
-          atencionId={atencion.id}
-          linkedTaskId={atencion.linkedTaskId}
-          linkedTaskCode={atencion.linkedTaskCode}
-          otLinkedAt={atencion.otLinkedAt}
-        />
-      ) : null}
+      {otLinkBlock}
 
       {isManagedByAnother ? (
         <Card>
@@ -1458,6 +1650,9 @@ export function AtencionDetailScreen({
       {actionError ? (
         <p className="text-sm text-destructive">{actionError}</p>
       ) : null}
+
+      {exclusiveManagementDialog}
+      {lockedConsultationDialog}
     </div>
   )
 }

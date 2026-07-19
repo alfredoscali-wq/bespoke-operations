@@ -216,21 +216,28 @@ test("14. filtro Resueltas", () => {
   assert.equal(filtered.length, 2)
 })
 
-test("15. orden activas más antiguas primero", () => {
+test("15. orden por última actividad (updated_at DESC)", () => {
   const active = sortSharedInboxRows(
     sampleRows.filter((item) => item.status !== "resuelta"),
     "pendiente"
   )
-  assert.equal(active[0]?.id, "4")
+  assert.equal(active[0]?.id, "1")
+  assert.equal(active[active.length - 1]?.id, "4")
 })
 
-test("16. orden resueltas más recientes primero", () => {
+test("16. orden resueltas por última actividad (updated_at DESC)", () => {
   const resolved = sortSharedInboxRows(
     sampleRows.filter((item) => item.status === "resuelta"),
     "resuelta"
   )
   assert.equal(resolved[0]?.id, "5")
   assert.equal(resolved[1]?.id, "6")
+})
+
+test("16b. filtro Todas usa el mismo criterio de última actividad", () => {
+  const sorted = sortSharedInboxRows(sampleRows, "all")
+  assert.equal(sorted[0]?.id, "5")
+  assert.equal(sorted[sorted.length - 1]?.id, "4")
 })
 
 test("17. muestra cliente", () => {

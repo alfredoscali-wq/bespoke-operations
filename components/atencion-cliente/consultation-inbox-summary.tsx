@@ -16,21 +16,23 @@ import {
   type SharedInboxStatusFilter,
 } from "@/lib/customer-atenciones/shared-inbox"
 
-const KPI_ORDER: SharedInboxKpiKey[] = [
+const KPI_ORDER = [
   "nuevas",
   "para_resolver",
   "pendientes",
   "resueltas_hoy",
-]
+] as const satisfies readonly SharedInboxKpiKey[]
 
-const KPI_LABELS: Record<SharedInboxKpiKey, string> = {
+type LegacyInboxKpiKey = (typeof KPI_ORDER)[number]
+
+const KPI_LABELS: Record<LegacyInboxKpiKey, string> = {
   nuevas: "Ingresadas Hoy",
   para_resolver: "Para resolver",
   pendientes: "Pendientes",
   resueltas_hoy: "Resueltas hoy",
 }
 
-const KPI_HINTS: Partial<Record<SharedInboxKpiKey, string>> = {
+const KPI_HINTS: Partial<Record<LegacyInboxKpiKey, string>> = {
   nuevas: "Volumen de entrada del día seleccionado (informativo)",
   para_resolver: "Trabajo pendiente interno (no histórico)",
   pendientes: "Espera de acción externa (no histórico)",
@@ -42,17 +44,20 @@ const KPI_ICONS = {
   para_resolver: CircleDot,
   pendientes: ClipboardList,
   resueltas_hoy: CheckCircle2,
-} as const
+} as const satisfies Record<LegacyInboxKpiKey, typeof Inbox>
 
 const KPI_TONES = {
   nuevas: "blue",
   para_resolver: "amber",
   pendientes: "violet",
   resueltas_hoy: "green",
-} as const satisfies Record<SharedInboxKpiKey, "blue" | "amber" | "violet" | "green">
+} as const satisfies Record<
+  LegacyInboxKpiKey,
+  "blue" | "amber" | "violet" | "green"
+>
 
 /** Ingresadas Hoy is informational — does not filter the inbox. */
-const INFORMATIONAL_KPI_KEYS = new Set<SharedInboxKpiKey>(["nuevas"])
+const INFORMATIONAL_KPI_KEYS = new Set<LegacyInboxKpiKey>(["nuevas"])
 
 type ConsultationInboxSummaryProps = {
   activeFilter: SharedInboxStatusFilter
@@ -60,7 +65,7 @@ type ConsultationInboxSummaryProps = {
 }
 
 function isKpiActive(
-  kpi: SharedInboxKpiKey,
+  kpi: LegacyInboxKpiKey,
   activeFilter: SharedInboxStatusFilter
 ): boolean {
   if (INFORMATIONAL_KPI_KEYS.has(kpi)) {

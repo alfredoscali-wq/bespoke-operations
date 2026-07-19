@@ -24,6 +24,7 @@ const EVENT_ACTION_TYPES = new Set<CustomerAtencionEventActionType>([
   "consulta_resuelta",
   "proximo_paso_cambiado",
   "consulta_ot_vinculada",
+  "gestion_liberada_por_inactividad",
 ])
 
 function parseActionType(value: string): CustomerAtencionEventActionType {

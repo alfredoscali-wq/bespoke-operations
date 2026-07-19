@@ -28,6 +28,8 @@ export type SharedInboxKpiKey =
   | "para_resolver"
   | "pendientes"
   | "resueltas_hoy"
+  | "consulta_comercial"
+  | "consulta_tv"
 
 export type SharedInboxOperationalCategory =
   | "retenciones"
@@ -475,6 +477,8 @@ export function computeSharedInboxKpis(
   let para_resolver = 0
   let pendientes = 0
   let resueltas_hoy = 0
+  let consulta_comercial = 0
+  let consulta_tv = 0
 
   for (const row of rows) {
     if (matchesConsultasRecibidasHoyKpi(row, referenceDate)) {
@@ -492,6 +496,20 @@ export function computeSharedInboxKpis(
     if (isConsultationResolvedToday(row, referenceDate)) {
       resueltas_hoy += 1
     }
+
+    if (
+      matchesConsultasRecibidasHoyKpi(row, referenceDate) &&
+      row.motivo === "consulta_comercial"
+    ) {
+      consulta_comercial += 1
+    }
+
+    if (
+      matchesConsultasRecibidasHoyKpi(row, referenceDate) &&
+      row.motivo === "consulta_tv"
+    ) {
+      consulta_tv += 1
+    }
   }
 
   return {
@@ -499,6 +517,8 @@ export function computeSharedInboxKpis(
     para_resolver,
     pendientes,
     resueltas_hoy,
+    consulta_comercial,
+    consulta_tv,
   }
 }
 
@@ -523,9 +543,28 @@ export function getOperationalCategoryForNextStep(
 }
 
 export function matchesOperationalCategory(
-  row: Pick<CustomerAtencionInboxRow, "status" | "nextStep">,
+  row: Pick<
+    CustomerAtencionInboxRow,
+    "status" | "nextStep" | "followUpActions" | "linkedTaskId"
+  >,
   category: SharedInboxOperationalCategory
 ): boolean {
+  // RC 3.2.0 / 3.2.6 — OT por generar until an OT is linked.
+  if (category === "generar_ot") {
+    if (row.linkedTaskId) {
+      return false
+    }
+
+    if (
+      row.status !== "resuelta" &&
+      row.nextStep === "generar_ot"
+    ) {
+      return true
+    }
+
+    return Boolean(row.followUpActions?.includes("generar_ot"))
+  }
+
   if (row.status === "resuelta" || !row.nextStep) {
     return false
   }
@@ -549,6 +588,9 @@ export function computeOperationalWorkCounts(
 
   for (const row of rows) {
     if (row.status === "resuelta") {
+      if (matchesOperationalCategory(row, "generar_ot")) {
+        counts.generar_ot += 1
+      }
       continue
     }
 
@@ -800,49 +842,26 @@ export function filterSharedInboxRows(
   })
 }
 
-function compareActiveRows(
+/**
+ * RC 3.1.1 — last activity first (updated_at), then created_at on ties.
+ */
+function compareByLastActivity(
   left: CustomerAtencionInboxRow,
   right: CustomerAtencionInboxRow
 ): number {
-  return left.createdAt.localeCompare(right.createdAt)
-}
+  const byUpdated = right.updatedAt.localeCompare(left.updatedAt)
+  if (byUpdated !== 0) {
+    return byUpdated
+  }
 
-function compareResolvedRows(
-  left: CustomerAtencionInboxRow,
-  right: CustomerAtencionInboxRow
-): number {
-  return right.updatedAt.localeCompare(left.updatedAt)
+  return right.createdAt.localeCompare(left.createdAt)
 }
 
 export function sortSharedInboxRows(
   rows: CustomerAtencionInboxRow[],
-  statusFilter: SharedInboxStatusFilter
+  _statusFilter?: SharedInboxStatusFilter
 ): CustomerAtencionInboxRow[] {
-  const copy = [...rows]
-
-  if (statusFilter === "resuelta" || statusFilter === "resueltas_hoy") {
-    return copy.sort(compareResolvedRows)
-  }
-
-  if (statusFilter !== "all") {
-    return copy.sort(compareActiveRows)
-  }
-
-  const active: CustomerAtencionInboxRow[] = []
-  const resolved: CustomerAtencionInboxRow[] = []
-
-  for (const row of copy) {
-    if (row.status === "resuelta") {
-      resolved.push(row)
-    } else {
-      active.push(row)
-    }
-  }
-
-  active.sort(compareActiveRows)
-  resolved.sort(compareResolvedRows)
-
-  return [...active, ...resolved]
+  return [...rows].sort(compareByLastActivity)
 }
 
 export function truncateConsultationDetail(

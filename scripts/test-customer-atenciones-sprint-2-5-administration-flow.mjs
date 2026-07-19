@@ -182,8 +182,8 @@ test("12. formulario ofrece Gestión resuelta", () => {
   assert.match(administrationDialogSource, /Gestión resuelta/)
 })
 
-test("13. formulario ofrece Seguimiento con cliente", () => {
-  assert.match(administrationDialogSource, /Seguimiento con cliente/)
+test("13. formulario ofrece Requiere contacto con el cliente", () => {
+  assert.match(administrationDialogSource, /Requiere contacto con el cliente/)
 })
 
 test("14. formulario ofrece Esperando documentación", () => {

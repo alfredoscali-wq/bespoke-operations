@@ -1,4 +1,7 @@
 import type { QuickCustomerInput } from "@/lib/types/customers"
+import type { ConsultationFollowUpAction } from "@/lib/customer-atenciones/consultation-follow-up"
+
+export type { ConsultationFollowUpAction }
 
 export type CustomerAtencionChannel =
   | "telefono"
@@ -7,13 +10,13 @@ export type CustomerAtencionChannel =
   | "otro"
 
 export type CustomerAtencionMotivo =
-  | "consulta"
-  | "reclamo"
-  | "solicitud"
   | "problema_tecnico"
   | "facturacion"
+  | "cambio_plan_tecnologia"
+  | "consulta_comercial"
+  | "consulta_tv"
+  | "nuevo_servicio"
   | "baja"
-  | "retencion"
   | "otro"
 
 export type CustomerAtencionResultado =
@@ -91,11 +94,15 @@ export interface CustomerAtencion {
   nextStep?: CustomerAtencionNextStep | null
   activeManagementEmployeeId?: string | null
   activeManagementStartedAt?: string | null
+  /** RC 3.2.5 — last activity while holding the exclusive lock. */
+  activeManagementLastActivityAt?: string | null
   morosoTrackingStatus?: MorosoTrackingStatus | null
   linkedTaskId?: string | null
   linkedTaskCode?: string | null
   otLinkedAt?: string | null
   otLinkedByEmployeeId?: string | null
+  /** RC 3.2.0 — post-resolution actions (e.g. generar_ot). Not next_step. */
+  followUpActions?: ConsultationFollowUpAction[]
   createdAt: string
   updatedAt: string
   deletedAt?: string | null
@@ -126,8 +133,10 @@ export type CustomerAtencionInboxRow = Pick<
   | "attendedByEmployeeId"
   | "activeManagementEmployeeId"
   | "activeManagementStartedAt"
+  | "activeManagementLastActivityAt"
   | "linkedTaskId"
   | "linkedTaskCode"
+  | "followUpActions"
   | "createdAt"
   | "updatedAt"
 > & {

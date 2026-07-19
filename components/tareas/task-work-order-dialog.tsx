@@ -59,6 +59,10 @@ import type { PendingTaskReferencePhoto, TaskPhotoUploadSummary } from "@/lib/ty
 import type { Customer } from "@/lib/types/customers"
 import type { Task } from "@/lib/types/tasks"
 import type { CreateTaskPayload, UpdateTaskPayload } from "@/lib/types/supabase/tasks"
+import type { ConsultationOtCreatePrefill } from "@/lib/customer-atenciones/consultation-ot-create"
+import {
+  buildCrewObservationsFromConsultation,
+} from "@/lib/customer-atenciones/consultation-ot-create"
 import { Button } from "@/components/ui/button"
 import { WhatsAppLink } from "@/components/ui/whatsapp-link"
 import {
@@ -98,6 +102,11 @@ type TaskWorkOrderDialogProps = {
   onTaskCreated?: (result: WorkOrderCreateResult) => void
   onTaskUpdated?: (task: Task) => void
   onEditBlocked?: () => void
+  /**
+   * RC 3.2.6 — optional consultation context to seed Nueva OT (same form).
+   * Does not change fields; only preloads customer + crew notes.
+   */
+  consultationPrefill?: ConsultationOtCreatePrefill | null
 }
 
 export type WorkOrderCreateResult = {
@@ -577,6 +586,7 @@ export function TaskWorkOrderDialog({
   onTaskCreated,
   onTaskUpdated,
   onEditBlocked,
+  consultationPrefill = null,
 }: TaskWorkOrderDialogProps) {
   const isEditMode = mode === "edit" && Boolean(task)
   const { searchCustomers, createCustomer, updateCustomer, fetchCustomerById } =
@@ -667,6 +677,10 @@ export function TaskWorkOrderDialog({
     }
 
     const nextForm = getDefaultWorkOrderForm()
+    if (consultationPrefill) {
+      nextForm.observationsForCrew =
+        buildCrewObservationsFromConsultation(consultationPrefill)
+    }
     setForm(nextForm)
     setBaselineForm(nextForm)
     setReferencePhotos((current) => {
@@ -679,7 +693,35 @@ export function TaskWorkOrderDialog({
     setCustomerSyncState(null)
     setError(null)
     setSaveConfirmOpen(false)
-  }, [open, isEditMode, task, fetchCustomerById, onOpenChange, onEditBlocked])
+
+    if (consultationPrefill?.customerId) {
+      void fetchCustomerById(consultationPrefill.customerId).then((customer) => {
+        if (!customer) {
+          return
+        }
+        setForm((current) => ({
+          ...current,
+          ...applyCustomerToForm(customer),
+          observationsForCrew: current.observationsForCrew,
+        }))
+        setLinkedCustomer(customer)
+        setCustomerSelected(true)
+        setBaselineForm((current) => ({
+          ...current,
+          ...applyCustomerToForm(customer),
+          observationsForCrew: current.observationsForCrew,
+        }))
+      })
+    }
+  }, [
+    open,
+    isEditMode,
+    task,
+    fetchCustomerById,
+    onOpenChange,
+    onEditBlocked,
+    consultationPrefill,
+  ])
 
   function updateField<K extends keyof WorkOrderFormInput>(
     key: K,

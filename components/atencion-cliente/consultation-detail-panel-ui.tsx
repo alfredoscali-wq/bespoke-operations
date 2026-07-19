@@ -17,6 +17,8 @@ type PanelSectionCardProps = {
   icon: LucideIcon
   tone?: VisualTone
   description?: string
+  /** Optional trailing header content (e.g. status badge). */
+  headerEnd?: React.ReactNode
   children: React.ReactNode
   className?: string
   contentClassName?: string
@@ -31,6 +33,7 @@ export function PanelSectionCard({
   icon: Icon,
   tone = "neutral",
   description,
+  headerEnd,
   children,
   className,
   contentClassName,
@@ -49,7 +52,7 @@ export function PanelSectionCard({
           >
             <Icon className={cn("size-3.5", styles.iconColor)} />
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <CardTitle className="text-[13px] font-semibold leading-none tracking-tight">
               {title}
             </CardTitle>
@@ -59,6 +62,7 @@ export function PanelSectionCard({
               </p>
             ) : null}
           </div>
+          {headerEnd ? <div className="shrink-0">{headerEnd}</div> : null}
         </div>
       </CardHeader>
       <CardContent className={cn("px-3 py-2", contentClassName)}>

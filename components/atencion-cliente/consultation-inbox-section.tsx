@@ -7,8 +7,9 @@ import { ConsultationHistoricalDaySummaryCard } from "@/components/atencion-clie
 import { ConsultationStatusBadge } from "@/components/atencion-cliente/consultation-status-badge"
 import {
   formatCustomerAtencionMotivoLabel,
-  formatCustomerAtencionNextStepLabel,
 } from "@/lib/customer-atenciones/format"
+import { formatConsultationInboxSituationLabel } from "@/lib/customer-atenciones/consultation-expediente"
+import { formatInboxManagingCell } from "@/lib/customer-atenciones/consultation-management-lock"
 import {
   CUSTOMER_ATENCION_CHANNEL_OPTIONS,
   CUSTOMER_ATENCION_MOTIVO_OPTIONS,
@@ -85,23 +86,46 @@ function formatRowDate(isoDate: string): string {
   return `${day} · ${time}`
 }
 
+function TruncatedCellText({
+  text,
+  className,
+}: {
+  text: string
+  className?: string
+}) {
+  return (
+    <span className={cn("block truncate", className)} title={text}>
+      {text}
+    </span>
+  )
+}
+
 /** Open the expediente modal on all breakpoints when a parent handler is provided. */
 function ConsultationInboxTableRow({
   item,
   rowNumber,
   isSelected,
+  isMyActiveManagement,
+  currentEmployeeId,
   onSelect,
 }: {
   item: CustomerAtencionInboxRow
   rowNumber: number
   isSelected: boolean
+  isMyActiveManagement?: boolean
+  currentEmployeeId?: string | null
   onSelect?: (atencionId: string) => void
 }) {
   const router = useRouter()
-  const assignedName =
-    item.status === "en_gestion" && item.activeManagementEmployeeName
-      ? item.activeManagementEmployeeName
-      : null
+  const motivoLabel = formatCustomerAtencionMotivoLabel(item.motivo)
+  const situationLabel = formatConsultationInboxSituationLabel(item)
+  const dateLabel = formatRowDate(item.createdAt)
+  const managingLabel = formatInboxManagingCell({
+    status: item.status,
+    activeManagementEmployeeId: item.activeManagementEmployeeId,
+    activeManagementEmployeeName: item.activeManagementEmployeeName,
+    currentEmployeeId,
+  })
 
   function openConsultation() {
     if (onSelect) {
@@ -114,7 +138,11 @@ function ConsultationInboxTableRow({
 
   return (
     <TableRow
-      className="cursor-pointer"
+      className={cn(
+        "cursor-pointer",
+        isMyActiveManagement &&
+          "border-l-4 border-l-sky-500 bg-sky-50/70 hover:bg-sky-50"
+      )}
       role="link"
       tabIndex={0}
       aria-label={`Abrir consulta de ${item.customerName}`}
@@ -127,42 +155,56 @@ function ConsultationInboxTableRow({
         }
       }}
     >
-      <TableCell className="w-10 text-xs text-muted-foreground">
+      <TableCell className="w-8 px-1.5 text-center text-xs tabular-nums text-muted-foreground">
         {rowNumber}
       </TableCell>
-      <TableCell className="min-w-[180px]">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="truncate text-sm font-medium text-foreground">
-            {item.customerName}
-          </span>
-          <ConsultationStatusBadge status={item.status} />
+      <TableCell className="w-[18%] max-w-[14rem] px-1.5">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <TruncatedCellText
+            text={item.customerName}
+            className="text-sm font-medium text-foreground"
+          />
+          {isMyActiveManagement ? (
+            <Badge
+              variant="secondary"
+              className="shrink-0 bg-sky-100 text-[10px] font-semibold text-sky-900"
+            >
+              En gestión
+            </Badge>
+          ) : null}
         </div>
       </TableCell>
-      <TableCell className="min-w-[140px]">
-        <span className="block truncate text-sm text-muted-foreground">
-          {formatCustomerAtencionMotivoLabel(item.motivo)}
-        </span>
+      <TableCell className="w-[7.5rem] px-1.5">
+        <ConsultationStatusBadge status={item.status} />
       </TableCell>
-      <TableCell className="min-w-[180px]">
-        {item.nextStep ? (
-          <span className="block truncate text-sm text-foreground">
-            {formatCustomerAtencionNextStepLabel(item.nextStep)}
-          </span>
-        ) : (
-          <span className="text-sm text-muted-foreground">—</span>
-        )}
+      <TableCell className="w-[6.5rem] px-1.5">
+        <TruncatedCellText
+          text={motivoLabel}
+          className="text-sm text-muted-foreground"
+        />
       </TableCell>
-      <TableCell className="min-w-[140px]">
-        {assignedName ? (
-          <span className="block truncate text-sm text-foreground">
-            {assignedName}
-          </span>
-        ) : (
-          <span className="text-sm text-muted-foreground">Sin asignar</span>
-        )}
+      <TableCell className="w-[32%] px-1.5">
+        <TruncatedCellText
+          text={situationLabel}
+          className="text-sm text-foreground"
+        />
       </TableCell>
-      <TableCell className="text-xs whitespace-nowrap text-muted-foreground">
-        {formatRowDate(item.createdAt)}
+      <TableCell className="w-[9rem] px-1.5">
+        {managingLabel ? (
+          <TruncatedCellText
+            text={managingLabel}
+            className={cn(
+              "text-sm font-medium",
+              isMyActiveManagement ? "text-sky-800" : "text-foreground"
+            )}
+          />
+        ) : null}
+      </TableCell>
+      <TableCell
+        className="w-[5.75rem] px-1.5 text-xs whitespace-nowrap text-muted-foreground"
+        title={dateLabel}
+      >
+        {dateLabel}
       </TableCell>
     </TableRow>
   )
@@ -182,8 +224,12 @@ export function ConsultationInboxSection({
   onSelectConsultation,
   selectedConsultationId,
 }: ConsultationInboxSectionProps) {
-  const { sharedInboxRows, isSharedInboxLoading, sharedInboxHistoricalDaySummary } =
-    useAtencionCliente()
+  const {
+    sharedInboxRows,
+    isSharedInboxLoading,
+    sharedInboxHistoricalDaySummary,
+    currentEmployeeId,
+  } = useAtencionCliente()
 
   const createdDate = normalizeSharedInboxCreatedDate(query.createdDate)
   const activeSearch = normalizeSharedInboxSearch(query.search)
@@ -360,7 +406,7 @@ export function ConsultationInboxSection({
         </div>
       </CardHeader>
 
-      <CardContent className="pt-4">
+      <CardContent className="px-3 pt-3 sm:px-4">
         {isSharedInboxLoading ? (
           <p className="text-sm text-muted-foreground">Cargando consultas…</p>
         ) : sharedInboxRows.length === 0 ? (
@@ -368,26 +414,29 @@ export function ConsultationInboxSection({
             No hay consultas para los filtros seleccionados.
           </p>
         ) : (
-          <div className="max-h-[34rem] overflow-auto rounded-lg border border-border/50">
-            <Table>
+          <div className="max-h-[34rem] overflow-y-auto overflow-x-auto rounded-lg border border-border/50 xl:overflow-x-hidden">
+            <Table className="table-fixed">
               <TableHeader className="sticky top-0 z-10 bg-card">
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="w-10 text-xs text-muted-foreground">
+                  <TableHead className="w-8 px-1.5 text-center text-xs text-muted-foreground">
                     Nº
                   </TableHead>
-                  <TableHead className="text-xs text-muted-foreground">
+                  <TableHead className="w-[18%] max-w-[14rem] px-1.5 text-xs text-muted-foreground">
                     Cliente
                   </TableHead>
-                  <TableHead className="text-xs text-muted-foreground">
+                  <TableHead className="w-[7.5rem] px-1.5 text-xs text-muted-foreground">
+                    Estado
+                  </TableHead>
+                  <TableHead className="w-[6.5rem] px-1.5 text-xs text-muted-foreground">
                     Motivo
                   </TableHead>
-                  <TableHead className="text-xs text-muted-foreground">
-                    Próxima Acción
+                  <TableHead className="w-[32%] px-1.5 text-xs text-muted-foreground">
+                    Situación Actual
                   </TableHead>
-                  <TableHead className="text-xs text-muted-foreground">
-                    Asignado
+                  <TableHead className="w-[9rem] px-1.5 text-xs text-muted-foreground">
+                    Gestionando
                   </TableHead>
-                  <TableHead className="text-xs text-muted-foreground">
+                  <TableHead className="w-[5.75rem] px-1.5 text-xs text-muted-foreground">
                     Fecha
                   </TableHead>
                 </TableRow>
@@ -399,6 +448,12 @@ export function ConsultationInboxSection({
                     item={item}
                     rowNumber={index + 1}
                     isSelected={item.id === selectedConsultationId}
+                    isMyActiveManagement={
+                      item.status === "en_gestion" &&
+                      Boolean(currentEmployeeId) &&
+                      item.activeManagementEmployeeId === currentEmployeeId
+                    }
+                    currentEmployeeId={currentEmployeeId}
                     onSelect={onSelectConsultation}
                   />
                 ))}

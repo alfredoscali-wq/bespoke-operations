@@ -4,6 +4,7 @@ import {
   requireAtencionClienteMutationContext,
   type AtencionClienteRouteContext,
 } from "@/lib/customer-atenciones/consultation-management-route"
+import { validateConsultationFollowUpActions } from "@/lib/customer-atenciones/consultation-follow-up"
 import { validateResolveConsultationResolution } from "@/lib/customer-atenciones/consultation-management"
 
 export async function POST(
@@ -16,7 +17,7 @@ export async function POST(
   }
 
   const body = (await request.json().catch(() => null)) as
-    | { resolution?: string }
+    | { resolution?: string; followUpActions?: unknown }
     | null
 
   const resolutionResult = validateResolveConsultationResolution(body?.resolution)
@@ -29,6 +30,18 @@ export async function POST(
     })
   }
 
+  const followUpResult = validateConsultationFollowUpActions(
+    body?.followUpActions
+  )
+  if (!Array.isArray(followUpResult)) {
+    return consultationManagementResultToResponse({
+      ok: false,
+      status: 400,
+      message: followUpResult.error,
+      code: "CONSULTATION_INVALID_PARAMETERS",
+    })
+  }
+
   const { atencionId } = await context.params
 
   const result = await resolveCustomerAtencionConsultation({
@@ -36,6 +49,7 @@ export async function POST(
     atencionId,
     employeeId: auth.employeeId,
     resolution: resolutionResult,
+    followUpActions: followUpResult,
   })
 
   return consultationManagementResultToResponse(result)

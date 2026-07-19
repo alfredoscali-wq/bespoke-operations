@@ -28,7 +28,10 @@ const OUTCOME_OPTIONS: {
   label: string
 }[] = [
   { value: "gestion_resuelta", label: "Gestión resuelta" },
-  { value: "seguimiento_con_cliente", label: "Seguimiento con cliente" },
+  {
+    value: "seguimiento_con_cliente",
+    label: "Requiere contacto con el cliente",
+  },
   { value: "esperando_documentacion", label: "Esperando documentación" },
   { value: "confirmar_baja", label: "Confirmar baja" },
 ]
@@ -41,6 +44,8 @@ type AdministrationResultDialogProps = {
     nextStep: string,
     detail: string
   ) => Promise<{ success: boolean; message?: string }>
+  /** RC 3.2.2 — render inside the expediente (no modal). */
+  presentation?: "dialog" | "inline"
 }
 
 export function AdministrationResultDialog({
@@ -48,20 +53,22 @@ export function AdministrationResultDialog({
   onOpenChange,
   onResolve,
   onDefer,
+  presentation = "dialog",
 }: AdministrationResultDialogProps) {
   const [outcome, setOutcome] = useState<AdministrationOutcome | null>(null)
   const [note, setNote] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const isInline = presentation === "inline"
 
   useEffect(() => {
-    if (!open) {
+    if (!open && !isInline) {
       setOutcome(null)
       setNote("")
       setError(null)
       setIsSubmitting(false)
     }
-  }, [open])
+  }, [open, isInline])
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -99,7 +106,10 @@ export function AdministrationResultDialog({
           return
         }
 
-        const deferInput = buildAdministrationDeferInput(action.nextStep!, detailResult)
+        const deferInput = buildAdministrationDeferInput(
+          action.nextStep!,
+          detailResult
+        )
         const result = await onDefer(deferInput.nextStep, deferInput.detail)
 
         if (!result.success) {
@@ -109,6 +119,10 @@ export function AdministrationResultDialog({
       }
 
       onOpenChange(false)
+      if (isInline) {
+        setOutcome(null)
+        setNote("")
+      }
     } finally {
       setIsSubmitting(false)
     }
@@ -130,80 +144,102 @@ export function AdministrationResultDialog({
             ? "Ej.: baja confirmada, pendiente generar OT…"
             : ""
 
+  const form = (
+    <form onSubmit={handleSubmit} className={cn(isInline && "space-y-3")}>
+      {!isInline ? (
+        <DialogHeader>
+          <DialogTitle>Resultado administrativo</DialogTitle>
+          <DialogDescription>
+            Registrá el resultado de la gestión administrativa sobre esta consulta.
+          </DialogDescription>
+        </DialogHeader>
+      ) : null}
+
+      <div className={cn("space-y-4", isInline ? "py-0" : "py-4")}>
+        <div className="space-y-2">
+          <Label>¿Qué resultado tuvo la gestión administrativa?</Label>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {OUTCOME_OPTIONS.map((option) => (
+              <Button
+                key={option.value}
+                type="button"
+                variant={outcome === option.value ? "default" : "outline"}
+                className={cn(
+                  "h-auto whitespace-normal py-3 text-left",
+                  outcome === option.value && "ring-2 ring-primary/30"
+                )}
+                onClick={() => setOutcome(option.value)}
+              >
+                {option.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        {outcome ? (
+          <div className="space-y-2">
+            <Label htmlFor="administration-note">{noteLabel}</Label>
+            <Textarea
+              id="administration-note"
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              rows={4}
+              placeholder={notePlaceholder}
+            />
+            {outcome === "confirmar_baja" ? (
+              <p className="text-xs text-muted-foreground">
+                La consulta quedará en Pendiente de generar OT. No se creará
+                ninguna OT en este paso.
+              </p>
+            ) : null}
+            {outcome === "seguimiento_con_cliente" ? (
+              <p className="text-xs text-muted-foreground">
+                Atención al Cliente deberá validar el resultado con el cliente.
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      </div>
+
+      {isInline ? (
+        <Button
+          type="submit"
+          className="h-10 w-full text-[13px] font-semibold"
+          disabled={isSubmitting || !outcome}
+        >
+          {isSubmitting ? "Registrando…" : "Registrar gestión"}
+        </Button>
+      ) : (
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isSubmitting}
+          >
+            Cancelar
+          </Button>
+          <Button type="submit" disabled={isSubmitting || !outcome}>
+            {isSubmitting ? "Guardando…" : "Registrar gestión"}
+          </Button>
+        </DialogFooter>
+      )}
+    </form>
+  )
+
+  if (isInline) {
+    return (
+      <div className="rounded-md border border-slate-200 bg-slate-50/80 px-3 py-2.5">
+        {form}
+      </div>
+    )
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <form onSubmit={handleSubmit}>
-          <DialogHeader>
-            <DialogTitle>Resultado administrativo</DialogTitle>
-            <DialogDescription>
-              Registrá el resultado de la gestión administrativa sobre esta consulta.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>¿Qué ocurrió?</Label>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {OUTCOME_OPTIONS.map((option) => (
-                  <Button
-                    key={option.value}
-                    type="button"
-                    variant={outcome === option.value ? "default" : "outline"}
-                    className={cn(
-                      "h-auto whitespace-normal py-3 text-left",
-                      outcome === option.value && "ring-2 ring-primary/30"
-                    )}
-                    onClick={() => setOutcome(option.value)}
-                  >
-                    {option.label}
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            {outcome ? (
-              <div className="space-y-2">
-                <Label htmlFor="administration-note">{noteLabel}</Label>
-                <Textarea
-                  id="administration-note"
-                  value={note}
-                  onChange={(event) => setNote(event.target.value)}
-                  rows={4}
-                  placeholder={notePlaceholder}
-                />
-                {outcome === "confirmar_baja" ? (
-                  <p className="text-xs text-muted-foreground">
-                    La consulta quedará en Pendiente de generar OT. No se creará
-                    ninguna OT en este paso.
-                  </p>
-                ) : null}
-                {outcome === "seguimiento_con_cliente" ? (
-                  <p className="text-xs text-muted-foreground">
-                    Atención al Cliente deberá validar el resultado con el cliente.
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
-
-            {error ? <p className="text-sm text-destructive">{error}</p> : null}
-          </div>
-
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isSubmitting}
-            >
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={isSubmitting || !outcome}>
-              {isSubmitting ? "Guardando…" : "Registrar resultado"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
+      <DialogContent className="sm:max-w-lg">{form}</DialogContent>
     </Dialog>
   )
 }
