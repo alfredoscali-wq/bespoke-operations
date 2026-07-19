@@ -6,10 +6,13 @@ import test from "node:test"
 
 import {
   detectManagementAssistantReturn,
+  getManagementAssistantDetailPlaceholder,
   getManagementAssistantNextStepMessage,
   getManagementAssistantOptionLabel,
   getManagementAssistantOptionsAfterTecnica,
   MANAGEMENT_ASSISTANT_INITIAL_OPTIONS,
+  managementAssistantOptionRequiresDetail,
+  managementAssistantOptionShowsFollowUp,
 } from "../lib/customer-atenciones/consultation-management-assistant.ts"
 
 test("initial options exclude Generar OT", () => {
@@ -48,6 +51,37 @@ test("natural language labels and next-step previews", () => {
     getManagementAssistantNextStepMessage("realizar_retencion"),
     "Se iniciará el proceso de retención."
   )
+})
+
+test("RC 3.2.8 unified detail placeholders and follow-up visibility", () => {
+  assert.equal(
+    getManagementAssistantDetailPlaceholder("resolve"),
+    "Describa cómo fue resuelta la consulta."
+  )
+  assert.equal(
+    getManagementAssistantDetailPlaceholder("esperar_cliente"),
+    "Describa qué se solicitó al cliente y qué respuesta se espera. Ej.: se solicitó reiniciar el equipo; se pidió enviar fotografías; el cliente realizará una prueba esta noche."
+  )
+  assert.equal(
+    getManagementAssistantDetailPlaceholder("resolver_consulta_tecnica"),
+    "Describa el diagnóstico realizado y la información que necesita conocer el área técnica."
+  )
+  assert.equal(
+    getManagementAssistantDetailPlaceholder("derivar_admin_gestion"),
+    "Describa la gestión que deberá realizar Administración."
+  )
+  assert.equal(
+    getManagementAssistantDetailPlaceholder("contactar_cliente"),
+    "Describa la oportunidad comercial detectada o la solicitud del cliente."
+  )
+  assert.equal(
+    getManagementAssistantDetailPlaceholder("realizar_retencion"),
+    "Describa el motivo informado por el cliente y cualquier información relevante para Retenciones."
+  )
+  assert.equal(managementAssistantOptionShowsFollowUp("resolve"), true)
+  assert.equal(managementAssistantOptionShowsFollowUp("esperar_cliente"), false)
+  assert.equal(managementAssistantOptionRequiresDetail("resolve"), true)
+  assert.equal(managementAssistantOptionRequiresDetail("link_ot"), false)
 })
 
 test("detects tecnica return from consulta_pendiente", () => {

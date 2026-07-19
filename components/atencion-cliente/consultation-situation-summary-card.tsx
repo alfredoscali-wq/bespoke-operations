@@ -33,6 +33,8 @@ type ConsultationSituationSummaryCardProps = {
   summary: ConsultationSituationSummary
   status: CustomerAtencionStatus
   nextStep?: CustomerAtencionNextStep | null
+  /** RC 3.2.7 — when set, Estado actual reflects Atención closed via OT. */
+  linkedTaskId?: string | null
   narrative: ConsultationSituationNarrative
   lastActorName: string
   /** Creation detail written when the consultation was opened. */
@@ -161,6 +163,7 @@ export function ConsultationSituationSummaryCard({
   summary,
   status,
   nextStep = null,
+  linkedTaskId = null,
   narrative,
   lastActorName,
   initialObservations,
@@ -178,10 +181,12 @@ export function ConsultationSituationSummaryCard({
     const badgeLabel = formatConsultationEstadoActualBadge({
       status,
       nextStep,
+      linkedTaskId,
     })
     const summarySentence = formatConsultationEstadoActualSummary({
       status,
       nextStep,
+      linkedTaskId,
     })
     const observations = initialObservations?.trim() || null
     const lastInterventionUser =

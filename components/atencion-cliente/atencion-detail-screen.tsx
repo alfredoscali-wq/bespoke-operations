@@ -45,11 +45,14 @@ import {
 } from "@/lib/customer-atenciones/consultation-management-lock"
 import {
   detectManagementAssistantReturn,
+  getManagementAssistantDetailPlaceholder,
   getManagementAssistantNextStepMessage,
   getManagementAssistantOptionLabel,
   getManagementAssistantOptionsAfterAreaReturn,
   getManagementAssistantOptionsAfterTecnica,
   MANAGEMENT_ASSISTANT_INITIAL_OPTIONS,
+  managementAssistantOptionRequiresDetail,
+  managementAssistantOptionShowsFollowUp,
   managementAssistantOptionToNextStep,
   type ManagementAssistantOptionId,
 } from "@/lib/customer-atenciones/consultation-management-assistant"
@@ -408,7 +411,7 @@ export function AtencionDetailScreen({
     setActionError(null)
 
     if (!resolution.trim()) {
-      setActionError("Completá la resolución de la consulta.")
+      setActionError("Completá el detalle de la gestión.")
       return
     }
 
@@ -434,6 +437,7 @@ export function AtencionDetailScreen({
       setResolution("")
       setFollowUpNeeded(false)
       setSelectedFollowUpActions([])
+      setSelectedAssistantOptionId(null)
       await reloadAfterAction()
     } finally {
       setIsResolving(false)
@@ -448,10 +452,19 @@ export function AtencionDetailScreen({
       return
     }
 
+    if (!resolution.trim()) {
+      setActionError("Completá el detalle de la gestión.")
+      return
+    }
+
     setIsDeferring(true)
 
     try {
-      const result = await deferConsultation(atencionId, deferNextStep)
+      const result = await deferConsultation(
+        atencionId,
+        deferNextStep,
+        resolution.trim()
+      )
 
       if (!result.success) {
         setActionError(result.message)
@@ -459,24 +472,40 @@ export function AtencionDetailScreen({
       }
 
       setDeferNextStep("")
+      setResolution("")
       await reloadAfterAction()
     } finally {
       setIsDeferring(false)
     }
   }
 
-  async function handleDeferTo(nextStep: CustomerAtencionNextStep) {
+  async function handleDeferTo(
+    nextStep: CustomerAtencionNextStep,
+    detail: string
+  ) {
     setActionError(null)
+
+    if (!detail.trim()) {
+      setActionError("Completá el detalle de la gestión.")
+      return
+    }
+
     setIsDeferring(true)
 
     try {
-      const result = await deferConsultation(atencionId, nextStep)
+      const result = await deferConsultation(
+        atencionId,
+        nextStep,
+        detail.trim()
+      )
 
       if (!result.success) {
         setActionError(result.message)
         return
       }
 
+      setResolution("")
+      setSelectedAssistantOptionId(null)
       await reloadAfterAction()
     } finally {
       setIsDeferring(false)
@@ -623,9 +652,11 @@ export function AtencionDetailScreen({
   /** RC 3.2.2 — area result forms render inline in the expediente (no modal gate). */
   let showAreaResultInline = false
 
-  if (atencion.status === "resuelta" && !canDelete) {
+  if (atencion.status === "resuelta" || atencion.linkedTaskId) {
     decisionStatusMessage =
-      "Esta consulta ya está resuelta. No hay gestiones pendientes."
+      atencion.linkedTaskId
+        ? "Consulta resuelta. Se generó una Orden de Trabajo; el seguimiento continúa en Operaciones."
+        : "Esta consulta ya está resuelta. No hay gestiones pendientes."
   } else if (isManagedByAnother) {
     decisionStatusMessage = (
       <>
@@ -642,7 +673,7 @@ export function AtencionDetailScreen({
         <p className="mt-1">Actualmente la gestión se encuentra en curso.</p>
       </>
     )
-  } else if (atencion.status !== "resuelta") {
+  } else if (atencion.status !== "resuelta" && !atencion.linkedTaskId) {
     if (canStart) {
       const startAsContinue =
         Boolean(areaReturn) ||
@@ -722,6 +753,7 @@ export function AtencionDetailScreen({
         onSelect: () => {
           setSelectedAssistantOptionId(id)
           setActionError(null)
+          setResolution("")
           if (id !== "resolve") {
             setFollowUpNeeded(false)
             setSelectedFollowUpActions([])
@@ -752,6 +784,13 @@ export function AtencionDetailScreen({
       return
     }
 
+    if (managementAssistantOptionRequiresDetail(effectiveAssistantOptionId)) {
+      if (!resolution.trim()) {
+        setActionError("Completá el detalle de la gestión.")
+        return
+      }
+    }
+
     if (effectiveAssistantOptionId === "resolve") {
       await handleResolve()
       return
@@ -775,87 +814,98 @@ export function AtencionDetailScreen({
       return
     }
 
-    await handleDeferTo(nextStep)
+    await handleDeferTo(nextStep, resolution)
   }
 
-  const resolveForm =
-    effectiveAssistantOptionId === "resolve" &&
-    (isGeneralManagement || showGuidedAssistant) ? (
+  const managementDetailOptionId =
+    effectiveAssistantOptionId != null &&
+    managementAssistantOptionRequiresDetail(effectiveAssistantOptionId) &&
+    (isGeneralManagement || showGuidedAssistant)
+      ? effectiveAssistantOptionId
+      : null
+
+  const managementDetailForm = managementDetailOptionId ? (
       <div className="space-y-3">
         <div className="space-y-2 rounded-md border border-slate-200 bg-slate-50/80 px-3 py-2.5">
-          <Label htmlFor="consultation-resolution-panel">
-            ¿Qué se hizo para resolver la consulta?
+          <Label htmlFor="consultation-management-detail">
+            Detalle de la gestión
           </Label>
           <Textarea
-            id="consultation-resolution-panel"
+            id="consultation-management-detail"
             value={resolution}
             onChange={(event) => setResolution(event.target.value)}
-            rows={3}
-            placeholder="Describí el resultado de la atención"
+            rows={4}
+            placeholder={getManagementAssistantDetailPlaceholder(
+              managementDetailOptionId
+            )}
           />
         </div>
 
-        <div className="space-y-2 rounded-md border border-slate-200 bg-white px-3 py-2.5">
-          <p className="text-[13px] font-semibold text-slate-900">
-            ¿Es necesario realizar alguna acción adicional?
-          </p>
-          <div className="flex flex-wrap gap-3">
-            <label className="flex cursor-pointer items-center gap-2 text-[13px] text-slate-700">
-              <input
-                type="radio"
-                name="consultation-follow-up-needed"
-                checked={!followUpNeeded}
-                onChange={() => {
-                  setFollowUpNeeded(false)
-                  setSelectedFollowUpActions([])
-                }}
-                className="size-3.5 accent-sky-600"
-              />
-              No
-            </label>
-            <label className="flex cursor-pointer items-center gap-2 text-[13px] text-slate-700">
-              <input
-                type="radio"
-                name="consultation-follow-up-needed"
-                checked={followUpNeeded}
-                onChange={() => setFollowUpNeeded(true)}
-                className="size-3.5 accent-sky-600"
-              />
-              Sí
-            </label>
-          </div>
-
-          {followUpNeeded ? (
-            <div className="mt-2 space-y-2 border-t border-slate-200/80 pt-2">
-              {CONSULTATION_FOLLOW_UP_ACTION_OPTIONS.map((action) => {
-                const checked = selectedFollowUpActions.includes(action.id)
-                return (
-                  <label
-                    key={action.id}
-                    className="flex cursor-pointer items-start gap-2.5 text-[13px] text-slate-800"
-                  >
-                    <Checkbox
-                      checked={checked}
-                      onCheckedChange={(value) => {
-                        const isOn = value === true
-                        setSelectedFollowUpActions((current) => {
-                          if (isOn) {
-                            return current.includes(action.id)
-                              ? current
-                              : [...current, action.id]
-                          }
-                          return current.filter((id) => id !== action.id)
-                        })
-                      }}
-                      className="mt-0.5"
-                    />
-                    <span className="leading-snug font-medium">{action.label}</span>
-                  </label>
-                )
-              })}
+        {managementAssistantOptionShowsFollowUp(managementDetailOptionId) ? (
+          <div className="space-y-2 rounded-md border border-slate-200 bg-white px-3 py-2.5">
+            <p className="text-[13px] font-semibold text-slate-900">
+              ¿Es necesario realizar alguna acción adicional?
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <label className="flex cursor-pointer items-center gap-2 text-[13px] text-slate-700">
+                <input
+                  type="radio"
+                  name="consultation-follow-up-needed"
+                  checked={!followUpNeeded}
+                  onChange={() => {
+                    setFollowUpNeeded(false)
+                    setSelectedFollowUpActions([])
+                  }}
+                  className="size-3.5 accent-sky-600"
+                />
+                No
+              </label>
+              <label className="flex cursor-pointer items-center gap-2 text-[13px] text-slate-700">
+                <input
+                  type="radio"
+                  name="consultation-follow-up-needed"
+                  checked={followUpNeeded}
+                  onChange={() => setFollowUpNeeded(true)}
+                  className="size-3.5 accent-sky-600"
+                />
+                Sí
+              </label>
             </div>
-          ) : null}
-        </div>
+
+            {followUpNeeded ? (
+              <div className="mt-2 space-y-2 border-t border-slate-200/80 pt-2">
+                {CONSULTATION_FOLLOW_UP_ACTION_OPTIONS.map((action) => {
+                  const checked = selectedFollowUpActions.includes(action.id)
+                  return (
+                    <label
+                      key={action.id}
+                      className="flex cursor-pointer items-start gap-2.5 text-[13px] text-slate-800"
+                    >
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(value) => {
+                          const isOn = value === true
+                          setSelectedFollowUpActions((current) => {
+                            if (isOn) {
+                              return current.includes(action.id)
+                                ? current
+                                : [...current, action.id]
+                            }
+                            return current.filter((id) => id !== action.id)
+                          })
+                        }}
+                        className="mt-0.5"
+                      />
+                      <span className="leading-snug font-medium">
+                        {action.label}
+                      </span>
+                    </label>
+                  )
+                })}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     ) : null
 
@@ -959,12 +1009,23 @@ export function AtencionDetailScreen({
   const assistantDetail =
     !isManagedByAnother && atencion.status !== "resuelta" ? (
       <>
-        {resolveForm}
+        {managementDetailForm}
         {morosoForm}
         {otForm}
         {areaInlineResultForm}
       </>
     ) : null
+
+  const assistantDetailReady =
+    effectiveAssistantOptionId != null &&
+    managementAssistantOptionRequiresDetail(effectiveAssistantOptionId)
+      ? Boolean(resolution.trim()) &&
+        !(
+          managementAssistantOptionShowsFollowUp(effectiveAssistantOptionId) &&
+          followUpNeeded &&
+          selectedFollowUpActions.length === 0
+        )
+      : true
 
   const assistantConfirm: ConsultationDecisionAction | null =
     showGuidedAssistant &&
@@ -977,7 +1038,8 @@ export function AtencionDetailScreen({
           onClick: () => {
             void handleRegisterManagement()
           },
-          disabled: isResolving || isDeferring,
+          disabled:
+            isResolving || isDeferring || !assistantDetailReady,
         }
       : null
 
@@ -1006,6 +1068,7 @@ export function AtencionDetailScreen({
       summary={situationSummary}
       status={atencion.status}
       nextStep={atencion.nextStep}
+      linkedTaskId={atencion.linkedTaskId}
       narrative={situationNarrative}
       lastActorName={lastActorName}
       initialObservations={atencion.detail}
@@ -1310,6 +1373,8 @@ export function AtencionDetailScreen({
         summary={situationSummary}
         narrative={situationNarrative}
         status={atencion.status}
+        nextStep={atencion.nextStep}
+        linkedTaskId={atencion.linkedTaskId}
         lastActorName={lastActorName}
       />
 
@@ -1496,15 +1561,20 @@ export function AtencionDetailScreen({
             </p>
 
             <div className="space-y-2">
-              <Label htmlFor="consultation-resolution">Resolución</Label>
+              <Label htmlFor="consultation-resolution">
+                Detalle de la gestión
+              </Label>
               <Textarea
                 id="consultation-resolution"
                 value={resolution}
                 onChange={(event) => setResolution(event.target.value)}
                 rows={3}
-                placeholder="Qué se hizo para resolver la consulta"
+                placeholder="Describa cómo fue resuelta la consulta."
               />
-              <Button onClick={handleResolve} disabled={isResolving}>
+              <Button
+                onClick={handleResolve}
+                disabled={isResolving || !resolution.trim()}
+              >
                 {isResolving ? "Guardando…" : "Resolver Consulta"}
               </Button>
             </div>
@@ -1531,7 +1601,9 @@ export function AtencionDetailScreen({
               <Button
                 variant="outline"
                 onClick={handleDefer}
-                disabled={isDeferring}
+                disabled={
+                  isDeferring || !resolution.trim() || !deferNextStep
+                }
               >
                 {isDeferring ? "Guardando…" : "Definir próximo paso"}
               </Button>

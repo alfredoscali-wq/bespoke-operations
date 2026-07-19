@@ -112,6 +112,61 @@ export function getManagementAssistantNextStepMessage(
   }
 }
 
+/**
+ * RC 3.2.8 — options that register a management action and require written detail.
+ * link_ot / moroso_tracking keep specialized UIs.
+ */
+export function managementAssistantOptionRequiresDetail(
+  id: ManagementAssistantOptionId
+): boolean {
+  return (
+    id === "resolve" ||
+    id === "esperar_cliente" ||
+    id === "seguimiento_cliente" ||
+    id === "resolver_consulta_tecnica" ||
+    id === "derivar_admin_gestion" ||
+    id === "derivar_admin_facturacion" ||
+    id === "derivar_admin_morosos" ||
+    id === "contactar_cliente" ||
+    id === "realizar_retencion"
+  )
+}
+
+/** RC 3.2.8 — follow-up actions only apply when resolving. */
+export function managementAssistantOptionShowsFollowUp(
+  id: ManagementAssistantOptionId
+): boolean {
+  return id === "resolve"
+}
+
+/** RC 3.2.8 — placeholder for the unified "Detalle de la gestión" field. */
+export function getManagementAssistantDetailPlaceholder(
+  id: ManagementAssistantOptionId
+): string {
+  switch (id) {
+    case "resolve":
+      return "Describa cómo fue resuelta la consulta."
+    case "esperar_cliente":
+      return "Describa qué se solicitó al cliente y qué respuesta se espera. Ej.: se solicitó reiniciar el equipo; se pidió enviar fotografías; el cliente realizará una prueba esta noche."
+    case "seguimiento_cliente":
+      return "Describa el contacto pendiente o la información que debe tratarse con el cliente."
+    case "resolver_consulta_tecnica":
+      return "Describa el diagnóstico realizado y la información que necesita conocer el área técnica."
+    case "derivar_admin_gestion":
+    case "derivar_admin_facturacion":
+    case "derivar_admin_morosos":
+      return "Describa la gestión que deberá realizar Administración."
+    case "contactar_cliente":
+      return "Describa la oportunidad comercial detectada o la solicitud del cliente."
+    case "realizar_retencion":
+      return "Describa el motivo informado por el cliente y cualquier información relevante para Retenciones."
+    case "link_ot":
+      return "Describa el contexto operativo que debe conocer el equipo al generar la OT."
+    case "moroso_tracking":
+      return "Describa el avance registrado en la gestión de morosos."
+  }
+}
+
 export function managementAssistantOptionToNextStep(
   id: ManagementAssistantOptionId
 ): CustomerAtencionNextStep | null {

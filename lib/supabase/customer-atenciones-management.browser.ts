@@ -142,7 +142,7 @@ export function deferConsultationManagement(
   detail?: string
 ): Promise<ConsultationManagementMutationResult> {
   const body: Record<string, unknown> = { nextStep }
-  if (detail) {
+  if (detail !== undefined) {
     body.detail = detail
   }
 

@@ -103,6 +103,9 @@ export interface CustomerAtencion {
   otLinkedByEmployeeId?: string | null
   /** RC 3.2.0 — post-resolution actions (e.g. generar_ot). Not next_step. */
   followUpActions?: ConsultationFollowUpAction[]
+  /** RC 3.2.7 — when Atención closed the consultation (resolve or OT link). */
+  resolvedAt?: string | null
+  resolvedByEmployeeId?: string | null
   createdAt: string
   updatedAt: string
   deletedAt?: string | null

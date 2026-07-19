@@ -190,6 +190,8 @@ function mapRowToInboxRow(
     active_management_last_activity_at:
       row.active_management_last_activity_at ?? null,
     follow_up_actions: row.follow_up_actions ?? [],
+    resolved_at: null,
+    resolved_by_employee_id: null,
     created_at: row.created_at,
     updated_at: row.updated_at,
     deleted_at: null,
@@ -756,6 +758,8 @@ function mapRowToListRow(
     active_management_started_at: null,
     active_management_last_activity_at: null,
     follow_up_actions: [],
+    resolved_at: null,
+    resolved_by_employee_id: null,
     created_at: row.created_at,
     updated_at: row.created_at,
     deleted_at: null,

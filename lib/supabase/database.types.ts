@@ -204,6 +204,8 @@ export type Database = {
           active_management_started_at: string | null
           active_management_last_activity_at: string | null
           follow_up_actions: string[]
+          resolved_at: string | null
+          resolved_by_employee_id: string | null
           created_at: string
           updated_at: string
           deleted_at: string | null
@@ -229,6 +231,8 @@ export type Database = {
           active_management_started_at?: string | null
           active_management_last_activity_at?: string | null
           follow_up_actions?: string[]
+          resolved_at?: string | null
+          resolved_by_employee_id?: string | null
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
@@ -254,6 +258,8 @@ export type Database = {
           active_management_started_at?: string | null
           active_management_last_activity_at?: string | null
           follow_up_actions?: string[]
+          resolved_at?: string | null
+          resolved_by_employee_id?: string | null
           created_at?: string
           updated_at?: string
           deleted_at?: string | null

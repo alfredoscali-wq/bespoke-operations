@@ -467,13 +467,14 @@ test("buildRetentionRetainedResolveInput mapea resolución", () => {
   assert.equal(input.resolution, "Se ofreció cambio de plan")
 })
 
-test("defer API acepta detail opcional", () => {
+test("defer API exige detail (RC 3.2.8)", () => {
   assert.match(deferRouteSource, /detail\?: string/)
+  assert.match(deferRouteSource, /Completá el detalle de la gestión/)
   assert.match(serverSource, /p_detail/)
   assert.match(browserSource, /detail\?: string/)
 })
 
-test("provider defer acepta detail opcional", () => {
+test("provider defer acepta detail en el payload", () => {
   assert.match(providerSource, /detail\?: string/)
 })
 

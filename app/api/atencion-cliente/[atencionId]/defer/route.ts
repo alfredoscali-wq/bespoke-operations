@@ -29,8 +29,16 @@ export async function POST(
     })
   }
 
-  const detail =
-    typeof body?.detail === "string" ? body.detail.trim() || undefined : undefined
+  const detailRaw =
+    typeof body?.detail === "string" ? body.detail.trim() : ""
+  if (!detailRaw) {
+    return consultationManagementResultToResponse({
+      ok: false,
+      status: 400,
+      message: "Completá el detalle de la gestión.",
+      code: "CONSULTATION_INVALID_PARAMETERS",
+    })
+  }
 
   const { atencionId } = await context.params
 
@@ -39,7 +47,7 @@ export async function POST(
     atencionId,
     employeeId: auth.employeeId,
     nextStep: nextStepResult,
-    detail,
+    detail: detailRaw,
   })
 
   return consultationManagementResultToResponse(result)

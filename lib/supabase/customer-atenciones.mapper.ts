@@ -128,6 +128,8 @@ export function mapCustomerAtencionRowToCustomerAtencion(
     followUpActions: normalizeConsultationFollowUpActions(
       row.follow_up_actions
     ),
+    resolvedAt: row.resolved_at ?? null,
+    resolvedByEmployeeId: row.resolved_by_employee_id ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,

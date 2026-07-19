@@ -203,8 +203,9 @@ export function formatConsultationInboxSituationLabel(row: {
 export function formatConsultationEstadoActualBadge(row: {
   status: CustomerAtencionStatus
   nextStep?: CustomerAtencionNextStep | null
+  linkedTaskId?: string | null
 }): string {
-  if (row.status === "resuelta") {
+  if (row.linkedTaskId || row.status === "resuelta") {
     return "Resuelta"
   }
 
@@ -245,9 +246,15 @@ export function formatConsultationEstadoActualSummary(
   row: {
     status: CustomerAtencionStatus
     nextStep?: CustomerAtencionNextStep | null
+    linkedTaskId?: string | null
   },
   _options?: { derivedBy?: string | null }
 ): string {
+  // RC 3.2.7 — OT link closes Atención; Operaciones continues on the work order.
+  if (row.linkedTaskId) {
+    return "Consulta resuelta. Se generó correctamente una Orden de Trabajo para continuar el proceso operativo."
+  }
+
   if (row.status === "resuelta") {
     return "La consulta fue resuelta correctamente."
   }
@@ -971,9 +978,10 @@ function buildTimelineCard(
     case "consulta_ot_vinculada":
       return {
         ...base,
-        narrativeLead: "vinculó una orden de trabajo a la consulta.",
+        narrativeLead: "vinculó una orden de trabajo y cerró la consulta en Atención.",
         facts: [{ label: "Área", value: areaLabel }],
-        closingNote: null,
+        closingNote:
+          "Consulta resuelta. El seguimiento continúa en Operaciones.",
         comment,
         commentLabel: comment ? "Información registrada" : null,
       }
