@@ -14,7 +14,7 @@ import type {
 export type SupabaseCustomerAtencionEventsClient = SupabaseClient<Database>
 
 const EVENT_SELECT =
-  "id, company_id, customer_atencion_id, employee_id, action_type, detail, previous_status, new_status, previous_next_step, new_next_step, created_at"
+  "id, company_id, customer_atencion_id, employee_id, action_type, detail, previous_status, new_status, previous_next_step, new_next_step, interaction_kind, interaction_result, next_action_at, created_at"
 
 export function mapSupabaseCustomerAtencionEventError(error: {
   code?: string

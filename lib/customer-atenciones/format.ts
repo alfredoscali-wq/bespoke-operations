@@ -115,6 +115,7 @@ const EVENT_ACTION_LABELS: Record<CustomerAtencionEventActionType, string> = {
   proximo_paso_cambiado: "Cambio de próximo paso",
   consulta_ot_vinculada: "Vinculación con OT",
   gestion_liberada_por_inactividad: "Gestión liberada por inactividad",
+  interaccion_registrada: "Interacción registrada",
 }
 
 export function formatCustomerAtencionEventActionLabel(

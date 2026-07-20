@@ -8,6 +8,9 @@ import {
   formatResolveFollowUpClosingNote,
   parseResolveEventDetail,
 } from "@/lib/customer-atenciones/consultation-follow-up"
+import {
+  formatInteractionResultLabel,
+} from "@/lib/customer-atenciones/consultation-interaction"
 import { getOperationalCategoryForNextStep } from "@/lib/customer-atenciones/shared-inbox"
 import type { CustomerAtencionEvent } from "@/lib/types/customer-atencion-events"
 import type {
@@ -812,7 +815,10 @@ export function buildConsultationTimelineCards(
 function resolveExpedienteEventTitle(
   event: Pick<
     CustomerAtencionEvent,
-    "actionType" | "previousNextStep" | "newNextStep"
+    | "actionType"
+    | "previousNextStep"
+    | "newNextStep"
+    | "interactionKind"
   >
 ): string {
   switch (event.actionType) {
@@ -826,6 +832,18 @@ function resolveExpedienteEventTitle(
       return "GENERACIÓN DE OT"
     case "gestion_liberada_por_inactividad":
       return "GESTIÓN LIBERADA POR INACTIVIDAD"
+    case "interaccion_registrada": {
+      if (event.interactionKind === "process") {
+        return "ACTUALIZACIÓN DE PROCESO"
+      }
+      if (event.interactionKind === "contact") {
+        return "CONTACTO CON CLIENTE"
+      }
+      if (event.interactionKind === "note") {
+        return "NOTA REGISTRADA"
+      }
+      return "INTERACCIÓN REGISTRADA"
+    }
     case "gestion_registrada":
     case "consulta_pendiente": {
       const area = getInterveningAreaForEvent(event)
@@ -997,6 +1015,49 @@ function buildTimelineCard(
         comment: null,
         commentLabel: null,
       }
+
+    case "interaccion_registrada": {
+      const resultLabel = formatInteractionResultLabel(
+        event.interactionKind,
+        event.interactionResult
+      )
+      const facts: ConsultationTimelineFact[] = [
+        { label: "Área", value: areaLabel },
+      ]
+      if (resultLabel) {
+        facts.push({ label: "Resultado", value: resultLabel })
+      }
+      if (event.nextActionAt) {
+        facts.push({
+          label: "Próxima acción",
+          value: new Date(event.nextActionAt).toLocaleString("es-AR", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        })
+      }
+
+      const lead =
+        event.interactionKind === "contact"
+          ? "registró un contacto."
+          : event.interactionKind === "process"
+            ? "actualizó el estado del proceso."
+            : event.interactionKind === "note"
+              ? "registró una nota."
+              : "registró una interacción."
+
+      return {
+        ...base,
+        narrativeLead: lead,
+        facts,
+        closingNote: "La bandeja de la consulta no cambió.",
+        comment,
+        commentLabel: comment ? "Detalle" : null,
+      }
+    }
 
     default:
       return {

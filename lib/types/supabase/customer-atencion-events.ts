@@ -1,4 +1,5 @@
 import type {
+  ConsultationInteractionKind,
   CustomerAtencionEventActionType,
   CustomerAtencionEvent,
 } from "@/lib/types/customer-atencion-events"
@@ -17,6 +18,9 @@ export type CreateCustomerAtencionEventPayload = {
   newStatus?: CustomerAtencionStatus | null
   previousNextStep?: CustomerAtencionNextStep | null
   newNextStep?: CustomerAtencionNextStep | null
+  interactionKind?: ConsultationInteractionKind | null
+  interactionResult?: string | null
+  nextActionAt?: string | null
 }
 
 export type CustomerAtencionEventsRepositoryErrorCode =

@@ -2,11 +2,13 @@ import {
   isCustomerAtencionNextStep,
   isCustomerAtencionStatus,
 } from "@/lib/customer-atenciones/consultation"
+import { isConsultationInteractionKind } from "@/lib/customer-atenciones/consultation-interaction"
 import type {
   CustomerAtencionEventInsert,
   CustomerAtencionEventRow,
 } from "@/lib/supabase/database.types"
 import type {
+  ConsultationInteractionKind,
   CustomerAtencionEvent,
   CustomerAtencionEventActionType,
 } from "@/lib/types/customer-atencion-events"
@@ -25,6 +27,7 @@ const EVENT_ACTION_TYPES = new Set<CustomerAtencionEventActionType>([
   "proximo_paso_cambiado",
   "consulta_ot_vinculada",
   "gestion_liberada_por_inactividad",
+  "interaccion_registrada",
 ])
 
 function parseActionType(value: string): CustomerAtencionEventActionType {
@@ -55,6 +58,16 @@ function parseOptionalNextStep(
   return null
 }
 
+function parseOptionalInteractionKind(
+  value: string | null | undefined
+): ConsultationInteractionKind | null {
+  if (value && isConsultationInteractionKind(value)) {
+    return value
+  }
+
+  return null
+}
+
 export function mapCustomerAtencionEventRowToCustomerAtencionEvent(
   row: CustomerAtencionEventRow
 ): CustomerAtencionEvent {
@@ -69,6 +82,9 @@ export function mapCustomerAtencionEventRowToCustomerAtencionEvent(
     newStatus: parseOptionalStatus(row.new_status),
     previousNextStep: parseOptionalNextStep(row.previous_next_step),
     newNextStep: parseOptionalNextStep(row.new_next_step),
+    interactionKind: parseOptionalInteractionKind(row.interaction_kind),
+    interactionResult: row.interaction_result,
+    nextActionAt: row.next_action_at,
     createdAt: row.created_at,
   }
 }
@@ -86,6 +102,9 @@ export function mapCreateCustomerAtencionEventPayloadToInsert(
     new_status: payload.newStatus ?? null,
     previous_next_step: payload.previousNextStep ?? null,
     new_next_step: payload.newNextStep ?? null,
+    interaction_kind: payload.interactionKind ?? null,
+    interaction_result: payload.interactionResult ?? null,
+    next_action_at: payload.nextActionAt ?? null,
   }
 }
 

@@ -21,6 +21,12 @@ import {
   type MorosoTrackingRpcResult,
 } from "@/lib/customer-atenciones/moroso-management"
 import {
+  mapConsultationInteractionRpcError,
+  parseConsultationInteractionRpcResult,
+  type ConsultationInteractionErrorCode,
+  type ConsultationInteractionRpcResult,
+} from "@/lib/customer-atenciones/consultation-interaction-management"
+import {
   mapOtLinkRpcError,
   parseOtLinkRpcResult,
   type OtLinkErrorCode,
@@ -244,6 +250,63 @@ export async function updateCustomerAtencionMorosoTracking(input: {
     p_employee_id: input.employeeId,
     p_tracking_status: input.trackingStatus,
   })
+}
+
+export type ConsultationInteractionServerResult =
+  | { ok: true; data: ConsultationInteractionRpcResult }
+  | {
+      ok: false
+      status: number
+      message: string
+      code: ConsultationInteractionErrorCode
+    }
+
+export async function registerCustomerAtencionInteraction(input: {
+  companyId: string
+  atencionId: string
+  employeeId: string
+  interactionKind: string
+  interactionResult?: string | null
+  detail: string
+  nextActionAt?: string | null
+}): Promise<ConsultationInteractionServerResult> {
+  const admin = createAdminClient()
+
+  const { data, error } = await (admin as unknown as AdminRpcClient).rpc(
+    "register_customer_atencion_interaction",
+    {
+      p_company_id: input.companyId,
+      p_atencion_id: input.atencionId,
+      p_employee_id: input.employeeId,
+      p_interaction_kind: input.interactionKind,
+      p_interaction_result: input.interactionResult ?? null,
+      p_detail: input.detail,
+      p_next_action_at: input.nextActionAt ?? null,
+    }
+  )
+
+  if (error) {
+    logOperationError("CONSULTATION INTERACTION", error)
+    const mapped = mapConsultationInteractionRpcError(error.message || "")
+    return {
+      ok: false,
+      status: mapped.status,
+      message: mapped.message,
+      code: mapped.code,
+    }
+  }
+
+  const parsed = parseConsultationInteractionRpcResult(data)
+  if (!parsed) {
+    return {
+      ok: false,
+      status: 500,
+      message: "No se pudo registrar la interacción.",
+      code: "RPC_EMPTY",
+    }
+  }
+
+  return { ok: true, data: parsed }
 }
 
 export type OtLinkServerResult =

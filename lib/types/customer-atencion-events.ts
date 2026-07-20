@@ -12,6 +12,14 @@ export type CustomerAtencionEventActionType =
   | "proximo_paso_cambiado"
   | "consulta_ot_vinculada"
   | "gestion_liberada_por_inactividad"
+  | "interaccion_registrada"
+
+export type ConsultationInteractionKind =
+  | "contact"
+  | "note"
+  | "process"
+  | "decision"
+  | "system"
 
 export interface CustomerAtencionEvent {
   id: string
@@ -24,5 +32,8 @@ export interface CustomerAtencionEvent {
   newStatus?: CustomerAtencionStatus | null
   previousNextStep?: CustomerAtencionNextStep | null
   newNextStep?: CustomerAtencionNextStep | null
+  interactionKind?: ConsultationInteractionKind | null
+  interactionResult?: string | null
+  nextActionAt?: string | null
   createdAt: string
 }

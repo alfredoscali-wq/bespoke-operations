@@ -69,10 +69,12 @@ import {
   startConsultationManagement,
   touchConsultationManagementActivity,
   updateMorosoTrackingManagement,
+  registerConsultationInteractionManagement,
   linkConsultationOtManagement,
   permanentDeleteConsultationManagement,
   type ConsultationHardDeleteMutationResult,
   type ConsultationManagementMutationResult,
+  type ConsultationInteractionMutationResult,
   type MorosoTrackingMutationResult,
   type OtLinkMutationResult,
 } from "@/lib/supabase/customer-atenciones-management.browser"
@@ -271,6 +273,15 @@ type AtencionClienteContextValue = {
     atencionId: string,
     trackingStatus: string
   ) => Promise<MorosoTrackingMutationResult>
+  registerConsultationInteraction: (
+    atencionId: string,
+    input: {
+      interactionKind: string
+      interactionResult?: string | null
+      detail: string
+      nextActionAt?: string | null
+    }
+  ) => Promise<ConsultationInteractionMutationResult>
   linkConsultationOt: (
     atencionId: string,
     taskId: string
@@ -993,6 +1004,52 @@ export function AtencionClienteProvider({
     ]
   )
 
+  const registerConsultationInteractionHandler = useCallback(
+    async (
+      atencionId: string,
+      input: {
+        interactionKind: string
+        interactionResult?: string | null
+        detail: string
+        nextActionAt?: string | null
+      }
+    ): Promise<ConsultationInteractionMutationResult> => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return {
+          success: false,
+          message: DEMO_RESTRICTED_DIALOG_MESSAGE,
+        }
+      }
+
+      const result = await registerConsultationInteractionManagement(
+        atencionId,
+        input
+      )
+
+      if (result.success) {
+        await Promise.all([
+          refreshAtencionById(atencionId),
+          refreshSharedInbox(),
+          refreshMyActiveManagement(),
+        ])
+        setActionFeedback(
+          result.managementReleased
+            ? "Contacto registrado. La consulta continúa en Morosos."
+            : "Interacción registrada correctamente."
+        )
+      }
+
+      return result
+    },
+    [
+      isReadOnly,
+      openRestrictedDialog,
+      refreshAtencionById,
+      refreshMyActiveManagement,
+      refreshSharedInbox,
+    ]
+  )
+
   const linkConsultationOtHandler = useCallback(
     async (
       atencionId: string,
@@ -1433,6 +1490,7 @@ export function AtencionClienteProvider({
       resolveConsultation: resolveConsultationHandler,
       deferConsultation: deferConsultationHandler,
       updateMorosoTracking: updateMorosoTrackingHandler,
+      registerConsultationInteraction: registerConsultationInteractionHandler,
       linkConsultationOt: linkConsultationOtHandler,
       permanentDeleteConsultation: permanentDeleteConsultationHandler,
       actionFeedback,
@@ -1456,6 +1514,7 @@ export function AtencionClienteProvider({
       createAtencion,
       deferConsultationHandler,
       updateMorosoTrackingHandler,
+      registerConsultationInteractionHandler,
       linkConsultationOtHandler,
       permanentDeleteConsultationHandler,
       actionFeedback,

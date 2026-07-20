@@ -205,6 +205,78 @@ export async function updateMorosoTrackingManagement(
   }
 }
 
+export type ConsultationInteractionMutationResult =
+  | {
+      success: true
+      atencionId: string
+      eventId: string
+      interactionKind: string
+      interactionResult: string | null
+      nextActionAt: string | null
+      status: string
+      nextStep: string | null
+      managementReleased: boolean
+    }
+  | { success: false; message: string; code?: string }
+
+export async function registerConsultationInteractionManagement(
+  atencionId: string,
+  input: {
+    interactionKind: string
+    interactionResult?: string | null
+    detail: string
+    nextActionAt?: string | null
+  }
+): Promise<ConsultationInteractionMutationResult> {
+  const response = await fetch(
+    `/api/atencion-cliente/${atencionId}/interaction`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    }
+  )
+
+  const payload = (await response.json().catch(() => null)) as
+    | {
+        success: true
+        atencionId: string
+        eventId: string
+        interactionKind: string
+        interactionResult: string | null
+        nextActionAt: string | null
+        status: string
+        nextStep: string | null
+        managementReleased?: boolean
+      }
+    | { success: false; message: string; code?: string }
+    | null
+
+  if (!response.ok || !payload || payload.success !== true) {
+    return {
+      success: false,
+      message:
+        payload && payload.success === false
+          ? payload.message
+          : "No se pudo registrar la interacción.",
+      code:
+        payload && payload.success === false ? payload.code : undefined,
+    }
+  }
+
+  return {
+    success: true,
+    atencionId: payload.atencionId,
+    eventId: payload.eventId,
+    interactionKind: payload.interactionKind,
+    interactionResult: payload.interactionResult,
+    nextActionAt: payload.nextActionAt,
+    status: payload.status,
+    nextStep: payload.nextStep,
+    managementReleased: payload.managementReleased === true,
+  }
+}
+
 export type OtLinkApiResponse =
   | {
       success: true

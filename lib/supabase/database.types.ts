@@ -307,6 +307,9 @@ export type Database = {
           new_status: string | null
           previous_next_step: string | null
           new_next_step: string | null
+          interaction_kind: string | null
+          interaction_result: string | null
+          next_action_at: string | null
           created_at: string
         }
         Insert: {
@@ -320,6 +323,9 @@ export type Database = {
           new_status?: string | null
           previous_next_step?: string | null
           new_next_step?: string | null
+          interaction_kind?: string | null
+          interaction_result?: string | null
+          next_action_at?: string | null
           created_at?: string
         }
         Update: {
@@ -333,6 +339,9 @@ export type Database = {
           new_status?: string | null
           previous_next_step?: string | null
           new_next_step?: string | null
+          interaction_kind?: string | null
+          interaction_result?: string | null
+          next_action_at?: string | null
           created_at?: string
         }
         Relationships: [

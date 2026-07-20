@@ -25,6 +25,7 @@ import { ConsultationPermanentDeleteDialog } from "@/components/atencion-cliente
 import { ConsultationSituationSummaryCard } from "@/components/atencion-cliente/consultation-situation-summary-card"
 import { RetentionResultDialog } from "@/components/atencion-cliente/retention-result-dialog"
 import { TechnicalResultDialog } from "@/components/atencion-cliente/technical-result-dialog"
+import { ConsultationContactActivityBlock } from "@/components/atencion-cliente/consultation-contact-activity-block"
 import { MorosoTrackingBlock } from "@/components/atencion-cliente/moroso-tracking-block"
 import { OtLinkBlock } from "@/components/atencion-cliente/ot-link-block"
 import { useIsSystemAdministrator } from "@/lib/auth/use-is-system-administrator"
@@ -727,12 +728,15 @@ export function AtencionDetailScreen({
       } else {
         assistantOptionIds = [...MANAGEMENT_ASSISTANT_INITIAL_OPTIONS]
         if (isMorosoConsultation(atencion)) {
-          assistantOptionIds.push("moroso_tracking")
+          // Debt follow-up stays in Morosos; do not offer Espera Cliente.
+          assistantOptionIds = assistantOptionIds.filter(
+            (id) => id !== "esperar_cliente"
+          )
         }
       }
     } else if (isMorosoConsultation(atencion) && isManagedByCurrentEmployee) {
       showGuidedAssistant = true
-      assistantOptionIds = ["moroso_tracking"]
+      assistantOptionIds = ["resolve", "derivar_admin_gestion", "realizar_retencion"]
     }
   }
 
@@ -910,14 +914,19 @@ export function AtencionDetailScreen({
     ) : null
 
   const morosoForm =
-    (effectiveAssistantOptionId === "moroso_tracking" ||
-      selectedPanelAction === "moroso_tracking") &&
     isMorosoConsultation(atencion) &&
-    atencion.status !== "resuelta" ? (
-      <MorosoTrackingBlock
-        atencionId={atencion.id}
-        trackingStatus={atencion.morosoTrackingStatus}
-      />
+    atencion.status !== "resuelta" &&
+    (isManagedByCurrentEmployee || showGuidedAssistant) ? (
+      <div className="space-y-3">
+        <ConsultationContactActivityBlock
+          atencionId={atencion.id}
+          onRegistered={reloadAfterAction}
+        />
+        <MorosoTrackingBlock
+          atencionId={atencion.id}
+          trackingStatus={atencion.morosoTrackingStatus}
+        />
+      </div>
     ) : null
 
   const technicalHistoryForOt = events

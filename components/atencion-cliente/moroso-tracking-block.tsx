@@ -65,12 +65,12 @@ export function MorosoTrackingBlock({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Seguimiento morosos</CardTitle>
+        <CardTitle>Estado del proceso de cobranza</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-sm text-muted-foreground">
-          Control interno de Administración para el envío del cupón, acreditación
-          del pago y rehabilitación del servicio.
+          Estado interno del proceso de cobranza (cupón, acreditación,
+          rehabilitación). No cambia la bandeja: la consulta sigue en Morosos.
         </p>
 
         <div className="space-y-2">
