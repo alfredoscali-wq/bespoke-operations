@@ -274,32 +274,20 @@ export async function softDeleteEmployee(
     requestUrl,
   })
 
-  const { data, error } = await client
+  const { error } = await client
     .from("employees")
     .update(payload)
     .eq("id", id)
     .is("deleted_at", null)
-    .select("id")
-    .maybeSingle()
 
   logEmployeeSoftDeleteResult({
     employeeId: id,
-    data,
+    data: null,
     error,
   })
 
   if (error) {
     return { data: null, error: mapSupabaseEmployeeError(error) }
-  }
-
-  if (!data) {
-    return {
-      data: null,
-      error: {
-        code: "NOT_FOUND",
-        message: "Empleado no encontrado o ya fue eliminado.",
-      },
-    }
   }
 
   return { data: undefined, error: null }
