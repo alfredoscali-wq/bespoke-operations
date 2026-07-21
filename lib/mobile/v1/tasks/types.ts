@@ -54,6 +54,10 @@ export type MobileTaskDetailResponse = {
   locality: string | null
   latitude: number | null
   longitude: number | null
+  /** Origin domicile for cambio-domicilio OTs; null for other service types. */
+  currentAddress?: string | null
+  currentLatitude?: number | null
+  currentLongitude?: number | null
   observations: string | null
   amountToCollect: number | null
   technology: string | null

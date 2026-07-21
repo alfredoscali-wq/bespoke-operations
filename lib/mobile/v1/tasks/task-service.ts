@@ -24,6 +24,7 @@ import type {
   MobileTaskReferencePhoto,
 } from "@/lib/mobile/v1/tasks/types"
 import { resolveMobileTaskCommercialFields } from "@/lib/mobile/v1/tasks/task-commercial-fields"
+import { resolveMobileTaskCurrentLocationFields } from "@/lib/mobile/v1/tasks/task-current-location-fields"
 import { taskMatchesCrewId } from "@/lib/tasks/crew-relation"
 import {
   resolveServiceTechnicalWorkInfoFromTask,
@@ -121,6 +122,7 @@ function mapTaskToDetailResponse(
 ): MobileTaskDetailResponse {
   const commercialFields = resolveMobileTaskCommercialFields(task)
   const workInfo = resolveServiceTechnicalWorkInfoFromTask(task)
+  const currentLocation = resolveMobileTaskCurrentLocationFields(task)
 
   return {
     id: task.id,
@@ -137,6 +139,9 @@ function mapTaskToDetailResponse(
     locality: task.locality?.trim() || null,
     latitude: task.latitude ?? null,
     longitude: task.longitude ?? null,
+    currentAddress: currentLocation.currentAddress,
+    currentLatitude: currentLocation.currentLatitude,
+    currentLongitude: currentLocation.currentLongitude,
     observations: task.observationsForCrew?.trim() || null,
     ...commercialFields,
     serviceReason: workInfo?.reasonLabel ?? null,
