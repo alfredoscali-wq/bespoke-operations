@@ -41,6 +41,7 @@ export async function startProjectOperationalDispatch(input: {
   companyId: string
   projectId: string
   actorDisplayName: string
+  employeeId?: string | null
 }): Promise<StartProjectDispatchServerResult> {
   const admin = createAdminClient()
 
@@ -79,6 +80,16 @@ export async function startProjectOperationalDispatch(input: {
       code: "RPC_EMPTY",
     }
   }
+
+  const { recordProjectStartActivity } = await import(
+    "@/lib/activity/adapters/projects-activity.server"
+  )
+  void recordProjectStartActivity({
+    companyId: input.companyId,
+    projectId: input.projectId,
+    employeeId: input.employeeId ?? null,
+    taskCount: parsed.dispatchedCount,
+  })
 
   return { ok: true, data: parsed }
 }

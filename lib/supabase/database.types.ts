@@ -986,7 +986,22 @@ export type Database = {
           updated_at?: string
           deleted_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "crews_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crews_supervisor_employee_id_fkey"
+            columns: ["supervisor_employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       crew_members: {
         Row: {
@@ -1025,7 +1040,22 @@ export type Database = {
           updated_at?: string
           deleted_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "crew_members_crew_id_fkey"
+            columns: ["crew_id"]
+            isOneToOne: false
+            referencedRelation: "crews"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crew_members_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       employee_types: {
         Row: {
@@ -1162,7 +1192,22 @@ export type Database = {
           updated_at?: string
           deleted_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "employees_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employees_employee_type_id_fkey"
+            columns: ["employee_type_id"]
+            isOneToOne: false
+            referencedRelation: "employee_types"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       employee_availability: {
         Row: {

@@ -305,6 +305,36 @@ export async function supervisorRescheduleActiveTaskFromIncident(
       logOperationError("Supervisor reschedule RC3.1 audit", auditError)
     }
 
+    const { recordActivityEventSafe } = await import(
+      "@/lib/activity/activity-service"
+    )
+    const {
+      ACTIVITY_ACTIONS,
+      ACTIVITY_ACTOR_TYPES,
+      ACTIVITY_ENTITY_TYPES,
+      ACTIVITY_MODULES,
+      ACTIVITY_ORIGINS,
+    } = await import("@/lib/activity/types")
+    const { buildTaskRescheduleMetadata } = await import(
+      "@/lib/activity/adapters/tasks-activity"
+    )
+    void recordActivityEventSafe({
+      companyId,
+      employeeId: sessionUser.employeeId,
+      actorType: ACTIVITY_ACTOR_TYPES.EMPLOYEE,
+      module: ACTIVITY_MODULES.TASKS,
+      entityType: ACTIVITY_ENTITY_TYPES.TASK,
+      entityId: afterTask.id,
+      action: ACTIVITY_ACTIONS.TASK_RESCHEDULE,
+      detail: "OT reprogramada desde incidencia (supervisor).",
+      metadata: {
+        ...buildTaskRescheduleMetadata(taskResult.data, afterTask),
+        reason: successfulPlan.rescheduleInput.reason.trim(),
+        workflowAction: "reschedule-from-active-incident",
+      },
+      origin: ACTIVITY_ORIGINS.API,
+    })
+
     await recordIncidentSupervisorActionAudit({
       sessionUser,
       companyId,

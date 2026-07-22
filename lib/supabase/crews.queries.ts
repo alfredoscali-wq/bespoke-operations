@@ -8,7 +8,6 @@ import {
   mapCrewRowToCrew,
   mapUpdateMemberPayloadToUpdate,
   mapUpdatePayloadToUpdate,
-  type CrewRowWithMembers,
 } from "@/lib/supabase/crews.mapper"
 import type { Crew, CrewMember } from "@/lib/types/crews"
 import type {
@@ -72,9 +71,7 @@ export async function fetchCrews(
   }
 
   return {
-    data: (data ?? []).map((row) =>
-      mapCrewRowToCrew(row as CrewRowWithMembers)
-    ),
+    data: (data ?? []).map((row) => mapCrewRowToCrew(row)),
     error: null,
   }
 }
@@ -105,7 +102,7 @@ export async function fetchCrewById(
   }
 
   return {
-    data: mapCrewRowToCrew(data as CrewRowWithMembers),
+    data: mapCrewRowToCrew(data),
     error: null,
   }
 }
@@ -125,7 +122,7 @@ export async function insertCrew(
   }
 
   return {
-    data: mapCrewRowToCrew(data as CrewRowWithMembers),
+    data: mapCrewRowToCrew(data),
     error: null,
   }
 }
@@ -170,7 +167,7 @@ export async function patchCrew(
   }
 
   return {
-    data: mapCrewRowToCrew(data as CrewRowWithMembers),
+    data: mapCrewRowToCrew(data),
     error: null,
   }
 }

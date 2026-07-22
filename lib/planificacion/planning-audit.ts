@@ -1,5 +1,6 @@
 import { recordAuditEventClient } from "@/lib/audit/record-audit-event.client"
 import { AUDIT_ACTIONS, AUDIT_ENTITY_TYPES, AUDIT_MODULES } from "@/lib/audit/types"
+import { recordPlanningConfirmActivity } from "@/lib/activity/adapters/planning-activity"
 
 export function buildPlanningConfirmAuditDescription(input: {
   date: string
@@ -25,6 +26,7 @@ export function recordPlanningConfirmAudit(input: {
   taskCount: number
   crewName?: string
   scope?: "crew" | "journey"
+  taskIds?: string[]
 }): void {
   void recordAuditEventClient({
     module: AUDIT_MODULES.TAREAS,
@@ -40,4 +42,5 @@ export function recordPlanningConfirmAudit(input: {
       scope: input.scope ?? "journey",
     },
   })
+  recordPlanningConfirmActivity(input)
 }

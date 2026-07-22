@@ -17,6 +17,12 @@ import {
   AUDIT_MODULES,
   type AuditAction,
 } from "@/lib/audit/types"
+import {
+  recordTaskCreateActivity,
+  recordTaskDeleteActivity,
+  recordTaskMutationActivity,
+} from "@/lib/activity/adapters/tasks-activity"
+import { recordPlanningReturnActivity } from "@/lib/activity/adapters/planning-activity"
 import { resolveRescheduleReasonLabel } from "@/lib/tasks/reschedule"
 import type { TaskRescheduleInput } from "@/lib/tasks/reschedule"
 import type { TaskWorkflowAction } from "@/lib/tasks/task-status-workflow"
@@ -182,6 +188,7 @@ export function recordTaskCreateAudit(task: Task) {
       crewId: task.crewId ?? null,
     },
   })
+  recordTaskCreateActivity(task)
 }
 
 export function recordTaskUpdateAudit(
@@ -302,6 +309,10 @@ export function recordTaskPlanningReturnAudit(
       horaAnterior: before.scheduledTime ?? null,
     },
   })
+  recordPlanningReturnActivity({
+    taskId: after.id,
+    reason: input.reason,
+  })
 }
 
 export function recordTaskWorkflowStatusAudit(
@@ -334,6 +345,7 @@ export function recordTaskDeleteAudit(
         : {}),
     },
   })
+  recordTaskDeleteActivity(task as Task)
 }
 
 export type TaskMutationAuditContext = {
@@ -346,6 +358,15 @@ export type TaskMutationAuditContext = {
 
 export function recordTaskMutationAudit(context: TaskMutationAuditContext): void {
   const { before, after, payload, workflowAction, rescheduleInput } = context
+
+  // Activity Engine dual-write (best-effort; never blocks OT mutation).
+  recordTaskMutationActivity({
+    before,
+    after,
+    payload,
+    workflowAction,
+    rescheduleInput,
+  })
 
   if (workflowAction) {
     const auditAction = mapWorkflowActionToAuditAction(workflowAction)

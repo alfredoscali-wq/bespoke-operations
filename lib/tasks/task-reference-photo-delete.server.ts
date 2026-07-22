@@ -116,5 +116,15 @@ export async function deleteTaskReferencePhotoFromAdmin(input: {
     }
   }
 
+  const { recordTaskReferencePhotoDeleteActivity } = await import(
+    "@/lib/activity/adapters/projects-activity.server"
+  )
+  void recordTaskReferencePhotoDeleteActivity({
+    companyId: input.companyId,
+    taskId: input.taskId,
+    photoId: input.photoId,
+    employeeId: input.sessionUser.employeeId,
+  })
+
   return { ok: true }
 }

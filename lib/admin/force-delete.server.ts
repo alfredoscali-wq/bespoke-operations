@@ -90,6 +90,16 @@ async function softDeleteTaskIgnoringRules(
     },
   })
 
+  const { recordTaskForceDeleteActivity } = await import(
+    "@/lib/activity/adapters/projects-activity.server"
+  )
+  void recordTaskForceDeleteActivity({
+    companyId: input.companyId,
+    taskId: input.taskId,
+    employeeId: input.sessionUser.employeeId,
+    entityLabel,
+  })
+
   return {
     success: true,
     entityType: "task",
