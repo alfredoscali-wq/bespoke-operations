@@ -115,9 +115,13 @@ BEGIN
     SET supervisor_employee_id = NULL
     WHERE cr.supervisor_employee_id = ANY (v_employee_ids);
 
-    UPDATE public.activity_events ae
-    SET employee_id = NULL
-    WHERE ae.employee_id = ANY (v_employee_ids);
+    -- Activity Engine 1.0: public.activity_events.employee_id ON DELETE SET NULL.
+    -- Only touch the table when present (migration may not be applied yet).
+    IF to_regclass('public.activity_events') IS NOT NULL THEN
+      UPDATE public.activity_events ae
+      SET employee_id = NULL
+      WHERE ae.employee_id = ANY (v_employee_ids);
+    END IF;
 
     DELETE FROM public.employees e
     WHERE e.id = ANY (v_employee_ids)
