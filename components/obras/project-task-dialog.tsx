@@ -7,6 +7,7 @@ import {
   getCrewsForTaskSelection,
   validateCrewAssignment,
 } from "@/lib/crews/status-workflow"
+import { formatCrewOptionLabel } from "@/lib/crews/origin"
 import type { Project } from "@/lib/types/projects"
 import type { Task, TaskPriority, TaskType } from "@/lib/types/tasks"
 import {
@@ -431,7 +432,7 @@ export function ProjectTaskDialog({
                     value={crew.id}
                     disabled={crew.status === "inactiva"}
                   >
-                    {crew.name}
+                    {formatCrewOptionLabel(crew)}
                     {crew.status === "inactiva" ? " (inactiva)" : ""}
                   </SelectItem>
                 ))}

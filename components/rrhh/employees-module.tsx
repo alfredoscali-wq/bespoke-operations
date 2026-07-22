@@ -20,6 +20,7 @@ import {
   filterEmployees,
   getDepartmentOptions,
 } from "@/lib/employees/utils"
+import { filterInternalEmployees } from "@/lib/contractors/employees"
 import {
   employeeSummaryKeyToFilters,
   parseEmploymentStatusQuery,
@@ -68,17 +69,21 @@ export function EmployeesModule() {
   }, [searchParams])
 
   const listItems = useMemo(
-    () => buildEmployeeListItems(employees),
+    () => buildEmployeeListItems(filterInternalEmployees(employees)),
     [employees]
   )
 
   const departments = useMemo(
-    () => getDepartmentOptions(employees),
+    () => getDepartmentOptions(filterInternalEmployees(employees)),
     [employees]
   )
 
   const employeeTypeFilterOptions = useMemo(
-    () => buildEmployeeTypeFilterOptions(employeeTypes, employees),
+    () =>
+      buildEmployeeTypeFilterOptions(
+        employeeTypes,
+        filterInternalEmployees(employees)
+      ),
     [employeeTypes, employees]
   )
 
@@ -150,7 +155,7 @@ export function EmployeesModule() {
       </div>
 
       <EmployeesSummaryCards
-        employees={employees}
+        employees={filterInternalEmployees(employees)}
         activeKpi={activeKpi}
         onKpiClick={handleKpiClick}
       />

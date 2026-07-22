@@ -45,6 +45,8 @@ export function mapCrewRowToCrew(row: CrewRowWithMembers): Crew {
     supervisorEmployeeId: row.supervisor_employee_id,
     status: row.status,
     notes: row.notes,
+    origin: row.origin ?? "internal",
+    contractorId: row.contractor_id,
     members,
   }
 }
@@ -58,6 +60,8 @@ export function mapCreatePayloadToInsert(payload: CreateCrewPayload): CrewInsert
     supervisor_employee_id: payload.supervisorEmployeeId ?? null,
     status: payload.status ?? "activa",
     notes: payload.notes?.trim() ?? "",
+    origin: payload.origin ?? "internal",
+    contractor_id: payload.contractorId ?? null,
   }
 }
 
@@ -76,6 +80,10 @@ export function mapUpdatePayloadToUpdate(payload: UpdateCrewPayload): CrewUpdate
   }
   if (payload.status !== undefined) update.status = payload.status
   if (payload.notes !== undefined) update.notes = payload.notes.trim()
+  if (payload.origin !== undefined) update.origin = payload.origin
+  if (payload.contractorId !== undefined) {
+    update.contractor_id = payload.contractorId
+  }
 
   return update
 }

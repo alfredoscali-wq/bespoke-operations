@@ -9,6 +9,7 @@ import type { NavGroup, NavItem } from "@/lib/navigation/nav-types"
 import {
   calendarNavItem,
   crewsNavItem,
+  contractorsNavItem,
   customersNavItem,
   dashboardNavItem,
   dispositivosNavItem,
@@ -52,6 +53,7 @@ const PROFILE_NAV_BUILDERS: Record<
         materialsNavItem,
         customersNavItem,
         crewsNavItem,
+        contractorsNavItem,
       ],
     },
     { id: "analysis", label: "Análisis", items: [reportsNavItem] },

@@ -1,4 +1,4 @@
-import type { Crew, CrewStatus } from "@/lib/types/crews"
+import type { Crew, CrewOrigin, CrewStatus } from "@/lib/types/crews"
 
 export type CreateCrewPayload = {
   companyId?: string
@@ -8,6 +8,8 @@ export type CreateCrewPayload = {
   supervisorEmployeeId?: string | null
   status?: CrewStatus
   notes?: string
+  origin?: CrewOrigin
+  contractorId?: string | null
 }
 
 export type UpdateCrewPayload = Partial<{
@@ -17,6 +19,8 @@ export type UpdateCrewPayload = Partial<{
   supervisorEmployeeId: string | null
   status: CrewStatus
   notes: string
+  origin: CrewOrigin
+  contractorId: string | null
 }>
 
 export type CreateCrewMemberPayload = {

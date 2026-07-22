@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react"
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { toDateOnly } from "@/lib/availability/utils"
 import { getCrewsForTaskSelection } from "@/lib/crews/status-workflow"
+import { formatCrewOptionLabel } from "@/lib/crews/origin"
 import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import {
   getTaskRescheduleFormDefaults,
@@ -198,7 +199,7 @@ export function TaskRescheduleDialog({
                 </SelectItem>
                 {crewOptions.map((crew) => (
                   <SelectItem key={crew.id} value={crew.id}>
-                    {crew.name}
+                    {formatCrewOptionLabel(crew)}
                   </SelectItem>
                 ))}
               </SelectContent>

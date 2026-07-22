@@ -17,6 +17,7 @@ import {
   settingsNavItem,
   usersNavItem,
   workOrdersNavItem,
+  contractorsNavItem,
 } from "@/lib/navigation/nav-items"
 import type { NavItem } from "@/lib/navigation/nav-types"
 
@@ -29,6 +30,7 @@ export const APP_MODULE_KEYS = [
   "customers",
   "atencion_cliente",
   "crews",
+  "contractors",
   "materials",
   "evidence",
   "reports",
@@ -110,6 +112,13 @@ export const APP_MODULE_DEFINITIONS: AppModuleDefinition[] = [
     navItem: crewsNavItem,
     groupId: "operations",
     pathPrefixes: ["/cuadrillas"],
+  },
+  {
+    key: "contractors",
+    label: "Contratistas",
+    navItem: contractorsNavItem,
+    groupId: "operations",
+    pathPrefixes: ["/contratistas"],
   },
   {
     key: "materials",

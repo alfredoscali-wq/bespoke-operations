@@ -27,6 +27,7 @@ import {
   getCrewsForTaskSelection,
   validateCrewAssignment,
 } from "@/lib/crews/status-workflow"
+import { formatCrewOptionLabel } from "@/lib/crews/origin"
 import {
   buildPlanningEditFormFromTask,
   buildPlanningTaskUpdateBatch,
@@ -196,7 +197,7 @@ export function PlanningTaskAdjustSheet({
                 <SelectContent>
                   {selectableCrews.map((crew) => (
                     <SelectItem key={crew.id} value={crew.id}>
-                      {crew.name}
+                      {formatCrewOptionLabel(crew)}
                     </SelectItem>
                   ))}
                 </SelectContent>

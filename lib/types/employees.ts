@@ -50,6 +50,7 @@ export type Employee = {
   systemAccess: boolean
   mustChangePassword: boolean
   roleId?: string | null
+  contractorId?: string | null
   lastLoginAt?: string | null
   createdAt?: string
   updatedAt?: string
@@ -134,6 +135,7 @@ export type NewEmployeeInput = {
   systemAccess?: boolean
   mustChangePassword?: boolean
   roleId?: string | null
+  contractorId?: string | null
   lastLoginAt?: string | null
 }
 

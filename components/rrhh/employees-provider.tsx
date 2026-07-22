@@ -191,6 +191,11 @@ export function EmployeesProvider({ children }: { children: React.ReactNode }) {
             terminationDate: input.terminationDate ?? null,
             notes: input.notes,
             appUserId: input.appUserId ?? null,
+            systemRole: input.systemRole,
+            systemAccess: input.systemAccess,
+            mustChangePassword: input.mustChangePassword,
+            roleId: input.roleId ?? null,
+            contractorId: input.contractorId ?? null,
           },
           client
         )

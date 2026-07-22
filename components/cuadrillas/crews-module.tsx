@@ -17,6 +17,7 @@ import {
   getCrewListItems,
   getSupervisorOptions,
 } from "@/lib/crews/utils"
+import { filterInternalCrews } from "@/lib/crews/origin"
 import type { CrewFilters } from "@/lib/types/crews"
 import { parseCrewStatusQuery } from "@/lib/navigation/query-filters"
 import { Button } from "@/components/ui/button"
@@ -44,12 +45,12 @@ export function CrewsModule() {
   }, [searchParams])
 
   const listItems = useMemo(
-    () => getCrewListItems(crews, tasks, projects),
+    () => getCrewListItems(filterInternalCrews(crews), tasks, projects),
     [crews, tasks, projects]
   )
 
   const supervisors = useMemo(
-    () => getSupervisorOptions(crews, getEmployee),
+    () => getSupervisorOptions(filterInternalCrews(crews), getEmployee),
     [crews, getEmployee]
   )
 
@@ -57,6 +58,8 @@ export function CrewsModule() {
     () => filterCrews(listItems, filters, getEmployee),
     [listItems, filters, getEmployee]
   )
+
+  const internalCrews = useMemo(() => filterInternalCrews(crews), [crews])
 
   async function handleCreateCrew(input: Parameters<typeof addCrew>[0]) {
     const result = await addCrew(input)
@@ -82,7 +85,7 @@ export function CrewsModule() {
         </Button>
       </div>
 
-      <CrewsSummaryCards crews={crews} tasks={tasks} projects={projects} />
+      <CrewsSummaryCards crews={internalCrews} tasks={tasks} projects={projects} />
 
       <Card className="shadow-sm">
         <CardHeader className="border-b">

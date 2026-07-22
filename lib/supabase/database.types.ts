@@ -1,5 +1,6 @@
 import type { AvailabilityType } from "@/lib/types/availability"
-import type { CrewStatus } from "@/lib/types/crews"
+import type { ContractorStatus } from "@/lib/types/contractors"
+import type { CrewOrigin, CrewStatus } from "@/lib/types/crews"
 import type { EmploymentStatus } from "@/lib/types/employees"
 import type { EmployeeType } from "@/lib/types/employees"
 import type { SystemRole } from "@/lib/types/employees"
@@ -946,6 +947,62 @@ export type Database = {
         }
         Relationships: []
       }
+      contractors: {
+        Row: {
+          id: string
+          company_id: string
+          legal_name: string
+          trade_name: string
+          tax_id: string
+          responsible_name: string
+          phone: string
+          email: string
+          status: ContractorStatus
+          notes: string
+          created_at: string
+          updated_at: string
+          deleted_at: string | null
+        }
+        Insert: {
+          id?: string
+          company_id?: string
+          legal_name: string
+          trade_name?: string
+          tax_id: string
+          responsible_name?: string
+          phone?: string
+          email?: string
+          status?: ContractorStatus
+          notes?: string
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          legal_name?: string
+          trade_name?: string
+          tax_id?: string
+          responsible_name?: string
+          phone?: string
+          email?: string
+          status?: ContractorStatus
+          notes?: string
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contractors_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       crews: {
         Row: {
           id: string
@@ -956,6 +1013,8 @@ export type Database = {
           supervisor_employee_id: string | null
           status: CrewStatus
           notes: string
+          origin: CrewOrigin
+          contractor_id: string | null
           created_at: string
           updated_at: string
           deleted_at: string | null
@@ -969,6 +1028,8 @@ export type Database = {
           supervisor_employee_id?: string | null
           status?: CrewStatus
           notes?: string
+          origin?: CrewOrigin
+          contractor_id?: string | null
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
@@ -982,6 +1043,8 @@ export type Database = {
           supervisor_employee_id?: string | null
           status?: CrewStatus
           notes?: string
+          origin?: CrewOrigin
+          contractor_id?: string | null
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
@@ -992,6 +1055,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crews_contractor_id_fkey"
+            columns: ["contractor_id"]
+            isOneToOne: false
+            referencedRelation: "contractors"
             referencedColumns: ["id"]
           },
           {
@@ -1130,6 +1200,7 @@ export type Database = {
           system_access: boolean
           must_change_password: boolean
           last_login_at: string | null
+          contractor_id: string | null
           created_at: string
           updated_at: string
           deleted_at: string | null
@@ -1155,6 +1226,7 @@ export type Database = {
           notes?: string
           app_user_id?: string | null
           system_role?: SystemRole
+          contractor_id?: string | null
           role_id?: string | null
           system_access?: boolean
           must_change_password?: boolean
@@ -1188,6 +1260,7 @@ export type Database = {
           system_access?: boolean
           must_change_password?: boolean
           last_login_at?: string | null
+          contractor_id?: string | null
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
@@ -1198,6 +1271,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employees_contractor_id_fkey"
+            columns: ["contractor_id"]
+            isOneToOne: false
+            referencedRelation: "contractors"
             referencedColumns: ["id"]
           },
           {
@@ -1829,6 +1909,8 @@ export type Database = {
       evidence_category_type: EvidenceCategoryType
       evidence_status: EvidenceStatus
       crew_status: CrewStatus
+      crew_origin: CrewOrigin
+      contractor_status: ContractorStatus
       employment_status: EmploymentStatus
       system_role: SystemRole
     }
@@ -1839,6 +1921,11 @@ export type Database = {
 export type CompanyRow = Database["public"]["Tables"]["companies"]["Row"]
 export type CompanyInsert = Database["public"]["Tables"]["companies"]["Insert"]
 export type CompanyUpdate = Database["public"]["Tables"]["companies"]["Update"]
+export type ContractorRow = Database["public"]["Tables"]["contractors"]["Row"]
+export type ContractorInsert =
+  Database["public"]["Tables"]["contractors"]["Insert"]
+export type ContractorUpdate =
+  Database["public"]["Tables"]["contractors"]["Update"]
 export type CustomerAtencionRow =
   Database["public"]["Tables"]["customer_atenciones"]["Row"]
 export type CustomerAtencionInsert =

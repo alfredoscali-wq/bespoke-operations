@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { getCrewsForTaskSelection } from "@/lib/crews/status-workflow"
+import { formatCrewOptionLabel } from "@/lib/crews/origin"
 import {
   WORK_ORDER_DURATION_PRESET_OPTIONS,
   WORK_ORDER_SHIFT_OPTIONS,
@@ -64,7 +65,7 @@ export function WorkOrderSchedulingFields({
           <SelectContent>
             {selectableCrews.map((crew) => (
               <SelectItem key={crew.id} value={crew.id}>
-                {crew.name}
+                {formatCrewOptionLabel(crew)}
               </SelectItem>
             ))}
           </SelectContent>

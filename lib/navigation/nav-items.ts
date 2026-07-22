@@ -6,6 +6,7 @@ import {
   CalendarRange,
   Camera,
   Contact,
+  Factory,
   Headset,
   History,
   LayoutDashboard,
@@ -116,6 +117,15 @@ export const crewsNavItem: NavItem = {
   icon: UsersRound,
   pageTitle: "Gestión de Cuadrillas",
   description: "Equipos de trabajo, integrantes y capacidad operativa.",
+}
+
+export const contractorsNavItem: NavItem = {
+  title: "Contratistas",
+  href: "/contratistas",
+  icon: Factory,
+  pageTitle: "Contratistas",
+  description:
+    "Empresas contratistas, cuadrillas externas y usuarios de Field Agent.",
 }
 
 export const materialsNavItem: NavItem = {
@@ -244,6 +254,7 @@ export const customersNavItems: NavItem[] = [customersNavItem]
 
 export const fieldOperationsNavItems: NavItem[] = [
   crewsNavItem,
+  contractorsNavItem,
   materialsNavItem,
   evidenceNavItem,
 ]

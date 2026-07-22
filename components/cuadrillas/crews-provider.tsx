@@ -51,6 +51,7 @@ import type {
   CrewMember,
   NewCrewInput,
   NewCrewMemberInput,
+  NewExternalCrewInput,
 } from "@/lib/types/crews"
 import type {
   CreateCrewMemberPayload,
@@ -69,6 +70,9 @@ type CrewsContextValue = {
   usesSupabase: boolean
   getCrew: (id: string) => Crew | undefined
   addCrew: (input: NewCrewInput) => Promise<CrewMutationResult & { crew?: Crew }>
+  addExternalCrew: (
+    input: NewExternalCrewInput
+  ) => Promise<CrewMutationResult & { crew?: Crew }>
   editCrew: (
     id: string,
     input: UpdateCrewPayload | NewCrewInput
@@ -242,6 +246,8 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
             supervisorEmployeeId: employee.id,
             status: "activa",
             notes: input.notes,
+            origin: "internal",
+            contractorId: null,
           },
           client
         )
@@ -267,7 +273,78 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
         }
       }
     },
-    [usesSupabase, getEmployee]
+    [usesSupabase, getEmployee, companyId, isReadOnly, openRestrictedDialog]
+  )
+
+  const addExternalCrew = useCallback(
+    async (input: NewExternalCrewInput) => {
+      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+        return DEMO_WRITE_BLOCKED_MUTATION_RESULT
+      }
+
+      if (!usesSupabase) {
+        return {
+          success: false,
+          message: "Supabase no está disponible. No se pudo crear la cuadrilla.",
+        }
+      }
+
+      const contractorId = input.contractorId.trim()
+      if (!contractorId) {
+        return {
+          success: false,
+          message: "El contratista es obligatorio para una cuadrilla externa.",
+        }
+      }
+
+      const supervisor = input.supervisor.trim() || "Sin responsable"
+      const name = input.name.trim()
+      if (!name) {
+        return {
+          success: false,
+          message: "El nombre de la cuadrilla es obligatorio.",
+        }
+      }
+
+      try {
+        const client = createBrowserCrewsClient()
+        const result = await createCrew(
+          {
+            companyId,
+            name,
+            description: input.description,
+            supervisor,
+            supervisorEmployeeId: null,
+            status: input.manuallyInactive ? "inactiva" : "activa",
+            notes: input.notes,
+            origin: "external",
+            contractorId,
+          },
+          client
+        )
+
+        if (result.data) {
+          setCrews((current) =>
+            [...current, result.data!].sort((a, b) =>
+              a.name.localeCompare(b.name, "es")
+            )
+          )
+          recordCrewCreateAudit(result.data)
+          return { success: true, crew: result.data }
+        }
+
+        return {
+          success: false,
+          message: result.error?.message ?? "No se pudo crear la cuadrilla.",
+        }
+      } catch {
+        return {
+          success: false,
+          message: "No se pudo crear la cuadrilla.",
+        }
+      }
+    },
+    [usesSupabase, companyId, isReadOnly, openRestrictedDialog]
   )
 
   const editCrew = useCallback(
@@ -602,6 +679,7 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
       usesSupabase,
       getCrew,
       addCrew,
+      addExternalCrew,
       editCrew,
       removeCrew,
       addMember,
@@ -614,6 +692,7 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
       usesSupabase,
       getCrew,
       addCrew,
+      addExternalCrew,
       editCrew,
       removeCrew,
       addMember,

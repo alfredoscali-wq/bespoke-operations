@@ -7,6 +7,7 @@ import {
   getCrewsForTaskSelection,
   validateCrewAssignment,
 } from "@/lib/crews/status-workflow"
+import { formatCrewOptionLabel } from "@/lib/crews/origin"
 import type { Task, TaskPriority, TaskType } from "@/lib/types/tasks"
 import {
   TASK_PRIORITY_OPTIONS,
@@ -383,7 +384,7 @@ export function TaskEditDialog({
               <SelectContent>
                 {selectableCrews.map((crew) => (
                   <SelectItem key={crew.id} value={crew.id}>
-                    {crew.name}
+                    {formatCrewOptionLabel(crew)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -751,7 +752,7 @@ export function TaskCrewAssignDialog({
               <SelectContent>
                 {selectableCrews.map((crew) => (
                   <SelectItem key={crew.id} value={crew.id}>
-                    {crew.name}
+                    {formatCrewOptionLabel(crew)}
                   </SelectItem>
                 ))}
               </SelectContent>

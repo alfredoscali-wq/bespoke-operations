@@ -13,6 +13,8 @@ import {
   getEmployeeFullName,
   isEmployeeAvailable,
 } from "@/lib/employees/utils"
+import { isExternalCrew } from "@/lib/crews/origin"
+import { isContractorEmployee } from "@/lib/contractors/employees"
 import { Button } from "@/components/ui/button"
 import { TelLink } from "@/components/ui/tel-link"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -108,16 +110,28 @@ export function MemberFormDialog({
   )
 
   const availableEmployees = useMemo(() => {
+    const externalCrew = isExternalCrew(crew)
     return employees
       .filter(isEmployeeAvailable)
       .filter((employee) => !assignedEmployeeIds.includes(employee.id))
       .filter((employee) => employee.id !== crew.supervisorEmployeeId)
+      .filter((employee) =>
+        externalCrew
+          ? employee.contractorId === crew.contractorId
+          : !isContractorEmployee(employee)
+      )
       .sort((a, b) => {
         const codeCompare = a.employeeCode.localeCompare(b.employeeCode, "es")
         if (codeCompare !== 0) return codeCompare
         return getEmployeeFullName(a).localeCompare(getEmployeeFullName(b), "es")
       })
-  }, [employees, assignedEmployeeIds, crew.supervisorEmployeeId])
+  }, [
+    employees,
+    assignedEmployeeIds,
+    crew.supervisorEmployeeId,
+    crew.contractorId,
+    crew.origin,
+  ])
 
   const roleOptions = useMemo(() => {
     const titles = new Set<string>()

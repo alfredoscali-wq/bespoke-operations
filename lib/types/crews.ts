@@ -21,6 +21,8 @@ export type CrewAvailabilitySummary = {
 
 export type CrewStatus = "activa" | "inactiva" | "en-campo"
 
+export type CrewOrigin = "internal" | "external"
+
 export type CrewMember = {
   id: string
   crewId: string
@@ -63,6 +65,8 @@ export type Crew = {
   supervisorEmployeeId?: string | null
   status: CrewStatus
   notes: string
+  origin: CrewOrigin
+  contractorId?: string | null
   members: CrewMember[]
 }
 
@@ -102,6 +106,15 @@ export type NewCrewInput = {
   supervisorEmployeeId: string
   notes: string
   /** Manual override — only used when editing a crew. */
+  manuallyInactive?: boolean
+}
+
+export type NewExternalCrewInput = {
+  name: string
+  description: string
+  supervisor: string
+  notes: string
+  contractorId: string
   manuallyInactive?: boolean
 }
 

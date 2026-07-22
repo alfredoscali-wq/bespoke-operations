@@ -116,6 +116,7 @@ export function getSupervisorEmployees(employees: Employee[]): Employee[] {
   return employees
     .filter(isEmployeeAvailable)
     .filter(isSupervisorEmployee)
+    .filter((employee) => !employee.contractorId)
     .sort((a, b) => {
       const codeCompare = a.employeeCode.localeCompare(b.employeeCode, "es")
       if (codeCompare !== 0) return codeCompare

@@ -19,6 +19,7 @@ import {
   getAssignableCrews,
   validateCrewAssignment,
 } from "@/lib/crews/status-workflow"
+import { formatCrewOptionLabel } from "@/lib/crews/origin"
 import {
   generateFieldServiceTaskCode,
   generateTaskCode,
@@ -504,7 +505,7 @@ export function TaskFormDialog({
               <SelectContent>
                 {assignableCrews.map((crew) => (
                   <SelectItem key={crew.id} value={crew.id}>
-                    {crew.name}
+                    {formatCrewOptionLabel(crew)}
                   </SelectItem>
                 ))}
               </SelectContent>
