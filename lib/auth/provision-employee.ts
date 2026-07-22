@@ -84,6 +84,11 @@ function validateEmployeeForProvisioning(
   return null
 }
 
+/**
+ * Provisiona acceso Auth con política de credenciales iniciales:
+ * usuario (login) = DNI, contraseña inicial = DNI, must_change_password = true.
+ * @see lib/auth/initial-credentials-policy.ts
+ */
 export async function provisionEmployeeAccess(
   employeeId: string
 ): Promise<ProvisionEmployeeAccessResult> {

@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Plus } from "lucide-react"
 
 import { useContractors } from "@/components/contratistas/contractors-provider"
@@ -16,7 +17,6 @@ import {
   getContractorSummary,
 } from "@/lib/contractors/utils"
 import type {
-  Contractor,
   ContractorFilters,
   NewContractorInput,
 } from "@/lib/types/contractors"
@@ -37,12 +37,12 @@ import {
 } from "@/components/ui/select"
 
 export function ContractorsModule() {
-  const { contractors, addContractor, editContractor } = useContractors()
+  const router = useRouter()
+  const { contractors, addContractor } = useContractors()
   const { crews } = useCrews()
   const { employees } = useEmployees()
   const [filters, setFilters] = useState(defaultContractorFilters)
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [editing, setEditing] = useState<Contractor | null>(null)
   const [feedback, setFeedback] = useState<string | null>(null)
 
   const listItems = useMemo(
@@ -60,21 +60,13 @@ export function ContractorsModule() {
     [listItems, filters]
   )
 
-  async function handleSubmit(input: NewContractorInput) {
-    if (editing) {
-      const result = await editContractor(editing.id, input)
-      if (!result.success) {
-        throw new Error(result.message ?? "No se pudo actualizar.")
-      }
-      setFeedback("Contratista actualizado.")
-    } else {
-      const result = await addContractor(input)
-      if (!result.success) {
-        throw new Error(result.message ?? "No se pudo crear.")
-      }
-      setFeedback("Contratista creado.")
+  async function handleCreate(input: NewContractorInput) {
+    const result = await addContractor(input)
+    if (!result.success || !result.contractor) {
+      throw new Error(result.message ?? "No se pudo crear.")
     }
-    setEditing(null)
+    setFeedback("Contratista creado. Abriendo ficha de administración…")
+    router.push(`/contratistas/${result.contractor.id}`)
   }
 
   function updateFilter<K extends keyof ContractorFilters>(
@@ -95,17 +87,15 @@ export function ContractorsModule() {
           ) : (
             <p className="text-sm text-muted-foreground">
               {summary.total} contratistas · {summary.externalCrews} cuadrillas
-              externas
+              externas. Abrí un contratista para administrar cuadrillas y
+              usuarios Field Agent.
             </p>
           )}
         </div>
         <Button
           size="sm"
           className="gap-1.5 self-start"
-          onClick={() => {
-            setEditing(null)
-            setDialogOpen(true)
-          }}
+          onClick={() => setDialogOpen(true)}
         >
           <Plus className="size-4" />
           Nuevo contratista
@@ -180,25 +170,15 @@ export function ContractorsModule() {
               {filtered.length} resultado{filtered.length === 1 ? "" : "s"}
             </p>
           </div>
-          <ContractorsTable
-            contractors={filtered}
-            onEdit={(contractor) => {
-              setEditing(contractor)
-              setDialogOpen(true)
-            }}
-          />
+          <ContractorsTable contractors={filtered} />
         </CardContent>
       </Card>
 
       <ContractorFormDialog
         open={dialogOpen}
-        onOpenChange={(open) => {
-          setDialogOpen(open)
-          if (!open) setEditing(null)
-        }}
-        mode={editing ? "edit" : "create"}
-        contractor={editing ?? undefined}
-        onSubmit={handleSubmit}
+        onOpenChange={setDialogOpen}
+        mode="create"
+        onSubmit={handleCreate}
       />
     </div>
   )

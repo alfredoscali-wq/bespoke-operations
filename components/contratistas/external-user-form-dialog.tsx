@@ -6,9 +6,10 @@ import { useCompanyRoles } from "@/components/configuracion/use-company-roles"
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { useEmployees } from "@/components/rrhh/employees-provider"
 import { requestProvisionEmployeeAccess } from "@/lib/auth/provision-client"
+import { buildInitialCredentialsInfoMessage } from "@/lib/auth/initial-credentials-policy"
 import { buildNextExternalEmployeeCode } from "@/lib/contractors/employees"
 import { filterExternalCrews } from "@/lib/crews/origin"
-import type { Employee } from "@/lib/types/employees"
+import type { Employee, EmploymentStatus } from "@/lib/types/employees"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -38,7 +39,9 @@ type ExternalUserFormDialogProps = {
   onOpenChange: (open: boolean) => void
   contractorId: string
   contractorName: string
-  onCreated?: (employee: Employee) => void
+  mode?: "create" | "edit"
+  employee?: Employee | null
+  onSaved?: (employee: Employee) => void
 }
 
 type FormState = {
@@ -47,18 +50,35 @@ type FormState = {
   nationalId: string
   phone: string
   email: string
+  employmentStatus: EmploymentStatus
   crewId: string
   roleInCrew: string
 }
 
-const emptyForm: FormState = {
-  firstName: "",
-  lastName: "",
-  nationalId: "",
-  phone: "",
-  email: "",
-  crewId: "",
-  roleInCrew: "Operario",
+function buildFormState(employee?: Employee | null): FormState {
+  if (!employee) {
+    return {
+      firstName: "",
+      lastName: "",
+      nationalId: "",
+      phone: "",
+      email: "",
+      employmentStatus: "active",
+      crewId: "",
+      roleInCrew: "Operario",
+    }
+  }
+
+  return {
+    firstName: employee.firstName,
+    lastName: employee.lastName,
+    nationalId: employee.nationalId ?? "",
+    phone: employee.phone ?? "",
+    email: employee.email ?? "",
+    employmentStatus: employee.employmentStatus,
+    crewId: "",
+    roleInCrew: "Operario",
+  }
 }
 
 export function ExternalUserFormDialog(props: ExternalUserFormDialogProps) {
@@ -66,10 +86,16 @@ export function ExternalUserFormDialog(props: ExternalUserFormDialogProps) {
     return <Dialog open={false} onOpenChange={props.onOpenChange} />
   }
 
+  const mode = props.mode ?? "create"
   return (
     <ExternalUserFormDialogBody
-      key={`create-${props.contractorId}`}
+      key={
+        mode === "edit"
+          ? `edit-${props.employee?.id ?? "unknown"}`
+          : `create-${props.contractorId}`
+      }
       {...props}
+      mode={mode}
     />
   )
 }
@@ -79,13 +105,16 @@ function ExternalUserFormDialogBody({
   onOpenChange,
   contractorId,
   contractorName,
-  onCreated,
+  mode = "create",
+  employee,
+  onSaved,
 }: ExternalUserFormDialogProps) {
   const { employees, addEmployee, editEmployee } = useEmployees()
   const { crews, addMember } = useCrews()
   const { roles } = useCompanyRoles()
-  const [form, setForm] = useState<FormState>(emptyForm)
-  const [baselineForm] = useState<FormState>(emptyForm)
+  const initial = buildFormState(employee)
+  const [form, setForm] = useState<FormState>(initial)
+  const [baselineForm] = useState<FormState>(initial)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -118,16 +147,33 @@ function ExternalUserFormDialogBody({
       return
     }
     if (!form.nationalId.trim()) {
-      setError("El DNI es obligatorio para crear el acceso a Field Agent.")
-      return
-    }
-    if (!operarioRole) {
-      setError("No se encontró el rol Operario de la empresa.")
+      setError("El DNI es obligatorio para el acceso a Field Agent.")
       return
     }
 
     setIsSubmitting(true)
     try {
+      if (mode === "edit" && employee) {
+        const result = await editEmployee(employee.id, {
+          firstName: form.firstName.trim(),
+          lastName: form.lastName.trim(),
+          nationalId: form.nationalId.trim(),
+          phone: form.phone.trim() || undefined,
+          email: form.email.trim() || undefined,
+          employmentStatus: form.employmentStatus,
+        })
+        if (!result.success || !result.employee) {
+          throw new Error(result.message ?? "No se pudo actualizar el usuario.")
+        }
+        onSaved?.(result.employee)
+        forceClose()
+        return
+      }
+
+      if (!operarioRole) {
+        throw new Error("No se encontró el rol Operario de la empresa.")
+      }
+
       const employeeCode = buildNextExternalEmployeeCode(
         employees.map((item) => item.employeeCode)
       )
@@ -142,7 +188,7 @@ function ExternalUserFormDialogBody({
         jobTitle: "Operario externo",
         department: contractorName,
         employeeType: "operario",
-        employmentStatus: "active",
+        employmentStatus: form.employmentStatus,
         notes: `Usuario externo · ${contractorName}`,
         systemRole: "operario",
         systemAccess: true,
@@ -157,23 +203,26 @@ function ExternalUserFormDialogBody({
         )
       }
 
-      const employee = createResult.employee
+      let saved = createResult.employee
 
       if (
-        !employee.systemAccess ||
-        employee.systemRole !== "operario" ||
-        employee.contractorId !== contractorId
+        !saved.systemAccess ||
+        saved.systemRole !== "operario" ||
+        saved.contractorId !== contractorId
       ) {
-        await editEmployee(employee.id, {
+        const patched = await editEmployee(saved.id, {
           systemAccess: true,
           systemRole: "operario",
           roleId: operarioRole.id,
           contractorId,
           mustChangePassword: true,
         })
+        if (patched.employee) {
+          saved = patched.employee
+        }
       }
 
-      const provision = await requestProvisionEmployeeAccess(employee.id)
+      const provision = await requestProvisionEmployeeAccess(saved.id)
       if (!provision.success) {
         throw new Error(
           `Usuario creado, pero no se pudo provisionar Auth: ${provision.error}`
@@ -182,7 +231,7 @@ function ExternalUserFormDialogBody({
 
       if (form.crewId) {
         const memberResult = await addMember(form.crewId, {
-          employeeId: employee.id,
+          employeeId: saved.id,
           name: `${form.firstName.trim()} ${form.lastName.trim()}`,
           role: form.roleInCrew.trim() || "Operario",
           phone: form.phone.trim() || undefined,
@@ -195,13 +244,13 @@ function ExternalUserFormDialogBody({
         }
       }
 
-      onCreated?.(employee)
+      onSaved?.(saved)
       forceClose()
     } catch (submitError) {
       setError(
         submitError instanceof Error
           ? submitError.message
-          : "No se pudo crear el usuario externo."
+          : "No se pudo guardar el usuario externo."
       )
     } finally {
       setIsSubmitting(false)
@@ -217,13 +266,28 @@ function ExternalUserFormDialogBody({
           isDirty={isDirty}
         >
           <DialogHeader>
-            <DialogTitle>Nuevo usuario externo</DialogTitle>
+            <DialogTitle>
+              {mode === "edit"
+                ? "Editar usuario Field Agent"
+                : "Nuevo usuario Field Agent"}
+            </DialogTitle>
             <DialogDescription>
-              Se crea como empleado con rol Operario (sin módulos admin), se
-              provisiona Auth y puede usar el Field Agent actual.
+              {mode === "edit"
+                ? "Actualizá los datos del usuario externo. La asignación a cuadrilla se gestiona aparte."
+                : "Se crea como Operario (sin módulos admin), se provisiona Auth y usa el Field Agent actual."}
             </DialogDescription>
           </DialogHeader>
           <form className="space-y-4" onSubmit={handleSubmit}>
+            {mode === "create" ? (
+              <div
+                className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950"
+                role="note"
+              >
+                {buildInitialCredentialsInfoMessage(
+                  form.nationalId.trim() || undefined
+                )}
+              </div>
+            ) : null}
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="ext-user-first">Nombre *</Label>
@@ -264,10 +328,6 @@ function ExternalUserFormDialogBody({
                   }))
                 }
               />
-              <p className="text-xs text-muted-foreground">
-                Se usa como identidad de Auth (mismo flujo que empleados
-                internos).
-              </p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
@@ -298,45 +358,70 @@ function ExternalUserFormDialogBody({
                 />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>Cuadrilla externa (opcional)</Label>
-              <Select
-                value={form.crewId || "__none__"}
-                onValueChange={(value) =>
-                  setForm((current) => ({
-                    ...current,
-                    crewId: value === "__none__" ? "" : value,
-                  }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Asignar luego" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">Sin asignar ahora</SelectItem>
-                  {contractorCrews.map((crew) => (
-                    <SelectItem key={crew.id} value={crew.id}>
-                      {crew.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {form.crewId ? (
+            {mode === "edit" ? (
               <div className="space-y-2">
-                <Label htmlFor="ext-user-role">Rol en la cuadrilla</Label>
-                <Input
-                  id="ext-user-role"
-                  value={form.roleInCrew}
-                  onChange={(event) =>
+                <Label>Estado</Label>
+                <Select
+                  value={form.employmentStatus}
+                  onValueChange={(value) =>
                     setForm((current) => ({
                       ...current,
-                      roleInCrew: event.target.value,
+                      employmentStatus: value as EmploymentStatus,
                     }))
                   }
-                />
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Activo</SelectItem>
+                    <SelectItem value="inactive">Inactivo</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            ) : null}
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label>Cuadrilla externa (opcional)</Label>
+                  <Select
+                    value={form.crewId || "__none__"}
+                    onValueChange={(value) =>
+                      setForm((current) => ({
+                        ...current,
+                        crewId: value === "__none__" ? "" : value,
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Asignar luego" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Sin asignar ahora</SelectItem>
+                      {contractorCrews.map((crew) => (
+                        <SelectItem key={crew.id} value={crew.id}>
+                          {crew.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {form.crewId ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="ext-user-role">Rol en la cuadrilla</Label>
+                    <Input
+                      id="ext-user-role"
+                      value={form.roleInCrew}
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          roleInCrew: event.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                ) : null}
+              </>
+            )}
             {error ? (
               <p className="text-sm text-destructive" role="alert">
                 {error}
@@ -352,7 +437,11 @@ function ExternalUserFormDialogBody({
                 Cancelar
               </Button>
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Creando…" : "Crear y provisionar"}
+                {isSubmitting
+                  ? "Guardando…"
+                  : mode === "edit"
+                    ? "Guardar"
+                    : "Crear y provisionar"}
               </Button>
             </DialogFooter>
           </form>

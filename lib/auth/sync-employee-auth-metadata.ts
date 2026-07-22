@@ -51,6 +51,8 @@ export async function syncEmployeeAuthMetadata(
       allowed_modules: serializeModuleVisibilityForMetadata(
         sessionRole.moduleVisibility
       ),
+      // Prepara Field Agent / clientes para forzar cambio en primer login.
+      must_change_password: employee.mustChangePassword,
     },
   })
 

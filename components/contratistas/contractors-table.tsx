@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Pencil } from "lucide-react"
+import { Settings2 } from "lucide-react"
 
 import { CONTRACTOR_STATUS_LABELS } from "@/lib/contractors/constants"
 import { getContractorDisplayName } from "@/lib/contractors/utils"
@@ -19,13 +19,9 @@ import {
 
 type ContractorsTableProps = {
   contractors: ContractorListItem[]
-  onEdit: (contractor: ContractorListItem) => void
 }
 
-export function ContractorsTable({
-  contractors,
-  onEdit,
-}: ContractorsTableProps) {
+export function ContractorsTable({ contractors }: ContractorsTableProps) {
   if (contractors.length === 0) {
     return (
       <p className="py-8 text-center text-sm text-muted-foreground">
@@ -44,7 +40,7 @@ export function ContractorsTable({
           <TableHead>Estado</TableHead>
           <TableHead className="text-right">Cuadrillas</TableHead>
           <TableHead className="text-right">Usuarios</TableHead>
-          <TableHead className="w-[100px]" />
+          <TableHead className="w-[140px]" />
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -77,15 +73,12 @@ export function ContractorsTable({
             </TableCell>
             <TableCell className="text-right">{contractor.crewCount}</TableCell>
             <TableCell className="text-right">{contractor.userCount}</TableCell>
-            <TableCell>
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                onClick={() => onEdit(contractor)}
-                aria-label={`Editar ${getContractorDisplayName(contractor)}`}
-              >
-                <Pencil className="size-4" />
+            <TableCell className="text-right">
+              <Button asChild size="sm" variant="outline" className="gap-1.5">
+                <Link href={`/contratistas/${contractor.id}`}>
+                  <Settings2 className="size-4" />
+                  Administrar
+                </Link>
               </Button>
             </TableCell>
           </TableRow>

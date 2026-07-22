@@ -17,6 +17,7 @@
     "test:activity-engine-1-1-ot-planning": "npx tsx --test scripts/test-activity-engine-1-1-ot-planning.mjs",
     "test:activity-engine-1-2-viewer": "npx tsx --test scripts/test-activity-engine-1-2-viewer.mjs",
     "test:contractors-external-crews": "npx tsx --test scripts/test-contractors-external-crews.mjs",
+    "test:initial-credentials-policy": "npx tsx --test scripts/test-initial-credentials-policy.mjs",
     "test:planning-incidents-supervisor-actions": "node --experimental-strip-types --test scripts/test-planning-incidents-supervisor-actions.mjs",
     "test:supervisor-reschedule-active-task-plan": "npx tsx --test scripts/test-supervisor-reschedule-active-task-plan.mjs",
     "test:planning-pending-closure-sheet": "node --experimental-strip-types --test scripts/test-planning-pending-closure-sheet-state.mjs",

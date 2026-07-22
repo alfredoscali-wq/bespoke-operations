@@ -34,6 +34,10 @@ function validateEmployeeForPasswordReset(
   return null
 }
 
+/**
+ * Restablece la contraseña temporal al DNI y marca must_change_password.
+ * @see lib/auth/initial-credentials-policy.ts
+ */
 export async function resetEmployeePassword(
   employeeId: string
 ): Promise<ResetEmployeePasswordResult> {
@@ -92,6 +96,11 @@ export async function resetEmployeePassword(
         "La contraseña fue restablecida, pero no se pudo actualizar el estado del empleado en RRHH.",
     }
   }
+
+  const { syncEmployeeAuthMetadata } = await import(
+    "@/lib/auth/sync-employee-auth-metadata"
+  )
+  await syncEmployeeAuthMetadata(trimmedId)
 
   return { success: true }
 }

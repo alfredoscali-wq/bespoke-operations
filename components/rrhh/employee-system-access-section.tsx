@@ -18,6 +18,7 @@ import { useAuth } from "@/components/auth/auth-provider"
 import { useCompanyRoles } from "@/components/configuracion/use-company-roles"
 import { EmployeeSystemAccessDialog } from "@/components/rrhh/employee-system-access-dialog"
 import { useEmployees } from "@/components/rrhh/employees-provider"
+import { buildResetPasswordToDniDescription } from "@/lib/auth/initial-credentials-policy"
 import {
   formatEmployeeDateTime,
   PROVISION_STATUS_LABELS,
@@ -335,9 +336,7 @@ export function EmployeeSystemAccessSection({
           <DialogHeader>
             <DialogTitle>Restablecer contraseña</DialogTitle>
             <DialogDescription>
-              La contraseña temporal será el DNI del empleado (
-              {employee.nationalId?.trim() || "—"}). El usuario deberá cambiarla
-              al iniciar sesión.
+              {buildResetPasswordToDniDescription(employee.nationalId)}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
