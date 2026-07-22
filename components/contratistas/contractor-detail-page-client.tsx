@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import {
   ArrowLeft,
   KeyRound,
@@ -15,9 +16,11 @@ import {
   UserX,
 } from "lucide-react"
 
+import { useAuth } from "@/components/auth/auth-provider"
 import { AssignExternalUserCrewDialog } from "@/components/contratistas/assign-external-user-crew-dialog"
 import { useContractors } from "@/components/contratistas/contractors-provider"
 import { ContractorFormDialog } from "@/components/contratistas/contractor-form-dialog"
+import { ContractorPermanentDeleteDialog } from "@/components/contratistas/contractor-permanent-delete-dialog"
 import { ExternalCrewFormDialog } from "@/components/contratistas/external-crew-form-dialog"
 import { ExternalUserFormDialog } from "@/components/contratistas/external-user-form-dialog"
 import { useCrews } from "@/components/cuadrillas/crews-provider"
@@ -34,6 +37,7 @@ import {
   filterContractorEmployees,
   resolveExternalUserAccessLabel,
 } from "@/lib/contractors/employees"
+import { canShowContractorPermanentDeleteAction } from "@/lib/contractors/permanent-delete-policy"
 import { getContractorDisplayName } from "@/lib/contractors/utils"
 import { CREW_STATUS_LABELS } from "@/lib/crews/constants"
 import { filterExternalCrews } from "@/lib/crews/origin"
@@ -93,11 +97,18 @@ function findLinkedCrew(
 export function ContractorDetailPageClient({
   contractorId,
 }: ContractorDetailPageClientProps) {
-  const { getContractor, editContractor, isContractorsReady } = useContractors()
-  const { crews, addExternalCrew, editCrew } = useCrews()
+  const router = useRouter()
+  const { sessionUser } = useAuth()
+  const { getContractor, editContractor, isContractorsReady, forgetContractor } =
+    useContractors()
+  const { crews, addExternalCrew, editCrew, forgetCrew } = useCrews()
   const { employees, editEmployee, provisionEmployeeAccess, forgetEmployee } =
     useEmployees()
   const contractor = getContractor(contractorId)
+
+  const canPermanentDelete = canShowContractorPermanentDeleteAction(
+    sessionUser?.systemRole
+  )
 
   const [editOpen, setEditOpen] = useState(false)
   const [crewDialogOpen, setCrewDialogOpen] = useState(false)
@@ -107,6 +118,7 @@ export function ContractorDetailPageClient({
   const [assignUser, setAssignUser] = useState<Employee | null>(null)
   const [resetUser, setResetUser] = useState<Employee | null>(null)
   const [deleteUser, setDeleteUser] = useState<Employee | null>(null)
+  const [permanentDeleteOpen, setPermanentDeleteOpen] = useState(false)
   const [feedback, setFeedback] = useState<string | null>(null)
   const [busyUserId, setBusyUserId] = useState<string | null>(null)
   const [isResettingPassword, setIsResettingPassword] = useState(false)
@@ -307,6 +319,18 @@ export function ContractorDetailPageClient({
             )}
           </div>
         </div>
+        {canPermanentDelete ? (
+          <Button
+            type="button"
+            variant="destructive"
+            size="sm"
+            className="gap-1.5 shrink-0"
+            onClick={() => setPermanentDeleteOpen(true)}
+          >
+            <Trash2 className="size-4" />
+            Eliminar definitivamente
+          </Button>
+        ) : null}
       </div>
 
       <Tabs defaultValue="datos" className="gap-4">
@@ -749,6 +773,26 @@ export function ContractorDetailPageClient({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {canPermanentDelete ? (
+        <ContractorPermanentDeleteDialog
+          open={permanentDeleteOpen}
+          onOpenChange={setPermanentDeleteOpen}
+          contractorId={contractorId}
+          contractorLabel={getContractorDisplayName(contractor)}
+          onSuccess={(message) => {
+            forgetContractor(contractorId)
+            for (const crew of contractorCrews) {
+              forgetCrew(crew.id)
+            }
+            for (const employee of contractorUsers) {
+              forgetEmployee(employee.id)
+            }
+            setFeedback(message)
+            router.push("/contratistas")
+          }}
+        />
+      ) : null}
     </div>
   )
 }

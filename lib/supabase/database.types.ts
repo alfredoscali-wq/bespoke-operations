@@ -1880,6 +1880,14 @@ export type Database = {
     }
     Views: Record<string, never>
     Functions: {
+      hard_delete_contractor: {
+        Args: {
+          p_company_id: string
+          p_contractor_id: string
+          p_actor_employee_id: string
+        }
+        Returns: Record<string, unknown>
+      }
       record_activity_event: {
         Args: {
           p_company_id: string

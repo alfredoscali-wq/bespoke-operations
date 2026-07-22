@@ -1,6 +1,8 @@
 /**
  * Generic consultation interaction pattern (Atención al Cliente).
- * Independent of consultation tray state and of circuit-specific process columns.
+ * Shared “Motor de Seguimientos” for contact attempts across circuits
+ * (Morosos, Retenciones, and future trays). Tray/next_step is never changed
+ * by registering an interaction.
  */
 
 import {
@@ -36,42 +38,70 @@ export function isConsultationInteractionKind(
   return (CONSULTATION_INTERACTION_KINDS as readonly string[]).includes(value)
 }
 
-/** Morosos (and reusable) contact results — first vertical catalog. */
-export const MOROSO_CONTACT_RESULTS = [
+/**
+ * Shared contact-result catalog for the Seguimientos motor.
+ * Used by Morosos, Retenciones, and any future Atención circuit.
+ */
+export const CONSULTATION_CONTACT_RESULTS = [
   "no_atiende",
   "telefono_apagado",
-  "whatsapp_sin_respuesta",
-  "ocupado",
-  "habla_tercero",
-  "contacto_sin_acuerdo",
-  "promesa_pago",
+  "linea_ocupada",
+  "llamar_mas_tarde",
+  "cliente_ausente",
+  "dejo_mensaje",
+  "reprogramar_contacto",
+  "otro",
 ] as const
 
-export type MorosoContactResult = (typeof MOROSO_CONTACT_RESULTS)[number]
+export type ConsultationContactResult =
+  (typeof CONSULTATION_CONTACT_RESULTS)[number]
 
-export const MOROSO_CONTACT_RESULT_LABELS: Record<MorosoContactResult, string> =
-  {
-    no_atiende: "No atiende",
-    telefono_apagado: "Teléfono apagado",
-    whatsapp_sin_respuesta: "WhatsApp sin respuesta",
-    ocupado: "Ocupado",
-    habla_tercero: "Habla un tercero",
-    contacto_sin_acuerdo: "Contacto sin acuerdo",
-    promesa_pago: "Promesa de pago",
-  }
-
-export function isMorosoContactResult(
-  value: string
-): value is MorosoContactResult {
-  return (MOROSO_CONTACT_RESULTS as readonly string[]).includes(value)
+export const CONSULTATION_CONTACT_RESULT_LABELS: Record<
+  ConsultationContactResult,
+  string
+> = {
+  no_atiende: "No atiende el teléfono",
+  telefono_apagado: "Teléfono apagado",
+  linea_ocupada: "Línea ocupada",
+  llamar_mas_tarde: "Cliente solicita llamar más tarde",
+  cliente_ausente: "Cliente ausente",
+  dejo_mensaje: "Se dejó mensaje",
+  reprogramar_contacto: "Reprogramar contacto",
+  otro: "Otro",
 }
 
-export const MOROSO_CONTACT_RESULT_OPTIONS = MOROSO_CONTACT_RESULTS.map(
+export function isConsultationContactResult(
+  value: string
+): value is ConsultationContactResult {
+  return (CONSULTATION_CONTACT_RESULTS as readonly string[]).includes(value)
+}
+
+export const CONSULTATION_CONTACT_RESULT_OPTIONS = CONSULTATION_CONTACT_RESULTS.map(
   (value) => ({
     value,
-    label: MOROSO_CONTACT_RESULT_LABELS[value],
+    label: CONSULTATION_CONTACT_RESULT_LABELS[value],
   })
 )
+
+/** @deprecated Prefer CONSULTATION_CONTACT_* — alias for Morosos compatibility. */
+export const MOROSO_CONTACT_RESULTS = CONSULTATION_CONTACT_RESULTS
+/** @deprecated Prefer ConsultationContactResult */
+export type MorosoContactResult = ConsultationContactResult
+/** @deprecated Prefer CONSULTATION_CONTACT_RESULT_LABELS */
+export const MOROSO_CONTACT_RESULT_LABELS = CONSULTATION_CONTACT_RESULT_LABELS
+/** @deprecated Prefer isConsultationContactResult */
+export const isMorosoContactResult = isConsultationContactResult
+/** @deprecated Prefer CONSULTATION_CONTACT_RESULT_OPTIONS */
+export const MOROSO_CONTACT_RESULT_OPTIONS = CONSULTATION_CONTACT_RESULT_OPTIONS
+
+/** Historical Morosos results still shown in expediente after catalog updates. */
+const LEGACY_CONTACT_RESULT_LABELS: Record<string, string> = {
+  whatsapp_sin_respuesta: "WhatsApp sin respuesta",
+  ocupado: "Línea ocupada",
+  habla_tercero: "Habla un tercero",
+  contacto_sin_acuerdo: "Contacto sin acuerdo",
+  promesa_pago: "Promesa de pago",
+}
 
 export type NextActionPreset = "none" | "today" | "tomorrow" | "custom"
 
@@ -152,8 +182,13 @@ export function formatInteractionResultLabel(
     return null
   }
 
-  if (kind === "contact" && isMorosoContactResult(result)) {
-    return MOROSO_CONTACT_RESULT_LABELS[result]
+  if (kind === "contact") {
+    if (isConsultationContactResult(result)) {
+      return CONSULTATION_CONTACT_RESULT_LABELS[result]
+    }
+    if (LEGACY_CONTACT_RESULT_LABELS[result]) {
+      return LEGACY_CONTACT_RESULT_LABELS[result]
+    }
   }
 
   if (kind === "process" && isMorosoTrackingStatus(result)) {

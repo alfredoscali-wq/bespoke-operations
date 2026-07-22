@@ -45,6 +45,7 @@ type ContractorsContextValue = {
     input: UpdateContractorInput
   ) => Promise<ContractorMutationResult & { contractor?: Contractor }>
   removeContractor: (id: string) => Promise<ContractorMutationResult>
+  forgetContractor: (id: string) => void
 }
 
 const ContractorsContext = createContext<ContractorsContextValue | null>(null)
@@ -213,6 +214,10 @@ export function ContractorsProvider({
     [isReadOnly, openRestrictedDialog]
   )
 
+  const forgetContractor = useCallback((id: string) => {
+    setContractors((current) => current.filter((item) => item.id !== id))
+  }, [])
+
   const value = useMemo(
     () => ({
       contractors,
@@ -221,6 +226,7 @@ export function ContractorsProvider({
       addContractor,
       editContractor,
       removeContractor,
+      forgetContractor,
     }),
     [
       contractors,
@@ -229,6 +235,7 @@ export function ContractorsProvider({
       addContractor,
       editContractor,
       removeContractor,
+      forgetContractor,
     ]
   )
 

@@ -22,6 +22,10 @@ import {
   resolveExternalUserAccessLabel,
 } from "../lib/contractors/employees.ts"
 import {
+  canShowContractorPermanentDeleteAction,
+  CONTRACTOR_PERMANENT_DELETE_CONFIRM_TEXT,
+} from "../lib/contractors/permanent-delete-policy.ts"
+import {
   assertAuthEmailMatchesEmployeeDni,
   buildAuthEmail,
 } from "../lib/auth/auth-identity.ts"
@@ -221,6 +225,14 @@ test("provisión exige consistencia DNI ↔ Auth email", () => {
   if (!mismatch.ok) {
     assert.match(mismatch.error, /Inconsistencia entre DNI/)
   }
+})
+
+test("eliminación definitiva de contratista solo para administrador", () => {
+  assert.equal(canShowContractorPermanentDeleteAction("administrador"), true)
+  assert.equal(canShowContractorPermanentDeleteAction("supervisor"), false)
+  assert.equal(canShowContractorPermanentDeleteAction("operario"), false)
+  assert.equal(canShowContractorPermanentDeleteAction(null), false)
+  assert.equal(CONTRACTOR_PERMANENT_DELETE_CONFIRM_TEXT, "ELIMINAR")
 })
 
 test("dashboard model prep clasifica OT por origen de cuadrilla", () => {

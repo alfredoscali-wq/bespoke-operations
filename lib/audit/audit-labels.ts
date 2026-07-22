@@ -14,6 +14,7 @@ export const AUDIT_MODULE_LABELS: Record<AuditModule, string> = {
   [AUDIT_MODULES.RRHH]: "RRHH",
   [AUDIT_MODULES.USUARIOS]: "Usuarios",
   [AUDIT_MODULES.SISTEMA]: "Sistema",
+  [AUDIT_MODULES.CONTRATISTAS]: "Contratistas",
 }
 
 export const AUDIT_ENTITY_TYPE_LABELS: Record<AuditEntityType, string> = {
@@ -22,6 +23,7 @@ export const AUDIT_ENTITY_TYPE_LABELS: Record<AuditEntityType, string> = {
   project: "Obra",
   employee: "Empleado",
   crew: "Cuadrilla",
+  contractor: "Contratista",
   user: "Usuario",
   session: "Sesión",
   mobile_device: "Dispositivo móvil",
@@ -61,6 +63,7 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   PROJECT_STATUS_CHANGE: "Cambio de estado de obra",
   PROJECT_ARCHIVE: "Obra archivada",
   PROJECT_DELETE_PERMANENT: "Obra eliminada definitivamente",
+  CONTRACTOR_DELETE_PERMANENT: "Contratista eliminado definitivamente",
   EMPLOYEE_CREATE: "Alta de empleado",
   EMPLOYEE_UPDATE: "Empleado editado",
   EMPLOYEE_DEACTIVATE: "Baja de empleado",

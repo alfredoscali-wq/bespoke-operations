@@ -89,6 +89,10 @@ export function buildAuditDescription(input: BuildAuditDescriptionInput): string
       return label
         ? `Obra eliminada definitivamente: ${label}.`
         : "Obra eliminada definitivamente."
+    case AUDIT_ACTIONS.CONTRACTOR_DELETE_PERMANENT:
+      return label
+        ? `Contratista eliminado definitivamente: ${label}.`
+        : "Contratista eliminado definitivamente."
     case AUDIT_ACTIONS.EMPLOYEE_CREATE:
       return label ? `Alta de empleado: ${label}.` : "Alta de empleado."
     case AUDIT_ACTIONS.EMPLOYEE_UPDATE:

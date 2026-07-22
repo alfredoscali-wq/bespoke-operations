@@ -16,6 +16,7 @@ const {
   CUSTOMERS,
   RRHH,
   CREWS,
+  CONTRACTORS,
   USERS,
   INCIDENTS,
   MOBILE,
@@ -35,6 +36,7 @@ const {
   CUSTOMER,
   EMPLOYEE,
   CREW,
+  CONTRACTOR,
   USER,
   SESSION,
   INCIDENT,
@@ -157,6 +159,13 @@ export const ACTIVITY_ACTION_DEFINITIONS: Record<
     PROJECT,
     CRITICAL,
     "Force delete obra"
+  ),
+
+  [ACTIVITY_ACTIONS.CONTRACTOR_DELETE_PERMANENT]: def(
+    CONTRACTORS,
+    CONTRACTOR,
+    CRITICAL,
+    "Eliminar contratista definitivo"
   ),
 
   [ACTIVITY_ACTIONS.PLANNING_CONFIRM]: def(

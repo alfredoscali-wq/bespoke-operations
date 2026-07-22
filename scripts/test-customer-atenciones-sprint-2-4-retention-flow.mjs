@@ -198,6 +198,14 @@ test("11. retención activa del actor muestra Registrar resultado de retención"
   assert.match(detailSource, /isActiveRetentionConsultationForEmployee/)
 })
 
+test("11b. Retenciones reutiliza el Motor de Seguimientos (mismo bloque de contacto)", () => {
+  assert.match(detailSource, /ConsultationContactActivityBlock/)
+  assert.match(detailSource, /isRetentionConsultation\(atencion\)/)
+  assert.match(detailSource, /workTrayLabel=\{/)
+  assert.match(detailSource, /"Retenciones"/)
+  assert.match(detailSource, /"Morosos"/)
+})
+
 test("12. no muestra simultáneamente acciones genéricas confusas", () => {
   assert.match(detailSource, /isActiveRetention \?/)
   assert.match(detailSource, /: isManagedByCurrentEmployee \?/)

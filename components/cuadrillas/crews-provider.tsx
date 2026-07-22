@@ -78,6 +78,7 @@ type CrewsContextValue = {
     input: UpdateCrewPayload | NewCrewInput
   ) => Promise<CrewMutationResult & { crew?: Crew }>
   removeCrew: (id: string) => Promise<CrewMutationResult>
+  forgetCrew: (id: string) => void
   addMember: (
     crewId: string,
     input: NewCrewMemberInput
@@ -476,6 +477,10 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
     [usesSupabase, crews]
   )
 
+  const forgetCrew = useCallback((id: string) => {
+    setCrews((current) => current.filter((crew) => crew.id !== id))
+  }, [])
+
   const addMember = useCallback(
     async (crewId: string, input: NewCrewMemberInput) => {
       if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
@@ -682,6 +687,7 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
       addExternalCrew,
       editCrew,
       removeCrew,
+      forgetCrew,
       addMember,
       editMember,
       removeMember,
@@ -695,6 +701,7 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
       addExternalCrew,
       editCrew,
       removeCrew,
+      forgetCrew,
       addMember,
       editMember,
       removeMember,

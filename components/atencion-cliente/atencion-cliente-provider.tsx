@@ -1034,8 +1034,8 @@ export function AtencionClienteProvider({
         ])
         setActionFeedback(
           result.managementReleased
-            ? "Contacto registrado. La consulta continúa en Morosos."
-            : "Interacción registrada correctamente."
+            ? "Seguimiento registrado. La consulta permanece en su bandeja."
+            : "Seguimiento registrado correctamente."
         )
       }
 

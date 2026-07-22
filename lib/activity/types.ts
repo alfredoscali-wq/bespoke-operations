@@ -37,6 +37,7 @@ export const ACTIVITY_MODULES = {
   CUSTOMERS: "customers",
   RRHH: "rrhh",
   CREWS: "crews",
+  CONTRACTORS: "contractors",
   USERS: "users",
   INCIDENTS: "incidents",
   MOBILE: "mobile",
@@ -59,6 +60,7 @@ export const ACTIVITY_ENTITY_TYPES = {
   CUSTOMER: "customer",
   EMPLOYEE: "employee",
   CREW: "crew",
+  CONTRACTOR: "contractor",
   USER: "user",
   SESSION: "session",
   INCIDENT: "incident",
@@ -111,6 +113,9 @@ export const ACTIVITY_ACTIONS = {
   PROJECT_ARCHIVE: "PROJECT_ARCHIVE",
   PROJECT_DELETE_PERMANENT: "PROJECT_DELETE_PERMANENT",
   PROJECT_FORCE_DELETE: "PROJECT_FORCE_DELETE",
+
+  // Contratistas
+  CONTRACTOR_DELETE_PERMANENT: "CONTRACTOR_DELETE_PERMANENT",
 
   // Planificación
   PLANNING_CONFIRM: "PLANNING_CONFIRM",

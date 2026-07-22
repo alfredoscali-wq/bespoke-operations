@@ -4,8 +4,8 @@ import { useState } from "react"
 
 import { useAtencionCliente } from "@/components/atencion-cliente/atencion-cliente-provider"
 import {
-  MOROSO_CONTACT_RESULT_OPTIONS,
-  type MorosoContactResult,
+  CONSULTATION_CONTACT_RESULT_OPTIONS,
+  type ConsultationContactResult,
   type NextActionPreset,
   resolveNextActionAt,
 } from "@/lib/customer-atenciones/consultation-interaction"
@@ -22,15 +22,22 @@ import { Textarea } from "@/components/ui/textarea"
 
 type ConsultationContactActivityBlockProps = {
   atencionId: string
+  /** Tray name shown in copy — e.g. Morosos, Retenciones. */
+  workTrayLabel: string
   onRegistered?: () => void | Promise<void>
 }
 
+/**
+ * Shared Seguimientos motor UI: register contact attempts without leaving the tray.
+ * Circuit-agnostic — pass workTrayLabel for copy only.
+ */
 export function ConsultationContactActivityBlock({
   atencionId,
+  workTrayLabel,
   onRegistered,
 }: ConsultationContactActivityBlockProps) {
   const { registerConsultationInteraction } = useAtencionCliente()
-  const [result, setResult] = useState<MorosoContactResult | "">("")
+  const [result, setResult] = useState<ConsultationContactResult | "">("")
   const [detail, setDetail] = useState("")
   const [nextPreset, setNextPreset] = useState<NextActionPreset>("none")
   const [customNext, setCustomNext] = useState("")
@@ -47,6 +54,11 @@ export function ConsultationContactActivityBlock({
 
     if (!detail.trim()) {
       setError("Completá el detalle de la interacción.")
+      return
+    }
+
+    if (result === "reprogramar_contacto" && nextPreset === "none") {
+      setError("Indicá cuándo reprogramar el contacto.")
       return
     }
 
@@ -93,11 +105,11 @@ export function ConsultationContactActivityBlock({
     <div className="space-y-3 rounded-md border border-slate-200 bg-slate-50/80 px-3 py-2.5">
       <div>
         <p className="text-[13px] font-semibold text-slate-900">
-          Registrar contacto
+          Registrar seguimiento
         </p>
         <p className="mt-0.5 text-[12px] leading-snug text-slate-500">
-          Registra el resultado del intento. No cambia la bandeja: la consulta
-          sigue en Morosos.
+          Registra el resultado del intento de contacto. No cambia la bandeja:
+          la consulta sigue en {workTrayLabel}.
         </p>
       </div>
 
@@ -105,13 +117,15 @@ export function ConsultationContactActivityBlock({
         <Label htmlFor="consultation-contact-result">Resultado</Label>
         <Select
           value={result || undefined}
-          onValueChange={(value) => setResult(value as MorosoContactResult)}
+          onValueChange={(value) =>
+            setResult(value as ConsultationContactResult)
+          }
         >
           <SelectTrigger id="consultation-contact-result" className="w-full">
             <SelectValue placeholder="Seleccioná el resultado" />
           </SelectTrigger>
           <SelectContent>
-            {MOROSO_CONTACT_RESULT_OPTIONS.map((option) => (
+            {CONSULTATION_CONTACT_RESULT_OPTIONS.map((option) => (
               <SelectItem key={option.value} value={option.value}>
                 {option.label}
               </SelectItem>
@@ -121,16 +135,18 @@ export function ConsultationContactActivityBlock({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="consultation-contact-detail">Detalle</Label>
+        <Label htmlFor="consultation-contact-detail">Observaciones</Label>
         <Textarea
           id="consultation-contact-detail"
           value={detail}
           onChange={(event) => setDetail(event.target.value)}
           rows={3}
           placeholder={
-            result === "promesa_pago"
-              ? "Describa la promesa (monto, fecha comprometida, condiciones)."
-              : "Describa qué ocurrió en el intento de contacto."
+            result === "otro"
+              ? "Describí el resultado del intento de contacto."
+              : result === "reprogramar_contacto"
+                ? "Indicá el motivo de la reprogramación y cualquier detalle útil."
+                : "Describí qué ocurrió en el intento de contacto."
           }
         />
       </div>
@@ -149,7 +165,7 @@ export function ConsultationContactActivityBlock({
             <label key={value} className="flex cursor-pointer items-center gap-2">
               <input
                 type="radio"
-                name="consultation-next-action"
+                name={`consultation-next-action-${atencionId}`}
                 checked={nextPreset === value}
                 onChange={() => setNextPreset(value)}
                 className="size-3.5 accent-sky-600"
@@ -176,7 +192,7 @@ export function ConsultationContactActivityBlock({
         disabled={isSaving || !result || !detail.trim()}
         className="h-10 w-full text-[13px] font-semibold"
       >
-        {isSaving ? "Registrando…" : "Registrar contacto"}
+        {isSaving ? "Registrando…" : "Registrar seguimiento"}
       </Button>
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}

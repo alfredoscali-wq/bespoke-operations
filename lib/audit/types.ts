@@ -16,6 +16,7 @@ export const AUDIT_MODULES = {
   RRHH: "rrhh",
   USUARIOS: "usuarios",
   SISTEMA: "sistema",
+  CONTRATISTAS: "contratistas",
 } as const
 
 export type AuditModule = (typeof AUDIT_MODULES)[keyof typeof AUDIT_MODULES]
@@ -26,6 +27,7 @@ export const AUDIT_ENTITY_TYPES = {
   PROJECT: "project",
   EMPLOYEE: "employee",
   CREW: "crew",
+  CONTRACTOR: "contractor",
   USER: "user",
   SESSION: "session",
   MOBILE_DEVICE: "mobile_device",
@@ -62,6 +64,7 @@ export const AUDIT_ACTIONS = {
   PROJECT_STATUS_CHANGE: "PROJECT_STATUS_CHANGE",
   PROJECT_ARCHIVE: "PROJECT_ARCHIVE",
   PROJECT_DELETE_PERMANENT: "PROJECT_DELETE_PERMANENT",
+  CONTRACTOR_DELETE_PERMANENT: "CONTRACTOR_DELETE_PERMANENT",
   EMPLOYEE_CREATE: "EMPLOYEE_CREATE",
   EMPLOYEE_UPDATE: "EMPLOYEE_UPDATE",
   EMPLOYEE_DEACTIVATE: "EMPLOYEE_DEACTIVATE",

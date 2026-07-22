@@ -913,19 +913,34 @@ export function AtencionDetailScreen({
       </div>
     ) : null
 
-  const morosoForm =
+  const followUpContactForm =
+    (isMorosoConsultation(atencion) || isRetentionConsultation(atencion)) &&
+    atencion.status !== "resuelta" &&
+    (isManagedByCurrentEmployee || showGuidedAssistant) ? (
+      <ConsultationContactActivityBlock
+        atencionId={atencion.id}
+        workTrayLabel={
+          isMorosoConsultation(atencion) ? "Morosos" : "Retenciones"
+        }
+        onRegistered={reloadAfterAction}
+      />
+    ) : null
+
+  const morosoProcessForm =
     isMorosoConsultation(atencion) &&
     atencion.status !== "resuelta" &&
     (isManagedByCurrentEmployee || showGuidedAssistant) ? (
+      <MorosoTrackingBlock
+        atencionId={atencion.id}
+        trackingStatus={atencion.morosoTrackingStatus}
+      />
+    ) : null
+
+  const circuitFollowUpSection =
+    followUpContactForm || morosoProcessForm ? (
       <div className="space-y-3">
-        <ConsultationContactActivityBlock
-          atencionId={atencion.id}
-          onRegistered={reloadAfterAction}
-        />
-        <MorosoTrackingBlock
-          atencionId={atencion.id}
-          trackingStatus={atencion.morosoTrackingStatus}
-        />
+        {followUpContactForm}
+        {morosoProcessForm}
       </div>
     ) : null
 
@@ -1019,7 +1034,7 @@ export function AtencionDetailScreen({
     !isManagedByAnother && atencion.status !== "resuelta" ? (
       <>
         {managementDetailForm}
-        {morosoForm}
+        {circuitFollowUpSection}
         {otForm}
         {areaInlineResultForm}
       </>

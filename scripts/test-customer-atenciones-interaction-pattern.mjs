@@ -32,13 +32,34 @@ test("register interaction validation requires detail", () => {
 
   const ok = validateRegisterInteractionInput({
     kind: "contact",
-    result: "promesa_pago",
-    detail: "Paga el viernes",
+    result: "llamar_mas_tarde",
+    detail: "Pidió que lo llamemos mañana a la mañana",
     nextActionAt: resolveNextActionAt("tomorrow"),
   })
   assert.ok(!("error" in ok))
   assert.equal(ok.kind, "contact")
   assert.ok(ok.nextActionAt)
+})
+
+test("shared contact catalog is circuit-agnostic", async () => {
+  const {
+    CONSULTATION_CONTACT_RESULTS,
+    CONSULTATION_CONTACT_RESULT_LABELS,
+    formatInteractionResultLabel,
+    isConsultationContactResult,
+  } = await import("../lib/customer-atenciones/consultation-interaction.ts")
+
+  assert.ok(CONSULTATION_CONTACT_RESULTS.includes("no_atiende"))
+  assert.ok(CONSULTATION_CONTACT_RESULTS.includes("otro"))
+  assert.equal(
+    CONSULTATION_CONTACT_RESULT_LABELS.linea_ocupada,
+    "Línea ocupada"
+  )
+  assert.equal(isConsultationContactResult("promesa_pago"), false)
+  assert.equal(
+    formatInteractionResultLabel("contact", "promesa_pago"),
+    "Promesa de pago"
+  )
 })
 
 test("migration never mutates tray on interaction RPC", () => {
