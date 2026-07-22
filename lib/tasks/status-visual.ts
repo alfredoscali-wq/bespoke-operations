@@ -1,10 +1,11 @@
-import type { TaskStatus } from "@/lib/types/tasks"
+import type { Task, TaskStatus } from "@/lib/types/tasks"
 import type { VisualTone } from "@/lib/ui/visual-tokens"
 import {
   CALENDAR_EVENT_TONE_STYLES,
   STATUS_BADGE_BASE,
   STATUS_TONE_STYLES,
 } from "@/lib/ui/visual-tokens"
+import { hasActivePlanningReturn } from "@/lib/tasks/planning-return"
 
 /** Tono visual unificado por estado de OT en toda la plataforma. */
 export type TaskStatusVisualTone =
@@ -63,9 +64,11 @@ const TASK_STATUS_BADGE_BY_TONE: Record<TaskStatusVisualTone, string> = {
 
 const TASK_STATUS_SURFACE_BY_TONE: Record<TaskStatusVisualTone, string> = {
   blue: "border-blue-200/80 bg-blue-50/70",
-  yellow: "border-amber-200/80 bg-amber-50/70",
+  // Asignada: amarillo suave (antes amber, se confundía con En Curso).
+  yellow: "border-yellow-200/80 bg-yellow-50/80",
   amber: "border-amber-300/80 bg-amber-50/80",
-  orange: "border-orange-200/80 bg-orange-50/70",
+  // En Curso: naranja suave, legible al escanear el listado.
+  orange: "border-orange-300/70 bg-orange-100/55",
   violet: "border-violet-200/80 bg-violet-50/70",
   green: "border-emerald-200/80 bg-emerald-50/70",
   red: "border-red-200/80 bg-red-50/70",
@@ -74,7 +77,7 @@ const TASK_STATUS_SURFACE_BY_TONE: Record<TaskStatusVisualTone, string> = {
 
 const TASK_STATUS_ACCENT_BY_TONE: Record<TaskStatusVisualTone, string> = {
   blue: "border-l-blue-500",
-  yellow: "border-l-amber-500",
+  yellow: "border-l-yellow-500",
   amber: "border-l-amber-600",
   orange: "border-l-orange-500",
   violet: "border-l-violet-500",
@@ -85,9 +88,9 @@ const TASK_STATUS_ACCENT_BY_TONE: Record<TaskStatusVisualTone, string> = {
 
 const TASK_STATUS_RING_BY_TONE: Record<TaskStatusVisualTone, string> = {
   blue: "ring-blue-200/60",
-  yellow: "ring-amber-200/60",
+  yellow: "ring-yellow-200/60",
   amber: "ring-amber-300/60",
-  orange: "ring-orange-200/60",
+  orange: "ring-orange-300/60",
   violet: "ring-violet-200/60",
   green: "ring-emerald-200/60",
   red: "ring-red-200/60",
@@ -127,16 +130,29 @@ export function resolveTaskStatusVisualTone(
   return TASK_STATUS_VISUAL_TONE[status]
 }
 
+/**
+ * Tono de superficie de fila. "Devuelta por Planificación" tiene prioridad
+ * sobre el estado técnico (programada / vencida / etc.).
+ */
+export function resolveTaskRowSurfaceTone(
+  task: Pick<Task, "status" | "taskMetadata">
+): TaskStatusVisualTone {
+  if (hasActivePlanningReturn(task)) {
+    return "amber"
+  }
+
+  return resolveTaskStatusVisualTone(task.status)
+}
+
 export function getTaskStatusBadgeClass(status: TaskStatus): string {
   const tone = resolveTaskStatusVisualTone(status)
   return `${STATUS_BADGE_BASE} ${TASK_STATUS_BADGE_BY_TONE[tone]}`
 }
 
-export function getTaskStatusSurfaceClass(
-  status: TaskStatus,
+function buildSurfaceClass(
+  tone: TaskStatusVisualTone,
   options?: { accent?: boolean; ring?: boolean }
 ): string {
-  const tone = resolveTaskStatusVisualTone(status)
   const parts = [TASK_STATUS_SURFACE_BY_TONE[tone]]
 
   if (options?.accent !== false) {
@@ -148,6 +164,21 @@ export function getTaskStatusSurfaceClass(
   }
 
   return parts.join(" ")
+}
+
+export function getTaskStatusSurfaceClass(
+  status: TaskStatus,
+  options?: { accent?: boolean; ring?: boolean }
+): string {
+  return buildSurfaceClass(resolveTaskStatusVisualTone(status), options)
+}
+
+/** Superficie de fila con prioridad visual de devolución por planificación. */
+export function getTaskRowSurfaceClass(
+  task: Pick<Task, "status" | "taskMetadata">,
+  options?: { accent?: boolean; ring?: boolean }
+): string {
+  return buildSurfaceClass(resolveTaskRowSurfaceTone(task), options)
 }
 
 export function getTaskStatusCalendarEventClass(status: TaskStatus): string {

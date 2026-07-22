@@ -1,5 +1,6 @@
 import type { Task, TaskDetail } from "@/lib/types/tasks"
 import { getChecklistProgress, syncTaskProgress } from "@/lib/tasks/utils"
+import { isTaskVencida } from "@/lib/tasks/vencida-status"
 
 const defaultChecklist = [
   { id: "cl-1", label: "Fotos iniciales", completed: false, required: true },
@@ -595,7 +596,7 @@ export function getTasksSummary(tasks: Task[]) {
   return {
     programada: tasks.filter((task) => task.status === "programada").length,
     asignada: tasks.filter((task) => task.status === "asignada").length,
-    vencida: tasks.filter((task) => task.status === "vencida").length,
+    vencida: tasks.filter((task) => isTaskVencida(task)).length,
     enCurso: tasks.filter((task) => task.status === "en-curso").length,
     incidencia: tasks.filter((task) => task.status === "incidencia").length,
     pendienteCierre: tasks.filter(

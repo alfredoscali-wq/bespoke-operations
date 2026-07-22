@@ -19,6 +19,7 @@ import {
 import { resolveIncidentReasonLabel } from "@/lib/tasks/incidents"
 import type { TaskRescheduleInput } from "@/lib/tasks/reschedule"
 import { isPendingClosureStatus } from "@/lib/tasks/task-status-workflow"
+import { isTaskVencida } from "@/lib/tasks/vencida-status"
 import type { Task, TaskStatus } from "@/lib/types/tasks"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -88,7 +89,7 @@ export function TaskOperationalWorkflowActions({
   const statusDisplay = resolveOperationalStatusDisplay(task)
   const pendingClosure = isPendingClosureStatus(task.status)
   const hasIncident = task.status === "incidencia"
-  const hasOverdue = task.status === "vencida"
+  const hasOverdue = isTaskVencida(task)
   const showCloseAction = pendingClosure && canClose && onClose
   const showRejectAction = pendingClosure && canClose && onReject
   const showIncidentActions =

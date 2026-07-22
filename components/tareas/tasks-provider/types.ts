@@ -89,6 +89,10 @@ export type TasksContextValue = {
     id: string,
     input: TaskRescheduleInput & { actor?: string }
   ) => Promise<TaskMutationResult>
+  reschedulePlanningReturnedTask: (
+    id: string,
+    input: TaskRescheduleInput & { actor?: string }
+  ) => Promise<TaskMutationResult>
   rescheduleProjectTask: (
     id: string,
     input: TaskRescheduleInput & { actor?: string }

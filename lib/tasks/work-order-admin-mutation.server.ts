@@ -19,10 +19,15 @@ import {
   shouldRecalculateAdminWorkOrderExecutionOrder,
 } from "@/lib/tasks/work-order-admin-execution-order"
 import {
-  canAdminModifyWorkOrder,
+  canAdminModifyWorkOrderTask,
   WORK_ORDER_ADMIN_MUTATION_BLOCKED_MESSAGE,
+  WORK_ORDER_PLANNING_RETURN_EDIT_BLOCKED_MESSAGE,
 } from "@/lib/tasks/work-order-admin-mutation"
-import { canAdminSoftDeleteWorkOrder } from "@/lib/tasks/work-order-deletion-policy"
+import {
+  canAdminSoftDeleteWorkOrder,
+  WORK_ORDER_PLANNING_RETURN_DELETE_BLOCKED_MESSAGE,
+} from "@/lib/tasks/work-order-deletion-policy"
+import { hasActivePlanningReturn } from "@/lib/tasks/planning-return"
 import { isArchiveWorkOrderStatus } from "@/lib/tasks/task-list-scope"
 import type { Task } from "@/lib/types/tasks"
 import type { UpdateTaskPayload } from "@/lib/types/supabase/tasks"
@@ -38,10 +43,12 @@ export class WorkOrderAdminMutationError extends Error {
   }
 }
 
-function assertAdminWorkOrderMutable(status: Task["status"]): void {
-  if (!canAdminModifyWorkOrder(status)) {
+function assertAdminWorkOrderMutable(task: Task): void {
+  if (!canAdminModifyWorkOrderTask(task)) {
     throw new WorkOrderAdminMutationError(
-      WORK_ORDER_ADMIN_MUTATION_BLOCKED_MESSAGE,
+      hasActivePlanningReturn(task)
+        ? WORK_ORDER_PLANNING_RETURN_EDIT_BLOCKED_MESSAGE
+        : WORK_ORDER_ADMIN_MUTATION_BLOCKED_MESSAGE,
       409
     )
   }
@@ -53,7 +60,9 @@ function assertAdminWorkOrderSoftDeletable(
 ): void {
   if (!canAdminSoftDeleteWorkOrder(task)) {
     throw new WorkOrderAdminMutationError(
-      WORK_ORDER_ADMIN_MUTATION_BLOCKED_MESSAGE,
+      hasActivePlanningReturn(task)
+        ? WORK_ORDER_PLANNING_RETURN_DELETE_BLOCKED_MESSAGE
+        : WORK_ORDER_ADMIN_MUTATION_BLOCKED_MESSAGE,
       409
     )
   }
@@ -151,7 +160,7 @@ export async function updateWorkOrderFromAdmin(
 ): Promise<Task> {
   assertWritableAdminRole(sessionUser)
   const existing = await fetchTaskForAdminMutation(client, taskId)
-  assertAdminWorkOrderMutable(existing.status)
+  assertAdminWorkOrderMutable(existing)
 
   const { status: _status, ...fieldsOnly } = payload
 

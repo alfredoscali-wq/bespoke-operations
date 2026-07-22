@@ -16,6 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { formatTaskAdminDisplayCode } from "@/lib/tasks/utils"
+import { hasActivePlanningReturn } from "@/lib/tasks/planning-return"
 import { canSoftDeleteWorkOrder } from "@/lib/tasks/work-order-deletion-policy"
 import type { Task } from "@/lib/types/tasks"
 
@@ -31,7 +32,8 @@ export function TaskAdminSoftDeleteAction({
   const { deleteTask, removeTaskLocally } = useTasks()
   const [open, setOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
-  const canDelete = canSoftDeleteWorkOrder(task)
+  const isPlanningReturnTray = hasActivePlanningReturn(task)
+  const canDelete = !isPlanningReturnTray && canSoftDeleteWorkOrder(task)
   const taskLabel =
     formatTaskAdminDisplayCode(task.code) || task.title?.trim() || task.id
 
@@ -52,6 +54,10 @@ export function TaskAdminSoftDeleteAction({
   function handleForceDeleteSuccess() {
     removeTaskLocally(task.id)
     router.back()
+  }
+
+  if (isPlanningReturnTray) {
+    return null
   }
 
   return (

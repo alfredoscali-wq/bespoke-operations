@@ -2,10 +2,14 @@ import { isTaskArchivedStatus } from "@/lib/tasks/task-archived-status"
 import { isPendingClosureStatus } from "@/lib/tasks/task-status-workflow"
 import { isCancellableTaskStatus } from "@/lib/tasks/status-groups"
 import { isArchiveWorkOrderStatus } from "@/lib/tasks/task-list-scope"
+import { hasActivePlanningReturn } from "@/lib/tasks/planning-return"
 import type { Task, TaskStatus } from "@/lib/types/tasks"
 
 export const WORK_ORDER_SOFT_DELETE_BLOCKED_MESSAGE =
   "No se puede eliminar una orden de trabajo que ya ingresó al circuito operativo."
+
+export const WORK_ORDER_PLANNING_RETURN_DELETE_BLOCKED_MESSAGE =
+  "No se puede eliminar una orden de trabajo devuelta por planificación. Reprográmela o gestónela desde el KPI Devueltas."
 
 export const WORK_ORDER_PERMANENT_DELETE_FORBIDDEN_MESSAGE =
   "Solo un administrador del sistema puede eliminar definitivamente una orden de trabajo."
@@ -20,6 +24,7 @@ export type SoftDeleteWorkOrderCandidate = Pick<Task, "status"> &
       | "completedAt"
       | "closedAt"
       | "operationalSteps"
+      | "taskMetadata"
     >
   >
 
@@ -63,6 +68,8 @@ export function canSoftDeleteUnstartedProjectAssignment(
  * Soft delete is allowed while the OT is still in planning (`programada`), or for
  * unstarted Obra assignments (`asignada` + projectId, never started).
  *
+ * OT con devolución activa por Planificación no se eliminan (KPI Devueltas).
+ *
  * Passing only a status string keeps the legacy contract: only `programada`.
  */
 export function canSoftDeleteWorkOrder(
@@ -70,6 +77,10 @@ export function canSoftDeleteWorkOrder(
 ): boolean {
   if (typeof input === "string") {
     return input === "programada"
+  }
+
+  if (hasActivePlanningReturn(input)) {
+    return false
   }
 
   if (input.status === "programada") {
@@ -128,6 +139,19 @@ export function resolveWorkOrderRowMenuPolicy(
   task: SoftDeleteWorkOrderCandidate
 ): WorkOrderRowMenuPolicy {
   const { status } = task
+
+  if (hasActivePlanningReturn(task)) {
+    return {
+      showView: true,
+      viewLabel: "Ver detalle",
+      showEdit: false,
+      showSoftDelete: false,
+      showCancel: false,
+      showReopenPlanning: false,
+      showAssignCrew: false,
+      showChangeStatus: false,
+    }
+  }
 
   if (isTaskArchivedStatus(status) || status === "cancelada") {
     return {

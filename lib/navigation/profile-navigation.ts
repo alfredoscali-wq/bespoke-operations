@@ -15,6 +15,7 @@ import {
   employeesNavItem,
   evidenceNavItem,
   historyNavItem,
+  activityNavItem,
   availabilityNavItem,
   maintenanceNavItem,
   materialsNavItem,
@@ -61,6 +62,7 @@ const PROFILE_NAV_BUILDERS: Record<
       items: [
         settingsNavItem,
         historyNavItem,
+        activityNavItem,
         usersNavItem,
         dispositivosNavItem,
       ],
@@ -255,6 +257,7 @@ export const PROFILE_NAV_ITEM_KEYS = {
   crewsNavItem,
   reportsNavItem,
   historyNavItem,
+  activityNavItem,
   settingsNavItem,
   usersNavItem,
   dispositivosNavItem,

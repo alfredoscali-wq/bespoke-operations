@@ -1,4 +1,5 @@
 import { compareDateOnly, toLocalDateOnly } from "@/lib/dates/date-only"
+import { isTaskVencida } from "@/lib/tasks/vencida-status"
 import type { Task, TaskStatus } from "@/lib/types/tasks"
 
 /** OT activas en campo — visibles sin restricción de fecha. */
@@ -21,14 +22,14 @@ export const FIELD_AGENT_AGENDA_QUERY_STATUSES: TaskStatus[] = [
 ]
 
 export function isFieldAgentAgendaTaskVisible(
-  task: Pick<Task, "status" | "dueDate">,
+  task: Pick<Task, "status" | "dueDate" | "taskMetadata">,
   referenceDate: string = toLocalDateOnly()
 ): boolean {
   if (FIELD_AGENT_ACTIVE_STATUSES.includes(task.status)) {
     return true
   }
 
-  if (FIELD_AGENT_OVERDUE_STATUSES.includes(task.status)) {
+  if (isTaskVencida(task)) {
     return true
   }
 

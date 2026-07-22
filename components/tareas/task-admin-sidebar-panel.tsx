@@ -2,7 +2,7 @@
 
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { TaskAdminReferencePhotos } from "@/components/tareas/task-admin-reference-photos"
-import { canAdminModifyWorkOrder } from "@/lib/tasks/work-order-admin-mutation"
+import { canAdminModifyWorkOrderTask } from "@/lib/tasks/work-order-admin-mutation"
 import { readTrabajoRealizadoFromTask } from "@/lib/tasks/trabajo-realizado"
 import type { Task } from "@/lib/types/tasks"
 import {
@@ -34,7 +34,7 @@ export function TaskAdminSidebarPanel({ task }: TaskAdminSidebarPanelProps) {
       <TaskAdminReferencePhotos
         taskId={liveTask.id}
         compact
-        canDeleteReferencePhotos={canAdminModifyWorkOrder(liveTask.status)}
+        canDeleteReferencePhotos={canAdminModifyWorkOrderTask(liveTask)}
       />
 
       <Card className="shadow-sm">

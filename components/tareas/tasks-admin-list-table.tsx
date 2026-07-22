@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/table"
 import { resolveTaskCrewDisplayName } from "@/lib/tasks/crew-relation"
 import { formatTaskDate } from "@/lib/tasks/constants"
-import { getTaskStatusSurfaceClass } from "@/lib/tasks/status-visual"
+import { getTaskRowSurfaceClass } from "@/lib/tasks/status-visual"
 import { getWorkOrderServiceTypeLabel } from "@/lib/tasks/work-order"
 import { formatTaskAdminDisplayCode, isFieldServiceTask } from "@/lib/tasks/utils"
 import type { Task } from "@/lib/types/tasks"
@@ -116,7 +116,7 @@ export function TasksAdminListTable({
             {tasks.map((task) => (
               <TableRow
                 key={task.id}
-                className={cn("group", getTaskStatusSurfaceClass(task.status))}
+                className={cn("group", getTaskRowSurfaceClass(task))}
               >
                 <TableCell className="font-mono text-xs font-medium">
                   <Link
@@ -139,7 +139,7 @@ export function TasksAdminListTable({
                 ) : null}
                 {!showExtendedColumns ? (
                   <TableCell>
-                    <TaskStatusBadge status={task.status} />
+                    <TaskStatusBadge status={task.status} task={task} />
                   </TableCell>
                 ) : null}
                 <TableCell className="max-w-[140px] truncate text-muted-foreground">
@@ -155,7 +155,7 @@ export function TasksAdminListTable({
                 ) : null}
                 {showExtendedColumns ? (
                   <TableCell>
-                    <TaskStatusBadge status={task.status} />
+                    <TaskStatusBadge status={task.status} task={task} />
                   </TableCell>
                 ) : null}
                 <TableCell className="text-right">

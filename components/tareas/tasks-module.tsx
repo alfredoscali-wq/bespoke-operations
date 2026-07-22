@@ -25,7 +25,7 @@ import {
   filterArchivedWorkOrders,
   type ArchiveOtStatusFilter,
 } from "@/lib/tasks/task-list-scope"
-import { filterPlanningReturnedTasks } from "@/lib/tasks/planning-return"
+import { filterPlanningReturnedTasks, excludePlanningReturnedTasks } from "@/lib/tasks/planning-return"
 import { TasksPlanningReturnedKpi } from "@/components/tareas/tasks-planning-returned-kpi"
 import { formatConsultationExpedienteCode } from "@/lib/customer-atenciones/consultation-expediente"
 import {
@@ -149,6 +149,9 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
     const filtered = filterAndSortTasks(scopedTasks, filters, crews)
     if (!isArchiveView && planningReturnedFilterActive) {
       return filterPlanningReturnedTasks(filtered)
+    }
+    if (!isArchiveView) {
+      return excludePlanningReturnedTasks(filtered)
     }
     return filtered
   }, [scopedTasks, filters, crews, isArchiveView, planningReturnedFilterActive])

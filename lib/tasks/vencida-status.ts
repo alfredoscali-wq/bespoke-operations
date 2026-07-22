@@ -1,4 +1,5 @@
 import { compareDateOnly, toLocalDateOnly } from "@/lib/dates/date-only"
+import { hasActivePlanningReturn } from "@/lib/tasks/planning-return"
 import {
   formatScheduledTimeForInput,
   getDefaultScheduledTime,
@@ -20,7 +21,17 @@ export function isVencidaStatus(status: TaskStatus): boolean {
   return status === VENCIDA_TASK_STATUS
 }
 
-export function isTaskVencida(task: Pick<Task, "status">): boolean {
+/**
+ * OT vencida para KPIs, alertas y paneles.
+ * Las OT con devolución activa por Planificación no cuentan como vencidas.
+ */
+export function isTaskVencida(
+  task: Pick<Task, "status"> & Partial<Pick<Task, "taskMetadata">>
+): boolean {
+  if (hasActivePlanningReturn(task)) {
+    return false
+  }
+
   return isVencidaStatus(task.status)
 }
 
@@ -45,11 +56,16 @@ export function isDueDateBeforeToday(
  * OT programada cuya fecha comprometida es anterior al día actual, sin haber iniciado
  * ejecución ni alcanzar un estado terminal. La cuadrilla no influye en el cálculo.
  * La hora programada no interviene en el vencimiento automático.
+ * Las OT con devolución activa de Planificación no pasan a vencida automática.
  */
 export function isOverdueForAutoVencida(
-  task: Pick<Task, "status" | "dueDate">,
+  task: Pick<Task, "status" | "dueDate" | "taskMetadata">,
   referenceDate: Date = new Date()
 ): boolean {
+  if (hasActivePlanningReturn(task)) {
+    return false
+  }
+
   if (!isAutoVencidaEligibleStatus(task.status)) {
     return false
   }
@@ -119,4 +135,4 @@ export function validateRescheduleFromVencida(input: {
 
   return { allowed: true }
 }
-
+

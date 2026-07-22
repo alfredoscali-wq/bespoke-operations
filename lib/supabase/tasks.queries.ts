@@ -220,7 +220,7 @@ export async function softDeleteTask(
 ): Promise<TasksRepositoryResult<void>> {
   const { data: existingTask, error: fetchError } = await client
     .from("tasks")
-    .select("status, project_id, progress, completed_at, closed_at")
+    .select("status, project_id, progress, completed_at, closed_at, task_metadata")
     .eq("id", id)
     .is("deleted_at", null)
     .maybeSingle()
@@ -245,15 +245,21 @@ export async function softDeleteTask(
     }
   }
 
-  if (
-    !canSoftDeleteWorkOrder({
-      status: existingTask.status as TaskStatus,
-      projectId: existingTask.project_id ?? undefined,
-      progress: existingTask.progress ?? 0,
-      completedAt: existingTask.completed_at,
-      closedAt: existingTask.closed_at,
-    })
-  ) {
+  const softDeleteCandidate = {
+    status: existingTask.status as TaskStatus,
+    projectId: existingTask.project_id ?? undefined,
+    progress: existingTask.progress ?? 0,
+    completedAt: existingTask.completed_at,
+    closedAt: existingTask.closed_at,
+    taskMetadata:
+      existingTask.task_metadata &&
+      typeof existingTask.task_metadata === "object" &&
+      !Array.isArray(existingTask.task_metadata)
+        ? (existingTask.task_metadata as Record<string, unknown>)
+        : {},
+  }
+
+  if (!canSoftDeleteWorkOrder(softDeleteCandidate)) {
     return {
       data: null,
       error: {
@@ -288,7 +294,7 @@ export async function softDeleteWorkOrderFromAdmin(
 ): Promise<TasksRepositoryResult<void>> {
   const { data: existingTask, error: fetchError } = await client
     .from("tasks")
-    .select("status, project_id, progress, completed_at, closed_at")
+    .select("status, project_id, progress, completed_at, closed_at, task_metadata")
     .eq("id", id)
     .is("deleted_at", null)
     .maybeSingle()
@@ -313,15 +319,21 @@ export async function softDeleteWorkOrderFromAdmin(
     }
   }
 
-  if (
-    !canAdminSoftDeleteWorkOrder({
-      status: existingTask.status as TaskStatus,
-      projectId: existingTask.project_id ?? undefined,
-      progress: existingTask.progress ?? 0,
-      completedAt: existingTask.completed_at,
-      closedAt: existingTask.closed_at,
-    })
-  ) {
+  const softDeleteCandidate = {
+    status: existingTask.status as TaskStatus,
+    projectId: existingTask.project_id ?? undefined,
+    progress: existingTask.progress ?? 0,
+    completedAt: existingTask.completed_at,
+    closedAt: existingTask.closed_at,
+    taskMetadata:
+      existingTask.task_metadata &&
+      typeof existingTask.task_metadata === "object" &&
+      !Array.isArray(existingTask.task_metadata)
+        ? (existingTask.task_metadata as Record<string, unknown>)
+        : {},
+  }
+
+  if (!canAdminSoftDeleteWorkOrder(softDeleteCandidate)) {
     return {
       data: null,
       error: {

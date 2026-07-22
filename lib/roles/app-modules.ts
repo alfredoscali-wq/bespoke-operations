@@ -163,7 +163,7 @@ export const APP_MODULE_DEFINITIONS: AppModuleDefinition[] = [
     navItem: historyNavItem,
     groupId: "system",
     groupLabel: "Sistema",
-    pathPrefixes: ["/historial"],
+    pathPrefixes: ["/historial", "/activity"],
   },
   {
     key: "users",

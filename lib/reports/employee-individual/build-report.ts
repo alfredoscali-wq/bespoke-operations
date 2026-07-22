@@ -17,6 +17,7 @@ import type {
 } from "@/lib/reports/employee-individual/types"
 import { TASK_STATUS_LABELS } from "@/lib/tasks/constants"
 import { taskMatchesCrewId } from "@/lib/tasks/crew-relation"
+import { isTaskVencida } from "@/lib/tasks/vencida-status"
 import {
   WORK_ORDER_SERVICE_TYPE_LABELS,
   type WorkOrderServiceType,
@@ -221,7 +222,7 @@ function collectOtKpiKeys(task: Task): string[] {
   if (task.rescheduledAt || task.originalScheduledDate) {
     keys.add("ot_reprogramadas")
   }
-  if (status === "vencida") {
+  if (isTaskVencida(task)) {
     keys.add("ot_vencidas")
   }
   if (status === "incidencia") {

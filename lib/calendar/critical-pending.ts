@@ -1,4 +1,4 @@
-import { isVencidaStatus } from "@/lib/tasks/vencida-status"
+import { isTaskVencida } from "@/lib/tasks/vencida-status"
 import type { Task, TaskStatus } from "@/lib/types/tasks"
 
 export type CriticalPendingTask = {
@@ -15,7 +15,7 @@ export type CriticalPendingTask = {
 }
 
 export function isCriticalPendingTask(task: Task): boolean {
-  return isVencidaStatus(task.status)
+  return isTaskVencida(task)
 }
 
 export function getCriticalPendingTasks(

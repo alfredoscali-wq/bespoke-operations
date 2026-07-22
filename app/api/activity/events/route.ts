@@ -6,6 +6,8 @@ import {
   isClientWritableActivityAction,
 } from "@/lib/activity/client-policy"
 import { recordActivityEvent } from "@/lib/activity/activity-service"
+import { queryActivityEvents } from "@/lib/activity/activity-viewer.server"
+import { parseActivityViewerSearchParams } from "@/lib/activity/activity-viewer-query"
 import {
   ACTIVITY_ACTOR_TYPES,
   ACTIVITY_ORIGINS,
@@ -15,8 +17,10 @@ import {
   type ActivitySeverity,
   type RecordActivityEventInput,
 } from "@/lib/activity/types"
+import { requireAdministratorSession } from "@/lib/auth/require-administrator"
 import { requireWritablePlatformSession } from "@/lib/auth/require-writable-platform-session"
 import { resolveTenantCompanyId } from "@/lib/operations/tenant-scope"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 type RecordActivityEventBody = {
   action: string
@@ -42,6 +46,49 @@ function parseOrigin(value: unknown): ActivityOrigin {
   }
 
   return ACTIVITY_ORIGINS.WEB
+}
+
+export async function GET(request: Request) {
+  const auth = await requireAdministratorSession()
+
+  if (!auth.ok) {
+    return NextResponse.json(
+      { success: false, message: auth.message },
+      { status: auth.status }
+    )
+  }
+
+  const { searchParams } = new URL(request.url)
+  const filters = parseActivityViewerSearchParams(searchParams)
+
+  try {
+    const admin = createAdminClient()
+    const result = await queryActivityEvents(admin, {
+      companyId: resolveTenantCompanyId(auth.sessionUser),
+      from: filters.from,
+      to: filters.to,
+      employeeId: filters.employeeId,
+      userSearch: filters.userSearch,
+      area: filters.area,
+      module: filters.module,
+      action: filters.action,
+      origin: filters.origin,
+      offset: filters.offset,
+      limit: filters.limit,
+    })
+
+    return NextResponse.json({
+      success: true,
+      ...result,
+    })
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "No se pudo cargar Activity Engine."
+
+    return NextResponse.json({ success: false, message }, { status: 500 })
+  }
 }
 
 export async function POST(request: Request) {

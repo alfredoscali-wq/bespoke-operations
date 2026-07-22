@@ -177,3 +177,19 @@ export function countPlanningReturnedTasks(tasks: Task[]): number {
 export function filterPlanningReturnedTasks(tasks: Task[]): Task[] {
   return tasks.filter(hasActivePlanningReturn)
 }
+
+/** OT activas del listado normal: sin mezclar las del KPI Devueltas. */
+export function excludePlanningReturnedTasks<T extends Pick<Task, "taskMetadata">>(
+  tasks: T[]
+): T[] {
+  return tasks.filter((task) => !hasActivePlanningReturn(task))
+}
+
+/** Etiqueta visual para OT del KPI Devueltas (no usa el badge Vencida). */
+export const PLANNING_RETURNED_DISPLAY_LABEL = "Devuelta"
+
+export function resolvePlanningReturnDisplayLabel(
+  task: Pick<Task, "taskMetadata">
+): string | null {
+  return hasActivePlanningReturn(task) ? PLANNING_RETURNED_DISPLAY_LABEL : null
+}

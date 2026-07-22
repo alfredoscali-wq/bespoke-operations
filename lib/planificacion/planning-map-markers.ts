@@ -1,6 +1,7 @@
 import type { Crew } from "@/lib/types/crews"
 import type { Task } from "@/lib/types/tasks"
 import { taskMatchesCrewId } from "@/lib/tasks/crew-relation"
+import { isTaskVencida } from "@/lib/tasks/vencida-status"
 import type { PlanningTaskCoordinates } from "@/lib/planificacion/planning-utils"
 
 export const PLANNING_PIN_COLOR_VENCIDA = "#dc2626"
@@ -62,11 +63,11 @@ export function buildPlanningCrewLegendItems(
 }
 
 export function resolvePlanningPinColor(
-  task: Pick<Task, "id" | "status" | "crewId">,
+  task: Pick<Task, "id" | "status" | "crewId" | "taskMetadata">,
   highlightedTaskId: string | null,
   crewColorIndex: Map<string, number>
 ): string {
-  if (task.status === "vencida") {
+  if (isTaskVencida(task)) {
     return PLANNING_PIN_COLOR_VENCIDA
   }
 

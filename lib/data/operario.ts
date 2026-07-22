@@ -2,6 +2,7 @@ import { compareDateOnly, toLocalDateOnly } from "@/lib/dates/date-only"
 import { isTaskArchivedStatus } from "@/lib/tasks/task-archived-status"
 import { sortTasksByDispatchRoute } from "@/lib/tasks/dispatch-order"
 import { taskMatchesCrewId } from "@/lib/tasks/crew-relation"
+import { isTaskVencida } from "@/lib/tasks/vencida-status"
 import type { Task, TaskStatus } from "@/lib/types/tasks"
 
 export type WorkerCrewRef = {
@@ -11,8 +12,6 @@ export type WorkerCrewRef = {
 
 /** OT publicadas en jornada (asignadas), visibles para el operario. */
 const OPERARIO_TODAY_SCHEDULED_STATUSES: TaskStatus[] = ["asignada"]
-
-const OPERARIO_TODAY_OVERDUE_STATUSES: TaskStatus[] = ["vencida"]
 
 const OPERARIO_TODAY_ACTIVE_STATUSES: TaskStatus[] = [
   "en-curso",
@@ -47,7 +46,7 @@ export function isOperarioTodayTask(
     return true
   }
 
-  if (OPERARIO_TODAY_OVERDUE_STATUSES.includes(task.status)) {
+  if (isTaskVencida(task)) {
     return true
   }
 
@@ -225,7 +224,7 @@ export function summarizeOperarioTodayTasks(
     programadas: todayTasks.filter((task) =>
       OPERARIO_TODAY_SCHEDULED_STATUSES.includes(task.status)
     ).length,
-    vencidas: todayTasks.filter((task) => task.status === "vencida").length,
+    vencidas: todayTasks.filter((task) => isTaskVencida(task)).length,
     enCurso: todayTasks.filter((task) => task.status === "en-curso").length,
     pendientesCierre: todayTasks.filter(
       (task) =>

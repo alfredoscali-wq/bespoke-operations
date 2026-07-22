@@ -15,6 +15,7 @@ import {
   isPendingClosureStatus,
   validateTaskClosureForSubmit,
 } from "@/lib/tasks/task-status-workflow"
+import { isTaskVencida } from "@/lib/tasks/vencida-status"
 import type { Task } from "@/lib/types/tasks"
 import { Button } from "@/components/ui/button"
 
@@ -86,7 +87,7 @@ export function OperarioTaskClosureFooter({
   const showInProgressActions = task.status === "en-curso"
   const pendingClosure = isPendingClosureStatus(task.status)
   const hasIncident = isIncidentStatus(task.status)
-  const hasOverdue = task.status === "vencida"
+  const hasOverdue = isTaskVencida(task)
 
   if (hasOverdue) {
     return (

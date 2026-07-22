@@ -37,6 +37,7 @@ import { isWorkOrderTask, resolveInstallationIpForDisplay } from "@/lib/tasks/wo
 import { readTrabajoRealizadoFromTask } from "@/lib/tasks/trabajo-realizado"
 import { isCambioDomicilioTask } from "@/lib/tasks/cambio-domicilio"
 import { isTaskVencida } from "@/lib/tasks/vencida-status"
+import { hasActivePlanningReturn } from "@/lib/tasks/planning-return"
 import { OverdueTaskInfoPanel } from "@/components/tareas/overdue-task-info-panel"
 import { WorkOrderCambioDomicilioDetail } from "@/components/tareas/work-order-cambio-domicilio-detail"
 import {
@@ -284,7 +285,7 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
           <CardDescription>{liveTask.description}</CardDescription>
         </CardHeader>
         <CardContent>
-          {isTaskVencida(liveTask) ? (
+          {isTaskVencida(liveTask) && !hasActivePlanningReturn(liveTask) ? (
             <div className="mb-4">
               <OverdueTaskInfoPanel task={liveTask} compact />
             </div>

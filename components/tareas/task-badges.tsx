@@ -9,17 +9,31 @@ import {
   TASK_TYPE_LABELS,
   TASK_TYPE_STYLES,
 } from "@/lib/tasks/constants"
+import {
+  hasActivePlanningReturn,
+  PLANNING_RETURNED_DISPLAY_LABEL,
+} from "@/lib/tasks/planning-return"
 import { isFieldServiceTask } from "@/lib/tasks/utils"
 import { cn } from "@/lib/utils"
 import { StatusBadge } from "@/components/ui/status-badge"
 
 export function TaskStatusBadge({
   status,
+  task,
   className,
 }: {
   status: TaskStatus
+  task?: Pick<Task, "taskMetadata">
   className?: string
 }) {
+  if (task && hasActivePlanningReturn(task)) {
+    return (
+      <StatusBadge className={cn(TASK_STATUS_STYLES.vencida, className)}>
+        {PLANNING_RETURNED_DISPLAY_LABEL}
+      </StatusBadge>
+    )
+  }
+
   return (
     <StatusBadge className={cn(TASK_STATUS_STYLES[status], className)}>
       {TASK_STATUS_LABELS[status]}

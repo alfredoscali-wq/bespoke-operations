@@ -10,6 +10,7 @@ import type {
   CalendarTaskAlertSeverity,
 } from "@/lib/types/calendar"
 import { FINAL_TASK_STATUSES } from "@/lib/tasks/status-groups"
+import { isTaskVencida } from "@/lib/tasks/vencida-status"
 import type { Crew, CrewMember } from "@/lib/types/crews"
 import type { Task } from "@/lib/types/tasks"
 
@@ -88,7 +89,7 @@ export function buildTaskAlertsForDate(input: {
   const alerts: CalendarTaskAlert[] = []
   const isFinal = FINAL_TASK_STATUSES.includes(task.status)
 
-  if (task.status === "vencida" && !isFinal) {
+  if (isTaskVencida(task) && !isFinal) {
     alerts.push({
       kind: "OVERDUE",
       severity: ALERT_SEVERITY.OVERDUE,

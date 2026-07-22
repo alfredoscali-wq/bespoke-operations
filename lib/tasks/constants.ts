@@ -31,7 +31,7 @@ export const TASK_EN_CURSO_STYLE = STATUS_TONE_STYLES.orange
 export const TASK_STATUS_STYLES: Record<TaskStatus, string> =
   buildTaskStatusStyleMap()
 
-export { getTaskStatusBadgeClass, getTaskStatusSurfaceClass } from "@/lib/tasks/status-visual"
+export { getTaskStatusBadgeClass, getTaskStatusSurfaceClass, getTaskRowSurfaceClass } from "@/lib/tasks/status-visual"
 
 export const KANBAN_COLUMNS: TaskStatus[] = [
   "programada",

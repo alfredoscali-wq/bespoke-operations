@@ -1,3 +1,4 @@
+import { hasActivePlanningReturn } from "@/lib/tasks/planning-return"
 import { isDueDateBeforeToday } from "@/lib/tasks/vencida-status"
 import type { Task, TaskStatus } from "@/lib/types/tasks"
 
@@ -22,9 +23,13 @@ export const OPERATIONAL_OVERDUE_EXCLUDED_STATUSES: TaskStatus[] = [
 ]
 
 export function isOperationallyOverdueTask(
-  task: Pick<Task, "status" | "dueDate">,
+  task: Pick<Task, "status" | "dueDate" | "taskMetadata">,
   referenceDate: Date = new Date()
 ): boolean {
+  if (hasActivePlanningReturn(task)) {
+    return false
+  }
+
   if (OPERATIONAL_OVERDUE_EXCLUDED_STATUSES.includes(task.status)) {
     return false
   }
@@ -41,13 +46,13 @@ export function isOperationallyOverdueTask(
 }
 
 export function filterOperationallyOverdueTasks<
-  T extends Pick<Task, "status" | "dueDate">,
+  T extends Pick<Task, "status" | "dueDate" | "taskMetadata">,
 >(tasks: T[], referenceDate: Date = new Date()): T[] {
   return tasks.filter((task) => isOperationallyOverdueTask(task, referenceDate))
 }
 
 export function countOperationallyOverdueTasks(
-  tasks: Array<Pick<Task, "status" | "dueDate">>,
+  tasks: Array<Pick<Task, "status" | "dueDate" | "taskMetadata">>,
   referenceDate: Date = new Date()
 ): number {
   return filterOperationallyOverdueTasks(tasks, referenceDate).length

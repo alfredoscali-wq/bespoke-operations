@@ -7,6 +7,7 @@ import { TaskClosureRejectDialog } from "@/components/tareas/task-closure-reject
 import { TaskOperationalWorkflowActions } from "@/components/tareas/task-operational-workflow-actions"
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { canUseWorkOrdersWebOperationalActions } from "@/lib/roles/web-module-access"
+import { hasActivePlanningReturn } from "@/lib/tasks/planning-return"
 import { isPendingClosureStatus } from "@/lib/tasks/task-status-workflow"
 import type { Task } from "@/lib/types/tasks"
 
@@ -33,6 +34,7 @@ export function TaskAdminWorkflowPanel({ task }: TaskAdminWorkflowPanelProps) {
 
   const showPanel =
     canClose &&
+    !hasActivePlanningReturn(task) &&
     (isPendingClosureStatus(task.status) ||
       task.status === "incidencia" ||
       task.status === "vencida")

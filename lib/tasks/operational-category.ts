@@ -4,6 +4,10 @@ import {
   getTaskStatusBadgeClass,
 } from "@/lib/tasks/status-visual"
 import { isTaskArchivedStatus } from "@/lib/tasks/task-archived-status"
+import {
+  hasActivePlanningReturn,
+  PLANNING_RETURNED_DISPLAY_LABEL,
+} from "@/lib/tasks/planning-return"
 
 import { taskHasAssignedCrew } from "@/lib/tasks/vencida-status"
 
@@ -80,6 +84,13 @@ export function resolveOperationalExecutionBadge(task: Task): {
   label: string
   className: string
 } {
+  if (hasActivePlanningReturn(task)) {
+    return {
+      label: PLANNING_RETURNED_DISPLAY_LABEL,
+      className: getTaskStatusBadgeClass("vencida"),
+    }
+  }
+
   if (task.status === "vencida") {
     return {
       label: "Vencida",

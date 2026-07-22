@@ -23,6 +23,7 @@ import {
   validateTaskRescheduleInput,
   type TaskRescheduleInput,
 } from "@/lib/tasks/reschedule"
+import { hasActivePlanningReturn } from "@/lib/tasks/planning-return"
 import { resolveOperationalEventActor } from "@/lib/tasks/operational-event-actor"
 import {
   buildCancelOperationalEvent,
@@ -278,6 +279,7 @@ export function useTasksIncidents({
         TaskWorkflowAction,
         | "reschedule-from-incident"
         | "reschedule-from-overdue"
+        | "reschedule-planning-return"
         | "reschedule-obra"
       >,
       input: TaskRescheduleInput & { actor?: string }
@@ -285,6 +287,16 @@ export function useTasksIncidents({
       const task = tasks.find((item) => item.id === id)
       if (!task) {
         return { success: false, message: "Orden de trabajo no encontrada." }
+      }
+
+      if (
+        workflowAction === "reschedule-planning-return" &&
+        !hasActivePlanningReturn(task)
+      ) {
+        return {
+          success: false,
+          message: "La orden de trabajo no está marcada como devuelta por planificación.",
+        }
       }
 
       const validation = canPerformTaskAction(task, workflowAction)
@@ -322,7 +334,9 @@ export function useTasksIncidents({
                 crewId: input.crewId ?? task.crewId,
                 crew: input.crew ?? task.crew,
               })
-            : to
+            : workflowAction === "reschedule-planning-return"
+              ? "programada"
+              : to
 
       // Obra reschedule never changes crew — only schedule fields.
       const rescheduleInput: TaskRescheduleInput =
@@ -434,6 +448,16 @@ export function useTasksIncidents({
     [applyTaskReschedule]
   )
 
+  const reschedulePlanningReturnedTask = useCallback(
+    async (
+      id: string,
+      input: TaskRescheduleInput & { actor?: string }
+    ): Promise<TaskMutationResult> => {
+      return applyTaskReschedule(id, "reschedule-planning-return", input)
+    },
+    [applyTaskReschedule]
+  )
+
   const rescheduleProjectTask = useCallback(
     async (
       id: string,
@@ -450,6 +474,7 @@ export function useTasksIncidents({
     resumeTaskFromIncident,
     rescheduleTaskFromIncident,
     rescheduleTaskFromOverdue,
+    reschedulePlanningReturnedTask,
     rescheduleProjectTask,
   }
 }

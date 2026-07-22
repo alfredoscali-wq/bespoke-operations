@@ -12,6 +12,7 @@ import {
   ListChecks,
   MapPinned,
   Package,
+  Radar,
   Settings,
   Smartphone,
   TriangleAlert,
@@ -150,6 +151,15 @@ export const historyNavItem: NavItem = {
   description: "Auditoría, trazabilidad y registro de eventos de la plataforma.",
 }
 
+export const activityNavItem: NavItem = {
+  title: "Activity Engine",
+  href: "/activity",
+  icon: Radar,
+  pageTitle: "Activity Engine",
+  description:
+    "Visor interno de solo lectura para validar eventos de Activity Engine.",
+}
+
 export const settingsNavItem: NavItem = {
   title: "Configuración",
   href: "/configuracion",
@@ -245,6 +255,7 @@ export const analysisNavItems: NavItem[] = [reportsNavItem]
 export const systemNavItems: NavItem[] = [
   settingsNavItem,
   historyNavItem,
+  activityNavItem,
   usersNavItem,
   dispositivosNavItem,
 ]

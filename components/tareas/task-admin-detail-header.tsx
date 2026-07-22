@@ -47,7 +47,7 @@ export function TaskAdminDetailHeader({
         </div>
 
         <div>
-          <TaskAdminExecutionStatusBadge status={task.status} />
+          <TaskAdminExecutionStatusBadge status={task.status} task={task} />
         </div>
       </div>
     </div>
