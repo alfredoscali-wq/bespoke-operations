@@ -895,6 +895,57 @@ export type Database = {
         }
         Relationships: []
       }
+      activity_events: {
+        Row: {
+          id: string
+          company_id: string
+          employee_id: string | null
+          actor_type: string
+          module: string
+          entity_type: string
+          entity_id: string | null
+          action: string
+          detail: string
+          metadata: Record<string, unknown>
+          origin: string
+          correlation_id: string | null
+          severity: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          employee_id?: string | null
+          actor_type: string
+          module: string
+          entity_type: string
+          entity_id?: string | null
+          action: string
+          detail?: string
+          metadata?: Record<string, unknown>
+          origin: string
+          correlation_id?: string | null
+          severity?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          employee_id?: string | null
+          actor_type?: string
+          module?: string
+          entity_type?: string
+          entity_id?: string | null
+          action?: string
+          detail?: string
+          metadata?: Record<string, unknown>
+          origin?: string
+          correlation_id?: string | null
+          severity?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
       crews: {
         Row: {
           id: string
@@ -1703,7 +1754,25 @@ export type Database = {
       }
     }
     Views: Record<string, never>
-    Functions: Record<string, never>
+    Functions: {
+      record_activity_event: {
+        Args: {
+          p_company_id: string
+          p_employee_id: string | null
+          p_actor_type: string
+          p_module: string
+          p_entity_type: string
+          p_entity_id: string | null
+          p_action: string
+          p_detail: string
+          p_metadata: Record<string, unknown>
+          p_origin: string
+          p_correlation_id: string | null
+          p_severity: string
+        }
+        Returns: string
+      }
+    }
     Enums: {
       project_type: ProjectType
       project_status: ProjectStatus
