@@ -2,7 +2,18 @@
 
 import { useMemo, useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, KeyRound, Link2, Pencil, Plus, Power } from "lucide-react"
+import {
+  ArrowLeft,
+  KeyRound,
+  Link2,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Power,
+  Trash2,
+  UserCheck,
+  UserX,
+} from "lucide-react"
 
 import { AssignExternalUserCrewDialog } from "@/components/contratistas/assign-external-user-crew-dialog"
 import { useContractors } from "@/components/contratistas/contractors-provider"
@@ -16,10 +27,13 @@ import {
   buildProvisionedCredentialsFeedback,
   buildResetPasswordToDniDescription,
 } from "@/lib/auth/initial-credentials-policy"
-import { requestProvisionEmployeeAccess } from "@/lib/auth/provision-client"
 import { requestResetEmployeePassword } from "@/lib/auth/reset-password-client"
+import { requestSoftDeleteEmployeeAccess } from "@/lib/auth/soft-delete-employee-client"
 import { CONTRACTOR_STATUS_LABELS } from "@/lib/contractors/constants"
-import { filterContractorEmployees } from "@/lib/contractors/employees"
+import {
+  filterContractorEmployees,
+  resolveExternalUserAccessLabel,
+} from "@/lib/contractors/employees"
 import { getContractorDisplayName } from "@/lib/contractors/utils"
 import { CREW_STATUS_LABELS } from "@/lib/crews/constants"
 import { filterExternalCrews } from "@/lib/crews/origin"
@@ -44,6 +58,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
   Table,
   TableBody,
@@ -74,7 +95,8 @@ export function ContractorDetailPageClient({
 }: ContractorDetailPageClientProps) {
   const { getContractor, editContractor, isContractorsReady } = useContractors()
   const { crews, addExternalCrew, editCrew } = useCrews()
-  const { employees } = useEmployees()
+  const { employees, editEmployee, provisionEmployeeAccess, forgetEmployee } =
+    useEmployees()
   const contractor = getContractor(contractorId)
 
   const [editOpen, setEditOpen] = useState(false)
@@ -84,9 +106,11 @@ export function ContractorDetailPageClient({
   const [editingUser, setEditingUser] = useState<Employee | null>(null)
   const [assignUser, setAssignUser] = useState<Employee | null>(null)
   const [resetUser, setResetUser] = useState<Employee | null>(null)
+  const [deleteUser, setDeleteUser] = useState<Employee | null>(null)
   const [feedback, setFeedback] = useState<string | null>(null)
   const [busyUserId, setBusyUserId] = useState<string | null>(null)
   const [isResettingPassword, setIsResettingPassword] = useState(false)
+  const [isDeletingUser, setIsDeletingUser] = useState(false)
 
   const contractorCrews = useMemo(
     () => filterExternalCrews(crews, contractorId),
@@ -168,13 +192,36 @@ export function ContractorDetailPageClient({
   async function handleProvisionUser(employee: Employee) {
     setBusyUserId(employee.id)
     try {
-      const result = await requestProvisionEmployeeAccess(employee.id)
+      const result = await provisionEmployeeAccess(employee.id)
+      if (!result.success) {
+        setFeedback(result.message ?? "No se pudo provisionar el acceso.")
+        return
+      }
       setFeedback(
-        result.success
-          ? buildProvisionedCredentialsFeedback(
-              getEmployeeDisplayName(employee)
-            )
-          : result.error
+        buildProvisionedCredentialsFeedback(
+          getEmployeeDisplayName(result.employee ?? employee)
+        )
+      )
+    } finally {
+      setBusyUserId(null)
+    }
+  }
+
+  async function handleToggleUserAccess(employee: Employee) {
+    setBusyUserId(employee.id)
+    try {
+      const nextAccess = !employee.systemAccess
+      const result = await editEmployee(employee.id, {
+        systemAccess: nextAccess,
+      })
+      if (!result.success) {
+        setFeedback(result.message ?? "No se pudo cambiar el acceso.")
+        return
+      }
+      setFeedback(
+        nextAccess
+          ? `Acceso activado para ${getEmployeeDisplayName(employee)}.`
+          : `Acceso desactivado para ${getEmployeeDisplayName(employee)}.`
       )
     } finally {
       setBusyUserId(null)
@@ -196,6 +243,28 @@ export function ContractorDetailPageClient({
       setResetUser(null)
     } finally {
       setIsResettingPassword(false)
+    }
+  }
+
+  async function handleConfirmDeleteUser() {
+    if (!deleteUser) return
+    setIsDeletingUser(true)
+    try {
+      const result = await requestSoftDeleteEmployeeAccess(deleteUser.id)
+      if (!result.success) {
+        setFeedback(result.error)
+        return
+      }
+
+      // Soft-delete already applied server-side; sync local cache only.
+      forgetEmployee(deleteUser.id)
+
+      setFeedback(
+        `Usuario ${getEmployeeDisplayName(deleteUser)} eliminado. El historial operativo se conservó.`
+      )
+      setDeleteUser(null)
+    } finally {
+      setIsDeletingUser(false)
     }
   }
 
@@ -442,7 +511,7 @@ export function ContractorDetailPageClient({
                       <TableHead>DNI</TableHead>
                       <TableHead>Acceso</TableHead>
                       <TableHead>Cuadrilla</TableHead>
-                      <TableHead className="w-[260px]" />
+                      <TableHead className="w-[72px]" />
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -451,6 +520,7 @@ export function ContractorDetailPageClient({
                         contractorCrews,
                         employee.id
                       )
+                      const isBusy = busyUserId === employee.id
                       return (
                         <TableRow key={employee.id}>
                           <TableCell className="font-mono text-sm">
@@ -461,64 +531,89 @@ export function ContractorDetailPageClient({
                           </TableCell>
                           <TableCell>{employee.nationalId || "—"}</TableCell>
                           <TableCell>
-                            {employee.appUserId
-                              ? "Provisionado"
-                              : employee.systemAccess
-                                ? "Pendiente"
-                                : "Sin acceso"}
+                            {resolveExternalUserAccessLabel(employee)}
                           </TableCell>
                           <TableCell>{linkedCrew?.name ?? "—"}</TableCell>
                           <TableCell>
-                            <div className="flex flex-wrap justify-end gap-1">
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="ghost"
-                                className="gap-1"
-                                onClick={() => {
-                                  setEditingUser(employee)
-                                  setUserDialogOpen(true)
-                                }}
-                              >
-                                <Pencil className="size-3.5" />
-                                Editar
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="ghost"
-                                className="gap-1"
-                                onClick={() => setAssignUser(employee)}
-                              >
-                                <Link2 className="size-3.5" />
-                                Cuadrilla
-                              </Button>
-                              {employee.appUserId ? (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
                                 <Button
                                   type="button"
-                                  size="sm"
                                   variant="ghost"
-                                  className="gap-1"
-                                  onClick={() => setResetUser(employee)}
-                                  disabled={!employee.nationalId?.trim()}
+                                  size="icon"
+                                  className="size-8"
+                                  disabled={isBusy}
                                 >
-                                  <KeyRound className="size-3.5" />
-                                  Restablecer contraseña
+                                  <MoreHorizontal className="size-4" />
+                                  <span className="sr-only">Acciones</span>
                                 </Button>
-                              ) : (
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="ghost"
-                                  disabled={busyUserId === employee.id}
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setEditingUser(employee)
+                                    setUserDialogOpen(true)
+                                  }}
+                                >
+                                  <Pencil className="size-4" />
+                                  Editar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => setAssignUser(employee)}
+                                >
+                                  <Link2 className="size-4" />
+                                  Cambiar cuadrilla
+                                </DropdownMenuItem>
+                                {employee.appUserId ? (
+                                  <DropdownMenuItem
+                                    disabled={!employee.nationalId?.trim()}
+                                    onClick={() => setResetUser(employee)}
+                                  >
+                                    <KeyRound className="size-4" />
+                                    Restablecer contraseña
+                                  </DropdownMenuItem>
+                                ) : (
+                                  <DropdownMenuItem
+                                    disabled={
+                                      isBusy || !employee.systemAccess
+                                    }
+                                    onClick={() =>
+                                      void handleProvisionUser(employee)
+                                    }
+                                  >
+                                    <KeyRound className="size-4" />
+                                    Provisionar acceso
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  disabled={isBusy}
                                   onClick={() =>
-                                    void handleProvisionUser(employee)
+                                    void handleToggleUserAccess(employee)
                                   }
                                 >
-                                  Provisionar
-                                </Button>
-                              )}
-                            </div>
+                                  {employee.systemAccess ? (
+                                    <>
+                                      <UserX className="size-4" />
+                                      Desactivar acceso
+                                    </>
+                                  ) : (
+                                    <>
+                                      <UserCheck className="size-4" />
+                                      Activar acceso
+                                    </>
+                                  )}
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  variant="destructive"
+                                  onClick={() => setDeleteUser(employee)}
+                                >
+                                  <Trash2 className="size-4" />
+                                  Eliminar usuario
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </TableCell>
                         </TableRow>
                       )
@@ -612,6 +707,44 @@ export function ContractorDetailPageClient({
               disabled={isResettingPassword}
             >
               {isResettingPassword ? "Restableciendo…" : "Restablecer al DNI"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(deleteUser)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteUser(null)
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Eliminar usuario</DialogTitle>
+            <DialogDescription>
+              Este usuario dejará de poder acceder al sistema. Su historial
+              operativo será conservado.
+              {deleteUser
+                ? ` Se eliminará a ${getEmployeeDisplayName(deleteUser)}.`
+                : null}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeleteUser(null)}
+              disabled={isDeletingUser}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => void handleConfirmDeleteUser()}
+              disabled={isDeletingUser}
+            >
+              {isDeletingUser ? "Eliminando…" : "Eliminar usuario"}
             </Button>
           </DialogFooter>
         </DialogContent>

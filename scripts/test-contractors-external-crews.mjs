@@ -18,7 +18,13 @@ import {
   buildNextExternalEmployeeCode,
   filterContractorEmployees,
   isContractorEmployee,
+  isEmployeeNationalIdLocked,
+  resolveExternalUserAccessLabel,
 } from "../lib/contractors/employees.ts"
+import {
+  assertAuthEmailMatchesEmployeeDni,
+  buildAuthEmail,
+} from "../lib/auth/auth-identity.ts"
 import {
   partitionTasksByCrewOrigin,
   resolveTaskCrewExecutionOrigin,
@@ -158,6 +164,63 @@ test("empleados externos se filtran por contractorId", () => {
   assert.equal(isContractorEmployee(employees[1]), true)
   assert.equal(filterContractorEmployees(employees, "ctr-1").length, 1)
   assert.equal(buildNextExternalEmployeeCode(["EXT-0001", "EMP-0002"]), "EXT-0002")
+})
+
+test("DNI queda bloqueado solo tras provisión Auth", () => {
+  assert.equal(isEmployeeNationalIdLocked({ appUserId: null }), false)
+  assert.equal(
+    isEmployeeNationalIdLocked({ appUserId: "auth-user-1" }),
+    true
+  )
+})
+
+test("etiqueta de acceso externo refleja systemAccess y provisión", () => {
+  assert.equal(
+    resolveExternalUserAccessLabel({
+      appUserId: null,
+      systemAccess: false,
+    }),
+    "Acceso desactivado"
+  )
+  assert.equal(
+    resolveExternalUserAccessLabel({
+      appUserId: null,
+      systemAccess: true,
+    }),
+    "Pendiente de provisión"
+  )
+  assert.equal(
+    resolveExternalUserAccessLabel({
+      appUserId: "auth-1",
+      systemAccess: true,
+    }),
+    "Provisionado"
+  )
+})
+
+test("provisión exige consistencia DNI ↔ Auth email", () => {
+  const companyId = "00000000-0000-4000-8000-000000000002"
+  const dni = "30651518"
+  const expected = buildAuthEmail(dni, companyId)
+
+  assert.equal(
+    assertAuthEmailMatchesEmployeeDni({
+      authEmail: expected,
+      nationalId: dni,
+      expectedAuthEmail: expected,
+    }).ok,
+    true
+  )
+
+  const mismatch = assertAuthEmailMatchesEmployeeDni({
+    authEmail: buildAuthEmail("30651517", companyId),
+    nationalId: dni,
+    expectedAuthEmail: expected,
+  })
+  assert.equal(mismatch.ok, false)
+  if (!mismatch.ok) {
+    assert.match(mismatch.error, /Inconsistencia entre DNI/)
+  }
 })
 
 test("dashboard model prep clasifica OT por origen de cuadrilla", () => {

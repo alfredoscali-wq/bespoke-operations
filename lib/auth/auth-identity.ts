@@ -76,3 +76,31 @@ export function parseDniFromAuthEmail(email: string): string | null {
   const match = email.match(/^([0-9]+)\./)
   return match?.[1] ?? null
 }
+
+/**
+ * Ensures the Auth login email was created from the employee DNI.
+ * Used after provision to avoid leaving inconsistent Auth ↔ employees pairs.
+ */
+export function assertAuthEmailMatchesEmployeeDni(input: {
+  authEmail: string | null | undefined
+  nationalId: string
+  expectedAuthEmail: string
+}): { ok: true } | { ok: false; error: string } {
+  const normalizedDni = normalizeDni(input.nationalId)
+  const email = (input.authEmail ?? "").trim().toLowerCase()
+  const expected = input.expectedAuthEmail.trim().toLowerCase()
+  const dniFromEmail = parseDniFromAuthEmail(email)
+
+  if (!normalizedDni) {
+    return { ok: false, error: "DNI del empleado inválido." }
+  }
+
+  if (!email || email !== expected || dniFromEmail !== normalizedDni) {
+    return {
+      ok: false,
+      error: `Inconsistencia entre DNI del empleado (${normalizedDni}) y Auth (${email || "sin email"}). La provisión fue cancelada.`,
+    }
+  }
+
+  return { ok: true }
+}

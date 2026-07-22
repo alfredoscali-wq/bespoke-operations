@@ -5,9 +5,11 @@ import { useMemo, useState } from "react"
 import { useCompanyRoles } from "@/components/configuracion/use-company-roles"
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { useEmployees } from "@/components/rrhh/employees-provider"
-import { requestProvisionEmployeeAccess } from "@/lib/auth/provision-client"
 import { buildInitialCredentialsInfoMessage } from "@/lib/auth/initial-credentials-policy"
-import { buildNextExternalEmployeeCode } from "@/lib/contractors/employees"
+import {
+  buildNextExternalEmployeeCode,
+  isEmployeeNationalIdLocked,
+} from "@/lib/contractors/employees"
 import { filterExternalCrews } from "@/lib/crews/origin"
 import type { Employee, EmploymentStatus } from "@/lib/types/employees"
 import { Button } from "@/components/ui/button"
@@ -109,7 +111,8 @@ function ExternalUserFormDialogBody({
   employee,
   onSaved,
 }: ExternalUserFormDialogProps) {
-  const { employees, addEmployee, editEmployee } = useEmployees()
+  const { employees, addEmployee, editEmployee, provisionEmployeeAccess } =
+    useEmployees()
   const { crews, addMember } = useCrews()
   const { roles } = useCompanyRoles()
   const initial = buildFormState(employee)
@@ -138,6 +141,8 @@ function ExternalUserFormDialogBody({
     [roles]
   )
 
+  const nationalIdLocked = isEmployeeNationalIdLocked(employee)
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     setError(null)
@@ -157,7 +162,9 @@ function ExternalUserFormDialogBody({
         const result = await editEmployee(employee.id, {
           firstName: form.firstName.trim(),
           lastName: form.lastName.trim(),
-          nationalId: form.nationalId.trim(),
+          ...(nationalIdLocked
+            ? {}
+            : { nationalId: form.nationalId.trim() }),
           phone: form.phone.trim() || undefined,
           email: form.email.trim() || undefined,
           employmentStatus: form.employmentStatus,
@@ -222,11 +229,14 @@ function ExternalUserFormDialogBody({
         }
       }
 
-      const provision = await requestProvisionEmployeeAccess(saved.id)
+      const provision = await provisionEmployeeAccess(saved.id)
       if (!provision.success) {
         throw new Error(
-          `Usuario creado, pero no se pudo provisionar Auth: ${provision.error}`
+          `Usuario creado, pero no se pudo provisionar Auth: ${provision.message ?? "error desconocido"}`
         )
+      }
+      if (provision.employee) {
+        saved = provision.employee
       }
 
       if (form.crewId) {
@@ -321,6 +331,8 @@ function ExternalUserFormDialogBody({
               <Input
                 id="ext-user-dni"
                 value={form.nationalId}
+                readOnly={nationalIdLocked}
+                disabled={nationalIdLocked}
                 onChange={(event) =>
                   setForm((current) => ({
                     ...current,
@@ -328,6 +340,11 @@ function ExternalUserFormDialogBody({
                   }))
                 }
               />
+              {nationalIdLocked ? (
+                <p className="text-xs text-muted-foreground">
+                  El DNI ya fue utilizado para crear el acceso al sistema.
+                </p>
+              ) : null}
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">

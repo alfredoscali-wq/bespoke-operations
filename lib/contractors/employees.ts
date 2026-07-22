@@ -38,3 +38,18 @@ export function buildNextExternalEmployeeCode(existingCodes: string[]): string {
   }
   return `EXT-${String(max + 1).padStart(4, "0")}`
 }
+
+/** DNI is the Auth login identifier once provisioned — must stay locked. */
+export function isEmployeeNationalIdLocked(
+  employee: Pick<Employee, "appUserId"> | null | undefined
+): boolean {
+  return Boolean(employee?.appUserId)
+}
+
+export function resolveExternalUserAccessLabel(
+  employee: Pick<Employee, "appUserId" | "systemAccess">
+): string {
+  if (!employee.systemAccess) return "Acceso desactivado"
+  if (employee.appUserId) return "Provisionado"
+  return "Pendiente de provisión"
+}

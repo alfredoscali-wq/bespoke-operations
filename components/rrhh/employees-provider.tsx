@@ -72,6 +72,8 @@ type EmployeesContextValue = {
     id: string
   ) => Promise<EmployeeMutationResult & { employee?: Employee }>
   removeEmployee: (id: string) => Promise<EmployeeMutationResult>
+  /** Drops an employee from local cache after server-side soft delete. */
+  forgetEmployee: (id: string) => void
 }
 
 const EmployeesContext = createContext<EmployeesContextValue | null>(null)
@@ -440,6 +442,10 @@ export function EmployeesProvider({ children }: { children: React.ReactNode }) {
     [usesSupabase]
   )
 
+  const forgetEmployee = useCallback((id: string) => {
+    setEmployees((current) => current.filter((employee) => employee.id !== id))
+  }, [])
+
   const value = useMemo(
     () => ({
       employees,
@@ -452,6 +458,7 @@ export function EmployeesProvider({ children }: { children: React.ReactNode }) {
       provisionEmployeeAccess,
       resetEmployeePassword,
       removeEmployee,
+      forgetEmployee,
     }),
     [
       employees,
@@ -464,6 +471,7 @@ export function EmployeesProvider({ children }: { children: React.ReactNode }) {
       provisionEmployeeAccess,
       resetEmployeePassword,
       removeEmployee,
+      forgetEmployee,
     ]
   )
 

@@ -1,6 +1,7 @@
 import "server-only"
 
 import {
+  assertAuthEmailMatchesEmployeeDni,
   buildAuthEmail,
   normalizeDni,
 } from "@/lib/auth/auth-identity"
@@ -150,6 +151,20 @@ export async function provisionEmployeeAccess(
     return {
       success: false,
       error: "No se pudo crear el usuario Auth.",
+    }
+  }
+
+  const consistency = assertAuthEmailMatchesEmployeeDni({
+    authEmail: authData.user?.email,
+    nationalId: normalizedDni,
+    expectedAuthEmail: email,
+  })
+
+  if (!consistency.ok) {
+    await admin.auth.admin.deleteUser(authUserId)
+    return {
+      success: false,
+      error: consistency.error,
     }
   }
 
