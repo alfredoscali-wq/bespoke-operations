@@ -47,6 +47,8 @@ export const ACTIVITY_MODULES = {
   REPORTS: "reports",
   SETTINGS: "settings",
   SYSTEM: "system",
+  /** Reserved — commercial field ops (module not instrumented yet). */
+  SALES: "sales",
 } as const
 
 export type ActivityModule =
@@ -72,14 +74,63 @@ export const ACTIVITY_ENTITY_TYPES = {
   REPORT_RUN: "report_run",
   IMPORT_BATCH: "import_batch",
   AUDIT_EXPORT: "audit_export",
+  /** Reserved — sales (not instrumented yet). */
+  SALES_VISIT: "sales_visit",
+  SALES_LEAD: "sales_lead",
+  SALES_OPPORTUNITY: "sales_opportunity",
+  SALES_QUOTE: "sales_quote",
+  SALES_ROUTE: "sales_route",
 } as const
 
 export type ActivityEntityType =
   (typeof ACTIVITY_ENTITY_TYPES)[keyof typeof ACTIVITY_ENTITY_TYPES]
 
 /**
- * Official Activity Engine action codes (Fase 2 master catalog).
- * Reserved SALE_ and BILLING_ codes are intentionally omitted until those modules exist.
+ * Structured outcome codes (OIE 1.0A). Independent from `action`.
+ * Validated in application layer; column `activity_events.result` is nullable.
+ */
+export const ACTIVITY_RESULTS = {
+  SUCCESS: "SUCCESS",
+  FAILURE: "FAILURE",
+  PARTIAL: "PARTIAL",
+  CANCELLED: "CANCELLED",
+  RESOLVED: "RESOLVED",
+  UNRESOLVED: "UNRESOLVED",
+  INTERESTED: "INTERESTED",
+  NOT_INTERESTED: "NOT_INTERESTED",
+  NO_ANSWER: "NO_ANSWER",
+  RESCHEDULED: "RESCHEDULED",
+  WON: "WON",
+  LOST: "LOST",
+} as const
+
+export type ActivityResult =
+  (typeof ACTIVITY_RESULTS)[keyof typeof ACTIVITY_RESULTS]
+
+/** Optional GPS payload for spatially meaningful field events. */
+export type ActivityGeoInput = {
+  latitude: number
+  longitude: number
+  accuracyM?: number | null
+}
+
+/**
+ * Compact mobile/client context — stored under metadata.client (OIE 1.0A).
+ * Not promoted to columns in OIE 1.1.
+ */
+export type ActivityClientMetadata = {
+  deviceId?: string | null
+  platform?: "ios" | "android" | "pwa" | "web" | string | null
+  appVersion?: string | null
+  offlineSync?: boolean | null
+  syncBatchId?: string | null
+  networkType?: "wifi" | "cellular" | "unknown" | string | null
+  batteryPct?: number | null
+}
+
+/**
+ * Official Activity / OIE action codes.
+ * SALE_* codes are reserved for future commercial instrumentation.
  */
 export const ACTIVITY_ACTIONS = {
   // OT
@@ -199,6 +250,17 @@ export const ACTIVITY_ACTIONS = {
   REPORT_RESEND: "REPORT_RESEND",
   SYSTEM_AUDIT_EXPORT: "SYSTEM_AUDIT_EXPORT",
   FORCE_DELETE: "FORCE_DELETE",
+
+  // Sales (reserved — catalog only until Ventas module exists)
+  SALE_ROUTE_START: "SALE_ROUTE_START",
+  SALE_ROUTE_END: "SALE_ROUTE_END",
+  SALE_ARRIVE_PROSPECT: "SALE_ARRIVE_PROSPECT",
+  SALE_VISIT_COMPLETE: "SALE_VISIT_COMPLETE",
+  SALE_MEETING_SCHEDULED: "SALE_MEETING_SCHEDULED",
+  SALE_QUOTE_SENT: "SALE_QUOTE_SENT",
+  SALE_CLOSE_WON: "SALE_CLOSE_WON",
+  SALE_CLOSE_LOST: "SALE_CLOSE_LOST",
+  SALE_FOLLOW_UP: "SALE_FOLLOW_UP",
 } as const
 
 export type ActivityAction =
@@ -209,6 +271,11 @@ export type ActivityActionDefinition = {
   entityType: ActivityEntityType
   severity: ActivitySeverity
   label: string
+  /**
+   * When set, `result` (if provided) must be one of these codes.
+   * When omitted, any catalog `ActivityResult` is accepted if present.
+   */
+  allowedResults?: readonly ActivityResult[]
 }
 
 export type RecordActivityEventInput = {
@@ -224,6 +291,16 @@ export type RecordActivityEventInput = {
   origin: ActivityOrigin
   correlationId?: string | null
   severity?: ActivitySeverity
+  /** Structured outcome (OIE 1.1). Does not replace action. */
+  result?: ActivityResult | null
+  /** Operational session (shift, sales route, on-call). */
+  sessionId?: string | null
+  /** Duration on completion events, milliseconds. */
+  durationMs?: number | null
+  /** Field GPS — only when spatially meaningful. */
+  geo?: ActivityGeoInput | null
+  /** Merged into metadata.client (not DB columns). */
+  client?: ActivityClientMetadata | null
 }
 
 export type ActivityEventRow = {
@@ -241,6 +318,12 @@ export type ActivityEventRow = {
   correlationId: string | null
   severity: ActivitySeverity
   createdAt: string
+  result: ActivityResult | string | null
+  sessionId: string | null
+  durationMs: number | null
+  latitude: number | null
+  longitude: number | null
+  accuracyM: number | null
 }
 
 /** Payload for RPC `record_activity_event`. */
@@ -257,4 +340,10 @@ export type ActivityEventRpcArgs = {
   p_origin: ActivityOrigin
   p_correlation_id: string | null
   p_severity: ActivitySeverity
+  p_result: string | null
+  p_session_id: string | null
+  p_duration_ms: number | null
+  p_latitude: number | null
+  p_longitude: number | null
+  p_accuracy_m: number | null
 }

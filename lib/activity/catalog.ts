@@ -2,9 +2,11 @@ import {
   ACTIVITY_ACTIONS,
   ACTIVITY_ENTITY_TYPES,
   ACTIVITY_MODULES,
+  ACTIVITY_RESULTS,
   ACTIVITY_SEVERITIES,
   type ActivityAction,
   type ActivityActionDefinition,
+  type ActivityResult,
   type ActivitySeverity,
 } from "@/lib/activity/types"
 
@@ -26,6 +28,7 @@ const {
   REPORTS,
   SETTINGS,
   SYSTEM,
+  SALES,
 } = ACTIVITY_MODULES
 
 const {
@@ -38,7 +41,6 @@ const {
   CREW,
   CONTRACTOR,
   USER,
-  SESSION,
   INCIDENT,
   MOBILE_DEVICE,
   WORK_TEAM_SHIFT,
@@ -46,19 +48,41 @@ const {
   MATERIAL,
   SETTING,
   REPORT_RUN,
-  IMPORT_BATCH,
   AUDIT_EXPORT,
+  SALES_VISIT,
+  SALES_LEAD,
+  SALES_OPPORTUNITY,
+  SALES_QUOTE,
+  SALES_ROUTE,
 } = ACTIVITY_ENTITY_TYPES
 
 const { INFO, WARNING, CRITICAL } = ACTIVITY_SEVERITIES
+
+const {
+  SUCCESS,
+  FAILURE,
+  PARTIAL,
+  CANCELLED,
+  RESOLVED,
+  UNRESOLVED,
+  INTERESTED,
+  NOT_INTERESTED,
+  NO_ANSWER,
+  RESCHEDULED,
+  WON,
+  LOST,
+} = ACTIVITY_RESULTS
 
 function def(
   module: ActivityActionDefinition["module"],
   entityType: ActivityActionDefinition["entityType"],
   severity: ActivityActionDefinition["severity"],
-  label: string
+  label: string,
+  allowedResults?: readonly ActivityResult[]
 ): ActivityActionDefinition {
-  return { module, entityType, severity, label }
+  return allowedResults
+    ? { module, entityType, severity, label, allowedResults }
+    : { module, entityType, severity, label }
 }
 
 /** Single source of truth for official Activity codes. */
@@ -106,9 +130,16 @@ export const ACTIVITY_ACTION_DEFINITIONS: Record<
     INFO,
     "Solicitar cierre"
   ),
-  [ACTIVITY_ACTIONS.TASK_APPROVE]: def(TASKS, TASK, INFO, "Aprobar / finalizar OT"),
-  [ACTIVITY_ACTIONS.TASK_REJECT]: def(TASKS, TASK, WARNING, "Rechazar cierre"),
-  [ACTIVITY_ACTIONS.TASK_CANCEL]: def(TASKS, TASK, WARNING, "Cancelar OT"),
+  [ACTIVITY_ACTIONS.TASK_APPROVE]: def(TASKS, TASK, INFO, "Aprobar / finalizar OT", [
+    SUCCESS,
+  ]),
+  [ACTIVITY_ACTIONS.TASK_REJECT]: def(TASKS, TASK, WARNING, "Rechazar cierre", [
+    FAILURE,
+    PARTIAL,
+  ]),
+  [ACTIVITY_ACTIONS.TASK_CANCEL]: def(TASKS, TASK, WARNING, "Cancelar OT", [
+    CANCELLED,
+  ]),
   [ACTIVITY_ACTIONS.TASK_MARK_OVERDUE]: def(TASKS, TASK, WARNING, "Marcar vencida"),
   [ACTIVITY_ACTIONS.TASK_DELETE]: def(TASKS, TASK, WARNING, "Eliminar OT (soft)"),
   [ACTIVITY_ACTIONS.TASK_DELETE_PERMANENT]: def(
@@ -227,7 +258,8 @@ export const ACTIVITY_ACTION_DEFINITIONS: Record<
     ATENCION,
     CUSTOMER_ATENCION,
     INFO,
-    "Resolver consulta"
+    "Resolver consulta",
+    [RESOLVED]
   ),
   [ACTIVITY_ACTIONS.ATENCION_LINK_TASK]: def(
     ATENCION,
@@ -251,7 +283,8 @@ export const ACTIVITY_ACTION_DEFINITIONS: Record<
     ATENCION,
     CUSTOMER_ATENCION,
     INFO,
-    "Cerrar consulta"
+    "Cerrar consulta",
+    [RESOLVED, UNRESOLVED, CANCELLED]
   ),
   [ACTIVITY_ACTIONS.ATENCION_DELETE_PERMANENT]: def(
     ATENCION,
@@ -394,7 +427,8 @@ export const ACTIVITY_ACTION_DEFINITIONS: Record<
     MOBILE,
     WORK_TEAM_SHIFT,
     INFO,
-    "Finalizar jornada"
+    "Finalizar jornada",
+    [SUCCESS, PARTIAL, CANCELLED]
   ),
   [ACTIVITY_ACTIONS.DEVICE_REGISTER]: def(
     DEVICES,
@@ -451,10 +485,81 @@ export const ACTIVITY_ACTION_DEFINITIONS: Record<
     "Exportar historial"
   ),
   [ACTIVITY_ACTIONS.FORCE_DELETE]: def(SYSTEM, TASK, CRITICAL, "Force delete genérico"),
+
+  // Sales (reserved — not instrumented in OIE 1.1)
+  [ACTIVITY_ACTIONS.SALE_ROUTE_START]: def(
+    SALES,
+    SALES_ROUTE,
+    INFO,
+    "Inicio recorrido comercial"
+  ),
+  [ACTIVITY_ACTIONS.SALE_ROUTE_END]: def(
+    SALES,
+    SALES_ROUTE,
+    INFO,
+    "Fin recorrido comercial",
+    [SUCCESS, PARTIAL, CANCELLED]
+  ),
+  [ACTIVITY_ACTIONS.SALE_ARRIVE_PROSPECT]: def(
+    SALES,
+    SALES_VISIT,
+    INFO,
+    "Llegada a prospecto"
+  ),
+  [ACTIVITY_ACTIONS.SALE_VISIT_COMPLETE]: def(
+    SALES,
+    SALES_VISIT,
+    INFO,
+    "Visita comercial realizada",
+    [INTERESTED, NOT_INTERESTED, NO_ANSWER, RESCHEDULED, PARTIAL]
+  ),
+  [ACTIVITY_ACTIONS.SALE_MEETING_SCHEDULED]: def(
+    SALES,
+    SALES_OPPORTUNITY,
+    INFO,
+    "Reunión agendada",
+    [SUCCESS]
+  ),
+  [ACTIVITY_ACTIONS.SALE_QUOTE_SENT]: def(
+    SALES,
+    SALES_QUOTE,
+    INFO,
+    "Presupuesto enviado",
+    [SUCCESS]
+  ),
+  [ACTIVITY_ACTIONS.SALE_CLOSE_WON]: def(
+    SALES,
+    SALES_OPPORTUNITY,
+    INFO,
+    "Venta cerrada",
+    [WON]
+  ),
+  [ACTIVITY_ACTIONS.SALE_CLOSE_LOST]: def(
+    SALES,
+    SALES_OPPORTUNITY,
+    WARNING,
+    "Venta perdida",
+    [LOST]
+  ),
+  [ACTIVITY_ACTIONS.SALE_FOLLOW_UP]: def(
+    SALES,
+    SALES_LEAD,
+    INFO,
+    "Seguimiento comercial",
+    [SUCCESS, PARTIAL, NO_ANSWER]
+  ),
 }
 
 export function isActivityAction(value: string): value is ActivityAction {
   return Object.prototype.hasOwnProperty.call(ACTIVITY_ACTION_DEFINITIONS, value)
+}
+
+export function isActivityResult(value: string): value is ActivityResult {
+  return (Object.values(ACTIVITY_RESULTS) as string[]).includes(value)
+}
+
+export function listActivityResults(): ActivityResult[] {
+  return Object.values(ACTIVITY_RESULTS)
 }
 
 export function resolveActivityActionDefinition(
@@ -469,4 +574,27 @@ export function resolveActivitySeverity(action: ActivityAction): ActivitySeverit
 
 export function listActivityActions(): ActivityAction[] {
   return Object.keys(ACTIVITY_ACTION_DEFINITIONS) as ActivityAction[]
+}
+
+/**
+ * Validates optional result against the global catalog and optional per-action allow-list.
+ */
+export function assertActivityResultAllowed(
+  action: ActivityAction,
+  result: ActivityResult | null | undefined
+): void {
+  if (result == null) {
+    return
+  }
+
+  if (!isActivityResult(result)) {
+    throw new Error(`Activity Engine: result no reconocido: ${result}`)
+  }
+
+  const allowed = ACTIVITY_ACTION_DEFINITIONS[action].allowedResults
+  if (allowed && allowed.length > 0 && !allowed.includes(result)) {
+    throw new Error(
+      `Activity Engine: result ${result} no está permitido para ${action}.`
+    )
+  }
 }

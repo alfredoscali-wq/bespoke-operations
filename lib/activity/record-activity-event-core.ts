@@ -1,6 +1,7 @@
 import { buildActivityEventRpcArgs } from "@/lib/activity/validate"
 import type {
   ActivityEventRow,
+  ActivityResult,
   RecordActivityEventInput,
 } from "@/lib/activity/types"
 import type { SupabaseAdminClient } from "@/lib/supabase/admin"
@@ -20,6 +21,12 @@ type ActivityEventDbRow = {
   correlation_id: string | null
   severity: ActivityEventRow["severity"]
   created_at: string
+  result?: string | null
+  session_id?: string | null
+  duration_ms?: number | null
+  latitude?: number | null
+  longitude?: number | null
+  accuracy_m?: number | null
 }
 
 function mapActivityEventRow(row: ActivityEventDbRow): ActivityEventRow {
@@ -38,12 +45,18 @@ function mapActivityEventRow(row: ActivityEventDbRow): ActivityEventRow {
     correlationId: row.correlation_id,
     severity: row.severity,
     createdAt: row.created_at,
+    result: (row.result as ActivityResult | null | undefined) ?? null,
+    sessionId: row.session_id ?? null,
+    durationMs: row.duration_ms ?? null,
+    latitude: row.latitude ?? null,
+    longitude: row.longitude ?? null,
+    accuracyM: row.accuracy_m ?? null,
   }
 }
 
 /**
  * Central writer given an admin/service-role client.
- * Prefer `recordActivityEvent` from activity-service.ts in app code.
+ * Prefer `recordActivity` / `recordActivityEvent` from activity-service.ts in app code.
  */
 export async function recordActivityEventWithClient(
   client: SupabaseAdminClient,

@@ -10,8 +10,10 @@ import { createAdminClient } from "@/lib/supabase/admin"
 export { recordActivityEventWithClient } from "@/lib/activity/record-activity-event-core"
 
 /**
- * Central Activity Engine writer. All future modules must use this helper.
- * Does not dual-write to system_audit_log (Fase 3 infrastructure only).
+ * Central OIE / Activity Engine writer. All modules must use this helper.
+ * Does not dual-write to system_audit_log.
+ *
+ * Alias: `recordActivity` (OIE 1.0 naming).
  */
 export async function recordActivityEvent(
   input: RecordActivityEventInput
@@ -19,8 +21,11 @@ export async function recordActivityEvent(
   return recordActivityEventWithClient(createAdminClient(), input)
 }
 
+/** OIE product name for the same writer as `recordActivityEvent`. */
+export const recordActivity = recordActivityEvent
+
 /**
- * Best-effort wrapper for future instrumentation — never throws to callers.
+ * Best-effort wrapper for instrumentation — never throws to callers.
  */
 export async function recordActivityEventSafe(
   input: RecordActivityEventInput
@@ -37,3 +42,5 @@ export async function recordActivityEventSafe(
     return null
   }
 }
+
+export const recordActivitySafe = recordActivityEventSafe

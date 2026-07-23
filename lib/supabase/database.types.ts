@@ -912,6 +912,12 @@ export type Database = {
           correlation_id: string | null
           severity: string
           created_at: string
+          result: string | null
+          session_id: string | null
+          duration_ms: number | null
+          latitude: number | null
+          longitude: number | null
+          accuracy_m: number | null
         }
         Insert: {
           id?: string
@@ -928,6 +934,12 @@ export type Database = {
           correlation_id?: string | null
           severity?: string
           created_at?: string
+          result?: string | null
+          session_id?: string | null
+          duration_ms?: number | null
+          latitude?: number | null
+          longitude?: number | null
+          accuracy_m?: number | null
         }
         Update: {
           id?: string
@@ -944,6 +956,12 @@ export type Database = {
           correlation_id?: string | null
           severity?: string
           created_at?: string
+          result?: string | null
+          session_id?: string | null
+          duration_ms?: number | null
+          latitude?: number | null
+          longitude?: number | null
+          accuracy_m?: number | null
         }
         Relationships: []
       }
@@ -1902,6 +1920,12 @@ export type Database = {
           p_origin: string
           p_correlation_id: string | null
           p_severity: string
+          p_result?: string | null
+          p_session_id?: string | null
+          p_duration_ms?: number | null
+          p_latitude?: number | null
+          p_longitude?: number | null
+          p_accuracy_m?: number | null
         }
         Returns: string
       }
