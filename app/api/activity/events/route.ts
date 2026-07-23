@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 
-import { isActivityAction } from "@/lib/activity/catalog"
+import { isActivityAction, isActivityResult } from "@/lib/activity/catalog"
 import {
   getClientActivityRejectionMessage,
   isClientWritableActivityAction,
@@ -11,9 +11,11 @@ import { parseActivityViewerSearchParams } from "@/lib/activity/activity-viewer-
 import {
   ACTIVITY_ACTOR_TYPES,
   ACTIVITY_ORIGINS,
+  type ActivityClientMetadata,
   type ActivityEntityType,
   type ActivityModule,
   type ActivityOrigin,
+  type ActivityResult,
   type ActivitySeverity,
   type RecordActivityEventInput,
 } from "@/lib/activity/types"
@@ -32,6 +34,15 @@ type RecordActivityEventBody = {
   origin?: ActivityOrigin
   correlationId?: string | null
   severity?: ActivitySeverity
+  result?: string | null
+  sessionId?: string | null
+  durationMs?: number | null
+  geo?: {
+    latitude: number
+    longitude: number
+    accuracyM?: number | null
+  } | null
+  client?: Record<string, unknown> | null
 }
 
 function parseOrigin(value: unknown): ActivityOrigin {
@@ -132,6 +143,24 @@ export async function POST(request: Request) {
   const companyId = resolveTenantCompanyId(auth.sessionUser)
   const employeeId = auth.sessionUser.employeeId
 
+  if (body.result != null && body.result !== "" && !isActivityResult(body.result)) {
+    return NextResponse.json(
+      { success: false, message: "Resultado de Activity Engine inválido." },
+      { status: 400 }
+    )
+  }
+
+  const geo =
+    body.geo &&
+    typeof body.geo.latitude === "number" &&
+    typeof body.geo.longitude === "number"
+      ? {
+          latitude: body.geo.latitude,
+          longitude: body.geo.longitude,
+          accuracyM: body.geo.accuracyM ?? null,
+        }
+      : null
+
   const input: RecordActivityEventInput = {
     companyId,
     employeeId,
@@ -147,6 +176,14 @@ export async function POST(request: Request) {
     origin: parseOrigin(body.origin),
     correlationId: body.correlationId ?? null,
     severity: body.severity,
+    result:
+      body.result == null || body.result === ""
+        ? null
+        : (body.result as ActivityResult),
+    sessionId: body.sessionId ?? null,
+    durationMs: body.durationMs ?? null,
+    geo,
+    client: (body.client as ActivityClientMetadata | null | undefined) ?? null,
   }
 
   try {

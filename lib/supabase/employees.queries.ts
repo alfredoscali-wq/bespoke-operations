@@ -79,6 +79,29 @@ export async function fetchEmployees(
   }
 }
 
+/**
+ * All employee_code values for a company, including soft-deleted rows.
+ * Used so code generation never reuses historical codes.
+ */
+export async function fetchAllEmployeeCodes(
+  client: SupabaseEmployeesClient,
+  companyId: string
+): Promise<EmployeesRepositoryResult<string[]>> {
+  const { data, error } = await client
+    .from("employees")
+    .select("employee_code")
+    .eq("company_id", companyId)
+
+  if (error) {
+    return { data: null, error: mapSupabaseEmployeeError(error) }
+  }
+
+  return {
+    data: (data ?? []).map((row) => row.employee_code),
+    error: null,
+  }
+}
+
 export async function fetchEmployeeById(
   client: SupabaseEmployeesClient,
   id: string

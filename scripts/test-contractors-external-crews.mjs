@@ -168,6 +168,8 @@ test("empleados externos se filtran por contractorId", () => {
   assert.equal(isContractorEmployee(employees[1]), true)
   assert.equal(filterContractorEmployees(employees, "ctr-1").length, 1)
   assert.equal(buildNextExternalEmployeeCode(["EXT-0001", "EMP-0002"]), "EXT-0002")
+  // Soft-deleted EXT-0007 must still be in the list so generation never recycles it.
+  assert.equal(buildNextExternalEmployeeCode(["EXT-0007"]), "EXT-0008")
 })
 
 test("DNI queda bloqueado solo tras provisión Auth", () => {

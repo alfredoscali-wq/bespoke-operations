@@ -1,3 +1,4 @@
+import { buildNextEmployeeCode } from "@/lib/employees/employee-codes"
 import {
   normalizeImportRowData,
   resolveImportEmploymentStatus,
@@ -18,7 +19,11 @@ import { resolveImportEmployeeTypeFromCatalog } from "@/lib/employees/employee-i
 export type EmployeeImportValidationContext = {
   employees: Employee[]
   employeeTypes: EmployeeTypeCatalog[]
+  /** All company codes including soft-deleted — never reuse historical codes. */
+  allEmployeeCodes: string[]
 }
+
+export { buildNextEmployeeCode }
 
 function resolveRowStatus(issues: EmployeeImportIssue[]): ImportValidationLevel {
   if (issues.some((issue) => issue.level === "error")) {
@@ -211,25 +216,12 @@ export function applyValidationToRow(
   }
 }
 
-export function buildNextEmployeeCode(existingCodes: string[]): string {
-  let max = 0
-
-  for (const code of existingCodes) {
-    const match = code.match(/-(\d+)$/)
-    if (!match) continue
-    max = Math.max(max, Number.parseInt(match[1], 10))
-  }
-
-  return `EMP-${String(max + 1).padStart(4, "0")}`
-}
-
 export function buildImportReviewRows(
   parsedRows: { rowNumber: number; data: EmployeeImportRowData }[],
   context: EmployeeImportValidationContext
 ): EmployeeImportReviewRow[] {
   const usedNationalIds = new Set<string>()
-  const existingCodes = context.employees.map((employee) => employee.employeeCode)
-  const assignedCodes = [...existingCodes]
+  const assignedCodes = [...context.allEmployeeCodes]
 
   return parsedRows.map((row) => {
     const employeeCode = buildNextEmployeeCode(assignedCodes)

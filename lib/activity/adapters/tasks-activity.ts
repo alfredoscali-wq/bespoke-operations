@@ -4,8 +4,11 @@ import {
   ACTIVITY_ENTITY_TYPES,
   ACTIVITY_MODULES,
   ACTIVITY_ORIGINS,
+  ACTIVITY_RESULTS,
   type ActivityAction,
+  type ActivityGeoInput,
   type ActivityOrigin,
+  type ActivityResult,
 } from "@/lib/activity/types"
 import { resolveActivityActionDefinition } from "@/lib/activity/catalog"
 import type { TaskRescheduleInput } from "@/lib/tasks/reschedule"
@@ -22,6 +25,10 @@ export type TaskActivityEmission = {
   entityType?:
     | typeof ACTIVITY_ENTITY_TYPES.TASK
     | typeof ACTIVITY_ENTITY_TYPES.PLANNING_DAY
+  result?: ActivityResult | null
+  geo?: ActivityGeoInput | null
+  sessionId?: string | null
+  durationMs?: number | null
 }
 
 function newCorrelationId(): string {
@@ -51,6 +58,31 @@ function scheduleChanged(before: Task, after: Task): boolean {
   )
 }
 
+function buildTaskStatusChangeMetadata(before: Task, after: Task) {
+  return {
+    previousStatus: before.status,
+    newStatus: after.status,
+  }
+}
+
+/** Prefer OIE geo columns when both coordinates are present. */
+export function buildTaskGeoFromTask(
+  task: Pick<Task, "latitude" | "longitude">
+): ActivityGeoInput | null {
+  if (
+    typeof task.latitude === "number" &&
+    typeof task.longitude === "number" &&
+    !Number.isNaN(task.latitude) &&
+    !Number.isNaN(task.longitude)
+  ) {
+    return {
+      latitude: task.latitude,
+      longitude: task.longitude,
+    }
+  }
+  return null
+}
+
 export function buildTaskCrewChangeMetadata(before: Task, after: Task) {
   return {
     oldCrew: before.crew?.trim() || null,
@@ -76,14 +108,18 @@ export function buildTaskRescheduleMetadata(before: Task, after: Task) {
   }
 }
 
+/**
+ * Status/context metadata for TASK_START.
+ * GPS belongs in emission.geo (OIE columns), not duplicated here.
+ */
 export function buildTaskStartMetadata(input: {
-  latitude?: number | null
-  longitude?: number | null
+  previousStatus?: string | null
+  newStatus?: string | null
   origin?: ActivityOrigin
 }) {
   return {
-    latitude: input.latitude ?? null,
-    longitude: input.longitude ?? null,
+    previousStatus: input.previousStatus ?? null,
+    newStatus: input.newStatus ?? null,
     origin: input.origin ?? ACTIVITY_ORIGINS.WEB,
   }
 }
@@ -101,7 +137,10 @@ export function mapWorkflowActionToActivityEmissions(
           {
             action: ACTIVITY_ACTIONS.TASK_UNASSIGN_CREW,
             detail: "Cuadrilla desasignada de la OT.",
-            metadata: buildTaskCrewChangeMetadata(before, after),
+            metadata: {
+              ...buildTaskCrewChangeMetadata(before, after),
+              ...buildTaskStatusChangeMetadata(before, after),
+            },
           },
         ]
       }
@@ -109,7 +148,10 @@ export function mapWorkflowActionToActivityEmissions(
         {
           action: ACTIVITY_ACTIONS.TASK_ASSIGN_CREW,
           detail: "Cuadrilla asignada a la OT.",
-          metadata: buildTaskCrewChangeMetadata(before, after),
+          metadata: {
+            ...buildTaskCrewChangeMetadata(before, after),
+            ...buildTaskStatusChangeMetadata(before, after),
+          },
         },
       ]
     case "start":
@@ -119,10 +161,11 @@ export function mapWorkflowActionToActivityEmissions(
           action: ACTIVITY_ACTIONS.TASK_START,
           detail: "Ejecución de OT iniciada.",
           metadata: buildTaskStartMetadata({
-            latitude: after.latitude,
-            longitude: after.longitude,
+            previousStatus: before.status,
+            newStatus: after.status,
             origin: ACTIVITY_ORIGINS.WEB,
           }),
+          geo: buildTaskGeoFromTask(after),
         },
       ]
     case "submit-for-approval":
@@ -130,7 +173,7 @@ export function mapWorkflowActionToActivityEmissions(
         {
           action: ACTIVITY_ACTIONS.TASK_SUBMIT_FOR_APPROVAL,
           detail: "OT enviada a pendiente de cierre.",
-          metadata: { status: after.status },
+          metadata: buildTaskStatusChangeMetadata(before, after),
         },
       ]
     case "approve":
@@ -138,7 +181,12 @@ export function mapWorkflowActionToActivityEmissions(
         {
           action: ACTIVITY_ACTIONS.TASK_APPROVE,
           detail: "OT aprobada / finalizada.",
-          metadata: { status: after.status },
+          result: ACTIVITY_RESULTS.SUCCESS,
+          metadata: {
+            ...buildTaskStatusChangeMetadata(before, after),
+            completedAt: after.completedAt ?? null,
+          },
+          durationMs: null,
         },
       ]
     case "reject":
@@ -146,8 +194,9 @@ export function mapWorkflowActionToActivityEmissions(
         {
           action: ACTIVITY_ACTIONS.TASK_REJECT,
           detail: "Cierre de OT rechazado.",
+          result: ACTIVITY_RESULTS.FAILURE,
           metadata: {
-            status: after.status,
+            ...buildTaskStatusChangeMetadata(before, after),
             rejectionReason: after.rejectionReason ?? null,
           },
         },
@@ -157,8 +206,9 @@ export function mapWorkflowActionToActivityEmissions(
         {
           action: ACTIVITY_ACTIONS.TASK_CANCEL,
           detail: "OT cancelada.",
+          result: ACTIVITY_RESULTS.CANCELLED,
           metadata: {
-            status: after.status,
+            ...buildTaskStatusChangeMetadata(before, after),
             cancellationReason: after.cancellationReason ?? null,
           },
         },
@@ -419,38 +469,94 @@ export function emitTaskActivityEvents(input: {
       metadata: emission.metadata,
       origin,
       correlationId: input.correlationId,
+      severity: definition.severity,
+      result: emission.result ?? null,
+      geo: emission.geo ?? null,
+      sessionId: emission.sessionId ?? null,
+      durationMs: emission.durationMs ?? null,
     })
   }
 }
 
-export function recordTaskCreateActivity(task: Task): void {
-  void recordActivityEventClient({
-    action: ACTIVITY_ACTIONS.TASK_CREATE,
-    module: ACTIVITY_MODULES.TASKS,
-    entityType: ACTIVITY_ENTITY_TYPES.TASK,
-    entityId: task.id,
-    detail: "OT creada.",
-    metadata: {
-      code: task.code,
-      status: task.status,
-      dueDate: task.dueDate ?? null,
-      scheduledTime: task.scheduledTime ?? null,
-      crewId: task.crewId ?? null,
+/**
+ * Plans create-time OIE emissions for a new OT.
+ * Sprint mapping: TASK_CREATED→TASK_CREATE, TASK_SCHEDULED→TASK_SCHEDULE,
+ * TASK_ASSIGNED→TASK_ASSIGN_CREW (when crew present).
+ */
+export function planTaskCreateActivityEmissions(
+  task: Task
+): { correlationId: string; emissions: TaskActivityEmission[] } {
+  const correlationId = newCorrelationId()
+  const emissions: TaskActivityEmission[] = [
+    {
+      action: ACTIVITY_ACTIONS.TASK_CREATE,
+      detail: "OT creada.",
+      metadata: {
+        code: task.code,
+        status: task.status,
+        dueDate: task.dueDate ?? null,
+        scheduledTime: task.scheduledTime ?? null,
+        crewId: task.crewId ?? null,
+        crew: task.crew?.trim() || null,
+      },
     },
+  ]
+
+  if (task.dueDate?.trim()) {
+    emissions.push({
+      action: ACTIVITY_ACTIONS.TASK_SCHEDULE,
+      detail: "OT programada.",
+      metadata: {
+        dueDate: task.dueDate,
+        scheduledTime: task.scheduledTime ?? null,
+        status: task.status,
+      },
+    })
+  }
+
+  if (task.crewId?.trim() || task.crew?.trim()) {
+    emissions.push({
+      action: ACTIVITY_ACTIONS.TASK_ASSIGN_CREW,
+      detail: "Cuadrilla asignada en la creación de la OT.",
+      metadata: {
+        oldCrew: null,
+        newCrew: task.crew?.trim() || null,
+        oldCrewId: null,
+        newCrewId: task.crewId ?? null,
+        status: task.status,
+      },
+    })
+  }
+
+  return { correlationId, emissions }
+}
+
+export function recordTaskCreateActivity(task: Task): void {
+  const planned = planTaskCreateActivityEmissions(task)
+  emitTaskActivityEvents({
+    emissions: planned.emissions,
+    correlationId: planned.correlationId,
+    taskId: task.id,
     origin: ACTIVITY_ORIGINS.WEB,
   })
 }
 
-export function recordTaskDeleteActivity(task: Task): void {
+export function recordTaskDeleteActivity(
+  task: Task,
+  options?: { administration?: boolean }
+): void {
   void recordActivityEventClient({
     action: ACTIVITY_ACTIONS.TASK_DELETE,
     module: ACTIVITY_MODULES.TASKS,
     entityType: ACTIVITY_ENTITY_TYPES.TASK,
     entityId: task.id,
-    detail: "OT eliminada (soft delete).",
+    detail: options?.administration
+      ? "OT eliminada por administrador (soft delete)."
+      : "OT eliminada (soft delete).",
     metadata: {
       code: task.code,
       status: task.status,
+      administration: options?.administration === true,
     },
     origin: ACTIVITY_ORIGINS.WEB,
   })

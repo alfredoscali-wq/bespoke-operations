@@ -271,6 +271,26 @@ export async function startMobileTask(
     // Start succeeded; audit failure must not block mobile clients.
   }
 
+  try {
+    const { recordTaskMobileStartActivity } = await import(
+      "@/lib/activity/adapters/tasks-activity.server"
+    )
+    await recordTaskMobileStartActivity({
+      auth,
+      before: task,
+      after: updatedTask,
+      workTeamId: resolved.workTeamId,
+      workTeamName: resolved.workTeamName,
+      mobileDeviceId: resolved.mobileDevice.id,
+      latitude: request.latitude,
+      longitude: request.longitude,
+      accuracyMeters: request.accuracyMeters,
+      distanceToClientMeters,
+    })
+  } catch {
+    // Start succeeded; OIE failure must not block mobile clients.
+  }
+
   return {
     id: updatedTask.id,
     status: updatedTask.status,

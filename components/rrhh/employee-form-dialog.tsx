@@ -14,12 +14,14 @@ import {
 } from "@/lib/employees/employee-type-form"
 import { resolveEmployeeTypePersistence } from "@/lib/employees/employee-type-legacy"
 import { EMPLOYMENT_STATUS_OPTIONS } from "@/lib/employees/constants"
+import { buildNextEmployeeCode } from "@/lib/employees/employee-codes"
+import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
+import { listAllEmployeeCodes } from "@/lib/supabase/employees.browser"
 import type {
   Employee,
   EmploymentStatus,
   NewEmployeeInput,
 } from "@/lib/types/employees"
-import { useEmployees } from "@/components/rrhh/employees-provider"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -91,18 +93,6 @@ function buildEmptyForm(defaultTypeId: string | null): EmployeeFormState {
   }
 }
 
-function buildNextEmployeeCode(existingCodes: string[]): string {
-  let max = 0
-
-  for (const code of existingCodes) {
-    const match = code.match(/-(\d+)$/)
-    if (!match) continue
-    max = Math.max(max, Number.parseInt(match[1], 10))
-  }
-
-  return `EMP-${String(max + 1).padStart(4, "0")}`
-}
-
 export function EmployeeFormDialog({
   open,
   onOpenChange,
@@ -110,7 +100,7 @@ export function EmployeeFormDialog({
   employee,
   onSubmit,
 }: EmployeeFormDialogProps) {
-  const { employees } = useEmployees()
+  const { companyId } = useTenantCompanyId()
   const { items: employeeTypes, isLoading: isLoadingTypes } = useEmployeeTypes()
   const defaultTypeId = useMemo(
     () => resolveDefaultEmployeeTypeId(employeeTypes),
@@ -220,10 +210,22 @@ export function EmployeeFormDialog({
     setIsSubmitting(true)
 
     try {
-      const employeeCode =
-        mode === "edit" && employee
-          ? employee.employeeCode
-          : buildNextEmployeeCode(employees.map((item) => item.employeeCode))
+      let employeeCode: string
+      if (mode === "edit" && employee) {
+        employeeCode = employee.employeeCode
+      } else {
+        if (!companyId) {
+          throw new Error("No se pudo resolver la empresa para generar el código.")
+        }
+        const codesResult = await listAllEmployeeCodes(companyId)
+        if (codesResult.error || !codesResult.data) {
+          throw new Error(
+            codesResult.error?.message ??
+              "No se pudieron obtener los códigos de empleado."
+          )
+        }
+        employeeCode = buildNextEmployeeCode(codesResult.data)
+      }
 
       const typeFields = resolveEmployeeTypePersistence({
         employeeTypeId: form.employeeTypeId,

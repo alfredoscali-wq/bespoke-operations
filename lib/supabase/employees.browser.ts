@@ -6,6 +6,7 @@ import {
   logEmployeeDeleteClientDiagnostics,
 } from "@/lib/supabase/employees-delete-diagnostics"
 import {
+  fetchAllEmployeeCodes,
   fetchEmployeeByAppUserId,
   fetchEmployeeByCode,
   fetchEmployeeById,
@@ -31,6 +32,13 @@ export async function listEmployees(
   client: SupabaseEmployeesClient = createBrowserEmployeesClient()
 ): Promise<EmployeesRepositoryResult<Employee[]>> {
   return fetchEmployees(client, companyId)
+}
+
+export async function listAllEmployeeCodes(
+  companyId: string,
+  client: SupabaseEmployeesClient = createBrowserEmployeesClient()
+): Promise<EmployeesRepositoryResult<string[]>> {
+  return fetchAllEmployeeCodes(client, companyId)
 }
 
 export async function getEmployeeById(
@@ -96,6 +104,7 @@ export async function deleteEmployee(
 }
 
 export {
+  fetchAllEmployeeCodes,
   fetchEmployeeByCode,
   fetchEmployeeById,
   fetchEmployees,

@@ -28,16 +28,7 @@ export function filterContractorEmployees<
   })
 }
 
-export function buildNextExternalEmployeeCode(existingCodes: string[]): string {
-  let max = 0
-  for (const code of existingCodes) {
-    const match = /^EXT-(\d+)$/i.exec(code.trim())
-    if (!match) continue
-    const value = Number(match[1])
-    if (Number.isFinite(value) && value > max) max = value
-  }
-  return `EXT-${String(max + 1).padStart(4, "0")}`
-}
+export { buildNextExternalEmployeeCode } from "../employees/employee-codes"
 
 /** DNI is the Auth login identifier once provisioned — must stay locked. */
 export function isEmployeeNationalIdLocked(

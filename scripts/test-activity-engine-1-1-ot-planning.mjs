@@ -30,17 +30,17 @@ function baseTask(overrides = {}) {
   }
 }
 
-test("creación OT → TASK_CREATE plan (vía emission create metadata shape)", () => {
-  // planTaskActivityEmissions is for updates; create uses recordTaskCreateActivity.
-  // Validate start metadata and catalog constants used by create path.
+test("creación OT → TASK_CREATE / TASK_SCHEDULE catalog anchors", () => {
   const meta = buildTaskStartMetadata({
-    latitude: -34.6,
-    longitude: -58.4,
+    previousStatus: "asignada",
+    newStatus: "en-curso",
     origin: ACTIVITY_ORIGINS.WEB,
   })
-  assert.equal(meta.latitude, -34.6)
+  assert.equal(meta.previousStatus, "asignada")
+  assert.equal(meta.newStatus, "en-curso")
   assert.equal(meta.origin, "web")
   assert.equal(ACTIVITY_ACTIONS.TASK_CREATE, "TASK_CREATE")
+  assert.equal(ACTIVITY_ACTIONS.TASK_SCHEDULE, "TASK_SCHEDULE")
 })
 
 test("edición genérica → TASK_UPDATE", () => {
@@ -155,13 +155,16 @@ test("batch planificación: crew + schedule + priority comparten correlation_id"
   )
 })
 
-test("inicio OT workflow → TASK_START con GPS metadata", () => {
+test("inicio OT workflow → TASK_START con geo OIE (no GPS duplicado en metadata)", () => {
   const before = /** @type {any} */ (baseTask({ status: "asignada" }))
   const after = /** @type {any} */ (baseTask({ status: "en-curso" }))
   const emissions = mapWorkflowActionToActivityEmissions("start", before, after)
   assert.equal(emissions[0].action, "TASK_START")
-  assert.equal(emissions[0].metadata.latitude, -34.6)
-  assert.equal(emissions[0].metadata.origin, "web")
+  assert.equal(emissions[0].geo?.latitude, -34.6)
+  assert.equal(emissions[0].geo?.longitude, -58.4)
+  assert.equal(emissions[0].metadata.previousStatus, "asignada")
+  assert.equal(emissions[0].metadata.newStatus, "en-curso")
+  assert.equal(emissions[0].metadata.latitude, undefined)
 })
 
 test("aprobación / cancelación / rechazo", () => {
@@ -170,17 +173,21 @@ test("aprobación / cancelación / rechazo", () => {
   const rejected = /** @type {any} */ (baseTask({ status: "en-curso" }))
   const cancelled = /** @type {any} */ (baseTask({ status: "cancelada" }))
 
-  assert.equal(
-    mapWorkflowActionToActivityEmissions("approve", before, approved)[0].action,
-    "TASK_APPROVE"
-  )
+  const approveEmission = mapWorkflowActionToActivityEmissions(
+    "approve",
+    before,
+    approved
+  )[0]
+  assert.equal(approveEmission.action, "TASK_APPROVE")
+  assert.equal(approveEmission.result, "SUCCESS")
   assert.equal(
     mapWorkflowActionToActivityEmissions("reject", before, rejected)[0].action,
     "TASK_REJECT"
   )
   assert.equal(
-    mapWorkflowActionToActivityEmissions("cancel", before, cancelled)[0].action,
-    "TASK_CANCEL"
+    mapWorkflowActionToActivityEmissions("cancel", before, cancelled)[0]
+      .result,
+    "CANCELLED"
   )
 })
 

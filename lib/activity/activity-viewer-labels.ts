@@ -36,6 +36,7 @@ const MODULE_LABELS: Record<ActivityModule, string> = {
   [ACTIVITY_MODULES.REPORTS]: "Reportes",
   [ACTIVITY_MODULES.SETTINGS]: "Configuración",
   [ACTIVITY_MODULES.SYSTEM]: "Sistema",
+  [ACTIVITY_MODULES.SALES]: "Ventas",
 }
 
 const ENTITY_TYPE_LABELS: Record<ActivityEntityType, string> = {
@@ -58,6 +59,11 @@ const ENTITY_TYPE_LABELS: Record<ActivityEntityType, string> = {
   [ACTIVITY_ENTITY_TYPES.REPORT_RUN]: "Ejecución de reporte",
   [ACTIVITY_ENTITY_TYPES.IMPORT_BATCH]: "Importación",
   [ACTIVITY_ENTITY_TYPES.AUDIT_EXPORT]: "Exportación de auditoría",
+  [ACTIVITY_ENTITY_TYPES.SALES_VISIT]: "Visita comercial",
+  [ACTIVITY_ENTITY_TYPES.SALES_LEAD]: "Lead comercial",
+  [ACTIVITY_ENTITY_TYPES.SALES_OPPORTUNITY]: "Oportunidad comercial",
+  [ACTIVITY_ENTITY_TYPES.SALES_QUOTE]: "Presupuesto",
+  [ACTIVITY_ENTITY_TYPES.SALES_ROUTE]: "Recorrido comercial",
 }
 
 const ORIGIN_LABELS: Record<ActivityOrigin, string> = {

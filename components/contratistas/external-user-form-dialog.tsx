@@ -11,6 +11,8 @@ import {
   isEmployeeNationalIdLocked,
 } from "@/lib/contractors/employees"
 import { filterExternalCrews } from "@/lib/crews/origin"
+import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
+import { listAllEmployeeCodes } from "@/lib/supabase/employees.browser"
 import type { Employee, EmploymentStatus } from "@/lib/types/employees"
 import { Button } from "@/components/ui/button"
 import {
@@ -111,8 +113,8 @@ function ExternalUserFormDialogBody({
   employee,
   onSaved,
 }: ExternalUserFormDialogProps) {
-  const { employees, addEmployee, editEmployee, provisionEmployeeAccess } =
-    useEmployees()
+  const { addEmployee, editEmployee, provisionEmployeeAccess } = useEmployees()
+  const { companyId } = useTenantCompanyId()
   const { crews, addMember } = useCrews()
   const { roles } = useCompanyRoles()
   const initial = buildFormState(employee)
@@ -181,9 +183,19 @@ function ExternalUserFormDialogBody({
         throw new Error("No se encontró el rol Operario de la empresa.")
       }
 
-      const employeeCode = buildNextExternalEmployeeCode(
-        employees.map((item) => item.employeeCode)
-      )
+      if (!companyId) {
+        throw new Error("No se pudo resolver la empresa para generar el código.")
+      }
+
+      const codesResult = await listAllEmployeeCodes(companyId)
+      if (codesResult.error || !codesResult.data) {
+        throw new Error(
+          codesResult.error?.message ??
+            "No se pudieron obtener los códigos de empleado."
+        )
+      }
+
+      const employeeCode = buildNextExternalEmployeeCode(codesResult.data)
 
       const createResult = await addEmployee({
         employeeCode,

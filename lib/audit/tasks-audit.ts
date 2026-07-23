@@ -346,7 +346,9 @@ export function recordTaskDeleteAudit(
         : {}),
     },
   })
-  recordTaskDeleteActivity(task as Task)
+  recordTaskDeleteActivity(task as Task, {
+    administration: options?.administration === true,
+  })
 }
 
 export type TaskMutationAuditContext = {

@@ -28,6 +28,8 @@ import {
   summarizeImportRows,
   type EmployeeImportValidationContext,
 } from "@/lib/employees/employee-import/validate"
+import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
+import { listAllEmployeeCodes } from "@/lib/supabase/employees.browser"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -85,6 +87,7 @@ export function EmployeesImportDialog({
   onImported,
 }: EmployeesImportDialogProps) {
   const { employees, addEmployee, editEmployee } = useEmployees()
+  const { companyId } = useTenantCompanyId()
   const { items: employeeTypes } = useEmployeeTypes()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -96,11 +99,6 @@ export function EmployeesImportDialog({
   const [isImporting, setIsImporting] = useState(false)
   const [executionResult, setExecutionResult] =
     useState<EmployeeImportExecutionResult | null>(null)
-
-  const validationContext = useMemo<EmployeeImportValidationContext>(
-    () => ({ employees, employeeTypes }),
-    [employees, employeeTypes]
-  )
 
   const summary = useMemo(() => summarizeImportRows(rows), [rows])
   const validCount = summary.valid
@@ -132,6 +130,24 @@ export function EmployeesImportDialog({
     setIsParsing(true)
 
     try {
+      if (!companyId) {
+        throw new Error("No se pudo resolver la empresa para generar códigos.")
+      }
+
+      const codesResult = await listAllEmployeeCodes(companyId)
+      if (codesResult.error || !codesResult.data) {
+        throw new Error(
+          codesResult.error?.message ??
+            "No se pudieron obtener los códigos de empleado."
+        )
+      }
+
+      const validationContext: EmployeeImportValidationContext = {
+        employees,
+        employeeTypes,
+        allEmployeeCodes: codesResult.data,
+      }
+
       const parsed = await parseEmployeeImportFile(file)
       const reviewed = buildImportReviewRows(parsed.rows, validationContext)
       setRows(reviewed)

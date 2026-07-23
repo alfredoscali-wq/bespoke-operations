@@ -158,6 +158,22 @@ export async function submitMobileTaskForApproval(
     // Non-blocking audit.
   }
 
+  try {
+    const { recordTaskMobileSubmitActivity } = await import(
+      "@/lib/activity/adapters/tasks-activity.server"
+    )
+    await recordTaskMobileSubmitActivity({
+      auth: context.auth,
+      before: context.task,
+      after: updatedTask,
+      workTeamId: context.workTeamId,
+      workTeamName: context.workTeamName,
+      mobileDeviceId: context.mobileDeviceId,
+    })
+  } catch {
+    // Non-blocking OIE.
+  }
+
   return {
     id: updatedTask.id,
     status: updatedTask.status,
