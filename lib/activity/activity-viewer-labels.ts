@@ -37,6 +37,7 @@ const MODULE_LABELS: Record<ActivityModule, string> = {
   [ACTIVITY_MODULES.SETTINGS]: "Configuración",
   [ACTIVITY_MODULES.SYSTEM]: "Sistema",
   [ACTIVITY_MODULES.SALES]: "Ventas",
+  [ACTIVITY_MODULES.TREASURY]: "Tesorería",
 }
 
 const ENTITY_TYPE_LABELS: Record<ActivityEntityType, string> = {
@@ -64,6 +65,7 @@ const ENTITY_TYPE_LABELS: Record<ActivityEntityType, string> = {
   [ACTIVITY_ENTITY_TYPES.SALES_OPPORTUNITY]: "Oportunidad comercial",
   [ACTIVITY_ENTITY_TYPES.SALES_QUOTE]: "Presupuesto",
   [ACTIVITY_ENTITY_TYPES.SALES_ROUTE]: "Recorrido comercial",
+  [ACTIVITY_ENTITY_TYPES.TREASURY_MOVEMENT]: "Movimiento de tesorería",
 }
 
 const ORIGIN_LABELS: Record<ActivityOrigin, string> = {

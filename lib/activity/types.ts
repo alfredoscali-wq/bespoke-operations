@@ -47,8 +47,9 @@ export const ACTIVITY_MODULES = {
   REPORTS: "reports",
   SETTINGS: "settings",
   SYSTEM: "system",
-  /** Reserved — commercial field ops (module not instrumented yet). */
   SALES: "sales",
+  /** Operational treasury (income / expense movements). */
+  TREASURY: "treasury",
 } as const
 
 export type ActivityModule =
@@ -80,6 +81,7 @@ export const ACTIVITY_ENTITY_TYPES = {
   SALES_OPPORTUNITY: "sales_opportunity",
   SALES_QUOTE: "sales_quote",
   SALES_ROUTE: "sales_route",
+  TREASURY_MOVEMENT: "treasury_movement",
 } as const
 
 export type ActivityEntityType =
@@ -263,6 +265,14 @@ export const ACTIVITY_ACTIONS = {
   SALE_CLOSE_WON: "SALE_CLOSE_WON",
   SALE_CLOSE_LOST: "SALE_CLOSE_LOST",
   SALE_FOLLOW_UP: "SALE_FOLLOW_UP",
+
+  // Tesorería
+  TREASURY_INCOME_CREATED: "TREASURY_INCOME_CREATED",
+  TREASURY_EXPENSE_CREATED: "TREASURY_EXPENSE_CREATED",
+  TREASURY_MOVEMENT_UPDATED: "TREASURY_MOVEMENT_UPDATED",
+  TREASURY_MOVEMENT_CANCELLED: "TREASURY_MOVEMENT_CANCELLED",
+  TREASURY_RECEIPT_UPLOADED: "TREASURY_RECEIPT_UPLOADED",
+  TREASURY_MOVEMENT_DELETED: "TREASURY_MOVEMENT_DELETED",
 } as const
 
 export type ActivityAction =

@@ -29,6 +29,7 @@ const {
   SETTINGS,
   SYSTEM,
   SALES,
+  TREASURY,
 } = ACTIVITY_MODULES
 
 const {
@@ -56,6 +57,7 @@ const {
   SALES_OPPORTUNITY,
   SALES_QUOTE,
   SALES_ROUTE,
+  TREASURY_MOVEMENT,
 } = ACTIVITY_ENTITY_TYPES
 
 const { INFO, WARNING, CRITICAL } = ACTIVITY_SEVERITIES
@@ -550,6 +552,43 @@ export const ACTIVITY_ACTION_DEFINITIONS: Record<
     INFO,
     "Seguimiento comercial",
     [SUCCESS, PARTIAL, NO_ANSWER]
+  ),
+
+  [ACTIVITY_ACTIONS.TREASURY_INCOME_CREATED]: def(
+    TREASURY,
+    TREASURY_MOVEMENT,
+    INFO,
+    "Ingreso registrado"
+  ),
+  [ACTIVITY_ACTIONS.TREASURY_EXPENSE_CREATED]: def(
+    TREASURY,
+    TREASURY_MOVEMENT,
+    INFO,
+    "Egreso registrado"
+  ),
+  [ACTIVITY_ACTIONS.TREASURY_MOVEMENT_UPDATED]: def(
+    TREASURY,
+    TREASURY_MOVEMENT,
+    INFO,
+    "Movimiento actualizado"
+  ),
+  [ACTIVITY_ACTIONS.TREASURY_MOVEMENT_CANCELLED]: def(
+    TREASURY,
+    TREASURY_MOVEMENT,
+    WARNING,
+    "Movimiento anulado"
+  ),
+  [ACTIVITY_ACTIONS.TREASURY_RECEIPT_UPLOADED]: def(
+    TREASURY,
+    TREASURY_MOVEMENT,
+    INFO,
+    "Comprobante cargado"
+  ),
+  [ACTIVITY_ACTIONS.TREASURY_MOVEMENT_DELETED]: def(
+    TREASURY,
+    TREASURY_MOVEMENT,
+    CRITICAL,
+    "Movimiento eliminado"
   ),
 }
 

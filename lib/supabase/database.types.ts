@@ -1,3 +1,8 @@
+import type {
+  TreasuryMovementType,
+  TreasuryOrigin,
+  TreasuryStatus,
+} from "@/lib/tesoreria/categories"
 import type { AvailabilityType } from "@/lib/types/availability"
 import type { ContractorStatus } from "@/lib/types/contractors"
 import type { CrewOrigin, CrewStatus } from "@/lib/types/crews"
@@ -964,6 +969,88 @@ export type Database = {
           accuracy_m?: number | null
         }
         Relationships: []
+      }
+      treasury_movements: {
+        Row: {
+          id: string
+          company_id: string
+          movement_type: TreasuryMovementType
+          origin: TreasuryOrigin
+          category: string
+          amount: number
+          movement_date: string
+          employee_id: string | null
+          registered_by: string | null
+          status: TreasuryStatus
+          notes: string
+          receipt_url: string | null
+          cashbox_id: string | null
+          metadata: Json
+          created_at: string
+          updated_at: string
+          deleted_at: string | null
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          movement_type: TreasuryMovementType
+          origin?: TreasuryOrigin
+          category: string
+          amount: number
+          movement_date?: string
+          employee_id?: string | null
+          registered_by?: string | null
+          status?: TreasuryStatus
+          notes?: string
+          receipt_url?: string | null
+          cashbox_id?: string | null
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          movement_type?: TreasuryMovementType
+          origin?: TreasuryOrigin
+          category?: string
+          amount?: number
+          movement_date?: string
+          employee_id?: string | null
+          registered_by?: string | null
+          status?: TreasuryStatus
+          notes?: string
+          receipt_url?: string | null
+          cashbox_id?: string | null
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "treasury_movements_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "treasury_movements_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "treasury_movements_registered_by_fkey"
+            columns: ["registered_by"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       contractors: {
         Row: {
@@ -2035,6 +2122,12 @@ export type EvidenceInsert =
   Database["public"]["Tables"]["evidences"]["Insert"]
 export type EvidenceUpdate =
   Database["public"]["Tables"]["evidences"]["Update"]
+export type TreasuryMovementRow =
+  Database["public"]["Tables"]["treasury_movements"]["Row"]
+export type TreasuryMovementInsert =
+  Database["public"]["Tables"]["treasury_movements"]["Insert"]
+export type TreasuryMovementUpdate =
+  Database["public"]["Tables"]["treasury_movements"]["Update"]
 export type CrewRow = Database["public"]["Tables"]["crews"]["Row"]
 export type CrewInsert = Database["public"]["Tables"]["crews"]["Insert"]
 export type CrewUpdate = Database["public"]["Tables"]["crews"]["Update"]

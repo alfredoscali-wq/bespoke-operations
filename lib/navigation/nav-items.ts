@@ -1,5 +1,6 @@
 import {
   Archive,
+  Banknote,
   BarChart3,
   Building2,
   CalendarClock,
@@ -153,6 +154,15 @@ export const reportsNavItem: NavItem = {
     "Dashboard ejecutivo, indicadores operativos y reportes automáticos.",
 }
 
+export const tesoreriaNavItem: NavItem = {
+  title: "Tesorería",
+  href: "/tesoreria",
+  icon: Banknote,
+  pageTitle: "Tesorería",
+  description:
+    "Registro operativo de ingresos, egresos y saldo de la empresa.",
+}
+
 export const historyNavItem: NavItem = {
   title: "Log del Sistema",
   href: "/historial",
@@ -261,7 +271,7 @@ export const fieldOperationsNavItems: NavItem[] = [
 
 export const rrhhNavItems: NavItem[] = [employeesNavItem, newsNavItem]
 
-export const analysisNavItems: NavItem[] = [reportsNavItem]
+export const analysisNavItems: NavItem[] = [reportsNavItem, tesoreriaNavItem]
 
 export const systemNavItems: NavItem[] = [
   settingsNavItem,

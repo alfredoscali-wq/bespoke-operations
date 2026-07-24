@@ -18,6 +18,7 @@ import {
   usersNavItem,
   workOrdersNavItem,
   contractorsNavItem,
+  tesoreriaNavItem,
 } from "@/lib/navigation/nav-items"
 import type { NavItem } from "@/lib/navigation/nav-types"
 
@@ -34,6 +35,7 @@ export const APP_MODULE_KEYS = [
   "materials",
   "evidence",
   "reports",
+  "tesoreria",
   "employees",
   "news",
   "settings",
@@ -141,6 +143,14 @@ export const APP_MODULE_DEFINITIONS: AppModuleDefinition[] = [
     groupId: "analysis",
     groupLabel: "Análisis",
     pathPrefixes: ["/reportes"],
+  },
+  {
+    key: "tesoreria",
+    label: "Tesorería",
+    navItem: tesoreriaNavItem,
+    groupId: "analysis",
+    groupLabel: "Análisis",
+    pathPrefixes: ["/tesoreria"],
   },
   {
     key: "employees",
