@@ -1,204 +1,30 @@
 import "server-only"
 
-import {
-  assertAuthEmailMatchesEmployeeDni,
-  buildAuthEmail,
-  normalizeDni,
-} from "@/lib/auth/auth-identity"
+/**
+ * Employee Auth access helpers.
+ * Provisioning is centralized in AuthProvisioningService (identity by DNI).
+ */
+
+export {
+  provisionAuthIdentityForEmployee,
+  provisionEmployeeAccess,
+  type AuthProvisioningResult,
+} from "@/lib/auth/auth-provisioning-service"
+
 import { createAdminClient } from "@/lib/supabase/admin"
 import {
   fetchEmployeeById,
   patchEmployee,
 } from "@/lib/supabase/employees.queries"
-import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
-import type { Employee } from "@/lib/types/employees"
-
-export type ProvisionEmployeeAccessResult =
-  | { success: true; authUserId: string }
-  | { success: false; error: string }
 
 export type DisableEmployeeAccessResult =
   | { success: true }
   | { success: false; error: string }
 
-function resolveAuthUserAlreadyExistsMessage(): string {
-  return "Ya existe un usuario Auth para este DNI. Revise Auth o vincule manualmente el app_user_id."
-}
-
-function mapAuthCreateUserError(message: string): string {
-  const normalized = message.toLowerCase()
-
-  if (
-    normalized.includes("already been registered") ||
-    normalized.includes("already exists") ||
-    normalized.includes("duplicate")
-  ) {
-    return resolveAuthUserAlreadyExistsMessage()
-  }
-
-  return message
-}
-
-async function fetchEmployeeCompanyId(
-  employeeId: string
-): Promise<string | null> {
-  const admin = createAdminClient()
-  const { data, error } = await admin
-    .from("employees")
-    .select("company_id")
-    .eq("id", employeeId)
-    .is("deleted_at", null)
-    .maybeSingle()
-
-  if (error || !data) {
-    return null
-  }
-
-  return data.company_id
-}
-
-function validateEmployeeForProvisioning(
-  employee: Employee
-): ProvisionEmployeeAccessResult | null {
-  if (!employee.systemAccess) {
-    return {
-      success: false,
-      error: "El empleado no tiene acceso al sistema habilitado (system_access = false).",
-    }
-  }
-
-  const nationalId = employee.nationalId?.trim()
-  if (!nationalId || !normalizeDni(nationalId)) {
-    return {
-      success: false,
-      error: "El empleado no tiene DNI registrado. Complete el DNI en RRHH antes de provisionar.",
-    }
-  }
-
-  if (employee.appUserId) {
-    return {
-      success: false,
-      error: "El empleado ya tiene un usuario vinculado (app_user_id).",
-    }
-  }
-
-  return null
-}
-
 /**
- * Provisiona acceso Auth con política de credenciales iniciales:
- * usuario (login) = DNI, contraseña inicial = DNI, must_change_password = true.
- * @see lib/auth/initial-credentials-policy.ts
+ * Hard-disables access by deleting the Auth user and clearing app_user_id.
+ * Soft-delete flows should use softDeleteEmployeeAccess instead (ban + keep Auth).
  */
-export async function provisionEmployeeAccess(
-  employeeId: string
-): Promise<ProvisionEmployeeAccessResult> {
-  const trimmedId = employeeId.trim()
-
-  if (!trimmedId) {
-    return {
-      success: false,
-      error: "employeeId es obligatorio.",
-    }
-  }
-
-  const admin = createAdminClient()
-
-  const employeeResult = await fetchEmployeeById(admin, trimmedId)
-
-  if (employeeResult.error || !employeeResult.data) {
-    return {
-      success: false,
-      error: employeeResult.error?.message ?? "Empleado no encontrado.",
-    }
-  }
-
-  const employee = employeeResult.data
-  const validationError = validateEmployeeForProvisioning(employee)
-
-  if (validationError) {
-    return validationError
-  }
-
-  const nationalId = employee.nationalId!.trim()
-  const normalizedDni = normalizeDni(nationalId)
-  const companyId =
-    (await fetchEmployeeCompanyId(trimmedId)) ?? BESPOKE_PRODUCTION_COMPANY_ID
-  const email = buildAuthEmail(normalizedDni, companyId)
-
-  const { data: authData, error: authError } =
-    await admin.auth.admin.createUser({
-      email,
-      password: normalizedDni,
-      email_confirm: true,
-      user_metadata: {
-        employee_id: employee.id,
-        national_id: normalizedDni,
-        system_role: employee.systemRole,
-      },
-    })
-
-  if (authError) {
-    return {
-      success: false,
-      error: mapAuthCreateUserError(authError.message),
-    }
-  }
-
-  const authUserId = authData.user?.id
-
-  if (!authUserId) {
-    return {
-      success: false,
-      error: "No se pudo crear el usuario Auth.",
-    }
-  }
-
-  const consistency = assertAuthEmailMatchesEmployeeDni({
-    authEmail: authData.user?.email,
-    nationalId: normalizedDni,
-    expectedAuthEmail: email,
-  })
-
-  if (!consistency.ok) {
-    await admin.auth.admin.deleteUser(authUserId)
-    return {
-      success: false,
-      error: consistency.error,
-    }
-  }
-
-  const patchResult = await patchEmployee(admin, trimmedId, {
-    appUserId: authUserId,
-    mustChangePassword: true,
-  })
-
-  if (patchResult.error || !patchResult.data) {
-    await admin.auth.admin.deleteUser(authUserId)
-
-    return {
-      success: false,
-      error:
-        patchResult.error?.message ??
-        "No se pudo vincular el usuario al empleado. Se revirtió la creación en Auth.",
-    }
-  }
-
-  await syncProvisionedMetadata(trimmedId)
-
-  return {
-    success: true,
-    authUserId,
-  }
-}
-
-async function syncProvisionedMetadata(employeeId: string) {
-  const { syncEmployeeAuthMetadata } = await import(
-    "@/lib/auth/sync-employee-auth-metadata"
-  )
-  await syncEmployeeAuthMetadata(employeeId)
-}
-
 export async function disableEmployeeAccess(
   employeeId: string
 ): Promise<DisableEmployeeAccessResult> {
@@ -237,7 +63,7 @@ export async function disableEmployeeAccess(
   if (deleteError) {
     return {
       success: false,
-      error: mapAuthCreateUserError(deleteError.message),
+      error: deleteError.message,
     }
   }
 

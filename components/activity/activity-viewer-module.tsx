@@ -2,15 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import {
-  Activity,
-  Boxes,
-  Clock3,
-  Loader2,
-  Radar,
-  Users,
-} from "lucide-react"
+import { Loader2, Radar } from "lucide-react"
 
+import { ActivityEmployeeView } from "@/components/activity/activity-employee-view"
+import { ActivityExecutiveDashboard } from "@/components/activity/activity-executive-dashboard"
 import { ActivityViewerDetailSheet } from "@/components/activity/activity-viewer-detail-sheet"
 import { ActivityViewerFilters } from "@/components/activity/activity-viewer-filters"
 import {
@@ -21,19 +16,19 @@ import {
   formatActivityOriginLabel,
 } from "@/lib/activity/activity-viewer-labels"
 import {
+  resolveActivityQuickRange,
+  type ActivityQuickRange,
+} from "@/lib/activity/employee-activity-view"
+import {
   ACTIVITY_VIEWER_PAGE_SIZE,
   type ActivityViewerEntry,
-  type ActivityViewerStats,
 } from "@/lib/activity/activity-viewer-types"
 import {
   buildActivityViewerSearchParams,
   parseActivityViewerSearchParams,
   type ActivityViewerUrlState,
 } from "@/lib/activity/activity-viewer-query"
-import {
-  fetchActivityViewerEvents,
-  fetchActivityViewerStats,
-} from "@/lib/activity/fetch-activity-viewer.client"
+import { fetchActivityViewerEvents } from "@/lib/activity/fetch-activity-viewer.client"
 import { useIsSystemAdministrator } from "@/lib/auth/use-is-system-administrator"
 import { Button } from "@/components/ui/button"
 import {
@@ -43,8 +38,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { FilterableKpiCard } from "@/components/ui/filterable-kpi-card"
-import { KpiCardGrid } from "@/components/ui/kpi-card-grid"
 import {
   Table,
   TableBody,
@@ -54,12 +47,9 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
-const EMPTY_STATS: ActivityViewerStats = {
-  eventsToday: 0,
-  eventsLastHour: 0,
-  activeUsersToday: 0,
-  modulesActiveToday: 0,
-}
+/** Existing API caps at 200; used when focusing an employee timeline. */
+const EMPLOYEE_VIEW_PAGE_SIZE = 200
+const EMPLOYEE_VIEW_MAX_ENTRIES = 1000
 
 export function ActivityViewerModule() {
   const isAdministrator = useIsSystemAdministrator()
@@ -74,10 +64,8 @@ export function ActivityViewerModule() {
   const [entries, setEntries] = useState<ActivityViewerEntry[]>([])
   const [total, setTotal] = useState(0)
   const [hasMore, setHasMore] = useState(false)
-  const [stats, setStats] = useState<ActivityViewerStats>(EMPTY_STATS)
   const [isLoading, setIsLoading] = useState(() => isAdministrator)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
-  const [isLoadingStats, setIsLoadingStats] = useState(() => isAdministrator)
   const [error, setError] = useState<string | null>(null)
   const [selectedEntry, setSelectedEntry] = useState<ActivityViewerEntry | null>(
     null
@@ -95,11 +83,17 @@ export function ActivityViewerModule() {
         module: filters.module,
         action: filters.action,
         origin: filters.origin,
-        limit: filters.limit ?? ACTIVITY_VIEWER_PAGE_SIZE,
+        limit: filters.employeeId
+          ? EMPLOYEE_VIEW_PAGE_SIZE
+          : (filters.limit ?? ACTIVITY_VIEWER_PAGE_SIZE),
         offset: 0,
       }).toString(),
     [filters]
   )
+
+  const pageLimit = filters.employeeId
+    ? EMPLOYEE_VIEW_PAGE_SIZE
+    : (filters.limit ?? ACTIVITY_VIEWER_PAGE_SIZE)
 
   const syncUrl = useCallback(
     (next: ActivityViewerUrlState) => {
@@ -124,7 +118,7 @@ export function ActivityViewerModule() {
       const params = buildActivityViewerSearchParams({
         ...filters,
         offset: 0,
-        limit: filters.limit ?? ACTIVITY_VIEWER_PAGE_SIZE,
+        limit: pageLimit,
       })
       const result = await fetchActivityViewerEvents(params)
 
@@ -135,12 +129,42 @@ export function ActivityViewerModule() {
         setEntries([])
         setTotal(0)
         setHasMore(false)
-      } else {
-        setEntries(result.data.entries)
-        setTotal(result.data.total)
-        setHasMore(result.data.hasMore)
+        setIsLoading(false)
+        return
       }
 
+      let nextEntries = result.data.entries
+      let nextTotal = result.data.total
+      let nextHasMore = result.data.hasMore
+
+      // For employee timeline/metrics, page through existing API (no backend change).
+      if (filters.employeeId) {
+        while (
+          nextHasMore &&
+          nextEntries.length < EMPLOYEE_VIEW_MAX_ENTRIES &&
+          !cancelled
+        ) {
+          const moreParams = buildActivityViewerSearchParams({
+            ...filters,
+            offset: nextEntries.length,
+            limit: pageLimit,
+          })
+          const more = await fetchActivityViewerEvents(moreParams)
+          if (!more.success) {
+            setError(more.message)
+            break
+          }
+          nextEntries = [...nextEntries, ...more.data.entries]
+          nextTotal = more.data.total
+          nextHasMore = more.data.hasMore
+        }
+      }
+
+      if (cancelled) return
+
+      setEntries(nextEntries)
+      setTotal(nextTotal)
+      setHasMore(nextHasMore && !filters.employeeId)
       setIsLoading(false)
     }
 
@@ -149,34 +173,7 @@ export function ActivityViewerModule() {
     return () => {
       cancelled = true
     }
-  }, [listFilterKey, filters, isAdministrator])
-
-  useEffect(() => {
-    if (!isAdministrator) {
-      return
-    }
-
-    let cancelled = false
-
-    async function loadStats() {
-      setIsLoadingStats(true)
-      const result = await fetchActivityViewerStats()
-
-      if (cancelled) return
-
-      if (result.success) {
-        setStats(result.data)
-      }
-
-      setIsLoadingStats(false)
-    }
-
-    void loadStats()
-
-    return () => {
-      cancelled = true
-    }
-  }, [isAdministrator])
+  }, [listFilterKey, filters, isAdministrator, pageLimit])
 
   if (!isAdministrator) {
     return (
@@ -199,15 +196,33 @@ export function ActivityViewerModule() {
     syncUrl({ offset: 0, limit: ACTIVITY_VIEWER_PAGE_SIZE })
   }
 
+  function handleEmployeeChange(employeeId: string | undefined) {
+    syncUrl({
+      ...filters,
+      employeeId,
+      offset: 0,
+    })
+  }
+
+  function handleQuickRangeChange(range: ActivityQuickRange) {
+    const { from, to } = resolveActivityQuickRange(range)
+    syncUrl({
+      ...filters,
+      from,
+      to,
+      offset: 0,
+    })
+  }
+
   async function handleLoadMore() {
-    if (isLoadingMore || !hasMore) return
+    if (isLoadingMore || !hasMore || filters.employeeId) return
 
     setIsLoadingMore(true)
     const nextOffset = entries.length
     const params = buildActivityViewerSearchParams({
       ...filters,
       offset: nextOffset,
-      limit: filters.limit ?? ACTIVITY_VIEWER_PAGE_SIZE,
+      limit: pageLimit,
     })
     const result = await fetchActivityViewerEvents(params)
     setIsLoadingMore(false)
@@ -234,41 +249,27 @@ export function ActivityViewerModule() {
           Activity Engine
         </h1>
         <p className="text-sm text-muted-foreground">
-          Visor interno de solo lectura para validar eventos registrados en
-          producción.
+          Dashboard ejecutivo y visor de solo lectura sobre eventos ya
+          registrados en producción.
         </p>
       </div>
 
-      <KpiCardGrid>
-        <FilterableKpiCard
-          label="Eventos hoy"
-          value={stats.eventsToday}
-          icon={Activity}
-          isLoading={isLoadingStats}
-          disabled
-        />
-        <FilterableKpiCard
-          label="Eventos última hora"
-          value={stats.eventsLastHour}
-          icon={Clock3}
-          isLoading={isLoadingStats}
-          disabled
-        />
-        <FilterableKpiCard
-          label="Usuarios activos hoy"
-          value={stats.activeUsersToday}
-          icon={Users}
-          isLoading={isLoadingStats}
-          disabled
-        />
-        <FilterableKpiCard
-          label="Módulos con actividad hoy"
-          value={stats.modulesActiveToday}
-          icon={Boxes}
-          isLoading={isLoadingStats}
-          disabled
-        />
-      </KpiCardGrid>
+      <ActivityExecutiveDashboard
+        entries={entries}
+        isLoading={isLoading}
+        onSelectEntry={openDetail}
+      />
+
+      <ActivityEmployeeView
+        employeeId={filters.employeeId}
+        from={filters.from}
+        to={filters.to}
+        entries={entries}
+        isLoading={isLoading}
+        onEmployeeChange={handleEmployeeChange}
+        onQuickRangeChange={handleQuickRangeChange}
+        onSelectEntry={openDetail}
+      />
 
       <ActivityViewerFilters
         filters={filters}

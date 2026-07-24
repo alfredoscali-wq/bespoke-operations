@@ -4,7 +4,7 @@ import {
   recordUserCreateAudit,
   recordUserProvisionAudit,
 } from "@/lib/audit/users-audit.server"
-import { provisionEmployeeAccess } from "@/lib/auth/provision-employee"
+import { provisionAuthIdentityForEmployee } from "@/lib/auth/auth-provisioning-service"
 import { getSessionUser } from "@/lib/auth/session"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { fetchEmployeeById } from "@/lib/supabase/employees.queries"
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await provisionEmployeeAccess(employeeId)
+    const result = await provisionAuthIdentityForEmployee(employeeId)
 
     if (!result.success) {
       return NextResponse.json(result, { status: 422 })
@@ -74,11 +74,13 @@ export async function POST(request: Request) {
     const employee = employeeResult.data
 
     if (employee) {
-      await recordUserCreateAudit({
-        performedBy: sessionUser,
-        employee,
-        authUserId: result.authUserId,
-      })
+      if (result.created) {
+        await recordUserCreateAudit({
+          performedBy: sessionUser,
+          employee,
+          authUserId: result.authUserId,
+        })
+      }
       await recordUserProvisionAudit({
         performedBy: sessionUser,
         employee,
@@ -86,7 +88,15 @@ export async function POST(request: Request) {
       })
     }
 
-    return NextResponse.json(result, { status: 201 })
+    return NextResponse.json(
+      {
+        success: true,
+        authUserId: result.authUserId,
+        reused: result.reused,
+        created: result.created,
+      },
+      { status: result.created ? 201 : 200 }
+    )
   } catch (error) {
     const message =
       error instanceof Error

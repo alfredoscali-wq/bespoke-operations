@@ -11,6 +11,13 @@ import {
   serializeModuleVisibilityForMetadata,
 } from "@/lib/roles/session-role"
 import { mapRoleCodeToSystemRole } from "@/lib/roles/role-utils"
+import type { Employee } from "@/lib/types/employees"
+
+function resolveEmployeeDisplayName(employee: Employee): string {
+  const preferred = employee.preferredName?.trim()
+  if (preferred) return preferred
+  return `${employee.firstName} ${employee.lastName}`.trim() || employee.id
+}
 
 export async function syncEmployeeAuthMetadata(
   employeeId: string
@@ -43,16 +50,19 @@ export async function syncEmployeeAuthMetadata(
 
   const { error } = await admin.auth.admin.updateUserById(employee.appUserId, {
     user_metadata: {
-      employee_id: employee.id,
-      national_id: employee.nationalId ?? null,
+      display_name: resolveEmployeeDisplayName(employee),
+      company_id: employee.companyId,
+      role: systemRole,
       system_role: systemRole,
-      role_id: role?.id ?? employee.roleId ?? null,
-      role_code: role?.code ?? null,
       allowed_modules: serializeModuleVisibilityForMetadata(
         sessionRole.moduleVisibility
       ),
-      // Prepara Field Agent / clientes para forzar cambio en primer login.
       must_change_password: employee.mustChangePassword,
+      employee_id: employee.id,
+      contractor_id: employee.contractorId ?? null,
+      national_id: employee.nationalId ?? null,
+      role_id: role?.id ?? employee.roleId ?? null,
+      role_code: role?.code ?? null,
     },
   })
 

@@ -147,7 +147,7 @@ export function EmployeeSystemAccessSection({
         return
       }
 
-      setProvisionSuccess("Acceso creado correctamente. El empleado ya puede iniciar sesión.")
+      setProvisionSuccess("Acceso provisionado correctamente.")
     } finally {
       setIsProvisioning(false)
     }

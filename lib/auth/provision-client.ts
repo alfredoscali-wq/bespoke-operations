@@ -1,5 +1,10 @@
 export type ProvisionEmployeeAccessResponse =
-  | { success: true; authUserId: string }
+  | {
+      success: true
+      authUserId: string
+      reused?: boolean
+      created?: boolean
+    }
   | { success: false; error: string }
 
 export async function requestProvisionEmployeeAccess(
@@ -21,7 +26,7 @@ export async function requestProvisionEmployeeAccess(
       error:
         "error" in data && data.error
           ? data.error
-          : "No se pudo crear el acceso del empleado.",
+          : "No se pudo provisionar el acceso del empleado.",
     }
   }
 

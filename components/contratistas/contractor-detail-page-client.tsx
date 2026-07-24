@@ -209,11 +209,7 @@ export function ContractorDetailPageClient({
         setFeedback(result.message ?? "No se pudo provisionar el acceso.")
         return
       }
-      setFeedback(
-        buildProvisionedCredentialsFeedback(
-          getEmployeeDisplayName(result.employee ?? employee)
-        )
-      )
+      setFeedback("Acceso provisionado correctamente.")
     } finally {
       setBusyUserId(null)
     }

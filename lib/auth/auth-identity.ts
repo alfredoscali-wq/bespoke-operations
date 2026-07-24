@@ -10,7 +10,9 @@ export function normalizeDni(dni: string): string {
 
 /**
  * Builds the Supabase Auth email for DNI-based login.
- * Supabase Auth requires email or phone; the DNI is the user-facing identifier.
+ * Format: `{dni}.{companyId}@auth.bespoke.local`
+ * Identity lookup must NOT assume a bare `{dni}@auth.bespoke.local` address —
+ * always resolve by DNI via candidates + metadata (see findAuthUserByDni).
  */
 export function buildAuthEmail(
   dni: string,
