@@ -14,9 +14,11 @@ import { resolveExecutionOrderMoveAvailability } from "@/lib/planificacion/plann
 import type { PlanningDispatchMode } from "@/lib/planificacion/planning-dispatch"
 import {
   buildPlanningJourneyItems,
+  PLANNING_BASE_LABEL,
   PLANNING_RETURN_TO_BASE_KEY,
   PLANNING_TRAVEL_FROM_PREVIOUS_KEY,
 } from "@/lib/planificacion/planning-travel"
+import { planningRepository } from "@/lib/engines/planning/repositories/PlanningRepository"
 import { resolveTaskCrewId } from "@/lib/tasks/crew-relation"
 import { sortTasksByDispatchRoute } from "@/lib/tasks/dispatch-order"
 import type { Crew } from "@/lib/types/crews"
@@ -32,6 +34,8 @@ type PlanningTaskListProps = {
   crews: Pick<Crew, "id" | "name">[]
   crewIdsInOrder: string[]
   selectedTaskId: string | null
+  /** OT open in adjust sheet — keep row visually active. */
+  adjustingTaskId?: string | null
   reorderingTaskId?: string | null
   onSelectTask: (taskId: string) => void
   onEditTask?: (taskId: string) => void
@@ -48,6 +52,8 @@ type PlanningTaskListProps = {
   }) => void | Promise<void>
   isTaskEditable?: (task: Task) => boolean
   activeCrewFilterName?: string | null
+  /** Operational base display name for journey start/end headers. */
+  operationalBaseName?: string | null
   className?: string
 }
 
@@ -58,6 +64,7 @@ export function PlanningTaskList({
   crews,
   crewIdsInOrder,
   selectedTaskId,
+  adjustingTaskId = null,
   reorderingTaskId = null,
   onSelectTask,
   onEditTask,
@@ -68,6 +75,7 @@ export function PlanningTaskList({
   onTravelMinutesChange,
   isTaskEditable,
   activeCrewFilterName = null,
+  operationalBaseName = null,
   className,
 }: PlanningTaskListProps) {
   const readOnly = mode === "confirmed"
@@ -168,34 +176,46 @@ export function PlanningTaskList({
         className
       )}
     >
-      <div className="border-b px-4 py-3">
-        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-        <p className="text-xs text-muted-foreground">{subtitle}</p>
+      <div className="border-b px-2.5 py-2">
+        <h2 className="text-[13px] font-semibold text-foreground">{title}</h2>
+        <p className="text-[11px] text-muted-foreground">{subtitle}</p>
       </div>
 
-      <ScrollArea className="min-h-0 flex-1">
+      <ScrollArea className="min-h-0 min-w-0 flex-1">
         {sortedTasks.length === 0 ? (
-          <p className="px-4 py-8 text-center text-sm text-muted-foreground">
+          <p className="px-2.5 py-6 text-center text-[13px] text-muted-foreground">
             {emptyMessage}
           </p>
         ) : (
-          <div className="min-w-[960px]">
-            <table className="w-full border-collapse text-left">
+          <div className="w-full min-w-0">
+            <table className="w-full table-fixed border-collapse text-left">
+              <colgroup>
+                <col className="w-1" />
+                <col className="w-11" />
+                <col className="w-8" />
+                <col className="w-[6.5rem]" />
+                <col />
+                <col />
+                <col className="w-14" />
+                <col className="w-14" />
+                <col className="w-[5.5rem]" />
+                <col className="w-14" />
+              </colgroup>
               <thead className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
-                <tr className="border-b text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                <tr className="border-b text-[9px] font-medium uppercase tracking-wide text-muted-foreground">
                   <th className="w-0 p-0" aria-hidden />
-                  <th className="px-2 py-2.5 text-center">Orden</th>
+                  <th className="px-1 py-1 text-center">Orden</th>
                   <th
-                    className="w-10 px-1 py-2.5 text-center"
+                    className="px-0.5 py-1 text-center"
                     aria-label="Mover orden"
                   />
-                  <th className="px-2 py-2.5">Código OT</th>
-                  <th className="px-2 py-2.5">Cliente</th>
-                  <th className="px-2 py-2.5">Localidad</th>
-                  <th className="px-2 py-2.5">Turno</th>
-                  <th className="px-2 py-2.5">Duración</th>
-                  <th className="px-2 py-2.5">Estado</th>
-                  <th className="w-[72px] px-2 py-2.5" aria-label="Acciones" />
+                  <th className="px-1 py-1">Código OT</th>
+                  <th className="px-1 py-1">Cliente</th>
+                  <th className="px-1 py-1">Localidad</th>
+                  <th className="px-1 py-1">Turno</th>
+                  <th className="px-1 py-1">Duración</th>
+                  <th className="px-1 py-1">Estado</th>
+                  <th className="px-0.5 py-1" aria-label="Acciones" />
                 </tr>
               </thead>
               <tbody>
@@ -210,12 +230,36 @@ export function PlanningTaskList({
                       isRowEditable(owner) &&
                       onTravelMinutesChange != null
 
+                    const travelDistanceMeters =
+                      owner == null
+                        ? 0
+                        : item.field === PLANNING_RETURN_TO_BASE_KEY
+                          ? planningRepository.readReturnToBase(
+                              owner.taskMetadata
+                            ).distanceMeters
+                          : planningRepository.readTravelFromPrevious(
+                              owner.taskMetadata
+                            ).distanceMeters
+                    const isBaseLeg =
+                      item.fromLabel === PLANNING_BASE_LABEL ||
+                      item.toLabel === PLANNING_BASE_LABEL
+                    const travelVariant =
+                      item.fromLabel === PLANNING_BASE_LABEL
+                        ? "journey-start"
+                        : item.toLabel === PLANNING_BASE_LABEL
+                          ? "journey-end"
+                          : "connector"
+
                     return (
                       <PlanningTravelSegmentRow
                         key={item.id}
                         fromLabel={item.fromLabel}
                         toLabel={item.toLabel}
                         minutes={item.minutes}
+                        distanceMeters={travelDistanceMeters}
+                        isBaseLeg={isBaseLeg}
+                        variant={travelVariant}
+                        baseDisplayName={operationalBaseName}
                         colSpan={PLANNING_TABLE_COLUMN_COUNT}
                         readOnly={!travelEditable}
                         isSaving={savingTravelId === item.id}
@@ -254,7 +298,10 @@ export function PlanningTaskList({
                       rowId={`planning-task-row-${task.id}`}
                       crewColor={crewColor}
                       readOnly={!rowEditable}
-                      selected={task.id === selectedTaskId}
+                      selected={
+                        task.id === selectedTaskId ||
+                        task.id === adjustingTaskId
+                      }
                       canMoveUp={canMoveUp}
                       canMoveDown={canMoveDown}
                       isReordering={reorderingTaskId === task.id}

@@ -9,6 +9,7 @@ import {
   countOperationalOrderReorderablesForTask,
   isOperationalOrderReorderable,
 } from "@/lib/planificacion/planning-execution-order"
+import { formatPlanningDurationCompact } from "@/lib/planificacion/planning-ui-density"
 import { getTaskStatusSurfaceClass } from "@/lib/tasks/status-visual"
 import { formatDispatchOrderBadge, resolveTaskRouteOrder } from "@/lib/tasks/dispatch-order"
 import { resolveTaskCrewId } from "@/lib/tasks/crew-relation"
@@ -65,6 +66,7 @@ export function PlanningTaskTableRow({
   const currentOrder = resolveTaskRouteOrder(task)
   const orderLabel = formatDispatchOrderBadge(currentOrder)
   const shiftLabel = resolvePlanningTaskShiftDisplayLabel(task)
+  const durationLabel = formatPlanningDurationCompact(task.estimatedDuration)
   const showOrderControls = !readOnly && (canMoveUp || canMoveDown)
   const canEditOrder =
     !readOnly &&
@@ -90,21 +92,27 @@ export function PlanningTaskTableRow({
         }
       }}
       className={cn(
-        "group/row border-b transition-colors",
+        "group/row border-b transition-all duration-200",
         getTaskStatusSurfaceClass(task.status, { accent: false, ring: true }),
-        selected && "brightness-[0.98] ring-2 ring-primary/20",
+        selected &&
+          "bg-sky-50/80 shadow-[inset_4px_0_0_0_#0284c7]",
+        isReordering &&
+          "bg-amber-50/70 shadow-[inset_4px_0_0_0_#d97706]",
         "cursor-pointer"
       )}
     >
       <td className="relative w-0 p-0">
         <span
-          className="absolute inset-y-0 left-0 w-1"
+          className={cn(
+            "absolute inset-y-0 left-0 transition-[width] duration-200",
+            selected ? "w-1.5" : "w-1"
+          )}
           style={{ backgroundColor: crewColor }}
           aria-hidden
         />
       </td>
 
-      <td className="w-14 px-2 py-2 text-center align-middle">
+      <td className="px-1 py-1 text-center align-middle">
         {canEditOrder ? (
           <PlanningTaskOrderInput
             taskId={task.id}
@@ -115,25 +123,25 @@ export function PlanningTaskTableRow({
           />
         ) : orderLabel ? (
           <span
-            className="inline-flex size-7 items-center justify-center rounded-full bg-muted text-sm font-medium text-foreground"
+            className="inline-flex size-6 items-center justify-center rounded-full bg-muted text-xs font-medium text-foreground"
             aria-label={`Orden operativo ${currentOrder}`}
           >
             {orderLabel}
           </span>
         ) : (
-          <span className="inline-block size-7" aria-hidden />
+          <span className="inline-block size-6" aria-hidden />
         )}
       </td>
 
-      <td className="w-10 px-1 py-2 align-middle">
+      <td className="px-0.5 py-1 align-middle">
         {showOrderControls ? (
-          <div className="flex flex-col items-center gap-0.5">
+          <div className="flex flex-col items-center gap-0">
             {canMoveUp ? (
               <Button
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                className="size-6 text-xs text-muted-foreground hover:text-foreground"
+                className="size-5 text-[10px] text-muted-foreground hover:text-foreground"
                 disabled={isReordering}
                 onClick={(event) => {
                   event.stopPropagation()
@@ -150,7 +158,7 @@ export function PlanningTaskTableRow({
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                className="size-6 text-xs text-muted-foreground hover:text-foreground"
+                className="size-5 text-[10px] text-muted-foreground hover:text-foreground"
                 disabled={isReordering}
                 onClick={(event) => {
                   event.stopPropagation()
@@ -164,25 +172,26 @@ export function PlanningTaskTableRow({
             ) : null}
           </div>
         ) : (
-          <span className="inline-block size-7" aria-hidden />
+          <span className="inline-block size-5" aria-hidden />
         )}
       </td>
 
-      <td className="whitespace-nowrap px-2 py-2 align-middle">
-        <div className="flex items-center gap-1.5">
+      <td className="px-1 py-1 align-middle">
+        <div className="flex min-w-0 items-center gap-1">
           <button
             type="button"
             onClick={(event) => {
               event.stopPropagation()
               onSelect()
             }}
-            className="text-left text-sm font-medium text-foreground hover:underline"
+            className="truncate text-left text-[12px] font-medium text-foreground hover:underline"
+            title={task.code}
           >
             {task.code}
           </button>
           {!hasGps ? (
             <span
-              className="inline-flex items-center gap-0.5 text-[10px] font-medium text-muted-foreground"
+              className="inline-flex shrink-0 items-center text-[10px] font-medium text-muted-foreground"
               title="Sin GPS disponible"
             >
               <MapPinOff className="size-3" aria-hidden />
@@ -192,15 +201,15 @@ export function PlanningTaskTableRow({
         </div>
       </td>
 
-      <td className="min-w-[140px] px-2 py-2 align-middle">
-        <div className="flex max-w-[220px] items-center gap-1.5">
+      <td className="px-1 py-1 align-middle">
+        <div className="flex min-w-0 items-center gap-1">
           <button
             type="button"
             onClick={(event) => {
               event.stopPropagation()
               onSelect()
             }}
-            className="truncate text-left text-sm text-foreground hover:underline"
+            className="min-w-0 truncate text-left text-[13px] text-foreground hover:underline"
             title={resolvePlanningTaskClientLabel(task)}
           >
             {resolvePlanningTaskClientLabel(task)}
@@ -217,35 +226,43 @@ export function PlanningTaskTableRow({
         </div>
       </td>
 
-      <td className="min-w-[120px] px-2 py-2 align-middle">
+      <td className="px-1 py-1 align-middle">
         <span
-          className="block max-w-[180px] truncate text-sm text-muted-foreground"
+          className="block truncate text-[13px] text-muted-foreground"
           title={resolvePlanningTaskLocality(task)}
         >
           {resolvePlanningTaskLocality(task)}
         </span>
       </td>
 
-      <td className="whitespace-nowrap px-2 py-2 align-middle text-sm text-muted-foreground">
-        {shiftLabel}
+      <td className="px-1 py-1 align-middle text-[12px] text-muted-foreground">
+        <span className="block truncate" title={shiftLabel}>
+          {shiftLabel}
+        </span>
       </td>
 
-      <td className="whitespace-nowrap px-2 py-2 align-middle text-sm text-muted-foreground">
-        {task.estimatedDuration || "—"}
+      <td
+        className="px-1 py-1 align-middle text-[12px] tabular-nums text-muted-foreground"
+        title={task.estimatedDuration || undefined}
+      >
+        {durationLabel}
       </td>
 
-      <td className="whitespace-nowrap px-2 py-2 align-middle">
-        <TaskStatusBadge status={task.status} />
+      <td className="px-1 py-1 align-middle">
+        <TaskStatusBadge
+          status={task.status}
+          className="max-w-full truncate px-1.5 text-[10px] leading-4"
+        />
       </td>
 
-      <td className="whitespace-nowrap px-2 py-2 align-middle">
-        <div className="flex items-center gap-0.5">
+      <td className="px-0.5 py-1 align-middle">
+        <div className="flex items-center justify-end gap-0">
           {!readOnly && onReturnToAtencion ? (
             <Button
               type="button"
               variant="ghost"
               size="icon-sm"
-              className="size-7 text-muted-foreground hover:text-foreground"
+              className="size-6 text-muted-foreground hover:text-foreground"
               onClick={(event) => {
                 event.stopPropagation()
                 onReturnToAtencion()
@@ -261,7 +278,7 @@ export function PlanningTaskTableRow({
               type="button"
               variant="ghost"
               size="icon-sm"
-              className="size-7 text-muted-foreground hover:text-foreground"
+              className="size-6 text-muted-foreground hover:text-foreground"
               onClick={(event) => {
                 event.stopPropagation()
                 onEdit()
@@ -272,7 +289,7 @@ export function PlanningTaskTableRow({
               <Pencil className="size-3.5" />
             </Button>
           ) : (
-            <span className="inline-block size-7" aria-hidden />
+            <span className="inline-block size-6" aria-hidden />
           )}
         </div>
       </td>

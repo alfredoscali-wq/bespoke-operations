@@ -82,21 +82,25 @@ test("summary compacto conserva información funcional", async () => {
     "utf8"
   )
 
-  assert.match(file, /min-h-\[3\.5rem\]/)
-  assert.match(file, /text-xl/)
+  // OPS 2.4 — denser KPI cards with occupancy second line
+  assert.match(file, /min-h-\[3rem\]/)
+  assert.match(file, /text-lg/)
+  assert.match(file, /ocupación/)
   assert.match(file, /Planificar/)
   assert.match(file, /Replanificar/)
   assert.match(file, /onSelectCrew/)
   assert.doesNotMatch(file, /min-h-\[8\.5rem\]/)
 })
 
-test("mapa usa altura significativamente mayor en escritorio", async () => {
+test("mapa densificado cede espacio a la lista de OT", async () => {
   const file = await readFile("components/planificacion/planning-module.tsx", "utf8")
 
-  assert.match(file, /min-h-\[18rem\]/)
-  assert.match(file, /minmax\(18rem,1\.25fr\)/)
-  assert.match(file, /minmax\(14rem,1fr\)/)
+  // OPS 2.4 — map ~30% shorter so more OT rows stay on screen
+  assert.match(file, /min-h-\[12rem\]/)
+  assert.match(file, /minmax\(12rem,0\.85fr\)/)
+  assert.match(file, /minmax\(16rem,1\.15fr\)/)
   assert.doesNotMatch(file, /max-h-\[42vh\]/)
+  assert.doesNotMatch(file, /min-h-\[18rem\]/)
 })
 
 test("lista utiliza scroll independiente", async () => {
@@ -111,7 +115,10 @@ test("lista utiliza scroll independiente", async () => {
 
   assert.match(moduleFile, /min-h-0 flex-1/)
   assert.match(listFile, /ScrollArea/)
-  assert.match(listFile, /min-h-0 flex-1/)
+  assert.match(listFile, /min-h-0 min-w-0 flex-1/)
+  // OPS 2.4.2 — no fixed min-width forcing horizontal scroll
+  assert.doesNotMatch(listFile, /min-w-\[960px\]/)
+  assert.match(listFile, /table-fixed/)
 })
 
 test("buildExecutionOrderPositionUpdates mueve 5 → 2", () => {

@@ -81,7 +81,7 @@ export function PlanningTaskOrderInput({
         disabled={disabled}
         aria-label="Orden operativo"
         aria-invalid={error != null}
-        className="h-7 w-12 px-1 text-center text-sm tabular-nums"
+        className="h-6 w-10 px-0.5 text-center text-xs tabular-nums"
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
         onChange={(event) => {

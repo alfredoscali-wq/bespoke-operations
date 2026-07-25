@@ -1484,7 +1484,7 @@ function PlanningModuleContent() {
 
 
 
-        <div className="flex min-h-0 flex-1 flex-col gap-2 lg:grid lg:grid-rows-[minmax(18rem,1.25fr)_minmax(14rem,1fr)]">
+        <div className="flex min-h-0 flex-1 flex-col gap-1.5 lg:grid lg:grid-rows-[minmax(12rem,0.85fr)_minmax(16rem,1.15fr)]">
 
           <PlanningMap
 
@@ -1492,13 +1492,13 @@ function PlanningModuleContent() {
 
             mapRefreshError={mapRefreshError}
 
-            className="min-h-[18rem] shrink-0 lg:min-h-[18rem]"
+            className="min-h-[12rem] shrink-0 lg:min-h-[12rem]"
 
           />
 
 
 
-          <div className="flex min-h-0 flex-1 flex-col gap-2 lg:flex-row">
+          <div className="flex min-h-0 flex-1 flex-col gap-1.5 lg:flex-row">
 
             <PlanningTaskList
 
@@ -1514,6 +1514,8 @@ function PlanningModuleContent() {
 
               selectedTaskId={selectedTaskId}
 
+              adjustingTaskId={adjustSheetTaskId}
+
               reorderingTaskId={reorderingTaskId}
 
               onSelectTask={setSelectedTaskId}
@@ -1527,6 +1529,8 @@ function PlanningModuleContent() {
                       const task = tasks.find((entry) => entry.id === taskId)
 
                       if (task && isTaskPlanningEditable(task)) {
+
+                        setSelectedTaskId(taskId)
 
                         setAdjustSheetTaskId(taskId)
 
@@ -1576,12 +1580,18 @@ function PlanningModuleContent() {
 
               activeCrewFilterName={activeCrewFilterName}
 
+              operationalBaseName={
+                planningDayConfig?.config.operationalBaseName ??
+                crewPlanningSummary?.operationalBaseName ??
+                null
+              }
+
               className="min-h-0 min-w-0 flex-1 lg:h-full"
 
             />
 
             {listTasks.length > 0 ? (
-              <div className="flex w-full shrink-0 flex-col gap-2 lg:w-56">
+              <div className="flex w-full shrink-0 flex-col gap-1.5 lg:w-[17.5rem]">
                 {planningDayConfig ? (
                   <PlanningDayConfigPanel
                     config={planningDayConfig.config}
@@ -1619,6 +1629,9 @@ function PlanningModuleContent() {
                 {crewPlanningSummary ? (
                   <PlanningJourneySummaryPanel
                     summary={crewPlanningSummary}
+                    journeyStartTime={
+                      planningDayConfig?.config.startTime ?? null
+                    }
                   />
                 ) : null}
               </div>

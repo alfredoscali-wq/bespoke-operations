@@ -40,7 +40,7 @@ const PlanningMapCanvas = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex h-full min-h-[15rem] items-center justify-center rounded-xl border bg-muted/20">
+      <div className="flex h-full min-h-[10.5rem] items-center justify-center rounded-xl border bg-muted/20">
         <Loader2 className="size-6 animate-spin text-muted-foreground" />
       </div>
     ),
@@ -90,7 +90,7 @@ function PlanningMapLegend({
   crewItems: Array<{ label: string; color: string }>
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t px-4 py-2 text-[11px] text-muted-foreground">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 border-t px-3 py-1 text-[10px] text-muted-foreground">
       {crewItems.map((item) => (
         <span key={item.label} className="inline-flex items-center gap-1.5">
           <span
@@ -261,7 +261,7 @@ export function PlanningMap({
         className
       )}
     >
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b px-4 py-2">
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b px-3 py-1.5">
         <div>
           <h2 className="text-sm font-semibold text-foreground">Mapa de planificación</h2>
           {mapRefreshError ? (
@@ -294,7 +294,7 @@ export function PlanningMap({
         ) : null}
       </div>
 
-      <div className="relative min-h-[15rem] flex-1">
+      <div className="relative min-h-[10.5rem] flex-1">
         <PlanningMapCanvas
           markers={markers}
           selectedTaskId={selectedTaskId}

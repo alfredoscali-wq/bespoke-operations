@@ -12,6 +12,7 @@ import {
   formatPlanningEstimatedDurationDetailed,
   type PlanningCrewSummary,
 } from "@/lib/planificacion/planning-utils"
+import { resolvePlanningOccupancyToneClass } from "@/lib/planificacion/planning-ui-density"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -44,6 +45,9 @@ type PlanningOperationsKpiCardProps = {
   label: string
   otCount: number
   durationLabel?: string
+  /** Second line under OT count (e.g. occupancy). */
+  secondaryLabel?: string
+  occupancyPercent?: number
   backgroundColor: string
   isActive: boolean
   onClick: () => void
@@ -55,6 +59,8 @@ function PlanningOperationsKpiCard({
   label,
   otCount,
   durationLabel,
+  secondaryLabel,
+  occupancyPercent,
   backgroundColor,
   isActive,
   onClick,
@@ -64,9 +70,9 @@ function PlanningOperationsKpiCard({
   return (
     <div
       className={cn(
-        "flex min-h-[3.5rem] min-w-0 flex-1 items-stretch rounded-xl text-white transition-all duration-200",
+        "flex min-h-[3rem] min-w-0 flex-1 items-stretch rounded-lg text-white transition-all duration-200",
         isActive
-          ? "shadow-lg ring-2 ring-white/90 brightness-110"
+          ? "shadow-md ring-2 ring-white/90 brightness-110"
           : "opacity-90 hover:opacity-100"
       )}
       style={{ backgroundColor }}
@@ -77,22 +83,38 @@ function PlanningOperationsKpiCard({
         aria-pressed={isActive}
         aria-label={ariaLabel}
         className={cn(
-          "flex min-w-0 flex-1 flex-col justify-center rounded-xl px-3 py-2 text-left transition-all duration-200",
+          "flex min-w-0 flex-1 flex-col justify-center rounded-lg px-2.5 py-1.5 text-left transition-all duration-200",
           "hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
         )}
       >
-        <p className="truncate text-[11px] font-semibold uppercase tracking-wide">
+        <p className="truncate text-[10px] font-semibold uppercase tracking-wide">
           {label}
         </p>
-        <p className="text-xl font-bold leading-tight tabular-nums">
+        <p className="text-lg font-bold leading-tight tabular-nums">
           {otCount} OT
           {durationLabel ? (
-            <span className="ml-1.5 text-sm font-medium">· ⏱ {durationLabel}</span>
+            <span className="ml-1 text-[12px] font-medium">
+              · {durationLabel}
+            </span>
           ) : null}
         </p>
+        {secondaryLabel ? (
+          <p className="mt-0.5 flex items-center gap-1.5 text-[11px] font-medium leading-tight text-white/95">
+            {typeof occupancyPercent === "number" ? (
+              <span
+                className={cn(
+                  "inline-block size-1.5 rounded-full",
+                  resolvePlanningOccupancyToneClass(occupancyPercent, otCount)
+                )}
+                aria-hidden
+              />
+            ) : null}
+            {secondaryLabel}
+          </p>
+        ) : null}
       </button>
       {actions ? (
-        <div className="flex shrink-0 items-center gap-1 px-2">{actions}</div>
+        <div className="flex shrink-0 items-center gap-1 px-1.5">{actions}</div>
       ) : null}
     </div>
   )
@@ -120,10 +142,7 @@ function PlanningCrewOperationsKpiCard({
   const durationLabel = formatPlanningEstimatedDurationDetailed(
     summary.totalMinutes
   )
-  const travelHint =
-    summary.travelMinutes > 0
-      ? ` (téc. ${formatPlanningEstimatedDurationDetailed(summary.technicalMinutes)} + trasl. ${formatPlanningEstimatedDurationDetailed(summary.travelMinutes)})`
-      : ""
+  const occupancyLabel = `${summary.utilizationPercent} % ocupación`
   const { showPlanificar, showReplanificar } = buttonVisibility
   const showActions = showPlanificar || showReplanificar
 
@@ -131,11 +150,13 @@ function PlanningCrewOperationsKpiCard({
     <PlanningOperationsKpiCard
       label={item.label}
       otCount={summary.taskCount}
-      durationLabel={`${durationLabel}${travelHint}`}
+      durationLabel={durationLabel}
+      secondaryLabel={occupancyLabel}
+      occupancyPercent={summary.utilizationPercent}
       backgroundColor={item.color}
       isActive={isActive}
       onClick={onClick}
-      ariaLabel={`${item.label}: ${summary.taskCount} OT, ${durationLabel}. Filtrar cuadrilla.`}
+      ariaLabel={`${item.label}: ${summary.taskCount} OT, ${durationLabel}, ${occupancyLabel}. Filtrar cuadrilla.`}
       actions={
         showActions ? (
           <>
@@ -144,7 +165,7 @@ function PlanningCrewOperationsKpiCard({
                 type="button"
                 size="sm"
                 variant="secondary"
-                className="h-7 bg-white/95 px-2 text-[11px] font-semibold text-foreground hover:bg-white"
+                className="h-6 bg-white/95 px-1.5 text-[10px] font-semibold text-foreground hover:bg-white"
                 disabled={isProcessing}
                 onClick={(event) => {
                   event.stopPropagation()
@@ -159,7 +180,7 @@ function PlanningCrewOperationsKpiCard({
                 type="button"
                 size="sm"
                 variant="outline"
-                className="h-7 border-white/70 bg-white/10 px-2 text-[11px] font-semibold text-white hover:bg-white/20 hover:text-white"
+                className="h-6 border-white/70 bg-white/10 px-1.5 text-[10px] font-semibold text-white hover:bg-white/20 hover:text-white"
                 disabled={isProcessing}
                 onClick={(event) => {
                   event.stopPropagation()
@@ -185,7 +206,7 @@ export function PlanningOperationalSummary({
   crewNamesById,
   activeCrewFilterId,
   crewPlanningButtonsById,
-  isEditingMode = false,
+  isEditingMode: _isEditingMode = false,
   processingCrewId = null,
   crewActionError = null,
   onSelectAll,
