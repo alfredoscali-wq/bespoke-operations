@@ -3,13 +3,7 @@
 import { useState } from "react"
 import { ArrowDown } from "lucide-react"
 
-import {
-  formatPlanningTravelDistanceLabel,
-  resolvePlanningTravelAttention,
-  resolvePlanningTravelAttentionLabel,
-  resolvePlanningTravelAttentionShellClass,
-  resolvePlanningTravelAttentionToneClass,
-} from "@/lib/planificacion/planning-ui-density"
+import { formatPlanningTravelDistanceLabel } from "@/lib/planificacion/planning-ui-density"
 import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 
@@ -36,6 +30,9 @@ type PlanningTravelSegmentRowProps = {
   className?: string
 }
 
+const METRICS_CLASS =
+  "whitespace-nowrap text-right text-[11px] font-medium tabular-nums text-slate-600"
+
 function TravelMetricsEnd({
   fromLabel,
   toLabel,
@@ -43,8 +40,6 @@ function TravelMetricsEnd({
   draft,
   setDraft,
   distanceLabel,
-  tone,
-  attentionLabel,
   readOnly,
   isSaving,
   onCommit,
@@ -55,26 +50,14 @@ function TravelMetricsEnd({
   draft: string
   setDraft: (value: string) => void
   distanceLabel: string | null
-  tone: string
-  attentionLabel: string | null
   readOnly: boolean
   isSaving: boolean
   onCommit: () => void
 }) {
   return (
-    <div className="ml-auto flex shrink-0 items-center justify-end gap-1.5">
-      {attentionLabel ? (
-        <span className={cn("text-[9px] font-medium", tone)}>
-          {attentionLabel}
-        </span>
-      ) : null}
+    <div className="ml-auto flex shrink-0 items-center justify-end gap-1">
       {readOnly ? (
-        <span
-          className={cn(
-            "whitespace-nowrap text-right text-[11px] font-medium tabular-nums",
-            tone
-          )}
-        >
+        <span className={METRICS_CLASS}>
           {minutes} min
           {distanceLabel ? ` · ${distanceLabel}` : ""}
         </span>
@@ -101,17 +84,9 @@ function TravelMetricsEnd({
               }
             }}
             onClick={(event) => event.stopPropagation()}
-            className={cn(
-              "h-5 w-11 border-slate-200/70 bg-white px-0.5 text-center text-[11px] tabular-nums font-medium",
-              tone
-            )}
+            className="h-5 w-11 border-slate-200/70 bg-white px-0.5 text-center text-[11px] font-medium tabular-nums text-slate-600"
           />
-          <span
-            className={cn(
-              "whitespace-nowrap text-[10px] font-medium tabular-nums",
-              tone
-            )}
-          >
+          <span className="whitespace-nowrap text-[10px] font-medium tabular-nums text-slate-600">
             min
             {distanceLabel ? (
               <span className="ml-1 font-normal text-slate-500">
@@ -126,7 +101,7 @@ function TravelMetricsEnd({
 }
 
 /**
- * OPS 2.4.3 — neutral travel connectors; color only for exceptions.
+ * OPS 2.4.4 — travel is descriptive context only (always neutral).
  */
 export function PlanningTravelSegmentRow({
   fromLabel,
@@ -160,13 +135,6 @@ export function PlanningTravelSegmentRow({
   }
 
   const distanceLabel = formatPlanningTravelDistanceLabel(distanceMeters)
-  const attention = resolvePlanningTravelAttention({
-    minutes,
-    distanceMeters,
-  })
-  const tone = resolvePlanningTravelAttentionToneClass(attention)
-  const shell = resolvePlanningTravelAttentionShellClass(attention)
-  const attentionLabel = resolvePlanningTravelAttentionLabel(attention)
   const baseName = baseDisplayName?.trim() || "Base Operativa"
   const metricsProps = {
     fromLabel,
@@ -175,8 +143,6 @@ export function PlanningTravelSegmentRow({
     draft,
     setDraft,
     distanceLabel,
-    tone,
-    attentionLabel,
     readOnly,
     isSaving,
     onCommit: () => {
@@ -199,12 +165,7 @@ export function PlanningTravelSegmentRow({
         data-planning-travel-segment="journey-start"
       >
         <td colSpan={colSpan} className="px-1.5 py-1">
-          <div
-            className={cn(
-              "rounded-md border border-slate-200/70 bg-slate-50/60 px-2 py-1",
-              attention !== "none" && shell
-            )}
-          >
+          <div className="rounded-md border border-slate-200/60 bg-slate-50/50 px-2 py-1">
             <div className="flex items-center gap-2">
               <div className="min-w-0 flex-1">
                 <p className="text-[9px] font-medium uppercase tracking-wide text-slate-400">
@@ -236,12 +197,7 @@ export function PlanningTravelSegmentRow({
         data-planning-travel-segment="journey-end"
       >
         <td colSpan={colSpan} className="px-1.5 py-1">
-          <div
-            className={cn(
-              "rounded-md border border-slate-200/70 bg-slate-50/60 px-2 py-1",
-              attention !== "none" && shell
-            )}
-          >
+          <div className="rounded-md border border-slate-200/60 bg-slate-50/50 px-2 py-1">
             <div className="flex items-center gap-2">
               <div className="min-w-0 flex-1">
                 <p className="text-[9px] font-medium uppercase tracking-wide text-slate-400">
@@ -272,16 +228,8 @@ export function PlanningTravelSegmentRow({
       data-planning-travel-segment="connector"
     >
       <td colSpan={colSpan} className="px-1.5 py-0">
-        <div
-          className={cn(
-            "flex min-h-5 items-center gap-1.5 rounded px-1.5 py-0.5",
-            shell
-          )}
-        >
-          <ArrowDown
-            className="size-3 shrink-0 text-slate-400"
-            aria-hidden
-          />
+        <div className="flex min-h-5 items-center gap-1.5 px-1.5 py-0.5">
+          <ArrowDown className="size-3 shrink-0 text-slate-400" aria-hidden />
           <p className="min-w-0 flex-1 truncate text-[10px] text-slate-500">
             <span className="text-slate-600">{fromLabel}</span>
             <span className="mx-1 text-slate-300">→</span>

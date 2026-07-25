@@ -1,86 +1,12 @@
 /**
  * OPS 2.4 — presentation-only helpers for planning UI density.
  * No Planning Engine math.
+ *
+ * UX rule: colors are for actionable states only — never for descriptive
+ * travel duration/distance (see OPS 2.4.4).
  */
 
 import { parseEstimatedDurationMinutes } from "@/lib/planificacion/planning-duration"
-
-/** Exception-only travel attention (UI). Short trips stay neutral. */
-export type PlanningTravelAttention = "none" | "warning" | "critical"
-
-const TRAVEL_WARN_MINUTES = 45
-const TRAVEL_WARN_METERS = 50_000
-const TRAVEL_CRITICAL_MINUTES = 60
-const TRAVEL_CRITICAL_METERS = 80_000
-
-export function resolvePlanningTravelAttention(input: {
-  minutes: number
-  distanceMeters?: number
-}): PlanningTravelAttention {
-  const minutes = Math.max(0, input.minutes)
-  const meters = Math.max(0, input.distanceMeters ?? 0)
-
-  if (minutes > TRAVEL_CRITICAL_MINUTES || meters > TRAVEL_CRITICAL_METERS) {
-    return "critical"
-  }
-  if (minutes > TRAVEL_WARN_MINUTES || meters > TRAVEL_WARN_METERS) {
-    return "warning"
-  }
-  return "none"
-}
-
-export function resolvePlanningTravelAttentionToneClass(
-  attention: PlanningTravelAttention
-): string {
-  switch (attention) {
-    case "critical":
-      return "text-red-700"
-    case "warning":
-      return "text-orange-700"
-    default:
-      return "text-slate-600"
-  }
-}
-
-export function resolvePlanningTravelAttentionShellClass(
-  attention: PlanningTravelAttention
-): string {
-  switch (attention) {
-    case "critical":
-      return "border border-red-200/70 bg-red-50/50"
-    case "warning":
-      return "border border-orange-200/70 bg-orange-50/40"
-    default:
-      return "border border-transparent bg-transparent"
-  }
-}
-
-export function resolvePlanningTravelAttentionLabel(
-  attention: PlanningTravelAttention
-): string | null {
-  switch (attention) {
-    case "critical":
-      return "🔴 Crítico"
-    case "warning":
-      return "🟠 Advertencia"
-    default:
-      return null
-  }
-}
-
-/** @deprecated Prefer resolvePlanningTravelAttention — kept for residual callers. */
-export function resolvePlanningTravelToneClass(minutes: number): string {
-  return resolvePlanningTravelAttentionToneClass(
-    resolvePlanningTravelAttention({ minutes })
-  )
-}
-
-/** @deprecated Prefer resolvePlanningTravelAttentionShellClass. */
-export function resolvePlanningTravelToneBgClass(minutes: number): string {
-  return resolvePlanningTravelAttentionShellClass(
-    resolvePlanningTravelAttention({ minutes })
-  )
-}
 
 /** Formats HH:MM + duration minutes → HH:MM (display only). */
 export function formatPlanningEstimatedClockTime(
