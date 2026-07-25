@@ -6,7 +6,9 @@ import { useAtencionCliente } from "@/components/atencion-cliente/atencion-clien
 import { ConsultationHistoricalDaySummaryCard } from "@/components/atencion-cliente/consultation-historical-day-summary-card"
 import { ConsultationStatusBadge } from "@/components/atencion-cliente/consultation-status-badge"
 import {
+  formatConsultationInboxDateTime,
   formatCustomerAtencionMotivoLabel,
+  resolveConsultationLastManagementAt,
 } from "@/lib/customer-atenciones/format"
 import { formatConsultationInboxSituationLabel } from "@/lib/customer-atenciones/consultation-expediente"
 import { formatInboxManagingCell } from "@/lib/customer-atenciones/consultation-management-lock"
@@ -72,20 +74,6 @@ function createDefaultInboxQuery(): SharedInboxQuery {
   }
 }
 
-function formatRowDate(isoDate: string): string {
-  const date = new Date(isoDate)
-  const day = date.toLocaleDateString("es-AR", {
-    day: "2-digit",
-    month: "2-digit",
-  })
-  const time = date.toLocaleTimeString("es-AR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  })
-
-  return `${day} · ${time}`
-}
-
 function TruncatedCellText({
   text,
   className,
@@ -119,7 +107,12 @@ function ConsultationInboxTableRow({
   const router = useRouter()
   const motivoLabel = formatCustomerAtencionMotivoLabel(item.motivo)
   const situationLabel = formatConsultationInboxSituationLabel(item)
-  const dateLabel = formatRowDate(item.createdAt)
+  const lastManagementAt = resolveConsultationLastManagementAt({
+    createdAt: item.createdAt,
+    lastSeguimientoAt: item.lastSeguimientoAt,
+  })
+  const lastManagementLabel = formatConsultationInboxDateTime(lastManagementAt)
+  const createdLabel = formatConsultationInboxDateTime(item.createdAt)
   const managingLabel = formatInboxManagingCell({
     status: item.status,
     activeManagementEmployeeId: item.activeManagementEmployeeId,
@@ -158,7 +151,7 @@ function ConsultationInboxTableRow({
       <TableCell className="w-8 px-1.5 text-center text-xs tabular-nums text-muted-foreground">
         {rowNumber}
       </TableCell>
-      <TableCell className="w-[18%] max-w-[14rem] px-1.5">
+      <TableCell className="w-[16%] max-w-[12rem] px-1.5">
         <div className="flex min-w-0 items-center gap-1.5">
           <TruncatedCellText
             text={item.customerName}
@@ -183,13 +176,13 @@ function ConsultationInboxTableRow({
           className="text-sm text-muted-foreground"
         />
       </TableCell>
-      <TableCell className="w-[32%] px-1.5">
+      <TableCell className="w-[26%] px-1.5">
         <TruncatedCellText
           text={situationLabel}
           className="text-sm text-foreground"
         />
       </TableCell>
-      <TableCell className="w-[9rem] px-1.5">
+      <TableCell className="w-[8.5rem] px-1.5">
         {managingLabel ? (
           <TruncatedCellText
             text={managingLabel}
@@ -201,10 +194,16 @@ function ConsultationInboxTableRow({
         ) : null}
       </TableCell>
       <TableCell
-        className="w-[5.75rem] px-1.5 text-xs whitespace-nowrap text-muted-foreground"
-        title={dateLabel}
+        className="w-[8.75rem] px-1.5 text-xs tabular-nums whitespace-nowrap text-muted-foreground"
+        title={lastManagementLabel}
       >
-        {dateLabel}
+        {lastManagementLabel}
+      </TableCell>
+      <TableCell
+        className="w-[8.75rem] px-1.5 text-xs tabular-nums whitespace-nowrap text-muted-foreground"
+        title={createdLabel}
+      >
+        {createdLabel}
       </TableCell>
     </TableRow>
   )
@@ -433,7 +432,7 @@ export function ConsultationInboxSection({
                   <TableHead className="w-8 px-1.5 text-center text-xs text-muted-foreground">
                     Nº
                   </TableHead>
-                  <TableHead className="w-[18%] max-w-[14rem] px-1.5 text-xs text-muted-foreground">
+                  <TableHead className="w-[16%] max-w-[12rem] px-1.5 text-xs text-muted-foreground">
                     Cliente
                   </TableHead>
                   <TableHead className="w-[7.5rem] px-1.5 text-xs text-muted-foreground">
@@ -442,14 +441,17 @@ export function ConsultationInboxSection({
                   <TableHead className="w-[6.5rem] px-1.5 text-xs text-muted-foreground">
                     Motivo
                   </TableHead>
-                  <TableHead className="w-[32%] px-1.5 text-xs text-muted-foreground">
+                  <TableHead className="w-[26%] px-1.5 text-xs text-muted-foreground">
                     Situación Actual
                   </TableHead>
-                  <TableHead className="w-[9rem] px-1.5 text-xs text-muted-foreground">
+                  <TableHead className="w-[8.5rem] px-1.5 text-xs text-muted-foreground">
                     Gestionando
                   </TableHead>
-                  <TableHead className="w-[5.75rem] px-1.5 text-xs text-muted-foreground">
-                    Fecha
+                  <TableHead className="w-[8.75rem] px-1.5 text-xs text-muted-foreground">
+                    Última Gestión
+                  </TableHead>
+                  <TableHead className="w-[8.75rem] px-1.5 text-xs text-muted-foreground">
+                    Creada
                   </TableHead>
                 </TableRow>
               </TableHeader>

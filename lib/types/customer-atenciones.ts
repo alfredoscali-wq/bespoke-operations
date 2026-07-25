@@ -146,6 +146,11 @@ export type CustomerAtencionInboxRow = Pick<
   customerName: string
   attendedByEmployeeName: string
   activeManagementEmployeeName?: string | null
+  /**
+   * Most recent management activity ISO for inbox "Última Gestión"
+   * (MAX created_at from linked seguimientos and/or atencion events).
+   */
+  lastSeguimientoAt?: string | null
 }
 
 export type CustomerAtencionListPage = {

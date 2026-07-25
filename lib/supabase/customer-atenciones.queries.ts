@@ -32,6 +32,7 @@ import {
   CONSULTATION_EXTERNAL_WAIT_NEXT_STEPS,
   CONSULTATION_PARA_RESOLVER_KPI_NEXT_STEPS,
 } from "@/lib/customer-atenciones/consultation"
+import { computeLatestManagementAtByAtencionId } from "@/lib/customer-atenciones/format"
 import type { CustomerAtencionStatus } from "@/lib/types/customer-atenciones"
 import type { Database } from "@/lib/supabase/database.types"
 import {
@@ -168,7 +169,8 @@ async function loadEmployeeNamesById(
 function mapRowToInboxRow(
   row: SharedInboxSourceRow,
   customerNameById: Map<string, string>,
-  employeeNameById: Map<string, string>
+  employeeNameById: Map<string, string>,
+  lastSeguimientoAtByAtencionId: Map<string, string> = new Map()
 ): CustomerAtencionInboxRow {
   const mapped = mapCustomerAtencionRowToCustomerAtencion({
     id: row.id,
@@ -222,7 +224,44 @@ function mapRowToInboxRow(
     followUpActions: mapped.followUpActions,
     createdAt: mapped.createdAt,
     updatedAt: mapped.updatedAt,
+    lastSeguimientoAt: lastSeguimientoAtByAtencionId.get(mapped.id) ?? null,
   }
+}
+
+/**
+ * Latest management activity per atención for inbox "Última Gestión".
+ * Sources (MAX created_at):
+ * - customer_seguimientos linked via source_atencion_id
+ * - customer_atencion_events (historial de gestiones), excluding consulta_creada
+ */
+async function loadLatestManagementAtByAtencionId(
+  client: SupabaseCustomerAtencionesClient,
+  companyId: string,
+  atencionIds: string[]
+): Promise<Map<string, string>> {
+  if (atencionIds.length === 0) {
+    return new Map()
+  }
+
+  const [seguimientosResult, eventsResult] = await Promise.all([
+    client
+      .from("customer_seguimientos")
+      .select("source_atencion_id, created_at")
+      .eq("company_id", companyId)
+      .in("source_atencion_id", atencionIds)
+      .is("deleted_at", null),
+    client
+      .from("customer_atencion_events")
+      .select("customer_atencion_id, created_at, action_type")
+      .eq("company_id", companyId)
+      .in("customer_atencion_id", atencionIds)
+      .neq("action_type", "consulta_creada"),
+  ])
+
+  return computeLatestManagementAtByAtencionId({
+    seguimientos: seguimientosResult.data ?? [],
+    events: eventsResult.data ?? [],
+  })
 }
 
 async function mapSharedInboxSourceRows(
@@ -240,14 +279,22 @@ async function mapSharedInboxSourceRows(
       )
     ),
   ]
+  const atencionIds = rows.map((row) => row.id)
 
-  const [customerNameById, employeeNameById] = await Promise.all([
-    loadCustomerNamesById(client, companyId, customerIds),
-    loadEmployeeNamesById(client, companyId, employeeIds),
-  ])
+  const [customerNameById, employeeNameById, lastManagementAtByAtencionId] =
+    await Promise.all([
+      loadCustomerNamesById(client, companyId, customerIds),
+      loadEmployeeNamesById(client, companyId, employeeIds),
+      loadLatestManagementAtByAtencionId(client, companyId, atencionIds),
+    ])
 
   return rows.map((row) =>
-    mapRowToInboxRow(row, customerNameById, employeeNameById)
+    mapRowToInboxRow(
+      row,
+      customerNameById,
+      employeeNameById,
+      lastManagementAtByAtencionId
+    )
   )
 }
 

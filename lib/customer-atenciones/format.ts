@@ -106,6 +106,79 @@ export function formatCustomerAtencionNextStepLabel(
   return NEXT_STEP_LABELS[nextStep] ?? nextStep
 }
 
+/**
+ * MAX(created_at) per atención from seguimientos and/or atencion events.
+ * `consulta_creada` is ignored so creation alone does not count as a gestión.
+ */
+export function computeLatestManagementAtByAtencionId(input: {
+  seguimientos?: ReadonlyArray<{
+    source_atencion_id: string | null
+    created_at: string | null
+  }>
+  events?: ReadonlyArray<{
+    customer_atencion_id: string | null
+    created_at: string | null
+    action_type?: string | null
+  }>
+}): Map<string, string> {
+  const result = new Map<string, string>()
+
+  function absorb(atencionId: string | null | undefined, createdAt: string | null | undefined) {
+    if (!atencionId || !createdAt) {
+      return
+    }
+    const previous = result.get(atencionId)
+    if (!previous || createdAt > previous) {
+      result.set(atencionId, createdAt)
+    }
+  }
+
+  for (const row of input.seguimientos ?? []) {
+    absorb(row.source_atencion_id, row.created_at)
+  }
+
+  for (const row of input.events ?? []) {
+    if (row.action_type === "consulta_creada") {
+      continue
+    }
+    absorb(row.customer_atencion_id, row.created_at)
+  }
+
+  return result
+}
+
+/**
+ * Inbox "Última Gestión": most recent linked activity when any exist
+ * (seguimientos / gestiones); otherwise the consultation creation timestamp.
+ */
+export function resolveConsultationLastManagementAt(input: {
+  createdAt: string
+  lastSeguimientoAt?: string | null
+}): string {
+  const seguimientoAt = input.lastSeguimientoAt?.trim()
+  if (seguimientoAt) {
+    return seguimientoAt
+  }
+
+  return input.createdAt
+}
+
+/** Inbox date columns: dd/MM/yyyy HH:mm (single line, local time). */
+export function formatConsultationInboxDateTime(isoDate: string): string {
+  const date = new Date(isoDate)
+  if (Number.isNaN(date.getTime())) {
+    return "—"
+  }
+
+  const day = String(date.getDate()).padStart(2, "0")
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const year = date.getFullYear()
+  const hours = String(date.getHours()).padStart(2, "0")
+  const minutes = String(date.getMinutes()).padStart(2, "0")
+
+  return `${day}/${month}/${year} ${hours}:${minutes}`
+}
+
 const EVENT_ACTION_LABELS: Record<CustomerAtencionEventActionType, string> = {
   consulta_creada: "Creación de la consulta",
   gestion_iniciada: "Inicio de gestión",
