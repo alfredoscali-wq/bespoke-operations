@@ -10,7 +10,6 @@ import {
   PLANNING_CREW_PIN_COLORS,
   PLANNING_PIN_COLOR_NO_CREW,
 } from "@/lib/planificacion/planning-map-markers"
-import { resolveExecutionOrderMoveAvailability } from "@/lib/planificacion/planning-execution-order"
 import type { PlanningDispatchMode } from "@/lib/planificacion/planning-dispatch"
 import {
   buildPlanningJourneyItems,
@@ -25,7 +24,7 @@ import type { Crew } from "@/lib/types/crews"
 import type { Task } from "@/lib/types/tasks"
 import { cn } from "@/lib/utils"
 
-const PLANNING_TABLE_COLUMN_COUNT = 10
+const PLANNING_TABLE_COLUMN_COUNT = 9
 
 type PlanningTaskListProps = {
   mode: PlanningDispatchMode
@@ -41,7 +40,6 @@ type PlanningTaskListProps = {
   onEditTask?: (taskId: string) => void
   onReturnToAtencion?: (taskId: string) => void
   isTaskReturnable?: (task: Task) => boolean
-  onMoveTaskOrder?: (taskId: string, direction: "up" | "down") => void
   onMoveTaskToPosition?: (taskId: string, position: number) => void
   onTravelMinutesChange?: (input: {
     ownerTaskId: string
@@ -70,7 +68,6 @@ export function PlanningTaskList({
   onEditTask,
   onReturnToAtencion,
   isTaskReturnable,
-  onMoveTaskOrder,
   onMoveTaskToPosition,
   onTravelMinutesChange,
   isTaskEditable,
@@ -155,17 +152,6 @@ export function PlanningTaskList({
     return isTaskEditable ? isTaskEditable(task) : true
   }
 
-  function resolveMoveAvailability(task: Task): {
-    canMoveUp: boolean
-    canMoveDown: boolean
-  } {
-    if (!isRowEditable(task) || !onMoveTaskOrder) {
-      return { canMoveUp: false, canMoveDown: false }
-    }
-
-    return resolveExecutionOrderMoveAvailability(allScopeTasks, task.id, crews)
-  }
-
   const canEditTravel =
     !readOnly && Boolean(onTravelMinutesChange) && Boolean(isTaskEditable)
 
@@ -192,26 +178,22 @@ export function PlanningTaskList({
               <colgroup>
                 <col className="w-1" />
                 <col className="w-11" />
-                <col className="w-8" />
-                <col className="w-[6.5rem]" />
+                {/* OPS 2.4.7 — no arrow column; short OT code; airy Cliente/Localidad */}
+                <col className="w-[4.25rem]" />
+                <col className="w-[26%]" />
                 <col />
-                <col />
-                <col className="w-14" />
-                <col className="w-14" />
-                <col className="w-[5.5rem]" />
+                <col className="w-[4.5rem]" />
+                <col className="w-[4rem]" />
+                <col className="w-[6.75rem]" />
                 <col className="w-14" />
               </colgroup>
               <thead className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
                 <tr className="border-b text-[9px] font-medium uppercase tracking-wide text-muted-foreground">
                   <th className="w-0 p-0" aria-hidden />
                   <th className="px-1 py-1 text-center">Orden</th>
-                  <th
-                    className="px-0.5 py-1 text-center"
-                    aria-label="Mover orden"
-                  />
                   <th className="px-1 py-1">Código OT</th>
-                  <th className="px-1 py-1">Cliente</th>
-                  <th className="px-1 py-1">Localidad</th>
+                  <th className="px-1.5 py-1">Cliente</th>
+                  <th className="px-1.5 py-1">Localidad</th>
                   <th className="px-1 py-1">Turno</th>
                   <th className="px-1 py-1">Duración</th>
                   <th className="px-1 py-1">Estado</th>
@@ -288,8 +270,6 @@ export function PlanningTaskList({
                   const rowReturnable = isTaskReturnable
                     ? isTaskReturnable(task)
                     : false
-                  const { canMoveUp, canMoveDown } =
-                    resolveMoveAvailability(task)
 
                   return (
                     <PlanningTaskTableRow
@@ -302,8 +282,6 @@ export function PlanningTaskList({
                         task.id === selectedTaskId ||
                         task.id === adjustingTaskId
                       }
-                      canMoveUp={canMoveUp}
-                      canMoveDown={canMoveDown}
                       isReordering={reorderingTaskId === task.id}
                       allScopeTasks={allScopeTasks}
                       crews={crews}
@@ -316,16 +294,6 @@ export function PlanningTaskList({
                       onReturnToAtencion={
                         onReturnToAtencion && rowReturnable
                           ? () => onReturnToAtencion(task.id)
-                          : undefined
-                      }
-                      onMoveUp={
-                        onMoveTaskOrder && canMoveUp
-                          ? () => onMoveTaskOrder(task.id, "up")
-                          : undefined
-                      }
-                      onMoveDown={
-                        onMoveTaskOrder && canMoveDown
-                          ? () => onMoveTaskOrder(task.id, "down")
                           : undefined
                       }
                       onMoveToPosition={

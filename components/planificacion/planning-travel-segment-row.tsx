@@ -101,7 +101,7 @@ function TravelMetricsEnd({
 }
 
 /**
- * OPS 2.4.4 — travel is descriptive context only (always neutral).
+ * OPS 2.4.5 — journey start/end identity (soft green/blue); OT↔OT stays neutral.
  */
 export function PlanningTravelSegmentRow({
   fromLabel,
@@ -165,7 +165,7 @@ export function PlanningTravelSegmentRow({
         data-planning-travel-segment="journey-start"
       >
         <td colSpan={colSpan} className="px-1.5 py-1">
-          <div className="rounded-md border border-slate-200/60 bg-slate-50/50 px-2 py-1">
+          <div className="rounded-md border border-emerald-100 bg-emerald-50/70 px-2 py-1 shadow-[inset_3px_0_0_0_#34d399]">
             <div className="flex items-center gap-2">
               <div className="min-w-0 flex-1">
                 <p className="text-[9px] font-medium uppercase tracking-wide text-slate-400">
@@ -197,7 +197,7 @@ export function PlanningTravelSegmentRow({
         data-planning-travel-segment="journey-end"
       >
         <td colSpan={colSpan} className="px-1.5 py-1">
-          <div className="rounded-md border border-slate-200/60 bg-slate-50/50 px-2 py-1">
+          <div className="rounded-md border border-sky-100 bg-sky-50/70 px-2 py-1 shadow-[inset_3px_0_0_0_#38bdf8]">
             <div className="flex items-center gap-2">
               <div className="min-w-0 flex-1">
                 <p className="text-[9px] font-medium uppercase tracking-wide text-slate-400">

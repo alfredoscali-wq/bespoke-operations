@@ -13,6 +13,7 @@ import { formatPlanningDurationCompact } from "@/lib/planificacion/planning-ui-d
 import { getTaskStatusSurfaceClass } from "@/lib/tasks/status-visual"
 import { formatDispatchOrderBadge, resolveTaskRouteOrder } from "@/lib/tasks/dispatch-order"
 import { resolveTaskCrewId } from "@/lib/tasks/crew-relation"
+import { formatTaskAdminDisplayCode } from "@/lib/tasks/utils"
 import {
   hasPlanningTaskCrewObservations,
 } from "@/lib/planificacion/planning-task-observations"
@@ -31,8 +32,6 @@ type PlanningTaskTableRowProps = {
   crewColor: string
   readOnly?: boolean
   selected: boolean
-  canMoveUp: boolean
-  canMoveDown: boolean
   isReordering?: boolean
   rowId?: string
   allScopeTasks: Task[]
@@ -40,18 +39,18 @@ type PlanningTaskTableRowProps = {
   onSelect: () => void
   onEdit?: () => void
   onReturnToAtencion?: () => void
-  onMoveUp?: () => void
-  onMoveDown?: () => void
   onMoveToPosition?: (taskId: string, position: number) => void
 }
 
+/**
+ * OPS 2.4.7 — left columns: order number only (no arrow buttons), short OT code,
+ * airy Cliente/Localidad.
+ */
 export function PlanningTaskTableRow({
   task,
   crewColor,
   readOnly = false,
   selected,
-  canMoveUp,
-  canMoveDown,
   isReordering = false,
   rowId,
   allScopeTasks,
@@ -59,15 +58,15 @@ export function PlanningTaskTableRow({
   onSelect,
   onEdit,
   onReturnToAtencion,
-  onMoveUp,
-  onMoveDown,
   onMoveToPosition,
 }: PlanningTaskTableRowProps) {
   const currentOrder = resolveTaskRouteOrder(task)
   const orderLabel = formatDispatchOrderBadge(currentOrder)
   const shiftLabel = resolvePlanningTaskShiftDisplayLabel(task)
   const durationLabel = formatPlanningDurationCompact(task.estimatedDuration)
-  const showOrderControls = !readOnly && (canMoveUp || canMoveDown)
+  const displayCode = formatTaskAdminDisplayCode(task.code)
+  const clientLabel = resolvePlanningTaskClientLabel(task)
+  const localityLabel = resolvePlanningTaskLocality(task)
   const canEditOrder =
     !readOnly &&
     isOperationalOrderReorderable(task) &&
@@ -133,49 +132,6 @@ export function PlanningTaskTableRow({
         )}
       </td>
 
-      <td className="px-0.5 py-1 align-middle">
-        {showOrderControls ? (
-          <div className="flex flex-col items-center gap-0">
-            {canMoveUp ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                className="size-5 text-[10px] text-muted-foreground hover:text-foreground"
-                disabled={isReordering}
-                onClick={(event) => {
-                  event.stopPropagation()
-                  onMoveUp?.()
-                }}
-                aria-label="Subir orden"
-                title="Subir orden"
-              >
-                ▲
-              </Button>
-            ) : null}
-            {canMoveDown ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                className="size-5 text-[10px] text-muted-foreground hover:text-foreground"
-                disabled={isReordering}
-                onClick={(event) => {
-                  event.stopPropagation()
-                  onMoveDown?.()
-                }}
-                aria-label="Bajar orden"
-                title="Bajar orden"
-              >
-                ▼
-              </Button>
-            ) : null}
-          </div>
-        ) : (
-          <span className="inline-block size-5" aria-hidden />
-        )}
-      </td>
-
       <td className="px-1 py-1 align-middle">
         <div className="flex min-w-0 items-center gap-1">
           <button
@@ -184,10 +140,10 @@ export function PlanningTaskTableRow({
               event.stopPropagation()
               onSelect()
             }}
-            className="truncate text-left text-[12px] font-medium text-foreground hover:underline"
+            className="truncate text-left text-[11px] font-normal text-muted-foreground hover:underline"
             title={task.code}
           >
-            {task.code}
+            {displayCode}
           </button>
           {!hasGps ? (
             <span
@@ -201,7 +157,7 @@ export function PlanningTaskTableRow({
         </div>
       </td>
 
-      <td className="px-1 py-1 align-middle">
+      <td className="px-1.5 py-1 align-middle">
         <div className="flex min-w-0 items-center gap-1">
           <button
             type="button"
@@ -209,10 +165,10 @@ export function PlanningTaskTableRow({
               event.stopPropagation()
               onSelect()
             }}
-            className="min-w-0 truncate text-left text-[13px] text-foreground hover:underline"
-            title={resolvePlanningTaskClientLabel(task)}
+            className="min-w-0 truncate text-left text-[13px] font-semibold text-foreground hover:underline"
+            title={clientLabel}
           >
-            {resolvePlanningTaskClientLabel(task)}
+            {clientLabel}
           </button>
           {hasObservations ? (
             <span
@@ -226,23 +182,23 @@ export function PlanningTaskTableRow({
         </div>
       </td>
 
-      <td className="px-1 py-1 align-middle">
+      <td className="px-1.5 py-1 align-middle">
         <span
-          className="block truncate text-[13px] text-muted-foreground"
-          title={resolvePlanningTaskLocality(task)}
+          className="block truncate text-[13px] font-normal text-foreground/80"
+          title={localityLabel}
         >
-          {resolvePlanningTaskLocality(task)}
+          {localityLabel}
         </span>
       </td>
 
       <td className="px-1 py-1 align-middle text-[12px] text-muted-foreground">
-        <span className="block truncate" title={shiftLabel}>
+        <span className="block whitespace-nowrap" title={shiftLabel}>
           {shiftLabel}
         </span>
       </td>
 
       <td
-        className="px-1 py-1 align-middle text-[12px] tabular-nums text-muted-foreground"
+        className="px-1 py-1 align-middle text-[12px] tabular-nums whitespace-nowrap text-muted-foreground"
         title={task.estimatedDuration || undefined}
       >
         {durationLabel}
@@ -251,7 +207,7 @@ export function PlanningTaskTableRow({
       <td className="px-1 py-1 align-middle">
         <TaskStatusBadge
           status={task.status}
-          className="max-w-full truncate px-1.5 text-[10px] leading-4"
+          className="max-w-full px-1.5 text-[10px] leading-4"
         />
       </td>
 

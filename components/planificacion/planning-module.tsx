@@ -66,8 +66,6 @@ import {
 
   buildExecutionOrderPositionUpdates,
 
-  buildExecutionOrderSwapUpdates,
-
 } from "@/lib/planificacion/planning-execution-order"
 
 import {
@@ -565,84 +563,6 @@ function PlanningModuleContent() {
     // Structural key drives recalc; avoid loops when only travel metadata refreshes.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- listTasks read when structure changes
   }, [isTasksReady, crewFilterId, routeStructureKey, runAutomaticRouteRecalc])
-
-  const handleMoveTaskOrder = useCallback(
-
-    async (taskId: string, direction: "up" | "down") => {
-
-      const updates = buildExecutionOrderSwapUpdates(
-
-        planningOrderScopeTasks,
-
-        taskId,
-
-        direction,
-
-        crews
-
-      )
-
-
-
-      if (updates.length === 0) {
-
-        return
-
-      }
-
-
-
-      setReorderingTaskId(taskId)
-
-
-
-      try {
-
-        const result = await applyExecutionOrderUpdates(updates, crews)
-
-
-
-        if (!result.success) {
-
-          throw new Error(
-
-            result.message ?? "No se pudo actualizar el orden operativo."
-
-          )
-
-        }
-
-        const moved = planningOrderScopeTasks.find((entry) => entry.id === taskId)
-        const movedCrewId = moved ? resolveTaskCrewId(moved, crews) : null
-        if (movedCrewId) {
-          void runAutomaticRouteRecalc(movedCrewId, planningOrderScopeTasks)
-        }
-
-      } catch (error) {
-
-        console.error(error)
-
-        setDispatchError(
-
-          error instanceof Error
-
-            ? error.message
-
-            : "No se pudo actualizar el orden operativo."
-
-        )
-
-      } finally {
-
-        setReorderingTaskId(null)
-
-      }
-
-    },
-
-    [planningOrderScopeTasks, crews, applyExecutionOrderUpdates, runAutomaticRouteRecalc]
-
-  )
 
 
 
@@ -1555,12 +1475,6 @@ function PlanningModuleContent() {
               isTaskReturnable={
 
                 isEditingMode ? canReturnPlanningTaskToAtencion : undefined
-
-              }
-
-              onMoveTaskOrder={
-
-                isEditingMode ? handleMoveTaskOrder : undefined
 
               }
 

@@ -315,9 +315,13 @@ test("Planificación no usa fetchNextExecutionOrderForCrewDate", async () => {
   assert.doesNotMatch(moduleFile, /fetchNextExecutionOrderForCrewDate/)
 })
 
-test("controles ▲ / ▼ existentes continúan disponibles", async () => {
+test("OPS 2.4.7 — sin flechas; orden por número; código OT corto", async () => {
   const rowFile = await readFile(
     "components/planificacion/planning-task-table-row.tsx",
+    "utf8"
+  )
+  const listFile = await readFile(
+    "components/planificacion/planning-task-list.tsx",
     "utf8"
   )
   const moduleFile = await readFile(
@@ -325,10 +329,15 @@ test("controles ▲ / ▼ existentes continúan disponibles", async () => {
     "utf8"
   )
 
-  assert.match(rowFile, /▲/)
-  assert.match(rowFile, /▼/)
-  assert.match(moduleFile, /handleMoveTaskOrder/)
-  assert.match(moduleFile, /buildExecutionOrderSwapUpdates/)
+  assert.doesNotMatch(rowFile, /▲/)
+  assert.doesNotMatch(rowFile, /▼/)
+  assert.doesNotMatch(listFile, /aria-label="Mover orden"/)
+  assert.match(rowFile, /formatTaskAdminDisplayCode/)
+  assert.match(rowFile, /PlanningTaskOrderInput/)
+  assert.match(moduleFile, /handleMoveTaskToPosition/)
+  assert.match(listFile, /PLANNING_TABLE_COLUMN_COUNT = 9/)
+  assert.match(listFile, /w-\[4\.25rem\]/)
+  assert.match(listFile, /w-\[26%\]/)
 })
 
 test("toolbar mantiene selector de fecha con espaciado reducido", async () => {
@@ -364,4 +373,36 @@ test("planning map usa capa satelital Esri por defecto", async () => {
   assert.match(tilesFile, /attribution:/)
   assert.match(canvasFile, /resolvePlanningMapBaseLayerConfig/)
   assert.doesNotMatch(canvasFile, /tile\.openstreetmap\.org/)
+})
+
+test("OPS 2.4.6 — duración siempre en minutos; Turno sin truncate", async () => {
+  const { formatPlanningDurationCompact } = await import(
+    "../lib/planificacion/planning-ui-density.ts"
+  )
+
+  assert.equal(formatPlanningDurationCompact("25 min"), "25 min")
+  assert.equal(formatPlanningDurationCompact("60 min"), "60 min")
+  assert.equal(formatPlanningDurationCompact("90 min"), "90 min")
+  assert.equal(formatPlanningDurationCompact("120 min"), "120 min")
+  assert.equal(formatPlanningDurationCompact("1.5h"), "90 min")
+  assert.doesNotMatch(formatPlanningDurationCompact("90 min"), /h/)
+
+  const listFile = await readFile(
+    "components/planificacion/planning-task-list.tsx",
+    "utf8"
+  )
+  const rowFile = await readFile(
+    "components/planificacion/planning-task-table-row.tsx",
+    "utf8"
+  )
+
+  assert.match(listFile, /w-\[4\.5rem\]/)
+  assert.match(listFile, /w-\[4rem\]/)
+  assert.match(listFile, /w-\[6\.75rem\]/)
+  assert.doesNotMatch(listFile, /min-w-\[960px\]/)
+  assert.match(rowFile, /whitespace-nowrap[\s\S]*shiftLabel/)
+  assert.doesNotMatch(
+    rowFile,
+    /shiftLabel[\s\S]{0,80}truncate/
+  )
 })

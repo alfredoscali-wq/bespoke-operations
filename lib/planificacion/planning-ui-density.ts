@@ -104,7 +104,7 @@ export function resolvePlanningCapacityMargin(input: {
 
 /**
  * Compact duration for planning table cells (display only).
- * "60 min" → "60m", "90 min" → "1h 30m"
+ * OPS 2.4.6 — always minutes: "60 min", "90 min" (no mixed h/m).
  */
 export function formatPlanningDurationCompact(
   value: string | null | undefined
@@ -118,13 +118,5 @@ export function formatPlanningDurationCompact(
     return value.trim()
   }
 
-  const hours = Math.floor(minutes / 60)
-  const rest = minutes % 60
-  if (hours === 0) {
-    return `${rest}m`
-  }
-  if (rest === 0) {
-    return `${hours}h`
-  }
-  return `${hours}h ${rest}m`
+  return `${minutes} min`
 }
