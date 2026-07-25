@@ -10,6 +10,7 @@ import {
   computeOperationalTrayCounts,
   computeOperationalWorkCounts,
   computeSharedInboxKpis,
+  computeSharedInboxStatusFilterCounts,
   filterSharedInboxDiscoveryRows,
   filterSharedInboxRows,
   getConsultationDayBoundsFromDateOnly,
@@ -23,6 +24,7 @@ import {
   type SharedInboxKpiSummary,
   type SharedInboxOperationalCounts,
   type SharedInboxQuery,
+  type SharedInboxStatusFilterCounts,
   type SharedInboxWorkTrayCounts,
 } from "@/lib/customer-atenciones/shared-inbox"
 import { toLocalDateOnly } from "@/lib/dates/date-only"
@@ -575,6 +577,8 @@ export type SharedInboxBundle = {
 export type SharedInboxConsultationsPage = {
   rows: CustomerAtencionInboxRow[]
   workTrayCounts: SharedInboxWorkTrayCounts
+  /** Same discovery set as the table — for quick-filter chips. */
+  statusFilterCounts: SharedInboxStatusFilterCounts
 }
 
 export async function fetchSharedInboxBundle(
@@ -633,7 +637,7 @@ export async function fetchSharedInboxBundle(
       kpis,
       operationalCounts: computeOperationalWorkCounts(discoveryRows),
       workTrayCounts: computeOperationalTrayCounts(discoveryRows),
-      rows: sortSharedInboxRows(filtered, queryWithDate.statusFilter),
+      rows: sortSharedInboxRows(filtered),
       historicalDaySummary,
     },
     error: null,
@@ -693,8 +697,12 @@ export async function fetchSharedInboxConsultations(
 
   return {
     data: {
-      rows: sortSharedInboxRows(filtered, queryWithDate.statusFilter),
+      rows: sortSharedInboxRows(filtered),
       workTrayCounts: computeOperationalTrayCounts(discoveryRows),
+      statusFilterCounts: computeSharedInboxStatusFilterCounts(
+        discoveryRows,
+        dayReference
+      ),
     },
     error: null,
   }

@@ -31,6 +31,7 @@ import type {
   SharedInboxKpiSummary,
   SharedInboxOperationalCounts,
   SharedInboxQuery,
+  SharedInboxStatusFilterCounts,
   SharedInboxWorkTrayCounts,
 } from "@/lib/customer-atenciones/shared-inbox"
 import {
@@ -218,6 +219,13 @@ const EMPTY_SHARED_INBOX_WORK_TRAY_COUNTS: SharedInboxWorkTrayCounts = {
   generar_ot: 0,
 }
 
+const EMPTY_SHARED_INBOX_STATUS_FILTER_COUNTS: SharedInboxStatusFilterCounts = {
+  all: 0,
+  pendiente: 0,
+  para_resolver: 0,
+  resueltas_hoy: 0,
+}
+
 type AtencionClienteContextValue = {
   listPage: CustomerAtencionListPage | null
   isListLoading: boolean
@@ -236,6 +244,7 @@ type AtencionClienteContextValue = {
   sharedInboxKpis: SharedInboxKpiSummary
   sharedInboxOperationalCounts: SharedInboxOperationalCounts
   sharedInboxWorkTrayCounts: SharedInboxWorkTrayCounts
+  sharedInboxStatusFilterCounts: SharedInboxStatusFilterCounts
   sharedInboxRows: CustomerAtencionInboxRow[]
   sharedInboxHistoricalDaySummary: SharedInboxHistoricalDaySummary | null
   sharedInboxQuery: SharedInboxQuery
@@ -369,6 +378,10 @@ export function AtencionClienteProvider({
     useState<SharedInboxOperationalCounts>(EMPTY_SHARED_INBOX_OPERATIONAL_COUNTS)
   const [sharedInboxWorkTrayCounts, setSharedInboxWorkTrayCounts] =
     useState<SharedInboxWorkTrayCounts>(EMPTY_SHARED_INBOX_WORK_TRAY_COUNTS)
+  const [sharedInboxStatusFilterCounts, setSharedInboxStatusFilterCounts] =
+    useState<SharedInboxStatusFilterCounts>(
+      EMPTY_SHARED_INBOX_STATUS_FILTER_COUNTS
+    )
   const [sharedInboxRows, setSharedInboxRows] = useState<CustomerAtencionInboxRow[]>(
     []
   )
@@ -508,6 +521,10 @@ export function AtencionClienteProvider({
         setSharedInboxWorkTrayCounts(
           rowsResult.data?.workTrayCounts ??
             EMPTY_SHARED_INBOX_WORK_TRAY_COUNTS
+        )
+        setSharedInboxStatusFilterCounts(
+          rowsResult.data?.statusFilterCounts ??
+            EMPTY_SHARED_INBOX_STATUS_FILTER_COUNTS
         )
 
         if (employeeId) {
@@ -1524,6 +1541,7 @@ export function AtencionClienteProvider({
       sharedInboxKpis,
       sharedInboxOperationalCounts,
       sharedInboxWorkTrayCounts,
+      sharedInboxStatusFilterCounts,
       sharedInboxRows,
       sharedInboxHistoricalDaySummary,
       sharedInboxQuery,
@@ -1611,6 +1629,7 @@ export function AtencionClienteProvider({
       sharedInboxKpis,
       sharedInboxOperationalCounts,
       sharedInboxWorkTrayCounts,
+      sharedInboxStatusFilterCounts,
       sharedInboxQuery,
       sharedInboxRows,
       sharedInboxHistoricalDaySummary,

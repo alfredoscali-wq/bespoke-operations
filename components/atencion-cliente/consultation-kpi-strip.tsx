@@ -3,6 +3,7 @@
 import {
   BriefcaseBusiness,
   CircleCheckBig,
+  CircleDot,
   ClipboardPlus,
   Clock3,
   Inbox,
@@ -20,9 +21,13 @@ import { useEffect, useMemo } from "react"
 import { useAtencionCliente } from "@/components/atencion-cliente/atencion-cliente-provider"
 import { FilterableKpiCard } from "@/components/ui/filterable-kpi-card"
 import {
-  getVisibleOperationalWorkTrays,
+  getVisiblePendingWorkByAreaKeys,
   isSharedInboxUiWorkTray,
-  SHARED_INBOX_WORK_TRAY_LABELS,
+  mapTrayCountsToPendingWorkByArea,
+  PENDING_WORK_BY_AREA_HINTS,
+  PENDING_WORK_BY_AREA_LABELS,
+  PENDING_WORK_BY_AREA_TRAY,
+  type PendingWorkByAreaKey,
   type SharedInboxOperationalCategory,
   type SharedInboxQuery,
   type SharedInboxStatusFilter,
@@ -81,31 +86,24 @@ const KPI_STRIP_CARDS: KpiStripCard[] = [
 
 const INDICATOR_KPI_KEYS = ["nuevas", "resueltas_hoy", "generar_ot"] as const
 
-type UiWorkTray = Extract<
-  SharedInboxWorkTray,
-  | "espera_cliente"
-  | "retenciones"
-  | "tecnica"
-  | "administracion"
-  | "morosos"
-  | "ventas"
->
-
-const WORK_TRAY_ICONS: Record<UiWorkTray, LucideIcon> = {
+const PENDING_WORK_BY_AREA_ICONS: Record<PendingWorkByAreaKey, LucideIcon> = {
   espera_cliente: Clock3,
-  retenciones: PhoneCall,
+  para_resolver: CircleDot,
   tecnica: Wrench,
   administracion: BriefcaseBusiness,
   morosos: Wallet,
+  retenciones: PhoneCall,
   ventas: TrendingUp,
 }
 
-const WORK_TRAY_TONES: Record<UiWorkTray, VisualTone> = {
+/** Espera = pasivo (violeta); Para Resolver = acción inmediata (ámbar). */
+const PENDING_WORK_BY_AREA_TONES: Record<PendingWorkByAreaKey, VisualTone> = {
   espera_cliente: "violet",
-  retenciones: "amber",
+  para_resolver: "amber",
   tecnica: "violet",
   administracion: "amber",
   morosos: "amber",
+  retenciones: "amber",
   ventas: "blue",
 }
 
@@ -237,12 +235,14 @@ function WorkQueueCardSkeleton() {
 
 type WorkQueueItem =
   | {
-      kind: "tray"
-      key: UiWorkTray
+      kind: "area"
+      key: PendingWorkByAreaKey
       label: string
       value: number
       icon: LucideIcon
       tone: VisualTone
+      hint: string
+      workTray: SharedInboxWorkTray
     }
   | {
       kind: "motivo"
@@ -271,22 +271,27 @@ export function ConsultationKpiStrip({
     isSharedInboxLoading,
   } = useAtencionCliente()
 
-  const visibleTrays = useMemo(
-    () => getVisibleOperationalWorkTrays(sharedInboxWorkTrayCounts),
+  const pendingWorkByArea = useMemo(
+    () => mapTrayCountsToPendingWorkByArea(sharedInboxWorkTrayCounts),
     [sharedInboxWorkTrayCounts]
   )
 
+  const visibleAreaKeys = useMemo(
+    () => getVisiblePendingWorkByAreaKeys(pendingWorkByArea),
+    [pendingWorkByArea]
+  )
+
   const workQueueItems = useMemo((): WorkQueueItem[] => {
-    const trays: WorkQueueItem[] = visibleTrays
-      .filter((tray): tray is UiWorkTray => tray in WORK_TRAY_ICONS)
-      .map((tray) => ({
-        kind: "tray",
-        key: tray,
-        label: SHARED_INBOX_WORK_TRAY_LABELS[tray],
-        value: sharedInboxWorkTrayCounts[tray],
-        icon: WORK_TRAY_ICONS[tray],
-        tone: WORK_TRAY_TONES[tray],
-      }))
+    const areas: WorkQueueItem[] = visibleAreaKeys.map((key) => ({
+      kind: "area" as const,
+      key,
+      label: PENDING_WORK_BY_AREA_LABELS[key],
+      value: pendingWorkByArea[key],
+      icon: PENDING_WORK_BY_AREA_ICONS[key],
+      tone: PENDING_WORK_BY_AREA_TONES[key],
+      hint: PENDING_WORK_BY_AREA_HINTS[key],
+      workTray: PENDING_WORK_BY_AREA_TRAY[key],
+    }))
 
     const motivos: WorkQueueItem[] = MOTIVO_WORK_CARDS.filter((card) => {
       const value =
@@ -307,8 +312,8 @@ export function ConsultationKpiStrip({
       motivo: card.motivo,
     }))
 
-    return [...trays, ...motivos]
-  }, [sharedInboxKpis, sharedInboxWorkTrayCounts, visibleTrays])
+    return [...areas, ...motivos]
+  }, [pendingWorkByArea, sharedInboxKpis, visibleAreaKeys])
 
   const traysLoading = isSharedInboxDashboardLoading || isSharedInboxLoading
   const hasMotivoFilter = Boolean(query.motivo && query.motivo !== "all")
@@ -316,7 +321,7 @@ export function ConsultationKpiStrip({
     (query.workTray == null || !isSharedInboxUiWorkTray(query.workTray)) &&
     !hasMotivoFilter
 
-  // Drop filters for trays removed from the UI (RC 3.0.6).
+  // Drop filters for trays removed from the UI (RC 3.0.6 / Sprint AC 2.8).
   useEffect(() => {
     if (query.workTray && !isSharedInboxUiWorkTray(query.workTray)) {
       onQueryChange({
@@ -512,8 +517,8 @@ export function ConsultationKpiStrip({
           <div className={workQueueGridClass(workQueueItems.length)}>
             {workQueueItems.map((item) => {
               const isActive =
-                item.kind === "tray"
-                  ? query.workTray === item.key
+                item.kind === "area"
+                  ? query.workTray === item.workTray
                   : query.motivo === item.motivo
 
               return (
@@ -525,13 +530,17 @@ export function ConsultationKpiStrip({
                   tone={item.tone}
                   isActive={isActive}
                   onClick={() => {
-                    if (item.kind === "tray") {
-                      selectWorkTray(item.key)
+                    if (item.kind === "area") {
+                      selectWorkTray(item.workTray)
                       return
                     }
                     selectMotivoQueue(item.motivo)
                   }}
-                  ariaLabel={`${item.label}: ${item.value} consultas`}
+                  ariaLabel={
+                    item.kind === "area"
+                      ? `${item.label}: ${item.value}. ${item.hint}`
+                      : `${item.label}: ${item.value} consultas`
+                  }
                 />
               )
             })}

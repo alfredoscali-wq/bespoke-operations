@@ -228,6 +228,7 @@ export function ConsultationInboxSection({
     sharedInboxRows,
     isSharedInboxLoading,
     sharedInboxHistoricalDaySummary,
+    sharedInboxStatusFilterCounts,
     currentEmployeeId,
   } = useAtencionCliente()
 
@@ -290,6 +291,14 @@ export function ConsultationInboxSection({
                 !query.workTray &&
                 !query.operationalCategory &&
                 query.statusFilter === option.value
+              const count =
+                option.value === "all"
+                  ? sharedInboxStatusFilterCounts.all
+                  : option.value === "pendiente"
+                    ? sharedInboxStatusFilterCounts.pendiente
+                    : option.value === "para_resolver"
+                      ? sharedInboxStatusFilterCounts.para_resolver
+                      : sharedInboxStatusFilterCounts.resueltas_hoy
 
               return (
                 <Button
@@ -307,6 +316,9 @@ export function ConsultationInboxSection({
                   }
                 >
                   {option.label}
+                  <span className="ml-1.5 tabular-nums opacity-80">
+                    {isSharedInboxLoading ? "…" : count}
+                  </span>
                 </Button>
               )
             })}

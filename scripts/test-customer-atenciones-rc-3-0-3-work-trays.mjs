@@ -128,7 +128,7 @@ test("workTray filter is exclusive and sticky-friendly", () => {
   assert.deepEqual(visible, ["ventas"])
 })
 
-test("UI trays omit Disponibles, En gestión and Generar OT", () => {
+test("UI trays show Para Resolver (por_tomar); omit En gestión and Generar OT", () => {
   const rows = [
     row({ id: "1", status: "para_resolver", nextStep: "seguimiento_cliente" }),
     row({
@@ -143,8 +143,8 @@ test("UI trays omit Disponibles, En gestión and Generar OT", () => {
   const visible = getVisibleOperationalWorkTrays(
     computeOperationalTrayCounts(rows)
   )
-  assert.deepEqual(visible, ["espera_cliente"])
-  assert.ok(!visible.includes("por_tomar"))
+  // Sprint AC 2.8: por_tomar exposed as "Para Resolver" after Espera del Cliente.
+  assert.deepEqual(visible, ["espera_cliente", "por_tomar"])
   assert.ok(!visible.includes("en_gestion"))
   assert.ok(!visible.includes("generar_ot"))
 })

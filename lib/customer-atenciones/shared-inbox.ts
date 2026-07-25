@@ -118,24 +118,53 @@ export const SHARED_INBOX_WORK_TRAY_ORDER: SharedInboxWorkTray[] = [
 ]
 
 /**
- * RC 3.0.6 — trays shown in the workbench UI.
- * Assignment rules for por_tomar / en_gestion / generar_ot remain in
- * resolveOperationalWorkTray; those trays are just not exposed as filters
- * (OT lives in KPIs; Disponibles / En gestión se ven vía "Todas").
+ * Sprint AC 2.8 — keys shown in "Trabajo Pendiente por Área".
+ * `para_resolver` is Atención's own actionable queue (work tray `por_tomar`).
+ * Specialized areas keep exclusive next_step trays. `en_gestion` / `generar_ot`
+ * stay out of this block (En gestión vía "Todas"; OT en Indicadores).
  */
-export const SHARED_INBOX_UI_WORK_TRAYS: SharedInboxWorkTray[] = [
+export type PendingWorkByAreaKey =
+  | "espera_cliente"
+  | "para_resolver"
+  | "tecnica"
+  | "administracion"
+  | "morosos"
+  | "retenciones"
+  | "ventas"
+
+export const PENDING_WORK_BY_AREA_ORDER: readonly PendingWorkByAreaKey[] = [
   "espera_cliente",
-  "retenciones",
+  "para_resolver",
   "tecnica",
   "administracion",
   "morosos",
+  "retenciones",
   "ventas",
-]
+] as const
+
+/** UI area KPI → exclusive bandeja work tray (same resolveOperationalWorkTray rules). */
+export const PENDING_WORK_BY_AREA_TRAY: Record<
+  PendingWorkByAreaKey,
+  SharedInboxWorkTray
+> = {
+  espera_cliente: "espera_cliente",
+  para_resolver: "por_tomar",
+  tecnica: "tecnica",
+  administracion: "administracion",
+  morosos: "morosos",
+  retenciones: "retenciones",
+  ventas: "ventas",
+}
+
+export type PendingWorkByAreaCounts = Record<PendingWorkByAreaKey, number>
+
+export const SHARED_INBOX_UI_WORK_TRAYS: SharedInboxWorkTray[] =
+  PENDING_WORK_BY_AREA_ORDER.map((key) => PENDING_WORK_BY_AREA_TRAY[key])
 
 export const SHARED_INBOX_WORK_TRAY_LABELS: Record<SharedInboxWorkTray, string> =
   {
-    /** RC 3.0.2: consultas disponibles en bandeja compartida (sin ownership). */
-    por_tomar: "Disponibles",
+    /** Sprint AC 2.8 — Atención actionable work (not waiting on the client). */
+    por_tomar: "Para Resolver",
     en_gestion: "En gestión (Atención)",
     espera_cliente: "Espera del Cliente",
     retenciones: "Retenciones",
@@ -145,6 +174,29 @@ export const SHARED_INBOX_WORK_TRAY_LABELS: Record<SharedInboxWorkTray, string> 
     ventas: "Ventas",
     generar_ot: "Generar OT",
   }
+
+export const PENDING_WORK_BY_AREA_LABELS: Record<PendingWorkByAreaKey, string> =
+  {
+    espera_cliente: SHARED_INBOX_WORK_TRAY_LABELS.espera_cliente,
+    para_resolver: SHARED_INBOX_WORK_TRAY_LABELS.por_tomar,
+    tecnica: SHARED_INBOX_WORK_TRAY_LABELS.tecnica,
+    administracion: SHARED_INBOX_WORK_TRAY_LABELS.administracion,
+    morosos: SHARED_INBOX_WORK_TRAY_LABELS.morosos,
+    retenciones: SHARED_INBOX_WORK_TRAY_LABELS.retenciones,
+    ventas: SHARED_INBOX_WORK_TRAY_LABELS.ventas,
+  }
+
+export const PENDING_WORK_BY_AREA_HINTS: Record<PendingWorkByAreaKey, string> = {
+  espera_cliente:
+    "Expedientes que esperan respuesta o documentación del cliente (sin acción inmediata del operador).",
+  para_resolver:
+    "Consultas a cargo de Atención al Cliente que requieren acción del operador.",
+  tecnica: "Consultas pendientes del área Técnica.",
+  administracion: "Consultas pendientes de Administración.",
+  morosos: "Consultas pendientes de Morosos.",
+  retenciones: "Consultas pendientes de Retenciones.",
+  ventas: "Consultas pendientes de Ventas.",
+}
 
 export type SharedInboxQuery = {
   statusFilter: SharedInboxStatusFilter
@@ -441,6 +493,26 @@ export function matchesPendientesKpi(
   return isConsultationExternalWaitNextStep(row.nextStep)
 }
 
+/**
+ * Bandeja status chips (Pendientes / Para resolver / Resueltas hoy).
+ * Must match the visible Estado badge — never next_step KPI rules.
+ */
+export function matchesSharedInboxStatusChip(
+  row: Pick<CustomerAtencionInboxRow, "status" | "updatedAt">,
+  chip: "pendiente" | "para_resolver" | "resueltas_hoy",
+  referenceDate: Date = new Date()
+): boolean {
+  if (chip === "para_resolver") {
+    return row.status === "para_resolver"
+  }
+
+  if (chip === "pendiente") {
+    return row.status === "pendiente"
+  }
+
+  return isConsultationResolvedToday(row, referenceDate)
+}
+
 export function matchesNuevasKpi(
   row: Pick<CustomerAtencionInboxRow, "status" | "createdAt">,
   referenceDate: Date = new Date()
@@ -520,6 +592,14 @@ export function computeSharedInboxKpis(
     consulta_comercial,
     consulta_tv,
   }
+}
+
+/** Counts for bandeja status chips — see computeSharedInboxStatusFilterCounts. */
+export type SharedInboxStatusFilterCounts = {
+  all: number
+  pendiente: number
+  para_resolver: number
+  resueltas_hoy: number
 }
 
 export function getOperationalCategoryForNextStep(
@@ -690,10 +770,40 @@ export function computeOperationalTrayCounts(
   return counts
 }
 
+/**
+ * Sprint AC 2.8 — KPIs for "Trabajo Pendiente por Área".
+ * Reuses exclusive tray assignment (same rules as bandeja workTray filter).
+ */
+export function mapTrayCountsToPendingWorkByArea(
+  trayCounts: SharedInboxWorkTrayCounts
+): PendingWorkByAreaCounts {
+  const counts = {} as PendingWorkByAreaCounts
+
+  for (const key of PENDING_WORK_BY_AREA_ORDER) {
+    counts[key] = trayCounts[PENDING_WORK_BY_AREA_TRAY[key]]
+  }
+
+  return counts
+}
+
+export function computePendingWorkByAreaKpis(
+  rows: CustomerAtencionInboxRow[]
+): PendingWorkByAreaCounts {
+  return mapTrayCountsToPendingWorkByArea(computeOperationalTrayCounts(rows))
+}
+
+export function getVisiblePendingWorkByAreaKeys(
+  counts: PendingWorkByAreaCounts
+): PendingWorkByAreaKey[] {
+  return PENDING_WORK_BY_AREA_ORDER.filter((key) => counts[key] > 0)
+}
+
 export function getVisibleOperationalWorkTrays(
   counts: SharedInboxWorkTrayCounts
 ): SharedInboxWorkTray[] {
-  return SHARED_INBOX_UI_WORK_TRAYS.filter((tray) => counts[tray] > 0)
+  return getVisiblePendingWorkByAreaKeys(
+    mapTrayCountsToPendingWorkByArea(counts)
+  ).map((key) => PENDING_WORK_BY_AREA_TRAY[key])
 }
 
 export function isSharedInboxUiWorkTray(
@@ -750,21 +860,17 @@ function matchesStatusFilter(
   query: SharedInboxQuery,
   now: Date
 ): boolean {
-  if (statusFilter === "resueltas_hoy") {
-    return isConsultationResolvedToday(row, referenceDate)
+  if (
+    statusFilter === "para_resolver" ||
+    statusFilter === "pendiente" ||
+    statusFilter === "resueltas_hoy"
+  ) {
+    return matchesSharedInboxStatusChip(row, statusFilter, referenceDate)
   }
 
   if (statusFilter === "nueva") {
     // "Ingresadas": created on the selected day (any status).
     return matchesConsultasRecibidasHoyKpi(row, referenceDate)
-  }
-
-  if (statusFilter === "para_resolver") {
-    return matchesParaResolverKpi(row)
-  }
-
-  if (statusFilter === "pendiente") {
-    return matchesPendientesKpi(row)
   }
 
   if (statusFilter === "all") {
@@ -842,6 +948,48 @@ export function filterSharedInboxRows(
   })
 }
 
+function createStatusChipCountQuery(
+  statusFilter: SharedInboxStatusFilter
+): SharedInboxQuery {
+  return {
+    statusFilter,
+    motivo: "all",
+    channel: "all",
+    operationalCategory: null,
+    workTray: null,
+    createdDate: null,
+    search: "",
+  }
+}
+
+/**
+ * Counts for bandeja quick filters (Todas / Pendientes / Para resolver / Resueltas hoy).
+ * Uses filterSharedInboxRows so chip counts and the table filter cannot diverge.
+ */
+export function computeSharedInboxStatusFilterCounts(
+  discoveryRows: CustomerAtencionInboxRow[],
+  referenceDate: Date = new Date()
+): SharedInboxStatusFilterCounts {
+  return {
+    all: discoveryRows.length,
+    pendiente: filterSharedInboxRows(
+      discoveryRows,
+      createStatusChipCountQuery("pendiente"),
+      referenceDate
+    ).length,
+    para_resolver: filterSharedInboxRows(
+      discoveryRows,
+      createStatusChipCountQuery("para_resolver"),
+      referenceDate
+    ).length,
+    resueltas_hoy: filterSharedInboxRows(
+      discoveryRows,
+      createStatusChipCountQuery("resueltas_hoy"),
+      referenceDate
+    ).length,
+  }
+}
+
 /**
  * RC 3.1.1 — last activity first (updated_at), then created_at on ties.
  */
@@ -858,8 +1006,7 @@ function compareByLastActivity(
 }
 
 export function sortSharedInboxRows(
-  rows: CustomerAtencionInboxRow[],
-  _statusFilter?: SharedInboxStatusFilter
+  rows: CustomerAtencionInboxRow[]
 ): CustomerAtencionInboxRow[] {
   return [...rows].sort(compareByLastActivity)
 }

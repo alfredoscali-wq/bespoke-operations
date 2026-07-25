@@ -124,10 +124,16 @@ test("5. Consultas Recibidas Hoy cuenta todas las creadas hoy, incluidas resuelt
   assert.equal(computeSharedInboxKpis(rows, referenceDate).nuevas, 2)
 })
 
-test("6. filtro Para resolver alinea con la regla funcional", () => {
+test("6. filtro chip Para resolver alinea al status (no KPI next_step)", () => {
   const rows = [
     inboxRow({ id: "internal", nextStep: "contactar_cliente" }),
     inboxRow({ id: "external", status: "pendiente", nextStep: "esperar_cliente" }),
+    inboxRow({
+      id: "en-gestion",
+      status: "en_gestion",
+      nextStep: "generar_ot",
+      activeManagementEmployeeId: "employee-2",
+    }),
   ]
 
   const filtered = filterSharedInboxRows(
@@ -136,13 +142,15 @@ test("6. filtro Para resolver alinea con la regla funcional", () => {
     referenceDate
   )
 
+  // Chip/filter use status === para_resolver; en_gestion stays in KPI only.
   assert.deepEqual(
     filtered.map((row) => row.id),
     ["internal"]
   )
+  assert.equal(matchesParaResolverKpi(rows[2]), true)
 })
 
-test("7. filtro Pendientes alinea con espera externa", () => {
+test("7. filtro chip Pendientes alinea al status pendiente", () => {
   const rows = [
     inboxRow({ id: "internal", nextStep: "derivar_admin_facturacion" }),
     inboxRow({ id: "external", status: "pendiente", nextStep: "esperar_cliente" }),
