@@ -1129,6 +1129,11 @@ export type Database = {
           notes: string
           origin: CrewOrigin
           contractor_id: string | null
+          operational_base_name: string | null
+          operational_base_latitude: number | null
+          operational_base_longitude: number | null
+          habitual_start_time: string | null
+          habitual_shift_minutes: number | null
           created_at: string
           updated_at: string
           deleted_at: string | null
@@ -1144,6 +1149,11 @@ export type Database = {
           notes?: string
           origin?: CrewOrigin
           contractor_id?: string | null
+          operational_base_name?: string | null
+          operational_base_latitude?: number | null
+          operational_base_longitude?: number | null
+          habitual_start_time?: string | null
+          habitual_shift_minutes?: number | null
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
@@ -1159,6 +1169,11 @@ export type Database = {
           notes?: string
           origin?: CrewOrigin
           contractor_id?: string | null
+          operational_base_name?: string | null
+          operational_base_latitude?: number | null
+          operational_base_longitude?: number | null
+          habitual_start_time?: string | null
+          habitual_shift_minutes?: number | null
           created_at?: string
           updated_at?: string
           deleted_at?: string | null

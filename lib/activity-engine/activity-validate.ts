@@ -117,6 +117,21 @@ export function validateActivityRecordInput(
 export function normalizeActivityRecordInput(
   input: ActivityEngineRecordInput
 ): ActivityEngineRecordInput {
+  const title =
+    typeof input.title === "string" && input.title.trim()
+      ? input.title.trim()
+      : null
+  const description =
+    typeof input.description === "string" && input.description.trim()
+      ? input.description.trim()
+      : null
+
+  const metadata: Record<string, unknown> = {
+    ...(input.metadata ?? {}),
+  }
+  if (title) metadata.title = title
+  if (description) metadata.description = description
+
   return {
     companyId: input.companyId.trim(),
     module: input.module.trim(),
@@ -130,6 +145,8 @@ export function normalizeActivityRecordInput(
     category: input.category,
     impact: input.impact,
     origin: input.origin,
-    metadata: input.metadata ?? {},
+    metadata,
+    title,
+    description,
   }
 }

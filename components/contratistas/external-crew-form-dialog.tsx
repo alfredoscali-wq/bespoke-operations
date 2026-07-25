@@ -2,6 +2,16 @@
 
 import { useState } from "react"
 
+import {
+  CrewOperationalConfigFields,
+  EMPTY_CREW_OPERATIONAL_FORM,
+  parseCrewOperationalFormFields,
+  type CrewOperationalFormFields,
+} from "@/components/cuadrillas/crew-operational-config-fields"
+import {
+  formatHabitualStartTimeForInput,
+  validateCrewOperationalConfigInput,
+} from "@/lib/crews/operational-config"
 import type { Crew, NewExternalCrewInput } from "@/lib/types/crews"
 import { Button } from "@/components/ui/button"
 import {
@@ -35,7 +45,7 @@ type FormState = {
   description: string
   supervisor: string
   notes: string
-}
+} & CrewOperationalFormFields
 
 function buildFormState(
   crew: Crew | undefined,
@@ -46,6 +56,22 @@ function buildFormState(
     description: crew?.description ?? "",
     supervisor: crew?.supervisor ?? defaultSupervisor,
     notes: crew?.notes ?? "",
+    operationalBaseName: crew?.operationalBaseName ?? "",
+    operationalBaseLatitude:
+      crew?.operationalBaseLatitude != null
+        ? String(crew.operationalBaseLatitude)
+        : "",
+    operationalBaseLongitude:
+      crew?.operationalBaseLongitude != null
+        ? String(crew.operationalBaseLongitude)
+        : "",
+    habitualStartTime:
+      formatHabitualStartTimeForInput(crew?.habitualStartTime) ||
+      EMPTY_CREW_OPERATIONAL_FORM.habitualStartTime,
+    habitualShiftMinutes:
+      crew?.habitualShiftMinutes != null
+        ? String(crew.habitualShiftMinutes)
+        : EMPTY_CREW_OPERATIONAL_FORM.habitualShiftMinutes,
   }
 }
 
@@ -93,6 +119,14 @@ function ExternalCrewFormDialogBody({
       return
     }
 
+    const operational = parseCrewOperationalFormFields(form)
+    const operationalValidation =
+      validateCrewOperationalConfigInput(operational)
+    if (!operationalValidation.ok) {
+      setError(operationalValidation.message)
+      return
+    }
+
     setIsSubmitting(true)
     setError(null)
     try {
@@ -102,6 +136,7 @@ function ExternalCrewFormDialogBody({
         supervisor: form.supervisor.trim(),
         notes: form.notes.trim(),
         contractorId,
+        ...operational,
       })
       forceClose()
     } catch (submitError) {
@@ -119,7 +154,7 @@ function ExternalCrewFormDialogBody({
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <ProtectedFormDialogContent
-          className="max-w-md"
+          className="max-h-[90dvh] max-w-lg overflow-y-auto"
           onRequestClose={requestClose}
           isDirty={isDirty}
         >
@@ -189,6 +224,24 @@ function ExternalCrewFormDialogBody({
                 rows={2}
               />
             </div>
+
+            <CrewOperationalConfigFields
+              idPrefix="ext-crew-ops"
+              value={{
+                operationalBaseName: form.operationalBaseName,
+                operationalBaseLatitude: form.operationalBaseLatitude,
+                operationalBaseLongitude: form.operationalBaseLongitude,
+                habitualStartTime: form.habitualStartTime,
+                habitualShiftMinutes: form.habitualShiftMinutes,
+              }}
+              onChange={(next) =>
+                setForm((current) => ({
+                  ...current,
+                  ...next,
+                }))
+              }
+            />
+
             {error ? (
               <p className="text-sm text-destructive" role="alert">
                 {error}

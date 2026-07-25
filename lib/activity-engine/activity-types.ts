@@ -47,6 +47,10 @@ export type ActivityEngineRecordInput = {
   impact: ActivityImpact
   origin: ActivityOrigin
   metadata?: Record<string, unknown>
+  /** Optional Timeline title (stored in metadata). */
+  title?: string | null
+  /** Optional Timeline description (stored in metadata). */
+  description?: string | null
 }
 
 export type ActivityEngineEvent = {
@@ -61,6 +65,8 @@ export type ActivityEngineEvent = {
   impact: ActivityImpact
   origin: ActivityOrigin
   metadata: Record<string, unknown>
+  title: string | null
+  description: string | null
   createdAt: string
   updatedAt: string
 }

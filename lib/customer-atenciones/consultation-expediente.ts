@@ -819,6 +819,7 @@ function resolveExpedienteEventTitle(
     | "previousNextStep"
     | "newNextStep"
     | "interactionKind"
+    | "detail"
   >
 ): string {
   switch (event.actionType) {
@@ -837,6 +838,10 @@ function resolveExpedienteEventTitle(
         return "ACTUALIZACIÓN DE PROCESO"
       }
       if (event.interactionKind === "contact") {
+        const firstLine = event.detail?.split("\n")[0]?.trim() ?? ""
+        if (firstLine) {
+          return firstLine
+        }
         return "CONTACTO CON CLIENTE"
       }
       if (event.interactionKind === "note") {

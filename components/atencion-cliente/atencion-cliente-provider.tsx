@@ -20,6 +20,12 @@ import {
   buildNewConsultationCreationFields,
   validateNewConsultationInput,
 } from "@/lib/customer-atenciones/consultation"
+import {
+  buildCaseClosedActivity,
+  buildCaseCreatedActivity,
+  buildFollowUpCreatedActivity,
+} from "@/lib/customer-atenciones/customer-activity-events"
+import { requestRegisterCustomerActivity } from "@/lib/customer-atenciones/register-customer-activity.client"
 import type {
   SharedInboxHistoricalDaySummary,
   SharedInboxKpiSummary,
@@ -278,8 +284,15 @@ type AtencionClienteContextValue = {
     input: {
       interactionKind: string
       interactionResult?: string | null
-      detail: string
+      detail?: string
       nextActionAt?: string | null
+      clientInteraction?: {
+        medio: string
+        resultado: string
+        observations?: string | null
+        nextStep?: string | null
+        customerId?: string | null
+      } | null
     }
   ) => Promise<ConsultationInteractionMutationResult>
   linkConsultationOt: (
@@ -863,6 +876,27 @@ export function AtencionClienteProvider({
 
       atencionCacheRef.current.set(result.data.id, result.data)
 
+      void requestRegisterCustomerActivity({
+        entityId: result.data.id,
+        ...buildCaseCreatedActivity({
+          customerId: result.data.customerId,
+          motivo: result.data.motivo,
+          canal: result.data.channel,
+          estadoInicial: result.data.status,
+          nextStep: result.data.nextStep ?? null,
+        }),
+      })
+
+      if (result.data.status === "resuelta") {
+        void requestRegisterCustomerActivity({
+          entityId: result.data.id,
+          ...buildCaseClosedActivity({
+            resultado: result.data.resultado,
+            motivoCierre: result.data.resolution || null,
+          }),
+        })
+      }
+
       await Promise.all([
         loadAtencionPage({ ...listQuery, page: 1 }),
         refreshDashboard(),
@@ -1010,8 +1044,15 @@ export function AtencionClienteProvider({
       input: {
         interactionKind: string
         interactionResult?: string | null
-        detail: string
+        detail?: string
         nextActionAt?: string | null
+        clientInteraction?: {
+          medio: string
+          resultado: string
+          observations?: string | null
+          nextStep?: string | null
+          customerId?: string | null
+        } | null
       }
     ): Promise<ConsultationInteractionMutationResult> => {
       if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
@@ -1023,7 +1064,13 @@ export function AtencionClienteProvider({
 
       const result = await registerConsultationInteractionManagement(
         atencionId,
-        input
+        {
+          interactionKind: input.interactionKind,
+          interactionResult: input.interactionResult,
+          detail: input.detail ?? "",
+          nextActionAt: input.nextActionAt,
+          clientInteraction: input.clientInteraction,
+        }
       )
 
       if (result.success) {
@@ -1034,8 +1081,8 @@ export function AtencionClienteProvider({
         ])
         setActionFeedback(
           result.managementReleased
-            ? "Seguimiento registrado. La consulta permanece en su bandeja."
-            : "Seguimiento registrado correctamente."
+            ? "Interacción registrada. La consulta permanece en su bandeja."
+            : "Interacción registrada correctamente."
         )
       }
 
@@ -1421,6 +1468,19 @@ export function AtencionClienteProvider({
 
       seguimientoCacheRef.current.set(id, completeResult.data)
       seguimientoCacheRef.current.set(nextResult.data.id, nextResult.data)
+
+      if (nextResult.data.sourceAtencionId) {
+        void requestRegisterCustomerActivity({
+          entityId: nextResult.data.sourceAtencionId,
+          ...buildFollowUpCreatedActivity({
+            seguimientoId: nextResult.data.id,
+            tipo: "seguimiento",
+            resultado: null,
+            nextStep: null,
+          }),
+        })
+      }
+
       await refreshDashboard()
 
       return {

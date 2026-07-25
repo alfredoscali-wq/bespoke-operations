@@ -60,6 +60,12 @@ export type ActivityEngineWriteClient = {
 }
 
 function mapRow(row: ActivityEngineDbRow): ActivityEngineEvent {
+  const metadata = row.metadata ?? {}
+  const title =
+    typeof metadata.title === "string" ? metadata.title : null
+  const description =
+    typeof metadata.description === "string" ? metadata.description : null
+
   return {
     id: row.id,
     companyId: row.company_id,
@@ -71,7 +77,9 @@ function mapRow(row: ActivityEngineDbRow): ActivityEngineEvent {
     category: row.category as ActivityCategory,
     impact: row.impact as ActivityImpact,
     origin: row.origin as ActivityOrigin,
-    metadata: row.metadata ?? {},
+    metadata,
+    title,
+    description,
     createdAt: row.created_at,
     updatedAt: row.updated_at ?? row.created_at,
   }

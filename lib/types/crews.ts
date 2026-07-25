@@ -67,6 +67,14 @@ export type Crew = {
   notes: string
   origin: CrewOrigin
   contractorId?: string | null
+  /** OPS 2.2 — operational depot display name. */
+  operationalBaseName?: string | null
+  operationalBaseLatitude?: number | null
+  operationalBaseLongitude?: number | null
+  /** HH:MM or HH:MM:SS from DB. */
+  habitualStartTime?: string | null
+  /** Habitual jornada duration in minutes. */
+  habitualShiftMinutes?: number | null
   members: CrewMember[]
 }
 
@@ -107,6 +115,11 @@ export type NewCrewInput = {
   notes: string
   /** Manual override — only used when editing a crew. */
   manuallyInactive?: boolean
+  operationalBaseName?: string | null
+  operationalBaseLatitude?: number | null
+  operationalBaseLongitude?: number | null
+  habitualStartTime?: string | null
+  habitualShiftMinutes?: number | null
 }
 
 export type NewExternalCrewInput = {
@@ -116,6 +129,11 @@ export type NewExternalCrewInput = {
   notes: string
   contractorId: string
   manuallyInactive?: boolean
+  operationalBaseName?: string | null
+  operationalBaseLatitude?: number | null
+  operationalBaseLongitude?: number | null
+  habitualStartTime?: string | null
+  habitualShiftMinutes?: number | null
 }
 
 export type NewCrewMemberInput = {

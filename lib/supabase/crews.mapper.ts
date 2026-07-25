@@ -7,6 +7,7 @@ import type {
   CrewUpdate,
 } from "@/lib/supabase/database.types"
 import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
+import { formatHabitualStartTimeForDb } from "@/lib/crews/operational-config"
 import type { Crew, CrewMember } from "@/lib/types/crews"
 import type {
   CreateCrewMemberPayload,
@@ -47,8 +48,46 @@ export function mapCrewRowToCrew(row: CrewRowWithMembers): Crew {
     notes: row.notes,
     origin: row.origin ?? "internal",
     contractorId: row.contractor_id,
+    operationalBaseName: row.operational_base_name,
+    operationalBaseLatitude: row.operational_base_latitude,
+    operationalBaseLongitude: row.operational_base_longitude,
+    habitualStartTime: row.habitual_start_time,
+    habitualShiftMinutes: row.habitual_shift_minutes,
     members,
   }
+}
+
+function mapOperationalFieldsToDb(payload: {
+  operationalBaseName?: string | null
+  operationalBaseLatitude?: number | null
+  operationalBaseLongitude?: number | null
+  habitualStartTime?: string | null
+  habitualShiftMinutes?: number | null
+}): Partial<CrewInsert> {
+  const update: Partial<CrewInsert> = {}
+
+  if (payload.operationalBaseName !== undefined) {
+    update.operational_base_name = payload.operationalBaseName?.trim() || null
+  }
+  if (payload.operationalBaseLatitude !== undefined) {
+    update.operational_base_latitude = payload.operationalBaseLatitude
+  }
+  if (payload.operationalBaseLongitude !== undefined) {
+    update.operational_base_longitude = payload.operationalBaseLongitude
+  }
+  if (payload.habitualStartTime !== undefined) {
+    update.habitual_start_time = formatHabitualStartTimeForDb(
+      payload.habitualStartTime
+    )
+  }
+  if (payload.habitualShiftMinutes !== undefined) {
+    update.habitual_shift_minutes =
+      payload.habitualShiftMinutes == null
+        ? null
+        : Math.round(payload.habitualShiftMinutes)
+  }
+
+  return update
 }
 
 export function mapCreatePayloadToInsert(payload: CreateCrewPayload): CrewInsert {
@@ -62,6 +101,7 @@ export function mapCreatePayloadToInsert(payload: CreateCrewPayload): CrewInsert
     notes: payload.notes?.trim() ?? "",
     origin: payload.origin ?? "internal",
     contractor_id: payload.contractorId ?? null,
+    ...mapOperationalFieldsToDb(payload),
   }
 }
 
@@ -84,6 +124,8 @@ export function mapUpdatePayloadToUpdate(payload: UpdateCrewPayload): CrewUpdate
   if (payload.contractorId !== undefined) {
     update.contractor_id = payload.contractorId
   }
+
+  Object.assign(update, mapOperationalFieldsToDb(payload))
 
   return update
 }

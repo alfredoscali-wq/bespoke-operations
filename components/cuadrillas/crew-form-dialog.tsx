@@ -18,6 +18,16 @@ import {
   getSupervisorEmployees,
 } from "@/lib/employees/utils"
 import type { Crew, NewCrewInput } from "@/lib/types/crews"
+import {
+  formatHabitualStartTimeForInput,
+  validateCrewOperationalConfigInput,
+} from "@/lib/crews/operational-config"
+import {
+  CrewOperationalConfigFields,
+  EMPTY_CREW_OPERATIONAL_FORM,
+  parseCrewOperationalFormFields,
+  type CrewOperationalFormFields,
+} from "@/components/cuadrillas/crew-operational-config-fields"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -57,7 +67,7 @@ type CrewFormState = {
   supervisorEmployeeId: string
   notes: string
   manuallyInactive: boolean
-}
+} & CrewOperationalFormFields
 
 const emptyForm: CrewFormState = {
   name: "",
@@ -65,6 +75,7 @@ const emptyForm: CrewFormState = {
   supervisorEmployeeId: "",
   notes: "",
   manuallyInactive: false,
+  ...EMPTY_CREW_OPERATIONAL_FORM,
 }
 
 export function CrewFormDialog({
@@ -123,6 +134,22 @@ export function CrewFormDialog({
             supervisorEmployeeId: crew.supervisorEmployeeId ?? "",
             notes: crew.notes,
             manuallyInactive: isCrewManuallyInactive(crew),
+            operationalBaseName: crew.operationalBaseName ?? "",
+            operationalBaseLatitude:
+              crew.operationalBaseLatitude != null
+                ? String(crew.operationalBaseLatitude)
+                : "",
+            operationalBaseLongitude:
+              crew.operationalBaseLongitude != null
+                ? String(crew.operationalBaseLongitude)
+                : "",
+            habitualStartTime:
+              formatHabitualStartTimeForInput(crew.habitualStartTime) ||
+              EMPTY_CREW_OPERATIONAL_FORM.habitualStartTime,
+            habitualShiftMinutes:
+              crew.habitualShiftMinutes != null
+                ? String(crew.habitualShiftMinutes)
+                : EMPTY_CREW_OPERATIONAL_FORM.habitualShiftMinutes,
           }
         : emptyForm
 
@@ -151,6 +178,14 @@ export function CrewFormDialog({
       return
     }
 
+    const operational = parseCrewOperationalFormFields(form)
+    const operationalValidation =
+      validateCrewOperationalConfigInput(operational)
+    if (!operationalValidation.ok) {
+      setError(operationalValidation.message)
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
@@ -161,6 +196,7 @@ export function CrewFormDialog({
         notes: form.notes.trim(),
         manuallyInactive:
           mode === "edit" ? form.manuallyInactive : undefined,
+        ...operational,
       })
       forceClose()
     } catch (submitError) {
@@ -311,6 +347,22 @@ export function CrewFormDialog({
               rows={2}
             />
           </div>
+
+          <CrewOperationalConfigFields
+            value={{
+              operationalBaseName: form.operationalBaseName,
+              operationalBaseLatitude: form.operationalBaseLatitude,
+              operationalBaseLongitude: form.operationalBaseLongitude,
+              habitualStartTime: form.habitualStartTime,
+              habitualShiftMinutes: form.habitualShiftMinutes,
+            }}
+            onChange={(next) =>
+              setForm((current) => ({
+                ...current,
+                ...next,
+              }))
+            }
+          />
 
           {error && (
             <p className="text-sm text-destructive" role="alert">

@@ -25,7 +25,7 @@ import { ConsultationPermanentDeleteDialog } from "@/components/atencion-cliente
 import { ConsultationSituationSummaryCard } from "@/components/atencion-cliente/consultation-situation-summary-card"
 import { RetentionResultDialog } from "@/components/atencion-cliente/retention-result-dialog"
 import { TechnicalResultDialog } from "@/components/atencion-cliente/technical-result-dialog"
-import { ConsultationContactActivityBlock } from "@/components/atencion-cliente/consultation-contact-activity-block"
+import { CustomerInteractionDialog } from "@/components/atencion-cliente/customer-interaction-dialog"
 import { MorosoTrackingBlock } from "@/components/atencion-cliente/moroso-tracking-block"
 import { OtLinkBlock } from "@/components/atencion-cliente/ot-link-block"
 import { useIsSystemAdministrator } from "@/lib/auth/use-is-system-administrator"
@@ -210,6 +210,7 @@ export function AtencionDetailScreen({
     useState(false)
   const [isTechnicalDialogOpen, setIsTechnicalDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isInteractionDialogOpen, setIsInteractionDialogOpen] = useState(false)
   const [selectedPanelAction, setSelectedPanelAction] =
     useState<PanelFormActionId | null>(null)
   const [selectedAssistantOptionId, setSelectedAssistantOptionId] =
@@ -646,6 +647,22 @@ export function AtencionDetailScreen({
       ]
     : []
 
+  const canRegisterInteraction =
+    atencion.status !== "resuelta" &&
+    !atencion.linkedTaskId &&
+    !isManagedByAnother
+
+  const decisionSecondary: ConsultationDecisionAction[] = canRegisterInteraction
+    ? [
+        {
+          id: "register-interaction",
+          label: "Registrar interacción",
+          onClick: () => setIsInteractionDialogOpen(true),
+          active: isInteractionDialogOpen,
+        },
+      ]
+    : []
+
   let decisionStatusMessage: ReactNode = null
   let decisionPrimary: ConsultationDecisionAction | null = null
   let assistantOptionIds: ManagementAssistantOptionId[] = []
@@ -913,19 +930,6 @@ export function AtencionDetailScreen({
       </div>
     ) : null
 
-  const followUpContactForm =
-    (isMorosoConsultation(atencion) || isRetentionConsultation(atencion)) &&
-    atencion.status !== "resuelta" &&
-    (isManagedByCurrentEmployee || showGuidedAssistant) ? (
-      <ConsultationContactActivityBlock
-        atencionId={atencion.id}
-        workTrayLabel={
-          isMorosoConsultation(atencion) ? "Morosos" : "Retenciones"
-        }
-        onRegistered={reloadAfterAction}
-      />
-    ) : null
-
   const morosoProcessForm =
     isMorosoConsultation(atencion) &&
     atencion.status !== "resuelta" &&
@@ -936,13 +940,9 @@ export function AtencionDetailScreen({
       />
     ) : null
 
-  const circuitFollowUpSection =
-    followUpContactForm || morosoProcessForm ? (
-      <div className="space-y-3">
-        {followUpContactForm}
-        {morosoProcessForm}
-      </div>
-    ) : null
+  const circuitFollowUpSection = morosoProcessForm ? (
+    <div className="space-y-3">{morosoProcessForm}</div>
+  ) : null
 
   const technicalHistoryForOt = events
     .filter(
@@ -1235,6 +1235,7 @@ export function AtencionDetailScreen({
             nextStepMessage={nextStepMessage}
             detail={assistantDetail}
             confirm={assistantConfirm}
+            secondary={decisionSecondary}
             administrative={decisionAdministrative}
           />
 
@@ -1267,6 +1268,15 @@ export function AtencionDetailScreen({
             onRequestClose?.()
             return { success: true }
           }}
+        />
+
+        <CustomerInteractionDialog
+          open={isInteractionDialogOpen}
+          onOpenChange={setIsInteractionDialogOpen}
+          atencionId={atencion.id}
+          customerId={atencion.customerId}
+          currentNextStep={atencion.nextStep ?? null}
+          onRegistered={reloadAfterAction}
         />
 
         <RetentionResultDialog

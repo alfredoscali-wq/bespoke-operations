@@ -1,464 +1,299 @@
 "use client"
 
-
-
-import { useEffect, useMemo } from "react"
-
-
+import { useEffect, useMemo, useState } from "react"
 
 import { PlanningTaskTableRow } from "@/components/planificacion/planning-task-table-row"
-
+import { PlanningTravelSegmentRow } from "@/components/planificacion/planning-travel-segment-row"
 import { ScrollArea } from "@/components/ui/scroll-area"
-
 import {
-
   buildPlanningCrewColorIndex,
-
   PLANNING_CREW_PIN_COLORS,
-
   PLANNING_PIN_COLOR_NO_CREW,
-
 } from "@/lib/planificacion/planning-map-markers"
-
 import { resolveExecutionOrderMoveAvailability } from "@/lib/planificacion/planning-execution-order"
-
 import type { PlanningDispatchMode } from "@/lib/planificacion/planning-dispatch"
-
+import {
+  buildPlanningJourneyItems,
+  PLANNING_RETURN_TO_BASE_KEY,
+  PLANNING_TRAVEL_FROM_PREVIOUS_KEY,
+} from "@/lib/planificacion/planning-travel"
 import { resolveTaskCrewId } from "@/lib/tasks/crew-relation"
-
 import { sortTasksByDispatchRoute } from "@/lib/tasks/dispatch-order"
-
 import type { Crew } from "@/lib/types/crews"
-
 import type { Task } from "@/lib/types/tasks"
-
 import { cn } from "@/lib/utils"
 
-
+const PLANNING_TABLE_COLUMN_COUNT = 10
 
 type PlanningTaskListProps = {
-
   mode: PlanningDispatchMode
-
   tasks: Task[]
-
   allScopeTasks: Task[]
-
   crews: Pick<Crew, "id" | "name">[]
-
   crewIdsInOrder: string[]
-
   selectedTaskId: string | null
-
   reorderingTaskId?: string | null
-
   onSelectTask: (taskId: string) => void
-
   onEditTask?: (taskId: string) => void
-
   onReturnToAtencion?: (taskId: string) => void
-
   isTaskReturnable?: (task: Task) => boolean
-
   onMoveTaskOrder?: (taskId: string, direction: "up" | "down") => void
-
   onMoveTaskToPosition?: (taskId: string, position: number) => void
-
+  onTravelMinutesChange?: (input: {
+    ownerTaskId: string
+    field:
+      | typeof PLANNING_TRAVEL_FROM_PREVIOUS_KEY
+      | typeof PLANNING_RETURN_TO_BASE_KEY
+    minutes: number
+  }) => void | Promise<void>
   isTaskEditable?: (task: Task) => boolean
-
   activeCrewFilterName?: string | null
-
   className?: string
-
 }
 
-
-
 export function PlanningTaskList({
-
   mode,
-
   tasks,
-
   allScopeTasks,
-
   crews,
-
   crewIdsInOrder,
-
   selectedTaskId,
-
   reorderingTaskId = null,
-
   onSelectTask,
-
   onEditTask,
-
   onReturnToAtencion,
-
   isTaskReturnable,
-
   onMoveTaskOrder,
-
   onMoveTaskToPosition,
-
+  onTravelMinutesChange,
   isTaskEditable,
-
   activeCrewFilterName = null,
-
   className,
-
 }: PlanningTaskListProps) {
-
   const readOnly = mode === "confirmed"
-
-
+  const [savingTravelId, setSavingTravelId] = useState<string | null>(null)
 
   const crewColorIndex = useMemo(
-
     () => buildPlanningCrewColorIndex(crewIdsInOrder),
-
     [crewIdsInOrder]
-
   )
-
-
 
   const sortedTasks = useMemo(
-
     () => sortTasksByDispatchRoute(tasks, crews),
-
     [tasks, crews]
-
   )
 
-
+  const journeyItems = useMemo(
+    () => buildPlanningJourneyItems(sortedTasks, crews),
+    [sortedTasks, crews]
+  )
 
   useEffect(() => {
-
     if (!selectedTaskId) {
-
       return
-
     }
-
-
 
     const row = document.getElementById(`planning-task-row-${selectedTaskId}`)
-
     if (!row) {
-
       return
-
     }
-
-
 
     const viewport = row.closest('[data-slot="scroll-area-viewport"]')
-
     if (!(viewport instanceof HTMLElement)) {
-
       return
-
     }
-
-
 
     const rowRect = row.getBoundingClientRect()
-
     const viewportRect = viewport.getBoundingClientRect()
-
     const isVisible =
-
       rowRect.top >= viewportRect.top && rowRect.bottom <= viewportRect.bottom
 
-
-
     if (!isVisible) {
-
       row.scrollIntoView({ block: "nearest", behavior: "smooth" })
-
     }
-
   }, [selectedTaskId, sortedTasks])
 
-
-
   const title = readOnly ? "Despacho confirmado" : "Órdenes de trabajo"
-
   const emptyMessage = activeCrewFilterName
-
     ? `No hay órdenes asignadas a ${activeCrewFilterName} para esta jornada.`
-
     : readOnly
-
       ? "No hay órdenes en el despacho confirmado para esta fecha."
-
       : "No hay órdenes programadas para la fecha seleccionada."
-
   const subtitle = activeCrewFilterName
-
     ? `${activeCrewFilterName} · ${sortedTasks.length} OT en la jornada`
-
     : readOnly
-
       ? "Todas las OT confirmadas para la jornada"
-
       : "Todas las OT programadas para la jornada"
 
-
-
   function resolveCrewBandColor(task: Task): string {
-
     const crewId = resolveTaskCrewId(task, crews)
-
     if (!crewId) {
-
       return PLANNING_PIN_COLOR_NO_CREW
-
     }
-
-
 
     const index = crewColorIndex.get(crewId)
-
     if (index === undefined) {
-
       return PLANNING_PIN_COLOR_NO_CREW
-
     }
-
-
 
     return PLANNING_CREW_PIN_COLORS[index % PLANNING_CREW_PIN_COLORS.length]
-
   }
-
-
 
   function isRowEditable(task: Task): boolean {
-
     if (readOnly) {
-
       return false
-
     }
-
-
 
     return isTaskEditable ? isTaskEditable(task) : true
-
   }
-
-
 
   function resolveMoveAvailability(task: Task): {
-
     canMoveUp: boolean
-
     canMoveDown: boolean
-
   } {
-
     if (!isRowEditable(task) || !onMoveTaskOrder) {
-
       return { canMoveUp: false, canMoveDown: false }
-
     }
 
-
-
-    return resolveExecutionOrderMoveAvailability(
-      allScopeTasks,
-      task.id,
-      crews
-    )
-
+    return resolveExecutionOrderMoveAvailability(allScopeTasks, task.id, crews)
   }
 
-
+  const canEditTravel =
+    !readOnly && Boolean(onTravelMinutesChange) && Boolean(isTaskEditable)
 
   return (
-
     <section
-
       className={cn(
-
         "flex min-h-0 h-full w-full flex-col overflow-hidden rounded-xl border bg-card shadow-sm",
-
         className
-
       )}
-
     >
-
       <div className="border-b px-4 py-3">
-
         <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-
         <p className="text-xs text-muted-foreground">{subtitle}</p>
-
       </div>
 
-
-
       <ScrollArea className="min-h-0 flex-1">
-
         {sortedTasks.length === 0 ? (
-
           <p className="px-4 py-8 text-center text-sm text-muted-foreground">
-
             {emptyMessage}
-
           </p>
-
         ) : (
-
           <div className="min-w-[960px]">
-
             <table className="w-full border-collapse text-left">
-
               <thead className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
-
                 <tr className="border-b text-xs font-medium uppercase tracking-wide text-muted-foreground">
-
                   <th className="w-0 p-0" aria-hidden />
-
                   <th className="px-2 py-2.5 text-center">Orden</th>
-
-                  <th className="w-10 px-1 py-2.5 text-center" aria-label="Mover orden" />
-
+                  <th
+                    className="w-10 px-1 py-2.5 text-center"
+                    aria-label="Mover orden"
+                  />
                   <th className="px-2 py-2.5">Código OT</th>
-
                   <th className="px-2 py-2.5">Cliente</th>
-
                   <th className="px-2 py-2.5">Localidad</th>
-
                   <th className="px-2 py-2.5">Turno</th>
-
                   <th className="px-2 py-2.5">Duración</th>
-
                   <th className="px-2 py-2.5">Estado</th>
-
                   <th className="w-[72px] px-2 py-2.5" aria-label="Acciones" />
-
                 </tr>
-
               </thead>
-
               <tbody>
+                {journeyItems.map((item) => {
+                  if (item.kind === "travel") {
+                    const owner = sortedTasks.find(
+                      (task) => task.id === item.ownerTaskId
+                    )
+                    const travelEditable =
+                      canEditTravel &&
+                      owner != null &&
+                      isRowEditable(owner) &&
+                      onTravelMinutesChange != null
 
-                {sortedTasks.map((task) => {
+                    return (
+                      <PlanningTravelSegmentRow
+                        key={item.id}
+                        fromLabel={item.fromLabel}
+                        toLabel={item.toLabel}
+                        minutes={item.minutes}
+                        colSpan={PLANNING_TABLE_COLUMN_COUNT}
+                        readOnly={!travelEditable}
+                        isSaving={savingTravelId === item.id}
+                        onCommitMinutes={async (nextMinutes) => {
+                          if (!onTravelMinutesChange) {
+                            return
+                          }
+                          setSavingTravelId(item.id)
+                          try {
+                            await onTravelMinutesChange({
+                              ownerTaskId: item.ownerTaskId,
+                              field: item.field,
+                              minutes: nextMinutes,
+                            })
+                          } finally {
+                            setSavingTravelId(null)
+                          }
+                        }}
+                      />
+                    )
+                  }
 
+                  const task = item.task
                   const crewColor = resolveCrewBandColor(task)
-
                   const rowEditable = isRowEditable(task)
                   const rowReturnable = isTaskReturnable
                     ? isTaskReturnable(task)
                     : false
-
-                  const { canMoveUp, canMoveDown } = resolveMoveAvailability(task)
-
-
+                  const { canMoveUp, canMoveDown } =
+                    resolveMoveAvailability(task)
 
                   return (
-
                     <PlanningTaskTableRow
-
                       key={task.id}
-
                       task={task}
-
                       rowId={`planning-task-row-${task.id}`}
-
                       crewColor={crewColor}
-
                       readOnly={!rowEditable}
-
                       selected={task.id === selectedTaskId}
-
                       canMoveUp={canMoveUp}
-
                       canMoveDown={canMoveDown}
-
                       isReordering={reorderingTaskId === task.id}
-
                       allScopeTasks={allScopeTasks}
-
                       crews={crews}
-
                       onSelect={() => onSelectTask(task.id)}
-
                       onEdit={
-
                         onEditTask && rowEditable
-
                           ? () => onEditTask(task.id)
-
                           : undefined
-
                       }
-
                       onReturnToAtencion={
-
                         onReturnToAtencion && rowReturnable
-
                           ? () => onReturnToAtencion(task.id)
-
                           : undefined
-
                       }
-
                       onMoveUp={
-
                         onMoveTaskOrder && canMoveUp
-
                           ? () => onMoveTaskOrder(task.id, "up")
-
                           : undefined
-
                       }
-
                       onMoveDown={
-
                         onMoveTaskOrder && canMoveDown
-
                           ? () => onMoveTaskOrder(task.id, "down")
-
                           : undefined
-
                       }
-
                       onMoveToPosition={
-
                         onMoveTaskToPosition && rowEditable
-
                           ? onMoveTaskToPosition
-
                           : undefined
-
                       }
-
                     />
-
                   )
-
                 })}
-
               </tbody>
-
             </table>
-
           </div>
-
         )}
-
       </ScrollArea>
-
     </section>
-
   )
-
 }
-
-

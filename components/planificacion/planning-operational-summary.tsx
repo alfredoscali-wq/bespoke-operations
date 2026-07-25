@@ -118,8 +118,12 @@ function PlanningCrewOperationsKpiCard({
   onModify?: () => void
 }) {
   const durationLabel = formatPlanningEstimatedDurationDetailed(
-    summary.estimatedMinutes
+    summary.totalMinutes
   )
+  const travelHint =
+    summary.travelMinutes > 0
+      ? ` (téc. ${formatPlanningEstimatedDurationDetailed(summary.technicalMinutes)} + trasl. ${formatPlanningEstimatedDurationDetailed(summary.travelMinutes)})`
+      : ""
   const { showPlanificar, showReplanificar } = buttonVisibility
   const showActions = showPlanificar || showReplanificar
 
@@ -127,7 +131,7 @@ function PlanningCrewOperationsKpiCard({
     <PlanningOperationsKpiCard
       label={item.label}
       otCount={summary.taskCount}
-      durationLabel={durationLabel}
+      durationLabel={`${durationLabel}${travelHint}`}
       backgroundColor={item.color}
       isActive={isActive}
       onClick={onClick}

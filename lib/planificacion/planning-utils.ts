@@ -9,6 +9,20 @@ import {
 import { hasCoordinates } from "@/lib/gps"
 import type { Crew } from "@/lib/types/crews"
 import type { Task } from "@/lib/types/tasks"
+import {
+  parseEstimatedDurationMinutes,
+} from "@/lib/planificacion/planning-duration"
+import {
+  calculatePlanningSummary,
+  PLANNING_DEFAULT_AVAILABLE_MINUTES,
+  type PlanningSummary,
+} from "@/lib/planificacion/planning-summary"
+
+export {
+  formatPlanningEstimatedDurationDetailed,
+  formatPlanningEstimatedHours,
+  parseEstimatedDurationMinutes,
+} from "@/lib/planificacion/planning-duration"
 
 export type PlanningFilters = {
   date: string
@@ -17,8 +31,16 @@ export type PlanningFilters = {
 export type PlanningCrewSummary = {
   crew: Crew
   taskCount: number
+  /** @deprecated Prefer totalMinutes — kept for existing KPI cards (includes travel). */
   estimatedMinutes: number
+  technicalMinutes: number
+  travelMinutes: number
+  totalMinutes: number
+  availableMinutes: number
+  overtimeMinutes: number
+  utilizationPercent: number
   loadLevel: PlanningCrewLoadLevel
+  summary: PlanningSummary
 }
 
 export type PlanningCrewLoadLevel = "ok" | "warning" | "overload"
@@ -44,7 +66,9 @@ export type PlanningAlerts = {
 }
 
 const CREW_LOAD_OK_MAX_MINUTES = 6 * 60
-const CREW_LOAD_WARNING_MAX_MINUTES = 8 * 60
+const CREW_LOAD_WARNING_MAX_MINUTES = PLANNING_DEFAULT_AVAILABLE_MINUTES
+
+export { PLANNING_DEFAULT_AVAILABLE_MINUTES }
 
 export function resolveTaskShift(
   task: Pick<Task, "taskMetadata" | "scheduledTime">
@@ -93,44 +117,6 @@ export function resolveTaskPlanningCoordinates(
   }
 
   return null
-}
-
-export function parseEstimatedDurationMinutes(value: string): number {
-  const trimmed = value.trim().toLowerCase()
-  if (!trimmed) {
-    return 0
-  }
-
-  const minutesMatch = trimmed.match(/^(\d+(?:[.,]\d+)?)\s*min/)
-  if (minutesMatch) {
-    return Math.round(Number.parseFloat(minutesMatch[1].replace(",", ".")))
-  }
-
-  const hoursMatch = trimmed.match(/^(\d+(?:[.,]\d+)?)\s*h(?:ora|oras)?/)
-  if (hoursMatch) {
-    return Math.round(Number.parseFloat(hoursMatch[1].replace(",", ".")) * 60)
-  }
-
-  const daysMatch = trimmed.match(/^(\d+(?:[.,]\d+)?)\s*d(?:ia|ías|ias)?/)
-  if (daysMatch) {
-    return Math.round(Number.parseFloat(daysMatch[1].replace(",", ".")) * 8 * 60)
-  }
-
-  const numeric = Number.parseInt(trimmed, 10)
-  return Number.isFinite(numeric) && numeric > 0 ? numeric : 0
-}
-
-export function formatPlanningEstimatedHours(totalMinutes: number): string {
-  if (totalMinutes <= 0) {
-    return "0 h"
-  }
-
-  const hours = totalMinutes / 60
-  if (hours < 10) {
-    return `${hours.toFixed(1).replace(".", ",")} h`
-  }
-
-  return `${Math.round(hours)} h`
 }
 
 export function taskHasEstimatedDuration(
@@ -209,15 +195,16 @@ export function computePlanningKpis(
   tasks: Task[],
   activeCrews: Crew[]
 ): PlanningKpis {
-  const totalMinutes = tasks.reduce(
-    (sum, task) => sum + parseEstimatedDurationMinutes(task.estimatedDuration),
-    0
-  )
+  const summary = calculatePlanningSummary({
+    tasks,
+    crews: activeCrews,
+    groupByCrew: true,
+  })
 
   return {
     programmedCount: tasks.length,
     activeCrewsCount: activeCrews.length,
-    estimatedHours: totalMinutes / 60,
+    estimatedHours: summary.totalMinutes / 60,
     withoutCrewCount: tasks.filter((task) => !taskHasSuggestedCrew(task)).length,
     withoutGpsCount: tasks.filter(
       (task) => resolveTaskPlanningCoordinates(task) == null
@@ -233,39 +220,26 @@ export function buildPlanningCrewSummaries(
     .sort((left, right) => left.name.localeCompare(right.name, "es"))
     .map((crew) => {
       const crewTasks = tasks.filter((task) => taskMatchesCrewId(task, crew))
-      const estimatedMinutes = crewTasks.reduce(
-        (sum, task) => sum + parseEstimatedDurationMinutes(task.estimatedDuration),
-        0
-      )
+      const summary = calculatePlanningSummary({
+        tasks: crewTasks,
+        crews: [crew],
+        groupByCrew: false,
+      })
 
       return {
         crew,
-        taskCount: crewTasks.length,
-        estimatedMinutes,
-        loadLevel: resolveCrewLoadLevel(estimatedMinutes),
+        taskCount: summary.taskCount,
+        estimatedMinutes: summary.totalMinutes,
+        technicalMinutes: summary.technicalMinutes,
+        travelMinutes: summary.travelMinutes,
+        totalMinutes: summary.totalMinutes,
+        availableMinutes: summary.availableMinutes,
+        overtimeMinutes: summary.overtimeMinutes,
+        utilizationPercent: summary.utilizationPercent,
+        loadLevel: resolveCrewLoadLevel(summary.totalMinutes),
+        summary,
       }
     })
-}
-
-export function formatPlanningEstimatedDurationDetailed(
-  totalMinutes: number
-): string {
-  if (totalMinutes <= 0) {
-    return "0 min"
-  }
-
-  const hours = Math.floor(totalMinutes / 60)
-  const minutes = totalMinutes % 60
-
-  if (hours === 0) {
-    return `${minutes} min`
-  }
-
-  if (minutes === 0) {
-    return `${hours} h`
-  }
-
-  return `${hours} h ${minutes} min`
 }
 
 export function filterPlanningTasksByCrewFilter(

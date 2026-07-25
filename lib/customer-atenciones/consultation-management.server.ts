@@ -33,6 +33,11 @@ import {
   type OtLinkRpcResult,
 } from "@/lib/customer-atenciones/ot-link"
 import { logOperationError } from "@/lib/operations/user-messages"
+import {
+  emitCustomerInteractionActivities,
+  emitCustomerManagementActivities,
+  emitCustomerOtLinkedActivity,
+} from "@/lib/customer-atenciones/emit-customer-activity"
 
 export type ConsultationManagementServerResult =
   | { ok: true; data: ConsultationManagementRpcResult }
@@ -90,11 +95,23 @@ export async function startCustomerAtencionManagement(input: {
   atencionId: string
   employeeId: string
 }): Promise<ConsultationManagementServerResult> {
-  return callConsultationManagementRpc("start_customer_atencion_management", {
-    p_company_id: input.companyId,
-    p_atencion_id: input.atencionId,
-    p_employee_id: input.employeeId,
-  })
+  const result = await callConsultationManagementRpc(
+    "start_customer_atencion_management",
+    {
+      p_company_id: input.companyId,
+      p_atencion_id: input.atencionId,
+      p_employee_id: input.employeeId,
+    }
+  )
+  if (result.ok && !result.data.idempotent) {
+    void emitCustomerManagementActivities({
+      companyId: input.companyId,
+      employeeId: input.employeeId,
+      result: result.data,
+      kind: "start",
+    })
+  }
+  return result
 }
 
 export async function resolveCustomerAtencionConsultation(input: {
@@ -104,13 +121,26 @@ export async function resolveCustomerAtencionConsultation(input: {
   resolution: string
   followUpActions?: string[]
 }): Promise<ConsultationManagementServerResult> {
-  return callConsultationManagementRpc("resolve_customer_atencion_consultation", {
-    p_company_id: input.companyId,
-    p_atencion_id: input.atencionId,
-    p_employee_id: input.employeeId,
-    p_resolution: input.resolution,
-    p_follow_up_actions: input.followUpActions ?? [],
-  })
+  const result = await callConsultationManagementRpc(
+    "resolve_customer_atencion_consultation",
+    {
+      p_company_id: input.companyId,
+      p_atencion_id: input.atencionId,
+      p_employee_id: input.employeeId,
+      p_resolution: input.resolution,
+      p_follow_up_actions: input.followUpActions ?? [],
+    }
+  )
+  if (result.ok) {
+    void emitCustomerManagementActivities({
+      companyId: input.companyId,
+      employeeId: input.employeeId,
+      result: result.data,
+      resolution: input.resolution,
+      kind: "resolve",
+    })
+  }
+  return result
 }
 
 export async function cancelCustomerAtencionManagement(input: {
@@ -186,13 +216,26 @@ export async function deferCustomerAtencionConsultation(input: {
   nextStep: string
   detail?: string | null
 }): Promise<ConsultationManagementServerResult> {
-  return callConsultationManagementRpc("defer_customer_atencion_consultation", {
-    p_company_id: input.companyId,
-    p_atencion_id: input.atencionId,
-    p_employee_id: input.employeeId,
-    p_next_step: input.nextStep,
-    p_detail: input.detail ?? null,
-  })
+  const result = await callConsultationManagementRpc(
+    "defer_customer_atencion_consultation",
+    {
+      p_company_id: input.companyId,
+      p_atencion_id: input.atencionId,
+      p_employee_id: input.employeeId,
+      p_next_step: input.nextStep,
+      p_detail: input.detail ?? null,
+    }
+  )
+  if (result.ok) {
+    void emitCustomerManagementActivities({
+      companyId: input.companyId,
+      employeeId: input.employeeId,
+      result: result.data,
+      detail: input.detail,
+      kind: "defer",
+    })
+  }
+  return result
 }
 
 export type MorosoTrackingServerResult =
@@ -269,6 +312,11 @@ export async function registerCustomerAtencionInteraction(input: {
   interactionResult?: string | null
   detail: string
   nextActionAt?: string | null
+  clientInteraction?: {
+    medio: string
+    nextStep?: string | null
+    customerId?: string | null
+  } | null
 }): Promise<ConsultationInteractionServerResult> {
   const admin = createAdminClient()
 
@@ -305,6 +353,17 @@ export async function registerCustomerAtencionInteraction(input: {
       code: "RPC_EMPTY",
     }
   }
+
+  void emitCustomerInteractionActivities({
+    companyId: input.companyId,
+    employeeId: input.employeeId,
+    interactionKind: input.interactionKind,
+    detail: input.detail,
+    interactionResult: input.interactionResult,
+    nextActionAt: input.nextActionAt,
+    result: parsed,
+    clientInteraction: input.clientInteraction ?? null,
+  })
 
   return { ok: true, data: parsed }
 }
@@ -356,6 +415,12 @@ export async function linkCustomerAtencionToTask(input: {
       code: "RPC_EMPTY",
     }
   }
+
+  void emitCustomerOtLinkedActivity({
+    companyId: input.companyId,
+    employeeId: input.employeeId,
+    result: parsed,
+  })
 
   return { ok: true, data: parsed }
 }

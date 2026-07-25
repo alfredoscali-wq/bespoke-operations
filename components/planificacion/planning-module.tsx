@@ -34,6 +34,10 @@ import { PlanningReturnToAtencionDialog } from "@/components/planificacion/plann
 
 import { PlanningTaskList } from "@/components/planificacion/planning-task-list"
 
+import { PlanningJourneySummaryPanel } from "@/components/planificacion/planning-journey-summary-panel"
+
+import { PlanningDayConfigPanel } from "@/components/planificacion/planning-day-config-panel"
+
 import { PlanningPrintMaterialsDialog } from "@/components/planificacion/planning-print-materials-dialog"
 
 import { PlanningToolbar } from "@/components/planificacion/planning-toolbar"
@@ -106,7 +110,33 @@ import {
 
 } from "@/lib/planificacion/planning-utils"
 
+import { calculatePlanningSummary } from "@/lib/planificacion/planning-summary"
+
+import {
+  readPlanningDayOperationalOverride,
+  resolvePlanningDayOperationalConfig,
+  validatePlanningDayOperationalOverride,
+  writePlanningDayOperationalOverride,
+} from "@/lib/planificacion/planning-day-config"
+
+import {
+
+  buildReturnToBaseMetadataUpdates,
+
+  listOrderedTasksForCrewJourney,
+
+  mergeTravelFromPreviousMinutes,
+
+  PLANNING_RETURN_TO_BASE_KEY,
+
+  PLANNING_TRAVEL_FROM_PREVIOUS_KEY,
+
+} from "@/lib/planificacion/planning-travel"
+
 import { sortTasksByDispatchRoute, resolveTaskRouteOrder } from "@/lib/tasks/dispatch-order"
+
+import { resolveTaskCrewId } from "@/lib/tasks/crew-relation"
+
 import { canReturnPlanningTaskToAtencion } from "@/lib/tasks/planning-return"
 
 import { listPendingClosureTasksForPlanningDate } from "@/lib/planificacion/planning-pending-closure"
@@ -120,7 +150,7 @@ function PlanningModuleContent() {
 
   const { sessionUser } = useAuth()
 
-  const { tasks, isTasksReady, applyExecutionOrderUpdates, confirmPlanningTasks, reopenPlanningTasks, returnPlanningTaskToAtencion, refreshTasksFromServer } =
+  const { tasks, isTasksReady, applyExecutionOrderUpdates, confirmPlanningTasks, reopenPlanningTasks, returnPlanningTaskToAtencion, refreshTasksFromServer, editTask } =
 
     useTasks()
 
@@ -145,6 +175,8 @@ function PlanningModuleContent() {
   const [isReturningToAtencion, setIsReturningToAtencion] = useState(false)
 
   const [reorderingTaskId, setReorderingTaskId] = useState<string | null>(null)
+
+  const [dayConfigRevision, setDayConfigRevision] = useState(0)
 
   const [processingCrewId, setProcessingCrewId] = useState<string | null>(null)
 
@@ -293,6 +325,57 @@ function PlanningModuleContent() {
   )
 
 
+
+  const journeySummary = useMemo(
+
+    () => {
+
+      const filteredCrew =
+        crewFilterId != null
+          ? activeCrews.find((crew) => crew.id === crewFilterId) ?? null
+          : null
+
+      const dayOverride =
+        filteredCrew != null
+          ? readPlanningDayOperationalOverride(date, filteredCrew.id)
+          : null
+
+      const dayConfig =
+        filteredCrew != null
+          ? resolvePlanningDayOperationalConfig({
+              crew: filteredCrew,
+              override: dayOverride,
+            })
+          : null
+
+      return calculatePlanningSummary({
+        tasks: listTasks,
+        crews: filteredCrew ? [filteredCrew] : activeCrews,
+        groupByCrew: !crewFilterId,
+        availableMinutes: dayConfig?.availableMinutes,
+      })
+    },
+
+    [listTasks, activeCrews, crewFilterId, date, dayConfigRevision]
+
+  )
+
+  const planningDayConfig = useMemo(() => {
+    if (!crewFilterId) {
+      return null
+    }
+    const crew = activeCrews.find((entry) => entry.id === crewFilterId)
+    if (!crew) {
+      return null
+    }
+    return {
+      crew,
+      config: resolvePlanningDayOperationalConfig({
+        crew,
+        override: readPlanningDayOperationalOverride(date, crew.id),
+      }),
+    }
+  }, [crewFilterId, activeCrews, date, dayConfigRevision])
 
   const crewSummaries = useMemo(
 
@@ -480,6 +563,77 @@ function PlanningModuleContent() {
 
     [planningOrderScopeTasks, crews, applyExecutionOrderUpdates]
 
+  )
+
+
+
+  const handleTravelMinutesChange = useCallback(
+
+    async (input: {
+      ownerTaskId: string
+      field:
+        | typeof PLANNING_TRAVEL_FROM_PREVIOUS_KEY
+        | typeof PLANNING_RETURN_TO_BASE_KEY
+      minutes: number
+    }) => {
+      const owner = tasks.find((task) => task.id === input.ownerTaskId)
+      if (!owner) {
+        return
+      }
+
+      if (input.field === PLANNING_TRAVEL_FROM_PREVIOUS_KEY) {
+        const result = await editTask(owner.id, {
+          taskMetadata: mergeTravelFromPreviousMinutes(
+            owner.taskMetadata,
+            input.minutes
+          ),
+        })
+        if (!result.success) {
+          setDispatchError(
+            result.message ?? "No se pudo guardar el tiempo de traslado."
+          )
+        }
+        return
+      }
+
+      const crewId = resolveTaskCrewId(owner, crews)
+      const ordered = crewId
+        ? listOrderedTasksForCrewJourney(listTasks, crewId, crews)
+        : sortTasksByDispatchRoute(
+            listTasks.filter((task) => task.id === owner.id),
+            crews
+          )
+
+      const journeyOrdered =
+        ordered.length > 0
+          ? ordered
+          : sortTasksByDispatchRoute(
+              listTasks.filter(
+                (task) =>
+                  resolveTaskCrewId(task, crews) ===
+                  resolveTaskCrewId(owner, crews)
+              ),
+              crews
+            )
+
+      const updates = buildReturnToBaseMetadataUpdates(
+        journeyOrdered.length > 0 ? journeyOrdered : [owner],
+        input.minutes
+      )
+
+      for (const update of updates) {
+        const result = await editTask(update.taskId, {
+          taskMetadata: update.taskMetadata,
+        })
+        if (!result.success) {
+          setDispatchError(
+            result.message ?? "No se pudo guardar el regreso a base."
+          )
+          return
+        }
+      }
+    },
+    [tasks, crews, listTasks, editTask]
   )
 
 
@@ -1148,79 +1302,124 @@ function PlanningModuleContent() {
 
 
 
-          <PlanningTaskList
+          <div className="flex min-h-0 flex-1 flex-col gap-2 lg:flex-row">
 
-            mode={dispatchMode}
+            <PlanningTaskList
 
-            tasks={listTasks}
+              mode={dispatchMode}
 
-            allScopeTasks={planningOrderScopeTasks}
+              tasks={listTasks}
 
-            crews={crews}
+              allScopeTasks={planningOrderScopeTasks}
 
-            crewIdsInOrder={crewIdsInOrder}
+              crews={crews}
 
-            selectedTaskId={selectedTaskId}
+              crewIdsInOrder={crewIdsInOrder}
 
-            reorderingTaskId={reorderingTaskId}
+              selectedTaskId={selectedTaskId}
 
-            onSelectTask={setSelectedTaskId}
+              reorderingTaskId={reorderingTaskId}
 
-            onEditTask={
+              onSelectTask={setSelectedTaskId}
 
-              isEditingMode
+              onEditTask={
 
-                ? (taskId) => {
+                isEditingMode
 
-                    const task = tasks.find((entry) => entry.id === taskId)
+                  ? (taskId) => {
 
-                    if (task && isTaskPlanningEditable(task)) {
+                      const task = tasks.find((entry) => entry.id === taskId)
 
-                      setAdjustSheetTaskId(taskId)
+                      if (task && isTaskPlanningEditable(task)) {
+
+                        setAdjustSheetTaskId(taskId)
+
+                      }
 
                     }
 
-                  }
+                  : undefined
 
-                : undefined
+              }
 
-            }
+              onReturnToAtencion={
 
-            onReturnToAtencion={
+                isEditingMode
 
-              isEditingMode
+                  ? (taskId) => setReturnDialogTaskId(taskId)
 
-                ? (taskId) => setReturnDialogTaskId(taskId)
+                  : undefined
 
-                : undefined
+              }
 
-            }
+              isTaskReturnable={
 
-            isTaskReturnable={
+                isEditingMode ? canReturnPlanningTaskToAtencion : undefined
 
-              isEditingMode ? canReturnPlanningTaskToAtencion : undefined
+              }
 
-            }
+              onMoveTaskOrder={
 
-            onMoveTaskOrder={
+                isEditingMode ? handleMoveTaskOrder : undefined
 
-              isEditingMode ? handleMoveTaskOrder : undefined
+              }
 
-            }
+              onMoveTaskToPosition={
 
-            onMoveTaskToPosition={
+                isEditingMode ? handleMoveTaskToPosition : undefined
 
-              isEditingMode ? handleMoveTaskToPosition : undefined
+              }
 
-            }
+              onTravelMinutesChange={
 
-            isTaskEditable={isEditingMode ? isTaskPlanningEditable : undefined}
+                isEditingMode ? handleTravelMinutesChange : undefined
 
-            activeCrewFilterName={activeCrewFilterName}
+              }
 
-            className="min-h-0 flex-1 lg:h-full"
+              isTaskEditable={isEditingMode ? isTaskPlanningEditable : undefined}
 
-          />
+              activeCrewFilterName={activeCrewFilterName}
+
+              className="min-h-0 min-w-0 flex-1 lg:h-full"
+
+            />
+
+            {listTasks.length > 0 ? (
+              <div className="flex w-full shrink-0 flex-col gap-2 lg:w-56">
+                {planningDayConfig ? (
+                  <PlanningDayConfigPanel
+                    config={planningDayConfig.config}
+                    crewName={planningDayConfig.crew.name}
+                    readOnly={!isEditingMode}
+                    onChange={(next) => {
+                      const override = {
+                        useHabitual: next.useHabitual,
+                        operationalBaseName: next.operationalBaseName,
+                        startTime: next.startTime,
+                        availableMinutes: next.availableMinutes,
+                      }
+                      const validation =
+                        validatePlanningDayOperationalOverride(override)
+                      if (!validation.ok) {
+                        setDispatchError(validation.message)
+                        return
+                      }
+                      writePlanningDayOperationalOverride(
+                        date,
+                        planningDayConfig.crew.id,
+                        override
+                      )
+                      setDayConfigRevision((value) => value + 1)
+                    }}
+                  />
+                ) : null}
+                <PlanningJourneySummaryPanel
+                  summary={journeySummary}
+                />
+              </div>
+            ) : null}
+
+          </div>
 
         </div>
 

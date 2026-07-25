@@ -224,8 +224,15 @@ export async function registerConsultationInteractionManagement(
   input: {
     interactionKind: string
     interactionResult?: string | null
-    detail: string
+    detail?: string
     nextActionAt?: string | null
+    clientInteraction?: {
+      medio: string
+      resultado: string
+      observations?: string | null
+      nextStep?: string | null
+      customerId?: string | null
+    } | null
   }
 ): Promise<ConsultationInteractionMutationResult> {
   const response = await fetch(

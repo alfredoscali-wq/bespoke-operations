@@ -249,6 +249,11 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
             notes: input.notes,
             origin: "internal",
             contractorId: null,
+            operationalBaseName: input.operationalBaseName,
+            operationalBaseLatitude: input.operationalBaseLatitude,
+            operationalBaseLongitude: input.operationalBaseLongitude,
+            habitualStartTime: input.habitualStartTime,
+            habitualShiftMinutes: input.habitualShiftMinutes,
           },
           client
         )
@@ -320,6 +325,11 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
             notes: input.notes,
             origin: "external",
             contractorId,
+            operationalBaseName: input.operationalBaseName,
+            operationalBaseLatitude: input.operationalBaseLatitude,
+            operationalBaseLongitude: input.operationalBaseLongitude,
+            habitualStartTime: input.habitualStartTime,
+            habitualShiftMinutes: input.habitualShiftMinutes,
           },
           client
         )
@@ -371,6 +381,11 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
               notes: input.notes,
               supervisorEmployeeId: input.supervisorEmployeeId,
               status: input.manuallyInactive ? "inactiva" : "activa",
+              operationalBaseName: input.operationalBaseName,
+              operationalBaseLatitude: input.operationalBaseLatitude,
+              operationalBaseLongitude: input.operationalBaseLongitude,
+              habitualStartTime: input.habitualStartTime,
+              habitualShiftMinutes: input.habitualShiftMinutes,
             }
           : input
 

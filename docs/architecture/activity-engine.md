@@ -1,7 +1,7 @@
 ---
 id: AT-ACTIVITY-ENGINE-1-1A
-title: Activity Engine 1.1A — Foundation
-version: 0.1.0
+title: Activity Engine — Foundation & Customer Service Integration
+version: 0.2.0
 status: Draft
 owner: Architecture
 last_updated: 2026-07-25
@@ -12,11 +12,11 @@ related:
 
 # Resumen
 
-Documentación técnica de la **foundation** del Activity Engine (sprint 1.1A): API única `activity.record()`, catálogo de acciones/categorías e infraestructura de persistencia sobre `activity_events`.
+Documentación técnica del Activity Engine: foundation (`activity.record()`), integración con **Atención al Cliente** (1.1B) y registro unificado de interacciones con el cliente (1.1C).
 
 # Objetivo
 
-Proveer un motor reutilizable para registrar actividad operativa desde cualquier módulo, sin acoplarse a Atención al Cliente, OT, RRHH, Ventas u otros dominios.
+Proveer un motor reutilizable para registrar actividad operativa desde cualquier módulo, y registrar automáticamente las acciones importantes de expedientes de Atención al Cliente sin cambiar la UX.
 
 # Alcance
 
@@ -25,108 +25,55 @@ Incluye:
 - Módulo `lib/activity-engine/`
 - Extensión aditiva de `public.activity_events`
 - RPC `record_activity_engine_event`
-- Validaciones y API pública
+- Validaciones y API pública (`title` / `description` opcionales)
+- Integración Customer Service vía `registerCustomerActivity` → `activity.record()`
 
 No incluye:
 
-- Integración de módulos
 - Timeline / Dashboard / KPIs / Panel de empleados
 - `activity_sessions`
-- Sustitución de `customer_atencion_events` u otros historiales de dominio
-- Cambios de UI
+- Sustitución de `customer_atencion_events`
+- Cambios de UI / permisos / RLS / workflows
 
 # Contenido
 
 ## 1. Objetivo del motor
 
-Centralizar el registro de hechos operativos (`quién / qué / sobre qué / con qué impacto`) para que Bespoke pueda construir inteligencia operacional de forma transversal.
+Centralizar el registro de hechos operativos para construir el historial operativo real de cada empleado.
 
-Todos los módulos deben escribir actividad **solo** mediante:
-
-```ts
-import { activity } from "@/lib/activity-engine"
-
-await activity.record({ ... })
-```
-
-No deben hacer `insert` directo sobre `activity_events`.
+Todos los módulos deben escribir actividad **solo** mediante `activity.record()`. No deben insertar en `activity_events` ni invocar la RPC.
 
 ## 2. Arquitectura
 
 ```text
-Dominio (futuro)
+Customer Service (u otro dominio)
     ↓
-activity.record()          ← API pública única (lib/activity-engine)
+registerCustomerActivity()   ← helper de dominio (prepara payload)
     ↓
-validateActivityRecordInput
+activity.record()            ← API pública única
     ↓
 record_activity_engine_event (SECURITY DEFINER / service_role)
     ↓
-public.activity_events     ← store multi-tenant (RLS SELECT por company_id)
+public.activity_events
 ```
 
-Características:
+Reglas:
 
-- Carpeta `lib/activity-engine/` independiente de dominios.
-- Escrituras server-only (service role + RPC).
-- Lecturas autenticadas filtradas por `company_id` (RLS existente).
-- Convive con el Activity Engine 1.0 / OIE (`lib/activity`, `record_activity_event`) sin reemplazarlo en este sprint.
-
-### Archivos
-
-| Archivo | Rol |
-|---|---|
-| `index.ts` | Superficie pública |
-| `activity-engine.ts` | Facade `activity.record()` |
-| `activity-service.ts` | Persistencia |
-| `activity-actions.ts` | Catálogo de acciones |
-| `activity-types.ts` | Categoría / impacto / origen / tipos |
-| `activity-validate.ts` | Validación controlada |
+- Atención al Cliente **nunca** accede a `activity_events` ni a la RPC.
+- La persistencia pertenece al Activity Engine.
+- `customer_atencion_events` sigue siendo el historial de dominio del expediente.
 
 ## 3. Tabla `activity_events`
 
-La tabla ya existía (Activity Engine 1.0). El sprint 1.1A **agrega** columnas foundation:
+Store multi-tenant (Activity Engine 1.0 + columnas 1.1A). RLS: SELECT por `company_id`; escrituras vía RPC service_role.
 
-| Columna | Tipo | Notas |
-|---|---|---|
-| `category` | text null | Obligatorio en API 1.1A; null en filas legacy |
-| `impact` | text null | Obligatorio en API 1.1A; null en filas legacy |
-| `updated_at` | timestamptz | Default `now()` + trigger en UPDATE |
+`title` / `description` se guardan dentro de `metadata` (listos para Timeline futuro).
 
-Campos usados por `activity.record()`:
+## 4. Enumeraciones y acciones
 
-- `id`, `company_id`, `module`, `entity_type`, `entity_id`, `employee_id`
-- `action`, `category`, `impact`, `origin`, `metadata`
-- `created_at`, `updated_at`
+Category / Impact / Origin: sin cambios respecto a 1.1A.
 
-Columnas legacy (`actor_type`, `detail`, `severity`, …) se completan automáticamente en el RPC 1.1A para mantener compatibilidad de fila.
-
-### RLS
-
-- `SELECT` para `authenticated` cuando `company_id = auth_user_company_id()`
-- Sin INSERT/UPDATE/DELETE para clientes; escritura vía RPC `service_role`
-
-## 4. Enumeraciones
-
-### ActivityCategory
-
-`CONTACT` · `FOLLOW_UP` · `TECHNICAL` · `ADMINISTRATIVE` · `SALES` · `OPERATIONAL` · `SYSTEM` · `COMMUNICATION`
-
-### ActivityImpact
-
-`ACTIVITY` · `PRODUCTION` · `RESULT`
-
-### ActivityOrigin
-
-`USER` · `SYSTEM` · `AUTOMATION` · `INTEGRATION`
-
-(Compatible en DB con orígenes legacy 1.0: `web` · `mobile` · `api` · `cron` · `system`.)
-
-### ActivityAction (catálogo inicial)
-
-`CALL_STARTED` · `CALL_COMPLETED` · `CALL_FAILED` · `WHATSAPP_SENT` · `WHATSAPP_RECEIVED` · `FOLLOW_UP_CREATED` · `FOLLOW_UP_UPDATED` · `STATUS_CHANGED` · `NEXT_STEP_CHANGED` · `DERIVATION_CREATED` · `OT_CREATED` · `OT_COMPLETED` · `CUSTOMER_CONFIRMED` · `CUSTOMER_CANCELLED` · `PAYMENT_REGISTERED` · `NOTE_CREATED`
-
-Ampliar agregando claves en `activity-actions.ts` sin remover las existentes.
+Acciones ampliadas: incluye `CASE_CREATED` y `CASE_CLOSED`.
 
 ## 5. API pública
 
@@ -141,78 +88,81 @@ activity.record({
   category,
   impact,
   origin,
-  metadata, // opcional, default {}
+  metadata, // opcional
+  title, // opcional — Timeline
+  description, // opcional — Timeline
 })
 ```
 
-Retorno controlado:
+Si `title` / `description` no se envían, el motor funciona igual.
+
+## 6. Integración con Customer Service (1.1B)
+
+### Helper
 
 ```ts
-{ ok: true, data: ActivityEngineEvent }
-{ ok: false, error: { code: "VALIDATION_ERROR" | "PERSISTENCE_ERROR", message, field? } }
-```
+import { registerCustomerActivity } from "@/lib/customer-atenciones/register-customer-activity"
 
-### Validaciones obligatorias
-
-- `companyId` (UUID)
-- `module` (string no vacío)
-- `entityType` (string no vacío)
-- `entityId` (UUID)
-- `action` ∈ catálogo
-- `category` ∈ enum
-- `impact` ∈ enum
-- `origin` ∈ enum
-
-Nunca inserta registros inconsistentes.
-
-## 6. Ejemplo de uso
-
-```ts
-import {
-  activity,
-  ACTIVITY_ACTIONS,
-  ACTIVITY_CATEGORIES,
-  ACTIVITY_IMPACTS,
-  ACTIVITY_ORIGINS,
-} from "@/lib/activity-engine"
-
-const result = await activity.record({
-  companyId: "...",
-  module: "atencion",
-  entityType: "customer_atencion",
-  entityId: "...",
-  employeeId: "...",
-  action: ACTIVITY_ACTIONS.NOTE_CREATED,
-  category: ACTIVITY_CATEGORIES.COMMUNICATION,
+await registerCustomerActivity({
+  companyId,
+  entityId: atencionId,
+  employeeId,
+  action: ACTIVITY_ACTIONS.CASE_CREATED,
+  category: ACTIVITY_CATEGORIES.FOLLOW_UP,
   impact: ACTIVITY_IMPACTS.ACTIVITY,
-  origin: ACTIVITY_ORIGINS.USER,
-  metadata: { source: "manual-test" },
+  title: "Expediente creado",
+  metadata: { customer_id, motivo, canal, estado_inicial },
 })
-
-if (!result.ok) {
-  console.error(result.error)
-}
 ```
 
-## 7. Cómo integrar un módulo en el futuro
+Siempre termina en `activity.record()` con `module: "customer_service"` y `entityType: "customer_atencion"`.
 
-1. No insertar en `activity_events` desde el dominio.
-2. Desde código **server** (API route / server action / service), llamar `activity.record()`.
-3. Elegir `action` del catálogo (o extender el catálogo primero).
-4. Completar `category`, `impact`, `origin`.
-5. Usar `entityType` / `entityId` del agregado de dominio.
-6. Mantener historiales de dominio (p. ej. `customer_atencion_events`) si el producto los requiere; Activity Engine es transversal, no los reemplaza automáticamente.
+### Eventos implementados
 
-Próximo sprint previsto: instrumentar **Atención al Cliente** usando esta API.
+| Evento | Cuándo |
+|---|---|
+| `CASE_CREATED` | Alta de expediente |
+| `CASE_CLOSED` | Resolución / cierre (alta ya resuelta o OT que cierra) |
+| `CUSTOMER_INTERACTION` | Contacto con el cliente (acción «Registrar interacción») |
+| `FOLLOW_UP_CREATED` | Seguimiento de proceso (p. ej. tracking Morosos) |
+| `NOTE_CREATED` | Interacción tipo nota (longitud; sin texto) |
+| `STATUS_CHANGED` | Cambio de status (start / defer / resolve) |
+| `NEXT_STEP_CHANGED` | Cambio de next_step |
+| `DERIVATION_CREATED` | Defer a next_step de derivación (`from_area` / `to_area` = códigos) |
+| `OT_CREATED` | Vinculación de OT |
+
+### Interacciones con el cliente (1.1C)
+
+- UI: única acción **Registrar interacción** → modal (medio, resultado, observaciones opcionales, next_step opcional).
+- Historial de dominio: `register_customer_atencion_interaction` (`interaccion_registrada`).
+- Activity Engine: `CUSTOMER_INTERACTION` vía `activity.record()` (`category: CONTACT`, `impact: ACTIVITY`).
+- Metadata mínima: `medio`, `resultado`, `next_step`, `expediente`, `customer_id`.
+- No muta status ni bandeja; el next_step opcional se registra en historial/metadata sin defer.
+
+### Buenas prácticas
+
+1. Usar builders en `customer-activity-events.ts`.
+2. Emitir best-effort (`registerCustomerActivitySafe`) — no romper el flujo de negocio.
+3. No guardar el texto completo de notas.
+4. No hardcodear nombres de área: usar códigos de `next_step`.
+5. Mantener `customer_atencion_events` como timeline de dominio.
+
+## 7. Cómo integrar otro módulo
+
+1. Helper de dominio → solo `activity.record()`.
+2. Extender catálogo de acciones si hace falta.
+3. Instrumentar mutaciones server-side (o puente API si el alta es browser).
+4. No tocar `activity_events` desde el dominio.
 
 # Próximos pasos
 
-- Aplicar migración `20261103000100_activity_engine_1_1a_foundation.sql`.
-- Integrar Atención al Cliente (sprint siguiente).
-- Evitar dual-write accidental con `lib/activity` hasta definir convivencia formal.
+- Timeline / lectura de `title` + `description` desde metadata.
+- Convivencia formal con `lib/activity` (OIE 1.0).
 
 # Historial de cambios
 
 | Fecha | Versión | Cambio |
 |---|---|---|
 | 2026-07-25 | 0.1.0 | Foundation 1.1A documentada |
+| 2026-07-25 | 0.2.0 | Integración Customer Service 1.1B |
+| 2026-07-25 | 0.3.0 | Registro de interacciones con el cliente 1.1C |

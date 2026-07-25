@@ -10,6 +10,11 @@ export type CreateCrewPayload = {
   notes?: string
   origin?: CrewOrigin
   contractorId?: string | null
+  operationalBaseName?: string | null
+  operationalBaseLatitude?: number | null
+  operationalBaseLongitude?: number | null
+  habitualStartTime?: string | null
+  habitualShiftMinutes?: number | null
 }
 
 export type UpdateCrewPayload = Partial<{
@@ -21,6 +26,11 @@ export type UpdateCrewPayload = Partial<{
   notes: string
   origin: CrewOrigin
   contractorId: string | null
+  operationalBaseName: string | null
+  operationalBaseLatitude: number | null
+  operationalBaseLongitude: number | null
+  habitualStartTime: string | null
+  habitualShiftMinutes: number | null
 }>
 
 export type CreateCrewMemberPayload = {

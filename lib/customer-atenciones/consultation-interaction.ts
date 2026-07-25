@@ -5,6 +5,7 @@
  * by registering an interaction.
  */
 
+import { formatCustomerInteractionResultLabel } from "@/lib/customer-atenciones/customer-interaction-catalog"
 import {
   isMorosoTrackingStatus,
   MOROSO_TRACKING_STATUS_LABELS,
@@ -183,11 +184,18 @@ export function formatInteractionResultLabel(
   }
 
   if (kind === "contact") {
+    const unified = formatCustomerInteractionResultLabel(result)
+    if (unified && unified !== result) {
+      return unified
+    }
     if (isConsultationContactResult(result)) {
       return CONSULTATION_CONTACT_RESULT_LABELS[result]
     }
     if (LEGACY_CONTACT_RESULT_LABELS[result]) {
       return LEGACY_CONTACT_RESULT_LABELS[result]
+    }
+    if (unified) {
+      return unified
     }
   }
 

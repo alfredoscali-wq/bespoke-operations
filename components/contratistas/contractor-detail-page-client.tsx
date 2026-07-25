@@ -171,6 +171,11 @@ export function ContractorDetailPageClient({
         description: input.description,
         supervisor: input.supervisor,
         notes: input.notes,
+        operationalBaseName: input.operationalBaseName,
+        operationalBaseLatitude: input.operationalBaseLatitude,
+        operationalBaseLongitude: input.operationalBaseLongitude,
+        habitualStartTime: input.habitualStartTime,
+        habitualShiftMinutes: input.habitualShiftMinutes,
       })
       if (!result.success) {
         throw new Error(result.message ?? "No se pudo actualizar la cuadrilla.")

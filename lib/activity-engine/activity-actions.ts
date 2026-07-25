@@ -20,6 +20,11 @@ export const ACTIVITY_ACTIONS = {
   CUSTOMER_CANCELLED: "CUSTOMER_CANCELLED",
   PAYMENT_REGISTERED: "PAYMENT_REGISTERED",
   NOTE_CREATED: "NOTE_CREATED",
+  /** Customer Service — expediente created / closed */
+  CASE_CREATED: "CASE_CREATED",
+  CASE_CLOSED: "CASE_CLOSED",
+  /** Customer Service — unified client contact (Sprint 1.1C) */
+  CUSTOMER_INTERACTION: "CUSTOMER_INTERACTION",
 } as const
 
 export type ActivityAction =
