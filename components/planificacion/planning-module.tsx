@@ -108,9 +108,10 @@ import {
   resolveTaskPlanningCoordinates,
 } from "@/lib/planificacion/planning-utils"
 
-import { calculatePlanningSummary } from "@/lib/planificacion/planning-summary"
+import { buildCrewPlanningSummary } from "@/lib/engines/planning/services/SummaryService"
 
 import {
+  applyDayOperationalBaseToCrew,
   readPlanningDayOperationalOverride,
   resolvePlanningDayOperationalConfig,
   validatePlanningDayOperationalOverride,
@@ -320,39 +321,27 @@ function PlanningModuleContent() {
 
 
 
-  const journeySummary = useMemo(
-
-    () => {
-
-      const filteredCrew =
-        crewFilterId != null
-          ? activeCrews.find((crew) => crew.id === crewFilterId) ?? null
-          : null
-
-      const dayOverride =
-        filteredCrew != null
-          ? readPlanningDayOperationalOverride(date, filteredCrew.id)
-          : null
-
-      const dayConfig =
-        filteredCrew != null
-          ? resolvePlanningDayOperationalConfig({
-              crew: filteredCrew,
-              override: dayOverride,
-            })
-          : null
-
-      return calculatePlanningSummary({
-        tasks: listTasks,
-        crews: filteredCrew ? [filteredCrew] : activeCrews,
-        groupByCrew: !crewFilterId,
-        availableMinutes: dayConfig?.availableMinutes,
-      })
-    },
-
-    [listTasks, activeCrews, crewFilterId, date, dayConfigRevision]
-
-  )
+  /** OPS 2.3B/C — Asistente de Jornada for the selected crew only. */
+  const crewPlanningSummary = useMemo(() => {
+    if (!crewFilterId) {
+      return null
+    }
+    const crew = activeCrews.find((entry) => entry.id === crewFilterId)
+    if (!crew) {
+      return null
+    }
+    const dayConfig = resolvePlanningDayOperationalConfig({
+      crew,
+      override: readPlanningDayOperationalOverride(date, crew.id),
+    })
+    const effectiveCrew = applyDayOperationalBaseToCrew(crew, dayConfig)
+    return buildCrewPlanningSummary({
+      tasks: listTasks,
+      crew: effectiveCrew,
+      crews: activeCrews,
+      availableMinutes: dayConfig.availableMinutes,
+    })
+  }, [listTasks, activeCrews, crewFilterId, date, dayConfigRevision])
 
   const planningDayConfig = useMemo(() => {
     if (!crewFilterId) {
@@ -497,9 +486,26 @@ function PlanningModuleContent() {
         return
       }
 
+      const crew = activeCrews.find((entry) => entry.id === crewId) ?? null
+      const dayConfig =
+        crew != null
+          ? resolvePlanningDayOperationalConfig({
+              crew,
+              override: readPlanningDayOperationalOverride(date, crew.id),
+            })
+          : null
+      const base = dayConfig?.operationalBase ?? null
+
       const result = await recalculatePlanningRoutesForCrew({
         crewId,
         taskIds,
+        baseOverride: base
+          ? {
+              name: base.name,
+              latitude: base.latitude,
+              longitude: base.longitude,
+            }
+          : null,
       })
 
       if (!result.success) {
@@ -514,7 +520,7 @@ function PlanningModuleContent() {
         await refreshTasksFromServer()
       }
     },
-    [crews, refreshTasksFromServer]
+    [crews, activeCrews, date, refreshTasksFromServer]
   )
 
   const routeStructureKey = useMemo(() => {
@@ -525,7 +531,11 @@ function PlanningModuleContent() {
     if (!crew) {
       return null
     }
-    const base = resolveCrewOperationalBase(crew)
+    const dayConfig = resolvePlanningDayOperationalConfig({
+      crew,
+      override: readPlanningDayOperationalOverride(date, crew.id),
+    })
+    const base = dayConfig.operationalBase
     const ordered = listOrderedTasksForCrewJourney(
       listTasks,
       crewFilterId,
@@ -534,7 +544,7 @@ function PlanningModuleContent() {
     return JSON.stringify({
       crewId: crewFilterId,
       base: base
-        ? [base.latitude, base.longitude]
+        ? [base.name, base.latitude, base.longitude]
         : null,
       legs: ordered.map((task) => {
         const coords = resolveTaskPlanningCoordinates(task)
@@ -545,7 +555,7 @@ function PlanningModuleContent() {
         ]
       }),
     })
-  }, [crewFilterId, activeCrews, listTasks, crews])
+  }, [crewFilterId, activeCrews, listTasks, crews, date, dayConfigRevision])
 
   useEffect(() => {
     if (!isTasksReady || !crewFilterId || !routeStructureKey) {
@@ -1576,11 +1586,18 @@ function PlanningModuleContent() {
                   <PlanningDayConfigPanel
                     config={planningDayConfig.config}
                     crewName={planningDayConfig.crew.name}
+                    configureBaseHref={
+                      crewPlanningSummary?.configureBaseHref ??
+                      `/cuadrillas/${planningDayConfig.crew.id}`
+                    }
                     readOnly={!isEditingMode}
                     onChange={(next) => {
                       const override = {
                         useHabitual: next.useHabitual,
                         operationalBaseName: next.operationalBaseName,
+                        operationalBaseAddress: next.operationalBaseAddress,
+                        operationalBaseLatitude: next.operationalBaseLatitude,
+                        operationalBaseLongitude: next.operationalBaseLongitude,
                         startTime: next.startTime,
                         availableMinutes: next.availableMinutes,
                       }
@@ -1599,9 +1616,11 @@ function PlanningModuleContent() {
                     }}
                   />
                 ) : null}
-                <PlanningJourneySummaryPanel
-                  summary={journeySummary}
-                />
+                {crewPlanningSummary ? (
+                  <PlanningJourneySummaryPanel
+                    summary={crewPlanningSummary}
+                  />
+                ) : null}
               </div>
             ) : null}
 

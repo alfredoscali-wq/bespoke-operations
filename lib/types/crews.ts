@@ -69,6 +69,8 @@ export type Crew = {
   contractorId?: string | null
   /** OPS 2.2 — operational depot display name. */
   operationalBaseName?: string | null
+  /** OPS 2.3C — street/display address (GPS remains authoritative). */
+  operationalBaseAddress?: string | null
   operationalBaseLatitude?: number | null
   operationalBaseLongitude?: number | null
   /** HH:MM or HH:MM:SS from DB. */
@@ -116,6 +118,7 @@ export type NewCrewInput = {
   /** Manual override — only used when editing a crew. */
   manuallyInactive?: boolean
   operationalBaseName?: string | null
+  operationalBaseAddress?: string | null
   operationalBaseLatitude?: number | null
   operationalBaseLongitude?: number | null
   habitualStartTime?: string | null
@@ -130,6 +133,7 @@ export type NewExternalCrewInput = {
   contractorId: string
   manuallyInactive?: boolean
   operationalBaseName?: string | null
+  operationalBaseAddress?: string | null
   operationalBaseLatitude?: number | null
   operationalBaseLongitude?: number | null
   habitualStartTime?: string | null

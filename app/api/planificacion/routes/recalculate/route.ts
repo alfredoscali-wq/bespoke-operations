@@ -11,6 +11,11 @@ import type { Json, TaskRow } from "@/lib/supabase/database.types"
 type Body = {
   crewId?: string
   taskIds?: string[]
+  baseOverride?: {
+    name?: string
+    latitude?: number
+    longitude?: number
+  } | null
 }
 
 export async function POST(request: Request) {
@@ -97,9 +102,26 @@ export async function POST(request: Request) {
     mapTaskRowToTask(row as TaskRow)
   )
 
+  const override = body.baseOverride
+  const effectiveCrew =
+    override &&
+    typeof override.name === "string" &&
+    override.name.trim() &&
+    typeof override.latitude === "number" &&
+    typeof override.longitude === "number" &&
+    Number.isFinite(override.latitude) &&
+    Number.isFinite(override.longitude)
+      ? {
+          ...crew,
+          operationalBaseName: override.name.trim(),
+          operationalBaseLatitude: override.latitude,
+          operationalBaseLongitude: override.longitude,
+        }
+      : crew
+
   const result = await recalculateCrewJourneyTravel({
     tasks,
-    crew,
+    crew: effectiveCrew,
     crews: [{ id: crew.id, name: crew.name }],
   })
 

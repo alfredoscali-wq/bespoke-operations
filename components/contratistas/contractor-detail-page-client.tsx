@@ -172,6 +172,7 @@ export function ContractorDetailPageClient({
         supervisor: input.supervisor,
         notes: input.notes,
         operationalBaseName: input.operationalBaseName,
+        operationalBaseAddress: input.operationalBaseAddress,
         operationalBaseLatitude: input.operationalBaseLatitude,
         operationalBaseLongitude: input.operationalBaseLongitude,
         habitualStartTime: input.habitualStartTime,

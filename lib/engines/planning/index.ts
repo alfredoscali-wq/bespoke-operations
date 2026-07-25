@@ -1,6 +1,5 @@
 /**
- * OPS 2.3A — Planning Engine (route foundation).
- * Capacity / Summary / Validation services land in later sprints.
+ * OPS 2.3A / 2.3B — Planning Engine (route + capacity + summary + validation).
  */
 
 export type {
@@ -42,3 +41,32 @@ export {
 } from "@/lib/engines/planning/services/recalculate-journey-travel"
 
 export { recalculateCrewJourneyTravel } from "@/lib/engines/planning/services/recalculate-crew-journey"
+
+export type {
+  CrewCapacity,
+  CrewCapacityStatus,
+  CrewPlanningSummary,
+  PlanningWarning,
+  PlanningWarningCode,
+  PlanningWarningSeverity,
+} from "@/lib/engines/planning/contracts/CrewPlanningSummary"
+
+export {
+  CapacityService,
+  capacityService,
+  calculateCrewCapacity,
+  isCrewBaseGpsAvailable,
+} from "@/lib/engines/planning/services/CapacityService"
+
+export {
+  ValidationService,
+  validationService,
+  validateCrewPlanning,
+} from "@/lib/engines/planning/services/ValidationService"
+
+export {
+  SummaryService,
+  summaryService,
+  buildCrewPlanningSummary,
+  formatTravelDistanceKm,
+} from "@/lib/engines/planning/services/SummaryService"

@@ -11,6 +11,7 @@ export type CreateCrewPayload = {
   origin?: CrewOrigin
   contractorId?: string | null
   operationalBaseName?: string | null
+  operationalBaseAddress?: string | null
   operationalBaseLatitude?: number | null
   operationalBaseLongitude?: number | null
   habitualStartTime?: string | null
@@ -27,6 +28,7 @@ export type UpdateCrewPayload = Partial<{
   origin: CrewOrigin
   contractorId: string | null
   operationalBaseName: string | null
+  operationalBaseAddress: string | null
   operationalBaseLatitude: number | null
   operationalBaseLongitude: number | null
   habitualStartTime: string | null

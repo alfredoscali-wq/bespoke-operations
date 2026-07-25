@@ -2,12 +2,12 @@
 
 import { AlertTriangle } from "lucide-react"
 
-import type { PlanningSummary } from "@/lib/planificacion/planning-summary"
+import type { CrewPlanningSummary } from "@/lib/engines/planning/contracts/CrewPlanningSummary"
 import { formatPlanningEstimatedDurationDetailed } from "@/lib/planificacion/planning-utils"
 import { cn } from "@/lib/utils"
 
 type PlanningJourneySummaryPanelProps = {
-  summary: PlanningSummary
+  summary: CrewPlanningSummary
   title?: string
   className?: string
 }
@@ -36,12 +36,31 @@ function SummaryRow({
   )
 }
 
+function statusTone(status: CrewPlanningSummary["status"]): string {
+  switch (status) {
+    case "overloaded":
+      return "text-red-700"
+    case "high_load":
+      return "text-amber-700"
+    case "empty":
+      return "text-slate-600"
+    default:
+      return "text-emerald-700"
+  }
+}
+
+/**
+ * OPS 2.3B/C — Asistente de Jornada.
+ * Renders SummaryService output only; no planning math.
+ */
 export function PlanningJourneySummaryPanel({
   summary,
-  title = "Resumen de jornada",
+  title = "Resumen de Cuadrilla",
   className,
 }: PlanningJourneySummaryPanelProps) {
-  const exceeded = summary.status === "exceeded"
+  const advisoryWarnings = summary.warnings.filter(
+    (warning) => warning.code !== "NO_TASKS" || summary.status === "empty"
+  )
 
   return (
     <aside
@@ -51,9 +70,24 @@ export function PlanningJourneySummaryPanel({
       )}
     >
       <h3 className="text-[13px] font-semibold text-slate-900">{title}</h3>
+      <p className="mt-0.5 text-[12px] text-slate-500">{summary.crewName}</p>
+
+      <div className="mt-3 rounded-md border border-slate-100 bg-slate-50 px-2.5 py-2">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+          📍 Base
+        </p>
+        <p className="mt-0.5 text-[13px] font-medium text-slate-900">
+          {summary.operationalBaseName}
+        </p>
+        {summary.operationalBaseAddress ? (
+          <p className="mt-0.5 text-[11px] leading-snug text-slate-500">
+            {summary.operationalBaseAddress}
+          </p>
+        ) : null}
+      </div>
 
       <div className="mt-3 space-y-2">
-        <SummaryRow label="OT" value={String(summary.taskCount)} />
+        <SummaryRow label="OT asignadas" value={String(summary.taskCount)} />
         <SummaryRow
           label="Trabajo técnico"
           value={formatPlanningEstimatedDurationDetailed(
@@ -61,9 +95,20 @@ export function PlanningJourneySummaryPanel({
           )}
         />
         <SummaryRow
+          label="Salida"
+          value={formatPlanningEstimatedDurationDetailed(
+            summary.departureMinutes
+          )}
+        />
+        <SummaryRow
           label="Traslados"
           value={formatPlanningEstimatedDurationDetailed(summary.travelMinutes)}
         />
+        <SummaryRow
+          label="Regreso"
+          value={formatPlanningEstimatedDurationDetailed(summary.returnMinutes)}
+        />
+        <SummaryRow label="Distancia" value={summary.travelDistanceLabel} />
         <SummaryRow
           label="Total jornada"
           value={formatPlanningEstimatedDurationDetailed(summary.totalMinutes)}
@@ -75,27 +120,50 @@ export function PlanningJourneySummaryPanel({
             summary.availableMinutes
           )}
         />
+        <SummaryRow
+          label="Ocupación"
+          value={`${summary.occupancyPercent} %`}
+        />
         <div className="flex items-baseline justify-between gap-3 border-t border-slate-100 pt-2">
           <span className="text-[12px] text-slate-500">Estado</span>
           <span
             className={cn(
               "text-[13px] font-medium",
-              exceeded ? "text-amber-700" : "text-emerald-700"
+              statusTone(summary.status)
             )}
           >
-            {exceeded ? "⚠ Excedida" : "Normal"}
+            {summary.statusLabel}
           </span>
         </div>
       </div>
 
-      {exceeded ? (
-        <p
-          className="mt-3 flex items-start gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-[12px] leading-snug text-amber-900"
-          role="status"
-        >
-          <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-          Jornada excedida en {summary.overtimeMinutes} minutos
-        </p>
+      <p
+        className="mt-3 rounded-md border border-slate-100 bg-slate-50 px-2.5 py-2 text-[12px] leading-snug text-slate-700"
+        role="status"
+      >
+        {summary.recommendation}
+      </p>
+
+      {advisoryWarnings.length > 0 ? (
+        <ul className="mt-2 space-y-1.5" aria-label="Advertencias operativas">
+          {advisoryWarnings.map((warning) => (
+            <li
+              key={warning.code}
+              className={cn(
+                "flex items-start gap-1.5 rounded-md border px-2.5 py-2 text-[12px] leading-snug",
+                warning.severity === "warning"
+                  ? "border-amber-200 bg-amber-50 text-amber-900"
+                  : "border-slate-200 bg-slate-50 text-slate-700"
+              )}
+            >
+              <AlertTriangle
+                className="mt-0.5 size-3.5 shrink-0"
+                aria-hidden
+              />
+              <span>{warning.message}</span>
+            </li>
+          ))}
+        </ul>
       ) : null}
     </aside>
   )

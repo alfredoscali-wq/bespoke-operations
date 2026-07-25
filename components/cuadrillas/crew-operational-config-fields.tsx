@@ -4,11 +4,17 @@ import {
   CREW_DEFAULT_HABITUAL_START_TIME,
 } from "@/lib/crews/operational-config"
 import { PLANNING_DEFAULT_AVAILABLE_MINUTES } from "@/lib/planificacion/planning-duration"
+import {
+  OperationalBaseMapPicker,
+  type OperationalBaseLocationValue,
+} from "@/components/location/operational-base-map-picker"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
 export type CrewOperationalFormFields = {
   operationalBaseName: string
+  operationalBaseAddress: string
+  operationalBaseSharedLocation: string
   operationalBaseLatitude: string
   operationalBaseLongitude: string
   habitualStartTime: string
@@ -17,6 +23,8 @@ export type CrewOperationalFormFields = {
 
 export const EMPTY_CREW_OPERATIONAL_FORM: CrewOperationalFormFields = {
   operationalBaseName: "",
+  operationalBaseAddress: "",
+  operationalBaseSharedLocation: "",
   operationalBaseLatitude: "",
   operationalBaseLongitude: "",
   habitualStartTime: CREW_DEFAULT_HABITUAL_START_TIME,
@@ -27,18 +35,25 @@ type CrewOperationalConfigFieldsProps = {
   value: CrewOperationalFormFields
   onChange: (next: CrewOperationalFormFields) => void
   idPrefix?: string
+  readOnly?: boolean
 }
 
 export function CrewOperationalConfigFields({
   value,
   onChange,
   idPrefix = "crew-ops",
+  readOnly = false,
 }: CrewOperationalConfigFieldsProps) {
-  function update<K extends keyof CrewOperationalFormFields>(
-    key: K,
-    next: CrewOperationalFormFields[K]
-  ) {
-    onChange({ ...value, [key]: next })
+  function updateLocation(next: OperationalBaseLocationValue) {
+    onChange({
+      ...value,
+      operationalBaseAddress: next.address,
+      operationalBaseSharedLocation: next.sharedLocation,
+      operationalBaseLatitude:
+        next.latitude != null ? String(next.latitude) : "",
+      operationalBaseLongitude:
+        next.longitude != null ? String(next.longitude) : "",
+    })
   }
 
   return (
@@ -47,8 +62,8 @@ export function CrewOperationalConfigFields({
         Configuración Operativa
       </legend>
       <p className="text-[12px] leading-snug text-slate-500">
-        Valores habituales de la cuadrilla. La planificación los usa como
-        predeterminados sin modificarlos desde la jornada.
+        Base Operativa y valores habituales de la cuadrilla. La planificación
+        los usa como predeterminados; el override diario no los modifica.
       </p>
 
       <div className="space-y-2">
@@ -56,41 +71,32 @@ export function CrewOperationalConfigFields({
         <Input
           id={`${idPrefix}-base-name`}
           value={value.operationalBaseName}
+          disabled={readOnly}
           onChange={(event) =>
-            update("operationalBaseName", event.target.value)
+            onChange({
+              ...value,
+              operationalBaseName: event.target.value,
+            })
           }
-          placeholder='Ej. Córdoba Capital'
+          placeholder="Ej. Depósito Norte"
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor={`${idPrefix}-lat`}>Latitud</Label>
-          <Input
-            id={`${idPrefix}-lat`}
-            type="number"
-            step="any"
-            value={value.operationalBaseLatitude}
-            onChange={(event) =>
-              update("operationalBaseLatitude", event.target.value)
-            }
-            placeholder="-31.4201"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor={`${idPrefix}-lng`}>Longitud</Label>
-          <Input
-            id={`${idPrefix}-lng`}
-            type="number"
-            step="any"
-            value={value.operationalBaseLongitude}
-            onChange={(event) =>
-              update("operationalBaseLongitude", event.target.value)
-            }
-            placeholder="-64.1888"
-          />
-        </div>
-      </div>
+      <OperationalBaseMapPicker
+        idPrefix={`${idPrefix}-map`}
+        readOnly={readOnly}
+        value={{
+          address: value.operationalBaseAddress,
+          sharedLocation: value.operationalBaseSharedLocation,
+          latitude: value.operationalBaseLatitude
+            ? Number.parseFloat(value.operationalBaseLatitude)
+            : null,
+          longitude: value.operationalBaseLongitude
+            ? Number.parseFloat(value.operationalBaseLongitude)
+            : null,
+        }}
+        onChange={updateLocation}
+      />
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="space-y-2">
@@ -99,8 +105,12 @@ export function CrewOperationalConfigFields({
             id={`${idPrefix}-start`}
             type="time"
             value={value.habitualStartTime}
+            disabled={readOnly}
             onChange={(event) =>
-              update("habitualStartTime", event.target.value)
+              onChange({
+                ...value,
+                habitualStartTime: event.target.value,
+              })
             }
           />
         </div>
@@ -114,8 +124,12 @@ export function CrewOperationalConfigFields({
             min={1}
             step={1}
             value={value.habitualShiftMinutes}
+            disabled={readOnly}
             onChange={(event) =>
-              update("habitualShiftMinutes", event.target.value)
+              onChange({
+                ...value,
+                habitualShiftMinutes: event.target.value,
+              })
             }
             placeholder="480"
           />
@@ -129,6 +143,7 @@ export function parseCrewOperationalFormFields(
   fields: CrewOperationalFormFields
 ): {
   operationalBaseName: string | null
+  operationalBaseAddress: string | null
   operationalBaseLatitude: number | null
   operationalBaseLongitude: number | null
   habitualStartTime: string | null
@@ -140,12 +155,9 @@ export function parseCrewOperationalFormFields(
 
   return {
     operationalBaseName: fields.operationalBaseName.trim() || null,
-    operationalBaseLatitude: latRaw
-      ? Number.parseFloat(latRaw)
-      : null,
-    operationalBaseLongitude: lngRaw
-      ? Number.parseFloat(lngRaw)
-      : null,
+    operationalBaseAddress: fields.operationalBaseAddress.trim() || null,
+    operationalBaseLatitude: latRaw ? Number.parseFloat(latRaw) : null,
+    operationalBaseLongitude: lngRaw ? Number.parseFloat(lngRaw) : null,
     habitualStartTime: fields.habitualStartTime.trim() || null,
     habitualShiftMinutes: durationRaw
       ? Number.parseInt(durationRaw, 10)

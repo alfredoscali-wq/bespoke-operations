@@ -49,6 +49,7 @@ export function mapCrewRowToCrew(row: CrewRowWithMembers): Crew {
     origin: row.origin ?? "internal",
     contractorId: row.contractor_id,
     operationalBaseName: row.operational_base_name,
+    operationalBaseAddress: row.operational_base_address,
     operationalBaseLatitude: row.operational_base_latitude,
     operationalBaseLongitude: row.operational_base_longitude,
     habitualStartTime: row.habitual_start_time,
@@ -59,6 +60,7 @@ export function mapCrewRowToCrew(row: CrewRowWithMembers): Crew {
 
 function mapOperationalFieldsToDb(payload: {
   operationalBaseName?: string | null
+  operationalBaseAddress?: string | null
   operationalBaseLatitude?: number | null
   operationalBaseLongitude?: number | null
   habitualStartTime?: string | null
@@ -68,6 +70,10 @@ function mapOperationalFieldsToDb(payload: {
 
   if (payload.operationalBaseName !== undefined) {
     update.operational_base_name = payload.operationalBaseName?.trim() || null
+  }
+  if (payload.operationalBaseAddress !== undefined) {
+    update.operational_base_address =
+      payload.operationalBaseAddress?.trim() || null
   }
   if (payload.operationalBaseLatitude !== undefined) {
     update.operational_base_latitude = payload.operationalBaseLatitude

@@ -57,6 +57,8 @@ function buildFormState(
     supervisor: crew?.supervisor ?? defaultSupervisor,
     notes: crew?.notes ?? "",
     operationalBaseName: crew?.operationalBaseName ?? "",
+    operationalBaseAddress: crew?.operationalBaseAddress ?? "",
+    operationalBaseSharedLocation: "",
     operationalBaseLatitude:
       crew?.operationalBaseLatitude != null
         ? String(crew.operationalBaseLatitude)
@@ -227,13 +229,7 @@ function ExternalCrewFormDialogBody({
 
             <CrewOperationalConfigFields
               idPrefix="ext-crew-ops"
-              value={{
-                operationalBaseName: form.operationalBaseName,
-                operationalBaseLatitude: form.operationalBaseLatitude,
-                operationalBaseLongitude: form.operationalBaseLongitude,
-                habitualStartTime: form.habitualStartTime,
-                habitualShiftMinutes: form.habitualShiftMinutes,
-              }}
+              value={form}
               onChange={(next) =>
                 setForm((current) => ({
                   ...current,

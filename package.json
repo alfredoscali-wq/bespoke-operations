@@ -20,6 +20,8 @@
     "test:ops-2-1-planning-travel": "npx tsx --test scripts/test-ops-2-1-planning-travel.mjs",
     "test:ops-2-2-crew-operational-config": "npx tsx --test scripts/test-ops-2-2-crew-operational-config.mjs",
     "test:ops-2-3a-route-service": "npx tsx --test scripts/test-ops-2-3a-route-service.mjs",
+    "test:ops-2-3b-crew-summary": "npx tsx --test scripts/test-ops-2-3b-crew-summary.mjs",
+    "test:ops-2-3c-operational-base": "npx tsx --test scripts/test-ops-2-3c-operational-base.mjs",
     "test:oie-1-1-core": "npx tsx --test scripts/test-oie-1-1-core.mjs",
     "test:oie-1-2-ot-instrumentation": "npx tsx --test scripts/test-oie-1-2-ot-instrumentation.mjs",
     "test:activity-engine-1-1-ot-planning": "npx tsx --test scripts/test-activity-engine-1-1-ot-planning.mjs",

@@ -135,6 +135,8 @@ export function CrewFormDialog({
             notes: crew.notes,
             manuallyInactive: isCrewManuallyInactive(crew),
             operationalBaseName: crew.operationalBaseName ?? "",
+            operationalBaseAddress: crew.operationalBaseAddress ?? "",
+            operationalBaseSharedLocation: "",
             operationalBaseLatitude:
               crew.operationalBaseLatitude != null
                 ? String(crew.operationalBaseLatitude)
@@ -349,13 +351,7 @@ export function CrewFormDialog({
           </div>
 
           <CrewOperationalConfigFields
-            value={{
-              operationalBaseName: form.operationalBaseName,
-              operationalBaseLatitude: form.operationalBaseLatitude,
-              operationalBaseLongitude: form.operationalBaseLongitude,
-              habitualStartTime: form.habitualStartTime,
-              habitualShiftMinutes: form.habitualShiftMinutes,
-            }}
+            value={form}
             onChange={(next) =>
               setForm((current) => ({
                 ...current,

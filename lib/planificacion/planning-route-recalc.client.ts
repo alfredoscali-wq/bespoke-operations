@@ -1,5 +1,5 @@
 /**
- * Browser client for OPS 2.3A route recalculation.
+ * Browser client for OPS 2.3A/C route recalculation.
  * Never calls OpenRouteService from the browser.
  */
 
@@ -14,9 +14,17 @@ export type RecalculatePlanningRoutesResult =
     }
   | { success: false; message: string }
 
+export type PlanningBaseOverridePayload = {
+  name: string
+  latitude: number
+  longitude: number
+}
+
 export async function recalculatePlanningRoutesForCrew(input: {
   crewId: string
   taskIds: string[]
+  /** Day-level base override (session). Null clears to crew permanent base. */
+  baseOverride?: PlanningBaseOverridePayload | null
 }): Promise<RecalculatePlanningRoutesResult> {
   try {
     const response = await fetch("/api/planificacion/routes/recalculate", {
@@ -25,6 +33,7 @@ export async function recalculatePlanningRoutesForCrew(input: {
       body: JSON.stringify({
         crewId: input.crewId,
         taskIds: input.taskIds,
+        baseOverride: input.baseOverride ?? null,
       }),
     })
 

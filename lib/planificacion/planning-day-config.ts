@@ -1,8 +1,9 @@
 /**
- * OPS 2.2 — planning-day operational config (ephemeral overrides).
+ * OPS 2.2 / 2.3C — planning-day operational config (ephemeral overrides).
  * Never persists back onto the crew permanent configuration.
  */
 
+import { hasCoordinates } from "@/lib/gps"
 import {
   resolveCrewHabitualShiftMinutes,
   resolveCrewHabitualStartTime,
@@ -16,6 +17,9 @@ import type { Crew } from "@/lib/types/crews"
 export type PlanningDayOperationalOverride = {
   useHabitual: boolean
   operationalBaseName?: string | null
+  operationalBaseAddress?: string | null
+  operationalBaseLatitude?: number | null
+  operationalBaseLongitude?: number | null
   startTime?: string | null
   availableMinutes?: number | null
 }
@@ -23,9 +27,10 @@ export type PlanningDayOperationalOverride = {
 export type PlanningDayOperationalConfig = {
   useHabitual: boolean
   operationalBaseName: string
+  operationalBaseAddress: string | null
   startTime: string
   availableMinutes: number
-  /** Permanent crew GPS base — for OPS 2.3 routing. */
+  /** Effective base for this jornada (habitual or day override GPS). */
   operationalBase: CrewOperationalBase | null
   source: "habitual" | "override"
 }
@@ -68,6 +73,23 @@ function writeStore(store: PlanningDayConfigStore): void {
   }
 }
 
+function readOverrideCoords(entry: PlanningDayOperationalOverride): {
+  latitude: number | null
+  longitude: number | null
+} {
+  const latitude =
+    typeof entry.operationalBaseLatitude === "number" &&
+    Number.isFinite(entry.operationalBaseLatitude)
+      ? entry.operationalBaseLatitude
+      : null
+  const longitude =
+    typeof entry.operationalBaseLongitude === "number" &&
+    Number.isFinite(entry.operationalBaseLongitude)
+      ? entry.operationalBaseLongitude
+      : null
+  return { latitude, longitude }
+}
+
 export function readPlanningDayOperationalOverride(
   date: string,
   crewId: string
@@ -76,9 +98,13 @@ export function readPlanningDayOperationalOverride(
   if (!entry || typeof entry !== "object") {
     return null
   }
+  const coords = readOverrideCoords(entry)
   return {
     useHabitual: entry.useHabitual !== false,
     operationalBaseName: entry.operationalBaseName ?? null,
+    operationalBaseAddress: entry.operationalBaseAddress ?? null,
+    operationalBaseLatitude: coords.latitude,
+    operationalBaseLongitude: coords.longitude,
     startTime: entry.startTime ?? null,
     availableMinutes:
       typeof entry.availableMinutes === "number"
@@ -96,6 +122,15 @@ export function writePlanningDayOperationalOverride(
   store[dayConfigKey(date, crewId)] = {
     useHabitual: override.useHabitual,
     operationalBaseName: override.operationalBaseName ?? null,
+    operationalBaseAddress: override.operationalBaseAddress ?? null,
+    operationalBaseLatitude:
+      typeof override.operationalBaseLatitude === "number"
+        ? override.operationalBaseLatitude
+        : null,
+    operationalBaseLongitude:
+      typeof override.operationalBaseLongitude === "number"
+        ? override.operationalBaseLongitude
+        : null,
     startTime: override.startTime ?? null,
     availableMinutes:
       typeof override.availableMinutes === "number" &&
@@ -115,6 +150,34 @@ export function clearPlanningDayOperationalOverride(
   writeStore(store)
 }
 
+function resolveOverrideOperationalBase(input: {
+  name: string
+  address: string | null
+  latitude: number | null
+  longitude: number | null
+  fallback: CrewOperationalBase | null
+}): CrewOperationalBase | null {
+  if (
+    hasCoordinates(input.latitude, input.longitude) &&
+    input.latitude != null &&
+    input.longitude != null &&
+    input.name.trim()
+  ) {
+    return {
+      name: input.name.trim(),
+      latitude: input.latitude,
+      longitude: input.longitude,
+    }
+  }
+  if (input.fallback) {
+    return {
+      ...input.fallback,
+      name: input.name.trim() || input.fallback.name,
+    }
+  }
+  return null
+}
+
 /**
  * Resolves effective jornada settings for a crew on a planning day.
  * Override never mutates crew permanent config.
@@ -123,6 +186,7 @@ export function resolvePlanningDayOperationalConfig(input: {
   crew: Pick<
     Crew,
     | "operationalBaseName"
+    | "operationalBaseAddress"
     | "operationalBaseLatitude"
     | "operationalBaseLongitude"
     | "habitualStartTime"
@@ -133,6 +197,7 @@ export function resolvePlanningDayOperationalConfig(input: {
   const habitual = resolveCrewOperationalConfig(input.crew)
   const override = input.override
   const useHabitual = override == null || override.useHabitual !== false
+  const habitualBase = resolveCrewOperationalBase(input.crew)
 
   if (useHabitual) {
     return {
@@ -141,15 +206,16 @@ export function resolvePlanningDayOperationalConfig(input: {
         habitual.baseName?.trim() ||
         habitual.base?.name ||
         "Base Operativa",
+      operationalBaseAddress:
+        input.crew.operationalBaseAddress?.trim() || null,
       startTime: habitual.startTime,
       availableMinutes: habitual.shiftMinutes,
-      operationalBase: resolveCrewOperationalBase(input.crew),
+      operationalBase: habitualBase,
       source: "habitual",
     }
   }
 
-  const startTime =
-    override?.startTime?.trim() || habitual.startTime
+  const startTime = override?.startTime?.trim() || habitual.startTime
   const availableMinutes =
     typeof override?.availableMinutes === "number" &&
     override.availableMinutes > 0
@@ -160,14 +226,50 @@ export function resolvePlanningDayOperationalConfig(input: {
     habitual.baseName?.trim() ||
     habitual.base?.name ||
     "Base Operativa"
+  const operationalBaseAddress =
+    override?.operationalBaseAddress?.trim() ||
+    input.crew.operationalBaseAddress?.trim() ||
+    null
 
   return {
     useHabitual: false,
     operationalBaseName,
+    operationalBaseAddress,
     startTime,
     availableMinutes,
-    operationalBase: resolveCrewOperationalBase(input.crew),
+    operationalBase: resolveOverrideOperationalBase({
+      name: operationalBaseName,
+      address: operationalBaseAddress,
+      latitude: override?.operationalBaseLatitude ?? null,
+      longitude: override?.operationalBaseLongitude ?? null,
+      fallback: habitualBase,
+    }),
     source: "override",
+  }
+}
+
+/**
+ * Returns a crew-shaped pick with effective base fields for Route/Summary.
+ */
+export function applyDayOperationalBaseToCrew<
+  T extends Pick<
+    Crew,
+    | "id"
+    | "name"
+    | "operationalBaseName"
+    | "operationalBaseAddress"
+    | "operationalBaseLatitude"
+    | "operationalBaseLongitude"
+    | "habitualShiftMinutes"
+  >,
+>(crew: T, dayConfig: PlanningDayOperationalConfig): T {
+  const base = dayConfig.operationalBase
+  return {
+    ...crew,
+    operationalBaseName: dayConfig.operationalBaseName,
+    operationalBaseAddress: dayConfig.operationalBaseAddress,
+    operationalBaseLatitude: base?.latitude ?? null,
+    operationalBaseLongitude: base?.longitude ?? null,
   }
 }
 
@@ -212,6 +314,28 @@ export function validatePlanningDayOperationalOverride(
         ok: false,
         message: "La hora de inicio no es válida (formato HH:MM).",
       }
+    }
+  }
+
+  const hasLat = override.operationalBaseLatitude != null
+  const hasLng = override.operationalBaseLongitude != null
+  if (hasLat !== hasLng) {
+    return {
+      ok: false,
+      message: "La Base Operativa del día requiere latitud y longitud.",
+    }
+  }
+  if (
+    hasLat &&
+    hasLng &&
+    !hasCoordinates(
+      override.operationalBaseLatitude,
+      override.operationalBaseLongitude
+    )
+  ) {
+    return {
+      ok: false,
+      message: "Las coordenadas de la Base Operativa del día no son válidas.",
     }
   }
 

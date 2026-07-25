@@ -25,6 +25,7 @@ export type CrewOperationalBase = {
 
 export type CrewOperationalConfig = {
   baseName: string | null
+  address: string | null
   latitude: number | null
   longitude: number | null
   startTime: string
@@ -35,6 +36,7 @@ export type CrewOperationalConfig = {
 
 export type CrewOperationalConfigInput = {
   operationalBaseName?: string | null
+  operationalBaseAddress?: string | null
   operationalBaseLatitude?: number | null
   operationalBaseLongitude?: number | null
   habitualStartTime?: string | null
@@ -131,6 +133,7 @@ export function resolveCrewOperationalConfig(
   crew: Pick<
     Crew,
     | "operationalBaseName"
+    | "operationalBaseAddress"
     | "operationalBaseLatitude"
     | "operationalBaseLongitude"
     | "habitualStartTime"
@@ -140,6 +143,7 @@ export function resolveCrewOperationalConfig(
   const base = resolveCrewOperationalBase(crew)
   return {
     baseName: crew.operationalBaseName?.trim() || null,
+    address: crew.operationalBaseAddress?.trim() || null,
     latitude: crew.operationalBaseLatitude ?? null,
     longitude: crew.operationalBaseLongitude ?? null,
     startTime: resolveCrewHabitualStartTime(crew),
