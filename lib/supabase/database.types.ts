@@ -917,6 +917,9 @@ export type Database = {
           correlation_id: string | null
           severity: string
           created_at: string
+          updated_at: string
+          category: string | null
+          impact: string | null
           result: string | null
           session_id: string | null
           duration_ms: number | null
@@ -939,6 +942,9 @@ export type Database = {
           correlation_id?: string | null
           severity?: string
           created_at?: string
+          updated_at?: string
+          category?: string | null
+          impact?: string | null
           result?: string | null
           session_id?: string | null
           duration_ms?: number | null
@@ -961,6 +967,9 @@ export type Database = {
           correlation_id?: string | null
           severity?: string
           created_at?: string
+          updated_at?: string
+          category?: string | null
+          impact?: string | null
           result?: string | null
           session_id?: string | null
           duration_ms?: number | null
@@ -2013,6 +2022,21 @@ export type Database = {
           p_latitude?: number | null
           p_longitude?: number | null
           p_accuracy_m?: number | null
+        }
+        Returns: string
+      }
+      record_activity_engine_event: {
+        Args: {
+          p_company_id: string
+          p_module: string
+          p_entity_type: string
+          p_entity_id: string
+          p_employee_id: string | null
+          p_action: string
+          p_category: string
+          p_impact: string
+          p_origin: string
+          p_metadata: Record<string, unknown>
         }
         Returns: string
       }
