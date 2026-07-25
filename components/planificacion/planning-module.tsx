@@ -103,11 +103,9 @@ import {
 } from "@/lib/planificacion/planning-crew-state"
 
 import {
-
   buildPlanningCrewSummaries,
-
   filterPlanningTasksByCrewFilter,
-
+  resolveTaskPlanningCoordinates,
 } from "@/lib/planificacion/planning-utils"
 
 import { calculatePlanningSummary } from "@/lib/planificacion/planning-summary"
@@ -120,23 +118,17 @@ import {
 } from "@/lib/planificacion/planning-day-config"
 
 import {
-
-  buildReturnToBaseMetadataUpdates,
-
+  planningRepository,
+} from "@/lib/engines/planning/repositories/PlanningRepository"
+import { resolveCrewOperationalBase } from "@/lib/crews/operational-config"
+import {
   listOrderedTasksForCrewJourney,
-
-  mergeTravelFromPreviousMinutes,
-
   PLANNING_RETURN_TO_BASE_KEY,
-
   PLANNING_TRAVEL_FROM_PREVIOUS_KEY,
-
 } from "@/lib/planificacion/planning-travel"
-
-import { sortTasksByDispatchRoute, resolveTaskRouteOrder } from "@/lib/tasks/dispatch-order"
-
+import { recalculatePlanningRoutesForCrew } from "@/lib/planificacion/planning-route-recalc.client"
 import { resolveTaskCrewId } from "@/lib/tasks/crew-relation"
-
+import { sortTasksByDispatchRoute, resolveTaskRouteOrder } from "@/lib/tasks/dispatch-order"
 import { canReturnPlanningTaskToAtencion } from "@/lib/tasks/planning-return"
 
 import { listPendingClosureTasksForPlanningDate } from "@/lib/planificacion/planning-pending-closure"
@@ -493,6 +485,73 @@ function PlanningModuleContent() {
 
 
 
+  const runAutomaticRouteRecalc = useCallback(
+    async (crewId: string, scopeTasks: typeof listTasks) => {
+      const taskIds = scopeTasks
+        .filter((task) => resolveTaskCrewId(task, crews) === crewId)
+        .map((task) => task.id)
+
+      if (taskIds.length === 0) {
+        return
+      }
+
+      const result = await recalculatePlanningRoutesForCrew({
+        crewId,
+        taskIds,
+      })
+
+      if (!result.success) {
+        // Soft-fail: keep planning usable.
+        console.warn("[planning/route] client_recalc_failed", result.message)
+        return
+      }
+
+      if (result.updatedTaskIds.length > 0) {
+        await refreshTasksFromServer()
+      }
+    },
+    [crews, refreshTasksFromServer]
+  )
+
+  const routeStructureKey = useMemo(() => {
+    if (!crewFilterId) {
+      return null
+    }
+    const crew = activeCrews.find((entry) => entry.id === crewFilterId)
+    if (!crew) {
+      return null
+    }
+    const base = resolveCrewOperationalBase(crew)
+    const ordered = listOrderedTasksForCrewJourney(
+      listTasks,
+      crewFilterId,
+      crews
+    )
+    return JSON.stringify({
+      crewId: crewFilterId,
+      base: base
+        ? [base.latitude, base.longitude]
+        : null,
+      legs: ordered.map((task) => {
+        const coords = resolveTaskPlanningCoordinates(task)
+        return [
+          task.id,
+          coords?.latitude ?? null,
+          coords?.longitude ?? null,
+        ]
+      }),
+    })
+  }, [crewFilterId, activeCrews, listTasks, crews])
+
+  useEffect(() => {
+    if (!isTasksReady || !crewFilterId || !routeStructureKey) {
+      return
+    }
+    void runAutomaticRouteRecalc(crewFilterId, listTasks)
+    // Structural key drives recalc; avoid loops when only travel metadata refreshes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- listTasks read when structure changes
+  }, [isTasksReady, crewFilterId, routeStructureKey, runAutomaticRouteRecalc])
+
   const handleMoveTaskOrder = useCallback(
 
     async (taskId: string, direction: "up" | "down") => {
@@ -539,6 +598,12 @@ function PlanningModuleContent() {
 
         }
 
+        const moved = planningOrderScopeTasks.find((entry) => entry.id === taskId)
+        const movedCrewId = moved ? resolveTaskCrewId(moved, crews) : null
+        if (movedCrewId) {
+          void runAutomaticRouteRecalc(movedCrewId, planningOrderScopeTasks)
+        }
+
       } catch (error) {
 
         console.error(error)
@@ -561,7 +626,7 @@ function PlanningModuleContent() {
 
     },
 
-    [planningOrderScopeTasks, crews, applyExecutionOrderUpdates]
+    [planningOrderScopeTasks, crews, applyExecutionOrderUpdates, runAutomaticRouteRecalc]
 
   )
 
@@ -581,11 +646,57 @@ function PlanningModuleContent() {
         return
       }
 
+      const crewId = resolveTaskCrewId(owner, crews)
+      const crew = crewId
+        ? activeCrews.find((entry) => entry.id === crewId) ?? null
+        : null
+      const base = crew ? resolveCrewOperationalBase(crew) : null
+      const ordered = crewId
+        ? listOrderedTasksForCrewJourney(listTasks, crewId, crews)
+        : [owner]
+      const ownerIndex = ordered.findIndex((task) => task.id === owner.id)
+
       if (input.field === PLANNING_TRAVEL_FROM_PREVIOUS_KEY) {
+        const destination = resolveTaskPlanningCoordinates(owner)
+        const origin =
+          ownerIndex <= 0
+            ? base
+              ? { latitude: base.latitude, longitude: base.longitude }
+              : null
+            : (() => {
+                const previous = resolveTaskPlanningCoordinates(
+                  ordered[ownerIndex - 1]
+                )
+                return previous
+                  ? {
+                      latitude: previous.latitude,
+                      longitude: previous.longitude,
+                    }
+                  : null
+              })()
+
+        if (!origin || !destination) {
+          setDispatchError(
+            "No se pueden guardar traslados sin coordenadas de origen y destino."
+          )
+          return
+        }
+
         const result = await editTask(owner.id, {
-          taskMetadata: mergeTravelFromPreviousMinutes(
+          taskMetadata: planningRepository.mergeTravelFromPrevious(
             owner.taskMetadata,
-            input.minutes
+            {
+              minutes: input.minutes,
+              distanceMeters: planningRepository.readTravelFromPrevious(
+                owner.taskMetadata
+              ).distanceMeters,
+              source: "MANUAL",
+              origin,
+              destination: {
+                latitude: destination.latitude,
+                longitude: destination.longitude,
+              },
+            }
           ),
         })
         if (!result.success) {
@@ -596,47 +707,59 @@ function PlanningModuleContent() {
         return
       }
 
-      const crewId = resolveTaskCrewId(owner, crews)
-      const ordered = crewId
-        ? listOrderedTasksForCrewJourney(listTasks, crewId, crews)
-        : sortTasksByDispatchRoute(
-            listTasks.filter((task) => task.id === owner.id),
-            crews
-          )
+      if (!base) {
+        setDispatchError(
+          "Configurá la Base Operativa de la cuadrilla para registrar el regreso."
+        )
+        return
+      }
 
-      const journeyOrdered =
-        ordered.length > 0
-          ? ordered
-          : sortTasksByDispatchRoute(
-              listTasks.filter(
-                (task) =>
-                  resolveTaskCrewId(task, crews) ===
-                  resolveTaskCrewId(owner, crews)
-              ),
-              crews
-            )
+      const last = ordered[ordered.length - 1] ?? owner
+      const originCoords = resolveTaskPlanningCoordinates(last)
+      if (!originCoords) {
+        setDispatchError("La última OT no tiene coordenadas GPS.")
+        return
+      }
 
-      const updates = buildReturnToBaseMetadataUpdates(
-        journeyOrdered.length > 0 ? journeyOrdered : [owner],
-        input.minutes
-      )
+      const origin = {
+        latitude: originCoords.latitude,
+        longitude: originCoords.longitude,
+      }
+      const destination = {
+        latitude: base.latitude,
+        longitude: base.longitude,
+      }
 
-      for (const update of updates) {
-        const result = await editTask(update.taskId, {
-          taskMetadata: update.taskMetadata,
-        })
-        if (!result.success) {
-          setDispatchError(
-            result.message ?? "No se pudo guardar el regreso a base."
-          )
-          return
+      // Clear stray return metadata, then write MANUAL on current last.
+      for (const task of ordered) {
+        if (task.id === last.id) {
+          continue
+        }
+        if (task.taskMetadata?.return_to_base_minutes != null) {
+          await editTask(task.id, {
+            taskMetadata: planningRepository.clearReturnToBase(task.taskMetadata),
+          })
         }
       }
+
+      const result = await editTask(last.id, {
+        taskMetadata: planningRepository.mergeReturnToBase(last.taskMetadata, {
+          minutes: input.minutes,
+          distanceMeters: planningRepository.readReturnToBase(last.taskMetadata)
+            .distanceMeters,
+          source: "MANUAL",
+          origin,
+          destination,
+        }),
+      })
+      if (!result.success) {
+        setDispatchError(
+          result.message ?? "No se pudo guardar el regreso a base."
+        )
+      }
     },
-    [tasks, crews, listTasks, editTask]
+    [tasks, crews, listTasks, editTask, activeCrews]
   )
-
-
 
   const handleMoveTaskToPosition = useCallback(
 
@@ -704,6 +827,11 @@ function PlanningModuleContent() {
 
         }
 
+        const movedCrewId = resolveTaskCrewId(task, crews)
+        if (movedCrewId) {
+          void runAutomaticRouteRecalc(movedCrewId, planningOrderScopeTasks)
+        }
+
       } catch (error) {
 
         console.error(error)
@@ -726,7 +854,7 @@ function PlanningModuleContent() {
 
     },
 
-    [planningOrderScopeTasks, crews, applyExecutionOrderUpdates]
+    [planningOrderScopeTasks, crews, applyExecutionOrderUpdates, runAutomaticRouteRecalc]
 
   )
 
@@ -771,6 +899,14 @@ function PlanningModuleContent() {
           description:
             "La orden salió de Planificación y quedó disponible en Órdenes de Trabajo.",
         })
+
+        const returnedCrewId = resolveTaskCrewId(returnDialogTask, crews)
+        if (returnedCrewId) {
+          const remaining = listTasks.filter(
+            (task) => task.id !== returnDialogTask.id
+          )
+          void runAutomaticRouteRecalc(returnedCrewId, remaining)
+        }
       } finally {
         setIsReturningToAtencion(false)
       }
@@ -778,8 +914,10 @@ function PlanningModuleContent() {
     [
       adjustSheetTaskId,
       crews,
+      listTasks,
       returnDialogTask,
       returnPlanningTaskToAtencion,
+      runAutomaticRouteRecalc,
       selectedTaskId,
     ]
   )
