@@ -17,6 +17,7 @@ import {
 import {
   buildCrewJourneySegments,
   listAffectedSegmentIds,
+  MISSING_BASE_GPS_WARNING,
 } from "../lib/engines/planning/services/recalculate-journey-travel.ts"
 import { recalculateCrewJourneyTravel } from "../lib/engines/planning/services/recalculate-crew-journey.ts"
 
@@ -218,12 +219,14 @@ test("OPS 2.3A: segmentos Base→OT, OT→OT, OT→Base", () => {
     }),
   ]
 
-  const plans = buildCrewJourneySegments({
+  const built = buildCrewJourneySegments({
     tasks,
     crew,
     crews: [crew],
   })
-  assert.ok(Array.isArray(plans))
+  const plans = built.plans
+  assert.equal(built.baseGpsAvailable, true)
+  assert.equal(built.warning, null)
   assert.equal(plans.length, 4)
 
   assert.equal(plans[0].segment.kind, "to_task")
@@ -377,14 +380,13 @@ test("OPS 2.3A: recálculo parcial al eliminar OT intermedia", () => {
     tasks: beforeTasks,
     crew,
     crews: [crew],
-  })
+  }).plans
   const next = buildCrewJourneySegments({
     tasks: afterTasks,
     crew,
     crews: [crew],
-  })
+  }).plans
 
-  assert.ok(Array.isArray(previous) && Array.isArray(next))
   const affected = listAffectedSegmentIds(previous, next)
 
   // A→B and B→C disappear; A→C appears; return may move from C stays but endpoints same
@@ -434,4 +436,92 @@ test("OPS 2.3A: fallo de provider deja planificación usable", async () => {
   assert.equal(result.ok, true)
   assert.equal(result.failedCount, 2)
   assert.equal(result.recalculatedCount, 0)
+})
+
+test("OPS 2.3A.1: sin GPS de Base omite Base↔OT y calcula OT→OT", async () => {
+  resetSharedRouteServiceForTests()
+  const crew = {
+    id: "crew-a",
+    name: "Norte",
+    operationalBaseName: "Base sin GPS",
+    operationalBaseLatitude: null,
+    operationalBaseLongitude: null,
+  }
+  const tasks = [
+    makeTask({
+      id: "a",
+      code: "OT-A",
+      executionOrder: 1,
+      latitude: OT_A.latitude,
+      longitude: OT_A.longitude,
+    }),
+    makeTask({
+      id: "b",
+      code: "OT-B",
+      executionOrder: 2,
+      latitude: OT_B.latitude,
+      longitude: OT_B.longitude,
+    }),
+    makeTask({
+      id: "c",
+      code: "OT-C",
+      executionOrder: 3,
+      latitude: OT_C.latitude,
+      longitude: OT_C.longitude,
+    }),
+  ]
+
+  const built = buildCrewJourneySegments({
+    tasks,
+    crew,
+    crews: [crew],
+  })
+  assert.equal(built.baseGpsAvailable, false)
+  assert.equal(built.warning, MISSING_BASE_GPS_WARNING)
+  assert.equal(built.plans.length, 2)
+  assert.equal(built.plans[0].segment.id, "to-task:b")
+  assert.deepEqual(built.plans[0].segment.origin, OT_A)
+  assert.deepEqual(built.plans[0].segment.destination, OT_B)
+  assert.equal(built.plans[1].segment.id, "to-task:c")
+  assert.ok(!built.plans.some((plan) => plan.segment.kind === "return_to_base"))
+
+  let calls = 0
+  const result = await recalculateCrewJourneyTravel({
+    tasks,
+    crew,
+    crews: [crew],
+    routeService: new RouteService({
+      cache: new MemoryRouteCache(),
+      provider: mockProvider(async () => {
+        calls += 1
+        return okResult(12, 1800)
+      }),
+    }),
+  })
+
+  assert.equal(result.ok, true)
+  assert.equal(result.warning, MISSING_BASE_GPS_WARNING)
+  assert.equal(result.baseGpsAvailable, false)
+  assert.equal(result.recalculatedCount, 2)
+  assert.equal(calls, 2)
+})
+
+test("OPS 2.3A.1: guardado MANUAL sin GPS de Base no requiere extremos", () => {
+  const travel = planningRepository.mergeTravelFromPreviousMinutesOnly(
+    { travel_from_previous_minutes: 5 },
+    { minutes: 18 }
+  )
+  const leg = planningRepository.readTravelFromPrevious(travel)
+  assert.equal(leg.minutes, 18)
+  assert.equal(leg.source, "MANUAL")
+  assert.equal(leg.endpointsKey, null)
+
+  const ret = planningRepository.mergeReturnToBaseMinutesOnly(
+    {},
+    { minutes: 25 }
+  )
+  const returnLeg = planningRepository.readReturnToBase(ret)
+  assert.equal(returnLeg.minutes, 25)
+  assert.equal(returnLeg.source, "MANUAL")
+  assert.equal(returnLeg.endpointsKey, null)
 })

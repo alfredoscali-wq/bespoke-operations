@@ -38,6 +38,7 @@ export {
 export {
   buildCrewJourneySegments,
   listAffectedSegmentIds,
+  MISSING_BASE_GPS_WARNING,
 } from "@/lib/engines/planning/services/recalculate-journey-travel"
 
 export { recalculateCrewJourneyTravel } from "@/lib/engines/planning/services/recalculate-crew-journey"

@@ -103,19 +103,6 @@ export async function POST(request: Request) {
     crews: [{ id: crew.id, name: crew.name }],
   })
 
-  if (!result.ok) {
-    // Soft failure — planning continues; supervisor can edit manually.
-    console.warn("[planning/route] recalc_aborted", { message: result.message })
-    return NextResponse.json({
-      success: true,
-      warning: result.message,
-      recalculatedCount: 0,
-      skippedManualCount: 0,
-      failedCount: 0,
-      updatedTaskIds: [],
-    })
-  }
-
   const updatedTaskIds: string[] = []
 
   for (const update of result.updates) {
@@ -138,11 +125,19 @@ export async function POST(request: Request) {
     updatedTaskIds.push(update.taskId)
   }
 
+  if (result.warning) {
+    console.info("[planning/route] recalc_warning", {
+      warning: result.warning,
+      baseGpsAvailable: result.baseGpsAvailable,
+    })
+  }
+
   return NextResponse.json({
     success: true,
     recalculatedCount: result.recalculatedCount,
     skippedManualCount: result.skippedManualCount,
     failedCount: result.failedCount,
     updatedTaskIds,
+    ...(result.warning ? { warning: result.warning } : {}),
   })
 }

@@ -1,6 +1,14 @@
 /**
  * OPS 2.2 — crew permanent operational configuration.
  * Planning may read these defaults; never write them from day overrides.
+ *
+ * Base GPS lives on crews:
+ * - operational_base_name
+ * - operational_base_latitude
+ * - operational_base_longitude
+ * (migration 20261104000100_ops_2_2_crew_operational_config.sql)
+ *
+ * OPS 2.3C: add map/selector UX to capture these fields — no new columns needed.
  */
 
 import { hasCoordinates } from "@/lib/gps"

@@ -1,5 +1,9 @@
 /**
- * OPS 2.3A — build journey segments and decide which legs to recalculate.
+ * OPS 2.3A / 2.3A.1 — build journey segments and decide which legs to recalculate.
+ *
+ * Base GPS (`crews.operational_base_latitude/longitude` + name) already exists
+ * from OPS 2.2. When missing, degrade: skip Base→OT and OT→Base; keep OT→OT.
+ * OPS 2.3C can add map UX to capture base GPS — no new columns required for that.
  */
 
 import type {
@@ -20,11 +24,21 @@ import {
 import type { Crew } from "@/lib/types/crews"
 import type { Task } from "@/lib/types/tasks"
 
+export const MISSING_BASE_GPS_WARNING =
+  "La Base Operativa de esta cuadrilla no posee coordenadas GPS. Se calcularon únicamente los traslados entre órdenes de trabajo."
+
 export type JourneySegmentPlan = {
   segment: RouteSegment
   endpointsKey: string
   existing: PersistedTravelLeg
   needsRecalc: boolean
+}
+
+export type BuildCrewJourneySegmentsResult = {
+  plans: JourneySegmentPlan[]
+  /** Non-blocking advisory when base legs were skipped. */
+  warning: string | null
+  baseGpsAvailable: boolean
 }
 
 export function buildCrewJourneySegments(input: {
@@ -38,14 +52,10 @@ export function buildCrewJourneySegments(input: {
     | "operationalBaseLongitude"
   >
   crews: Pick<Crew, "id" | "name">[]
-}): JourneySegmentPlan[] | { error: string } {
+}): BuildCrewJourneySegmentsResult {
   const base = resolveCrewOperationalBase(input.crew)
-  if (!base) {
-    return {
-      error:
-        "La cuadrilla no tiene Base Operativa con coordenadas GPS configuradas.",
-    }
-  }
+  const baseGpsAvailable = base != null
+  const warning = baseGpsAvailable ? null : MISSING_BASE_GPS_WARNING
 
   const ordered = listOrderedTasksForCrewJourney(
     input.tasks,
@@ -54,13 +64,9 @@ export function buildCrewJourneySegments(input: {
   )
 
   if (ordered.length === 0) {
-    return []
+    return { plans: [], warning, baseGpsAvailable }
   }
 
-  const baseCoord: RouteCoordinate = {
-    latitude: base.latitude,
-    longitude: base.longitude,
-  }
   const plans: JourneySegmentPlan[] = []
 
   for (let index = 0; index < ordered.length; index += 1) {
@@ -70,9 +76,17 @@ export function buildCrewJourneySegments(input: {
       continue
     }
 
+    // Without base GPS, skip Base → Primera OT (index 0); keep OT → OT.
+    if (index === 0 && !base) {
+      continue
+    }
+
     const origin =
       index === 0
-        ? baseCoord
+        ? ({
+            latitude: base!.latitude,
+            longitude: base!.longitude,
+          } satisfies RouteCoordinate)
         : (() => {
             const previous = resolveTaskPlanningCoordinates(ordered[index - 1])
             return previous
@@ -106,7 +120,7 @@ export function buildCrewJourneySegments(input: {
         origin,
         destination,
         originLabel:
-          index === 0 ? base.name : resolvePlanningOtLabel(ordered[index - 1]),
+          index === 0 ? base!.name : resolvePlanningOtLabel(ordered[index - 1]),
         destinationLabel: resolvePlanningOtLabel(task),
       },
       endpointsKey,
@@ -115,42 +129,49 @@ export function buildCrewJourneySegments(input: {
     })
   }
 
-  const lastWithCoords = [...ordered]
-    .reverse()
-    .find((task) => resolveTaskPlanningCoordinates(task) != null)
+  // Without base GPS, skip Última OT → Base.
+  if (base) {
+    const lastWithCoords = [...ordered]
+      .reverse()
+      .find((task) => resolveTaskPlanningCoordinates(task) != null)
 
-  if (lastWithCoords) {
-    const lastCoord = resolveTaskPlanningCoordinates(lastWithCoords)!
-    const origin: RouteCoordinate = {
-      latitude: lastCoord.latitude,
-      longitude: lastCoord.longitude,
+    if (lastWithCoords) {
+      const lastCoord = resolveTaskPlanningCoordinates(lastWithCoords)!
+      const origin: RouteCoordinate = {
+        latitude: lastCoord.latitude,
+        longitude: lastCoord.longitude,
+      }
+      const baseCoord: RouteCoordinate = {
+        latitude: base.latitude,
+        longitude: base.longitude,
+      }
+      const endpointsKey = buildTravelEndpointsKey(origin, baseCoord)
+      const existing = planningRepository.readReturnToBase(
+        lastWithCoords.taskMetadata
+      )
+      const needsRecalc = !planningRepository.shouldSkipRecalc(
+        existing,
+        endpointsKey
+      )
+
+      plans.push({
+        segment: {
+          id: `return:${lastWithCoords.id}`,
+          kind: "return_to_base",
+          ownerTaskId: lastWithCoords.id,
+          origin,
+          destination: baseCoord,
+          originLabel: resolvePlanningOtLabel(lastWithCoords),
+          destinationLabel: base.name,
+        },
+        endpointsKey,
+        existing,
+        needsRecalc,
+      })
     }
-    const endpointsKey = buildTravelEndpointsKey(origin, baseCoord)
-    const existing = planningRepository.readReturnToBase(
-      lastWithCoords.taskMetadata
-    )
-    const needsRecalc = !planningRepository.shouldSkipRecalc(
-      existing,
-      endpointsKey
-    )
-
-    plans.push({
-      segment: {
-        id: `return:${lastWithCoords.id}`,
-        kind: "return_to_base",
-        ownerTaskId: lastWithCoords.id,
-        origin,
-        destination: baseCoord,
-        originLabel: resolvePlanningOtLabel(lastWithCoords),
-        destinationLabel: base.name,
-      },
-      endpointsKey,
-      existing,
-      needsRecalc,
-    })
   }
 
-  return plans
+  return { plans, warning, baseGpsAvailable }
 }
 
 export function listAffectedSegmentIds(

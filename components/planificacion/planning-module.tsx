@@ -175,6 +175,7 @@ function PlanningModuleContent() {
   const [crewActionError, setCrewActionError] = useState<string | null>(null)
 
   const [dispatchError, setDispatchError] = useState<string | null>(null)
+  const [routeWarning, setRouteWarning] = useState<string | null>(null)
 
   const [successMessage, setSuccessMessage] = useState<PlanningSuccessMessage | null>(null)
 
@@ -262,6 +263,7 @@ function PlanningModuleContent() {
     ) {
 
       setCrewFilterId(null)
+      setRouteWarning(null)
 
     }
 
@@ -506,6 +508,8 @@ function PlanningModuleContent() {
         return
       }
 
+      setRouteWarning(result.warning?.trim() || null)
+
       if (result.updatedTaskIds.length > 0) {
         await refreshTasksFromServer()
       }
@@ -675,10 +679,32 @@ function PlanningModuleContent() {
                   : null
               })()
 
-        if (!origin || !destination) {
+        // OT → OT: require OT GPS only (never block for missing base GPS).
+        if (ownerIndex > 0 && (!origin || !destination)) {
           setDispatchError(
-            "No se pueden guardar traslados sin coordenadas de origen y destino."
+            "No se pueden guardar traslados sin coordenadas GPS de las órdenes de trabajo."
           )
+          return
+        }
+
+        // Base → Primera OT without base GPS: still allow MANUAL minutes.
+        if (ownerIndex <= 0 && (!origin || !destination)) {
+          const result = await editTask(owner.id, {
+            taskMetadata: planningRepository.mergeTravelFromPreviousMinutesOnly(
+              owner.taskMetadata,
+              {
+                minutes: input.minutes,
+                distanceMeters: planningRepository.readTravelFromPrevious(
+                  owner.taskMetadata
+                ).distanceMeters,
+              }
+            ),
+          })
+          if (!result.success) {
+            setDispatchError(
+              result.message ?? "No se pudo guardar el tiempo de traslado."
+            )
+          }
           return
         }
 
@@ -691,10 +717,10 @@ function PlanningModuleContent() {
                 owner.taskMetadata
               ).distanceMeters,
               source: "MANUAL",
-              origin,
+              origin: origin!,
               destination: {
-                latitude: destination.latitude,
-                longitude: destination.longitude,
+                latitude: destination!.latitude,
+                longitude: destination!.longitude,
               },
             }
           ),
@@ -707,17 +733,27 @@ function PlanningModuleContent() {
         return
       }
 
-      if (!base) {
-        setDispatchError(
-          "Configurá la Base Operativa de la cuadrilla para registrar el regreso."
-        )
-        return
-      }
-
       const last = ordered[ordered.length - 1] ?? owner
       const originCoords = resolveTaskPlanningCoordinates(last)
-      if (!originCoords) {
-        setDispatchError("La última OT no tiene coordenadas GPS.")
+
+      // Return without base GPS: allow MANUAL minutes (OPS 2.3A.1).
+      if (!base || !originCoords) {
+        const result = await editTask(last.id, {
+          taskMetadata: planningRepository.mergeReturnToBaseMinutesOnly(
+            last.taskMetadata,
+            {
+              minutes: input.minutes,
+              distanceMeters: planningRepository.readReturnToBase(
+                last.taskMetadata
+              ).distanceMeters,
+            }
+          ),
+        })
+        if (!result.success) {
+          setDispatchError(
+            result.message ?? "No se pudo guardar el regreso a base."
+          )
+        }
         return
       }
 
@@ -1288,6 +1324,15 @@ function PlanningModuleContent() {
 
       ) : null}
 
+      {routeWarning ? (
+        <p
+          className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-900 dark:text-amber-100"
+          role="status"
+        >
+          {routeWarning}
+        </p>
+      ) : null}
+
 
 
       <div className="flex min-h-0 flex-1 flex-col gap-2">
@@ -1323,6 +1368,7 @@ function PlanningModuleContent() {
             setOverdueFilterActive(false)
 
             setCrewActionError(null)
+            setRouteWarning(null)
 
           }}
 
@@ -1333,6 +1379,7 @@ function PlanningModuleContent() {
             setOverdueFilterActive(true)
 
             setCrewActionError(null)
+            setRouteWarning(null)
 
           }}
 
@@ -1343,6 +1390,7 @@ function PlanningModuleContent() {
             setOverdueFilterActive(false)
 
             setCrewActionError(null)
+            setRouteWarning(null)
 
           }}
 

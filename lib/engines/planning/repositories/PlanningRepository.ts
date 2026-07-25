@@ -145,6 +145,27 @@ export class PlanningRepository {
     }
   }
 
+  /**
+   * MANUAL minutes without endpoint fingerprint (e.g. Base→OT when base GPS missing).
+   * OPS 2.3A.1 — never block supervisor edits for missing base GPS.
+   */
+  mergeTravelFromPreviousMinutesOnly(
+    metadata: Record<string, unknown> | undefined,
+    input: { minutes: number; distanceMeters?: number }
+  ): Record<string, unknown> {
+    const next: Record<string, unknown> = {
+      ...(metadata ?? {}),
+      [PLANNING_TRAVEL_FROM_PREVIOUS_KEY]: Math.max(0, Math.round(input.minutes)),
+      [TRAVEL_SOURCE_FROM_PREVIOUS_KEY]: "MANUAL" as TravelSource,
+      [TRAVEL_DISTANCE_FROM_PREVIOUS_KEY]: Math.max(
+        0,
+        Math.round(input.distanceMeters ?? 0)
+      ),
+    }
+    delete next[TRAVEL_ENDPOINTS_FROM_PREVIOUS_KEY]
+    return next
+  }
+
   mergeReturnToBase(
     metadata: Record<string, unknown> | undefined,
     input: {
@@ -165,6 +186,24 @@ export class PlanningRepository {
         input.destination
       ),
     }
+  }
+
+  /** MANUAL return minutes when base GPS is unavailable (OPS 2.3A.1). */
+  mergeReturnToBaseMinutesOnly(
+    metadata: Record<string, unknown> | undefined,
+    input: { minutes: number; distanceMeters?: number }
+  ): Record<string, unknown> {
+    const next: Record<string, unknown> = {
+      ...(metadata ?? {}),
+      [PLANNING_RETURN_TO_BASE_KEY]: Math.max(0, Math.round(input.minutes)),
+      [RETURN_SOURCE_KEY]: "MANUAL" as TravelSource,
+      [RETURN_DISTANCE_KEY]: Math.max(
+        0,
+        Math.round(input.distanceMeters ?? 0)
+      ),
+    }
+    delete next[RETURN_ENDPOINTS_KEY]
+    return next
   }
 
   clearReturnToBase(

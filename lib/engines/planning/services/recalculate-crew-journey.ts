@@ -24,14 +24,14 @@ export type RecalculateJourneyTravelResult = {
   skippedManualCount: number
   failedCount: number
   plans: JourneySegmentPlan[]
-} | {
-  ok: false
-  message: string
+  warning: string | null
+  baseGpsAvailable: boolean
 }
 
 /**
  * Recalculates only segments that need it (not MANUAL with same endpoints).
  * Failures never throw — planning stays usable.
+ * Missing base GPS degrades to OT→OT only (OPS 2.3A.1).
  */
 export async function recalculateCrewJourneyTravel(input: {
   tasks: Task[]
@@ -46,10 +46,6 @@ export async function recalculateCrewJourneyTravel(input: {
     crew: input.crew,
     crews: input.crews,
   })
-
-  if ("error" in built) {
-    return { ok: false, message: built.error }
-  }
 
   const force = new Set(input.forceSegmentIds ?? [])
   const routeService = input.routeService ?? getSharedRouteService()
@@ -69,7 +65,9 @@ export async function recalculateCrewJourneyTravel(input: {
   let failedCount = 0
 
   // Normalize return metadata onto the current last return owner only.
-  const returnPlan = built.find((plan) => plan.segment.kind === "return_to_base")
+  const returnPlan = built.plans.find(
+    (plan) => plan.segment.kind === "return_to_base"
+  )
   if (returnPlan) {
     for (const task of input.tasks) {
       if (task.id === returnPlan.segment.ownerTaskId) {
@@ -89,7 +87,7 @@ export async function recalculateCrewJourneyTravel(input: {
     }
   }
 
-  for (const plan of built) {
+  for (const plan of built.plans) {
     const needs =
       plan.needsRecalc ||
       (force.size > 0 && force.has(plan.segment.id))
@@ -188,6 +186,8 @@ export async function recalculateCrewJourneyTravel(input: {
     recalculatedCount,
     skippedManualCount,
     failedCount,
-    plans: built,
+    plans: built.plans,
+    warning: built.warning,
+    baseGpsAvailable: built.baseGpsAvailable,
   }
 }
