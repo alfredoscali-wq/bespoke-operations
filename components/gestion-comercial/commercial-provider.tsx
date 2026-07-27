@@ -23,6 +23,7 @@ import {
   listCommercialPeople,
   updateCommercialOpportunity,
 } from "@/lib/supabase/commercial.browser"
+import { resolveCommercialPersonDisplayName } from "@/lib/supabase/commercial.mapper"
 import type {
   CommercialOpportunity,
   CommercialOpportunityListItem,
@@ -32,6 +33,7 @@ import type {
   CreateCommercialOpportunityPayload,
   CreateCommercialPersonPayload,
   UpdateCommercialOpportunityPayload,
+  UpdateCommercialPersonPayload,
 } from "@/lib/types/supabase/commercial"
 
 type MutationResult<T> = {
@@ -63,6 +65,11 @@ type CommercialContextValue = {
   ) => Promise<CreateOpportunityWithPersonResult>
   prependOpportunity: (opportunity: CommercialOpportunityListItem) => void
   upsertPerson: (person: CommercialPerson) => void
+  upsertOpportunity: (opportunity: CommercialOpportunity) => void
+  updatePerson: (input: {
+    id: string
+    payload: Omit<UpdateCommercialPersonPayload, "updatedBy">
+  }) => Promise<MutationResult<CommercialPerson>>
   updateOpportunity: (
     id: string,
     input: Omit<UpdateCommercialOpportunityPayload, "updatedBy">
@@ -70,6 +77,12 @@ type CommercialContextValue = {
   deleteOpportunity: (id: string) => Promise<MutationResult<CommercialOpportunity>>
   getPerson: (id: string) => Promise<CommercialPerson | null>
   getOpportunity: (id: string) => Promise<CommercialOpportunity | null>
+  loadDossier: (opportunityId: string) => Promise<{
+    success: boolean
+    message?: string
+    opportunity?: CommercialOpportunity
+    person?: CommercialPerson
+  }>
 }
 
 const CommercialContext = createContext<CommercialContextValue | null>(null)
@@ -201,6 +214,56 @@ export function CommercialProvider({ children }: { children: React.ReactNode }) 
     []
   )
 
+  const upsertOpportunity = useCallback(
+    (opportunity: CommercialOpportunity) => {
+      setOpportunities((current) => {
+        const person = people.find((entry) => entry.id === opportunity.personId)
+        const existing = current.find((entry) => entry.id === opportunity.id)
+        const mapped: CommercialOpportunityListItem = {
+          ...opportunity,
+          personDisplayName: person
+            ? resolveCommercialPersonDisplayName(person)
+            : (existing?.personDisplayName ?? "Prospecto"),
+        }
+        const without = current.filter((entry) => entry.id !== opportunity.id)
+        return [mapped, ...without]
+      })
+    },
+    [people]
+  )
+
+  const updatePerson = useCallback(
+    async (input: {
+      id: string
+      payload: Omit<UpdateCommercialPersonPayload, "updatedBy">
+    }): Promise<MutationResult<CommercialPerson>> => {
+      const response = await fetch(
+        `/api/gestion-comercial/people/${input.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(input.payload),
+        }
+      )
+      const payload = (await response.json().catch(() => null)) as {
+        success?: boolean
+        message?: string
+        person?: CommercialPerson
+      } | null
+
+      if (!response.ok || !payload?.success || !payload.person) {
+        return {
+          success: false,
+          message: payload?.message ?? "No se pudo actualizar el prospecto.",
+        }
+      }
+
+      upsertPerson(payload.person)
+      return { success: true, data: payload.person }
+    },
+    [upsertPerson]
+  )
+
   const createOpportunityWithPerson = useCallback(
     async (
       input: CommercialCreateOpportunityBundleInput
@@ -265,10 +328,10 @@ export function CommercialProvider({ children }: { children: React.ReactNode }) 
         }
       }
 
-      await refresh()
+      upsertOpportunity(result.data)
       return { success: true, data: result.data }
     },
-    [actorEmployeeId, refresh]
+    [actorEmployeeId, upsertOpportunity]
   )
 
   const deleteOpportunity = useCallback(
@@ -310,6 +373,39 @@ export function CommercialProvider({ children }: { children: React.ReactNode }) 
     [opportunities]
   )
 
+  const loadDossier = useCallback(
+    async (opportunityId: string) => {
+      const opportunityResult = await getCommercialOpportunityById(opportunityId)
+      if (opportunityResult.error || !opportunityResult.data) {
+        return {
+          success: false as const,
+          message:
+            opportunityResult.error?.message ?? "Oportunidad no encontrada.",
+        }
+      }
+
+      const personResult = await getCommercialPersonById(
+        opportunityResult.data.personId
+      )
+      if (personResult.error || !personResult.data) {
+        return {
+          success: false as const,
+          message: personResult.error?.message ?? "Prospecto no encontrado.",
+        }
+      }
+
+      upsertPerson(personResult.data)
+      upsertOpportunity(opportunityResult.data)
+
+      return {
+        success: true as const,
+        opportunity: opportunityResult.data,
+        person: personResult.data,
+      }
+    },
+    [upsertOpportunity, upsertPerson]
+  )
+
   const value = useMemo<CommercialContextValue>(
     () => ({
       people,
@@ -321,10 +417,13 @@ export function CommercialProvider({ children }: { children: React.ReactNode }) 
       createOpportunityWithPerson,
       prependOpportunity,
       upsertPerson,
+      upsertOpportunity,
+      updatePerson,
       updateOpportunity,
       deleteOpportunity,
       getPerson,
       getOpportunity,
+      loadDossier,
     }),
     [
       people,
@@ -336,10 +435,13 @@ export function CommercialProvider({ children }: { children: React.ReactNode }) 
       createOpportunityWithPerson,
       prependOpportunity,
       upsertPerson,
+      upsertOpportunity,
+      updatePerson,
       updateOpportunity,
       deleteOpportunity,
       getPerson,
       getOpportunity,
+      loadDossier,
     ]
   )
 
@@ -417,6 +519,21 @@ export function useCreateOpportunity() {
 export function useCreateOpportunityWithPerson() {
   const { createOpportunityWithPerson } = useCommercialContext()
   return { mutateAsync: createOpportunityWithPerson }
+}
+
+export function useUpdateCommercialPerson() {
+  const { updatePerson } = useCommercialContext()
+  return { mutateAsync: updatePerson }
+}
+
+export function useCommercialContextLoad() {
+  const { loadDossier, upsertPerson, upsertOpportunity } =
+    useCommercialContext()
+  return {
+    loadDossier,
+    upsertPersonLocal: upsertPerson,
+    upsertOpportunityLocal: upsertOpportunity,
+  }
 }
 
 export function useUpdateOpportunity() {

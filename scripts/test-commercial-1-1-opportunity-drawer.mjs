@@ -113,7 +113,7 @@ test("email opcional y normalización", () => {
 
 test("drawer y endpoint de alta integrada existen", async () => {
   const drawer = await readFile(
-    "components/gestion-comercial/commercial-opportunity-drawer.tsx",
+    "components/gestion-comercial/commercial-new-opportunity-drawer.tsx",
     "utf8"
   )
   const moduleFile = await readFile(
@@ -126,14 +126,13 @@ test("drawer y endpoint de alta integrada existen", async () => {
   )
   const services = await readFile("lib/commercial/services.ts", "utf8")
 
-  assert.match(drawer, /CommercialOpportunityDrawer/)
+  assert.match(drawer, /CommercialNewOpportunityDrawer/)
   assert.match(drawer, /CommercialPersonSection/)
   assert.match(drawer, /CommercialOpportunitySection/)
   assert.match(drawer, /CommercialDrawerFooter/)
   assert.match(drawer, /DiscardChangesDialog/)
   assert.match(moduleFile, /Nueva Oportunidad/)
-  assert.match(moduleFile, /CommercialOpportunityDrawer/)
-  assert.match(moduleFile, /Oportunidad creada correctamente/)
+  assert.match(moduleFile, /CommercialNewOpportunityDrawer/)
   assert.match(route, /createWithPerson/)
   assert.match(services, /createWithPerson/)
   assert.match(services, /softDelete/)

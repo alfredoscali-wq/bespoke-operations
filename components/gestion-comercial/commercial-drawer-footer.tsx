@@ -9,12 +9,14 @@ type CommercialDrawerFooterProps = {
   formId: string
   isSubmitting: boolean
   onCancel: () => void
+  submitLabel?: string
 }
 
 export function CommercialDrawerFooter({
   formId,
   isSubmitting,
   onCancel,
+  submitLabel = "Guardar Oportunidad",
 }: CommercialDrawerFooterProps) {
   return (
     <SheetFooter className="gap-2 border-t sm:flex-row">
@@ -33,7 +35,7 @@ export function CommercialDrawerFooter({
             Guardando…
           </>
         ) : (
-          "Guardar Oportunidad"
+          submitLabel
         )}
       </Button>
     </SheetFooter>

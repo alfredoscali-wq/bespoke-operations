@@ -3,9 +3,8 @@
 import { useEffect, useMemo, useState } from "react"
 
 import { CommercialDrawerFooter } from "@/components/gestion-comercial/commercial-drawer-footer"
-import { CommercialOpportunitySection } from "@/components/gestion-comercial/commercial-opportunity-section"
-import { CommercialPersonSection } from "@/components/gestion-comercial/commercial-person-section"
-import { useCreateOpportunityWithPerson } from "@/components/gestion-comercial/commercial-provider"
+import { CommercialOpportunityForm } from "@/components/gestion-comercial/commercial-opportunity-form"
+import { useUpdateOpportunity } from "@/components/gestion-comercial/commercial-provider"
 import { useEmployees } from "@/components/rrhh/employees-provider"
 import {
   DiscardChangesDialog,
@@ -20,130 +19,63 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import {
-  EXISTING_PROSPECT_NOTICE,
-  normalizeCommercialEmail,
-  normalizeCommercialPhone,
-  validateCommercialCreateOpportunityBundle,
-  type CommercialCreateOpportunityBundleInput,
-  type CommercialNewOpportunityInput,
-  type CommercialNewOpportunityPersonInput,
-} from "@/lib/commercial/create-opportunity"
-import type { CommercialPerson } from "@/lib/types/commercial"
-import type { CommercialOpportunityListItem } from "@/lib/types/commercial"
+  parseOptionalAmount,
+  parseOptionalProbability,
+  type CommercialOpportunityFormValue,
+  validateCommercialOpportunityForm,
+} from "@/lib/commercial/display"
+import type { CommercialOpportunity } from "@/lib/types/commercial"
 
-const FORM_ID = "commercial-new-opportunity-form"
+const FORM_ID = "commercial-edit-opportunity-form"
 
-function buildDefaultPerson(): CommercialNewOpportunityPersonInput {
+function toFormValue(
+  opportunity: CommercialOpportunity
+): CommercialOpportunityFormValue {
   return {
-    personType: "individual",
-    firstName: "",
-    lastName: "",
-    companyName: "",
-    phone: "",
-    mobile: "",
-    email: "",
+    title: opportunity.title,
+    assignedEmployeeId: opportunity.assignedEmployeeId ?? "",
+    source: opportunity.source,
+    priority: opportunity.priority,
+    observations: opportunity.description,
+    status: opportunity.status,
+    estimatedAmount:
+      opportunity.estimatedAmount === null ||
+      opportunity.estimatedAmount === undefined
+        ? ""
+        : String(opportunity.estimatedAmount),
+    probability:
+      opportunity.probability === null || opportunity.probability === undefined
+        ? ""
+        : String(opportunity.probability),
+    expectedCloseDate: opportunity.expectedCloseDate ?? "",
+    lostReason: opportunity.lostReason,
   }
-}
-
-function buildDefaultOpportunity(
-  assignedEmployeeId = ""
-): CommercialNewOpportunityInput {
-  return {
-    title: "",
-    assignedEmployeeId,
-    source: "otro",
-    priority: "media",
-    observations: "",
-  }
-}
-
-function resolveExistingProspectNotice(
-  people: CommercialPerson[],
-  person: CommercialNewOpportunityPersonInput
-): string | null {
-  const email = normalizeCommercialEmail(person.email)
-  if (email) {
-    const match = people.find(
-      (entry) => normalizeCommercialEmail(entry.email) === email
-    )
-    if (match) return EXISTING_PROSPECT_NOTICE
-  }
-
-  const phones = [person.phone, person.mobile]
-    .map(normalizeCommercialPhone)
-    .filter(Boolean)
-
-  for (const phone of phones) {
-    const match = people.find(
-      (entry) =>
-        normalizeCommercialPhone(entry.phone) === phone ||
-        normalizeCommercialPhone(entry.mobile) === phone
-    )
-    if (match) return EXISTING_PROSPECT_NOTICE
-  }
-
-  return null
-}
-
-function advanceOnEnter(event: React.KeyboardEvent<HTMLInputElement>) {
-  if (event.key !== "Enter") return
-  event.preventDefault()
-
-  const form = event.currentTarget.form
-  if (!form) return
-
-  const fields = Array.from(
-    form.querySelectorAll<HTMLElement>(
-      "input:not([type=hidden]):not([disabled]), textarea:not([disabled]), button[role=combobox]:not([disabled])"
-    )
-  ).filter((element) => element.tabIndex !== -1)
-
-  const index = fields.indexOf(event.currentTarget)
-  const next = fields[index + 1]
-  next?.focus()
 }
 
 type CommercialOpportunityDrawerProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
-  people: CommercialPerson[]
-  onCreated: (opportunity: CommercialOpportunityListItem) => void
+  opportunity: CommercialOpportunity | null
+  onUpdated?: (opportunity: CommercialOpportunity) => void
 }
 
 export function CommercialOpportunityDrawer({
   open,
   onOpenChange,
-  people,
-  onCreated,
+  opportunity,
+  onUpdated,
 }: CommercialOpportunityDrawerProps) {
   const { employees, isEmployeesReady } = useEmployees()
-  const { mutateAsync: createWithPerson } = useCreateOpportunityWithPerson()
-
-  const defaultResponsibleId = useMemo(() => {
-    const active = employees.find(
-      (employee) => employee.employmentStatus === "active"
-    )
-    return active?.id ?? employees[0]?.id ?? ""
-  }, [employees])
-
-  const [person, setPerson] = useState(buildDefaultPerson)
-  const [opportunity, setOpportunity] = useState(() =>
-    buildDefaultOpportunity()
-  )
-  const [baseline, setBaseline] = useState<CommercialCreateOpportunityBundleInput>(
-    {
-      person: buildDefaultPerson(),
-      opportunity: buildDefaultOpportunity(),
-    }
-  )
+  const { mutateAsync: updateOpportunity } = useUpdateOpportunity()
+  const [form, setForm] = useState<CommercialOpportunityFormValue | null>(null)
+  const [baseline, setBaseline] =
+    useState<CommercialOpportunityFormValue | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const formState = useMemo(
-    () => ({ person, opportunity }),
-    [person, opportunity]
-  )
-  const isDirty = isFormStateDirty(formState, baseline)
+  const isDirty =
+    Boolean(form && baseline && isFormStateDirty(form, baseline)) &&
+    !isSubmitting
   const {
     handleOpenChange,
     requestClose,
@@ -153,30 +85,24 @@ export function CommercialOpportunityDrawer({
   } = useProtectedFormDialog({
     open,
     onOpenChange,
-    isDirty: isDirty && !isSubmitting,
+    isDirty,
   })
 
   useEffect(() => {
-    if (!open) return
-
+    if (!open || !opportunity) return
     let cancelled = false
     void Promise.resolve().then(() => {
       if (cancelled) return
-      const nextPerson = buildDefaultPerson()
-      const nextOpportunity = buildDefaultOpportunity(defaultResponsibleId)
-      setPerson(nextPerson)
-      setOpportunity(nextOpportunity)
-      setBaseline({ person: nextPerson, opportunity: nextOpportunity })
+      const next = toFormValue(opportunity)
+      setForm(next)
+      setBaseline(next)
       setError(null)
       setIsSubmitting(false)
     })
-
     return () => {
       cancelled = true
     }
-  }, [defaultResponsibleId, open])
-
-  const existingProspectNotice = resolveExistingProspectNotice(people, person)
+  }, [open, opportunity])
 
   const responsibleOptions = useMemo(
     () =>
@@ -193,10 +119,10 @@ export function CommercialOpportunityDrawer({
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
+    if (!opportunity || !form) return
     setError(null)
 
-    const bundle = { person, opportunity }
-    const validationError = validateCommercialCreateOpportunityBundle(bundle)
+    const validationError = validateCommercialOpportunityForm(form)
     if (validationError) {
       setError(validationError)
       return
@@ -204,19 +130,32 @@ export function CommercialOpportunityDrawer({
 
     setIsSubmitting(true)
     try {
-      const result = await createWithPerson(bundle)
+      const result = await updateOpportunity({
+        id: opportunity.id,
+        payload: {
+          title: form.title,
+          status: form.status,
+          priority: form.priority,
+          source: form.source,
+          assignedEmployeeId: form.assignedEmployeeId || null,
+          estimatedAmount: parseOptionalAmount(form.estimatedAmount),
+          probability: parseOptionalProbability(form.probability),
+          expectedCloseDate: form.expectedCloseDate.trim() || null,
+          description: form.observations,
+          lostReason: form.status === "perdida" ? form.lostReason : "",
+        },
+      })
       if (!result.success || !result.data) {
-        setError(result.message ?? "No se pudo crear la oportunidad.")
+        setError(result.message ?? "No se pudo actualizar la oportunidad.")
         return
       }
-
-      onCreated(result.data.opportunity)
+      onUpdated?.(result.data)
       onOpenChange(false)
     } catch (submitError) {
       setError(
         submitError instanceof Error
           ? submitError.message
-          : "No se pudo crear la oportunidad."
+          : "No se pudo actualizar la oportunidad."
       )
     } finally {
       setIsSubmitting(false)
@@ -229,56 +168,50 @@ export function CommercialOpportunityDrawer({
         <SheetContent
           side="right"
           className="flex w-full flex-col gap-0 p-0 sm:max-w-lg"
-          showCloseButton
           onEscapeKeyDown={(event) => {
-            if (isDirty && !isSubmitting) {
+            if (isDirty) {
               event.preventDefault()
               requestClose()
             }
           }}
         >
           <SheetHeader className="border-b">
-            <SheetTitle>Nueva Oportunidad</SheetTitle>
+            <SheetTitle>Editar Oportunidad</SheetTitle>
             <SheetDescription>
-              Registre el prospecto y la oportunidad comercial en un solo paso.
+              Actualice el expediente comercial sin salir de esta pantalla.
             </SheetDescription>
           </SheetHeader>
 
-          <form
-            id={FORM_ID}
-            onSubmit={(event) => void handleSubmit(event)}
-            className="flex min-h-0 flex-1 flex-col"
-          >
-            <div className="flex min-h-0 flex-1 flex-col gap-8 overflow-y-auto px-4 py-4">
-              <CommercialPersonSection
-                value={person}
-                onChange={setPerson}
-                disabled={isSubmitting}
-                autoFocusName={open}
-                existingProspectNotice={existingProspectNotice}
-                onAdvanceField={advanceOnEnter}
+          {form ? (
+            <form
+              id={FORM_ID}
+              onSubmit={(event) => void handleSubmit(event)}
+              className="flex min-h-0 flex-1 flex-col"
+            >
+              <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">
+                <CommercialOpportunityForm
+                  value={form}
+                  onChange={(next) =>
+                    setForm(next as CommercialOpportunityFormValue)
+                  }
+                  responsibleOptions={responsibleOptions}
+                  disabled={isSubmitting || !isEmployeesReady}
+                  showExtendedFields
+                />
+                {error ? (
+                  <p className="text-sm text-destructive" role="alert">
+                    {error}
+                  </p>
+                ) : null}
+              </div>
+              <CommercialDrawerFooter
+                formId={FORM_ID}
+                isSubmitting={isSubmitting}
+                onCancel={requestClose}
+                submitLabel="Guardar Oportunidad"
               />
-              <CommercialOpportunitySection
-                value={opportunity}
-                onChange={setOpportunity}
-                responsibleOptions={responsibleOptions}
-                disabled={isSubmitting || !isEmployeesReady}
-                onAdvanceField={advanceOnEnter}
-              />
-
-              {error ? (
-                <p className="text-sm text-destructive" role="alert">
-                  {error}
-                </p>
-              ) : null}
-            </div>
-
-            <CommercialDrawerFooter
-              formId={FORM_ID}
-              isSubmitting={isSubmitting}
-              onCancel={requestClose}
-            />
-          </form>
+            </form>
+          ) : null}
         </SheetContent>
       </Sheet>
 

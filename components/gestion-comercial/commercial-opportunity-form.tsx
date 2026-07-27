@@ -15,7 +15,10 @@ import {
   COMMERCIAL_PRIORITY_LABELS,
   COMMERCIAL_SOURCE_CODES,
   COMMERCIAL_SOURCE_LABELS,
+  COMMERCIAL_STATUS_CODES,
+  COMMERCIAL_STATUS_LABELS,
 } from "@/lib/commercial/catalogs"
+import type { CommercialOpportunityFormValue } from "@/lib/commercial/display"
 import type { CommercialNewOpportunityInput } from "@/lib/commercial/create-opportunity"
 
 export type CommercialOpportunityResponsibleOption = {
@@ -24,11 +27,21 @@ export type CommercialOpportunityResponsibleOption = {
 }
 
 export type CommercialOpportunityFormProps = {
-  value: CommercialNewOpportunityInput
-  onChange: (next: CommercialNewOpportunityInput) => void
+  value: CommercialOpportunityFormValue | CommercialNewOpportunityInput
+  onChange: (
+    next: CommercialOpportunityFormValue | CommercialNewOpportunityInput
+  ) => void
   responsibleOptions: CommercialOpportunityResponsibleOption[]
   disabled?: boolean
+  /** When true, shows status/amount/probability/close date/lost reason. */
+  showExtendedFields?: boolean
   onAdvanceField?: (event: React.KeyboardEvent<HTMLInputElement>) => void
+}
+
+function hasExtendedFields(
+  value: CommercialOpportunityFormValue | CommercialNewOpportunityInput
+): value is CommercialOpportunityFormValue {
+  return "status" in value
 }
 
 export function CommercialOpportunityForm({
@@ -36,11 +49,19 @@ export function CommercialOpportunityForm({
   onChange,
   responsibleOptions,
   disabled = false,
+  showExtendedFields = false,
   onAdvanceField,
 }: CommercialOpportunityFormProps) {
-  function patch(partial: Partial<CommercialNewOpportunityInput>) {
-    onChange({ ...value, ...partial })
+  function patch(
+    partial: Partial<
+      CommercialOpportunityFormValue | CommercialNewOpportunityInput
+    >
+  ) {
+    onChange({ ...value, ...partial } as typeof value)
   }
+
+  const extended = showExtendedFields && hasExtendedFields(value)
+  const observationsLabel = extended ? "Descripción" : "Observaciones"
 
   return (
     <div className="space-y-4">
@@ -55,6 +76,32 @@ export function CommercialOpportunityForm({
           required
         />
       </div>
+
+      {extended ? (
+        <div className="space-y-2">
+          <Label htmlFor="commercial-opportunity-status">Estado</Label>
+          <Select
+            value={value.status}
+            onValueChange={(status) =>
+              patch({
+                status: status as CommercialOpportunityFormValue["status"],
+              })
+            }
+            disabled={disabled}
+          >
+            <SelectTrigger id="commercial-opportunity-status">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {COMMERCIAL_STATUS_CODES.map((code) => (
+                <SelectItem key={code} value={code}>
+                  {COMMERCIAL_STATUS_LABELS[code]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      ) : null}
 
       <div className="space-y-2">
         <Label htmlFor="commercial-opportunity-responsible">Responsable</Label>
@@ -126,8 +173,56 @@ export function CommercialOpportunityForm({
         </div>
       </div>
 
+      {extended ? (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="commercial-opportunity-amount">Monto estimado</Label>
+            <Input
+              id="commercial-opportunity-amount"
+              inputMode="decimal"
+              value={value.estimatedAmount}
+              onChange={(event) =>
+                patch({ estimatedAmount: event.target.value })
+              }
+              onKeyDown={onAdvanceField}
+              disabled={disabled}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="commercial-opportunity-probability">
+              Probabilidad (%)
+            </Label>
+            <Input
+              id="commercial-opportunity-probability"
+              inputMode="numeric"
+              value={value.probability}
+              onChange={(event) => patch({ probability: event.target.value })}
+              onKeyDown={onAdvanceField}
+              disabled={disabled}
+            />
+          </div>
+          <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="commercial-opportunity-close-date">
+              Fecha estimada de cierre
+            </Label>
+            <Input
+              id="commercial-opportunity-close-date"
+              type="date"
+              value={value.expectedCloseDate}
+              onChange={(event) =>
+                patch({ expectedCloseDate: event.target.value })
+              }
+              onKeyDown={onAdvanceField}
+              disabled={disabled}
+            />
+          </div>
+        </div>
+      ) : null}
+
       <div className="space-y-2">
-        <Label htmlFor="commercial-opportunity-observations">Observaciones</Label>
+        <Label htmlFor="commercial-opportunity-observations">
+          {observationsLabel}
+        </Label>
         <Textarea
           id="commercial-opportunity-observations"
           value={value.observations}
@@ -136,6 +231,21 @@ export function CommercialOpportunityForm({
           disabled={disabled}
         />
       </div>
+
+      {extended && value.status === "perdida" ? (
+        <div className="space-y-2">
+          <Label htmlFor="commercial-opportunity-lost-reason">
+            Motivo de pérdida
+          </Label>
+          <Textarea
+            id="commercial-opportunity-lost-reason"
+            value={value.lostReason}
+            onChange={(event) => patch({ lostReason: event.target.value })}
+            rows={2}
+            disabled={disabled}
+          />
+        </div>
+      ) : null}
     </div>
   )
 }
