@@ -193,6 +193,91 @@ export async function softDeleteCommercialPerson(
   }
 }
 
+/**
+ * Find an active prospect by exact email (case-insensitive) or exact phone/mobile.
+ * Email match wins when both could match different people.
+ */
+export async function findCommercialPersonByContact(
+  client: SupabaseCommercialClient,
+  companyId: string,
+  contact: { email?: string; phone?: string; mobile?: string }
+): Promise<CommercialRepositoryResult<CommercialPerson | null>> {
+  const email = contact.email?.trim().toLowerCase() ?? ""
+  const phones = [
+    ...new Set(
+      [contact.phone, contact.mobile]
+        .map((value) => value?.trim() ?? "")
+        .filter(Boolean)
+    ),
+  ]
+
+  if (email) {
+    const { data, error } = await client
+      .from("commercial_people")
+      .select(PERSON_SELECT)
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .ilike("email", email)
+      .order("created_at", { ascending: true })
+      .limit(1)
+
+    if (error) {
+      return { data: null, error: mapSupabaseCommercialError(error) }
+    }
+
+    if (data?.[0]) {
+      return {
+        data: mapCommercialPersonRowToPerson(data[0]),
+        error: null,
+      }
+    }
+  }
+
+  for (const phone of phones) {
+    const byPhone = await client
+      .from("commercial_people")
+      .select(PERSON_SELECT)
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .eq("phone", phone)
+      .order("created_at", { ascending: true })
+      .limit(1)
+
+    if (byPhone.error) {
+      return { data: null, error: mapSupabaseCommercialError(byPhone.error) }
+    }
+
+    if (byPhone.data?.[0]) {
+      return {
+        data: mapCommercialPersonRowToPerson(byPhone.data[0]),
+        error: null,
+      }
+    }
+
+    const byMobile = await client
+      .from("commercial_people")
+      .select(PERSON_SELECT)
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .eq("mobile", phone)
+      .order("created_at", { ascending: true })
+      .limit(1)
+
+    if (byMobile.error) {
+      return { data: null, error: mapSupabaseCommercialError(byMobile.error) }
+    }
+
+    if (byMobile.data?.[0]) {
+      return {
+        data: mapCommercialPersonRowToPerson(byMobile.data[0]),
+        error: null,
+      }
+    }
+  }
+
+  return { data: null, error: null }
+}
+
 export async function fetchCommercialOpportunities(
   client: SupabaseCommercialClient,
   companyId: string

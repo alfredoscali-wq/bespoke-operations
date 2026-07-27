@@ -6,6 +6,7 @@ import {
   fetchCommercialOpportunityById,
   fetchCommercialPeople,
   fetchCommercialPersonById,
+  findCommercialPersonByContact,
   insertCommercialOpportunity,
   insertCommercialPerson,
   patchCommercialOpportunity,
@@ -71,6 +72,17 @@ export class CommercialPeopleRepository {
       await this.resolveClient(),
       id,
       deletedBy
+    )
+  }
+
+  async findByContact(
+    companyId: string,
+    contact: { email?: string; phone?: string; mobile?: string }
+  ): Promise<CommercialRepositoryResult<CommercialPerson | null>> {
+    return findCommercialPersonByContact(
+      await this.resolveClient(),
+      companyId,
+      contact
     )
   }
 }

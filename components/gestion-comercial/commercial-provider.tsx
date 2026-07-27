@@ -10,6 +10,7 @@ import {
 } from "react"
 
 import { useAuth } from "@/components/auth/auth-provider"
+import type { CommercialCreateOpportunityBundleInput } from "@/lib/commercial/create-opportunity"
 import { resolveCommercialActorEmployeeId } from "@/lib/commercial/module-access"
 import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import {
@@ -37,7 +38,14 @@ type MutationResult<T> = {
   success: boolean
   message?: string
   data?: T
+  notice?: string | null
+  matchedExistingPerson?: boolean
 }
+
+type CreateOpportunityWithPersonResult = MutationResult<{
+  person: CommercialPerson
+  opportunity: CommercialOpportunityListItem
+}>
 
 type CommercialContextValue = {
   people: CommercialPerson[]
@@ -50,6 +58,11 @@ type CommercialContextValue = {
   createOpportunity: (
     input: Omit<CreateCommercialOpportunityPayload, "companyId" | "createdBy">
   ) => Promise<MutationResult<CommercialOpportunity>>
+  createOpportunityWithPerson: (
+    input: CommercialCreateOpportunityBundleInput
+  ) => Promise<CreateOpportunityWithPersonResult>
+  prependOpportunity: (opportunity: CommercialOpportunityListItem) => void
+  upsertPerson: (person: CommercialPerson) => void
   updateOpportunity: (
     id: string,
     input: Omit<UpdateCommercialOpportunityPayload, "updatedBy">
@@ -171,6 +184,69 @@ export function CommercialProvider({ children }: { children: React.ReactNode }) 
     [actorEmployeeId, companyId, refresh]
   )
 
+  const upsertPerson = useCallback((person: CommercialPerson) => {
+    setPeople((current) => {
+      const without = current.filter((entry) => entry.id !== person.id)
+      return [person, ...without]
+    })
+  }, [])
+
+  const prependOpportunity = useCallback(
+    (opportunity: CommercialOpportunityListItem) => {
+      setOpportunities((current) => {
+        const without = current.filter((entry) => entry.id !== opportunity.id)
+        return [opportunity, ...without]
+      })
+    },
+    []
+  )
+
+  const createOpportunityWithPerson = useCallback(
+    async (
+      input: CommercialCreateOpportunityBundleInput
+    ): Promise<CreateOpportunityWithPersonResult> => {
+      const response = await fetch(
+        "/api/gestion-comercial/opportunities/with-person",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(input),
+        }
+      )
+
+      const payload = (await response.json().catch(() => null)) as {
+        success?: boolean
+        message?: string
+        notice?: string | null
+        matchedExistingPerson?: boolean
+        person?: CommercialPerson
+        opportunity?: CommercialOpportunityListItem
+      } | null
+
+      if (!response.ok || !payload?.success || !payload.person || !payload.opportunity) {
+        return {
+          success: false,
+          message: payload?.message ?? "No se pudo crear la oportunidad.",
+        }
+      }
+
+      upsertPerson(payload.person)
+      prependOpportunity(payload.opportunity)
+
+      return {
+        success: true,
+        data: {
+          person: payload.person,
+          opportunity: payload.opportunity,
+        },
+        notice: payload.notice ?? null,
+        matchedExistingPerson: Boolean(payload.matchedExistingPerson),
+        message: payload.message,
+      }
+    },
+    [prependOpportunity, upsertPerson]
+  )
+
   const updateOpportunity = useCallback(
     async (
       id: string,
@@ -242,6 +318,9 @@ export function CommercialProvider({ children }: { children: React.ReactNode }) 
       refresh,
       createPerson,
       createOpportunity,
+      createOpportunityWithPerson,
+      prependOpportunity,
+      upsertPerson,
       updateOpportunity,
       deleteOpportunity,
       getPerson,
@@ -254,6 +333,9 @@ export function CommercialProvider({ children }: { children: React.ReactNode }) 
       refresh,
       createPerson,
       createOpportunity,
+      createOpportunityWithPerson,
+      prependOpportunity,
+      upsertPerson,
       updateOpportunity,
       deleteOpportunity,
       getPerson,
@@ -330,6 +412,11 @@ export function useCreateCommercialPerson() {
 export function useCreateOpportunity() {
   const { createOpportunity } = useCommercialContext()
   return { mutateAsync: createOpportunity }
+}
+
+export function useCreateOpportunityWithPerson() {
+  const { createOpportunityWithPerson } = useCommercialContext()
+  return { mutateAsync: createOpportunityWithPerson }
 }
 
 export function useUpdateOpportunity() {
