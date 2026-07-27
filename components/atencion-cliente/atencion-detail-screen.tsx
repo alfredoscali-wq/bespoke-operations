@@ -80,6 +80,11 @@ import {
   formatConsultationRelativeAge,
 } from "@/lib/customer-atenciones/consultation-expediente"
 import {
+  extractCommercialOpportunityCode,
+  isCommercialSalesHandoff,
+  type CommercialOpportunityLink,
+} from "@/lib/customer-atenciones/commercial-handoff"
+import {
   CUSTOMER_ATENCION_NEXT_STEP_OPTIONS,
   formatCustomerAtencionChannelLabel,
   formatCustomerAtencionMotivoLabel,
@@ -220,6 +225,8 @@ export function AtencionDetailScreen({
   const [selectedFollowUpActions, setSelectedFollowUpActions] = useState<
     ConsultationFollowUpAction[]
   >([])
+  const [commercialOpportunity, setCommercialOpportunity] =
+    useState<CommercialOpportunityLink | null>(null)
 
   const loadDetail = useCallback(async () => {
     setIsLoading(true)
@@ -229,6 +236,7 @@ export function AtencionDetailScreen({
 
       if (!loadedAtencion) {
         setAtencion(null)
+        setCommercialOpportunity(null)
         return
       }
 
@@ -262,6 +270,35 @@ export function AtencionDetailScreen({
       setActiveEmployee(activeResult.data)
       setEvents(loadedEvents)
       setEventEmployeeNamesById(Object.fromEntries(employeeResults))
+
+      if (isCommercialSalesHandoff(loadedAtencion)) {
+        try {
+          const response = await fetch(
+            `/api/atencion-cliente/${loadedAtencion.id}/commercial-opportunity`
+          )
+          const payload = (await response.json().catch(() => null)) as {
+            success?: boolean
+            opportunity?: CommercialOpportunityLink | null
+          } | null
+          if (payload?.success && payload.opportunity) {
+            setCommercialOpportunity(payload.opportunity)
+          } else {
+            const code = extractCommercialOpportunityCode(
+              loadedAtencion.resolution
+            )
+            setCommercialOpportunity(
+              code ? { id: "", code } : null
+            )
+          }
+        } catch {
+          const code = extractCommercialOpportunityCode(
+            loadedAtencion.resolution
+          )
+          setCommercialOpportunity(code ? { id: "", code } : null)
+        }
+      } else {
+        setCommercialOpportunity(null)
+      }
     } finally {
       setIsLoading(false)
     }
@@ -1093,10 +1130,12 @@ export function AtencionDetailScreen({
       status={atencion.status}
       nextStep={atencion.nextStep}
       linkedTaskId={atencion.linkedTaskId}
+      resolution={atencion.resolution}
       narrative={situationNarrative}
       lastActorName={lastActorName}
       initialObservations={atencion.detail}
       responsiblePersonName={responsiblePersonName}
+      commercialOpportunity={commercialOpportunity}
       presentation="panel"
     />
   )
@@ -1409,7 +1448,9 @@ export function AtencionDetailScreen({
         status={atencion.status}
         nextStep={atencion.nextStep}
         linkedTaskId={atencion.linkedTaskId}
+        resolution={atencion.resolution}
         lastActorName={lastActorName}
+        commercialOpportunity={commercialOpportunity}
       />
 
       <Card>
@@ -1450,8 +1491,32 @@ export function AtencionDetailScreen({
           />
           <DetailField
             label="Área responsable"
-            value={nextStepSituation?.responsibleAreaLabel ?? "—"}
+            value={
+              isCommercialSalesHandoff(atencion)
+                ? "Ventas"
+                : (nextStepSituation?.responsibleAreaLabel ?? "—")
+            }
           />
+          {isCommercialSalesHandoff(atencion) ? (
+            <DetailField label="Situación" value="Derivada a Ventas" />
+          ) : null}
+          {commercialOpportunity ? (
+            <DetailField
+              label="Oportunidad comercial"
+              value={
+                commercialOpportunity.id ? (
+                  <Link
+                    href={`/gestion-comercial/${commercialOpportunity.id}`}
+                    className="text-primary hover:underline"
+                  >
+                    {commercialOpportunity.code}
+                  </Link>
+                ) : (
+                  commercialOpportunity.code
+                )
+              }
+            />
+          ) : null}
           {nextStepSituation?.managementTypeLabel ? (
             <DetailField
               label="Tipo de gestión"

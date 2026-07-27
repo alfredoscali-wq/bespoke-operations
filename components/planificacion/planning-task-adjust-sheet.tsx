@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { Button } from "@/components/ui/button"
@@ -69,6 +69,10 @@ export function PlanningTaskAdjustSheet({
   )
   const [error, setError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  /** Seed form once per open+task; ignore remote refreshes while editing. */
+  const seededTaskIdRef = useRef<string | null>(null)
+  const latestSeedInputsRef = useRef({ task, allTasks, crews })
+  latestSeedInputsRef.current = { task, allTasks, crews }
 
   const resolvedTaskCrewId = useMemo(
     () => (task ? resolveTaskCrewId(task, crews) : undefined),
@@ -81,11 +85,31 @@ export function PlanningTaskAdjustSheet({
   )
 
   useEffect(() => {
-    if (task && open) {
-      setForm(buildPlanningEditFormFromTask(task, allTasks, crews))
-      setError(null)
+    if (!open) {
+      seededTaskIdRef.current = null
+      return
     }
-  }, [task, open, crews, allTasks])
+
+    const currentTask = latestSeedInputsRef.current.task
+    if (!currentTask) {
+      return
+    }
+
+    // Same OT still open: keep local edits stable across polling/refetch.
+    if (seededTaskIdRef.current === currentTask.id) {
+      return
+    }
+
+    seededTaskIdRef.current = currentTask.id
+    setForm(
+      buildPlanningEditFormFromTask(
+        currentTask,
+        latestSeedInputsRef.current.allTasks,
+        latestSeedInputsRef.current.crews
+      )
+    )
+    setError(null)
+  }, [open, task?.id])
 
   const selectableCrews = useMemo(
     () =>

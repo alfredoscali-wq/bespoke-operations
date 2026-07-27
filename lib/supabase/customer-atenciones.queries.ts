@@ -56,7 +56,7 @@ const ATENCION_LIST_SELECT =
   "id, customer_id, channel, motivo, resultado, created_at, attended_by_employee_id"
 
 const ATENCION_INBOX_SELECT =
-  "id, customer_id, channel, motivo, detail, status, next_step, attended_by_employee_id, active_management_employee_id, active_management_started_at, active_management_last_activity_at, linked_task_id, linked_task_code, follow_up_actions, created_at, updated_at"
+  "id, customer_id, channel, motivo, detail, resolution, status, next_step, attended_by_employee_id, active_management_employee_id, active_management_started_at, active_management_last_activity_at, linked_task_id, linked_task_code, follow_up_actions, created_at, updated_at"
 
 const SHARED_INBOX_ACTIVE_STATUSES: CustomerAtencionStatus[] = [
   "nueva",
@@ -71,6 +71,7 @@ type SharedInboxSourceRow = {
   channel: string
   motivo: string
   detail: string
+  resolution: string
   status: string
   next_step: string | null
   attended_by_employee_id: string
@@ -180,7 +181,7 @@ function mapRowToInboxRow(
     channel: row.channel,
     motivo: row.motivo,
     detail: row.detail,
-    resolution: "",
+    resolution: row.resolution ?? "",
     resultado: "resuelta",
     status: row.status,
     next_step: row.next_step,
@@ -208,6 +209,7 @@ function mapRowToInboxRow(
     channel: mapped.channel,
     motivo: mapped.motivo,
     detail: mapped.detail,
+    resolution: mapped.resolution,
     status: mapped.status,
     nextStep: mapped.nextStep,
     attendedByEmployeeId: mapped.attendedByEmployeeId,

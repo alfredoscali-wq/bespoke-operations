@@ -149,6 +149,52 @@ export function deferConsultationManagement(
   return postConsultationManagement(`/api/atencion-cliente/${atencionId}/defer`, body)
 }
 
+export type DeriveCommercialMutationResult =
+  | { success: true; opportunityId: string; created: boolean }
+  | { success: false; message: string }
+
+/**
+ * Creates/reuses the commercial opportunity after Atención sets next_step to
+ * Ventas (`contactar_cliente`), including new consultations at create time.
+ */
+export async function deriveConsultationToCommercial(
+  atencionId: string,
+  detail?: string | null
+): Promise<DeriveCommercialMutationResult> {
+  const response = await fetch(
+    `/api/atencion-cliente/${atencionId}/derive-commercial`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ detail: detail ?? null }),
+    }
+  )
+
+  const payload = (await response.json().catch(() => null)) as
+    | {
+        success?: boolean
+        opportunityId?: string
+        created?: boolean
+        message?: string
+      }
+    | null
+
+  if (!response.ok || !payload?.success || !payload.opportunityId) {
+    return {
+      success: false,
+      message:
+        payload?.message ??
+        "No se pudo completar la derivación a Gestión Comercial.",
+    }
+  }
+
+  return {
+    success: true,
+    opportunityId: payload.opportunityId,
+    created: Boolean(payload.created),
+  }
+}
+
 export type MorosoTrackingApiResponse =
   | {
       success: true

@@ -1,3 +1,4 @@
+import { isCommercialSalesHandoff } from "@/lib/customer-atenciones/commercial-handoff"
 import {
   formatCustomerAtencionEventActionLabel,
   formatCustomerAtencionMotivoLabel,
@@ -160,7 +161,12 @@ export function describeNextStepSituation(
 export function formatConsultationInboxSituationLabel(row: {
   status: CustomerAtencionStatus
   nextStep?: CustomerAtencionNextStep | null
+  resolution?: string | null
 }): string {
+  if (isCommercialSalesHandoff(row)) {
+    return "Derivada a Ventas"
+  }
+
   if (row.status === "resuelta") {
     return "Consulta resuelta"
   }
@@ -207,6 +213,7 @@ export function formatConsultationEstadoActualBadge(row: {
   status: CustomerAtencionStatus
   nextStep?: CustomerAtencionNextStep | null
   linkedTaskId?: string | null
+  resolution?: string | null
 }): string {
   if (row.linkedTaskId || row.status === "resuelta") {
     return "Resuelta"
@@ -250,12 +257,17 @@ export function formatConsultationEstadoActualSummary(
     status: CustomerAtencionStatus
     nextStep?: CustomerAtencionNextStep | null
     linkedTaskId?: string | null
+    resolution?: string | null
   },
   _options?: { derivedBy?: string | null }
 ): string {
   // RC 3.2.7 — OT link closes Atención; Operaciones continues on the work order.
   if (row.linkedTaskId) {
     return "Consulta resuelta. Se generó correctamente una Orden de Trabajo para continuar el proceso operativo."
+  }
+
+  if (isCommercialSalesHandoff(row)) {
+    return "Derivada a Ventas"
   }
 
   if (row.status === "resuelta") {
@@ -498,6 +510,39 @@ export function buildConsultationSituationNarrative(
     atencion.status
   ).toUpperCase()
 
+  if (isCommercialSalesHandoff(atencion)) {
+    const handoffEvent =
+      findHandoffEventForNextStep(events, "contactar_cliente") ??
+      [...events]
+        .reverse()
+        .find(
+          (event) =>
+            event.newNextStep === "contactar_cliente" ||
+            event.actionType === "consulta_resuelta"
+        ) ??
+      null
+    const actorName = handoffEvent
+      ? getActorName(handoffEvent.employeeId)
+      : "—"
+    const dateTime = handoffEvent
+      ? formatConsultationNarrativeDateTime(handoffEvent.createdAt)
+      : "—"
+
+    return {
+      statusEmphasis,
+      handoff: {
+        kind: "derivation",
+        areaLabel: "Ventas",
+        fromAreaLabel: "Atención al Cliente",
+        actorName,
+        dateTime,
+        dateTimeIso: handoffEvent?.createdAt ?? null,
+      },
+      managementTypeLabel: null,
+      closingNote: null,
+    }
+  }
+
   if (atencion.status === "resuelta") {
     return {
       statusEmphasis,
@@ -708,14 +753,19 @@ export function buildConsultationSituationSummary(
     null
   const lastWithComment = findLastEventWithComment(events)
 
-  const responsibleAreaLabel =
-    situation?.responsibleAreaLabel ??
-    (responsible ? formatConsultationExpedienteAreaPlainLabel(responsible) : "—")
-
-  const situationLabel =
-    atencion.status === "resuelta"
+  const situationLabel = isCommercialSalesHandoff(atencion)
+    ? "Derivada a Ventas"
+    : atencion.status === "resuelta"
       ? "Consulta resuelta"
-      : (situation?.situationLabel ?? formatCustomerAtencionStatusLabel(atencion.status))
+      : (situation?.situationLabel ??
+        formatCustomerAtencionStatusLabel(atencion.status))
+
+  const responsibleAreaLabel = isCommercialSalesHandoff(atencion)
+    ? "Ventas"
+    : situation?.responsibleAreaLabel ??
+      (responsible
+        ? formatConsultationExpedienteAreaPlainLabel(responsible)
+        : "—")
 
   return {
     statusLabel: formatCustomerAtencionStatusLabel(atencion.status),
@@ -731,6 +781,9 @@ export function buildConsultationSituationSummary(
     lastUpdatedAt: lastEvent?.createdAt ?? atencion.updatedAt,
     lastActorEmployeeId: lastEvent?.employeeId ?? null,
     lastComment: (() => {
+      if (isCommercialSalesHandoff(atencion)) {
+        return null
+      }
       if (lastWithComment?.detail?.trim()) {
         if (lastWithComment.actionType === "consulta_resuelta") {
           return (

@@ -61,6 +61,7 @@ import {
   isCommercialOpportunityListView,
   type CommercialOpportunityListView,
 } from "@/lib/commercial/opportunity-list-views"
+import { buildCommercialDossierHref } from "@/lib/commercial/dossier-navigation"
 import type { CommercialOpportunityListItem } from "@/lib/types/commercial"
 import type { CommercialPipelineCard } from "@/lib/types/commercial-pipeline"
 
@@ -175,11 +176,11 @@ function CommercialModuleContent() {
   }
 
   function openDossier(opportunityId: string) {
-    router.push(`/gestion-comercial/${opportunityId}`)
+    router.push(buildCommercialDossierHref(opportunityId, "oportunidades"))
   }
 
   function handleCreated(opportunity: CommercialOpportunityListItem) {
-    router.push(`/gestion-comercial/${opportunity.id}`)
+    router.push(buildCommercialDossierHref(opportunity.id, "oportunidades"))
   }
 
   async function handleDelete() {

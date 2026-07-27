@@ -1,5 +1,6 @@
 import "server-only"
 
+import { buildCommercialSalesHandoffResolution } from "@/lib/customer-atenciones/commercial-handoff"
 import { formatCustomerAtencionMotivoLabel } from "@/lib/customer-atenciones/format"
 import { createAdminClient } from "@/lib/supabase/admin"
 import {
@@ -14,6 +15,8 @@ import { resolveCommercialPersonDisplayName } from "@/lib/supabase/commercial.ma
 import { logOperationError } from "@/lib/operations/user-messages"
 import type { CommercialOpportunity } from "@/lib/types/commercial"
 import type { CustomerAtencionMotivo } from "@/lib/types/customer-atenciones"
+import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Database } from "@/lib/supabase/database.types"
 
 const OPEN_STATUSES = [
   "nueva",
@@ -47,10 +50,81 @@ function employeeDisplayName(row: {
   return `${row.first_name ?? ""} ${row.last_name ?? ""}`.trim() || "Usuario"
 }
 
+async function ensureCommercialDerivationCatalog(
+  admin: SupabaseClient<Database>
+): Promise<void> {
+  const { error: sourceError } = await admin.from("commercial_sources").upsert(
+    { code: "atencion_cliente", label: "Atención al Cliente", sort_order: 75 },
+    { onConflict: "code", ignoreDuplicates: true }
+  )
+  if (sourceError) {
+    logOperationError("COMMERCIAL DERIVATION CATALOG", sourceError)
+  }
+
+  const { error: typeError } = await admin
+    .from("commercial_activity_types")
+    .upsert(
+      {
+        code: "derivacion",
+        label: "Derivación desde Atención al Cliente",
+        sort_order: 95,
+      },
+      { onConflict: "code", ignoreDuplicates: true }
+    )
+  if (typeError) {
+    logOperationError("COMMERCIAL DERIVATION CATALOG", typeError)
+  }
+}
+
+/**
+ * After a commercial opportunity exists, the Atención case leaves the Ventas KPI
+ * and becomes historical (ownership moves to Gestión Comercial).
+ */
+async function handOffAtencionAfterCommercialDerivation(
+  admin: SupabaseClient<Database>,
+  input: {
+    companyId: string
+    atencionId: string
+    employeeId: string
+    opportunityCode: string
+  }
+): Promise<boolean> {
+  const nowIso = new Date().toISOString()
+  const resolution = buildCommercialSalesHandoffResolution(input.opportunityCode)
+
+  const { data, error } = await admin
+    .from("customer_atenciones")
+    .update({
+      status: "resuelta",
+      next_step: null,
+      resultado: "resuelta",
+      resolution,
+      resolved_at: nowIso,
+      resolved_by_employee_id: input.employeeId,
+      active_management_employee_id: null,
+      active_management_started_at: null,
+      active_management_last_activity_at: null,
+      updated_at: nowIso,
+    })
+    .eq("id", input.atencionId)
+    .eq("company_id", input.companyId)
+    .is("deleted_at", null)
+    .select("id")
+    .maybeSingle()
+
+  if (error) {
+    logOperationError("COMMERCIAL DERIVATION HANDOFF", error)
+    return false
+  }
+
+  return Boolean(data?.id)
+}
+
 /**
  * When Atención derives to Ventas (`contactar_cliente`), create/reuse a commercial
- * opportunity and record a derivation activity. Failures are logged, never thrown
- * to the Atención flow.
+ * opportunity, record the automatic derivation activity, and hand off the
+ * Atención case so it leaves the Ventas KPI. Failures are logged and returned as
+ * null (callers may still treat Atención RPC success independently).
  */
 export async function deriveCommercialOpportunityFromCustomerService(input: {
   companyId: string
@@ -60,10 +134,11 @@ export async function deriveCommercialOpportunityFromCustomerService(input: {
 }): Promise<{ opportunityId: string; created: boolean } | null> {
   try {
     const admin = createAdminClient()
+    await ensureCommercialDerivationCatalog(admin)
 
     const { data: atencion, error: atencionError } = await admin
       .from("customer_atenciones")
-      .select("id, company_id, customer_id, motivo, channel")
+      .select("id, company_id, customer_id, motivo, channel, status, next_step")
       .eq("id", input.atencionId)
       .eq("company_id", input.companyId)
       .maybeSingle()
@@ -267,7 +342,7 @@ export async function deriveCommercialOpportunityFromCustomerService(input: {
       motivoLabel ||
       "Derivación desde Atención al Cliente"
 
-    await insertCommercialActivity(admin, {
+    const activityResult = await insertCommercialActivity(admin, {
       companyId: input.companyId,
       opportunityId: opportunity.id,
       activityTypeCode: "derivacion",
@@ -290,6 +365,30 @@ export async function deriveCommercialOpportunityFromCustomerService(input: {
         detail: input.detail?.trim() || null,
       },
     })
+
+    if (activityResult.error || !activityResult.data) {
+      logOperationError(
+        "COMMERCIAL DERIVATION ACTIVITY",
+        activityResult.error ??
+          new Error("No se pudo registrar la actividad de derivación")
+      )
+    }
+
+    const handedOff = await handOffAtencionAfterCommercialDerivation(admin, {
+      companyId: input.companyId,
+      atencionId: input.atencionId,
+      employeeId: input.employeeId,
+      opportunityCode: opportunity.code,
+    })
+
+    if (!handedOff) {
+      logOperationError(
+        "COMMERCIAL DERIVATION HANDOFF",
+        new Error(
+          `Oportunidad ${opportunity.id} creada pero la consulta ${input.atencionId} no se cerró en Atención.`
+        )
+      )
+    }
 
     return { opportunityId: opportunity.id, created }
   } catch (error) {

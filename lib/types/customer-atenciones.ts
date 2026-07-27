@@ -142,6 +142,7 @@ export type CustomerAtencionInboxRow = Pick<
   | "followUpActions"
   | "createdAt"
   | "updatedAt"
+  | "resolution"
 > & {
   customerName: string
   attendedByEmployeeName: string

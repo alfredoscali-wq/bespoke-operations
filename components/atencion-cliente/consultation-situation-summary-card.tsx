@@ -1,8 +1,10 @@
 "use client"
 
+import Link from "next/link"
 import {
   CircleDot,
   Clock3,
+  ExternalLink,
   MessageSquareText,
   UserRound,
 } from "lucide-react"
@@ -15,6 +17,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import type { CommercialOpportunityLink } from "@/lib/customer-atenciones/commercial-handoff"
 import {
   formatConsultationEstadoActualBadge,
   formatConsultationEstadoActualSummary,
@@ -35,12 +38,15 @@ type ConsultationSituationSummaryCardProps = {
   nextStep?: CustomerAtencionNextStep | null
   /** RC 3.2.7 — when set, Estado actual reflects Atención closed via OT. */
   linkedTaskId?: string | null
+  resolution?: string | null
   narrative: ConsultationSituationNarrative
   lastActorName: string
   /** Creation detail written when the consultation was opened. */
   initialObservations?: string | null
   /** Person currently responsible when the consultation is in management. */
   responsiblePersonName?: string
+  /** Linked Gestión Comercial opportunity after sales handoff. */
+  commercialOpportunity?: CommercialOpportunityLink | null
   presentation?: "page" | "panel"
 }
 
@@ -75,8 +81,10 @@ function SituationField({
 
 function SituationNarrativeBody({
   narrative,
+  commercialOpportunity,
 }: {
   narrative: ConsultationSituationNarrative
+  commercialOpportunity?: CommercialOpportunityLink | null
 }) {
   return (
     <div className="space-y-2 rounded-md border border-emerald-200/70 bg-emerald-500/[0.06] px-2.5 py-2.5 text-[13px] leading-relaxed text-foreground">
@@ -105,6 +113,31 @@ function SituationNarrativeBody({
 
       {narrative.handoff?.kind === "atencion" ? (
         <p>{narrative.handoff.description}</p>
+      ) : null}
+
+      {narrative.handoff?.kind === "derivation" &&
+      narrative.handoff.areaLabel === "Ventas" ? (
+        <p>
+          <span className="text-muted-foreground">Destino:</span>{" "}
+          <span className="font-medium">Ventas</span>
+        </p>
+      ) : null}
+
+      {commercialOpportunity ? (
+        <p>
+          <span className="text-muted-foreground">Oportunidad:</span>{" "}
+          {commercialOpportunity.id ? (
+            <Link
+              href={`/gestion-comercial/${commercialOpportunity.id}`}
+              className="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
+            >
+              {commercialOpportunity.code}
+              <ExternalLink className="size-3" aria-hidden />
+            </Link>
+          ) : (
+            <span className="font-semibold">{commercialOpportunity.code}</span>
+          )}
+        </p>
       ) : null}
 
       {narrative.managementTypeLabel ? (
@@ -164,9 +197,11 @@ export function ConsultationSituationSummaryCard({
   status,
   nextStep = null,
   linkedTaskId = null,
+  resolution = null,
   narrative,
   lastActorName,
   initialObservations,
+  commercialOpportunity = null,
   presentation = "page",
 }: ConsultationSituationSummaryCardProps) {
   if (presentation === "panel") {
@@ -182,11 +217,13 @@ export function ConsultationSituationSummaryCard({
       status,
       nextStep,
       linkedTaskId,
+      resolution,
     })
     const summarySentence = formatConsultationEstadoActualSummary({
       status,
       nextStep,
       linkedTaskId,
+      resolution,
     })
     const observations = initialObservations?.trim() || null
     const lastInterventionUser =
@@ -194,6 +231,12 @@ export function ConsultationSituationSummaryCard({
     const lastInterventionWhen = formatConsultationIngressDateTime(
       summary.lastUpdatedAt
     )
+    const destinationLabel =
+      derivation?.areaLabel === "Ventas"
+        ? "Ventas"
+        : summary.responsibleAreaLabel !== "—"
+          ? summary.responsibleAreaLabel
+          : null
 
     return (
       <PanelSectionCard
@@ -214,6 +257,38 @@ export function ConsultationSituationSummaryCard({
         <p className="text-[13px] leading-snug font-medium text-slate-900">
           {summarySentence}
         </p>
+
+        {destinationLabel || commercialOpportunity ? (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border border-slate-200/80 bg-slate-50/80 px-2.5 py-2 text-[12px]">
+            {destinationLabel ? (
+              <p>
+                <span className="text-slate-500">Destino:</span>{" "}
+                <span className="font-semibold text-slate-900">
+                  {destinationLabel}
+                </span>
+              </p>
+            ) : null}
+            {commercialOpportunity ? (
+              <p className="inline-flex items-center gap-1">
+                <span className="text-slate-500">Oportunidad:</span>{" "}
+                {commercialOpportunity.id ? (
+                  <Link
+                    href={`/gestion-comercial/${commercialOpportunity.id}`}
+                    className="inline-flex items-center gap-1 font-semibold text-sky-700 hover:underline"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    {commercialOpportunity.code}
+                    <ExternalLink className="size-3" aria-hidden />
+                  </Link>
+                ) : (
+                  <span className="font-semibold text-slate-900">
+                    {commercialOpportunity.code}
+                  </span>
+                )}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
 
         <div className="grid grid-cols-1 gap-2.5 border-t border-slate-200/70 pt-2.5 sm:grid-cols-3 sm:gap-0">
           <CompactMetaColumn
@@ -255,7 +330,10 @@ export function ConsultationSituationSummaryCard({
         <CardTitle>Situación actual</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <SituationNarrativeBody narrative={narrative} />
+        <SituationNarrativeBody
+          narrative={narrative}
+          commercialOpportunity={commercialOpportunity}
+        />
         <div className="grid gap-4 sm:grid-cols-2">
           <SituationField
             label="Última intervención"

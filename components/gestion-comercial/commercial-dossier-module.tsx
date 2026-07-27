@@ -31,6 +31,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { TableRowsSkeleton } from "@/components/ui/kpi-grid-skeleton"
+import { resolveCommercialDossierBackHref } from "@/lib/commercial/dossier-navigation"
 import type {
   CommercialActivityTypeCode,
   CommercialQuickActivityType,
@@ -57,6 +58,15 @@ function CommercialDossierContent({
   const {
     refetch: refetchActivities,
   } = useCommercialActivities()
+
+  function handleBack() {
+    const backHref = resolveCommercialDossierBackHref(searchParams.get("from"))
+    if (backHref) {
+      router.push(backHref)
+      return
+    }
+    router.back()
+  }
 
   const [opportunity, setOpportunity] = useState<CommercialOpportunity | null>(
     null
@@ -195,7 +205,7 @@ function CommercialDossierContent({
       <CommercialHeader
         opportunity={opportunity}
         responsibleName={responsibleName}
-        onBack={() => router.push("/gestion-comercial")}
+        onBack={handleBack}
         onEditPerson={() => setPersonDrawerOpen(true)}
         onEditOpportunity={() => setOpportunityDrawerOpen(true)}
         onDelete={() => setDeleteOpen(true)}

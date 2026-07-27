@@ -71,6 +71,7 @@ import {
 import {
   cancelConsultationManagement,
   deferConsultationManagement,
+  deriveConsultationToCommercial,
   releaseExpiredConsultationManagements,
   resolveConsultationManagement,
   startConsultationManagement,
@@ -891,27 +892,56 @@ export function AtencionClienteProvider({
         }
       }
 
-      atencionCacheRef.current.set(result.data.id, result.data)
+      let atencion = result.data
+      atencionCacheRef.current.set(atencion.id, atencion)
 
       void requestRegisterCustomerActivity({
-        entityId: result.data.id,
+        entityId: atencion.id,
         ...buildCaseCreatedActivity({
-          customerId: result.data.customerId,
-          motivo: result.data.motivo,
-          canal: result.data.channel,
-          estadoInicial: result.data.status,
-          nextStep: result.data.nextStep ?? null,
+          customerId: atencion.customerId,
+          motivo: atencion.motivo,
+          canal: atencion.channel,
+          estadoInicial: atencion.status,
+          nextStep: atencion.nextStep ?? null,
         }),
       })
 
-      if (result.data.status === "resuelta") {
+      if (atencion.status === "resuelta") {
         void requestRegisterCustomerActivity({
-          entityId: result.data.id,
+          entityId: atencion.id,
           ...buildCaseClosedActivity({
-            resultado: result.data.resultado,
-            motivoCierre: result.data.resolution || null,
+            resultado: atencion.resultado,
+            motivoCierre: atencion.resolution || null,
           }),
         })
+      }
+
+      if (atencion.nextStep === "contactar_cliente") {
+        const deriveResult = await deriveConsultationToCommercial(
+          atencion.id,
+          input.detail
+        )
+        if (!deriveResult.success) {
+          console.error("[COMMERCIAL DERIVATION]", deriveResult.message)
+        } else {
+          const refreshed = await loadCustomerAtencionById(
+            atencion.id,
+            companyId
+          )
+          if (refreshed.data) {
+            atencion = refreshed.data
+            atencionCacheRef.current.set(atencion.id, atencion)
+            if (atencion.status === "resuelta") {
+              void requestRegisterCustomerActivity({
+                entityId: atencion.id,
+                ...buildCaseClosedActivity({
+                  resultado: atencion.resultado,
+                  motivoCierre: atencion.resolution || null,
+                }),
+              })
+            }
+          }
+        }
       }
 
       await Promise.all([
@@ -922,7 +952,7 @@ export function AtencionClienteProvider({
 
       return {
         success: true,
-        atencion: result.data,
+        atencion,
       }
     },
     [

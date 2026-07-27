@@ -32,6 +32,7 @@ import type { CommercialActivityTypeCode } from "@/lib/commercial/activity-catal
 import {
   buildCommercialOpportunitiesHref,
 } from "@/lib/commercial/opportunity-list-views"
+import { buildCommercialDossierHref } from "@/lib/commercial/dossier-navigation"
 import type { CommercialHomeDesk } from "@/lib/types/commercial-home"
 import type { CommercialOpportunityListItem } from "@/lib/types/commercial"
 import type { VisualTone } from "@/lib/ui/visual-tokens"
@@ -153,12 +154,12 @@ function CommercialHomeContent() {
   }, [loadDesk])
 
   function openDossier(opportunityId: string) {
-    router.push(`/gestion-comercial/${opportunityId}`)
+    router.push(buildCommercialDossierHref(opportunityId, "inicio"))
   }
 
   function handleCreated(opportunity: CommercialOpportunityListItem) {
     setDrawerOpen(false)
-    router.push(`/gestion-comercial/${opportunity.id}`)
+    router.push(buildCommercialDossierHref(opportunity.id, "inicio"))
   }
 
   if (isLoading && !desk) {
@@ -321,7 +322,9 @@ function CommercialHomeContent() {
                     className="h-8 shrink-0 gap-1.5"
                     onClick={() =>
                       router.push(
-                        `/gestion-comercial/${item.opportunityId}?action=activity`
+                        buildCommercialDossierHref(item.opportunityId, "inicio", {
+                          action: "activity",
+                        })
                       )
                     }
                   >

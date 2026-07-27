@@ -51,6 +51,7 @@ import {
   groupPipelineCardsByStatus,
 } from "@/lib/commercial/pipeline"
 import { listCommercialResponsibleOptions } from "@/lib/commercial/responsible-employees"
+import { buildCommercialDossierHref } from "@/lib/commercial/dossier-navigation"
 import type { CommercialPipelineCard } from "@/lib/types/commercial-pipeline"
 import type {
   CommercialOpportunity,
@@ -449,7 +450,7 @@ function CommercialPipelineContent() {
                   }}
                   onDrop={handleDrop}
                   onOpenDossier={(id) =>
-                    router.push(`/gestion-comercial/${id}`)
+                    router.push(buildCommercialDossierHref(id, "pipeline"))
                   }
                   onRegisterActivity={(id) => {
                     setActivityMode("activity")
@@ -589,7 +590,7 @@ function CommercialPipelineContent() {
         people={people}
         onCreated={(opportunity: CommercialOpportunityListItem) => {
           setNewOpportunityOpen(false)
-          router.push(`/gestion-comercial/${opportunity.id}`)
+          router.push(buildCommercialDossierHref(opportunity.id, "pipeline"))
         }}
       />
 

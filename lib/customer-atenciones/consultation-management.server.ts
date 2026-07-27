@@ -235,15 +235,19 @@ export async function deferCustomerAtencionConsultation(input: {
       kind: "defer",
     })
     if (result.data.newNextStep === "contactar_cliente") {
-      void import("@/lib/commercial/derive-from-customer-service").then(
-        ({ deriveCommercialOpportunityFromCustomerService }) =>
-          deriveCommercialOpportunityFromCustomerService({
-            companyId: input.companyId,
-            atencionId: input.atencionId,
-            employeeId: input.employeeId,
-            detail: input.detail,
-          })
-      )
+      try {
+        const { deriveCommercialOpportunityFromCustomerService } = await import(
+          "@/lib/commercial/derive-from-customer-service"
+        )
+        await deriveCommercialOpportunityFromCustomerService({
+          companyId: input.companyId,
+          atencionId: input.atencionId,
+          employeeId: input.employeeId,
+          detail: input.detail,
+        })
+      } catch (error) {
+        logOperationError("COMMERCIAL DERIVATION", error)
+      }
     }
   }
   return result
@@ -379,15 +383,19 @@ export async function registerCustomerAtencionInteraction(input: {
   const derivedNextStep =
     input.clientInteraction?.nextStep?.trim() || parsed.nextStep
   if (derivedNextStep === "contactar_cliente") {
-    void import("@/lib/commercial/derive-from-customer-service").then(
-      ({ deriveCommercialOpportunityFromCustomerService }) =>
-        deriveCommercialOpportunityFromCustomerService({
-          companyId: input.companyId,
-          atencionId: input.atencionId,
-          employeeId: input.employeeId,
-          detail: input.detail,
-        })
-    )
+    try {
+      const { deriveCommercialOpportunityFromCustomerService } = await import(
+        "@/lib/commercial/derive-from-customer-service"
+      )
+      await deriveCommercialOpportunityFromCustomerService({
+        companyId: input.companyId,
+        atencionId: input.atencionId,
+        employeeId: input.employeeId,
+        detail: input.detail,
+      })
+    } catch (error) {
+      logOperationError("COMMERCIAL DERIVATION", error)
+    }
   }
 
   return { ok: true, data: parsed }

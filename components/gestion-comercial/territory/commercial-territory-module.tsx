@@ -26,6 +26,7 @@ import type {
 } from "@/lib/commercial/catalogs"
 import { buildCommercialResponsibleLegend } from "@/lib/commercial/responsible-colors"
 import { listCommercialResponsibleOptions } from "@/lib/commercial/responsible-employees"
+import { buildCommercialDossierHref } from "@/lib/commercial/dossier-navigation"
 import type {
   CommercialMapBounds,
   CommercialMapOpportunity,
@@ -436,7 +437,7 @@ function CommercialTerritoryContent() {
             onSelect={(id) => {
               setSelectedId(id)
               if (locationScope === "without") {
-                router.push(`/gestion-comercial/${id}`)
+                router.push(buildCommercialDossierHref(id, "territorio"))
               }
             }}
             onToggleSelect={(id, checked) => {
@@ -466,7 +467,9 @@ function CommercialTerritoryContent() {
             employeeNameById={employeeNameById}
             onBoundsChange={handleBoundsChange}
             onSelect={setSelectedId}
-            onOpenDossier={(id) => router.push(`/gestion-comercial/${id}`)}
+            onOpenDossier={(id) =>
+              router.push(buildCommercialDossierHref(id, "territorio"))
+            }
             onPickLocation={handleMapPick}
             className="h-full"
           />
