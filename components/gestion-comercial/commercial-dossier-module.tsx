@@ -3,6 +3,13 @@
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 
+import { CommercialActivityDrawer } from "@/components/gestion-comercial/commercial-activity-drawer"
+import { CommercialActivityList } from "@/components/gestion-comercial/commercial-activity-list"
+import { CommercialActivityQuickActions } from "@/components/gestion-comercial/commercial-activity-quick-actions"
+import {
+  CommercialActivitiesProvider,
+  useCommercialActivities,
+} from "@/components/gestion-comercial/commercial-activities-provider"
 import { CommercialHeader } from "@/components/gestion-comercial/commercial-header"
 import { CommercialOpportunityCard } from "@/components/gestion-comercial/commercial-opportunity-card"
 import { CommercialOpportunityDrawer } from "@/components/gestion-comercial/commercial-opportunity-drawer"
@@ -25,9 +32,14 @@ import {
 } from "@/components/ui/dialog"
 import { TableRowsSkeleton } from "@/components/ui/kpi-grid-skeleton"
 import type {
+  CommercialActivityTypeCode,
+  CommercialQuickActivityType,
+} from "@/lib/commercial/activity-catalogs"
+import type {
   CommercialOpportunity,
   CommercialPerson,
 } from "@/lib/types/commercial"
+import type { CommercialActivityListItem } from "@/lib/types/commercial-activities"
 
 type CommercialDossierContentProps = {
   opportunityId: string
@@ -41,6 +53,11 @@ function CommercialDossierContent({
   const { loadDossier, upsertPersonLocal, upsertOpportunityLocal } =
     useCommercialContextLoad()
   const { mutateAsync: deleteOpportunity } = useDeleteOpportunity()
+  const {
+    data: activities,
+    isLoading: activitiesLoading,
+    refetch: refetchActivities,
+  } = useCommercialActivities()
 
   const [opportunity, setOpportunity] = useState<CommercialOpportunity | null>(
     null
@@ -52,6 +69,11 @@ function CommercialDossierContent({
   const [opportunityDrawerOpen, setOpportunityDrawerOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [activityDrawerOpen, setActivityDrawerOpen] = useState(false)
+  const [editingActivity, setEditingActivity] =
+    useState<CommercialActivityListItem | null>(null)
+  const [defaultActivityType, setDefaultActivityType] =
+    useState<CommercialActivityTypeCode>("nota")
 
   useEffect(() => {
     let cancelled = false
@@ -87,6 +109,18 @@ function CommercialDossierContent({
       employee.employeeCode
     )
   }, [employees, opportunity])
+
+  function openCreateActivity(typeCode: CommercialQuickActivityType) {
+    setEditingActivity(null)
+    setDefaultActivityType(typeCode)
+    setActivityDrawerOpen(true)
+  }
+
+  function openEditActivity(activity: CommercialActivityListItem) {
+    setEditingActivity(activity)
+    setDefaultActivityType(activity.activityTypeCode)
+    setActivityDrawerOpen(true)
+  }
 
   async function handleDelete() {
     if (!opportunity) return
@@ -139,6 +173,8 @@ function CommercialDossierContent({
         onBack={() => router.push("/gestion-comercial")}
       />
 
+      <CommercialActivityQuickActions onSelect={openCreateActivity} />
+
       <div className="grid gap-4 lg:grid-cols-[minmax(0,35%)_minmax(0,65%)]">
         <CommercialProspectCard
           person={person}
@@ -151,13 +187,15 @@ function CommercialDossierContent({
         />
       </div>
 
-      <section className="rounded-lg border border-dashed p-4">
+      <section className="space-y-3">
         <h2 className="text-base font-semibold tracking-tight">
           Actividad Comercial
         </h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          La actividad comercial estará disponible en el próximo sprint.
-        </p>
+        <CommercialActivityList
+          activities={activities}
+          isLoading={activitiesLoading}
+          onEdit={openEditActivity}
+        />
       </section>
 
       <CommercialPersonDrawer
@@ -175,9 +213,24 @@ function CommercialDossierContent({
         onOpenChange={setOpportunityDrawerOpen}
         opportunity={opportunity}
         onUpdated={(next) => {
+          const statusChanged = next.status !== opportunity.status
           setOpportunity(next)
           upsertOpportunityLocal(next)
+          if (statusChanged) {
+            void refetchActivities()
+          }
         }}
+      />
+
+      <CommercialActivityDrawer
+        open={activityDrawerOpen}
+        onOpenChange={(open) => {
+          setActivityDrawerOpen(open)
+          if (!open) setEditingActivity(null)
+        }}
+        opportunityId={opportunity.id}
+        activity={editingActivity}
+        defaultTypeCode={defaultActivityType}
       />
 
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
@@ -221,7 +274,9 @@ export function CommercialDossierModule({
   return (
     <EmployeesProvider>
       <CommercialProvider>
-        <CommercialDossierContent opportunityId={opportunityId} />
+        <CommercialActivitiesProvider opportunityId={opportunityId}>
+          <CommercialDossierContent opportunityId={opportunityId} />
+        </CommercialActivitiesProvider>
       </CommercialProvider>
     </EmployeesProvider>
   )

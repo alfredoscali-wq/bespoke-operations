@@ -9,6 +9,7 @@ import type {
   CommercialSourceCode,
   CommercialStatusCode,
 } from "@/lib/commercial/catalogs"
+import type { CommercialActivityStatus } from "@/lib/commercial/activity-catalogs"
 import type { AvailabilityType } from "@/lib/types/availability"
 import type { ContractorStatus } from "@/lib/types/contractors"
 import type { CrewOrigin, CrewStatus } from "@/lib/types/crews"
@@ -1330,6 +1331,119 @@ export type Database = {
           },
         ]
       }
+      commercial_activity_types: {
+        Row: {
+          id: string
+          code: string
+          label: string
+          sort_order: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          code: string
+          label: string
+          sort_order?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          code?: string
+          label?: string
+          sort_order?: number
+          created_at?: string
+        }
+        Relationships: []
+      }
+      commercial_activities: {
+        Row: {
+          id: string
+          company_id: string
+          opportunity_id: string
+          activity_type_id: string
+          employee_id: string | null
+          title: string
+          description: string
+          scheduled_at: string | null
+          completed_at: string | null
+          status: CommercialActivityStatus
+          metadata: Json
+          created_by: string | null
+          updated_by: string | null
+          deleted_by: string | null
+          created_at: string
+          updated_at: string
+          deleted_at: string | null
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          opportunity_id: string
+          activity_type_id: string
+          employee_id?: string | null
+          title: string
+          description?: string
+          scheduled_at?: string | null
+          completed_at?: string | null
+          status?: CommercialActivityStatus
+          metadata?: Json
+          created_by?: string | null
+          updated_by?: string | null
+          deleted_by?: string | null
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          opportunity_id?: string
+          activity_type_id?: string
+          employee_id?: string | null
+          title?: string
+          description?: string
+          scheduled_at?: string | null
+          completed_at?: string | null
+          status?: CommercialActivityStatus
+          metadata?: Json
+          created_by?: string | null
+          updated_by?: string | null
+          deleted_by?: string | null
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commercial_activities_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commercial_activities_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "commercial_opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commercial_activities_activity_type_id_fkey"
+            columns: ["activity_type_id"]
+            isOneToOne: false
+            referencedRelation: "commercial_activity_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commercial_activities_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contractors: {
         Row: {
           id: string
@@ -2451,6 +2565,18 @@ export type CommercialOpportunityInsert =
   Database["public"]["Tables"]["commercial_opportunities"]["Insert"]
 export type CommercialOpportunityUpdate =
   Database["public"]["Tables"]["commercial_opportunities"]["Update"]
+export type CommercialActivityTypeRow =
+  Database["public"]["Tables"]["commercial_activity_types"]["Row"]
+export type CommercialActivityTypeInsert =
+  Database["public"]["Tables"]["commercial_activity_types"]["Insert"]
+export type CommercialActivityTypeUpdate =
+  Database["public"]["Tables"]["commercial_activity_types"]["Update"]
+export type CommercialActivityRow =
+  Database["public"]["Tables"]["commercial_activities"]["Row"]
+export type CommercialActivityInsert =
+  Database["public"]["Tables"]["commercial_activities"]["Insert"]
+export type CommercialActivityUpdate =
+  Database["public"]["Tables"]["commercial_activities"]["Update"]
 export type CrewRow = Database["public"]["Tables"]["crews"]["Row"]
 export type CrewInsert = Database["public"]["Tables"]["crews"]["Insert"]
 export type CrewUpdate = Database["public"]["Tables"]["crews"]["Update"]

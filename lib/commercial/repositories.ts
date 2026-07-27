@@ -15,6 +15,25 @@ import {
   softDeleteCommercialPerson,
   type SupabaseCommercialClient,
 } from "@/lib/supabase/commercial.queries"
+import {
+  fetchCommercialActivitiesByOpportunity,
+  fetchCommercialActivityById,
+  fetchCommercialActivityTypes,
+  insertCommercialActivity,
+  patchCommercialActivity,
+  softDeleteCommercialActivity,
+  type SupabaseCommercialActivitiesClient,
+} from "@/lib/supabase/commercial-activities.queries"
+import type {
+  CommercialActivity,
+  CommercialActivityListItem,
+  CommercialActivityType,
+} from "@/lib/types/commercial-activities"
+import type {
+  CommercialActivityRepositoryResult,
+  CreateCommercialActivityPayload,
+  UpdateCommercialActivityPayload,
+} from "@/lib/types/supabase/commercial-activities"
 import type {
   CommercialOpportunity,
   CommercialOpportunityListItem,
@@ -124,6 +143,63 @@ export class CommercialOpportunityRepository {
     deletedBy?: string | null
   ): Promise<CommercialRepositoryResult<CommercialOpportunity>> {
     return softDeleteCommercialOpportunity(
+      await this.resolveClient(),
+      id,
+      deletedBy
+    )
+  }
+}
+
+export class CommercialActivityRepository {
+  constructor(
+    private readonly client?: SupabaseCommercialActivitiesClient
+  ) {}
+
+  private async resolveClient(): Promise<SupabaseCommercialActivitiesClient> {
+    return this.client ?? (await createServerCommercialClient())
+  }
+
+  async listTypes(): Promise<
+    CommercialActivityRepositoryResult<CommercialActivityType[]>
+  > {
+    return fetchCommercialActivityTypes(await this.resolveClient())
+  }
+
+  async listByOpportunity(
+    companyId: string,
+    opportunityId: string
+  ): Promise<CommercialActivityRepositoryResult<CommercialActivityListItem[]>> {
+    return fetchCommercialActivitiesByOpportunity(
+      await this.resolveClient(),
+      companyId,
+      opportunityId
+    )
+  }
+
+  async getById(
+    id: string
+  ): Promise<CommercialActivityRepositoryResult<CommercialActivityListItem>> {
+    return fetchCommercialActivityById(await this.resolveClient(), id)
+  }
+
+  async create(
+    payload: CreateCommercialActivityPayload
+  ): Promise<CommercialActivityRepositoryResult<CommercialActivityListItem>> {
+    return insertCommercialActivity(await this.resolveClient(), payload)
+  }
+
+  async update(
+    id: string,
+    payload: UpdateCommercialActivityPayload
+  ): Promise<CommercialActivityRepositoryResult<CommercialActivityListItem>> {
+    return patchCommercialActivity(await this.resolveClient(), id, payload)
+  }
+
+  async softDelete(
+    id: string,
+    deletedBy?: string | null
+  ): Promise<CommercialActivityRepositoryResult<CommercialActivity>> {
+    return softDeleteCommercialActivity(
       await this.resolveClient(),
       id,
       deletedBy

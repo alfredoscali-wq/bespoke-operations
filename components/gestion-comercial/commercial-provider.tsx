@@ -21,7 +21,6 @@ import {
   getCommercialPersonById,
   listCommercialOpportunities,
   listCommercialPeople,
-  updateCommercialOpportunity,
 } from "@/lib/supabase/commercial.browser"
 import { resolveCommercialPersonDisplayName } from "@/lib/supabase/commercial.mapper"
 import type {
@@ -315,23 +314,32 @@ export function CommercialProvider({ children }: { children: React.ReactNode }) 
       id: string,
       input: Omit<UpdateCommercialOpportunityPayload, "updatedBy">
     ): Promise<MutationResult<CommercialOpportunity>> => {
-      const result = await updateCommercialOpportunity(id, {
-        ...input,
-        updatedBy: actorEmployeeId,
-      })
+      const response = await fetch(
+        `/api/gestion-comercial/opportunities/${id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(input),
+        }
+      )
+      const payload = (await response.json().catch(() => null)) as {
+        success?: boolean
+        message?: string
+        opportunity?: CommercialOpportunity
+      } | null
 
-      if (result.error || !result.data) {
+      if (!response.ok || !payload?.success || !payload.opportunity) {
         return {
           success: false,
           message:
-            result.error?.message ?? "No se pudo actualizar la oportunidad.",
+            payload?.message ?? "No se pudo actualizar la oportunidad.",
         }
       }
 
-      upsertOpportunity(result.data)
-      return { success: true, data: result.data }
+      upsertOpportunity(payload.opportunity)
+      return { success: true, data: payload.opportunity }
     },
-    [actorEmployeeId, upsertOpportunity]
+    [upsertOpportunity]
   )
 
   const deleteOpportunity = useCallback(

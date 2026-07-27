@@ -1,5 +1,6 @@
 import "server-only"
 
+import { COMMERCIAL_STATUS_LABELS } from "@/lib/commercial/catalogs"
 import {
   EXISTING_PROSPECT_NOTICE,
   normalizeCommercialEmail,
@@ -8,15 +9,26 @@ import {
   type CommercialCreateOpportunityBundleInput,
 } from "@/lib/commercial/create-opportunity"
 import {
+  CommercialActivityRepository,
   CommercialOpportunityRepository,
   CommercialPeopleRepository,
 } from "@/lib/commercial/repositories"
 import { resolveCommercialPersonDisplayName } from "@/lib/supabase/commercial.mapper"
 import type {
+  CommercialActivity,
+  CommercialActivityListItem,
+  CommercialActivityType,
+} from "@/lib/types/commercial-activities"
+import type {
   CommercialOpportunity,
   CommercialOpportunityListItem,
   CommercialPerson,
 } from "@/lib/types/commercial"
+import type {
+  CommercialActivityRepositoryResult,
+  CreateCommercialActivityPayload,
+  UpdateCommercialActivityPayload,
+} from "@/lib/types/supabase/commercial-activities"
 import type {
   CommercialRepositoryResult,
   CreateCommercialOpportunityPayload,
@@ -70,10 +82,100 @@ export class CommercialPeopleService {
   }
 }
 
+export class CommercialActivityService {
+  constructor(
+    private readonly repository: CommercialActivityRepository = new CommercialActivityRepository()
+  ) {}
+
+  listTypes(): Promise<
+    CommercialActivityRepositoryResult<CommercialActivityType[]>
+  > {
+    return this.repository.listTypes()
+  }
+
+  listByOpportunity(
+    companyId: string,
+    opportunityId: string
+  ): Promise<CommercialActivityRepositoryResult<CommercialActivityListItem[]>> {
+    return this.repository.listByOpportunity(companyId, opportunityId)
+  }
+
+  getById(
+    id: string
+  ): Promise<CommercialActivityRepositoryResult<CommercialActivityListItem>> {
+    return this.repository.getById(id)
+  }
+
+  create(
+    payload: CreateCommercialActivityPayload
+  ): Promise<CommercialActivityRepositoryResult<CommercialActivityListItem>> {
+    return this.repository.create(payload)
+  }
+
+  update(
+    id: string,
+    payload: UpdateCommercialActivityPayload
+  ): Promise<CommercialActivityRepositoryResult<CommercialActivityListItem>> {
+    return this.repository.update(id, payload)
+  }
+
+  delete(
+    id: string,
+    deletedBy?: string | null
+  ): Promise<CommercialActivityRepositoryResult<CommercialActivity>> {
+    return this.repository.softDelete(id, deletedBy)
+  }
+
+  async recordSystemOpportunityCreated(input: {
+    companyId: string
+    opportunityId: string
+    employeeId?: string | null
+  }): Promise<void> {
+    await this.repository.create({
+      companyId: input.companyId,
+      opportunityId: input.opportunityId,
+      activityTypeCode: "sistema",
+      employeeId: input.employeeId ?? null,
+      title: "Oportunidad creada.",
+      description: "",
+      status: "completed",
+      createdBy: input.employeeId ?? null,
+      metadata: { automatic: true, event: "opportunity_created" },
+    })
+  }
+
+  async recordStatusChanged(input: {
+    companyId: string
+    opportunityId: string
+    employeeId?: string | null
+    statusLabel: string
+    previousStatus?: string
+    nextStatus: string
+  }): Promise<void> {
+    await this.repository.create({
+      companyId: input.companyId,
+      opportunityId: input.opportunityId,
+      activityTypeCode: "cambio_estado",
+      employeeId: input.employeeId ?? null,
+      title: `Estado actualizado a: ${input.statusLabel}`,
+      description: "",
+      status: "completed",
+      createdBy: input.employeeId ?? null,
+      metadata: {
+        automatic: true,
+        event: "status_changed",
+        previousStatus: input.previousStatus ?? null,
+        nextStatus: input.nextStatus,
+      },
+    })
+  }
+}
+
 export class CommercialOpportunityService {
   constructor(
     private readonly repository: CommercialOpportunityRepository = new CommercialOpportunityRepository(),
-    private readonly peopleRepository: CommercialPeopleRepository = new CommercialPeopleRepository()
+    private readonly peopleRepository: CommercialPeopleRepository = new CommercialPeopleRepository(),
+    private readonly activityService: CommercialActivityService = new CommercialActivityService()
   ) {}
 
   list(
@@ -115,10 +217,20 @@ export class CommercialOpportunityService {
       }
     }
 
-    return this.repository.create({
+    const created = await this.repository.create({
       ...payload,
       companyId: payload.companyId ?? person.data.companyId,
     })
+
+    if (created.data) {
+      await this.activityService.recordSystemOpportunityCreated({
+        companyId: created.data.companyId,
+        opportunityId: created.data.id,
+        employeeId: payload.createdBy ?? null,
+      })
+    }
+
+    return created
   }
 
   /**
@@ -214,6 +326,12 @@ export class CommercialOpportunityService {
       }
     }
 
+    await this.activityService.recordSystemOpportunityCreated({
+      companyId: input.companyId,
+      opportunityId: opportunityResult.data.id,
+      employeeId: input.createdBy ?? null,
+    })
+
     const listItem: CommercialOpportunityListItem = {
       ...opportunityResult.data,
       personDisplayName: resolveCommercialPersonDisplayName(person),
@@ -230,11 +348,41 @@ export class CommercialOpportunityService {
     }
   }
 
-  update(
+  async update(
     id: string,
     payload: UpdateCommercialOpportunityPayload
   ): Promise<CommercialRepositoryResult<CommercialOpportunity>> {
-    return this.repository.update(id, payload)
+    const previous = await this.repository.getById(id)
+    if (previous.error || !previous.data) {
+      return {
+        data: null,
+        error: previous.error ?? {
+          code: "NOT_FOUND",
+          message: "Oportunidad no encontrada.",
+        },
+      }
+    }
+
+    const updated = await this.repository.update(id, payload)
+    if (updated.error || !updated.data) {
+      return updated
+    }
+
+    if (
+      payload.status !== undefined &&
+      payload.status !== previous.data.status
+    ) {
+      await this.activityService.recordStatusChanged({
+        companyId: updated.data.companyId,
+        opportunityId: updated.data.id,
+        employeeId: payload.updatedBy ?? null,
+        statusLabel: COMMERCIAL_STATUS_LABELS[payload.status],
+        previousStatus: previous.data.status,
+        nextStatus: payload.status,
+      })
+    }
+
+    return updated
   }
 
   delete(
