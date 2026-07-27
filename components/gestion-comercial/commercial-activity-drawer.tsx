@@ -139,6 +139,8 @@ type CommercialActivityDrawerProps = {
   opportunityId: string
   activity?: CommercialActivityListItem | null
   defaultTypeCode?: CommercialActivityTypeCode
+  /** Prefill “gestión no termina” for creating a commitment from Pipeline. */
+  preferCommitment?: boolean
 }
 
 export function CommercialActivityDrawer({
@@ -147,6 +149,7 @@ export function CommercialActivityDrawer({
   opportunityId,
   activity = null,
   defaultTypeCode = "llamada",
+  preferCommitment = false,
 }: CommercialActivityDrawerProps) {
   const { data: types } = useCommercialActivityTypes()
   const { employees, isEmployeesReady } = useEmployees()
@@ -190,6 +193,12 @@ export function CommercialActivityDrawer({
         : {
             ...emptyForm(defaultTypeCode),
             assignedEmployeeId: defaultEmployeeId,
+            ...(preferCommitment
+              ? {
+                  managementEnds: "no" as const,
+                  title: "Seguimiento programado",
+                }
+              : {}),
           }
       setForm(next)
       setBaseline(next)
@@ -199,7 +208,7 @@ export function CommercialActivityDrawer({
     return () => {
       cancelled = true
     }
-  }, [activity, defaultEmployeeId, defaultTypeCode, open])
+  }, [activity, defaultEmployeeId, defaultTypeCode, open, preferCommitment])
 
   const typeOptions = useMemo(() => {
     const allowed = new Set<string>(COMMERCIAL_MANUAL_ACTIVITY_TYPES)

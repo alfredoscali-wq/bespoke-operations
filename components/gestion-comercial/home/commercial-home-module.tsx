@@ -5,11 +5,16 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
   AlertTriangle,
+  BarChart3,
   CalendarDays,
+  Clock3,
   FolderOpen,
+  Inbox,
+  LayoutGrid,
   MapPinned,
   Plus,
   Sparkles,
+  type LucideIcon,
 } from "lucide-react"
 
 import { useAuth } from "@/components/auth/auth-provider"
@@ -21,10 +26,16 @@ import {
 } from "@/components/gestion-comercial/commercial-provider"
 import { EmployeesProvider } from "@/components/rrhh/employees-provider"
 import { Button } from "@/components/ui/button"
+import { FilterableKpiCard } from "@/components/ui/filterable-kpi-card"
 import { Skeleton } from "@/components/ui/skeleton"
 import type { CommercialActivityTypeCode } from "@/lib/commercial/activity-catalogs"
+import {
+  buildCommercialOpportunitiesHref,
+} from "@/lib/commercial/opportunity-list-views"
 import type { CommercialHomeDesk } from "@/lib/types/commercial-home"
 import type { CommercialOpportunityListItem } from "@/lib/types/commercial"
+import type { VisualTone } from "@/lib/ui/visual-tokens"
+import { KPI_TONE_STYLES, STATUS_BADGE_BASE, STATUS_TONE_STYLES } from "@/lib/ui/visual-tokens"
 import { cn } from "@/lib/utils"
 
 function formatShortDate(value: string): string {
@@ -51,37 +62,149 @@ function formatDayOnly(value: string): string {
   }
 }
 
+type SectionAccent = "blue" | "red" | "amber" | "violet" | "slate"
+
+const SECTION_ACCENT: Record<
+  SectionAccent,
+  { bar: string; iconWrap: string; icon: string }
+> = {
+  blue: {
+    bar: "bg-blue-500/70",
+    iconWrap: "bg-blue-500/[0.08]",
+    icon: "text-blue-700",
+  },
+  red: {
+    bar: "bg-red-500/70",
+    iconWrap: "bg-red-500/[0.08]",
+    icon: "text-red-700",
+  },
+  amber: {
+    bar: "bg-amber-500/70",
+    iconWrap: "bg-amber-500/[0.08]",
+    icon: "text-amber-800",
+  },
+  violet: {
+    bar: "bg-violet-500/60",
+    iconWrap: "bg-violet-500/[0.08]",
+    icon: "text-violet-700",
+  },
+  slate: {
+    bar: "bg-slate-400/80",
+    iconWrap: "bg-slate-500/[0.08]",
+    icon: "text-slate-700",
+  },
+}
+
 function HomeSection({
   title,
   description,
   children,
   action,
+  icon: Icon,
+  accent = "slate",
 }: {
   title: string
   description?: string
   children: React.ReactNode
   action?: React.ReactNode
+  icon: LucideIcon
+  accent?: SectionAccent
 }) {
+  const styles = SECTION_ACCENT[accent]
   return (
-    <section className="space-y-3 rounded-lg border bg-background p-4">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <h2 className="text-sm font-semibold tracking-tight">{title}</h2>
-          {description ? (
-            <p className="text-xs text-muted-foreground">{description}</p>
-          ) : null}
+    <section className="overflow-hidden rounded-xl border bg-card shadow-sm">
+      <div className={cn("h-0.5 w-full", styles.bar)} aria-hidden />
+      <div className="space-y-3 p-4">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="flex min-w-0 items-start gap-2.5">
+            <div
+              className={cn(
+                "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg",
+                styles.iconWrap
+              )}
+            >
+              <Icon className={cn("size-4", styles.icon)} aria-hidden />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold tracking-tight">{title}</h2>
+              {description ? (
+                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                  {description}
+                </p>
+              ) : null}
+            </div>
+          </div>
+          {action}
         </div>
-        {action}
+        <div className="pt-0.5">{children}</div>
       </div>
-      {children}
     </section>
   )
 }
 
-function EmptyHint({ children }: { children: React.ReactNode }) {
+function EmptyState({
+  icon: Icon,
+  title,
+  description,
+}: {
+  icon: LucideIcon
+  title: string
+  description: string
+}) {
   return (
-    <p className="py-4 text-center text-sm text-muted-foreground">{children}</p>
+    <div className="flex flex-col items-center justify-center gap-1.5 rounded-lg bg-muted/25 px-4 py-6 text-center">
+      <div className="mb-1 flex size-9 items-center justify-center rounded-full bg-background shadow-sm">
+        <Icon className="size-4 text-muted-foreground" aria-hidden />
+      </div>
+      <p className="text-sm font-medium text-foreground">{title}</p>
+      <p className="max-w-[28ch] text-xs leading-relaxed text-muted-foreground">
+        {description}
+      </p>
+    </div>
   )
+}
+
+function SummaryChip({
+  tone,
+  value,
+  label,
+}: {
+  tone: VisualTone
+  value: number
+  label: string
+}) {
+  return (
+    <span
+      className={cn(
+        STATUS_BADGE_BASE,
+        STATUS_TONE_STYLES[tone],
+        "inline-flex items-center gap-1.5 tabular-nums"
+      )}
+    >
+      <span className="text-sm font-semibold leading-none">{value}</span>
+      <span className="font-medium opacity-90">{label}</span>
+    </span>
+  )
+}
+
+function resolveJourneyStatus(desk: CommercialHomeDesk): {
+  tone: VisualTone
+  label: string
+} {
+  if (
+    desk.daySummary.commitmentsOverdue > 0 ||
+    desk.overdueCommitments.length > 0
+  ) {
+    return { tone: "red", label: "Hay pendientes" }
+  }
+  if (
+    desk.newDerivations.length > 0 ||
+    desk.daySummary.commitmentsToday > 0 ||
+    desk.daySummary.newOpportunities > 0
+  ) {
+    return { tone: "yellow", label: "Requiere atención" }
+  }
+  return { tone: "green", label: "Todo al día" }
 }
 
 function CommercialHomeContent() {
@@ -98,6 +221,11 @@ function CommercialHomeContent() {
     const raw = sessionUser?.displayName?.trim() || "vendedor"
     return raw.split(/\s+/)[0] || raw
   }, [sessionUser?.displayName])
+
+  const journey = useMemo(
+    () => (desk ? resolveJourneyStatus(desk) : null),
+    [desk]
+  )
 
   const loadDesk = useCallback(async () => {
     setIsLoading(true)
@@ -138,69 +266,126 @@ function CommercialHomeContent() {
   if (isLoading && !desk) {
     return (
       <div className="space-y-4">
-        <Skeleton className="h-16 w-full" />
+        <Skeleton className="h-28 w-full rounded-xl" />
         <div className="grid gap-3 md:grid-cols-2">
-          <Skeleton className="h-40 w-full" />
-          <Skeleton className="h-40 w-full" />
+          <Skeleton className="h-40 w-full rounded-xl" />
+          <Skeleton className="h-40 w-full rounded-xl" />
         </div>
-        <Skeleton className="h-48 w-full" />
+        <Skeleton className="h-48 w-full rounded-xl" />
       </div>
     )
   }
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {greeting} {displayName}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Tu bandeja de trabajo comercial del día.
-          </p>
-          {desk ? (
-            <p className="mt-2 text-sm text-foreground">
-              <span className="font-medium">{desk.daySummary.newOpportunities}</span>{" "}
-              nuevas ·{" "}
-              <span className="font-medium">
-                {desk.daySummary.commitmentsToday}
-              </span>{" "}
-              compromisos hoy ·{" "}
+    <div className="space-y-4">
+      <header className="overflow-hidden rounded-xl border border-blue-100/70 bg-gradient-to-br from-blue-500/[0.06] via-background to-slate-500/[0.03] shadow-sm">
+        <div className="flex flex-col gap-4 p-4 sm:p-5 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0 space-y-3">
+            <div>
+              <p className="text-[11px] font-medium tracking-wide text-blue-800/70 uppercase">
+                Inicio Comercial
+              </p>
+              <h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground sm:text-[1.65rem]">
+                {greeting} {displayName}
+              </h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Tu bandeja de trabajo comercial del día.
+              </p>
+            </div>
+
+            {desk ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <SummaryChip
+                  tone="orange"
+                  value={desk.daySummary.newOpportunities}
+                  label="Nuevas"
+                />
+                <SummaryChip
+                  tone="green"
+                  value={desk.daySummary.commitmentsToday}
+                  label="Hoy"
+                />
+                <SummaryChip
+                  tone="red"
+                  value={desk.daySummary.commitmentsOverdue}
+                  label="Vencidos"
+                />
+              </div>
+            ) : null}
+          </div>
+
+          <div className="flex flex-col items-stretch gap-3 sm:items-end">
+            {journey ? (
               <span
                 className={cn(
-                  "font-medium",
-                  desk.daySummary.commitmentsOverdue > 0 && "text-destructive"
+                  STATUS_BADGE_BASE,
+                  STATUS_TONE_STYLES[journey.tone],
+                  "inline-flex w-fit items-center gap-1.5 self-start sm:self-end"
                 )}
               >
-                {desk.daySummary.commitmentsOverdue}
-              </span>{" "}
-              vencidos
-            </p>
-          ) : null}
+                <span
+                  className={cn(
+                    "size-1.5 rounded-full",
+                    journey.tone === "green" && "bg-emerald-600",
+                    journey.tone === "yellow" && "bg-amber-600",
+                    journey.tone === "red" && "bg-red-600"
+                  )}
+                  aria-hidden
+                />
+                {journey.label}
+              </span>
+            ) : null}
+
+            <div className="flex flex-wrap gap-2 sm:justify-end">
+              <Button
+                type="button"
+                size="sm"
+                className="h-9 gap-2"
+                onClick={() => setDrawerOpen(true)}
+              >
+                <Plus className="size-4" />
+                Nueva oportunidad
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-9 gap-2"
+                asChild
+              >
+                <Link href="/gestion-comercial/oportunidades">
+                  <FolderOpen className="size-4" />
+                  Oportunidades
+                </Link>
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-9 gap-2"
+                asChild
+              >
+                <Link href="/gestion-comercial/mapa">
+                  <MapPinned className="size-4" />
+                  Territorio
+                </Link>
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-9 gap-2"
+                asChild
+              >
+                <Link href="/gestion-comercial/pipeline">
+                  <LayoutGrid className="size-4" />
+                  Pipeline
+                </Link>
+              </Button>
+            </div>
+          </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            className="gap-2"
-            onClick={() => setDrawerOpen(true)}
-          >
-            <Plus className="size-4" />
-            Nueva oportunidad
-          </Button>
-          <Button type="button" variant="outline" asChild>
-            <Link href="/gestion-comercial/oportunidades">Oportunidades</Link>
-          </Button>
-          <Button type="button" variant="outline" asChild>
-            <Link href="/gestion-comercial/mapa" className="gap-2">
-              <MapPinned className="size-4" />
-              Territorio
-            </Link>
-          </Button>
-          <Button type="button" variant="outline" asChild>
-            <Link href="/gestion-comercial/oportunidades">Pipeline</Link>
-          </Button>
-        </div>
-      </div>
+      </header>
 
       {error ? (
         <p className="text-sm text-destructive" role="alert">
@@ -212,9 +397,15 @@ function CommercialHomeContent() {
         <HomeSection
           title="Nuevas derivaciones"
           description="Consultas derivadas desde Atención al Cliente sin abrir."
+          icon={Inbox}
+          accent="blue"
         >
           {!desk?.newDerivations.length ? (
-            <EmptyHint>No hay derivaciones pendientes.</EmptyHint>
+            <EmptyState
+              icon={Inbox}
+              title="No hay nuevas derivaciones."
+              description="Excelente, ya revisaste todas las oportunidades."
+            />
           ) : (
             <ul className="divide-y">
               {desk.newDerivations.map((item) => (
@@ -239,7 +430,7 @@ function CommercialHomeContent() {
                   <Button
                     type="button"
                     size="sm"
-                    className="shrink-0 gap-1.5"
+                    className="h-8 shrink-0 gap-1.5"
                     onClick={() => openDossier(item.opportunityId)}
                   >
                     <FolderOpen className="size-3.5" />
@@ -254,9 +445,15 @@ function CommercialHomeContent() {
         <HomeSection
           title="Compromisos vencidos"
           description="Requieren actividad para ponerse al día."
+          icon={AlertTriangle}
+          accent="red"
         >
           {!desk?.overdueCommitments.length ? (
-            <EmptyHint>Sin compromisos vencidos.</EmptyHint>
+            <EmptyState
+              icon={AlertTriangle}
+              title="Sin compromisos vencidos."
+              description="Estás al día con tus seguimientos pendientes."
+            />
           ) : (
             <ul className="divide-y">
               {desk.overdueCommitments.map((item) => (
@@ -283,7 +480,7 @@ function CommercialHomeContent() {
                     type="button"
                     size="sm"
                     variant="outline"
-                    className="shrink-0"
+                    className="h-8 shrink-0 gap-1.5"
                     onClick={() =>
                       router.push(
                         `/gestion-comercial/${item.opportunityId}?action=activity`
@@ -302,9 +499,15 @@ function CommercialHomeContent() {
       <HomeSection
         title="Compromisos de hoy"
         description="Agenda comercial del día, ordenada por horario."
+        icon={CalendarDays}
+        accent="amber"
       >
         {!desk?.todayCommitments.length ? (
-          <EmptyHint>No hay compromisos para hoy.</EmptyHint>
+          <EmptyState
+            icon={CalendarDays}
+            title="No hay compromisos para hoy."
+            description="Tu agenda del día está libre."
+          />
         ) : (
           <ul className="divide-y">
             {desk.todayCommitments.map((item) => (
@@ -320,8 +523,8 @@ function CommercialHomeContent() {
                 role="button"
                 tabIndex={0}
               >
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted">
-                  <CalendarDays className="size-4 text-muted-foreground" />
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-amber-500/[0.08]">
+                  <CalendarDays className="size-4 text-amber-800" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-medium text-muted-foreground">
@@ -340,80 +543,94 @@ function CommercialHomeContent() {
       </HomeSection>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_1.2fr]">
-        <HomeSection title="Resumen comercial">
+        <HomeSection title="Resumen comercial" icon={BarChart3} accent="violet">
           {desk ? (
-            <dl className="grid grid-cols-2 gap-3">
-              {[
-                {
-                  label: "Oportunidades activas",
-                  value: desk.kpis.activeOpportunities,
-                },
-                {
-                  label: "Ganadas este mes",
-                  value: desk.kpis.wonThisMonth,
-                },
-                {
-                  label: "Perdidas este mes",
-                  value: desk.kpis.lostThisMonth,
-                },
-                {
-                  label: "Sin actividad +7 días",
-                  value: desk.kpis.inactiveOver7Days,
-                },
-              ].map((kpi) => (
-                <div
-                  key={kpi.label}
-                  className="rounded-md border px-3 py-2.5"
-                >
-                  <dt className="text-[11px] text-muted-foreground">
-                    {kpi.label}
-                  </dt>
-                  <dd className="mt-0.5 text-xl font-semibold tracking-tight">
-                    {kpi.value}
-                  </dd>
-                </div>
-              ))}
-            </dl>
+            <div className="grid grid-cols-2 gap-2.5">
+              <FilterableKpiCard
+                compact
+                label="Oportunidades activas"
+                value={desk.kpis.activeOpportunities}
+                icon={BarChart3}
+                tone="violet"
+                href={buildCommercialOpportunitiesHref("active")}
+              />
+              <FilterableKpiCard
+                compact
+                label="Ganadas este mes"
+                value={desk.kpis.wonThisMonth}
+                icon={Sparkles}
+                tone="green"
+                href={buildCommercialOpportunitiesHref("won_month")}
+              />
+              <FilterableKpiCard
+                compact
+                label="Perdidas este mes"
+                value={desk.kpis.lostThisMonth}
+                icon={AlertTriangle}
+                tone="red"
+                href={buildCommercialOpportunitiesHref("lost_month")}
+              />
+              <FilterableKpiCard
+                compact
+                label="Sin actividad +7 días"
+                value={desk.kpis.inactiveOver7Days}
+                icon={Clock3}
+                tone="amber"
+                href={buildCommercialOpportunitiesHref("inactive_7d")}
+              />
+            </div>
           ) : null}
         </HomeSection>
 
-        <HomeSection title="Actividad reciente">
+        <HomeSection title="Actividad reciente" icon={Clock3} accent="slate">
           {!desk?.recentActivity.length ? (
-            <EmptyHint>Todavía no hay actividad comercial.</EmptyHint>
+            <EmptyState
+              icon={Clock3}
+              title="Todavía no hay actividad comercial."
+              description="Cuando registres gestiones, aparecerán aquí."
+            />
           ) : (
-            <ul className="space-y-3">
-              {desk.recentActivity.map((item) => (
-                <li key={item.id} className="flex gap-3">
-                  <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-muted">
-                    {(() => {
-                      const Icon =
-                        COMMERCIAL_ACTIVITY_TYPE_ICONS[
-                          item.activityTypeCode as CommercialActivityTypeCode
-                        ] ?? Sparkles
-                      return (
-                        <Icon className="size-3.5 text-muted-foreground" />
-                      )
-                    })()}
-                  </div>
-                  <button
-                    type="button"
-                    className="min-w-0 flex-1 text-left"
-                    onClick={() => openDossier(item.opportunityId)}
-                  >
-                    <p className="text-sm font-medium">{item.title}</p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {item.personName}
-                      {item.opportunityCode ? ` · ${item.opportunityCode}` : ""}
-                      {" · "}
-                      {item.employeeName}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {formatShortDate(item.occurredAt)} ·{" "}
-                      {item.activityTypeLabel}
-                    </p>
-                  </button>
-                </li>
-              ))}
+            <ul className="space-y-2.5">
+              {desk.recentActivity.map((item) => {
+                const Icon =
+                  COMMERCIAL_ACTIVITY_TYPE_ICONS[
+                    item.activityTypeCode as CommercialActivityTypeCode
+                  ] ?? Sparkles
+                return (
+                  <li key={item.id} className="flex gap-3">
+                    <div
+                      className={cn(
+                        "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full",
+                        KPI_TONE_STYLES.neutral.icon
+                      )}
+                    >
+                      <Icon
+                        className={cn(
+                          "size-3.5",
+                          KPI_TONE_STYLES.neutral.iconColor
+                        )}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      className="min-w-0 flex-1 rounded-md text-left transition-colors hover:bg-muted/40"
+                      onClick={() => openDossier(item.opportunityId)}
+                    >
+                      <p className="text-sm font-medium">{item.title}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {item.personName}
+                        {item.opportunityCode ? ` · ${item.opportunityCode}` : ""}
+                        {" · "}
+                        {item.employeeName}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {formatShortDate(item.occurredAt)} ·{" "}
+                        {item.activityTypeLabel}
+                      </p>
+                    </button>
+                  </li>
+                )
+              })}
             </ul>
           )}
         </HomeSection>

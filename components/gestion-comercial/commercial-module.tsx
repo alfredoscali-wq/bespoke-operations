@@ -1,8 +1,8 @@
 "use client"
 
-import { useMemo, useState } from "react"
-import { useRouter } from "next/navigation"
-import { Eye, Pencil, Plus, Trash2 } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { Eye, Pencil, Plus, Trash2, X } from "lucide-react"
 
 import { useAuth } from "@/components/auth/auth-provider"
 import { CommercialNewOpportunityDrawer } from "@/components/gestion-comercial/commercial-new-opportunity-drawer"
@@ -37,12 +37,20 @@ import {
   COMMERCIAL_STATUS_LABELS,
 } from "@/lib/commercial/catalogs"
 import { resolveCommercialActorEmployeeId } from "@/lib/commercial/module-access"
+import {
+  COMMERCIAL_OPPORTUNITY_LIST_VIEW_LABELS,
+  filterOpportunitiesByListView,
+  isCommercialOpportunityListView,
+  type CommercialOpportunityListView,
+} from "@/lib/commercial/opportunity-list-views"
 import type { CommercialOpportunityListItem } from "@/lib/types/commercial"
+import type { CommercialPipelineCard } from "@/lib/types/commercial-pipeline"
 
 type OpportunityScope = "all" | "mine"
 
 function CommercialModuleContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { sessionUser } = useAuth()
   const { data: opportunities, isLoading } = useCommercialOpportunities()
   const { data: people } = useCommercialPeople()
@@ -55,6 +63,15 @@ function CommercialModuleContent() {
     useState<CommercialOpportunityListItem | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [inactiveOpportunityIds, setInactiveOpportunityIds] = useState<
+    Set<string>
+  >(new Set())
+  const [isInactiveLoading, setIsInactiveLoading] = useState(false)
+
+  const listView = useMemo((): CommercialOpportunityListView | null => {
+    const raw = searchParams.get("view")
+    return isCommercialOpportunityListView(raw) ? raw : null
+  }, [searchParams])
 
   const actorEmployeeId = useMemo(
     () =>
@@ -62,14 +79,65 @@ function CommercialModuleContent() {
     [sessionUser]
   )
 
-  const visibleOpportunities = useMemo(() => {
-    if (scope === "mine" && actorEmployeeId) {
-      return opportunities.filter(
-        (opportunity) => opportunity.assignedEmployeeId === actorEmployeeId
-      )
+  useEffect(() => {
+    if (listView !== "inactive_7d") {
+      setInactiveOpportunityIds(new Set())
+      setIsInactiveLoading(false)
+      return
     }
-    return opportunities
-  }, [actorEmployeeId, opportunities, scope])
+
+    let cancelled = false
+    setIsInactiveLoading(true)
+    void (async () => {
+      try {
+        const response = await fetch("/api/gestion-comercial/pipeline")
+        const payload = (await response.json().catch(() => null)) as {
+          success?: boolean
+          cards?: CommercialPipelineCard[]
+        } | null
+        if (cancelled) return
+        if (!response.ok || !payload?.success || !payload.cards) {
+          setInactiveOpportunityIds(new Set())
+          return
+        }
+        const ids = new Set(
+          payload.cards
+            .filter((card) => card.daysSinceLastActivity >= 7)
+            .map((card) => card.id)
+        )
+        setInactiveOpportunityIds(ids)
+      } finally {
+        if (!cancelled) setIsInactiveLoading(false)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [listView])
+
+  const visibleOpportunities = useMemo(() => {
+    const scoped =
+      scope === "mine" && actorEmployeeId
+        ? opportunities.filter(
+            (opportunity) => opportunity.assignedEmployeeId === actorEmployeeId
+          )
+        : opportunities
+
+    return filterOpportunitiesByListView(scoped, listView, {
+      inactiveOpportunityIds,
+    })
+  }, [
+    actorEmployeeId,
+    inactiveOpportunityIds,
+    listView,
+    opportunities,
+    scope,
+  ])
+
+  function clearListView() {
+    router.push("/gestion-comercial/oportunidades")
+  }
 
   function openDossier(opportunityId: string) {
     router.push(`/gestion-comercial/${opportunityId}`)
@@ -95,6 +163,9 @@ function CommercialModuleContent() {
     }
   }
 
+  const tableLoading =
+    isLoading || (listView === "inactive_7d" && isInactiveLoading)
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -117,6 +188,13 @@ function CommercialModuleContent() {
           <Button
             type="button"
             variant="outline"
+            onClick={() => router.push("/gestion-comercial/pipeline")}
+          >
+            Pipeline
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
             onClick={() => router.push("/gestion-comercial/mapa")}
           >
             Territorio
@@ -132,7 +210,7 @@ function CommercialModuleContent() {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Button
           type="button"
           size="sm"
@@ -150,10 +228,28 @@ function CommercialModuleContent() {
         >
           Mías
         </Button>
+        {listView ? (
+          <div className="ml-auto flex items-center gap-2 rounded-md border bg-muted/40 px-2.5 py-1.5 text-xs">
+            <span className="text-muted-foreground">Filtro:</span>
+            <span className="font-medium">
+              {COMMERCIAL_OPPORTUNITY_LIST_VIEW_LABELS[listView]}
+            </span>
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="ghost"
+              className="size-6"
+              aria-label="Quitar filtro"
+              onClick={clearListView}
+            >
+              <X className="size-3.5" />
+            </Button>
+          </div>
+        ) : null}
       </div>
 
       <div className="rounded-lg border">
-        {isLoading ? (
+        {tableLoading ? (
           <div className="p-4">
             <TableRowsSkeleton columns={6} rows={4} />
           </div>
@@ -176,9 +272,11 @@ function CommercialModuleContent() {
                     colSpan={6}
                     className="h-24 text-center text-sm text-muted-foreground"
                   >
-                    {scope === "mine"
-                      ? "No tenés oportunidades asignadas como responsable."
-                      : "Todavía no existen oportunidades comerciales."}
+                    {listView
+                      ? "No hay oportunidades para este filtro."
+                      : scope === "mine"
+                        ? "No tenés oportunidades asignadas como responsable."
+                        : "Todavía no existen oportunidades comerciales."}
                   </TableCell>
                 </TableRow>
               ) : (

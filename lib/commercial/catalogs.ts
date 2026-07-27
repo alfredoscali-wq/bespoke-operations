@@ -45,6 +45,31 @@ export const COMMERCIAL_STATUS_LABELS: Record<CommercialStatusCode, string> = {
   perdida: "Perdida",
 }
 
+/** Column titles for Pipeline Kanban (product copy). */
+export const COMMERCIAL_PIPELINE_COLUMN_LABELS: Record<
+  CommercialStatusCode,
+  string
+> = {
+  nueva: "Nueva",
+  contactada: "Contactada",
+  calificada: "Calificación",
+  propuesta_enviada: "Propuesta enviada",
+  negociacion: "Negociación",
+  ganada: "Ganada",
+  perdida: "Perdida",
+}
+
+export const COMMERCIAL_LOST_REASON_OPTIONS = [
+  "Precio",
+  "Competencia",
+  "Sin respuesta",
+  "Cliente desistió",
+  "Otro",
+] as const
+
+export type CommercialLostReasonOption =
+  (typeof COMMERCIAL_LOST_REASON_OPTIONS)[number]
+
 export const COMMERCIAL_PRIORITY_LABELS: Record<CommercialPriorityCode, string> =
   {
     alta: "Alta",

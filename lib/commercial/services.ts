@@ -173,14 +173,34 @@ export class CommercialActivityService {
     statusLabel: string
     previousStatus?: string
     nextStatus: string
+    lostReason?: string | null
   }): Promise<void> {
+    const previousLabel =
+      input.previousStatus &&
+      input.previousStatus in COMMERCIAL_STATUS_LABELS
+        ? COMMERCIAL_STATUS_LABELS[
+            input.previousStatus as keyof typeof COMMERCIAL_STATUS_LABELS
+          ]
+        : input.previousStatus
+
+    const title =
+      previousLabel
+        ? `Cambio de etapa: ${previousLabel} → ${input.statusLabel}`
+        : `Estado actualizado a: ${input.statusLabel}`
+
+    const descriptionParts = [
+      input.lostReason?.trim()
+        ? `Motivo de pérdida: ${input.lostReason.trim()}`
+        : "",
+    ].filter(Boolean)
+
     await this.repository.create({
       companyId: input.companyId,
       opportunityId: input.opportunityId,
       activityTypeCode: "cambio_estado",
       employeeId: input.employeeId ?? null,
-      title: `Estado actualizado a: ${input.statusLabel}`,
-      description: "",
+      title,
+      description: descriptionParts.join("\n"),
       status: "completed",
       createdBy: input.employeeId ?? null,
       metadata: {
@@ -188,6 +208,7 @@ export class CommercialActivityService {
         event: "status_changed",
         previousStatus: input.previousStatus ?? null,
         nextStatus: input.nextStatus,
+        lostReason: input.lostReason?.trim() || null,
       },
     })
   }
@@ -442,6 +463,10 @@ export class CommercialOpportunityService {
         statusLabel: COMMERCIAL_STATUS_LABELS[payload.status],
         previousStatus: previous.data.status,
         nextStatus: payload.status,
+        lostReason:
+          payload.status === "perdida"
+            ? payload.lostReason ?? updated.data.lostReason
+            : null,
       })
     }
 
