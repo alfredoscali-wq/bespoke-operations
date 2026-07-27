@@ -10,6 +10,7 @@ export type ConsultationManagementApiResponse =
       previousNextStep: CustomerAtencionNextStep | null
       newNextStep: CustomerAtencionNextStep | null
       idempotent?: boolean
+      eventId?: string | null
     }
   | {
       success: false
@@ -56,6 +57,7 @@ async function postConsultationManagement(
       previousNextStep: payload.previousNextStep,
       newNextStep: payload.newNextStep,
       idempotent: payload.idempotent,
+      eventId: payload.eventId ?? null,
     },
   }
 }

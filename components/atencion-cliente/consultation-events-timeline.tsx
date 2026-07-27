@@ -1,7 +1,15 @@
 "use client"
 
+import { useState } from "react"
 import { History } from "lucide-react"
 
+import { AttachmentList } from "@/components/attachments/attachment-list"
+import { AttachmentPreview } from "@/components/attachments/attachment-preview"
+import {
+  deleteAttachmentFile,
+  getAttachmentPreviewLink,
+} from "@/lib/attachments/client"
+import { resolveAttachmentPreviewKind } from "@/lib/attachments/format"
 import {
   Card,
   CardContent,
@@ -10,11 +18,15 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import type { ConsultationTimelineCard } from "@/lib/customer-atenciones/consultation-expediente"
+import type { Attachment } from "@/lib/types/attachments"
 
 type ConsultationEventsTimelineProps = {
   cards: ConsultationTimelineCard[]
   employeeNamesById: Record<string, string>
   presentation?: "page" | "panel"
+  attachmentsByEventId?: Record<string, Attachment[]>
+  canDeleteAttachments?: boolean
+  onAttachmentsChanged?: () => void
 }
 
 function formatEventDateParts(isoDate: string): { date: string; time: string } {
@@ -32,14 +44,128 @@ function formatEventDateParts(isoDate: string): { date: string; time: string } {
   }
 }
 
+function TimelineAttachmentsBlock({
+  attachments,
+  canDelete,
+  onChanged,
+}: {
+  attachments: Attachment[]
+  canDelete: boolean
+  onChanged?: () => void
+}) {
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(
+    null
+  )
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [isBusy, setIsBusy] = useState(false)
+
+  if (attachments.length === 0) {
+    return null
+  }
+
+  async function resolveUrl(attachment: Attachment) {
+    const result = await getAttachmentPreviewLink(attachment.id)
+    if (!result.success) {
+      return null
+    }
+    return result.url
+  }
+
+  async function handleOpen(attachment: Attachment) {
+    setIsBusy(true)
+    try {
+      const url = await resolveUrl(attachment)
+      if (!url) return
+
+      const kind = resolveAttachmentPreviewKind(attachment.mimeType)
+      if (kind === "pdf" || kind === "file") {
+        window.open(url, "_blank", "noopener,noreferrer")
+        return
+      }
+
+      setPreviewAttachment(attachment)
+      setPreviewUrl(url)
+      setPreviewOpen(true)
+    } finally {
+      setIsBusy(false)
+    }
+  }
+
+  async function handleDownload(attachment: Attachment) {
+    setIsBusy(true)
+    try {
+      const url = await resolveUrl(attachment)
+      if (!url) return
+      const anchor = document.createElement("a")
+      anchor.href = url
+      anchor.download = attachment.originalName
+      anchor.target = "_blank"
+      anchor.rel = "noopener noreferrer"
+      anchor.click()
+    } finally {
+      setIsBusy(false)
+    }
+  }
+
+  async function handleDelete(attachment: Attachment) {
+    setIsBusy(true)
+    try {
+      const result = await deleteAttachmentFile(attachment.id)
+      if (result.success) {
+        onChanged?.()
+      }
+    } finally {
+      setIsBusy(false)
+    }
+  }
+
+  return (
+    <div className="mt-3 space-y-1.5">
+      <p className="text-[11px] font-semibold text-slate-700">Adjuntos</p>
+      <AttachmentList
+        attachments={attachments}
+        canDelete={canDelete}
+        isBusy={isBusy}
+        compact
+        onOpen={(item) => {
+          void handleOpen(item)
+        }}
+        onDownload={(item) => {
+          void handleDownload(item)
+        }}
+        onDelete={
+          canDelete
+            ? (item) => {
+                void handleDelete(item)
+              }
+            : undefined
+        }
+      />
+      <AttachmentPreview
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        attachment={previewAttachment}
+        url={previewUrl}
+      />
+    </div>
+  )
+}
+
 function PanelTimelineEntry({
   card,
   actorName,
   isLast,
+  attachments,
+  canDeleteAttachments,
+  onAttachmentsChanged,
 }: {
   card: ConsultationTimelineCard
   actorName: string
   isLast: boolean
+  attachments: Attachment[]
+  canDeleteAttachments: boolean
+  onAttachmentsChanged?: () => void
 }) {
   const { date, time } = formatEventDateParts(card.createdAt)
   const infoComment =
@@ -117,6 +243,12 @@ function PanelTimelineEntry({
           </div>
         ) : null}
 
+        <TimelineAttachmentsBlock
+          attachments={attachments}
+          canDelete={canDeleteAttachments}
+          onChanged={onAttachmentsChanged}
+        />
+
         {card.closingNote ? (
           <div className="mt-3 space-y-1">
             <p className="text-[11px] font-semibold text-slate-700">
@@ -136,10 +268,16 @@ function PageTimelineEntry({
   card,
   actorName,
   isLast,
+  attachments,
+  canDeleteAttachments,
+  onAttachmentsChanged,
 }: {
   card: ConsultationTimelineCard
   actorName: string
   isLast: boolean
+  attachments: Attachment[]
+  canDeleteAttachments: boolean
+  onAttachmentsChanged?: () => void
 }) {
   const { date, time } = formatEventDateParts(card.createdAt)
   const infoComment =
@@ -211,6 +349,12 @@ function PageTimelineEntry({
             ) : null}
           </div>
         ) : null}
+
+        <TimelineAttachmentsBlock
+          attachments={attachments}
+          canDelete={canDeleteAttachments}
+          onChanged={onAttachmentsChanged}
+        />
       </div>
     </article>
   )
@@ -220,6 +364,9 @@ export function ConsultationEventsTimeline({
   cards,
   employeeNamesById,
   presentation = "page",
+  attachmentsByEventId = {},
+  canDeleteAttachments = false,
+  onAttachmentsChanged,
 }: ConsultationEventsTimelineProps) {
   if (cards.length === 0) {
     const empty = (
@@ -271,6 +418,9 @@ export function ConsultationEventsTimeline({
               card={card}
               actorName={employeeNamesById[card.employeeId] ?? "Un operador"}
               isLast={index === cards.length - 1}
+              attachments={attachmentsByEventId[card.id] ?? []}
+              canDeleteAttachments={canDeleteAttachments}
+              onAttachmentsChanged={onAttachmentsChanged}
             />
           ))}
         </div>
@@ -294,6 +444,9 @@ export function ConsultationEventsTimeline({
               card={card}
               actorName={employeeNamesById[card.employeeId] ?? "Un operador"}
               isLast={index === cards.length - 1}
+              attachments={attachmentsByEventId[card.id] ?? []}
+              canDeleteAttachments={canDeleteAttachments}
+              onAttachmentsChanged={onAttachmentsChanged}
             />
           ))}
         </div>

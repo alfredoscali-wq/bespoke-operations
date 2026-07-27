@@ -176,5 +176,6 @@ export function consultationManagementResultToResponse(
     previousNextStep: result.data.previousNextStep,
     newNextStep: result.data.newNextStep,
     idempotent: result.data.idempotent ?? false,
+    eventId: result.data.eventId ?? null,
   })
 }

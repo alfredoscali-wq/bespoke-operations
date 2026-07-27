@@ -40,6 +40,8 @@ export type ConsultationManagementRpcResult = {
   previousNextStep: CustomerAtencionNextStep | null
   newNextStep: CustomerAtencionNextStep | null
   idempotent?: boolean
+  /** Timeline event created by resolve/defer when available. */
+  eventId?: string | null
 }
 
 export function canStartConsultationManagement(
@@ -154,6 +156,8 @@ export function parseConsultationManagementRpcResult(
     previousNextStep,
     newNextStep,
     idempotent: record.idempotent === true,
+    eventId:
+      typeof record.event_id === "string" ? record.event_id : null,
   }
 }
 

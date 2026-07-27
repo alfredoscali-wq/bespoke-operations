@@ -112,6 +112,66 @@ export type Database = {
           },
         ]
       }
+      attachments: {
+        Row: {
+          id: string
+          company_id: string
+          module: string
+          record_id: string
+          timeline_event_id: string | null
+          original_name: string
+          file_name: string
+          mime_type: string
+          file_size: number
+          storage_path: string
+          uploaded_by: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          module: string
+          record_id: string
+          timeline_event_id?: string | null
+          original_name: string
+          file_name: string
+          mime_type: string
+          file_size: number
+          storage_path: string
+          uploaded_by: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          module?: string
+          record_id?: string
+          timeline_event_id?: string | null
+          original_name?: string
+          file_name?: string
+          mime_type?: string
+          file_size?: number
+          storage_path?: string
+          uploaded_by?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attachments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attachments_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       automatic_report_settings: {
         Row: {
           id: string

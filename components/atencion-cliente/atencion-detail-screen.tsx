@@ -21,6 +21,10 @@ import {
   type ConsultationDecisionAction,
 } from "@/components/atencion-cliente/consultation-decision-center"
 import { ConsultationEventsTimeline } from "@/components/atencion-cliente/consultation-events-timeline"
+import { AttachmentUploader, type StagedAttachmentFile } from "@/components/attachments/attachment-uploader"
+import { listAttachmentFiles } from "@/lib/attachments/client"
+import { uploadStagedAttachments } from "@/lib/attachments/upload-staged"
+import type { Attachment } from "@/lib/types/attachments"
 import { ConsultationPermanentDeleteDialog } from "@/components/atencion-cliente/consultation-permanent-delete-dialog"
 import { ConsultationSituationSummaryCard } from "@/components/atencion-cliente/consultation-situation-summary-card"
 import { RetentionResultDialog } from "@/components/atencion-cliente/retention-result-dialog"
@@ -227,6 +231,16 @@ export function AtencionDetailScreen({
   >([])
   const [commercialOpportunity, setCommercialOpportunity] =
     useState<CommercialOpportunityLink | null>(null)
+  const [stagedAttachments, setStagedAttachments] = useState<
+    StagedAttachmentFile[]
+  >([])
+  const [attachmentsByEventId, setAttachmentsByEventId] = useState<
+    Record<string, Attachment[]>
+  >({})
+  const [isUploadingAttachments, setIsUploadingAttachments] = useState(false)
+  const [attachmentUploadProgress, setAttachmentUploadProgress] = useState<
+    string | null
+  >(null)
 
   const loadDetail = useCallback(async () => {
     setIsLoading(true)
@@ -270,6 +284,25 @@ export function AtencionDetailScreen({
       setActiveEmployee(activeResult.data)
       setEvents(loadedEvents)
       setEventEmployeeNamesById(Object.fromEntries(employeeResults))
+
+      const attachmentsResult = await listAttachmentFiles({
+        module: "customer_attention",
+        recordId: loadedAtencion.id,
+      })
+      if (attachmentsResult.success) {
+        const grouped: Record<string, Attachment[]> = {}
+        for (const item of attachmentsResult.attachments) {
+          const attachment = item as Attachment
+          const eventKey = attachment.timelineEventId ?? "_unlinked"
+          if (!grouped[eventKey]) {
+            grouped[eventKey] = []
+          }
+          grouped[eventKey].push(attachment)
+        }
+        setAttachmentsByEventId(grouped)
+      } else {
+        setAttachmentsByEventId({})
+      }
 
       if (isCommercialSalesHandoff(loadedAtencion)) {
         try {
@@ -446,6 +479,39 @@ export function AtencionDetailScreen({
     }
   }
 
+  async function uploadPendingAttachments(
+    timelineEventId: string | null | undefined
+  ): Promise<{ ok: true } | { ok: false; message: string }> {
+    if (stagedAttachments.length === 0) {
+      return { ok: true }
+    }
+
+    setIsUploadingAttachments(true)
+    setAttachmentUploadProgress("Subiendo adjuntos…")
+    try {
+      const uploadResult = await uploadStagedAttachments({
+        module: "customer_attention",
+        recordId: atencionId,
+        timelineEventId,
+        files: stagedAttachments,
+        onFileProgress: (fileName, percent) => {
+          setAttachmentUploadProgress(`${fileName} (${percent}%)`)
+        },
+      })
+
+      if (!uploadResult.success) {
+        setActionError(uploadResult.message)
+        return { ok: false, message: uploadResult.message }
+      }
+
+      setStagedAttachments([])
+      setAttachmentUploadProgress(null)
+      return { ok: true }
+    } finally {
+      setIsUploadingAttachments(false)
+    }
+  }
+
   async function handleResolve() {
     setActionError(null)
 
@@ -470,6 +536,12 @@ export function AtencionDetailScreen({
 
       if (!result.success) {
         setActionError(result.message)
+        return
+      }
+
+      const uploaded = await uploadPendingAttachments(result.data.eventId)
+      if (!uploaded.ok) {
+        await reloadAfterAction()
         return
       }
 
@@ -510,6 +582,12 @@ export function AtencionDetailScreen({
         return
       }
 
+      const uploaded = await uploadPendingAttachments(result.data.eventId)
+      if (!uploaded.ok) {
+        await reloadAfterAction()
+        return
+      }
+
       setDeferNextStep("")
       setResolution("")
       await reloadAfterAction()
@@ -540,6 +618,12 @@ export function AtencionDetailScreen({
 
       if (!result.success) {
         setActionError(result.message)
+        return
+      }
+
+      const uploaded = await uploadPendingAttachments(result.data.eventId)
+      if (!uploaded.ok) {
+        await reloadAfterAction()
         return
       }
 
@@ -896,7 +980,22 @@ export function AtencionDetailScreen({
             placeholder={getManagementAssistantDetailPlaceholder(
               managementDetailOptionId
             )}
+            disabled={isResolving || isDeferring || isUploadingAttachments}
           />
+        </div>
+
+        <div className="space-y-2 rounded-md border border-slate-200 bg-white px-3 py-2.5">
+          <p className="text-[13px] font-semibold text-slate-900">Adjuntos</p>
+          <AttachmentUploader
+            files={stagedAttachments}
+            onChange={setStagedAttachments}
+            disabled={isResolving || isDeferring || isUploadingAttachments}
+          />
+          {attachmentUploadProgress ? (
+            <p className="text-[12px] text-muted-foreground">
+              {attachmentUploadProgress}
+            </p>
+          ) : null}
         </div>
 
         {managementAssistantOptionShowsFollowUp(managementDetailOptionId) ? (
@@ -1019,6 +1118,11 @@ export function AtencionDetailScreen({
       setActionError(result.message)
       return { success: false, message: result.message }
     }
+    const uploaded = await uploadPendingAttachments(result.data.eventId)
+    if (!uploaded.ok) {
+      await reloadAfterAction()
+      return { success: false, message: uploaded.message }
+    }
     await reloadAfterAction()
     return { success: true }
   }
@@ -1033,6 +1137,11 @@ export function AtencionDetailScreen({
     if (!result.success) {
       setActionError(result.message)
       return { success: false, message: result.message }
+    }
+    const uploaded = await uploadPendingAttachments(result.data.eventId)
+    if (!uploaded.ok) {
+      await reloadAfterAction()
+      return { success: false, message: uploaded.message }
     }
     await reloadAfterAction()
     return { success: true }
@@ -1095,12 +1204,18 @@ export function AtencionDetailScreen({
     effectiveAssistantOptionId !== "moroso_tracking"
       ? {
           id: "register",
-          label: isResolving || isDeferring ? "Registrando…" : "Registrar gestión",
+          label:
+            isResolving || isDeferring || isUploadingAttachments
+              ? "Registrando…"
+              : "Registrar gestión",
           onClick: () => {
             void handleRegisterManagement()
           },
           disabled:
-            isResolving || isDeferring || !assistantDetailReady,
+            isResolving ||
+            isDeferring ||
+            isUploadingAttachments ||
+            !assistantDetailReady,
         }
       : null
 
@@ -1289,6 +1404,9 @@ export function AtencionDetailScreen({
               cards={timelineCards}
               employeeNamesById={eventEmployeeNamesById}
               presentation="panel"
+              attachmentsByEventId={attachmentsByEventId}
+              canDeleteAttachments={isSystemAdministrator}
+              onAttachmentsChanged={reloadAfterAction}
             />
           </div>
         </div>
@@ -1669,12 +1787,29 @@ export function AtencionDetailScreen({
                 onChange={(event) => setResolution(event.target.value)}
                 rows={3}
                 placeholder="Describa cómo fue resuelta la consulta."
+                disabled={isResolving || isDeferring || isUploadingAttachments}
               />
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Adjuntos</p>
+                <AttachmentUploader
+                  files={stagedAttachments}
+                  onChange={setStagedAttachments}
+                  disabled={
+                    isResolving || isDeferring || isUploadingAttachments
+                  }
+                />
+              </div>
               <Button
                 onClick={handleResolve}
-                disabled={isResolving || !resolution.trim()}
+                disabled={
+                  isResolving ||
+                  isUploadingAttachments ||
+                  !resolution.trim()
+                }
               >
-                {isResolving ? "Guardando…" : "Resolver Consulta"}
+                {isResolving || isUploadingAttachments
+                  ? "Guardando…"
+                  : "Resolver Consulta"}
               </Button>
             </div>
 
@@ -1701,10 +1836,15 @@ export function AtencionDetailScreen({
                 variant="outline"
                 onClick={handleDefer}
                 disabled={
-                  isDeferring || !resolution.trim() || !deferNextStep
+                  isDeferring ||
+                  isUploadingAttachments ||
+                  !resolution.trim() ||
+                  !deferNextStep
                 }
               >
-                {isDeferring ? "Guardando…" : "Definir próximo paso"}
+                {isDeferring || isUploadingAttachments
+                  ? "Guardando…"
+                  : "Definir próximo paso"}
               </Button>
             </div>
           </CardContent>
@@ -1714,6 +1854,9 @@ export function AtencionDetailScreen({
       <ConsultationEventsTimeline
         cards={timelineCards}
         employeeNamesById={eventEmployeeNamesById}
+        attachmentsByEventId={attachmentsByEventId}
+        canDeleteAttachments={isSystemAdministrator}
+        onAttachmentsChanged={reloadAfterAction}
       />
 
       <ConsultationPermanentDeleteDialog

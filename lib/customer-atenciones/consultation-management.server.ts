@@ -55,6 +55,31 @@ type AdminRpcClient = {
   ) => Promise<{ data: unknown; error: { message: string } | null }>
 }
 
+async function resolveLatestConsultationEventId(input: {
+  companyId: string
+  atencionId: string
+  employeeId: string
+  actionTypes: string[]
+}): Promise<string | null> {
+  const admin = createAdminClient()
+  const { data, error } = await admin
+    .from("customer_atencion_events")
+    .select("id")
+    .eq("company_id", input.companyId)
+    .eq("customer_atencion_id", input.atencionId)
+    .eq("employee_id", input.employeeId)
+    .in("action_type", input.actionTypes)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error || !data?.id) {
+    return null
+  }
+
+  return data.id
+}
+
 async function callConsultationManagementRpc(
   rpcName: string,
   args: Record<string, unknown>
@@ -121,7 +146,7 @@ export async function resolveCustomerAtencionConsultation(input: {
   resolution: string
   followUpActions?: string[]
 }): Promise<ConsultationManagementServerResult> {
-  const result = await callConsultationManagementRpc(
+  let result = await callConsultationManagementRpc(
     "resolve_customer_atencion_consultation",
     {
       p_company_id: input.companyId,
@@ -132,6 +157,13 @@ export async function resolveCustomerAtencionConsultation(input: {
     }
   )
   if (result.ok) {
+    const eventId = await resolveLatestConsultationEventId({
+      companyId: input.companyId,
+      atencionId: input.atencionId,
+      employeeId: input.employeeId,
+      actionTypes: ["consulta_resuelta"],
+    })
+    result = { ok: true, data: { ...result.data, eventId } }
     void emitCustomerManagementActivities({
       companyId: input.companyId,
       employeeId: input.employeeId,
@@ -216,7 +248,7 @@ export async function deferCustomerAtencionConsultation(input: {
   nextStep: string
   detail?: string | null
 }): Promise<ConsultationManagementServerResult> {
-  const result = await callConsultationManagementRpc(
+  let result = await callConsultationManagementRpc(
     "defer_customer_atencion_consultation",
     {
       p_company_id: input.companyId,
@@ -227,6 +259,13 @@ export async function deferCustomerAtencionConsultation(input: {
     }
   )
   if (result.ok) {
+    const eventId = await resolveLatestConsultationEventId({
+      companyId: input.companyId,
+      atencionId: input.atencionId,
+      employeeId: input.employeeId,
+      actionTypes: ["consulta_pendiente"],
+    })
+    result = { ok: true, data: { ...result.data, eventId } }
     void emitCustomerManagementActivities({
       companyId: input.companyId,
       employeeId: input.employeeId,
