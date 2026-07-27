@@ -17,10 +17,6 @@ import { hasCoordinates } from "@/lib/gps"
 export type CommercialPersonFormValue = CommercialNewOpportunityPersonInput & {
   documentNumber: string
   taxId: string
-  address: string
-  city: string
-  province: string
-  postalCode: string
   notes: string
 }
 
@@ -95,9 +91,9 @@ export function validateCommercialPersonForm(
   value: CommercialPersonFormValue | CommercialNewOpportunityPersonInput
 ): string | null {
   if (value.personType === "individual") {
-    if (!value.firstName.trim()) return "Ingrese el nombre del prospecto."
+    if (!value.firstName.trim()) return "Ingrese el nombre de la persona."
   } else if (!value.companyName.trim()) {
-    return "Ingrese la razón social del prospecto."
+    return "Ingrese la razón social de la persona."
   }
   if (!isValidOptionalEmail(value.email)) {
     return "Ingrese un email válido."

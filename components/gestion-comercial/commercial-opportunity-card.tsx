@@ -2,7 +2,6 @@
 
 import { CommercialBadge } from "@/components/gestion-comercial/commercial-badge"
 import { CommercialInfoRow } from "@/components/gestion-comercial/commercial-info-row"
-import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
@@ -11,72 +10,89 @@ import {
 } from "@/components/ui/card"
 import { COMMERCIAL_SOURCE_LABELS } from "@/lib/commercial/catalogs"
 import {
-  displayCommercialValue,
   formatCommercialDateOnly,
   formatCommercialMoney,
 } from "@/lib/commercial/display"
 import type { CommercialOpportunity } from "@/lib/types/commercial"
 import { cn } from "@/lib/utils"
 
+function hasText(value: string | null | undefined): boolean {
+  return Boolean(value?.trim())
+}
+
 type CommercialOpportunityCardProps = {
   opportunity: CommercialOpportunity
   responsibleName: string
-  onEdit: () => void
   className?: string
 }
 
 export function CommercialOpportunityCard({
   opportunity,
   responsibleName,
-  onEdit,
   className,
 }: CommercialOpportunityCardProps) {
+  const amountLabel = formatCommercialMoney(opportunity.estimatedAmount)
+  const closeDateLabel = formatCommercialDateOnly(opportunity.expectedCloseDate)
+  const showAmount =
+    opportunity.estimatedAmount !== null &&
+    opportunity.estimatedAmount !== undefined &&
+    amountLabel !== "-"
+  const showProbability =
+    opportunity.probability !== null && opportunity.probability !== undefined
+  const showCloseDate = closeDateLabel !== "-"
+
   return (
     <Card className={cn(className)}>
-      <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
+      <CardHeader className="space-y-0">
         <CardTitle className="text-base">Oportunidad</CardTitle>
-        <Button type="button" variant="outline" size="sm" onClick={onEdit}>
-          Editar Oportunidad
-        </Button>
       </CardHeader>
       <CardContent>
         <dl className="space-y-3">
           <CommercialInfoRow label="Código OP">
             <span className="font-mono font-medium">{opportunity.code}</span>
           </CommercialInfoRow>
-          <CommercialInfoRow label="Título">
-            {displayCommercialValue(opportunity.title)}
-          </CommercialInfoRow>
+          {hasText(opportunity.title) ? (
+            <CommercialInfoRow label="Título">
+              {opportunity.title.trim()}
+            </CommercialInfoRow>
+          ) : null}
           <CommercialInfoRow label="Estado">
             <CommercialBadge kind="status" value={opportunity.status} />
           </CommercialInfoRow>
           <CommercialInfoRow label="Prioridad">
             <CommercialBadge kind="priority" value={opportunity.priority} />
           </CommercialInfoRow>
-          <CommercialInfoRow label="Responsable">
-            {displayCommercialValue(responsibleName)}
-          </CommercialInfoRow>
+          {hasText(responsibleName) ? (
+            <CommercialInfoRow label="Responsable">
+              {responsibleName.trim()}
+            </CommercialInfoRow>
+          ) : null}
           <CommercialInfoRow label="Origen">
             {COMMERCIAL_SOURCE_LABELS[opportunity.source]}
           </CommercialInfoRow>
-          <CommercialInfoRow label="Monto estimado">
-            {formatCommercialMoney(opportunity.estimatedAmount)}
-          </CommercialInfoRow>
-          <CommercialInfoRow label="Probabilidad">
-            {opportunity.probability === null ||
-            opportunity.probability === undefined
-              ? "-"
-              : `${opportunity.probability}%`}
-          </CommercialInfoRow>
-          <CommercialInfoRow label="Fecha estimada de cierre">
-            {formatCommercialDateOnly(opportunity.expectedCloseDate)}
-          </CommercialInfoRow>
-          <CommercialInfoRow label="Descripción">
-            {displayCommercialValue(opportunity.description)}
-          </CommercialInfoRow>
-          {opportunity.status === "perdida" ? (
+          {showAmount ? (
+            <CommercialInfoRow label="Monto estimado">
+              {amountLabel}
+            </CommercialInfoRow>
+          ) : null}
+          {showProbability ? (
+            <CommercialInfoRow label="Probabilidad">
+              {`${opportunity.probability}%`}
+            </CommercialInfoRow>
+          ) : null}
+          {showCloseDate ? (
+            <CommercialInfoRow label="Fecha estimada de cierre">
+              {closeDateLabel}
+            </CommercialInfoRow>
+          ) : null}
+          {hasText(opportunity.description) ? (
+            <CommercialInfoRow label="Descripción">
+              {opportunity.description.trim()}
+            </CommercialInfoRow>
+          ) : null}
+          {opportunity.status === "perdida" && hasText(opportunity.lostReason) ? (
             <CommercialInfoRow label="Motivo de pérdida">
-              {displayCommercialValue(opportunity.lostReason)}
+              {opportunity.lostReason.trim()}
             </CommercialInfoRow>
           ) : null}
         </dl>

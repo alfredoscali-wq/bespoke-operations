@@ -48,8 +48,8 @@ export const COMMERCIAL_QUICK_ACTIVITY_TYPES = [
   "whatsapp",
   "email",
   "visita",
+  "reunion",
   "nota",
-  "tarea",
 ] as const satisfies readonly CommercialActivityTypeCode[]
 
 export type CommercialQuickActivityType =

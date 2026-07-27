@@ -169,7 +169,7 @@ export const gestionComercialNavItem: NavItem = {
   href: "/gestion-comercial",
   icon: BriefcaseBusiness,
   pageTitle: "Gestión Comercial",
-  description: "Administra prospectos y oportunidades comerciales.",
+  description: "Administra personas y oportunidades comerciales.",
 }
 
 export const historyNavItem: NavItem = {

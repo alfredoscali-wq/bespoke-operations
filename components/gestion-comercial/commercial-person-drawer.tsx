@@ -4,7 +4,10 @@ import { useEffect, useState } from "react"
 
 import { CommercialDrawerFooter } from "@/components/gestion-comercial/commercial-drawer-footer"
 import { CommercialPersonForm } from "@/components/gestion-comercial/commercial-person-form"
-import { useUpdateCommercialPerson } from "@/components/gestion-comercial/commercial-provider"
+import {
+  useUpdateCommercialPerson,
+  useUpdateOpportunity,
+} from "@/components/gestion-comercial/commercial-provider"
 import {
   DiscardChangesDialog,
   isFormStateDirty,
@@ -21,6 +24,9 @@ import {
   type CommercialPersonFormValue,
   validateCommercialPersonForm,
 } from "@/lib/commercial/display"
+import { composeCommercialAddress } from "@/lib/commercial/location"
+import { resolveCommercialPersonLocation } from "@/lib/commercial/resolve-person-location"
+import { formatCoordinatePair } from "@/lib/location/coordinates"
 import type { CommercialPerson } from "@/lib/types/commercial"
 
 const FORM_ID = "commercial-edit-person-form"
@@ -36,10 +42,22 @@ function toFormValue(person: CommercialPerson): CommercialPersonFormValue {
     email: person.email,
     documentNumber: person.documentNumber,
     taxId: person.taxId,
+    street: person.street,
+    streetNumber: person.streetNumber,
+    floor: person.floor,
+    apartment: person.apartment,
+    neighborhood: person.neighborhood,
     address: person.address,
     city: person.city,
     province: person.province,
     postalCode: person.postalCode,
+    latitude: person.latitude,
+    longitude: person.longitude,
+    locationSource: person.locationSource,
+    locationInput:
+      person.latitude != null && person.longitude != null
+        ? formatCoordinatePair(person.latitude, person.longitude)
+        : "",
     notes: person.notes,
   }
 }
@@ -48,6 +66,7 @@ type CommercialPersonDrawerProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   person: CommercialPerson | null
+  opportunityId?: string | null
   onUpdated?: (person: CommercialPerson) => void
 }
 
@@ -55,9 +74,11 @@ export function CommercialPersonDrawer({
   open,
   onOpenChange,
   person,
+  opportunityId = null,
   onUpdated,
 }: CommercialPersonDrawerProps) {
   const { mutateAsync: updatePerson } = useUpdateCommercialPerson()
+  const { mutateAsync: updateOpportunity } = useUpdateOpportunity()
   const [form, setForm] = useState<CommercialPersonFormValue | null>(null)
   const [baseline, setBaseline] = useState<CommercialPersonFormValue | null>(
     null
@@ -96,6 +117,72 @@ export function CommercialPersonDrawer({
     }
   }, [open, person])
 
+  async function persistForm(nextForm: CommercialPersonFormValue) {
+    if (!person) return
+    setIsSubmitting(true)
+    setError(null)
+    try {
+      const address = composeCommercialAddress(nextForm)
+      const result = await updatePerson({
+        id: person.id,
+        payload: {
+          personType: nextForm.personType,
+          firstName: nextForm.firstName,
+          lastName: nextForm.lastName,
+          companyName: nextForm.companyName,
+          phone: nextForm.phone,
+          mobile: nextForm.mobile,
+          email: nextForm.email,
+          documentNumber: nextForm.documentNumber,
+          taxId: nextForm.taxId,
+          street: nextForm.street,
+          streetNumber: nextForm.streetNumber,
+          floor: nextForm.floor,
+          apartment: nextForm.apartment,
+          neighborhood: nextForm.neighborhood,
+          address,
+          city: nextForm.city,
+          province: nextForm.province,
+          postalCode: nextForm.postalCode,
+          latitude: nextForm.latitude,
+          longitude: nextForm.longitude,
+          locationSource: nextForm.locationSource,
+          notes: nextForm.notes,
+        },
+      })
+      if (!result.success || !result.data) {
+        setError(result.message ?? "No se pudo actualizar la persona.")
+        return
+      }
+
+      if (
+        opportunityId &&
+        nextForm.latitude != null &&
+        nextForm.longitude != null
+      ) {
+        await updateOpportunity({
+          id: opportunityId,
+          payload: {
+            latitude: nextForm.latitude,
+            longitude: nextForm.longitude,
+            locationSource: nextForm.locationSource ?? "manual",
+          },
+        })
+      }
+
+      onUpdated?.(result.data)
+      onOpenChange(false)
+    } catch (submitError) {
+      setError(
+        submitError instanceof Error
+          ? submitError.message
+          : "No se pudo actualizar la persona."
+      )
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     if (!person || !form) return
@@ -107,42 +194,25 @@ export function CommercialPersonDrawer({
       return
     }
 
-    setIsSubmitting(true)
-    try {
-      const result = await updatePerson({
-        id: person.id,
-        payload: {
-          personType: form.personType,
-          firstName: form.firstName,
-          lastName: form.lastName,
-          companyName: form.companyName,
-          phone: form.phone,
-          mobile: form.mobile,
-          email: form.email,
-          documentNumber: form.documentNumber,
-          taxId: form.taxId,
-          address: form.address,
-          city: form.city,
-          province: form.province,
-          postalCode: form.postalCode,
-          notes: form.notes,
-        },
-      })
-      if (!result.success || !result.data) {
-        setError(result.message ?? "No se pudo actualizar el prospecto.")
-        return
-      }
-      onUpdated?.(result.data)
-      onOpenChange(false)
-    } catch (submitError) {
-      setError(
-        submitError instanceof Error
-          ? submitError.message
-          : "No se pudo actualizar el prospecto."
-      )
-    } finally {
-      setIsSubmitting(false)
+    const locationResult = await resolveCommercialPersonLocation(form)
+    if (locationResult.status === "failed") {
+      setError("No se pudo interpretar la ubicación pegada.")
+      return
     }
+
+    let nextForm = form
+    if (locationResult.status === "resolved") {
+      nextForm = {
+        ...form,
+        latitude: locationResult.coords.latitude,
+        longitude: locationResult.coords.longitude,
+        locationSource: locationResult.coords.locationSource,
+        locationInput: "",
+      }
+      setForm(nextForm)
+    }
+
+    await persistForm(nextForm)
   }
 
   return (
@@ -159,9 +229,9 @@ export function CommercialPersonDrawer({
           }}
         >
           <SheetHeader className="border-b">
-            <SheetTitle>Editar Prospecto</SheetTitle>
+            <SheetTitle>Editar Persona</SheetTitle>
             <SheetDescription>
-              Actualice los datos del prospecto sin salir del expediente.
+              Actualice los datos de la persona sin salir del expediente.
             </SheetDescription>
           </SheetHeader>
 
@@ -180,6 +250,7 @@ export function CommercialPersonDrawer({
                   disabled={isSubmitting}
                   autoFocusName={open}
                   showExtendedFields
+                  showLocationFields
                 />
                 {error ? (
                   <p className="text-sm text-destructive" role="alert">
@@ -191,7 +262,7 @@ export function CommercialPersonDrawer({
                 formId={FORM_ID}
                 isSubmitting={isSubmitting}
                 onCancel={requestClose}
-                submitLabel="Guardar Prospecto"
+                submitLabel="Guardar Persona"
               />
             </form>
           ) : null}

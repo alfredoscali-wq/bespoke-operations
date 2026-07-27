@@ -8,6 +8,7 @@ import {
   mapCreateCommercialActivityPayloadToInsert,
   mapUpdateCommercialActivityPayloadToUpdate,
 } from "@/lib/supabase/commercial-activities.mapper"
+import { insertCommercialCommitment } from "@/lib/supabase/commercial-commitments.queries"
 import type { Database } from "@/lib/supabase/database.types"
 import type {
   CommercialActivity,
@@ -232,22 +233,64 @@ export async function insertCommercialActivity(
     }
   }
 
+  const { commitment, ...activityPayload } = payload
+
   const { data, error } = await client
     .from("commercial_activities")
     .insert(
       mapCreateCommercialActivityPayloadToInsert({
-        ...payload,
+        ...activityPayload,
         activityTypeId,
       })
     )
     .select(ACTIVITY_SELECT)
     .single()
 
-  if (error) {
-    return { data: null, error: mapError(error) }
+  if (error || !data) {
+    return { data: null, error: mapError(error ?? { message: "Error al crear." }) }
   }
 
-  return { data: mapCommercialActivityListItem(data), error: null }
+  let activity = mapCommercialActivityListItem(data)
+
+  if (commitment?.title.trim() && commitment.dueAt) {
+    const commitmentResult = await insertCommercialCommitment(client, {
+      companyId: activity.companyId,
+      opportunityId: activity.opportunityId,
+      activityId: activity.id,
+      title: commitment.title,
+      description: commitment.description,
+      assignedEmployeeId:
+        commitment.assignedEmployeeId ?? activity.employeeId ?? null,
+      dueAt: commitment.dueAt,
+      priority: commitment.priority ?? "media",
+      createdBy: activity.createdBy,
+    })
+
+    if (commitmentResult.data) {
+      const nextStep = {
+        commitmentId: commitmentResult.data.id,
+        title: commitmentResult.data.title,
+        dueAt: commitmentResult.data.dueAt,
+        priority: commitmentResult.data.priority,
+        assignedEmployeeId: commitmentResult.data.assignedEmployeeId,
+      }
+      const metadata = {
+        ...(activity.metadata ?? {}),
+        nextStep,
+      }
+      const patched = await patchCommercialActivity(client, activity.id, {
+        metadata,
+        updatedBy: activity.createdBy,
+      })
+      if (patched.data) {
+        activity = patched.data
+      } else {
+        activity = { ...activity, metadata }
+      }
+    }
+  }
+
+  return { data: activity, error: null }
 }
 
 export async function patchCommercialActivity(

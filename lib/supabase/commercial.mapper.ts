@@ -40,10 +40,25 @@ export function mapCommercialPersonRowToPerson(
     phone: row.phone,
     mobile: row.mobile,
     email: row.email,
+    street: row.street ?? "",
+    streetNumber: row.street_number ?? "",
+    floor: row.floor ?? "",
+    apartment: row.apartment ?? "",
+    neighborhood: row.neighborhood ?? "",
     address: row.address,
     city: row.city,
     province: row.province,
     postalCode: row.postal_code,
+    latitude:
+      row.latitude === null || row.latitude === undefined
+        ? null
+        : Number(row.latitude),
+    longitude:
+      row.longitude === null || row.longitude === undefined
+        ? null
+        : Number(row.longitude),
+    locationSource: (row.location_source ??
+      null) as CommercialLocationSource | null,
     notes: row.notes,
     createdBy: row.created_by,
     updatedBy: row.updated_by,
@@ -68,10 +83,20 @@ export function mapCreateCommercialPersonPayloadToInsert(
     phone: payload.phone?.trim() ?? "",
     mobile: payload.mobile?.trim() ?? "",
     email: payload.email?.trim() ?? "",
+    street: payload.street?.trim() ?? "",
+    street_number: payload.streetNumber?.trim() ?? "",
+    floor: payload.floor?.trim() ?? "",
+    apartment: payload.apartment?.trim() ?? "",
+    neighborhood: payload.neighborhood?.trim() ?? "",
     address: payload.address?.trim() ?? "",
     city: payload.city?.trim() ?? "",
     province: payload.province?.trim() ?? "",
     postal_code: payload.postalCode?.trim() ?? "",
+    latitude:
+      payload.latitude == null ? null : roundCoordinate(payload.latitude),
+    longitude:
+      payload.longitude == null ? null : roundCoordinate(payload.longitude),
+    location_source: payload.locationSource ?? null,
     notes: payload.notes?.trim() ?? "",
     created_by: payload.createdBy ?? null,
   }
@@ -95,11 +120,31 @@ export function mapUpdateCommercialPersonPayloadToUpdate(
   if (payload.phone !== undefined) update.phone = payload.phone.trim()
   if (payload.mobile !== undefined) update.mobile = payload.mobile.trim()
   if (payload.email !== undefined) update.email = payload.email.trim()
+  if (payload.street !== undefined) update.street = payload.street.trim()
+  if (payload.streetNumber !== undefined) {
+    update.street_number = payload.streetNumber.trim()
+  }
+  if (payload.floor !== undefined) update.floor = payload.floor.trim()
+  if (payload.apartment !== undefined) update.apartment = payload.apartment.trim()
+  if (payload.neighborhood !== undefined) {
+    update.neighborhood = payload.neighborhood.trim()
+  }
   if (payload.address !== undefined) update.address = payload.address.trim()
   if (payload.city !== undefined) update.city = payload.city.trim()
   if (payload.province !== undefined) update.province = payload.province.trim()
   if (payload.postalCode !== undefined) {
     update.postal_code = payload.postalCode.trim()
+  }
+  if (payload.latitude !== undefined) {
+    update.latitude =
+      payload.latitude == null ? null : roundCoordinate(payload.latitude)
+  }
+  if (payload.longitude !== undefined) {
+    update.longitude =
+      payload.longitude == null ? null : roundCoordinate(payload.longitude)
+  }
+  if (payload.locationSource !== undefined) {
+    update.location_source = payload.locationSource
   }
   if (payload.notes !== undefined) update.notes = payload.notes.trim()
   if (payload.updatedBy !== undefined) update.updated_by = payload.updatedBy
@@ -235,5 +280,5 @@ export function resolveCommercialPersonDisplayName(
   const fullName = `${person.firstName} ${person.lastName}`.trim()
   if (fullName) return fullName
 
-  return person.companyName.trim() || "Prospecto sin nombre"
+  return person.companyName.trim() || "Persona sin nombre"
 }

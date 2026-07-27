@@ -21,6 +21,7 @@ import {
   COMMERCIAL_STATUS_CODES,
   COMMERCIAL_STATUS_LABELS,
 } from "@/lib/commercial/catalogs"
+import { resolveCommercialResponsibleColor } from "@/lib/commercial/responsible-colors"
 import type {
   CommercialMapAssignmentFilter,
   CommercialMapOpportunity,
@@ -38,10 +39,16 @@ export type CommercialTerritoryFilters = {
 
 type EmployeeOption = { id: string; label: string }
 
+export type CommercialTerritoryLocationScope = "all" | "without"
+
 type CommercialTerritoryPanelProps = {
   filters: CommercialTerritoryFilters
   onFiltersChange: (next: CommercialTerritoryFilters) => void
   opportunities: CommercialMapOpportunity[]
+  geolocatedCount: number
+  withoutLocationCount: number
+  locationScope: CommercialTerritoryLocationScope
+  onLocationScopeChange: (scope: CommercialTerritoryLocationScope) => void
   selectedId: string | null
   selectedIds: string[]
   employeeOptions: EmployeeOption[]
@@ -60,6 +67,10 @@ export function CommercialTerritoryPanel({
   filters,
   onFiltersChange,
   opportunities,
+  geolocatedCount,
+  withoutLocationCount,
+  locationScope,
+  onLocationScopeChange,
   selectedId,
   selectedIds,
   employeeOptions,
@@ -83,6 +94,37 @@ export function CommercialTerritoryPanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
+      <div className="grid grid-cols-2 gap-2 rounded-md border px-3 py-2 text-xs">
+        <button
+          type="button"
+          className={cn(
+            "rounded-md px-2 py-1.5 text-left transition-colors",
+            locationScope === "all"
+              ? "bg-muted"
+              : "hover:bg-muted/60"
+          )}
+          onClick={() => onLocationScopeChange("all")}
+        >
+          <p className="text-muted-foreground">Geolocalizadas</p>
+          <p className="text-sm font-semibold tabular-nums">{geolocatedCount}</p>
+        </button>
+        <button
+          type="button"
+          className={cn(
+            "rounded-md px-2 py-1.5 text-left transition-colors",
+            locationScope === "without"
+              ? "bg-muted"
+              : "hover:bg-muted/60"
+          )}
+          onClick={() => onLocationScopeChange("without")}
+        >
+          <p className="text-muted-foreground">Sin ubicación</p>
+          <p className="text-sm font-semibold tabular-nums">
+            {withoutLocationCount}
+          </p>
+        </button>
+      </div>
+
       <div className="space-y-2">
         <div className="relative">
           <Search className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
@@ -257,20 +299,30 @@ export function CommercialTerritoryPanel({
       <div className="min-h-0 flex-1 overflow-y-auto rounded-md border">
         {opportunities.length === 0 ? (
           <p className="p-3 text-sm text-muted-foreground">
-            No hay oportunidades geolocalizadas en el área visible.
+            {locationScope === "without"
+              ? "No hay oportunidades pendientes de geolocalizar."
+              : "No hay oportunidades geolocalizadas en el área visible."}
           </p>
         ) : (
           <ul className="divide-y">
             {opportunities.map((opportunity) => {
               const checked = selectedIds.includes(opportunity.id)
               const active = selectedId === opportunity.id
+              const responsibleColor = resolveCommercialResponsibleColor(
+                opportunity.assignedEmployeeId
+              )
+              const responsibleLabel = opportunity.assignedEmployeeId
+                ? employeeNameById[opportunity.assignedEmployeeId] ||
+                  "Responsable"
+                : "Sin responsable"
               return (
                 <li key={opportunity.id}>
                   <div
                     className={cn(
-                      "flex items-start gap-2 px-2 py-2",
+                      "flex items-start gap-2 border-l-[3px] px-2 py-2",
                       active && "bg-muted/70"
                     )}
+                    style={{ borderLeftColor: responsibleColor.hex }}
                   >
                     <Checkbox
                       checked={checked}
@@ -294,12 +346,22 @@ export function CommercialTerritoryPanel({
                       <p className="truncate text-xs text-muted-foreground">
                         {opportunity.personName}
                       </p>
-                      <p className="text-[11px] text-muted-foreground">
-                        {COMMERCIAL_STATUS_LABELS[opportunity.status]} ·{" "}
-                        {opportunity.assignedEmployeeId
-                          ? employeeNameById[opportunity.assignedEmployeeId] ||
-                            "Asignada"
-                          : "Sin asignar"}
+                      <p className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                        <span>
+                          {COMMERCIAL_STATUS_LABELS[opportunity.status]}
+                        </span>
+                        <span>·</span>
+                        <span
+                          className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium text-foreground"
+                          style={{ backgroundColor: responsibleColor.soft }}
+                        >
+                          <span
+                            className="size-1.5 rounded-full"
+                            style={{ backgroundColor: responsibleColor.hex }}
+                            aria-hidden
+                          />
+                          {responsibleLabel}
+                        </span>
                       </p>
                     </button>
                   </div>

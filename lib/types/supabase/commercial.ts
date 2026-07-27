@@ -22,10 +22,18 @@ export type CreateCommercialPersonPayload = {
   phone?: string
   mobile?: string
   email?: string
+  street?: string
+  streetNumber?: string
+  floor?: string
+  apartment?: string
+  neighborhood?: string
   address?: string
   city?: string
   province?: string
   postalCode?: string
+  latitude?: number | null
+  longitude?: number | null
+  locationSource?: CommercialLocationSource | null
   notes?: string
   createdBy?: string | null
 }
@@ -40,10 +48,18 @@ export type UpdateCommercialPersonPayload = Partial<{
   phone: string
   mobile: string
   email: string
+  street: string
+  streetNumber: string
+  floor: string
+  apartment: string
+  neighborhood: string
   address: string
   city: string
   province: string
   postalCode: string
+  latitude: number | null
+  longitude: number | null
+  locationSource: CommercialLocationSource | null
   notes: string
   updatedBy: string | null
 }>

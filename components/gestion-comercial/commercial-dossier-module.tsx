@@ -166,22 +166,19 @@ function CommercialDossierContent({
       <CommercialHeader
         opportunity={opportunity}
         responsibleName={responsibleName}
-        onEdit={() => setOpportunityDrawerOpen(true)}
-        onDelete={() => setDeleteOpen(true)}
         onBack={() => router.push("/gestion-comercial")}
+        onEditPerson={() => setPersonDrawerOpen(true)}
+        onEditOpportunity={() => setOpportunityDrawerOpen(true)}
+        onDelete={() => setDeleteOpen(true)}
       />
 
       <CommercialActivityQuickActions onSelect={openCreateActivity} />
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,35%)_minmax(0,65%)]">
-        <CommercialProspectCard
-          person={person}
-          onEdit={() => setPersonDrawerOpen(true)}
-        />
+        <CommercialProspectCard person={person} />
         <CommercialOpportunityCard
           opportunity={opportunity}
           responsibleName={responsibleName}
-          onEdit={() => setOpportunityDrawerOpen(true)}
         />
       </div>
 
@@ -194,6 +191,7 @@ function CommercialDossierContent({
         open={personDrawerOpen}
         onOpenChange={setPersonDrawerOpen}
         person={person}
+        opportunityId={opportunity.id}
         onUpdated={(next) => {
           setPerson(next)
           upsertPersonLocal(next)

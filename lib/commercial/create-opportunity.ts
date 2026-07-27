@@ -19,6 +19,19 @@ export type CommercialNewOpportunityPersonInput = {
   phone: string
   mobile: string
   email: string
+  street: string
+  streetNumber: string
+  floor: string
+  apartment: string
+  neighborhood: string
+  city: string
+  province: string
+  postalCode: string
+  address: string
+  latitude: number | null
+  longitude: number | null
+  locationSource: CommercialLocationSource | null
+  locationInput: string
 }
 
 export type CommercialNewOpportunityInput = {
@@ -60,10 +73,10 @@ export function validateCommercialCreateOpportunityBundle(
 
   if (person.personType === "individual") {
     if (!person.firstName.trim()) {
-      return "Ingrese el nombre del prospecto."
+      return "Ingrese el nombre de la persona."
     }
   } else if (!person.companyName.trim()) {
-    return "Ingrese la razón social del prospecto."
+    return "Ingrese la razón social de la persona."
   }
 
   if (!isValidOptionalEmail(person.email)) {
@@ -118,4 +131,4 @@ export function validateCommercialCreateOpportunityBundle(
 }
 
 export const EXISTING_PROSPECT_NOTICE =
-  "Se encontró un prospecto existente. La oportunidad será asociada al registro actual."
+  "Se encontró una persona existente. La oportunidad será asociada al registro actual."

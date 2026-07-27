@@ -1,5 +1,6 @@
 "use client"
 
+import { CommercialPersonLocationFields } from "@/components/gestion-comercial/commercial-person-location-fields"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -16,8 +17,10 @@ export type CommercialPersonFormProps = {
   disabled?: boolean
   autoFocusName?: boolean
   existingProspectNotice?: string | null
-  /** When true, shows document/address/notes fields for the dossier editor. */
+  /** When true, shows document/notes fields for the dossier editor. */
   showExtendedFields?: boolean
+  /** Address + ubicación section (create and edit). */
+  showLocationFields?: boolean
   onAdvanceField?: (event: React.KeyboardEvent<HTMLInputElement>) => void
 }
 
@@ -34,6 +37,7 @@ export function CommercialPersonForm({
   autoFocusName = false,
   existingProspectNotice = null,
   showExtendedFields = false,
+  showLocationFields = false,
   onAdvanceField,
 }: CommercialPersonFormProps) {
   function patch(
@@ -178,61 +182,40 @@ export function CommercialPersonForm({
         />
       </div>
 
+      {showLocationFields ? (
+        <CommercialPersonLocationFields
+          value={{
+            street: value.street,
+            streetNumber: value.streetNumber,
+            floor: value.floor,
+            apartment: value.apartment,
+            neighborhood: value.neighborhood,
+            city: value.city,
+            province: value.province,
+            postalCode: value.postalCode,
+            address: value.address,
+            latitude: value.latitude,
+            longitude: value.longitude,
+            locationSource: value.locationSource,
+            locationInput: value.locationInput,
+          }}
+          onChange={(location) => patch(location)}
+          disabled={disabled}
+          onAdvanceField={onAdvanceField}
+        />
+      ) : null}
+
       {extended ? (
-        <>
-          <div className="space-y-2">
-            <Label htmlFor="commercial-person-address">Dirección</Label>
-            <Input
-              id="commercial-person-address"
-              value={value.address}
-              onChange={(event) => patch({ address: event.target.value })}
-              onKeyDown={onAdvanceField}
-              disabled={disabled}
-            />
-          </div>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="space-y-2">
-              <Label htmlFor="commercial-person-city">Ciudad</Label>
-              <Input
-                id="commercial-person-city"
-                value={value.city}
-                onChange={(event) => patch({ city: event.target.value })}
-                onKeyDown={onAdvanceField}
-                disabled={disabled}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="commercial-person-province">Provincia</Label>
-              <Input
-                id="commercial-person-province"
-                value={value.province}
-                onChange={(event) => patch({ province: event.target.value })}
-                onKeyDown={onAdvanceField}
-                disabled={disabled}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="commercial-person-postal">Código Postal</Label>
-              <Input
-                id="commercial-person-postal"
-                value={value.postalCode}
-                onChange={(event) => patch({ postalCode: event.target.value })}
-                onKeyDown={onAdvanceField}
-                disabled={disabled}
-              />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="commercial-person-notes">Notas</Label>
-            <Textarea
-              id="commercial-person-notes"
-              value={value.notes}
-              onChange={(event) => patch({ notes: event.target.value })}
-              rows={3}
-              disabled={disabled}
-            />
-          </div>
-        </>
+        <div className="space-y-2">
+          <Label htmlFor="commercial-person-notes">Notas</Label>
+          <Textarea
+            id="commercial-person-notes"
+            value={value.notes}
+            onChange={(event) => patch({ notes: event.target.value })}
+            rows={3}
+            disabled={disabled}
+          />
+        </div>
       ) : null}
 
       {existingProspectNotice ? (

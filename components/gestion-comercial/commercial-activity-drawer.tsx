@@ -8,6 +8,7 @@ import {
   useCommercialActivityTypes,
   useUpdateCommercialActivity,
 } from "@/components/gestion-comercial/commercial-activities-provider"
+import { useEmployees } from "@/components/rrhh/employees-provider"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -31,65 +32,105 @@ import {
 } from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
 import {
-  COMMERCIAL_ACTIVITY_STATUS_LABELS,
-  COMMERCIAL_ACTIVITY_STATUSES,
-  COMMERCIAL_ACTIVITY_TYPE_CODES,
   COMMERCIAL_ACTIVITY_TYPE_LABELS,
-  type CommercialActivityStatus,
   type CommercialActivityTypeCode,
 } from "@/lib/commercial/activity-catalogs"
+import {
+  COMMERCIAL_ACTIVITY_RESULT_OPTIONS,
+  COMMERCIAL_MANUAL_ACTIVITY_TYPES,
+  type CommercialCommitmentPriority,
+} from "@/lib/commercial/location"
+import { listCommercialResponsibleOptions } from "@/lib/commercial/responsible-employees"
 import type { CommercialActivityListItem } from "@/lib/types/commercial-activities"
+import type { CommercialActivityResultMetadata } from "@/lib/types/commercial-commitments"
+import type { CreateCommercialActivityPayload } from "@/lib/types/supabase/commercial-activities"
 
 const FORM_ID = "commercial-activity-form"
+
+type CreateCommitmentPayload = NonNullable<
+  CreateCommercialActivityPayload["commitment"]
+>
 
 type ActivityFormValue = {
   activityTypeCode: CommercialActivityTypeCode
   title: string
   description: string
-  scheduledAtLocal: string
-  status: CommercialActivityStatus
-}
-
-function toLocalDateTimeInput(iso: string | null | undefined): string {
-  if (!iso) return ""
-  const date = new Date(iso)
-  if (Number.isNaN(date.getTime())) return ""
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, "0")
-  const day = String(date.getDate()).padStart(2, "0")
-  const hours = String(date.getHours()).padStart(2, "0")
-  const minutes = String(date.getMinutes()).padStart(2, "0")
-  return `${year}-${month}-${day}T${hours}:${minutes}`
-}
-
-function fromLocalDateTimeInput(value: string): string | null {
-  const trimmed = value.trim()
-  if (!trimmed) return null
-  const date = new Date(trimmed)
-  if (Number.isNaN(date.getTime())) return null
-  return date.toISOString()
+  result: string
+  resultOther: string
+  managementEnds: "yes" | "no" | ""
+  nextStepTitle: string
+  assignedEmployeeId: string
+  dueDate: string
+  dueTime: string
+  priority: CommercialCommitmentPriority
 }
 
 function emptyForm(
-  typeCode: CommercialActivityTypeCode = "nota"
+  typeCode: CommercialActivityTypeCode = "llamada"
 ): ActivityFormValue {
   return {
     activityTypeCode: typeCode,
     title: "",
     description: "",
-    scheduledAtLocal: "",
-    status: "pending",
+    result: "",
+    resultOther: "",
+    managementEnds: "",
+    nextStepTitle: "",
+    assignedEmployeeId: "",
+    dueDate: "",
+    dueTime: "10:00",
+    priority: "media",
   }
 }
 
+function readResultMetadata(
+  activity: CommercialActivityListItem
+): CommercialActivityResultMetadata {
+  const metadata = (activity.metadata ?? {}) as CommercialActivityResultMetadata
+  return metadata
+}
+
 function fromActivity(activity: CommercialActivityListItem): ActivityFormValue {
+  const meta = readResultMetadata(activity)
+  const result = meta.result ?? ""
+  const isOther =
+    result === "Otro" ||
+    (result !== "" &&
+      !(COMMERCIAL_ACTIVITY_RESULT_OPTIONS as readonly string[]).includes(
+        result
+      ))
   return {
     activityTypeCode: activity.activityTypeCode,
     title: activity.title,
     description: activity.description,
-    scheduledAtLocal: toLocalDateTimeInput(activity.scheduledAt),
-    status: activity.status,
+    result: isOther ? "Otro" : result,
+    resultOther: isOther && result !== "Otro" ? result : meta.resultOther ?? "",
+    managementEnds: meta.nextStep ? "no" : "yes",
+    nextStepTitle: meta.nextStep?.title ?? "",
+    assignedEmployeeId: meta.nextStep?.assignedEmployeeId ?? "",
+    dueDate: meta.nextStep?.dueAt
+      ? meta.nextStep.dueAt.slice(0, 10)
+      : "",
+    dueTime: meta.nextStep?.dueAt
+      ? new Date(meta.nextStep.dueAt).toTimeString().slice(0, 5)
+      : "10:00",
+    priority: meta.nextStep?.priority ?? "media",
   }
+}
+
+function resolveResultLabel(form: ActivityFormValue): string {
+  if (form.result === "Otro") {
+    return form.resultOther.trim() || "Otro"
+  }
+  return form.result.trim()
+}
+
+function buildDueAt(date: string, time: string): string | null {
+  if (!date.trim()) return null
+  const local = `${date.trim()}T${(time.trim() || "10:00").padStart(5, "0")}`
+  const parsed = new Date(local)
+  if (Number.isNaN(parsed.getTime())) return null
+  return parsed.toISOString()
 }
 
 type CommercialActivityDrawerProps = {
@@ -105,9 +146,10 @@ export function CommercialActivityDrawer({
   onOpenChange,
   opportunityId,
   activity = null,
-  defaultTypeCode = "nota",
+  defaultTypeCode = "llamada",
 }: CommercialActivityDrawerProps) {
   const { data: types } = useCommercialActivityTypes()
+  const { employees, isEmployeesReady } = useEmployees()
   const { mutateAsync: createActivity } = useCreateCommercialActivity()
   const { mutateAsync: updateActivity } = useUpdateCommercialActivity()
 
@@ -133,6 +175,11 @@ export function CommercialActivityDrawer({
     isDirty,
   })
 
+  const defaultEmployeeId = useMemo(() => {
+    const options = listCommercialResponsibleOptions(employees)
+    return options[0]?.id ?? ""
+  }, [employees])
+
   useEffect(() => {
     if (!open) return
     let cancelled = false
@@ -140,7 +187,10 @@ export function CommercialActivityDrawer({
       if (cancelled) return
       const next = activity
         ? fromActivity(activity)
-        : emptyForm(defaultTypeCode)
+        : {
+            ...emptyForm(defaultTypeCode),
+            assignedEmployeeId: defaultEmployeeId,
+          }
       setForm(next)
       setBaseline(next)
       setError(null)
@@ -149,20 +199,24 @@ export function CommercialActivityDrawer({
     return () => {
       cancelled = true
     }
-  }, [activity, defaultTypeCode, open])
+  }, [activity, defaultEmployeeId, defaultTypeCode, open])
 
   const typeOptions = useMemo(() => {
-    if (types.length > 0) {
-      return types.map((entry) => ({
-        code: entry.code,
-        label: entry.label,
-      }))
-    }
-    return COMMERCIAL_ACTIVITY_TYPE_CODES.map((code) => ({
+    const allowed = new Set<string>(COMMERCIAL_MANUAL_ACTIVITY_TYPES)
+    const fromDb = types
+      .filter((entry) => allowed.has(entry.code))
+      .map((entry) => ({ code: entry.code, label: entry.label }))
+    if (fromDb.length > 0) return fromDb
+    return COMMERCIAL_MANUAL_ACTIVITY_TYPES.map((code) => ({
       code,
       label: COMMERCIAL_ACTIVITY_TYPE_LABELS[code],
     }))
   }, [types])
+
+  const responsibleOptions = useMemo(
+    () => listCommercialResponsibleOptions(employees),
+    [employees]
+  )
 
   function patch(partial: Partial<ActivityFormValue>) {
     setForm((current) => ({ ...current, ...partial }))
@@ -175,20 +229,69 @@ export function CommercialActivityDrawer({
       setError("El título es obligatorio.")
       return
     }
+    if (!form.result.trim()) {
+      setError("Seleccione el resultado de la gestión.")
+      return
+    }
+    if (form.result === "Otro" && !form.resultOther.trim()) {
+      setError("Describa el resultado.")
+      return
+    }
+    if (!isEdit && !form.managementEnds) {
+      setError("Indique si la gestión termina aquí.")
+      return
+    }
+
+    const resultLabel = resolveResultLabel(form)
+    let commitment: CreateCommitmentPayload | null = null
+
+    if (!isEdit && form.managementEnds === "no") {
+      if (!form.nextStepTitle.trim()) {
+        setError("Ingrese el próximo paso.")
+        return
+      }
+      if (!form.assignedEmployeeId.trim()) {
+        setError("Seleccione el responsable del compromiso.")
+        return
+      }
+      const dueAt = buildDueAt(form.dueDate, form.dueTime)
+      if (!dueAt) {
+        setError("Ingrese fecha y hora del próximo paso.")
+        return
+      }
+      commitment = {
+        title: form.nextStepTitle.trim(),
+        assignedEmployeeId: form.assignedEmployeeId,
+        dueAt,
+        priority: form.priority,
+      }
+    }
 
     setIsSubmitting(true)
     setError(null)
     try {
-      const scheduledAt = fromLocalDateTimeInput(form.scheduledAtLocal)
+      const metadata: CommercialActivityResultMetadata = {
+        result: resultLabel,
+        ...(form.result === "Otro"
+          ? { resultOther: form.resultOther.trim() }
+          : {}),
+      }
+
       if (isEdit && activity) {
+        const previous = readResultMetadata(activity)
         const result = await updateActivity({
           id: activity.id,
           payload: {
             activityTypeCode: form.activityTypeCode,
             title,
             description: form.description.trim(),
-            scheduledAt,
-            status: form.status,
+            scheduledAt: null,
+            status: "completed",
+            metadata: {
+              ...previous,
+              ...metadata,
+              nextStep: previous.nextStep ?? null,
+            },
           },
         })
         if (!result.success) {
@@ -201,8 +304,11 @@ export function CommercialActivityDrawer({
           activityTypeCode: form.activityTypeCode,
           title,
           description: form.description.trim(),
-          scheduledAt,
-          status: form.status,
+          scheduledAt: null,
+          status: "completed",
+          completedAt: new Date().toISOString(),
+          metadata,
+          commitment,
         })
         if (!result.success) {
           setError(result.message ?? "No se pudo crear la actividad.")
@@ -216,6 +322,8 @@ export function CommercialActivityDrawer({
     }
   }
 
+  const showCommitmentStep = !isEdit && form.managementEnds === "no"
+
   return (
     <>
       <Sheet open={open} onOpenChange={handleOpenChange}>
@@ -225,7 +333,8 @@ export function CommercialActivityDrawer({
               {isEdit ? "Editar actividad" : "Nueva actividad"}
             </SheetTitle>
             <SheetDescription>
-              Registrá una interacción comercial sobre la oportunidad.
+              Registrá un hecho ocurrido. Si hay trabajo futuro, se crea un
+              compromiso aparte.
             </SheetDescription>
           </SheetHeader>
 
@@ -234,6 +343,12 @@ export function CommercialActivityDrawer({
             className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-4"
             onSubmit={(event) => void handleSubmit(event)}
           >
+            <div className="space-y-1">
+              <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                Paso 1 · ¿Qué hiciste?
+              </p>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="commercial-activity-type">Tipo</Label>
               <Select
@@ -280,46 +395,182 @@ export function CommercialActivityDrawer({
                   patch({ description: event.target.value })
                 }
                 disabled={isSubmitting}
-                rows={4}
+                rows={3}
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="commercial-activity-scheduled">
-                Fecha programada
-              </Label>
-              <Input
-                id="commercial-activity-scheduled"
-                type="datetime-local"
-                value={form.scheduledAtLocal}
-                onChange={(event) =>
-                  patch({ scheduledAtLocal: event.target.value })
-                }
-                disabled={isSubmitting}
-              />
+            <div className="space-y-1 pt-2">
+              <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                Paso 2 · ¿Qué ocurrió?
+              </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="commercial-activity-status">Estado</Label>
+              <Label htmlFor="commercial-activity-result">Resultado</Label>
               <Select
-                value={form.status}
-                onValueChange={(value) =>
-                  patch({ status: value as CommercialActivityStatus })
-                }
+                value={form.result || undefined}
+                onValueChange={(value) => patch({ result: value })}
                 disabled={isSubmitting}
               >
-                <SelectTrigger id="commercial-activity-status">
-                  <SelectValue />
+                <SelectTrigger id="commercial-activity-result">
+                  <SelectValue placeholder="Seleccionar resultado" />
                 </SelectTrigger>
                 <SelectContent>
-                  {COMMERCIAL_ACTIVITY_STATUSES.map((status) => (
-                    <SelectItem key={status} value={status}>
-                      {COMMERCIAL_ACTIVITY_STATUS_LABELS[status]}
+                  {COMMERCIAL_ACTIVITY_RESULT_OPTIONS.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
+
+            {form.result === "Otro" ? (
+              <div className="space-y-2">
+                <Label htmlFor="commercial-activity-result-other">
+                  Detalle del resultado
+                </Label>
+                <Input
+                  id="commercial-activity-result-other"
+                  value={form.resultOther}
+                  onChange={(event) =>
+                    patch({ resultOther: event.target.value })
+                  }
+                  disabled={isSubmitting}
+                />
+              </div>
+            ) : null}
+
+            {!isEdit ? (
+              <>
+                <div className="space-y-1 pt-2">
+                  <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                    Paso 3 · ¿La gestión termina aquí?
+                  </p>
+                </div>
+
+                <div className="flex gap-6">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="commercial-activity-ends"
+                      checked={form.managementEnds === "yes"}
+                      onChange={() => patch({ managementEnds: "yes" })}
+                      disabled={isSubmitting}
+                    />
+                    Sí
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="commercial-activity-ends"
+                      checked={form.managementEnds === "no"}
+                      onChange={() =>
+                        patch({
+                          managementEnds: "no",
+                          assignedEmployeeId:
+                            form.assignedEmployeeId || defaultEmployeeId,
+                        })
+                      }
+                      disabled={isSubmitting}
+                    />
+                    No
+                  </label>
+                </div>
+              </>
+            ) : null}
+
+            {showCommitmentStep ? (
+              <div className="space-y-4 rounded-md border p-3">
+                <p className="text-sm font-medium">Próximo paso</p>
+                <div className="space-y-2">
+                  <Label htmlFor="commercial-activity-next-step">
+                    Compromiso
+                  </Label>
+                  <Input
+                    id="commercial-activity-next-step"
+                    value={form.nextStepTitle}
+                    onChange={(event) =>
+                      patch({ nextStepTitle: event.target.value })
+                    }
+                    disabled={isSubmitting}
+                    placeholder="Ej. Enviar presupuesto"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="commercial-activity-commitment-owner">
+                    Responsable
+                  </Label>
+                  <Select
+                    value={form.assignedEmployeeId || undefined}
+                    onValueChange={(value) =>
+                      patch({ assignedEmployeeId: value })
+                    }
+                    disabled={isSubmitting || !isEmployeesReady}
+                  >
+                    <SelectTrigger id="commercial-activity-commitment-owner">
+                      <SelectValue placeholder="Seleccionar responsable" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {responsibleOptions.map((option) => (
+                        <SelectItem key={option.id} value={option.id}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="commercial-activity-due-date">Fecha</Label>
+                    <Input
+                      id="commercial-activity-due-date"
+                      type="date"
+                      value={form.dueDate}
+                      onChange={(event) =>
+                        patch({ dueDate: event.target.value })
+                      }
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="commercial-activity-due-time">Hora</Label>
+                    <Input
+                      id="commercial-activity-due-time"
+                      type="time"
+                      value={form.dueTime}
+                      onChange={(event) =>
+                        patch({ dueTime: event.target.value })
+                      }
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="commercial-activity-priority">
+                    Prioridad
+                  </Label>
+                  <Select
+                    value={form.priority}
+                    onValueChange={(value) =>
+                      patch({
+                        priority: value as CommercialCommitmentPriority,
+                      })
+                    }
+                    disabled={isSubmitting}
+                  >
+                    <SelectTrigger id="commercial-activity-priority">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="alta">Alta</SelectItem>
+                      <SelectItem value="media">Media</SelectItem>
+                      <SelectItem value="baja">Baja</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            ) : null}
 
             {error ? (
               <p className="text-sm text-destructive" role="alert">

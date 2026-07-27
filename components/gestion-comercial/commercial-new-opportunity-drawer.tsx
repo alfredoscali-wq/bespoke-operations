@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react"
 import { CommercialDrawerFooter } from "@/components/gestion-comercial/commercial-drawer-footer"
 import { CommercialOpportunitySection } from "@/components/gestion-comercial/commercial-opportunity-section"
 import { CommercialPersonSection } from "@/components/gestion-comercial/commercial-person-section"
+import { emptyCommercialPersonLocationFields } from "@/components/gestion-comercial/commercial-person-location-fields"
 import { useCreateOpportunityWithPerson } from "@/components/gestion-comercial/commercial-provider"
 import { useEmployees } from "@/components/rrhh/employees-provider"
 import {
@@ -28,6 +29,9 @@ import {
   type CommercialNewOpportunityInput,
   type CommercialNewOpportunityPersonInput,
 } from "@/lib/commercial/create-opportunity"
+import { composeCommercialAddress } from "@/lib/commercial/location"
+import { resolveCommercialPersonLocation } from "@/lib/commercial/resolve-person-location"
+import { listCommercialResponsibleOptions } from "@/lib/commercial/responsible-employees"
 import type { CommercialPerson } from "@/lib/types/commercial"
 import type { CommercialOpportunityListItem } from "@/lib/types/commercial"
 
@@ -42,6 +46,7 @@ function buildDefaultPerson(): CommercialNewOpportunityPersonInput {
     phone: "",
     mobile: "",
     email: "",
+    ...emptyCommercialPersonLocationFields(),
   }
 }
 
@@ -131,10 +136,8 @@ export function CommercialNewOpportunityDrawer({
   const { mutateAsync: createWithPerson } = useCreateOpportunityWithPerson()
 
   const defaultResponsibleId = useMemo(() => {
-    const active = employees.find(
-      (employee) => employee.employmentStatus === "active"
-    )
-    return active?.id ?? employees[0]?.id ?? ""
+    const options = listCommercialResponsibleOptions(employees)
+    return options[0]?.id ?? ""
   }, [employees])
 
   const [person, setPerson] = useState(buildDefaultPerson)
@@ -198,6 +201,12 @@ export function CommercialNewOpportunityDrawer({
         longitude: location.longitude,
         locationSource: location.locationSource,
       }))
+      setPerson((current) => ({
+        ...current,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        locationSource: location.locationSource,
+      }))
     })
     return () => {
       cancelled = true
@@ -207,23 +216,22 @@ export function CommercialNewOpportunityDrawer({
   const existingProspectNotice = resolveExistingProspectNotice(people, person)
 
   const responsibleOptions = useMemo(
-    () =>
-      employees
-        .filter((employee) => employee.employmentStatus !== "inactive")
-        .map((employee) => ({
-          id: employee.id,
-          label:
-            `${employee.firstName} ${employee.lastName}`.trim() ||
-            employee.employeeCode,
-        })),
+    () => listCommercialResponsibleOptions(employees),
     [employees]
   )
 
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault()
-    setError(null)
-
-    const bundle = { person, opportunity }
+  async function persistBundle(
+    nextPerson: CommercialNewOpportunityPersonInput,
+    nextOpportunity: CommercialNewOpportunityInput
+  ) {
+    const personWithAddress = {
+      ...nextPerson,
+      address: composeCommercialAddress(nextPerson),
+    }
+    const bundle = {
+      person: personWithAddress,
+      opportunity: nextOpportunity,
+    }
     const validationError = validateCommercialCreateOpportunityBundle(bundle)
     if (validationError) {
       setError(validationError)
@@ -231,6 +239,7 @@ export function CommercialNewOpportunityDrawer({
     }
 
     setIsSubmitting(true)
+    setError(null)
     try {
       const result = await createWithPerson(bundle)
       if (!result.success || !result.data) {
@@ -251,6 +260,52 @@ export function CommercialNewOpportunityDrawer({
     }
   }
 
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault()
+    setError(null)
+
+    const locationResult = await resolveCommercialPersonLocation(person)
+    if (locationResult.status === "failed") {
+      setError("No se pudo interpretar la ubicación pegada.")
+      return
+    }
+
+    let nextPerson = person
+    let nextOpportunity = opportunity
+
+    if (locationResult.status === "resolved") {
+      nextPerson = {
+        ...person,
+        latitude: locationResult.coords.latitude,
+        longitude: locationResult.coords.longitude,
+        locationSource: locationResult.coords.locationSource,
+        locationInput: "",
+      }
+      nextOpportunity = {
+        ...opportunity,
+        latitude: locationResult.coords.latitude,
+        longitude: locationResult.coords.longitude,
+        locationSource: locationResult.coords.locationSource,
+      }
+      setPerson(nextPerson)
+      setOpportunity(nextOpportunity)
+    } else if (
+      person.latitude != null &&
+      person.longitude != null &&
+      (opportunity.latitude == null || opportunity.longitude == null)
+    ) {
+      nextOpportunity = {
+        ...opportunity,
+        latitude: person.latitude,
+        longitude: person.longitude,
+        locationSource: person.locationSource,
+      }
+      setOpportunity(nextOpportunity)
+    }
+
+    await persistBundle(nextPerson, nextOpportunity)
+  }
+
   return (
     <>
       <Sheet open={open} onOpenChange={handleOpenChange}>
@@ -268,7 +323,7 @@ export function CommercialNewOpportunityDrawer({
           <SheetHeader className="border-b">
             <SheetTitle>Nueva Oportunidad</SheetTitle>
             <SheetDescription>
-              Registre el prospecto y la oportunidad comercial en un solo paso.
+              Registre la persona y la oportunidad comercial en un solo paso.
             </SheetDescription>
           </SheetHeader>
 

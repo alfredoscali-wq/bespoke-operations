@@ -21,6 +21,14 @@ export type CreateCommercialActivityPayload = {
   status?: CommercialActivityStatus
   metadata?: Record<string, unknown>
   createdBy?: string | null
+  /** Compromiso futuro asociado (Parte 2 — no mezclar con la actividad). */
+  commitment?: {
+    title: string
+    description?: string
+    assignedEmployeeId?: string | null
+    dueAt: string
+    priority?: "alta" | "media" | "baja"
+  } | null
 }
 
 export type UpdateCommercialActivityPayload = Partial<{

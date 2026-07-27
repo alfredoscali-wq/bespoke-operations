@@ -24,6 +24,7 @@ import {
   type CommercialOpportunityFormValue,
   validateCommercialOpportunityForm,
 } from "@/lib/commercial/display"
+import { listCommercialResponsibleOptions } from "@/lib/commercial/responsible-employees"
 import type { CommercialOpportunity } from "@/lib/types/commercial"
 
 const FORM_ID = "commercial-edit-opportunity-form"
@@ -108,15 +109,7 @@ export function CommercialOpportunityDrawer({
   }, [open, opportunity])
 
   const responsibleOptions = useMemo(
-    () =>
-      employees
-        .filter((employee) => employee.employmentStatus !== "inactive")
-        .map((employee) => ({
-          id: employee.id,
-          label:
-            `${employee.firstName} ${employee.lastName}`.trim() ||
-            employee.employeeCode,
-        })),
+    () => listCommercialResponsibleOptions(employees),
     [employees]
   )
 

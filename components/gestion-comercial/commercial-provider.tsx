@@ -22,7 +22,6 @@ import {
   listCommercialOpportunities,
   listCommercialPeople,
 } from "@/lib/supabase/commercial.browser"
-import { resolveCommercialPersonDisplayName } from "@/lib/supabase/commercial.mapper"
 import type {
   CommercialOpportunity,
   CommercialOpportunityListItem,
@@ -158,7 +157,7 @@ export function CommercialProvider({ children }: { children: React.ReactNode }) 
       if (result.error || !result.data) {
         return {
           success: false,
-          message: result.error?.message ?? "No se pudo crear el prospecto.",
+          message: result.error?.message ?? "No se pudo crear la persona.",
         }
       }
 
@@ -216,19 +215,19 @@ export function CommercialProvider({ children }: { children: React.ReactNode }) 
   const upsertOpportunity = useCallback(
     (opportunity: CommercialOpportunity) => {
       setOpportunities((current) => {
-        const person = people.find((entry) => entry.id === opportunity.personId)
         const existing = current.find((entry) => entry.id === opportunity.id)
         const mapped: CommercialOpportunityListItem = {
           ...opportunity,
-          personDisplayName: person
-            ? resolveCommercialPersonDisplayName(person)
-            : (existing?.personDisplayName ?? "Prospecto"),
+          personDisplayName:
+            existing?.personDisplayName ??
+            opportunity.personDisplayName ??
+            "Persona",
         }
         const without = current.filter((entry) => entry.id !== opportunity.id)
         return [mapped, ...without]
       })
     },
-    [people]
+    []
   )
 
   const updatePerson = useCallback(
@@ -253,7 +252,7 @@ export function CommercialProvider({ children }: { children: React.ReactNode }) 
       if (!response.ok || !payload?.success || !payload.person) {
         return {
           success: false,
-          message: payload?.message ?? "No se pudo actualizar el prospecto.",
+          message: payload?.message ?? "No se pudo actualizar la persona.",
         }
       }
 
@@ -398,7 +397,7 @@ export function CommercialProvider({ children }: { children: React.ReactNode }) 
       if (personResult.error || !personResult.data) {
         return {
           success: false as const,
-          message: personResult.error?.message ?? "Prospecto no encontrado.",
+          message: personResult.error?.message ?? "Persona no encontrada.",
         }
       }
 

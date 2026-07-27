@@ -94,7 +94,7 @@ export async function fetchCommercialPersonById(
   if (!data) {
     return {
       data: null,
-      error: { code: "NOT_FOUND", message: "Prospecto no encontrado." },
+      error: { code: "NOT_FOUND", message: "Persona no encontrada." },
     }
   }
 
@@ -153,7 +153,7 @@ export async function patchCommercialPerson(
   if (!data) {
     return {
       data: null,
-      error: { code: "NOT_FOUND", message: "Prospecto no encontrado." },
+      error: { code: "NOT_FOUND", message: "Persona no encontrada." },
     }
   }
 
@@ -186,7 +186,7 @@ export async function softDeleteCommercialPerson(
   if (!data) {
     return {
       data: null,
-      error: { code: "NOT_FOUND", message: "Prospecto no encontrado." },
+      error: { code: "NOT_FOUND", message: "Persona no encontrada." },
     }
   }
 
@@ -328,7 +328,7 @@ export async function fetchCommercialOpportunities(
     data: opportunities.map((opportunity) => ({
       ...opportunity,
       personDisplayName:
-        personNameById.get(opportunity.personId) ?? "Prospecto",
+        personNameById.get(opportunity.personId) ?? "Persona",
     })),
     error: null,
   }
@@ -371,7 +371,7 @@ export async function insertCommercialOpportunity(
       data: null,
       error: {
         code: "VALIDATION",
-        message: "La oportunidad requiere un prospecto.",
+        message: "La oportunidad requiere una persona.",
       },
     }
   }

@@ -1,23 +1,28 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import { MoreHorizontal, Plus } from "lucide-react"
+import { Eye, Pencil, Plus, Trash2 } from "lucide-react"
 
+import { useAuth } from "@/components/auth/auth-provider"
 import { CommercialNewOpportunityDrawer } from "@/components/gestion-comercial/commercial-new-opportunity-drawer"
+import { CommercialOpportunityDrawer } from "@/components/gestion-comercial/commercial-opportunity-drawer"
 import {
   CommercialProvider,
   useCommercialOpportunities,
   useCommercialPeople,
+  useDeleteOpportunity,
 } from "@/components/gestion-comercial/commercial-provider"
 import { EmployeesProvider } from "@/components/rrhh/employees-provider"
 import { Button } from "@/components/ui/button"
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { TableRowsSkeleton } from "@/components/ui/kpi-grid-skeleton"
 import {
   Table,
@@ -31,13 +36,40 @@ import {
   COMMERCIAL_PRIORITY_LABELS,
   COMMERCIAL_STATUS_LABELS,
 } from "@/lib/commercial/catalogs"
+import { resolveCommercialActorEmployeeId } from "@/lib/commercial/module-access"
 import type { CommercialOpportunityListItem } from "@/lib/types/commercial"
+
+type OpportunityScope = "all" | "mine"
 
 function CommercialModuleContent() {
   const router = useRouter()
+  const { sessionUser } = useAuth()
   const { data: opportunities, isLoading } = useCommercialOpportunities()
   const { data: people } = useCommercialPeople()
+  const { mutateAsync: deleteOpportunity } = useDeleteOpportunity()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [scope, setScope] = useState<OpportunityScope>("all")
+  const [editingOpportunity, setEditingOpportunity] =
+    useState<CommercialOpportunityListItem | null>(null)
+  const [deletingOpportunity, setDeletingOpportunity] =
+    useState<CommercialOpportunityListItem | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  const actorEmployeeId = useMemo(
+    () =>
+      sessionUser ? resolveCommercialActorEmployeeId(sessionUser) : null,
+    [sessionUser]
+  )
+
+  const visibleOpportunities = useMemo(() => {
+    if (scope === "mine" && actorEmployeeId) {
+      return opportunities.filter(
+        (opportunity) => opportunity.assignedEmployeeId === actorEmployeeId
+      )
+    }
+    return opportunities
+  }, [actorEmployeeId, opportunities, scope])
 
   function openDossier(opportunityId: string) {
     router.push(`/gestion-comercial/${opportunityId}`)
@@ -45,6 +77,22 @@ function CommercialModuleContent() {
 
   function handleCreated(opportunity: CommercialOpportunityListItem) {
     router.push(`/gestion-comercial/${opportunity.id}`)
+  }
+
+  async function handleDelete() {
+    if (!deletingOpportunity) return
+    setIsDeleting(true)
+    setDeleteError(null)
+    try {
+      const result = await deleteOpportunity(deletingOpportunity.id)
+      if (!result.success) {
+        setDeleteError(result.message ?? "No se pudo eliminar la oportunidad.")
+        return
+      }
+      setDeletingOpportunity(null)
+    } finally {
+      setIsDeleting(false)
+    }
   }
 
   return (
@@ -55,7 +103,7 @@ function CommercialModuleContent() {
             Gestión Comercial
           </h1>
           <p className="text-sm text-muted-foreground">
-            Administra prospectos y oportunidades comerciales.
+            Administra personas y oportunidades comerciales.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -77,6 +125,26 @@ function CommercialModuleContent() {
         </div>
       </div>
 
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant={scope === "all" ? "default" : "outline"}
+          onClick={() => setScope("all")}
+        >
+          Todas
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant={scope === "mine" ? "default" : "outline"}
+          onClick={() => setScope("mine")}
+          disabled={!actorEmployeeId}
+        >
+          Mías
+        </Button>
+      </div>
+
       <div className="rounded-lg border">
         {isLoading ? (
           <div className="p-4">
@@ -88,31 +156,29 @@ function CommercialModuleContent() {
               <TableRow>
                 <TableHead>Código</TableHead>
                 <TableHead>Título</TableHead>
-                <TableHead>Prospecto</TableHead>
+                <TableHead>Persona</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead>Prioridad</TableHead>
-                <TableHead className="w-12 text-right">
-                  <span className="sr-only">Acciones</span>
-                </TableHead>
+                <TableHead className="w-[120px] text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {opportunities.length === 0 ? (
+              {visibleOpportunities.length === 0 ? (
                 <TableRow>
                   <TableCell
                     colSpan={6}
                     className="h-24 text-center text-sm text-muted-foreground"
                   >
-                    Todavía no existen oportunidades comerciales.
+                    {scope === "mine"
+                      ? "No tenés oportunidades asignadas como responsable."
+                      : "Todavía no existen oportunidades comerciales."}
                   </TableCell>
                 </TableRow>
               ) : (
-                opportunities.map((opportunity) => (
+                visibleOpportunities.map((opportunity) => (
                   <TableRow
                     key={opportunity.id}
                     data-opportunity-id={opportunity.id}
-                    className="cursor-pointer"
-                    onClick={() => openDossier(opportunity.id)}
                   >
                     <TableCell className="font-medium tabular-nums">
                       {opportunity.code}
@@ -126,29 +192,39 @@ function CommercialModuleContent() {
                       {COMMERCIAL_PRIORITY_LABELS[opportunity.priority]}
                     </TableCell>
                     <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label="Acciones"
-                            onClick={(event) => event.stopPropagation()}
-                          >
-                            <MoreHorizontal className="size-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                          align="end"
-                          onClick={(event) => event.stopPropagation()}
+                      <div className="inline-flex items-center justify-end gap-0.5">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label="Ver detalle"
+                          onClick={() => openDossier(opportunity.id)}
                         >
-                          <DropdownMenuItem
-                            onSelect={() => openDossier(opportunity.id)}
-                          >
-                            Ver
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                          <Eye className="size-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label="Editar"
+                          onClick={() => setEditingOpportunity(opportunity)}
+                        >
+                          <Pencil className="size-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          className="text-destructive hover:text-destructive"
+                          aria-label="Eliminar"
+                          onClick={() => {
+                            setDeleteError(null)
+                            setDeletingOpportunity(opportunity)
+                          }}
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -164,6 +240,58 @@ function CommercialModuleContent() {
         people={people}
         onCreated={handleCreated}
       />
+
+      <CommercialOpportunityDrawer
+        open={Boolean(editingOpportunity)}
+        onOpenChange={(open) => {
+          if (!open) setEditingOpportunity(null)
+        }}
+        opportunity={editingOpportunity}
+      />
+
+      <Dialog
+        open={Boolean(deletingOpportunity)}
+        onOpenChange={(open) => {
+          if (!open && !isDeleting) {
+            setDeletingOpportunity(null)
+            setDeleteError(null)
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md" showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>Eliminar oportunidad</DialogTitle>
+            <DialogDescription>
+              {deletingOpportunity
+                ? `La oportunidad ${deletingOpportunity.code} se eliminará y dejará de aparecer en la bandeja.`
+                : null}
+            </DialogDescription>
+          </DialogHeader>
+          {deleteError ? (
+            <p className="text-sm text-destructive" role="alert">
+              {deleteError}
+            </p>
+          ) : null}
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeletingOpportunity(null)}
+              disabled={isDeleting}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => void handleDelete()}
+              disabled={isDeleting}
+            >
+              {isDeleting ? "Eliminando…" : "Eliminar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

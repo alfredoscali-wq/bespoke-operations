@@ -1,7 +1,6 @@
 "use client"
 
 import { CommercialInfoRow } from "@/components/gestion-comercial/commercial-info-row"
-import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
@@ -9,95 +8,110 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import {
-  displayCommercialValue,
   personTypeLabel,
   resolvePersonPrimaryName,
 } from "@/lib/commercial/display"
 import type { CommercialPerson } from "@/lib/types/commercial"
 import { cn } from "@/lib/utils"
 
+function hasText(value: string | null | undefined): boolean {
+  return Boolean(value?.trim())
+}
+
 function PhoneLink({ value }: { value: string }) {
-  const trimmed = value.trim()
-  if (!trimmed) return <span>-</span>
   return (
     <a
-      href={`tel:${trimmed.replace(/\s+/g, "")}`}
+      href={`tel:${value.replace(/\s+/g, "")}`}
       className="font-medium text-primary hover:underline"
     >
-      {trimmed}
+      {value}
     </a>
   )
 }
 
 function EmailLink({ value }: { value: string }) {
-  const trimmed = value.trim()
-  if (!trimmed) return <span>-</span>
   return (
     <a
-      href={`mailto:${trimmed}`}
+      href={`mailto:${value}`}
       className="font-medium text-primary hover:underline"
     >
-      {trimmed}
+      {value}
     </a>
   )
 }
 
 type CommercialProspectCardProps = {
   person: CommercialPerson
-  onEdit: () => void
   className?: string
 }
 
 export function CommercialProspectCard({
   person,
-  onEdit,
   className,
 }: CommercialProspectCardProps) {
+  const primaryName = resolvePersonPrimaryName(person)
+  const documentValue = person.documentNumber.trim() || person.taxId.trim()
+
   return (
     <Card className={cn(className)}>
-      <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
-        <CardTitle className="text-base">Prospecto</CardTitle>
-        <Button type="button" variant="outline" size="sm" onClick={onEdit}>
-          Editar Prospecto
-        </Button>
+      <CardHeader className="space-y-0">
+        <CardTitle className="text-base">Persona</CardTitle>
       </CardHeader>
       <CardContent>
         <dl className="space-y-3">
           <CommercialInfoRow label="Tipo">
             {personTypeLabel(person.personType)}
           </CommercialInfoRow>
-          <CommercialInfoRow label="Nombre / Razón Social">
-            {resolvePersonPrimaryName(person)}
-          </CommercialInfoRow>
-          <CommercialInfoRow label="Documento / CUIT">
-            {displayCommercialValue(
-              person.documentNumber || person.taxId || null
-            )}
-          </CommercialInfoRow>
-          <CommercialInfoRow label="Teléfono">
-            <PhoneLink value={person.phone} />
-          </CommercialInfoRow>
-          <CommercialInfoRow label="Celular">
-            <PhoneLink value={person.mobile} />
-          </CommercialInfoRow>
-          <CommercialInfoRow label="Email">
-            <EmailLink value={person.email} />
-          </CommercialInfoRow>
-          <CommercialInfoRow label="Dirección">
-            {displayCommercialValue(person.address)}
-          </CommercialInfoRow>
-          <CommercialInfoRow label="Ciudad">
-            {displayCommercialValue(person.city)}
-          </CommercialInfoRow>
-          <CommercialInfoRow label="Provincia">
-            {displayCommercialValue(person.province)}
-          </CommercialInfoRow>
-          <CommercialInfoRow label="Código Postal">
-            {displayCommercialValue(person.postalCode)}
-          </CommercialInfoRow>
-          <CommercialInfoRow label="Notas">
-            {displayCommercialValue(person.notes)}
-          </CommercialInfoRow>
+          {primaryName !== "-" ? (
+            <CommercialInfoRow label="Nombre / Razón Social">
+              {primaryName}
+            </CommercialInfoRow>
+          ) : null}
+          {hasText(documentValue) ? (
+            <CommercialInfoRow label="Documento / CUIT">
+              {documentValue}
+            </CommercialInfoRow>
+          ) : null}
+          {hasText(person.phone) ? (
+            <CommercialInfoRow label="Teléfono">
+              <PhoneLink value={person.phone.trim()} />
+            </CommercialInfoRow>
+          ) : null}
+          {hasText(person.mobile) ? (
+            <CommercialInfoRow label="Celular">
+              <PhoneLink value={person.mobile.trim()} />
+            </CommercialInfoRow>
+          ) : null}
+          {hasText(person.email) ? (
+            <CommercialInfoRow label="Email">
+              <EmailLink value={person.email.trim()} />
+            </CommercialInfoRow>
+          ) : null}
+          {hasText(person.address) ? (
+            <CommercialInfoRow label="Dirección">
+              {person.address.trim()}
+            </CommercialInfoRow>
+          ) : null}
+          {hasText(person.city) ? (
+            <CommercialInfoRow label="Ciudad">
+              {person.city.trim()}
+            </CommercialInfoRow>
+          ) : null}
+          {hasText(person.province) ? (
+            <CommercialInfoRow label="Provincia">
+              {person.province.trim()}
+            </CommercialInfoRow>
+          ) : null}
+          {hasText(person.postalCode) ? (
+            <CommercialInfoRow label="Código Postal">
+              {person.postalCode.trim()}
+            </CommercialInfoRow>
+          ) : null}
+          {hasText(person.notes) ? (
+            <CommercialInfoRow label="Notas">
+              {person.notes.trim()}
+            </CommercialInfoRow>
+          ) : null}
         </dl>
       </CardContent>
     </Card>

@@ -33,7 +33,7 @@ export function CommercialActivityQuickActions({
             onClick={() => onSelect(typeCode)}
           >
             <Icon className="size-3.5" aria-hidden />
-            {COMMERCIAL_ACTIVITY_TYPE_LABELS[typeCode]}
+            + {COMMERCIAL_ACTIVITY_TYPE_LABELS[typeCode]}
           </Button>
         )
       })}

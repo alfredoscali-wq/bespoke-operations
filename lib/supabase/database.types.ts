@@ -1148,10 +1148,18 @@ export type Database = {
           phone: string
           mobile: string
           email: string
+          street: string
+          street_number: string
+          floor: string
+          apartment: string
+          neighborhood: string
           address: string
           city: string
           province: string
           postal_code: string
+          latitude: number | null
+          longitude: number | null
+          location_source: CommercialLocationSource | null
           notes: string
           created_by: string | null
           updated_by: string | null
@@ -1172,10 +1180,18 @@ export type Database = {
           phone?: string
           mobile?: string
           email?: string
+          street?: string
+          street_number?: string
+          floor?: string
+          apartment?: string
+          neighborhood?: string
           address?: string
           city?: string
           province?: string
           postal_code?: string
+          latitude?: number | null
+          longitude?: number | null
+          location_source?: CommercialLocationSource | null
           notes?: string
           created_by?: string | null
           updated_by?: string | null
@@ -1196,10 +1212,18 @@ export type Database = {
           phone?: string
           mobile?: string
           email?: string
+          street?: string
+          street_number?: string
+          floor?: string
+          apartment?: string
+          neighborhood?: string
           address?: string
           city?: string
           province?: string
           postal_code?: string
+          latitude?: number | null
+          longitude?: number | null
+          location_source?: CommercialLocationSource | null
           notes?: string
           created_by?: string | null
           updated_by?: string | null
@@ -1214,6 +1238,88 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      commercial_commitments: {
+        Row: {
+          id: string
+          company_id: string
+          opportunity_id: string
+          activity_id: string | null
+          title: string
+          description: string
+          assigned_employee_id: string | null
+          due_at: string
+          priority: "alta" | "media" | "baja"
+          status: "pending" | "in_progress" | "completed" | "cancelled"
+          metadata: Json
+          created_by: string | null
+          updated_by: string | null
+          deleted_by: string | null
+          created_at: string
+          updated_at: string
+          deleted_at: string | null
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          opportunity_id: string
+          activity_id?: string | null
+          title: string
+          description?: string
+          assigned_employee_id?: string | null
+          due_at: string
+          priority?: "alta" | "media" | "baja"
+          status?: "pending" | "in_progress" | "completed" | "cancelled"
+          metadata?: Json
+          created_by?: string | null
+          updated_by?: string | null
+          deleted_by?: string | null
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          opportunity_id?: string
+          activity_id?: string | null
+          title?: string
+          description?: string
+          assigned_employee_id?: string | null
+          due_at?: string
+          priority?: "alta" | "media" | "baja"
+          status?: "pending" | "in_progress" | "completed" | "cancelled"
+          metadata?: Json
+          created_by?: string | null
+          updated_by?: string | null
+          deleted_by?: string | null
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commercial_commitments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commercial_commitments_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "commercial_opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commercial_commitments_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "commercial_activities"
             referencedColumns: ["id"]
           },
         ]
@@ -2569,6 +2675,12 @@ export type CommercialPersonInsert =
   Database["public"]["Tables"]["commercial_people"]["Insert"]
 export type CommercialPersonUpdate =
   Database["public"]["Tables"]["commercial_people"]["Update"]
+export type CommercialCommitmentRow =
+  Database["public"]["Tables"]["commercial_commitments"]["Row"]
+export type CommercialCommitmentInsert =
+  Database["public"]["Tables"]["commercial_commitments"]["Insert"]
+export type CommercialCommitmentUpdate =
+  Database["public"]["Tables"]["commercial_commitments"]["Update"]
 export type CommercialOpportunityRow =
   Database["public"]["Tables"]["commercial_opportunities"]["Row"]
 export type CommercialOpportunityInsert =

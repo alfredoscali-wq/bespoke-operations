@@ -23,7 +23,7 @@ export function CommercialPersonSection({
   return (
     <section className="space-y-3">
       <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-        Prospecto
+        Persona
       </h2>
       <CommercialPersonForm
         value={value}
@@ -32,6 +32,7 @@ export function CommercialPersonSection({
         autoFocusName={autoFocusName}
         existingProspectNotice={existingProspectNotice}
         onAdvanceField={onAdvanceField}
+        showLocationFields
       />
     </section>
   )

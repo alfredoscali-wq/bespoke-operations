@@ -221,7 +221,7 @@ export class CommercialOpportunityService {
         data: null,
         error: {
           code: "VALIDATION",
-          message: "El prospecto indicado no existe.",
+          message: "La persona indicada no existe.",
         },
       }
     }
@@ -234,7 +234,7 @@ export class CommercialOpportunityService {
         data: null,
         error: {
           code: "VALIDATION",
-          message: "El prospecto no pertenece a la empresa.",
+          message: "La persona no pertenece a la empresa.",
         },
       }
     }
@@ -256,8 +256,8 @@ export class CommercialOpportunityService {
   }
 
   /**
-   * Integrated alta: resolve/create prospecto then create oportunidad.
-   * Rolls back a newly created prospecto if the opportunity insert fails.
+   * Integrated alta: resolve/create Persona then create oportunidad.
+   * Rolls back a newly created Persona if the opportunity insert fails.
    */
   async createWithPerson(input: {
     companyId: string
@@ -301,6 +301,18 @@ export class CommercialOpportunityService {
         phone,
         mobile,
         email,
+        street: input.bundle.person.street,
+        streetNumber: input.bundle.person.streetNumber,
+        floor: input.bundle.person.floor,
+        apartment: input.bundle.person.apartment,
+        neighborhood: input.bundle.person.neighborhood,
+        address: input.bundle.person.address,
+        city: input.bundle.person.city,
+        province: input.bundle.person.province,
+        postalCode: input.bundle.person.postalCode,
+        latitude: input.bundle.person.latitude,
+        longitude: input.bundle.person.longitude,
+        locationSource: input.bundle.person.locationSource,
         createdBy: input.createdBy ?? null,
       })
 
@@ -309,7 +321,7 @@ export class CommercialOpportunityService {
           data: null,
           error: createPersonResult.error ?? {
             code: "UNKNOWN",
-            message: "No se pudo crear el prospecto.",
+            message: "No se pudo crear la persona.",
           },
         }
       }
@@ -317,6 +329,32 @@ export class CommercialOpportunityService {
       person = createPersonResult.data
       createdPersonId = person.id
       matchedExistingPerson = false
+    } else {
+      const hasAddressUpdate =
+        Boolean(input.bundle.person.street?.trim()) ||
+        Boolean(input.bundle.person.city?.trim()) ||
+        input.bundle.person.latitude != null
+
+      if (hasAddressUpdate) {
+        const updatedPerson = await this.peopleRepository.update(person.id, {
+          street: input.bundle.person.street,
+          streetNumber: input.bundle.person.streetNumber,
+          floor: input.bundle.person.floor,
+          apartment: input.bundle.person.apartment,
+          neighborhood: input.bundle.person.neighborhood,
+          address: input.bundle.person.address,
+          city: input.bundle.person.city,
+          province: input.bundle.person.province,
+          postalCode: input.bundle.person.postalCode,
+          latitude: input.bundle.person.latitude,
+          longitude: input.bundle.person.longitude,
+          locationSource: input.bundle.person.locationSource,
+          updatedBy: input.createdBy ?? null,
+        })
+        if (updatedPerson.data) {
+          person = updatedPerson.data
+        }
+      }
     }
 
     const opportunityResult = await this.repository.create({

@@ -1,6 +1,8 @@
 "use client"
 
-import { CommercialActionMenu } from "@/components/gestion-comercial/commercial-action-menu"
+import { ArrowLeft } from "lucide-react"
+
+import { Button } from "@/components/ui/button"
 import { CommercialBadge } from "@/components/gestion-comercial/commercial-badge"
 import {
   displayCommercialValue,
@@ -11,17 +13,19 @@ import type { CommercialOpportunity } from "@/lib/types/commercial"
 type CommercialHeaderProps = {
   opportunity: CommercialOpportunity
   responsibleName: string
-  onEdit: () => void
-  onDelete: () => void
   onBack: () => void
+  onEditPerson: () => void
+  onEditOpportunity: () => void
+  onDelete: () => void
 }
 
 export function CommercialHeader({
   opportunity,
   responsibleName,
-  onEdit,
-  onDelete,
   onBack,
+  onEditPerson,
+  onEditOpportunity,
+  onDelete,
 }: CommercialHeaderProps) {
   return (
     <div className="flex flex-wrap items-start justify-between gap-4 border-b pb-4">
@@ -58,11 +62,26 @@ export function CommercialHeader({
         </div>
       </div>
 
-      <CommercialActionMenu
-        onEdit={onEdit}
-        onDelete={onDelete}
-        onBack={onBack}
-      />
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="button" variant="outline" size="sm" onClick={onBack}>
+          <ArrowLeft className="size-4" aria-hidden />
+          Volver
+        </Button>
+        <Button type="button" variant="outline" size="sm" onClick={onEditPerson}>
+          Editar Persona
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onEditOpportunity}
+        >
+          Editar Oportunidad
+        </Button>
+        <Button type="button" variant="destructive" size="sm" onClick={onDelete}>
+          Eliminar
+        </Button>
+      </div>
     </div>
   )
 }

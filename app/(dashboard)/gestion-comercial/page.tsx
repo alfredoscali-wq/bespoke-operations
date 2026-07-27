@@ -13,7 +13,7 @@ export default function GestionComercialPage() {
               Gestión Comercial
             </h1>
             <p className="text-sm text-muted-foreground">
-              Administra prospectos y oportunidades comerciales.
+              Administra personas y oportunidades comerciales.
             </p>
           </div>
           <div className="rounded-lg border p-4">
