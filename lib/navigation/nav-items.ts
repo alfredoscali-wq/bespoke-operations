@@ -2,6 +2,7 @@ import {
   Archive,
   Banknote,
   BarChart3,
+  BriefcaseBusiness,
   Building2,
   CalendarClock,
   CalendarRange,
@@ -161,6 +162,14 @@ export const tesoreriaNavItem: NavItem = {
   pageTitle: "Tesorería",
   description:
     "Registro operativo de ingresos, egresos y saldo de la empresa.",
+}
+
+export const gestionComercialNavItem: NavItem = {
+  title: "Gestión Comercial",
+  href: "/gestion-comercial",
+  icon: BriefcaseBusiness,
+  pageTitle: "Gestión Comercial",
+  description: "Administra prospectos y oportunidades comerciales.",
 }
 
 export const historyNavItem: NavItem = {

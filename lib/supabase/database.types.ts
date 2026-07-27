@@ -3,6 +3,12 @@ import type {
   TreasuryOrigin,
   TreasuryStatus,
 } from "@/lib/tesoreria/categories"
+import type {
+  CommercialPersonType,
+  CommercialPriorityCode,
+  CommercialSourceCode,
+  CommercialStatusCode,
+} from "@/lib/commercial/catalogs"
 import type { AvailabilityType } from "@/lib/types/availability"
 import type { ContractorStatus } from "@/lib/types/contractors"
 import type { CrewOrigin, CrewStatus } from "@/lib/types/crews"
@@ -1055,6 +1061,269 @@ export type Database = {
           {
             foreignKeyName: "treasury_movements_registered_by_fkey"
             columns: ["registered_by"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      commercial_statuses: {
+        Row: {
+          code: string
+          label: string
+          sort_order: number
+          is_closed: boolean
+          created_at: string
+        }
+        Insert: {
+          code: string
+          label: string
+          sort_order?: number
+          is_closed?: boolean
+          created_at?: string
+        }
+        Update: {
+          code?: string
+          label?: string
+          sort_order?: number
+          is_closed?: boolean
+          created_at?: string
+        }
+        Relationships: []
+      }
+      commercial_priorities: {
+        Row: {
+          code: string
+          label: string
+          sort_order: number
+          created_at: string
+        }
+        Insert: {
+          code: string
+          label: string
+          sort_order?: number
+          created_at?: string
+        }
+        Update: {
+          code?: string
+          label?: string
+          sort_order?: number
+          created_at?: string
+        }
+        Relationships: []
+      }
+      commercial_sources: {
+        Row: {
+          code: string
+          label: string
+          sort_order: number
+          created_at: string
+        }
+        Insert: {
+          code: string
+          label: string
+          sort_order?: number
+          created_at?: string
+        }
+        Update: {
+          code?: string
+          label?: string
+          sort_order?: number
+          created_at?: string
+        }
+        Relationships: []
+      }
+      commercial_people: {
+        Row: {
+          id: string
+          company_id: string
+          person_type: CommercialPersonType
+          first_name: string
+          last_name: string
+          company_name: string
+          document_number: string
+          tax_id: string
+          phone: string
+          mobile: string
+          email: string
+          address: string
+          city: string
+          province: string
+          postal_code: string
+          notes: string
+          created_by: string | null
+          updated_by: string | null
+          deleted_by: string | null
+          created_at: string
+          updated_at: string
+          deleted_at: string | null
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          person_type?: CommercialPersonType
+          first_name?: string
+          last_name?: string
+          company_name?: string
+          document_number?: string
+          tax_id?: string
+          phone?: string
+          mobile?: string
+          email?: string
+          address?: string
+          city?: string
+          province?: string
+          postal_code?: string
+          notes?: string
+          created_by?: string | null
+          updated_by?: string | null
+          deleted_by?: string | null
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          person_type?: CommercialPersonType
+          first_name?: string
+          last_name?: string
+          company_name?: string
+          document_number?: string
+          tax_id?: string
+          phone?: string
+          mobile?: string
+          email?: string
+          address?: string
+          city?: string
+          province?: string
+          postal_code?: string
+          notes?: string
+          created_by?: string | null
+          updated_by?: string | null
+          deleted_by?: string | null
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commercial_people_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      commercial_opportunity_counters: {
+        Row: {
+          company_id: string
+          last_number: number
+        }
+        Insert: {
+          company_id: string
+          last_number?: number
+        }
+        Update: {
+          company_id?: string
+          last_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commercial_opportunity_counters_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      commercial_opportunities: {
+        Row: {
+          id: string
+          company_id: string
+          person_id: string
+          code: string
+          title: string
+          status: CommercialStatusCode
+          priority: CommercialPriorityCode
+          source: CommercialSourceCode
+          assigned_employee_id: string | null
+          estimated_amount: number | null
+          probability: number | null
+          expected_close_date: string | null
+          description: string
+          lost_reason: string
+          created_by: string | null
+          updated_by: string | null
+          deleted_by: string | null
+          created_at: string
+          updated_at: string
+          deleted_at: string | null
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          person_id: string
+          code?: string
+          title: string
+          status?: CommercialStatusCode
+          priority?: CommercialPriorityCode
+          source?: CommercialSourceCode
+          assigned_employee_id?: string | null
+          estimated_amount?: number | null
+          probability?: number | null
+          expected_close_date?: string | null
+          description?: string
+          lost_reason?: string
+          created_by?: string | null
+          updated_by?: string | null
+          deleted_by?: string | null
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          person_id?: string
+          code?: string
+          title?: string
+          status?: CommercialStatusCode
+          priority?: CommercialPriorityCode
+          source?: CommercialSourceCode
+          assigned_employee_id?: string | null
+          estimated_amount?: number | null
+          probability?: number | null
+          expected_close_date?: string | null
+          description?: string
+          lost_reason?: string
+          created_by?: string | null
+          updated_by?: string | null
+          deleted_by?: string | null
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commercial_opportunities_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commercial_opportunities_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "commercial_people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commercial_opportunities_assigned_employee_id_fkey"
+            columns: ["assigned_employee_id"]
             isOneToOne: false
             referencedRelation: "employees"
             referencedColumns: ["id"]
@@ -2170,6 +2439,18 @@ export type TreasuryMovementInsert =
   Database["public"]["Tables"]["treasury_movements"]["Insert"]
 export type TreasuryMovementUpdate =
   Database["public"]["Tables"]["treasury_movements"]["Update"]
+export type CommercialPersonRow =
+  Database["public"]["Tables"]["commercial_people"]["Row"]
+export type CommercialPersonInsert =
+  Database["public"]["Tables"]["commercial_people"]["Insert"]
+export type CommercialPersonUpdate =
+  Database["public"]["Tables"]["commercial_people"]["Update"]
+export type CommercialOpportunityRow =
+  Database["public"]["Tables"]["commercial_opportunities"]["Row"]
+export type CommercialOpportunityInsert =
+  Database["public"]["Tables"]["commercial_opportunities"]["Insert"]
+export type CommercialOpportunityUpdate =
+  Database["public"]["Tables"]["commercial_opportunities"]["Update"]
 export type CrewRow = Database["public"]["Tables"]["crews"]["Row"]
 export type CrewInsert = Database["public"]["Tables"]["crews"]["Insert"]
 export type CrewUpdate = Database["public"]["Tables"]["crews"]["Update"]

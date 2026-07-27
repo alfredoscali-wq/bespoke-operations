@@ -1,0 +1,87 @@
+export const COMMERCIAL_PERSON_TYPES = [
+  "individual",
+  "company",
+] as const
+
+export type CommercialPersonType = (typeof COMMERCIAL_PERSON_TYPES)[number]
+
+export const COMMERCIAL_STATUS_CODES = [
+  "nueva",
+  "contactada",
+  "calificada",
+  "propuesta_enviada",
+  "negociacion",
+  "ganada",
+  "perdida",
+] as const
+
+export type CommercialStatusCode = (typeof COMMERCIAL_STATUS_CODES)[number]
+
+export const COMMERCIAL_PRIORITY_CODES = ["alta", "media", "baja"] as const
+
+export type CommercialPriorityCode = (typeof COMMERCIAL_PRIORITY_CODES)[number]
+
+export const COMMERCIAL_SOURCE_CODES = [
+  "whatsapp",
+  "llamada",
+  "web",
+  "facebook",
+  "instagram",
+  "referido",
+  "sucursal",
+  "otro",
+] as const
+
+export type CommercialSourceCode = (typeof COMMERCIAL_SOURCE_CODES)[number]
+
+export const COMMERCIAL_STATUS_LABELS: Record<CommercialStatusCode, string> = {
+  nueva: "Nueva",
+  contactada: "Contactada",
+  calificada: "Calificada",
+  propuesta_enviada: "Propuesta Enviada",
+  negociacion: "Negociación",
+  ganada: "Ganada",
+  perdida: "Perdida",
+}
+
+export const COMMERCIAL_PRIORITY_LABELS: Record<CommercialPriorityCode, string> =
+  {
+    alta: "Alta",
+    media: "Media",
+    baja: "Baja",
+  }
+
+export const COMMERCIAL_SOURCE_LABELS: Record<CommercialSourceCode, string> = {
+  whatsapp: "WhatsApp",
+  llamada: "Llamada",
+  web: "Web",
+  facebook: "Facebook",
+  instagram: "Instagram",
+  referido: "Referido",
+  sucursal: "Sucursal",
+  otro: "Otro",
+}
+
+export const COMMERCIAL_OPPORTUNITY_CODE_PREFIX = "OP-"
+
+export function isCommercialStatusCode(
+  value: string
+): value is CommercialStatusCode {
+  return (COMMERCIAL_STATUS_CODES as readonly string[]).includes(value)
+}
+
+export function isCommercialPriorityCode(
+  value: string
+): value is CommercialPriorityCode {
+  return (COMMERCIAL_PRIORITY_CODES as readonly string[]).includes(value)
+}
+
+export function isCommercialSourceCode(
+  value: string
+): value is CommercialSourceCode {
+  return (COMMERCIAL_SOURCE_CODES as readonly string[]).includes(value)
+}
+
+export function formatCommercialOpportunityCode(sequence: number): string {
+  return `${COMMERCIAL_OPPORTUNITY_CODE_PREFIX}${String(sequence).padStart(6, "0")}`
+}
