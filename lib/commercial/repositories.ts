@@ -18,6 +18,7 @@ import {
 import {
   fetchCommercialActivitiesByOpportunity,
   fetchCommercialActivityById,
+  fetchCommercialActivityStats,
   fetchCommercialActivityTypes,
   insertCommercialActivity,
   patchCommercialActivity,
@@ -167,9 +168,33 @@ export class CommercialActivityRepository {
 
   async listByOpportunity(
     companyId: string,
-    opportunityId: string
-  ): Promise<CommercialActivityRepositoryResult<CommercialActivityListItem[]>> {
+    opportunityId: string,
+    options?: { limit?: number; offset?: number }
+  ): Promise<
+    CommercialActivityRepositoryResult<CommercialActivityListItem[]> & {
+      hasMore?: boolean
+      totalCount?: number
+    }
+  > {
     return fetchCommercialActivitiesByOpportunity(
+      await this.resolveClient(),
+      companyId,
+      opportunityId,
+      options
+    )
+  }
+
+  async getStats(
+    companyId: string,
+    opportunityId: string
+  ): Promise<
+    CommercialActivityRepositoryResult<{
+      total: number
+      pending: number
+      completed: number
+    }>
+  > {
+    return fetchCommercialActivityStats(
       await this.resolveClient(),
       companyId,
       opportunityId

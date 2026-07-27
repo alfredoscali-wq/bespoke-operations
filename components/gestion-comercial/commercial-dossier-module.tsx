@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 
 import { CommercialActivityDrawer } from "@/components/gestion-comercial/commercial-activity-drawer"
-import { CommercialActivityList } from "@/components/gestion-comercial/commercial-activity-list"
 import { CommercialActivityQuickActions } from "@/components/gestion-comercial/commercial-activity-quick-actions"
 import {
   CommercialActivitiesProvider,
@@ -15,6 +14,7 @@ import { CommercialOpportunityCard } from "@/components/gestion-comercial/commer
 import { CommercialOpportunityDrawer } from "@/components/gestion-comercial/commercial-opportunity-drawer"
 import { CommercialPersonDrawer } from "@/components/gestion-comercial/commercial-person-drawer"
 import { CommercialProspectCard } from "@/components/gestion-comercial/commercial-prospect-card"
+import { CommercialTimeline } from "@/components/gestion-comercial/timeline/commercial-timeline"
 import {
   CommercialProvider,
   useDeleteOpportunity,
@@ -54,8 +54,6 @@ function CommercialDossierContent({
     useCommercialContextLoad()
   const { mutateAsync: deleteOpportunity } = useDeleteOpportunity()
   const {
-    data: activities,
-    isLoading: activitiesLoading,
     refetch: refetchActivities,
   } = useCommercialActivities()
 
@@ -187,16 +185,10 @@ function CommercialDossierContent({
         />
       </div>
 
-      <section className="space-y-3">
-        <h2 className="text-base font-semibold tracking-tight">
-          Actividad Comercial
-        </h2>
-        <CommercialActivityList
-          activities={activities}
-          isLoading={activitiesLoading}
-          onEdit={openEditActivity}
-        />
-      </section>
+      <CommercialTimeline
+        onEdit={openEditActivity}
+        onCreateFirst={() => openCreateActivity("nota")}
+      />
 
       <CommercialPersonDrawer
         open={personDrawerOpen}

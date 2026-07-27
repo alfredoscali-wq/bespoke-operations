@@ -83,22 +83,90 @@ export async function fetchCommercialActivityTypeByCode(
 export async function fetchCommercialActivitiesByOpportunity(
   client: SupabaseCommercialActivitiesClient,
   companyId: string,
-  opportunityId: string
-): Promise<CommercialActivityRepositoryResult<CommercialActivityListItem[]>> {
-  const { data, error } = await client
+  opportunityId: string,
+  options?: { limit?: number; offset?: number }
+): Promise<
+  CommercialActivityRepositoryResult<CommercialActivityListItem[]> & {
+    hasMore?: boolean
+    totalCount?: number
+  }
+> {
+  const limit = options?.limit
+  const offset = options?.offset ?? 0
+
+  let query = client
     .from("commercial_activities")
-    .select(ACTIVITY_SELECT)
+    .select(ACTIVITY_SELECT, limit !== undefined ? { count: "exact" } : undefined)
     .eq("company_id", companyId)
     .eq("opportunity_id", opportunityId)
     .is("deleted_at", null)
     .order("created_at", { ascending: false })
 
+  if (limit !== undefined) {
+    query = query.range(offset, offset + limit - 1)
+  }
+
+  const { data, error, count } = await query
+
   if (error) {
     return { data: null, error: mapError(error) }
   }
 
+  const rows = (data ?? []).map(mapCommercialActivityListItem)
+  const totalCount = count ?? rows.length
+  const hasMore =
+    limit !== undefined ? offset + rows.length < totalCount : false
+
   return {
-    data: (data ?? []).map(mapCommercialActivityListItem),
+    data: rows,
+    error: null,
+    hasMore,
+    totalCount,
+  }
+}
+
+export async function fetchCommercialActivityStats(
+  client: SupabaseCommercialActivitiesClient,
+  companyId: string,
+  opportunityId: string
+): Promise<
+  CommercialActivityRepositoryResult<{
+    total: number
+    pending: number
+    completed: number
+  }>
+> {
+  const base = () =>
+    client
+      .from("commercial_activities")
+      .select("id", { count: "exact", head: true })
+      .eq("company_id", companyId)
+      .eq("opportunity_id", opportunityId)
+      .is("deleted_at", null)
+
+  const [totalResult, pendingResult, completedResult] = await Promise.all([
+    base(),
+    base().eq("status", "pending"),
+    base().eq("status", "completed"),
+  ])
+
+  if (totalResult.error || pendingResult.error || completedResult.error) {
+    return {
+      data: null,
+      error: mapError(
+        totalResult.error ??
+          pendingResult.error ??
+          completedResult.error ?? { message: "No se pudieron obtener stats." }
+      ),
+    }
+  }
+
+  return {
+    data: {
+      total: totalResult.count ?? 0,
+      pending: pendingResult.count ?? 0,
+      completed: completedResult.count ?? 0,
+    },
     error: null,
   }
 }

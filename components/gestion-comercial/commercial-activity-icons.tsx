@@ -1,4 +1,5 @@
 import {
+  ArrowLeftRight,
   CheckCircle2,
   Clock3,
   FileText,
@@ -27,7 +28,7 @@ export const COMMERCIAL_ACTIVITY_TYPE_ICONS: Record<
   nota: StickyNote,
   tarea: FileText,
   seguimiento: RefreshCw,
-  cambio_estado: RefreshCw,
+  cambio_estado: ArrowLeftRight,
   sistema: Settings2,
 }
 

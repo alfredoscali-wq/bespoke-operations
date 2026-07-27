@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/client"
 import {
   fetchCommercialActivitiesByOpportunity,
   fetchCommercialActivityById,
+  fetchCommercialActivityStats,
   fetchCommercialActivityTypes,
   insertCommercialActivity,
   patchCommercialActivity,
@@ -32,9 +33,34 @@ export async function listCommercialActivityTypes(
 export async function listCommercialActivitiesByOpportunity(
   companyId: string,
   opportunityId: string,
+  options?: { limit?: number; offset?: number },
   client: SupabaseCommercialActivitiesClient = createBrowserCommercialActivitiesClient()
-): Promise<CommercialActivityRepositoryResult<CommercialActivityListItem[]>> {
-  return fetchCommercialActivitiesByOpportunity(client, companyId, opportunityId)
+): Promise<
+  CommercialActivityRepositoryResult<CommercialActivityListItem[]> & {
+    hasMore?: boolean
+    totalCount?: number
+  }
+> {
+  return fetchCommercialActivitiesByOpportunity(
+    client,
+    companyId,
+    opportunityId,
+    options
+  )
+}
+
+export async function getCommercialActivityStats(
+  companyId: string,
+  opportunityId: string,
+  client: SupabaseCommercialActivitiesClient = createBrowserCommercialActivitiesClient()
+): Promise<
+  CommercialActivityRepositoryResult<{
+    total: number
+    pending: number
+    completed: number
+  }>
+> {
+  return fetchCommercialActivityStats(client, companyId, opportunityId)
 }
 
 export async function getCommercialActivityById(

@@ -11,7 +11,8 @@ export async function GET(request: Request) {
   const auth = await requireGestionComercialReadContext()
   if (!auth.ok) return auth.response
 
-  const opportunityId = new URL(request.url).searchParams.get("opportunityId")?.trim()
+  const url = new URL(request.url)
+  const opportunityId = url.searchParams.get("opportunityId")?.trim()
   if (!opportunityId) {
     return NextResponse.json(
       { success: false, message: "Debe indicar opportunityId." },
@@ -19,10 +20,19 @@ export async function GET(request: Request) {
     )
   }
 
-  const result = await new CommercialActivityService().listByOpportunity(
-    auth.companyId,
-    opportunityId
-  )
+  const limitParam = url.searchParams.get("limit")
+  const offsetParam = url.searchParams.get("offset")
+  const limit = limitParam ? Number.parseInt(limitParam, 10) : undefined
+  const offset = offsetParam ? Number.parseInt(offsetParam, 10) : undefined
+
+  const service = new CommercialActivityService()
+  const [result, statsResult] = await Promise.all([
+    service.listByOpportunity(auth.companyId, opportunityId, {
+      ...(Number.isFinite(limit) ? { limit } : {}),
+      ...(Number.isFinite(offset) ? { offset } : {}),
+    }),
+    service.getStats(auth.companyId, opportunityId),
+  ])
 
   if (result.error) {
     return NextResponse.json(
@@ -31,7 +41,13 @@ export async function GET(request: Request) {
     )
   }
 
-  return NextResponse.json({ success: true, activities: result.data })
+  return NextResponse.json({
+    success: true,
+    activities: result.data,
+    hasMore: result.hasMore ?? false,
+    totalCount: result.totalCount ?? result.data?.length ?? 0,
+    stats: statsResult.data ?? null,
+  })
 }
 
 export async function POST(request: Request) {

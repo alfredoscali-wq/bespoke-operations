@@ -95,9 +95,28 @@ export class CommercialActivityService {
 
   listByOpportunity(
     companyId: string,
+    opportunityId: string,
+    options?: { limit?: number; offset?: number }
+  ): Promise<
+    CommercialActivityRepositoryResult<CommercialActivityListItem[]> & {
+      hasMore?: boolean
+      totalCount?: number
+    }
+  > {
+    return this.repository.listByOpportunity(companyId, opportunityId, options)
+  }
+
+  getStats(
+    companyId: string,
     opportunityId: string
-  ): Promise<CommercialActivityRepositoryResult<CommercialActivityListItem[]>> {
-    return this.repository.listByOpportunity(companyId, opportunityId)
+  ): Promise<
+    CommercialActivityRepositoryResult<{
+      total: number
+      pending: number
+      completed: number
+    }>
+  > {
+    return this.repository.getStats(companyId, opportunityId)
   }
 
   getById(
