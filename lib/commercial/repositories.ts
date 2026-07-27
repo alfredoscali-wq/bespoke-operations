@@ -2,6 +2,8 @@ import "server-only"
 
 import { createClient } from "@/lib/supabase/server"
 import {
+  bulkAssignCommercialOpportunities,
+  fetchCommercialMapOpportunities,
   fetchCommercialOpportunities,
   fetchCommercialOpportunityById,
   fetchCommercialPeople,
@@ -36,11 +38,14 @@ import type {
   UpdateCommercialActivityPayload,
 } from "@/lib/types/supabase/commercial-activities"
 import type {
+  CommercialMapOpportunity,
+  CommercialMapQuery,
   CommercialOpportunity,
   CommercialOpportunityListItem,
   CommercialPerson,
 } from "@/lib/types/commercial"
 import type {
+  BulkAssignCommercialOpportunitiesPayload,
   CommercialRepositoryResult,
   CreateCommercialOpportunityPayload,
   CreateCommercialPersonPayload,
@@ -147,6 +152,28 @@ export class CommercialOpportunityRepository {
       await this.resolveClient(),
       id,
       deletedBy
+    )
+  }
+
+  async listMap(
+    companyId: string,
+    query: CommercialMapQuery
+  ): Promise<CommercialRepositoryResult<CommercialMapOpportunity[]>> {
+    return fetchCommercialMapOpportunities(
+      await this.resolveClient(),
+      companyId,
+      query
+    )
+  }
+
+  async bulkAssign(
+    companyId: string,
+    payload: BulkAssignCommercialOpportunitiesPayload
+  ): Promise<CommercialRepositoryResult<CommercialOpportunity[]>> {
+    return bulkAssignCommercialOpportunities(
+      await this.resolveClient(),
+      companyId,
+      payload
     )
   }
 }

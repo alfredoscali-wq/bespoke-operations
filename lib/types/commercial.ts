@@ -1,4 +1,5 @@
 import type {
+  CommercialLocationSource,
   CommercialPersonType,
   CommercialPriorityCode,
   CommercialSourceCode,
@@ -45,6 +46,9 @@ export type CommercialOpportunity = {
   expectedCloseDate: string | null
   description: string
   lostReason: string
+  latitude: number | null
+  longitude: number | null
+  locationSource: CommercialLocationSource | null
   createdBy: string | null
   updatedBy: string | null
   deletedBy: string | null
@@ -58,4 +62,37 @@ export type CommercialOpportunity = {
 
 export type CommercialOpportunityListItem = CommercialOpportunity & {
   personDisplayName: string
+}
+
+export type CommercialMapOpportunity = {
+  id: string
+  code: string
+  title: string
+  status: CommercialStatusCode
+  priority: CommercialPriorityCode
+  latitude: number
+  longitude: number
+  assignedEmployeeId: string | null
+  personName: string
+  companyName: string
+  updatedAt: string
+}
+
+export type CommercialMapBounds = {
+  north: number
+  south: number
+  east: number
+  west: number
+}
+
+export type CommercialMapAssignmentFilter = "all" | "assigned" | "unassigned"
+
+export type CommercialMapQuery = {
+  bounds: CommercialMapBounds
+  assignment?: CommercialMapAssignmentFilter
+  assignedEmployeeId?: string | null
+  status?: CommercialStatusCode | null
+  priority?: CommercialPriorityCode | null
+  source?: CommercialSourceCode | null
+  search?: string | null
 }

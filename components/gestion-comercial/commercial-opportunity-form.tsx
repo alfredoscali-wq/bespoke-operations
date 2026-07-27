@@ -232,6 +232,51 @@ export function CommercialOpportunityForm({
         />
       </div>
 
+      {extended ? (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="commercial-opportunity-latitude">Latitud</Label>
+            <Input
+              id="commercial-opportunity-latitude"
+              inputMode="decimal"
+              value={value.latitude == null ? "" : String(value.latitude)}
+              onChange={(event) => {
+                const raw = event.target.value.trim()
+                patch({
+                  latitude: raw === "" ? null : Number(raw),
+                  locationSource:
+                    raw === "" && value.longitude == null
+                      ? null
+                      : value.locationSource ?? "manual",
+                })
+              }}
+              onKeyDown={onAdvanceField}
+              disabled={disabled}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="commercial-opportunity-longitude">Longitud</Label>
+            <Input
+              id="commercial-opportunity-longitude"
+              inputMode="decimal"
+              value={value.longitude == null ? "" : String(value.longitude)}
+              onChange={(event) => {
+                const raw = event.target.value.trim()
+                patch({
+                  longitude: raw === "" ? null : Number(raw),
+                  locationSource:
+                    raw === "" && value.latitude == null
+                      ? null
+                      : value.locationSource ?? "manual",
+                })
+              }}
+              onKeyDown={onAdvanceField}
+              disabled={disabled}
+            />
+          </div>
+        </div>
+      ) : null}
+
       {extended && value.status === "perdida" ? (
         <div className="space-y-2">
           <Label htmlFor="commercial-opportunity-lost-reason">

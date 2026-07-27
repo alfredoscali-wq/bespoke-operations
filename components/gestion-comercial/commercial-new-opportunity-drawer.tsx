@@ -54,6 +54,9 @@ function buildDefaultOpportunity(
     source: "otro",
     priority: "media",
     observations: "",
+    latitude: null,
+    longitude: null,
+    locationSource: null,
   }
 }
 
@@ -108,6 +111,12 @@ type CommercialNewOpportunityDrawerProps = {
   onOpenChange: (open: boolean) => void
   people: CommercialPerson[]
   onCreated: (opportunity: CommercialOpportunityListItem) => void
+  location?: {
+    latitude: number | null
+    longitude: number | null
+    locationSource: CommercialNewOpportunityInput["locationSource"]
+  }
+  locationControls?: React.ReactNode
 }
 
 export function CommercialNewOpportunityDrawer({
@@ -115,6 +124,8 @@ export function CommercialNewOpportunityDrawer({
   onOpenChange,
   people,
   onCreated,
+  location,
+  locationControls,
 }: CommercialNewOpportunityDrawerProps) {
   const { employees, isEmployeesReady } = useEmployees()
   const { mutateAsync: createWithPerson } = useCreateOpportunityWithPerson()
@@ -175,6 +186,23 @@ export function CommercialNewOpportunityDrawer({
       cancelled = true
     }
   }, [defaultResponsibleId, open])
+
+  useEffect(() => {
+    if (!open || !location) return
+    let cancelled = false
+    void Promise.resolve().then(() => {
+      if (cancelled) return
+      setOpportunity((current) => ({
+        ...current,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        locationSource: location.locationSource,
+      }))
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [location, open])
 
   const existingProspectNotice = resolveExistingProspectNotice(people, person)
 
@@ -265,6 +293,8 @@ export function CommercialNewOpportunityDrawer({
                 disabled={isSubmitting || !isEmployeesReady}
                 onAdvanceField={advanceOnEnter}
               />
+
+              {locationControls}
 
               {error ? (
                 <p className="text-sm text-destructive" role="alert">

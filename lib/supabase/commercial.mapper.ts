@@ -18,10 +18,12 @@ import type {
   UpdateCommercialPersonPayload,
 } from "@/lib/types/supabase/commercial"
 import type {
+  CommercialLocationSource,
   CommercialPriorityCode,
   CommercialSourceCode,
   CommercialStatusCode,
 } from "@/lib/commercial/catalogs"
+import { roundCoordinate } from "@/lib/gps"
 
 export function mapCommercialPersonRowToPerson(
   row: CommercialPersonRow
@@ -126,6 +128,16 @@ export function mapCommercialOpportunityRowToOpportunity(
     expectedCloseDate: row.expected_close_date,
     description: row.description,
     lostReason: row.lost_reason,
+    latitude:
+      row.latitude === null || row.latitude === undefined
+        ? null
+        : Number(row.latitude),
+    longitude:
+      row.longitude === null || row.longitude === undefined
+        ? null
+        : Number(row.longitude),
+    locationSource: (row.location_source ??
+      null) as CommercialLocationSource | null,
     createdBy: row.created_by,
     updatedBy: row.updated_by,
     deletedBy: row.deleted_by,
@@ -151,6 +163,11 @@ export function mapCreateCommercialOpportunityPayloadToInsert(
     expected_close_date: payload.expectedCloseDate ?? null,
     description: payload.description?.trim() ?? "",
     lost_reason: payload.lostReason?.trim() ?? "",
+    latitude:
+      payload.latitude == null ? null : roundCoordinate(payload.latitude),
+    longitude:
+      payload.longitude == null ? null : roundCoordinate(payload.longitude),
+    location_source: payload.locationSource ?? null,
     created_by: payload.createdBy ?? null,
   }
 
@@ -187,6 +204,17 @@ export function mapUpdateCommercialOpportunityPayloadToUpdate(
   }
   if (payload.lostReason !== undefined) {
     update.lost_reason = payload.lostReason.trim()
+  }
+  if (payload.latitude !== undefined) {
+    update.latitude =
+      payload.latitude == null ? null : roundCoordinate(payload.latitude)
+  }
+  if (payload.longitude !== undefined) {
+    update.longitude =
+      payload.longitude == null ? null : roundCoordinate(payload.longitude)
+  }
+  if (payload.locationSource !== undefined) {
+    update.location_source = payload.locationSource
   }
   if (payload.updatedBy !== undefined) update.updated_by = payload.updatedBy
 

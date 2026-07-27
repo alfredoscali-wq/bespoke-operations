@@ -12,6 +12,7 @@ import {
   type CommercialNewOpportunityInput,
   type CommercialNewOpportunityPersonInput,
 } from "@/lib/commercial/create-opportunity"
+import { hasCoordinates } from "@/lib/gps"
 
 export type CommercialPersonFormValue = CommercialNewOpportunityPersonInput & {
   documentNumber: string
@@ -147,6 +148,25 @@ export function validateCommercialOpportunityForm(
     !value.lostReason.trim()
   ) {
     return "Ingrese el motivo de pérdida."
+  }
+
+  const hasLat = value.latitude != null
+  const hasLng = value.longitude != null
+  if (hasLat !== hasLng) {
+    return "La ubicación requiere latitud y longitud."
+  }
+  if (
+    hasLat &&
+    hasLng &&
+    !hasCoordinates(value.latitude, value.longitude)
+  ) {
+    return "Las coordenadas de ubicación no son válidas."
+  }
+  if (
+    hasCoordinates(value.latitude, value.longitude) &&
+    !value.locationSource
+  ) {
+    return "Indique el origen de la ubicación."
   }
 
   return null

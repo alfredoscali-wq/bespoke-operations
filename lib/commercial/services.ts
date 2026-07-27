@@ -20,6 +20,8 @@ import type {
   CommercialActivityType,
 } from "@/lib/types/commercial-activities"
 import type {
+  CommercialMapOpportunity,
+  CommercialMapQuery,
   CommercialOpportunity,
   CommercialOpportunityListItem,
   CommercialPerson,
@@ -30,6 +32,7 @@ import type {
   UpdateCommercialActivityPayload,
 } from "@/lib/types/supabase/commercial-activities"
 import type {
+  BulkAssignCommercialOpportunitiesPayload,
   CommercialRepositoryResult,
   CreateCommercialOpportunityPayload,
   CreateCommercialPersonPayload,
@@ -325,6 +328,9 @@ export class CommercialOpportunityService {
       source: input.bundle.opportunity.source,
       assignedEmployeeId: input.bundle.opportunity.assignedEmployeeId,
       description: input.bundle.opportunity.observations.trim(),
+      latitude: input.bundle.opportunity.latitude,
+      longitude: input.bundle.opportunity.longitude,
+      locationSource: input.bundle.opportunity.locationSource,
       createdBy: input.createdBy ?? null,
     })
 
@@ -409,5 +415,19 @@ export class CommercialOpportunityService {
     deletedBy?: string | null
   ): Promise<CommercialRepositoryResult<CommercialOpportunity>> {
     return this.repository.softDelete(id, deletedBy)
+  }
+
+  listMap(
+    companyId: string,
+    query: CommercialMapQuery
+  ): Promise<CommercialRepositoryResult<CommercialMapOpportunity[]>> {
+    return this.repository.listMap(companyId, query)
+  }
+
+  bulkAssign(
+    companyId: string,
+    payload: BulkAssignCommercialOpportunitiesPayload
+  ): Promise<CommercialRepositoryResult<CommercialOpportunity[]>> {
+    return this.repository.bulkAssign(companyId, payload)
   }
 }

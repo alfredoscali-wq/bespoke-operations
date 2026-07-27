@@ -58,14 +58,23 @@ function CommercialModuleContent() {
             Administra prospectos y oportunidades comerciales.
           </p>
         </div>
-        <Button
-          type="button"
-          className="gap-2"
-          onClick={() => setDrawerOpen(true)}
-        >
-          <Plus className="size-4" />
-          Nueva Oportunidad
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => router.push("/gestion-comercial/mapa")}
+          >
+            Territorio
+          </Button>
+          <Button
+            type="button"
+            className="gap-2"
+            onClick={() => setDrawerOpen(true)}
+          >
+            <Plus className="size-4" />
+            Nueva Oportunidad
+          </Button>
+        </div>
       </div>
 
       <div className="rounded-lg border">

@@ -4,6 +4,7 @@ import type {
   TreasuryStatus,
 } from "@/lib/tesoreria/categories"
 import type {
+  CommercialLocationSource,
   CommercialPersonType,
   CommercialPriorityCode,
   CommercialSourceCode,
@@ -1256,6 +1257,9 @@ export type Database = {
           expected_close_date: string | null
           description: string
           lost_reason: string
+          latitude: number | null
+          longitude: number | null
+          location_source: CommercialLocationSource | null
           created_by: string | null
           updated_by: string | null
           deleted_by: string | null
@@ -1278,6 +1282,9 @@ export type Database = {
           expected_close_date?: string | null
           description?: string
           lost_reason?: string
+          latitude?: number | null
+          longitude?: number | null
+          location_source?: CommercialLocationSource | null
           created_by?: string | null
           updated_by?: string | null
           deleted_by?: string | null
@@ -1300,6 +1307,9 @@ export type Database = {
           expected_close_date?: string | null
           description?: string
           lost_reason?: string
+          latitude?: number | null
+          longitude?: number | null
+          location_source?: CommercialLocationSource | null
           created_by?: string | null
           updated_by?: string | null
           deleted_by?: string | null

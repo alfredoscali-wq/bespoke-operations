@@ -1,10 +1,12 @@
 import type {
+  CommercialLocationSource,
   CommercialPersonType,
   CommercialPriorityCode,
   CommercialSourceCode,
   CommercialStatusCode,
 } from "@/lib/commercial/catalogs"
 import type {
+  CommercialMapOpportunity,
   CommercialOpportunity,
   CommercialPerson,
 } from "@/lib/types/commercial"
@@ -59,6 +61,9 @@ export type CreateCommercialOpportunityPayload = {
   expectedCloseDate?: string | null
   description?: string
   lostReason?: string
+  latitude?: number | null
+  longitude?: number | null
+  locationSource?: CommercialLocationSource | null
   createdBy?: string | null
   /** Leave empty to auto-generate OP-###### via DB trigger. */
   code?: string
@@ -76,8 +81,17 @@ export type UpdateCommercialOpportunityPayload = Partial<{
   expectedCloseDate: string | null
   description: string
   lostReason: string
+  latitude: number | null
+  longitude: number | null
+  locationSource: CommercialLocationSource | null
   updatedBy: string | null
 }>
+
+export type BulkAssignCommercialOpportunitiesPayload = {
+  opportunityIds: string[]
+  assignedEmployeeId: string | null
+  updatedBy?: string | null
+}
 
 export type CommercialRepositoryErrorCode =
   | "NOT_FOUND"
@@ -97,3 +111,4 @@ export type CommercialRepositoryResult<T> =
 
 export type CommercialPersonRowMapped = CommercialPerson
 export type CommercialOpportunityRowMapped = CommercialOpportunity
+export type CommercialMapOpportunityMapped = CommercialMapOpportunity

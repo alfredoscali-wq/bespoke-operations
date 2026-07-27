@@ -62,6 +62,37 @@ export const COMMERCIAL_SOURCE_LABELS: Record<CommercialSourceCode, string> = {
   otro: "Otro",
 }
 
+export const COMMERCIAL_LOCATION_SOURCES = [
+  "manual",
+  "gps",
+  "customer_service",
+  "import",
+] as const
+
+export type CommercialLocationSource =
+  (typeof COMMERCIAL_LOCATION_SOURCES)[number]
+
+export const COMMERCIAL_LOCATION_SOURCE_LABELS: Record<
+  CommercialLocationSource,
+  string
+> = {
+  manual: "Manual",
+  gps: "GPS",
+  customer_service: "Atención al Cliente",
+  import: "Importación",
+}
+
+export const COMMERCIAL_STATUS_MAP_COLORS: Record<CommercialStatusCode, string> =
+  {
+    nueva: "#6b7280",
+    contactada: "#2563eb",
+    calificada: "#eab308",
+    propuesta_enviada: "#f97316",
+    negociacion: "#7c3aed",
+    ganada: "#16a34a",
+    perdida: "#dc2626",
+  }
+
 export const COMMERCIAL_OPPORTUNITY_CODE_PREFIX = "OP-"
 
 export function isCommercialStatusCode(
@@ -80,6 +111,12 @@ export function isCommercialSourceCode(
   value: string
 ): value is CommercialSourceCode {
   return (COMMERCIAL_SOURCE_CODES as readonly string[]).includes(value)
+}
+
+export function isCommercialLocationSource(
+  value: string
+): value is CommercialLocationSource {
+  return (COMMERCIAL_LOCATION_SOURCES as readonly string[]).includes(value)
 }
 
 export function formatCommercialOpportunityCode(sequence: number): string {

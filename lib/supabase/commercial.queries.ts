@@ -11,11 +11,14 @@ import {
 } from "@/lib/supabase/commercial.mapper"
 import type { Database } from "@/lib/supabase/database.types"
 import type {
+  CommercialMapOpportunity,
+  CommercialMapQuery,
   CommercialOpportunity,
   CommercialOpportunityListItem,
   CommercialPerson,
 } from "@/lib/types/commercial"
 import type {
+  BulkAssignCommercialOpportunitiesPayload,
   CommercialRepositoryResult,
   CreateCommercialOpportunityPayload,
   CreateCommercialPersonPayload,
@@ -474,6 +477,183 @@ export async function softDeleteCommercialOpportunity(
 
   return {
     data: mapCommercialOpportunityRowToOpportunity(data),
+    error: null,
+  }
+}
+
+const MAP_OPPORTUNITY_SELECT =
+  "id, code, title, status, priority, latitude, longitude, assigned_employee_id, updated_at, person:commercial_people!commercial_opportunities_person_id_fkey(first_name, last_name, company_name, person_type, phone, mobile)"
+
+type CommercialMapQueryRow = {
+  id: string
+  code: string
+  title: string
+  status: string
+  priority: string
+  latitude: number | null
+  longitude: number | null
+  assigned_employee_id: string | null
+  updated_at: string
+  person?: {
+    first_name: string
+    last_name: string
+    company_name: string
+    person_type: string
+    phone: string
+    mobile: string
+  } | null
+}
+
+function mapCommercialMapOpportunityRow(
+  row: CommercialMapQueryRow
+): CommercialMapOpportunity | null {
+  if (row.latitude == null || row.longitude == null) return null
+
+  const personName = resolveCommercialPersonDisplayName({
+    personType:
+      (row.person?.person_type as "individual" | "company") ?? "individual",
+    firstName: row.person?.first_name ?? "",
+    lastName: row.person?.last_name ?? "",
+    companyName: row.person?.company_name ?? "",
+  })
+
+  return {
+    id: row.id,
+    code: row.code,
+    title: row.title,
+    status: row.status as CommercialMapOpportunity["status"],
+    priority: row.priority as CommercialMapOpportunity["priority"],
+    latitude: Number(row.latitude),
+    longitude: Number(row.longitude),
+    assignedEmployeeId: row.assigned_employee_id,
+    personName,
+    companyName: row.person?.company_name?.trim() ?? "",
+    updatedAt: row.updated_at,
+  }
+}
+
+export async function fetchCommercialMapOpportunities(
+  client: SupabaseCommercialClient,
+  companyId: string,
+  query: CommercialMapQuery
+): Promise<CommercialRepositoryResult<CommercialMapOpportunity[]>> {
+  const { bounds } = query
+  if (
+    !Number.isFinite(bounds.north) ||
+    !Number.isFinite(bounds.south) ||
+    !Number.isFinite(bounds.east) ||
+    !Number.isFinite(bounds.west)
+  ) {
+    return {
+      data: null,
+      error: { code: "VALIDATION", message: "Bounds de mapa inválidos." },
+    }
+  }
+
+  let builder = client
+    .from("commercial_opportunities")
+    .select(MAP_OPPORTUNITY_SELECT)
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .not("latitude", "is", null)
+    .not("longitude", "is", null)
+    .gte("latitude", Math.min(bounds.south, bounds.north))
+    .lte("latitude", Math.max(bounds.south, bounds.north))
+    .gte("longitude", Math.min(bounds.west, bounds.east))
+    .lte("longitude", Math.max(bounds.west, bounds.east))
+    .order("updated_at", { ascending: false })
+    .limit(500)
+
+  if (query.assignment === "assigned") {
+    builder = builder.not("assigned_employee_id", "is", null)
+  } else if (query.assignment === "unassigned") {
+    builder = builder.is("assigned_employee_id", null)
+  }
+
+  if (query.assignedEmployeeId?.trim()) {
+    builder = builder.eq(
+      "assigned_employee_id",
+      query.assignedEmployeeId.trim()
+    )
+  }
+
+  if (query.status) {
+    builder = builder.eq("status", query.status)
+  }
+  if (query.priority) {
+    builder = builder.eq("priority", query.priority)
+  }
+  if (query.source) {
+    builder = builder.eq("source", query.source)
+  }
+
+  const { data, error } = await builder
+
+  if (error) {
+    return { data: null, error: mapSupabaseCommercialError(error) }
+  }
+
+  const rows = (data ?? []) as unknown as CommercialMapQueryRow[]
+  const search = query.search?.trim().toLowerCase() ?? ""
+  const mapped = rows
+    .map((row) => mapCommercialMapOpportunityRow(row))
+    .filter((entry): entry is CommercialMapOpportunity => entry != null)
+
+  if (!search) {
+    return { data: mapped, error: null }
+  }
+
+  const filtered = mapped.filter((entry) => {
+    const row = rows.find((candidate) => candidate.id === entry.id)
+    const phone =
+      `${row?.person?.phone ?? ""} ${row?.person?.mobile ?? ""}`.toLowerCase()
+    return (
+      entry.code.toLowerCase().includes(search) ||
+      entry.title.toLowerCase().includes(search) ||
+      entry.personName.toLowerCase().includes(search) ||
+      entry.companyName.toLowerCase().includes(search) ||
+      phone.includes(search)
+    )
+  })
+
+  return { data: filtered, error: null }
+}
+
+export async function bulkAssignCommercialOpportunities(
+  client: SupabaseCommercialClient,
+  companyId: string,
+  payload: BulkAssignCommercialOpportunitiesPayload
+): Promise<CommercialRepositoryResult<CommercialOpportunity[]>> {
+  const ids = [
+    ...new Set(payload.opportunityIds.map((id) => id.trim()).filter(Boolean)),
+  ]
+  if (ids.length === 0) {
+    return {
+      data: null,
+      error: {
+        code: "VALIDATION",
+        message: "Seleccione al menos una oportunidad.",
+      },
+    }
+  }
+
+  const { data, error } = await client
+    .from("commercial_opportunities")
+    .update({
+      assigned_employee_id: payload.assignedEmployeeId,
+      updated_by: payload.updatedBy ?? null,
+    })
+    .eq("company_id", companyId)
+    .in("id", ids)
+    .is("deleted_at", null)
+    .select(OPPORTUNITY_SELECT)
+
+  if (error) {
+    return { data: null, error: mapSupabaseCommercialError(error) }
+  }
+
+  return {
+    data: (data ?? []).map(mapCommercialOpportunityRowToOpportunity),
     error: null,
   }
 }

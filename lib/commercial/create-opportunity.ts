@@ -1,12 +1,15 @@
 import type {
+  CommercialLocationSource,
   CommercialPersonType,
   CommercialPriorityCode,
   CommercialSourceCode,
 } from "@/lib/commercial/catalogs"
 import {
+  isCommercialLocationSource,
   isCommercialPriorityCode,
   isCommercialSourceCode,
 } from "@/lib/commercial/catalogs"
+import { hasCoordinates } from "@/lib/gps"
 
 export type CommercialNewOpportunityPersonInput = {
   personType: CommercialPersonType
@@ -24,6 +27,9 @@ export type CommercialNewOpportunityInput = {
   source: CommercialSourceCode
   priority: CommercialPriorityCode
   observations: string
+  latitude: number | null
+  longitude: number | null
+  locationSource: CommercialLocationSource | null
 }
 
 export type CommercialCreateOpportunityBundleInput = {
@@ -78,6 +84,34 @@ export function validateCommercialCreateOpportunityBundle(
 
   if (!isCommercialPriorityCode(opportunity.priority)) {
     return "Seleccione una prioridad válida."
+  }
+
+  const hasLat = opportunity.latitude != null
+  const hasLng = opportunity.longitude != null
+  if (hasLat !== hasLng) {
+    return "La ubicación requiere latitud y longitud."
+  }
+
+  if (
+    hasLat &&
+    hasLng &&
+    !hasCoordinates(opportunity.latitude, opportunity.longitude)
+  ) {
+    return "Las coordenadas de ubicación no son válidas."
+  }
+
+  if (
+    opportunity.locationSource != null &&
+    !isCommercialLocationSource(opportunity.locationSource)
+  ) {
+    return "Origen de ubicación inválido."
+  }
+
+  if (
+    hasCoordinates(opportunity.latitude, opportunity.longitude) &&
+    !opportunity.locationSource
+  ) {
+    return "Indique el origen de la ubicación."
   }
 
   return null

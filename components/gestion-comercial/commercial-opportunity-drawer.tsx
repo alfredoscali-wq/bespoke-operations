@@ -37,6 +37,9 @@ function toFormValue(
     source: opportunity.source,
     priority: opportunity.priority,
     observations: opportunity.description,
+    latitude: opportunity.latitude,
+    longitude: opportunity.longitude,
+    locationSource: opportunity.locationSource,
     status: opportunity.status,
     estimatedAmount:
       opportunity.estimatedAmount === null ||
@@ -143,6 +146,9 @@ export function CommercialOpportunityDrawer({
           expectedCloseDate: form.expectedCloseDate.trim() || null,
           description: form.observations,
           lostReason: form.status === "perdida" ? form.lostReason : "",
+          latitude: form.latitude,
+          longitude: form.longitude,
+          locationSource: form.locationSource,
         },
       })
       if (!result.success || !result.data) {
