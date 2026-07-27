@@ -7,6 +7,7 @@ import {
 } from "@/lib/commercial/pipeline"
 import { resolveCommercialPersonDisplayName } from "@/lib/supabase/commercial.mapper"
 import type {
+  CommercialPriorityCode,
   CommercialSourceCode,
   CommercialStatusCode,
 } from "@/lib/commercial/catalogs"
@@ -37,6 +38,7 @@ export async function fetchCommercialPipelineCards(
       code,
       title,
       status,
+      priority,
       source,
       created_at,
       assigned_employee_id,
@@ -125,6 +127,7 @@ export async function fetchCommercialPipelineCards(
       code: row.code,
       title: row.title,
       status: row.status as CommercialStatusCode,
+      priority: row.priority as CommercialPriorityCode,
       source: row.source as CommercialSourceCode,
       createdAt: row.created_at,
       assignedEmployeeId: row.assigned_employee_id,

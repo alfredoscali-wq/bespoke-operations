@@ -16,8 +16,9 @@ import {
 import {
   COMMERCIAL_PRIORITY_CODES,
   COMMERCIAL_PRIORITY_LABELS,
-  COMMERCIAL_SOURCE_CODES,
+  COMMERCIAL_SOURCE_FIELD_LABEL,
   COMMERCIAL_SOURCE_LABELS,
+  COMMERCIAL_SOURCE_SELECT_CODES,
   COMMERCIAL_STATUS_CODES,
   COMMERCIAL_STATUS_LABELS,
 } from "@/lib/commercial/catalogs"
@@ -225,7 +226,7 @@ export function CommercialTerritoryPanel({
           </div>
 
           <div className="col-span-2 space-y-1">
-            <Label className="text-xs">Origen</Label>
+            <Label className="text-xs">{COMMERCIAL_SOURCE_FIELD_LABEL}</Label>
             <Select
               value={filters.source || "all"}
               onValueChange={(value) =>
@@ -237,7 +238,7 @@ export function CommercialTerritoryPanel({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
-                {COMMERCIAL_SOURCE_CODES.map((code) => (
+                {COMMERCIAL_SOURCE_SELECT_CODES.map((code) => (
                   <SelectItem key={code} value={code}>
                     {COMMERCIAL_SOURCE_LABELS[code]}
                   </SelectItem>

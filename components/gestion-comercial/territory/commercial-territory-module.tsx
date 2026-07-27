@@ -3,8 +3,9 @@
 import dynamic from "next/dynamic"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ChevronDown, MapPin, Plus } from "lucide-react"
+import { ChevronDown, MapPin } from "lucide-react"
 
+import { CommercialModuleHero } from "@/components/gestion-comercial/commercial-module-hero"
 import { CommercialNewOpportunityDrawer } from "@/components/gestion-comercial/commercial-new-opportunity-drawer"
 import {
   CommercialProvider,
@@ -363,38 +364,20 @@ function CommercialTerritoryContent() {
 
   return (
     <div className="flex h-[calc(100dvh-7rem)] min-h-[560px] flex-col gap-3">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Territorio Comercial
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Trabajá oportunidades sobre el mapa del área visible.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
+      <CommercialModuleHero
+        active="territorio"
+        title="Territorio Comercial"
+        description="Trabajá oportunidades sobre el mapa del área visible."
+        onNewOpportunity={() => {
+          setDrawerOpen(true)
+          setPickMode(false)
+        }}
+        actions={
           <Button
             type="button"
+            size="sm"
             variant="outline"
-            onClick={() => router.push("/gestion-comercial")}
-          >
-            Inicio
-          </Button>
-          <Button
-            type="button"
-            className="gap-2"
-            onClick={() => {
-              setDrawerOpen(true)
-              setPickMode(false)
-            }}
-          >
-            <Plus className="size-4" />
-            Nueva Oportunidad
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            className="gap-2 lg:hidden"
+            className="h-9 gap-2 lg:hidden"
             onClick={() => setPanelOpen((open) => !open)}
           >
             <ChevronDown
@@ -405,8 +388,8 @@ function CommercialTerritoryContent() {
             />
             Panel
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       {error ? (
         <p className="text-sm text-destructive" role="alert">

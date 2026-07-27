@@ -9,24 +9,15 @@ import {
 
 import { Button } from "@/components/ui/button"
 import {
+  COMMERCIAL_PRIORITY_LABELS,
   COMMERCIAL_SOURCE_LABELS,
+  COMMERCIAL_STATUS_LABELS,
   type CommercialStatusCode,
 } from "@/lib/commercial/catalogs"
 import { resolveCommercialResponsibleColor } from "@/lib/commercial/responsible-colors"
 import type { CommercialPipelineCard } from "@/lib/types/commercial-pipeline"
+import { STATUS_BADGE_BASE, STATUS_TONE_STYLES } from "@/lib/ui/visual-tokens"
 import { cn } from "@/lib/utils"
-
-function formatCreatedDate(value: string): string {
-  try {
-    return new Intl.DateTimeFormat("es-AR", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    }).format(new Date(value))
-  } catch {
-    return value.slice(0, 10)
-  }
-}
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean)
@@ -66,7 +57,7 @@ export function CommercialPipelineCardView({
         onDragStart(card.id, card.status)
       }}
       className={cn(
-        "cursor-grab rounded-md border bg-background p-3 shadow-sm active:cursor-grabbing",
+        "cursor-grab rounded-xl border bg-card p-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:cursor-grabbing",
         isDragging && "opacity-60"
       )}
       style={{ borderLeftWidth: 3, borderLeftColor: color.hex }}
@@ -74,7 +65,7 @@ export function CommercialPipelineCardView({
       <div className="flex items-start justify-between gap-2">
         <p className="font-mono text-[11px] text-muted-foreground">{card.code}</p>
         <span
-          className="flex size-6 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white"
+          className="flex size-7 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white shadow-sm"
           style={{ backgroundColor: color.hex }}
           title={card.responsibleName}
         >
@@ -82,43 +73,60 @@ export function CommercialPipelineCardView({
         </span>
       </div>
 
-      <p className="mt-1 truncate text-sm font-medium">{card.personName}</p>
+      <p className="mt-1.5 truncate text-sm font-semibold tracking-tight">
+        {card.personName}
+      </p>
       {card.companyName ? (
         <p className="truncate text-xs text-muted-foreground">{card.companyName}</p>
       ) : null}
 
       <p className="mt-2 text-xs text-muted-foreground">
-        {card.responsibleName}
+        <span className="text-foreground/80">{card.responsibleName}</span>
       </p>
-      <p className="text-[11px] text-muted-foreground">
-        {formatCreatedDate(card.createdAt)} · {card.daysSinceLastActivity}d sin
-        act.
-      </p>
-      <p className="mt-1 text-[11px] text-muted-foreground">
-        {COMMERCIAL_SOURCE_LABELS[card.source]}
+      <p className="mt-0.5 text-[11px] text-muted-foreground">
+        {COMMERCIAL_STATUS_LABELS[card.status]} · {card.daysSinceLastActivity}d
+        sin actividad
       </p>
 
-      {(card.hasOverdueCommitment || card.isDerived) && (
-        <div className="mt-2 flex flex-wrap gap-1">
-          {card.hasOverdueCommitment ? (
-            <span className="rounded bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium text-destructive">
-              Compromiso vencido
-            </span>
-          ) : null}
-          {card.isDerived ? (
-            <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-700">
-              Derivada
-            </span>
-          ) : null}
-        </div>
-      )}
+      <div className="mt-2.5 flex flex-wrap gap-1">
+        <span
+          className={cn(
+            STATUS_BADGE_BASE,
+            card.priority === "alta"
+              ? STATUS_TONE_STYLES.red
+              : card.priority === "baja"
+                ? STATUS_TONE_STYLES.gray
+                : STATUS_TONE_STYLES.yellow
+          )}
+        >
+          {COMMERCIAL_PRIORITY_LABELS[card.priority]}
+        </span>
+        <span className={cn(STATUS_BADGE_BASE, STATUS_TONE_STYLES.blue)}>
+          {COMMERCIAL_SOURCE_LABELS[card.source]}
+        </span>
+        {card.hasOverdueCommitment ? (
+          <span className={cn(STATUS_BADGE_BASE, STATUS_TONE_STYLES.red)}>
+            Compromiso vencido
+          </span>
+        ) : null}
+        {card.isDerived ? (
+          <span className={cn(STATUS_BADGE_BASE, STATUS_TONE_STYLES.violet)}>
+            Derivada
+          </span>
+        ) : null}
+        {card.hasTodayCommitment && !card.hasOverdueCommitment ? (
+          <span className={cn(STATUS_BADGE_BASE, STATUS_TONE_STYLES.yellow)}>
+            Hoy
+          </span>
+        ) : null}
+      </div>
 
       <div className="mt-3 grid grid-cols-2 gap-1.5">
         <Button
           type="button"
           size="sm"
           variant="outline"
-          className="h-7 gap-1 px-2 text-[11px]"
+          className="h-8 gap-1 px-2 text-[11px]"
           onClick={(event) => {
             event.stopPropagation()
             onOpenDossier(card.id)
@@ -131,7 +139,7 @@ export function CommercialPipelineCardView({
           type="button"
           size="sm"
           variant="outline"
-          className="h-7 gap-1 px-2 text-[11px]"
+          className="h-8 gap-1 px-2 text-[11px]"
           onClick={(event) => {
             event.stopPropagation()
             onRegisterActivity(card.id)
@@ -144,7 +152,7 @@ export function CommercialPipelineCardView({
           type="button"
           size="sm"
           variant="outline"
-          className="h-7 gap-1 px-2 text-[11px]"
+          className="h-8 gap-1 px-2 text-[11px]"
           onClick={(event) => {
             event.stopPropagation()
             onCreateCommitment(card.id)
@@ -157,7 +165,7 @@ export function CommercialPipelineCardView({
           type="button"
           size="sm"
           variant="outline"
-          className="h-7 gap-1 px-2 text-[11px]"
+          className="h-8 gap-1 px-2 text-[11px]"
           onClick={(event) => {
             event.stopPropagation()
             onEdit(card.id)

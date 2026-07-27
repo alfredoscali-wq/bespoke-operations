@@ -53,7 +53,7 @@ export function CommercialProspectCard({
   const documentValue = person.documentNumber.trim() || person.taxId.trim()
 
   return (
-    <Card className={cn(className)}>
+    <Card className={cn("overflow-hidden rounded-xl border shadow-sm", className)}>
       <CardHeader className="space-y-0">
         <CardTitle className="text-base">Persona</CardTitle>
       </CardHeader>

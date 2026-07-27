@@ -13,10 +13,12 @@ import { Textarea } from "@/components/ui/textarea"
 import {
   COMMERCIAL_PRIORITY_CODES,
   COMMERCIAL_PRIORITY_LABELS,
-  COMMERCIAL_SOURCE_CODES,
+  COMMERCIAL_SOURCE_FIELD_LABEL,
   COMMERCIAL_SOURCE_LABELS,
+  COMMERCIAL_SOURCE_SELECT_CODES,
   COMMERCIAL_STATUS_CODES,
   COMMERCIAL_STATUS_LABELS,
+  type CommercialSourceCode,
 } from "@/lib/commercial/catalogs"
 import type { CommercialOpportunityFormValue } from "@/lib/commercial/display"
 import type { CommercialNewOpportunityInput } from "@/lib/commercial/create-opportunity"
@@ -62,6 +64,14 @@ export function CommercialOpportunityForm({
 
   const extended = showExtendedFields && hasExtendedFields(value)
   const observationsLabel = extended ? "Descripción" : "Observaciones"
+  const sourceLocked = value.source === "atencion_cliente"
+  const sourceOptions: readonly CommercialSourceCode[] = sourceLocked
+    ? ["atencion_cliente"]
+    : (COMMERCIAL_SOURCE_SELECT_CODES as readonly CommercialSourceCode[]).includes(
+          value.source
+        )
+      ? COMMERCIAL_SOURCE_SELECT_CODES
+      : [value.source, ...COMMERCIAL_SOURCE_SELECT_CODES]
 
   return (
     <div className="space-y-4">
@@ -125,7 +135,9 @@ export function CommercialOpportunityForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="commercial-opportunity-source">Origen</Label>
+          <Label htmlFor="commercial-opportunity-source">
+            {COMMERCIAL_SOURCE_FIELD_LABEL}
+          </Label>
           <Select
             value={value.source}
             onValueChange={(source) =>
@@ -133,19 +145,24 @@ export function CommercialOpportunityForm({
                 source: source as CommercialNewOpportunityInput["source"],
               })
             }
-            disabled={disabled}
+            disabled={disabled || sourceLocked}
           >
             <SelectTrigger id="commercial-opportunity-source">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {COMMERCIAL_SOURCE_CODES.map((code) => (
+              {sourceOptions.map((code) => (
                 <SelectItem key={code} value={code}>
                   {COMMERCIAL_SOURCE_LABELS[code]}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+          {sourceLocked ? (
+            <p className="text-[11px] text-muted-foreground">
+              Origen fijado por la derivación desde Atención al Cliente.
+            </p>
+          ) : null}
         </div>
 
         <div className="space-y-2">

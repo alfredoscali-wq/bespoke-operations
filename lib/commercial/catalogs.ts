@@ -25,6 +25,7 @@ export const COMMERCIAL_SOURCE_CODES = [
   "whatsapp",
   "llamada",
   "web",
+  "visita_comercial",
   "facebook",
   "instagram",
   "referido",
@@ -34,6 +35,23 @@ export const COMMERCIAL_SOURCE_CODES = [
 ] as const
 
 export type CommercialSourceCode = (typeof COMMERCIAL_SOURCE_CODES)[number]
+
+/** Selectable origins in forms (legacy facebook/instagram remain readable). */
+export const COMMERCIAL_SOURCE_SELECT_CODES = [
+  "web",
+  "whatsapp",
+  "llamada",
+  "visita_comercial",
+  "referido",
+  "sucursal",
+  "atencion_cliente",
+  "otro",
+] as const satisfies readonly CommercialSourceCode[]
+
+export type CommercialSourceSelectCode =
+  (typeof COMMERCIAL_SOURCE_SELECT_CODES)[number]
+
+export const COMMERCIAL_SOURCE_FIELD_LABEL = "¿Cómo llegó el cliente?"
 
 export const COMMERCIAL_STATUS_LABELS: Record<CommercialStatusCode, string> = {
   nueva: "Nueva",
@@ -81,6 +99,7 @@ export const COMMERCIAL_SOURCE_LABELS: Record<CommercialSourceCode, string> = {
   whatsapp: "WhatsApp",
   llamada: "Llamada",
   web: "Web",
+  visita_comercial: "Visita Comercial",
   facebook: "Facebook",
   instagram: "Instagram",
   referido: "Referido",

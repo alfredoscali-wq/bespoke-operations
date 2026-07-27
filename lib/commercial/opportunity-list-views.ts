@@ -6,6 +6,9 @@ import type { CommercialOpportunityListItem } from "@/lib/types/commercial"
 
 export const COMMERCIAL_OPPORTUNITY_LIST_VIEWS = [
   "active",
+  "nueva",
+  "won",
+  "lost",
   "won_month",
   "lost_month",
   "inactive_7d",
@@ -27,6 +30,9 @@ export const COMMERCIAL_OPPORTUNITY_LIST_VIEW_LABELS: Record<
   string
 > = {
   active: "Oportunidades activas",
+  nueva: "Nuevas",
+  won: "Ganadas",
+  lost: "Perdidas",
   won_month: "Ganadas este mes",
   lost_month: "Perdidas este mes",
   inactive_7d: "Sin actividad +7 días",
@@ -81,6 +87,12 @@ export function filterOpportunitiesByListView(
       return opportunities.filter((entry) =>
         COMMERCIAL_OPEN_STATUSES.includes(entry.status)
       )
+    case "nueva":
+      return opportunities.filter((entry) => entry.status === "nueva")
+    case "won":
+      return opportunities.filter((entry) => entry.status === "ganada")
+    case "lost":
+      return opportunities.filter((entry) => entry.status === "perdida")
     case "won_month":
       return opportunities.filter(
         (entry) =>

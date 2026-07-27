@@ -1,4 +1,5 @@
 import type {
+  CommercialPriorityCode,
   CommercialSourceCode,
   CommercialStatusCode,
 } from "@/lib/commercial/catalogs"
@@ -8,6 +9,7 @@ export type CommercialPipelineCard = {
   code: string
   title: string
   status: CommercialStatusCode
+  priority: CommercialPriorityCode
   source: CommercialSourceCode
   createdAt: string
   assignedEmployeeId: string | null

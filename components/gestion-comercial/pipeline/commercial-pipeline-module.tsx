@@ -1,16 +1,18 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { RefreshCw } from "lucide-react"
 
 import { CommercialActivityDrawer } from "@/components/gestion-comercial/commercial-activity-drawer"
 import { CommercialActivitiesProvider } from "@/components/gestion-comercial/commercial-activities-provider"
+import { CommercialModuleHero } from "@/components/gestion-comercial/commercial-module-hero"
+import { CommercialNewOpportunityDrawer } from "@/components/gestion-comercial/commercial-new-opportunity-drawer"
 import { CommercialOpportunityDrawer } from "@/components/gestion-comercial/commercial-opportunity-drawer"
 import {
   CommercialProvider,
   useCommercialOpportunities,
+  useCommercialPeople,
   useUpdateOpportunity,
 } from "@/components/gestion-comercial/commercial-provider"
 import { CommercialPipelineColumn } from "@/components/gestion-comercial/pipeline/commercial-pipeline-column"
@@ -36,8 +38,9 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   COMMERCIAL_LOST_REASON_OPTIONS,
-  COMMERCIAL_SOURCE_CODES,
+  COMMERCIAL_SOURCE_FIELD_LABEL,
   COMMERCIAL_SOURCE_LABELS,
+  COMMERCIAL_SOURCE_SELECT_CODES,
   COMMERCIAL_STATUS_CODES,
   COMMERCIAL_STATUS_LABELS,
   type CommercialStatusCode,
@@ -49,7 +52,10 @@ import {
 } from "@/lib/commercial/pipeline"
 import { listCommercialResponsibleOptions } from "@/lib/commercial/responsible-employees"
 import type { CommercialPipelineCard } from "@/lib/types/commercial-pipeline"
-import type { CommercialOpportunity } from "@/lib/types/commercial"
+import type {
+  CommercialOpportunity,
+  CommercialOpportunityListItem,
+} from "@/lib/types/commercial"
 
 type PendingMove = {
   cardId: string
@@ -60,6 +66,7 @@ type PendingMove = {
 function CommercialPipelineContent() {
   const router = useRouter()
   const { employees } = useEmployees()
+  const { data: people } = useCommercialPeople()
   const { refetch: refreshOpportunities } = useCommercialOpportunities()
   const { mutateAsync: updateOpportunity } = useUpdateOpportunity()
 
@@ -77,6 +84,7 @@ function CommercialPipelineContent() {
   const [lostReason, setLostReason] = useState("")
   const [lostReasonOther, setLostReasonOther] = useState("")
   const [isMoving, setIsMoving] = useState(false)
+  const [newOpportunityOpen, setNewOpportunityOpen] = useState(false)
 
   const [activityOpportunityId, setActivityOpportunityId] = useState<
     string | null
@@ -246,37 +254,27 @@ function CommercialPipelineContent() {
 
   return (
     <div className="flex h-[calc(100dvh-7rem)] min-h-[560px] flex-col gap-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Pipeline Comercial
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Seguimiento de oportunidades por etapa. Arrastrá para cambiar el
-            estado.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" asChild>
-            <Link href="/gestion-comercial">Inicio</Link>
-          </Button>
-          <Button type="button" variant="outline" asChild>
-            <Link href="/gestion-comercial/oportunidades">Oportunidades</Link>
-          </Button>
+      <CommercialModuleHero
+        active="pipeline"
+        title="Pipeline Comercial"
+        description="Seguimiento de oportunidades por etapa. Arrastrá para cambiar el estado."
+        onNewOpportunity={() => setNewOpportunityOpen(true)}
+        actions={
           <Button
             type="button"
+            size="sm"
             variant="outline"
-            className="gap-2"
+            className="h-9 gap-2"
             onClick={() => void loadPipeline()}
             disabled={isLoading}
           >
             <RefreshCw className="size-4" />
             Actualizar
           </Button>
-        </div>
-      </div>
+        }
+      />
 
-      <div className="grid gap-2 rounded-lg border bg-background p-3 md:grid-cols-3 xl:grid-cols-6">
+      <div className="grid gap-2 rounded-xl border bg-card p-3 shadow-sm md:grid-cols-3 xl:grid-cols-6">
         <div className="space-y-1 md:col-span-2 xl:col-span-2">
           <Label htmlFor="pipeline-search">Buscar</Label>
           <Input
@@ -341,7 +339,7 @@ function CommercialPipelineContent() {
           </Select>
         </div>
         <div className="space-y-1">
-          <Label>Origen</Label>
+          <Label>{COMMERCIAL_SOURCE_FIELD_LABEL}</Label>
           <Select
             value={filters.source || "__all__"}
             onValueChange={(value) =>
@@ -356,7 +354,7 @@ function CommercialPipelineContent() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="__all__">Todos</SelectItem>
-              {COMMERCIAL_SOURCE_CODES.map((source) => (
+              {COMMERCIAL_SOURCE_SELECT_CODES.map((source) => (
                 <SelectItem key={source} value={source}>
                   {COMMERCIAL_SOURCE_LABELS[source]}
                 </SelectItem>
@@ -582,6 +580,16 @@ function CommercialPipelineContent() {
           setEditOpportunity(null)
           void loadPipeline()
           void refreshOpportunities()
+        }}
+      />
+
+      <CommercialNewOpportunityDrawer
+        open={newOpportunityOpen}
+        onOpenChange={setNewOpportunityOpen}
+        people={people}
+        onCreated={(opportunity: CommercialOpportunityListItem) => {
+          setNewOpportunityOpen(false)
+          router.push(`/gestion-comercial/${opportunity.id}`)
         }}
       />
 

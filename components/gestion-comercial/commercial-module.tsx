@@ -2,9 +2,20 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Eye, Pencil, Plus, Trash2, X } from "lucide-react"
+import {
+  AlertTriangle,
+  BarChart3,
+  Eye,
+  FolderOpen,
+  Inbox,
+  Pencil,
+  Sparkles,
+  Trash2,
+  X,
+} from "lucide-react"
 
 import { useAuth } from "@/components/auth/auth-provider"
+import { CommercialModuleHero } from "@/components/gestion-comercial/commercial-module-hero"
 import { CommercialNewOpportunityDrawer } from "@/components/gestion-comercial/commercial-new-opportunity-drawer"
 import { CommercialOpportunityDrawer } from "@/components/gestion-comercial/commercial-opportunity-drawer"
 import {
@@ -13,6 +24,10 @@ import {
   useCommercialPeople,
   useDeleteOpportunity,
 } from "@/components/gestion-comercial/commercial-provider"
+import {
+  CommercialEmptyState,
+  CommercialSectionCard,
+} from "@/components/gestion-comercial/commercial-ui"
 import { EmployeesProvider } from "@/components/rrhh/employees-provider"
 import { Button } from "@/components/ui/button"
 import {
@@ -23,6 +38,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { FilterableKpiCard } from "@/components/ui/filterable-kpi-card"
 import { TableRowsSkeleton } from "@/components/ui/kpi-grid-skeleton"
 import {
   Table,
@@ -38,6 +54,8 @@ import {
 } from "@/lib/commercial/catalogs"
 import { resolveCommercialActorEmployeeId } from "@/lib/commercial/module-access"
 import {
+  buildCommercialOpportunitiesHref,
+  COMMERCIAL_OPEN_STATUSES,
   COMMERCIAL_OPPORTUNITY_LIST_VIEW_LABELS,
   filterOpportunitiesByListView,
   isCommercialOpportunityListView,
@@ -78,6 +96,23 @@ function CommercialModuleContent() {
       sessionUser ? resolveCommercialActorEmployeeId(sessionUser) : null,
     [sessionUser]
   )
+
+  const kpiCounts = useMemo(() => {
+    const scoped =
+      scope === "mine" && actorEmployeeId
+        ? opportunities.filter(
+            (opportunity) => opportunity.assignedEmployeeId === actorEmployeeId
+          )
+        : opportunities
+    return {
+      active: scoped.filter((entry) =>
+        COMMERCIAL_OPEN_STATUSES.includes(entry.status)
+      ).length,
+      nueva: scoped.filter((entry) => entry.status === "nueva").length,
+      won: scoped.filter((entry) => entry.status === "ganada").length,
+      lost: scoped.filter((entry) => entry.status === "perdida").length,
+    }
+  }, [actorEmployeeId, opportunities, scope])
 
   useEffect(() => {
     if (listView !== "inactive_7d") {
@@ -167,53 +202,58 @@ function CommercialModuleContent() {
     isLoading || (listView === "inactive_7d" && isInactiveLoading)
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Oportunidades
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Listado de oportunidades comerciales.
-          </p>
+    <div className="space-y-4">
+      <CommercialModuleHero
+        active="oportunidades"
+        title="Oportunidades"
+        description="Listado de oportunidades comerciales."
+        onNewOpportunity={() => setDrawerOpen(true)}
+      >
+        <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
+          <FilterableKpiCard
+            compact
+            label="Oportunidades activas"
+            value={kpiCounts.active}
+            icon={BarChart3}
+            tone="violet"
+            href={buildCommercialOpportunitiesHref("active")}
+            isActive={listView === "active"}
+          />
+          <FilterableKpiCard
+            compact
+            label="Nuevas"
+            value={kpiCounts.nueva}
+            icon={Inbox}
+            tone="blue"
+            href={buildCommercialOpportunitiesHref("nueva")}
+            isActive={listView === "nueva"}
+          />
+          <FilterableKpiCard
+            compact
+            label="Ganadas"
+            value={kpiCounts.won}
+            icon={Sparkles}
+            tone="green"
+            href={buildCommercialOpportunitiesHref("won")}
+            isActive={listView === "won"}
+          />
+          <FilterableKpiCard
+            compact
+            label="Perdidas"
+            value={kpiCounts.lost}
+            icon={AlertTriangle}
+            tone="red"
+            href={buildCommercialOpportunitiesHref("lost")}
+            isActive={listView === "lost"}
+          />
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => router.push("/gestion-comercial")}
-          >
-            Inicio
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => router.push("/gestion-comercial/pipeline")}
-          >
-            Pipeline
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => router.push("/gestion-comercial/mapa")}
-          >
-            Territorio
-          </Button>
-          <Button
-            type="button"
-            className="gap-2"
-            onClick={() => setDrawerOpen(true)}
-          >
-            <Plus className="size-4" />
-            Nueva Oportunidad
-          </Button>
-        </div>
-      </div>
+      </CommercialModuleHero>
 
       <div className="flex flex-wrap items-center gap-2">
         <Button
           type="button"
           size="sm"
+          className="h-9"
           variant={scope === "all" ? "default" : "outline"}
           onClick={() => setScope("all")}
         >
@@ -222,6 +262,7 @@ function CommercialModuleContent() {
         <Button
           type="button"
           size="sm"
+          className="h-9"
           variant={scope === "mine" ? "default" : "outline"}
           onClick={() => setScope("mine")}
           disabled={!actorEmployeeId}
@@ -248,39 +289,47 @@ function CommercialModuleContent() {
         ) : null}
       </div>
 
-      <div className="rounded-lg border">
+      <CommercialSectionCard
+        title="Listado"
+        description={`${visibleOpportunities.length} oportunidad${visibleOpportunities.length === 1 ? "" : "es"}`}
+        icon={FolderOpen}
+        accent="slate"
+      >
         {tableLoading ? (
-          <div className="p-4">
-            <TableRowsSkeleton columns={6} rows={4} />
-          </div>
+          <TableRowsSkeleton columns={6} rows={4} />
+        ) : visibleOpportunities.length === 0 ? (
+          <CommercialEmptyState
+            icon={Inbox}
+            title={
+              listView
+                ? "No hay oportunidades para este filtro."
+                : scope === "mine"
+                  ? "No tenés oportunidades asignadas."
+                  : "Todavía no hay oportunidades."
+            }
+            description={
+              listView
+                ? "Probá otro filtro o quitá el filtro activo."
+                : "Creá una nueva oportunidad para empezar."
+            }
+          />
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Código</TableHead>
-                <TableHead>Título</TableHead>
-                <TableHead>Persona</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead>Prioridad</TableHead>
-                <TableHead className="w-[120px] text-right">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {visibleOpportunities.length === 0 ? (
+          <div className="overflow-hidden rounded-lg border">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell
-                    colSpan={6}
-                    className="h-24 text-center text-sm text-muted-foreground"
-                  >
-                    {listView
-                      ? "No hay oportunidades para este filtro."
-                      : scope === "mine"
-                        ? "No tenés oportunidades asignadas como responsable."
-                        : "Todavía no existen oportunidades comerciales."}
-                  </TableCell>
+                  <TableHead>Código</TableHead>
+                  <TableHead>Título</TableHead>
+                  <TableHead>Persona</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead>Prioridad</TableHead>
+                  <TableHead className="w-[120px] text-right">
+                    Acciones
+                  </TableHead>
                 </TableRow>
-              ) : (
-                visibleOpportunities.map((opportunity) => (
+              </TableHeader>
+              <TableBody>
+                {visibleOpportunities.map((opportunity) => (
                   <TableRow
                     key={opportunity.id}
                     data-opportunity-id={opportunity.id}
@@ -332,12 +381,12 @@ function CommercialModuleContent() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         )}
-      </div>
+      </CommercialSectionCard>
 
       <CommercialNewOpportunityDrawer
         open={drawerOpen}
@@ -381,6 +430,7 @@ function CommercialModuleContent() {
             <Button
               type="button"
               variant="outline"
+              className="h-9"
               onClick={() => setDeletingOpportunity(null)}
               disabled={isDeleting}
             >
@@ -389,6 +439,7 @@ function CommercialModuleContent() {
             <Button
               type="button"
               variant="destructive"
+              className="h-9"
               onClick={() => void handleDelete()}
               disabled={isDeleting}
             >

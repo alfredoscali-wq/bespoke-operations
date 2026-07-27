@@ -8,7 +8,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { COMMERCIAL_SOURCE_LABELS } from "@/lib/commercial/catalogs"
+import {
+  COMMERCIAL_SOURCE_FIELD_LABEL,
+  COMMERCIAL_SOURCE_LABELS,
+} from "@/lib/commercial/catalogs"
 import {
   formatCommercialDateOnly,
   formatCommercialMoney,
@@ -42,7 +45,7 @@ export function CommercialOpportunityCard({
   const showCloseDate = closeDateLabel !== "-"
 
   return (
-    <Card className={cn(className)}>
+    <Card className={cn("overflow-hidden rounded-xl border shadow-sm", className)}>
       <CardHeader className="space-y-0">
         <CardTitle className="text-base">Oportunidad</CardTitle>
       </CardHeader>
@@ -67,7 +70,7 @@ export function CommercialOpportunityCard({
               {responsibleName.trim()}
             </CommercialInfoRow>
           ) : null}
-          <CommercialInfoRow label="Origen">
+          <CommercialInfoRow label={COMMERCIAL_SOURCE_FIELD_LABEL}>
             {COMMERCIAL_SOURCE_LABELS[opportunity.source]}
           </CommercialInfoRow>
           {showAmount ? (

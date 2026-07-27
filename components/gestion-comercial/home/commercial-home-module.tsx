@@ -1,7 +1,6 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
   AlertTriangle,
@@ -10,20 +9,21 @@ import {
   Clock3,
   FolderOpen,
   Inbox,
-  LayoutGrid,
-  MapPinned,
-  Plus,
   Sparkles,
-  type LucideIcon,
 } from "lucide-react"
 
 import { useAuth } from "@/components/auth/auth-provider"
 import { COMMERCIAL_ACTIVITY_TYPE_ICONS } from "@/components/gestion-comercial/commercial-activity-icons"
+import { CommercialModuleHero } from "@/components/gestion-comercial/commercial-module-hero"
 import { CommercialNewOpportunityDrawer } from "@/components/gestion-comercial/commercial-new-opportunity-drawer"
 import {
   CommercialProvider,
   useCommercialPeople,
 } from "@/components/gestion-comercial/commercial-provider"
+import {
+  CommercialEmptyState,
+  CommercialSectionCard,
+} from "@/components/gestion-comercial/commercial-ui"
 import { EmployeesProvider } from "@/components/rrhh/employees-provider"
 import { Button } from "@/components/ui/button"
 import { FilterableKpiCard } from "@/components/ui/filterable-kpi-card"
@@ -60,108 +60,6 @@ function formatDayOnly(value: string): string {
   } catch {
     return value
   }
-}
-
-type SectionAccent = "blue" | "red" | "amber" | "violet" | "slate"
-
-const SECTION_ACCENT: Record<
-  SectionAccent,
-  { bar: string; iconWrap: string; icon: string }
-> = {
-  blue: {
-    bar: "bg-blue-500/70",
-    iconWrap: "bg-blue-500/[0.08]",
-    icon: "text-blue-700",
-  },
-  red: {
-    bar: "bg-red-500/70",
-    iconWrap: "bg-red-500/[0.08]",
-    icon: "text-red-700",
-  },
-  amber: {
-    bar: "bg-amber-500/70",
-    iconWrap: "bg-amber-500/[0.08]",
-    icon: "text-amber-800",
-  },
-  violet: {
-    bar: "bg-violet-500/60",
-    iconWrap: "bg-violet-500/[0.08]",
-    icon: "text-violet-700",
-  },
-  slate: {
-    bar: "bg-slate-400/80",
-    iconWrap: "bg-slate-500/[0.08]",
-    icon: "text-slate-700",
-  },
-}
-
-function HomeSection({
-  title,
-  description,
-  children,
-  action,
-  icon: Icon,
-  accent = "slate",
-}: {
-  title: string
-  description?: string
-  children: React.ReactNode
-  action?: React.ReactNode
-  icon: LucideIcon
-  accent?: SectionAccent
-}) {
-  const styles = SECTION_ACCENT[accent]
-  return (
-    <section className="overflow-hidden rounded-xl border bg-card shadow-sm">
-      <div className={cn("h-0.5 w-full", styles.bar)} aria-hidden />
-      <div className="space-y-3 p-4">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div className="flex min-w-0 items-start gap-2.5">
-            <div
-              className={cn(
-                "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg",
-                styles.iconWrap
-              )}
-            >
-              <Icon className={cn("size-4", styles.icon)} aria-hidden />
-            </div>
-            <div className="min-w-0">
-              <h2 className="text-sm font-semibold tracking-tight">{title}</h2>
-              {description ? (
-                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                  {description}
-                </p>
-              ) : null}
-            </div>
-          </div>
-          {action}
-        </div>
-        <div className="pt-0.5">{children}</div>
-      </div>
-    </section>
-  )
-}
-
-function EmptyState({
-  icon: Icon,
-  title,
-  description,
-}: {
-  icon: LucideIcon
-  title: string
-  description: string
-}) {
-  return (
-    <div className="flex flex-col items-center justify-center gap-1.5 rounded-lg bg-muted/25 px-4 py-6 text-center">
-      <div className="mb-1 flex size-9 items-center justify-center rounded-full bg-background shadow-sm">
-        <Icon className="size-4 text-muted-foreground" aria-hidden />
-      </div>
-      <p className="text-sm font-medium text-foreground">{title}</p>
-      <p className="max-w-[28ch] text-xs leading-relaxed text-muted-foreground">
-        {description}
-      </p>
-    </div>
-  )
 }
 
 function SummaryChip({
@@ -278,114 +176,54 @@ function CommercialHomeContent() {
 
   return (
     <div className="space-y-4">
-      <header className="overflow-hidden rounded-xl border border-blue-100/70 bg-gradient-to-br from-blue-500/[0.06] via-background to-slate-500/[0.03] shadow-sm">
-        <div className="flex flex-col gap-4 p-4 sm:p-5 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0 space-y-3">
-            <div>
-              <p className="text-[11px] font-medium tracking-wide text-blue-800/70 uppercase">
-                Inicio Comercial
-              </p>
-              <h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground sm:text-[1.65rem]">
-                {greeting} {displayName}
-              </h1>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Tu bandeja de trabajo comercial del día.
-              </p>
-            </div>
-
-            {desk ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <SummaryChip
-                  tone="orange"
-                  value={desk.daySummary.newOpportunities}
-                  label="Nuevas"
-                />
-                <SummaryChip
-                  tone="green"
-                  value={desk.daySummary.commitmentsToday}
-                  label="Hoy"
-                />
-                <SummaryChip
-                  tone="red"
-                  value={desk.daySummary.commitmentsOverdue}
-                  label="Vencidos"
-                />
-              </div>
-            ) : null}
-          </div>
-
-          <div className="flex flex-col items-stretch gap-3 sm:items-end">
-            {journey ? (
+      <CommercialModuleHero
+        active="inicio"
+        title={`${greeting} ${displayName}`}
+        description="Tu bandeja de trabajo comercial del día."
+        onNewOpportunity={() => setDrawerOpen(true)}
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          {journey ? (
+            <span
+              className={cn(
+                STATUS_BADGE_BASE,
+                STATUS_TONE_STYLES[journey.tone],
+                "inline-flex w-fit items-center gap-1.5"
+              )}
+            >
               <span
                 className={cn(
-                  STATUS_BADGE_BASE,
-                  STATUS_TONE_STYLES[journey.tone],
-                  "inline-flex w-fit items-center gap-1.5 self-start sm:self-end"
+                  "size-1.5 rounded-full",
+                  journey.tone === "green" && "bg-emerald-600",
+                  journey.tone === "yellow" && "bg-amber-600",
+                  journey.tone === "red" && "bg-red-600"
                 )}
-              >
-                <span
-                  className={cn(
-                    "size-1.5 rounded-full",
-                    journey.tone === "green" && "bg-emerald-600",
-                    journey.tone === "yellow" && "bg-amber-600",
-                    journey.tone === "red" && "bg-red-600"
-                  )}
-                  aria-hidden
-                />
-                {journey.label}
-              </span>
-            ) : null}
-
-            <div className="flex flex-wrap gap-2 sm:justify-end">
-              <Button
-                type="button"
-                size="sm"
-                className="h-9 gap-2"
-                onClick={() => setDrawerOpen(true)}
-              >
-                <Plus className="size-4" />
-                Nueva oportunidad
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="h-9 gap-2"
-                asChild
-              >
-                <Link href="/gestion-comercial/oportunidades">
-                  <FolderOpen className="size-4" />
-                  Oportunidades
-                </Link>
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="h-9 gap-2"
-                asChild
-              >
-                <Link href="/gestion-comercial/mapa">
-                  <MapPinned className="size-4" />
-                  Territorio
-                </Link>
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="h-9 gap-2"
-                asChild
-              >
-                <Link href="/gestion-comercial/pipeline">
-                  <LayoutGrid className="size-4" />
-                  Pipeline
-                </Link>
-              </Button>
-            </div>
-          </div>
+                aria-hidden
+              />
+              {journey.label}
+            </span>
+          ) : null}
+          {desk ? (
+            <>
+              <SummaryChip
+                tone="orange"
+                value={desk.daySummary.newOpportunities}
+                label="Nuevas"
+              />
+              <SummaryChip
+                tone="green"
+                value={desk.daySummary.commitmentsToday}
+                label="Hoy"
+              />
+              <SummaryChip
+                tone="red"
+                value={desk.daySummary.commitmentsOverdue}
+                label="Vencidos"
+              />
+            </>
+          ) : null}
         </div>
-      </header>
+      </CommercialModuleHero>
 
       {error ? (
         <p className="text-sm text-destructive" role="alert">
@@ -394,14 +232,14 @@ function CommercialHomeContent() {
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <HomeSection
+        <CommercialSectionCard
           title="Nuevas derivaciones"
           description="Consultas derivadas desde Atención al Cliente sin abrir."
           icon={Inbox}
           accent="blue"
         >
           {!desk?.newDerivations.length ? (
-            <EmptyState
+            <CommercialEmptyState
               icon={Inbox}
               title="No hay nuevas derivaciones."
               description="Excelente, ya revisaste todas las oportunidades."
@@ -440,16 +278,16 @@ function CommercialHomeContent() {
               ))}
             </ul>
           )}
-        </HomeSection>
+        </CommercialSectionCard>
 
-        <HomeSection
+        <CommercialSectionCard
           title="Compromisos vencidos"
           description="Requieren actividad para ponerse al día."
           icon={AlertTriangle}
           accent="red"
         >
           {!desk?.overdueCommitments.length ? (
-            <EmptyState
+            <CommercialEmptyState
               icon={AlertTriangle}
               title="Sin compromisos vencidos."
               description="Estás al día con tus seguimientos pendientes."
@@ -493,17 +331,17 @@ function CommercialHomeContent() {
               ))}
             </ul>
           )}
-        </HomeSection>
+        </CommercialSectionCard>
       </div>
 
-      <HomeSection
+      <CommercialSectionCard
         title="Compromisos de hoy"
         description="Agenda comercial del día, ordenada por horario."
         icon={CalendarDays}
         accent="amber"
       >
         {!desk?.todayCommitments.length ? (
-          <EmptyState
+          <CommercialEmptyState
             icon={CalendarDays}
             title="No hay compromisos para hoy."
             description="Tu agenda del día está libre."
@@ -540,10 +378,10 @@ function CommercialHomeContent() {
             ))}
           </ul>
         )}
-      </HomeSection>
+      </CommercialSectionCard>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_1.2fr]">
-        <HomeSection title="Resumen comercial" icon={BarChart3} accent="violet">
+        <CommercialSectionCard title="Resumen comercial" icon={BarChart3} accent="violet">
           {desk ? (
             <div className="grid grid-cols-2 gap-2.5">
               <FilterableKpiCard
@@ -580,11 +418,11 @@ function CommercialHomeContent() {
               />
             </div>
           ) : null}
-        </HomeSection>
+        </CommercialSectionCard>
 
-        <HomeSection title="Actividad reciente" icon={Clock3} accent="slate">
+        <CommercialSectionCard title="Actividad reciente" icon={Clock3} accent="slate">
           {!desk?.recentActivity.length ? (
-            <EmptyState
+            <CommercialEmptyState
               icon={Clock3}
               title="Todavía no hay actividad comercial."
               description="Cuando registres gestiones, aparecerán aquí."
@@ -633,7 +471,7 @@ function CommercialHomeContent() {
               })}
             </ul>
           )}
-        </HomeSection>
+        </CommercialSectionCard>
       </div>
 
       <CommercialNewOpportunityDrawer
