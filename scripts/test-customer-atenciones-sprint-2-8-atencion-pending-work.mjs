@@ -23,6 +23,7 @@ import {
   PENDING_WORK_BY_AREA_TRAY,
   resolveOperationalWorkTray,
 } from "../lib/customer-atenciones/shared-inbox.ts"
+import { formatConsultationInboxSituationLabel } from "../lib/customer-atenciones/consultation-expediente.ts"
 
 const referenceDate = new Date("2026-07-25T15:00:00.000Z")
 
@@ -187,4 +188,131 @@ test("flujo Técnica → Contactar nuevamente: bandeja + chip + KPI área", () =
   )
   assert.equal(filteredByAreaKpi.length, area.para_resolver)
   assert.equal(filteredByAreaKpi[0]?.id, "consulta-1")
+})
+
+test("KPI de área filtra la bandeja por cola operativa (sin filtros manuales extra)", () => {
+  const rows = [
+    inboxRow({
+      id: "tec",
+      nextStep: "resolver_consulta_tecnica",
+    }),
+    inboxRow({
+      id: "adm",
+      nextStep: "derivar_admin_facturacion",
+    }),
+    inboxRow({
+      id: "mor",
+      nextStep: "derivar_admin_morosos",
+    }),
+    inboxRow({
+      id: "ret",
+      nextStep: "realizar_retencion",
+    }),
+    inboxRow({
+      id: "espera",
+      status: "pendiente",
+      nextStep: "esperar_cliente",
+    }),
+    inboxRow({
+      id: "aten",
+      status: "para_resolver",
+      nextStep: "seguimiento_cliente",
+    }),
+  ]
+
+  const area = computePendingWorkByAreaKpis(rows)
+  const cases = [
+    ["tecnica", "tec"],
+    ["administracion", "adm"],
+    ["morosos", "mor"],
+    ["retenciones", "ret"],
+    ["espera_cliente", "espera"],
+    ["para_resolver", "aten"],
+  ]
+
+  for (const [areaKey, expectedId] of cases) {
+    const tray = PENDING_WORK_BY_AREA_TRAY[areaKey]
+    const filtered = filterSharedInboxRows(
+      rows,
+      {
+        statusFilter: "all",
+        workTray: tray,
+        motivo: "all",
+        channel: "all",
+        createdDate: null,
+        search: "",
+      },
+      referenceDate
+    )
+    assert.equal(filtered.length, area[areaKey], areaKey)
+    assert.deepEqual(
+      filtered.map((row) => row.id),
+      [expectedId],
+      areaKey
+    )
+  }
+})
+
+test("KPI de área conserva motivo activo (intersección sincronizada)", () => {
+  const rows = [
+    inboxRow({
+      id: "tv-tec",
+      motivo: "consulta_tv",
+      nextStep: "resolver_consulta_tecnica",
+    }),
+    inboxRow({
+      id: "other-tec",
+      motivo: "problema_tecnico",
+      nextStep: "resolver_consulta_tecnica",
+    }),
+  ]
+
+  const filtered = filterSharedInboxRows(
+    rows,
+    {
+      statusFilter: "all",
+      workTray: "tecnica",
+      motivo: "consulta_tv",
+      channel: "all",
+      createdDate: null,
+      search: "",
+    },
+    referenceDate
+  )
+
+  assert.equal(filtered.length, 1)
+  assert.equal(filtered[0]?.id, "tv-tec")
+})
+
+test("colas operativas alinean Situación Actual esperada", () => {
+  assert.equal(
+    formatConsultationInboxSituationLabel(
+      inboxRow({ nextStep: "resolver_consulta_tecnica" })
+    ),
+    "Derivada a Técnica"
+  )
+  assert.equal(
+    formatConsultationInboxSituationLabel(
+      inboxRow({ nextStep: "derivar_admin_facturacion" })
+    ),
+    "Derivada a Administración"
+  )
+  assert.equal(
+    formatConsultationInboxSituationLabel(
+      inboxRow({ nextStep: "derivar_admin_morosos" })
+    ),
+    "Facturación - Morosos"
+  )
+  assert.equal(
+    formatConsultationInboxSituationLabel(
+      inboxRow({ nextStep: "realizar_retencion" })
+    ),
+    "Pendiente de Retención"
+  )
+  assert.equal(
+    formatConsultationInboxSituationLabel(
+      inboxRow({ status: "pendiente", nextStep: "esperar_cliente" })
+    ),
+    "Esperando respuesta del cliente"
+  )
 })

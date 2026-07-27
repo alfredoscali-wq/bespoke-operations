@@ -11,7 +11,7 @@ import {
   CUSTOMER_ATENCION_MOTIVO_OPTIONS,
   formatCustomerAtencionMotivoLabel,
 } from "../lib/customer-atenciones/format.ts"
-import { computeSharedInboxKpis } from "../lib/customer-atenciones/shared-inbox.ts"
+import { computeSharedInboxKpis, filterSharedInboxDiscoveryRows, computeSharedInboxStatusFilterCounts, filterSharedInboxRows } from "../lib/customer-atenciones/shared-inbox.ts"
 import { mapCustomerAtencionRowToCustomerAtencion } from "../lib/supabase/customer-atenciones.mapper.ts"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -41,7 +41,7 @@ test("motivos RC 3.1.6: opciones y labels", () => {
   assert.ok(!values.includes("retencion"))
 })
 
-test("KPIs comerciales cuentan recibidas hoy por motivo", () => {
+test("KPIs comerciales cuentan solo pendientes activos por motivo", () => {
   const referenceDate = new Date("2026-07-18T15:00:00.000Z")
   const rows = [
     {
@@ -87,7 +87,7 @@ test("KPIs comerciales cuentan recibidas hoy por motivo", () => {
       customerName: "C",
       channel: "telefono",
       motivo: "consulta_comercial",
-      detail: "old",
+      detail: "old backlog",
       status: "para_resolver",
       nextStep: "seguimiento_cliente",
       attendedByEmployeeId: "e1",
@@ -98,12 +98,272 @@ test("KPIs comerciales cuentan recibidas hoy por motivo", () => {
       createdAt: "2026-07-17T10:00:00.000Z",
       updatedAt: "2026-07-17T10:00:00.000Z",
     },
+    {
+      id: "4",
+      companyId: "c1",
+      customerId: "cu4",
+      customerName: "D",
+      channel: "telefono",
+      motivo: "consulta_tv",
+      detail: "resolved today",
+      status: "resuelta",
+      nextStep: null,
+      attendedByEmployeeId: "e1",
+      attendedByEmployeeName: "Op",
+      activeManagementEmployeeId: null,
+      activeManagementEmployeeName: null,
+      activeManagementStartedAt: null,
+      createdAt: "2026-07-18T09:00:00.000Z",
+      updatedAt: "2026-07-18T12:00:00.000Z",
+    },
   ]
 
   const kpis = computeSharedInboxKpis(rows, referenceDate)
-  assert.equal(kpis.consulta_comercial, 1)
+  assert.equal(kpis.consulta_comercial, 2)
   assert.equal(kpis.consulta_tv, 1)
-  assert.equal(kpis.nuevas, 2)
+  assert.equal(kpis.nuevas, 3)
+})
+
+test("Resueltas hoy + motivo: conteo y grilla usan el mismo criterio", () => {
+  const referenceDate = new Date("2026-07-18T15:00:00.000Z")
+  const rows = [
+    {
+      id: "tv-resolved",
+      companyId: "c1",
+      customerId: "cu1",
+      customerName: "A",
+      channel: "telefono",
+      motivo: "consulta_tv",
+      detail: "ok",
+      status: "resuelta",
+      nextStep: null,
+      attendedByEmployeeId: "e1",
+      attendedByEmployeeName: "Op",
+      activeManagementEmployeeId: null,
+      activeManagementEmployeeName: null,
+      activeManagementStartedAt: null,
+      createdAt: "2026-07-18T09:00:00.000Z",
+      updatedAt: "2026-07-18T12:00:00.000Z",
+    },
+    {
+      id: "tv-active",
+      companyId: "c1",
+      customerId: "cu2",
+      customerName: "B",
+      channel: "whatsapp",
+      motivo: "consulta_tv",
+      detail: "pending",
+      status: "para_resolver",
+      nextStep: "seguimiento_cliente",
+      attendedByEmployeeId: "e1",
+      attendedByEmployeeName: "Op",
+      activeManagementEmployeeId: null,
+      activeManagementEmployeeName: null,
+      activeManagementStartedAt: null,
+      createdAt: "2026-07-18T11:00:00.000Z",
+      updatedAt: "2026-07-18T11:00:00.000Z",
+    },
+    {
+      id: "other-resolved",
+      companyId: "c1",
+      customerId: "cu3",
+      customerName: "C",
+      channel: "telefono",
+      motivo: "facturacion",
+      detail: "other",
+      status: "resuelta",
+      nextStep: null,
+      attendedByEmployeeId: "e1",
+      attendedByEmployeeName: "Op",
+      activeManagementEmployeeId: null,
+      activeManagementEmployeeName: null,
+      activeManagementStartedAt: null,
+      createdAt: "2026-07-18T10:00:00.000Z",
+      updatedAt: "2026-07-18T13:00:00.000Z",
+    },
+  ]
+
+  const query = {
+    statusFilter: "resueltas_hoy",
+    motivo: "consulta_tv",
+    channel: "all",
+    operationalCategory: null,
+    workTray: null,
+    createdDate: null,
+    search: "",
+  }
+
+  const discovery = filterSharedInboxDiscoveryRows(rows, query, referenceDate)
+  const counts = computeSharedInboxStatusFilterCounts(discovery, referenceDate)
+  const filtered = filterSharedInboxRows(rows, query, referenceDate)
+
+  assert.equal(counts.resueltas_hoy, 1)
+  assert.equal(filtered.length, counts.resueltas_hoy)
+  assert.deepEqual(
+    filtered.map((row) => row.id),
+    ["tv-resolved"]
+  )
+})
+
+test("chip Todas + motivo incluye resueltas (mismo set que el contador)", () => {
+  const referenceDate = new Date("2026-07-18T15:00:00.000Z")
+  const rows = [
+    {
+      id: "tv-resolved",
+      companyId: "c1",
+      customerId: "cu1",
+      customerName: "A",
+      channel: "telefono",
+      motivo: "consulta_tv",
+      detail: "ok",
+      status: "resuelta",
+      nextStep: null,
+      attendedByEmployeeId: "e1",
+      attendedByEmployeeName: "Op",
+      activeManagementEmployeeId: null,
+      activeManagementEmployeeName: null,
+      activeManagementStartedAt: null,
+      createdAt: "2026-07-18T09:00:00.000Z",
+      updatedAt: "2026-07-18T12:00:00.000Z",
+    },
+    {
+      id: "tv-active",
+      companyId: "c1",
+      customerId: "cu2",
+      customerName: "B",
+      channel: "whatsapp",
+      motivo: "consulta_tv",
+      detail: "pending",
+      status: "para_resolver",
+      nextStep: "seguimiento_cliente",
+      attendedByEmployeeId: "e1",
+      attendedByEmployeeName: "Op",
+      activeManagementEmployeeId: null,
+      activeManagementEmployeeName: null,
+      activeManagementStartedAt: null,
+      createdAt: "2026-07-18T11:00:00.000Z",
+      updatedAt: "2026-07-18T11:00:00.000Z",
+    },
+    {
+      id: "other-resolved",
+      companyId: "c1",
+      customerId: "cu3",
+      customerName: "C",
+      channel: "telefono",
+      motivo: "facturacion",
+      detail: "other",
+      status: "resuelta",
+      nextStep: null,
+      attendedByEmployeeId: "e1",
+      attendedByEmployeeName: "Op",
+      activeManagementEmployeeId: null,
+      activeManagementEmployeeName: null,
+      activeManagementStartedAt: null,
+      createdAt: "2026-07-18T10:00:00.000Z",
+      updatedAt: "2026-07-18T13:00:00.000Z",
+    },
+  ]
+
+  const query = {
+    statusFilter: "all",
+    motivo: "consulta_tv",
+    channel: "all",
+    operationalCategory: null,
+    workTray: null,
+    createdDate: null,
+    search: "",
+  }
+
+  const discovery = filterSharedInboxDiscoveryRows(rows, query, referenceDate)
+  const counts = computeSharedInboxStatusFilterCounts(discovery, referenceDate)
+  const filtered = filterSharedInboxRows(rows, query, referenceDate)
+
+  assert.equal(counts.all, 2)
+  assert.equal(filtered.length, counts.all)
+  assert.deepEqual(
+    filtered.map((row) => row.id).sort(),
+    ["tv-active", "tv-resolved"]
+  )
+  assert.equal(counts.resueltas_hoy, 1)
+})
+
+test("Todas con motivo no se limita al día: incluye resueltas de jornadas anteriores", () => {
+  const referenceDate = new Date("2026-07-18T15:00:00.000Z")
+  const rows = [
+    {
+      id: "tv-old-resolved",
+      companyId: "c1",
+      customerId: "cu1",
+      customerName: "A",
+      channel: "telefono",
+      motivo: "consulta_tv",
+      detail: "ayer",
+      status: "resuelta",
+      nextStep: null,
+      attendedByEmployeeId: "e1",
+      attendedByEmployeeName: "Op",
+      activeManagementEmployeeId: null,
+      activeManagementEmployeeName: null,
+      activeManagementStartedAt: null,
+      createdAt: "2026-07-10T09:00:00.000Z",
+      updatedAt: "2026-07-10T12:00:00.000Z",
+    },
+    {
+      id: "tv-resolved-today",
+      companyId: "c1",
+      customerId: "cu2",
+      customerName: "B",
+      channel: "whatsapp",
+      motivo: "consulta_tv",
+      detail: "hoy",
+      status: "resuelta",
+      nextStep: null,
+      attendedByEmployeeId: "e1",
+      attendedByEmployeeName: "Op",
+      activeManagementEmployeeId: null,
+      activeManagementEmployeeName: null,
+      activeManagementStartedAt: null,
+      createdAt: "2026-07-18T09:00:00.000Z",
+      updatedAt: "2026-07-18T12:00:00.000Z",
+    },
+    {
+      id: "tv-active",
+      companyId: "c1",
+      customerId: "cu3",
+      customerName: "C",
+      channel: "telefono",
+      motivo: "consulta_tv",
+      detail: "pending",
+      status: "para_resolver",
+      nextStep: "seguimiento_cliente",
+      attendedByEmployeeId: "e1",
+      attendedByEmployeeName: "Op",
+      activeManagementEmployeeId: null,
+      activeManagementEmployeeName: null,
+      activeManagementStartedAt: null,
+      createdAt: "2026-07-17T11:00:00.000Z",
+      updatedAt: "2026-07-17T11:00:00.000Z",
+    },
+  ]
+
+  const query = {
+    statusFilter: "all",
+    motivo: "consulta_tv",
+    channel: "all",
+    operationalCategory: null,
+    workTray: null,
+    createdDate: null,
+    search: "",
+  }
+
+  const discovery = filterSharedInboxDiscoveryRows(rows, query, referenceDate)
+  const counts = computeSharedInboxStatusFilterCounts(discovery, referenceDate)
+  const filtered = filterSharedInboxRows(rows, query, referenceDate)
+
+  assert.equal(counts.all, 3)
+  assert.equal(filtered.length, 3)
+  assert.equal(counts.resueltas_hoy, 1)
+  assert.ok(counts.all > counts.resueltas_hoy)
 })
 
 test("migración RC 3.1.6 mapea legacy y actualiza check", () => {

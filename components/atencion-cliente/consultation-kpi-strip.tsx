@@ -319,7 +319,9 @@ export function ConsultationKpiStrip({
   const hasMotivoFilter = Boolean(query.motivo && query.motivo !== "all")
   const isAllQueuesSelected =
     (query.workTray == null || !isSharedInboxUiWorkTray(query.workTray)) &&
-    !hasMotivoFilter
+    !hasMotivoFilter &&
+    !query.operationalCategory &&
+    query.statusFilter === "all"
 
   // Drop filters for trays removed from the UI (RC 3.0.6 / Sprint AC 2.8).
   useEffect(() => {
@@ -332,23 +334,6 @@ export function ConsultationKpiStrip({
       })
     }
   }, [onQueryChange, query])
-
-  // Clear motivo filter when its queue card disappears (count → 0).
-  useEffect(() => {
-    if (!hasMotivoFilter || traysLoading) {
-      return
-    }
-
-    const stillVisible = workQueueItems.some(
-      (item) => item.kind === "motivo" && item.motivo === query.motivo
-    )
-    if (!stillVisible) {
-      onQueryChange({
-        ...query,
-        motivo: "all",
-      })
-    }
-  }, [hasMotivoFilter, onQueryChange, query, traysLoading, workQueueItems])
 
   function resolveIndicatorValue(card: KpiStripCard): number {
     if (card.kind === "category") {
@@ -412,16 +397,38 @@ export function ConsultationKpiStrip({
       return
     }
 
+    // Toggle off when re-clicking the active queue.
+    if (query.workTray === tray) {
+      onQueryChange({
+        ...query,
+        statusFilter: "all",
+        operationalCategory: null,
+        workTray: null,
+      })
+      return
+    }
+
+    // Quick filter: keep fecha / motivo / canal; only switch the operational queue.
     onQueryChange({
       ...query,
       statusFilter: "all",
       operationalCategory: null,
       workTray: tray,
-      motivo: "all",
     })
   }
 
   function selectMotivoQueue(motivo: CustomerAtencionMotivo) {
+    if (query.motivo === motivo && !query.workTray) {
+      onQueryChange({
+        ...query,
+        statusFilter: "all",
+        operationalCategory: null,
+        workTray: null,
+        motivo: "all",
+      })
+      return
+    }
+
     onQueryChange({
       ...query,
       statusFilter: "all",
@@ -432,6 +439,8 @@ export function ConsultationKpiStrip({
   }
 
   function selectAllTrays() {
+    // UX 3.1 — clear only the active work queue / indicator selection.
+    // Fecha, motivo and canal stay as operational filters on the bandeja.
     onQueryChange({
       ...query,
       statusFilter: "all",

@@ -233,3 +233,40 @@ test("timeline conserva comentarios y orden cronológico ASC", () => {
   assert.equal(cards[1]?.areaLabel, "Área Técnica")
   assert.match(cards[1]?.closingNote ?? "", /Atención al Cliente/)
 })
+
+test("timeline de creación resuelta incluye resolución y resultado en un solo bloque", () => {
+  const cards = buildConsultationTimelineCards(
+    [
+      {
+        id: "e1",
+        companyId: "c1",
+        customerAtencionId: "a1",
+        employeeId: "emp-1",
+        actionType: "consulta_creada",
+        detail: null,
+        previousStatus: null,
+        newStatus: "resuelta",
+        previousNextStep: null,
+        newNextStep: null,
+        createdAt: "2026-07-14T09:00:00.000Z",
+      },
+    ],
+    {
+      motivo: "consulta_tv",
+      detail: "No enciende el decodificador",
+      resolution: "Se reinició el equipo y quedó operativo",
+    }
+  )
+
+  assert.equal(cards.length, 1)
+  assert.equal(cards[0]?.eventTitle, "CREACIÓN DE LA CONSULTA")
+  assert.deepEqual(
+    cards[0]?.facts.map((fact) => [fact.label, fact.value]),
+    [
+      ["Motivo", "Consulta sobre TV"],
+      ["Detalle", "No enciende el decodificador"],
+      ["Resolución", "Se reinició el equipo y quedó operativo"],
+      ["Resultado", "Consulta resuelta"],
+    ]
+  )
+})

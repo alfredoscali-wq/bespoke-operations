@@ -570,14 +570,14 @@ export function computeSharedInboxKpis(
     }
 
     if (
-      matchesConsultasRecibidasHoyKpi(row, referenceDate) &&
+      isActiveConsultationStatus(row.status) &&
       row.motivo === "consulta_comercial"
     ) {
       consulta_comercial += 1
     }
 
     if (
-      matchesConsultasRecibidasHoyKpi(row, referenceDate) &&
+      isActiveConsultationStatus(row.status) &&
       row.motivo === "consulta_tv"
     ) {
       consulta_tv += 1
@@ -965,13 +965,18 @@ function createStatusChipCountQuery(
 /**
  * Counts for bandeja quick filters (Todas / Pendientes / Para resolver / Resueltas hoy).
  * Uses filterSharedInboxRows so chip counts and the table filter cannot diverge.
+ * Discovery rows already carry motivo/canal/fecha/search; chips only vary by status.
  */
 export function computeSharedInboxStatusFilterCounts(
   discoveryRows: CustomerAtencionInboxRow[],
   referenceDate: Date = new Date()
 ): SharedInboxStatusFilterCounts {
   return {
-    all: discoveryRows.length,
+    all: filterSharedInboxRows(
+      discoveryRows,
+      createStatusChipCountQuery("all"),
+      referenceDate
+    ).length,
     pendiente: filterSharedInboxRows(
       discoveryRows,
       createStatusChipCountQuery("pendiente"),

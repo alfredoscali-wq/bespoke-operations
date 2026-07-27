@@ -176,14 +176,15 @@ export function formatConsultationInboxSituationLabel(row: {
       return "Derivada a Ventas"
     case "resolver_consulta_tecnica":
       return "Derivada a Técnica"
-    case "derivar_admin_facturacion":
     case "derivar_admin_morosos":
+      return "Facturación - Morosos"
+    case "derivar_admin_facturacion":
     case "derivar_admin_gestion":
       return "Derivada a Administración"
     case "esperar_cliente":
       return "Esperando respuesta del cliente"
     case "realizar_retencion":
-      return "Pendiente de retención"
+      return "Pendiente de Retención"
     case "generar_ot":
       return "OT pendiente de generar"
     case "seguimiento_cliente":
@@ -981,6 +982,15 @@ function buildTimelineCard(
       }
       if (context.detail?.trim()) {
         facts.push({ label: "Detalle", value: context.detail.trim() })
+      }
+
+      // Resolve-at-create: keep a single timeline block (no separate cierre event).
+      if (event.newStatus === "resuelta") {
+        const resolutionText = context.resolution?.trim()
+        if (resolutionText) {
+          facts.push({ label: "Resolución", value: resolutionText })
+        }
+        facts.push({ label: "Resultado", value: "Consulta resuelta" })
       }
 
       return {

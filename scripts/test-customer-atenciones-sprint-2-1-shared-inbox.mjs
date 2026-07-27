@@ -397,20 +397,36 @@ test("31. KPIs de bandeja usan conteos company-wide en la base de datos", () => 
   assert.match(queriesSource, /fetchSharedInboxResolvedTodayCount/)
   assert.match(queriesSource, /fetchSharedInboxActiveNextStepCount/)
   assert.match(queriesSource, /fetchSharedInboxNuevasKpiCount/)
+  assert.match(queriesSource, /kpis: kpisResult\.data/)
   assert.doesNotMatch(
     queriesSource,
-    /kpis: computeSharedInboxKpis\(sourceResult\.data/
+    /kpis: computeSharedInboxKpis\(/
   )
 })
 
-test("32. Bandeja carga consultas activas y resueltas recientes por separado", () => {
+test("32. Bandeja carga consultas activas y resueltas del día por separado", () => {
   const queriesSource = readFileSync(queriesPath, "utf8")
 
   assert.match(queriesSource, /SHARED_INBOX_ACTIVE_STATUSES/)
   assert.match(queriesSource, /\.in\("status", SHARED_INBOX_ACTIVE_STATUSES\)/)
   assert.match(queriesSource, /\.eq\("status", "resuelta"\)/)
+  assert.match(queriesSource, /\.gte\("updated_at", dayBounds\.start\)/)
+  assert.match(queriesSource, /recentResolvedResult/)
   assert.match(
     queriesSource,
     /\.order\("updated_at", \{ ascending: false \}\)/
   )
+})
+
+test("kpi strip no resetea el filtro de motivo al ocultar la cola pendiente", () => {
+  const stripPath = join(
+    __dirname,
+    "../components/atencion-cliente/consultation-kpi-strip.tsx"
+  )
+  const source = readFileSync(stripPath, "utf8")
+  assert.doesNotMatch(
+    source,
+    /Clear motivo filter when its queue card disappears/
+  )
+  assert.doesNotMatch(source, /motivo: "all",\s*\}\)\s*\n\s*\}\s*\n\s*\}, \[hasMotivoFilter/)
 })
