@@ -9,6 +9,7 @@ import {
   Phone,
   RefreshCw,
   Settings2,
+  Share2,
   StickyNote,
   Users,
 } from "lucide-react"
@@ -29,6 +30,7 @@ export const COMMERCIAL_ACTIVITY_TYPE_ICONS: Record<
   tarea: FileText,
   seguimiento: RefreshCw,
   cambio_estado: ArrowLeftRight,
+  derivacion: Share2,
   sistema: Settings2,
 }
 

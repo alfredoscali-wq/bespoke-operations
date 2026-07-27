@@ -78,6 +78,10 @@ export const COMMERCIAL_ACTIVITY_TYPE_TONE: Record<
     icon: "bg-blue-50 text-blue-600",
     badge: "bg-blue-50 text-blue-700",
   },
+  derivacion: {
+    icon: "bg-indigo-50 text-indigo-600",
+    badge: "bg-indigo-50 text-indigo-700",
+  },
   llamada: {
     icon: "bg-emerald-50 text-emerald-600",
     badge: "bg-emerald-50 text-emerald-700",

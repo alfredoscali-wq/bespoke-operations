@@ -468,4 +468,32 @@ export class CommercialOpportunityService {
   ): Promise<CommercialRepositoryResult<CommercialOpportunity[]>> {
     return this.repository.bulkAssign(companyId, payload)
   }
+
+  /**
+   * Marks the first seller open of a dossier. Idempotent if already opened.
+   */
+  async markSellerOpened(
+    id: string,
+    updatedBy?: string | null
+  ): Promise<CommercialRepositoryResult<CommercialOpportunity>> {
+    const existing = await this.repository.getById(id)
+    if (existing.error || !existing.data) {
+      return {
+        data: null,
+        error: existing.error ?? {
+          code: "NOT_FOUND",
+          message: "Oportunidad no encontrada.",
+        },
+      }
+    }
+
+    if (existing.data.sellerOpenedAt) {
+      return existing
+    }
+
+    return this.repository.update(id, {
+      sellerOpenedAt: new Date().toISOString(),
+      updatedBy: updatedBy ?? null,
+    })
+  }
 }

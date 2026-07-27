@@ -1366,6 +1366,9 @@ export type Database = {
           latitude: number | null
           longitude: number | null
           location_source: CommercialLocationSource | null
+          seller_opened_at: string | null
+          source_atencion_id: string | null
+          source_customer_id: string | null
           created_by: string | null
           updated_by: string | null
           deleted_by: string | null
@@ -1391,6 +1394,9 @@ export type Database = {
           latitude?: number | null
           longitude?: number | null
           location_source?: CommercialLocationSource | null
+          seller_opened_at?: string | null
+          source_atencion_id?: string | null
+          source_customer_id?: string | null
           created_by?: string | null
           updated_by?: string | null
           deleted_by?: string | null
@@ -1416,6 +1422,9 @@ export type Database = {
           latitude?: number | null
           longitude?: number | null
           location_source?: CommercialLocationSource | null
+          seller_opened_at?: string | null
+          source_atencion_id?: string | null
+          source_customer_id?: string | null
           created_by?: string | null
           updated_by?: string | null
           deleted_by?: string | null

@@ -8,6 +8,7 @@ export const COMMERCIAL_ACTIVITY_TYPE_CODES = [
   "tarea",
   "seguimiento",
   "cambio_estado",
+  "derivacion",
   "sistema",
 ] as const
 
@@ -40,6 +41,7 @@ export const COMMERCIAL_ACTIVITY_TYPE_LABELS: Record<
   tarea: "Tarea",
   seguimiento: "Seguimiento",
   cambio_estado: "Cambio de Estado",
+  derivacion: "Derivación desde Atención al Cliente",
   sistema: "Sistema",
 }
 

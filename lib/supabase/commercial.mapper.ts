@@ -183,6 +183,9 @@ export function mapCommercialOpportunityRowToOpportunity(
         : Number(row.longitude),
     locationSource: (row.location_source ??
       null) as CommercialLocationSource | null,
+    sellerOpenedAt: row.seller_opened_at ?? null,
+    sourceAtencionId: row.source_atencion_id ?? null,
+    sourceCustomerId: row.source_customer_id ?? null,
     createdBy: row.created_by,
     updatedBy: row.updated_by,
     deletedBy: row.deleted_by,
@@ -213,6 +216,9 @@ export function mapCreateCommercialOpportunityPayloadToInsert(
     longitude:
       payload.longitude == null ? null : roundCoordinate(payload.longitude),
     location_source: payload.locationSource ?? null,
+    seller_opened_at: payload.sellerOpenedAt ?? null,
+    source_atencion_id: payload.sourceAtencionId ?? null,
+    source_customer_id: payload.sourceCustomerId ?? null,
     created_by: payload.createdBy ?? null,
   }
 
@@ -260,6 +266,15 @@ export function mapUpdateCommercialOpportunityPayloadToUpdate(
   }
   if (payload.locationSource !== undefined) {
     update.location_source = payload.locationSource
+  }
+  if (payload.sellerOpenedAt !== undefined) {
+    update.seller_opened_at = payload.sellerOpenedAt
+  }
+  if (payload.sourceAtencionId !== undefined) {
+    update.source_atencion_id = payload.sourceAtencionId
+  }
+  if (payload.sourceCustomerId !== undefined) {
+    update.source_customer_id = payload.sourceCustomerId
   }
   if (payload.updatedBy !== undefined) update.updated_by = payload.updatedBy
 

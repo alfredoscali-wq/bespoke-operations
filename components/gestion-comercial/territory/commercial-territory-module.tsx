@@ -378,7 +378,7 @@ function CommercialTerritoryContent() {
             variant="outline"
             onClick={() => router.push("/gestion-comercial")}
           >
-            Bandeja
+            Inicio
           </Button>
           <Button
             type="button"

@@ -57,6 +57,9 @@ export type CommercialOpportunity = {
   latitude: number | null
   longitude: number | null
   locationSource: CommercialLocationSource | null
+  sellerOpenedAt: string | null
+  sourceAtencionId: string | null
+  sourceCustomerId: string | null
   createdBy: string | null
   updatedBy: string | null
   deletedBy: string | null

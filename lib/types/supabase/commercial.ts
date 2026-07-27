@@ -80,6 +80,9 @@ export type CreateCommercialOpportunityPayload = {
   latitude?: number | null
   longitude?: number | null
   locationSource?: CommercialLocationSource | null
+  sellerOpenedAt?: string | null
+  sourceAtencionId?: string | null
+  sourceCustomerId?: string | null
   createdBy?: string | null
   /** Leave empty to auto-generate OP-###### via DB trigger. */
   code?: string
@@ -100,6 +103,9 @@ export type UpdateCommercialOpportunityPayload = Partial<{
   latitude: number | null
   longitude: number | null
   locationSource: CommercialLocationSource | null
+  sellerOpenedAt: string | null
+  sourceAtencionId: string | null
+  sourceCustomerId: string | null
   updatedBy: string | null
 }>
 

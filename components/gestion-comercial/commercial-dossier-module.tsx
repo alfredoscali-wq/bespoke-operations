@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 
 import { CommercialActivityDrawer } from "@/components/gestion-comercial/commercial-activity-drawer"
 import { CommercialActivityQuickActions } from "@/components/gestion-comercial/commercial-activity-quick-actions"
@@ -49,6 +49,7 @@ function CommercialDossierContent({
   opportunityId,
 }: CommercialDossierContentProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { employees } = useEmployees()
   const { loadDossier, upsertPersonLocal, upsertOpportunityLocal } =
     useCommercialContextLoad()
@@ -90,11 +91,39 @@ function CommercialDossierContent({
       setOpportunity(result.opportunity)
       setPerson(result.person)
       setIsLoading(false)
+
+      if (!result.opportunity.sellerOpenedAt) {
+        void fetch(
+          `/api/gestion-comercial/opportunities/${opportunityId}/open`,
+          { method: "POST" }
+        )
+          .then(async (response) => {
+            const payload = (await response.json().catch(() => null)) as {
+              success?: boolean
+              opportunity?: CommercialOpportunity
+            } | null
+            if (!response.ok || !payload?.success || !payload.opportunity) return
+            if (cancelled) return
+            setOpportunity(payload.opportunity)
+            upsertOpportunityLocal(payload.opportunity)
+          })
+          .catch(() => {
+            /* non-blocking */
+          })
+      }
     })()
     return () => {
       cancelled = true
     }
-  }, [loadDossier, opportunityId])
+  }, [loadDossier, opportunityId, upsertOpportunityLocal])
+
+  useEffect(() => {
+    if (isLoading || !opportunity) return
+    if (searchParams.get("action") !== "activity") return
+    setEditingActivity(null)
+    setDefaultActivityType("nota")
+    setActivityDrawerOpen(true)
+  }, [isLoading, opportunity, searchParams])
 
   const responsibleName = useMemo(() => {
     if (!opportunity?.assignedEmployeeId) return ""
@@ -155,7 +184,7 @@ function CommercialDossierContent({
           variant="outline"
           onClick={() => router.push("/gestion-comercial")}
         >
-          Volver a Bandeja
+          Volver al inicio
         </Button>
       </div>
     )

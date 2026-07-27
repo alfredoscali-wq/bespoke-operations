@@ -234,6 +234,17 @@ export async function deferCustomerAtencionConsultation(input: {
       detail: input.detail,
       kind: "defer",
     })
+    if (result.data.newNextStep === "contactar_cliente") {
+      void import("@/lib/commercial/derive-from-customer-service").then(
+        ({ deriveCommercialOpportunityFromCustomerService }) =>
+          deriveCommercialOpportunityFromCustomerService({
+            companyId: input.companyId,
+            atencionId: input.atencionId,
+            employeeId: input.employeeId,
+            detail: input.detail,
+          })
+      )
+    }
   }
   return result
 }
@@ -364,6 +375,20 @@ export async function registerCustomerAtencionInteraction(input: {
     result: parsed,
     clientInteraction: input.clientInteraction ?? null,
   })
+
+  const derivedNextStep =
+    input.clientInteraction?.nextStep?.trim() || parsed.nextStep
+  if (derivedNextStep === "contactar_cliente") {
+    void import("@/lib/commercial/derive-from-customer-service").then(
+      ({ deriveCommercialOpportunityFromCustomerService }) =>
+        deriveCommercialOpportunityFromCustomerService({
+          companyId: input.companyId,
+          atencionId: input.atencionId,
+          employeeId: input.employeeId,
+          detail: input.detail,
+        })
+    )
+  }
 
   return { ok: true, data: parsed }
 }

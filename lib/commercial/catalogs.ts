@@ -29,6 +29,7 @@ export const COMMERCIAL_SOURCE_CODES = [
   "instagram",
   "referido",
   "sucursal",
+  "atencion_cliente",
   "otro",
 ] as const
 
@@ -59,6 +60,7 @@ export const COMMERCIAL_SOURCE_LABELS: Record<CommercialSourceCode, string> = {
   instagram: "Instagram",
   referido: "Referido",
   sucursal: "Sucursal",
+  atencion_cliente: "Atención al Cliente",
   otro: "Otro",
 }
 
