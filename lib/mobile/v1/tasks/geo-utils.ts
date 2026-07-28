@@ -1,3 +1,9 @@
+/**
+ * Max distance to allow starting an OT (address proximity).
+ * Distinct from Presence Engine operational geofence radius —
+ * see `DEFAULT_OPERATIONAL_PRESENCE_RADIUS_METERS` in `lib/presence`.
+ * Do not reuse this constant for presence ENTER/EXIT validation.
+ */
 export const TASK_START_MAX_DISTANCE_METERS = 50
 
 /**

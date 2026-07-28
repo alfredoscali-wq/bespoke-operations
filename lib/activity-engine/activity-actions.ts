@@ -25,6 +25,9 @@ export const ACTIVITY_ACTIONS = {
   CASE_CLOSED: "CASE_CLOSED",
   /** Customer Service — unified client contact (Sprint 1.1C) */
   CUSTOMER_INTERACTION: "CUSTOMER_INTERACTION",
+  /** Presence Engine — business facts only (never HEARTBEAT) */
+  PRESENCE_ENTER_RADIUS: "PRESENCE_ENTER_RADIUS",
+  PRESENCE_EXIT_RADIUS: "PRESENCE_EXIT_RADIUS",
 } as const
 
 export type ActivityAction =
