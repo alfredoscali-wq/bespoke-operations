@@ -13,6 +13,8 @@ type TaskReferencePhotosPickerProps = {
   photos: PendingTaskReferencePhoto[]
   onChange: (photos: PendingTaskReferencePhoto[]) => void
   disabled?: boolean
+  /** When true, show required indicator and empty-state help copy. */
+  required?: boolean
   onError?: (message: string | null) => void
 }
 
@@ -29,6 +31,7 @@ export function TaskReferencePhotosPicker({
   photos,
   onChange,
   disabled = false,
+  required = false,
   onError,
 }: TaskReferencePhotosPickerProps) {
   const inputRef = useRef<HTMLInputElement>(null)
@@ -82,8 +85,23 @@ export function TaskReferencePhotosPicker({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <Label>Fotos para la Cuadrilla</Label>
+      <div className="flex items-start justify-between gap-3">
+        <div className="space-y-0.5">
+          <Label>
+            Fotografías
+            {required ? (
+              <span className="text-destructive" aria-hidden>
+                {" "}
+                *
+              </span>
+            ) : null}
+          </Label>
+          {required ? (
+            <p className="text-xs text-muted-foreground">(obligatorio)</p>
+          ) : (
+            <p className="text-xs text-muted-foreground">Fotos para la Cuadrilla</p>
+          )}
+        </div>
         <Button
           type="button"
           variant="outline"
@@ -104,6 +122,13 @@ export function TaskReferencePhotosPicker({
           onChange={handleSelectFiles}
         />
       </div>
+
+      {required && photos.length === 0 ? (
+        <p className="rounded-md border border-dashed bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
+          Adjunte al menos una fotografía del lugar donde deberá realizarse el
+          trabajo.
+        </p>
+      ) : null}
 
       {photos.length > 0 ? (
         <div className="space-y-3">

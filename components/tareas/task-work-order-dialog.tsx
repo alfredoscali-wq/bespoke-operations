@@ -536,6 +536,7 @@ function WorkOrderCrewInfoFields({
   referencePhotos,
   onReferencePhotosChange,
   photosDisabled,
+  photosRequired,
   onPhotosError,
 }: {
   form: WorkOrderFormInput
@@ -546,6 +547,7 @@ function WorkOrderCrewInfoFields({
   referencePhotos: PendingTaskReferencePhoto[]
   onReferencePhotosChange: (photos: PendingTaskReferencePhoto[]) => void
   photosDisabled?: boolean
+  photosRequired?: boolean
   onPhotosError?: (message: string | null) => void
 }) {
   return (
@@ -569,6 +571,7 @@ function WorkOrderCrewInfoFields({
         photos={referencePhotos}
         onChange={onReferencePhotosChange}
         disabled={photosDisabled}
+        required={photosRequired}
         onError={onPhotosError}
       />
     </section>
@@ -841,6 +844,13 @@ export function TaskWorkOrderDialog({
     const crewValidation = validateCrewAssignment(selectedCrew)
     if (!crewValidation.allowed) {
       setError(crewValidation.message ?? "Cuadrilla no disponible.")
+      return false
+    }
+
+    if (!isEditMode && referencePhotos.length < 1) {
+      setError(
+        "Debe adjuntar al menos una fotografía antes de generar la Orden de Trabajo."
+      )
       return false
     }
 
@@ -1138,8 +1148,19 @@ export function TaskWorkOrderDialog({
               form={form}
               updateField={updateField}
               referencePhotos={referencePhotos}
-              onReferencePhotosChange={setReferencePhotos}
+              onReferencePhotosChange={(photos) => {
+                setReferencePhotos(photos)
+                if (photos.length >= 1) {
+                  setError((current) =>
+                    current ===
+                    "Debe adjuntar al menos una fotografía antes de generar la Orden de Trabajo."
+                      ? null
+                      : current
+                  )
+                }
+              }}
               photosDisabled={isSubmitting}
+              photosRequired={!isEditMode}
               onPhotosError={setPhotosError}
             />
           )}
