@@ -716,11 +716,15 @@ Futuro Mapa Timeline Tiempo efectivo Alertas Heatmaps Productividad
 
 ## 5. REPORTING ENGINE
 
-Estado DISEÑADO
+Estado Arquitectura Accepted (ADR-010). Implementación pendiente. Migración gradual.
 
 ---
 
 Objetivo Centralizar absolutamente todos los indicadores históricos. Nunca contaminar pantallas operativas.
+
+---
+
+Canónico oficial (ADR-010 Accepted) Motor canónico de lectura analítica y fuente única para reportes históricos. Solo lee; nunca escribe, modifica ni registra eventos. Interpreta dominios (estado) + Activity (hechos) + Presence (presencia / tiempo efectivo). Dashboard = presente; Reporting = período. `lib/reports` = legacy; `lib/reporting-engine` se construye progresivamente. Documento: `docs/architecture/adr/ADR-010-reporting-engine-canonical.md`.
 
 ---
 
@@ -945,6 +949,10 @@ ADR-008 Los Engines son reutilizables por cualquier módulo.
 ---
 
 ADR-009 Activity Engine canónico en `lib/activity-engine`. Toda nueva integración registra eventos con `activity.record()` (o bridges oficiales que desemboquen en él). Constituye la memoria histórica de los hechos relevantes del negocio y será la fuente transversal para Reporting, Automation e IA. Documento: `docs/architecture/adr/ADR-009-activity-engine-canonical.md`.
+
+---
+
+ADR-010 Reporting Engine canónico (Accepted): motor oficial de lectura analítica y fuente única para reportes históricos. Solo lee; nunca escribe, modifica ni registra eventos. Dominios = estado; Activity = hechos; Presence = presencia / tiempo efectivo. Dashboard = ahora; Reporting = período. `lib/reports` = legacy; `lib/reporting-engine` = construcción progresiva. Documento: `docs/architecture/adr/ADR-010-reporting-engine-canonical.md`.
 
 Esta sección documenta la evolución del proyecto, las decisiones de diseño más importantes y el razonamiento detrás de cada una. El objetivo es conservar el conocimiento del proyecto y evitar perder contexto con el paso del tiempo.
 
