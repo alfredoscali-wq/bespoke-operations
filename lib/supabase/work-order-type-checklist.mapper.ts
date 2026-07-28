@@ -75,7 +75,7 @@ export function mapChecklistItemUpdate(input: {
     update.required = input.required
   }
   if (input.sortOrder !== undefined) {
-    update.sort_order = input.sortOrder
+    update.sort_order = input.sortOrder ?? undefined
   }
 
   return update

@@ -1,7 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
-import type { Database, TaskPhotoRow } from "@/lib/supabase/database.types"
+import type { TaskPhotoRow } from "@/lib/supabase/database.aliases"
+import type { Database } from "@/lib/supabase/database.types"
 import { mapTaskPhotoRowToTaskPhoto } from "@/lib/supabase/task-photos.mapper"
 import {
   TASK_PHOTOS_STORAGE_BUCKET,

@@ -5,7 +5,7 @@ import type {
   CrewMemberUpdate,
   CrewRow,
   CrewUpdate,
-} from "@/lib/supabase/database.types"
+} from "@/lib/supabase/database.aliases"
 import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
 import { formatHabitualStartTimeForDb } from "@/lib/crews/operational-config"
 import type { Crew, CrewMember } from "@/lib/types/crews"

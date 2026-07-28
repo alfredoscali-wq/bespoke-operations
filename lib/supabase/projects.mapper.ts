@@ -1,4 +1,4 @@
-import type { ProjectInsert, ProjectRow, ProjectUpdate } from "@/lib/supabase/database.types"
+import type { ProjectInsert, ProjectRow, ProjectUpdate } from "@/lib/supabase/database.aliases"
 import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
 import type { ProjectPauseReason, Project } from "@/lib/types/projects"
 import type {

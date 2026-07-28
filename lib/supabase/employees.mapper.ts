@@ -1,9 +1,9 @@
-import type { EmployeeRow } from "@/lib/supabase/database.types"
+import type { EmployeeRow } from "@/lib/supabase/database.aliases"
 import {
   mapEmployeeTypeJoinedRow,
   type EmployeeTypeJoinedRow,
 } from "@/lib/supabase/employee-types.mapper"
-import type { EmployeeInsert, EmployeeUpdate } from "@/lib/supabase/database.types"
+import type { EmployeeInsert, EmployeeUpdate } from "@/lib/supabase/database.aliases"
 import type { Employee } from "@/lib/types/employees"
 import type {
   CreateEmployeePayload,

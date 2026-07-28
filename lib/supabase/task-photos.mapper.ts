@@ -1,5 +1,5 @@
-import type { TaskPhotoRow } from "@/lib/supabase/database.types"
-import type { TaskPhoto } from "@/lib/types/task-photos"
+import type { TaskPhotoRow } from "@/lib/supabase/database.aliases"
+import type { TaskPhoto, TaskPhotoType } from "@/lib/types/task-photos"
 
 export function mapTaskPhotoRowToTaskPhoto(
   row: TaskPhotoRow,
@@ -8,7 +8,7 @@ export function mapTaskPhotoRowToTaskPhoto(
   return {
     id: row.id,
     taskId: row.task_id,
-    photoType: row.photo_type,
+    photoType: row.photo_type as TaskPhotoType,
     operationalStepId: row.operational_step_id,
     fileUrl: row.file_url ?? row.storage_path,
     fileName: row.file_name,

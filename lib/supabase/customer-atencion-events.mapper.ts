@@ -6,7 +6,7 @@ import { isConsultationInteractionKind } from "@/lib/customer-atenciones/consult
 import type {
   CustomerAtencionEventInsert,
   CustomerAtencionEventRow,
-} from "@/lib/supabase/database.types"
+} from "@/lib/supabase/database.aliases"
 import type {
   ConsultationInteractionKind,
   CustomerAtencionEvent,

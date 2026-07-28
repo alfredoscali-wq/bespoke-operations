@@ -439,7 +439,12 @@ export async function findActiveTasksForProject(
   }
 
   return {
-    data: { tasks: activeTasks },
+    data: {
+      tasks: activeTasks.map((task) => ({
+        id: task.id,
+        status: task.status as TaskStatus,
+      })),
+    },
     error: null,
   }
 }

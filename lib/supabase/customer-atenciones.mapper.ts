@@ -10,7 +10,7 @@ import { DEFAULT_MOROSO_TRACKING_STATUS, isMorosoTrackingStatus } from "@/lib/cu
 import type {
   CustomerAtencionInsert,
   CustomerAtencionRow,
-} from "@/lib/supabase/database.types"
+} from "@/lib/supabase/database.aliases"
 import {
   CUSTOMER_ATENCION_DEFAULT_RESULTADO,
   type CustomerAtencion,

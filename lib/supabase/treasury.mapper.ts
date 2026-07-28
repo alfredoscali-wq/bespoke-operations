@@ -1,4 +1,4 @@
-import type { TreasuryMovementUpdate } from "@/lib/supabase/database.types"
+import type { TreasuryMovementUpdate } from "@/lib/supabase/database.aliases"
 import type {
   CreateTreasuryMovementInput,
   TreasuryMovement,

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
-import type { Database, EvidenceRow } from "@/lib/supabase/database.types"
+import type { EvidenceRow } from "@/lib/supabase/database.aliases"
+import type { Database } from "@/lib/supabase/database.types"
 import {
   mapCreatePayloadToInsert,
   mapEvidenceRowToRecord,

@@ -1,7 +1,7 @@
 import type {
   CustomerRecuperacionInsert,
   CustomerRecuperacionRow,
-} from "@/lib/supabase/database.types"
+} from "@/lib/supabase/database.aliases"
 import type {
   CustomerRecuperacion,
   CustomerRecuperacionChannel,

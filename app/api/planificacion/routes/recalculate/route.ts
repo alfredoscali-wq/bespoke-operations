@@ -5,8 +5,8 @@ import { recalculateCrewJourneyTravel } from "@/lib/engines/planning/services/re
 import { createAdminClient } from "@/lib/supabase/admin"
 import { mapCrewRowToCrew } from "@/lib/supabase/crews.mapper"
 import { mapTaskRowToTask } from "@/lib/supabase/tasks.mapper"
-import type { CrewRow } from "@/lib/supabase/database.types"
-import type { Json, TaskRow } from "@/lib/supabase/database.types"
+import type { CrewRow, TaskRow } from "@/lib/supabase/database.aliases"
+import type { Json } from "@/lib/supabase/database.types"
 
 type Body = {
   crewId?: string

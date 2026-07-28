@@ -5,6 +5,7 @@ import type {
   RecordActivityEventInput,
 } from "@/lib/activity/types"
 import type { SupabaseAdminClient } from "@/lib/supabase/admin"
+import type { Database } from "@/lib/supabase/database.types"
 
 type ActivityEventDbRow = {
   id: string
@@ -66,7 +67,9 @@ export async function recordActivityEventWithClient(
 
   const { data: eventId, error: rpcError } = await client.rpc(
     "record_activity_event",
-    args
+    // Generated Args use optional `number` (not `null`) for geo/result fields;
+    // app payload keeps null. Cast preserves runtime behavior after gen types.
+    args as Database["public"]["Functions"]["record_activity_event"]["Args"]
   )
 
   if (rpcError || !eventId) {

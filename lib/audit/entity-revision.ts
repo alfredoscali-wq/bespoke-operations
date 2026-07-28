@@ -46,7 +46,13 @@ export async function resolveNextEntityAuditRevision(
     return 1
   }
 
-  return parseAuditRevision(data?.metadata?.revision) + 1
+  const metadata = data?.metadata
+  const revision =
+    metadata && typeof metadata === "object" && !Array.isArray(metadata)
+      ? (metadata as { revision?: unknown }).revision
+      : undefined
+
+  return parseAuditRevision(revision) + 1
 }
 
 const REVISION_TRACKED_ENTITIES = new Set<AuditEntityType>([

@@ -2,7 +2,7 @@ import type {
   EmployeeAvailabilityInsert,
   EmployeeAvailabilityRow,
   EmployeeAvailabilityUpdate,
-} from "@/lib/supabase/database.types"
+} from "@/lib/supabase/database.aliases"
 import type { AvailabilityType, EmployeeAvailability } from "@/lib/types/availability"
 import type {
   CreateEmployeeAvailabilityPayload,

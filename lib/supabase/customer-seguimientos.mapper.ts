@@ -2,7 +2,7 @@ import type {
   CustomerSeguimientoInsert,
   CustomerSeguimientoRow,
   CustomerSeguimientoUpdate,
-} from "@/lib/supabase/database.types"
+} from "@/lib/supabase/database.aliases"
 import type {
   CustomerSeguimiento,
   CustomerSeguimientoStatus,

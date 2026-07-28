@@ -21,7 +21,8 @@ import {
 import type { CustomerOperationalSummary } from "@/lib/customers/customer-operational"
 import { CUSTOMER_STATUS_PENDING_ACTIVATION } from "@/lib/customers/format"
 import { CUSTOMER_DELETE_BLOCKED_MESSAGE } from "@/lib/customers/customer-delete"
-import type { Database, CustomerRow } from "@/lib/supabase/database.types"
+import type { CustomerRow } from "@/lib/supabase/database.aliases"
+import type { Database } from "@/lib/supabase/database.types"
 import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
 import {
   mapCustomerInsert,

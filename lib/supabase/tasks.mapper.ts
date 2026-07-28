@@ -1,8 +1,9 @@
-import type { Json, TaskInsert, TaskRow, TaskUpdate } from "@/lib/supabase/database.types"
+import type { TaskInsert, TaskRow, TaskUpdate } from "@/lib/supabase/database.aliases"
+import type { Json } from "@/lib/supabase/database.types"
 import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
 import { getInitialTaskStatus } from "@/lib/tasks/task-status-workflow"
 import { normalizeTaskStatusFromDatabase } from "@/lib/tasks/task-archived-status"
-import type { ChecklistItem, OperationalStep, Task } from "@/lib/types/tasks"
+import type { ChecklistItem, OperationalStep, Task, TaskStatus } from "@/lib/types/tasks"
 import type {
   CreateTaskPayload,
   UpdateTaskPayload,
@@ -81,7 +82,7 @@ export function mapTaskRowToTask(row: TaskRow): Task {
     observationsForCrew: row.observations_for_crew?.trim() || undefined,
     workOrderNumber: row.work_order_number ?? undefined,
     type: row.type,
-    status: normalizeTaskStatusFromDatabase(row.status),
+    status: normalizeTaskStatusFromDatabase(row.status as TaskStatus),
     priority: row.priority,
     supervisor: row.supervisor,
     crewId: row.crew_id ?? undefined,

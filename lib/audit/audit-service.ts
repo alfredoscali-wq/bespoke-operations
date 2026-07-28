@@ -23,6 +23,7 @@ import {
   type WriteAuditLogInput,
 } from "@/lib/audit/types"
 import type { SupabaseAdminClient } from "@/lib/supabase/admin"
+import type { Database } from "@/lib/supabase/database.types"
 
 type SystemAuditLogRow = {
   id: string
@@ -174,7 +175,7 @@ export async function writeAuditLog(
       ...performedBy,
       ip_address: input.ipAddress?.trim() || null,
       user_agent: input.userAgent?.trim() || null,
-      metadata,
+      metadata: metadata as Database["public"]["Tables"]["system_audit_log"]["Insert"]["metadata"],
     })
     .select("*")
     .single()

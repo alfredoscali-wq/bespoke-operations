@@ -4,7 +4,7 @@ import type {
   EvidenceInsert,
   EvidenceRow,
   EvidenceUpdate,
-} from "@/lib/supabase/database.types"
+} from "@/lib/supabase/database.aliases"
 import type {
   EvidenceComment,
   EvidenceRecord,

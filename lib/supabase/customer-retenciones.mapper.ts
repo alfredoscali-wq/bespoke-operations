@@ -2,7 +2,7 @@ import type {
   CustomerRetencionInsert,
   CustomerRetencionRow,
   CustomerRetencionUpdate,
-} from "@/lib/supabase/database.types"
+} from "@/lib/supabase/database.aliases"
 import type {
   CustomerRetencion,
   CustomerRetencionMotivoBaja,

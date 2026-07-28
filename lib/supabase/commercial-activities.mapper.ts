@@ -7,8 +7,8 @@ import type {
   CommercialActivityRow,
   CommercialActivityTypeRow,
   CommercialActivityUpdate,
-  Json,
-} from "@/lib/supabase/database.types"
+} from "@/lib/supabase/database.aliases"
+import type { Json } from "@/lib/supabase/database.types"
 import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
 import type {
   CommercialActivity,
