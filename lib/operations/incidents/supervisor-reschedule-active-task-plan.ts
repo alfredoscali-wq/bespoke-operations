@@ -202,7 +202,10 @@ export function buildSupervisorRescheduleActiveTaskPlan(input: {
       scheduledTime: input.rescheduleInput.scheduledTime,
       reason: input.rescheduleInput.reason,
     },
-    input.referenceDate
+    {
+      referenceDate: input.referenceDate,
+      current: input.task,
+    }
   )
 
   if (!scheduleValidation.allowed) {

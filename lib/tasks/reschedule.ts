@@ -3,7 +3,9 @@ import {
   getDefaultScheduledTime,
   normalizeScheduledTimeForDb,
 } from "@/lib/tasks/scheduling"
-import { validateRescheduleFromVencida } from "@/lib/tasks/vencida-status"
+import {
+  validateRescheduleFromVencida,
+} from "@/lib/tasks/vencida-status"
 import type { Task } from "@/lib/types/tasks"
 import type { UpdateTaskPayload } from "@/lib/types/supabase/tasks"
 
@@ -36,6 +38,12 @@ export const TASK_RESCHEDULE_REASON_LABELS: Record<
   TASK_RESCHEDULE_REASONS.map((item) => [item.value, item.label])
 ) as Record<TaskRescheduleReason, string>
 
+export const TASK_RESCHEDULE_SAME_SCHEDULE_MESSAGE =
+  "La nueva programación debe ser distinta de la programación actual."
+
+export const TASK_RESCHEDULE_PAST_SCHEDULE_MESSAGE =
+  "No puede reprogramar una Orden de Trabajo para una fecha u hora pasada."
+
 export function resolveRescheduleReasonLabel(
   reason: string | null | undefined
 ): string {
@@ -58,15 +66,41 @@ export type TaskRescheduleInput = {
   rescheduledBy: string
 }
 
+export type TaskRescheduleCurrentSchedule = Pick<
+  Task,
+  "dueDate" | "scheduledTime"
+>
+
+function normalizeScheduleKey(
+  dueDate: string,
+  scheduledTime: string | null | undefined
+): string {
+  const dateKey = dueDate.trim()
+  const timeKey =
+    formatScheduledTimeForInput(scheduledTime) || getDefaultScheduledTime()
+  return `${dateKey}|${timeKey}`
+}
+
+/**
+ * Business rules for OT reschedule (shared by dialogs, client mutations, server).
+ * Does not mutate state; callers must abort when `allowed` is false.
+ */
 export function validateTaskRescheduleInput(
   input: Pick<TaskRescheduleInput, "dueDate" | "scheduledTime" | "reason">,
-  referenceDate = new Date()
+  options?: {
+    referenceDate?: Date
+    current?: TaskRescheduleCurrentSchedule | null
+  }
 ): { allowed: boolean; message?: string } {
-  if (!input.dueDate.trim()) {
+  const referenceDate = options?.referenceDate ?? new Date()
+  const dueDate = input.dueDate.trim()
+  const scheduledTime = input.scheduledTime.trim()
+
+  if (!dueDate) {
     return { allowed: false, message: "Seleccione una nueva fecha." }
   }
 
-  if (!input.scheduledTime.trim()) {
+  if (!scheduledTime) {
     return { allowed: false, message: "Indique la hora programada." }
   }
 
@@ -74,11 +108,35 @@ export function validateTaskRescheduleInput(
     return { allowed: false, message: "Seleccione un motivo de reprogramación." }
   }
 
-  return validateRescheduleFromVencida({
-    dueDate: input.dueDate.trim(),
-    scheduledTime: input.scheduledTime.trim(),
+  const current = options?.current
+  if (current?.dueDate?.trim()) {
+    const nextKey = normalizeScheduleKey(dueDate, scheduledTime)
+    const currentKey = normalizeScheduleKey(
+      current.dueDate,
+      current.scheduledTime
+    )
+    if (nextKey === currentKey) {
+      return {
+        allowed: false,
+        message: TASK_RESCHEDULE_SAME_SCHEDULE_MESSAGE,
+      }
+    }
+  }
+
+  const pastValidation = validateRescheduleFromVencida({
+    dueDate,
+    scheduledTime,
     referenceDate,
   })
+  if (!pastValidation.allowed) {
+    return {
+      allowed: false,
+      message:
+        pastValidation.message ?? TASK_RESCHEDULE_PAST_SCHEDULE_MESSAGE,
+    }
+  }
+
+  return { allowed: true }
 }
 
 export function buildTaskRescheduleUpdatePayload(

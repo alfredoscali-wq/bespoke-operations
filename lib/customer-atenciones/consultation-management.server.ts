@@ -33,6 +33,7 @@ import {
   type OtLinkRpcResult,
 } from "@/lib/customer-atenciones/ot-link"
 import { logOperationError } from "@/lib/operations/user-messages"
+import { startPerformanceTrace } from "@/lib/performance"
 import {
   emitCustomerInteractionActivities,
   emitCustomerManagementActivities,
@@ -84,35 +85,49 @@ async function callConsultationManagementRpc(
   rpcName: string,
   args: Record<string, unknown>
 ): Promise<ConsultationManagementServerResult> {
-  const admin = createAdminClient()
+  const perf = startPerformanceTrace(`ATENCION RPC ${rpcName}`, {
+    layer: "backend",
+  })
+  try {
+    const admin = createAdminClient()
 
-  const { data, error } = await (admin as unknown as AdminRpcClient).rpc(
-    rpcName,
-    args
-  )
+    const { data, error } = await perf.span(
+      "RPC",
+      () => (admin as unknown as AdminRpcClient).rpc(rpcName, args),
+      { name: rpcName }
+    )
 
-  if (error) {
-    logOperationError("CONSULTATION MANAGEMENT", error)
-    const mapped = mapConsultationManagementRpcError(error.message || "")
-    return {
-      ok: false,
-      status: mapped.status,
-      message: mapped.message,
-      code: mapped.code,
+    if (error) {
+      logOperationError("CONSULTATION MANAGEMENT", error)
+      const mapped = mapConsultationManagementRpcError(error.message || "")
+      perf.fail(error)
+      return {
+        ok: false,
+        status: mapped.status,
+        message: mapped.message,
+        code: mapped.code,
+      }
     }
-  }
 
-  const parsed = parseConsultationManagementRpcResult(data)
-  if (!parsed) {
-    return {
-      ok: false,
-      status: 500,
-      message: "No se pudo completar la acción sobre la Consulta.",
-      code: "RPC_EMPTY",
+    const parsed = perf.spanSync("Parse RPC", () =>
+      parseConsultationManagementRpcResult(data)
+    )
+    if (!parsed) {
+      perf.fail()
+      return {
+        ok: false,
+        status: 500,
+        message: "No se pudo completar la acción sobre la Consulta.",
+        code: "RPC_EMPTY",
+      }
     }
-  }
 
-  return { ok: true, data: parsed }
+    perf.finish()
+    return { ok: true, data: parsed }
+  } catch (error) {
+    perf.fail(error)
+    throw error
+  }
 }
 
 export async function startCustomerAtencionManagement(input: {

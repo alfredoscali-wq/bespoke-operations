@@ -18,6 +18,7 @@ import { buildSessionUserFromAuthUser } from "@/lib/auth/resolve-session-user"
 import type { SessionUser } from "@/lib/auth/types"
 import { recordUserSessionAudit } from "@/lib/audit/users-audit"
 import { syncMyMetadataClient } from "@/lib/auth/sync-employee-metadata.client"
+import { startPerformanceTrace } from "@/lib/performance"
 import { fetchCompanyRole } from "@/lib/supabase/company-roles.browser"
 import { getEmployeeByAppUserId } from "@/lib/supabase/employees.browser"
 import { createClient } from "@/lib/supabase/client"
@@ -138,37 +139,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = useCallback(
     async (identifier: string, password: string) => {
-      const supabase = createClient()
-      const emailCandidates = resolveSignInEmailCandidates(identifier)
+      const perf = startPerformanceTrace("WEB LOGIN", { layer: "frontend" })
+      try {
+        const supabase = createClient()
+        const emailCandidates = resolveSignInEmailCandidates(identifier)
 
-      let lastError: unknown = null
+        let lastError: unknown = null
 
-      for (const email of emailCandidates) {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        })
+        for (const email of emailCandidates) {
+          const { data, error } = await perf.span("Auth signIn", () =>
+            supabase.auth.signInWithPassword({
+              email,
+              password,
+            })
+          )
 
-        if (!error && data.user) {
-          const resolved = await bootstrapAuthenticatedSession()
+          if (!error && data.user) {
+            const resolved = await perf.span("Bootstrap session", () =>
+              bootstrapAuthenticatedSession()
+            )
 
-          if (!resolved) {
-            throw new Error("No se pudo iniciar sesión.")
+            if (!resolved) {
+              throw new Error("No se pudo iniciar sesión.")
+            }
+
+            perf.spanSync("UI set session", () => {
+              setSessionUser(resolved)
+            })
+            void recordUserSessionAudit("USER_LOGIN")
+            perf.finish()
+            return resolved
           }
 
-          setSessionUser(resolved)
-          void recordUserSessionAudit("USER_LOGIN")
-          return resolved
+          lastError = error
         }
 
-        lastError = error
-      }
+        if (lastError instanceof Error) {
+          throw lastError
+        }
 
-      if (lastError instanceof Error) {
-        throw lastError
+        throw new Error("No se pudo iniciar sesión.")
+      } catch (error) {
+        perf.fail(error)
+        throw error
       }
-
-      throw new Error("No se pudo iniciar sesión.")
     },
     []
   )

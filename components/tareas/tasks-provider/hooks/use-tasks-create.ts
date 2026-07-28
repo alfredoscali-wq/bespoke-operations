@@ -25,6 +25,7 @@ import {
 import { resolveNextPlanningQueuePosition } from "@/lib/planificacion/planning-dynamic"
 import { shouldApplyPlanningQueueSideEffectsForTask } from "@/lib/projects/project-start-dispatch"
 import { recordTaskCreateAudit } from "@/lib/audit/tasks-audit"
+import { startPerformanceTrace } from "@/lib/performance"
 import { resolveOperationalEventActor } from "@/lib/tasks/operational-event-actor"
 import { buildCreatedOperationalEvent } from "@/lib/tasks/operational-events"
 import { recordTaskOperationalEvent } from "@/lib/supabase/operational-control.browser"
@@ -54,91 +55,106 @@ export function useTasksCreate({
 
   const addTask = useCallback(
     async (input: CreateTaskPayload): Promise<Task> => {
-      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
-        throw new DemoWriteBlockedError()
-      }
+      const perf = startPerformanceTrace("CREATE OT", { layer: "frontend" })
+      try {
+        if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+          throw new DemoWriteBlockedError()
+        }
 
-      const status =
-        input.status ??
-        getInitialTaskStatus({ crewId: input.crewId, crew: input.crew })
-      let payload: CreateTaskPayload = {
-        ...input,
-        companyId,
-        status,
-      }
-
-      if (!usesSupabase) {
-        throw new Error("No fue posible crear la orden de trabajo. Intente nuevamente.")
-      }
-
-      const client = createBrowserTasksClient()
-
-      if (payload.projectCode === "OT") {
-        const occupiedCodesResult = await listOccupiedTaskCodesByPrefix(
+        const status =
+          input.status ??
+          getInitialTaskStatus({ crewId: input.crewId, crew: input.crew })
+        let payload: CreateTaskPayload = {
+          ...input,
           companyId,
-          "TSK-OT-",
-          client
-        )
-        const mergedCodes = new Set<string>([
-          ...tasks.map((task) => task.code),
-          ...(occupiedCodesResult.data ?? []),
-        ])
-
-        payload = {
-          ...payload,
-          code: generateWorkOrderTaskCodeFromCodes(mergedCodes),
+          status,
         }
-      }
 
-      payload = await enrichCreateTaskPayloadWithResolvedLocation(payload)
-
-      const crewId = payload.crewId?.trim() || null
-      const dueDate = payload.dueDate?.trim()
-      if (
-        shouldApplyPlanningQueueSideEffectsForTask(payload) &&
-        isWorkOrderTask(payload as Task) &&
-        crewId &&
-        dueDate &&
-        (payload.status === "programada" || payload.status == null)
-      ) {
-        payload = {
-          ...payload,
-          status: payload.status ?? "programada",
-          executionOrder: resolveNextPlanningQueuePosition({
-            tasks,
-            dueDate,
-            crewId,
-          }),
+        if (!usesSupabase) {
+          throw new Error(
+            "No fue posible crear la orden de trabajo. Intente nuevamente."
+          )
         }
-      }
 
-      console.log("BEFORE INSERT", payload)
+        const client = createBrowserTasksClient()
 
-      const result = await createTask(payload, client)
+        if (payload.projectCode === "OT") {
+          const occupiedCodesResult = await perf.span("List occupied codes", () =>
+            listOccupiedTaskCodesByPrefix(companyId, "TSK-OT-", client)
+          )
+          const mergedCodes = new Set<string>([
+            ...tasks.map((task) => task.code),
+            ...(occupiedCodesResult.data ?? []),
+          ])
 
-      if (!result.data) {
-        logOperationError("TASK CREATE", result.error)
-        throw new Error("No fue posible crear la orden de trabajo. Intente nuevamente.")
-      }
+          payload = {
+            ...payload,
+            code: generateWorkOrderTaskCodeFromCodes(mergedCodes),
+          }
+        }
 
-      cacheDetail(result.data.id, getTaskDetail(result.data))
-      setTasks((current) => [result.data!, ...current])
-      recordTaskCreateAudit(result.data)
-
-      if (companyId) {
-        void recordTaskOperationalEvent(
-          buildCreatedOperationalEvent({
-            companyId,
-            task: result.data,
-            actor: resolveOperationalEventActor(sessionUser),
-            description: result.data.code?.trim()
-              ? `Código ${result.data.code.trim()}`
-              : "",
-          })
+        payload = await perf.span("Enrich location", () =>
+          enrichCreateTaskPayloadWithResolvedLocation(payload)
         )
-      }
 
-      return result.data
+        const crewId = payload.crewId?.trim() || null
+        const dueDate = payload.dueDate?.trim()
+        if (
+          shouldApplyPlanningQueueSideEffectsForTask(payload) &&
+          isWorkOrderTask(payload as Task) &&
+          crewId &&
+          dueDate &&
+          (payload.status === "programada" || payload.status == null)
+        ) {
+          payload = {
+            ...payload,
+            status: payload.status ?? "programada",
+            executionOrder: resolveNextPlanningQueuePosition({
+              tasks,
+              dueDate,
+              crewId,
+            }),
+          }
+        }
+
+        console.log("BEFORE INSERT", payload)
+
+        const result = await perf.span("Insert task", () =>
+          createTask(payload, client)
+        )
+
+        if (!result.data) {
+          logOperationError("TASK CREATE", result.error)
+          throw new Error(
+            "No fue posible crear la orden de trabajo. Intente nuevamente."
+          )
+        }
+
+        perf.spanSync("UI update", () => {
+          cacheDetail(result.data!.id, getTaskDetail(result.data!))
+          setTasks((current) => [result.data!, ...current])
+        })
+        recordTaskCreateAudit(result.data)
+
+        if (companyId) {
+          void recordTaskOperationalEvent(
+            buildCreatedOperationalEvent({
+              companyId,
+              task: result.data,
+              actor: resolveOperationalEventActor(sessionUser),
+              description: result.data.code?.trim()
+                ? `Código ${result.data.code.trim()}`
+                : "",
+            })
+          )
+        }
+
+        perf.finish()
+        return result.data
+      } catch (error) {
+        perf.fail(error)
+        throw error
+      }
     },
     [
       tasks,

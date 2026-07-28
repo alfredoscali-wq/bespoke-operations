@@ -13,6 +13,7 @@ import type {
   MobileShiftMutationResponse,
   MobileShiftStartRequest,
 } from "@/lib/mobile/v1/shifts/types"
+import { startPerformanceTrace } from "@/lib/performance"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { WorkTeamShiftRecord } from "@/lib/work-team-shifts/types"
 import {
@@ -69,39 +70,18 @@ export async function startMobileShift(
   auth: MobileAuthContext,
   request: MobileShiftStartRequest
 ): Promise<MobileShiftMutationResponse> {
-  const admin = createAdminClient()
-  const resolved = await resolveMobileWorkTeam(admin, auth, request.deviceId)
-
-  const existingShift = await fetchActiveWorkTeamShift(
-    admin,
-    auth.companyId,
-    resolved.workTeamId
-  )
-
-  if (existingShift) {
-    throw new MobileApiError(
-      "SHIFT_ALREADY_ACTIVE",
-      "Ya existe una jornada activa para este equipo.",
-      409
-    )
-  }
-
-  let shift: WorkTeamShiftRecord
-
+  const perf = startPerformanceTrace("MOBILE SHIFT START", { layer: "backend" })
   try {
-    shift = await insertWorkTeamShift(admin, {
-      companyId: auth.companyId,
-      workTeamId: resolved.workTeamId,
-      mobileDeviceId: resolved.mobileDevice.id,
-      startedBy: auth.employeeId,
-      startLatitude: request.latitude,
-      startLongitude: request.longitude,
-    })
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message.toLowerCase() : ""
+    const admin = createAdminClient()
+    const resolved = await perf.span("Resolve work team", () =>
+      resolveMobileWorkTeam(admin, auth, request.deviceId)
+    )
 
-    if (message.includes("work_team_shifts_one_active_per_team")) {
+    const existingShift = await perf.span("Fetch active shift", () =>
+      fetchActiveWorkTeamShift(admin, auth.companyId, resolved.workTeamId)
+    )
+
+    if (existingShift) {
       throw new MobileApiError(
         "SHIFT_ALREADY_ACTIVE",
         "Ya existe una jornada activa para este equipo.",
@@ -109,20 +89,53 @@ export async function startMobileShift(
       )
     }
 
+    let shift: WorkTeamShiftRecord
+
+    try {
+      shift = await perf.span("Insert shift", () =>
+        insertWorkTeamShift(admin, {
+          companyId: auth.companyId,
+          workTeamId: resolved.workTeamId,
+          mobileDeviceId: resolved.mobileDevice.id,
+          startedBy: auth.employeeId,
+          startLatitude: request.latitude,
+          startLongitude: request.longitude,
+        })
+      )
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message.toLowerCase() : ""
+
+      if (message.includes("work_team_shifts_one_active_per_team")) {
+        throw new MobileApiError(
+          "SHIFT_ALREADY_ACTIVE",
+          "Ya existe una jornada activa para este equipo.",
+          409
+        )
+      }
+
+      throw error
+    }
+
+    try {
+      await perf.span("Audit", () =>
+        recordShiftStartedAudit(auth, shift, resolved.workTeamName)
+      )
+    } catch {
+      // Shift started; audit failure must not block mobile clients.
+    }
+
+    const response = mapShiftToCurrentResponse(
+      resolved.workTeamId,
+      resolved.workTeamName,
+      shift
+    )
+    perf.finish()
+    return response
+  } catch (error) {
+    perf.fail(error)
     throw error
   }
-
-  try {
-    await recordShiftStartedAudit(auth, shift, resolved.workTeamName)
-  } catch {
-    // Shift started; audit failure must not block mobile clients.
-  }
-
-  return mapShiftToCurrentResponse(
-    resolved.workTeamId,
-    resolved.workTeamName,
-    shift
-  )
 }
 
 export async function finishMobileShift(

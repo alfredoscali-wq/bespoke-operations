@@ -123,13 +123,20 @@ export function validateRescheduleFromVencida(input: {
     return { allowed: false, message: "Seleccione una nueva fecha." }
   }
 
-  const today = toLocalDateOnly(input.referenceDate ?? new Date())
+  const referenceDate = input.referenceDate ?? new Date()
+  const scheduledAt = getTaskScheduledDateTime(
+    {
+      dueDate,
+      scheduledTime: input.scheduledTime,
+    },
+    referenceDate
+  )
 
-  if (compareDateOnly(dueDate, today) < 0) {
+  if (scheduledAt.getTime() < referenceDate.getTime()) {
     return {
       allowed: false,
       message:
-        "La nueva fecha programada ya venció. Elija el día de hoy o una fecha futura.",
+        "No puede reprogramar una Orden de Trabajo para una fecha u hora pasada.",
     }
   }
 

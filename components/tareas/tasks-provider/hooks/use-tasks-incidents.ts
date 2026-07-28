@@ -304,11 +304,14 @@ export function useTasksIncidents({
         return { success: false, message: validation.message }
       }
 
-      const scheduleValidation = validateTaskRescheduleInput({
-        dueDate: input.dueDate,
-        scheduledTime: input.scheduledTime,
-        reason: input.reason,
-      })
+      const scheduleValidation = validateTaskRescheduleInput(
+        {
+          dueDate: input.dueDate,
+          scheduledTime: input.scheduledTime,
+          reason: input.reason,
+        },
+        { current: task }
+      )
 
       if (!scheduleValidation.allowed) {
         return {

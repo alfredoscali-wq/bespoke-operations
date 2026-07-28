@@ -128,7 +128,9 @@ export function TaskRescheduleDialog({
       rescheduledBy,
     }
 
-    const validation = validateTaskRescheduleInput(baseInput)
+    const validation = validateTaskRescheduleInput(baseInput, {
+      current: task,
+    })
     if (!validation.allowed) {
       setError(validation.message ?? "Revise los datos de reprogramación.")
       return

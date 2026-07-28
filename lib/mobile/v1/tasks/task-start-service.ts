@@ -19,6 +19,7 @@ import type {
   MobileTaskStartRequest,
   MobileTaskStartResponse,
 } from "@/lib/mobile/v1/tasks/types"
+import { startPerformanceTrace } from "@/lib/performance"
 import { taskMatchesCrewId } from "@/lib/tasks/crew-relation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { mapTaskRowToTask } from "@/lib/supabase/tasks.mapper"
@@ -99,203 +100,226 @@ export async function startMobileTask(
   taskId: string,
   request: MobileTaskStartRequest
 ): Promise<MobileTaskStartResponse> {
-  const admin = createAdminClient()
-  const resolved = await resolveMobileWorkTeam(admin, auth, request.deviceId)
-
-  const activeShift = await fetchActiveWorkTeamShift(
-    admin,
-    auth.companyId,
-    resolved.workTeamId
-  )
-
-  if (!activeShift) {
-    throw new MobileApiError(
-      "SHIFT_NOT_ACTIVE",
-      "No hay jornada activa.",
-      409
-    )
-  }
-
-  const task = await fetchTaskForCompany(admin, auth.companyId, taskId)
-
-  if (!task) {
-    throw new MobileApiError(
-      "TASK_NOT_FOUND",
-      "Orden de trabajo no encontrada.",
-      404
-    )
-  }
-
-  const crewRef = {
-    id: resolved.workTeamId,
-    name: resolved.workTeamName,
-  }
-
-  if (!taskMatchesCrewId(task, crewRef)) {
-    throw new MobileApiError(
-      "TASK_NOT_FOUND",
-      "Orden de trabajo no encontrada.",
-      404
-    )
-  }
-
-  const today = toLocalDateOnly()
-
-  if (compareDateOnly(task.dueDate, today) > 0) {
-    throw new MobileApiError(
-      "TASK_NOT_FOUND",
-      "Orden de trabajo no encontrada.",
-      404
-    )
-  }
-
-  if (task.status !== "asignada") {
-    throw new MobileApiError(
-      "TASK_INVALID_STATUS",
-      "La orden de trabajo no puede iniciarse en su estado actual.",
-      409
-    )
-  }
-
-  const startCoordinates = await resolveTaskStartCoordinates(
-    admin,
-    auth.companyId,
-    task
-  )
-
-  if (!startCoordinates) {
-    throw new MobileApiError(
-      "TASK_LOCATION_REQUIRED",
-      buildTaskStartLocationRequiredMessage(Boolean(task.projectId)),
-      409
-    )
-  }
-
-  const distancePolicy = evaluateTaskStartDistancePolicy({
-    operatorLatitude: request.latitude,
-    operatorLongitude: request.longitude,
-    targetLatitude: startCoordinates.latitude,
-    targetLongitude: startCoordinates.longitude,
-  })
-
-  const distanceToClientMeters = distancePolicy.distanceToClientMeters
-  const enforcementRuntime = getTaskStartDistanceEnforcementRuntimeSnapshot()
-
-  // Ops diagnostic only — does not alter allow/deny. Never logs raw env values.
-  console.warn("[Mobile API][task-start-distance]", {
-    taskId: task.id,
-    distanceMeters: Math.round(distanceToClientMeters),
-    withinRadius: distancePolicy.withinRadius,
-    shouldBlock: distancePolicy.shouldBlock,
-    policyEnforcementEnabled: distancePolicy.enforcementEnabled,
-    runtime: enforcementRuntime,
-  })
-
-  if (distancePolicy.shouldBlock) {
-    throw new MobileApiError(
-      "TASK_LOCATION_OUT_OF_RANGE",
-      distancePolicy.message ??
-        `Se encuentra a ${Math.round(distanceToClientMeters)} metros del domicilio del cliente.`,
-      409
-    )
-  }
-
-  const startedAt = new Date().toISOString()
-
-  const { data: updatedRow, error: updateError } = await admin
-    .from("tasks")
-    .update({ status: "en-curso" })
-    .eq("id", task.id)
-    .eq("company_id", auth.companyId)
-    .is("deleted_at", null)
-    .select("*")
-    .maybeSingle()
-
-  if (updateError || !updatedRow) {
-    throw updateError ?? new Error("TASK_UPDATE_FAILED")
-  }
-
-  const updatedTask = mapTaskRowToTask(updatedRow)
-
-  await insertTaskExecutionStart(admin, {
-    companyId: auth.companyId,
-    taskId: task.id,
-    workTeamId: resolved.workTeamId,
-    mobileDeviceId: resolved.mobileDevice.id,
-    startedBy: auth.employeeId,
-    latitude: request.latitude,
-    longitude: request.longitude,
-    accuracyMeters: request.accuracyMeters,
-    distanceToClientMeters,
-  })
-
+  const perf = startPerformanceTrace("MOBILE TASK START", { layer: "backend" })
   try {
-    await recordOperationalEventOnce({
-      event: buildStartedOperationalEvent({
+    const admin = createAdminClient()
+    const resolved = await perf.span("Resolve work team", () =>
+      resolveMobileWorkTeam(admin, auth, request.deviceId)
+    )
+
+    const activeShift = await perf.span("Fetch active shift", () =>
+      fetchActiveWorkTeamShift(admin, auth.companyId, resolved.workTeamId)
+    )
+
+    if (!activeShift) {
+      throw new MobileApiError(
+        "SHIFT_NOT_ACTIVE",
+        "No hay jornada activa.",
+        409
+      )
+    }
+
+    const task = await perf.span("Load task", () =>
+      fetchTaskForCompany(admin, auth.companyId, taskId)
+    )
+
+    if (!task) {
+      throw new MobileApiError(
+        "TASK_NOT_FOUND",
+        "Orden de trabajo no encontrada.",
+        404
+      )
+    }
+
+    const crewRef = {
+      id: resolved.workTeamId,
+      name: resolved.workTeamName,
+    }
+
+    if (!taskMatchesCrewId(task, crewRef)) {
+      throw new MobileApiError(
+        "TASK_NOT_FOUND",
+        "Orden de trabajo no encontrada.",
+        404
+      )
+    }
+
+    const today = toLocalDateOnly()
+
+    if (compareDateOnly(task.dueDate, today) > 0) {
+      throw new MobileApiError(
+        "TASK_NOT_FOUND",
+        "Orden de trabajo no encontrada.",
+        404
+      )
+    }
+
+    if (task.status !== "asignada") {
+      throw new MobileApiError(
+        "TASK_INVALID_STATUS",
+        "La orden de trabajo no puede iniciarse en su estado actual.",
+        409
+      )
+    }
+
+    const startCoordinates = await perf.span("Resolve coordinates", () =>
+      resolveTaskStartCoordinates(admin, auth.companyId, task)
+    )
+
+    if (!startCoordinates) {
+      throw new MobileApiError(
+        "TASK_LOCATION_REQUIRED",
+        buildTaskStartLocationRequiredMessage(Boolean(task.projectId)),
+        409
+      )
+    }
+
+    const distancePolicy = perf.spanSync("Distance policy", () =>
+      evaluateTaskStartDistancePolicy({
+        operatorLatitude: request.latitude,
+        operatorLongitude: request.longitude,
+        targetLatitude: startCoordinates.latitude,
+        targetLongitude: startCoordinates.longitude,
+      })
+    )
+
+    const distanceToClientMeters = distancePolicy.distanceToClientMeters
+    const enforcementRuntime = getTaskStartDistanceEnforcementRuntimeSnapshot()
+
+    // Ops diagnostic only — does not alter allow/deny. Never logs raw env values.
+    console.warn("[Mobile API][task-start-distance]", {
+      taskId: task.id,
+      distanceMeters: Math.round(distanceToClientMeters),
+      withinRadius: distancePolicy.withinRadius,
+      shouldBlock: distancePolicy.shouldBlock,
+      policyEnforcementEnabled: distancePolicy.enforcementEnabled,
+      runtime: enforcementRuntime,
+    })
+
+    if (distancePolicy.shouldBlock) {
+      throw new MobileApiError(
+        "TASK_LOCATION_OUT_OF_RANGE",
+        distancePolicy.message ??
+          `Se encuentra a ${Math.round(distanceToClientMeters)} metros del domicilio del cliente.`,
+        409
+      )
+    }
+
+    const startedAt = new Date().toISOString()
+
+    const updatedRow = await perf.span("Update task", async () => {
+      const { data, error: updateError } = await admin
+        .from("tasks")
+        .update({ status: "en-curso" })
+        .eq("id", task.id)
+        .eq("company_id", auth.companyId)
+        .is("deleted_at", null)
+        .select("*")
+        .maybeSingle()
+
+      if (updateError || !data) {
+        throw updateError ?? new Error("TASK_UPDATE_FAILED")
+      }
+      return data
+    })
+
+    const updatedTask = mapTaskRowToTask(updatedRow)
+
+    await perf.span("Insert execution start", () =>
+      insertTaskExecutionStart(admin, {
         companyId: auth.companyId,
-        task,
-        actor: resolveOperationalEventActorFromMobile(auth),
-        source: "mobile",
+        taskId: task.id,
+        workTeamId: resolved.workTeamId,
+        mobileDeviceId: resolved.mobileDevice.id,
+        startedBy: auth.employeeId,
         latitude: request.latitude,
         longitude: request.longitude,
-      }),
-    })
-  } catch {
-    // Non-blocking operational history.
-  }
-
-  const checklist = mapOperationalChecklist(
-    await fetchOperationalChecklistForServiceType(
-      admin,
-      auth.companyId,
-      updatedTask.serviceType?.trim() || "",
-      resolveWorkOrderTechnologyFromTask(updatedTask)
+        accuracyMeters: request.accuracyMeters,
+        distanceToClientMeters,
+      })
     )
-  )
 
-  try {
-    await recordTaskMobileStartAudit({
-      auth,
-      before: task,
-      after: updatedTask,
-      workTeamId: resolved.workTeamId,
-      workTeamName: resolved.workTeamName,
-      mobileDeviceId: resolved.mobileDevice.id,
-      latitude: request.latitude,
-      longitude: request.longitude,
-      accuracyMeters: request.accuracyMeters,
-      distanceToClientMeters,
+    try {
+      await perf.span("Operational event", () =>
+        recordOperationalEventOnce({
+          event: buildStartedOperationalEvent({
+            companyId: auth.companyId,
+            task,
+            actor: resolveOperationalEventActorFromMobile(auth),
+            source: "mobile",
+            latitude: request.latitude,
+            longitude: request.longitude,
+          }),
+        })
+      )
+    } catch {
+      // Non-blocking operational history.
+    }
+
+    const checklist = mapOperationalChecklist(
+      await perf.span("Load checklist", () =>
+        fetchOperationalChecklistForServiceType(
+          admin,
+          auth.companyId,
+          updatedTask.serviceType?.trim() || "",
+          resolveWorkOrderTechnologyFromTask(updatedTask)
+        )
+      )
+    )
+
+    try {
+      await perf.span("Audit", () =>
+        recordTaskMobileStartAudit({
+          auth,
+          before: task,
+          after: updatedTask,
+          workTeamId: resolved.workTeamId,
+          workTeamName: resolved.workTeamName,
+          mobileDeviceId: resolved.mobileDevice.id,
+          latitude: request.latitude,
+          longitude: request.longitude,
+          accuracyMeters: request.accuracyMeters,
+          distanceToClientMeters,
+          startedAt,
+        })
+      )
+    } catch {
+      // Start succeeded; audit failure must not block mobile clients.
+    }
+
+    try {
+      await perf.span("Activity", async () => {
+        const { recordTaskMobileStartActivity } = await import(
+          "@/lib/activity/adapters/tasks-activity.server"
+        )
+        await recordTaskMobileStartActivity({
+          auth,
+          before: task,
+          after: updatedTask,
+          workTeamId: resolved.workTeamId,
+          workTeamName: resolved.workTeamName,
+          mobileDeviceId: resolved.mobileDevice.id,
+          latitude: request.latitude,
+          longitude: request.longitude,
+          accuracyMeters: request.accuracyMeters,
+          distanceToClientMeters,
+        })
+      })
+    } catch {
+      // Start succeeded; OIE failure must not block mobile clients.
+    }
+
+    const response = {
+      id: updatedTask.id,
+      status: updatedTask.status,
       startedAt,
-    })
-  } catch {
-    // Start succeeded; audit failure must not block mobile clients.
-  }
-
-  try {
-    const { recordTaskMobileStartActivity } = await import(
-      "@/lib/activity/adapters/tasks-activity.server"
-    )
-    await recordTaskMobileStartActivity({
-      auth,
-      before: task,
-      after: updatedTask,
-      workTeamId: resolved.workTeamId,
-      workTeamName: resolved.workTeamName,
-      mobileDeviceId: resolved.mobileDevice.id,
-      latitude: request.latitude,
-      longitude: request.longitude,
-      accuracyMeters: request.accuracyMeters,
-      distanceToClientMeters,
-    })
-  } catch {
-    // Start succeeded; OIE failure must not block mobile clients.
-  }
-
-  return {
-    id: updatedTask.id,
-    status: updatedTask.status,
-    startedAt,
-    checklist,
-    ...resolveMobileTaskCommercialFields(updatedTask),
+      checklist,
+      ...resolveMobileTaskCommercialFields(updatedTask),
+    }
+    perf.finish()
+    return response
+  } catch (error) {
+    perf.fail(error)
+    throw error
   }
 }

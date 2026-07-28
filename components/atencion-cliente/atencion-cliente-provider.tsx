@@ -26,6 +26,7 @@ import {
   buildFollowUpCreatedActivity,
 } from "@/lib/customer-atenciones/customer-activity-events"
 import { requestRegisterCustomerActivity } from "@/lib/customer-atenciones/register-customer-activity.client"
+import { startPerformanceTrace } from "@/lib/performance"
 import type {
   SharedInboxHistoricalDaySummary,
   SharedInboxKpiSummary,
@@ -826,133 +827,159 @@ export function AtencionClienteProvider({
 
   const createAtencion = useCallback(
     async (input: NewCustomerAtencionInput): Promise<AtencionMutationResult> => {
-      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
-        return DEMO_WRITE_BLOCKED_MUTATION_RESULT
-      }
-
-      if (!companyId) {
-        return { success: false, message: "Empresa no disponible." }
-      }
-
-      if (!employeeId) {
-        return {
-          success: false,
-          message: "No se pudo identificar al empleado que registra la atención.",
+      const perf = startPerformanceTrace("ATENCION CREATE", {
+        layer: "frontend",
+      })
+      try {
+        if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+          perf.finish({ Note: "demo_blocked" })
+          return DEMO_WRITE_BLOCKED_MUTATION_RESULT
         }
-      }
 
-      const validationError = validateNewConsultationInput(input)
+        if (!companyId) {
+          perf.finish({ Note: "missing_company" })
+          return { success: false, message: "Empresa no disponible." }
+        }
 
-      if (validationError) {
-        return { success: false, message: validationError }
-      }
-
-      const creation = buildNewConsultationCreationFields(input)
-
-      if ("error" in creation) {
-        return { success: false, message: creation.error }
-      }
-
-      let customerId = input.customerId?.trim() ?? ""
-
-      if (input.quickCustomer) {
-        const customerResult = await createCustomerInSupabase(
-          mapQuickCustomerToCreatePayload(input.quickCustomer, companyId)
-        )
-
-        if (customerResult.error || !customerResult.data) {
+        if (!employeeId) {
+          perf.finish({ Note: "missing_employee" })
           return {
             success: false,
             message:
-              customerResult.error?.message ??
-              "No se pudo registrar al cliente.",
+              "No se pudo identificar al empleado que registra la atención.",
           }
         }
 
-        customerId = customerResult.data.id
-      }
+        const validationError = perf.spanSync("Validate", () =>
+          validateNewConsultationInput(input)
+        )
 
-      const result = await createCustomerAtencion({
-        companyId,
-        customerId,
-        attendedByEmployeeId: employeeId,
-        channel: input.channel,
-        motivo: input.motivo,
-        detail: input.detail,
-        resolution: creation.resolution,
-        resultado: creation.resultado,
-        status: creation.status,
-        nextStep: creation.nextStep,
-      })
-
-      if (result.error || !result.data) {
-        return {
-          success: false,
-          message: result.error?.message ?? "No se pudo registrar la atención.",
+        if (validationError) {
+          perf.finish({ Note: "validation_error" })
+          return { success: false, message: validationError }
         }
-      }
 
-      let atencion = result.data
-      atencionCacheRef.current.set(atencion.id, atencion)
+        const creation = perf.spanSync("Build fields", () =>
+          buildNewConsultationCreationFields(input)
+        )
 
-      void requestRegisterCustomerActivity({
-        entityId: atencion.id,
-        ...buildCaseCreatedActivity({
-          customerId: atencion.customerId,
-          motivo: atencion.motivo,
-          canal: atencion.channel,
-          estadoInicial: atencion.status,
-          nextStep: atencion.nextStep ?? null,
-        }),
-      })
+        if ("error" in creation) {
+          perf.finish({ Note: "build_error" })
+          return { success: false, message: creation.error }
+        }
 
-      if (atencion.status === "resuelta") {
+        let customerId = input.customerId?.trim() ?? ""
+
+        if (input.quickCustomer) {
+          const customerResult = await perf.span("Create customer", () =>
+            createCustomerInSupabase(
+              mapQuickCustomerToCreatePayload(input.quickCustomer!, companyId)
+            )
+          )
+
+          if (customerResult.error || !customerResult.data) {
+            perf.finish({ Note: "customer_create_failed" })
+            return {
+              success: false,
+              message:
+                customerResult.error?.message ??
+                "No se pudo registrar al cliente.",
+            }
+          }
+
+          customerId = customerResult.data.id
+        }
+
+        const result = await perf.span("Insert atencion", () =>
+          createCustomerAtencion({
+            companyId,
+            customerId,
+            attendedByEmployeeId: employeeId,
+            channel: input.channel,
+            motivo: input.motivo,
+            detail: input.detail,
+            resolution: creation.resolution,
+            resultado: creation.resultado,
+            status: creation.status,
+            nextStep: creation.nextStep,
+          })
+        )
+
+        if (result.error || !result.data) {
+          perf.finish({ Note: "insert_failed" })
+          return {
+            success: false,
+            message:
+              result.error?.message ?? "No se pudo registrar la atención.",
+          }
+        }
+
+        let atencion = result.data
+        atencionCacheRef.current.set(atencion.id, atencion)
+
         void requestRegisterCustomerActivity({
           entityId: atencion.id,
-          ...buildCaseClosedActivity({
-            resultado: atencion.resultado,
-            motivoCierre: atencion.resolution || null,
+          ...buildCaseCreatedActivity({
+            customerId: atencion.customerId,
+            motivo: atencion.motivo,
+            canal: atencion.channel,
+            estadoInicial: atencion.status,
+            nextStep: atencion.nextStep ?? null,
           }),
         })
-      }
 
-      if (atencion.nextStep === "contactar_cliente") {
-        const deriveResult = await deriveConsultationToCommercial(
-          atencion.id,
-          input.detail
-        )
-        if (!deriveResult.success) {
-          console.error("[COMMERCIAL DERIVATION]", deriveResult.message)
-        } else {
-          const refreshed = await loadCustomerAtencionById(
-            atencion.id,
-            companyId
+        if (atencion.status === "resuelta") {
+          void requestRegisterCustomerActivity({
+            entityId: atencion.id,
+            ...buildCaseClosedActivity({
+              resultado: atencion.resultado,
+              motivoCierre: atencion.resolution || null,
+            }),
+          })
+        }
+
+        if (atencion.nextStep === "contactar_cliente") {
+          const deriveResult = await perf.span("Commercial derive", () =>
+            deriveConsultationToCommercial(atencion.id, input.detail)
           )
-          if (refreshed.data) {
-            atencion = refreshed.data
-            atencionCacheRef.current.set(atencion.id, atencion)
-            if (atencion.status === "resuelta") {
-              void requestRegisterCustomerActivity({
-                entityId: atencion.id,
-                ...buildCaseClosedActivity({
-                  resultado: atencion.resultado,
-                  motivoCierre: atencion.resolution || null,
-                }),
-              })
+          if (!deriveResult.success) {
+            console.error("[COMMERCIAL DERIVATION]", deriveResult.message)
+          } else {
+            const refreshed = await perf.span("Reload atencion", () =>
+              loadCustomerAtencionById(atencion.id, companyId)
+            )
+            if (refreshed.data) {
+              atencion = refreshed.data
+              atencionCacheRef.current.set(atencion.id, atencion)
+              if (atencion.status === "resuelta") {
+                void requestRegisterCustomerActivity({
+                  entityId: atencion.id,
+                  ...buildCaseClosedActivity({
+                    resultado: atencion.resultado,
+                    motivoCierre: atencion.resolution || null,
+                  }),
+                })
+              }
             }
           }
         }
-      }
 
-      await Promise.all([
-        loadAtencionPage({ ...listQuery, page: 1 }),
-        refreshDashboard(),
-        refreshSharedInbox(),
-      ])
+        await perf.span("Refresh lists", () =>
+          Promise.all([
+            loadAtencionPage({ ...listQuery, page: 1 }),
+            refreshDashboard(),
+            refreshSharedInbox(),
+          ])
+        )
 
-      return {
-        success: true,
-        atencion,
+        perf.finish()
+        return {
+          success: true,
+          atencion,
+        }
+      } catch (error) {
+        perf.fail(error)
+        throw error
       }
     },
     [
@@ -972,23 +999,35 @@ export function AtencionClienteProvider({
       atencionId: string,
       mutation: () => Promise<ConsultationManagementMutationResult>
     ): Promise<ConsultationManagementMutationResult> => {
-      if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
-        return {
-          success: false,
-          message: DEMO_RESTRICTED_DIALOG_MESSAGE,
+      const perf = startPerformanceTrace("ATENCION MANAGEMENT", {
+        layer: "frontend",
+      })
+      try {
+        if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
+          perf.finish({ Note: "demo_blocked" })
+          return {
+            success: false,
+            message: DEMO_RESTRICTED_DIALOG_MESSAGE,
+          }
         }
+
+        const result = await perf.span("Server mutation", () => mutation())
+
+        if (result.success) {
+          await perf.span("Refresh UI", () =>
+            Promise.all([
+              refreshAtencionById(atencionId),
+              refreshSharedInbox(),
+            ])
+          )
+        }
+
+        perf.finish()
+        return result
+      } catch (error) {
+        perf.fail(error)
+        throw error
       }
-
-      const result = await mutation()
-
-      if (result.success) {
-        await Promise.all([
-          refreshAtencionById(atencionId),
-          refreshSharedInbox(),
-        ])
-      }
-
-      return result
     },
     [isReadOnly, openRestrictedDialog, refreshAtencionById, refreshSharedInbox]
   )

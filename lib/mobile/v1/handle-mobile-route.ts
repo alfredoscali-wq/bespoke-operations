@@ -3,6 +3,7 @@ import type { NextResponse } from "next/server"
 import type { MobileAuthenticatedContext } from "@/lib/mobile/v1/auth/mobile-bearer-middleware"
 import { requireAuthenticatedMobileUser } from "@/lib/mobile/v1/auth/mobile-auth-helpers"
 import { handleMobileApiError } from "@/lib/mobile/v1/error-factory"
+import { startPerformanceTrace } from "@/lib/performance"
 import {
   createMobileRequestContext,
   type MobileRequestContext,
@@ -25,15 +26,29 @@ export async function handleProtectedMobileRoute(
   request: Request,
   handler: (context: MobileAuthenticatedContext) => Promise<NextResponse>
 ): Promise<NextResponse> {
-  const authResult = await requireAuthenticatedMobileUser(request)
+  const requestContext = createMobileRequestContext(request)
+  const perf = startPerformanceTrace("MOBILE AUTH GATE", {
+    layer: "backend",
+    requestId: requestContext.requestId,
+  })
+
+  const authResult = await perf.span("Auth", () =>
+    requireAuthenticatedMobileUser(request)
+  )
 
   if (!authResult.ok) {
+    perf.finish({ Note: "unauthorized" })
     return authResult.response
   }
 
   try {
-    return await handler(authResult.context)
+    const response = await perf.span("Handler", () =>
+      handler(authResult.context)
+    )
+    perf.finish()
+    return response
   } catch (error) {
+    perf.fail(error)
     return handleMobileApiError(authResult.context.request, error)
   }
 }

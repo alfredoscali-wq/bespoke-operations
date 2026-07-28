@@ -115,11 +115,14 @@ export function ProjectTaskRescheduleDialog({
   }, [open, defaults])
 
   function handleContinueToConfirm() {
-    const validation = validateTaskRescheduleInput({
-      dueDate,
-      scheduledTime,
-      reason,
-    })
+    const validation = validateTaskRescheduleInput(
+      {
+        dueDate,
+        scheduledTime,
+        reason,
+      },
+      { current: task }
+    )
     if (!validation.allowed) {
       setError(validation.message ?? "Revise los datos de reprogramación.")
       return
@@ -130,11 +133,14 @@ export function ProjectTaskRescheduleDialog({
   }
 
   async function handleConfirm() {
-    const validation = validateTaskRescheduleInput({
-      dueDate,
-      scheduledTime,
-      reason,
-    })
+    const validation = validateTaskRescheduleInput(
+      {
+        dueDate,
+        scheduledTime,
+        reason,
+      },
+      { current: task }
+    )
     if (!validation.allowed) {
       setError(validation.message ?? "Revise los datos de reprogramación.")
       setStep("form")

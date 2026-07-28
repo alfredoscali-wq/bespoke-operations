@@ -28,6 +28,7 @@ import {
   recordOperationalEventOnce,
   recordOperationalEventSafe,
 } from "@/lib/tasks/record-operational-event.server"
+import { startPerformanceTrace } from "@/lib/performance"
 import { mapTaskRowToTask } from "@/lib/supabase/tasks.mapper"
 
 export async function submitMobileTaskForApproval(
@@ -35,147 +36,169 @@ export async function submitMobileTaskForApproval(
   taskId: string,
   request: MobileTaskSubmitForApprovalRequest
 ): Promise<MobileTaskSubmitForApprovalResponse> {
-  const context = await assertMobileTaskExecutionAccess(
-    auth,
-    taskId,
-    request.deviceId,
-    { allowedStatuses: ["en-curso"] }
-  )
-
-  await assertMobileTaskExecutionNotBlockedByActiveIncident(context)
-
-  const trabajoValidation = validateTrabajoRealizado(request.trabajoRealizado)
-  if (!trabajoValidation.ok) {
-    // Diagnostic only — business rule returns 409 (not 400).
-    console.warn("[Mobile API][submit-for-approval]", {
-      taskId,
-      validation: "TASK_TRABAJO_REALIZADO_REQUIRED",
-      httpStatus: 409,
-      message: trabajoValidation.message,
-    })
-    throw new MobileApiError(
-      "TASK_TRABAJO_REALIZADO_REQUIRED",
-      trabajoValidation.message,
-      409
+  const perf = startPerformanceTrace("MOBILE TASK SUBMIT", { layer: "backend" })
+  try {
+    const context = await perf.span("Execution access", () =>
+      assertMobileTaskExecutionAccess(auth, taskId, request.deviceId, {
+        allowedStatuses: ["en-curso"],
+      })
     )
-  }
 
-  const template = await fetchOperationalChecklistTemplateForTask(
-    context.admin,
-    context.auth.companyId,
-    context.task
-  )
+    await perf.span("Active incident guard", () =>
+      assertMobileTaskExecutionNotBlockedByActiveIncident(context)
+    )
 
-  const responses = readOperationalChecklistResponses(context.task)
-  const validation = validateOperationalChecklistComplete(template, responses)
+    const trabajoValidation = perf.spanSync("Validate trabajo", () =>
+      validateTrabajoRealizado(request.trabajoRealizado)
+    )
+    if (!trabajoValidation.ok) {
+      // Diagnostic only — business rule returns 409 (not 400).
+      console.warn("[Mobile API][submit-for-approval]", {
+        taskId,
+        validation: "TASK_TRABAJO_REALIZADO_REQUIRED",
+        httpStatus: 409,
+        message: trabajoValidation.message,
+      })
+      throw new MobileApiError(
+        "TASK_TRABAJO_REALIZADO_REQUIRED",
+        trabajoValidation.message,
+        409
+      )
+    }
 
-  if (!validation.allowed) {
-    // Diagnostic only — business rule returns 409 (not 400).
-    console.warn("[Mobile API][submit-for-approval]", {
-      taskId,
-      validation: "TASK_CHECKLIST_INCOMPLETE",
-      httpStatus: 409,
-      message:
+    const template = await perf.span("Load checklist template", () =>
+      fetchOperationalChecklistTemplateForTask(
+        context.admin,
+        context.auth.companyId,
+        context.task
+      )
+    )
+
+    const responses = readOperationalChecklistResponses(context.task)
+    const validation = validateOperationalChecklistComplete(template, responses)
+
+    if (!validation.allowed) {
+      // Diagnostic only — business rule returns 409 (not 400).
+      console.warn("[Mobile API][submit-for-approval]", {
+        taskId,
+        validation: "TASK_CHECKLIST_INCOMPLETE",
+        httpStatus: 409,
+        message:
+          validation.message ?? "Debe completar el checklist antes de finalizar.",
+      })
+      throw new MobileApiError(
+        "TASK_CHECKLIST_INCOMPLETE",
         validation.message ?? "Debe completar el checklist antes de finalizar.",
-    })
-    throw new MobileApiError(
-      "TASK_CHECKLIST_INCOMPLETE",
-      validation.message ?? "Debe completar el checklist antes de finalizar.",
-      409
+        409
+      )
+    }
+
+    const { to } = getTransitionForAction("submit-for-approval")
+    const nextMetadata = mergeTrabajoRealizadoIntoMetadata(
+      context.task.taskMetadata,
+      trabajoValidation.value
     )
-  }
 
-  const { to } = getTransitionForAction("submit-for-approval")
-  const nextMetadata = mergeTrabajoRealizadoIntoMetadata(
-    context.task.taskMetadata,
-    trabajoValidation.value
-  )
+    const data = await perf.span("Update task", async () => {
+      const result = await context.admin
+        .from("tasks")
+        .update({
+          status: to,
+          task_metadata: nextMetadata,
+        })
+        .eq("id", context.task.id)
+        .eq("company_id", context.auth.companyId)
+        .is("deleted_at", null)
+        .select("*")
+        .maybeSingle()
 
-  const { data, error } = await context.admin
-    .from("tasks")
-    .update({
-      status: to,
-      task_metadata: nextMetadata,
-    })
-    .eq("id", context.task.id)
-    .eq("company_id", context.auth.companyId)
-    .is("deleted_at", null)
-    .select("*")
-    .maybeSingle()
-
-  if (error || !data) {
-    throw error ?? new Error("TASK_UPDATE_FAILED")
-  }
-
-  const updatedTask = mapTaskRowToTask(data)
-
-  try {
-    const actor = resolveOperationalEventActorFromMobile(context.auth)
-
-    await recordOperationalEventOnce({
-      event: buildChecklistCompletedOperationalEvent({
-        companyId: context.auth.companyId,
-        task: context.task,
-        actor,
-        source: "mobile",
-      }),
+      if (result.error || !result.data) {
+        throw result.error ?? new Error("TASK_UPDATE_FAILED")
+      }
+      return result.data
     })
 
-    await recordOperationalEventSafe(
-      buildTrabajoRealizadoOperationalEvent({
-        companyId: context.auth.companyId,
-        task: context.task,
-        actor,
-        trabajoRealizado: trabajoValidation.value,
-        source: "mobile",
+    const updatedTask = mapTaskRowToTask(data)
+
+    try {
+      await perf.span("Operational events", async () => {
+        const actor = resolveOperationalEventActorFromMobile(context.auth)
+
+        await recordOperationalEventOnce({
+          event: buildChecklistCompletedOperationalEvent({
+            companyId: context.auth.companyId,
+            task: context.task,
+            actor,
+            source: "mobile",
+          }),
+        })
+
+        await recordOperationalEventSafe(
+          buildTrabajoRealizadoOperationalEvent({
+            companyId: context.auth.companyId,
+            task: context.task,
+            actor,
+            trabajoRealizado: trabajoValidation.value,
+            source: "mobile",
+          })
+        )
+
+        await recordOperationalEventSafe(
+          buildPendingClosureOperationalEvent({
+            companyId: context.auth.companyId,
+            task: context.task,
+            actor,
+            source: "mobile",
+          })
+        )
       })
-    )
+    } catch {
+      // Non-blocking operational history.
+    }
 
-    await recordOperationalEventSafe(
-      buildPendingClosureOperationalEvent({
-        companyId: context.auth.companyId,
-        task: context.task,
-        actor,
-        source: "mobile",
+    try {
+      await perf.span("Audit", () =>
+        recordTaskMobileWorkflowAudit({
+          auth: context.auth,
+          before: context.task,
+          after: updatedTask,
+          workflowAction: "submit-for-approval",
+          workTeamId: context.workTeamId,
+          workTeamName: context.workTeamName,
+          mobileDeviceId: context.mobileDeviceId,
+          note: "Cierre solicitado por operario desde Field Agent.",
+        })
+      )
+    } catch {
+      // Non-blocking audit.
+    }
+
+    try {
+      await perf.span("Activity", async () => {
+        const { recordTaskMobileSubmitActivity } = await import(
+          "@/lib/activity/adapters/tasks-activity.server"
+        )
+        await recordTaskMobileSubmitActivity({
+          auth: context.auth,
+          before: context.task,
+          after: updatedTask,
+          workTeamId: context.workTeamId,
+          workTeamName: context.workTeamName,
+          mobileDeviceId: context.mobileDeviceId,
+        })
       })
-    )
-  } catch {
-    // Non-blocking operational history.
-  }
+    } catch {
+      // Non-blocking OIE.
+    }
 
-  try {
-    await recordTaskMobileWorkflowAudit({
-      auth: context.auth,
-      before: context.task,
-      after: updatedTask,
-      workflowAction: "submit-for-approval",
-      workTeamId: context.workTeamId,
-      workTeamName: context.workTeamName,
-      mobileDeviceId: context.mobileDeviceId,
-      note: "Cierre solicitado por operario desde Field Agent.",
-    })
-  } catch {
-    // Non-blocking audit.
-  }
-
-  try {
-    const { recordTaskMobileSubmitActivity } = await import(
-      "@/lib/activity/adapters/tasks-activity.server"
-    )
-    await recordTaskMobileSubmitActivity({
-      auth: context.auth,
-      before: context.task,
-      after: updatedTask,
-      workTeamId: context.workTeamId,
-      workTeamName: context.workTeamName,
-      mobileDeviceId: context.mobileDeviceId,
-    })
-  } catch {
-    // Non-blocking OIE.
-  }
-
-  return {
-    id: updatedTask.id,
-    status: updatedTask.status,
+    const response = {
+      id: updatedTask.id,
+      status: updatedTask.status,
+    }
+    perf.finish()
+    return response
+  } catch (error) {
+    perf.fail(error)
+    throw error
   }
 }

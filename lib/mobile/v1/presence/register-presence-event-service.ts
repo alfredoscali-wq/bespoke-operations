@@ -26,6 +26,8 @@ import {
 
 } from "@/lib/presence/presence-service.server"
 
+import { startPerformanceTrace } from "@/lib/performance"
+
 import { createAdminClient } from "@/lib/supabase/admin"
 
 
@@ -106,6 +108,14 @@ export async function registerMobileTaskPresenceEvent(
 
 ): Promise<MobilePresenceEventResponse> {
 
+  const perf = startPerformanceTrace("MOBILE PRESENCE EVENT", {
+
+    layer: "backend",
+
+  })
+
+  try {
+
   if (request.employeeId !== auth.employeeId) {
 
     logPresenceRejection("employee_id_mismatch", {
@@ -132,13 +142,17 @@ export async function registerMobileTaskPresenceEvent(
 
 
 
-  await assertEmployeeBelongsToCompany({
+  await perf.span("Assert employee", () =>
 
-    companyId: auth.companyId,
+    assertEmployeeBelongsToCompany({
 
-    employeeId: request.employeeId,
+      companyId: auth.companyId,
 
-  })
+      employeeId: request.employeeId,
+
+    })
+
+  )
 
 
 
@@ -146,21 +160,25 @@ export async function registerMobileTaskPresenceEvent(
 
   try {
 
-    execution = await assertMobileTaskExecutionAccess(
+    execution = await perf.span("Execution access", () =>
 
-      auth,
+      assertMobileTaskExecutionAccess(
 
-      taskId,
+        auth,
 
-      request.deviceId,
+        taskId,
 
-      {
+        request.deviceId,
 
-        allowedStatuses: ["en-curso"],
+        {
 
-        requireActiveShift: true,
+          allowedStatuses: ["en-curso"],
 
-      }
+          requireActiveShift: true,
+
+        }
+
+      )
 
     )
 
@@ -190,33 +208,37 @@ export async function registerMobileTaskPresenceEvent(
 
   try {
 
-    const result = await presenceService.registerEvent({
+    const result = await perf.span("Presence register", () =>
 
-      companyId: auth.companyId,
+      presenceService.registerEvent({
 
-      taskId: execution.task.id,
+        companyId: auth.companyId,
 
-      employeeId: request.employeeId,
+        taskId: execution.task.id,
 
-      latitude: request.latitude,
+        employeeId: request.employeeId,
 
-      longitude: request.longitude,
+        latitude: request.latitude,
 
-      accuracy: request.accuracy,
+        longitude: request.longitude,
 
-      provider: request.provider,
+        accuracy: request.accuracy,
 
-      deviceId: request.deviceId,
+        provider: request.provider,
 
-      createdAt: request.createdAt,
+        deviceId: request.deviceId,
 
-      clientEventType: request.eventType ?? null,
+        createdAt: request.createdAt,
 
-    })
+        clientEventType: request.eventType ?? null,
+
+      })
+
+    )
 
 
 
-    return {
+    const response = {
 
       eventId: result.event.id,
 
@@ -233,6 +255,10 @@ export async function registerMobileTaskPresenceEvent(
       withinRadius: result.withinRadius,
 
     }
+
+    perf.finish()
+
+    return response
 
   } catch (error) {
 
@@ -257,6 +283,14 @@ export async function registerMobileTaskPresenceEvent(
       )
 
     }
+
+    throw error
+
+  }
+
+  } catch (error) {
+
+    perf.fail(error)
 
     throw error
 
