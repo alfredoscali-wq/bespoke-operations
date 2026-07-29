@@ -76,6 +76,35 @@ export async function fetchCrews(
   }
 }
 
+/**
+ * Crews where the employee is an active member — avoids loading every company crew.
+ * Same shape as fetchCrews for resolveOperarioWorkerCrew.
+ */
+export async function fetchCrewsForEmployeeMembership(
+  client: SupabaseCrewsClient,
+  companyId: string,
+  employeeId: string
+): Promise<CrewsRepositoryResult<Crew[]>> {
+  const { data, error } = await client
+    .from("crews")
+    .select("*, crew_members!inner(*)")
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .eq("crew_members.employee_id", employeeId)
+    .eq("crew_members.active", true)
+    .is("crew_members.deleted_at", null)
+    .order("name", { ascending: true })
+
+  if (error) {
+    return { data: null, error: mapSupabaseCrewError(error) }
+  }
+
+  return {
+    data: (data ?? []).map((row) => mapCrewRowToCrew(row)),
+    error: null,
+  }
+}
+
 export async function fetchCrewById(
   client: SupabaseCrewsClient,
   id: string

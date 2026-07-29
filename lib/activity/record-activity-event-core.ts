@@ -55,14 +55,24 @@ function mapActivityEventRow(row: ActivityEventDbRow): ActivityEventRow {
   }
 }
 
+export type RecordActivityEventWriteOptions = {
+  /**
+   * When false, skips the post-insert SELECT. The row is already durable after RPC.
+   * Use for fire-and-forget instrumentation (Safe adapters). Default true.
+   */
+  returnRow?: boolean
+}
+
 /**
  * Central writer given an admin/service-role client.
  * Prefer `recordActivity` / `recordActivityEvent` from activity-service.ts in app code.
  */
 export async function recordActivityEventWithClient(
   client: SupabaseAdminClient,
-  input: RecordActivityEventInput
-): Promise<ActivityEventRow> {
+  input: RecordActivityEventInput,
+  options: RecordActivityEventWriteOptions = {}
+): Promise<ActivityEventRow | null> {
+  const returnRow = options.returnRow !== false
   const args = buildActivityEventRpcArgs(input)
 
   const { data: eventId, error: rpcError } = await client.rpc(
@@ -76,6 +86,10 @@ export async function recordActivityEventWithClient(
     throw new Error(
       `Activity Engine: no se pudo registrar el evento: ${rpcError?.message ?? "sin id"}`
     )
+  }
+
+  if (!returnRow) {
+    return null
   }
 
   const { data, error } = await client

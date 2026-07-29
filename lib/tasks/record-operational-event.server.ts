@@ -1,10 +1,8 @@
 import "server-only"
 
 import { createAdminClient } from "@/lib/supabase/admin"
-import {
-  insertTaskOperationalEvent,
-  type OperationalControlClient,
-} from "@/lib/supabase/operational-control.queries"
+import { mapTaskOperationalEventInsert } from "@/lib/supabase/operational-control.mapper"
+import type { OperationalControlClient } from "@/lib/supabase/operational-control.queries"
 import type {
   TaskOperationalEventInsert,
   TaskOperationalEventType,
@@ -13,21 +11,24 @@ import type {
 /**
  * Persists a durable operational timeline event using the service-role client.
  * Never throws to callers — mutations must not fail because history logging failed.
+ * Write-only: no RETURNING/SELECT (callers discard the row).
  */
 export async function recordOperationalEventSafe(
-  input: TaskOperationalEventInsert
+  input: TaskOperationalEventInsert,
+  client?: ReturnType<typeof createAdminClient>
 ): Promise<void> {
   try {
-    const result = await insertTaskOperationalEvent(
-      createAdminClient() as unknown as OperationalControlClient,
-      input
-    )
-    if (result.error) {
+    const admin = (client ?? createAdminClient()) as OperationalControlClient
+    const { error } = await admin
+      .from("task_operational_events")
+      .insert(mapTaskOperationalEventInsert(input))
+
+    if (error) {
       console.error(
         "[operational-events] server insert failed",
         input.eventType,
         input.taskId,
-        result.error.message
+        error.message
       )
     }
   } catch (error) {
@@ -45,9 +46,10 @@ export async function taskHasOperationalEventType(input: {
   companyId: string
   taskId: string
   eventType: TaskOperationalEventType | string
+  client?: ReturnType<typeof createAdminClient>
 }): Promise<boolean> {
   try {
-    const admin = createAdminClient()
+    const admin = input.client ?? createAdminClient()
     const { data, error } = await admin
       .from("task_operational_events" as never)
       .select("id")
@@ -74,14 +76,32 @@ export async function taskHasOperationalEventType(input: {
 
 export async function recordOperationalEventOnce(input: {
   event: TaskOperationalEventInsert
+  perf?: import("@/lib/performance").PerformanceTrace
 }): Promise<void> {
-  const exists = await taskHasOperationalEventType({
-    companyId: input.event.companyId,
-    taskId: input.event.taskId,
-    eventType: input.event.eventType,
-  })
+  const perf = input.perf
+  const admin = createAdminClient()
+  const exists = await (perf
+    ? perf.span("dedupe", () =>
+        taskHasOperationalEventType({
+          companyId: input.event.companyId,
+          taskId: input.event.taskId,
+          eventType: input.event.eventType,
+          client: admin,
+        })
+      )
+    : taskHasOperationalEventType({
+        companyId: input.event.companyId,
+        taskId: input.event.taskId,
+        eventType: input.event.eventType,
+        client: admin,
+      }))
   if (exists) {
     return
   }
-  await recordOperationalEventSafe(input.event)
+  // Single round-trip insert (no RETURNING). Trigger+commit are not separable from JS.
+  await (perf
+    ? perf.span("insert", () => recordOperationalEventSafe(input.event, admin), {
+        detail: "includes trigger+commit",
+      })
+    : recordOperationalEventSafe(input.event, admin))
 }

@@ -46,42 +46,92 @@ export async function recordTaskMobileStartAudit(input: {
   accuracyMeters: number | null
   distanceToClientMeters: number
   startedAt: string
+  perf?: import("@/lib/performance").PerformanceTrace
 }) {
-  const entityLabel =
-    input.after.workOrderNumber?.trim() ||
-    input.after.code?.trim() ||
-    input.after.title?.trim() ||
-    input.after.id
+  const perf = input.perf
 
-  await recordAuditEventServer({
-    module: AUDIT_MODULES.TAREAS,
-    action: AUDIT_ACTIONS.TASK_STATUS_EN_CURSO,
-    entityType: AUDIT_ENTITY_TYPES.TASK,
-    entityId: input.after.id,
-    entityLabel,
-    description: buildAuditDescription({
-      action: AUDIT_ACTIONS.TASK_STATUS_EN_CURSO,
-      entityLabel,
-    }),
-    performedBy: {
-      kind: "user",
-      sessionUser: mobileAuthToSessionUser(input.auth),
-    },
-    metadata: {
-      ...buildTaskStatusMetadata(input.before, input.after),
-      workflowAction: "start",
-      source: "mobile-field-agent",
-      workTeamId: input.workTeamId,
-      workTeamName: input.workTeamName,
-      mobileDeviceId: input.mobileDeviceId,
-      startedBy: input.auth.employeeId,
-      startedAt: input.startedAt,
-      latitude: input.latitude,
-      longitude: input.longitude,
-      accuracyMeters: input.accuracyMeters,
-      distanceToClientMeters: input.distanceToClientMeters,
-    },
-  })
+  const entityLabel = perf
+    ? perf.spanSync("serialize", () => {
+        return (
+          input.after.workOrderNumber?.trim() ||
+          input.after.code?.trim() ||
+          input.after.title?.trim() ||
+          input.after.id
+        )
+      })
+    : input.after.workOrderNumber?.trim() ||
+      input.after.code?.trim() ||
+      input.after.title?.trim() ||
+      input.after.id
+
+  const metadata = perf
+    ? perf.spanSync("metadata", () => ({
+        ...buildTaskStatusMetadata(input.before, input.after),
+        workflowAction: "start",
+        source: "mobile-field-agent",
+        workTeamId: input.workTeamId,
+        workTeamName: input.workTeamName,
+        mobileDeviceId: input.mobileDeviceId,
+        startedBy: input.auth.employeeId,
+        startedAt: input.startedAt,
+        latitude: input.latitude,
+        longitude: input.longitude,
+        accuracyMeters: input.accuracyMeters,
+        distanceToClientMeters: input.distanceToClientMeters,
+      }))
+    : {
+        ...buildTaskStatusMetadata(input.before, input.after),
+        workflowAction: "start",
+        source: "mobile-field-agent",
+        workTeamId: input.workTeamId,
+        workTeamName: input.workTeamName,
+        mobileDeviceId: input.mobileDeviceId,
+        startedBy: input.auth.employeeId,
+        startedAt: input.startedAt,
+        latitude: input.latitude,
+        longitude: input.longitude,
+        accuracyMeters: input.accuracyMeters,
+        distanceToClientMeters: input.distanceToClientMeters,
+      }
+
+  await (perf
+    ? perf.span(
+        "insert",
+        () =>
+          recordAuditEventServer({
+            module: AUDIT_MODULES.TAREAS,
+            action: AUDIT_ACTIONS.TASK_STATUS_EN_CURSO,
+            entityType: AUDIT_ENTITY_TYPES.TASK,
+            entityId: input.after.id,
+            entityLabel,
+            description: buildAuditDescription({
+              action: AUDIT_ACTIONS.TASK_STATUS_EN_CURSO,
+              entityLabel,
+            }),
+            performedBy: {
+              kind: "user",
+              sessionUser: mobileAuthToSessionUser(input.auth),
+            },
+            metadata,
+          }),
+        { detail: "write-only insert" }
+      )
+    : recordAuditEventServer({
+        module: AUDIT_MODULES.TAREAS,
+        action: AUDIT_ACTIONS.TASK_STATUS_EN_CURSO,
+        entityType: AUDIT_ENTITY_TYPES.TASK,
+        entityId: input.after.id,
+        entityLabel,
+        description: buildAuditDescription({
+          action: AUDIT_ACTIONS.TASK_STATUS_EN_CURSO,
+          entityLabel,
+        }),
+        performedBy: {
+          kind: "user",
+          sessionUser: mobileAuthToSessionUser(input.auth),
+        },
+        metadata,
+      }))
 }
 
 export async function recordTaskMobileWorkflowAudit(input: {

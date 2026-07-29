@@ -5,6 +5,7 @@ import {
   resolveTaskStartCoordinatesFromSources,
   type TaskStartCoordinates,
 } from "@/lib/mobile/v1/tasks/task-start-coordinates"
+import type { PerformanceTrace } from "@/lib/performance"
 import type { Task } from "@/lib/types/tasks"
 
 type AdminClient = SupabaseClient
@@ -57,23 +58,38 @@ async function fetchProjectGpsForCompany(
 export async function resolveTaskStartCoordinates(
   client: AdminClient,
   companyId: string,
-  task: Pick<Task, "projectId" | "latitude" | "longitude">
+  task: Pick<Task, "projectId" | "latitude" | "longitude">,
+  perf?: PerformanceTrace
 ): Promise<TaskStartCoordinates | null> {
   if (!task.projectId) {
-    return resolveTaskStartCoordinatesFromSources({
-      task,
-      project: null,
-    })
+    return (perf
+      ? perf.spanSync("parsing", () =>
+          resolveTaskStartCoordinatesFromSources({
+            task,
+            project: null,
+          })
+        )
+      : resolveTaskStartCoordinatesFromSources({
+          task,
+          project: null,
+        }))
   }
 
-  const project = await fetchProjectGpsForCompany(
-    client,
-    companyId,
-    task.projectId
-  )
+  const project = await (perf
+    ? perf.span("obtencion", () =>
+        fetchProjectGpsForCompany(client, companyId, task.projectId!)
+      )
+    : fetchProjectGpsForCompany(client, companyId, task.projectId))
 
-  return resolveTaskStartCoordinatesFromSources({
-    task,
-    project,
-  })
+  return (perf
+    ? perf.spanSync("parsing", () =>
+        resolveTaskStartCoordinatesFromSources({
+          task,
+          project,
+        })
+      )
+    : resolveTaskStartCoordinatesFromSources({
+        task,
+        project,
+      }))
 }

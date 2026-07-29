@@ -139,6 +139,13 @@ export async function POST(request: Request) {
       userAgent: requestContext.userAgent,
     })
 
+    if (!entry) {
+      return NextResponse.json(
+        { success: false, message: "No se pudo registrar el evento en el Historial del Sistema." },
+        { status: 400 }
+      )
+    }
+
     return NextResponse.json({ success: true, entry })
   } catch (error) {
     const message =

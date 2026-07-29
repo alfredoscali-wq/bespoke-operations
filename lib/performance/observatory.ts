@@ -7,11 +7,15 @@
  */
 
 export type PerfCheckpointMeta = {
-  /** RPC / query name */
+  /** RPC / operation name */
   name?: string
   /** Rows affected or returned when known */
   rows?: number | null
   detail?: string
+  /** section = header row; span = timed step */
+  kind?: "section" | "span"
+  /** 1 = indented under the last section */
+  depth?: number
 }
 
 export type PerfTraceOptions = {
@@ -31,6 +35,16 @@ type Checkpoint = {
 export type PerformanceTrace = {
   readonly enabled: boolean
   readonly operation: string
+  /** Prints a section header in the summary (no timing). */
+  section: (title: string) => void
+  /**
+   * Runs work under a section scope. Children recorded via the scoped trace
+   * stay grouped under this section even when sections run in parallel.
+   */
+  runSection: <T>(
+    title: string,
+    run: (section: PerformanceTrace) => Promise<T>
+  ) => Promise<T>
   checkpoint: (label: string, meta?: PerfCheckpointMeta) => void
   /** Time an async block; records one checkpoint for the elapsed span. */
   span: <T>(
@@ -50,15 +64,10 @@ export type PerformanceTrace = {
 
 const LABEL_WIDTH = 22
 
-function readEnvFlag(name: string): boolean {
-  try {
-    const value = process.env[name]
-    if (!value) return false
-    const normalized = value.trim().toLowerCase()
-    return normalized === "1" || normalized === "true" || normalized === "yes"
-  } catch {
-    return false
-  }
+function readEnvFlag(value: string | undefined): boolean {
+  if (!value) return false
+  const normalized = value.trim().toLowerCase()
+  return normalized === "1" || normalized === "true" || normalized === "yes"
 }
 
 /**
@@ -67,11 +76,16 @@ function readEnvFlag(name: string): boolean {
  */
 const FORCE_PERF_OBSERVATORY = false
 
+/** Static env reads — required for Next.js/Turbopack inlining. */
+const PERF_OBSERVATORY_ENABLED = process.env.PERF_OBSERVATORY_ENABLED
+const NEXT_PUBLIC_PERF_OBSERVATORY_ENABLED =
+  process.env.NEXT_PUBLIC_PERF_OBSERVATORY_ENABLED
+
 export function isPerformanceObservatoryEnabled(): boolean {
   if (FORCE_PERF_OBSERVATORY) return true
   return (
-    readEnvFlag("PERF_OBSERVATORY_ENABLED") ||
-    readEnvFlag("NEXT_PUBLIC_PERF_OBSERVATORY_ENABLED")
+    readEnvFlag(PERF_OBSERVATORY_ENABLED) ||
+    readEnvFlag(NEXT_PUBLIC_PERF_OBSERVATORY_ENABLED)
   )
 }
 
@@ -125,6 +139,10 @@ function resolveMeta(
 const noopTrace: PerformanceTrace = {
   enabled: false,
   operation: "",
+  section() {},
+  async runSection(_title, run) {
+    return run(noopTrace)
+  },
   checkpoint() {},
   async span(_label, run) {
     return run()
@@ -134,6 +152,106 @@ const noopTrace: PerformanceTrace = {
   },
   finish() {},
   fail() {},
+}
+
+function createScopedTrace(input: {
+  operation: string
+  finished: () => boolean
+  recordChild: (checkpoint: Checkpoint) => void
+}): PerformanceTrace {
+  const childMeta = (meta?: PerfCheckpointMeta): PerfCheckpointMeta => ({
+    ...meta,
+    kind: meta?.kind ?? "span",
+    depth: meta?.depth ?? 1,
+  })
+
+  const record = (label: string, durationMs: number, meta?: PerfCheckpointMeta) => {
+    input.recordChild({
+      label,
+      atMs: nowMs(),
+      durationMs,
+      meta,
+    })
+  }
+
+  const scoped: PerformanceTrace = {
+    enabled: true,
+    operation: input.operation,
+    section(title) {
+      if (input.finished()) return
+      record(title, 0, { kind: "section", depth: 1 })
+    },
+    async runSection(title, run) {
+      if (input.finished()) return run(noopTrace)
+      // Nested sections flatten into this scope's buffer (still contiguous).
+      const nestedChildren: Checkpoint[] = []
+      const nestedHeader: Checkpoint = {
+        label: title,
+        atMs: nowMs(),
+        durationMs: 0,
+        meta: { kind: "section", depth: 1 },
+      }
+      const nested = createScopedTrace({
+        operation: title,
+        finished: input.finished,
+        recordChild: (checkpoint) => nestedChildren.push(checkpoint),
+      })
+      try {
+        return await run(nested)
+      } finally {
+        input.recordChild(nestedHeader)
+        for (const child of nestedChildren) {
+          input.recordChild(child)
+        }
+      }
+    },
+    checkpoint(label, meta) {
+      if (input.finished()) return
+      record(label, 0, childMeta(meta))
+    },
+    async span(label, run, meta) {
+      if (input.finished()) return run()
+      const spanStart = nowMs()
+      try {
+        const result = await run()
+        record(label, nowMs() - spanStart, childMeta(resolveMeta(meta)))
+        return result
+      } catch (error) {
+        record(
+          label,
+          nowMs() - spanStart,
+          childMeta({
+            ...resolveMeta(meta),
+            detail: "error",
+          })
+        )
+        throw error
+      }
+    },
+    spanSync(label, run, meta) {
+      if (input.finished()) return run()
+      const spanStart = nowMs()
+      try {
+        const result = run()
+        record(label, nowMs() - spanStart, childMeta(resolveMeta(meta)))
+        return result
+      } catch (error) {
+        record(
+          label,
+          nowMs() - spanStart,
+          childMeta({
+            ...resolveMeta(meta),
+            detail: "error",
+          })
+        )
+        throw error
+      }
+    },
+    finish() {},
+    fail() {},
+  }
+
+  return scoped
 }
 
 function printSummary(input: {
@@ -146,8 +264,9 @@ function printSummary(input: {
   extra?: Record<string, string | number | null | undefined>
 }) {
   const lines: string[] = []
-  lines.push("================================================")
+  lines.push("=====================================")
   lines.push(input.operation)
+  lines.push("=====================================")
   if (input.layer) {
     lines.push(`Layer: ${input.layer}`)
   }
@@ -157,21 +276,33 @@ function printSummary(input: {
   if (input.failed) {
     lines.push("Status: FAILED")
   }
-  lines.push(`Total: ${formatDuration(input.totalMs)}`)
   lines.push("")
   for (const checkpoint of input.checkpoints) {
+    if (checkpoint.meta?.kind === "section") {
+      lines.push("")
+      lines.push(checkpoint.label)
+      lines.push("")
+      continue
+    }
+    const depth = checkpoint.meta?.depth ?? 0
+    const indent = depth > 0 ? " " : ""
+    const label = checkpoint.label.trimStart()
     lines.push(
-      `${padLabel(checkpoint.label)}${formatDuration(checkpoint.durationMs)}${formatMeta(checkpoint.meta)}`
+      `${indent}${padLabel(label)}${formatDuration(checkpoint.durationMs)}${formatMeta(checkpoint.meta)}`
     )
   }
+  lines.push("")
+  lines.push(`${padLabel("TOTAL")}${formatDuration(input.totalMs)}`)
   if (input.extra) {
     for (const [key, value] of Object.entries(input.extra)) {
       if (value == null || value === "") continue
       lines.push(`${padLabel(key)}${String(value)}`)
     }
   }
-  lines.push("================================================")
-  console.info(lines.join("\n"))
+  lines.push("=====================================")
+  const summary = lines.join("\n")
+  console.info(summary)
+  console.log(summary)
 }
 
 /**
@@ -181,7 +312,21 @@ export function startPerformanceTrace(
   operation: string,
   options: PerfTraceOptions = {}
 ): PerformanceTrace {
-  if (!isPerformanceObservatoryEnabled()) {
+  const enabled = isPerformanceObservatoryEnabled()
+
+  // Temporary diagnostics — confirm instrumentation + env wiring.
+  if (enabled) {
+    console.log("[PERF] Observatory enabled")
+    console.log(`[PERF] Trace started: ${operation}`)
+  } else {
+    console.log("[PERF] Observatory disabled", {
+      PERF_OBSERVATORY_ENABLED,
+      NEXT_PUBLIC_PERF_OBSERVATORY_ENABLED,
+      FORCE_PERF_OBSERVATORY,
+    })
+  }
+
+  if (!enabled) {
     return noopTrace
   }
 
@@ -189,6 +334,7 @@ export function startPerformanceTrace(
   let lastAt = startedAt
   const checkpoints: Checkpoint[] = []
   let finished = false
+  let inSection = false
 
   const record = (label: string, durationMs: number, meta?: PerfCheckpointMeta) => {
     const atMs = nowMs()
@@ -201,7 +347,16 @@ export function startPerformanceTrace(
     lastAt = atMs
   }
 
-  const end = (failed: boolean, extra?: Record<string, string | number | null | undefined>) => {
+  const childMeta = (meta?: PerfCheckpointMeta): PerfCheckpointMeta => ({
+    ...meta,
+    kind: meta?.kind ?? "span",
+    depth: meta?.depth ?? (inSection ? 1 : 0),
+  })
+
+  const end = (
+    failed: boolean,
+    extra?: Record<string, string | number | null | undefined>
+  ) => {
     if (finished) return
     finished = true
     const totalMs = nowMs() - startedAt
@@ -219,23 +374,63 @@ export function startPerformanceTrace(
   return {
     enabled: true,
     operation,
+    section(title) {
+      if (finished) return
+      inSection = true
+      record(title, 0, { kind: "section" })
+    },
+    async runSection(title, run) {
+      if (finished) return run(noopTrace)
+
+      // Reserve header immediately so parallel sections keep declaration order.
+      const header: Checkpoint = {
+        label: title,
+        atMs: nowMs(),
+        durationMs: 0,
+        meta: { kind: "section" },
+      }
+      checkpoints.push(header)
+      inSection = true
+
+      const children: Checkpoint[] = []
+      const scoped = createScopedTrace({
+        operation: title,
+        finished: () => finished,
+        recordChild: (checkpoint) => children.push(checkpoint),
+      })
+
+      try {
+        return await run(scoped)
+      } finally {
+        const headerIndex = checkpoints.indexOf(header)
+        if (headerIndex >= 0) {
+          checkpoints.splice(headerIndex + 1, 0, ...children)
+        } else {
+          checkpoints.push(header, ...children)
+        }
+      }
+    },
     checkpoint(label, meta) {
       if (finished) return
       const at = nowMs()
-      record(label, at - lastAt, meta)
+      record(label, at - lastAt, childMeta(meta))
     },
     async span(label, run, meta) {
       if (finished) return run()
       const spanStart = nowMs()
       try {
         const result = await run()
-        record(label, nowMs() - spanStart, resolveMeta(meta))
+        record(label, nowMs() - spanStart, childMeta(resolveMeta(meta)))
         return result
       } catch (error) {
-        record(label, nowMs() - spanStart, {
-          ...resolveMeta(meta),
-          detail: "error",
-        })
+        record(
+          label,
+          nowMs() - spanStart,
+          childMeta({
+            ...resolveMeta(meta),
+            detail: "error",
+          })
+        )
         throw error
       }
     },
@@ -244,13 +439,17 @@ export function startPerformanceTrace(
       const spanStart = nowMs()
       try {
         const result = run()
-        record(label, nowMs() - spanStart, resolveMeta(meta))
+        record(label, nowMs() - spanStart, childMeta(resolveMeta(meta)))
         return result
       } catch (error) {
-        record(label, nowMs() - spanStart, {
-          ...resolveMeta(meta),
-          detail: "error",
-        })
+        record(
+          label,
+          nowMs() - spanStart,
+          childMeta({
+            ...resolveMeta(meta),
+            detail: "error",
+          })
+        )
         throw error
       }
     },

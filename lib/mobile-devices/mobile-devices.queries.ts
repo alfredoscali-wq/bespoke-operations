@@ -73,6 +73,54 @@ export async function fetchMobileDeviceByCompanyAndDeviceId(
   return data ? mapMobileDeviceRow(data as MobileDeviceRow) : null
 }
 
+type MobileDeviceWithCrewRow = MobileDeviceRow & {
+  crews:
+    | {
+        name: string | null
+        deleted_at: string | null
+      }
+    | {
+        name: string | null
+        deleted_at: string | null
+      }[]
+    | null
+}
+
+/**
+ * Device lookup + optional crew name in one round-trip (FK mobile_devices.work_team_id → crews).
+ */
+export async function fetchMobileDeviceWithCrewNameByCompanyAndDeviceId(
+  client: SupabaseClient,
+  companyId: string,
+  deviceId: string
+): Promise<{ device: MobileDeviceRecord; workTeamName: string | null } | null> {
+  const { data, error } = await client
+    .from("mobile_devices")
+    .select("*, crews!mobile_devices_work_team_id_fkey ( name, deleted_at )")
+    .eq("company_id", companyId)
+    .eq("device_id", deviceId)
+    .is("deleted_at", null)
+    .maybeSingle()
+
+  if (error) {
+    throw error
+  }
+
+  if (!data) {
+    return null
+  }
+
+  const row = data as MobileDeviceWithCrewRow
+  const device = mapMobileDeviceRow(row)
+  const crewJoin = Array.isArray(row.crews) ? row.crews[0] : row.crews
+  const workTeamName =
+    crewJoin && crewJoin.deleted_at == null
+      ? crewJoin.name?.trim() || null
+      : null
+
+  return { device, workTeamName }
+}
+
 export async function upsertMobileDeviceProvision(
   client: SupabaseClient,
   input: UpsertMobileDeviceInput

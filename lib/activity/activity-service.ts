@@ -18,7 +18,13 @@ export { recordActivityEventWithClient } from "@/lib/activity/record-activity-ev
 export async function recordActivityEvent(
   input: RecordActivityEventInput
 ): Promise<ActivityEventRow> {
-  return recordActivityEventWithClient(createAdminClient(), input)
+  const row = await recordActivityEventWithClient(createAdminClient(), input, {
+    returnRow: true,
+  })
+  if (!row) {
+    throw new Error("Activity Engine: write succeeded but no row was returned")
+  }
+  return row
 }
 
 /** OIE product name for the same writer as `recordActivityEvent`. */
@@ -26,12 +32,15 @@ export const recordActivity = recordActivityEvent
 
 /**
  * Best-effort wrapper for instrumentation — never throws to callers.
+ * Skips the post-RPC SELECT: callers never consume the returned row.
  */
 export async function recordActivityEventSafe(
   input: RecordActivityEventInput
 ): Promise<ActivityEventRow | null> {
   try {
-    return await recordActivityEvent(input)
+    return await recordActivityEventWithClient(createAdminClient(), input, {
+      returnRow: false,
+    })
   } catch (error) {
     console.error("[activity-engine] recordActivityEventSafe failed", {
       action: input.action,

@@ -130,10 +130,20 @@ function resolveAuditCompanyId(input: WriteAuditLogInput): string {
   return BESPOKE_PRODUCTION_COMPANY_ID
 }
 
+export type WriteAuditLogOptions = {
+  /**
+   * When false, skips RETURNING/SELECT after insert. Row is already committed.
+   * Use for fire-and-forget writers (recordAuditEventServer). Default true.
+   */
+  returnRow?: boolean
+}
+
 export async function writeAuditLog(
   client: SupabaseAdminClient,
-  input: WriteAuditLogInput
-): Promise<AuditLogEntry> {
+  input: WriteAuditLogInput,
+  options: WriteAuditLogOptions = {}
+): Promise<AuditLogEntry | null> {
+  const returnRow = options.returnRow !== false
   validateWriteAuditLogInput(input)
 
   const performedBy = resolvePerformedByFields(input)
@@ -161,22 +171,34 @@ export async function writeAuditLog(
     }
   }
 
+  const insertPayload = {
+    company_id: resolveAuditCompanyId(input),
+    module: input.module,
+    action: input.action,
+    entity_type: input.entityType,
+    entity_id: normalizedEntityId,
+    entity_label: input.entityLabel ?? null,
+    description: input.description.trim(),
+    severity,
+    ...performedBy,
+    ip_address: input.ipAddress?.trim() || null,
+    user_agent: input.userAgent?.trim() || null,
+    metadata: metadata as Database["public"]["Tables"]["system_audit_log"]["Insert"]["metadata"],
+  } as Database["public"]["Tables"]["system_audit_log"]["Insert"]
+
+  if (!returnRow) {
+    const { error } = await client.from("system_audit_log").insert(insertPayload)
+    if (error) {
+      throw new Error(
+        `No se pudo registrar el Historial del Sistema: ${error.message}`
+      )
+    }
+    return null
+  }
+
   const { data, error } = await client
     .from("system_audit_log")
-    .insert({
-      company_id: resolveAuditCompanyId(input),
-      module: input.module,
-      action: input.action,
-      entity_type: input.entityType,
-      entity_id: normalizedEntityId,
-      entity_label: input.entityLabel ?? null,
-      description: input.description.trim(),
-      severity,
-      ...performedBy,
-      ip_address: input.ipAddress?.trim() || null,
-      user_agent: input.userAgent?.trim() || null,
-      metadata: metadata as Database["public"]["Tables"]["system_audit_log"]["Insert"]["metadata"],
-    })
+    .insert(insertPayload)
     .select("*")
     .single()
 

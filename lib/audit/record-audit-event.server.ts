@@ -8,5 +8,6 @@ export async function recordAuditEventServer(
   input: WriteAuditLogInput
 ): Promise<void> {
   const admin = createAdminClient()
-  await writeAuditLog(admin, input)
+  // Return value unused — skip post-insert SELECT round-trip.
+  await writeAuditLog(admin, input, { returnRow: false })
 }

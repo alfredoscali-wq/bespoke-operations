@@ -1,5 +1,6 @@
 import "server-only"
 
+import { recordTaskMobileStartActivity } from "@/lib/activity/adapters/tasks-activity.server"
 import { recordTaskMobileStartAudit } from "@/lib/audit/tasks-audit.server"
 import { compareDateOnly, toLocalDateOnly } from "@/lib/dates/date-only"
 import type { MobileAuthContext } from "@/lib/mobile/v1/auth/mobile-auth-context"
@@ -31,26 +32,6 @@ import { fetchActiveWorkTeamShift } from "@/lib/work-team-shifts/work-team-shift
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 type AdminClient = SupabaseClient
-
-async function fetchTaskForCompany(
-  client: AdminClient,
-  companyId: string,
-  taskId: string
-): Promise<Task | null> {
-  const { data, error } = await client
-    .from("tasks")
-    .select("*")
-    .eq("id", taskId)
-    .eq("company_id", companyId)
-    .is("deleted_at", null)
-    .maybeSingle()
-
-  if (error) {
-    throw error
-  }
-
-  return data ? mapTaskRowToTask(data) : null
-}
 
 function mapOperationalChecklist(
   items: MobileOperationalChecklistItem[]
@@ -103,25 +84,79 @@ export async function startMobileTask(
   const perf = startPerformanceTrace("MOBILE TASK START", { layer: "backend" })
   try {
     const admin = createAdminClient()
-    const resolved = await perf.span("Resolve work team", () =>
-      resolveMobileWorkTeam(admin, auth, request.deviceId)
+
+    perf.section("Resolve work team")
+    const resolved = await resolveMobileWorkTeam(
+      admin,
+      auth,
+      request.deviceId,
+      perf
     )
 
-    const activeShift = await perf.span("Fetch active shift", () =>
+    perf.section("Fetch active shift")
+    const activeShift = await perf.span("consulta", () =>
       fetchActiveWorkTeamShift(admin, auth.companyId, resolved.workTeamId)
     )
+    perf.spanSync("validaciones", () => {
+      if (!activeShift) {
+        throw new MobileApiError(
+          "SHIFT_NOT_ACTIVE",
+          "No hay jornada activa.",
+          409
+        )
+      }
+    })
 
-    if (!activeShift) {
-      throw new MobileApiError(
-        "SHIFT_NOT_ACTIVE",
-        "No hay jornada activa.",
-        409
-      )
-    }
-
-    const task = await perf.span("Load task", () =>
-      fetchTaskForCompany(admin, auth.companyId, taskId)
+    perf.section("Load task")
+    const taskRow = await perf.span("SELECT principal", async () => {
+      const { data, error } = await admin
+        .from("tasks")
+        .select("*")
+        .eq("id", taskId)
+        .eq("company_id", auth.companyId)
+        .is("deleted_at", null)
+        .maybeSingle()
+      if (error) throw error
+      return data
+    })
+    const task = perf.spanSync("joins", () =>
+      taskRow ? mapTaskRowToTask(taskRow) : null
     )
+    perf.spanSync("validaciones", () => {
+      if (!task) {
+        throw new MobileApiError(
+          "TASK_NOT_FOUND",
+          "Orden de trabajo no encontrada.",
+          404
+        )
+      }
+      const crewRef = {
+        id: resolved.workTeamId,
+        name: resolved.workTeamName,
+      }
+      if (!taskMatchesCrewId(task, crewRef)) {
+        throw new MobileApiError(
+          "TASK_NOT_FOUND",
+          "Orden de trabajo no encontrada.",
+          404
+        )
+      }
+      const today = toLocalDateOnly()
+      if (compareDateOnly(task.dueDate, today) > 0) {
+        throw new MobileApiError(
+          "TASK_NOT_FOUND",
+          "Orden de trabajo no encontrada.",
+          404
+        )
+      }
+      if (task.status !== "asignada") {
+        throw new MobileApiError(
+          "TASK_INVALID_STATUS",
+          "La orden de trabajo no puede iniciarse en su estado actual.",
+          409
+        )
+      }
+    })
 
     if (!task) {
       throw new MobileApiError(
@@ -131,41 +166,13 @@ export async function startMobileTask(
       )
     }
 
-    const crewRef = {
-      id: resolved.workTeamId,
-      name: resolved.workTeamName,
-    }
-
-    if (!taskMatchesCrewId(task, crewRef)) {
-      throw new MobileApiError(
-        "TASK_NOT_FOUND",
-        "Orden de trabajo no encontrada.",
-        404
-      )
-    }
-
-    const today = toLocalDateOnly()
-
-    if (compareDateOnly(task.dueDate, today) > 0) {
-      throw new MobileApiError(
-        "TASK_NOT_FOUND",
-        "Orden de trabajo no encontrada.",
-        404
-      )
-    }
-
-    if (task.status !== "asignada") {
-      throw new MobileApiError(
-        "TASK_INVALID_STATUS",
-        "La orden de trabajo no puede iniciarse en su estado actual.",
-        409
-      )
-    }
-
-    const startCoordinates = await perf.span("Resolve coordinates", () =>
-      resolveTaskStartCoordinates(admin, auth.companyId, task)
+    perf.section("Resolve coordinates")
+    const startCoordinates = await resolveTaskStartCoordinates(
+      admin,
+      auth.companyId,
+      task,
+      perf
     )
-
     if (!startCoordinates) {
       throw new MobileApiError(
         "TASK_LOCATION_REQUIRED",
@@ -174,7 +181,8 @@ export async function startMobileTask(
       )
     }
 
-    const distancePolicy = perf.spanSync("Distance policy", () =>
+    perf.section("Distance policy")
+    const distancePolicy = perf.spanSync("calculo", () =>
       evaluateTaskStartDistancePolicy({
         operatorLatitude: request.latitude,
         operatorLongitude: request.longitude,
@@ -182,10 +190,8 @@ export async function startMobileTask(
         targetLongitude: startCoordinates.longitude,
       })
     )
-
     const distanceToClientMeters = distancePolicy.distanceToClientMeters
     const enforcementRuntime = getTaskStartDistanceEnforcementRuntimeSnapshot()
-
     // Ops diagnostic only — does not alter allow/deny. Never logs raw env values.
     console.warn("[Mobile API][task-start-distance]", {
       taskId: task.id,
@@ -195,19 +201,21 @@ export async function startMobileTask(
       policyEnforcementEnabled: distancePolicy.enforcementEnabled,
       runtime: enforcementRuntime,
     })
-
-    if (distancePolicy.shouldBlock) {
-      throw new MobileApiError(
-        "TASK_LOCATION_OUT_OF_RANGE",
-        distancePolicy.message ??
-          `Se encuentra a ${Math.round(distanceToClientMeters)} metros del domicilio del cliente.`,
-        409
-      )
-    }
+    perf.spanSync("validacion", () => {
+      if (distancePolicy.shouldBlock) {
+        throw new MobileApiError(
+          "TASK_LOCATION_OUT_OF_RANGE",
+          distancePolicy.message ??
+            `Se encuentra a ${Math.round(distanceToClientMeters)} metros del domicilio del cliente.`,
+          409
+        )
+      }
+    })
 
     const startedAt = new Date().toISOString()
 
-    const updatedRow = await perf.span("Update task", async () => {
+    perf.section("Update task")
+    const updatedRow = await perf.span("UPDATE principal", async () => {
       const { data, error: updateError } = await admin
         .from("tasks")
         .update({ status: "en-curso" })
@@ -222,10 +230,12 @@ export async function startMobileTask(
       }
       return data
     })
+    const updatedTask = perf.spanSync("UPDATE secundarios", () =>
+      mapTaskRowToTask(updatedRow)
+    )
 
-    const updatedTask = mapTaskRowToTask(updatedRow)
-
-    await perf.span("Insert execution start", () =>
+    perf.section("Insert execution start")
+    await perf.span("INSERT", () =>
       insertTaskExecutionStart(admin, {
         companyId: auth.companyId,
         taskId: task.id,
@@ -236,78 +246,87 @@ export async function startMobileTask(
         longitude: request.longitude,
         accuracyMeters: request.accuracyMeters,
         distanceToClientMeters,
-      })
+      }),
+      { detail: "includes commit" }
     )
 
-    try {
-      await perf.span("Operational event", () =>
-        recordOperationalEventOnce({
-          event: buildStartedOperationalEvent({
-            companyId: auth.companyId,
-            task,
-            actor: resolveOperationalEventActorFromMobile(auth),
-            source: "mobile",
-            latitude: request.latitude,
-            longitude: request.longitude,
-          }),
-        })
-      )
-    } catch {
-      // Non-blocking operational history.
-    }
-
-    const checklist = mapOperationalChecklist(
-      await perf.span("Load checklist", () =>
-        fetchOperationalChecklistForServiceType(
-          admin,
-          auth.companyId,
-          updatedTask.serviceType?.trim() || "",
-          resolveWorkOrderTechnologyFromTask(updatedTask)
+    // Independent post-mutation work: same writes/reads, overlapped wall-clock.
+    // runSection keeps each component's spans grouped despite parallel completion.
+    const [, , , checklist] = await Promise.all([
+      (async () => {
+        try {
+          await perf.runSection("Operational Event", async (section) => {
+            const event = section.spanSync("payload", () =>
+              buildStartedOperationalEvent({
+                companyId: auth.companyId,
+                task,
+                actor: resolveOperationalEventActorFromMobile(auth),
+                source: "mobile",
+                latitude: request.latitude,
+                longitude: request.longitude,
+              })
+            )
+            await recordOperationalEventOnce({ event, perf: section })
+          })
+        } catch {
+          // Non-blocking operational history.
+        }
+      })(),
+      (async () => {
+        try {
+          await perf.runSection("Audit", async (section) => {
+            await recordTaskMobileStartAudit({
+              auth,
+              before: task,
+              after: updatedTask,
+              workTeamId: resolved.workTeamId,
+              workTeamName: resolved.workTeamName,
+              mobileDeviceId: resolved.mobileDevice.id,
+              latitude: request.latitude,
+              longitude: request.longitude,
+              accuracyMeters: request.accuracyMeters,
+              distanceToClientMeters,
+              startedAt,
+              perf: section,
+            })
+          })
+        } catch {
+          // Start succeeded; audit failure must not block mobile clients.
+        }
+      })(),
+      (async () => {
+        try {
+          await perf.runSection("Activity", async (section) => {
+            await recordTaskMobileStartActivity({
+              auth,
+              before: task,
+              after: updatedTask,
+              workTeamId: resolved.workTeamId,
+              workTeamName: resolved.workTeamName,
+              mobileDeviceId: resolved.mobileDevice.id,
+              latitude: request.latitude,
+              longitude: request.longitude,
+              accuracyMeters: request.accuracyMeters,
+              distanceToClientMeters,
+              perf: section,
+            })
+          })
+        } catch {
+          // Start succeeded; OIE failure must not block mobile clients.
+        }
+      })(),
+      perf.runSection("Checklist", async (section) => {
+        const rows = await section.span("query", () =>
+          fetchOperationalChecklistForServiceType(
+            admin,
+            auth.companyId,
+            updatedTask.serviceType?.trim() || "",
+            resolveWorkOrderTechnologyFromTask(updatedTask)
+          )
         )
-      )
-    )
-
-    try {
-      await perf.span("Audit", () =>
-        recordTaskMobileStartAudit({
-          auth,
-          before: task,
-          after: updatedTask,
-          workTeamId: resolved.workTeamId,
-          workTeamName: resolved.workTeamName,
-          mobileDeviceId: resolved.mobileDevice.id,
-          latitude: request.latitude,
-          longitude: request.longitude,
-          accuracyMeters: request.accuracyMeters,
-          distanceToClientMeters,
-          startedAt,
-        })
-      )
-    } catch {
-      // Start succeeded; audit failure must not block mobile clients.
-    }
-
-    try {
-      await perf.span("Activity", async () => {
-        const { recordTaskMobileStartActivity } = await import(
-          "@/lib/activity/adapters/tasks-activity.server"
-        )
-        await recordTaskMobileStartActivity({
-          auth,
-          before: task,
-          after: updatedTask,
-          workTeamId: resolved.workTeamId,
-          workTeamName: resolved.workTeamName,
-          mobileDeviceId: resolved.mobileDevice.id,
-          latitude: request.latitude,
-          longitude: request.longitude,
-          accuracyMeters: request.accuracyMeters,
-          distanceToClientMeters,
-        })
-      })
-    } catch {
-      // Start succeeded; OIE failure must not block mobile clients.
-    }
+        return section.spanSync("transform", () => mapOperationalChecklist(rows))
+      }),
+    ])
 
     const response = {
       id: updatedTask.id,
