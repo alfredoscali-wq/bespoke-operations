@@ -1,7 +1,7 @@
 "use client"
 
 import dynamic from "next/dynamic"
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ChevronDown, MapPin } from "lucide-react"
 
@@ -24,7 +24,14 @@ import { Button } from "@/components/ui/button"
 import { formatDateOnly } from "@/lib/dates/date-only"
 import { formatCoordinate } from "@/lib/gps"
 import type { CommercialLocationSource } from "@/lib/commercial/catalogs"
-import { buildCommercialResponsibleLegend } from "@/lib/commercial/responsible-colors"
+import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
+import { listCommercialEtiquetasBrowser } from "@/lib/supabase/commercial-etiquetas.browser"
+import type { CommercialEtiqueta } from "@/lib/types/commercial-etiquetas"
+import { resolveCommercialEtiquetaMapColor } from "@/lib/commercial/map-layers"
+import {
+  enrichOpportunityWithEtiqueta,
+  indexCommercialEtiquetasById,
+} from "@/lib/commercial/etiqueta-display"
 import { listCommercialResponsibleOptions } from "@/lib/commercial/responsible-employees"
 import { buildCommercialDossierHref } from "@/lib/commercial/dossier-navigation"
 import type {
@@ -57,6 +64,7 @@ const DEFAULT_FILTERS: CommercialTerritoryFilters = {
   status: "",
   priority: "",
   source: "",
+  etiquetaIds: [],
 }
 
 type LocationDraft = {
@@ -85,12 +93,21 @@ function matchesTerritoryFilters(
   ) {
     return false
   }
+  if (filters.etiquetaIds.length > 0) {
+    if (
+      !entry.etiquetaId ||
+      !filters.etiquetaIds.includes(entry.etiquetaId)
+    ) {
+      return false
+    }
+  }
   if (filters.search.trim()) {
     const person = personById.get(entry.personId)
     const haystack = [
       entry.code,
       entry.title,
       entry.personDisplayName,
+      entry.etiquetaName ?? "",
       person?.companyName ?? "",
       person?.phone ?? "",
       person?.mobile ?? "",
@@ -145,12 +162,16 @@ function toMapOpportunity(
     personName: entry.personDisplayName,
     companyName: person?.companyName?.trim() ?? "",
     updatedAt: entry.updatedAt,
+    etiquetaId: entry.etiquetaId,
+    etiquetaName: entry.etiquetaName,
+    etiquetaColor: entry.etiquetaColor,
     nextActionLabel: resolveNextActionLabel(entry),
   }
 }
 
 function CommercialTerritoryContent() {
   const router = useRouter()
+  const { companyId, isAuthReady } = useTenantCompanyId()
   const { employees } = useEmployees()
   const { data: people } = useCommercialPeople()
   const {
@@ -161,6 +182,7 @@ function CommercialTerritoryContent() {
 
   const [bounds, setBounds] = useState<CommercialMapBounds | null>(null)
   const [filters, setFilters] = useState<CommercialTerritoryFilters>(DEFAULT_FILTERS)
+  const [etiquetas, setEtiquetas] = useState<CommercialEtiqueta[]>([])
   const [error, setError] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
@@ -177,6 +199,20 @@ function CommercialTerritoryContent() {
   const [gpsError, setGpsError] = useState<string | null>(null)
   const [locationScope, setLocationScope] =
     useState<CommercialTerritoryLocationScope>("all")
+
+  useEffect(() => {
+    if (!isAuthReady || !companyId) return
+    let cancelled = false
+    void listCommercialEtiquetasBrowser(companyId, { activeOnly: true }).then(
+      (result) => {
+        if (cancelled) return
+        setEtiquetas(result.data ?? [])
+      }
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [companyId, isAuthReady])
 
   const employeeOptions = useMemo(
     () => listCommercialResponsibleOptions(employees),
@@ -201,31 +237,44 @@ function CommercialTerritoryContent() {
     return map
   }, [people])
 
+  const etiquetasById = useMemo(
+    () => indexCommercialEtiquetasById(etiquetas),
+    [etiquetas]
+  )
+
+  const enrichedOpportunities = useMemo(
+    () =>
+      allOpportunities.map((entry) =>
+        enrichOpportunityWithEtiqueta(entry, etiquetasById)
+      ),
+    [allOpportunities, etiquetasById]
+  )
+
   const geolocatedCount = useMemo(
     () =>
-      allOpportunities.filter(
+      enrichedOpportunities.filter(
         (entry) => entry.latitude != null && entry.longitude != null
       ).length,
-    [allOpportunities]
+    [enrichedOpportunities]
   )
   const withoutLocationCount = useMemo(
     () =>
-      allOpportunities.filter(
+      enrichedOpportunities.filter(
         (entry) => entry.latitude == null || entry.longitude == null
       ).length,
-    [allOpportunities]
+    [enrichedOpportunities]
   )
 
   const filteredGeolocatedOpportunities =
     useMemo((): CommercialTerritoryCardOpportunity[] => {
       const rows: CommercialTerritoryCardOpportunity[] = []
-      for (const entry of allOpportunities) {
+      for (const entry of enrichedOpportunities) {
         if (!matchesTerritoryFilters(entry, filters, personById)) continue
         const mapped = toMapOpportunity(entry, personById)
         if (mapped) rows.push(mapped)
       }
       return rows
-    }, [allOpportunities, filters, personById])
+    }, [enrichedOpportunities, filters, personById])
 
   const visibleOpportunities =
     useMemo((): CommercialTerritoryCardOpportunity[] => {
@@ -237,7 +286,7 @@ function CommercialTerritoryContent() {
 
   const withoutLocationOpportunities =
     useMemo((): CommercialTerritoryCardOpportunity[] => {
-      return allOpportunities
+      return enrichedOpportunities
         .filter((entry) => entry.latitude == null || entry.longitude == null)
         .filter((entry) => matchesTerritoryFilters(entry, filters, personById))
         .map((entry) => {
@@ -254,24 +303,51 @@ function CommercialTerritoryContent() {
             personName: entry.personDisplayName,
             companyName: person?.companyName?.trim() ?? "",
             updatedAt: entry.updatedAt,
+            etiquetaId: entry.etiquetaId,
+            etiquetaName: entry.etiquetaName,
+            etiquetaColor: entry.etiquetaColor,
             nextActionLabel: resolveNextActionLabel(entry),
           }
         })
-    }, [allOpportunities, filters, personById])
+    }, [enrichedOpportunities, filters, personById])
 
   const panelOpportunities =
     locationScope === "without"
       ? withoutLocationOpportunities
       : visibleOpportunities
 
-  const legendItems = useMemo(
-    () =>
-      buildCommercialResponsibleLegend(
-        filteredGeolocatedOpportunities,
-        employeeNameById
-      ),
-    [employeeNameById, filteredGeolocatedOpportunities]
-  )
+  const legendItems = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const entry of filteredGeolocatedOpportunities) {
+      const key = entry.etiquetaId ?? "__none__"
+      counts.set(key, (counts.get(key) ?? 0) + 1)
+    }
+    const items = etiquetas
+      .map((etiqueta) => ({
+        key: etiqueta.id,
+        shortName: etiqueta.name,
+        count: counts.get(etiqueta.id) ?? 0,
+        color: {
+          hex: resolveCommercialEtiquetaMapColor(etiqueta.color),
+          soft: `${resolveCommercialEtiquetaMapColor(etiqueta.color)}22`,
+        },
+      }))
+      .filter((item) => item.count > 0)
+
+    const untagged = counts.get("__none__") ?? 0
+    if (untagged > 0) {
+      items.push({
+        key: "__none__",
+        shortName: "Sin etiqueta",
+        count: untagged,
+        color: {
+          hex: resolveCommercialEtiquetaMapColor(null),
+          soft: `${resolveCommercialEtiquetaMapColor(null)}22`,
+        },
+      })
+    }
+    return items
+  }, [etiquetas, filteredGeolocatedOpportunities])
 
   const handleBoundsChange = useCallback((next: CommercialMapBounds) => {
     setBounds((current) => {
@@ -378,7 +454,7 @@ function CommercialTerritoryContent() {
       <CommercialModuleHero
         active="territorio"
         title="Territorio Comercial"
-        description="Navegá el mapa con todas las oportunidades geolocalizadas y trabajá el listado del área visible."
+        description="Navegá el mapa con todos los clientes geolocalizados y trabajá el listado del área visible."
         onNewOpportunity={() => {
           setDrawerOpen(true)
           setPickMode(false)
@@ -444,7 +520,7 @@ function CommercialTerritoryContent() {
             selectedId={selectedId}
             selectedIds={selectedIds}
             employeeOptions={employeeOptions}
-            employeeNameById={employeeNameById}
+            etiquetas={etiquetas}
             isLoading={opportunitiesLoading && locationScope === "all"}
             onSelect={(id) => {
               setSelectedId(id)
@@ -483,11 +559,13 @@ function CommercialTerritoryContent() {
               router.push(buildCommercialDossierHref(id, "territorio"))
             }
             onPickLocation={handleMapPick}
-            className="h-full"
+            // Picking a point keeps the drawer open on purpose, so the map has
+            // to sit above the drawer overlay while that mode is active.
+            className={cn("h-full", pickMode && "z-[60]")}
           />
           <CommercialTerritoryLegend
             items={legendItems}
-            className="absolute bottom-3 left-3 z-[1000]"
+            className="absolute bottom-3 left-3 z-10"
           />
         </div>
       </div>

@@ -57,6 +57,9 @@ export type CommercialOpportunity = {
   latitude: number | null
   longitude: number | null
   locationSource: CommercialLocationSource | null
+  etiquetaId: string | null
+  etiquetaName: string | null
+  etiquetaColor: string | null
   sellerOpenedAt: string | null
   sourceAtencionId: string | null
   sourceCustomerId: string | null
@@ -87,6 +90,9 @@ export type CommercialMapOpportunity = {
   personName: string
   companyName: string
   updatedAt: string
+  etiquetaId: string | null
+  etiquetaName: string | null
+  etiquetaColor: string | null
 }
 
 export type CommercialMapBounds = {
@@ -106,4 +112,5 @@ export type CommercialMapQuery = {
   priority?: CommercialPriorityCode | null
   source?: CommercialSourceCode | null
   search?: string | null
+  etiquetaIds?: string[] | null
 }

@@ -145,7 +145,7 @@ export function CommercialOpportunityDrawer({
         },
       })
       if (!result.success || !result.data) {
-        setError(result.message ?? "No se pudo actualizar la oportunidad.")
+        setError(result.message ?? "No se pudo actualizar el cliente.")
         return
       }
       onUpdated?.(result.data)
@@ -154,7 +154,7 @@ export function CommercialOpportunityDrawer({
       setError(
         submitError instanceof Error
           ? submitError.message
-          : "No se pudo actualizar la oportunidad."
+          : "No se pudo actualizar el cliente."
       )
     } finally {
       setIsSubmitting(false)
@@ -175,7 +175,7 @@ export function CommercialOpportunityDrawer({
           }}
         >
           <SheetHeader className="border-b">
-            <SheetTitle>Editar Oportunidad</SheetTitle>
+            <SheetTitle>Editar Cliente</SheetTitle>
             <SheetDescription>
               Actualice el expediente comercial sin salir de esta pantalla.
             </SheetDescription>
@@ -207,7 +207,7 @@ export function CommercialOpportunityDrawer({
                 formId={FORM_ID}
                 isSubmitting={isSubmitting}
                 onCancel={requestClose}
-                submitLabel="Guardar Oportunidad"
+                submitLabel="Guardar Cliente"
               />
             </form>
           ) : null}

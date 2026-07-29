@@ -1620,7 +1620,7 @@ export function AtencionDetailScreen({
           ) : null}
           {commercialOpportunity ? (
             <DetailField
-              label="Oportunidad comercial"
+              label="Cliente comercial"
               value={
                 commercialOpportunity.id ? (
                   <Link

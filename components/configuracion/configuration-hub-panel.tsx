@@ -98,6 +98,18 @@ export function ConfigurationHubPanel() {
                   "Motivos de cancelación y reprogramación de Órdenes de Trabajo.",
                 href: "/configuracion/motivos",
               },
+              {
+                title: "Etiquetas comerciales",
+                description:
+                  "Etiquetas para clasificar clientes en Gestión Comercial.",
+                href: "/configuracion/etiquetas-comerciales",
+              },
+              {
+                title: "Actividad Comercial",
+                description:
+                  "Tipos de actividad territorial (publicidad, visitas, relevamientos).",
+                href: "/configuracion/actividad-comercial",
+              },
             ]
           : []),
       ],

@@ -128,3 +128,16 @@
     @apply font-sans;
   }
 }
+
+@layer base {
+  /*
+   * Leaflet hardcodes z-index on its panes (400) and controls (1000), which would
+   * paint above drawers (z-50), dialogs and toasts. Scoping those values to the
+   * map container keeps the app overlay hierarchy intact. Utility classes can
+   * still lift a specific map when it must receive clicks over an overlay.
+   */
+  .leaflet-container {
+    isolation: isolate;
+    z-index: 0;
+  }
+}

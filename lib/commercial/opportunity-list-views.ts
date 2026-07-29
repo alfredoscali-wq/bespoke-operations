@@ -29,7 +29,7 @@ export const COMMERCIAL_OPPORTUNITY_LIST_VIEW_LABELS: Record<
   CommercialOpportunityListView,
   string
 > = {
-  active: "Oportunidades activas",
+  active: "Clientes activos",
   nueva: "Nuevas",
   won: "Ganadas",
   lost: "Perdidas",

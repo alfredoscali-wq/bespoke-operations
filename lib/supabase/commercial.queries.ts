@@ -29,6 +29,7 @@ import type {
 export type SupabaseCommercialClient = SupabaseClient<Database>
 
 const PERSON_SELECT = "*"
+/** `*` includes etiqueta_id after migration; name/color enriched client-side. */
 const OPPORTUNITY_SELECT = "*"
 
 export function mapSupabaseCommercialError(error: {
@@ -395,7 +396,7 @@ export async function insertCommercialOpportunity(
     .insert({
       ...insert,
       code: insert.code ?? "",
-    })
+    } as never)
     .select(OPPORTUNITY_SELECT)
     .single()
 
@@ -425,7 +426,7 @@ export async function patchCommercialOpportunity(
 
   const { data, error } = await client
     .from("commercial_opportunities")
-    .update(update)
+    .update(update as never)
     .eq("id", id)
     .is("deleted_at", null)
     .select(OPPORTUNITY_SELECT)
@@ -482,7 +483,7 @@ export async function softDeleteCommercialOpportunity(
 }
 
 const MAP_OPPORTUNITY_SELECT =
-  "id, code, title, status, priority, latitude, longitude, assigned_employee_id, updated_at, person:commercial_people!commercial_opportunities_person_id_fkey(first_name, last_name, company_name, person_type, phone, mobile)"
+  "id, code, title, status, priority, latitude, longitude, assigned_employee_id, updated_at, etiqueta_id, person:commercial_people!commercial_opportunities_person_id_fkey(first_name, last_name, company_name, person_type, phone, mobile)"
 
 type CommercialMapQueryRow = {
   id: string
@@ -494,6 +495,7 @@ type CommercialMapQueryRow = {
   longitude: number | null
   assigned_employee_id: string | null
   updated_at: string
+  etiqueta_id?: string | null
   person?: {
     first_name: string
     last_name: string
@@ -529,6 +531,9 @@ function mapCommercialMapOpportunityRow(
     personName,
     companyName: row.person?.company_name?.trim() ?? "",
     updatedAt: row.updated_at,
+    etiquetaId: row.etiqueta_id ?? null,
+    etiquetaName: null,
+    etiquetaColor: null,
   }
 }
 

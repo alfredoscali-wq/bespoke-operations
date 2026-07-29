@@ -3,16 +3,24 @@
 import { useEffect, useMemo, useState } from "react"
 
 import { CommercialDrawerFooter } from "@/components/gestion-comercial/commercial-drawer-footer"
-import { CommercialOpportunitySection } from "@/components/gestion-comercial/commercial-opportunity-section"
-import { CommercialPersonSection } from "@/components/gestion-comercial/commercial-person-section"
 import { emptyCommercialPersonLocationFields } from "@/components/gestion-comercial/commercial-person-location-fields"
 import { useCreateOpportunityWithPerson } from "@/components/gestion-comercial/commercial-provider"
+import { SharedLocationInput } from "@/components/tareas/shared-location-input"
 import { useEmployees } from "@/components/rrhh/employees-provider"
 import {
   DiscardChangesDialog,
   isFormStateDirty,
   useProtectedFormDialog,
 } from "@/components/ui/protected-form-dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   Sheet,
   SheetContent,
@@ -20,7 +28,9 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
+import { Textarea } from "@/components/ui/textarea"
 import {
+  buildCommercialClientAutoTitle,
   EXISTING_PROSPECT_NOTICE,
   normalizeCommercialEmail,
   normalizeCommercialPhone,
@@ -32,10 +42,13 @@ import {
 import { composeCommercialAddress } from "@/lib/commercial/location"
 import { resolveCommercialPersonLocation } from "@/lib/commercial/resolve-person-location"
 import { listCommercialResponsibleOptions } from "@/lib/commercial/responsible-employees"
+import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
+import { listCommercialEtiquetasBrowser } from "@/lib/supabase/commercial-etiquetas.browser"
+import type { CommercialEtiqueta } from "@/lib/types/commercial-etiquetas"
 import type { CommercialPerson } from "@/lib/types/commercial"
 import type { CommercialOpportunityListItem } from "@/lib/types/commercial"
 
-const FORM_ID = "commercial-new-opportunity-form"
+const FORM_ID = "commercial-new-client-form"
 
 function buildDefaultPerson(): CommercialNewOpportunityPersonInput {
   return {
@@ -43,6 +56,7 @@ function buildDefaultPerson(): CommercialNewOpportunityPersonInput {
     firstName: "",
     lastName: "",
     companyName: "",
+    documentNumber: "",
     phone: "",
     mobile: "",
     email: "",
@@ -59,6 +73,7 @@ function buildDefaultOpportunity(
     source: "otro",
     priority: "media",
     observations: "",
+    etiquetaId: "",
     latitude: null,
     longitude: null,
     locationSource: null,
@@ -132,6 +147,7 @@ export function CommercialNewOpportunityDrawer({
   location,
   locationControls,
 }: CommercialNewOpportunityDrawerProps) {
+  const { companyId, isAuthReady } = useTenantCompanyId()
   const { employees, isEmployeesReady } = useEmployees()
   const { mutateAsync: createWithPerson } = useCreateOpportunityWithPerson()
 
@@ -150,6 +166,7 @@ export function CommercialNewOpportunityDrawer({
       opportunity: buildDefaultOpportunity(),
     }
   )
+  const [etiquetas, setEtiquetas] = useState<CommercialEtiqueta[]>([])
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -191,6 +208,24 @@ export function CommercialNewOpportunityDrawer({
   }, [defaultResponsibleId, open])
 
   useEffect(() => {
+    if (!open || !isAuthReady || !companyId) return
+    let cancelled = false
+    void listCommercialEtiquetasBrowser(companyId, { activeOnly: true }).then(
+      (result) => {
+        if (cancelled) return
+        if (result.data) {
+          setEtiquetas(result.data)
+        } else {
+          setEtiquetas([])
+        }
+      }
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [companyId, isAuthReady, open])
+
+  useEffect(() => {
     if (!open || !location) return
     let cancelled = false
     void Promise.resolve().then(() => {
@@ -215,24 +250,23 @@ export function CommercialNewOpportunityDrawer({
 
   const existingProspectNotice = resolveExistingProspectNotice(people, person)
 
-  const responsibleOptions = useMemo(
-    () => listCommercialResponsibleOptions(employees),
-    [employees]
-  )
-
   async function persistBundle(
     nextPerson: CommercialNewOpportunityPersonInput,
     nextOpportunity: CommercialNewOpportunityInput
   ) {
-    const personWithAddress = {
-      ...nextPerson,
-      address: composeCommercialAddress(nextPerson),
+    const autoTitle = buildCommercialClientAutoTitle(nextPerson)
+    const cleanBundle: CommercialCreateOpportunityBundleInput = {
+      person: {
+        ...nextPerson,
+        address: composeCommercialAddress(nextPerson),
+      },
+      opportunity: {
+        ...nextOpportunity,
+        title: nextOpportunity.title.trim() || autoTitle,
+      },
     }
-    const bundle = {
-      person: personWithAddress,
-      opportunity: nextOpportunity,
-    }
-    const validationError = validateCommercialCreateOpportunityBundle(bundle)
+
+    const validationError = validateCommercialCreateOpportunityBundle(cleanBundle)
     if (validationError) {
       setError(validationError)
       return
@@ -241,9 +275,9 @@ export function CommercialNewOpportunityDrawer({
     setIsSubmitting(true)
     setError(null)
     try {
-      const result = await createWithPerson(bundle)
+      const result = await createWithPerson(cleanBundle)
       if (!result.success || !result.data) {
-        setError(result.message ?? "No se pudo crear la oportunidad.")
+        setError(result.message ?? "No se pudo crear el cliente.")
         return
       }
 
@@ -253,7 +287,7 @@ export function CommercialNewOpportunityDrawer({
       setError(
         submitError instanceof Error
           ? submitError.message
-          : "No se pudo crear la oportunidad."
+          : "No se pudo crear el cliente."
       )
     } finally {
       setIsSubmitting(false)
@@ -266,7 +300,7 @@ export function CommercialNewOpportunityDrawer({
 
     const locationResult = await resolveCommercialPersonLocation(person)
     if (locationResult.status === "failed") {
-      setError("No se pudo interpretar la ubicación pegada.")
+      setError("No se pudo interpretar el enlace de Google Maps.")
       return
     }
 
@@ -279,7 +313,7 @@ export function CommercialNewOpportunityDrawer({
         latitude: locationResult.coords.latitude,
         longitude: locationResult.coords.longitude,
         locationSource: locationResult.coords.locationSource,
-        locationInput: "",
+        locationInput: person.locationInput,
       }
       nextOpportunity = {
         ...opportunity,
@@ -306,6 +340,11 @@ export function CommercialNewOpportunityDrawer({
     await persistBundle(nextPerson, nextOpportunity)
   }
 
+  const fullName = [person.firstName, person.lastName]
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(" ")
+
   return (
     <>
       <Sheet open={open} onOpenChange={handleOpenChange}>
@@ -321,9 +360,10 @@ export function CommercialNewOpportunityDrawer({
           }}
         >
           <SheetHeader className="border-b">
-            <SheetTitle>Nueva Oportunidad</SheetTitle>
+            <SheetTitle>Nuevo Cliente</SheetTitle>
             <SheetDescription>
-              Registre la persona y la oportunidad comercial en un solo paso.
+              Cargá solo lo esencial. El resto se puede completar después en la
+              ficha.
             </SheetDescription>
           </SheetHeader>
 
@@ -332,24 +372,165 @@ export function CommercialNewOpportunityDrawer({
             onSubmit={(event) => void handleSubmit(event)}
             className="flex min-h-0 flex-1 flex-col"
           >
-            <div className="flex min-h-0 flex-1 flex-col gap-8 overflow-y-auto px-4 py-4">
-              <CommercialPersonSection
-                value={person}
-                onChange={setPerson}
-                disabled={isSubmitting}
-                autoFocusName={open}
-                existingProspectNotice={existingProspectNotice}
-                onAdvanceField={advanceOnEnter}
-              />
-              <CommercialOpportunitySection
-                value={opportunity}
-                onChange={setOpportunity}
-                responsibleOptions={responsibleOptions}
-                disabled={isSubmitting || !isEmployeesReady}
-                onAdvanceField={advanceOnEnter}
+            <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="commercial-client-full-name">
+                  Nombre y Apellido *
+                </Label>
+                <Input
+                  id="commercial-client-full-name"
+                  value={fullName}
+                  autoFocus={open}
+                  disabled={isSubmitting}
+                  onKeyDown={advanceOnEnter}
+                  onChange={(event) => {
+                    const raw = event.target.value
+                    const space = raw.indexOf(" ")
+                    setPerson((current) => ({
+                      ...current,
+                      personType: "individual",
+                      firstName: space === -1 ? raw : raw.slice(0, space),
+                      lastName: space === -1 ? "" : raw.slice(space + 1),
+                      companyName: "",
+                    }))
+                  }}
+                  placeholder="Nombre y apellido"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="commercial-client-phone">Teléfono *</Label>
+                <Input
+                  id="commercial-client-phone"
+                  value={person.phone}
+                  disabled={isSubmitting}
+                  onKeyDown={advanceOnEnter}
+                  onChange={(event) =>
+                    setPerson((current) => ({
+                      ...current,
+                      phone: event.target.value,
+                      mobile: event.target.value,
+                    }))
+                  }
+                  placeholder="Teléfono"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="commercial-client-etiqueta">
+                  Etiqueta Comercial *
+                </Label>
+                <Select
+                  value={opportunity.etiquetaId || undefined}
+                  onValueChange={(value) =>
+                    setOpportunity((current) => ({
+                      ...current,
+                      etiquetaId: value,
+                    }))
+                  }
+                  disabled={isSubmitting || !isEmployeesReady}
+                >
+                  <SelectTrigger id="commercial-client-etiqueta">
+                    <SelectValue placeholder="Seleccionar etiqueta" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {etiquetas.length === 0 ? (
+                      <SelectItem value="__none" disabled>
+                        Configurá etiquetas en Configuración
+                      </SelectItem>
+                    ) : (
+                      etiquetas.map((etiqueta) => (
+                        <SelectItem key={etiqueta.id} value={etiqueta.id}>
+                          <span className="inline-flex items-center gap-2">
+                            <span
+                              className="inline-block size-2 rounded-full"
+                              style={{ backgroundColor: etiqueta.color }}
+                              aria-hidden
+                            />
+                            {etiqueta.name}
+                          </span>
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="commercial-client-dni">DNI</Label>
+                <Input
+                  id="commercial-client-dni"
+                  value={person.documentNumber}
+                  disabled={isSubmitting}
+                  onKeyDown={advanceOnEnter}
+                  onChange={(event) =>
+                    setPerson((current) => ({
+                      ...current,
+                      documentNumber: event.target.value,
+                    }))
+                  }
+                  placeholder="Opcional"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="commercial-client-email">Email</Label>
+                <Input
+                  id="commercial-client-email"
+                  type="email"
+                  value={person.email}
+                  disabled={isSubmitting}
+                  onKeyDown={advanceOnEnter}
+                  onChange={(event) =>
+                    setPerson((current) => ({
+                      ...current,
+                      email: event.target.value,
+                    }))
+                  }
+                  placeholder="Opcional"
+                />
+              </div>
+
+              <SharedLocationInput
+                id="commercial-client-maps"
+                label="Ubicación (Google Maps)"
+                value={person.locationInput}
+                onChange={(value) =>
+                  setPerson((current) => ({
+                    ...current,
+                    locationInput: value,
+                    latitude: null,
+                    longitude: null,
+                    locationSource: null,
+                  }))
+                }
+                placeholder="Pegar aquí el enlace de Google Maps compartido por el cliente"
               />
 
+              <div className="space-y-2">
+                <Label htmlFor="commercial-client-notes">Observaciones</Label>
+                <Textarea
+                  id="commercial-client-notes"
+                  value={opportunity.observations}
+                  disabled={isSubmitting}
+                  onChange={(event) =>
+                    setOpportunity((current) => ({
+                      ...current,
+                      observations: event.target.value,
+                    }))
+                  }
+                  placeholder="Opcional"
+                  rows={3}
+                />
+              </div>
+
               {locationControls}
+
+              {existingProspectNotice ? (
+                <p className="text-sm text-amber-700 dark:text-amber-400">
+                  {existingProspectNotice}
+                </p>
+              ) : null}
 
               {error ? (
                 <p className="text-sm text-destructive" role="alert">
@@ -362,6 +543,7 @@ export function CommercialNewOpportunityDrawer({
               formId={FORM_ID}
               isSubmitting={isSubmitting}
               onCancel={requestClose}
+              submitLabel="Guardar Cliente"
             />
           </form>
         </SheetContent>

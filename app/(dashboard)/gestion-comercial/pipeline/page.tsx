@@ -1,9 +1,16 @@
+import { redirect } from "next/navigation"
 import { Suspense } from "react"
 
 import { CommercialPipelineModule } from "@/components/gestion-comercial/pipeline/commercial-pipeline-module"
 import { Skeleton } from "@/components/ui/skeleton"
+import { COMMERCIAL_PIPELINE_UI_ENABLED } from "@/lib/commercial/mvp-ui"
 
 export default function GestionComercialPipelinePage() {
+  // MVP: hide Pipeline UI without deleting the module or API.
+  if (!COMMERCIAL_PIPELINE_UI_ENABLED) {
+    redirect("/gestion-comercial")
+  }
+
   return (
     <Suspense
       fallback={

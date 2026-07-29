@@ -159,7 +159,7 @@ function PlanningMapSelectedTaskOverlay({
   return (
     <div
       className={cn(
-        "absolute bottom-4 left-4 z-[500] max-w-sm rounded-lg border bg-background/95 p-3 shadow-lg backdrop-blur",
+        "absolute bottom-4 left-4 z-10 max-w-sm rounded-lg border bg-background/95 p-3 shadow-lg backdrop-blur",
         canEditOrder ? "pointer-events-auto" : "pointer-events-none"
       )}
       onClick={(event) => event.stopPropagation()}

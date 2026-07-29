@@ -125,7 +125,7 @@ function SituationNarrativeBody({
 
       {commercialOpportunity ? (
         <p>
-          <span className="text-muted-foreground">Oportunidad:</span>{" "}
+          <span className="text-muted-foreground">Cliente:</span>{" "}
           {commercialOpportunity.id ? (
             <Link
               href={`/gestion-comercial/${commercialOpportunity.id}`}
@@ -270,7 +270,7 @@ export function ConsultationSituationSummaryCard({
             ) : null}
             {commercialOpportunity ? (
               <p className="inline-flex items-center gap-1">
-                <span className="text-slate-500">Oportunidad:</span>{" "}
+                <span className="text-slate-500">Cliente:</span>{" "}
                 {commercialOpportunity.id ? (
                   <Link
                     href={`/gestion-comercial/${commercialOpportunity.id}`}

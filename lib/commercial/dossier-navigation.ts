@@ -1,8 +1,11 @@
+import { COMMERCIAL_PIPELINE_UI_ENABLED } from "@/lib/commercial/mvp-ui"
+
 export const COMMERCIAL_DOSSIER_FROM_VALUES = [
   "inicio",
   "oportunidades",
   "pipeline",
   "territorio",
+  "actividad",
 ] as const
 
 export type CommercialDossierFrom =
@@ -30,9 +33,14 @@ export function resolveCommercialDossierBackHref(
     case "oportunidades":
       return "/gestion-comercial/oportunidades"
     case "pipeline":
-      return "/gestion-comercial/pipeline"
+      // MVP: Pipeline UI hidden — never send “Volver” to the gated Kanban route.
+      return COMMERCIAL_PIPELINE_UI_ENABLED
+        ? "/gestion-comercial/pipeline"
+        : "/gestion-comercial"
     case "territorio":
       return "/gestion-comercial/mapa"
+    case "actividad":
+      return "/gestion-comercial/actividad-comercial"
     default: {
       const _exhaustive: never = from
       return _exhaustive

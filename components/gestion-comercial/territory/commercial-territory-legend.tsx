@@ -1,10 +1,16 @@
 "use client"
 
-import type { CommercialResponsibleLegendItem } from "@/lib/commercial/responsible-colors"
 import { cn } from "@/lib/utils"
 
+export type CommercialEtiquetaLegendItem = {
+  key: string
+  shortName: string
+  count: number
+  color: { hex: string; soft: string }
+}
+
 type CommercialTerritoryLegendProps = {
-  items: CommercialResponsibleLegendItem[]
+  items: CommercialEtiquetaLegendItem[]
   className?: string
 }
 
@@ -21,10 +27,10 @@ export function CommercialTerritoryLegend({
         className
       )}
       role="list"
-      aria-label="Leyenda de responsables"
+      aria-label="Leyenda de etiquetas comerciales"
     >
       <p className="mb-1.5 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
-        Responsables
+        Etiquetas
       </p>
       <ul className="space-y-1">
         {items.map((item) => (
@@ -34,7 +40,7 @@ export function CommercialTerritoryLegend({
             role="listitem"
           >
             <span
-              className="size-2.5 shrink-0 rounded-sm"
+              className="size-2.5 shrink-0 rounded-full"
               style={{ backgroundColor: item.color.hex }}
               aria-hidden
             />

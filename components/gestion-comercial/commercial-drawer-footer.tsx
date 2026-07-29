@@ -16,10 +16,10 @@ export function CommercialDrawerFooter({
   formId,
   isSubmitting,
   onCancel,
-  submitLabel = "Guardar Oportunidad",
+  submitLabel = "Guardar Cliente",
 }: CommercialDrawerFooterProps) {
   return (
-    <SheetFooter className="gap-2 border-t sm:flex-row">
+    <SheetFooter className="shrink-0 gap-2 border-t bg-popover sm:flex-row">
       <Button
         type="button"
         variant="outline"

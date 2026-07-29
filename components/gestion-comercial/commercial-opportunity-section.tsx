@@ -24,7 +24,7 @@ export function CommercialOpportunitySection({
   return (
     <section className="space-y-3">
       <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-        Oportunidad
+        Cliente
       </h2>
       <CommercialOpportunityForm
         value={value}

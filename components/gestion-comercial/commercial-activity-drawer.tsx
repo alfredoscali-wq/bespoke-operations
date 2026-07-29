@@ -139,7 +139,7 @@ type CommercialActivityDrawerProps = {
   opportunityId: string
   activity?: CommercialActivityListItem | null
   defaultTypeCode?: CommercialActivityTypeCode
-  /** Prefill “gestión no termina” for creating a commitment from Pipeline. */
+  /** Prefill “gestión no termina” when creating a commitment from a card action. */
   preferCommitment?: boolean
 }
 

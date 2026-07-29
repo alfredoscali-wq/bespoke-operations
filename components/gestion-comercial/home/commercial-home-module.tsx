@@ -243,7 +243,7 @@ function CommercialHomeContent() {
             <CommercialEmptyState
               icon={Inbox}
               title="No hay nuevas derivaciones."
-              description="Excelente, ya revisaste todas las oportunidades."
+              description="Excelente, ya revisaste todos los clientes."
             />
           ) : (
             <ul className="divide-y">
@@ -389,7 +389,7 @@ function CommercialHomeContent() {
             <div className="grid grid-cols-2 gap-2.5">
               <FilterableKpiCard
                 compact
-                label="Oportunidades activas"
+                label="Clientes activos"
                 value={desk.kpis.activeOpportunities}
                 icon={BarChart3}
                 tone="violet"

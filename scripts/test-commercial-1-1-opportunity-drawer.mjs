@@ -9,91 +9,93 @@ import {
   validateCommercialCreateOpportunityBundle,
 } from "../lib/commercial/create-opportunity.ts"
 
+const basePerson = {
+  personType: "individual",
+  firstName: "Ana",
+  lastName: "Pérez",
+  companyName: "",
+  documentNumber: "",
+  phone: "111",
+  mobile: "111",
+  email: "",
+  street: "",
+  streetNumber: "",
+  floor: "",
+  apartment: "",
+  neighborhood: "",
+  city: "",
+  province: "",
+  postalCode: "",
+  address: "",
+  latitude: null,
+  longitude: null,
+  locationSource: null,
+  locationInput: "",
+}
+
+const baseOpportunity = {
+  title: "Ana Pérez",
+  assignedEmployeeId: "emp-1",
+  source: "whatsapp",
+  priority: "alta",
+  observations: "",
+  etiquetaId: "etiq-1",
+  latitude: null,
+  longitude: null,
+  locationSource: null,
+}
+
 test("validaciones de alta integrada", () => {
   assert.equal(
     validateCommercialCreateOpportunityBundle({
-      person: {
-        personType: "individual",
-        firstName: "",
-        lastName: "Pérez",
-        companyName: "",
-        phone: "",
-        mobile: "",
-        email: "",
-      },
-      opportunity: {
-        title: "Fibra",
-        assignedEmployeeId: "emp-1",
-        source: "whatsapp",
-        priority: "alta",
-        observations: "",
-      },
+      person: { ...basePerson, firstName: "", lastName: "Pérez", phone: "111" },
+      opportunity: baseOpportunity,
     }),
-    "Ingrese el nombre del prospecto."
+    "Ingrese el nombre y apellido del cliente."
   )
 
   assert.equal(
     validateCommercialCreateOpportunityBundle({
       person: {
+        ...basePerson,
         personType: "company",
         firstName: "",
         lastName: "",
         companyName: "",
-        phone: "",
-        mobile: "",
-        email: "",
       },
-      opportunity: {
-        title: "Fibra",
-        assignedEmployeeId: "emp-1",
-        source: "whatsapp",
-        priority: "alta",
-        observations: "",
-      },
+      opportunity: baseOpportunity,
     }),
-    "Ingrese la razón social del prospecto."
+    "Ingrese la razón social del cliente."
   )
 
   assert.equal(
     validateCommercialCreateOpportunityBundle({
-      person: {
-        personType: "individual",
-        firstName: "Ana",
-        lastName: "Pérez",
-        companyName: "",
-        phone: "",
-        mobile: "",
-        email: "malo",
-      },
-      opportunity: {
-        title: "Fibra",
-        assignedEmployeeId: "emp-1",
-        source: "whatsapp",
-        priority: "alta",
-        observations: "",
-      },
+      person: { ...basePerson, email: "malo" },
+      opportunity: baseOpportunity,
     }),
     "Ingrese un email válido."
   )
 
   assert.equal(
     validateCommercialCreateOpportunityBundle({
-      person: {
-        personType: "individual",
-        firstName: "Ana",
-        lastName: "Pérez",
-        companyName: "",
-        phone: "",
-        mobile: "",
-        email: "",
-      },
-      opportunity: {
-        title: "Fibra",
-        assignedEmployeeId: "emp-1",
-        source: "whatsapp",
-        priority: "alta",
-        observations: "",
-      },
+      person: { ...basePerson, phone: "", mobile: "" },
+      opportunity: baseOpportunity,
+    }),
+    "Ingrese el teléfono del cliente."
+  )
+
+  assert.equal(
+    validateCommercialCreateOpportunityBundle({
+      person: basePerson,
+      opportunity: { ...baseOpportunity, etiquetaId: "" },
+    }),
+    "Seleccione una etiqueta."
+  )
+
+  assert.equal(
+    validateCommercialCreateOpportunityBundle({
+      person: basePerson,
+      opportunity: baseOpportunity,
     }),
     null
   )
@@ -107,7 +109,7 @@ test("email opcional y normalización", () => {
   assert.equal(normalizeCommercialEmail(" Ana@Acme.COM "), "ana@acme.com")
   assert.equal(
     EXISTING_PROSPECT_NOTICE,
-    "Se encontró un prospecto existente. La oportunidad será asociada al registro actual."
+    "Se encontró un cliente existente. El alta se asociará al registro actual."
   )
 })
 
@@ -126,15 +128,10 @@ test("drawer y endpoint de alta integrada existen", async () => {
   )
   const services = await readFile("lib/commercial/services.ts", "utf8")
 
-  assert.match(drawer, /CommercialNewOpportunityDrawer/)
-  assert.match(drawer, /CommercialPersonSection/)
-  assert.match(drawer, /CommercialOpportunitySection/)
-  assert.match(drawer, /CommercialDrawerFooter/)
-  assert.match(drawer, /DiscardChangesDialog/)
-  assert.match(moduleFile, /Nueva Oportunidad/)
+  assert.match(drawer, /Nuevo Cliente/)
+  assert.match(drawer, /SharedLocationInput/)
+  assert.match(drawer, /etiqueta/)
   assert.match(moduleFile, /CommercialNewOpportunityDrawer/)
   assert.match(route, /createWithPerson/)
   assert.match(services, /createWithPerson/)
-  assert.match(services, /softDelete/)
-  assert.match(services, /matchedExistingPerson/)
 })

@@ -80,6 +80,7 @@ export type CreateCommercialOpportunityPayload = {
   latitude?: number | null
   longitude?: number | null
   locationSource?: CommercialLocationSource | null
+  etiquetaId?: string | null
   sellerOpenedAt?: string | null
   sourceAtencionId?: string | null
   sourceCustomerId?: string | null
@@ -103,6 +104,7 @@ export type UpdateCommercialOpportunityPayload = Partial<{
   latitude: number | null
   longitude: number | null
   locationSource: CommercialLocationSource | null
+  etiquetaId: string | null
   sellerOpenedAt: string | null
   sourceAtencionId: string | null
   sourceCustomerId: string | null

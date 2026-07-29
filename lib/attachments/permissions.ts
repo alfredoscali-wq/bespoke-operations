@@ -1,5 +1,6 @@
 import type { SessionUser } from "@/lib/auth/session"
 import type { AttachmentModule } from "@/lib/attachments/constants"
+import { canAccessGestionComercialModule } from "@/lib/commercial/module-access"
 import { canAccessAtencionClienteModule } from "@/lib/customer-atenciones/module-access"
 
 export function canUploadAttachments(
@@ -28,6 +29,7 @@ function canAccessAttachmentModule(
     case "customer_attention":
       return canAccessAtencionClienteModule(sessionUser)
     case "commercial":
+      return canAccessGestionComercialModule(sessionUser)
     case "projects":
     case "tasks":
     case "employees":

@@ -1,6 +1,7 @@
 "use client"
 
 import { CommercialBadge } from "@/components/gestion-comercial/commercial-badge"
+import { CommercialEtiquetaBadge } from "@/components/gestion-comercial/commercial-etiqueta-badge"
 import { CommercialInfoRow } from "@/components/gestion-comercial/commercial-info-row"
 import {
   Card,
@@ -47,16 +48,24 @@ export function CommercialOpportunityCard({
   return (
     <Card className={cn("overflow-hidden rounded-xl border shadow-sm", className)}>
       <CardHeader className="space-y-0">
-        <CardTitle className="text-base">Oportunidad</CardTitle>
+        <CardTitle className="text-base">Cliente</CardTitle>
       </CardHeader>
       <CardContent>
         <dl className="space-y-3">
-          <CommercialInfoRow label="Código OP">
+          <CommercialInfoRow label="Código">
             <span className="font-mono font-medium">{opportunity.code}</span>
           </CommercialInfoRow>
           {hasText(opportunity.title) ? (
-            <CommercialInfoRow label="Título">
+            <CommercialInfoRow label="Cliente">
               {opportunity.title.trim()}
+            </CommercialInfoRow>
+          ) : null}
+          {opportunity.etiquetaName ? (
+            <CommercialInfoRow label="Etiqueta">
+              <CommercialEtiquetaBadge
+                name={opportunity.etiquetaName}
+                color={opportunity.etiquetaColor}
+              />
             </CommercialInfoRow>
           ) : null}
           <CommercialInfoRow label="Estado">

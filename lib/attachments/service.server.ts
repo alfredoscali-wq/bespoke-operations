@@ -111,6 +111,39 @@ async function assertCustomerAttentionRecord(input: {
   return { data: true, error: null }
 }
 
+async function assertCommercialTerritorialActivityRecord(input: {
+  companyId: string
+  recordId: string
+}): Promise<AttachmentsRepositoryResult<true>> {
+  const admin = createAdminClient()
+  const { data, error } = await admin
+    .from("commercial_territorial_activities" as never)
+    .select("id")
+    .eq("company_id", input.companyId)
+    .eq("id", input.recordId)
+    .is("deleted_at", null)
+    .maybeSingle()
+
+  if (error) {
+    return {
+      data: null,
+      error: { code: "RECORD_LOOKUP_FAILED", message: error.message },
+    }
+  }
+
+  if (!data) {
+    return {
+      data: null,
+      error: {
+        code: "RECORD_NOT_FOUND",
+        message: "No se encontró la actividad comercial asociada al adjunto.",
+      },
+    }
+  }
+
+  return { data: true, error: null }
+}
+
 export async function assertAttachmentRecordAccess(input: {
   companyId: string
   module: AttachmentModule
@@ -119,6 +152,8 @@ export async function assertAttachmentRecordAccess(input: {
   switch (input.module) {
     case "customer_attention":
       return assertCustomerAttentionRecord(input)
+    case "commercial":
+      return assertCommercialTerritorialActivityRecord(input)
     default:
       return {
         data: null,

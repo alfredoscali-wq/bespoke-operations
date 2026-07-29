@@ -4,6 +4,7 @@ import Link from "next/link"
 import {
   BriefcaseBusiness,
   FolderOpen,
+  Footprints,
   LayoutGrid,
   MapPinned,
   Plus,
@@ -11,13 +12,12 @@ import {
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { CommercialModuleSearch } from "@/components/gestion-comercial/search/commercial-module-search"
+import type { CommercialModuleNavKey } from "@/lib/commercial/module-nav"
+import { COMMERCIAL_PIPELINE_UI_ENABLED } from "@/lib/commercial/mvp-ui"
 import { cn } from "@/lib/utils"
 
-export type CommercialModuleNavKey =
-  | "inicio"
-  | "oportunidades"
-  | "pipeline"
-  | "territorio"
+export type { CommercialModuleNavKey }
 
 const NAV_ITEMS: Array<{
   key: CommercialModuleNavKey
@@ -34,8 +34,14 @@ const NAV_ITEMS: Array<{
   {
     key: "oportunidades",
     href: "/gestion-comercial/oportunidades",
-    label: "Oportunidades",
+    label: "Clientes",
     icon: FolderOpen,
+  },
+  {
+    key: "actividad",
+    href: "/gestion-comercial/actividad-comercial",
+    label: "Actividad Comercial",
+    icon: Footprints,
   },
   {
     key: "pipeline",
@@ -46,10 +52,14 @@ const NAV_ITEMS: Array<{
   {
     key: "territorio",
     href: "/gestion-comercial/mapa",
-    label: "Territorio",
+    label: "Territorio (Clientes)",
     icon: MapPinned,
   },
 ]
+
+const VISIBLE_NAV_ITEMS = NAV_ITEMS.filter(
+  (item) => item.key !== "pipeline" || COMMERCIAL_PIPELINE_UI_ENABLED
+)
 
 type CommercialModuleHeroProps = {
   active: CommercialModuleNavKey
@@ -96,7 +106,7 @@ export function CommercialModuleHero({
           </div>
 
           <div className="flex flex-wrap gap-2 sm:justify-end">
-            {NAV_ITEMS.map((item) => {
+            {VISIBLE_NAV_ITEMS.map((item) => {
               const Icon = item.icon
               const isActive = item.key === active
               if (isActive) {
@@ -137,12 +147,15 @@ export function CommercialModuleHero({
                 onClick={onNewOpportunity}
               >
                 <Plus className="size-4" />
-                Nueva oportunidad
+                Nuevo Cliente
               </Button>
             ) : null}
             {actions}
           </div>
         </div>
+
+        <CommercialModuleSearch active={active} className="max-w-2xl" />
+
         {children ? <div className="pt-0.5">{children}</div> : null}
       </div>
     </header>

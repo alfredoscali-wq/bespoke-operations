@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { CommercialBadge } from "@/components/gestion-comercial/commercial-badge"
+import { CommercialEtiquetaBadge } from "@/components/gestion-comercial/commercial-etiqueta-badge"
 import {
   displayCommercialValue,
   formatCommercialDateTime,
@@ -38,9 +39,15 @@ export function CommercialHeader({
             <CommercialBadge kind="status" value={opportunity.status} />
             <CommercialBadge kind="priority" value={opportunity.priority} />
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight text-balance">
-            {opportunity.title}
-          </h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-2xl font-semibold tracking-tight text-balance">
+              {opportunity.title}
+            </h1>
+            <CommercialEtiquetaBadge
+              name={opportunity.etiquetaName}
+              color={opportunity.etiquetaColor}
+            />
+          </div>
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
             <span>
               Responsable:{" "}
@@ -90,7 +97,7 @@ export function CommercialHeader({
             className="h-9 gap-2"
             onClick={onEditOpportunity}
           >
-            Editar Oportunidad
+            Editar Cliente
           </Button>
           <Button
             type="button"

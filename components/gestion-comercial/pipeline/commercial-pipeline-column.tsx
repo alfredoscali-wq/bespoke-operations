@@ -77,7 +77,7 @@ export function CommercialPipelineColumn({
         {cards.length === 0 ? (
           <CommercialEmptyState
             icon={Inbox}
-            title="Sin oportunidades"
+            title="Sin clientes"
             description="Arrastrá una tarjeta acá para moverla de etapa."
             className="py-8"
           />

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { ChevronDown, Search } from "lucide-react"
 
+import { CommercialEtiquetaBadge } from "@/components/gestion-comercial/commercial-etiqueta-badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
@@ -23,11 +24,12 @@ import {
   COMMERCIAL_STATUS_CODES,
   COMMERCIAL_STATUS_LABELS,
 } from "@/lib/commercial/catalogs"
-import { resolveCommercialResponsibleColor } from "@/lib/commercial/responsible-colors"
+import { resolveCommercialEtiquetaMapColor } from "@/lib/commercial/map-layers"
 import type {
   CommercialMapAssignmentFilter,
   CommercialMapOpportunity,
 } from "@/lib/types/commercial"
+import type { CommercialEtiqueta } from "@/lib/types/commercial-etiquetas"
 import { cn } from "@/lib/utils"
 
 export type CommercialTerritoryCardOpportunity = CommercialMapOpportunity & {
@@ -42,6 +44,8 @@ export type CommercialTerritoryFilters = {
   status: string
   priority: string
   source: string
+  /** Empty = all etiquetas. When set, only matching etiqueta ids. */
+  etiquetaIds: string[]
 }
 
 type EmployeeOption = { id: string; label: string }
@@ -63,7 +67,7 @@ type CommercialTerritoryPanelProps = {
   selectedId: string | null
   selectedIds: string[]
   employeeOptions: EmployeeOption[]
-  employeeNameById: Record<string, string>
+  etiquetas: CommercialEtiqueta[]
   isLoading?: boolean
   onSelect: (id: string) => void
   onToggleSelect: (id: string, checked: boolean) => void
@@ -105,7 +109,7 @@ export function CommercialTerritoryPanel({
   selectedId,
   selectedIds,
   employeeOptions,
-  employeeNameById,
+  etiquetas,
   isLoading = false,
   onSelect,
   onToggleSelect,
@@ -301,6 +305,43 @@ export function CommercialTerritoryPanel({
                   </SelectContent>
                 </Select>
               </div>
+
+              {etiquetas.length > 0 ? (
+                <div className="col-span-2 space-y-1.5">
+                  <Label className="text-xs">Etiquetas</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {etiquetas.map((etiqueta) => {
+                      const checked = filters.etiquetaIds.includes(etiqueta.id)
+                      return (
+                        <label
+                          key={etiqueta.id}
+                          className="inline-flex cursor-pointer items-center gap-1.5 text-xs"
+                        >
+                          <Checkbox
+                            checked={checked}
+                            onCheckedChange={(value) => {
+                              const next = Boolean(value)
+                              patch({
+                                etiquetaIds: next
+                                  ? [...filters.etiquetaIds, etiqueta.id]
+                                  : filters.etiquetaIds.filter(
+                                      (id) => id !== etiqueta.id
+                                    ),
+                              })
+                            }}
+                          />
+                          <span
+                            className="size-2 rounded-full"
+                            style={{ backgroundColor: etiqueta.color }}
+                            aria-hidden
+                          />
+                          {etiqueta.name}
+                        </label>
+                      )
+                    })}
+                  </div>
+                </div>
+              ) : null}
             </div>
           </div>
         ) : null}
@@ -311,8 +352,8 @@ export function CommercialTerritoryPanel({
           <p className="text-sm font-medium tabular-nums">
             {isLoading
               ? "Cargando…"
-              : `${totalGeolocatedFilteredCount} oportunidad${
-                  totalGeolocatedFilteredCount === 1 ? "" : "es"
+              : `${totalGeolocatedFilteredCount} cliente${
+                  totalGeolocatedFilteredCount === 1 ? "" : "s"
                 }`}
           </p>
           <p className="text-xs text-muted-foreground tabular-nums">
@@ -323,8 +364,8 @@ export function CommercialTerritoryPanel({
         <p className="shrink-0 px-0.5 text-xs text-muted-foreground">
           {isLoading
             ? "Cargando…"
-            : `${opportunities.length} oportunidad${
-                opportunities.length === 1 ? "" : "es"
+            : `${opportunities.length} cliente${
+                opportunities.length === 1 ? "" : "s"
               } sin ubicación`}
         </p>
       )}
@@ -374,21 +415,17 @@ export function CommercialTerritoryPanel({
         {opportunities.length === 0 ? (
           <p className="p-3 text-sm text-muted-foreground">
             {locationScope === "without"
-              ? "No hay oportunidades pendientes de geolocalizar."
-              : "No hay oportunidades geolocalizadas en el área visible."}
+              ? "No hay clientes pendientes de geolocalizar."
+              : "No hay clientes geolocalizados en el área visible."}
           </p>
         ) : (
           <ul className="divide-y">
             {opportunities.map((opportunity) => {
               const checked = selectedIds.includes(opportunity.id)
               const active = selectedId === opportunity.id
-              const responsibleColor = resolveCommercialResponsibleColor(
-                opportunity.assignedEmployeeId
+              const etiquetaColor = resolveCommercialEtiquetaMapColor(
+                opportunity.etiquetaColor
               )
-              const responsibleLabel = opportunity.assignedEmployeeId
-                ? employeeNameById[opportunity.assignedEmployeeId] ||
-                  "Responsable"
-                : "Sin responsable"
               const companyLabel =
                 opportunity.companyName.trim() ||
                 opportunity.personName.trim() ||
@@ -410,7 +447,7 @@ export function CommercialTerritoryPanel({
                       "flex items-start gap-2 border-l-[3px] px-2 py-2.5 transition-colors",
                       active && "bg-muted/70"
                     )}
-                    style={{ borderLeftColor: responsibleColor.hex }}
+                    style={{ borderLeftColor: etiquetaColor }}
                   >
                     <Checkbox
                       checked={checked}
@@ -435,17 +472,11 @@ export function CommercialTerritoryPanel({
                         {companyLabel}
                       </p>
                       <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
-                        <span
-                          className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 font-medium text-foreground"
-                          style={{ backgroundColor: responsibleColor.soft }}
-                        >
-                          <span
-                            className="size-1.5 rounded-full"
-                            style={{ backgroundColor: responsibleColor.hex }}
-                            aria-hidden
-                          />
-                          {responsibleLabel}
-                        </span>
+                        <CommercialEtiquetaBadge
+                          name={opportunity.etiquetaName}
+                          color={opportunity.etiquetaColor}
+                          className="text-[10px]"
+                        />
                         <span>
                           {COMMERCIAL_STATUS_LABELS[opportunity.status]}
                         </span>

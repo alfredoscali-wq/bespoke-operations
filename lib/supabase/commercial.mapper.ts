@@ -153,52 +153,59 @@ export function mapUpdateCommercialPersonPayloadToUpdate(
 }
 
 export function mapCommercialOpportunityRowToOpportunity(
-  row: CommercialOpportunityRow
+  row: CommercialOpportunityRow | Record<string, unknown>
 ): CommercialOpportunity {
+  const data = row as CommercialOpportunityRow & {
+    etiqueta_id?: string | null
+  }
+
   return {
-    id: row.id,
-    companyId: row.company_id,
-    personId: row.person_id,
-    code: row.code,
-    title: row.title,
-    status: row.status as CommercialStatusCode,
-    priority: row.priority as CommercialPriorityCode,
-    source: row.source as CommercialSourceCode,
-    assignedEmployeeId: row.assigned_employee_id,
+    id: data.id,
+    companyId: data.company_id,
+    personId: data.person_id,
+    code: data.code,
+    title: data.title,
+    status: data.status as CommercialStatusCode,
+    priority: data.priority as CommercialPriorityCode,
+    source: data.source as CommercialSourceCode,
+    assignedEmployeeId: data.assigned_employee_id,
     estimatedAmount:
-      row.estimated_amount === null || row.estimated_amount === undefined
+      data.estimated_amount === null || data.estimated_amount === undefined
         ? null
-        : Number(row.estimated_amount),
-    probability: row.probability,
-    expectedCloseDate: row.expected_close_date,
-    description: row.description,
-    lostReason: row.lost_reason,
+        : Number(data.estimated_amount),
+    probability: data.probability,
+    expectedCloseDate: data.expected_close_date,
+    description: data.description,
+    lostReason: data.lost_reason,
     latitude:
-      row.latitude === null || row.latitude === undefined
+      data.latitude === null || data.latitude === undefined
         ? null
-        : Number(row.latitude),
+        : Number(data.latitude),
     longitude:
-      row.longitude === null || row.longitude === undefined
+      data.longitude === null || data.longitude === undefined
         ? null
-        : Number(row.longitude),
-    locationSource: (row.location_source ??
+        : Number(data.longitude),
+    locationSource: (data.location_source ??
       null) as CommercialLocationSource | null,
-    sellerOpenedAt: row.seller_opened_at ?? null,
-    sourceAtencionId: row.source_atencion_id ?? null,
-    sourceCustomerId: row.source_customer_id ?? null,
-    createdBy: row.created_by,
-    updatedBy: row.updated_by,
-    deletedBy: row.deleted_by,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    deletedAt: row.deleted_at,
+    etiquetaId: data.etiqueta_id ?? null,
+    etiquetaName: null,
+    etiquetaColor: null,
+    sellerOpenedAt: data.seller_opened_at ?? null,
+    sourceAtencionId: data.source_atencion_id ?? null,
+    sourceCustomerId: data.source_customer_id ?? null,
+    createdBy: data.created_by,
+    updatedBy: data.updated_by,
+    deletedBy: data.deleted_by,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+    deletedAt: data.deleted_at,
   }
 }
 
 export function mapCreateCommercialOpportunityPayloadToInsert(
   payload: CreateCommercialOpportunityPayload
-): CommercialOpportunityInsert {
-  const insert: CommercialOpportunityInsert = {
+): CommercialOpportunityInsert & { etiqueta_id?: string | null } {
+  const insert: CommercialOpportunityInsert & { etiqueta_id?: string | null } = {
     company_id: payload.companyId ?? BESPOKE_PRODUCTION_COMPANY_ID,
     person_id: payload.personId,
     title: payload.title.trim(),
@@ -227,13 +234,18 @@ export function mapCreateCommercialOpportunityPayloadToInsert(
     insert.code = code
   }
 
+  if (payload.etiquetaId !== undefined) {
+    insert.etiqueta_id = payload.etiquetaId
+  }
+
   return insert
 }
 
 export function mapUpdateCommercialOpportunityPayloadToUpdate(
   payload: UpdateCommercialOpportunityPayload
-): CommercialOpportunityUpdate {
-  const update: CommercialOpportunityUpdate = {}
+): CommercialOpportunityUpdate & { etiqueta_id?: string | null } {
+  const update: CommercialOpportunityUpdate & { etiqueta_id?: string | null } =
+    {}
 
   if (payload.personId !== undefined) update.person_id = payload.personId
   if (payload.title !== undefined) update.title = payload.title.trim()
@@ -266,6 +278,9 @@ export function mapUpdateCommercialOpportunityPayloadToUpdate(
   }
   if (payload.locationSource !== undefined) {
     update.location_source = payload.locationSource
+  }
+  if (payload.etiquetaId !== undefined) {
+    update.etiqueta_id = payload.etiquetaId
   }
   if (payload.sellerOpenedAt !== undefined) {
     update.seller_opened_at = payload.sellerOpenedAt

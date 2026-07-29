@@ -2,6 +2,7 @@ import "server-only"
 
 import { COMMERCIAL_STATUS_LABELS } from "@/lib/commercial/catalogs"
 import {
+  buildCommercialClientAutoTitle,
   EXISTING_PROSPECT_NOTICE,
   normalizeCommercialEmail,
   normalizeCommercialPhone,
@@ -319,6 +320,7 @@ export class CommercialOpportunityService {
         firstName: input.bundle.person.firstName,
         lastName: input.bundle.person.lastName,
         companyName: input.bundle.person.companyName,
+        documentNumber: input.bundle.person.documentNumber,
         phone,
         mobile,
         email,
@@ -381,7 +383,9 @@ export class CommercialOpportunityService {
     const opportunityResult = await this.repository.create({
       companyId: input.companyId,
       personId: person.id,
-      title: input.bundle.opportunity.title,
+      title:
+        input.bundle.opportunity.title.trim() ||
+        buildCommercialClientAutoTitle(input.bundle.person),
       status: "nueva",
       priority: input.bundle.opportunity.priority,
       source: input.bundle.opportunity.source,
@@ -390,6 +394,7 @@ export class CommercialOpportunityService {
       latitude: input.bundle.opportunity.latitude,
       longitude: input.bundle.opportunity.longitude,
       locationSource: input.bundle.opportunity.locationSource,
+      etiquetaId: input.bundle.opportunity.etiquetaId?.trim() || null,
       createdBy: input.createdBy ?? null,
     })
 

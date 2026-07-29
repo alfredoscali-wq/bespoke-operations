@@ -32,15 +32,22 @@ import {
 } from "@/components/ui/dialog"
 import { TableRowsSkeleton } from "@/components/ui/kpi-grid-skeleton"
 import { resolveCommercialDossierBackHref } from "@/lib/commercial/dossier-navigation"
+import {
+  enrichOpportunityWithEtiqueta,
+  indexCommercialEtiquetasById,
+} from "@/lib/commercial/etiqueta-display"
 import type {
   CommercialActivityTypeCode,
   CommercialQuickActivityType,
 } from "@/lib/commercial/activity-catalogs"
+import { listCommercialEtiquetasBrowser } from "@/lib/supabase/commercial-etiquetas.browser"
+import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import type {
   CommercialOpportunity,
   CommercialPerson,
 } from "@/lib/types/commercial"
 import type { CommercialActivityListItem } from "@/lib/types/commercial-activities"
+import type { CommercialEtiqueta } from "@/lib/types/commercial-etiquetas"
 
 type CommercialDossierContentProps = {
   opportunityId: string
@@ -51,6 +58,7 @@ function CommercialDossierContent({
 }: CommercialDossierContentProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { companyId, isAuthReady } = useTenantCompanyId()
   const { employees } = useEmployees()
   const { loadDossier, upsertPersonLocal, upsertOpportunityLocal } =
     useCommercialContextLoad()
@@ -72,6 +80,7 @@ function CommercialDossierContent({
     null
   )
   const [person, setPerson] = useState<CommercialPerson | null>(null)
+  const [etiquetas, setEtiquetas] = useState<CommercialEtiqueta[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [personDrawerOpen, setPersonDrawerOpen] = useState(false)
@@ -83,6 +92,24 @@ function CommercialDossierContent({
     useState<CommercialActivityListItem | null>(null)
   const [defaultActivityType, setDefaultActivityType] =
     useState<CommercialActivityTypeCode>("nota")
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      if (!isAuthReady || !companyId) {
+        setEtiquetas([])
+        return
+      }
+      const result = await listCommercialEtiquetasBrowser(companyId, {
+        activeOnly: false,
+      })
+      if (cancelled) return
+      setEtiquetas(result.data ?? [])
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [companyId, isAuthReady])
 
   useEffect(() => {
     let cancelled = false
@@ -135,17 +162,30 @@ function CommercialDossierContent({
     setActivityDrawerOpen(true)
   }, [isLoading, opportunity, searchParams])
 
+  const etiquetasById = useMemo(
+    () => indexCommercialEtiquetasById(etiquetas),
+    [etiquetas]
+  )
+
+  const displayOpportunity = useMemo(
+    () =>
+      opportunity
+        ? enrichOpportunityWithEtiqueta(opportunity, etiquetasById)
+        : null,
+    [etiquetasById, opportunity]
+  )
+
   const responsibleName = useMemo(() => {
-    if (!opportunity?.assignedEmployeeId) return ""
+    if (!displayOpportunity?.assignedEmployeeId) return ""
     const employee = employees.find(
-      (entry) => entry.id === opportunity.assignedEmployeeId
+      (entry) => entry.id === displayOpportunity.assignedEmployeeId
     )
     if (!employee) return ""
     return (
       `${employee.firstName} ${employee.lastName}`.trim() ||
       employee.employeeCode
     )
-  }, [employees, opportunity])
+  }, [displayOpportunity, employees])
 
   function openCreateActivity(typeCode: CommercialQuickActivityType) {
     setEditingActivity(null)
@@ -160,12 +200,12 @@ function CommercialDossierContent({
   }
 
   async function handleDelete() {
-    if (!opportunity) return
+    if (!displayOpportunity) return
     setIsDeleting(true)
     try {
-      const result = await deleteOpportunity(opportunity.id)
+      const result = await deleteOpportunity(displayOpportunity.id)
       if (!result.success) {
-        setError(result.message ?? "No se pudo eliminar la oportunidad.")
+        setError(result.message ?? "No se pudo eliminar el cliente.")
         return
       }
       router.push("/gestion-comercial")
@@ -183,7 +223,7 @@ function CommercialDossierContent({
     )
   }
 
-  if (error || !opportunity || !person) {
+  if (error || !displayOpportunity || !person) {
     return (
       <div className="space-y-4">
         <p className="text-sm text-destructive" role="alert">
@@ -203,7 +243,7 @@ function CommercialDossierContent({
   return (
     <div className="space-y-6">
       <CommercialHeader
-        opportunity={opportunity}
+        opportunity={displayOpportunity}
         responsibleName={responsibleName}
         onBack={handleBack}
         onEditPerson={() => setPersonDrawerOpen(true)}
@@ -216,7 +256,7 @@ function CommercialDossierContent({
       <div className="grid gap-4 lg:grid-cols-[minmax(0,35%)_minmax(0,65%)]">
         <CommercialProspectCard person={person} />
         <CommercialOpportunityCard
-          opportunity={opportunity}
+          opportunity={displayOpportunity}
           responsibleName={responsibleName}
         />
       </div>
@@ -230,7 +270,7 @@ function CommercialDossierContent({
         open={personDrawerOpen}
         onOpenChange={setPersonDrawerOpen}
         person={person}
-        opportunityId={opportunity.id}
+        opportunityId={displayOpportunity.id}
         onUpdated={(next) => {
           setPerson(next)
           upsertPersonLocal(next)
@@ -240,9 +280,9 @@ function CommercialDossierContent({
       <CommercialOpportunityDrawer
         open={opportunityDrawerOpen}
         onOpenChange={setOpportunityDrawerOpen}
-        opportunity={opportunity}
+        opportunity={displayOpportunity}
         onUpdated={(next) => {
-          const statusChanged = next.status !== opportunity.status
+          const statusChanged = next.status !== displayOpportunity.status
           setOpportunity(next)
           upsertOpportunityLocal(next)
           if (statusChanged) {
@@ -257,7 +297,7 @@ function CommercialDossierContent({
           setActivityDrawerOpen(open)
           if (!open) setEditingActivity(null)
         }}
-        opportunityId={opportunity.id}
+        opportunityId={displayOpportunity.id}
         activity={editingActivity}
         defaultTypeCode={defaultActivityType}
       />
@@ -265,9 +305,9 @@ function CommercialDossierContent({
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent className="sm:max-w-md" showCloseButton={false}>
           <DialogHeader>
-            <DialogTitle>Eliminar oportunidad</DialogTitle>
+            <DialogTitle>Eliminar cliente</DialogTitle>
             <DialogDescription>
-              La oportunidad {opportunity.code} se eliminará con soft delete y
+              La ficha {displayOpportunity.code} se eliminará con soft delete y
               dejará de aparecer en la bandeja.
             </DialogDescription>
           </DialogHeader>

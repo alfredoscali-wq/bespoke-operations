@@ -258,7 +258,7 @@ function CommercialPipelineContent() {
       <CommercialModuleHero
         active="pipeline"
         title="Pipeline Comercial"
-        description="Seguimiento de oportunidades por etapa. Arrastrá para cambiar el estado."
+        description="Seguimiento de clientes por etapa. Arrastrá para cambiar el estado."
         onNewOpportunity={() => setNewOpportunityOpen(true)}
         actions={
           <Button
@@ -479,7 +479,7 @@ function CommercialPipelineContent() {
           <DialogHeader>
             <DialogTitle>Marcar como Ganada</DialogTitle>
             <DialogDescription>
-              ¿Desea marcar esta oportunidad como Ganada?
+              ¿Desea marcar este cliente como Ganado?
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">

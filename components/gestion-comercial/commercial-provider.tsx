@@ -185,7 +185,7 @@ export function CommercialProvider({ children }: { children: React.ReactNode }) 
         return {
           success: false,
           message:
-            result.error?.message ?? "No se pudo crear la oportunidad.",
+            result.error?.message ?? "No se pudo crear el cliente.",
         }
       }
 
@@ -287,7 +287,7 @@ export function CommercialProvider({ children }: { children: React.ReactNode }) 
       if (!response.ok || !payload?.success || !payload.person || !payload.opportunity) {
         return {
           success: false,
-          message: payload?.message ?? "No se pudo crear la oportunidad.",
+          message: payload?.message ?? "No se pudo crear el cliente.",
         }
       }
 
@@ -331,7 +331,7 @@ export function CommercialProvider({ children }: { children: React.ReactNode }) 
         return {
           success: false,
           message:
-            payload?.message ?? "No se pudo actualizar la oportunidad.",
+            payload?.message ?? "No se pudo actualizar el cliente.",
         }
       }
 
@@ -349,7 +349,7 @@ export function CommercialProvider({ children }: { children: React.ReactNode }) 
         return {
           success: false,
           message:
-            result.error?.message ?? "No se pudo eliminar la oportunidad.",
+            result.error?.message ?? "No se pudo eliminar el cliente.",
         }
       }
 
@@ -387,7 +387,7 @@ export function CommercialProvider({ children }: { children: React.ReactNode }) 
         return {
           success: false as const,
           message:
-            opportunityResult.error?.message ?? "Oportunidad no encontrada.",
+            opportunityResult.error?.message ?? "Cliente no encontrado.",
         }
       }
 
