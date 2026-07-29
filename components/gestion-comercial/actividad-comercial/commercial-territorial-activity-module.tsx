@@ -10,7 +10,7 @@ import { CommercialModuleHero } from "@/components/gestion-comercial/commercial-
 import {
   escapeCommercialMapHtml,
   type CommercialMapMarker,
-} from "@/components/gestion-comercial/map/commercial-map-canvas"
+} from "@/components/gestion-comercial/map/commercial-map-markers"
 import { CommercialTerritorialActivityCreateDrawer } from "@/components/gestion-comercial/actividad-comercial/commercial-territorial-activity-create-drawer"
 import { CommercialTerritorialActivityDetailDialog } from "@/components/gestion-comercial/actividad-comercial/commercial-territorial-activity-detail-dialog"
 import { Button } from "@/components/ui/button"

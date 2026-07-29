@@ -2,11 +2,11 @@
 
 import { useMemo } from "react"
 
+import { CommercialMapCanvas } from "@/components/gestion-comercial/map/commercial-map-canvas"
 import {
-  CommercialMapCanvas,
   escapeCommercialMapHtml,
   type CommercialMapMarker,
-} from "@/components/gestion-comercial/map/commercial-map-canvas"
+} from "@/components/gestion-comercial/map/commercial-map-markers"
 import {
   COMMERCIAL_PRIORITY_LABELS,
   COMMERCIAL_STATUS_LABELS,

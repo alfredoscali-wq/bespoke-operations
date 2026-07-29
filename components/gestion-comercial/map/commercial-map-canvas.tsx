@@ -3,31 +3,17 @@
 import { useEffect, useRef } from "react"
 import L from "leaflet"
 
+import type {
+  CommercialMapDraftPin,
+  CommercialMapMarker,
+  CommercialMapMode,
+} from "@/components/gestion-comercial/map/commercial-map-markers"
 import { DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM, SELECTED_LOCATION_MAP_ZOOM } from "@/lib/gps"
 import { resolvePlanningMapBaseLayerConfig } from "@/lib/planificacion/planning-map-tiles"
 import type { CommercialMapBounds } from "@/lib/types/commercial"
 import { cn } from "@/lib/utils"
 
 import "leaflet/dist/leaflet.css"
-
-/** Shared commercial map modes — clients vs territorial field activity. */
-export type CommercialMapMode = "clients" | "activity"
-
-export type CommercialMapMarker = {
-  id: string
-  latitude: number
-  longitude: number
-  color: string
-  popupHtml: string
-  /** data-* attribute selector value for the detail button in popup HTML */
-  detailActionId?: string
-}
-
-export type CommercialMapDraftPin = {
-  latitude: number
-  longitude: number
-  color?: string
-}
 
 type CommercialMapCanvasProps = {
   mode: CommercialMapMode
@@ -64,14 +50,6 @@ export function createCommercialMapPinIcon(
     iconAnchor: [anchorX, height],
     popupAnchor: [0, -height + 6],
   })
-}
-
-export function escapeCommercialMapHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
 }
 
 const BOUNDS_EPSILON = 1e-7

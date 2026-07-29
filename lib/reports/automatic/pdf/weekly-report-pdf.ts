@@ -13,25 +13,31 @@ const LINE_HEIGHT = 6
 const CARD_GAP = 4
 const BRAND_RGB = { r: 30, g: 77, b: 140 }
 
+/**
+ * Cada lectura se escribe con la ruta completa literal en el propio argumento de
+ * `readFileSync`. @vercel/nft solo puede resolver rutas estáticas: una variable
+ * (o un valor de directorio como `public/`) lo hace caer al fallback de trazar
+ * la raíz del proyecto, y el deploy de Vercel falla con
+ * "Encountered unexpected file in NFT list".
+ */
 function loadLogoDataUrl(): string | null {
-  const publicRoot = path.join(/* turbopackIgnore: true */ process.cwd(), "public")
-  const candidates = [
-    path.join(publicRoot, "images", "logo", "LOGO_BESPOKE.png"),
-    path.join(publicRoot, "icons", "icon-512x512.png"),
-  ]
-
-  for (const filePath of candidates) {
-    if (!fs.existsSync(filePath)) {
-      continue
-    }
-
-    const buffer = fs.readFileSync(filePath)
-    const extension = path.extname(filePath).slice(1).toLowerCase()
-    const mime = extension === "png" ? "image/png" : "image/jpeg"
-    return `data:${mime};base64,${buffer.toString("base64")}`
+  try {
+    const buffer = fs.readFileSync(
+      path.join(process.cwd(), "public", "images", "logo", "LOGO_BESPOKE.png")
+    )
+    return `data:image/png;base64,${buffer.toString("base64")}`
+  } catch {
+    // Sin logo de marca: se intenta el ícono de la PWA.
   }
 
-  return null
+  try {
+    const buffer = fs.readFileSync(
+      path.join(process.cwd(), "public", "icons", "icon-512x512.png")
+    )
+    return `data:image/png;base64,${buffer.toString("base64")}`
+  } catch {
+    return null
+  }
 }
 
 function formatGeneratedTimestamp(value: string): string {
