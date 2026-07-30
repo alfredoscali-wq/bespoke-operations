@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/client"
 import {
+  countCommercialTerritorialActivities,
   createCommercialTerritorialActivity,
   getCommercialTerritorialActivityById,
   listCommercialTerritorialActivities,
@@ -19,6 +20,13 @@ export async function listCommercialTerritorialActivitiesBrowser(
   options?: { activityTypeIds?: string[]; limit?: number }
 ) {
   return listCommercialTerritorialActivities(browserClient(), companyId, options)
+}
+
+export async function countCommercialTerritorialActivitiesBrowser(
+  companyId: string,
+  window: { fromIso: string; toIso: string }
+) {
+  return countCommercialTerritorialActivities(browserClient(), companyId, window)
 }
 
 export async function getCommercialTerritorialActivityByIdBrowser(

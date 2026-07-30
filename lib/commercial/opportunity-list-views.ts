@@ -8,7 +8,6 @@ export const COMMERCIAL_OPPORTUNITY_LIST_VIEWS = [
   "active",
   "derivations",
   "followups",
-  "activity_today",
   "nueva",
   "won",
   "lost",
@@ -35,7 +34,6 @@ export const COMMERCIAL_OPPORTUNITY_LIST_VIEW_LABELS: Record<
   active: "Clientes activos",
   derivations: "Derivaciones nuevas",
   followups: "Seguimientos pendientes",
-  activity_today: "Actividad realizada hoy",
   nueva: "Nuevas",
   won: "Ganadas",
   lost: "Perdidas",
@@ -85,7 +83,6 @@ export function filterOpportunitiesByListView(
   options?: {
     inactiveOpportunityIds?: ReadonlySet<string>
     followupOpportunityIds?: ReadonlySet<string>
-    activityTodayOpportunityIds?: ReadonlySet<string>
   }
 ): CommercialOpportunityListItem[] {
   if (!view) return opportunities
@@ -105,10 +102,6 @@ export function filterOpportunitiesByListView(
     case "followups":
       return opportunities.filter((entry) =>
         options?.followupOpportunityIds?.has(entry.id)
-      )
-    case "activity_today":
-      return opportunities.filter((entry) =>
-        options?.activityTodayOpportunityIds?.has(entry.id)
       )
     case "nueva":
       return opportunities.filter((entry) => entry.status === "nueva")

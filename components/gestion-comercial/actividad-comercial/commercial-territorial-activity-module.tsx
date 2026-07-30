@@ -25,6 +25,12 @@ import {
 } from "@/components/ui/table"
 import { resolveCommercialActorEmployeeId } from "@/lib/commercial/module-access"
 import { COMMERCIAL_ETIQUETA_FALLBACK_COLOR } from "@/lib/commercial/map-layers"
+import {
+  buildCommercialTerritorialActivitiesHref,
+  commercialTerritorialActivityDayKey,
+  isCommercialTerritorialActivityRange,
+  type CommercialTerritorialActivityRange,
+} from "@/lib/commercial/territorial-activity-ranges"
 import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import { listCommercialTerritorialActivitiesBrowser } from "@/lib/supabase/commercial-territorial-activities.browser"
 import { listCommercialTerritorialActivityTypesBrowser } from "@/lib/supabase/commercial-territorial-activity-types.browser"
@@ -189,11 +195,30 @@ export function CommercialTerritorialActivityModule() {
     [types]
   )
 
+  const rangeFilter = useMemo((): CommercialTerritorialActivityRange | null => {
+    const raw = searchParams.get("range")
+    return isCommercialTerritorialActivityRange(raw) ? raw : null
+  }, [searchParams])
+
   const filteredActivities = useMemo(() => {
-    if (typeFilterIds.length === 0) return activities
-    const selected = new Set(typeFilterIds)
-    return activities.filter((entry) => selected.has(entry.activityTypeId))
-  }, [activities, typeFilterIds])
+    const selectedTypes =
+      typeFilterIds.length > 0 ? new Set(typeFilterIds) : null
+    const todayKey =
+      rangeFilter === "today"
+        ? commercialTerritorialActivityDayKey(new Date())
+        : null
+    if (!selectedTypes && !todayKey) return activities
+    return activities.filter((entry) => {
+      if (selectedTypes && !selectedTypes.has(entry.activityTypeId)) return false
+      if (
+        todayKey &&
+        commercialTerritorialActivityDayKey(entry.createdAt) !== todayKey
+      ) {
+        return false
+      }
+      return true
+    })
+  }, [activities, rangeFilter, typeFilterIds])
 
   const mapActivities = useMemo(() => {
     if (!bounds) return filteredActivities
@@ -218,6 +243,10 @@ export function CommercialTerritorialActivityModule() {
         ? current.filter((entry) => entry !== id)
         : [...current, id]
     )
+  }
+
+  function setRangeFilter(range: CommercialTerritorialActivityRange | null) {
+    router.replace(buildCommercialTerritorialActivitiesHref(range ?? undefined))
   }
 
   return (
@@ -269,45 +298,56 @@ export function CommercialTerritorialActivityModule() {
         </p>
       ) : null}
 
-      {activeTypes.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-3 rounded-md border px-3 py-2 text-sm">
-          <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            Filtros
-          </span>
-          {activeTypes.map((type) => {
-            const checked = typeFilterIds.includes(type.id)
-            return (
-              <label
-                key={type.id}
-                className="inline-flex cursor-pointer items-center gap-2"
-              >
-                <Checkbox
-                  checked={checked}
-                  onCheckedChange={() => toggleTypeFilter(type.id)}
-                  aria-label={type.name}
-                />
-                <span
-                  className="inline-block size-2 rounded-full"
-                  style={{ backgroundColor: type.color }}
-                  aria-hidden
-                />
-                <span>{type.name}</span>
-              </label>
-            )
-          })}
-          {typeFilterIds.length > 0 ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-7"
-              onClick={() => setTypeFilterIds([])}
+      <div className="flex flex-wrap items-center gap-3 rounded-md border px-3 py-2 text-sm">
+        <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          Filtros
+        </span>
+        <Button
+          type="button"
+          size="sm"
+          variant={rangeFilter === "today" ? "default" : "outline"}
+          className="h-7"
+          aria-pressed={rangeFilter === "today"}
+          onClick={() => setRangeFilter(rangeFilter === "today" ? null : "today")}
+        >
+          Hoy
+        </Button>
+        {activeTypes.map((type) => {
+          const checked = typeFilterIds.includes(type.id)
+          return (
+            <label
+              key={type.id}
+              className="inline-flex cursor-pointer items-center gap-2"
             >
-              Limpiar
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
+              <Checkbox
+                checked={checked}
+                onCheckedChange={() => toggleTypeFilter(type.id)}
+                aria-label={type.name}
+              />
+              <span
+                className="inline-block size-2 rounded-full"
+                style={{ backgroundColor: type.color }}
+                aria-hidden
+              />
+              <span>{type.name}</span>
+            </label>
+          )
+        })}
+        {typeFilterIds.length > 0 || rangeFilter ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7"
+            onClick={() => {
+              setTypeFilterIds([])
+              setRangeFilter(null)
+            }}
+          >
+            Limpiar
+          </Button>
+        ) : null}
+      </div>
 
       {view === "map" ? (
         <div className="relative min-h-[480px] flex-1 overflow-hidden rounded-lg">
@@ -420,7 +460,7 @@ export function CommercialTerritorialActivityModule() {
           if (!open) {
             setDetailId(null)
             if (searchParams.get("activityId")) {
-              router.replace("/gestion-comercial/actividad-comercial")
+              setRangeFilter(rangeFilter)
             }
           }
         }}

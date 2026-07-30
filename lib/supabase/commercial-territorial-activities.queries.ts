@@ -193,6 +193,26 @@ export async function listCommercialTerritorialActivities(
   }
 }
 
+export async function countCommercialTerritorialActivities(
+  client: CommercialTerritorialActivitiesClient,
+  companyId: string,
+  window: { fromIso: string; toIso: string }
+): Promise<RepoResult<number>> {
+  const { count, error } = await client
+    .from(TABLE)
+    .select("id", { count: "exact", head: true })
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .gte("created_at", window.fromIso)
+    .lt("created_at", window.toIso)
+
+  if (error) {
+    return { data: null, error: mapError(error) }
+  }
+
+  return { data: count ?? 0, error: null }
+}
+
 export async function getCommercialTerritorialActivityById(
   client: CommercialTerritorialActivitiesClient,
   companyId: string,

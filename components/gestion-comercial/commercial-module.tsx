@@ -54,23 +54,19 @@ import {
   enrichOpportunityWithEtiqueta,
   indexCommercialEtiquetasById,
 } from "@/lib/commercial/etiqueta-display"
+import {
+  buildCommercialTerritorialActivitiesHref,
+  resolveCommercialTerritorialActivityTodayWindow,
+} from "@/lib/commercial/territorial-activity-ranges"
 import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import { listCommercialEtiquetasBrowser } from "@/lib/supabase/commercial-etiquetas.browser"
+import { countCommercialTerritorialActivitiesBrowser } from "@/lib/supabase/commercial-territorial-activities.browser"
 import type { CommercialOpportunityListItem } from "@/lib/types/commercial"
 import type { CommercialEtiqueta } from "@/lib/types/commercial-etiquetas"
 import type { CommercialHomeDesk } from "@/lib/types/commercial-home"
 import type { CommercialPipelineCard } from "@/lib/types/commercial-pipeline"
 
 type OpportunityScope = "all" | "mine"
-
-function commercialDayKey(value: string | Date): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Argentina/Buenos_Aires",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date(value))
-}
 
 function CommercialModuleContent() {
   const router = useRouter()
@@ -89,6 +85,9 @@ function CommercialModuleContent() {
     Set<string>
   >(new Set())
   const [isInactiveLoading, setIsInactiveLoading] = useState(false)
+  const [territorialActivityToday, setTerritorialActivityToday] = useState(0)
+  const [isTerritorialActivityLoading, setIsTerritorialActivityLoading] =
+    useState(true)
 
   useEffect(() => {
     if (!isAuthReady || !companyId) return
@@ -99,6 +98,31 @@ function CommercialModuleContent() {
         setEtiquetas(result.data ?? [])
       }
     )
+    return () => {
+      cancelled = true
+    }
+  }, [companyId, isAuthReady])
+
+  useEffect(() => {
+    if (!isAuthReady) return
+    let cancelled = false
+    if (!companyId) {
+      void Promise.resolve().then(() => {
+        if (!cancelled) setIsTerritorialActivityLoading(false)
+      })
+      return () => {
+        cancelled = true
+      }
+    }
+    const todayWindow = resolveCommercialTerritorialActivityTodayWindow()
+    void countCommercialTerritorialActivitiesBrowser(companyId, todayWindow)
+      .then((result) => {
+        if (cancelled) return
+        setTerritorialActivityToday(result.data ?? 0)
+      })
+      .finally(() => {
+        if (!cancelled) setIsTerritorialActivityLoading(false)
+      })
     return () => {
       cancelled = true
     }
@@ -196,18 +220,9 @@ function CommercialModuleContent() {
     const followups = new Set(
       followupRows.map((entry) => entry.opportunityId)
     )
-    const todayKey = commercialDayKey(new Date())
-    const activityTodayRows = (desk?.recentActivity ?? []).filter(
-      (entry) => commercialDayKey(entry.occurredAt) === todayKey
-    )
-    const activityToday = new Set(
-      activityTodayRows.map((entry) => entry.opportunityId)
-    )
     return {
       followups,
       followupCount: followupRows.length,
-      activityToday,
-      activityTodayCount: activityTodayRows.length,
     }
   }, [desk])
 
@@ -260,7 +275,6 @@ function CommercialModuleContent() {
       {
         inactiveOpportunityIds,
         followupOpportunityIds: operationalFilterIds.followups,
-        activityTodayOpportunityIds: operationalFilterIds.activityToday,
       }
     )
 
@@ -333,12 +347,11 @@ function CommercialModuleContent() {
           <FilterableKpiCard
             compact
             label="Actividades realizadas hoy"
-            value={operationalFilterIds.activityTodayCount}
+            value={territorialActivityToday}
             icon={Footprints}
             tone="green"
-            href={buildCommercialOpportunitiesHref("activity_today")}
-            isActive={listView === "activity_today"}
-            isLoading={isDeskLoading}
+            href={buildCommercialTerritorialActivitiesHref("today")}
+            isLoading={isTerritorialActivityLoading}
             cardClassName="rounded-lg px-3 py-2"
           />
           <FilterableKpiCard
