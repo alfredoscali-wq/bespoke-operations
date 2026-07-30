@@ -8,6 +8,7 @@ import {
   Eye,
   Footprints,
   Inbox,
+  Plus,
   X,
 } from "lucide-react"
 
@@ -320,7 +321,7 @@ function CommercialModuleContent() {
         active="oportunidades"
         title="Clientes"
         description="Listado de clientes."
-        onNewOpportunity={() => setDrawerOpen(true)}
+        showNewOpportunity={false}
       >
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
           <FilterableKpiCard
@@ -388,7 +389,7 @@ function CommercialModuleContent() {
           Mías
         </Button>
         {listView ? (
-          <div className="ml-auto flex items-center gap-2 rounded-md border bg-muted/40 px-2.5 py-1.5 text-xs">
+          <div className="flex items-center gap-2 rounded-md border bg-muted/40 px-2.5 py-1.5 text-xs">
             <span className="text-muted-foreground">Filtro:</span>
             <span className="font-medium">
               {COMMERCIAL_OPPORTUNITY_LIST_VIEW_LABELS[listView]}
@@ -405,6 +406,15 @@ function CommercialModuleContent() {
             </Button>
           </div>
         ) : null}
+        <Button
+          type="button"
+          size="sm"
+          className="ml-auto h-9 gap-2"
+          onClick={() => setDrawerOpen(true)}
+        >
+          <Plus className="size-4" />
+          Nuevo Cliente
+        </Button>
       </div>
 
       {etiquetas.length > 0 ? (

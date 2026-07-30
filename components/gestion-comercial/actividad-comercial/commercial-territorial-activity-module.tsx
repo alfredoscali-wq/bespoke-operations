@@ -255,40 +255,30 @@ export function CommercialTerritorialActivityModule() {
         active="actividad"
         title="Actividad Comercial"
         description="Registro georreferenciado del trabajo territorial del equipo de ventas."
+        showNewOpportunity={false}
         actions={
-          <>
-            <div className="flex rounded-md border p-0.5">
-              <Button
-                type="button"
-                size="sm"
-                variant={view === "map" ? "default" : "ghost"}
-                className="h-8 gap-1.5"
-                onClick={() => setView("map")}
-              >
-                <MapIcon className="size-3.5" />
-                Mapa
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant={view === "list" ? "default" : "ghost"}
-                className="h-8 gap-1.5"
-                onClick={() => setView("list")}
-              >
-                <List className="size-3.5" />
-                Lista
-              </Button>
-            </div>
+          <div className="flex rounded-md border p-0.5">
             <Button
               type="button"
               size="sm"
-              className="h-9 gap-2"
-              onClick={() => setCreateOpen(true)}
+              variant={view === "map" ? "default" : "ghost"}
+              className="h-8 gap-1.5"
+              onClick={() => setView("map")}
             >
-              <Plus className="size-4" />
-              Nueva Actividad
+              <MapIcon className="size-3.5" />
+              Mapa
             </Button>
-          </>
+            <Button
+              type="button"
+              size="sm"
+              variant={view === "list" ? "default" : "ghost"}
+              className="h-8 gap-1.5"
+              onClick={() => setView("list")}
+            >
+              <List className="size-3.5" />
+              Lista
+            </Button>
+          </div>
         }
       />
 
@@ -347,6 +337,18 @@ export function CommercialTerritorialActivityModule() {
             Limpiar
           </Button>
         ) : null}
+      </div>
+
+      <div className="flex justify-end">
+        <Button
+          type="button"
+          size="sm"
+          className="h-9 gap-2"
+          onClick={() => setCreateOpen(true)}
+        >
+          <Plus className="size-4" />
+          Nueva Actividad
+        </Button>
       </div>
 
       {view === "map" ? (
