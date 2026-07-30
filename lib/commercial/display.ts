@@ -72,7 +72,7 @@ export function formatCommercialMoney(
 }
 
 export function personTypeLabel(type: CommercialPersonType): string {
-  return type === "company" ? "Empresa" : "Persona"
+  return type === "company" ? "Empresa" : "Particular"
 }
 
 export function resolvePersonPrimaryName(input: {
@@ -87,13 +87,39 @@ export function resolvePersonPrimaryName(input: {
   return `${input.firstName} ${input.lastName}`.trim() || "-"
 }
 
+/**
+ * Canonical client label for Comercial UI (list, dossier, search, map).
+ * Prefer person name; never use opportunity title as the primary identity.
+ */
+export function resolveCommercialClientDisplayName(input: {
+  personType?: CommercialPersonType | null
+  firstName?: string | null
+  lastName?: string | null
+  companyName?: string | null
+  personDisplayName?: string | null
+  fallback?: string
+}): string {
+  const fromParts = resolvePersonPrimaryName({
+    personType: input.personType === "company" ? "company" : "individual",
+    firstName: input.firstName?.trim() ?? "",
+    lastName: input.lastName?.trim() ?? "",
+    companyName: input.companyName?.trim() ?? "",
+  })
+  if (fromParts !== "-") return fromParts
+
+  const fromDisplay = input.personDisplayName?.trim()
+  if (fromDisplay) return fromDisplay
+
+  return input.fallback?.trim() || "Cliente"
+}
+
 export function validateCommercialPersonForm(
   value: CommercialPersonFormValue | CommercialNewOpportunityPersonInput
 ): string | null {
   if (value.personType === "individual") {
-    if (!value.firstName.trim()) return "Ingrese el nombre de la persona."
+    if (!value.firstName.trim()) return "Ingrese el nombre del cliente."
   } else if (!value.companyName.trim()) {
-    return "Ingrese la razón social de la persona."
+    return "Ingrese la razón social del cliente."
   }
   if (!isValidOptionalEmail(value.email)) {
     return "Ingrese un email válido."

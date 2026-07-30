@@ -23,7 +23,7 @@ export function CommercialPersonSection({
   return (
     <section className="space-y-3">
       <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-        Persona
+        Cliente
       </h2>
       <CommercialPersonForm
         value={value}

@@ -166,10 +166,10 @@ export const tesoreriaNavItem: NavItem = {
 
 export const gestionComercialNavItem: NavItem = {
   title: "Gestión Comercial",
-  href: "/gestion-comercial",
+  href: "/gestion-comercial/oportunidades",
   icon: BriefcaseBusiness,
-  pageTitle: "Inicio Comercial",
-  description: "Escritorio diario del vendedor: derivaciones, compromisos y actividad.",
+  pageTitle: "Clientes",
+  description: "Escritorio operativo para gestionar clientes y actividad comercial.",
 }
 
 export const historyNavItem: NavItem = {

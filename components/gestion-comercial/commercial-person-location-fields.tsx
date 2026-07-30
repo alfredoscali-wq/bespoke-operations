@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useId, useRef, useState } from "react"
+import { LocateFixed } from "lucide-react"
 
 import { CommercialGeocodeFallbackDialog } from "@/components/gestion-comercial/commercial-geocode-fallback-dialog"
 import { Button } from "@/components/ui/button"
@@ -14,6 +15,10 @@ import type { AddressSuggestion } from "@/lib/location/address-suggestion"
 import { searchAddressViaApi, reverseAddressViaApi } from "@/lib/location/client/search-via-api"
 import { formatCoordinatePair } from "@/lib/location/coordinates"
 
+/**
+ * Shared commercial location capture — used by Alta/Edición de Cliente,
+ * Nueva Actividad Comercial, and CommercialPersonForm.
+ */
 export type CommercialPersonLocationFieldsValue = {
   street: string
   streetNumber: string
@@ -36,6 +41,11 @@ type CommercialPersonLocationFieldsProps = {
   disabled?: boolean
   onAdvanceField?: (event: React.KeyboardEvent<HTMLInputElement>) => void
   idPrefix?: string
+  /**
+   * When false, hides structured domicilio fields (calle/piso/…).
+   * Capture UX (search, paste, GPS, coords) stays identical.
+   */
+  showDomicilioFields?: boolean
 }
 
 const SEARCH_DEBOUNCE_MS = 400
@@ -46,6 +56,7 @@ export function CommercialPersonLocationFields({
   disabled = false,
   onAdvanceField,
   idPrefix = "commercial-person",
+  showDomicilioFields = true,
 }: CommercialPersonLocationFieldsProps) {
   const listId = useId()
   const [searchQuery, setSearchQuery] = useState("")
@@ -58,6 +69,8 @@ export function CommercialPersonLocationFields({
   const [pasteValue, setPasteValue] = useState("")
   const [pasteError, setPasteError] = useState<string | null>(null)
   const [isResolvingPaste, setIsResolvingPaste] = useState(false)
+  const [isLocating, setIsLocating] = useState(false)
+  const [locateError, setLocateError] = useState<string | null>(null)
   const [mapDialogOpen, setMapDialogOpen] = useState(false)
   const skipSearchRef = useRef(false)
   const requestIdRef = useRef(0)
@@ -66,14 +79,24 @@ export function CommercialPersonLocationFields({
   useEffect(() => {
     if (initializedRef.current) return
     initializedRef.current = true
-    if (value.address.trim()) {
-      skipSearchRef.current = true
-      setSearchQuery(value.address)
-    } else if (hasCoordinates(value.latitude, value.longitude)) {
-      skipSearchRef.current = true
-      setSearchQuery(
-        formatCoordinatePair(value.latitude as number, value.longitude as number)
-      )
+    let cancelled = false
+    void Promise.resolve().then(() => {
+      if (cancelled) return
+      if (value.address.trim()) {
+        skipSearchRef.current = true
+        setSearchQuery(value.address)
+      } else if (hasCoordinates(value.latitude, value.longitude)) {
+        skipSearchRef.current = true
+        setSearchQuery(
+          formatCoordinatePair(
+            value.latitude as number,
+            value.longitude as number
+          )
+        )
+      }
+    })
+    return () => {
+      cancelled = true
     }
   }, [value.address, value.latitude, value.longitude])
 
@@ -83,13 +106,20 @@ export function CommercialPersonLocationFields({
     onChange({ ...next, address })
   }
 
-  function applySuggestion(suggestion: AddressSuggestion) {
+  function applySuggestion(
+    suggestion: AddressSuggestion,
+    options?: {
+      locationSource?: CommercialLocationSource
+      locationInput?: string
+    }
+  ) {
     skipSearchRef.current = true
     setSearchQuery(suggestion.label)
     setSuggestions([])
     setListOpen(false)
     setHasSearched(false)
     setSearchError(null)
+    setLocateError(null)
     patch({
       street: suggestion.street,
       streetNumber: suggestion.streetNumber,
@@ -100,8 +130,8 @@ export function CommercialPersonLocationFields({
       address: suggestion.normalizedAddress,
       latitude: suggestion.latitude,
       longitude: suggestion.longitude,
-      locationSource: "manual",
-      locationInput: "",
+      locationSource: options?.locationSource ?? "manual",
+      locationInput: options?.locationInput ?? "",
     })
   }
 
@@ -112,20 +142,25 @@ export function CommercialPersonLocationFields({
     }
 
     const trimmed = searchQuery.trim()
-    if (trimmed.length < 3) {
-      setSuggestions([])
-      setHasSearched(false)
-      setIsSearching(false)
-      setSearchError(null)
-      return
-    }
-
     const requestId = ++requestIdRef.current
-    setIsSearching(true)
-    setSearchError(null)
+
+    if (trimmed.length < 3) {
+      const clearHandle = window.setTimeout(() => {
+        if (requestId !== requestIdRef.current) return
+        setSuggestions([])
+        setHasSearched(false)
+        setIsSearching(false)
+        setSearchError(null)
+      }, 0)
+      return () => {
+        window.clearTimeout(clearHandle)
+      }
+    }
 
     const handle = window.setTimeout(() => {
       void (async () => {
+        setIsSearching(true)
+        setSearchError(null)
         try {
           const next = await searchAddressViaApi(trimmed)
           if (requestId !== requestIdRef.current) return
@@ -179,11 +214,17 @@ export function CommercialPersonLocationFields({
       )
 
       if (suggestion) {
-        applySuggestion({
-          ...suggestion,
-          latitude: resolved.latitude,
-          longitude: resolved.longitude,
-        })
+        applySuggestion(
+          {
+            ...suggestion,
+            latitude: resolved.latitude,
+            longitude: resolved.longitude,
+          },
+          {
+            locationSource: resolved.locationSource,
+            locationInput: pasteValue.trim(),
+          }
+        )
       } else {
         skipSearchRef.current = true
         const label = formatCoordinatePair(
@@ -208,6 +249,65 @@ export function CommercialPersonLocationFields({
     } finally {
       setIsResolvingPaste(false)
     }
+  }
+
+  function applyCoords(
+    latitude: number,
+    longitude: number,
+    locationSource: CommercialLocationSource,
+    locationInput = ""
+  ) {
+    void (async () => {
+      const suggestion = await reverseAddressViaApi(latitude, longitude)
+      if (suggestion) {
+        applySuggestion(
+          {
+            ...suggestion,
+            latitude,
+            longitude,
+          },
+          { locationSource, locationInput }
+        )
+        return
+      }
+
+      skipSearchRef.current = true
+      const label = formatCoordinatePair(latitude, longitude)
+      setSearchQuery(label)
+      setSuggestions([])
+      setListOpen(false)
+      setHasSearched(false)
+      patch({
+        latitude,
+        longitude,
+        locationSource,
+        locationInput,
+        address: label,
+      })
+    })()
+  }
+
+  function handleUseCurrentLocation() {
+    if (!navigator.geolocation) {
+      setLocateError("Geolocalización no disponible en este dispositivo.")
+      return
+    }
+
+    setIsLocating(true)
+    setLocateError(null)
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const latitude = Number(position.coords.latitude.toFixed(7))
+        const longitude = Number(position.coords.longitude.toFixed(7))
+        applyCoords(latitude, longitude, "gps")
+        setIsLocating(false)
+      },
+      () => {
+        setIsLocating(false)
+        setLocateError("No se pudo obtener la ubicación actual.")
+      },
+      { enableHighAccuracy: true, timeout: 12_000 }
+    )
   }
 
   function clearLocation() {
@@ -292,6 +392,25 @@ export function CommercialPersonLocationFields({
               value.latitude as number,
               value.longitude as number
             )}
+          </p>
+        ) : null}
+
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="gap-2"
+            disabled={disabled || isLocating}
+            onClick={handleUseCurrentLocation}
+          >
+            <LocateFixed className="size-3.5" aria-hidden />
+            {isLocating ? "Obteniendo…" : "Usar ubicación actual"}
+          </Button>
+        </div>
+        {locateError ? (
+          <p className="text-xs text-destructive" role="alert">
+            {locateError}
           </p>
         ) : null}
 
@@ -384,184 +503,169 @@ export function CommercialPersonLocationFields({
         </div>
       ) : null}
 
-      <div>
-        <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-          Domicilio
-        </h3>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Se completa al elegir una sugerencia. Puede ajustar piso y
-          departamento manualmente.
-        </p>
-      </div>
+      {showDomicilioFields ? (
+        <>
+          <div>
+            <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+              Domicilio
+            </h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Se completa al elegir una sugerencia. Puede ajustar piso y
+              departamento manualmente.
+            </p>
+          </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div className="space-y-2 sm:col-span-2">
-          <Label htmlFor={`${idPrefix}-street`}>Calle</Label>
-          <Input
-            id={`${idPrefix}-street`}
-            value={value.street}
-            onChange={(event) => {
-              patch({
-                street: event.target.value,
-                latitude: null,
-                longitude: null,
-                locationSource: null,
-              })
-              setSearchQuery(
-                composeCommercialAddress({
-                  ...value,
-                  street: event.target.value,
-                })
-              )
-            }}
-            onKeyDown={onAdvanceField}
-            disabled={disabled}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor={`${idPrefix}-street-number`}>Número</Label>
-          <Input
-            id={`${idPrefix}-street-number`}
-            value={value.streetNumber}
-            onChange={(event) => {
-              patch({
-                streetNumber: event.target.value,
-                latitude: null,
-                longitude: null,
-                locationSource: null,
-              })
-              setSearchQuery(
-                composeCommercialAddress({
-                  ...value,
-                  streetNumber: event.target.value,
-                })
-              )
-            }}
-            onKeyDown={onAdvanceField}
-            disabled={disabled}
-          />
-        </div>
-      </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor={`${idPrefix}-street`}>Calle</Label>
+              <Input
+                id={`${idPrefix}-street`}
+                value={value.street}
+                onChange={(event) => {
+                  patch({
+                    street: event.target.value,
+                    latitude: null,
+                    longitude: null,
+                    locationSource: null,
+                  })
+                  setSearchQuery(
+                    composeCommercialAddress({
+                      ...value,
+                      street: event.target.value,
+                    })
+                  )
+                }}
+                onKeyDown={onAdvanceField}
+                disabled={disabled}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={`${idPrefix}-street-number`}>Número</Label>
+              <Input
+                id={`${idPrefix}-street-number`}
+                value={value.streetNumber}
+                onChange={(event) => {
+                  patch({
+                    streetNumber: event.target.value,
+                    latitude: null,
+                    longitude: null,
+                    locationSource: null,
+                  })
+                  setSearchQuery(
+                    composeCommercialAddress({
+                      ...value,
+                      streetNumber: event.target.value,
+                    })
+                  )
+                }}
+                onKeyDown={onAdvanceField}
+                disabled={disabled}
+              />
+            </div>
+          </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div className="space-y-2">
-          <Label htmlFor={`${idPrefix}-floor`}>Piso</Label>
-          <Input
-            id={`${idPrefix}-floor`}
-            value={value.floor}
-            onChange={(event) => patch({ floor: event.target.value })}
-            onKeyDown={onAdvanceField}
-            disabled={disabled}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor={`${idPrefix}-apartment`}>Departamento</Label>
-          <Input
-            id={`${idPrefix}-apartment`}
-            value={value.apartment}
-            onChange={(event) => patch({ apartment: event.target.value })}
-            onKeyDown={onAdvanceField}
-            disabled={disabled}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor={`${idPrefix}-neighborhood`}>Barrio</Label>
-          <Input
-            id={`${idPrefix}-neighborhood`}
-            value={value.neighborhood}
-            onChange={(event) => patch({ neighborhood: event.target.value })}
-            onKeyDown={onAdvanceField}
-            disabled={disabled}
-          />
-        </div>
-      </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="space-y-2">
+              <Label htmlFor={`${idPrefix}-floor`}>Piso</Label>
+              <Input
+                id={`${idPrefix}-floor`}
+                value={value.floor}
+                onChange={(event) => patch({ floor: event.target.value })}
+                onKeyDown={onAdvanceField}
+                disabled={disabled}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={`${idPrefix}-apartment`}>Departamento</Label>
+              <Input
+                id={`${idPrefix}-apartment`}
+                value={value.apartment}
+                onChange={(event) => patch({ apartment: event.target.value })}
+                onKeyDown={onAdvanceField}
+                disabled={disabled}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={`${idPrefix}-neighborhood`}>Barrio</Label>
+              <Input
+                id={`${idPrefix}-neighborhood`}
+                value={value.neighborhood}
+                onChange={(event) =>
+                  patch({ neighborhood: event.target.value })
+                }
+                onKeyDown={onAdvanceField}
+                disabled={disabled}
+              />
+            </div>
+          </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div className="space-y-2">
-          <Label htmlFor={`${idPrefix}-city`}>Ciudad</Label>
-          <Input
-            id={`${idPrefix}-city`}
-            value={value.city}
-            onChange={(event) => {
-              patch({
-                city: event.target.value,
-                latitude: null,
-                longitude: null,
-                locationSource: null,
-              })
-              setSearchQuery(
-                composeCommercialAddress({
-                  ...value,
-                  city: event.target.value,
-                })
-              )
-            }}
-            onKeyDown={onAdvanceField}
-            disabled={disabled}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor={`${idPrefix}-province`}>Provincia</Label>
-          <Input
-            id={`${idPrefix}-province`}
-            value={value.province}
-            onChange={(event) => {
-              patch({
-                province: event.target.value,
-                latitude: null,
-                longitude: null,
-                locationSource: null,
-              })
-              setSearchQuery(
-                composeCommercialAddress({
-                  ...value,
-                  province: event.target.value,
-                })
-              )
-            }}
-            onKeyDown={onAdvanceField}
-            disabled={disabled}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor={`${idPrefix}-postal`}>Código Postal</Label>
-          <Input
-            id={`${idPrefix}-postal`}
-            value={value.postalCode}
-            onChange={(event) => patch({ postalCode: event.target.value })}
-            onKeyDown={onAdvanceField}
-            disabled={disabled}
-          />
-        </div>
-      </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="space-y-2">
+              <Label htmlFor={`${idPrefix}-city`}>Ciudad</Label>
+              <Input
+                id={`${idPrefix}-city`}
+                value={value.city}
+                onChange={(event) => {
+                  patch({
+                    city: event.target.value,
+                    latitude: null,
+                    longitude: null,
+                    locationSource: null,
+                  })
+                  setSearchQuery(
+                    composeCommercialAddress({
+                      ...value,
+                      city: event.target.value,
+                    })
+                  )
+                }}
+                onKeyDown={onAdvanceField}
+                disabled={disabled}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={`${idPrefix}-province`}>Provincia</Label>
+              <Input
+                id={`${idPrefix}-province`}
+                value={value.province}
+                onChange={(event) => {
+                  patch({
+                    province: event.target.value,
+                    latitude: null,
+                    longitude: null,
+                    locationSource: null,
+                  })
+                  setSearchQuery(
+                    composeCommercialAddress({
+                      ...value,
+                      province: event.target.value,
+                    })
+                  )
+                }}
+                onKeyDown={onAdvanceField}
+                disabled={disabled}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={`${idPrefix}-postal`}>Código Postal</Label>
+              <Input
+                id={`${idPrefix}-postal`}
+                value={value.postalCode}
+                onChange={(event) => patch({ postalCode: event.target.value })}
+                onKeyDown={onAdvanceField}
+                disabled={disabled}
+              />
+            </div>
+          </div>
+        </>
+      ) : null}
 
       <CommercialGeocodeFallbackDialog
         open={mapDialogOpen}
         onOpenChange={setMapDialogOpen}
         initialMode="map"
         onResolved={(coords) => {
-          void (async () => {
-            const suggestion = await reverseAddressViaApi(
-              coords.latitude,
-              coords.longitude
-            )
-            if (suggestion) {
-              applySuggestion({
-                ...suggestion,
-                latitude: coords.latitude,
-                longitude: coords.longitude,
-              })
-              return
-            }
-            patch({
-              latitude: coords.latitude,
-              longitude: coords.longitude,
-              locationSource: "manual",
-              locationInput: "",
-            })
-            setHasSearched(false)
-            setSuggestions([])
-          })()
+          applyCoords(coords.latitude, coords.longitude, "manual")
         }}
       />
     </div>
@@ -585,3 +689,8 @@ export function emptyCommercialPersonLocationFields(): CommercialPersonLocationF
     locationInput: "",
   }
 }
+
+/** Alias for the shared commercial location capture (Alta / Edición / Actividad). */
+export const CommercialLocationFields = CommercialPersonLocationFields
+export type CommercialLocationFieldsValue = CommercialPersonLocationFieldsValue
+export const emptyCommercialLocationFields = emptyCommercialPersonLocationFields

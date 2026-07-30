@@ -2,7 +2,6 @@
 
 import Link from "next/link"
 import {
-  BriefcaseBusiness,
   FolderOpen,
   Footprints,
   LayoutGrid,
@@ -26,12 +25,6 @@ const NAV_ITEMS: Array<{
   icon: LucideIcon
 }> = [
   {
-    key: "inicio",
-    href: "/gestion-comercial",
-    label: "Inicio",
-    icon: BriefcaseBusiness,
-  },
-  {
     key: "oportunidades",
     href: "/gestion-comercial/oportunidades",
     label: "Clientes",
@@ -52,7 +45,7 @@ const NAV_ITEMS: Array<{
   {
     key: "territorio",
     href: "/gestion-comercial/mapa",
-    label: "Territorio (Clientes)",
+    label: "Territorio",
     icon: MapPinned,
   },
 ]
@@ -139,16 +132,30 @@ export function CommercialModuleHero({
                 </Button>
               )
             })}
-            {showNewOpportunity && onNewOpportunity ? (
-              <Button
-                type="button"
-                size="sm"
-                className="h-9 gap-2"
-                onClick={onNewOpportunity}
-              >
-                <Plus className="size-4" />
-                Nuevo Cliente
-              </Button>
+            {showNewOpportunity ? (
+              onNewOpportunity ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-9 gap-2"
+                  onClick={onNewOpportunity}
+                >
+                  <Plus className="size-4" />
+                  Nuevo Cliente
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-9 gap-2"
+                  asChild
+                >
+                  <Link href="/gestion-comercial/oportunidades?action=nuevo">
+                    <Plus className="size-4" />
+                    Nuevo Cliente
+                  </Link>
+                </Button>
+              )
             ) : null}
             {actions}
           </div>

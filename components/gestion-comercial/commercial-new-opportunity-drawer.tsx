@@ -3,9 +3,15 @@
 import { useEffect, useMemo, useState } from "react"
 
 import { CommercialDrawerFooter } from "@/components/gestion-comercial/commercial-drawer-footer"
-import { emptyCommercialPersonLocationFields } from "@/components/gestion-comercial/commercial-person-location-fields"
-import { useCreateOpportunityWithPerson } from "@/components/gestion-comercial/commercial-provider"
-import { SharedLocationInput } from "@/components/tareas/shared-location-input"
+import {
+  CommercialLocationFields,
+  emptyCommercialPersonLocationFields,
+} from "@/components/gestion-comercial/commercial-person-location-fields"
+import {
+  useCreateOpportunityWithPerson,
+  useUpdateCommercialPerson,
+  useUpdateOpportunity,
+} from "@/components/gestion-comercial/commercial-provider"
 import { useEmployees } from "@/components/rrhh/employees-provider"
 import {
   DiscardChangesDialog,
@@ -42,13 +48,33 @@ import {
 import { composeCommercialAddress } from "@/lib/commercial/location"
 import { resolveCommercialPersonLocation } from "@/lib/commercial/resolve-person-location"
 import { listCommercialResponsibleOptions } from "@/lib/commercial/responsible-employees"
+import { formatCoordinatePair } from "@/lib/location/coordinates"
 import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import { listCommercialEtiquetasBrowser } from "@/lib/supabase/commercial-etiquetas.browser"
 import type { CommercialEtiqueta } from "@/lib/types/commercial-etiquetas"
-import type { CommercialPerson } from "@/lib/types/commercial"
+import type {
+  CommercialOpportunity,
+  CommercialPerson,
+} from "@/lib/types/commercial"
 import type { CommercialOpportunityListItem } from "@/lib/types/commercial"
+import type {
+  UpdateCommercialOpportunityPayload,
+  UpdateCommercialPersonPayload,
+} from "@/lib/types/supabase/commercial"
 
-const FORM_ID = "commercial-new-client-form"
+const FORM_ID = "commercial-client-quick-form"
+
+type EditableSnapshot = {
+  fullName: string
+  phone: string
+  address: string
+  locationInput: string
+  latitude: number | null
+  longitude: number | null
+  locationSource: CommercialNewOpportunityInput["locationSource"]
+  observations: string
+  etiquetaId: string
+}
 
 function buildDefaultPerson(): CommercialNewOpportunityPersonInput {
   return {
@@ -65,7 +91,8 @@ function buildDefaultPerson(): CommercialNewOpportunityPersonInput {
 }
 
 function buildDefaultOpportunity(
-  assignedEmployeeId = ""
+  assignedEmployeeId = "",
+  etiquetaId = ""
 ): CommercialNewOpportunityInput {
   return {
     title: "",
@@ -73,10 +100,107 @@ function buildDefaultOpportunity(
     source: "otro",
     priority: "media",
     observations: "",
-    etiquetaId: "",
+    etiquetaId,
     latitude: null,
     longitude: null,
     locationSource: null,
+  }
+}
+
+function personDisplayName(person: {
+  personType: CommercialNewOpportunityPersonInput["personType"]
+  firstName: string
+  lastName: string
+  companyName: string
+}): string {
+  if (person.personType === "company") {
+    return person.companyName
+  }
+  return [person.firstName, person.lastName]
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(" ")
+}
+
+function applyDisplayName(
+  current: CommercialNewOpportunityPersonInput,
+  raw: string
+): CommercialNewOpportunityPersonInput {
+  if (current.personType === "company") {
+    return {
+      ...current,
+      companyName: raw,
+    }
+  }
+  const space = raw.indexOf(" ")
+  return {
+    ...current,
+    personType: "individual",
+    firstName: space === -1 ? raw : raw.slice(0, space),
+    lastName: space === -1 ? "" : raw.slice(space + 1),
+    companyName: "",
+  }
+}
+
+function toEditableSnapshot(
+  person: CommercialNewOpportunityPersonInput,
+  opportunity: CommercialNewOpportunityInput
+): EditableSnapshot {
+  return {
+    fullName: personDisplayName(person),
+    phone: person.phone,
+    address: person.address,
+    locationInput: person.locationInput,
+    latitude: person.latitude,
+    longitude: person.longitude,
+    locationSource: person.locationSource,
+    observations: opportunity.observations,
+    etiquetaId: opportunity.etiquetaId ?? "",
+  }
+}
+
+function personFromExisting(person: CommercialPerson): CommercialNewOpportunityPersonInput {
+  return {
+    personType: person.personType,
+    firstName: person.firstName,
+    lastName: person.lastName,
+    companyName: person.companyName,
+    documentNumber: person.documentNumber,
+    phone: person.phone || person.mobile,
+    mobile: person.mobile || person.phone,
+    email: person.email,
+    street: person.street,
+    streetNumber: person.streetNumber,
+    floor: person.floor,
+    apartment: person.apartment,
+    neighborhood: person.neighborhood,
+    city: person.city,
+    province: person.province,
+    postalCode: person.postalCode,
+    address: person.address,
+    latitude: person.latitude,
+    longitude: person.longitude,
+    locationSource: person.locationSource,
+    locationInput:
+      person.latitude != null && person.longitude != null
+        ? formatCoordinatePair(person.latitude, person.longitude)
+        : "",
+  }
+}
+
+function opportunityFromExisting(
+  opportunity: CommercialOpportunity
+): CommercialNewOpportunityInput {
+  return {
+    title: opportunity.title,
+    assignedEmployeeId: opportunity.assignedEmployeeId ?? "",
+    source: opportunity.source,
+    priority: opportunity.priority,
+    observations: opportunity.description,
+    etiquetaId: opportunity.etiquetaId ?? "",
+    latitude: opportunity.latitude,
+    longitude: opportunity.longitude,
+    locationSource: opportunity.locationSource,
   }
 }
 
@@ -126,11 +250,101 @@ function advanceOnEnter(event: React.KeyboardEvent<HTMLInputElement>) {
   next?.focus()
 }
 
+function buildPersonPatch(
+  baseline: EditableSnapshot,
+  next: EditableSnapshot,
+  personState: CommercialNewOpportunityPersonInput
+): Omit<UpdateCommercialPersonPayload, "updatedBy"> | null {
+  const patch: Omit<UpdateCommercialPersonPayload, "updatedBy"> = {}
+
+  if (next.fullName.trim() !== baseline.fullName.trim()) {
+    if (personState.personType === "company") {
+      patch.companyName = personState.companyName
+    } else {
+      patch.firstName = personState.firstName
+      patch.lastName = personState.lastName
+      patch.personType = "individual"
+    }
+  }
+
+  if (next.phone.trim() !== baseline.phone.trim()) {
+    patch.phone = next.phone
+    patch.mobile = next.phone
+  }
+
+  if (next.address.trim() !== baseline.address.trim()) {
+    patch.address = composeCommercialAddress({
+      ...personState,
+      address: next.address,
+    })
+  }
+
+  const locationChanged =
+    next.locationInput.trim() !== baseline.locationInput.trim() ||
+    next.latitude !== baseline.latitude ||
+    next.longitude !== baseline.longitude ||
+    next.locationSource !== baseline.locationSource
+
+  if (locationChanged) {
+    patch.latitude = next.latitude
+    patch.longitude = next.longitude
+    patch.locationSource = next.locationSource
+  }
+
+  return Object.keys(patch).length > 0 ? patch : null
+}
+
+function buildOpportunityPatch(
+  baseline: EditableSnapshot,
+  next: EditableSnapshot,
+  personState: CommercialNewOpportunityPersonInput,
+  existingTitle: string
+): Omit<UpdateCommercialOpportunityPayload, "updatedBy"> | null {
+  const patch: Omit<UpdateCommercialOpportunityPayload, "updatedBy"> = {}
+
+  if (next.fullName.trim() !== baseline.fullName.trim()) {
+    const autoTitle = buildCommercialClientAutoTitle(personState)
+    if (autoTitle && autoTitle !== existingTitle) {
+      patch.title = autoTitle
+    }
+  }
+
+  if (next.observations.trim() !== baseline.observations.trim()) {
+    patch.description = next.observations
+  }
+
+  if (next.etiquetaId.trim() !== baseline.etiquetaId.trim()) {
+    patch.etiquetaId = next.etiquetaId.trim() || null
+  }
+
+  const locationChanged =
+    next.locationInput.trim() !== baseline.locationInput.trim() ||
+    next.latitude !== baseline.latitude ||
+    next.longitude !== baseline.longitude ||
+    next.locationSource !== baseline.locationSource
+
+  if (locationChanged) {
+    patch.latitude = next.latitude
+    patch.longitude = next.longitude
+    patch.locationSource = next.locationSource
+  }
+
+  return Object.keys(patch).length > 0 ? patch : null
+}
+
 type CommercialNewOpportunityDrawerProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
-  people: CommercialPerson[]
-  onCreated: (opportunity: CommercialOpportunityListItem) => void
+  /** Required for create (duplicate notice). Optional in edit. */
+  people?: CommercialPerson[]
+  onCreated?: (opportunity: CommercialOpportunityListItem) => void
+  mode?: "create" | "edit"
+  person?: CommercialPerson | null
+  opportunity?: CommercialOpportunity | null
+  onUpdated?: (result: {
+    person: CommercialPerson
+    opportunity: CommercialOpportunity
+  }) => void
   location?: {
     latitude: number | null
     longitude: number | null
@@ -142,14 +356,21 @@ type CommercialNewOpportunityDrawerProps = {
 export function CommercialNewOpportunityDrawer({
   open,
   onOpenChange,
-  people,
+  people = [],
   onCreated,
+  mode = "create",
+  person: editPerson = null,
+  opportunity: editOpportunity = null,
+  onUpdated,
   location,
   locationControls,
 }: CommercialNewOpportunityDrawerProps) {
+  const isEdit = mode === "edit"
   const { companyId, isAuthReady } = useTenantCompanyId()
-  const { employees, isEmployeesReady } = useEmployees()
+  const { employees } = useEmployees()
   const { mutateAsync: createWithPerson } = useCreateOpportunityWithPerson()
+  const { mutateAsync: updatePerson } = useUpdateCommercialPerson()
+  const { mutateAsync: updateOpportunity } = useUpdateOpportunity()
 
   const defaultResponsibleId = useMemo(() => {
     const options = listCommercialResponsibleOptions(employees)
@@ -168,7 +389,9 @@ export function CommercialNewOpportunityDrawer({
   )
   const [etiquetas, setEtiquetas] = useState<CommercialEtiqueta[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [info, setInfo] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [locationMountId, setLocationMountId] = useState(0)
 
   const formState = useMemo(
     () => ({ person, opportunity }),
@@ -188,36 +411,12 @@ export function CommercialNewOpportunityDrawer({
   })
 
   useEffect(() => {
-    if (!open) return
-
-    let cancelled = false
-    void Promise.resolve().then(() => {
-      if (cancelled) return
-      const nextPerson = buildDefaultPerson()
-      const nextOpportunity = buildDefaultOpportunity(defaultResponsibleId)
-      setPerson(nextPerson)
-      setOpportunity(nextOpportunity)
-      setBaseline({ person: nextPerson, opportunity: nextOpportunity })
-      setError(null)
-      setIsSubmitting(false)
-    })
-
-    return () => {
-      cancelled = true
-    }
-  }, [defaultResponsibleId, open])
-
-  useEffect(() => {
     if (!open || !isAuthReady || !companyId) return
     let cancelled = false
     void listCommercialEtiquetasBrowser(companyId, { activeOnly: true }).then(
       (result) => {
         if (cancelled) return
-        if (result.data) {
-          setEtiquetas(result.data)
-        } else {
-          setEtiquetas([])
-        }
+        setEtiquetas(result.data ?? [])
       }
     )
     return () => {
@@ -226,7 +425,39 @@ export function CommercialNewOpportunityDrawer({
   }, [companyId, isAuthReady, open])
 
   useEffect(() => {
-    if (!open || !location) return
+    if (!open) return
+
+    let cancelled = false
+    void Promise.resolve().then(() => {
+      if (cancelled) return
+
+      if (isEdit && editPerson && editOpportunity) {
+        const nextPerson = personFromExisting(editPerson)
+        const nextOpportunity = opportunityFromExisting(editOpportunity)
+        setPerson(nextPerson)
+        setOpportunity(nextOpportunity)
+        setBaseline({ person: nextPerson, opportunity: nextOpportunity })
+      } else {
+        const nextPerson = buildDefaultPerson()
+        const nextOpportunity = buildDefaultOpportunity(defaultResponsibleId)
+        setPerson(nextPerson)
+        setOpportunity(nextOpportunity)
+        setBaseline({ person: nextPerson, opportunity: nextOpportunity })
+      }
+
+      setError(null)
+      setInfo(null)
+      setIsSubmitting(false)
+      setLocationMountId((current) => current + 1)
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [defaultResponsibleId, editOpportunity, editPerson, isEdit, open])
+
+  useEffect(() => {
+    if (!open || !location || isEdit) return
     let cancelled = false
     void Promise.resolve().then(() => {
       if (cancelled) return
@@ -241,67 +472,41 @@ export function CommercialNewOpportunityDrawer({
         latitude: location.latitude,
         longitude: location.longitude,
         locationSource: location.locationSource,
+        address:
+          location.latitude != null && location.longitude != null
+            ? formatCoordinatePair(location.latitude, location.longitude)
+            : current.address,
       }))
+      setLocationMountId((current) => current + 1)
     })
     return () => {
       cancelled = true
     }
-  }, [location, open])
+  }, [isEdit, location, open])
 
-  const existingProspectNotice = resolveExistingProspectNotice(people, person)
+  const existingProspectNotice = isEdit
+    ? null
+    : resolveExistingProspectNotice(people, person)
 
-  async function persistBundle(
-    nextPerson: CommercialNewOpportunityPersonInput,
+  const fullName = personDisplayName(person)
+
+  const selectedEtiquetaId = opportunity.etiquetaId ?? ""
+  const etiquetaOptions = useMemo(() => {
+    const active = etiquetas.filter((entry) => entry.isActive)
+    if (!selectedEtiquetaId) return active
+    const selected = etiquetas.find((entry) => entry.id === selectedEtiquetaId)
+    if (!selected || selected.isActive) return active
+    return [selected, ...active]
+  }, [etiquetas, selectedEtiquetaId])
+
+  async function resolveLocationForSave(): Promise<{
+    nextPerson: CommercialNewOpportunityPersonInput
     nextOpportunity: CommercialNewOpportunityInput
-  ) {
-    const autoTitle = buildCommercialClientAutoTitle(nextPerson)
-    const cleanBundle: CommercialCreateOpportunityBundleInput = {
-      person: {
-        ...nextPerson,
-        address: composeCommercialAddress(nextPerson),
-      },
-      opportunity: {
-        ...nextOpportunity,
-        title: nextOpportunity.title.trim() || autoTitle,
-      },
-    }
-
-    const validationError = validateCommercialCreateOpportunityBundle(cleanBundle)
-    if (validationError) {
-      setError(validationError)
-      return
-    }
-
-    setIsSubmitting(true)
-    setError(null)
-    try {
-      const result = await createWithPerson(cleanBundle)
-      if (!result.success || !result.data) {
-        setError(result.message ?? "No se pudo crear el cliente.")
-        return
-      }
-
-      onCreated(result.data.opportunity)
-      onOpenChange(false)
-    } catch (submitError) {
-      setError(
-        submitError instanceof Error
-          ? submitError.message
-          : "No se pudo crear el cliente."
-      )
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault()
-    setError(null)
-
+  } | null> {
     const locationResult = await resolveCommercialPersonLocation(person)
     if (locationResult.status === "failed") {
       setError("No se pudo interpretar el enlace de Google Maps.")
-      return
+      return null
     }
 
     let nextPerson = person
@@ -337,13 +542,187 @@ export function CommercialNewOpportunityDrawer({
       setOpportunity(nextOpportunity)
     }
 
-    await persistBundle(nextPerson, nextOpportunity)
+    return { nextPerson, nextOpportunity }
   }
 
-  const fullName = [person.firstName, person.lastName]
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .join(" ")
+  async function persistCreate(
+    nextPerson: CommercialNewOpportunityPersonInput,
+    nextOpportunity: CommercialNewOpportunityInput
+  ) {
+    const autoTitle = buildCommercialClientAutoTitle(nextPerson)
+    const etiquetaId =
+      nextOpportunity.etiquetaId?.trim() || etiquetas[0]?.id || ""
+    const cleanBundle: CommercialCreateOpportunityBundleInput = {
+      person: {
+        ...nextPerson,
+        address: composeCommercialAddress(nextPerson),
+      },
+      opportunity: {
+        ...nextOpportunity,
+        etiquetaId,
+        title: nextOpportunity.title.trim() || autoTitle,
+      },
+    }
+
+    const validationError = validateCommercialCreateOpportunityBundle(cleanBundle)
+    if (validationError) {
+      setError(
+        validationError === "Seleccione una etiqueta."
+          ? "Configurá al menos una etiqueta comercial en Configuración."
+          : validationError
+      )
+      return
+    }
+
+    if (!onCreated) {
+      setError("No se pudo crear el cliente.")
+      return
+    }
+
+    setIsSubmitting(true)
+    setError(null)
+    setInfo(null)
+    try {
+      const result = await createWithPerson(cleanBundle)
+      if (!result.success || !result.data) {
+        setError(result.message ?? "No se pudo crear el cliente.")
+        return
+      }
+
+      onCreated(result.data.opportunity)
+      onOpenChange(false)
+    } catch (submitError) {
+      setError(
+        submitError instanceof Error
+          ? submitError.message
+          : "No se pudo crear el cliente."
+      )
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  async function persistEdit(
+    nextPerson: CommercialNewOpportunityPersonInput,
+    nextOpportunity: CommercialNewOpportunityInput
+  ) {
+    if (!editPerson || !editOpportunity) {
+      setError("No se pudo actualizar el cliente.")
+      return
+    }
+
+    const baselineSnapshot = toEditableSnapshot(
+      baseline.person,
+      baseline.opportunity
+    )
+    const nextSnapshot = toEditableSnapshot(nextPerson, nextOpportunity)
+
+    if (!isFormStateDirty(nextSnapshot, baselineSnapshot)) {
+      setInfo("Sin cambios.")
+      setError(null)
+      return
+    }
+
+    if (!nextSnapshot.fullName.trim()) {
+      setError("Ingrese el nombre del cliente.")
+      return
+    }
+    if (!normalizeCommercialPhone(nextSnapshot.phone)) {
+      setError("Ingrese el teléfono del cliente.")
+      return
+    }
+
+    if (!nextSnapshot.etiquetaId.trim()) {
+      setError("Seleccione una etiqueta.")
+      return
+    }
+
+    const personPatch = buildPersonPatch(
+      baselineSnapshot,
+      nextSnapshot,
+      nextPerson
+    )
+    const opportunityPatch = buildOpportunityPatch(
+      baselineSnapshot,
+      nextSnapshot,
+      nextPerson,
+      editOpportunity.title
+    )
+
+    if (!personPatch && !opportunityPatch) {
+      setInfo("Sin cambios.")
+      setError(null)
+      return
+    }
+
+    setIsSubmitting(true)
+    setError(null)
+    setInfo(null)
+
+    try {
+      let updatedPerson = editPerson
+      let updatedOpportunity = editOpportunity
+
+      if (personPatch) {
+        const personResult = await updatePerson({
+          id: editPerson.id,
+          payload: personPatch,
+        })
+        if (!personResult.success || !personResult.data) {
+          setError(personResult.message ?? "No se pudo actualizar el cliente.")
+          return
+        }
+        updatedPerson = personResult.data
+      }
+
+      if (opportunityPatch) {
+        const opportunityResult = await updateOpportunity({
+          id: editOpportunity.id,
+          payload: opportunityPatch,
+        })
+        if (!opportunityResult.success || !opportunityResult.data) {
+          setError(
+            opportunityResult.message ?? "No se pudo actualizar el cliente."
+          )
+          return
+        }
+        updatedOpportunity = opportunityResult.data
+      }
+
+      setInfo("Cliente actualizado correctamente.")
+      onUpdated?.({
+        person: updatedPerson,
+        opportunity: updatedOpportunity,
+      })
+      window.setTimeout(() => {
+        onOpenChange(false)
+      }, 650)
+    } catch (submitError) {
+      setError(
+        submitError instanceof Error
+          ? submitError.message
+          : "No se pudo actualizar el cliente."
+      )
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault()
+    setError(null)
+    setInfo(null)
+
+    const resolved = await resolveLocationForSave()
+    if (!resolved) return
+
+    if (isEdit) {
+      await persistEdit(resolved.nextPerson, resolved.nextOpportunity)
+      return
+    }
+
+    await persistCreate(resolved.nextPerson, resolved.nextOpportunity)
+  }
 
   return (
     <>
@@ -360,10 +739,13 @@ export function CommercialNewOpportunityDrawer({
           }}
         >
           <SheetHeader className="border-b">
-            <SheetTitle>Nuevo Cliente</SheetTitle>
+            <SheetTitle>
+              {isEdit ? "Editar Cliente" : "Nuevo Cliente"}
+            </SheetTitle>
             <SheetDescription>
-              Cargá solo lo esencial. El resto se puede completar después en la
-              ficha.
+              {isEdit
+                ? "Corregí solo lo necesario. El resto del expediente se mantiene."
+                : "Cargá solo lo esencial. El resto se puede completar después en la ficha."}
             </SheetDescription>
           </SheetHeader>
 
@@ -374,9 +756,7 @@ export function CommercialNewOpportunityDrawer({
           >
             <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="commercial-client-full-name">
-                  Nombre y Apellido *
-                </Label>
+                <Label htmlFor="commercial-client-full-name">Nombre *</Label>
                 <Input
                   id="commercial-client-full-name"
                   value={fullName}
@@ -385,14 +765,7 @@ export function CommercialNewOpportunityDrawer({
                   onKeyDown={advanceOnEnter}
                   onChange={(event) => {
                     const raw = event.target.value
-                    const space = raw.indexOf(" ")
-                    setPerson((current) => ({
-                      ...current,
-                      personType: "individual",
-                      firstName: space === -1 ? raw : raw.slice(0, space),
-                      lastName: space === -1 ? "" : raw.slice(space + 1),
-                      companyName: "",
-                    }))
+                    setPerson((current) => applyDisplayName(current, raw))
                   }}
                   placeholder="Nombre y apellido"
                 />
@@ -417,9 +790,7 @@ export function CommercialNewOpportunityDrawer({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="commercial-client-etiqueta">
-                  Etiqueta Comercial *
-                </Label>
+                <Label htmlFor="commercial-client-etiqueta">Etiqueta *</Label>
                 <Select
                   value={opportunity.etiquetaId || undefined}
                   onValueChange={(value) =>
@@ -428,18 +799,18 @@ export function CommercialNewOpportunityDrawer({
                       etiquetaId: value,
                     }))
                   }
-                  disabled={isSubmitting || !isEmployeesReady}
+                  disabled={isSubmitting}
                 >
                   <SelectTrigger id="commercial-client-etiqueta">
                     <SelectValue placeholder="Seleccionar etiqueta" />
                   </SelectTrigger>
                   <SelectContent>
-                    {etiquetas.length === 0 ? (
+                    {etiquetaOptions.length === 0 ? (
                       <SelectItem value="__none" disabled>
                         Configurá etiquetas en Configuración
                       </SelectItem>
                     ) : (
-                      etiquetas.map((etiqueta) => (
+                      etiquetaOptions.map((etiqueta) => (
                         <SelectItem key={etiqueta.id} value={etiqueta.id}>
                           <span className="inline-flex items-center gap-2">
                             <span
@@ -456,55 +827,39 @@ export function CommercialNewOpportunityDrawer({
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="commercial-client-dni">DNI</Label>
-                <Input
-                  id="commercial-client-dni"
-                  value={person.documentNumber}
-                  disabled={isSubmitting}
-                  onKeyDown={advanceOnEnter}
-                  onChange={(event) =>
-                    setPerson((current) => ({
-                      ...current,
-                      documentNumber: event.target.value,
-                    }))
-                  }
-                  placeholder="Opcional"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="commercial-client-email">Email</Label>
-                <Input
-                  id="commercial-client-email"
-                  type="email"
-                  value={person.email}
-                  disabled={isSubmitting}
-                  onKeyDown={advanceOnEnter}
-                  onChange={(event) =>
-                    setPerson((current) => ({
-                      ...current,
-                      email: event.target.value,
-                    }))
-                  }
-                  placeholder="Opcional"
-                />
-              </div>
-
-              <SharedLocationInput
-                id="commercial-client-maps"
-                label="Ubicación (Google Maps)"
-                value={person.locationInput}
-                onChange={(value) =>
+              <CommercialLocationFields
+                key={locationMountId}
+                idPrefix="commercial-client"
+                value={{
+                  street: person.street,
+                  streetNumber: person.streetNumber,
+                  floor: person.floor,
+                  apartment: person.apartment,
+                  neighborhood: person.neighborhood,
+                  city: person.city,
+                  province: person.province,
+                  postalCode: person.postalCode,
+                  address: person.address,
+                  latitude: person.latitude,
+                  longitude: person.longitude,
+                  locationSource: person.locationSource,
+                  locationInput: person.locationInput,
+                }}
+                onChange={(nextLocation) => {
                   setPerson((current) => ({
                     ...current,
-                    locationInput: value,
-                    latitude: null,
-                    longitude: null,
-                    locationSource: null,
+                    ...nextLocation,
                   }))
-                }
-                placeholder="Pegar aquí el enlace de Google Maps compartido por el cliente"
+                  setOpportunity((current) => ({
+                    ...current,
+                    latitude: nextLocation.latitude,
+                    longitude: nextLocation.longitude,
+                    locationSource: nextLocation.locationSource,
+                  }))
+                }}
+                disabled={isSubmitting}
+                onAdvanceField={advanceOnEnter}
+                showDomicilioFields={false}
               />
 
               <div className="space-y-2">
@@ -532,6 +887,12 @@ export function CommercialNewOpportunityDrawer({
                 </p>
               ) : null}
 
+              {info ? (
+                <p className="text-sm text-muted-foreground" role="status">
+                  {info}
+                </p>
+              ) : null}
+
               {error ? (
                 <p className="text-sm text-destructive" role="alert">
                   {error}
@@ -543,7 +904,7 @@ export function CommercialNewOpportunityDrawer({
               formId={FORM_ID}
               isSubmitting={isSubmitting}
               onCancel={requestClose}
-              submitLabel="Guardar Cliente"
+              submitLabel="Guardar"
             />
           </form>
         </SheetContent>

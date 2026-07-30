@@ -102,6 +102,7 @@ export function CommercialMapCanvas({
   const layerRef = useRef<L.LayerGroup | null>(null)
   const draftMarkerRef = useRef<L.Marker | null>(null)
   const markersRef = useRef<Map<string, L.Marker>>(new Map())
+  const detailActionIdsRef = useRef<Map<string, string>>(new Map())
   const onBoundsChangeRef = useRef(onBoundsChange)
   const onSelectRef = useRef(onSelect)
   const onOpenDetailRef = useRef(onOpenDetail)
@@ -124,8 +125,9 @@ export function CommercialMapCanvas({
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return
 
+    const container = containerRef.current
     const layer = resolvePlanningMapBaseLayerConfig("street")
-    const map = L.map(containerRef.current, {
+    const map = L.map(container, {
       zoomControl: true,
       attributionControl: true,
     }).setView(
@@ -160,6 +162,23 @@ export function CommercialMapCanvas({
       })
     })
 
+    // Delegado en el contenedor a propósito: Leaflet reemplaza el nodo del popup
+    // en cada `setPopupContent`, así que un handler atado al botón muere en la
+    // siguiente actualización de marcadores (seleccionar un pin ya dispara una).
+    // Leaflet solo detiene mousedown/dblclick/contextmenu, el click nativo burbujea.
+    const handleDetailClick = (event: MouseEvent) => {
+      const target = event.target
+      if (!(target instanceof Element)) return
+      const trigger = target.closest("[data-commercial-map-detail]")
+      const detailId = trigger?.getAttribute("data-commercial-map-detail")
+      if (!detailId) return
+      event.preventDefault()
+      event.stopPropagation()
+      const markerId = detailActionIdsRef.current.get(detailId) ?? detailId
+      onOpenDetailRef.current?.(markerId)
+    }
+    container.addEventListener("click", handleDetailClick)
+
     let resizeFrame = 0
     const observer = new ResizeObserver(() => {
       window.cancelAnimationFrame(resizeFrame)
@@ -171,12 +190,14 @@ export function CommercialMapCanvas({
         }, 0)
       })
     })
-    observer.observe(containerRef.current)
+    observer.observe(container)
 
     const markersMap = markersRef.current
+    const detailActionIds = detailActionIdsRef.current
 
     return () => {
       observer.disconnect()
+      container.removeEventListener("click", handleDetailClick)
       window.cancelAnimationFrame(resizeFrame)
       map.off()
       map.remove()
@@ -184,6 +205,7 @@ export function CommercialMapCanvas({
       layerRef.current = null
       draftMarkerRef.current = null
       markersMap.clear()
+      detailActionIds.clear()
     }
   }, [])
 
@@ -191,6 +213,12 @@ export function CommercialMapCanvas({
     const map = mapRef.current
     const markerLayer = layerRef.current
     if (!map || !markerLayer) return
+
+    const detailActionIds = detailActionIdsRef.current
+    detailActionIds.clear()
+    for (const entry of markers) {
+      detailActionIds.set(entry.detailActionId ?? entry.id, entry.id)
+    }
 
     const nextIds = new Set(markers.map((entry) => entry.id))
     for (const [id, marker] of markersRef.current.entries()) {
@@ -210,7 +238,11 @@ export function CommercialMapCanvas({
       if (existing) {
         existing.setLatLng(latLng)
         existing.setIcon(icon)
-        existing.setPopupContent(entry.popupHtml)
+        // Reescribir el mismo HTML remontaría el popup abierto y cancelaría el
+        // click en curso (el nodo desaparece entre mousedown y mouseup).
+        if (existing.getPopup()?.getContent() !== entry.popupHtml) {
+          existing.setPopupContent(entry.popupHtml)
+        }
         existing.setZIndexOffset(highlighted ? 1000 : 0)
         continue
       }
@@ -222,18 +254,6 @@ export function CommercialMapCanvas({
       marker.bindPopup(entry.popupHtml)
       marker.on("click", () => {
         onSelectRef.current(entry.id)
-      })
-      marker.on("popupopen", () => {
-        const detailId = entry.detailActionId ?? entry.id
-        const button = document.querySelector<HTMLButtonElement>(
-          `button[data-commercial-map-detail="${detailId}"]`
-        )
-        if (!button) return
-        button.onclick = (event) => {
-          event.preventDefault()
-          event.stopPropagation()
-          onOpenDetailRef.current?.(entry.id)
-        }
       })
       marker.addTo(markerLayer)
       markersRef.current.set(entry.id, marker)

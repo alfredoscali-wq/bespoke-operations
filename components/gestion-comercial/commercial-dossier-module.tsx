@@ -3,43 +3,32 @@
 import { useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 
+import { PermanentDeleteAction } from "@/components/admin/permanent-delete-action"
 import { CommercialActivityDrawer } from "@/components/gestion-comercial/commercial-activity-drawer"
 import { CommercialActivityQuickActions } from "@/components/gestion-comercial/commercial-activity-quick-actions"
 import {
   CommercialActivitiesProvider,
-  useCommercialActivities,
 } from "@/components/gestion-comercial/commercial-activities-provider"
+import { CommercialClientCard } from "@/components/gestion-comercial/commercial-client-card"
 import { CommercialHeader } from "@/components/gestion-comercial/commercial-header"
-import { CommercialOpportunityCard } from "@/components/gestion-comercial/commercial-opportunity-card"
-import { CommercialOpportunityDrawer } from "@/components/gestion-comercial/commercial-opportunity-drawer"
-import { CommercialPersonDrawer } from "@/components/gestion-comercial/commercial-person-drawer"
-import { CommercialProspectCard } from "@/components/gestion-comercial/commercial-prospect-card"
+import { CommercialNewOpportunityDrawer } from "@/components/gestion-comercial/commercial-new-opportunity-drawer"
+import { CommercialSolicitudesSection } from "@/components/gestion-comercial/commercial-solicitudes-section"
 import { CommercialTimeline } from "@/components/gestion-comercial/timeline/commercial-timeline"
 import {
   CommercialProvider,
   useDeleteOpportunity,
   useCommercialContextLoad,
 } from "@/components/gestion-comercial/commercial-provider"
-import { EmployeesProvider, useEmployees } from "@/components/rrhh/employees-provider"
+import { EmployeesProvider } from "@/components/rrhh/employees-provider"
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { TableRowsSkeleton } from "@/components/ui/kpi-grid-skeleton"
+import { resolveCommercialClientDisplayName } from "@/lib/commercial/display"
 import { resolveCommercialDossierBackHref } from "@/lib/commercial/dossier-navigation"
 import {
   enrichOpportunityWithEtiqueta,
   indexCommercialEtiquetasById,
 } from "@/lib/commercial/etiqueta-display"
-import type {
-  CommercialActivityTypeCode,
-  CommercialQuickActivityType,
-} from "@/lib/commercial/activity-catalogs"
+import type { CommercialActivityTypeCode } from "@/lib/commercial/activity-catalogs"
 import { listCommercialEtiquetasBrowser } from "@/lib/supabase/commercial-etiquetas.browser"
 import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import type {
@@ -59,13 +48,9 @@ function CommercialDossierContent({
   const router = useRouter()
   const searchParams = useSearchParams()
   const { companyId, isAuthReady } = useTenantCompanyId()
-  const { employees } = useEmployees()
   const { loadDossier, upsertPersonLocal, upsertOpportunityLocal } =
     useCommercialContextLoad()
   const { mutateAsync: deleteOpportunity } = useDeleteOpportunity()
-  const {
-    refetch: refetchActivities,
-  } = useCommercialActivities()
 
   function handleBack() {
     const backHref = resolveCommercialDossierBackHref(searchParams.get("from"))
@@ -83,10 +68,7 @@ function CommercialDossierContent({
   const [etiquetas, setEtiquetas] = useState<CommercialEtiqueta[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [personDrawerOpen, setPersonDrawerOpen] = useState(false)
-  const [opportunityDrawerOpen, setOpportunityDrawerOpen] = useState(false)
-  const [deleteOpen, setDeleteOpen] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
+  const [editDrawerOpen, setEditDrawerOpen] = useState(false)
   const [activityDrawerOpen, setActivityDrawerOpen] = useState(false)
   const [editingActivity, setEditingActivity] =
     useState<CommercialActivityListItem | null>(null)
@@ -157,9 +139,16 @@ function CommercialDossierContent({
   useEffect(() => {
     if (isLoading || !opportunity) return
     if (searchParams.get("action") !== "activity") return
-    setEditingActivity(null)
-    setDefaultActivityType("nota")
-    setActivityDrawerOpen(true)
+    let cancelled = false
+    void Promise.resolve().then(() => {
+      if (cancelled) return
+      setEditingActivity(null)
+      setDefaultActivityType("nota")
+      setActivityDrawerOpen(true)
+    })
+    return () => {
+      cancelled = true
+    }
   }, [isLoading, opportunity, searchParams])
 
   const etiquetasById = useMemo(
@@ -175,21 +164,9 @@ function CommercialDossierContent({
     [etiquetasById, opportunity]
   )
 
-  const responsibleName = useMemo(() => {
-    if (!displayOpportunity?.assignedEmployeeId) return ""
-    const employee = employees.find(
-      (entry) => entry.id === displayOpportunity.assignedEmployeeId
-    )
-    if (!employee) return ""
-    return (
-      `${employee.firstName} ${employee.lastName}`.trim() ||
-      employee.employeeCode
-    )
-  }, [displayOpportunity, employees])
-
-  function openCreateActivity(typeCode: CommercialQuickActivityType) {
+  function openRegisterActivity() {
     setEditingActivity(null)
-    setDefaultActivityType(typeCode)
+    setDefaultActivityType("nota")
     setActivityDrawerOpen(true)
   }
 
@@ -197,22 +174,6 @@ function CommercialDossierContent({
     setEditingActivity(activity)
     setDefaultActivityType(activity.activityTypeCode)
     setActivityDrawerOpen(true)
-  }
-
-  async function handleDelete() {
-    if (!displayOpportunity) return
-    setIsDeleting(true)
-    try {
-      const result = await deleteOpportunity(displayOpportunity.id)
-      if (!result.success) {
-        setError(result.message ?? "No se pudo eliminar el cliente.")
-        return
-      }
-      router.push("/gestion-comercial")
-    } finally {
-      setIsDeleting(false)
-      setDeleteOpen(false)
-    }
   }
 
   if (isLoading) {
@@ -232,62 +193,80 @@ function CommercialDossierContent({
         <Button
           type="button"
           variant="outline"
-          onClick={() => router.push("/gestion-comercial")}
+          onClick={() => router.push("/gestion-comercial/oportunidades")}
         >
-          Volver al inicio
+          Volver a Clientes
         </Button>
       </div>
     )
   }
 
+  const contactPhone = person.phone.trim() || person.mobile.trim()
+  const clientName = resolveCommercialClientDisplayName({
+    personType: person.personType,
+    firstName: person.firstName,
+    lastName: person.lastName,
+    companyName: person.companyName,
+  })
+
   return (
     <div className="space-y-6">
       <CommercialHeader
         opportunity={displayOpportunity}
-        responsibleName={responsibleName}
+        clientName={clientName}
         onBack={handleBack}
-        onEditPerson={() => setPersonDrawerOpen(true)}
-        onEditOpportunity={() => setOpportunityDrawerOpen(true)}
-        onDelete={() => setDeleteOpen(true)}
+        onEdit={() => setEditDrawerOpen(true)}
+        permanentDeleteAction={
+          <PermanentDeleteAction
+            entityType="commercial_client"
+            entityId={displayOpportunity.id}
+            entityLabel={`${clientName} (${displayOpportunity.code})`}
+            title="Eliminar definitivamente este cliente."
+            description={
+              "Esta acción eliminará permanentemente el cliente y toda la información asociada.\n\nEsta operación no puede deshacerse."
+            }
+            onDelete={async ({ entityId }) => {
+              const result = await deleteOpportunity(entityId)
+              return {
+                success: result.success,
+                message: result.message,
+              }
+            }}
+            onSuccess={() => {
+              router.push("/gestion-comercial/oportunidades")
+            }}
+          />
+        }
       />
 
-      <CommercialActivityQuickActions onSelect={openCreateActivity} />
+      <CommercialActivityQuickActions
+        phone={contactPhone}
+        onRegisterActivity={openRegisterActivity}
+      />
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,35%)_minmax(0,65%)]">
-        <CommercialProspectCard person={person} />
-        <CommercialOpportunityCard
-          opportunity={displayOpportunity}
-          responsibleName={responsibleName}
-        />
-      </div>
+      <CommercialClientCard
+        person={person}
+        opportunity={displayOpportunity}
+      />
+
+      <CommercialSolicitudesSection />
 
       <CommercialTimeline
         onEdit={openEditActivity}
-        onCreateFirst={() => openCreateActivity("nota")}
+        onCreateFirst={openRegisterActivity}
       />
 
-      <CommercialPersonDrawer
-        open={personDrawerOpen}
-        onOpenChange={setPersonDrawerOpen}
+      <CommercialNewOpportunityDrawer
+        open={editDrawerOpen}
+        onOpenChange={setEditDrawerOpen}
+        mode="edit"
         person={person}
-        opportunityId={displayOpportunity.id}
-        onUpdated={(next) => {
-          setPerson(next)
-          upsertPersonLocal(next)
-        }}
-      />
-
-      <CommercialOpportunityDrawer
-        open={opportunityDrawerOpen}
-        onOpenChange={setOpportunityDrawerOpen}
         opportunity={displayOpportunity}
-        onUpdated={(next) => {
-          const statusChanged = next.status !== displayOpportunity.status
-          setOpportunity(next)
-          upsertOpportunityLocal(next)
-          if (statusChanged) {
-            void refetchActivities()
-          }
+        onUpdated={({ person: nextPerson, opportunity: nextOpportunity }) => {
+          setPerson(nextPerson)
+          setOpportunity(nextOpportunity)
+          upsertPersonLocal(nextPerson)
+          upsertOpportunityLocal(nextOpportunity)
         }}
       />
 
@@ -301,36 +280,6 @@ function CommercialDossierContent({
         activity={editingActivity}
         defaultTypeCode={defaultActivityType}
       />
-
-      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <DialogContent className="sm:max-w-md" showCloseButton={false}>
-          <DialogHeader>
-            <DialogTitle>Eliminar cliente</DialogTitle>
-            <DialogDescription>
-              La ficha {displayOpportunity.code} se eliminará con soft delete y
-              dejará de aparecer en la bandeja.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setDeleteOpen(false)}
-              disabled={isDeleting}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={() => void handleDelete()}
-              disabled={isDeleting}
-            >
-              {isDeleting ? "Eliminando…" : "Eliminar"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

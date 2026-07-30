@@ -19,7 +19,6 @@ function resolveSearchFrom(
 ): CommercialDossierFrom {
   switch (active) {
     case "inicio":
-      return "inicio"
     case "oportunidades":
       return "oportunidades"
     case "pipeline":
@@ -29,7 +28,7 @@ function resolveSearchFrom(
     case "actividad":
       return "actividad"
     default:
-      return "inicio"
+      return "oportunidades"
   }
 }
 

@@ -151,7 +151,7 @@ export function CommercialPersonDrawer({
         },
       })
       if (!result.success || !result.data) {
-        setError(result.message ?? "No se pudo actualizar la persona.")
+        setError(result.message ?? "No se pudo actualizar el cliente.")
         return
       }
 
@@ -176,7 +176,7 @@ export function CommercialPersonDrawer({
       setError(
         submitError instanceof Error
           ? submitError.message
-          : "No se pudo actualizar la persona."
+          : "No se pudo actualizar el cliente."
       )
     } finally {
       setIsSubmitting(false)
@@ -229,9 +229,9 @@ export function CommercialPersonDrawer({
           }}
         >
           <SheetHeader className="border-b">
-            <SheetTitle>Editar Persona</SheetTitle>
+            <SheetTitle>Editar Cliente</SheetTitle>
             <SheetDescription>
-              Actualice los datos de la persona sin salir del expediente.
+              Actualice los datos del cliente sin salir del expediente.
             </SheetDescription>
           </SheetHeader>
 
@@ -262,7 +262,7 @@ export function CommercialPersonDrawer({
                 formId={FORM_ID}
                 isSubmitting={isSubmitting}
                 onCancel={requestClose}
-                submitLabel="Guardar Persona"
+                submitLabel="Guardar"
               />
             </form>
           ) : null}

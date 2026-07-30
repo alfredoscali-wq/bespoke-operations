@@ -1,6 +1,7 @@
 export const PERMANENT_DELETE_ENTITY_TYPES = [
   "task",
   "customer",
+  "commercial_client",
   "project",
   "employee",
   "crew",
@@ -18,6 +19,7 @@ export const PERMANENT_DELETE_ENTITY_TYPE_LABELS: Record<
 > = {
   task: "Orden de Trabajo",
   customer: "Cliente",
+  commercial_client: "Cliente",
   project: "Obra",
   employee: "Empleado",
   crew: "Cuadrilla",

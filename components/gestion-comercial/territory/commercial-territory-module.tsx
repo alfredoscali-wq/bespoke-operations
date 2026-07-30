@@ -21,8 +21,6 @@ import {
 } from "@/components/gestion-comercial/territory/commercial-territory-panel"
 import { EmployeesProvider, useEmployees } from "@/components/rrhh/employees-provider"
 import { Button } from "@/components/ui/button"
-import { formatDateOnly } from "@/lib/dates/date-only"
-import { formatCoordinate } from "@/lib/gps"
 import type { CommercialLocationSource } from "@/lib/commercial/catalogs"
 import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import { listCommercialEtiquetasBrowser } from "@/lib/supabase/commercial-etiquetas.browser"
@@ -94,10 +92,8 @@ function matchesTerritoryFilters(
     return false
   }
   if (filters.etiquetaIds.length > 0) {
-    if (
-      !entry.etiquetaId ||
-      !filters.etiquetaIds.includes(entry.etiquetaId)
-    ) {
+    const etiquetaKey = entry.etiquetaId ?? "__none__"
+    if (!filters.etiquetaIds.includes(etiquetaKey)) {
       return false
     }
   }
@@ -137,13 +133,6 @@ function isInsideBounds(
   )
 }
 
-function resolveNextActionLabel(
-  entry: CommercialOpportunityListItem
-): string | null {
-  if (!entry.expectedCloseDate?.trim()) return null
-  return `Cierre est. ${formatDateOnly(entry.expectedCloseDate)}`
-}
-
 function toMapOpportunity(
   entry: CommercialOpportunityListItem,
   personById: Map<string, CommercialPerson>
@@ -165,7 +154,7 @@ function toMapOpportunity(
     etiquetaId: entry.etiquetaId,
     etiquetaName: entry.etiquetaName,
     etiquetaColor: entry.etiquetaColor,
-    nextActionLabel: resolveNextActionLabel(entry),
+    phone: person?.phone.trim() || person?.mobile.trim() || "",
   }
 }
 
@@ -177,15 +166,12 @@ function CommercialTerritoryContent() {
   const {
     data: allOpportunities,
     isLoading: opportunitiesLoading,
-    refetch: refreshOpportunities,
   } = useCommercialOpportunities()
 
   const [bounds, setBounds] = useState<CommercialMapBounds | null>(null)
   const [filters, setFilters] = useState<CommercialTerritoryFilters>(DEFAULT_FILTERS)
   const [etiquetas, setEtiquetas] = useState<CommercialEtiqueta[]>([])
-  const [error, setError] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [panelOpen, setPanelOpen] = useState(true)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [pickMode, setPickMode] = useState(false)
@@ -194,9 +180,6 @@ function CommercialTerritoryContent() {
     longitude: null,
     locationSource: null,
   })
-  const [assignEmployeeId, setAssignEmployeeId] = useState("")
-  const [isAssigning, setIsAssigning] = useState(false)
-  const [gpsError, setGpsError] = useState<string | null>(null)
   const [locationScope, setLocationScope] =
     useState<CommercialTerritoryLocationScope>("all")
 
@@ -306,7 +289,7 @@ function CommercialTerritoryContent() {
             etiquetaId: entry.etiquetaId,
             etiquetaName: entry.etiquetaName,
             etiquetaColor: entry.etiquetaColor,
-            nextActionLabel: resolveNextActionLabel(entry),
+            phone: person?.phone.trim() || person?.mobile.trim() || "",
           }
         })
     }, [enrichedOpportunities, filters, personById])
@@ -381,30 +364,7 @@ function CommercialTerritoryContent() {
     }
   }
 
-  function handleUseCurrentLocation() {
-    setGpsError(null)
-    if (!navigator.geolocation) {
-      setGpsError("Geolocalización no disponible en este navegador.")
-      return
-    }
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setLocationDraft({
-          latitude: Number(position.coords.latitude.toFixed(7)),
-          longitude: Number(position.coords.longitude.toFixed(7)),
-          locationSource: "gps",
-        })
-        setPickMode(false)
-      },
-      () => {
-        setGpsError("No se pudo obtener la ubicación actual.")
-      },
-      { enableHighAccuracy: true, timeout: 12000 }
-    )
-  }
-
   function handlePickOnMap() {
-    setGpsError(null)
     setPickMode(true)
   }
 
@@ -415,38 +375,6 @@ function CommercialTerritoryContent() {
       locationSource: "manual",
     })
     setPickMode(false)
-  }
-
-  async function handleBulkAssign() {
-    if (!assignEmployeeId || selectedIds.length === 0) return
-    setIsAssigning(true)
-    setError(null)
-    try {
-      const response = await fetch(
-        "/api/gestion-comercial/opportunities/bulk-assign",
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            opportunityIds: selectedIds,
-            assignedEmployeeId: assignEmployeeId,
-          }),
-        }
-      )
-      const payload = (await response.json().catch(() => null)) as {
-        success?: boolean
-        message?: string
-      } | null
-      if (!response.ok || !payload?.success) {
-        setError(payload?.message ?? "No se pudo asignar el responsable.")
-        return
-      }
-      setSelectedIds([])
-      setAssignEmployeeId("")
-      await refreshOpportunities()
-    } finally {
-      setIsAssigning(false)
-    }
   }
 
   return (
@@ -478,26 +406,16 @@ function CommercialTerritoryContent() {
         }
       />
 
-      {error ? (
-        <p className="text-sm text-destructive" role="alert">
-          {error}
-        </p>
-      ) : null}
       {pickMode ? (
         <p className="text-sm text-muted-foreground" role="status">
           Seleccioná un punto en el mapa para guardar la ubicación.
-        </p>
-      ) : null}
-      {gpsError ? (
-        <p className="text-sm text-destructive" role="alert">
-          {gpsError}
         </p>
       ) : null}
 
       <div className="relative flex min-h-0 flex-1 flex-col gap-3 lg:flex-row">
         <aside
           className={cn(
-            "flex w-full shrink-0 flex-col overflow-hidden rounded-lg border bg-background p-3 lg:w-[400px]",
+            "flex w-full shrink-0 flex-col overflow-hidden rounded-lg border bg-background p-2 lg:w-[24%] lg:min-w-[260px]",
             panelOpen
               ? "max-h-[58vh] sm:max-h-[60vh] lg:max-h-none"
               : "hidden lg:flex"
@@ -507,20 +425,17 @@ function CommercialTerritoryContent() {
             filters={filters}
             onFiltersChange={setFilters}
             opportunities={panelOpportunities}
-            totalGeolocatedFilteredCount={filteredGeolocatedOpportunities.length}
+            totalCount={enrichedOpportunities.length}
             visibleCount={visibleOpportunities.length}
             geolocatedCount={geolocatedCount}
             withoutLocationCount={withoutLocationCount}
             locationScope={locationScope}
             onLocationScopeChange={(scope) => {
               setLocationScope(scope)
-              setSelectedIds([])
               setSelectedId(null)
             }}
             selectedId={selectedId}
-            selectedIds={selectedIds}
             employeeOptions={employeeOptions}
-            etiquetas={etiquetas}
             isLoading={opportunitiesLoading && locationScope === "all"}
             onSelect={(id) => {
               setSelectedId(id)
@@ -528,22 +443,6 @@ function CommercialTerritoryContent() {
                 router.push(buildCommercialDossierHref(id, "territorio"))
               }
             }}
-            onToggleSelect={(id, checked) => {
-              setSelectedIds((current) =>
-                checked
-                  ? [...new Set([...current, id])]
-                  : current.filter((entry) => entry !== id)
-              )
-            }}
-            onToggleSelectAll={(checked) => {
-              setSelectedIds(
-                checked ? panelOpportunities.map((entry) => entry.id) : []
-              )
-            }}
-            assignEmployeeId={assignEmployeeId}
-            onAssignEmployeeIdChange={setAssignEmployeeId}
-            onAssignResponsible={() => void handleBulkAssign()}
-            isAssigning={isAssigning}
           />
         </aside>
 
@@ -565,7 +464,11 @@ function CommercialTerritoryContent() {
           />
           <CommercialTerritoryLegend
             items={legendItems}
-            className="absolute bottom-3 left-3 z-10"
+            selectedKeys={filters.etiquetaIds}
+            onSelectedKeysChange={(etiquetaIds) =>
+              setFilters((current) => ({ ...current, etiquetaIds }))
+            }
+            className="absolute top-3 right-3 z-10"
           />
         </div>
       </div>
@@ -590,40 +493,21 @@ function CommercialTerritoryContent() {
           <div className="space-y-2 rounded-md border p-3">
             <div className="flex items-center gap-2 text-sm font-medium">
               <MapPin className="size-4" />
-              Ubicación
+              Mapa del territorio
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={handleUseCurrentLocation}
-              >
-                Usar ubicación actual
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant={pickMode ? "secondary" : "outline"}
-                onClick={handlePickOnMap}
-              >
-                Seleccionar punto sobre el mapa
-              </Button>
-            </div>
-            {locationDraft.latitude != null &&
-            locationDraft.longitude != null ? (
+            <Button
+              type="button"
+              size="sm"
+              variant={pickMode ? "secondary" : "outline"}
+              onClick={handlePickOnMap}
+            >
+              Seleccionar punto sobre el mapa
+            </Button>
+            {pickMode ? (
               <p className="text-xs text-muted-foreground">
-                {formatCoordinate(locationDraft.latitude)},{" "}
-                {formatCoordinate(locationDraft.longitude)}
-                {locationDraft.locationSource
-                  ? ` · ${locationDraft.locationSource}`
-                  : ""}
+                Tocá el mapa para marcar la ubicación del cliente.
               </p>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                Sin ubicación (opcional).
-              </p>
-            )}
+            ) : null}
           </div>
         }
       />

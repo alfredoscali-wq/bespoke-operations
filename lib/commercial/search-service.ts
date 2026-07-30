@@ -331,7 +331,7 @@ async function searchClients(
         title: resolvePersonDisplayName(person),
         subtitle: phone
           ? `📞 ${phone}`
-          : opportunity.code || opportunity.title || null,
+          : opportunity.code || null,
         badge: etiqueta
           ? { label: etiqueta.name, color: etiqueta.color }
           : null,

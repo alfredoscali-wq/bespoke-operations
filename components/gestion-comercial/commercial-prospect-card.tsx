@@ -55,7 +55,7 @@ export function CommercialProspectCard({
   return (
     <Card className={cn("overflow-hidden rounded-xl border shadow-sm", className)}>
       <CardHeader className="space-y-0">
-        <CardTitle className="text-base">Persona</CardTitle>
+        <CardTitle className="text-base">Cliente</CardTitle>
       </CardHeader>
       <CardContent>
         <dl className="space-y-3">

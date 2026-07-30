@@ -21,6 +21,8 @@ export type CommercialPersonFormProps = {
   showExtendedFields?: boolean
   /** Address + ubicación section (create and edit). */
   showLocationFields?: boolean
+  /** Label for person-level free text (dossier uses “Observaciones”). */
+  notesLabel?: string
   onAdvanceField?: (event: React.KeyboardEvent<HTMLInputElement>) => void
 }
 
@@ -38,6 +40,7 @@ export function CommercialPersonForm({
   existingProspectNotice = null,
   showExtendedFields = false,
   showLocationFields = false,
+  notesLabel = "Notas",
   onAdvanceField,
 }: CommercialPersonFormProps) {
   function patch(
@@ -65,7 +68,7 @@ export function CommercialPersonForm({
               onChange={() => setPersonType("individual")}
               disabled={disabled}
             />
-            Persona
+            Particular
           </label>
           <label className="flex items-center gap-2 text-sm">
             <input
@@ -207,7 +210,7 @@ export function CommercialPersonForm({
 
       {extended ? (
         <div className="space-y-2">
-          <Label htmlFor="commercial-person-notes">Notas</Label>
+          <Label htmlFor="commercial-person-notes">{notesLabel}</Label>
           <Textarea
             id="commercial-person-notes"
             value={value.notes}

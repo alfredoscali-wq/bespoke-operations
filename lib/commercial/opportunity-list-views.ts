@@ -6,6 +6,9 @@ import type { CommercialOpportunityListItem } from "@/lib/types/commercial"
 
 export const COMMERCIAL_OPPORTUNITY_LIST_VIEWS = [
   "active",
+  "derivations",
+  "followups",
+  "activity_today",
   "nueva",
   "won",
   "lost",
@@ -30,6 +33,9 @@ export const COMMERCIAL_OPPORTUNITY_LIST_VIEW_LABELS: Record<
   string
 > = {
   active: "Clientes activos",
+  derivations: "Derivaciones nuevas",
+  followups: "Seguimientos pendientes",
+  activity_today: "Actividad realizada hoy",
   nueva: "Nuevas",
   won: "Ganadas",
   lost: "Perdidas",
@@ -76,7 +82,11 @@ export function resolveCommercialMonthStartIso(reference = new Date()): string {
 export function filterOpportunitiesByListView(
   opportunities: CommercialOpportunityListItem[],
   view: CommercialOpportunityListView | null,
-  options?: { inactiveOpportunityIds?: ReadonlySet<string> }
+  options?: {
+    inactiveOpportunityIds?: ReadonlySet<string>
+    followupOpportunityIds?: ReadonlySet<string>
+    activityTodayOpportunityIds?: ReadonlySet<string>
+  }
 ): CommercialOpportunityListItem[] {
   if (!view) return opportunities
 
@@ -86,6 +96,19 @@ export function filterOpportunitiesByListView(
     case "active":
       return opportunities.filter((entry) =>
         COMMERCIAL_OPEN_STATUSES.includes(entry.status)
+      )
+    case "derivations":
+      return opportunities.filter(
+        (entry) =>
+          entry.source === "atencion_cliente" && !entry.sellerOpenedAt
+      )
+    case "followups":
+      return opportunities.filter((entry) =>
+        options?.followupOpportunityIds?.has(entry.id)
+      )
+    case "activity_today":
+      return opportunities.filter((entry) =>
+        options?.activityTodayOpportunityIds?.has(entry.id)
       )
     case "nueva":
       return opportunities.filter((entry) => entry.status === "nueva")

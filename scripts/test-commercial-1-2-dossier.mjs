@@ -82,10 +82,9 @@ test("dossier route and components exist", async () => {
 
   assert.match(page, /CommercialDossierModule/)
   assert.match(dossier, /CommercialHeader/)
-  assert.match(dossier, /CommercialProspectCard/)
-  assert.match(dossier, /CommercialOpportunityCard/)
-  assert.match(dossier, /Actividad Comercial/)
-  assert.match(dossier, /próximo sprint/)
+  assert.match(dossier, /CommercialClientCard/)
+  assert.match(dossier, /CommercialSolicitudesSection/)
+  assert.match(dossier, /CommercialTimeline/)
   assert.match(moduleFile, /CommercialNewOpportunityDrawer/)
   assert.match(moduleFile, /gestion-comercial\/\$\{/)
   assert.match(moduleFile, /\bVer\b/)

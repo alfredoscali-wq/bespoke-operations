@@ -5,7 +5,6 @@ import { ChevronDown, Search } from "lucide-react"
 
 import { CommercialEtiquetaBadge } from "@/components/gestion-comercial/commercial-etiqueta-badge"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -29,12 +28,10 @@ import type {
   CommercialMapAssignmentFilter,
   CommercialMapOpportunity,
 } from "@/lib/types/commercial"
-import type { CommercialEtiqueta } from "@/lib/types/commercial-etiquetas"
 import { cn } from "@/lib/utils"
 
 export type CommercialTerritoryCardOpportunity = CommercialMapOpportunity & {
-  /** Optional next-step label when available from existing list fields. */
-  nextActionLabel?: string | null
+  phone: string
 }
 
 export type CommercialTerritoryFilters = {
@@ -56,8 +53,7 @@ type CommercialTerritoryPanelProps = {
   filters: CommercialTerritoryFilters
   onFiltersChange: (next: CommercialTerritoryFilters) => void
   opportunities: CommercialTerritoryCardOpportunity[]
-  /** Filtered geolocated total (independent of viewport). */
-  totalGeolocatedFilteredCount: number
+  totalCount: number
   /** Geolocated opportunities inside the current map viewport. */
   visibleCount: number
   geolocatedCount: number
@@ -65,66 +61,28 @@ type CommercialTerritoryPanelProps = {
   locationScope: CommercialTerritoryLocationScope
   onLocationScopeChange: (scope: CommercialTerritoryLocationScope) => void
   selectedId: string | null
-  selectedIds: string[]
   employeeOptions: EmployeeOption[]
-  etiquetas: CommercialEtiqueta[]
   isLoading?: boolean
   onSelect: (id: string) => void
-  onToggleSelect: (id: string, checked: boolean) => void
-  onToggleSelectAll: (checked: boolean) => void
-  onAssignResponsible: () => void
-  assignEmployeeId: string
-  onAssignEmployeeIdChange: (value: string) => void
-  isAssigning?: boolean
-}
-
-function formatActivityAge(iso: string): string {
-  const timestamp = new Date(iso).getTime()
-  if (!Number.isFinite(timestamp)) return "—"
-  const deltaMs = Date.now() - timestamp
-  if (deltaMs < 0) return "hace un momento"
-  const minutes = Math.floor(deltaMs / 60_000)
-  if (minutes < 1) return "hace un momento"
-  if (minutes < 60) return `hace ${minutes} min`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `hace ${hours} h`
-  const days = Math.floor(hours / 24)
-  if (days < 30) return `hace ${days} d`
-  const months = Math.floor(days / 30)
-  if (months < 12) return `hace ${months} mes${months === 1 ? "" : "es"}`
-  const years = Math.floor(days / 365)
-  return `hace ${years} año${years === 1 ? "" : "s"}`
 }
 
 export function CommercialTerritoryPanel({
   filters,
   onFiltersChange,
   opportunities,
-  totalGeolocatedFilteredCount,
+  totalCount,
   visibleCount,
   geolocatedCount,
   withoutLocationCount,
   locationScope,
   onLocationScopeChange,
   selectedId,
-  selectedIds,
   employeeOptions,
-  etiquetas,
   isLoading = false,
   onSelect,
-  onToggleSelect,
-  onToggleSelectAll,
-  onAssignResponsible,
-  assignEmployeeId,
-  onAssignEmployeeIdChange,
-  isAssigning = false,
 }: CommercialTerritoryPanelProps) {
   const [filtersOpen, setFiltersOpen] = useState(false)
   const itemRefs = useRef(new Map<string, HTMLLIElement>())
-
-  const allSelected =
-    opportunities.length > 0 &&
-    opportunities.every((entry) => selectedIds.includes(entry.id))
 
   function patch(partial: Partial<CommercialTerritoryFilters>) {
     onFiltersChange({ ...filters, ...partial })
@@ -139,31 +97,26 @@ export function CommercialTerritoryPanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-2">
-      <div className="grid shrink-0 grid-cols-2 gap-2 rounded-md border px-3 py-2 text-xs">
+      <div className="grid shrink-0 grid-cols-3 divide-x rounded-md border px-1 py-1.5 text-center">
+        <div className="px-1">
+          <p className="text-[10px] text-muted-foreground">Clientes</p>
+          <p className="text-sm font-semibold tabular-nums">{totalCount}</p>
+        </div>
         <button
           type="button"
           className={cn(
-            "rounded-md px-2 py-1.5 text-left transition-colors",
-            locationScope === "all" ? "bg-muted" : "hover:bg-muted/60"
+            "px-1 transition-colors hover:bg-muted/60",
+            locationScope === "all" && "bg-muted/60"
           )}
           onClick={() => onLocationScopeChange("all")}
         >
-          <p className="text-muted-foreground">Geolocalizadas</p>
+          <p className="text-[10px] text-muted-foreground">Geolocalizados</p>
           <p className="text-sm font-semibold tabular-nums">{geolocatedCount}</p>
         </button>
-        <button
-          type="button"
-          className={cn(
-            "rounded-md px-2 py-1.5 text-left transition-colors",
-            locationScope === "without" ? "bg-muted" : "hover:bg-muted/60"
-          )}
-          onClick={() => onLocationScopeChange("without")}
-        >
-          <p className="text-muted-foreground">Sin ubicación</p>
-          <p className="text-sm font-semibold tabular-nums">
-            {withoutLocationCount}
-          </p>
-        </button>
+        <div className="px-1">
+          <p className="text-[10px] text-muted-foreground">Visibles</p>
+          <p className="text-sm font-semibold tabular-nums">{visibleCount}</p>
+        </div>
       </div>
 
       <div className="shrink-0 rounded-md border">
@@ -192,6 +145,27 @@ export function CommercialTerritoryPanel({
                 placeholder="Código, nombre, empresa, teléfono"
                 className="h-8 pl-8"
               />
+            </div>
+
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant={locationScope === "all" ? "secondary" : "outline"}
+                className="h-7 text-xs"
+                onClick={() => onLocationScopeChange("all")}
+              >
+                En mapa
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={locationScope === "without" ? "secondary" : "outline"}
+                className="h-7 text-xs"
+                onClick={() => onLocationScopeChange("without")}
+              >
+                Sin ubicación ({withoutLocationCount})
+              </Button>
             </div>
 
             <div className="grid grid-cols-2 gap-2">
@@ -306,109 +280,15 @@ export function CommercialTerritoryPanel({
                 </Select>
               </div>
 
-              {etiquetas.length > 0 ? (
-                <div className="col-span-2 space-y-1.5">
-                  <Label className="text-xs">Etiquetas</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {etiquetas.map((etiqueta) => {
-                      const checked = filters.etiquetaIds.includes(etiqueta.id)
-                      return (
-                        <label
-                          key={etiqueta.id}
-                          className="inline-flex cursor-pointer items-center gap-1.5 text-xs"
-                        >
-                          <Checkbox
-                            checked={checked}
-                            onCheckedChange={(value) => {
-                              const next = Boolean(value)
-                              patch({
-                                etiquetaIds: next
-                                  ? [...filters.etiquetaIds, etiqueta.id]
-                                  : filters.etiquetaIds.filter(
-                                      (id) => id !== etiqueta.id
-                                    ),
-                              })
-                            }}
-                          />
-                          <span
-                            className="size-2 rounded-full"
-                            style={{ backgroundColor: etiqueta.color }}
-                            aria-hidden
-                          />
-                          {etiqueta.name}
-                        </label>
-                      )
-                    })}
-                  </div>
-                </div>
-              ) : null}
             </div>
           </div>
         ) : null}
       </div>
 
-      {locationScope === "all" ? (
-        <div className="shrink-0 space-y-0.5 px-0.5">
-          <p className="text-sm font-medium tabular-nums">
-            {isLoading
-              ? "Cargando…"
-              : `${totalGeolocatedFilteredCount} cliente${
-                  totalGeolocatedFilteredCount === 1 ? "" : "s"
-                }`}
-          </p>
-          <p className="text-xs text-muted-foreground tabular-nums">
-            {visibleCount} visible{visibleCount === 1 ? "" : "s"} en el mapa
-          </p>
-        </div>
-      ) : (
+      {isLoading ? (
         <p className="shrink-0 px-0.5 text-xs text-muted-foreground">
-          {isLoading
-            ? "Cargando…"
-            : `${opportunities.length} cliente${
-                opportunities.length === 1 ? "" : "s"
-              } sin ubicación`}
+          Cargando clientes…
         </p>
-      )}
-
-      <div className="flex shrink-0 items-center justify-end gap-2">
-        <Checkbox
-          checked={allSelected}
-          onCheckedChange={(value) => onToggleSelectAll(Boolean(value))}
-          aria-label="Seleccionar todas"
-        />
-        <span className="text-xs text-muted-foreground">Selección</span>
-      </div>
-
-      {selectedIds.length > 0 ? (
-        <div className="flex shrink-0 flex-col gap-2 rounded-md border p-2">
-          <p className="text-xs text-muted-foreground">
-            {selectedIds.length} seleccionada
-            {selectedIds.length === 1 ? "" : "s"}
-          </p>
-          <Select
-            value={assignEmployeeId || undefined}
-            onValueChange={onAssignEmployeeIdChange}
-          >
-            <SelectTrigger className="h-8">
-              <SelectValue placeholder="Asignar responsable" />
-            </SelectTrigger>
-            <SelectContent>
-              {employeeOptions.map((employee) => (
-                <SelectItem key={employee.id} value={employee.id}>
-                  {employee.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            type="button"
-            size="sm"
-            disabled={!assignEmployeeId || isAssigning}
-            onClick={onAssignResponsible}
-          >
-            {isAssigning ? "Asignando…" : "Asignar Responsable"}
-          </Button>
-        </div>
       ) : null}
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-md border">
@@ -421,15 +301,12 @@ export function CommercialTerritoryPanel({
         ) : (
           <ul className="divide-y">
             {opportunities.map((opportunity) => {
-              const checked = selectedIds.includes(opportunity.id)
               const active = selectedId === opportunity.id
               const etiquetaColor = resolveCommercialEtiquetaMapColor(
                 opportunity.etiquetaColor
               )
-              const companyLabel =
-                opportunity.companyName.trim() ||
-                opportunity.personName.trim() ||
-                "—"
+              const clientLabel =
+                opportunity.personName.trim() || "Cliente"
 
               return (
                 <li
@@ -442,59 +319,27 @@ export function CommercialTerritoryPanel({
                     }
                   }}
                 >
-                  <div
+                  <button
+                    type="button"
                     className={cn(
-                      "flex items-start gap-2 border-l-[3px] px-2 py-2.5 transition-colors",
+                      "block w-full border-l-[3px] px-2.5 py-2 text-left transition-colors hover:bg-muted/40",
                       active && "bg-muted/70"
                     )}
                     style={{ borderLeftColor: etiquetaColor }}
+                    onClick={() => onSelect(opportunity.id)}
                   >
-                    <Checkbox
-                      checked={checked}
-                      onCheckedChange={(value) =>
-                        onToggleSelect(opportunity.id, Boolean(value))
-                      }
-                      aria-label={`Seleccionar ${opportunity.code}`}
-                      className="mt-1"
+                    <CommercialEtiquetaBadge
+                      name={opportunity.etiquetaName}
+                      color={opportunity.etiquetaColor}
+                      className="mb-1 text-[10px]"
                     />
-                    <button
-                      type="button"
-                      className="min-w-0 flex-1 text-left"
-                      onClick={() => onSelect(opportunity.id)}
-                    >
-                      <p className="font-mono text-[11px] text-muted-foreground">
-                        {opportunity.code}
-                      </p>
-                      <p className="truncate text-sm font-medium leading-snug">
-                        {opportunity.title}
-                      </p>
-                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                        {companyLabel}
-                      </p>
-                      <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
-                        <CommercialEtiquetaBadge
-                          name={opportunity.etiquetaName}
-                          color={opportunity.etiquetaColor}
-                          className="text-[10px]"
-                        />
-                        <span>
-                          {COMMERCIAL_STATUS_LABELS[opportunity.status]}
-                        </span>
-                        <span>·</span>
-                        <span>
-                          {COMMERCIAL_PRIORITY_LABELS[opportunity.priority]}
-                        </span>
-                      </div>
-                      {opportunity.nextActionLabel ? (
-                        <p className="mt-1 truncate text-[11px] text-foreground/80">
-                          Próxima: {opportunity.nextActionLabel}
-                        </p>
-                      ) : null}
-                      <p className="mt-1 text-[11px] text-muted-foreground">
-                        Actividad {formatActivityAge(opportunity.updatedAt)}
-                      </p>
-                    </button>
-                  </div>
+                    <p className="truncate text-sm font-medium leading-tight">
+                      {clientLabel}
+                    </p>
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground tabular-nums">
+                      {opportunity.phone || "—"}
+                    </p>
+                  </button>
                 </li>
               )
             })}

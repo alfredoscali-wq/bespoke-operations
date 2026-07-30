@@ -132,8 +132,15 @@ export function CommercialTerritorialActivityModule() {
   useEffect(() => {
     const activityId = searchParams.get("activityId")?.trim() || null
     if (!activityId) return
-    setDetailId(activityId)
-    setSelectedId(activityId)
+    let cancelled = false
+    void Promise.resolve().then(() => {
+      if (cancelled) return
+      setDetailId(activityId)
+      setSelectedId(activityId)
+    })
+    return () => {
+      cancelled = true
+    }
   }, [searchParams])
 
   const actorEmployeeId = useMemo(
@@ -168,7 +175,13 @@ export function CommercialTerritorialActivityModule() {
 
   useEffect(() => {
     if (!isAuthReady || !companyId) return
-    void reload()
+    let cancelled = false
+    void Promise.resolve().then(() => {
+      if (!cancelled) void reload()
+    })
+    return () => {
+      cancelled = true
+    }
   }, [companyId, isAuthReady, reload])
 
   const activeTypes = useMemo(
@@ -213,8 +226,6 @@ export function CommercialTerritorialActivityModule() {
         active="actividad"
         title="Actividad Comercial"
         description="Registro georreferenciado del trabajo territorial del equipo de ventas."
-        onNewOpportunity={() => setCreateOpen(true)}
-        showNewOpportunity={false}
         actions={
           <>
             <div className="flex rounded-md border p-0.5">

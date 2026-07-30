@@ -1,42 +1,86 @@
 "use client"
 
-import {
-  COMMERCIAL_ACTIVITY_TYPE_ICONS,
-} from "@/components/gestion-comercial/commercial-activity-icons"
+import { MessageCircle, Phone, PlusCircle, ClipboardList } from "lucide-react"
+
 import { Button } from "@/components/ui/button"
-import {
-  COMMERCIAL_ACTIVITY_TYPE_LABELS,
-  COMMERCIAL_QUICK_ACTIVITY_TYPES,
-  type CommercialQuickActivityType,
-} from "@/lib/commercial/activity-catalogs"
 
 type CommercialActivityQuickActionsProps = {
-  onSelect: (typeCode: CommercialQuickActivityType) => void
+  phone?: string | null
+  onRegisterActivity: () => void
+  onNewSolicitud?: () => void
   disabled?: boolean
 }
 
+function normalizePhoneDigits(value: string): string {
+  return value.replace(/\D/g, "")
+}
+
 export function CommercialActivityQuickActions({
-  onSelect,
+  phone = null,
+  onRegisterActivity,
+  onNewSolicitud,
   disabled = false,
 }: CommercialActivityQuickActionsProps) {
+  const digits = phone ? normalizePhoneDigits(phone) : ""
+  const canCall = digits.length > 0
+
+  function handleCall() {
+    if (!canCall) return
+    window.location.href = `tel:${digits}`
+  }
+
+  function handleWhatsApp() {
+    if (!canCall) return
+    window.open(`https://wa.me/${digits}`, "_blank", "noopener,noreferrer")
+  }
+
   return (
     <div className="flex flex-wrap gap-2">
-      {COMMERCIAL_QUICK_ACTIVITY_TYPES.map((typeCode) => {
-        const Icon = COMMERCIAL_ACTIVITY_TYPE_ICONS[typeCode]
-        return (
-          <Button
-            key={typeCode}
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={disabled}
-            onClick={() => onSelect(typeCode)}
-          >
-            <Icon className="size-3.5" aria-hidden />
-            + {COMMERCIAL_ACTIVITY_TYPE_LABELS[typeCode]}
-          </Button>
-        )
-      })}
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={disabled || !canCall}
+        onClick={handleCall}
+      >
+        <Phone className="size-3.5" aria-hidden />
+        Llamar
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={disabled || !canCall}
+        onClick={handleWhatsApp}
+      >
+        <MessageCircle className="size-3.5" aria-hidden />
+        WhatsApp
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={disabled}
+        onClick={onRegisterActivity}
+      >
+        <ClipboardList className="size-3.5" aria-hidden />
+        Registrar Actividad
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={disabled || !onNewSolicitud}
+        onClick={onNewSolicitud}
+        title={
+          onNewSolicitud
+            ? undefined
+            : "Disponible en un próximo sprint"
+        }
+      >
+        <PlusCircle className="size-3.5" aria-hidden />
+        Nueva Solicitud
+      </Button>
     </div>
   )
 }

@@ -3,14 +3,11 @@
 import { useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
-  AlertTriangle,
   BarChart3,
+  CalendarClock,
   Eye,
-  FolderOpen,
+  Footprints,
   Inbox,
-  Pencil,
-  Sparkles,
-  Trash2,
   X,
 } from "lucide-react"
 
@@ -18,12 +15,10 @@ import { useAuth } from "@/components/auth/auth-provider"
 import { CommercialModuleHero } from "@/components/gestion-comercial/commercial-module-hero"
 import { CommercialEtiquetaBadge } from "@/components/gestion-comercial/commercial-etiqueta-badge"
 import { CommercialNewOpportunityDrawer } from "@/components/gestion-comercial/commercial-new-opportunity-drawer"
-import { CommercialOpportunityDrawer } from "@/components/gestion-comercial/commercial-opportunity-drawer"
 import {
   CommercialProvider,
   useCommercialOpportunities,
   useCommercialPeople,
-  useDeleteOpportunity,
 } from "@/components/gestion-comercial/commercial-provider"
 import {
   CommercialEmptyState,
@@ -32,14 +27,6 @@ import {
 import { EmployeesProvider } from "@/components/rrhh/employees-provider"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { FilterableKpiCard } from "@/components/ui/filterable-kpi-card"
 import { TableRowsSkeleton } from "@/components/ui/kpi-grid-skeleton"
 import {
@@ -71,9 +58,19 @@ import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import { listCommercialEtiquetasBrowser } from "@/lib/supabase/commercial-etiquetas.browser"
 import type { CommercialOpportunityListItem } from "@/lib/types/commercial"
 import type { CommercialEtiqueta } from "@/lib/types/commercial-etiquetas"
+import type { CommercialHomeDesk } from "@/lib/types/commercial-home"
 import type { CommercialPipelineCard } from "@/lib/types/commercial-pipeline"
 
 type OpportunityScope = "all" | "mine"
+
+function commercialDayKey(value: string | Date): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Argentina/Buenos_Aires",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(value))
+}
 
 function CommercialModuleContent() {
   const router = useRouter()
@@ -82,17 +79,12 @@ function CommercialModuleContent() {
   const { companyId, isAuthReady } = useTenantCompanyId()
   const { data: opportunities, isLoading } = useCommercialOpportunities()
   const { data: people } = useCommercialPeople()
-  const { mutateAsync: deleteOpportunity } = useDeleteOpportunity()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [scope, setScope] = useState<OpportunityScope>("all")
   const [etiquetaFilterIds, setEtiquetaFilterIds] = useState<string[]>([])
   const [etiquetas, setEtiquetas] = useState<CommercialEtiqueta[]>([])
-  const [editingOpportunity, setEditingOpportunity] =
-    useState<CommercialOpportunityListItem | null>(null)
-  const [deletingOpportunity, setDeletingOpportunity] =
-    useState<CommercialOpportunityListItem | null>(null)
-  const [isDeleting, setIsDeleting] = useState(false)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [desk, setDesk] = useState<CommercialHomeDesk | null>(null)
+  const [isDeskLoading, setIsDeskLoading] = useState(true)
   const [inactiveOpportunityIds, setInactiveOpportunityIds] = useState<
     Set<string>
   >(new Set())
@@ -112,6 +104,36 @@ function CommercialModuleContent() {
     }
   }, [companyId, isAuthReady])
 
+  useEffect(() => {
+    let cancelled = false
+    void fetch("/api/gestion-comercial/home")
+      .then(async (response) => {
+        const payload = (await response.json().catch(() => null)) as {
+          success?: boolean
+          desk?: CommercialHomeDesk
+        } | null
+        if (cancelled) return
+        setDesk(response.ok && payload?.success ? (payload.desk ?? null) : null)
+      })
+      .finally(() => {
+        if (!cancelled) setIsDeskLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (searchParams.get("action") !== "nuevo") return
+    let cancelled = false
+    void Promise.resolve().then(() => {
+      if (!cancelled) setDrawerOpen(true)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [searchParams])
+
   const listView = useMemo((): CommercialOpportunityListView | null => {
     const raw = searchParams.get("view")
     return isCommercialOpportunityListView(raw) ? raw : null
@@ -128,6 +150,15 @@ function CommercialModuleContent() {
     [etiquetas]
   )
 
+  const phoneByPersonId = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const person of people) {
+      const phone = person.phone.trim() || person.mobile.trim()
+      if (phone) map.set(person.id, phone)
+    }
+    return map
+  }, [people])
+
   const enrichedOpportunities = useMemo(
     () =>
       opportunities.map((entry) =>
@@ -136,33 +167,65 @@ function CommercialModuleContent() {
     [etiquetasById, opportunities]
   )
 
-  const kpiCounts = useMemo(() => {
-    const scoped =
-      scope === "mine" && actorEmployeeId
-        ? enrichedOpportunities.filter(
-            (opportunity) => opportunity.assignedEmployeeId === actorEmployeeId
-          )
-        : enrichedOpportunities
-    return {
-      active: scoped.filter((entry) =>
-        COMMERCIAL_OPEN_STATUSES.includes(entry.status)
-      ).length,
-      nueva: scoped.filter((entry) => entry.status === "nueva").length,
-      won: scoped.filter((entry) => entry.status === "ganada").length,
-      lost: scoped.filter((entry) => entry.status === "perdida").length,
+  const scopedOpportunities = useMemo(() => {
+    if (scope === "mine" && actorEmployeeId) {
+      return enrichedOpportunities.filter(
+        (opportunity) => opportunity.assignedEmployeeId === actorEmployeeId
+      )
     }
+    return enrichedOpportunities
   }, [actorEmployeeId, enrichedOpportunities, scope])
 
+  const kpiCounts = useMemo(() => {
+    return {
+      active: scopedOpportunities.filter((entry) =>
+        COMMERCIAL_OPEN_STATUSES.includes(entry.status)
+      ).length,
+      derivations: scopedOpportunities.filter(
+        (entry) =>
+          entry.source === "atencion_cliente" && !entry.sellerOpenedAt
+      ).length,
+    }
+  }, [scopedOpportunities])
+
+  const operationalFilterIds = useMemo(() => {
+    const followupRows = [
+      ...(desk?.overdueCommitments ?? []),
+      ...(desk?.todayCommitments ?? []),
+    ]
+    const followups = new Set(
+      followupRows.map((entry) => entry.opportunityId)
+    )
+    const todayKey = commercialDayKey(new Date())
+    const activityTodayRows = (desk?.recentActivity ?? []).filter(
+      (entry) => commercialDayKey(entry.occurredAt) === todayKey
+    )
+    const activityToday = new Set(
+      activityTodayRows.map((entry) => entry.opportunityId)
+    )
+    return {
+      followups,
+      followupCount: followupRows.length,
+      activityToday,
+      activityTodayCount: activityTodayRows.length,
+    }
+  }, [desk])
+
   useEffect(() => {
+    let cancelled = false
     if (listView !== "inactive_7d") {
-      setInactiveOpportunityIds(new Set())
-      setIsInactiveLoading(false)
-      return
+      void Promise.resolve().then(() => {
+        if (cancelled) return
+        setInactiveOpportunityIds(new Set())
+        setIsInactiveLoading(false)
+      })
+      return () => {
+        cancelled = true
+      }
     }
 
-    let cancelled = false
-    setIsInactiveLoading(true)
     void (async () => {
+      setIsInactiveLoading(true)
       try {
         const response = await fetch("/api/gestion-comercial/pipeline")
         const payload = (await response.json().catch(() => null)) as {
@@ -191,16 +254,15 @@ function CommercialModuleContent() {
   }, [listView])
 
   const visibleOpportunities = useMemo(() => {
-    const scoped =
-      scope === "mine" && actorEmployeeId
-        ? enrichedOpportunities.filter(
-            (opportunity) => opportunity.assignedEmployeeId === actorEmployeeId
-          )
-        : enrichedOpportunities
-
-    const byView = filterOpportunitiesByListView(scoped, listView, {
-      inactiveOpportunityIds,
-    })
+    const byView = filterOpportunitiesByListView(
+      scopedOpportunities,
+      listView,
+      {
+        inactiveOpportunityIds,
+        followupOpportunityIds: operationalFilterIds.followups,
+        activityTodayOpportunityIds: operationalFilterIds.activityToday,
+      }
+    )
 
     if (etiquetaFilterIds.length === 0) return byView
     const selected = new Set(etiquetaFilterIds)
@@ -208,12 +270,11 @@ function CommercialModuleContent() {
       (entry) => entry.etiquetaId != null && selected.has(entry.etiquetaId)
     )
   }, [
-    actorEmployeeId,
-    enrichedOpportunities,
     etiquetaFilterIds,
     inactiveOpportunityIds,
     listView,
-    scope,
+    operationalFilterIds,
+    scopedOpportunities,
   ])
 
   function toggleEtiquetaFilter(id: string) {
@@ -236,22 +297,6 @@ function CommercialModuleContent() {
     router.push(buildCommercialDossierHref(opportunity.id, "oportunidades"))
   }
 
-  async function handleDelete() {
-    if (!deletingOpportunity) return
-    setIsDeleting(true)
-    setDeleteError(null)
-    try {
-      const result = await deleteOpportunity(deletingOpportunity.id)
-      if (!result.success) {
-        setDeleteError(result.message ?? "No se pudo eliminar el cliente.")
-        return
-      }
-      setDeletingOpportunity(null)
-    } finally {
-      setIsDeleting(false)
-    }
-  }
-
   const tableLoading =
     isLoading || (listView === "inactive_7d" && isInactiveLoading)
 
@@ -263,7 +308,39 @@ function CommercialModuleContent() {
         description="Listado de clientes."
         onNewOpportunity={() => setDrawerOpen(true)}
       >
-        <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          <FilterableKpiCard
+            compact
+            label="Derivaciones nuevas"
+            value={kpiCounts.derivations}
+            icon={Inbox}
+            tone="blue"
+            href={buildCommercialOpportunitiesHref("derivations")}
+            isActive={listView === "derivations"}
+            cardClassName="rounded-lg px-3 py-2"
+          />
+          <FilterableKpiCard
+            compact
+            label="Seguimientos pendientes"
+            value={operationalFilterIds.followupCount}
+            icon={CalendarClock}
+            tone="amber"
+            href={buildCommercialOpportunitiesHref("followups")}
+            isActive={listView === "followups"}
+            isLoading={isDeskLoading}
+            cardClassName="rounded-lg px-3 py-2"
+          />
+          <FilterableKpiCard
+            compact
+            label="Actividades realizadas hoy"
+            value={operationalFilterIds.activityTodayCount}
+            icon={Footprints}
+            tone="green"
+            href={buildCommercialOpportunitiesHref("activity_today")}
+            isActive={listView === "activity_today"}
+            isLoading={isDeskLoading}
+            cardClassName="rounded-lg px-3 py-2"
+          />
           <FilterableKpiCard
             compact
             label="Clientes activos"
@@ -272,33 +349,7 @@ function CommercialModuleContent() {
             tone="violet"
             href={buildCommercialOpportunitiesHref("active")}
             isActive={listView === "active"}
-          />
-          <FilterableKpiCard
-            compact
-            label="Nuevas"
-            value={kpiCounts.nueva}
-            icon={Inbox}
-            tone="blue"
-            href={buildCommercialOpportunitiesHref("nueva")}
-            isActive={listView === "nueva"}
-          />
-          <FilterableKpiCard
-            compact
-            label="Ganadas"
-            value={kpiCounts.won}
-            icon={Sparkles}
-            tone="green"
-            href={buildCommercialOpportunitiesHref("won")}
-            isActive={listView === "won"}
-          />
-          <FilterableKpiCard
-            compact
-            label="Perdidas"
-            value={kpiCounts.lost}
-            icon={AlertTriangle}
-            tone="red"
-            href={buildCommercialOpportunitiesHref("lost")}
-            isActive={listView === "lost"}
+            cardClassName="rounded-lg px-3 py-2"
           />
         </div>
       </CommercialModuleHero>
@@ -386,7 +437,7 @@ function CommercialModuleContent() {
       <CommercialSectionCard
         title="Listado"
         description={`${visibleOpportunities.length} cliente${visibleOpportunities.length === 1 ? "" : "s"}`}
-        icon={FolderOpen}
+        icon={Inbox}
         accent="slate"
       >
         {tableLoading ? (
@@ -408,13 +459,13 @@ function CommercialModuleContent() {
             }
           />
         ) : (
-          <div className="overflow-hidden rounded-lg border">
+          <div className="overflow-x-auto rounded-lg border">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Código</TableHead>
                   <TableHead>Cliente</TableHead>
-                  <TableHead>Persona</TableHead>
+                  <TableHead>Teléfono</TableHead>
                   <TableHead>Etiqueta</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead className="w-[120px] text-right">
@@ -431,8 +482,12 @@ function CommercialModuleContent() {
                     <TableCell className="font-medium tabular-nums">
                       {opportunity.code}
                     </TableCell>
-                    <TableCell>{opportunity.title}</TableCell>
-                    <TableCell>{opportunity.personDisplayName}</TableCell>
+                    <TableCell>
+                      {opportunity.personDisplayName?.trim() || "Cliente"}
+                    </TableCell>
+                    <TableCell className="tabular-nums whitespace-nowrap text-muted-foreground">
+                      {phoneByPersonId.get(opportunity.personId) ?? "—"}
+                    </TableCell>
                     <TableCell>
                       <CommercialEtiquetaBadge
                         name={opportunity.etiquetaName}
@@ -443,39 +498,15 @@ function CommercialModuleContent() {
                       {COMMERCIAL_STATUS_LABELS[opportunity.status]}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="inline-flex items-center justify-end gap-0.5">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-sm"
-                          aria-label="Ver ficha del cliente"
-                          onClick={() => openDossier(opportunity.id)}
-                        >
-                          <Eye className="size-4" />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-sm"
-                          aria-label="Editar"
-                          onClick={() => setEditingOpportunity(opportunity)}
-                        >
-                          <Pencil className="size-4" />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-sm"
-                          className="text-destructive hover:text-destructive"
-                          aria-label="Eliminar"
-                          onClick={() => {
-                            setDeleteError(null)
-                            setDeletingOpportunity(opportunity)
-                          }}
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
-                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label="Ver ficha del cliente"
+                        onClick={() => openDossier(opportunity.id)}
+                      >
+                        <Eye className="size-4" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -491,60 +522,6 @@ function CommercialModuleContent() {
         people={people}
         onCreated={handleCreated}
       />
-
-      <CommercialOpportunityDrawer
-        open={Boolean(editingOpportunity)}
-        onOpenChange={(open) => {
-          if (!open) setEditingOpportunity(null)
-        }}
-        opportunity={editingOpportunity}
-      />
-
-      <Dialog
-        open={Boolean(deletingOpportunity)}
-        onOpenChange={(open) => {
-          if (!open && !isDeleting) {
-            setDeletingOpportunity(null)
-            setDeleteError(null)
-          }
-        }}
-      >
-        <DialogContent className="sm:max-w-md" showCloseButton={false}>
-          <DialogHeader>
-            <DialogTitle>Eliminar cliente</DialogTitle>
-            <DialogDescription>
-              {deletingOpportunity
-                ? `El cliente ${deletingOpportunity.code} se eliminará y dejará de aparecer en la bandeja.`
-                : null}
-            </DialogDescription>
-          </DialogHeader>
-          {deleteError ? (
-            <p className="text-sm text-destructive" role="alert">
-              {deleteError}
-            </p>
-          ) : null}
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              type="button"
-              variant="outline"
-              className="h-9"
-              onClick={() => setDeletingOpportunity(null)}
-              disabled={isDeleting}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              className="h-9"
-              onClick={() => void handleDelete()}
-              disabled={isDeleting}
-            >
-              {isDeleting ? "Eliminando…" : "Eliminar"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

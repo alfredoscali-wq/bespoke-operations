@@ -157,7 +157,7 @@ export function CommercialProvider({ children }: { children: React.ReactNode }) 
       if (result.error || !result.data) {
         return {
           success: false,
-          message: result.error?.message ?? "No se pudo crear la persona.",
+          message: result.error?.message ?? "No se pudo crear el cliente.",
         }
       }
 
@@ -221,7 +221,7 @@ export function CommercialProvider({ children }: { children: React.ReactNode }) 
           personDisplayName:
             existing?.personDisplayName ??
             opportunity.personDisplayName ??
-            "Persona",
+            "Cliente",
         }
         const without = current.filter((entry) => entry.id !== opportunity.id)
         return [mapped, ...without]
@@ -252,7 +252,7 @@ export function CommercialProvider({ children }: { children: React.ReactNode }) 
       if (!response.ok || !payload?.success || !payload.person) {
         return {
           success: false,
-          message: payload?.message ?? "No se pudo actualizar la persona.",
+          message: payload?.message ?? "No se pudo actualizar el cliente.",
         }
       }
 
@@ -397,7 +397,7 @@ export function CommercialProvider({ children }: { children: React.ReactNode }) 
       if (personResult.error || !personResult.data) {
         return {
           success: false as const,
-          message: personResult.error?.message ?? "Persona no encontrada.",
+          message: personResult.error?.message ?? "Cliente no encontrado.",
         }
       }
 

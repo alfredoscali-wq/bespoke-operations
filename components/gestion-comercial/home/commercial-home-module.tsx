@@ -371,10 +371,9 @@ function CommercialHomeContent() {
                   <p className="text-xs font-medium text-muted-foreground">
                     {formatShortDate(item.dueAt)}
                   </p>
-                  <p className="truncate text-sm font-medium">{item.title}</p>
+                  <p className="truncate text-sm font-medium">{item.personName}</p>
                   <p className="truncate text-xs text-muted-foreground">
-                    {item.personName}
-                    {item.opportunityCode ? ` · ${item.opportunityCode}` : ""}
+                    {item.title}
                   </p>
                 </div>
               </li>
@@ -457,9 +456,9 @@ function CommercialHomeContent() {
                       className="min-w-0 flex-1 rounded-md text-left transition-colors hover:bg-muted/40"
                       onClick={() => openDossier(item.opportunityId)}
                     >
-                      <p className="text-sm font-medium">{item.title}</p>
+                      <p className="text-sm font-medium">{item.personName}</p>
                       <p className="truncate text-xs text-muted-foreground">
-                        {item.personName}
+                        {item.title}
                         {item.opportunityCode ? ` · ${item.opportunityCode}` : ""}
                         {" · "}
                         {item.employeeName}

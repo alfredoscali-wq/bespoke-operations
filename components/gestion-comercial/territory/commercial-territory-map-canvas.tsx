@@ -34,8 +34,9 @@ function buildClientPopupHtml(
   responsibleName: string
 ): string {
   const safeCode = escapeCommercialMapHtml(opportunity.code)
-  const safeTitle = escapeCommercialMapHtml(opportunity.title)
-  const safePerson = escapeCommercialMapHtml(opportunity.personName)
+  const safeClient = escapeCommercialMapHtml(
+    opportunity.personName.trim() || "Cliente"
+  )
   const safeResponsible = escapeCommercialMapHtml(responsibleName)
   const etiquetaName = opportunity.etiquetaName?.trim()
   const etiquetaColor = resolveCommercialEtiquetaMapColor(
@@ -53,8 +54,7 @@ function buildClientPopupHtml(
   return `
     <div style="min-width:180px;font-family:system-ui,sans-serif">
       <p style="margin:0;font-size:11px;color:#64748b;font-family:ui-monospace,monospace">${safeCode}</p>
-      <p style="margin:4px 0 0;font-size:13px;font-weight:600;color:#0f172a">${safeTitle}</p>
-      <p style="margin:4px 0 0;font-size:12px;color:#475569">${safePerson}</p>
+      <p style="margin:4px 0 0;font-size:13px;font-weight:600;color:#0f172a">${safeClient}</p>
       ${etiquetaHtml}
       <p style="margin:6px 0 0;font-size:11px;color:#64748b">
         ${COMMERCIAL_STATUS_LABELS[opportunity.status]} · ${COMMERCIAL_PRIORITY_LABELS[opportunity.priority]}

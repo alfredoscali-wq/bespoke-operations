@@ -85,12 +85,12 @@ function personName(row: {
   last_name?: string | null
   company_name?: string | null
 } | null): string {
-  if (!row) return "Persona"
+  if (!row) return "Cliente"
   if (row.person_type === "company" && row.company_name?.trim()) {
     return row.company_name.trim()
   }
   const full = `${row.first_name ?? ""} ${row.last_name ?? ""}`.trim()
-  return full || row.company_name?.trim() || "Persona"
+  return full || row.company_name?.trim() || "Cliente"
 }
 
 export async function fetchCommercialHomeDesk(
@@ -297,7 +297,7 @@ export async function fetchCommercialHomeDesk(
       commitmentId: entry.id,
       opportunityId: entry.opportunityId,
       opportunityCode: meta?.code ?? "",
-      personName: meta?.personName ?? "Persona",
+      personName: meta?.personName ?? "Cliente",
       title: entry.title,
       dueAt: entry.dueAt,
       daysOverdue: withOverdue ? daysBetween(entry.dueAt) : null,

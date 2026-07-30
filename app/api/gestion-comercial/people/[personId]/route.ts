@@ -27,7 +27,7 @@ export async function GET(_request: Request, context: RouteContext) {
 
   if (result.data.companyId !== auth.companyId) {
     return NextResponse.json(
-      { success: false, message: "Persona no encontrada." },
+      { success: false, message: "Cliente no encontrado." },
       { status: 404 }
     )
   }
@@ -54,13 +54,13 @@ export async function PATCH(request: Request, context: RouteContext) {
   const existing = await new CommercialPeopleService().getById(personId)
   if (existing.error || !existing.data) {
     return NextResponse.json(
-      { success: false, message: existing.error?.message ?? "Persona no encontrada." },
+      { success: false, message: existing.error?.message ?? "Cliente no encontrado." },
       { status: 404 }
     )
   }
   if (existing.data.companyId !== auth.companyId) {
     return NextResponse.json(
-      { success: false, message: "Persona no encontrada." },
+      { success: false, message: "Cliente no encontrado." },
       { status: 404 }
     )
   }
@@ -88,13 +88,13 @@ export async function DELETE(_request: Request, context: RouteContext) {
   const existing = await new CommercialPeopleService().getById(personId)
   if (existing.error || !existing.data) {
     return NextResponse.json(
-      { success: false, message: existing.error?.message ?? "Persona no encontrada." },
+      { success: false, message: existing.error?.message ?? "Cliente no encontrado." },
       { status: 404 }
     )
   }
   if (existing.data.companyId !== auth.companyId) {
     return NextResponse.json(
-      { success: false, message: "Persona no encontrada." },
+      { success: false, message: "Cliente no encontrado." },
       { status: 404 }
     )
   }

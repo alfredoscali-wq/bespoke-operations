@@ -1,11 +1,13 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
-import dynamic from "next/dynamic"
-import { CheckCircle2, LocateFixed, MapPin } from "lucide-react"
+import { useEffect, useState } from "react"
 
+import {
+  CommercialLocationFields,
+  emptyCommercialLocationFields,
+  type CommercialLocationFieldsValue,
+} from "@/components/gestion-comercial/commercial-person-location-fields"
 import { CommercialDrawerFooter } from "@/components/gestion-comercial/commercial-drawer-footer"
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -23,18 +25,9 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
-import { COMMERCIAL_ETIQUETA_FALLBACK_COLOR } from "@/lib/commercial/map-layers"
+import { hasCoordinates } from "@/lib/gps"
 import { createCommercialTerritorialActivityBrowser } from "@/lib/supabase/commercial-territorial-activities.browser"
 import type { CommercialTerritorialActivityType } from "@/lib/types/commercial-territorial-activity"
-import { cn } from "@/lib/utils"
-
-const MapCanvas = dynamic(
-  () =>
-    import("@/components/gestion-comercial/map/commercial-map-canvas").then(
-      (mod) => mod.CommercialMapCanvas
-    ),
-  { ssr: false }
-)
 
 const FORM_ID = "commercial-territorial-activity-create-form"
 
@@ -59,128 +52,31 @@ export function CommercialTerritorialActivityCreateDrawer({
   const [description, setDescription] = useState("")
   const [observations, setObservations] = useState("")
   const [photos, setPhotos] = useState<File[]>([])
-  const [latitude, setLatitude] = useState<number | null>(null)
-  const [longitude, setLongitude] = useState<number | null>(null)
-  const [locationSource, setLocationSource] = useState<string | null>(null)
-  /** Only set from GPS so recentering never fights a manually placed pin. */
-  const [gpsFocus, setGpsFocus] = useState<{
-    latitude: number
-    longitude: number
-  } | null>(null)
-  const [mapExpanded, setMapExpanded] = useState(false)
-  const [isLocating, setIsLocating] = useState(false)
-  const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null)
+  const [location, setLocation] = useState<CommercialLocationFieldsValue>(
+    emptyCommercialLocationFields()
+  )
+  const [locationMountId, setLocationMountId] = useState(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [geoError, setGeoError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open) return
-    setActivityTypeId("")
-    setDescription("")
-    setObservations("")
-    setPhotos([])
-    setLatitude(null)
-    setLongitude(null)
-    setLocationSource(null)
-    setError(null)
-    setGeoError(null)
-    setMapExpanded(false)
-    setGpsFocus(null)
-    setIsLocating(false)
-    setGpsAccuracy(null)
+    let cancelled = false
+    void Promise.resolve().then(() => {
+      if (cancelled) return
+      setActivityTypeId("")
+      setDescription("")
+      setObservations("")
+      setPhotos([])
+      setLocation(emptyCommercialLocationFields())
+      setLocationMountId((current) => current + 1)
+      setError(null)
+      setIsSubmitting(false)
+    })
+    return () => {
+      cancelled = true
+    }
   }, [open])
-
-  function requestCurrentLocation(options?: { forMapCenter?: boolean }) {
-    if (!navigator.geolocation) {
-      setGeoError("Geolocalización no disponible en este dispositivo.")
-      return
-    }
-    setIsLocating(true)
-    setGeoError(null)
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const nextLatitude = Number(position.coords.latitude.toFixed(7))
-        const nextLongitude = Number(position.coords.longitude.toFixed(7))
-        setLatitude(nextLatitude)
-        setLongitude(nextLongitude)
-        setLocationSource("gps")
-        setGpsFocus({ latitude: nextLatitude, longitude: nextLongitude })
-        setGpsAccuracy(
-          Number.isFinite(position.coords.accuracy)
-            ? Math.round(position.coords.accuracy)
-            : null
-        )
-        setGeoError(null)
-        setIsLocating(false)
-        if (options?.forMapCenter) {
-          setMapExpanded(true)
-        }
-      },
-      () => {
-        setIsLocating(false)
-        setGeoError(
-          options?.forMapCenter
-            ? "No se pudo obtener la ubicación. Marcá el punto en el mapa."
-            : "No se pudo obtener la ubicación."
-        )
-        if (options?.forMapCenter) {
-          setMapExpanded(true)
-        }
-      },
-      { enableHighAccuracy: true, timeout: 12_000 }
-    )
-  }
-
-  function handleUseMyLocation() {
-    // GPS only — keep the map collapsed for the fast path.
-    requestCurrentLocation()
-  }
-
-  function handleOpenManualMap() {
-    if (latitude != null && longitude != null) {
-      setGpsFocus({ latitude, longitude })
-      setMapExpanded(true)
-      return
-    }
-    // No coords yet: try GPS to center, then still show the map for picking.
-    requestCurrentLocation({ forMapCenter: true })
-  }
-
-  const selectedTypeColor = useMemo(() => {
-    const type = types.find((entry) => entry.id === activityTypeId)
-    return type?.color?.trim() || COMMERCIAL_ETIQUETA_FALLBACK_COLOR
-  }, [activityTypeId, types])
-
-  const draftPin =
-    latitude != null && longitude != null
-      ? { latitude, longitude, color: selectedTypeColor }
-      : null
-
-  const locationStatus = useMemo(() => {
-    if (latitude == null || longitude == null) {
-      return {
-        icon: MapPin,
-        tone: "muted" as const,
-        label: "Sin ubicación registrada",
-        description: "Todavía no se seleccionó una ubicación.",
-      }
-    }
-    if (locationSource === "manual") {
-      return {
-        icon: MapPin,
-        tone: "manual" as const,
-        label: "Ubicación ajustada manualmente",
-        description: "El punto fue modificado manualmente.",
-      }
-    }
-    return {
-      icon: CheckCircle2,
-      tone: "ok" as const,
-      label: "GPS registrado correctamente",
-      description: "La ubicación fue obtenida exitosamente.",
-    }
-  }, [latitude, locationSource, longitude])
 
   async function uploadPhotos(recordId: string) {
     for (const file of photos) {
@@ -209,8 +105,8 @@ export function CommercialTerritorialActivityCreateDrawer({
       setError("Empresa no resuelta.")
       return
     }
-    if (latitude == null || longitude == null) {
-      setError("Indicá la ubicación con GPS o moviendo el pin.")
+    if (!hasCoordinates(location.latitude, location.longitude)) {
+      setError("Indicá la ubicación de la actividad.")
       return
     }
 
@@ -223,9 +119,9 @@ export function CommercialTerritorialActivityCreateDrawer({
           activityTypeId,
           description,
           observations,
-          latitude,
-          longitude,
-          locationSource,
+          latitude: location.latitude as number,
+          longitude: location.longitude as number,
+          locationSource: location.locationSource,
         },
         { employeeId: actorEmployeeId }
       )
@@ -249,8 +145,6 @@ export function CommercialTerritorialActivityCreateDrawer({
     }
   }
 
-  const StatusIcon = locationStatus.icon
-
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -261,8 +155,7 @@ export function CommercialTerritorialActivityCreateDrawer({
         <SheetHeader className="shrink-0 border-b">
           <SheetTitle>Nueva Actividad</SheetTitle>
           <SheetDescription>
-            Registrá la acción comercial en el territorio. Solo GPS, sin
-            dirección.
+            Registrá la acción comercial en el territorio.
           </SheetDescription>
         </SheetHeader>
 
@@ -355,141 +248,16 @@ export function CommercialTerritorialActivityCreateDrawer({
               ) : null}
             </div>
 
-            <div
-              className={cn(
-                "space-y-3 rounded-lg border p-4 transition-colors",
-                locationStatus.tone === "ok" &&
-                  "border-emerald-200 bg-emerald-50/50 dark:border-emerald-900 dark:bg-emerald-950/20",
-                locationStatus.tone === "manual" &&
-                  "border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20"
-              )}
-            >
-              <div className="flex items-center gap-2 font-medium">
-                <MapPin className="size-4 text-muted-foreground" aria-hidden />
-                <span>Ubicación</span>
-              </div>
-
-              <div className="space-y-1" role="status">
-                <p
-                  className={cn(
-                    "inline-flex items-center gap-2 text-sm font-medium",
-                    locationStatus.tone === "ok" &&
-                      "text-emerald-700 dark:text-emerald-400",
-                    locationStatus.tone === "manual" &&
-                      "text-amber-700 dark:text-amber-400",
-                    locationStatus.tone === "muted" && "text-muted-foreground"
-                  )}
-                >
-                  <StatusIcon className="size-4 shrink-0" aria-hidden />
-                  {locationStatus.label}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {locationStatus.description}
-                </p>
-                {locationSource === "gps" && gpsAccuracy != null ? (
-                  <p className="text-xs text-muted-foreground">
-                    Precisión aproximada ±{gpsAccuracy} m
-                  </p>
-                ) : null}
-              </div>
-
-              <div className="flex flex-col gap-2 sm:flex-row">
-                {locationSource !== "manual" ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="h-9 justify-start gap-2 bg-background"
-                    disabled={isSubmitting || isLocating}
-                    onClick={handleUseMyLocation}
-                  >
-                    <span
-                      className="size-2 shrink-0 rounded-full bg-emerald-500"
-                      aria-hidden
-                    />
-                    <LocateFixed className="size-3.5" />
-                    {isLocating ? "Obteniendo…" : "Usar mi ubicación"}
-                  </Button>
-                ) : null}
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={mapExpanded ? "default" : "outline"}
-                  className={cn(
-                    "h-9 justify-start gap-2",
-                    !mapExpanded && "bg-background"
-                  )}
-                  disabled={isSubmitting || isLocating}
-                  onClick={handleOpenManualMap}
-                  aria-expanded={mapExpanded}
-                >
-                  <MapPin className="size-3.5" />
-                  {locationSource === "manual"
-                    ? "Ver mapa"
-                    : locationSource === "gps"
-                      ? "Ajustar ubicación"
-                      : "Ajustar manualmente"}
-                </Button>
-              </div>
-
-              <div
-                className={cn(
-                  "grid transition-[grid-template-rows] duration-300 ease-in-out",
-                  mapExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-                )}
-              >
-                <div className="min-h-0 overflow-hidden">
-                  <div className="space-y-2 pt-1">
-                    <div className="h-[280px] overflow-hidden rounded-md border">
-                      {mapExpanded ? (
-                        <MapCanvas
-                          mode="activity"
-                          markers={[]}
-                          selectedId={null}
-                          pickMode
-                          draftPin={draftPin}
-                          focusPoint={gpsFocus}
-                          onBoundsChange={() => {
-                            /* create drawer does not filter by viewport */
-                          }}
-                          onSelect={() => {
-                            /* no markers */
-                          }}
-                          onPickLocation={(coords) => {
-                            setLatitude(coords.latitude)
-                            setLongitude(coords.longitude)
-                            setLocationSource("manual")
-                            setGpsAccuracy(null)
-                          }}
-                          className="h-full min-h-[280px] border-0"
-                        />
-                      ) : null}
-                    </div>
-                    {mapExpanded ? (
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-xs text-muted-foreground">
-                          Tocá el mapa o arrastrá el pin para ajustar el punto.
-                        </p>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 shrink-0"
-                          onClick={() => setMapExpanded(false)}
-                        >
-                          Ocultar mapa
-                        </Button>
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-
-              {geoError ? (
-                <p className="text-xs text-amber-700 dark:text-amber-400">
-                  {geoError}
-                </p>
-              ) : null}
+            <div className="space-y-2">
+              <Label>Ubicación *</Label>
+              <CommercialLocationFields
+                key={locationMountId}
+                idPrefix="territorial-activity"
+                value={location}
+                onChange={setLocation}
+                disabled={isSubmitting}
+                showDomicilioFields={false}
+              />
             </div>
 
             {error ? (

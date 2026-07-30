@@ -29,14 +29,14 @@ export function resolveCommercialDossierBackHref(
 
   switch (from) {
     case "inicio":
-      return "/gestion-comercial"
+      return "/gestion-comercial/oportunidades"
     case "oportunidades":
       return "/gestion-comercial/oportunidades"
     case "pipeline":
       // MVP: Pipeline UI hidden — never send “Volver” to the gated Kanban route.
       return COMMERCIAL_PIPELINE_UI_ENABLED
         ? "/gestion-comercial/pipeline"
-        : "/gestion-comercial"
+        : "/gestion-comercial/oportunidades"
     case "territorio":
       return "/gestion-comercial/mapa"
     case "actividad":

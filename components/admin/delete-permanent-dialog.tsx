@@ -25,10 +25,14 @@ type DeletePermanentDialogProps = {
   entityId: string
   entityLabel: string
   onSuccess: (message: string) => void
+  /** Optional override — when set, skips /api/admin/permanent-delete. */
   onDelete?: (input: {
     entityType: PermanentDeleteEntityType
     entityId: string
   }) => Promise<{ success: boolean; message?: string }>
+  /** Optional copy overrides for entity-specific confirmations. */
+  title?: string
+  description?: string
 }
 
 export function DeletePermanentDialog({
@@ -39,6 +43,8 @@ export function DeletePermanentDialog({
   entityLabel,
   onSuccess,
   onDelete,
+  title = "Eliminar definitivamente",
+  description,
 }: DeletePermanentDialogProps) {
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -79,14 +85,18 @@ export function DeletePermanentDialog({
     >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Eliminar definitivamente</DialogTitle>
+          <DialogTitle>{title}</DialogTitle>
           <DialogDescription asChild>
             <div className="space-y-3 text-sm text-muted-foreground">
-              <p>
-                Está a punto de eliminar permanentemente este registro. Esta
-                acción eliminará toda la información relacionada y NO podrá
-                deshacerse.
-              </p>
+              {description ? (
+                <p className="whitespace-pre-line">{description}</p>
+              ) : (
+                <p>
+                  Está a punto de eliminar permanentemente este registro. Esta
+                  acción eliminará toda la información relacionada y NO podrá
+                  deshacerse.
+                </p>
+              )}
               <dl className="space-y-2 rounded-lg border bg-muted/20 px-3 py-2.5">
                 <div>
                   <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -125,7 +135,7 @@ export function DeletePermanentDialog({
           <Button
             type="button"
             variant="destructive"
-            onClick={handleConfirm}
+            onClick={() => void handleConfirm()}
             disabled={isSubmitting}
           >
             {isSubmitting ? "Eliminando..." : "Eliminar definitivamente"}

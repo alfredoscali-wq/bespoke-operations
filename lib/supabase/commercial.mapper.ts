@@ -310,5 +310,5 @@ export function resolveCommercialPersonDisplayName(
   const fullName = `${person.firstName} ${person.lastName}`.trim()
   if (fullName) return fullName
 
-  return person.companyName.trim() || "Persona sin nombre"
+  return person.companyName.trim() || "Cliente"
 }

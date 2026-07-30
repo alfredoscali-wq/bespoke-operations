@@ -280,7 +280,7 @@ function CommercialPipelineContent() {
           <Label htmlFor="pipeline-search">Buscar</Label>
           <Input
             id="pipeline-search"
-            placeholder="Persona, empresa o código"
+            placeholder="Cliente, empresa o código"
             value={filters.search}
             onChange={(event) =>
               setFilters((current) => ({
@@ -392,7 +392,7 @@ function CommercialPipelineContent() {
           />
         </div>
         <div className="space-y-1">
-          <Label htmlFor="pipeline-person">Persona</Label>
+          <Label htmlFor="pipeline-person">Cliente</Label>
           <Input
             id="pipeline-person"
             value={filters.personQuery}

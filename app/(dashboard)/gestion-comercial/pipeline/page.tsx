@@ -8,7 +8,7 @@ import { COMMERCIAL_PIPELINE_UI_ENABLED } from "@/lib/commercial/mvp-ui"
 export default function GestionComercialPipelinePage() {
   // MVP: hide Pipeline UI without deleting the module or API.
   if (!COMMERCIAL_PIPELINE_UI_ENABLED) {
-    redirect("/gestion-comercial")
+    redirect("/gestion-comercial/oportunidades")
   }
 
   return (
