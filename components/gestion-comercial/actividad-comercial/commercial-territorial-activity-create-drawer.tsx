@@ -2,11 +2,6 @@
 
 import { useEffect, useState } from "react"
 
-import {
-  CommercialLocationFields,
-  emptyCommercialLocationFields,
-  type CommercialLocationFieldsValue,
-} from "@/components/gestion-comercial/commercial-person-location-fields"
 import { CommercialDrawerFooter } from "@/components/gestion-comercial/commercial-drawer-footer"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -25,7 +20,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
-import { hasCoordinates } from "@/lib/gps"
+import { resolveCommercialLocationPaste } from "@/lib/commercial/resolve-person-location"
 import { createCommercialTerritorialActivityBrowser } from "@/lib/supabase/commercial-territorial-activities.browser"
 import type { CommercialTerritorialActivityType } from "@/lib/types/commercial-territorial-activity"
 
@@ -52,10 +47,7 @@ export function CommercialTerritorialActivityCreateDrawer({
   const [description, setDescription] = useState("")
   const [observations, setObservations] = useState("")
   const [photos, setPhotos] = useState<File[]>([])
-  const [location, setLocation] = useState<CommercialLocationFieldsValue>(
-    emptyCommercialLocationFields()
-  )
-  const [locationMountId, setLocationMountId] = useState(0)
+  const [locationInput, setLocationInput] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -68,8 +60,7 @@ export function CommercialTerritorialActivityCreateDrawer({
       setDescription("")
       setObservations("")
       setPhotos([])
-      setLocation(emptyCommercialLocationFields())
-      setLocationMountId((current) => current + 1)
+      setLocationInput("")
       setError(null)
       setIsSubmitting(false)
     })
@@ -105,7 +96,7 @@ export function CommercialTerritorialActivityCreateDrawer({
       setError("Empresa no resuelta.")
       return
     }
-    if (!hasCoordinates(location.latitude, location.longitude)) {
+    if (!locationInput.trim()) {
       setError("Indicá la ubicación de la actividad.")
       return
     }
@@ -113,15 +104,23 @@ export function CommercialTerritorialActivityCreateDrawer({
     setIsSubmitting(true)
     setError(null)
     try {
+      const resolved = await resolveCommercialLocationPaste(locationInput)
+      if (!resolved) {
+        setError(
+          "No se pudo interpretar el enlace de Google Maps o las coordenadas."
+        )
+        return
+      }
+
       const result = await createCommercialTerritorialActivityBrowser(
         companyId,
         {
           activityTypeId,
           description,
           observations,
-          latitude: location.latitude as number,
-          longitude: location.longitude as number,
-          locationSource: location.locationSource,
+          latitude: resolved.latitude,
+          longitude: resolved.longitude,
+          locationSource: resolved.locationSource,
         },
         { employeeId: actorEmployeeId }
       )
@@ -249,15 +248,22 @@ export function CommercialTerritorialActivityCreateDrawer({
             </div>
 
             <div className="space-y-2">
-              <Label>Ubicación *</Label>
-              <CommercialLocationFields
-                key={locationMountId}
-                idPrefix="territorial-activity"
-                value={location}
-                onChange={setLocation}
+              <Label htmlFor="territorial-activity-location">
+                Ubicación (Google Maps o GPS) *
+              </Label>
+              <Input
+                id="territorial-activity-location"
+                value={locationInput}
+                onChange={(event) => setLocationInput(event.target.value)}
                 disabled={isSubmitting}
-                showDomicilioFields={false}
+                placeholder="Pegá un enlace de Google Maps o coordenadas GPS"
+                required
+                autoComplete="off"
               />
+              <p className="text-xs text-muted-foreground">
+                Pegá el enlace compartido desde Google Maps o las coordenadas
+                GPS del lugar donde realizaste la actividad.
+              </p>
             </div>
 
             {error ? (
