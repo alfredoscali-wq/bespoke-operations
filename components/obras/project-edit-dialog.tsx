@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 
 import { ProjectSupervisorSelect } from "@/components/obras/project-supervisor-select"
-import { SharedLocationInput } from "@/components/tareas/shared-location-input"
+import { LocationInput } from "@/components/location/location-input"
 import type { NewProjectInput, Project, ProjectType } from "@/lib/types/projects"
 import { PROJECT_TYPE_OPTIONS } from "@/lib/projects/constants"
 import { hasProjectGps } from "@/lib/projects/project-gps"
@@ -225,12 +225,10 @@ export function ProjectEditDialog({
                   Sin GPS. Requerido para iniciar la Obra y para Field Agent.
                 </p>
               )}
-              <SharedLocationInput
+              <LocationInput
                 id="edit-project-gps"
-                label="Ubicación GPS"
                 value={form.sharedLocation ?? ""}
                 onChange={(value) => updateField("sharedLocation", value)}
-                placeholder="Pegue un link o coordenadas para agregar/corregir"
               />
               {gpsError ? (
                 <p className="text-xs text-destructive">{gpsError}</p>

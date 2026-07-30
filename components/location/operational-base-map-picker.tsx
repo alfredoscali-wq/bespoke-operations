@@ -3,13 +3,13 @@
 /**
  * OPS 2.3C — interactive base location picker.
  * Reuses Leaflet + planning map tiles (same stack as planning-map-canvas).
- * Location resolve UX matches Obras/OT via SharedLocationInput.
+ * Location paste UX uses the canonical LocationInput.
  */
 
 import { useEffect, useRef, useState } from "react"
 import L from "leaflet"
 
-import { SharedLocationInput } from "@/components/tareas/shared-location-input"
+import { LocationInput } from "@/components/location/location-input"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -184,9 +184,8 @@ export function OperationalBaseMapPicker({
         />
       </div>
 
-      <SharedLocationInput
+      <LocationInput
         id={`${idPrefix}-maps-link`}
-        label="📍 Enlace de Google Maps"
         value={value.sharedLocation}
         onChange={(sharedLocation) =>
           onChange({ ...value, sharedLocation })

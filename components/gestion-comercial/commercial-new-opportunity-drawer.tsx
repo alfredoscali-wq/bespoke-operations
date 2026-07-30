@@ -7,12 +7,15 @@ import {
   CommercialLocationFields,
   emptyCommercialPersonLocationFields,
 } from "@/components/gestion-comercial/commercial-person-location-fields"
+import { CommercialSolicitudFormFields } from "@/components/gestion-comercial/commercial-solicitud-form-fields"
 import {
   useCreateOpportunityWithPerson,
   useUpdateCommercialPerson,
   useUpdateOpportunity,
 } from "@/components/gestion-comercial/commercial-provider"
+import { useAuth } from "@/components/auth/auth-provider"
 import { useEmployees } from "@/components/rrhh/employees-provider"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   DiscardChangesDialog,
   isFormStateDirty,
@@ -48,10 +51,19 @@ import {
 import { composeCommercialAddress } from "@/lib/commercial/location"
 import { resolveCommercialPersonLocation } from "@/lib/commercial/resolve-person-location"
 import { listCommercialResponsibleOptions } from "@/lib/commercial/responsible-employees"
+import { resolveCommercialActorEmployeeId } from "@/lib/commercial/module-access"
+import { hasCoordinates } from "@/lib/gps"
 import { formatCoordinatePair } from "@/lib/location/coordinates"
 import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import { listCommercialEtiquetasBrowser } from "@/lib/supabase/commercial-etiquetas.browser"
+import { createCommercialSolicitudBrowser } from "@/lib/supabase/commercial-solicitudes.browser"
+import { listCommercialSolicitudTypesBrowser } from "@/lib/supabase/commercial-solicitud-types.browser"
 import type { CommercialEtiqueta } from "@/lib/types/commercial-etiquetas"
+import type {
+  CommercialSolicitudFormValues,
+  CommercialSolicitudType,
+} from "@/lib/types/commercial-solicitudes"
+import { emptyCommercialSolicitudFormValues } from "@/lib/types/commercial-solicitudes"
 import type {
   CommercialOpportunity,
   CommercialPerson,
@@ -366,6 +378,7 @@ export function CommercialNewOpportunityDrawer({
   locationControls,
 }: CommercialNewOpportunityDrawerProps) {
   const isEdit = mode === "edit"
+  const { sessionUser } = useAuth()
   const { companyId, isAuthReady } = useTenantCompanyId()
   const { employees } = useEmployees()
   const { mutateAsync: createWithPerson } = useCreateOpportunityWithPerson()
@@ -376,6 +389,12 @@ export function CommercialNewOpportunityDrawer({
     const options = listCommercialResponsibleOptions(employees)
     return options[0]?.id ?? ""
   }, [employees])
+
+  const actorEmployeeId = useMemo(
+    () =>
+      sessionUser ? resolveCommercialActorEmployeeId(sessionUser) : null,
+    [sessionUser]
+  )
 
   const [person, setPerson] = useState(buildDefaultPerson)
   const [opportunity, setOpportunity] = useState(() =>
@@ -388,6 +407,12 @@ export function CommercialNewOpportunityDrawer({
     }
   )
   const [etiquetas, setEtiquetas] = useState<CommercialEtiqueta[]>([])
+  const [includeFirstSolicitud, setIncludeFirstSolicitud] = useState(false)
+  const [solicitudValues, setSolicitudValues] =
+    useState<CommercialSolicitudFormValues>(emptyCommercialSolicitudFormValues)
+  const [solicitudTypes, setSolicitudTypes] = useState<CommercialSolicitudType[]>(
+    []
+  )
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -425,6 +450,21 @@ export function CommercialNewOpportunityDrawer({
   }, [companyId, isAuthReady, open])
 
   useEffect(() => {
+    if (!open || !isAuthReady || !companyId || isEdit) return
+    let cancelled = false
+    void listCommercialSolicitudTypesBrowser(companyId, {
+      activeOnly: true,
+      ensureDefaults: true,
+    }).then((result) => {
+      if (cancelled) return
+      setSolicitudTypes(result.data ?? [])
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [companyId, isAuthReady, isEdit, open])
+
+  useEffect(() => {
     if (!open) return
 
     let cancelled = false
@@ -445,6 +485,8 @@ export function CommercialNewOpportunityDrawer({
         setBaseline({ person: nextPerson, opportunity: nextOpportunity })
       }
 
+      setIncludeFirstSolicitud(false)
+      setSolicitudValues(emptyCommercialSolicitudFormValues())
       setError(null)
       setInfo(null)
       setIsSubmitting(false)
@@ -503,6 +545,13 @@ export function CommercialNewOpportunityDrawer({
     nextPerson: CommercialNewOpportunityPersonInput
     nextOpportunity: CommercialNewOpportunityInput
   } | null> {
+    const hasPaste = Boolean(person.locationInput.trim())
+    const hasCoords = hasCoordinates(person.latitude, person.longitude)
+    if (!hasPaste && !hasCoords) {
+      setError("Indicá la ubicación (enlace de Google Maps o coordenadas GPS).")
+      return null
+    }
+
     const locationResult = await resolveCommercialPersonLocation(person)
     if (locationResult.status === "failed") {
       setError("No se pudo interpretar el enlace de Google Maps.")
@@ -583,10 +632,38 @@ export function CommercialNewOpportunityDrawer({
     setError(null)
     setInfo(null)
     try {
+      if (includeFirstSolicitud && !solicitudValues.requestTypeId) {
+        setError("Seleccioná el tipo de la primera solicitud.")
+        return
+      }
+
       const result = await createWithPerson(cleanBundle)
       if (!result.success || !result.data) {
         setError(result.message ?? "No se pudo crear el cliente.")
         return
+      }
+
+      if (includeFirstSolicitud && companyId) {
+        const solicitudResult = await createCommercialSolicitudBrowser(
+          companyId,
+          {
+            opportunityId: result.data.opportunity.id,
+            requestTypeId: solicitudValues.requestTypeId,
+            productPlan: solicitudValues.productPlan,
+            priority: solicitudValues.priority,
+            observations: solicitudValues.observations,
+          },
+          { employeeId: actorEmployeeId }
+        )
+        if (solicitudResult.error || !solicitudResult.data) {
+          setError(
+            solicitudResult.error?.message ??
+              "El cliente se creó, pero no se pudo registrar la primera solicitud."
+          )
+          onCreated(result.data.opportunity)
+          onOpenChange(false)
+          return
+        }
       }
 
       onCreated(result.data.opportunity)
@@ -859,7 +936,6 @@ export function CommercialNewOpportunityDrawer({
                 }}
                 disabled={isSubmitting}
                 onAdvanceField={advanceOnEnter}
-                showDomicilioFields={false}
               />
 
               <div className="space-y-2">
@@ -880,6 +956,36 @@ export function CommercialNewOpportunityDrawer({
               </div>
 
               {locationControls}
+
+              {!isEdit ? (
+                <div className="space-y-3 rounded-lg border px-3 py-3">
+                  <div>
+                    <p className="text-sm font-medium">Primera Solicitud</p>
+                    <p className="text-xs text-muted-foreground">
+                      Opcional. Registrá un pedido inicial al crear el cliente.
+                    </p>
+                  </div>
+                  <label className="inline-flex cursor-pointer items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={includeFirstSolicitud}
+                      disabled={isSubmitting}
+                      onCheckedChange={(checked) =>
+                        setIncludeFirstSolicitud(checked === true)
+                      }
+                    />
+                    Registrar una solicitud inicial
+                  </label>
+                  {includeFirstSolicitud ? (
+                    <CommercialSolicitudFormFields
+                      idPrefix="primera-solicitud"
+                      values={solicitudValues}
+                      onChange={setSolicitudValues}
+                      types={solicitudTypes}
+                      disabled={isSubmitting}
+                    />
+                  ) : null}
+                </div>
+              ) : null}
 
               {existingProspectNotice ? (
                 <p className="text-sm text-amber-700 dark:text-amber-400">

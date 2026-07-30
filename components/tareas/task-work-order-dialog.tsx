@@ -59,10 +59,14 @@ import type { PendingTaskReferencePhoto, TaskPhotoUploadSummary } from "@/lib/ty
 import type { Customer } from "@/lib/types/customers"
 import type { Task } from "@/lib/types/tasks"
 import type { CreateTaskPayload, UpdateTaskPayload } from "@/lib/types/supabase/tasks"
-import type { ConsultationOtCreatePrefill } from "@/lib/customer-atenciones/consultation-ot-create"
 import {
   buildCrewObservationsFromConsultation,
+  type ConsultationOtCreatePrefill,
 } from "@/lib/customer-atenciones/consultation-ot-create"
+import {
+  buildCrewObservationsFromSolicitud,
+  type SolicitudOtCreatePrefill,
+} from "@/lib/commercial/solicitud-ot-create"
 import { Button } from "@/components/ui/button"
 import { WhatsAppLink } from "@/components/ui/whatsapp-link"
 import {
@@ -107,6 +111,8 @@ type TaskWorkOrderDialogProps = {
    * Does not change fields; only preloads customer + crew notes.
    */
   consultationPrefill?: ConsultationOtCreatePrefill | null
+  /** Comercial 6.1 — seed Nueva OT from a Solicitud (same form, prefill only). */
+  solicitudPrefill?: SolicitudOtCreatePrefill | null
 }
 
 export type WorkOrderCreateResult = {
@@ -590,6 +596,7 @@ export function TaskWorkOrderDialog({
   onTaskUpdated,
   onEditBlocked,
   consultationPrefill = null,
+  solicitudPrefill = null,
 }: TaskWorkOrderDialogProps) {
   const isEditMode = mode === "edit" && Boolean(task)
   const { searchCustomers, createCustomer, updateCustomer, fetchCustomerById } =
@@ -680,7 +687,16 @@ export function TaskWorkOrderDialog({
     }
 
     const nextForm = getDefaultWorkOrderForm()
-    if (consultationPrefill) {
+    if (solicitudPrefill) {
+      nextForm.serviceType = "instalacion-nueva"
+      nextForm.customerName = solicitudPrefill.customerName
+      nextForm.customerPhone = solicitudPrefill.customerPhone
+      nextForm.address = solicitudPrefill.address
+      nextForm.locality = solicitudPrefill.locality
+      nextForm.observationsForCrew =
+        buildCrewObservationsFromSolicitud(solicitudPrefill)
+      Object.assign(nextForm, applySuggestedDurationPreset("instalacion-nueva"))
+    } else if (consultationPrefill) {
       nextForm.observationsForCrew =
         buildCrewObservationsFromConsultation(consultationPrefill)
     }
@@ -697,7 +713,7 @@ export function TaskWorkOrderDialog({
     setError(null)
     setSaveConfirmOpen(false)
 
-    if (consultationPrefill?.customerId) {
+    if (consultationPrefill?.customerId && !solicitudPrefill) {
       void fetchCustomerById(consultationPrefill.customerId).then((customer) => {
         if (!customer) {
           return
@@ -724,6 +740,7 @@ export function TaskWorkOrderDialog({
     onOpenChange,
     onEditBlocked,
     consultationPrefill,
+    solicitudPrefill,
   ])
 
   function updateField<K extends keyof WorkOrderFormInput>(

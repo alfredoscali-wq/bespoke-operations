@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 
+import { LocationInput } from "@/components/location/location-input"
 import { CommercialDrawerFooter } from "@/components/gestion-comercial/commercial-drawer-footer"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -247,24 +248,13 @@ export function CommercialTerritorialActivityCreateDrawer({
               ) : null}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="territorial-activity-location">
-                Ubicación (Google Maps o GPS) *
-              </Label>
-              <Input
-                id="territorial-activity-location"
-                value={locationInput}
-                onChange={(event) => setLocationInput(event.target.value)}
-                disabled={isSubmitting}
-                placeholder="Pegá un enlace de Google Maps o coordenadas GPS"
-                required
-                autoComplete="off"
-              />
-              <p className="text-xs text-muted-foreground">
-                Pegá el enlace compartido desde Google Maps o las coordenadas
-                GPS del lugar donde realizaste la actividad.
-              </p>
-            </div>
+            <LocationInput
+              id="territorial-activity-location"
+              value={locationInput}
+              onChange={setLocationInput}
+              disabled={isSubmitting}
+              required
+            />
 
             {error ? (
               <p className="text-sm text-destructive" role="alert">

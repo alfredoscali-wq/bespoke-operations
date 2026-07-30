@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { Plus } from "lucide-react"
 
 import { ProjectSupervisorSelect } from "@/components/obras/project-supervisor-select"
-import { SharedLocationInput } from "@/components/tareas/shared-location-input"
+import { LocationInput } from "@/components/location/location-input"
 import type { NewProjectInput, Project, ProjectType } from "@/lib/types/projects"
 import { PROJECT_TYPE_OPTIONS } from "@/lib/projects/constants"
 import { enrichProjectInputWithResolvedGps } from "@/lib/location/client/enrich-project-payload"
@@ -209,12 +209,11 @@ export function NewProjectDialog({ onSubmit }: NewProjectDialogProps) {
             </div>
 
             <div className="sm:col-span-2">
-              <SharedLocationInput
+              <LocationInput
                 id="project-gps"
-                label="Ubicación GPS (opcional)"
+                label="Ubicación"
                 value={form.sharedLocation ?? ""}
                 onChange={(value) => updateField("sharedLocation", value)}
-                placeholder="https://maps.app.goo.gl/... o lat,lng"
               />
               {gpsError ? (
                 <p className="mt-1 text-xs text-destructive">{gpsError}</p>

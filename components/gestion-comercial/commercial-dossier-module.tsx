@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 
 import { PermanentDeleteAction } from "@/components/admin/permanent-delete-action"
+import { useAuth } from "@/components/auth/auth-provider"
 import { CommercialActivityDrawer } from "@/components/gestion-comercial/commercial-activity-drawer"
 import { CommercialActivityQuickActions } from "@/components/gestion-comercial/commercial-activity-quick-actions"
 import {
@@ -12,6 +13,8 @@ import {
 import { CommercialClientCard } from "@/components/gestion-comercial/commercial-client-card"
 import { CommercialHeader } from "@/components/gestion-comercial/commercial-header"
 import { CommercialNewOpportunityDrawer } from "@/components/gestion-comercial/commercial-new-opportunity-drawer"
+import { CommercialSolicitudDrawer } from "@/components/gestion-comercial/commercial-solicitud-drawer"
+import { CommercialSolicitudResolveDrawer } from "@/components/gestion-comercial/commercial-solicitud-resolve-drawer"
 import { CommercialSolicitudesSection } from "@/components/gestion-comercial/commercial-solicitudes-section"
 import { CommercialTimeline } from "@/components/gestion-comercial/timeline/commercial-timeline"
 import {
@@ -28,8 +31,18 @@ import {
   enrichOpportunityWithEtiqueta,
   indexCommercialEtiquetasById,
 } from "@/lib/commercial/etiqueta-display"
+import { resolveCommercialActorEmployeeId } from "@/lib/commercial/module-access"
+import {
+  buildSolicitudOtCreateHref,
+  storeSolicitudOtCreatePrefill,
+  type SolicitudOtCreatePrefill,
+} from "@/lib/commercial/solicitud-ot-create"
 import type { CommercialActivityTypeCode } from "@/lib/commercial/activity-catalogs"
 import { listCommercialEtiquetasBrowser } from "@/lib/supabase/commercial-etiquetas.browser"
+import {
+  cancelCommercialSolicitudBrowser,
+  listCommercialSolicitudesByOpportunityBrowser,
+} from "@/lib/supabase/commercial-solicitudes.browser"
 import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import type {
   CommercialOpportunity,
@@ -37,6 +50,7 @@ import type {
 } from "@/lib/types/commercial"
 import type { CommercialActivityListItem } from "@/lib/types/commercial-activities"
 import type { CommercialEtiqueta } from "@/lib/types/commercial-etiquetas"
+import type { CommercialSolicitud } from "@/lib/types/commercial-solicitudes"
 
 type CommercialDossierContentProps = {
   opportunityId: string
@@ -47,6 +61,7 @@ function CommercialDossierContent({
 }: CommercialDossierContentProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { sessionUser } = useAuth()
   const { companyId, isAuthReady } = useTenantCompanyId()
   const { loadDossier, upsertPersonLocal, upsertOpportunityLocal } =
     useCommercialContextLoad()
@@ -66,14 +81,28 @@ function CommercialDossierContent({
   )
   const [person, setPerson] = useState<CommercialPerson | null>(null)
   const [etiquetas, setEtiquetas] = useState<CommercialEtiqueta[]>([])
+  const [solicitudes, setSolicitudes] = useState<CommercialSolicitud[]>([])
+  const [isSolicitudesLoading, setIsSolicitudesLoading] = useState(true)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [editDrawerOpen, setEditDrawerOpen] = useState(false)
   const [activityDrawerOpen, setActivityDrawerOpen] = useState(false)
+  const [solicitudDrawerOpen, setSolicitudDrawerOpen] = useState(false)
+  const [resolveDrawerOpen, setResolveDrawerOpen] = useState(false)
+  const [editingSolicitud, setEditingSolicitud] =
+    useState<CommercialSolicitud | null>(null)
+  const [resolvingSolicitud, setResolvingSolicitud] =
+    useState<CommercialSolicitud | null>(null)
   const [editingActivity, setEditingActivity] =
     useState<CommercialActivityListItem | null>(null)
   const [defaultActivityType, setDefaultActivityType] =
     useState<CommercialActivityTypeCode>("nota")
+
+  const actorEmployeeId = useMemo(
+    () =>
+      sessionUser ? resolveCommercialActorEmployeeId(sessionUser) : null,
+    [sessionUser]
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -92,6 +121,25 @@ function CommercialDossierContent({
       cancelled = true
     }
   }, [companyId, isAuthReady])
+
+  useEffect(() => {
+    if (!isAuthReady || !companyId || !opportunityId) return
+    let cancelled = false
+    void Promise.resolve().then(() => {
+      if (!cancelled) setIsSolicitudesLoading(true)
+    })
+    void listCommercialSolicitudesByOpportunityBrowser(
+      companyId,
+      opportunityId
+    ).then((result) => {
+      if (cancelled) return
+      setSolicitudes(result.data ?? [])
+      setIsSolicitudesLoading(false)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [companyId, isAuthReady, opportunityId])
 
   useEffect(() => {
     let cancelled = false
@@ -176,6 +224,77 @@ function CommercialDossierContent({
     setActivityDrawerOpen(true)
   }
 
+  function openNewSolicitud() {
+    setEditingSolicitud(null)
+    setSolicitudDrawerOpen(true)
+  }
+
+  function openEditSolicitud(solicitud: CommercialSolicitud) {
+    setEditingSolicitud(solicitud)
+    setSolicitudDrawerOpen(true)
+  }
+
+  function buildOtPrefill(
+    solicitud: CommercialSolicitud
+  ): SolicitudOtCreatePrefill | null {
+    if (!person || !displayOpportunity) return null
+    const clientName = resolveCommercialClientDisplayName({
+      personType: person.personType,
+      firstName: person.firstName,
+      lastName: person.lastName,
+      companyName: person.companyName,
+    })
+    return {
+      solicitudId: solicitud.id,
+      opportunityId: displayOpportunity.id,
+      solicitudCode: solicitud.code,
+      requestTypeName: solicitud.requestTypeName ?? "",
+      productPlan: solicitud.productPlan,
+      observations: solicitud.observations,
+      customerName: clientName,
+      customerPhone: person.phone.trim() || person.mobile.trim(),
+      address: person.address.trim() || person.street.trim(),
+      locality: person.city.trim(),
+    }
+  }
+
+  function openResolveSolicitud(solicitud: CommercialSolicitud) {
+    setResolvingSolicitud(solicitud)
+    setResolveDrawerOpen(true)
+  }
+
+  function handleGenerateOt(solicitud: CommercialSolicitud) {
+    const prefill = buildOtPrefill(solicitud)
+    if (!prefill) return
+    storeSolicitudOtCreatePrefill(prefill)
+    router.push(buildSolicitudOtCreateHref(solicitud.id))
+  }
+
+  async function handleCancelSolicitud(solicitud: CommercialSolicitud) {
+    if (!companyId) return
+    const result = await cancelCommercialSolicitudBrowser(
+      companyId,
+      solicitud.id,
+      { employeeId: actorEmployeeId }
+    )
+    if (result.error || !result.data) return
+    setSolicitudes((current) =>
+      current.map((entry) =>
+        entry.id === result.data!.id ? result.data! : entry
+      )
+    )
+  }
+
+  function handleSolicitudSaved(solicitud: CommercialSolicitud) {
+    setSolicitudes((current) => {
+      const index = current.findIndex((entry) => entry.id === solicitud.id)
+      if (index < 0) return [solicitud, ...current]
+      const next = [...current]
+      next[index] = solicitud
+      return next
+    })
+  }
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -242,6 +361,7 @@ function CommercialDossierContent({
       <CommercialActivityQuickActions
         phone={contactPhone}
         onRegisterActivity={openRegisterActivity}
+        onNewSolicitud={openNewSolicitud}
       />
 
       <CommercialClientCard
@@ -249,7 +369,17 @@ function CommercialDossierContent({
         opportunity={displayOpportunity}
       />
 
-      <CommercialSolicitudesSection />
+      <CommercialSolicitudesSection
+        solicitudes={solicitudes}
+        isLoading={isSolicitudesLoading}
+        onNew={openNewSolicitud}
+        onEdit={openEditSolicitud}
+        onResolve={openResolveSolicitud}
+        onGenerateOt={handleGenerateOt}
+        onCancel={(solicitud) => {
+          void handleCancelSolicitud(solicitud)
+        }}
+      />
 
       <CommercialTimeline
         onEdit={openEditActivity}
@@ -279,6 +409,33 @@ function CommercialDossierContent({
         opportunityId={displayOpportunity.id}
         activity={editingActivity}
         defaultTypeCode={defaultActivityType}
+      />
+
+      <CommercialSolicitudDrawer
+        open={solicitudDrawerOpen}
+        onOpenChange={(open) => {
+          setSolicitudDrawerOpen(open)
+          if (!open) setEditingSolicitud(null)
+        }}
+        companyId={companyId}
+        opportunityId={displayOpportunity.id}
+        solicitud={editingSolicitud}
+        onSaved={handleSolicitudSaved}
+      />
+
+      <CommercialSolicitudResolveDrawer
+        open={resolveDrawerOpen}
+        onOpenChange={(open) => {
+          setResolveDrawerOpen(open)
+          if (!open) setResolvingSolicitud(null)
+        }}
+        companyId={companyId}
+        actorEmployeeId={actorEmployeeId}
+        solicitud={resolvingSolicitud}
+        otPrefill={
+          resolvingSolicitud ? buildOtPrefill(resolvingSolicitud) : null
+        }
+        onResolved={handleSolicitudSaved}
       />
     </div>
   )

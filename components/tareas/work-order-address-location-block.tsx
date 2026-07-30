@@ -3,7 +3,7 @@
 import { MapPin, Navigation } from "lucide-react"
 
 import { buildGoogleMapsNavigationUrl, formatCoordinate, hasCoordinates } from "@/lib/gps"
-import { SharedLocationInput } from "@/components/tareas/shared-location-input"
+import { LocationInput } from "@/components/location/location-input"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -90,9 +90,8 @@ export function WorkOrderAddressLocationBlock({
         />
       </div>
 
-      <SharedLocationInput
+      <LocationInput
         id={locationLinkId ?? "wo-location-link"}
-        label="📍 Enlace de Google Maps"
         value={sharedLocation}
         onChange={(value) => onSharedLocationChange?.(value)}
         required={locationLinkRequired}

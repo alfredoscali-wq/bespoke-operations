@@ -33,7 +33,16 @@ import {
   readConsultationOtCreatePrefill,
   type ConsultationOtCreatePrefill,
 } from "@/lib/customer-atenciones/consultation-ot-create"
+import {
+  clearSolicitudOtCreatePrefill,
+  readSolicitudOtCreatePrefill,
+  type SolicitudOtCreatePrefill,
+} from "@/lib/commercial/solicitud-ot-create"
+import { resolveCommercialActorEmployeeId } from "@/lib/commercial/module-access"
+import { useAuth } from "@/components/auth/auth-provider"
+import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import { linkConsultationOtManagement } from "@/lib/supabase/customer-atenciones-management.browser"
+import { linkCommercialSolicitudToWorkOrderBrowser } from "@/lib/supabase/commercial-solicitudes.browser"
 import { Button } from "@/components/ui/button"
 
 const TASKS_PAGE_SIZE = 25
@@ -47,6 +56,8 @@ type TasksModuleProps = {
 export function TasksModule({ mode = "active" }: TasksModuleProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { sessionUser } = useAuth()
+  const { companyId } = useTenantCompanyId()
   const { tasks, addTask } = useTasks()
   const { crews } = useCrews()
   const isArchiveView = mode === "archive"
@@ -61,6 +72,14 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
     useState(false)
   const [consultationPrefill, setConsultationPrefill] =
     useState<ConsultationOtCreatePrefill | null>(null)
+  const [solicitudPrefill, setSolicitudPrefill] =
+    useState<SolicitudOtCreatePrefill | null>(null)
+
+  const actorEmployeeId = useMemo(
+    () =>
+      sessionUser ? resolveCommercialActorEmployeeId(sessionUser) : null,
+    [sessionUser]
+  )
 
   useEffect(() => {
     const status = parseTaskStatusQuery(searchParams.get("status"))
@@ -79,7 +98,7 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
     )
   }, [mode, searchParams])
 
-  // RC 3.2.6 — open Nueva OT from Gestión de Consultas with prefill + auto-link.
+  // Open Nueva OT from Atención (consulta) or Comercial (solicitud) with prefill.
   useEffect(() => {
     if (mode !== "active") {
       return
@@ -87,6 +106,30 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
 
     if (searchParams.get("nuevaOt") !== "1") {
       return
+    }
+
+    const solicitudId = searchParams.get("solicitudId")?.trim() || ""
+    if (solicitudId) {
+      const stored = readSolicitudOtCreatePrefill(solicitudId)
+      if (!stored) {
+        return
+      }
+      let cancelled = false
+      void Promise.resolve().then(() => {
+        if (cancelled) return
+        setSolicitudPrefill(stored)
+        setConsultationPrefill(null)
+        setWorkOrderOpen(true)
+      })
+
+      const params = new URLSearchParams(searchParams.toString())
+      params.delete("nuevaOt")
+      params.delete("solicitudId")
+      const query = params.toString()
+      router.replace(query ? `/tareas?${query}` : "/tareas", { scroll: false })
+      return () => {
+        cancelled = true
+      }
     }
 
     const atencionId = searchParams.get("atencionId")?.trim() || ""
@@ -112,6 +155,7 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
         technicalHistory: null,
       }
     )
+    setSolicitudPrefill(null)
     setWorkOrderOpen(true)
 
     const params = new URLSearchParams(searchParams.toString())
@@ -208,11 +252,49 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
         }
         return null
       })
+      setSolicitudPrefill((current) => {
+        if (current) {
+          clearSolicitudOtCreatePrefill(current.solicitudId)
+        }
+        return null
+      })
     }
   }, [])
 
   async function handleWorkOrderCreated(result: WorkOrderCreateResult) {
     const atencionId = consultationPrefill?.atencionId
+    const solicitudId = solicitudPrefill?.solicitudId
+    const opportunityId = solicitudPrefill?.opportunityId
+
+    if (solicitudId && companyId) {
+      const linkResult = await linkCommercialSolicitudToWorkOrderBrowser(
+        companyId,
+        solicitudId,
+        result.task.id,
+        { employeeId: actorEmployeeId }
+      )
+      clearSolicitudOtCreatePrefill(solicitudId)
+      setSolicitudPrefill(null)
+
+      if (linkResult.error || !linkResult.data) {
+        setFeedback(
+          result.photoUpload.failedPhotos > 0
+            ? `La OT se creó, pero no se pudo vincular a la solicitud: ${linkResult.error?.message ?? "error"}. Algunas fotos no pudieron cargarse.`
+            : `La OT se creó, pero no se pudo vincular a la solicitud: ${linkResult.error?.message ?? "error"}`
+        )
+        return
+      }
+
+      setFeedback(
+        result.photoUpload.failedPhotos > 0
+          ? "OT creada y vinculada a la solicitud. Algunas fotos no pudieron cargarse."
+          : "Orden de trabajo creada y vinculada a la solicitud."
+      )
+      if (opportunityId) {
+        router.push(`/gestion-comercial/${opportunityId}?from=oportunidades`)
+      }
+      return
+    }
 
     if (atencionId) {
       const linkResult = await linkConsultationOtManagement(
@@ -382,6 +464,7 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
             onSubmit={handleCreateWorkOrder}
             onTaskCreated={handleWorkOrderCreated}
             consultationPrefill={consultationPrefill}
+            solicitudPrefill={solicitudPrefill}
           />
 
           <WorkOrderImportDialog

@@ -105,6 +105,12 @@ export function ConfigurationHubPanel() {
                 href: "/configuracion/etiquetas-comerciales",
               },
               {
+                title: "Tipos de Solicitud",
+                description:
+                  "Catálogo de pedidos comerciales (Internet, TV, Combo, etc.).",
+                href: "/configuracion/tipos-solicitud-comercial",
+              },
+              {
                 title: "Actividad Comercial",
                 description:
                   "Tipos de actividad territorial (publicidad, visitas, relevamientos).",

@@ -8,6 +8,7 @@ import type {
   Marker as LeafletMarker,
 } from "leaflet"
 
+import { LocationInput } from "@/components/location/location-input"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -17,8 +18,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { resolveCommercialLocationPaste } from "@/lib/commercial/resolve-person-location"
 import { hasCoordinates } from "@/lib/gps"
 import {
@@ -265,21 +264,19 @@ export function CommercialGeocodeFallbackDialog({
 
         {mode === "paste" ? (
           <div className="space-y-3">
-            <div className="space-y-2">
-              <Label htmlFor="commercial-geocode-paste">Ubicación</Label>
-              <Input
-                id="commercial-geocode-paste"
-                value={pasteValue}
-                onChange={(event) => setPasteValue(event.target.value)}
-                placeholder="Pegue un enlace de Google Maps o coordenadas GPS"
-                disabled={isResolving}
-              />
-              {pasteError ? (
-                <p className="text-sm text-destructive" role="alert">
-                  {pasteError}
-                </p>
-              ) : null}
-            </div>
+            <LocationInput
+              id="commercial-geocode-paste"
+              value={pasteValue}
+              onChange={setPasteValue}
+              disabled={isResolving}
+              required
+              hint={null}
+            />
+            {pasteError ? (
+              <p className="text-sm text-destructive" role="alert">
+                {pasteError}
+              </p>
+            ) : null}
             <DialogFooter>
               <Button
                 type="button"
