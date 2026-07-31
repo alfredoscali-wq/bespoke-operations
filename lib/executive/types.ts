@@ -39,6 +39,8 @@ export type ExecutiveRelevantActivityItem = {
   description: string | null
   entityType: string
   entityId: string | null
+  /** Actor when present on the source event (no extra query). */
+  employeeId: string | null
 }
 
 /**

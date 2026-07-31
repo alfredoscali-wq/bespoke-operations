@@ -145,6 +145,7 @@ function buildRelevantActivity(
     description: event.description ?? null,
     entityType: event.entityType ?? "",
     entityId: event.entityId ?? null,
+    employeeId: event.employeeId?.trim() || null,
   }))
 }
 
