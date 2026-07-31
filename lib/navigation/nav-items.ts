@@ -35,6 +35,7 @@ export const dashboardNavItem: NavItem = {
   icon: LayoutDashboard,
   pageTitle: "Dashboard Operativo",
   description: "Resumen operativo del día para coordinación y supervisión.",
+  moduleColor: "ops",
 }
 
 export const rrhhDashboardNavItem: NavItem = {
@@ -44,6 +45,7 @@ export const rrhhDashboardNavItem: NavItem = {
   pageTitle: "Dashboard RRHH",
   description:
     "Empleados activos, licencias, disponibilidad, ausencias y cuadrillas.",
+  moduleColor: "people",
 }
 
 export const planificacionNavItem: NavItem = {
@@ -53,6 +55,7 @@ export const planificacionNavItem: NavItem = {
   pageTitle: "Planificación Operativa",
   description:
     "Revise la planificación propuesta y realice los ajustes necesarios antes del inicio de la jornada.",
+  moduleColor: "ops",
 }
 
 export const calendarNavItem: NavItem = {
@@ -62,6 +65,7 @@ export const calendarNavItem: NavItem = {
   pageTitle: "Calendario Operativo",
   description:
     "Visualizar órdenes de trabajo, ausencias y estado operativo de cuadrillas en una vista semanal.",
+  moduleColor: "ops",
 }
 
 export const workOrdersNavItem: NavItem = {
@@ -69,8 +73,8 @@ export const workOrdersNavItem: NavItem = {
   href: "/tareas",
   icon: ListChecks,
   pageTitle: "Órdenes de Trabajo",
-  description:
-    "Crear, consultar y administrar las órdenes de trabajo.",
+  description: "Crear, consultar y administrar las órdenes de trabajo.",
+  moduleColor: "work",
 }
 
 export const archivoOtNavItem: NavItem = {
@@ -80,6 +84,7 @@ export const archivoOtNavItem: NavItem = {
   pageTitle: "Archivo OT",
   description:
     "Historial operativo de OT finalizadas, canceladas y pendientes de cierre.",
+  moduleColor: "work",
 }
 
 export const customersNavItem: NavItem = {
@@ -88,6 +93,7 @@ export const customersNavItem: NavItem = {
   icon: Contact,
   pageTitle: "Clientes",
   description: "Directorio de clientes para operaciones de campo.",
+  moduleColor: "customers",
 }
 
 export const atencionClienteNavItem: NavItem = {
@@ -97,6 +103,7 @@ export const atencionClienteNavItem: NavItem = {
   pageTitle: "Atención al Cliente",
   description:
     "Registro y seguimiento de atenciones, contactos y gestión comercial del cliente.",
+  moduleColor: "attention",
 }
 
 export const projectsNavItem: NavItem = {
@@ -105,6 +112,7 @@ export const projectsNavItem: NavItem = {
   icon: Building2,
   pageTitle: "Obras",
   description: "Gestionar obras de infraestructura y telecomunicaciones en curso.",
+  moduleColor: "ops",
 }
 
 export const employeesNavItem: NavItem = {
@@ -113,6 +121,7 @@ export const employeesNavItem: NavItem = {
   icon: Users,
   pageTitle: "Gestión de Empleados",
   description: "Personal, datos laborales y estado de RRHH.",
+  moduleColor: "people",
 }
 
 export const crewsNavItem: NavItem = {
@@ -121,6 +130,7 @@ export const crewsNavItem: NavItem = {
   icon: UsersRound,
   pageTitle: "Gestión de Cuadrillas",
   description: "Equipos de trabajo, integrantes y capacidad operativa.",
+  moduleColor: "people",
 }
 
 export const contractorsNavItem: NavItem = {
@@ -130,6 +140,7 @@ export const contractorsNavItem: NavItem = {
   pageTitle: "Contratistas",
   description:
     "Empresas contratistas, cuadrillas externas y usuarios de Field Agent.",
+  moduleColor: "people",
 }
 
 export const materialsNavItem: NavItem = {
@@ -138,6 +149,7 @@ export const materialsNavItem: NavItem = {
   icon: Package,
   pageTitle: "Gestión de Materiales",
   description: "Inventario, stock, movimientos y asignaciones a obras.",
+  moduleColor: "ops",
 }
 
 export const evidenceNavItem: NavItem = {
@@ -146,6 +158,7 @@ export const evidenceNavItem: NavItem = {
   icon: Camera,
   pageTitle: "Evidencias de Campo",
   description: "Registro fotográfico y documental de trabajos realizados.",
+  moduleColor: "ops",
 }
 
 export const reportsNavItem: NavItem = {
@@ -155,6 +168,7 @@ export const reportsNavItem: NavItem = {
   pageTitle: "Reportes",
   description:
     "Dashboard ejecutivo, indicadores operativos y reportes automáticos.",
+  moduleColor: "intelligence",
 }
 
 export const tesoreriaNavItem: NavItem = {
@@ -164,6 +178,7 @@ export const tesoreriaNavItem: NavItem = {
   pageTitle: "Tesorería",
   description:
     "Registro operativo de ingresos, egresos y saldo de la empresa.",
+  moduleColor: "system",
 }
 
 export const gestionComercialNavItem: NavItem = {
@@ -172,6 +187,7 @@ export const gestionComercialNavItem: NavItem = {
   icon: BriefcaseBusiness,
   pageTitle: "Clientes",
   description: "Escritorio operativo para gestionar clientes y actividad comercial.",
+  moduleColor: "commercial",
 }
 
 export const historyNavItem: NavItem = {
@@ -180,6 +196,7 @@ export const historyNavItem: NavItem = {
   icon: History,
   pageTitle: "Log del Sistema",
   description: "Auditoría, trazabilidad y registro de eventos de la plataforma.",
+  moduleColor: "system",
 }
 
 export const activityNavItem: NavItem = {
@@ -187,8 +204,8 @@ export const activityNavItem: NavItem = {
   href: "/activity",
   icon: Radar,
   pageTitle: "Sala de Situación",
-  description:
-    "Estado actual de la empresa para supervisión y gerencia.",
+  description: "Estado actual de la empresa para supervisión y gerencia.",
+  moduleColor: "intelligence",
 }
 
 export const executiveDailyBriefNavItem: NavItem = {
@@ -198,6 +215,7 @@ export const executiveDailyBriefNavItem: NavItem = {
   pageTitle: "Resumen Ejecutivo Diario",
   description:
     "Qué ocurrió hoy en la empresa — lectura ejecutiva de menos de cinco minutos.",
+  moduleColor: "intelligence",
 }
 
 export const workforceMonitorNavItem: NavItem = {
@@ -207,6 +225,7 @@ export const workforceMonitorNavItem: NavItem = {
   pageTitle: "Workforce Monitor",
   description:
     "Supervisión de la jornada laboral desde Activity Engine.",
+  moduleColor: "people",
 }
 
 export const activityTimelineNavItem: NavItem = {
@@ -217,6 +236,7 @@ export const activityTimelineNavItem: NavItem = {
   description:
     "Auditoría técnica global de eventos del Activity Engine.",
   separatorBefore: true,
+  moduleColor: "system",
 }
 
 export const dayActivityNavItem: NavItem = {
@@ -226,6 +246,7 @@ export const dayActivityNavItem: NavItem = {
   pageTitle: "Actividad de la Jornada",
   description:
     "Bitácora de negocio: qué hizo cada persona durante la jornada.",
+  moduleColor: "work",
 }
 
 export const settingsNavItem: NavItem = {
@@ -234,6 +255,7 @@ export const settingsNavItem: NavItem = {
   icon: Settings,
   pageTitle: "Configuración",
   description: "Parámetros de la empresa para adaptar Bespoke Operations.",
+  moduleColor: "system",
 }
 
 export const workOrderTypesNavItem: NavItem = {
@@ -243,6 +265,7 @@ export const workOrderTypesNavItem: NavItem = {
   pageTitle: "Tipos de Orden de Trabajo",
   description:
     "Configure el checklist operativo asociado a cada tipo de orden de trabajo.",
+  moduleColor: "work",
 }
 
 export const incidentTypesNavItem: NavItem = {
@@ -252,6 +275,7 @@ export const incidentTypesNavItem: NavItem = {
   pageTitle: "Tipos de Incidencia",
   description:
     "Defina qué incidencias pueden reportar las cuadrillas durante la ejecución de OT.",
+  moduleColor: "system",
 }
 
 export const usersNavItem: NavItem = {
@@ -261,6 +285,7 @@ export const usersNavItem: NavItem = {
   pageTitle: "Usuarios",
   description:
     "Acceso al sistema: cuentas, credenciales y permisos de ingreso a la plataforma.",
+  moduleColor: "system",
 }
 
 export const dispositivosNavItem: NavItem = {
@@ -270,6 +295,7 @@ export const dispositivosNavItem: NavItem = {
   pageTitle: "Dispositivos",
   description:
     "Dispositivos corporativos autorizados para Bespoke Field Agent.",
+  moduleColor: "system",
 }
 
 export const maintenanceNavItem: NavItem = {
@@ -279,6 +305,7 @@ export const maintenanceNavItem: NavItem = {
   pageTitle: "Mantenimiento",
   description:
     "Herramientas técnicas y administrativas para uso excepcional.",
+  moduleColor: "system",
 }
 
 export const availabilityNavItem: NavItem = {
@@ -287,6 +314,7 @@ export const availabilityNavItem: NavItem = {
   icon: CalendarClock,
   pageTitle: "Disponibilidad del Personal",
   description: "Consultar disponibilidad operativa del personal.",
+  moduleColor: "people",
 }
 
 export const newsNavItem: NavItem = {
@@ -296,6 +324,7 @@ export const newsNavItem: NavItem = {
   pageTitle: "Novedades del Personal",
   description:
     "Gestionar vacaciones, licencias, capacitaciones y ausencias del personal.",
+  moduleColor: "people",
 }
 
 export const coreOperationsNavItems: NavItem[] = [

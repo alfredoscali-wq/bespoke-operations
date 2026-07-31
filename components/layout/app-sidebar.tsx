@@ -12,6 +12,7 @@ import {
 import { useOperationalProfile } from "@/components/operations/operational-profile-provider"
 import { BESPOKE_LOGO_SRC } from "@/lib/branding/logo"
 import type { NavItem } from "@/lib/navigation"
+import { moduleColorVar } from "@/lib/ui/module-colors"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -42,6 +43,10 @@ function NavLink({
 }) {
   const isActive = isNavItemActive(pathname, item)
   const Icon = item.icon
+  const moduleColor = item.moduleColor
+  const iconColor = moduleColor
+    ? moduleColorVar(moduleColor, isActive ? "active" : "idle")
+    : undefined
 
   return (
     <Link
@@ -59,10 +64,12 @@ function NavLink({
       <Icon
         className={cn(
           "size-4 shrink-0",
-          isActive
-            ? "text-primary"
-            : "text-muted-foreground group-hover:text-sidebar-foreground"
+          !moduleColor &&
+            (isActive
+              ? "text-primary"
+              : "text-muted-foreground group-hover:text-sidebar-foreground")
         )}
+        style={iconColor ? { color: iconColor } : undefined}
       />
       {!collapsed && <span className="truncate">{item.title}</span>}
     </Link>

@@ -39,6 +39,22 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-module-ops: var(--module-ops);
+  --color-module-ops-active: var(--module-ops-active);
+  --color-module-work: var(--module-work);
+  --color-module-work-active: var(--module-work-active);
+  --color-module-customers: var(--module-customers);
+  --color-module-customers-active: var(--module-customers-active);
+  --color-module-attention: var(--module-attention);
+  --color-module-attention-active: var(--module-attention-active);
+  --color-module-commercial: var(--module-commercial);
+  --color-module-commercial-active: var(--module-commercial-active);
+  --color-module-people: var(--module-people);
+  --color-module-people-active: var(--module-people-active);
+  --color-module-intelligence: var(--module-intelligence);
+  --color-module-intelligence-active: var(--module-intelligence-active);
+  --color-module-system: var(--module-system);
+  --color-module-system-active: var(--module-system-active);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -81,6 +97,36 @@
   --sidebar-accent-foreground: oklch(0.28 0.03 255);
   --sidebar-border: oklch(0.915 0.012 255);
   --sidebar-ring: oklch(0.58 0.12 255);
+
+  /*
+   * Module identity palette (sidebar icons + future KPI/cards/charts).
+   * Idle = soft; Active = slightly deeper. Low chroma, corporate.
+   *
+   * ops           — operación diaria (Dashboard, calendario, obras…)
+   * work          — producción / OT
+   * customers     — directorio de clientes
+   * attention     — atención / expedientes (distinto de clientes)
+   * commercial    — gestión comercial (distinto de materiales/ops)
+   * people        — personas, cuadrillas, RRHH
+   * intelligence  — sala de situación, brief, reportes
+   * system        — sistema, auditoría, tesorería (gris azulado)
+   */
+  --module-ops: #5b7c99;
+  --module-ops-active: #3f5f7a;
+  --module-work: #6b6fa3;
+  --module-work-active: #52568a;
+  --module-customers: #5b8aa3;
+  --module-customers-active: #3f6d86;
+  --module-attention: #b07a5c;
+  --module-attention-active: #8f5e44;
+  --module-commercial: #8a6b8f;
+  --module-commercial-active: #6e5273;
+  --module-people: #7a7399;
+  --module-people-active: #5e5780;
+  --module-intelligence: #4a6fa5;
+  --module-intelligence-active: #345687;
+  --module-system: #6e7a86;
+  --module-system-active: #54606c;
 }
 
 .dark {
@@ -115,6 +161,23 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+
+  --module-ops: #8aa4bc;
+  --module-ops-active: #a8c0d4;
+  --module-work: #9a9dc4;
+  --module-work-active: #b4b7d6;
+  --module-customers: #8ab4c8;
+  --module-customers-active: #a8cce0;
+  --module-attention: #c49a80;
+  --module-attention-active: #d8b49c;
+  --module-commercial: #b094b4;
+  --module-commercial-active: #c8b0cc;
+  --module-people: #a49cbc;
+  --module-people-active: #bcb4d0;
+  --module-intelligence: #7a9ac8;
+  --module-intelligence-active: #98b4dc;
+  --module-system: #96a2ae;
+  --module-system-active: #b0bcc8;
 }
 
 @layer base {
