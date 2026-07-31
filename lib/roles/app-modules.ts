@@ -143,7 +143,7 @@ export const APP_MODULE_DEFINITIONS: AppModuleDefinition[] = [
     label: "Reportes",
     navItem: reportsNavItem,
     groupId: "analysis",
-    groupLabel: "Análisis",
+    groupLabel: "📊 Análisis",
     pathPrefixes: ["/reportes"],
   },
   {
@@ -151,7 +151,7 @@ export const APP_MODULE_DEFINITIONS: AppModuleDefinition[] = [
     label: "Tesorería",
     navItem: tesoreriaNavItem,
     groupId: "analysis",
-    groupLabel: "Análisis",
+    groupLabel: "📊 Análisis",
     pathPrefixes: ["/tesoreria"],
   },
   {

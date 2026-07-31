@@ -20,7 +20,7 @@ const GROUP_ORDER: Array<{
   label?: string
 }> = [
   { id: "operations", groupId: "operations" },
-  { id: "analysis", groupId: "analysis", label: "Análisis" },
+  { id: "analysis", groupId: "analysis", label: "📊 Análisis" },
   { id: "rrhh", groupId: "rrhh", label: "RRHH" },
   { id: "system", groupId: "system", label: "Sistema" },
   {
@@ -29,6 +29,24 @@ const GROUP_ORDER: Array<{
     label: "Administración",
   },
 ]
+
+/** Ops intelligence tools — same visibility gate as before (history module). */
+const OPS_ANALYSIS_NAV_ITEMS: NavItem[] = [
+  activityNavItem,
+  dayActivityNavItem,
+  workforceMonitorNavItem,
+  executiveDailyBriefNavItem,
+  activityTimelineNavItem,
+]
+
+function prependOpsAnalysisItems(group: NavGroup): void {
+  const existingHrefs = new Set(group.items.map((item) => item.href))
+  const toPrepend = OPS_ANALYSIS_NAV_ITEMS.filter(
+    (item) => !existingHrefs.has(item.href)
+  )
+  group.items = [...toPrepend, ...group.items]
+  group.label = group.label ?? "📊 Análisis"
+}
 
 export function buildNavGroupsFromModuleVisibility(
   visibility: ModuleVisibilityMap
@@ -50,14 +68,6 @@ export function buildNavGroupsFromModuleVisibility(
         existing.items.push(archivoOtNavItem)
       }
 
-      if (definition.key === "history") {
-        existing.items.push(activityNavItem)
-        existing.items.push(executiveDailyBriefNavItem)
-        existing.items.push(dayActivityNavItem)
-        existing.items.push(workforceMonitorNavItem)
-        existing.items.push(activityTimelineNavItem)
-      }
-
       continue
     }
 
@@ -67,19 +77,25 @@ export function buildNavGroupsFromModuleVisibility(
       items.push(archivoOtNavItem)
     }
 
-    if (definition.key === "history") {
-      items.push(activityNavItem)
-      items.push(executiveDailyBriefNavItem)
-      items.push(dayActivityNavItem)
-      items.push(workforceMonitorNavItem)
-      items.push(activityTimelineNavItem)
-    }
-
     groups.set(groupKey, {
       id: groupKey,
       label: definition.groupLabel,
       items,
     })
+  }
+
+  // Keep prior permission model: history module unlocks ops analysis entries.
+  if (visibility.history) {
+    const analysis = groups.get("analysis")
+    if (analysis) {
+      prependOpsAnalysisItems(analysis)
+    } else {
+      groups.set("analysis", {
+        id: "analysis",
+        label: "📊 Análisis",
+        items: [...OPS_ANALYSIS_NAV_ITEMS],
+      })
+    }
   }
 
   return GROUP_ORDER.flatMap(({ id, groupId, label }) => {

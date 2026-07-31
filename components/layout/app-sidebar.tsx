@@ -168,13 +168,23 @@ export function AppSidebar({
               ) : null}
 
               {group.items.map((item) => (
-                <NavLink
-                  key={`${group.id}-${item.href}-${item.title}`}
-                  item={item}
-                  pathname={pathname}
-                  collapsed={collapsed}
-                  onCloseMobile={onCloseMobile}
-                />
+                <div key={`${group.id}-${item.href}-${item.title}`}>
+                  {item.separatorBefore ? (
+                    <div
+                      className={cn(
+                        "border-t border-sidebar-border/70",
+                        collapsed ? "my-2" : "mx-2.5 my-2"
+                      )}
+                      aria-hidden
+                    />
+                  ) : null}
+                  <NavLink
+                    item={item}
+                    pathname={pathname}
+                    collapsed={collapsed}
+                    onCloseMobile={onCloseMobile}
+                  />
+                </div>
               ))}
             </div>
           ))}

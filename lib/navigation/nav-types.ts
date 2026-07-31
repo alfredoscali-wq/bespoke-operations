@@ -6,6 +6,8 @@ export type NavItem = {
   icon: LucideIcon
   description?: string
   pageTitle?: string
+  /** Visual divider above this item within its group (sidebar only). */
+  separatorBefore?: boolean
 }
 
 export type NavGroup = {

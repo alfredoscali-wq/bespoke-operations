@@ -210,12 +210,13 @@ export const workforceMonitorNavItem: NavItem = {
 }
 
 export const activityTimelineNavItem: NavItem = {
-  title: "Timeline Global",
+  title: "Auditoría Técnica",
   href: "/activity/timeline",
   icon: History,
-  pageTitle: "Timeline Global",
+  pageTitle: "Auditoría Técnica",
   description:
     "Auditoría técnica global de eventos del Activity Engine.",
+  separatorBefore: true,
 }
 
 export const dayActivityNavItem: NavItem = {
@@ -318,16 +319,19 @@ export const fieldOperationsNavItems: NavItem[] = [
 
 export const rrhhNavItems: NavItem[] = [employeesNavItem, newsNavItem]
 
-export const analysisNavItems: NavItem[] = [reportsNavItem, tesoreriaNavItem]
+export const analysisNavItems: NavItem[] = [
+  activityNavItem,
+  dayActivityNavItem,
+  workforceMonitorNavItem,
+  executiveDailyBriefNavItem,
+  activityTimelineNavItem,
+  reportsNavItem,
+  tesoreriaNavItem,
+]
 
 export const systemNavItems: NavItem[] = [
   settingsNavItem,
   historyNavItem,
-  activityNavItem,
-  executiveDailyBriefNavItem,
-  dayActivityNavItem,
-  workforceMonitorNavItem,
-  activityTimelineNavItem,
   usersNavItem,
   dispositivosNavItem,
 ]

@@ -49,7 +49,7 @@ export const navGroups: NavGroup[] = [
     label: "Operaciones de campo",
     items: fieldOperationsNavItems,
   },
-  { id: "analysis", label: "Análisis", items: analysisNavItems },
+  { id: "analysis", label: "📊 Análisis", items: analysisNavItems },
   { id: "rrhh", label: "RRHH", items: rrhhNavItems },
   { id: "system", label: "Sistema", items: systemNavItems },
 ]
