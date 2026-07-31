@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react"
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 import { BookOpen, Download, Loader2, MoreHorizontal, Printer } from "lucide-react"
 
 import { DayGestionCard } from "@/components/activity/day-gestion-card"
@@ -31,6 +32,8 @@ import {
 } from "@/lib/activity/day-activity-period"
 import {
   DAY_ACTIVITY_QUICK_FILTERS,
+  buildProductionSummary,
+  formatProductionSummaryPlainText,
   matchesDayActivityFilter,
   type DayActivityFilterId,
 } from "@/lib/activity/day-activity-ux"
@@ -40,6 +43,7 @@ import {
   type DayGestion,
 } from "@/lib/activity/day-gestiones"
 import { fetchActivityTimeline } from "@/lib/activity/fetch-activity-timeline.client"
+import { todayDateInputValue } from "@/lib/activity/employee-daily-report"
 import { canAccessOperationsIntelligence } from "@/lib/activity/operations-intelligence"
 import { buildExecutiveBrief, type ExecutiveBrief } from "@/lib/executive"
 import { indicatorCount, INDICATOR_IDS } from "@/lib/indicators"
@@ -201,60 +205,6 @@ function buildExecutiveKpis(brief: ExecutiveBrief): ExecutiveKpi[] {
   ]
 }
 
-function buildProductionNarrative(
-  employeeName: string,
-  brief: ExecutiveBrief,
-  narrativePrefix: string
-): string {
-  const get = (id: string) => indicatorCount(brief.snapshot, id)
-  const attended = get(INDICATOR_IDS.ATTENTIONS_CREATED)
-  const resolved = get(INDICATOR_IDS.ATTENTIONS_RESOLVED)
-  const transferred = get(INDICATOR_IDS.ATTENTIONS_TRANSFERRED)
-  const ot = get(INDICATOR_IDS.ATTENTIONS_WORKORDERS_GENERATED)
-  const retentions = get(INDICATOR_IDS.RETENTIONS)
-  const sales = get(INDICATOR_IDS.COMMERCIAL_COMPLETED)
-  const customers = get(INDICATOR_IDS.CUSTOMERS_CREATED)
-
-  const clauses: string[] = []
-  if (attended > 0) {
-    clauses.push(
-      `atendió ${attended} consulta${attended === 1 ? "" : "s"}`
-    )
-  }
-  if (resolved > 0) clauses.push(`resolvió ${resolved}`)
-  if (transferred > 0) {
-    clauses.push(`derivó ${transferred} al área correspondiente`)
-  }
-  if (ot > 0) {
-    clauses.push(
-      `generó ${ot} orden${ot === 1 ? "" : "es"} de trabajo`
-    )
-  }
-  if (retentions > 0) {
-    clauses.push(
-      `registró ${retentions} retención${retentions === 1 ? "" : "es"}`
-    )
-  }
-  if (sales > 0) {
-    clauses.push(`concretó ${sales} venta${sales === 1 ? "" : "s"}`)
-  }
-  if (customers > 0) {
-    clauses.push(
-      `incorporó ${customers} cliente${customers === 1 ? "" : "s"} nuevo${customers === 1 ? "" : "s"}`
-    )
-  }
-
-  if (clauses.length === 0) {
-    return `${narrativePrefix} ${employeeName} no registró producción relevante.`
-  }
-  if (clauses.length === 1) {
-    return `${narrativePrefix} ${employeeName} ${clauses[0]}.`
-  }
-  const last = clauses[clauses.length - 1]!
-  const head = clauses.slice(0, -1).join(", ")
-  return `${narrativePrefix} ${employeeName} ${head} y ${last}.`
-}
-
 function formatRangeLabel(fromInput: string, toInput: string): string {
   if (fromInput === toInput) {
     return formatActivityTimelineDate(`${fromInput}T12:00:00`) || fromInput
@@ -266,12 +216,16 @@ function formatRangeLabel(fromInput: string, toInput: string): string {
 }
 
 export function DayActivityModule() {
+  const searchParams = useSearchParams()
   const { sessionUser } = useAuth()
   const { companyId, isAuthReady } = useTenantCompanyId()
   const allowed = canAccessOperationsIntelligence(sessionUser?.systemRole)
 
+  const employeeIdFromUrl = searchParams.get("employeeId")?.trim() || ""
+  const dateFromUrl = searchParams.get("date")?.trim() || ""
+
   const [employees, setEmployees] = useState<Employee[]>([])
-  const [employeeId, setEmployeeId] = useState("")
+  const [employeeId, setEmployeeId] = useState(() => employeeIdFromUrl)
   const period = useSyncExternalStore(
     subscribeDayActivityPeriodStore,
     getDayActivityPeriodStoreSnapshot,
@@ -283,6 +237,30 @@ export function DayActivityModule() {
   const [error, setError] = useState<string | null>(null)
   const [activeFilter, setActiveFilter] =
     useState<DayActivityFilterId>("all")
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      await Promise.resolve()
+      if (cancelled) return
+      if (employeeIdFromUrl) setEmployeeId(employeeIdFromUrl)
+      if (dateFromUrl) {
+        const today = todayDateInputValue()
+        if (dateFromUrl === today) {
+          saveDayActivityPeriodSelection({ preset: "today" })
+        } else {
+          saveDayActivityPeriodSelection({
+            preset: "custom",
+            customFrom: dateFromUrl,
+            customTo: dateFromUrl,
+          })
+        }
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [dateFromUrl, employeeIdFromUrl])
 
   const periodRange = useMemo(
     () => resolveDayActivityPeriodRange(period),
@@ -398,14 +376,17 @@ export function DayActivityModule() {
     ? getEmployeeDisplayName(selectedEmployee)
     : "El empleado"
 
-  const productionNarrative =
+  const productionSummary =
     displayBrief != null
-      ? buildProductionNarrative(
+      ? buildProductionSummary(
           employeeName,
           displayBrief,
           periodCopy.narrativePrefix
         )
       : null
+  const productionNarrative = productionSummary
+    ? formatProductionSummaryPlainText(productionSummary)
+    : null
 
   const activeFilterLabel =
     DAY_ACTIVITY_QUICK_FILTERS.find((item) => item.id === activeFilter)
@@ -722,7 +703,7 @@ export function DayActivityModule() {
             </p>
           </section>
 
-          {productionNarrative ? (
+          {productionSummary ? (
             <section
               className="rounded-xl border bg-muted/30 px-5 py-4"
               data-report-section="production-summary"
@@ -730,9 +711,45 @@ export function DayActivityModule() {
               <h2 className="text-sm font-semibold tracking-tight">
                 Resumen de producción
               </h2>
-              <p className="mt-2 text-sm leading-relaxed text-foreground">
-                {productionNarrative}
+              <p className="mt-3 text-sm leading-relaxed text-foreground">
+                {productionSummary.volumeLine}
               </p>
+
+              {productionSummary.results ? (
+                <div className="mt-4 space-y-2">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {productionSummary.results.title}
+                  </h3>
+                  <ul className="space-y-1.5 text-sm text-foreground">
+                    {productionSummary.results.items.map((item) => (
+                      <li key={item} className="flex gap-2">
+                        <span className="text-muted-foreground" aria-hidden>
+                          •
+                        </span>
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {productionSummary.actions ? (
+                <div className="mt-4 space-y-2">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {productionSummary.actions.title}
+                  </h3>
+                  <ul className="space-y-1.5 text-sm text-foreground">
+                    {productionSummary.actions.items.map((item) => (
+                      <li key={item} className="flex gap-2">
+                        <span className="text-muted-foreground" aria-hidden>
+                          •
+                        </span>
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
             </section>
           ) : null}
 

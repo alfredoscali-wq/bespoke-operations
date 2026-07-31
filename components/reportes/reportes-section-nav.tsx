@@ -2,17 +2,11 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { BarChart3, FileClock, LayoutDashboard, UserRoundSearch } from "lucide-react"
+import { BarChart3, FileClock, UserRoundSearch } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
 const reportesSections = [
-  {
-    href: "/reportes",
-    label: "Dashboard Ejecutivo",
-    icon: LayoutDashboard,
-    match: (pathname: string) => pathname === "/reportes",
-  },
   {
     href: "/reportes/operativos",
     label: "Reportes Operativos",

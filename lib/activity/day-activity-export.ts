@@ -99,10 +99,27 @@ export function exportDayActivityExecutivePdf(
   }
 
   y += 4
-  const prodLines = doc.splitTextToSize(payload.productionNarrative, 180)
-  y = ensureSpace(doc, y, prodLines.length * 5 + 6)
-  doc.text(prodLines, PAGE_MARGIN, y)
-  y += prodLines.length * 5 + 8
+  const prodParagraphs = payload.productionNarrative.split("\n")
+  for (const paragraph of prodParagraphs) {
+    if (!paragraph.trim()) {
+      y += 3
+      continue
+    }
+    const isHeading =
+      paragraph === "Resultado de la gestión" ||
+      paragraph === "Acciones realizadas"
+    const prodLines = doc.splitTextToSize(paragraph, 180)
+    y = ensureSpace(doc, y, prodLines.length * 5 + 2)
+    if (isHeading) {
+      doc.setFont("helvetica", "bold")
+    } else {
+      doc.setFont("helvetica", "normal")
+    }
+    doc.text(prodLines, PAGE_MARGIN, y)
+    y += prodLines.length * 5 + (isHeading ? 2 : 1)
+  }
+  y += 6
+  doc.setFont("helvetica", "normal")
 
   doc.setFont("helvetica", "bold")
   doc.text(

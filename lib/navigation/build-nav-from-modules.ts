@@ -9,7 +9,7 @@ import {
   activityTimelineNavItem,
   archivoOtNavItem,
   dayActivityNavItem,
-  executiveDailyBriefNavItem,
+  reportsNavItem,
   workforceMonitorNavItem,
 } from "@/lib/navigation/nav-items"
 import type { NavGroup, NavItem } from "@/lib/navigation/nav-types"
@@ -30,21 +30,52 @@ const GROUP_ORDER: Array<{
   },
 ]
 
-/** Ops intelligence tools — same visibility gate as before (history module). */
+/**
+ * Ops analysis tools — unlocked by history module (same permission model).
+ * Resumen Ejecutivo Diario intentionally omitted from nav (route kept).
+ */
 const OPS_ANALYSIS_NAV_ITEMS: NavItem[] = [
-  activityNavItem,
   dayActivityNavItem,
+  activityNavItem,
   workforceMonitorNavItem,
-  executiveDailyBriefNavItem,
   activityTimelineNavItem,
 ]
 
-function prependOpsAnalysisItems(group: NavGroup): void {
+/** Canonical Análisis order for the product architecture. */
+const ANALYSIS_NAV_ORDER: readonly string[] = [
+  dayActivityNavItem.href,
+  reportsNavItem.href,
+  activityNavItem.href,
+  workforceMonitorNavItem.href,
+  activityTimelineNavItem.href,
+]
+
+function sortAnalysisNavItems(items: NavItem[]): NavItem[] {
+  const byHref = new Map(items.map((item) => [item.href, item]))
+  const ordered: NavItem[] = []
+
+  for (const href of ANALYSIS_NAV_ORDER) {
+    const item = byHref.get(href)
+    if (!item) continue
+    ordered.push(item)
+    byHref.delete(href)
+  }
+
+  for (const item of items) {
+    if (!byHref.has(item.href)) continue
+    ordered.push(item)
+    byHref.delete(item.href)
+  }
+
+  return ordered
+}
+
+function mergeOpsAnalysisItems(group: NavGroup): void {
   const existingHrefs = new Set(group.items.map((item) => item.href))
-  const toPrepend = OPS_ANALYSIS_NAV_ITEMS.filter(
+  const toAdd = OPS_ANALYSIS_NAV_ITEMS.filter(
     (item) => !existingHrefs.has(item.href)
   )
-  group.items = [...toPrepend, ...group.items]
+  group.items = sortAnalysisNavItems([...toAdd, ...group.items])
   group.label = group.label ?? "📊 Análisis"
 }
 
@@ -88,14 +119,17 @@ export function buildNavGroupsFromModuleVisibility(
   if (visibility.history) {
     const analysis = groups.get("analysis")
     if (analysis) {
-      prependOpsAnalysisItems(analysis)
+      mergeOpsAnalysisItems(analysis)
     } else {
       groups.set("analysis", {
         id: "analysis",
         label: "📊 Análisis",
-        items: [...OPS_ANALYSIS_NAV_ITEMS],
+        items: sortAnalysisNavItems([...OPS_ANALYSIS_NAV_ITEMS]),
       })
     }
+  } else if (groups.has("analysis")) {
+    const analysis = groups.get("analysis")!
+    analysis.items = sortAnalysisNavItems(analysis.items)
   }
 
   return GROUP_ORDER.flatMap(({ id, groupId, label }) => {

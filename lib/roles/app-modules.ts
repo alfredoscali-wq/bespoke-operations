@@ -140,7 +140,7 @@ export const APP_MODULE_DEFINITIONS: AppModuleDefinition[] = [
   },
   {
     key: "reports",
-    label: "Reportes",
+    label: "Reportes Operativos",
     navItem: reportsNavItem,
     groupId: "analysis",
     groupLabel: "📊 Análisis",

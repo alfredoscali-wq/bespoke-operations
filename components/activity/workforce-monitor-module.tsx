@@ -3,9 +3,15 @@
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
-import { ArrowDown, ArrowUp, ArrowUpDown, Loader2, Users } from "lucide-react"
+import {
+  ArrowDown,
+  ArrowRight,
+  ArrowUp,
+  ArrowUpDown,
+  Loader2,
+  Users,
+} from "lucide-react"
 
-import { EmployeeDailyReport } from "@/components/rrhh/employee-daily-report"
 import {
   formatActivityTimelineDate,
   formatActivityTimelineTime,
@@ -17,14 +23,20 @@ import {
   type OperationsIntelligenceAreaId,
   OPERATIONS_INTELLIGENCE_AREAS,
 } from "@/lib/activity/operations-intelligence"
-import {
-  WORKFORCE_ACTIVITY_STATUS_LABELS,
-  type WorkforceActivityStatus,
-} from "@/lib/activity/workforce-activity-status"
+import type { WorkforceActivityStatus } from "@/lib/activity/workforce-activity-status"
 import {
   mergeWorkforceRowsWithEmployees,
   type WorkforceMonitorRow,
 } from "@/lib/activity/workforce-monitor"
+import {
+  buildJornadaHref,
+  buildWorkforceProductionHighlights,
+  buildWorkforceProductionNarrative,
+  formatWorkforceActiveTime,
+  resolveWorkforceExecutiveStatus,
+  workforceProductionScore,
+  WORKFORCE_STATUS_FILTER_LABELS,
+} from "@/lib/activity/workforce-monitor-ux"
 import { useAuth } from "@/components/auth/auth-provider"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -37,13 +49,6 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet"
-import {
   Table,
   TableBody,
   TableCell,
@@ -52,10 +57,14 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { SYSTEM_ROLE_LABELS } from "@/lib/employees/constants"
-import { getEmployeeDisplayName } from "@/lib/employees/utils"
+import {
+  getEmployeeDisplayName,
+  getEmployeeFullName,
+} from "@/lib/employees/utils"
 import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import { listEmployees } from "@/lib/supabase/employees.browser"
 import type { Employee, SystemRole } from "@/lib/types/employees"
+import { moduleColorVar } from "@/lib/ui/module-colors"
 import { FILTER_SELECT_TRIGGER_CLASS } from "@/lib/ui/visual-tokens"
 import { cn } from "@/lib/utils"
 
@@ -65,19 +74,10 @@ const PAGE_SIZE = 25
 type SortColumn =
   | "employee"
   | "area"
-  | "role"
+  | "activityStatus"
+  | "production"
   | "firstEventAt"
   | "lastEventAt"
-  | "eventCount"
-  | "customers"
-  | "requests"
-  | "workOrders"
-  | "attentions"
-  | "commercialActivities"
-  | "projects"
-  | "settings"
-  | "lastModule"
-  | "activityStatus"
 
 type SortState = {
   column: SortColumn
@@ -90,6 +90,7 @@ type EnrichedRow = WorkforceMonitorRow & {
   role: SystemRole | null
   roleLabel: string
   searchBlob: string
+  productionScore: number
 }
 
 function canAccessWorkforce(systemRole: string | null | undefined): boolean {
@@ -106,7 +107,7 @@ function isOpsAreaId(value: string | null): value is OperationsIntelligenceAreaI
 
 function formatStamp(value: string | null): string {
   if (!value) return "—"
-  return `${formatActivityTimelineTime(value)}`
+  return formatActivityTimelineTime(value)
 }
 
 function compareNullableString(
@@ -128,6 +129,10 @@ function compareNumber(
   return direction === "asc" ? left - right : right - left
 }
 
+function productionScore(row: WorkforceMonitorRow): number {
+  return workforceProductionScore(row.production)
+}
+
 export function WorkforceMonitorModule() {
   const searchParams = useSearchParams()
   const { sessionUser } = useAuth()
@@ -147,9 +152,6 @@ export function WorkforceMonitorModule() {
   const [activityRows, setActivityRows] = useState<WorkforceMonitorRow[]>([])
   const [isLoading, setIsLoading] = useState(allowed)
   const [error, setError] = useState<string | null>(null)
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(
-    null
-  )
 
   const [areaFilter, setAreaFilter] = useState("")
   const [roleFilter, setRoleFilter] = useState("")
@@ -159,7 +161,7 @@ export function WorkforceMonitorModule() {
   )
   const [search, setSearch] = useState("")
   const [sort, setSort] = useState<SortState>({
-    column: "eventCount",
+    column: "production",
     direction: "desc",
   })
   const [page, setPage] = useState(1)
@@ -245,7 +247,7 @@ export function WorkforceMonitorModule() {
     return merged.map((row): EnrichedRow => {
       const employee = employeeById.get(row.employeeId)
       const employeeName = employee
-        ? getEmployeeDisplayName(employee)
+        ? getEmployeeFullName(employee)
         : row.employeeId
       const area = employee?.department?.trim() || "—"
       const role = employee?.systemRole ?? null
@@ -256,6 +258,7 @@ export function WorkforceMonitorModule() {
         area,
         role,
         roleLabel,
+        productionScore: productionScore(row),
         searchBlob: [
           employeeName,
           area,
@@ -273,10 +276,7 @@ export function WorkforceMonitorModule() {
     const needle = search.trim().toLocaleLowerCase("es")
 
     return enrichedRows.filter((row) => {
-      if (
-        opsAreaFilter &&
-        !row.opsAreaIds.includes(opsAreaFilter)
-      ) {
+      if (opsAreaFilter && !row.opsAreaIds.includes(opsAreaFilter)) {
         return false
       }
       if (areaFilter && row.area !== areaFilter) return false
@@ -310,10 +310,16 @@ export function WorkforceMonitorModule() {
           )
         case "area":
           return compareNullableString(left.area, right.area, direction)
-        case "role":
+        case "activityStatus":
           return compareNullableString(
-            left.roleLabel,
-            right.roleLabel,
+            left.activityStatus,
+            right.activityStatus,
+            direction
+          )
+        case "production":
+          return compareNumber(
+            left.productionScore,
+            right.productionScore,
             direction
           )
         case "firstEventAt":
@@ -326,62 +332,6 @@ export function WorkforceMonitorModule() {
           return compareNullableString(
             left.lastEventAt,
             right.lastEventAt,
-            direction
-          )
-        case "eventCount":
-          return compareNumber(left.eventCount, right.eventCount, direction)
-        case "customers":
-          return compareNumber(
-            left.modules.customers,
-            right.modules.customers,
-            direction
-          )
-        case "requests":
-          return compareNumber(
-            left.modules.requests,
-            right.modules.requests,
-            direction
-          )
-        case "workOrders":
-          return compareNumber(
-            left.modules.workOrders,
-            right.modules.workOrders,
-            direction
-          )
-        case "attentions":
-          return compareNumber(
-            left.modules.attentions,
-            right.modules.attentions,
-            direction
-          )
-        case "commercialActivities":
-          return compareNumber(
-            left.modules.commercialActivities,
-            right.modules.commercialActivities,
-            direction
-          )
-        case "projects":
-          return compareNumber(
-            left.modules.projects,
-            right.modules.projects,
-            direction
-          )
-        case "settings":
-          return compareNumber(
-            left.modules.settings,
-            right.modules.settings,
-            direction
-          )
-        case "lastModule":
-          return compareNullableString(
-            left.lastModule,
-            right.lastModule,
-            direction
-          )
-        case "activityStatus":
-          return compareNullableString(
-            left.activityStatus,
-            right.activityStatus,
             direction
           )
         default:
@@ -419,28 +369,21 @@ export function WorkforceMonitorModule() {
       }
       return {
         column,
-        direction: column === "eventCount" ? "desc" : "asc",
+        direction: column === "production" ? "desc" : "asc",
       }
     })
     setPage(1)
   }
 
-  const selectedEmployee = useMemo(
-    () => employees.find((employee) => employee.id === selectedEmployeeId) ?? null,
-    [employees, selectedEmployeeId]
-  )
-
-  const openDailyReport = (employeeId: string) => {
-    setSelectedEmployeeId(employeeId)
-  }
-
   if (!allowed) {
     return (
-      <div className="rounded-xl border bg-card p-6 shadow-sm">
-        <h1 className="text-xl font-semibold tracking-tight">
-          Workforce Monitor
-        </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
+      <div className="rounded-xl border bg-card px-6 py-10 text-center shadow-sm">
+        <Users
+          className="mx-auto size-8"
+          style={{ color: moduleColorVar("people") }}
+        />
+        <h2 className="mt-3 text-base font-semibold">Workforce Monitor</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
           Solo administración, supervisión y gerencia pueden acceder a esta
           pantalla.
         </p>
@@ -449,61 +392,72 @@ export function WorkforceMonitorModule() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-            <Users className="size-6 text-muted-foreground" />
-            Workforce Monitor
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Supervisión de la jornada desde Activity Engine. Abrí la Producción
-            de cualquier empleado.
+    <div className="space-y-8">
+      <header className="flex flex-col gap-6 border-b pb-6 sm:flex-row sm:items-end sm:justify-between">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2.5">
+            <Users
+              className="size-5 shrink-0"
+              style={{ color: moduleColorVar("people") }}
+              aria-hidden
+            />
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+              Workforce Monitor
+            </h1>
+          </div>
+          <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">
+            Supervisión de la actividad y producción del personal durante la
+            jornada.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button asChild variant="outline" size="sm">
-            <Link href="/activity">Sala de Situación</Link>
-          </Button>
-        </div>
-      </div>
+        <Button asChild variant="outline" size="sm" className="h-9">
+          <Link href={`/activity?date=${date}`}>Sala de Situación</Link>
+        </Button>
+      </header>
 
       {opsAreaFilter ? (
-        <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm">
-          Filtrado por área operacional:{" "}
-          <span className="font-semibold">
+        <p className="text-sm text-muted-foreground">
+          Área operacional:{" "}
+          <span className="font-medium text-foreground">
             {getOperationsIntelligenceAreaLabel(opsAreaFilter)}
           </span>
-        </div>
+        </p>
       ) : null}
 
-      <div className="space-y-3 rounded-xl border bg-card p-4 shadow-sm">
-        <div className="flex flex-wrap items-end justify-between gap-2">
-          <div>
-            <h2 className="text-sm font-semibold">Filtros</h2>
-            <p className="text-xs text-muted-foreground">
-              {sortedRows.length} empleado{sortedRows.length === 1 ? "" : "s"}
-            </p>
-          </div>
-          <Button type="button" variant="outline" size="sm" onClick={clearFilters}>
+      <div className="rounded-xl border bg-card px-4 py-3 shadow-sm">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs text-muted-foreground">
+            {sortedRows.length} empleado{sortedRows.length === 1 ? "" : "s"}
+            {" · "}
+            {formatActivityTimelineDate(`${date}T12:00:00`) || date}
+          </p>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-8 text-xs"
+            onClick={clearFilters}
+          >
             Limpiar
           </Button>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-          <div className="space-y-2">
-            <Label htmlFor="workforce-date">Fecha</Label>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          <div className="space-y-1">
+            <Label htmlFor="workforce-date" className="text-xs">
+              Fecha
+            </Label>
             <Input
               id="workforce-date"
               type="date"
-              className="h-9 bg-background"
+              className="h-8 bg-background"
               value={date}
               onChange={(event) => setDate(event.target.value)}
             />
           </div>
 
-          <div className="space-y-2">
-            <Label>Área</Label>
+          <div className="space-y-1">
+            <Label className="text-xs">Área</Label>
             <Select
               value={areaFilter || ALL_VALUE}
               onValueChange={(value) => {
@@ -511,7 +465,7 @@ export function WorkforceMonitorModule() {
                 setPage(1)
               }}
             >
-              <SelectTrigger className={FILTER_SELECT_TRIGGER_CLASS}>
+              <SelectTrigger className={cn(FILTER_SELECT_TRIGGER_CLASS, "h-8")}>
                 <SelectValue placeholder="Todas" />
               </SelectTrigger>
               <SelectContent>
@@ -525,8 +479,8 @@ export function WorkforceMonitorModule() {
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label>Rol</Label>
+          <div className="space-y-1">
+            <Label className="text-xs">Rol</Label>
             <Select
               value={roleFilter || ALL_VALUE}
               onValueChange={(value) => {
@@ -534,7 +488,7 @@ export function WorkforceMonitorModule() {
                 setPage(1)
               }}
             >
-              <SelectTrigger className={FILTER_SELECT_TRIGGER_CLASS}>
+              <SelectTrigger className={cn(FILTER_SELECT_TRIGGER_CLASS, "h-8")}>
                 <SelectValue placeholder="Todos" />
               </SelectTrigger>
               <SelectContent>
@@ -550,8 +504,8 @@ export function WorkforceMonitorModule() {
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label>Empleado</Label>
+          <div className="space-y-1">
+            <Label className="text-xs">Empleado</Label>
             <Select
               value={employeeFilter || ALL_VALUE}
               onValueChange={(value) => {
@@ -559,7 +513,7 @@ export function WorkforceMonitorModule() {
                 setPage(1)
               }}
             >
-              <SelectTrigger className={FILTER_SELECT_TRIGGER_CLASS}>
+              <SelectTrigger className={cn(FILTER_SELECT_TRIGGER_CLASS, "h-8")}>
                 <SelectValue placeholder="Todos" />
               </SelectTrigger>
               <SelectContent>
@@ -573,15 +527,15 @@ export function WorkforceMonitorModule() {
                   )
                   .map((employee) => (
                     <SelectItem key={employee.id} value={employee.id}>
-                      {getEmployeeDisplayName(employee)}
+                      {getEmployeeFullName(employee)}
                     </SelectItem>
                   ))}
               </SelectContent>
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label>Estado de actividad</Label>
+          <div className="space-y-1">
+            <Label className="text-xs">Estado</Label>
             <Select
               value={statusFilter || ALL_VALUE}
               onValueChange={(value) => {
@@ -593,29 +547,31 @@ export function WorkforceMonitorModule() {
                 setPage(1)
               }}
             >
-              <SelectTrigger className={FILTER_SELECT_TRIGGER_CLASS}>
+              <SelectTrigger className={cn(FILTER_SELECT_TRIGGER_CLASS, "h-8")}>
                 <SelectValue placeholder="Todos" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL_VALUE}>Todos</SelectItem>
                 {(
                   Object.keys(
-                    WORKFORCE_ACTIVITY_STATUS_LABELS
+                    WORKFORCE_STATUS_FILTER_LABELS
                   ) as WorkforceActivityStatus[]
                 ).map((status) => (
                   <SelectItem key={status} value={status}>
-                    {WORKFORCE_ACTIVITY_STATUS_LABELS[status]}
+                    {WORKFORCE_STATUS_FILTER_LABELS[status]}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="workforce-search">Buscador</Label>
+          <div className="space-y-1">
+            <Label htmlFor="workforce-search" className="text-xs">
+              Buscador
+            </Label>
             <Input
               id="workforce-search"
-              className="h-9 bg-background"
+              className="h-8 bg-background"
               placeholder="Nombre, área, rol…"
               value={search}
               onChange={(event) => {
@@ -628,25 +584,23 @@ export function WorkforceMonitorModule() {
       </div>
 
       <div className="rounded-xl border bg-card shadow-sm">
-        <div className="border-b px-4 py-3">
-          <h2 className="text-sm font-semibold">Jornada</h2>
-          <p className="text-xs text-muted-foreground">
-            {formatActivityTimelineDate(`${date}T12:00:00`) || date} · una fila
-            por empleado · indicadores desde Activity Engine
-          </p>
-        </div>
-
         {error ? (
-          <div className="px-4 py-6 text-sm text-destructive">{error}</div>
+          <div className="px-5 py-6 text-sm text-destructive">{error}</div>
         ) : null}
 
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
-              <TableRow>
+              <TableRow className="hover:bg-transparent">
                 <SortableHead
                   label="Empleado"
                   column="employee"
+                  sort={sort}
+                  onSort={toggleSort}
+                />
+                <SortableHead
+                  label="Estado"
+                  column="activityStatus"
                   sort={sort}
                   onSort={toggleSort}
                 />
@@ -657,152 +611,138 @@ export function WorkforceMonitorModule() {
                   onSort={toggleSort}
                 />
                 <SortableHead
-                  label="Rol"
-                  column="role"
+                  label="Producción"
+                  column="production"
                   sort={sort}
                   onSort={toggleSort}
                 />
                 <SortableHead
-                  label="Primer evento"
-                  column="firstEventAt"
-                  sort={sort}
-                  onSort={toggleSort}
-                />
-                <SortableHead
-                  label="Último evento"
+                  label="Jornada"
                   column="lastEventAt"
                   sort={sort}
                   onSort={toggleSort}
                 />
-                <SortableHead
-                  label="Eventos"
-                  column="eventCount"
-                  sort={sort}
-                  onSort={toggleSort}
-                />
-                <SortableHead
-                  label="Clientes"
-                  column="customers"
-                  sort={sort}
-                  onSort={toggleSort}
-                />
-                <SortableHead
-                  label="Solicitudes"
-                  column="requests"
-                  sort={sort}
-                  onSort={toggleSort}
-                />
-                <SortableHead
-                  label="OT"
-                  column="workOrders"
-                  sort={sort}
-                  onSort={toggleSort}
-                />
-                <SortableHead
-                  label="Atenciones"
-                  column="attentions"
-                  sort={sort}
-                  onSort={toggleSort}
-                />
-                <SortableHead
-                  label="Actividades comerciales"
-                  column="commercialActivities"
-                  sort={sort}
-                  onSort={toggleSort}
-                />
-                <SortableHead
-                  label="Obras"
-                  column="projects"
-                  sort={sort}
-                  onSort={toggleSort}
-                />
-                <SortableHead
-                  label="Configuraciones"
-                  column="settings"
-                  sort={sort}
-                  onSort={toggleSort}
-                />
-                <SortableHead
-                  label="Último módulo"
-                  column="lastModule"
-                  sort={sort}
-                  onSort={toggleSort}
-                />
-                <SortableHead
-                  label="Estado"
-                  column="activityStatus"
-                  sort={sort}
-                  onSort={toggleSort}
-                />
+                <TableHead className="text-xs font-medium text-muted-foreground">
+                  Acción
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={15} className="h-28 text-center">
+                  <TableCell colSpan={6} className="h-28 text-center">
                     <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
                       <Loader2 className="size-4 animate-spin" />
-                      Cargando Workforce Monitor…
+                      Cargando equipo…
                     </div>
                   </TableCell>
                 </TableRow>
               ) : pageRows.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={15}
+                    colSpan={6}
                     className="h-28 text-center text-sm text-muted-foreground"
                   >
                     No hay empleados para los filtros seleccionados.
                   </TableCell>
                 </TableRow>
               ) : (
-                pageRows.map((row) => (
-                  <TableRow
-                    key={row.employeeId}
-                    className="cursor-pointer"
-                    onClick={() => openDailyReport(row.employeeId)}
-                  >
-                    <TableCell className="font-medium">
-                      {row.employeeName}
-                    </TableCell>
-                    <TableCell>{row.area}</TableCell>
-                    <TableCell>{row.roleLabel}</TableCell>
-                    <TableCell className="tabular-nums">
-                      {formatStamp(row.firstEventAt)}
-                    </TableCell>
-                    <TableCell className="tabular-nums">
-                      {formatStamp(row.lastEventAt)}
-                    </TableCell>
-                    <TableCell className="tabular-nums font-semibold">
-                      {row.eventCount}
-                    </TableCell>
-                    <TableCell className="tabular-nums">
-                      {row.modules.customers}
-                    </TableCell>
-                    <TableCell className="tabular-nums">
-                      {row.modules.requests}
-                    </TableCell>
-                    <TableCell className="tabular-nums">
-                      {row.modules.workOrders}
-                    </TableCell>
-                    <TableCell className="tabular-nums">
-                      {row.modules.attentions}
-                    </TableCell>
-                    <TableCell className="tabular-nums">
-                      {row.modules.commercialActivities}
-                    </TableCell>
-                    <TableCell className="tabular-nums">
-                      {row.modules.projects}
-                    </TableCell>
-                    <TableCell className="tabular-nums">
-                      {row.modules.settings}
-                    </TableCell>
-                    <TableCell>{row.lastModule ?? "—"}</TableCell>
-                    <TableCell>
-                      <ActivityStatusBadge status={row.activityStatus} />
-                    </TableCell>
-                  </TableRow>
-                ))
+                pageRows.map((row) => {
+                  const status = resolveWorkforceExecutiveStatus({
+                    activityStatus: row.activityStatus,
+                    eventCount: row.eventCount,
+                    selectedDate: date,
+                  })
+                  const highlights = buildWorkforceProductionHighlights(
+                    row.production
+                  )
+                  const narrative = buildWorkforceProductionNarrative(
+                    row.production
+                  )
+                  const jornadaHref = buildJornadaHref(row.employeeId, date)
+
+                  return (
+                    <TableRow
+                      key={row.employeeId}
+                      className="hover:bg-muted/30"
+                    >
+                      <TableCell className="align-top py-3">
+                        <p className="text-sm font-medium text-foreground">
+                          {row.employeeName}
+                        </p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {row.roleLabel}
+                        </p>
+                      </TableCell>
+
+                      <TableCell className="align-top py-3">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={cn(
+                              "size-2 shrink-0 rounded-full",
+                              status.dotClassName
+                            )}
+                            aria-hidden
+                          />
+                          <span className="text-sm text-foreground">
+                            {status.label}
+                          </span>
+                        </div>
+                      </TableCell>
+
+                      <TableCell className="align-top py-3 text-sm text-foreground">
+                        {row.area}
+                      </TableCell>
+
+                      <TableCell className="align-top py-3">
+                        {highlights.length === 0 ? (
+                          <p className="text-sm text-muted-foreground">—</p>
+                        ) : (
+                          <div className="space-y-1">
+                            <p className="text-sm font-medium tabular-nums text-foreground">
+                              {highlights
+                                .slice(0, 2)
+                                .map((item) => item.text)
+                                .join(" · ")}
+                            </p>
+                            {narrative ? (
+                              <p className="max-w-xs text-xs leading-snug text-muted-foreground">
+                                {narrative}
+                              </p>
+                            ) : null}
+                          </div>
+                        )}
+                      </TableCell>
+
+                      <TableCell className="align-top py-3">
+                        <div className="space-y-0.5 text-sm tabular-nums">
+                          <p className="text-foreground">
+                            {formatStamp(row.firstEventAt)}
+                          </p>
+                          <p className="text-foreground">
+                            {formatStamp(row.lastEventAt)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatWorkforceActiveTime(
+                              row.firstEventAt,
+                              row.lastEventAt
+                            )}
+                          </p>
+                        </div>
+                      </TableCell>
+
+                      <TableCell className="align-top py-3">
+                        <Link
+                          href={jornadaHref}
+                          className="inline-flex items-center gap-1 text-sm font-medium text-foreground underline-offset-4 hover:underline"
+                        >
+                          Ver jornada
+                          <ArrowRight className="size-3.5" aria-hidden />
+                        </Link>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
               )}
             </TableBody>
           </Table>
@@ -836,41 +776,6 @@ export function WorkforceMonitorModule() {
           </div>
         </div>
       </div>
-
-      <Sheet
-        open={selectedEmployeeId != null}
-        onOpenChange={(open) => {
-          if (!open) setSelectedEmployeeId(null)
-        }}
-      >
-        <SheetContent
-          side="right"
-          className="w-full overflow-y-auto sm:max-w-3xl"
-        >
-          <SheetHeader>
-            <SheetTitle>Producción</SheetTitle>
-            <SheetDescription>
-              {selectedEmployee
-                ? getEmployeeDisplayName(selectedEmployee)
-                : "Empleado"}{" "}
-              · {formatActivityTimelineDate(`${date}T12:00:00`) || date}
-            </SheetDescription>
-          </SheetHeader>
-          <div className="mt-4 pb-6">
-            {selectedEmployee ? (
-              <EmployeeDailyReport
-                key={`${selectedEmployee.id}:${date}`}
-                employee={selectedEmployee}
-                initialDate={date}
-              />
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                No se encontró el empleado seleccionado.
-              </p>
-            )}
-          </div>
-        </SheetContent>
-      </Sheet>
     </div>
   )
 }
@@ -907,28 +812,5 @@ function SortableHead({
         <Icon className="size-3.5 opacity-70" />
       </button>
     </TableHead>
-  )
-}
-
-function ActivityStatusBadge({
-  status,
-}: {
-  status: WorkforceActivityStatus
-}) {
-  return (
-    <span
-      className={cn(
-        "inline-flex rounded-md border px-2 py-0.5 text-[11px] font-medium",
-        status === "sin_actividad" && "border-slate-200 bg-slate-50 text-slate-600",
-        status === "baja_actividad" &&
-          "border-amber-100 bg-amber-50 text-amber-800",
-        status === "actividad_normal" &&
-          "border-sky-100 bg-sky-50 text-sky-800",
-        status === "alta_actividad" &&
-          "border-emerald-100 bg-emerald-50 text-emerald-800"
-      )}
-    >
-      {WORKFORCE_ACTIVITY_STATUS_LABELS[status]}
-    </span>
   )
 }

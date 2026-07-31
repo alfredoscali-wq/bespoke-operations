@@ -162,12 +162,12 @@ export const evidenceNavItem: NavItem = {
 }
 
 export const reportsNavItem: NavItem = {
-  title: "Reportes",
-  href: "/reportes",
+  title: "Reportes Operativos",
+  href: "/reportes/operativos",
   icon: BarChart3,
-  pageTitle: "Reportes",
+  pageTitle: "Reportes Operativos",
   description:
-    "Dashboard ejecutivo, indicadores operativos y reportes automáticos.",
+    "Producción operativa: cuadrillas, cumplimiento, obras e indicadores.",
   moduleColor: "intelligence",
 }
 
@@ -349,12 +349,11 @@ export const fieldOperationsNavItems: NavItem[] = [
 export const rrhhNavItems: NavItem[] = [employeesNavItem, newsNavItem]
 
 export const analysisNavItems: NavItem[] = [
-  activityNavItem,
   dayActivityNavItem,
-  workforceMonitorNavItem,
-  executiveDailyBriefNavItem,
-  activityTimelineNavItem,
   reportsNavItem,
+  activityNavItem,
+  workforceMonitorNavItem,
+  activityTimelineNavItem,
   tesoreriaNavItem,
 ]
 
