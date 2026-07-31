@@ -12,6 +12,7 @@ import {
   type ActivityOrigin,
   type ActivitySeverity,
 } from "@/lib/activity/types"
+import { canonicalizeActivityModule } from "@/lib/indicators/module-aliases"
 import {
   COMPANY_AREA_LABELS,
   FIXED_COMPANY_AREA_CODES,
@@ -82,8 +83,18 @@ const SEVERITY_LABELS: Record<ActivitySeverity, string> = {
   [ACTIVITY_SEVERITIES.CRITICAL]: "Crítico",
 }
 
+const EXTRA_MODULE_LABELS: Record<string, string> = {
+  commercial: "Comercial",
+  requests: "Solicitudes",
+  crews: "Cuadrillas",
+}
+
 export function formatActivityModuleLabel(module: string): string {
-  return MODULE_LABELS[module as ActivityModule] ?? module
+  const canonical = canonicalizeActivityModule(module)
+  if (canonical in MODULE_LABELS) {
+    return MODULE_LABELS[canonical as ActivityModule]
+  }
+  return EXTRA_MODULE_LABELS[canonical] ?? module
 }
 
 export function formatActivityEntityTypeLabel(entityType: string): string {

@@ -43,6 +43,12 @@ import { startProjectThroughApi } from "@/lib/supabase/projects-start-api.client
 import { finalizeProjectThroughApi } from "@/lib/supabase/projects-finalize-api.client"
 import { PROJECT_DELETE_USER_MESSAGE, logOperationError } from "@/lib/operations/user-messages"
 import {
+  recordProjectCreatedActivity,
+  recordProjectPausedActivity,
+  recordProjectSupervisorChangedActivity,
+  recordProjectUpdatedActivity,
+} from "@/lib/activity/domain/projects-activity"
+import {
   isProjectAuditableFieldUpdate,
   isProjectStatusUpdate,
   recordProjectArchiveAudit,
@@ -210,6 +216,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
       cacheProjectDetail(project)
       setProjects((current) => [project, ...current])
       recordProjectCreateAudit(project)
+      recordProjectCreatedActivity({ projectId: project.id })
 
       await persistHistoryEvent(
         project.id,
@@ -259,6 +266,21 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
 
           if (!isProjectStatusUpdate(payload) && isProjectAuditableFieldUpdate(payload)) {
             recordProjectUpdateAudit(existing, payload, result.data)
+            recordProjectUpdatedActivity({
+              projectId: result.data.id,
+              changedFields: Object.keys(payload),
+            })
+          }
+
+          if (
+            payload.supervisor !== undefined &&
+            existing.supervisor !== result.data.supervisor
+          ) {
+            recordProjectSupervisorChangedActivity({
+              projectId: result.data.id,
+              oldSupervisorEmployeeId: existing.supervisor?.trim() || null,
+              newSupervisorEmployeeId: result.data.supervisor?.trim() || null,
+            })
           }
 
           if (payload.status === undefined) {
@@ -413,6 +435,10 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
           project: existing,
           previousStatus,
           nextStatus: result.project.status,
+        })
+        recordProjectPausedActivity({
+          projectId: id,
+          oldStatus: previousStatus,
         })
         await persistHistoryEvent(id, buildPauseHistory(input))
       }

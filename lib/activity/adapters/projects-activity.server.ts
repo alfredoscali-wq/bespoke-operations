@@ -1,6 +1,7 @@
 import "server-only"
 
 import { recordActivityEventSafe } from "@/lib/activity/activity-service"
+import { recordProjectStartedActivity } from "@/lib/activity/domain/projects-activity.server"
 import {
   ACTIVITY_ACTIONS,
   ACTIVITY_ACTOR_TYPES,
@@ -13,10 +14,20 @@ export async function recordProjectStartActivity(input: {
   companyId: string
   projectId: string
   employeeId?: string | null
+  appUserId?: string | null
   projectCode?: string | null
   projectName?: string | null
   taskCount?: number | null
 }): Promise<void> {
+  await recordProjectStartedActivity({
+    actor: {
+      companyId: input.companyId,
+      employeeId: input.employeeId ?? null,
+      appUserId: input.appUserId ?? null,
+    },
+    projectId: input.projectId,
+  })
+
   await recordActivityEventSafe({
     companyId: input.companyId,
     employeeId: input.employeeId ?? null,

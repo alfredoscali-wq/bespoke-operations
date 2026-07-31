@@ -1,6 +1,15 @@
 "use client"
 
 import { createClient } from "@/lib/supabase/client"
+import {
+  recordRequestCancelledActivity,
+  recordRequestCreatedActivity,
+  recordRequestPriorityChangedActivity,
+  recordRequestResolvedActivity,
+  recordRequestStatusChangedActivity,
+  recordRequestUpdatedActivity,
+  recordRequestWorkOrderGeneratedActivity,
+} from "@/lib/activity/domain/requests-activity"
 import type { CommercialSolicitudResolutionCode } from "@/lib/commercial/solicitud-catalogs"
 import {
   cancelCommercialSolicitud,
@@ -44,7 +53,20 @@ export async function createCommercialSolicitudBrowser(
   input: CreateCommercialSolicitudInput,
   actor: { employeeId: string | null }
 ) {
-  return createCommercialSolicitud(browserClient(), companyId, input, actor)
+  const result = await createCommercialSolicitud(
+    browserClient(),
+    companyId,
+    input,
+    actor
+  )
+  if (result.data) {
+    recordRequestCreatedActivity({
+      requestId: result.data.id,
+      status: result.data.status,
+      priority: result.data.priority,
+    })
+  }
+  return result
 }
 
 export async function updateCommercialSolicitudBrowser(
@@ -53,13 +75,56 @@ export async function updateCommercialSolicitudBrowser(
   input: UpdateCommercialSolicitudInput,
   actor: { employeeId: string | null }
 ) {
-  return updateCommercialSolicitud(
-    browserClient(),
+  const client = browserClient()
+  const previous =
+    input.priority !== undefined || input.status !== undefined
+      ? await getCommercialSolicitudById(client, companyId, id)
+      : null
+
+  const result = await updateCommercialSolicitud(
+    client,
     companyId,
     id,
     input,
     actor
   )
+
+  if (result.data) {
+    const changedFields = (
+      Object.keys(input) as Array<keyof UpdateCommercialSolicitudInput>
+    ).filter((key) => input[key] !== undefined)
+
+    recordRequestUpdatedActivity({
+      requestId: result.data.id,
+      changedFields,
+    })
+
+    if (
+      input.priority !== undefined &&
+      previous?.data &&
+      previous.data.priority !== result.data.priority
+    ) {
+      recordRequestPriorityChangedActivity({
+        requestId: result.data.id,
+        oldPriority: previous.data.priority,
+        newPriority: result.data.priority,
+      })
+    }
+
+    if (
+      input.status !== undefined &&
+      previous?.data &&
+      previous.data.status !== result.data.status
+    ) {
+      recordRequestStatusChangedActivity({
+        requestId: result.data.id,
+        oldStatus: previous.data.status,
+        newStatus: result.data.status,
+      })
+    }
+  }
+
+  return result
 }
 
 export async function resolveCommercialSolicitudBrowser(
@@ -68,13 +133,39 @@ export async function resolveCommercialSolicitudBrowser(
   resolutionCode: CommercialSolicitudResolutionCode,
   actor: { employeeId: string | null }
 ) {
-  return resolveCommercialSolicitud(
-    browserClient(),
+  const client = browserClient()
+  const previous = await getCommercialSolicitudById(client, companyId, id)
+  const result = await resolveCommercialSolicitud(
+    client,
     companyId,
     id,
     resolutionCode,
     actor
   )
+
+  if (result.data) {
+    const oldStatus = previous.data?.status ?? null
+    if (result.data.status === "cancelada") {
+      recordRequestCancelledActivity({
+        requestId: result.data.id,
+        oldStatus,
+      })
+    } else {
+      recordRequestResolvedActivity({
+        requestId: result.data.id,
+        oldStatus,
+      })
+      if (oldStatus && oldStatus !== result.data.status) {
+        recordRequestStatusChangedActivity({
+          requestId: result.data.id,
+          oldStatus,
+          newStatus: result.data.status,
+        })
+      }
+    }
+  }
+
+  return result
 }
 
 export async function linkCommercialSolicitudToWorkOrderBrowser(
@@ -83,13 +174,30 @@ export async function linkCommercialSolicitudToWorkOrderBrowser(
   workOrderId: string,
   actor: { employeeId: string | null }
 ) {
-  return linkCommercialSolicitudToWorkOrder(
-    browserClient(),
+  const client = browserClient()
+  const previous = await getCommercialSolicitudById(client, companyId, id)
+  const result = await linkCommercialSolicitudToWorkOrder(
+    client,
     companyId,
     id,
     workOrderId,
     actor
   )
+  if (result.data) {
+    recordRequestWorkOrderGeneratedActivity({
+      requestId: result.data.id,
+      workOrderId,
+    })
+    const oldStatus = previous.data?.status ?? null
+    if (oldStatus && oldStatus !== result.data.status) {
+      recordRequestStatusChangedActivity({
+        requestId: result.data.id,
+        oldStatus,
+        newStatus: result.data.status,
+      })
+    }
+  }
+  return result
 }
 
 export async function cancelCommercialSolicitudBrowser(
@@ -97,5 +205,14 @@ export async function cancelCommercialSolicitudBrowser(
   id: string,
   actor: { employeeId: string | null }
 ) {
-  return cancelCommercialSolicitud(browserClient(), companyId, id, actor)
+  const client = browserClient()
+  const previous = await getCommercialSolicitudById(client, companyId, id)
+  const result = await cancelCommercialSolicitud(client, companyId, id, actor)
+  if (result.data) {
+    recordRequestCancelledActivity({
+      requestId: result.data.id,
+      oldStatus: previous.data?.status ?? null,
+    })
+  }
+  return result
 }

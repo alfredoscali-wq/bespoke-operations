@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 import {
   ArrowLeft,
   Briefcase,
@@ -50,6 +51,10 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { EntityActivityTimeline } from "@/components/activity/entity-activity-timeline"
+import { EmployeeDailyReport } from "@/components/rrhh/employee-daily-report"
+import { EMPLOYEE_TIMELINE_FILTERS } from "@/lib/activity/activity-timeline-types"
 
 type EmployeeDetailViewProps = {
   employee: Employee
@@ -83,10 +88,19 @@ function DetailField({
 
 export function EmployeeDetailView({ employee }: EmployeeDetailViewProps) {
   const { editEmployee, removeEmployee } = useEmployees()
+  const searchParams = useSearchParams()
+  const tabParam = searchParams.get("tab")
+  const dateParam = searchParams.get("date")?.trim() || undefined
+  const initialTab =
+    tabParam === "activity" || tabParam === "daily-report" || tabParam === "datos"
+      ? tabParam
+      : "datos"
+
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState(initialTab)
 
   const fullName = [employee.firstName, employee.lastName]
     .map((part) => part.trim())
@@ -189,121 +203,156 @@ export function EmployeeDetailView({ employee }: EmployeeDetailViewProps) {
         </div>
       </div>
 
-      <Card className="shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-base">Información del empleado</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <DetailField
-            icon={User}
-            iconClassName="bg-primary/8 text-primary"
-            label="Nombre completo"
-            value={fullName}
-          />
-          <DetailField
-            icon={User}
-            iconClassName="bg-sky-50 text-sky-600"
-            label="Nombre preferido"
-            value={employee.preferredName?.trim() || "—"}
-          />
-          <DetailField
-            icon={FileText}
-            iconClassName="bg-violet-50 text-violet-600"
-            label="DNI"
-            value={employee.nationalId?.trim() || "—"}
-          />
-          <DetailField
-            icon={Calendar}
-            iconClassName="bg-amber-50 text-amber-600"
-            label="Fecha de nacimiento"
-            value={formatEmployeeDate(employee.birthDate)}
-          />
-          <DetailField
-            icon={Mail}
-            iconClassName="bg-blue-50 text-blue-600"
-            label="Correo electrónico"
-            value={employee.email?.trim() || "—"}
-          />
-          <DetailField
-            icon={Phone}
-            iconClassName="bg-emerald-50 text-emerald-600"
-            label="Teléfono"
-            value={
-              employee.phone?.trim() ? (
-                <TelLink phone={employee.phone} />
-              ) : (
-                "—"
-              )
-            }
-          />
-          <DetailField
-            icon={Briefcase}
-            iconClassName="bg-orange-50 text-orange-600"
-            label="Cargo"
-            value={employee.jobTitle || "—"}
-          />
-          <DetailField
-            icon={Building2}
-            iconClassName="bg-indigo-50 text-indigo-600"
-            label="Departamento"
-            value={employee.department || "—"}
-          />
-          <DetailField
-            icon={User}
-            iconClassName="bg-indigo-50 text-indigo-600"
-            label="Tipo de empleado"
-            value={getEmployeeTypeDisplayName(employee)}
-          />
-          <DetailField
-            icon={Calendar}
-            iconClassName="bg-teal-50 text-teal-600"
-            label="Fecha de ingreso"
-            value={formatEmployeeDate(employee.hireDate)}
-          />
-          <DetailField
-            icon={Calendar}
-            iconClassName="bg-rose-50 text-rose-600"
-            label="Fecha de baja"
-            value={formatEmployeeDate(employee.terminationDate)}
-          />
-        </CardContent>
-        {employee.notes && (
-          <CardContent className="border-t pt-4">
-            <p className="text-xs text-muted-foreground">Notas</p>
-            <p className="mt-1 text-sm">{employee.notes}</p>
-          </CardContent>
-        )}
-        {(employee.createdAt || employee.updatedAt) && (
-          <CardContent className="border-t pt-4">
-            <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
-              {employee.createdAt && (
-                <p>
-                  Creado: {formatEmployeeDateTime(employee.createdAt)}
-                </p>
-              )}
-              {employee.updatedAt && (
-                <p>
-                  Actualizado: {formatEmployeeDateTime(employee.updatedAt)}
-                </p>
-              )}
-            </div>
-          </CardContent>
-        )}
-      </Card>
-
-      <EmployeeSystemAccessSection employee={employee} />
-
-      <div className="flex items-center gap-3 rounded-xl border bg-muted/20 px-4 py-3">
-        <div className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-          {getEmployeeInitials(employee)}
+      <Tabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="space-y-4"
+      >
+        <div className="overflow-x-auto">
+          <TabsList variant="line" className="w-full min-w-max justify-start">
+            <TabsTrigger value="datos">Datos</TabsTrigger>
+            <TabsTrigger value="activity">Timeline</TabsTrigger>
+            <TabsTrigger value="daily-report">Producción</TabsTrigger>
+          </TabsList>
         </div>
-        <div>
-          <p className="text-sm font-medium">{getEmployeeDisplayName(employee)}</p>
-          <p className="text-xs text-muted-foreground">
-            Código {employee.employeeCode}
-          </p>
+
+        <TabsContent value="datos" className="space-y-6">
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-base">Información del empleado</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <DetailField
+              icon={User}
+              iconClassName="bg-primary/8 text-primary"
+              label="Nombre completo"
+              value={fullName}
+            />
+            <DetailField
+              icon={User}
+              iconClassName="bg-sky-50 text-sky-600"
+              label="Nombre preferido"
+              value={employee.preferredName?.trim() || "—"}
+            />
+            <DetailField
+              icon={FileText}
+              iconClassName="bg-violet-50 text-violet-600"
+              label="DNI"
+              value={employee.nationalId?.trim() || "—"}
+            />
+            <DetailField
+              icon={Calendar}
+              iconClassName="bg-amber-50 text-amber-600"
+              label="Fecha de nacimiento"
+              value={formatEmployeeDate(employee.birthDate)}
+            />
+            <DetailField
+              icon={Mail}
+              iconClassName="bg-blue-50 text-blue-600"
+              label="Correo electrónico"
+              value={employee.email?.trim() || "—"}
+            />
+            <DetailField
+              icon={Phone}
+              iconClassName="bg-emerald-50 text-emerald-600"
+              label="Teléfono"
+              value={
+                employee.phone?.trim() ? (
+                  <TelLink phone={employee.phone} />
+                ) : (
+                  "—"
+                )
+              }
+            />
+            <DetailField
+              icon={Briefcase}
+              iconClassName="bg-orange-50 text-orange-600"
+              label="Cargo"
+              value={employee.jobTitle || "—"}
+            />
+            <DetailField
+              icon={Building2}
+              iconClassName="bg-indigo-50 text-indigo-600"
+              label="Departamento"
+              value={employee.department || "—"}
+            />
+            <DetailField
+              icon={User}
+              iconClassName="bg-indigo-50 text-indigo-600"
+              label="Tipo de empleado"
+              value={getEmployeeTypeDisplayName(employee)}
+            />
+            <DetailField
+              icon={Calendar}
+              iconClassName="bg-teal-50 text-teal-600"
+              label="Fecha de ingreso"
+              value={formatEmployeeDate(employee.hireDate)}
+            />
+            <DetailField
+              icon={Calendar}
+              iconClassName="bg-rose-50 text-rose-600"
+              label="Fecha de baja"
+              value={formatEmployeeDate(employee.terminationDate)}
+            />
+          </CardContent>
+          {employee.notes && (
+            <CardContent className="border-t pt-4">
+              <p className="text-xs text-muted-foreground">Notas</p>
+              <p className="mt-1 text-sm">{employee.notes}</p>
+            </CardContent>
+          )}
+          {(employee.createdAt || employee.updatedAt) && (
+            <CardContent className="border-t pt-4">
+              <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+                {employee.createdAt && (
+                  <p>
+                    Creado: {formatEmployeeDateTime(employee.createdAt)}
+                  </p>
+                )}
+                {employee.updatedAt && (
+                  <p>
+                    Actualizado: {formatEmployeeDateTime(employee.updatedAt)}
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          )}
+        </Card>
+
+        <EmployeeSystemAccessSection employee={employee} />
+
+        <div className="flex items-center gap-3 rounded-xl border bg-muted/20 px-4 py-3">
+          <div className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+            {getEmployeeInitials(employee)}
+          </div>
+          <div>
+            <p className="text-sm font-medium">{getEmployeeDisplayName(employee)}</p>
+            <p className="text-xs text-muted-foreground">
+              Código {employee.employeeCode}
+            </p>
+          </div>
         </div>
-      </div>
+
+
+        </TabsContent>
+
+        <TabsContent value="activity">
+          <EntityActivityTimeline
+            scope={{ kind: "employee", employeeId: employee.id }}
+            visibleFilters={EMPLOYEE_TIMELINE_FILTERS}
+            layout="embedded"
+            showStats
+          />
+        </TabsContent>
+
+        <TabsContent value="daily-report">
+          <EmployeeDailyReport
+            key={`${employee.id}:${dateParam ?? "today"}`}
+            employee={employee}
+            initialDate={dateParam}
+          />
+        </TabsContent>
+      </Tabs>
 
       <EmployeeFormDialog
         open={editOpen}

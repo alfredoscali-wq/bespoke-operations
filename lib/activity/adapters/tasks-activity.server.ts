@@ -1,6 +1,8 @@
 import "server-only"
 
 import { recordActivitySafe } from "@/lib/activity/activity-service"
+import { recordWorkOrderStartedActivity } from "@/lib/activity/domain/workorders-activity.server"
+import { activityActorFromMobile } from "@/lib/activity/resolve-activity-actor"
 import {
   ACTIVITY_ACTIONS,
   ACTIVITY_ACTOR_TYPES,
@@ -88,7 +90,14 @@ export async function recordTaskMobileStartActivity(input: {
         },
       })
 
-  // Write path is a single RPC (no separate insert/readback after 1.1).
+  await recordWorkOrderStartedActivity({
+    actor: activityActorFromMobile(input.auth),
+    workOrderId: input.after.id,
+    oldStatus: input.before.status,
+    newStatus: input.after.status,
+  })
+
+  // Legacy OIE path kept for compatibility with existing viewers.
   await (perf
     ? (async () => {
         await perf.span("rpc", () => recordActivitySafe(payload))

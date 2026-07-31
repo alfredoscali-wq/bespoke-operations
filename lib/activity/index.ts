@@ -1,4 +1,22 @@
 export {
+  ACTIVITY_EVENT_ACTIONS,
+  ACTIVITY_EVENT_TITLES,
+  type ActivityEventAction,
+} from "@/lib/activity/actions"
+export type {
+  RecordActivityInput,
+  RecordActivityResult,
+} from "@/lib/activity/activity-types"
+export {
+  emitActivityClient,
+  type EmitActivityClientInput,
+} from "@/lib/activity/emit-activity.client"
+export {
+  recordActivityClient,
+  type ClientRecordActivityInput,
+} from "@/lib/activity/record-activity.client"
+export type { ActivityActorContext } from "@/lib/activity/resolve-activity-actor"
+export {
   ACTIVITY_ACTION_DEFINITIONS,
   assertActivityResultAllowed,
   isActivityAction,

@@ -1,3 +1,8 @@
+import {
+  recordCatalogCreatedActivity,
+  recordCatalogDeletedActivity,
+  recordCatalogUpdatedActivity,
+} from "@/lib/activity/domain/catalog-activity"
 import { createClient } from "@/lib/supabase/client"
 import {
   deleteOperationalMotivo,
@@ -30,7 +35,14 @@ export async function createOperationalMotivo(
   companyId: string,
   input: OperationalMotivoInput
 ) {
-  return insertOperationalMotivo(client(), companyId, input)
+  const result = await insertOperationalMotivo(client(), companyId, input)
+  if (!result.error && result.data) {
+    recordCatalogCreatedActivity({
+      catalog: "operational_motivo",
+      entityId: result.data.id,
+    })
+  }
+  return result
 }
 
 export async function patchOperationalMotivo(
@@ -38,11 +50,26 @@ export async function patchOperationalMotivo(
   companyId: string,
   patch: Partial<OperationalMotivoInput> & { isActive?: boolean }
 ) {
-  return updateOperationalMotivo(client(), id, companyId, patch)
+  const result = await updateOperationalMotivo(client(), id, companyId, patch)
+  if (!result.error && result.data) {
+    recordCatalogUpdatedActivity({
+      catalog: "operational_motivo",
+      entityId: result.data.id,
+      metadata: { changedFields: Object.keys(patch) },
+    })
+  }
+  return result
 }
 
 export async function removeOperationalMotivo(id: string, companyId: string) {
-  return deleteOperationalMotivo(client(), id, companyId)
+  const result = await deleteOperationalMotivo(client(), id, companyId)
+  if (!result.error) {
+    recordCatalogDeletedActivity({
+      catalog: "operational_motivo",
+      entityId: id,
+    })
+  }
+  return result
 }
 
 export async function listTaskOperationalEvents(

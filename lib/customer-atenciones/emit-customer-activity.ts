@@ -1,6 +1,15 @@
 import "server-only"
 
 import {
+  recordAttentionCreatedActivity,
+  recordAttentionResolvedActivity,
+  recordAttentionStatusChangedActivity,
+  recordAttentionTransferredActivity,
+  recordAttentionUpdatedActivity,
+  recordAttentionWorkOrderGeneratedActivity,
+} from "@/lib/activity/domain/attention-activity"
+import type { ActivityActorContext } from "@/lib/activity/resolve-activity-actor"
+import {
   buildCaseClosedActivity,
   buildCaseCreatedActivity,
   buildCustomerInteractionActivity,
@@ -23,6 +32,17 @@ import type { ConsultationManagementRpcResult } from "@/lib/customer-atenciones/
 import type { ConsultationInteractionRpcResult } from "@/lib/customer-atenciones/consultation-interaction-management"
 import type { OtLinkRpcResult } from "@/lib/customer-atenciones/ot-link"
 import { createAdminClient } from "@/lib/supabase/admin"
+
+function attentionActor(
+  companyId: string,
+  employeeId?: string | null
+): ActivityActorContext {
+  return {
+    companyId,
+    employeeId: employeeId ?? null,
+    appUserId: null,
+  }
+}
 
 async function resolveEmployeeDisplayName(
   employeeId: string
@@ -71,6 +91,7 @@ export async function emitCustomerCaseCreatedActivity(input: {
   estadoInicial: string
   prioridad?: string | null
   nextStep?: string | null
+  actor?: ActivityActorContext | null
 }): Promise<void> {
   const payload = buildCaseCreatedActivity({
     customerId: input.customerId,
@@ -85,6 +106,13 @@ export async function emitCustomerCaseCreatedActivity(input: {
     entityId: input.entityId,
     employeeId: input.employeeId,
     ...payload,
+  })
+  const actor =
+    input.actor ?? attentionActor(input.companyId, input.employeeId)
+  void recordAttentionCreatedActivity({
+    actor,
+    attentionId: input.entityId,
+    status: input.estadoInicial,
   })
 }
 
@@ -118,6 +146,7 @@ export async function emitCustomerManagementActivities(input: {
   detail?: string | null
   resolution?: string | null
   kind: "resolve" | "defer" | "start"
+  actor?: ActivityActorContext | null
 }): Promise<void> {
   const { result, companyId, employeeId } = input
   const base = {
@@ -125,6 +154,7 @@ export async function emitCustomerManagementActivities(input: {
     entityId: result.atencionId,
     employeeId,
   }
+  const actor = input.actor ?? attentionActor(companyId, employeeId)
 
   if (result.previousStatus !== result.newStatus) {
     const payload = buildStatusChangedActivity({
@@ -154,6 +184,12 @@ export async function emitCustomerManagementActivities(input: {
         motivo: input.detail ?? null,
       })
       await registerCustomerActivitySafe({ ...base, ...payload })
+      void recordAttentionTransferredActivity({
+        actor,
+        attentionId: result.atencionId,
+        oldEmployeeId: null,
+        newEmployeeId: employeeId,
+      })
     }
   }
 
@@ -163,6 +199,27 @@ export async function emitCustomerManagementActivities(input: {
       motivoCierre: input.resolution ?? null,
     })
     await registerCustomerActivitySafe({ ...base, ...payload })
+    void recordAttentionResolvedActivity({
+      actor,
+      attentionId: result.atencionId,
+      oldStatus: result.previousStatus,
+    })
+  } else if (result.previousStatus !== result.newStatus) {
+    void recordAttentionStatusChangedActivity({
+      actor,
+      attentionId: result.atencionId,
+      oldStatus: result.previousStatus,
+      newStatus: result.newStatus,
+    })
+  } else if (
+    result.previousNextStep !== result.newNextStep &&
+    input.kind !== "defer"
+  ) {
+    void recordAttentionUpdatedActivity({
+      actor,
+      attentionId: result.atencionId,
+      changedFields: ["nextStep"],
+    })
   }
 }
 
@@ -174,6 +231,7 @@ export async function emitCustomerInteractionActivities(input: {
   interactionResult?: string | null
   nextActionAt?: string | null
   result: ConsultationInteractionRpcResult
+  actor?: ActivityActorContext | null
   /** Sprint 1.1C — when present, emit CUSTOMER_INTERACTION instead of FOLLOW_UP. */
   clientInteraction?: {
     medio: string
@@ -186,6 +244,14 @@ export async function emitCustomerInteractionActivities(input: {
     entityId: input.result.atencionId,
     employeeId: input.employeeId,
   }
+  const actor =
+    input.actor ?? attentionActor(input.companyId, input.employeeId)
+
+  void recordAttentionUpdatedActivity({
+    actor,
+    attentionId: input.result.atencionId,
+    changedFields: [input.interactionKind || "interaction"],
+  })
 
   if (input.interactionKind === "note") {
     const payload = buildNoteCreatedActivity({
@@ -250,8 +316,11 @@ export async function emitCustomerOtLinkedActivity(input: {
   companyId: string
   employeeId: string
   result: OtLinkRpcResult
+  actor?: ActivityActorContext | null
 }): Promise<void> {
   const admin = createAdminClient()
+  const actor =
+    input.actor ?? attentionActor(input.companyId, input.employeeId)
   const { data: task } = await admin
     .from("tasks")
     .select("id, project_id, priority")
@@ -271,6 +340,12 @@ export async function emitCustomerOtLinkedActivity(input: {
     ...otPayload,
   })
 
+  void recordAttentionWorkOrderGeneratedActivity({
+    actor,
+    attentionId: input.result.atencionId,
+    workOrderId: input.result.linkedTaskId,
+  })
+
   const { data: atencion } = await admin
     .from("customer_atenciones")
     .select("status, resultado, resolution")
@@ -287,6 +362,11 @@ export async function emitCustomerOtLinkedActivity(input: {
       entityId: input.result.atencionId,
       employeeId: input.employeeId,
       ...closed,
+    })
+    void recordAttentionResolvedActivity({
+      actor,
+      attentionId: input.result.atencionId,
+      oldStatus: null,
     })
   }
 }

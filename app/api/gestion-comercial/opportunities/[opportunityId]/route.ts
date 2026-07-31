@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server"
 
+import { ACTIVITY_EVENT_ACTIONS } from "@/lib/activity/actions"
+import { emitActivity } from "@/lib/activity/emit-activity"
+import { activityActorFromSession } from "@/lib/activity/resolve-activity-actor"
 import { CommercialOpportunityService } from "@/lib/commercial/services"
 import {
   requireGestionComercialMutationContext,
@@ -78,6 +81,26 @@ export async function PATCH(request: Request, context: RouteContext) {
       { success: false, message: result.error.message },
       { status: result.error.code === "VALIDATION" ? 400 : 500 }
     )
+  }
+
+  if (
+    payload.etiquetaId !== undefined &&
+    (existing.data.etiquetaId ?? null) !== (result.data?.etiquetaId ?? null)
+  ) {
+    const actor = activityActorFromSession(auth.sessionUser)
+    if (actor) {
+      void emitActivity({
+        actor,
+        module: "customers",
+        entityType: "commercial_opportunity",
+        entityId: opportunityId,
+        action: ACTIVITY_EVENT_ACTIONS.CUSTOMER_TAG_CHANGED,
+        metadata: {
+          oldEtiquetaId: existing.data.etiquetaId ?? null,
+          newEtiquetaId: result.data?.etiquetaId ?? null,
+        },
+      })
+    }
   }
 
   return NextResponse.json({ success: true, opportunity: result.data })

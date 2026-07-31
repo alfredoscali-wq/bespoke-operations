@@ -6,7 +6,11 @@ import {
 } from "@/lib/roles/app-modules"
 import {
   activityNavItem,
+  activityTimelineNavItem,
   archivoOtNavItem,
+  dayActivityNavItem,
+  executiveDailyBriefNavItem,
+  workforceMonitorNavItem,
 } from "@/lib/navigation/nav-items"
 import type { NavGroup, NavItem } from "@/lib/navigation/nav-types"
 
@@ -48,6 +52,10 @@ export function buildNavGroupsFromModuleVisibility(
 
       if (definition.key === "history") {
         existing.items.push(activityNavItem)
+        existing.items.push(executiveDailyBriefNavItem)
+        existing.items.push(dayActivityNavItem)
+        existing.items.push(workforceMonitorNavItem)
+        existing.items.push(activityTimelineNavItem)
       }
 
       continue
@@ -61,6 +69,10 @@ export function buildNavGroupsFromModuleVisibility(
 
     if (definition.key === "history") {
       items.push(activityNavItem)
+      items.push(executiveDailyBriefNavItem)
+      items.push(dayActivityNavItem)
+      items.push(workforceMonitorNavItem)
+      items.push(activityTimelineNavItem)
     }
 
     groups.set(groupKey, {

@@ -1,5 +1,10 @@
 "use client"
 
+import {
+  recordCatalogCreatedActivity,
+  recordCatalogDeletedActivity,
+  recordCatalogUpdatedActivity,
+} from "@/lib/activity/domain/catalog-activity"
 import { createClient } from "@/lib/supabase/client"
 import {
   createCommercialTerritorialActivityType,
@@ -32,11 +37,18 @@ export async function createCommercialTerritorialActivityTypeBrowser(
   companyId: string,
   input: CreateCommercialTerritorialActivityTypeInput
 ) {
-  return createCommercialTerritorialActivityType(
+  const result = await createCommercialTerritorialActivityType(
     browserClient(),
     companyId,
     input
   )
+  if (!result.error && result.data) {
+    recordCatalogCreatedActivity({
+      catalog: "territorial_activity_type",
+      entityId: result.data.id,
+    })
+  }
+  return result
 }
 
 export async function updateCommercialTerritorialActivityTypeBrowser(
@@ -44,21 +56,36 @@ export async function updateCommercialTerritorialActivityTypeBrowser(
   id: string,
   input: UpdateCommercialTerritorialActivityTypeInput
 ) {
-  return updateCommercialTerritorialActivityType(
+  const result = await updateCommercialTerritorialActivityType(
     browserClient(),
     companyId,
     id,
     input
   )
+  if (!result.error && result.data) {
+    recordCatalogUpdatedActivity({
+      catalog: "territorial_activity_type",
+      entityId: result.data.id,
+      metadata: { changedFields: Object.keys(input) },
+    })
+  }
+  return result
 }
 
 export async function removeCommercialTerritorialActivityTypeBrowser(
   companyId: string,
   id: string
 ) {
-  return softDeleteCommercialTerritorialActivityType(
+  const result = await softDeleteCommercialTerritorialActivityType(
     browserClient(),
     companyId,
     id
   )
+  if (!result.error && result.data) {
+    recordCatalogDeletedActivity({
+      catalog: "territorial_activity_type",
+      entityId: id,
+    })
+  }
+  return result
 }

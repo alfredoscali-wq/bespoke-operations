@@ -79,6 +79,25 @@ export async function POST(_request: Request, context: RouteContext) {
     // Audit must not block operational finalize.
   }
 
+  try {
+    const { recordProjectFinishedActivity } = await import(
+      "@/lib/activity/domain/projects-activity.server"
+    )
+    const { activityActorFromSession } = await import(
+      "@/lib/activity/resolve-activity-actor"
+    )
+    const actor = activityActorFromSession(auth.sessionUser)
+    if (actor) {
+      await recordProjectFinishedActivity({
+        actor,
+        projectId,
+        oldStatus: result.data.previousStatus,
+      })
+    }
+  } catch {
+    // Activity must not block operational finalize.
+  }
+
   return NextResponse.json({
     success: true,
     projectId: result.data.projectId,

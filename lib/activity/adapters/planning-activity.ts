@@ -1,3 +1,7 @@
+import {
+  recordPlanningAssignmentChangedActivity,
+  recordPlanningOrderChangedActivity,
+} from "@/lib/activity/domain/planning-activity"
 import { recordActivityEventClient } from "@/lib/activity/record-activity-event.client"
 import {
   ACTIVITY_ACTIONS,
@@ -47,6 +51,12 @@ export function recordPlanningOrderChangeActivity(input: {
   newOrder: number | null
   planningDate?: string | null
 }): void {
+  recordPlanningOrderChangedActivity({
+    workOrderId: input.taskId,
+    oldOrder: input.oldOrder,
+    newOrder: input.newOrder,
+    planningDate: input.planningDate ?? null,
+  })
   void recordActivityEventClient({
     action: ACTIVITY_ACTIONS.PLANNING_ORDER_CHANGE,
     module: ACTIVITY_MODULES.PLANNING,
@@ -71,6 +81,11 @@ export function recordPlanningCrewChangeActivity(input: {
   oldCrew?: string | null
   newCrew?: string | null
 }): void {
+  recordPlanningAssignmentChangedActivity({
+    workOrderId: input.taskId,
+    oldCrewId: input.oldCrewId,
+    newCrewId: input.newCrewId,
+  })
   void recordActivityEventClient({
     action: ACTIVITY_ACTIONS.PLANNING_CREW_CHANGE,
     module: ACTIVITY_MODULES.PLANNING,

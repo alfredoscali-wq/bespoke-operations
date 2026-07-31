@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
 
+import { recordAttentionTransferredActivity } from "@/lib/activity/domain/attention-activity"
+import { activityActorFromSession } from "@/lib/activity/resolve-activity-actor"
 import { deriveCommercialOpportunityFromCustomerService } from "@/lib/commercial/derive-from-customer-service"
 import {
   requireAtencionClienteMutationContext,
@@ -47,6 +49,16 @@ export async function POST(
       },
       { status: 500 }
     )
+  }
+
+  const actor = activityActorFromSession(auth.sessionUser)
+  if (actor) {
+    void recordAttentionTransferredActivity({
+      actor,
+      attentionId: atencionId.trim(),
+      oldEmployeeId: null,
+      newEmployeeId: auth.employeeId,
+    })
   }
 
   return NextResponse.json({

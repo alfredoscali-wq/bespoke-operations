@@ -28,6 +28,12 @@ import {
   recordCustomerValidateAudit,
 } from "@/lib/audit/customers-audit"
 import {
+  recordCustomerArchivedActivity,
+  recordCustomerCreatedActivity,
+  recordCustomerReactivatedActivity,
+  recordCustomerUpdatedActivity,
+} from "@/lib/activity/domain/customers-activity"
+import {
   DEFAULT_CUSTOMER_PAGE_SIZE,
   type CustomerListQuery,
 } from "@/lib/customers/customer-list"
@@ -315,6 +321,7 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
             refreshOperationalSummary(),
           ])
           recordCustomerCreateAudit(result.data)
+          recordCustomerCreatedActivity(result.data)
           return { success: true, customer: result.data }
         }
 
@@ -373,6 +380,7 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
         if ("ok" in result && result.ok) {
           if (existing && isCustomerArchiveUpdate(input)) {
             recordCustomerArchiveAudit(existing)
+            recordCustomerArchivedActivity(existing)
           }
           customerCacheRef.current.delete(id)
           invalidateImportIndex()
@@ -387,6 +395,7 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
           customerCacheRef.current.set(result.data.id, result.data)
           if (isCustomerArchiveUpdate(input)) {
             recordCustomerArchiveAudit(result.data)
+            recordCustomerArchivedActivity(result.data)
           } else if (existing) {
             if (options?.syncFromTask) {
               recordCustomerSyncFromWorkOrderAudit(
@@ -396,6 +405,15 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
               )
             } else {
               recordCustomerUpdateAudit(existing, input)
+            }
+            if (
+              input.status !== undefined &&
+              existing.status !== "activo" &&
+              result.data.status === "activo"
+            ) {
+              recordCustomerReactivatedActivity(existing, result.data)
+            } else {
+              recordCustomerUpdatedActivity(existing, input, result.data)
             }
           }
           invalidateImportIndex()
@@ -601,6 +619,7 @@ export function CustomersProvider({ children }: { children: React.ReactNode }) {
           refreshOperationalSummary(),
         ])
         recordCustomerActivateAudit(existing, input.activatedBy)
+        recordCustomerReactivatedActivity(existing, result.data)
         return { success: true, customer: result.data }
       }
 

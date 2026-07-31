@@ -1,5 +1,10 @@
 "use client"
 
+import {
+  recordCatalogCreatedActivity,
+  recordCatalogDeletedActivity,
+  recordCatalogUpdatedActivity,
+} from "@/lib/activity/domain/catalog-activity"
 import { createClient } from "@/lib/supabase/client"
 import {
   createCommercialEtiqueta,
@@ -28,7 +33,14 @@ export async function createCommercialEtiquetaBrowser(
   companyId: string,
   input: CreateCommercialEtiquetaInput
 ) {
-  return createCommercialEtiqueta(browserClient(), companyId, input)
+  const result = await createCommercialEtiqueta(browserClient(), companyId, input)
+  if (!result.error && result.data) {
+    recordCatalogCreatedActivity({
+      catalog: "commercial_etiqueta",
+      entityId: result.data.id,
+    })
+  }
+  return result
 }
 
 export async function updateCommercialEtiquetaBrowser(
@@ -36,12 +48,36 @@ export async function updateCommercialEtiquetaBrowser(
   id: string,
   input: UpdateCommercialEtiquetaInput
 ) {
-  return updateCommercialEtiqueta(browserClient(), companyId, id, input)
+  const result = await updateCommercialEtiqueta(
+    browserClient(),
+    companyId,
+    id,
+    input
+  )
+  if (!result.error && result.data) {
+    recordCatalogUpdatedActivity({
+      catalog: "commercial_etiqueta",
+      entityId: result.data.id,
+      metadata: { changedFields: Object.keys(input) },
+    })
+  }
+  return result
 }
 
 export async function removeCommercialEtiquetaBrowser(
   companyId: string,
   id: string
 ) {
-  return softDeleteCommercialEtiqueta(browserClient(), companyId, id)
+  const result = await softDeleteCommercialEtiqueta(
+    browserClient(),
+    companyId,
+    id
+  )
+  if (!result.error && result.data) {
+    recordCatalogDeletedActivity({
+      catalog: "commercial_etiqueta",
+      entityId: id,
+    })
+  }
+  return result
 }

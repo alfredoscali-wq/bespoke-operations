@@ -1,3 +1,24 @@
+import {
+  recordPlanningAssignmentChangedActivity,
+  recordPlanningDateChangedActivity,
+  recordPlanningDurationChangedActivity,
+  recordPlanningOrderChangedActivity,
+  recordPlanningShiftChangedActivity,
+} from "@/lib/activity/domain/planning-activity"
+import {
+  recordWorkOrderAssignedActivity,
+  recordWorkOrderCancelledActivity,
+  recordWorkOrderCreatedActivity,
+  recordWorkOrderCrewChangedActivity,
+  recordWorkOrderFinishedActivity,
+  recordWorkOrderPausedActivity,
+  recordWorkOrderPriorityChangedActivity,
+  recordWorkOrderRescheduledActivity,
+  recordWorkOrderResumedActivity,
+  recordWorkOrderScheduledActivity,
+  recordWorkOrderStartedActivityClient,
+  recordWorkOrderUpdatedActivity,
+} from "@/lib/activity/domain/workorders-activity"
 import { recordActivityEventClient } from "@/lib/activity/record-activity-event.client"
 import {
   ACTIVITY_ACTIONS,
@@ -15,6 +36,204 @@ import type { TaskRescheduleInput } from "@/lib/tasks/reschedule"
 import type { TaskWorkflowAction } from "@/lib/tasks/task-status-workflow"
 import type { Task } from "@/lib/types/tasks"
 import type { UpdateTaskPayload } from "@/lib/types/supabase/tasks"
+
+function emitCanonicalWorkOrderActivity(
+  emission: TaskActivityEmission,
+  taskId: string
+): void {
+  const metadata = emission.metadata ?? {}
+
+  switch (emission.action) {
+    case ACTIVITY_ACTIONS.TASK_CREATE:
+      recordWorkOrderCreatedActivity({
+        workOrderId: taskId,
+        status:
+          typeof metadata.status === "string" ? metadata.status : null,
+      })
+      return
+    case ACTIVITY_ACTIONS.TASK_SCHEDULE:
+      recordWorkOrderScheduledActivity({
+        workOrderId: taskId,
+        scheduledDate:
+          typeof metadata.dueDate === "string" ? metadata.dueDate : null,
+      })
+      return
+    case ACTIVITY_ACTIONS.TASK_ASSIGN_CREW:
+      recordWorkOrderAssignedActivity({
+        workOrderId: taskId,
+        oldCrewId:
+          typeof metadata.oldCrewId === "string" || metadata.oldCrewId === null
+            ? (metadata.oldCrewId as string | null)
+            : null,
+        newCrewId:
+          typeof metadata.newCrewId === "string" || metadata.newCrewId === null
+            ? (metadata.newCrewId as string | null)
+            : null,
+      })
+      recordWorkOrderCrewChangedActivity({
+        workOrderId: taskId,
+        oldCrewId:
+          typeof metadata.oldCrewId === "string" || metadata.oldCrewId === null
+            ? (metadata.oldCrewId as string | null)
+            : null,
+        newCrewId:
+          typeof metadata.newCrewId === "string" || metadata.newCrewId === null
+            ? (metadata.newCrewId as string | null)
+            : null,
+      })
+      return
+    case ACTIVITY_ACTIONS.TASK_UNASSIGN_CREW:
+      recordWorkOrderCrewChangedActivity({
+        workOrderId: taskId,
+        oldCrewId:
+          typeof metadata.oldCrewId === "string" || metadata.oldCrewId === null
+            ? (metadata.oldCrewId as string | null)
+            : null,
+        newCrewId: null,
+      })
+      return
+    case ACTIVITY_ACTIONS.TASK_RESCHEDULE:
+      recordWorkOrderRescheduledActivity({
+        workOrderId: taskId,
+        oldDate:
+          typeof metadata.previousDate === "string" ||
+          typeof metadata.oldDate === "string"
+            ? String(metadata.previousDate ?? metadata.oldDate)
+            : null,
+        newDate:
+          typeof metadata.newDate === "string"
+            ? metadata.newDate
+            : null,
+      })
+      recordPlanningDateChangedActivity({
+        workOrderId: taskId,
+        oldDate:
+          typeof metadata.previousDate === "string" ||
+          typeof metadata.oldDate === "string"
+            ? String(metadata.previousDate ?? metadata.oldDate)
+            : null,
+        newDate:
+          typeof metadata.newDate === "string" ? metadata.newDate : null,
+      })
+      {
+        const oldShift =
+          typeof metadata.oldTime === "string" ? metadata.oldTime : null
+        const newShift =
+          typeof metadata.newTime === "string" ? metadata.newTime : null
+        if (oldShift !== newShift) {
+          recordPlanningShiftChangedActivity({
+            workOrderId: taskId,
+            oldShift,
+            newShift,
+          })
+        }
+      }
+      return
+    case ACTIVITY_ACTIONS.TASK_PRIORITY_CHANGE:
+      recordWorkOrderPriorityChangedActivity({
+        workOrderId: taskId,
+        oldPriority:
+          typeof metadata.oldPriority === "string" ||
+          metadata.oldPriority === null
+            ? (metadata.oldPriority as string | null)
+            : null,
+        newPriority:
+          typeof metadata.newPriority === "string" ||
+          metadata.newPriority === null
+            ? (metadata.newPriority as string | null)
+            : null,
+      })
+      return
+    case ACTIVITY_ACTIONS.TASK_START:
+      recordWorkOrderStartedActivityClient({
+        workOrderId: taskId,
+        oldStatus:
+          typeof metadata.previousStatus === "string"
+            ? metadata.previousStatus
+            : null,
+        newStatus:
+          typeof metadata.newStatus === "string" ? metadata.newStatus : null,
+      })
+      return
+    case ACTIVITY_ACTIONS.TASK_CANCEL:
+      recordWorkOrderCancelledActivity({
+        workOrderId: taskId,
+        oldStatus:
+          typeof metadata.previousStatus === "string"
+            ? metadata.previousStatus
+            : null,
+      })
+      return
+    case ACTIVITY_ACTIONS.TASK_APPROVE:
+    case ACTIVITY_ACTIONS.TASK_SUBMIT_FOR_APPROVAL:
+      recordWorkOrderFinishedActivity({
+        workOrderId: taskId,
+        oldStatus:
+          typeof metadata.previousStatus === "string"
+            ? metadata.previousStatus
+            : null,
+      })
+      return
+    case ACTIVITY_ACTIONS.TASK_UPDATE:
+      recordWorkOrderUpdatedActivity({
+        workOrderId: taskId,
+        changedFields: Array.isArray(metadata.fields)
+          ? metadata.fields.map(String)
+          : [],
+      })
+      return
+    case ACTIVITY_ACTIONS.PLANNING_ORDER_CHANGE:
+      recordPlanningOrderChangedActivity({
+        workOrderId: taskId,
+        oldOrder:
+          typeof metadata.oldOrder === "number" ? metadata.oldOrder : null,
+        newOrder:
+          typeof metadata.newOrder === "number" ? metadata.newOrder : null,
+        planningDate:
+          typeof metadata.planningDate === "string"
+            ? metadata.planningDate
+            : null,
+      })
+      return
+    case ACTIVITY_ACTIONS.TASK_DURATION_CHANGE:
+      recordPlanningDurationChangedActivity({
+        workOrderId: taskId,
+        oldDuration:
+          typeof metadata.oldDuration === "number"
+            ? metadata.oldDuration
+            : Number(metadata.oldDuration) || null,
+        newDuration:
+          typeof metadata.newDuration === "number"
+            ? metadata.newDuration
+            : Number(metadata.newDuration) || null,
+      })
+      return
+    case ACTIVITY_ACTIONS.PLANNING_CREW_CHANGE:
+      recordPlanningAssignmentChangedActivity({
+        workOrderId: taskId,
+        oldCrewId:
+          typeof metadata.oldCrewId === "string" || metadata.oldCrewId === null
+            ? (metadata.oldCrewId as string | null)
+            : null,
+        newCrewId:
+          typeof metadata.newCrewId === "string" || metadata.newCrewId === null
+            ? (metadata.newCrewId as string | null)
+            : null,
+      })
+      return
+    default:
+      if (
+        emission.action === ACTIVITY_ACTIONS.TASK_REJECT ||
+        String(emission.detail).toLowerCase().includes("paus")
+      ) {
+        recordWorkOrderPausedActivity({ workOrderId: taskId })
+        return
+      }
+      if (String(emission.detail).toLowerCase().includes("reanud")) {
+        recordWorkOrderResumedActivity({ workOrderId: taskId })
+      }
+  }
+}
 
 export type TaskActivityEmission = {
   action: ActivityAction
@@ -451,7 +670,7 @@ export function emitTaskActivityEvents(input: {
 
   for (const emission of input.emissions) {
     const definition = resolveActivityActionDefinition(emission.action)
-    const module = emission.module ?? definition.module
+    const activityModule = emission.module ?? definition.module
     const entityType = emission.entityType ?? definition.entityType
     const entityId =
       emission.entityId !== undefined
@@ -462,7 +681,7 @@ export function emitTaskActivityEvents(input: {
 
     void recordActivityEventClient({
       action: emission.action,
-      module,
+      module: activityModule,
       entityType,
       entityId,
       detail: emission.detail,
@@ -475,6 +694,9 @@ export function emitTaskActivityEvents(input: {
       sessionId: emission.sessionId ?? null,
       durationMs: emission.durationMs ?? null,
     })
+
+    // Canonical Activity Engine 1.1 path (recordActivity via API bridge).
+    emitCanonicalWorkOrderActivity(emission, input.taskId)
   }
 }
 

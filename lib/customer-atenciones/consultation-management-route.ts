@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { requireWritablePlatformSession } from "@/lib/auth/require-writable-platform-session"
+import type { SessionUser } from "@/lib/auth/types"
 import {
   canAccessAtencionClienteModule,
   resolveAtencionClienteActorEmployeeId,
@@ -16,6 +17,7 @@ export async function requireAtencionClienteMutationContext(): Promise<
       ok: true
       companyId: string
       employeeId: string
+      sessionUser: SessionUser
     }
   | { ok: false; response: NextResponse }
 > {
@@ -72,7 +74,7 @@ export async function requireAtencionClienteMutationContext(): Promise<
     }
   }
 
-  return { ok: true, companyId, employeeId }
+  return { ok: true, companyId, employeeId, sessionUser: auth.sessionUser }
 }
 
 /** Admin-only mutation context for permanent consultation delete. */

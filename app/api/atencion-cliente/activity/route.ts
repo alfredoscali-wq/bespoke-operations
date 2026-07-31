@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 
-import { isActivityAction } from "@/lib/activity-engine/activity-actions"
+import { ACTIVITY_ACTIONS, isActivityAction } from "@/lib/activity-engine/activity-actions"
 import {
   isActivityCategory,
   isActivityImpact,
@@ -9,6 +9,11 @@ import {
   type ActivityImpact,
   type ActivityOrigin,
 } from "@/lib/activity-engine/activity-types"
+import {
+  recordAttentionCreatedActivity,
+  recordAttentionResolvedActivity,
+} from "@/lib/activity/domain/attention-activity"
+import { activityActorFromSession } from "@/lib/activity/resolve-activity-actor"
 import { requireAtencionClienteMutationContext } from "@/lib/customer-atenciones/consultation-management-route"
 import { registerCustomerActivity } from "@/lib/customer-atenciones/register-customer-activity"
 
@@ -101,6 +106,27 @@ export async function POST(request: Request) {
       { success: false, message: result.error.message, code: result.error.code },
       { status: result.error.code === "VALIDATION_ERROR" ? 400 : 500 }
     )
+  }
+
+  const actor = activityActorFromSession(auth.sessionUser)
+  if (actor) {
+    if (action === ACTIVITY_ACTIONS.CASE_CREATED) {
+      const status =
+        typeof body?.metadata?.estado_inicial === "string"
+          ? body.metadata.estado_inicial
+          : null
+      void recordAttentionCreatedActivity({
+        actor,
+        attentionId: entityId,
+        status,
+      })
+    } else if (action === ACTIVITY_ACTIONS.CASE_CLOSED) {
+      void recordAttentionResolvedActivity({
+        actor,
+        attentionId: entityId,
+        oldStatus: null,
+      })
+    }
   }
 
   return NextResponse.json({ success: true, id: result.data.id })

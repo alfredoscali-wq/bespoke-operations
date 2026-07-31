@@ -1,3 +1,8 @@
+import {
+  recordCatalogCreatedActivity,
+  recordCatalogDeletedActivity,
+  recordCatalogUpdatedActivity,
+} from "@/lib/activity/domain/catalog-activity"
 import { createClient } from "@/lib/supabase/client"
 import { resolveUniqueIncidentTypeCode } from "@/lib/incident-types/slugify"
 import {
@@ -48,6 +53,11 @@ export async function addIncidentType(
     }
   }
 
+  recordCatalogCreatedActivity({
+    catalog: "incident_type",
+    entityId: result.data.id,
+  })
+
   return { success: true, item: result.data }
 }
 
@@ -69,6 +79,12 @@ export async function saveIncidentType(
     }
   }
 
+  recordCatalogUpdatedActivity({
+    catalog: "incident_type",
+    entityId: result.data.id,
+    metadata: { changedFields: Object.keys(input) },
+  })
+
   return { success: true, item: result.data }
 }
 
@@ -84,6 +100,11 @@ export async function removeIncidentType(
       message: result.error.message ?? "No se pudo eliminar el tipo de incidencia.",
     }
   }
+
+  recordCatalogDeletedActivity({
+    catalog: "incident_type",
+    entityId: id,
+  })
 
   return { success: true }
 }

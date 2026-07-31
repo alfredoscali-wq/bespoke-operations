@@ -40,6 +40,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { EntityProductionView } from "@/components/executive/entity-production-view"
+import { CUSTOMER_TIMELINE_FILTERS } from "@/lib/activity/activity-timeline-types"
 
 type CustomerDetailScreenProps = {
   customerId: string
@@ -149,107 +152,132 @@ export function CustomerDetailScreen({ customerId }: CustomerDetailScreenProps) 
         </Button>
       </div>
 
-      <Card className="shadow-sm">
-        <CardHeader className="border-b">
-          <CardTitle className="text-base">Datos operativos</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4 pt-6 sm:grid-cols-2">
-          <DetailField label="Nombre" value={customer.name} />
-          <DetailField
-            label="N° Cliente"
-            value={customer.externalCustomerCode?.trim() || "—"}
-          />
-          <DetailField label="DNI" value={customer.dni?.trim() || "—"} />
-          <DetailField
-            label="Teléfono"
-            value={
-              customer.phone ? <WhatsAppLink phone={customer.phone} /> : "—"
-            }
-          />
-          <DetailField label="Mail" value={customer.email?.trim() || "—"} />
-          <DetailField label="Dirección" value={customer.address?.trim() || "—"} />
-          <DetailField label="Localidad" value={customer.locality?.trim() || "—"} />
-          <DetailField label="Tecnología" value={technologyLabel} />
-          <DetailField
-            label="Validación"
-            value={
-              <span className={validationStatusBadgeClassName(customer.validationStatus)}>
-                <span className={validationStatusDotClassName(customer.validationStatus)} />
-                {formatValidationStatusLabel(customer.validationStatus)}
-              </span>
-            }
-          />
-          {customer.legacyClientState ? (
-            <DetailField
-              label="Estado comercial legacy"
-              value={customer.legacyClientState}
-            />
-          ) : null}
-          {customer.validatedAt ? (
-            <DetailField
-              label="Validado"
-              value={`${customer.validatedBy ?? "—"} · ${new Date(customer.validatedAt).toLocaleString("es-AR")}`}
-            />
-          ) : null}
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="datos" className="space-y-4">
+        <div className="overflow-x-auto">
+          <TabsList variant="line" className="w-full min-w-max justify-start">
+            <TabsTrigger value="datos">Datos</TabsTrigger>
+            <TabsTrigger value="activity">Producción</TabsTrigger>
+          </TabsList>
+        </div>
 
-      <Card className="shadow-sm">
-        <CardHeader className="border-b">
-          <CardTitle className="text-base">
-            Historial de Órdenes de Trabajo
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="pt-6">
-          {workOrders.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Este cliente aún no tiene órdenes de trabajo registradas.
-            </p>
-          ) : (
-            <div className="overflow-x-auto rounded-xl border">
-              <Table>
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead>Orden de trabajo</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Fecha</TableHead>
-                    <TableHead>Hora</TableHead>
-                    <TableHead>Estado</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {workOrders.map((task) => (
-                    <TableRow
-                      key={task.id}
-                      className={getTaskStatusSurfaceClass(task.status)}
-                    >
-                      <TableCell>
-                        <Link
-                          href={`/tareas/${task.id}`}
-                          className="font-mono text-xs font-medium text-primary hover:underline"
+        <TabsContent value="datos" className="space-y-6">
+          <Card className="shadow-sm">
+            <CardHeader className="border-b">
+              <CardTitle className="text-base">Datos operativos</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 pt-6 sm:grid-cols-2">
+              <DetailField label="Nombre" value={customer.name} />
+              <DetailField
+                label="N° Cliente"
+                value={customer.externalCustomerCode?.trim() || "—"}
+              />
+              <DetailField label="DNI" value={customer.dni?.trim() || "—"} />
+              <DetailField
+                label="Teléfono"
+                value={
+                  customer.phone ? <WhatsAppLink phone={customer.phone} /> : "—"
+                }
+              />
+              <DetailField label="Mail" value={customer.email?.trim() || "—"} />
+              <DetailField label="Dirección" value={customer.address?.trim() || "—"} />
+              <DetailField label="Localidad" value={customer.locality?.trim() || "—"} />
+              <DetailField label="Tecnología" value={technologyLabel} />
+              <DetailField
+                label="Validación"
+                value={
+                  <span className={validationStatusBadgeClassName(customer.validationStatus)}>
+                    <span className={validationStatusDotClassName(customer.validationStatus)} />
+                    {formatValidationStatusLabel(customer.validationStatus)}
+                  </span>
+                }
+              />
+              {customer.legacyClientState ? (
+                <DetailField
+                  label="Estado comercial legacy"
+                  value={customer.legacyClientState}
+                />
+              ) : null}
+              {customer.validatedAt ? (
+                <DetailField
+                  label="Validado"
+                  value={`${customer.validatedBy ?? "—"} · ${new Date(customer.validatedAt).toLocaleString("es-AR")}`}
+                />
+              ) : null}
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm">
+            <CardHeader className="border-b">
+              <CardTitle className="text-base">
+                Historial de Órdenes de Trabajo
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              {workOrders.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Este cliente aún no tiene órdenes de trabajo registradas.
+                </p>
+              ) : (
+                <div className="overflow-x-auto rounded-xl border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead>Orden de trabajo</TableHead>
+                        <TableHead>Tipo</TableHead>
+                        <TableHead>Fecha</TableHead>
+                        <TableHead>Hora</TableHead>
+                        <TableHead>Estado</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {workOrders.map((task) => (
+                        <TableRow
+                          key={task.id}
+                          className={getTaskStatusSurfaceClass(task.status)}
                         >
-                          {task.code}
-                        </Link>
-                      </TableCell>
-                      <TableCell>
-                        {getWorkOrderServiceTypeLabel(task.serviceType) ??
-                          task.title}
-                      </TableCell>
-                      <TableCell>{formatTaskDate(task.dueDate)}</TableCell>
-                      <TableCell>
-                        {formatScheduledTimeDisplay(task.scheduledTime) ?? "—"}
-                      </TableCell>
-                      <TableCell>
-                        <TaskStatusBadge status={task.status} />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                          <TableCell>
+                            <Link
+                              href={`/tareas/${task.id}`}
+                              className="font-mono text-xs font-medium text-primary hover:underline"
+                            >
+                              {task.code}
+                            </Link>
+                          </TableCell>
+                          <TableCell>
+                            {getWorkOrderServiceTypeLabel(task.serviceType) ??
+                              task.title}
+                          </TableCell>
+                          <TableCell>{formatTaskDate(task.dueDate)}</TableCell>
+                          <TableCell>
+                            {formatScheduledTimeDisplay(task.scheduledTime) ?? "—"}
+                          </TableCell>
+                          <TableCell>
+                            <TaskStatusBadge status={task.status} />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="activity">
+          <EntityProductionView
+            timelineScope={{
+              kind: "entity",
+              entityType: "customer",
+              entityId: customer.id,
+            }}
+            timelineFilters={CUSTOMER_TIMELINE_FILTERS}
+            title="Producción"
+            subtitle="Resumen → Producción → Detalle → Timeline"
+            entityLabel={customer.name}
+          />
+        </TabsContent>
+      </Tabs>
 
       <CustomerFormDialog
         open={editOpen}

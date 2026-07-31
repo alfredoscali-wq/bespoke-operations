@@ -3,6 +3,10 @@
 import { useCallback, useEffect, useState } from "react"
 
 import { useAuth } from "@/components/auth/auth-provider"
+import {
+  recordCatalogCreatedActivity,
+  recordCatalogUpdatedActivity,
+} from "@/lib/activity/domain/catalog-activity"
 import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import { syncRoleMetadataClient } from "@/lib/auth/sync-employee-metadata.client"
 import {
@@ -68,6 +72,10 @@ export function useCompanyRoles() {
       if (!result.success) {
         setError(result.message)
       } else {
+        recordCatalogCreatedActivity({
+          catalog: "company_roles",
+          entityId: result.role.id,
+        })
         setRoles((current) =>
           [...current, result.role].sort(
             (left, right) => left.sortOrder - right.sortOrder
@@ -107,6 +115,10 @@ export function useCompanyRoles() {
         await refreshSession()
       }
 
+      recordCatalogUpdatedActivity({
+        catalog: "company_roles",
+        entityId: result.role.id,
+      })
       setRoles((current) =>
         current
           .map((item) => (item.id === role.id ? result.role : item))

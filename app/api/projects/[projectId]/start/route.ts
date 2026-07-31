@@ -62,6 +62,7 @@ export async function POST(_request: Request, context: RouteContext) {
     projectId,
     actorDisplayName: auth.sessionUser.displayName,
     employeeId: auth.sessionUser.employeeId,
+    appUserId: auth.sessionUser.authUserId,
   })
 
   if (!result.ok) {

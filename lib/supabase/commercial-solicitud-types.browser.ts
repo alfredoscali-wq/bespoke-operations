@@ -1,5 +1,10 @@
 "use client"
 
+import {
+  recordCatalogCreatedActivity,
+  recordCatalogDeletedActivity,
+  recordCatalogUpdatedActivity,
+} from "@/lib/activity/domain/catalog-activity"
 import { createClient } from "@/lib/supabase/client"
 import {
   createCommercialSolicitudType,
@@ -43,7 +48,18 @@ export async function createCommercialSolicitudTypeBrowser(
   companyId: string,
   input: CreateCommercialSolicitudTypeInput
 ) {
-  return createCommercialSolicitudType(browserClient(), companyId, input)
+  const result = await createCommercialSolicitudType(
+    browserClient(),
+    companyId,
+    input
+  )
+  if (!result.error && result.data) {
+    recordCatalogCreatedActivity({
+      catalog: "solicitud_type",
+      entityId: result.data.id,
+    })
+  }
+  return result
 }
 
 export async function updateCommercialSolicitudTypeBrowser(
@@ -51,12 +67,36 @@ export async function updateCommercialSolicitudTypeBrowser(
   id: string,
   input: UpdateCommercialSolicitudTypeInput
 ) {
-  return updateCommercialSolicitudType(browserClient(), companyId, id, input)
+  const result = await updateCommercialSolicitudType(
+    browserClient(),
+    companyId,
+    id,
+    input
+  )
+  if (!result.error && result.data) {
+    recordCatalogUpdatedActivity({
+      catalog: "solicitud_type",
+      entityId: result.data.id,
+      metadata: { changedFields: Object.keys(input) },
+    })
+  }
+  return result
 }
 
 export async function removeCommercialSolicitudTypeBrowser(
   companyId: string,
   id: string
 ) {
-  return softDeleteCommercialSolicitudType(browserClient(), companyId, id)
+  const result = await softDeleteCommercialSolicitudType(
+    browserClient(),
+    companyId,
+    id
+  )
+  if (!result.error && result.data) {
+    recordCatalogDeletedActivity({
+      catalog: "solicitud_type",
+      entityId: id,
+    })
+  }
+  return result
 }

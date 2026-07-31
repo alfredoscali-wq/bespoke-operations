@@ -270,7 +270,7 @@ export function CrewDetailView({ crew, detail }: CrewDetailViewProps) {
             <TabsTrigger value="tasks">Órdenes de Trabajo</TabsTrigger>
             <TabsTrigger value="projects">Obras</TabsTrigger>
             <TabsTrigger value="materials">Materiales</TabsTrigger>
-            <TabsTrigger value="activity">Actividad</TabsTrigger>
+            <TabsTrigger value="activity">Producción</TabsTrigger>
             <TabsTrigger value="performance">Desempeño</TabsTrigger>
           </TabsList>
         </div>
@@ -288,7 +288,7 @@ export function CrewDetailView({ crew, detail }: CrewDetailViewProps) {
           <CrewMaterialsTab crew={crew} />
         </TabsContent>
         <TabsContent value="activity">
-          <CrewActivityTab activity={detail.activity} />
+          <CrewActivityTab crewId={crew.id} crewName={crew.name} />
         </TabsContent>
         <TabsContent value="performance">
           <CrewPerformanceTab performance={detail.performance} />

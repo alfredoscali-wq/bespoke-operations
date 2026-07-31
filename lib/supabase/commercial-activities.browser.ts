@@ -1,3 +1,9 @@
+import {
+  recordCommercialActivityCompletedActivity,
+  recordCommercialActivityCreatedActivity,
+  recordCommercialActivityDeletedActivity,
+  recordCommercialActivityUpdatedActivity,
+} from "@/lib/activity/domain/commercial-activities-activity"
 import { createClient } from "@/lib/supabase/client"
 import {
   fetchCommercialActivitiesByOpportunity,
@@ -74,7 +80,14 @@ export async function createCommercialActivity(
   payload: CreateCommercialActivityPayload,
   client: SupabaseCommercialActivitiesClient = createBrowserCommercialActivitiesClient()
 ): Promise<CommercialActivityRepositoryResult<CommercialActivityListItem>> {
-  return insertCommercialActivity(client, payload)
+  const result = await insertCommercialActivity(client, payload)
+  if (result.data) {
+    recordCommercialActivityCreatedActivity({
+      activityId: result.data.id,
+      status: result.data.status,
+    })
+  }
+  return result
 }
 
 export async function updateCommercialActivity(
@@ -82,7 +95,37 @@ export async function updateCommercialActivity(
   payload: UpdateCommercialActivityPayload,
   client: SupabaseCommercialActivitiesClient = createBrowserCommercialActivitiesClient()
 ): Promise<CommercialActivityRepositoryResult<CommercialActivityListItem>> {
-  return patchCommercialActivity(client, id, payload)
+  const previous =
+    payload.status === "completed"
+      ? await fetchCommercialActivityById(client, id)
+      : null
+
+  const result = await patchCommercialActivity(client, id, payload)
+
+  if (result.data) {
+    const oldStatus = previous?.data?.status ?? null
+    if (
+      result.data.status === "completed" &&
+      oldStatus !== null &&
+      oldStatus !== "completed"
+    ) {
+      recordCommercialActivityCompletedActivity({
+        activityId: result.data.id,
+        oldStatus,
+      })
+    } else {
+      const changedFields = (
+        Object.keys(payload) as Array<keyof UpdateCommercialActivityPayload>
+      ).filter((key) => key !== "updatedBy" && payload[key] !== undefined)
+
+      recordCommercialActivityUpdatedActivity({
+        activityId: result.data.id,
+        changedFields,
+      })
+    }
+  }
+
+  return result
 }
 
 export async function deleteCommercialActivity(
@@ -90,5 +133,9 @@ export async function deleteCommercialActivity(
   deletedBy?: string | null,
   client: SupabaseCommercialActivitiesClient = createBrowserCommercialActivitiesClient()
 ): Promise<CommercialActivityRepositoryResult<CommercialActivity>> {
-  return softDeleteCommercialActivity(client, id, deletedBy)
+  const result = await softDeleteCommercialActivity(client, id, deletedBy)
+  if (!result.error) {
+    recordCommercialActivityDeletedActivity({ activityId: id })
+  }
+  return result
 }

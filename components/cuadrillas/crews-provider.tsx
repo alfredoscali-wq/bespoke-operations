@@ -25,6 +25,12 @@ import {
   recordCrewMemberRemoveAudit,
   recordCrewUpdateAudit,
 } from "@/lib/audit/rrhh-audit"
+import {
+  recordCrewCreatedActivity,
+  recordCrewDeletedActivity,
+  recordCrewMemberAssignedActivity,
+  recordCrewUpdatedActivity,
+} from "@/lib/activity/domain/crews-activity"
 import { useEmployees } from "@/components/rrhh/employees-provider"
 import {
   resolveSupervisorAssignment,
@@ -266,6 +272,7 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
             )
           )
           recordCrewCreateAudit(result.data)
+          recordCrewCreatedActivity(result.data)
           return { success: true, crew: result.data }
         }
 
@@ -343,6 +350,7 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
             )
           )
           recordCrewCreateAudit(result.data)
+          recordCrewCreatedActivity(result.data)
           return { success: true, crew: result.data }
         }
 
@@ -436,6 +444,9 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
           ) {
             recordCrewUpdateAudit(existingCrew, payload, result.data)
           }
+          if (existingCrew) {
+            recordCrewUpdatedActivity(existingCrew, payload, result.data)
+          }
           setCrews((current) => replaceCrewInList(current, result.data!))
           return { success: true, crew: result.data }
         }
@@ -481,6 +492,7 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
 
         if (existingCrew) {
           recordCrewArchiveAudit(existingCrew)
+          recordCrewDeletedActivity(existingCrew)
         }
 
         setCrews((current) => current.filter((crew) => crew.id !== id))
@@ -544,6 +556,11 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
           recordCrewMemberAddAudit({
             crew: resolvedCrew,
             member: result.data,
+          })
+          recordCrewMemberAssignedActivity({
+            crew: resolvedCrew,
+            member: result.data,
+            operation: "add",
           })
           setCrews((current) =>
             current.map((crew) =>
@@ -669,6 +686,11 @@ export function CrewsProvider({ children }: { children: React.ReactNode }) {
 
         if (crew && member) {
           recordCrewMemberRemoveAudit({ crew, member })
+          recordCrewMemberAssignedActivity({
+            crew,
+            member,
+            operation: "remove",
+          })
         }
 
         setCrews((current) =>

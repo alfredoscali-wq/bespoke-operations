@@ -41,6 +41,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { EntityProductionView } from "@/components/executive/entity-production-view"
+import {
+  PROJECT_TIMELINE_FILTERS,
+} from "@/lib/activity/activity-timeline-types"
 
 type ProjectDetailViewProps = {
   project: Project
@@ -347,6 +351,7 @@ export function ProjectDetailView({
             <TabsTrigger value="tasks">Órdenes de Trabajo</TabsTrigger>
             <TabsTrigger value="evidence">Evidencias</TabsTrigger>
             <TabsTrigger value="history">Historial</TabsTrigger>
+            <TabsTrigger value="activity">Producción</TabsTrigger>
             <TabsTrigger value="crews">Cuadrillas</TabsTrigger>
             <TabsTrigger value="materials">Materiales</TabsTrigger>
             <TabsTrigger value="documents">Documentos</TabsTrigger>
@@ -374,6 +379,19 @@ export function ProjectDetailView({
         </TabsContent>
         <TabsContent value="history">
           <ProjectHistoryTab history={history} />
+        </TabsContent>
+        <TabsContent value="activity">
+          <EntityProductionView
+            timelineScope={{
+              kind: "entity",
+              entityType: "project",
+              entityId: project.id,
+            }}
+            timelineFilters={PROJECT_TIMELINE_FILTERS}
+            title="Producción"
+            subtitle="Resumen → Producción → Detalle → Timeline"
+            entityLabel={project.name}
+          />
         </TabsContent>
         <TabsContent value="costs">
           <ProjectCostsTab costs={initialDetail.costs} />

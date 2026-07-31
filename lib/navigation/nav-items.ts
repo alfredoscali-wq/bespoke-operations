@@ -2,6 +2,7 @@ import {
   Archive,
   Banknote,
   BarChart3,
+  BookOpen,
   BriefcaseBusiness,
   Building2,
   CalendarClock,
@@ -9,6 +10,7 @@ import {
   Camera,
   Contact,
   Factory,
+  FileText,
   Headset,
   History,
   LayoutDashboard,
@@ -181,12 +183,48 @@ export const historyNavItem: NavItem = {
 }
 
 export const activityNavItem: NavItem = {
-  title: "Activity Engine",
+  title: "Sala de Situación",
   href: "/activity",
   icon: Radar,
-  pageTitle: "Activity Engine",
+  pageTitle: "Sala de Situación",
   description:
-    "Visor interno de solo lectura para validar eventos de Activity Engine.",
+    "Estado actual de la empresa para supervisión y gerencia.",
+}
+
+export const executiveDailyBriefNavItem: NavItem = {
+  title: "Resumen Ejecutivo Diario",
+  href: "/activity/daily-brief",
+  icon: FileText,
+  pageTitle: "Resumen Ejecutivo Diario",
+  description:
+    "Qué ocurrió hoy en la empresa — lectura ejecutiva de menos de cinco minutos.",
+}
+
+export const workforceMonitorNavItem: NavItem = {
+  title: "Workforce Monitor",
+  href: "/activity/workforce-monitor",
+  icon: UsersRound,
+  pageTitle: "Workforce Monitor",
+  description:
+    "Supervisión de la jornada laboral desde Activity Engine.",
+}
+
+export const activityTimelineNavItem: NavItem = {
+  title: "Timeline Global",
+  href: "/activity/timeline",
+  icon: History,
+  pageTitle: "Timeline Global",
+  description:
+    "Auditoría técnica global de eventos del Activity Engine.",
+}
+
+export const dayActivityNavItem: NavItem = {
+  title: "Actividad de la Jornada",
+  href: "/activity/jornada",
+  icon: BookOpen,
+  pageTitle: "Actividad de la Jornada",
+  description:
+    "Bitácora de negocio: qué hizo cada persona durante la jornada.",
 }
 
 export const settingsNavItem: NavItem = {
@@ -286,6 +324,10 @@ export const systemNavItems: NavItem[] = [
   settingsNavItem,
   historyNavItem,
   activityNavItem,
+  executiveDailyBriefNavItem,
+  dayActivityNavItem,
+  workforceMonitorNavItem,
+  activityTimelineNavItem,
   usersNavItem,
   dispositivosNavItem,
 ]

@@ -11,6 +11,8 @@ import {
   Wrench,
 } from "lucide-react"
 
+import { EntityActivityTimeline } from "@/components/activity/entity-activity-timeline"
+import { REQUEST_TIMELINE_FILTERS } from "@/lib/activity/activity-timeline-types"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -28,6 +30,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   COMMERCIAL_SOLICITUD_PRIORITY_LABELS,
   COMMERCIAL_SOLICITUD_RESOLUTION_LABELS,
@@ -280,7 +283,7 @@ export function CommercialSolicitudesSection({
           if (!open) setViewing(null)
         }}
       >
-        <DialogContent>
+        <DialogContent className="flex max-h-[90vh] max-w-3xl flex-col gap-0 overflow-hidden sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>Solicitud {viewing?.code ?? ""}</DialogTitle>
             <DialogDescription>
@@ -288,60 +291,86 @@ export function CommercialSolicitudesSection({
             </DialogDescription>
           </DialogHeader>
           {viewing ? (
-            <dl className="grid gap-3 text-sm sm:grid-cols-2">
-              <div>
-                <dt className="text-xs text-muted-foreground">Tipo</dt>
-                <dd>{viewing.requestTypeName ?? "—"}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-muted-foreground">Estado</dt>
-                <dd>
-                  {COMMERCIAL_SOLICITUD_STATUS_LABELS[viewing.status]}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs text-muted-foreground">Prioridad</dt>
-                <dd>
-                  {COMMERCIAL_SOLICITUD_PRIORITY_LABELS[viewing.priority]}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs text-muted-foreground">Resolución</dt>
-                <dd>
-                  {viewing.resolutionCode
-                    ? COMMERCIAL_SOLICITUD_RESOLUTION_LABELS[
-                        viewing.resolutionCode
-                      ]
-                    : "—"}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs text-muted-foreground">Fecha</dt>
-                <dd>{formatDate(viewing.createdAt)}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-muted-foreground">OT vinculada</dt>
-                <dd className="font-mono text-xs">
-                  {viewing.workOrderId ?? "—"}
-                </dd>
-              </div>
-              <div className="sm:col-span-2">
-                <dt className="text-xs text-muted-foreground">
-                  Producto / Servicio
-                </dt>
-                <dd>{viewing.productPlan.trim() || "—"}</dd>
-              </div>
-              <div className="sm:col-span-2">
-                <dt className="text-xs text-muted-foreground">Responsable</dt>
-                <dd>{viewing.responsibleEmployeeName?.trim() || "—"}</dd>
-              </div>
-              <div className="sm:col-span-2">
-                <dt className="text-xs text-muted-foreground">Observaciones</dt>
-                <dd className="whitespace-pre-wrap">
-                  {viewing.observations.trim() || "—"}
-                </dd>
-              </div>
-            </dl>
+            <Tabs defaultValue="datos" className="min-h-0 flex-1 space-y-4 overflow-hidden">
+              <TabsList variant="line" className="w-full justify-start">
+                <TabsTrigger value="datos">Datos</TabsTrigger>
+                <TabsTrigger value="activity">Activity</TabsTrigger>
+              </TabsList>
+              <TabsContent
+                value="datos"
+                className="max-h-[55vh] overflow-y-auto"
+              >
+                <dl className="grid gap-3 text-sm sm:grid-cols-2">
+                  <div>
+                    <dt className="text-xs text-muted-foreground">Tipo</dt>
+                    <dd>{viewing.requestTypeName ?? "—"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-muted-foreground">Estado</dt>
+                    <dd>
+                      {COMMERCIAL_SOLICITUD_STATUS_LABELS[viewing.status]}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-muted-foreground">Prioridad</dt>
+                    <dd>
+                      {COMMERCIAL_SOLICITUD_PRIORITY_LABELS[viewing.priority]}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-muted-foreground">Resolución</dt>
+                    <dd>
+                      {viewing.resolutionCode
+                        ? COMMERCIAL_SOLICITUD_RESOLUTION_LABELS[
+                            viewing.resolutionCode
+                          ]
+                        : "—"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-muted-foreground">Fecha</dt>
+                    <dd>{formatDate(viewing.createdAt)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-muted-foreground">OT vinculada</dt>
+                    <dd className="font-mono text-xs">
+                      {viewing.workOrderId ?? "—"}
+                    </dd>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <dt className="text-xs text-muted-foreground">
+                      Producto / Servicio
+                    </dt>
+                    <dd>{viewing.productPlan.trim() || "—"}</dd>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <dt className="text-xs text-muted-foreground">Responsable</dt>
+                    <dd>{viewing.responsibleEmployeeName?.trim() || "—"}</dd>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <dt className="text-xs text-muted-foreground">Observaciones</dt>
+                    <dd className="whitespace-pre-wrap">
+                      {viewing.observations.trim() || "—"}
+                    </dd>
+                  </div>
+                </dl>
+              </TabsContent>
+              <TabsContent
+                value="activity"
+                className="max-h-[55vh] overflow-y-auto"
+              >
+                <EntityActivityTimeline
+                  scope={{
+                    kind: "entity",
+                    entityType: "request",
+                    entityId: viewing.id,
+                  }}
+                  visibleFilters={REQUEST_TIMELINE_FILTERS}
+                  layout="embedded"
+                  showStats
+                />
+              </TabsContent>
+            </Tabs>
           ) : null}
           <DialogFooter>
             <Button

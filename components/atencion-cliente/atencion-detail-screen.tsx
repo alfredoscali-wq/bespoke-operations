@@ -21,6 +21,7 @@ import {
   type ConsultationDecisionAction,
 } from "@/components/atencion-cliente/consultation-decision-center"
 import { ConsultationEventsTimeline } from "@/components/atencion-cliente/consultation-events-timeline"
+import { AttentionActivityTabs } from "@/components/atencion-cliente/attention-activity-tabs"
 import { AttachmentUploader, type StagedAttachmentFile } from "@/components/attachments/attachment-uploader"
 import { listAttachmentFiles } from "@/lib/attachments/client"
 import { uploadStagedAttachments } from "@/lib/attachments/upload-staged"
@@ -1400,13 +1401,18 @@ export function AtencionDetailScreen({
           ) : null}
 
           <div className="mt-6">
-            <ConsultationEventsTimeline
-              cards={timelineCards}
-              employeeNamesById={eventEmployeeNamesById}
-              presentation="panel"
-              attachmentsByEventId={attachmentsByEventId}
-              canDeleteAttachments={isSystemAdministrator}
-              onAttachmentsChanged={reloadAfterAction}
+            <AttentionActivityTabs
+              attentionId={atencion.id}
+              events={
+                <ConsultationEventsTimeline
+                  cards={timelineCards}
+                  employeeNamesById={eventEmployeeNamesById}
+                  presentation="panel"
+                  attachmentsByEventId={attachmentsByEventId}
+                  canDeleteAttachments={isSystemAdministrator}
+                  onAttachmentsChanged={reloadAfterAction}
+                />
+              }
             />
           </div>
         </div>
@@ -1851,12 +1857,17 @@ export function AtencionDetailScreen({
         </Card>
       ) : null}
 
-      <ConsultationEventsTimeline
-        cards={timelineCards}
-        employeeNamesById={eventEmployeeNamesById}
-        attachmentsByEventId={attachmentsByEventId}
-        canDeleteAttachments={isSystemAdministrator}
-        onAttachmentsChanged={reloadAfterAction}
+      <AttentionActivityTabs
+        attentionId={atencion.id}
+        events={
+          <ConsultationEventsTimeline
+            cards={timelineCards}
+            employeeNamesById={eventEmployeeNamesById}
+            attachmentsByEventId={attachmentsByEventId}
+            canDeleteAttachments={isSystemAdministrator}
+            onAttachmentsChanged={reloadAfterAction}
+          />
+        }
       />
 
       <ConsultationPermanentDeleteDialog

@@ -2,6 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react"
 
+import {
+  recordCatalogCreatedActivity,
+  recordCatalogDeletedActivity,
+  recordCatalogUpdatedActivity,
+} from "@/lib/activity/domain/catalog-activity"
 import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import {
   addWorkOrderTypeChecklistItem,
@@ -84,6 +89,11 @@ export function useWorkOrderTypeChecklist(
     if (!result.success) {
       setError(result.message)
     } else {
+      recordCatalogCreatedActivity({
+        catalog: "work_order_checklist_items",
+        entityId: result.item.id,
+        metadata: { serviceType, technology },
+      })
       setItems((current) =>
         [...current, result.item].sort((left, right) => left.sortOrder - right.sortOrder)
       )
@@ -107,6 +117,10 @@ export function useWorkOrderTypeChecklist(
       if (!result.success) {
         setError(result.message)
       } else {
+        recordCatalogUpdatedActivity({
+          catalog: "work_order_checklist_items",
+          entityId: result.item.id,
+        })
         setItems((current) =>
           current
             .map((item) => (item.id === id ? result.item : item))
@@ -128,6 +142,10 @@ export function useWorkOrderTypeChecklist(
     if (!result.success) {
       setError(result.message)
     } else {
+      recordCatalogDeletedActivity({
+        catalog: "work_order_checklist_items",
+        entityId: id,
+      })
       setItems((current) => current.filter((item) => item.id !== id))
       await reload()
     }

@@ -22,6 +22,11 @@ import {
   recordEmployeeEditAudit,
 } from "@/lib/audit/rrhh-audit"
 import {
+  recordEmployeeCreatedActivity,
+  recordEmployeeDeletedActivity,
+  recordEmployeeEditedActivity,
+} from "@/lib/activity/domain/employees-activity"
+import {
   hasUserAccountFieldChanges,
   recordUserAccountChangesViaApi,
 } from "@/lib/audit/users-audit"
@@ -205,6 +210,7 @@ export function EmployeesProvider({ children }: { children: React.ReactNode }) {
         if (result.data) {
           setEmployees((current) => sortEmployees([...current, result.data!]))
           recordEmployeeCreateAudit(result.data)
+          recordEmployeeCreatedActivity(result.data)
           return { success: true, employee: result.data }
         }
 
@@ -266,6 +272,7 @@ export function EmployeesProvider({ children }: { children: React.ReactNode }) {
               }
             }
             recordEmployeeEditAudit(existing, input, result.data)
+            recordEmployeeEditedActivity(existing, input, result.data)
           }
           setEmployees((current) =>
             sortEmployees(replaceEmployeeInList(current, result.data!))
@@ -406,6 +413,7 @@ export function EmployeesProvider({ children }: { children: React.ReactNode }) {
         logRemoveEmployeeStart(id)
 
         const client = createBrowserEmployeesClient()
+        const existing = employees.find((employee) => employee.id === id)
         await logEmployeeDeleteClientDiagnostics(
           client,
           id,
@@ -421,6 +429,10 @@ export function EmployeesProvider({ children }: { children: React.ReactNode }) {
           }
           logRemoveEmployeeEnd(failure)
           return failure
+        }
+
+        if (existing) {
+          recordEmployeeDeletedActivity(existing)
         }
 
         setEmployees((current) =>
@@ -439,7 +451,7 @@ export function EmployeesProvider({ children }: { children: React.ReactNode }) {
         return failure
       }
     },
-    [usesSupabase]
+    [usesSupabase, employees]
   )
 
   const forgetEmployee = useCallback((id: string) => {

@@ -23,6 +23,7 @@ import {
   updateEmployeeAvailability,
 } from "@/lib/availability/employee-availability.service"
 import { recordAvailabilityChangeAudit } from "@/lib/audit/rrhh-audit"
+import { recordEmployeeAvailabilityChangedActivity } from "@/lib/activity/domain/employees-activity"
 import { useEmployees } from "@/components/rrhh/employees-provider"
 import type {
   CreateEmployeeAvailabilityInput,
@@ -152,6 +153,11 @@ export function AvailabilityProvider({
             payload: input,
           })
         }
+        recordEmployeeAvailabilityChangedActivity({
+          employeeId: input.employeeId,
+          operation: "create",
+          availabilityId: result.data.id,
+        })
         return { success: true, record: result.data }
       } catch {
         return {
@@ -208,6 +214,11 @@ export function AvailabilityProvider({
             payload: input,
           })
         }
+        recordEmployeeAvailabilityChangedActivity({
+          employeeId: result.data.employeeId,
+          operation: "update",
+          availabilityId: result.data.id,
+        })
         return { success: true, record: result.data }
       } catch {
         return {
@@ -253,6 +264,13 @@ export function AvailabilityProvider({
             operation: "remove",
             employee,
             before: existing,
+          })
+        }
+        if (existing) {
+          recordEmployeeAvailabilityChangedActivity({
+            employeeId: existing.employeeId,
+            operation: "delete",
+            availabilityId: existing.id,
           })
         }
 

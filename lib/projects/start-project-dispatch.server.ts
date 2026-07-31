@@ -42,6 +42,7 @@ export async function startProjectOperationalDispatch(input: {
   projectId: string
   actorDisplayName: string
   employeeId?: string | null
+  appUserId?: string | null
 }): Promise<StartProjectDispatchServerResult> {
   const admin = createAdminClient()
 
@@ -88,6 +89,7 @@ export async function startProjectOperationalDispatch(input: {
     companyId: input.companyId,
     projectId: input.projectId,
     employeeId: input.employeeId ?? null,
+    appUserId: input.appUserId ?? null,
     taskCount: parsed.dispatchedCount,
   })
 

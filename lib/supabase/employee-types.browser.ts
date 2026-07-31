@@ -1,3 +1,7 @@
+import {
+  recordCatalogCreatedActivity,
+  recordCatalogUpdatedActivity,
+} from "@/lib/activity/domain/catalog-activity"
 import { createClient } from "@/lib/supabase/client"
 import { resolveUniqueEmployeeTypeCode } from "@/lib/employee-types/slugify"
 import {
@@ -50,6 +54,11 @@ export async function addEmployeeType(
     }
   }
 
+  recordCatalogCreatedActivity({
+    catalog: "employee_type",
+    entityId: result.data.id,
+  })
+
   return { success: true, item: result.data }
 }
 
@@ -70,6 +79,14 @@ export async function saveEmployeeType(
         result.error?.message ?? "No se pudo guardar el tipo de empleado.",
     }
   }
+
+  recordCatalogUpdatedActivity({
+    catalog: "employee_type",
+    entityId: result.data.id,
+    metadata: {
+      changedFields: Object.keys(input),
+    },
+  })
 
   return { success: true, item: result.data }
 }

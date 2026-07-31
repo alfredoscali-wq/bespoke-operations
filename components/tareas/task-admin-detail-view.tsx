@@ -10,6 +10,9 @@ import { TaskAdminWorkflowPanel } from "@/components/tareas/task-admin-workflow-
 import { TaskCancellationRecordPanel } from "@/components/tareas/task-cancellation-record-panel"
 import { TaskPlanningReturnRecordPanel } from "@/components/tareas/task-planning-return-record-panel"
 import { TaskOperationalTimeline } from "@/components/tareas/task-operational-timeline"
+import { EntityActivityTimeline } from "@/components/activity/entity-activity-timeline"
+import { WORK_ORDER_TIMELINE_FILTERS } from "@/lib/activity/activity-timeline-types"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { IncidentResponse } from "@/lib/types/task-incidents"
 import type { Task, TaskDetail } from "@/lib/types/tasks"
 
@@ -68,10 +71,35 @@ export function TaskAdminDetailView({
         <TaskAdminSidebarPanel task={task} />
       </div>
 
-      <TaskOperationalTimeline
-        taskId={task.id}
-        refreshKey={timelineRefreshKey}
-      />
+      <Tabs defaultValue="operativo" className="space-y-4">
+        <div className="overflow-x-auto">
+          <TabsList variant="line" className="w-full min-w-max justify-start">
+            <TabsTrigger value="operativo">Operativo</TabsTrigger>
+            <TabsTrigger value="activity">Activity</TabsTrigger>
+          </TabsList>
+        </div>
+
+        <TabsContent value="operativo" className="space-y-6">
+          <TaskOperationalTimeline
+            taskId={task.id}
+            refreshKey={timelineRefreshKey}
+          />
+        </TabsContent>
+
+        <TabsContent value="activity">
+          <EntityActivityTimeline
+            scope={{
+              kind: "entity",
+              entityType: "workorder",
+              entityId: task.id,
+              module: "tasks",
+            }}
+            visibleFilters={WORK_ORDER_TIMELINE_FILTERS}
+            layout="embedded"
+            showStats
+          />
+        </TabsContent>
+      </Tabs>
 
       {showPermanentDelete && onPermanentDeleteSuccess ? (
         <TaskAdminArchivePermanentDelete
