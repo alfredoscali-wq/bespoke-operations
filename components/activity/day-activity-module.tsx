@@ -5,30 +5,26 @@ import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { BookOpen, Download, Loader2, MoreHorizontal, Printer } from "lucide-react"
 
+import { AnalysisBreadcrumb } from "@/components/analysis/analysis-breadcrumb"
+import { useAnalysisNavContext } from "@/components/analysis/use-analysis-nav-context"
 import { DayGestionCard } from "@/components/activity/day-gestion-card"
 import {
   formatActivityTimelineDate,
   formatActivityTimelineTime,
-  toTimelineDateFromInput,
-  toTimelineDateToInput,
 } from "@/lib/activity/activity-timeline-groups"
-import {
-  ACTIVITY_TIMELINE_PAGE_SIZE,
-  type ActivityTimelineEvent,
-} from "@/lib/activity/activity-timeline-types"
 import {
   exportDayActivityExecutivePdf,
   exportDayActivityGestionesCsv,
 } from "@/lib/activity/day-activity-export"
 import {
-  DAY_ACTIVITY_PERIOD_OPTIONS,
+  dayActivitySelectionAsAnalysisRange,
+  dayActivitySelectionFromAnalysisRange,
   getDayActivityPeriodCopy,
   getDayActivityPeriodStoreServerSnapshot,
   getDayActivityPeriodStoreSnapshot,
   resolveDayActivityPeriodRange,
   saveDayActivityPeriodSelection,
   subscribeDayActivityPeriodStore,
-  type DayActivityPeriodPreset,
 } from "@/lib/activity/day-activity-period"
 import {
   DAY_ACTIVITY_QUICK_FILTERS,
@@ -42,17 +38,20 @@ import {
   collectCustomerIdsFromEvents,
   type DayGestion,
 } from "@/lib/activity/day-gestiones"
-import { fetchActivityTimeline } from "@/lib/activity/fetch-activity-timeline.client"
 import { todayDateInputValue } from "@/lib/activity/employee-daily-report"
 import { canAccessOperationsIntelligence } from "@/lib/activity/operations-intelligence"
+import { AnalysisDateRangePicker } from "@/lib/analysis/components/analysis-date-range-picker"
+import {
+  useAnalysisEmployeesQuery,
+  useJornadaPeriodEventsQuery,
+} from "@/lib/analysis/react-query"
 import { buildExecutiveBrief, type ExecutiveBrief } from "@/lib/executive"
 import { indicatorCount, INDICATOR_IDS } from "@/lib/indicators"
 import { useAuth } from "@/components/auth/auth-provider"
 import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import { getEmployeeDisplayName } from "@/lib/employees/utils"
-import { listEmployees } from "@/lib/supabase/employees.browser"
-import { createClient } from "@/lib/supabase/client"
-import type { Employee } from "@/lib/types/employees"
+import { resolveCustomerNamesBatch } from "@/lib/analysis/queries/resolve-customer-names"
+import { buildAnalysisBreadcrumb } from "@/lib/analysis/smart-navigation"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -61,7 +60,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -81,65 +79,10 @@ type ExecutiveKpi = {
   value: number
 }
 
-async function fetchAllEmployeePeriodEvents(
-  employeeId: string,
-  dateFromInput: string,
-  dateToInput: string
-): Promise<
-  | { success: true; items: ActivityTimelineEvent[] }
-  | { success: false; message: string }
-> {
-  const dateFrom = toTimelineDateFromInput(dateFromInput)
-  const dateTo = toTimelineDateToInput(dateToInput)
-  const items: ActivityTimelineEvent[] = []
-  let offset = 0
-  let hasMore = true
-
-  while (hasMore) {
-    const result = await fetchActivityTimeline({
-      scope: "employee",
-      employeeId,
-      dateFrom,
-      dateTo,
-      order: "ASC",
-      limit: ACTIVITY_TIMELINE_PAGE_SIZE,
-      offset,
-      includeStats: false,
-    })
-    if (!result.success) {
-      return { success: false, message: result.message }
-    }
-    const seen = new Set(items.map((item) => item.id))
-    for (const item of result.data.items) {
-      if (!seen.has(item.id)) items.push(item)
-    }
-    hasMore = result.data.hasMore
-    offset = items.length
-    if (result.data.items.length === 0) break
-  }
-
-  return { success: true, items }
-}
-
 async function resolveCustomerNames(
   customerIds: string[]
 ): Promise<Map<string, string>> {
-  const map = new Map<string, string>()
-  if (customerIds.length === 0) return map
-
-  const client = createClient()
-  const { data, error } = await client
-    .from("customers")
-    .select("id, name")
-    .in("id", customerIds)
-
-  if (error || !data) return map
-  for (const row of data) {
-    if (typeof row.id === "string" && typeof row.name === "string") {
-      map.set(row.id, row.name)
-    }
-  }
-  return map
+  return resolveCustomerNamesBatch(customerIds)
 }
 
 function formatActiveTime(ms: number): string {
@@ -217,6 +160,7 @@ function formatRangeLabel(fromInput: string, toInput: string): string {
 
 export function DayActivityModule() {
   const searchParams = useSearchParams()
+  const { context } = useAnalysisNavContext("jornada")
   const { sessionUser } = useAuth()
   const { companyId, isAuthReady } = useTenantCompanyId()
   const allowed = canAccessOperationsIntelligence(sessionUser?.systemRole)
@@ -224,7 +168,19 @@ export function DayActivityModule() {
   const employeeIdFromUrl = searchParams.get("employeeId")?.trim() || ""
   const dateFromUrl = searchParams.get("date")?.trim() || ""
 
-  const [employees, setEmployees] = useState<Employee[]>([])
+  const crumbs = useMemo(
+    () =>
+      buildAnalysisBreadcrumb({
+        currentStep: "jornada",
+        context: {
+          ...context,
+          date: dateFromUrl || context.date,
+          employeeId: employeeIdFromUrl || context.employeeId,
+        },
+      }),
+    [context, dateFromUrl, employeeIdFromUrl]
+  )
+
   const [employeeId, setEmployeeId] = useState(() => employeeIdFromUrl)
   const period = useSyncExternalStore(
     subscribeDayActivityPeriodStore,
@@ -233,8 +189,8 @@ export function DayActivityModule() {
   )
   const [gestiones, setGestiones] = useState<DayGestion[]>([])
   const [brief, setBrief] = useState<ExecutiveBrief | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [isDeriving, setIsDeriving] = useState(false)
+  const [deriveError, setDeriveError] = useState<string | null>(null)
   const [activeFilter, setActiveFilter] =
     useState<DayActivityFilterId>("all")
 
@@ -271,47 +227,57 @@ export function DayActivityModule() {
     [period, periodRange]
   )
 
-  useEffect(() => {
-    if (!companyId || !allowed || !isAuthReady) return
-    let cancelled = false
-    void listEmployees(companyId).then((result) => {
-      if (cancelled) return
-      if (result.error || !result.data) {
-        setEmployees([])
-        return
-      }
-      setEmployees(result.data)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [allowed, companyId, isAuthReady])
+  const employeesQuery = useAnalysisEmployeesQuery(
+    companyId,
+    Boolean(allowed && isAuthReady && companyId)
+  )
+  const employees = employeesQuery.data?.employees ?? []
+
+  const jornadaQuery = useJornadaPeriodEventsQuery(
+    {
+      employeeId,
+      dateFromInput: periodRange.dateFromInput,
+      dateToInput: periodRange.dateToInput,
+    },
+    Boolean(allowed && employeeId)
+  )
 
   useEffect(() => {
-    if (!allowed || !employeeId) return
+    if (!allowed || !employeeId) {
+      setBrief(null)
+      setGestiones([])
+      setDeriveError(null)
+      setIsDeriving(false)
+      return
+    }
+
+    if (jornadaQuery.isPending) {
+      setIsDeriving(true)
+      setDeriveError(null)
+      setActiveFilter("all")
+      return
+    }
+
+    if (jornadaQuery.error) {
+      setDeriveError(
+        jornadaQuery.error instanceof Error
+          ? jornadaQuery.error.message
+          : "No se pudo cargar la actividad."
+      )
+      setGestiones([])
+      setBrief(null)
+      setIsDeriving(false)
+      return
+    }
+
+    const items = jornadaQuery.data?.items
+    if (!items) return
 
     let cancelled = false
     void (async () => {
-      await Promise.resolve()
-      if (cancelled) return
-      setIsLoading(true)
-      setError(null)
+      setIsDeriving(true)
+      setDeriveError(null)
       setActiveFilter("all")
-
-      const result = await fetchAllEmployeePeriodEvents(
-        employeeId,
-        periodRange.dateFromInput,
-        periodRange.dateToInput
-      )
-      if (cancelled) return
-
-      if (!result.success) {
-        setError(result.message)
-        setGestiones([])
-        setBrief(null)
-        setIsLoading(false)
-        return
-      }
 
       const employee = employees.find((item) => item.id === employeeId)
       const name = employee ? getEmployeeDisplayName(employee) : undefined
@@ -323,10 +289,10 @@ export function DayActivityModule() {
           label: name,
         },
         date: periodRange.dateToInput,
-        events: result.items,
+        events: items,
       })
 
-      const customerIds = collectCustomerIdsFromEvents(result.items)
+      const customerIds = collectCustomerIdsFromEvents(items)
       const customerNames = await resolveCustomerNames(customerIds)
       if (cancelled) return
 
@@ -335,12 +301,12 @@ export function DayActivityModule() {
 
       setBrief(nextBrief)
       setGestiones(
-        buildDayGestiones(result.items, {
+        buildDayGestiones(items, {
           customers: customerNames,
           employees: employeeNames,
         })
       )
-      setIsLoading(false)
+      setIsDeriving(false)
     })()
 
     return () => {
@@ -350,9 +316,14 @@ export function DayActivityModule() {
     allowed,
     employeeId,
     employees,
-    periodRange.dateFromInput,
+    jornadaQuery.data,
+    jornadaQuery.error,
+    jornadaQuery.isPending,
     periodRange.dateToInput,
   ])
+
+  const isLoading = Boolean(employeeId) && (jornadaQuery.isPending || isDeriving)
+  const error = deriveError
 
   const selectedEmployee = useMemo(
     () => employees.find((item) => item.id === employeeId) ?? null,
@@ -396,19 +367,10 @@ export function DayActivityModule() {
     setActiveFilter((current) => (current === next ? "all" : next))
   }
 
-  function updatePreset(preset: DayActivityPeriodPreset) {
-    saveDayActivityPeriodSelection({
-      ...period,
-      preset,
-      customFrom:
-        preset === "custom"
-          ? period.customFrom || periodRange.dateFromInput
-          : period.customFrom,
-      customTo:
-        preset === "custom"
-          ? period.customTo || periodRange.dateToInput
-          : period.customTo,
-    })
+  function handlePeriodChange(
+    next: ReturnType<typeof dayActivitySelectionAsAnalysisRange>
+  ) {
+    saveDayActivityPeriodSelection(dayActivitySelectionFromAnalysisRange(next))
   }
 
   function handleExportPdf() {
@@ -456,6 +418,7 @@ export function DayActivityModule() {
     <div className="mx-auto max-w-5xl space-y-8 print:max-w-none">
       <div className="flex flex-wrap items-end justify-between gap-4 border-b pb-4 print:hidden">
         <div>
+          <AnalysisBreadcrumb crumbs={crumbs} className="mb-2" />
           <h1 className="text-xl font-semibold tracking-tight">
             Actividad de la Jornada
           </h1>
@@ -527,64 +490,13 @@ export function DayActivityModule() {
         </div>
 
         <div className="space-y-1.5">
-          <Label>Período</Label>
-          <Select
-            value={period.preset}
-            onValueChange={(value) =>
-              updatePreset(value as DayActivityPeriodPreset)
-            }
-          >
-            <SelectTrigger className={FILTER_SELECT_TRIGGER_CLASS}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {DAY_ACTIVITY_PERIOD_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Label htmlFor="jornada-period">Período</Label>
+          <AnalysisDateRangePicker
+            id="jornada-period"
+            value={dayActivitySelectionAsAnalysisRange(period)}
+            onChange={handlePeriodChange}
+          />
         </div>
-
-        {period.preset === "custom" ? (
-          <>
-            <div className="space-y-1.5">
-              <Label htmlFor="jornada-from">Desde</Label>
-              <Input
-                id="jornada-from"
-                type="date"
-                className="h-9 bg-background"
-                value={period.customFrom || periodRange.dateFromInput}
-                onChange={(event) =>
-                  saveDayActivityPeriodSelection({
-                    ...period,
-                    preset: "custom",
-                    customFrom: event.target.value,
-                    customTo: period.customTo || periodRange.dateToInput,
-                  })
-                }
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="jornada-to">Hasta</Label>
-              <Input
-                id="jornada-to"
-                type="date"
-                className="h-9 bg-background"
-                value={period.customTo || periodRange.dateToInput}
-                onChange={(event) =>
-                  saveDayActivityPeriodSelection({
-                    ...period,
-                    preset: "custom",
-                    customFrom: period.customFrom || periodRange.dateFromInput,
-                    customTo: event.target.value,
-                  })
-                }
-              />
-            </div>
-          </>
-        ) : null}
       </div>
 
       {!employeeId ? (

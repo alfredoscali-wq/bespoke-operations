@@ -27,6 +27,14 @@ import {
   resolveSituationRoomMovementVisual,
 } from "@/lib/executive/situation-room-activity-story"
 import {
+  contextualizeAnalysisHref,
+  hrefForRelevantActivity,
+  hrefForSituationRoomAlert,
+  hrefForSituationRoomMetric,
+  mergeAnalysisNavContext,
+} from "@/lib/analysis/smart-navigation"
+import type { AnalysisNavContext } from "@/lib/analysis/smart-navigation/types"
+import {
   moduleColorVar,
   type ModuleColorId,
 } from "@/lib/ui/module-colors"
@@ -214,27 +222,32 @@ function buildEstadoGeneralCards(brief: ExecutiveBrief): Array<{
 
 function areaActionHref(
   block: ExecutiveProductionBlock,
-  date: string
+  navContext: AnalysisNavContext
 ): { href: string; label: string } | null {
   const visual = AREA_VISUAL[block.id]
   if (!visual?.action) return null
-  const href =
-    block.id === "operations"
-      ? `${visual.action.href}?date=${encodeURIComponent(date)}`
-      : visual.action.href
-  return { href, label: visual.action.label }
+  return {
+    href: contextualizeAnalysisHref(
+      visual.action.href,
+      navContext,
+      "situation-room"
+    ),
+    label: visual.action.label,
+  }
 }
 
 export function SituationRoomView({
   brief,
   isLoading,
   employeeNamesById = {},
+  navContext = {},
   className,
 }: {
   brief: ExecutiveBrief | null
   isLoading?: boolean
   /** Resolved client-side from the existing employees list (no new API). */
   employeeNamesById?: Record<string, string>
+  navContext?: AnalysisNavContext
   className?: string
 }) {
   if (isLoading || !brief) {
@@ -292,10 +305,16 @@ export function SituationRoomView({
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
           {estadoGeneral.map((card) => {
             const Icon = card.visual.icon
+            const href = contextualizeAnalysisHref(
+              hrefForSituationRoomMetric(card.id),
+              navContext,
+              "situation-room"
+            )
             return (
-              <article
+              <Link
                 key={card.id}
-                className="flex min-h-[7.5rem] flex-col rounded-xl border bg-card px-4 py-3.5 shadow-sm"
+                href={href}
+                className="flex min-h-[7.5rem] flex-col rounded-xl border bg-card px-4 py-3.5 shadow-sm transition hover:border-foreground/20"
               >
                 <ModuleIcon
                   icon={Icon}
@@ -310,7 +329,7 @@ export function SituationRoomView({
                 <p className="mt-auto pt-2 text-[11px] leading-snug text-muted-foreground">
                   {card.visual.description}
                 </p>
-              </article>
+              </Link>
             )
           })}
         </div>
@@ -332,7 +351,7 @@ export function SituationRoomView({
                 icon: Building2 as LucideIcon,
                 moduleColor: "system" as ModuleColorId,
               }
-              const action = areaActionHref(block, brief.date)
+              const action = areaActionHref(block, navContext)
               const Icon = visual.icon
 
               return (
@@ -391,19 +410,30 @@ export function SituationRoomView({
           </p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {brief.operationalAlerts.map((alert) => (
-              <div
-                key={alert.id}
-                className="rounded-xl border bg-card px-4 py-3 shadow-sm"
-              >
-                <p className="text-2xl font-semibold tabular-nums tracking-tight">
-                  {alert.value}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {alert.label}
-                </p>
-              </div>
-            ))}
+            {brief.operationalAlerts.map((alert) => {
+              const href = contextualizeAnalysisHref(
+                hrefForSituationRoomAlert(alert.id),
+                navContext,
+                "situation-room"
+              )
+              return (
+                <Link
+                  key={alert.id}
+                  href={href}
+                  className="rounded-xl border bg-card px-4 py-3 shadow-sm transition hover:border-foreground/20"
+                >
+                  <p className="text-2xl font-semibold tabular-nums tracking-tight">
+                    {alert.value}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {alert.label}
+                  </p>
+                  <p className="mt-2 text-xs font-medium text-foreground">
+                    Investigar →
+                  </p>
+                </Link>
+              )
+            })}
           </div>
         )}
       </Section>
@@ -426,26 +456,37 @@ export function SituationRoomView({
                 (item.employeeId &&
                   employeeNamesById[item.employeeId]?.trim()) ||
                 "—"
+              const target = hrefForRelevantActivity(item)
+              const href = contextualizeAnalysisHref(
+                target.path,
+                mergeAnalysisNavContext(navContext, {
+                  taskId: target.taskId,
+                  employeeId: target.employeeId,
+                }),
+                "situation-room"
+              )
 
               return (
-                <li
-                  key={item.id}
-                  className="grid grid-cols-[1.25rem_minmax(0,1.2fr)_minmax(0,1fr)_auto] items-center gap-x-3 border-b px-4 py-2 last:border-b-0 transition-colors hover:bg-muted/30 sm:gap-x-4 sm:px-5"
-                >
-                  <Icon
-                    className="size-3.5 shrink-0"
-                    style={{ color: moduleColorVar(visual.moduleColor) }}
-                    aria-hidden
-                  />
-                  <p className="min-w-0 truncate text-sm text-foreground">
-                    {formatSituationRoomActionLabel(item)}
-                  </p>
-                  <p className="min-w-0 truncate text-sm font-medium text-foreground">
-                    {actorName}
-                  </p>
-                  <p className="shrink-0 text-right text-xs tabular-nums text-muted-foreground">
-                    {formatActivityTimelineTime(item.createdAt)}
-                  </p>
+                <li key={item.id} className="border-b last:border-b-0">
+                  <Link
+                    href={href}
+                    className="grid grid-cols-[1.25rem_minmax(0,1.2fr)_minmax(0,1fr)_auto] items-center gap-x-3 px-4 py-2 transition-colors hover:bg-muted/30 sm:gap-x-4 sm:px-5"
+                  >
+                    <Icon
+                      className="size-3.5 shrink-0"
+                      style={{ color: moduleColorVar(visual.moduleColor) }}
+                      aria-hidden
+                    />
+                    <p className="min-w-0 truncate text-sm text-foreground">
+                      {formatSituationRoomActionLabel(item)}
+                    </p>
+                    <p className="min-w-0 truncate text-sm font-medium text-foreground">
+                      {actorName}
+                    </p>
+                    <p className="shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+                      {formatActivityTimelineTime(item.createdAt)}
+                    </p>
+                  </Link>
                 </li>
               )
             })}

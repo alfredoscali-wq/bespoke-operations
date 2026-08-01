@@ -1,18 +1,20 @@
 /**
- * UX period presets for Actividad de la Jornada.
- * Maps to dateFrom/dateTo for existing timeline fetch — no new engines.
+ * UX period for Actividad de la Jornada — Sprint 26.
+ * Presets match the official Análisis date-range model.
  */
 
 import { todayDateInputValue } from "@/lib/activity/employee-daily-report"
+import {
+  createDefaultAnalysisDateRange,
+  resolveAnalysisDateRange,
+} from "@/lib/analysis/date-range/resolve"
+import {
+  ANALYSIS_DATE_RANGE_PRESET_OPTIONS,
+  type AnalysisDateRangePreset,
+  type AnalysisDateRangeValue,
+} from "@/lib/analysis/date-range/types"
 
-export type DayActivityPeriodPreset =
-  | "today"
-  | "yesterday"
-  | "this_week"
-  | "last_week"
-  | "this_month"
-  | "last_month"
-  | "custom"
+export type DayActivityPeriodPreset = AnalysisDateRangePreset
 
 export type DayActivityPeriodSelection = {
   preset: DayActivityPeriodPreset
@@ -28,121 +30,35 @@ export type DayActivityPeriodRange = {
 }
 
 export type DayActivityPeriodCopy = {
-  /** e.g. Producción del día */
   productionTitle: string
-  /** e.g. Durante el día */
   narrativePrefix: string
-  /** Short label for panel */
   periodLabel: string
-  /** Scope wording: día | semana | mes | período */
   scopeNoun: "día" | "semana" | "mes" | "período"
 }
 
-const STORAGE_KEY = "bespoke.activity.jornada.period.v1"
+const STORAGE_KEY = "bespoke.activity.jornada.period.v2"
+const LEGACY_STORAGE_KEY = "bespoke.activity.jornada.period.v1"
 
-function pad(value: number): string {
-  return String(value).padStart(2, "0")
-}
-
-function toInput(date: Date): string {
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
-}
-
-function startOfLocalDay(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate())
-}
-
-/** Monday-based week start. */
-function startOfWeek(date: Date): Date {
-  const day = startOfLocalDay(date)
-  const weekday = day.getDay()
-  const fromMonday = weekday === 0 ? 6 : weekday - 1
-  day.setDate(day.getDate() - fromMonday)
-  return day
-}
-
-function startOfMonth(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), 1)
-}
-
-function endOfMonth(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth() + 1, 0)
-}
-
-export const DAY_ACTIVITY_PERIOD_OPTIONS: ReadonlyArray<{
-  value: DayActivityPeriodPreset
-  label: string
-}> = [
-  { value: "today", label: "Hoy" },
-  { value: "yesterday", label: "Ayer" },
-  { value: "this_week", label: "Esta semana" },
-  { value: "last_week", label: "Semana pasada" },
-  { value: "this_month", label: "Este mes" },
-  { value: "last_month", label: "Mes pasado" },
-  { value: "custom", label: "Personalizado" },
-]
+export const DAY_ACTIVITY_PERIOD_OPTIONS = ANALYSIS_DATE_RANGE_PRESET_OPTIONS
 
 export function resolveDayActivityPeriodRange(
   selection: DayActivityPeriodSelection,
   now: Date = new Date()
 ): DayActivityPeriodRange {
-  const today = startOfLocalDay(now)
-
-  switch (selection.preset) {
-    case "today":
-      return { dateFromInput: toInput(today), dateToInput: toInput(today) }
-    case "yesterday": {
-      const yesterday = new Date(today)
-      yesterday.setDate(yesterday.getDate() - 1)
-      return {
-        dateFromInput: toInput(yesterday),
-        dateToInput: toInput(yesterday),
-      }
+  try {
+    const range = resolveAnalysisDateRange({
+      preset: selection.preset,
+      dateFrom: selection.customFrom,
+      dateTo: selection.customTo,
+      referenceDate: now,
+    })
+    return {
+      dateFromInput: range.dateFrom,
+      dateToInput: range.dateTo,
     }
-    case "this_week":
-      return {
-        dateFromInput: toInput(startOfWeek(today)),
-        dateToInput: toInput(today),
-      }
-    case "last_week": {
-      const thisWeekStart = startOfWeek(today)
-      const lastWeekEnd = new Date(thisWeekStart)
-      lastWeekEnd.setDate(lastWeekEnd.getDate() - 1)
-      const lastWeekStart = startOfWeek(lastWeekEnd)
-      return {
-        dateFromInput: toInput(lastWeekStart),
-        dateToInput: toInput(lastWeekEnd),
-      }
-    }
-    case "this_month":
-      return {
-        dateFromInput: toInput(startOfMonth(today)),
-        dateToInput: toInput(today),
-      }
-    case "last_month": {
-      const firstThisMonth = startOfMonth(today)
-      const lastMonthEnd = new Date(firstThisMonth)
-      lastMonthEnd.setDate(lastMonthEnd.getDate() - 1)
-      return {
-        dateFromInput: toInput(startOfMonth(lastMonthEnd)),
-        dateToInput: toInput(endOfMonth(lastMonthEnd)),
-      }
-    }
-    case "custom": {
-      const from =
-        selection.customFrom?.trim() ||
-        selection.customTo?.trim() ||
-        todayDateInputValue(now)
-      const to =
-        selection.customTo?.trim() ||
-        selection.customFrom?.trim() ||
-        todayDateInputValue(now)
-      return from <= to
-        ? { dateFromInput: from, dateToInput: to }
-        : { dateFromInput: to, dateToInput: from }
-    }
-    default:
-      return { dateFromInput: toInput(today), dateToInput: toInput(today) }
+  } catch {
+    const today = todayDateInputValue(now)
+    return { dateFromInput: today, dateToInput: today }
   }
 }
 
@@ -165,22 +81,32 @@ export function getDayActivityPeriodCopy(
         periodLabel: "Ayer",
         scopeNoun: "día",
       }
-    case "this_week":
-    case "last_week":
+    case "last_7_days":
       return {
-        productionTitle: "Producción semanal",
-        narrativePrefix: "Durante la semana",
-        periodLabel:
-          selection.preset === "this_week" ? "Esta semana" : "Semana pasada",
-        scopeNoun: "semana",
+        productionTitle: "Producción del período",
+        narrativePrefix: "Durante los últimos 7 días",
+        periodLabel: "Últimos 7 días",
+        scopeNoun: "período",
+      }
+    case "last_30_days":
+      return {
+        productionTitle: "Producción del período",
+        narrativePrefix: "Durante los últimos 30 días",
+        periodLabel: "Últimos 30 días",
+        scopeNoun: "período",
       }
     case "this_month":
-    case "last_month":
       return {
         productionTitle: "Producción mensual",
         narrativePrefix: "Durante el mes",
-        periodLabel:
-          selection.preset === "this_month" ? "Este mes" : "Mes pasado",
+        periodLabel: "Este mes",
+        scopeNoun: "mes",
+      }
+    case "last_month":
+      return {
+        productionTitle: "Producción mensual",
+        narrativePrefix: "Durante el mes anterior",
+        periodLabel: "Mes anterior",
         scopeNoun: "mes",
       }
     case "custom": {
@@ -212,21 +138,41 @@ export function getDayActivityPeriodCopy(
 
 const DEFAULT_PERIOD: DayActivityPeriodSelection = { preset: "today" }
 
+const OFFICIAL_PRESETS = new Set(
+  ANALYSIS_DATE_RANGE_PRESET_OPTIONS.map((option) => option.value)
+)
+
+function migrateLegacyPreset(raw: string): DayActivityPeriodPreset | null {
+  switch (raw) {
+    case "today":
+    case "yesterday":
+    case "this_month":
+    case "last_month":
+    case "custom":
+      return raw
+    case "this_week":
+    case "last_week":
+      return "last_7_days"
+    default:
+      return null
+  }
+}
+
 function parsePeriodSelection(raw: string | null): DayActivityPeriodSelection {
   if (!raw) return DEFAULT_PERIOD
   try {
-    const parsed = JSON.parse(raw) as DayActivityPeriodSelection
-    if (
-      !parsed ||
-      typeof parsed !== "object" ||
-      !DAY_ACTIVITY_PERIOD_OPTIONS.some(
-        (option) => option.value === parsed.preset
-      )
-    ) {
-      return DEFAULT_PERIOD
+    const parsed = JSON.parse(raw) as DayActivityPeriodSelection & {
+      preset: string
     }
+    if (!parsed || typeof parsed !== "object") return DEFAULT_PERIOD
+
+    const preset =
+      (OFFICIAL_PRESETS.has(parsed.preset as AnalysisDateRangePreset)
+        ? (parsed.preset as AnalysisDateRangePreset)
+        : migrateLegacyPreset(parsed.preset)) ?? "today"
+
     return {
-      preset: parsed.preset,
+      preset,
       customFrom: parsed.customFrom,
       customTo: parsed.customTo,
     }
@@ -237,10 +183,11 @@ function parsePeriodSelection(raw: string | null): DayActivityPeriodSelection {
 
 export function loadDayActivityPeriodSelection(): DayActivityPeriodSelection {
   if (typeof window === "undefined") return DEFAULT_PERIOD
-  return parsePeriodSelection(window.localStorage.getItem(STORAGE_KEY))
+  const current = window.localStorage.getItem(STORAGE_KEY)
+  if (current) return parsePeriodSelection(current)
+  return parsePeriodSelection(window.localStorage.getItem(LEGACY_STORAGE_KEY))
 }
 
-/** Snapshot for useSyncExternalStore — stable when value unchanged. */
 let periodStoreSnapshot: DayActivityPeriodSelection = DEFAULT_PERIOD
 const periodStoreListeners = new Set<() => void>()
 
@@ -279,4 +226,31 @@ export function saveDayActivityPeriodSelection(
     }
   }
   notifyPeriodStoreListeners()
+}
+
+export function dayActivitySelectionFromAnalysisRange(
+  range: AnalysisDateRangeValue
+): DayActivityPeriodSelection {
+  if (range.preset === "custom") {
+    return {
+      preset: "custom",
+      customFrom: range.dateFrom,
+      customTo: range.dateTo,
+    }
+  }
+  return { preset: range.preset }
+}
+
+export function dayActivitySelectionAsAnalysisRange(
+  selection: DayActivityPeriodSelection
+): AnalysisDateRangeValue {
+  try {
+    return resolveAnalysisDateRange({
+      preset: selection.preset,
+      dateFrom: selection.customFrom,
+      dateTo: selection.customTo,
+    })
+  } catch {
+    return createDefaultAnalysisDateRange()
+  }
 }

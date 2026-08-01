@@ -3,6 +3,7 @@ const PLANNING_FILTERS_SESSION_KEY = "bespoke.planning.filters"
 type PlanningFiltersSession = {
   date: string
   crewFilterId?: string | null
+  taskId?: string | null
 }
 
 function isValidDateInput(value: unknown): value is string {
@@ -67,7 +68,37 @@ export function writePlanningFiltersToSession(
   }
 }
 
+function readPlanningFiltersFromUrl(): PlanningFiltersSession | null {
+  if (typeof window === "undefined") {
+    return null
+  }
+
+  try {
+    const params = new URLSearchParams(window.location.search)
+    const date = params.get("date")?.trim()
+    const crewId = params.get("crewId")?.trim()
+    const taskId = params.get("taskId")?.trim()
+
+    if (!isValidDateInput(date) && !crewId && !taskId) {
+      return null
+    }
+
+    return {
+      date: isValidDateInput(date) ? date : resolveLocalTodayDateInputValue(),
+      crewFilterId: crewId || null,
+      taskId: taskId || null,
+    }
+  } catch {
+    return null
+  }
+}
+
 export function resolveInitialPlanningFilters(): PlanningFiltersSession {
+  const fromUrl = readPlanningFiltersFromUrl()
+  if (fromUrl) {
+    return fromUrl
+  }
+
   const stored = readPlanningFiltersFromSession()
   if (stored) {
     return stored
@@ -76,5 +107,6 @@ export function resolveInitialPlanningFilters(): PlanningFiltersSession {
   return {
     date: resolveLocalTodayDateInputValue(),
     crewFilterId: null,
+    taskId: null,
   }
 }

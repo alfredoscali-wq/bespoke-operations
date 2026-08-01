@@ -1,17 +1,25 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useMemo, useState } from "react"
 import Link from "next/link"
 import { Loader2, Radar } from "lucide-react"
 
+import { AnalysisBreadcrumb } from "@/components/analysis/analysis-breadcrumb"
+import { useAnalysisNavContext } from "@/components/analysis/use-analysis-nav-context"
 import { SituationRoomView } from "@/components/executive/situation-room-view"
 import { todayDateInputValue } from "@/lib/activity/employee-daily-report"
-import { fetchSituationRoom } from "@/lib/executive/fetch-situation-room.client"
 import { canAccessOperationsIntelligence } from "@/lib/activity/operations-intelligence"
-import type { ExecutiveBrief } from "@/lib/executive"
 import { getEmployeeFullName } from "@/lib/employees/utils"
 import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
-import { listEmployees } from "@/lib/supabase/employees.browser"
+import {
+  buildAnalysisBreadcrumb,
+  hrefDailyBrief,
+  hrefWorkforce,
+} from "@/lib/analysis/smart-navigation"
+import {
+  useAnalysisEmployeesQuery,
+  useSituationRoomQuery,
+} from "@/lib/analysis/react-query"
 import { useAuth } from "@/components/auth/auth-provider"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -21,62 +29,52 @@ import { moduleColorVar } from "@/lib/ui/module-colors"
 export function SituationRoomModule() {
   const { sessionUser } = useAuth()
   const { companyId, isAuthReady } = useTenantCompanyId()
+  const { context, replaceContext } = useAnalysisNavContext("situation-room")
   const allowed = canAccessOperationsIntelligence(sessionUser?.systemRole)
-  const [date, setDate] = useState(() => todayDateInputValue())
-  const [brief, setBrief] = useState<ExecutiveBrief | null>(null)
-  const [employeeNamesById, setEmployeeNamesById] = useState<
-    Record<string, string>
-  >({})
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [date, setDate] = useState(
+    () => context.date?.trim() || todayDateInputValue()
+  )
 
-  useEffect(() => {
-    if (!allowed || !isAuthReady || !companyId) return
-    let cancelled = false
+  const employeesQuery = useAnalysisEmployeesQuery(
+    companyId,
+    Boolean(allowed && isAuthReady && companyId)
+  )
+  const situationQuery = useSituationRoomQuery(date, allowed)
 
-    void (async () => {
-      const result = await listEmployees(companyId)
-      if (cancelled || !result.data) return
-      const map: Record<string, string> = {}
-      for (const employee of result.data) {
-        map[employee.id] = getEmployeeFullName(employee)
-      }
-      setEmployeeNamesById(map)
-    })()
-
-    return () => {
-      cancelled = true
+  const employeeNamesById = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const employee of employeesQuery.data?.employees ?? []) {
+      map[employee.id] = getEmployeeFullName(employee)
     }
-  }, [allowed, companyId, isAuthReady])
+    return map
+  }, [employeesQuery.data?.employees])
 
-  useEffect(() => {
-    if (!allowed) return
-    let cancelled = false
+  const navContext = useMemo(
+    () => ({ ...context, date }),
+    [context, date]
+  )
 
-    void (async () => {
-      await Promise.resolve()
-      if (cancelled) return
-      setIsLoading(true)
-      setError(null)
+  const crumbs = useMemo(
+    () =>
+      buildAnalysisBreadcrumb({
+        currentStep: "situation-room",
+        context: navContext,
+      }),
+    [navContext]
+  )
 
-      const result = await fetchSituationRoom(date)
-      if (cancelled) return
+  function handleDateChange(next: string) {
+    setDate(next)
+    replaceContext({ date: next })
+  }
 
-      if (!result.success) {
-        setError(result.message)
-        setBrief(null)
-        setIsLoading(false)
-        return
-      }
-
-      setBrief(result.data.brief)
-      setIsLoading(false)
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [allowed, date])
+  const brief = situationQuery.data?.brief ?? null
+  const isLoading = situationQuery.isPending
+  const error = situationQuery.error
+    ? situationQuery.error instanceof Error
+      ? situationQuery.error.message
+      : "No se pudo cargar la Sala de Situación."
+    : null
 
   if (!allowed) {
     return (
@@ -97,6 +95,7 @@ export function SituationRoomModule() {
     <div className="space-y-8">
       <header className="flex flex-col gap-6 border-b pb-6 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-2">
+          <AnalysisBreadcrumb crumbs={crumbs} className="mb-1" />
           <div className="flex items-center gap-2.5">
             <Radar
               className="size-5 shrink-0"
@@ -120,16 +119,16 @@ export function SituationRoomModule() {
               type="date"
               className="h-9 w-[11.5rem] bg-background"
               value={date}
-              onChange={(event) => setDate(event.target.value)}
+              onChange={(event) => handleDateChange(event.target.value)}
             />
           </div>
           <Button asChild variant="outline" size="sm" className="h-9">
-            <Link href={`/activity/daily-brief?date=${date}`}>
+            <Link href={hrefDailyBrief(navContext, "situation-room")}>
               Resumen Diario
             </Link>
           </Button>
           <Button asChild variant="outline" size="sm" className="h-9">
-            <Link href={`/activity/workforce-monitor?date=${date}`}>
+            <Link href={hrefWorkforce(navContext, "situation-room")}>
               Workforce Monitor
             </Link>
           </Button>
@@ -152,6 +151,7 @@ export function SituationRoomModule() {
           brief={brief}
           isLoading={isLoading}
           employeeNamesById={employeeNamesById}
+          navContext={navContext}
         />
       )}
     </div>

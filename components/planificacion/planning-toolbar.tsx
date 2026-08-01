@@ -1,6 +1,6 @@
 "use client"
 
-import { ClipboardList, Printer } from "lucide-react"
+import { ClipboardList, Printer, Route } from "lucide-react"
 import Link from "next/link"
 
 import { Button } from "@/components/ui/button"
@@ -11,12 +11,15 @@ type PlanningToolbarProps = {
   date: string
   onDateChange: (date: string) => void
   onPrintMaterials?: () => void
+  /** Sprint 24 — optional deep-link to Timeline Operativo (nav only). */
+  timelineHref?: string | null
 }
 
 export function PlanningToolbar({
   date,
   onDateChange,
   onPrintMaterials,
+  timelineHref,
 }: PlanningToolbarProps) {
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
@@ -32,6 +35,14 @@ export function PlanningToolbar({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
+        {timelineHref ? (
+          <Button type="button" variant="outline" className="gap-2" asChild>
+            <Link href={timelineHref}>
+              <Route className="size-4" />
+              Timeline Cuadrillas
+            </Link>
+          </Button>
+        ) : null}
         {onPrintMaterials ? (
           <Button
             type="button"

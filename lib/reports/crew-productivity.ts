@@ -9,7 +9,10 @@ import {
   resolveReportPeriodRange,
   type ReportPeriodRange,
 } from "@/lib/reports/report-utils"
-import { resolveTaskCrewId } from "@/lib/tasks/crew-relation"
+import {
+  buildCrewLookupIndexes,
+  resolveCrewIdFromIndexes,
+} from "@/lib/analysis/queries/lookup-indexes"
 import type { Task } from "@/lib/types/tasks"
 
 export type CrewProductivityRow = {
@@ -22,22 +25,6 @@ export type CrewProductivityRow = {
 }
 
 const UNASSIGNED_CREW_ID = "__unassigned__"
-
-function resolveCrewName(
-  task: Task,
-  crewId: string,
-  crews: Pick<{ id: string; name: string }, "id" | "name">[]
-): string {
-  if (crewId === UNASSIGNED_CREW_ID) {
-    return "Sin cuadrilla"
-  }
-
-  return (
-    crews.find((crew) => crew.id === crewId)?.name ??
-    task.crew?.trim() ??
-    "Sin cuadrilla"
-  )
-}
 
 function countCrewMetrics(
   tasks: Task[],
@@ -75,10 +62,12 @@ export function getCrewProductivity(
 ): CrewProductivityRow[] {
   const filteredTasks = applyReportFilters(tasks, filters, crews)
   const range = resolveReportPeriodRange(filters)
+  const indexes = buildCrewLookupIndexes(crews)
   const groups = new Map<string, { crewName: string; tasks: Task[] }>()
 
   for (const task of filteredTasks) {
-    const crewId = resolveTaskCrewId(task, crews) ?? UNASSIGNED_CREW_ID
+    const crewId =
+      resolveCrewIdFromIndexes(task, indexes) ?? UNASSIGNED_CREW_ID
     const existing = groups.get(crewId)
 
     if (existing) {
@@ -86,8 +75,13 @@ export function getCrewProductivity(
       continue
     }
 
+    const crewName =
+      crewId === UNASSIGNED_CREW_ID
+        ? "Sin cuadrilla"
+        : (indexes.byId.get(crewId) ?? task.crew?.trim() ?? "Sin cuadrilla")
+
     groups.set(crewId, {
-      crewName: resolveCrewName(task, crewId, crews),
+      crewName,
       tasks: [task],
     })
   }

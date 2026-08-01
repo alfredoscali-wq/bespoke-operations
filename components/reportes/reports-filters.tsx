@@ -1,6 +1,15 @@
 "use client"
 
-import { Input } from "@/components/ui/input"
+import { useState } from "react"
+
+import { AnalysisDateRangePicker } from "@/lib/analysis/components/analysis-date-range-picker"
+import {
+  analysisDateRangeToReportFilters,
+  createDefaultAnalysisDateRange,
+  reportFiltersToAnalysisDateRange,
+  resolveAnalysisDateRange,
+  type AnalysisDateRangeValue,
+} from "@/lib/analysis/date-range"
 import {
   QuickFilterBar,
   QuickFilterField,
@@ -12,31 +21,34 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { useReports } from "@/components/reportes/reports-provider"
 import {
   DEFAULT_REPORT_FILTERS,
   type ReportFilters,
-  type ReportPeriod,
 } from "@/lib/reports/report-filters"
-import { formatReportPeriodLabel } from "@/lib/reports/report-utils"
 import { WORK_ORDER_SERVICE_TYPE_OPTIONS } from "@/lib/tasks/work-order"
-
-const PERIOD_OPTIONS: ReportPeriod[] = [
-  "today",
-  "week",
-  "month",
-  "last30",
-  "custom",
-]
 
 function normalizeOptionalFilter(value: string): string | undefined {
   return value === "all" ? undefined : value
 }
 
+function toPickerValue(filters: ReportFilters): AnalysisDateRangeValue {
+  const mapped = reportFiltersToAnalysisDateRange(filters)
+  if (mapped.preset === "custom" && mapped.dateFrom && mapped.dateTo) {
+    // URL/custom seeds show the concrete range label.
+    return mapped
+  }
+  if (mapped.preset !== "custom") {
+    return resolveAnalysisDateRange({ preset: mapped.preset })
+  }
+  return createDefaultAnalysisDateRange()
+}
+
 export function ReportsFilters() {
-  const { filters, setFilters, localityOptions } = useReports()
-  const { crews } = useCrews()
+  const { filters, setFilters, localityOptions, crews } = useReports()
+  const [period, setPeriod] = useState<AnalysisDateRangeValue>(() =>
+    toPickerValue(filters)
+  )
 
   function update<K extends keyof ReportFilters>(
     key: K,
@@ -45,48 +57,21 @@ export function ReportsFilters() {
     setFilters((current) => ({ ...current, [key]: value }))
   }
 
+  function handlePeriodChange(next: AnalysisDateRangeValue) {
+    setPeriod(next)
+    setFilters((current) => analysisDateRangeToReportFilters(next, current))
+  }
+
   return (
     <QuickFilterBar>
       <QuickFilterField label="Período">
-        <Select
-          value={filters.period}
-          onValueChange={(value) =>
-            update("period", value as ReportPeriod)
-          }
-        >
-          <SelectTrigger className="w-full bg-background">
-            <SelectValue placeholder="Seleccionar período" />
-          </SelectTrigger>
-          <SelectContent>
-            {PERIOD_OPTIONS.map((period) => (
-              <SelectItem key={period} value={period}>
-                {formatReportPeriodLabel(period)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <AnalysisDateRangePicker
+          id="reportes-period"
+          value={period}
+          onChange={handlePeriodChange}
+          triggerClassName="w-full"
+        />
       </QuickFilterField>
-
-      {filters.period === "custom" ? (
-        <>
-          <QuickFilterField label="Desde">
-            <Input
-              type="date"
-              value={filters.startDate ?? ""}
-              onChange={(event) => update("startDate", event.target.value)}
-              className="h-9 bg-background"
-            />
-          </QuickFilterField>
-          <QuickFilterField label="Hasta">
-            <Input
-              type="date"
-              value={filters.endDate ?? ""}
-              onChange={(event) => update("endDate", event.target.value)}
-              className="h-9 bg-background"
-            />
-          </QuickFilterField>
-        </>
-      ) : null}
 
       <QuickFilterField label="Cuadrilla">
         <Select
@@ -159,7 +144,13 @@ export function ReportsFilters() {
         <button
           type="button"
           className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
-          onClick={() => setFilters(DEFAULT_REPORT_FILTERS)}
+          onClick={() => {
+            const next = createDefaultAnalysisDateRange()
+            setPeriod(next)
+            setFilters(
+              analysisDateRangeToReportFilters(next, DEFAULT_REPORT_FILTERS)
+            )
+          }}
         >
           Restablecer
         </button>

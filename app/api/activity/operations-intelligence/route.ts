@@ -4,10 +4,9 @@ import {
   toTimelineDateFromInput,
   toTimelineDateToInput,
 } from "@/lib/activity/activity-timeline-groups"
-import { ACTIVITY_TIMELINE_PAGE_SIZE } from "@/lib/activity/activity-timeline-types"
 import { canAccessOperationsIntelligence } from "@/lib/activity/operations-intelligence"
-import { getActivityEvents } from "@/lib/activity/query-service"
-import { buildExecutiveBrief } from "@/lib/executive"
+import { drainAnalysisCompanyDayEvents } from "@/lib/analysis/queries/drain-company-day-events"
+import { loadSituationRoomViaDualRead } from "@/lib/indicator-engine/facade/situation-room-dual-read"
 import { getSessionUser } from "@/lib/auth/session"
 import { resolveTenantCompanyId } from "@/lib/operations/tenant-scope"
 
@@ -54,27 +53,16 @@ export async function GET(request: Request) {
   const companyId = resolveTenantCompanyId(sessionUser)
 
   try {
-    const events = []
-    let offset = 0
-    let hasMore = true
+    const events = await drainAnalysisCompanyDayEvents({
+      companyId,
+      dateFrom,
+      dateTo,
+    })
 
-    while (hasMore) {
-      const page = await getActivityEvents({
-        companyId,
-        dateFrom,
-        dateTo,
-        order: "ASC",
-        limit: ACTIVITY_TIMELINE_PAGE_SIZE,
-        offset,
-      })
-      events.push(...page.items)
-      hasMore = page.hasMore
-      offset += page.items.length
-      if (page.items.length === 0) break
-    }
-
-    const brief = buildExecutiveBrief({
-      scope: { kind: "company", label: "Empresa" },
+    // Dual Read / Snapshot integration: reuses `events` already loaded.
+    // Official brief is V1 by default (dual); V2 only when engineMode=v2 + Comparator match.
+    const { brief } = loadSituationRoomViaDualRead({
+      companyId,
       date,
       events,
     })

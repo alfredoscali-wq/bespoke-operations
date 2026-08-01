@@ -9,7 +9,6 @@ import {
   formatActivityTimelineDate,
   formatActivityTimelineTime,
 } from "@/lib/activity/activity-timeline-groups"
-import { todayDateInputValue } from "@/lib/activity/employee-daily-report"
 import { fetchOperationsIntelligence } from "@/lib/activity/fetch-operations-intelligence.client"
 import {
   canAccessOperationsIntelligence,
@@ -18,6 +17,12 @@ import {
   type OperationsIntelligenceAreaId,
   type OperationsIntelligenceSummary,
 } from "@/lib/activity/operations-intelligence"
+import { AnalysisDateRangePicker } from "@/lib/analysis/components/analysis-date-range-picker"
+import {
+  analysisDateRangeFocusDate,
+  createDefaultAnalysisDateRange,
+  type AnalysisDateRangeValue,
+} from "@/lib/analysis/date-range"
 import { useAuth } from "@/components/auth/auth-provider"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -52,7 +57,10 @@ export function OperationsIntelligenceModule() {
   const { sessionUser } = useAuth()
   const allowed = canAccessOperationsIntelligence(sessionUser?.systemRole)
 
-  const [date, setDate] = useState(() => todayDateInputValue())
+  const [period, setPeriod] = useState<AnalysisDateRangeValue>(() =>
+    createDefaultAnalysisDateRange()
+  )
+  const date = analysisDateRangeFocusDate(period)
   const [areaFilter, setAreaFilter] = useState<"" | OperationsIntelligenceAreaId>(
     ""
   )
@@ -177,13 +185,11 @@ export function OperationsIntelligenceModule() {
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-2">
-            <Label htmlFor="ops-intel-date">Fecha</Label>
-            <Input
-              id="ops-intel-date"
-              type="date"
-              className="h-9 bg-background"
-              value={date}
-              onChange={(event) => setDate(event.target.value)}
+            <Label htmlFor="ops-intel-period">Período</Label>
+            <AnalysisDateRangePicker
+              id="ops-intel-period"
+              value={period}
+              onChange={setPeriod}
             />
           </div>
 

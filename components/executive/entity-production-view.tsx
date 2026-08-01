@@ -4,18 +4,13 @@ import { useEffect, useMemo, useState } from "react"
 
 import { EntityActivityTimeline } from "@/components/activity/entity-activity-timeline"
 import { ExecutiveBriefView } from "@/components/executive/executive-brief-view"
-import {
-  toTimelineDateFromInput,
-  toTimelineDateToInput,
-} from "@/lib/activity/activity-timeline-groups"
-import {
-  ACTIVITY_TIMELINE_PAGE_SIZE,
-  type ActivityTimelineEvent,
-  type ActivityTimelineScope,
-  type ActivityTimelineVisibleFilters,
+import { drainAnalysisTimelineEvents } from "@/lib/analysis/queries/drain-timeline-events"
+import type {
+  ActivityTimelineEvent,
+  ActivityTimelineScope,
+  ActivityTimelineVisibleFilters,
 } from "@/lib/activity/activity-timeline-types"
 import { todayDateInputValue } from "@/lib/activity/employee-daily-report"
-import { fetchActivityTimeline } from "@/lib/activity/fetch-activity-timeline.client"
 import { buildExecutiveBrief, type ExecutiveBriefScope } from "@/lib/executive"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -27,46 +22,22 @@ async function fetchAllScopedDayEvents(
   | { success: true; items: ActivityTimelineEvent[] }
   | { success: false; message: string }
 > {
-  const dateFrom = toTimelineDateFromInput(date)
-  const dateTo = toTimelineDateToInput(date)
-  const items: ActivityTimelineEvent[] = []
-  let offset = 0
-  let hasMore = true
-
-  while (hasMore) {
-    const result = await fetchActivityTimeline({
-      ...(scope.kind === "employee"
-        ? { scope: "employee", employeeId: scope.employeeId }
-        : scope.kind === "entity"
-          ? {
-              scope: "entity",
-              entityType: scope.entityType,
-              entityId: scope.entityId,
-              module: scope.module,
-            }
-          : { scope: "global" }),
-      dateFrom,
-      dateTo,
-      order: "ASC",
-      limit: ACTIVITY_TIMELINE_PAGE_SIZE,
-      offset,
-      includeStats: false,
+  try {
+    const items = await drainAnalysisTimelineEvents({
+      scope,
+      dateFromInput: date,
+      dateToInput: date,
     })
-
-    if (!result.success) {
-      return { success: false, message: result.message }
+    return { success: true, items }
+  } catch (error) {
+    return {
+      success: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "No se pudo cargar la actividad del día.",
     }
-
-    const seen = new Set(items.map((item) => item.id))
-    for (const item of result.data.items) {
-      if (!seen.has(item.id)) items.push(item)
-    }
-    hasMore = result.data.hasMore
-    offset = items.length
-    if (result.data.items.length === 0) break
   }
-
-  return { success: true, items }
 }
 
 function toBriefScope(

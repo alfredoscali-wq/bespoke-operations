@@ -16,8 +16,6 @@ import {
   formatActivityTimelineDate,
   formatActivityTimelineTime,
 } from "@/lib/activity/activity-timeline-groups"
-import { todayDateInputValue } from "@/lib/activity/employee-daily-report"
-import { fetchWorkforceMonitor } from "@/lib/activity/fetch-workforce-monitor.client"
 import {
   getOperationsIntelligenceAreaLabel,
   type OperationsIntelligenceAreaId,
@@ -37,6 +35,17 @@ import {
   workforceProductionScore,
   WORKFORCE_STATUS_FILTER_LABELS,
 } from "@/lib/activity/workforce-monitor-ux"
+import { AnalysisDateRangePicker } from "@/lib/analysis/components/analysis-date-range-picker"
+import {
+  analysisDateRangeFocusDate,
+  createDefaultAnalysisDateRange,
+  resolveAnalysisDateRange,
+  type AnalysisDateRangeValue,
+} from "@/lib/analysis/date-range"
+import {
+  useAnalysisEmployeesQuery,
+  useWorkforceMonitorQuery,
+} from "@/lib/analysis/react-query"
 import { useAuth } from "@/components/auth/auth-provider"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -62,8 +71,7 @@ import {
   getEmployeeFullName,
 } from "@/lib/employees/utils"
 import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
-import { listEmployees } from "@/lib/supabase/employees.browser"
-import type { Employee, SystemRole } from "@/lib/types/employees"
+import type { SystemRole } from "@/lib/types/employees"
 import { moduleColorVar } from "@/lib/ui/module-colors"
 import { FILTER_SELECT_TRIGGER_CLASS } from "@/lib/ui/visual-tokens"
 import { cn } from "@/lib/utils"
@@ -142,16 +150,20 @@ export function WorkforceMonitorModule() {
   const dateFromUrl = searchParams.get("date")?.trim() || ""
   const opsAreaFromUrl = searchParams.get("opsArea")?.trim() || ""
 
-  const [date, setDate] = useState(
-    () => dateFromUrl || todayDateInputValue()
-  )
+  const [period, setPeriod] = useState<AnalysisDateRangeValue>(() => {
+    if (dateFromUrl) {
+      return resolveAnalysisDateRange({
+        preset: "custom",
+        dateFrom: dateFromUrl,
+        dateTo: dateFromUrl,
+      })
+    }
+    return createDefaultAnalysisDateRange()
+  })
+  const date = analysisDateRangeFocusDate(period)
   const [opsAreaFilter, setOpsAreaFilter] = useState<
     "" | OperationsIntelligenceAreaId
   >(() => (isOpsAreaId(opsAreaFromUrl) ? opsAreaFromUrl : ""))
-  const [employees, setEmployees] = useState<Employee[]>([])
-  const [activityRows, setActivityRows] = useState<WorkforceMonitorRow[]>([])
-  const [isLoading, setIsLoading] = useState(allowed)
-  const [error, setError] = useState<string | null>(null)
 
   const [areaFilter, setAreaFilter] = useState("")
   const [roleFilter, setRoleFilter] = useState("")
@@ -166,13 +178,36 @@ export function WorkforceMonitorModule() {
   })
   const [page, setPage] = useState(1)
 
+  const employeesQuery = useAnalysisEmployeesQuery(
+    companyId,
+    Boolean(allowed && isAuthReady && companyId)
+  )
+  const workforceQuery = useWorkforceMonitorQuery(date, allowed)
+
+  const employees = employeesQuery.data?.employees ?? []
+  const activityRows = workforceQuery.data?.rows ?? []
+  const isLoading = workforceQuery.isPending
+  const error = workforceQuery.error
+    ? workforceQuery.error instanceof Error
+      ? workforceQuery.error.message
+      : "No se pudo cargar el Workforce Monitor."
+    : null
+
   useEffect(() => {
     let cancelled = false
 
     void (async () => {
       await Promise.resolve()
       if (cancelled) return
-      if (dateFromUrl) setDate(dateFromUrl)
+      if (dateFromUrl) {
+        setPeriod(
+          resolveAnalysisDateRange({
+            preset: "custom",
+            dateFrom: dateFromUrl,
+            dateTo: dateFromUrl,
+          })
+        )
+      }
       if (isOpsAreaId(opsAreaFromUrl)) setOpsAreaFilter(opsAreaFromUrl)
     })()
 
@@ -182,51 +217,8 @@ export function WorkforceMonitorModule() {
   }, [dateFromUrl, opsAreaFromUrl])
 
   useEffect(() => {
-    if (!allowed || !isAuthReady || !companyId) return
-
-    let cancelled = false
-
-    void listEmployees(companyId).then((result) => {
-      if (cancelled || !result.data) return
-      setEmployees(result.data)
-    })
-
-    return () => {
-      cancelled = true
-    }
-  }, [allowed, companyId, isAuthReady])
-
-  useEffect(() => {
-    if (!allowed) return
-
-    let cancelled = false
-
-    void (async () => {
-      await Promise.resolve()
-      if (cancelled) return
-
-      setIsLoading(true)
-      setError(null)
-
-      const result = await fetchWorkforceMonitor(date)
-      if (cancelled) return
-
-      if (!result.success) {
-        setError(result.message)
-        setActivityRows([])
-        setIsLoading(false)
-        return
-      }
-
-      setActivityRows(result.data.rows)
-      setIsLoading(false)
-      setPage(1)
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [allowed, date])
+    setPage(1)
+  }, [date, workforceQuery.dataUpdatedAt])
 
   const areaOptions = useMemo(() => {
     const values = new Set<string>()
@@ -444,15 +436,17 @@ export function WorkforceMonitorModule() {
 
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           <div className="space-y-1">
-            <Label htmlFor="workforce-date" className="text-xs">
-              Fecha
+            <Label htmlFor="workforce-period" className="text-xs">
+              Período
             </Label>
-            <Input
-              id="workforce-date"
-              type="date"
-              className="h-8 bg-background"
-              value={date}
-              onChange={(event) => setDate(event.target.value)}
+            <AnalysisDateRangePicker
+              id="workforce-period"
+              value={period}
+              onChange={(next) => {
+                setPeriod(next)
+                setPage(1)
+              }}
+              triggerClassName="h-8"
             />
           </div>
 

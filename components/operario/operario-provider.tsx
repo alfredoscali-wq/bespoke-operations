@@ -3,7 +3,7 @@
 import { createContext, useContext, useMemo } from "react"
 
 import { useAuth } from "@/components/auth/auth-provider"
-import { useCrews } from "@/components/cuadrillas/crews-provider"
+import { useOperarioSession } from "@/components/operario/operario-session-provider"
 import type { WorkerCrewRef } from "@/lib/data/operario"
 import {
   createLoadingCrewResolution,
@@ -28,22 +28,33 @@ const OperarioContext = createContext<OperarioContextValue | null>(null)
 
 export function OperarioProvider({ children }: { children: React.ReactNode }) {
   const { sessionUser, isAuthReady } = useAuth()
-  const { crews, isCrewsReady } = useCrews()
+  const { crews, snapshot, isSessionReady } = useOperarioSession()
 
   const identity = useMemo(
     () => resolveOperarioIdentity(sessionUser),
     [sessionUser]
   )
 
-  const isCrewReady = isAuthReady && isCrewsReady
+  const isCrewReady = isAuthReady && isSessionReady
 
   const crewResolution = useMemo(() => {
     if (!isCrewReady) {
       return createLoadingCrewResolution()
     }
 
+    if (snapshot?.jornada) {
+      return {
+        workerCrewRef: {
+          id: snapshot.jornada.crewId ?? undefined,
+          name: snapshot.jornada.crewName,
+        },
+        crewStatus: snapshot.jornada.crewStatus,
+        assignedCrewNames: [...snapshot.jornada.assignedCrewNames],
+      }
+    }
+
     return resolveOperarioWorkerCrew(sessionUser?.employeeId, crews)
-  }, [isCrewReady, sessionUser?.employeeId, crews])
+  }, [isCrewReady, sessionUser?.employeeId, crews, snapshot])
 
   const value = useMemo(
     () => ({

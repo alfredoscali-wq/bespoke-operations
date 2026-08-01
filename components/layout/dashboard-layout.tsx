@@ -11,6 +11,7 @@ import {
 } from "@/components/operations/operational-profile-provider"
 import { ProfileHomeRedirect } from "@/components/operations/profile-home-redirect"
 import { useAuth } from "@/components/auth/auth-provider"
+import { AnalysisQueryProvider } from "@/lib/analysis/react-query"
 
 function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -35,7 +36,9 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <OperationalProfileProvider>
-      <DashboardLayoutContent>{children}</DashboardLayoutContent>
+      <AnalysisQueryProvider>
+        <DashboardLayoutContent>{children}</DashboardLayoutContent>
+      </AnalysisQueryProvider>
     </OperationalProfileProvider>
   )
 }

@@ -3,11 +3,6 @@
 
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { isWorkOrderTask } from "@/lib/tasks/work-order"
-import {
-  countOperationallyOverdueTasks,
-  filterOperationallyOverdueTasks,
-} from "@/lib/tasks/operational-overdue"
 
 
 
@@ -44,8 +39,6 @@ import { PlanningToolbar } from "@/components/planificacion/planning-toolbar"
 
 import { useTasks } from "@/components/tareas/tasks-provider"
 
-import { isCrewAssignable } from "@/lib/crews/status-workflow"
-
 import { recordPlanningConfirmAudit } from "@/lib/planificacion/planning-audit"
 
 import {
@@ -53,14 +46,6 @@ import {
   evaluatePlanningCrewConfirmReadiness,
 
 } from "@/lib/planificacion/planning-confirm"
-
-import {
-
-  filterConfirmedDispatchTasksForPlanning,
-
-  filterProgrammedTasksForPlanningDate,
-
-} from "@/lib/planificacion/planning-dispatch"
 
 import {
 
@@ -76,6 +61,8 @@ import {
 
 } from "@/lib/planificacion/planning-filters-session"
 
+import { hrefCuadrillas } from "@/lib/analysis/smart-navigation"
+
 import {
 
   buildPlanningDispatchSuccessMessage,
@@ -86,30 +73,17 @@ import {
 
 import {
 
-  filterPlanningOperationalViewTasks,
-
-  isJourneyFullyPlanned,
-
   isTaskPlanningEditable,
 
   listReopenablePlanningTaskIdsForCrew,
 
-  resolveCrewPlanningButtonVisibility,
-
-  type CrewPlanningButtonVisibility,
-
 } from "@/lib/planificacion/planning-crew-state"
 
 import {
-  buildPlanningCrewSummaries,
-  filterPlanningTasksByCrewFilter,
   resolveTaskPlanningCoordinates,
 } from "@/lib/planificacion/planning-utils"
 
-import { buildCrewPlanningSummary } from "@/lib/engines/planning/services/SummaryService"
-
 import {
-  applyDayOperationalBaseToCrew,
   readPlanningDayOperationalOverride,
   resolvePlanningDayOperationalConfig,
   validatePlanningDayOperationalOverride,
@@ -127,10 +101,10 @@ import {
 } from "@/lib/planificacion/planning-travel"
 import { recalculatePlanningRoutesForCrew } from "@/lib/planificacion/planning-route-recalc.client"
 import { resolveTaskCrewId } from "@/lib/tasks/crew-relation"
-import { sortTasksByDispatchRoute, resolveTaskRouteOrder } from "@/lib/tasks/dispatch-order"
+import { resolveTaskRouteOrder } from "@/lib/tasks/dispatch-order"
 import { canReturnPlanningTaskToAtencion } from "@/lib/tasks/planning-return"
 
-import { listPendingClosureTasksForPlanningDate } from "@/lib/planificacion/planning-pending-closure"
+import { usePlanningReadModel } from "@/lib/planning/read-model/use-planning-read-model"
 
 import { usePlanningActiveIncidents } from "@/hooks/use-planning-active-incidents"
 import { usePlanningOperationalPolling } from "@/hooks/use-planning-operational-polling"
@@ -159,7 +133,9 @@ function PlanningModuleContent() {
 
   const [overdueFilterActive, setOverdueFilterActive] = useState(false)
 
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(
+    initialFilters.taskId ?? null
+  )
 
   const [adjustSheetTaskId, setAdjustSheetTaskId] = useState<string | null>(null)
   const [returnDialogTaskId, setReturnDialogTaskId] = useState<string | null>(null)
@@ -215,264 +191,56 @@ function PlanningModuleContent() {
     refreshActiveIncidents,
   })
 
+  const readModel = usePlanningReadModel({
+    date,
+    crewFilterId,
+    overdueFilterActive,
+    dayConfigRevision,
+    activeIncidents,
+    activeIncidentsCount,
+  })
 
-
-  const activeCrews = useMemo(
-
-    () => crews.filter(isCrewAssignable),
-
-    [crews]
-
-  )
-
-
-
-  const isConfirmedMode = useMemo(
-
-    () => isJourneyFullyPlanned(tasks, date, activeCrews),
-
-    [tasks, date, activeCrews]
-
-  )
-
-
-
-  const dispatchMode = isConfirmedMode ? "confirmed" : "editing"
-
+  const activeCrews = readModel.crews
+  const isConfirmedMode = readModel.metrics.isConfirmedMode
+  const dispatchMode = readModel.metrics.dispatchMode
   const isEditingMode = !isConfirmedMode
-
-
+  const overdueCount = readModel.metrics.overdueCount
+  const filteredTasks = readModel.tasks.filtered
+  const sortedTasks = readModel.tasks.sorted
+  const listTasks = readModel.tasks.list
+  const crewPlanningSummary = readModel.metrics.crewPlanningSummary
+  const planningDayConfig = readModel.dayConfig
+  const crewSummaries = readModel.metrics.crewSummaries
+  const crewPlanningButtonsById = readModel.metrics.crewPlanningButtonsById
+  const planningOrderScopeTasks = readModel.tasks.planningOrderScope
+  const pendingClosureTasks = readModel.tasks.pendingClosure
+  const crewIdsInOrder = readModel.crewIdsInOrder
+  const crewNamesById = readModel.crewNamesById
+  const activeCrewFilterName = readModel.activeCrewFilterName
 
   useEffect(() => {
-
     writePlanningFiltersToSession({ date, crewFilterId })
-
   }, [date, crewFilterId])
 
-
-
   useEffect(() => {
-
     if (
-
       crewFilterId &&
-
       !activeCrews.some((crew) => crew.id === crewFilterId)
-
     ) {
-
       setCrewFilterId(null)
       setRouteWarning(null)
-
     }
-
   }, [activeCrews, crewFilterId])
 
-
-
-  const overdueCount = useMemo(
-    () => countOperationallyOverdueTasks(tasks.filter(isWorkOrderTask)),
-    [tasks]
-  )
-
-  const filteredTasks = useMemo(() => {
-    if (overdueFilterActive) {
-      return filterOperationallyOverdueTasks(tasks.filter(isWorkOrderTask))
-    }
-
-    if (isConfirmedMode) {
-      return filterConfirmedDispatchTasksForPlanning(tasks, { date })
-    }
-
-    return filterPlanningOperationalViewTasks(tasks, { date })
-  }, [tasks, date, isConfirmedMode, overdueFilterActive])
-
-
-
-  const sortedTasks = useMemo(
-
-    () => sortTasksByDispatchRoute(filteredTasks, crews),
-
-    [filteredTasks, crews]
-
-  )
-
-
-
-  const listTasks = useMemo(
-
-    () =>
-
-      filterPlanningTasksByCrewFilter(
-
-        filteredTasks,
-
-        crewFilterId,
-
-        activeCrews
-
-      ),
-
-    [filteredTasks, crewFilterId, activeCrews]
-
-  )
-
-
-
-  /** OPS 2.3B/C — Asistente de Jornada for the selected crew only. */
-  const crewPlanningSummary = useMemo(() => {
-    if (!crewFilterId) {
-      return null
-    }
-    const crew = activeCrews.find((entry) => entry.id === crewFilterId)
-    if (!crew) {
-      return null
-    }
-    const dayConfig = resolvePlanningDayOperationalConfig({
-      crew,
-      override: readPlanningDayOperationalOverride(date, crew.id),
-    })
-    const effectiveCrew = applyDayOperationalBaseToCrew(crew, dayConfig)
-    return buildCrewPlanningSummary({
-      tasks: listTasks,
-      crew: effectiveCrew,
-      crews: activeCrews,
-      availableMinutes: dayConfig.availableMinutes,
-    })
-  }, [listTasks, activeCrews, crewFilterId, date, dayConfigRevision])
-
-  const planningDayConfig = useMemo(() => {
-    if (!crewFilterId) {
-      return null
-    }
-    const crew = activeCrews.find((entry) => entry.id === crewFilterId)
-    if (!crew) {
-      return null
-    }
-    return {
-      crew,
-      config: resolvePlanningDayOperationalConfig({
-        crew,
-        override: readPlanningDayOperationalOverride(date, crew.id),
-      }),
-    }
-  }, [crewFilterId, activeCrews, date, dayConfigRevision])
-
-  const crewSummaries = useMemo(
-
-    () => buildPlanningCrewSummaries(filteredTasks, activeCrews),
-
-    [filteredTasks, activeCrews]
-
-  )
-
-
-
-  const crewPlanningButtonsById = useMemo(() => {
-
-    const visibility: Record<string, CrewPlanningButtonVisibility> = {}
-
-
-
-    for (const summary of crewSummaries) {
-
-      const buttons = resolveCrewPlanningButtonVisibility(
-
-        tasks,
-
-        date,
-
-        summary.crew
-
-      )
-
-      if (buttons) {
-
-        visibility[summary.crew.id] = buttons
-
-      }
-
-    }
-
-
-
-    return visibility
-
-  }, [crewSummaries, tasks, date])
-
-
-
-  const planningOrderScopeTasks = useMemo(
-
-    () => filterProgrammedTasksForPlanningDate(tasks, { date }),
-
-    [tasks, date]
-
-  )
-
-
-
-  const pendingClosureTasks = useMemo(
-
-    () => listPendingClosureTasksForPlanningDate(tasks, date, activeCrews),
-
-    [tasks, date, activeCrews]
-
-  )
-
-
-
   const adjustTask = useMemo(
-
     () => tasks.find((task) => task.id === adjustSheetTaskId) ?? null,
-
     [tasks, adjustSheetTaskId]
-
   )
 
   const returnDialogTask = useMemo(
-
     () => tasks.find((task) => task.id === returnDialogTaskId) ?? null,
-
     [tasks, returnDialogTaskId]
-
   )
-
-
-
-  const crewIdsInOrder = useMemo(
-
-    () => activeCrews.map((crew) => crew.id),
-
-    [activeCrews]
-
-  )
-
-
-
-  const crewNamesById = useMemo(
-
-    () =>
-
-      Object.fromEntries(
-
-        activeCrews.map((crew) => [crew.id, crew.name] as const)
-
-      ),
-
-    [activeCrews]
-
-  )
-
-
-
-  const activeCrewFilterName = crewFilterId
-
-    ? crewNamesById[crewFilterId]?.trim() || null
-
-    : null
-
-
 
   const runAutomaticRouteRecalc = useCallback(
     async (crewId: string, scopeTasks: typeof listTasks) => {
@@ -1229,6 +997,19 @@ function PlanningModuleContent() {
         }}
 
         onPrintMaterials={() => setPrintMaterialsOpen(true)}
+
+        timelineHref={
+          crewFilterId
+            ? hrefCuadrillas(
+                {
+                  date,
+                  crewId: crewFilterId,
+                  crewName: activeCrewFilterName ?? undefined,
+                },
+                "planning"
+              )
+            : null
+        }
 
       />
 

@@ -8,6 +8,7 @@ import {
   CalendarClock,
   CalendarRange,
   Camera,
+  Compass,
   Contact,
   Factory,
   FileText,
@@ -228,6 +229,16 @@ export const workforceMonitorNavItem: NavItem = {
   moduleColor: "people",
 }
 
+export const crewProductionNavItem: NavItem = {
+  title: "Cuadrillas",
+  href: "/activity/cuadrillas",
+  icon: Factory,
+  pageTitle: "Cuadrillas",
+  description:
+    "Expediente operativo completo de cada equipo de trabajo.",
+  moduleColor: "work",
+}
+
 export const activityTimelineNavItem: NavItem = {
   title: "Auditoría Técnica",
   href: "/activity/timeline",
@@ -247,6 +258,15 @@ export const dayActivityNavItem: NavItem = {
   description:
     "Bitácora de negocio: qué hizo cada persona durante la jornada.",
   moduleColor: "work",
+}
+
+export const executiveCenterNavItem: NavItem = {
+  title: "Centro Ejecutivo",
+  href: "/activity/executive-center",
+  icon: Compass,
+  pageTitle: "Centro Ejecutivo",
+  description: "Qué necesita mi atención ahora — prioridades del día.",
+  moduleColor: "intelligence",
 }
 
 export const settingsNavItem: NavItem = {
@@ -349,10 +369,12 @@ export const fieldOperationsNavItems: NavItem[] = [
 export const rrhhNavItems: NavItem[] = [employeesNavItem, newsNavItem]
 
 export const analysisNavItems: NavItem[] = [
+  executiveCenterNavItem,
   dayActivityNavItem,
   reportsNavItem,
   activityNavItem,
   workforceMonitorNavItem,
+  crewProductionNavItem,
   activityTimelineNavItem,
   tesoreriaNavItem,
 ]

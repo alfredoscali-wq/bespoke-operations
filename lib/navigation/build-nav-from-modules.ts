@@ -8,7 +8,9 @@ import {
   activityNavItem,
   activityTimelineNavItem,
   archivoOtNavItem,
+  crewProductionNavItem,
   dayActivityNavItem,
+  executiveCenterNavItem,
   reportsNavItem,
   workforceMonitorNavItem,
 } from "@/lib/navigation/nav-items"
@@ -35,19 +37,23 @@ const GROUP_ORDER: Array<{
  * Resumen Ejecutivo Diario intentionally omitted from nav (route kept).
  */
 const OPS_ANALYSIS_NAV_ITEMS: NavItem[] = [
-  dayActivityNavItem,
+  executiveCenterNavItem,
   activityNavItem,
   workforceMonitorNavItem,
+  dayActivityNavItem,
+  crewProductionNavItem,
   activityTimelineNavItem,
 ]
 
 /** Canonical Análisis order for the product architecture. */
 const ANALYSIS_NAV_ORDER: readonly string[] = [
-  dayActivityNavItem.href,
-  reportsNavItem.href,
+  executiveCenterNavItem.href,
   activityNavItem.href,
   workforceMonitorNavItem.href,
+  dayActivityNavItem.href,
+  crewProductionNavItem.href,
   activityTimelineNavItem.href,
+  reportsNavItem.href,
 ]
 
 function sortAnalysisNavItems(items: NavItem[]): NavItem[] {

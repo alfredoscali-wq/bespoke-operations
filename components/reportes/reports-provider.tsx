@@ -6,15 +6,21 @@ import {
   useMemo,
   useState,
   type Dispatch,
+  type ReactNode,
   type SetStateAction,
 } from "react"
 
-import { useCrews } from "@/components/cuadrillas/crews-provider"
-import { useTasks } from "@/components/tareas/tasks-provider"
+import {
+  useAnalysisReportesCrewsQuery,
+  useAnalysisReportesProjectsQuery,
+  useAnalysisReportesTasksQuery,
+} from "@/lib/analysis/react-query/use-analysis-reportes-queries"
+import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import {
   DEFAULT_REPORT_FILTERS,
   getReportLocalityOptions,
   type ReportFilters,
+  type ReportPeriod,
 } from "@/lib/reports/report-filters"
 import {
   getCrewProductivity,
@@ -34,10 +40,18 @@ import {
   getServiceTypeReport,
   type ServiceTypeReportRow,
 } from "@/lib/reports/service-type-reports"
+import type { Project } from "@/lib/types/projects"
+import type { Task } from "@/lib/types/tasks"
+
+type ReportesCrew = { id: string; name: string }
 
 type ReportsContextValue = {
   filters: ReportFilters
   setFilters: Dispatch<SetStateAction<ReportFilters>>
+  tasks: Task[]
+  projects: Project[]
+  crews: ReportesCrew[]
+  isLoading: boolean
   summary: OperationalReportSummary
   crewProductivity: CrewProductivityRow[]
   crewRanking: CrewProductivityRow[]
@@ -49,10 +63,74 @@ type ReportsContextValue = {
 
 const ReportsContext = createContext<ReportsContextValue | null>(null)
 
-export function ReportsProvider({ children }: { children: React.ReactNode }) {
-  const { tasks } = useTasks()
-  const { crews } = useCrews()
-  const [filters, setFilters] = useState<ReportFilters>(DEFAULT_REPORT_FILTERS)
+function isValidDateInput(value: string | null | undefined): value is string {
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)
+}
+
+function resolveInitialReportFilters(): ReportFilters {
+  if (typeof window === "undefined") {
+    return DEFAULT_REPORT_FILTERS
+  }
+
+  try {
+    const params = new URLSearchParams(window.location.search)
+    const date = params.get("date")?.trim()
+    const dateFrom =
+      params.get("dateFrom")?.trim() || params.get("startDate")?.trim()
+    const dateTo =
+      params.get("dateTo")?.trim() || params.get("endDate")?.trim()
+    const crewId = params.get("crewId")?.trim()
+    const periodRaw = params.get("period")?.trim() as ReportPeriod | undefined
+
+    const next: ReportFilters = { ...DEFAULT_REPORT_FILTERS }
+
+    if (crewId) {
+      next.crewId = crewId
+    }
+
+    if (
+      periodRaw === "today" ||
+      periodRaw === "week" ||
+      periodRaw === "month" ||
+      periodRaw === "last30" ||
+      periodRaw === "custom"
+    ) {
+      next.period = periodRaw
+    }
+
+    if (isValidDateInput(date)) {
+      next.period = "custom"
+      next.startDate = date
+      next.endDate = date
+    } else if (isValidDateInput(dateFrom) && isValidDateInput(dateTo)) {
+      next.period = "custom"
+      next.startDate = dateFrom
+      next.endDate = dateTo
+    }
+
+    return next
+  } catch {
+    return DEFAULT_REPORT_FILTERS
+  }
+}
+
+export function ReportsProvider({ children }: { children: ReactNode }) {
+  const { companyId, isAuthReady } = useTenantCompanyId()
+  const enabled = Boolean(isAuthReady && companyId)
+
+  const tasksQuery = useAnalysisReportesTasksQuery(companyId, enabled)
+  const projectsQuery = useAnalysisReportesProjectsQuery(companyId, enabled)
+  const crewsQuery = useAnalysisReportesCrewsQuery(companyId, enabled)
+
+  const tasks = tasksQuery.data ?? []
+  const projects = projectsQuery.data ?? []
+  const crews = crewsQuery.data ?? []
+  const isLoading =
+    tasksQuery.isPending || projectsQuery.isPending || crewsQuery.isPending
+
+  const [filters, setFilters] = useState<ReportFilters>(
+    resolveInitialReportFilters
+  )
 
   const summary = useMemo(
     () => getOperationalReportSummary(tasks, filters, crews),
@@ -93,6 +171,10 @@ export function ReportsProvider({ children }: { children: React.ReactNode }) {
     () => ({
       filters,
       setFilters,
+      tasks,
+      projects,
+      crews,
+      isLoading,
       summary,
       crewProductivity,
       crewRanking,
@@ -103,6 +185,10 @@ export function ReportsProvider({ children }: { children: React.ReactNode }) {
     }),
     [
       filters,
+      tasks,
+      projects,
+      crews,
+      isLoading,
       summary,
       crewProductivity,
       crewRanking,

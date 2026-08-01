@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server"
 
-import { ACTIVITY_TIMELINE_PAGE_SIZE } from "@/lib/activity/activity-timeline-types"
-import { getActivityEvents } from "@/lib/activity/query-service"
 import { aggregateWorkforceMonitorRows } from "@/lib/activity/workforce-monitor"
 import {
   toTimelineDateFromInput,
   toTimelineDateToInput,
 } from "@/lib/activity/activity-timeline-groups"
+import { drainAnalysisCompanyDayEvents } from "@/lib/analysis/queries/drain-company-day-events"
 import { getSessionUser } from "@/lib/auth/session"
 import { resolveTenantCompanyId } from "@/lib/operations/tenant-scope"
 
@@ -63,25 +62,11 @@ export async function GET(request: Request) {
   const companyId = resolveTenantCompanyId(sessionUser)
 
   try {
-    const events = []
-    let offset = 0
-    let hasMore = true
-
-    while (hasMore) {
-      const page = await getActivityEvents({
-        companyId,
-        dateFrom,
-        dateTo,
-        order: "ASC",
-        limit: ACTIVITY_TIMELINE_PAGE_SIZE,
-        offset,
-      })
-
-      events.push(...page.items)
-      hasMore = page.hasMore
-      offset += page.items.length
-      if (page.items.length === 0) break
-    }
+    const events = await drainAnalysisCompanyDayEvents({
+      companyId,
+      dateFrom,
+      dateTo,
+    })
 
     const rows = aggregateWorkforceMonitorRows(events)
 

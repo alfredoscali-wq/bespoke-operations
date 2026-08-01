@@ -22,6 +22,10 @@ import { startPerformanceTrace } from "@/lib/performance"
 import { fetchCompanyRole } from "@/lib/supabase/company-roles.browser"
 import { getEmployeeByAppUserId } from "@/lib/supabase/employees.browser"
 import { createClient } from "@/lib/supabase/client"
+import {
+  clearMobileAgendaTaskCache,
+  clearMobileSessionStore,
+} from "@/lib/mobile/session"
 
 type AuthContextValue = {
   sessionUser: SessionUser | null
@@ -191,6 +195,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await recordUserSessionAudit("USER_LOGOUT")
     const supabase = createClient()
     await supabase.auth.signOut()
+    clearMobileSessionStore()
+    clearMobileAgendaTaskCache()
     setSessionUser(null)
     router.push("/login")
     router.refresh()

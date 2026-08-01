@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { FileText, Loader2 } from "lucide-react"
@@ -8,11 +8,11 @@ import { FileText, Loader2 } from "lucide-react"
 import { ExecutiveDailyBriefView } from "@/components/executive/executive-daily-brief-view"
 import { todayDateInputValue } from "@/lib/activity/employee-daily-report"
 import { canAccessOperationsIntelligence } from "@/lib/activity/operations-intelligence"
+import { useSituationRoomQuery } from "@/lib/analysis/react-query"
 import {
   buildExecutiveDailyBrief,
   type ExecutiveDailyBrief,
 } from "@/lib/executive/build-daily-brief"
-import { fetchSituationRoom } from "@/lib/executive/fetch-situation-room.client"
 import { useAuth } from "@/components/auth/auth-provider"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -25,43 +25,23 @@ export function ExecutiveDailyBriefModule() {
   const allowed = canAccessOperationsIntelligence(sessionUser?.systemRole)
   const [dateDraft, setDateDraft] = useState("")
   const date = dateDraft || dateFromUrl || todayDateInputValue()
-  const [daily, setDaily] = useState<ExecutiveDailyBrief | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!allowed) return
-    let cancelled = false
+  const situationQuery = useSituationRoomQuery(date, allowed)
 
-    void (async () => {
-      await Promise.resolve()
-      if (cancelled) return
-      setIsLoading(true)
-      setError(null)
+  const daily = useMemo((): ExecutiveDailyBrief | null => {
+    if (!situationQuery.data?.brief) return null
+    return buildExecutiveDailyBrief({
+      brief: situationQuery.data.brief,
+      generatedAt: new Date().toISOString(),
+    })
+  }, [situationQuery.data?.brief])
 
-      const result = await fetchSituationRoom(date)
-      if (cancelled) return
-
-      if (!result.success) {
-        setError(result.message)
-        setDaily(null)
-        setIsLoading(false)
-        return
-      }
-
-      setDaily(
-        buildExecutiveDailyBrief({
-          brief: result.data.brief,
-          generatedAt: new Date().toISOString(),
-        })
-      )
-      setIsLoading(false)
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [allowed, date])
+  const isLoading = situationQuery.isPending
+  const error = situationQuery.error
+    ? situationQuery.error instanceof Error
+      ? situationQuery.error.message
+      : "No se pudo cargar el resumen."
+    : null
 
   const timelineHref = useMemo(
     () => `/activity/timeline?dateFrom=${date}&dateTo=${date}`,

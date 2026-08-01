@@ -16,7 +16,7 @@ import {
   OperarioCrewStatusMessage,
 } from "@/components/operario/operario-crew-status-message"
 import { useOperario } from "@/components/operario/operario-provider"
-import { useEmployees } from "@/components/rrhh/employees-provider"
+import { useOperarioSession } from "@/components/operario/operario-session-provider"
 import { parseDniFromAuthEmail } from "@/lib/auth/auth-identity"
 import type { OperarioCrewStatus } from "@/lib/operario/crew"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -76,7 +76,7 @@ function ProfileField({
 
 export function OperarioProfileScreen() {
   const { sessionUser, isAuthReady, signOut } = useAuth()
-  const { getEmployee } = useEmployees()
+  const { employee } = useOperarioSession()
   const {
     identity,
     isIdentityReady,
@@ -85,14 +85,6 @@ export function OperarioProfileScreen() {
     assignedCrewNames,
     isCrewReady,
   } = useOperario()
-
-  const employee = useMemo(
-    () =>
-      sessionUser?.employeeId
-        ? getEmployee(sessionUser.employeeId)
-        : undefined,
-    [getEmployee, sessionUser?.employeeId]
-  )
 
   const profileEmail = useMemo(
     () => resolveProfileEmail(employee?.email, sessionUser?.email),
