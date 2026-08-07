@@ -69,7 +69,7 @@ export function TaskReprogramFromVencidaDialog({
     const trimmedMotivo = motivo.trim()
     const trimmedFecha = nuevaFecha.trim()
     if (!trimmedMotivo) {
-      setError("Indicá el motivo del vencimiento.")
+      setError("Indicá el motivo de reprogramación.")
       return
     }
     if (!trimmedFecha) {
@@ -119,13 +119,13 @@ export function TaskReprogramFromVencidaDialog({
 
           <div className="mt-4 space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="ot-vencida-motivo">Motivo del vencimiento</Label>
+              <Label htmlFor="ot-vencida-motivo">Motivo de reprogramación</Label>
               <Textarea
                 id="ot-vencida-motivo"
                 value={motivo}
                 onChange={(event) => setMotivo(event.target.value)}
                 rows={3}
-                placeholder="¿Por qué no pudo ejecutarse en la fecha original?"
+                placeholder="¿Por qué se reprograma esta OT vencida?"
                 disabled={isSubmitting}
               />
             </div>

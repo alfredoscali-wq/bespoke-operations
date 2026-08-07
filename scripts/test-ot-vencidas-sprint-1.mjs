@@ -1,5 +1,6 @@
 /**
- * Sprint OT Vencidas 1.0 — KPI, drawer, reprogram flow, historial event.
+ * Sprint OT Vencidas 1.0 — KPI count helpers, reprogram flow, historial event.
+ * UX 1.1 removed the drawer; filter pattern is covered in test-ot-vencidas-ux-1-1.mjs.
  */
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
@@ -50,10 +51,10 @@ test("incidents hook records overdue historial and uses programada target", () =
   assert.match(source, /getInitialTaskStatus/)
 })
 
-test("UI: KPI + drawer + reprogram dialog wired on /tareas", () => {
+test("UI: KPI filter + reprogram dialog wired on /tareas (no drawer)", () => {
   const module = read("components/tareas/tasks-module.tsx")
   assert.match(module, /TasksVencidasKpi/)
-  assert.match(module, /TasksVencidasDrawer/)
+  assert.doesNotMatch(module, /TasksVencidasDrawer/)
 
   const kpi = read("components/tareas/tasks-vencidas-kpi.tsx")
   assert.match(kpi, /OT Vencidas/)
@@ -62,16 +63,10 @@ test("UI: KPI + drawer + reprogram dialog wired on /tareas", () => {
     /OT que no pudieron ejecutarse y requieren reprogramación/
   )
   assert.match(kpi, /tone="red"/)
-
-  const drawer = read("components/tareas/tasks-vencidas-drawer.tsx")
-  assert.match(drawer, /Reprogramar/)
-  assert.match(drawer, /Fecha original/)
-  assert.match(drawer, /TaskReprogramFromVencidaDialog/)
-  assert.doesNotMatch(drawer, />\s*Eliminar\s*</)
-  assert.doesNotMatch(drawer, /softDelete|cancelTask|approve/)
+  assert.match(kpi, /onToggle/)
 
   const dialog = read("components/tareas/task-reprogram-from-vencida-dialog.tsx")
-  assert.match(dialog, /Motivo del vencimiento/)
+  assert.match(dialog, /Motivo de reprogramación/)
   assert.match(dialog, /Nueva fecha/)
   assert.match(dialog, /Reprogramar OT/)
   assert.match(dialog, /rescheduleTaskFromOverdue/)

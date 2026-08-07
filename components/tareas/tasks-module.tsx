@@ -18,7 +18,7 @@ import {
   TasksFiltersBar,
 } from "@/components/tareas/tasks-filters"
 import type { CreateTaskPayload } from "@/lib/types/supabase/tasks"
-import { parseTaskStatusQuery, parsePlanningReturnedQuery } from "@/lib/navigation/query-filters"
+import { parseTaskStatusQuery, parsePlanningReturnedQuery, parseVencidasQuery } from "@/lib/navigation/query-filters"
 import {
   ARCHIVE_OT_STATUS_FILTER_OPTIONS,
   filterActiveWorkOrders,
@@ -26,9 +26,9 @@ import {
   type ArchiveOtStatusFilter,
 } from "@/lib/tasks/task-list-scope"
 import { filterPlanningReturnedTasks, excludePlanningReturnedTasks } from "@/lib/tasks/planning-return"
+import { listVencidaTasks } from "@/lib/tasks/vencida-status"
 import { TasksPlanningReturnedKpi } from "@/components/tareas/tasks-planning-returned-kpi"
 import { TasksVencidasKpi } from "@/components/tareas/tasks-vencidas-kpi"
-import { TasksVencidasDrawer } from "@/components/tareas/tasks-vencidas-drawer"
 import { formatConsultationExpedienteCode } from "@/lib/customer-atenciones/consultation-expediente"
 import {
   clearConsultationOtCreatePrefill,
@@ -72,7 +72,7 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
   const [feedback, setFeedback] = useState<string | null>(null)
   const [planningReturnedFilterActive, setPlanningReturnedFilterActive] =
     useState(false)
-  const [vencidasDrawerOpen, setVencidasDrawerOpen] = useState(false)
+  const [vencidasFilterActive, setVencidasFilterActive] = useState(false)
   const [consultationPrefill, setConsultationPrefill] =
     useState<ConsultationOtCreatePrefill | null>(null)
   const [solicitudPrefill, setSolicitudPrefill] =
@@ -96,9 +96,14 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
       return
     }
 
-    setPlanningReturnedFilterActive(
-      parsePlanningReturnedQuery(searchParams.get("planningReturned"))
+    // Tray KPIs are mutually exclusive; prefer planningReturned if both are present.
+    const planningActive = parsePlanningReturnedQuery(
+      searchParams.get("planningReturned")
     )
+    const vencidasActive =
+      !planningActive && parseVencidasQuery(searchParams.get("vencidas"))
+    setPlanningReturnedFilterActive(planningActive)
+    setVencidasFilterActive(vencidasActive)
   }, [mode, searchParams])
 
   // Open Nueva OT from Atención (consulta) or Comercial (solicitud) with prefill.
@@ -182,7 +187,7 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [filters, mode, archiveStatusFilter, planningReturnedFilterActive])
+  }, [filters, mode, archiveStatusFilter, planningReturnedFilterActive, vencidasFilterActive])
 
   const scopedTasks = useMemo(() => {
     if (isArchiveView) {
@@ -197,11 +202,21 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
     if (!isArchiveView && planningReturnedFilterActive) {
       return filterPlanningReturnedTasks(filtered)
     }
+    if (!isArchiveView && vencidasFilterActive) {
+      return listVencidaTasks(filtered)
+    }
     if (!isArchiveView) {
       return excludePlanningReturnedTasks(filtered)
     }
     return filtered
-  }, [scopedTasks, filters, crews, isArchiveView, planningReturnedFilterActive])
+  }, [
+    scopedTasks,
+    filters,
+    crews,
+    isArchiveView,
+    planningReturnedFilterActive,
+    vencidasFilterActive,
+  ])
 
   const totalPages = Math.max(
     1,
@@ -225,21 +240,51 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
     filters.priority !== "all" ||
     filters.crew !== "all" ||
     planningReturnedFilterActive ||
+    vencidasFilterActive ||
     (!isArchiveView && filters.status !== defaultTaskFilters.status)
 
-  function handlePlanningReturnedKpiToggle() {
-    const nextActive = !planningReturnedFilterActive
-    setPlanningReturnedFilterActive(nextActive)
-
+  function syncTrayQueryParams(next: {
+    planningReturned: boolean
+    vencidas: boolean
+  }) {
     const params = new URLSearchParams(searchParams.toString())
-    if (nextActive) {
+    if (next.planningReturned) {
       params.set("planningReturned", "1")
     } else {
       params.delete("planningReturned")
     }
+    if (next.vencidas) {
+      params.set("vencidas", "1")
+    } else {
+      params.delete("vencidas")
+    }
 
     const query = params.toString()
     router.replace(query ? `/tareas?${query}` : "/tareas", { scroll: false })
+  }
+
+  function handlePlanningReturnedKpiToggle() {
+    const nextActive = !planningReturnedFilterActive
+    setPlanningReturnedFilterActive(nextActive)
+    if (nextActive) {
+      setVencidasFilterActive(false)
+    }
+    syncTrayQueryParams({
+      planningReturned: nextActive,
+      vencidas: nextActive ? false : vencidasFilterActive,
+    })
+  }
+
+  function handleVencidasKpiToggle() {
+    const nextActive = !vencidasFilterActive
+    setVencidasFilterActive(nextActive)
+    if (nextActive) {
+      setPlanningReturnedFilterActive(false)
+    }
+    syncTrayQueryParams({
+      planningReturned: nextActive ? false : planningReturnedFilterActive,
+      vencidas: nextActive,
+    })
   }
 
   async function handleCreateWorkOrder(payload: CreateTaskPayload) {
@@ -399,8 +444,8 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
         <div className="grid max-w-2xl gap-3 sm:grid-cols-2">
           <TasksVencidasKpi
             tasks={scopedTasks}
-            isActive={vencidasDrawerOpen}
-            onOpen={() => setVencidasDrawerOpen(true)}
+            isActive={vencidasFilterActive}
+            onToggle={handleVencidasKpiToggle}
           />
           <TasksPlanningReturnedKpi
             tasks={scopedTasks}
@@ -479,12 +524,6 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
             open={importOpen}
             onOpenChange={setImportOpen}
             onImported={(message) => setFeedback(message)}
-          />
-
-          <TasksVencidasDrawer
-            open={vencidasDrawerOpen}
-            onOpenChange={setVencidasDrawerOpen}
-            tasks={scopedTasks}
           />
         </>
       ) : null}

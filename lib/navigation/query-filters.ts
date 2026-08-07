@@ -135,6 +135,10 @@ export function parsePlanningReturnedQuery(value: string | null): boolean {
   return value === "1" || value === "true"
 }
 
+export function parseVencidasQuery(value: string | null): boolean {
+  return value === "1" || value === "true"
+}
+
 export function parseProjectOperationalCategoryQuery(
   value: string | null
 ): OperationalProjectCategory | null {
@@ -206,6 +210,7 @@ export const moduleFilterUrls = {
     category: (category: OperationalTaskCategory) =>
       buildModuleUrl("/tareas", { category }),
     planningReturned: () => buildModuleUrl("/tareas", { planningReturned: "1" }),
+    vencidas: () => buildModuleUrl("/tareas", { vencidas: "1" }),
   },
   projects: {
     status: (status: ProjectStatus) =>

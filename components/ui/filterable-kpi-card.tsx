@@ -29,7 +29,8 @@ type FilterableKpiCardProps = {
 const WRAPPER_CLASS =
   "rounded-xl text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
 
-const ACTIVE_CLASS = "ring-2 ring-primary/25"
+const ACTIVE_CLASS =
+  "ring-2 ring-primary/45 shadow-md bg-primary/[0.04]"
 
 function KpiCardSkeletonInline({ compact }: { compact?: boolean }) {
   if (compact) {

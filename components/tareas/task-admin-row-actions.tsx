@@ -20,6 +20,7 @@ import {
 } from "@/lib/tasks/work-order-deletion-policy"
 import { TASK_DELETE_USER_MESSAGE } from "@/lib/operations/user-messages"
 import { hasActivePlanningReturn } from "@/lib/tasks/planning-return"
+import { isVencidaStatus } from "@/lib/tasks/vencida-status"
 import type { TaskRescheduleInput } from "@/lib/tasks/reschedule"
 import { formatTaskAdminDisplayCode } from "@/lib/tasks/utils"
 import type { Task } from "@/lib/types/tasks"
@@ -41,6 +42,7 @@ import {
 import { CalendarClock, Eye, Pencil, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
+import { TaskReprogramFromVencidaDialog } from "@/components/tareas/task-reprogram-from-vencida-dialog"
 
 type TaskAdminRowActionsProps = {
   task: Task
@@ -213,11 +215,14 @@ export function TaskAdminRowActions({
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [editBlockedOpen, setEditBlockedOpen] = useState(false)
   const [rescheduleOpen, setRescheduleOpen] = useState(false)
+  const [vencidaRescheduleOpen, setVencidaRescheduleOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isRescheduling, setIsRescheduling] = useState(false)
 
   const viewHref = detailHref ?? `/tareas/${task.id}`
   const showPlanningReturnReschedule = hasActivePlanningReturn(task)
+  const showVencidaReschedule =
+    isVencidaStatus(task.status) && !showPlanningReturnReschedule
   const actorName = sessionUser?.displayName?.trim() || "Usuario"
 
   if (readOnly) {
@@ -235,8 +240,8 @@ export function TaskAdminRowActions({
 
   const canModify = canAdminModifyWorkOrderTask(task)
   const canDelete = canSoftDeleteWorkOrder(task)
-  const isPlanningReturnTray = showPlanningReturnReschedule
-  const editBlockedTooltip = isPlanningReturnTray
+  const isRestrictedTray = showPlanningReturnReschedule || showVencidaReschedule
+  const editBlockedTooltip = showPlanningReturnReschedule
     ? WORK_ORDER_PLANNING_RETURN_EDIT_BLOCKED_TOOLTIP
     : WORK_ORDER_ADMIN_MUTATION_BLOCKED_TOOLTIP
   const taskLabel =
@@ -323,6 +328,14 @@ export function TaskAdminRowActions({
     })
   }
 
+  function handleVencidaRescheduleSuccess() {
+    setVencidaRescheduleOpen(false)
+    onFeedback({
+      variant: "success",
+      message: "Orden de trabajo reprogramada correctamente.",
+    })
+  }
+
   return (
     <>
       <div className="flex items-center justify-end gap-0.5">
@@ -348,7 +361,16 @@ export function TaskAdminRowActions({
           </AdminRowActionButton>
         ) : null}
 
-        {!isPlanningReturnTray ? (
+        {showVencidaReschedule ? (
+          <AdminRowActionButton
+            label="Reprogramar"
+            onClick={() => setVencidaRescheduleOpen(true)}
+          >
+            <CalendarClock className="size-4" />
+          </AdminRowActionButton>
+        ) : null}
+
+        {!isRestrictedTray ? (
           <AdminRowActionButton
             label="Editar"
             disabled={!canModify}
@@ -359,7 +381,7 @@ export function TaskAdminRowActions({
           </AdminRowActionButton>
         ) : null}
 
-        {!isPlanningReturnTray && canDelete ? (
+        {!isRestrictedTray && canDelete ? (
           <AdminRowActionButton
             label="Eliminar"
             destructive
@@ -369,7 +391,7 @@ export function TaskAdminRowActions({
           </AdminRowActionButton>
         ) : null}
 
-        {!isPlanningReturnTray ? (
+        {!isRestrictedTray ? (
           <ForceDeleteAction
             entityType="task"
             entityId={task.id}
@@ -401,12 +423,19 @@ export function TaskAdminRowActions({
         onConfirm={handlePlanningReturnReschedule}
       />
 
+      <TaskReprogramFromVencidaDialog
+        open={vencidaRescheduleOpen}
+        onOpenChange={setVencidaRescheduleOpen}
+        task={showVencidaReschedule ? task : null}
+        onSuccess={handleVencidaRescheduleSuccess}
+      />
+
       <Dialog open={editBlockedOpen} onOpenChange={setEditBlockedOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Edición no disponible</DialogTitle>
             <DialogDescription>
-              {isPlanningReturnTray
+              {showPlanningReturnReschedule
                 ? WORK_ORDER_PLANNING_RETURN_EDIT_BLOCKED_MESSAGE
                 : WORK_ORDER_ADMIN_MUTATION_BLOCKED_MESSAGE}
             </DialogDescription>

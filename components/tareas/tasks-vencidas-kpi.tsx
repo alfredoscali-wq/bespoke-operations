@@ -8,14 +8,14 @@ import type { Task } from "@/lib/types/tasks"
 
 type TasksVencidasKpiProps = {
   tasks: Task[]
-  isActive?: boolean
-  onOpen: () => void
+  isActive: boolean
+  onToggle: () => void
 }
 
 export function TasksVencidasKpi({
   tasks,
-  isActive = false,
-  onOpen,
+  isActive,
+  onToggle,
 }: TasksVencidasKpiProps) {
   const count = countVencidaTasks(tasks)
 
@@ -27,7 +27,7 @@ export function TasksVencidasKpi({
       tone="red"
       compact
       isActive={isActive}
-      onClick={onOpen}
+      onClick={onToggle}
       ariaLabel={`OT Vencidas: ${count}`}
       hint="OT que no pudieron ejecutarse y requieren reprogramación."
     />
