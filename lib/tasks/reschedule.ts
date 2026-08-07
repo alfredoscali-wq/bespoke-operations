@@ -176,6 +176,20 @@ export function buildTaskRescheduleUpdatePayload(
   return payload
 }
 
+/**
+ * OT vencida reprogramada vuelve al flujo de planificación:
+ * no conserva execution_order / dispatch_order (evita unique crew+fecha+orden).
+ */
+export function clearOperationalOrdersForOverdueReschedule(
+  payload: UpdateTaskPayload
+): UpdateTaskPayload {
+  return {
+    ...payload,
+    executionOrder: null,
+    dispatchOrder: null,
+  }
+}
+
 export function buildTaskRescheduleHistoryNote(input: TaskRescheduleInput): string {
   const timeLabel =
     formatScheduledTimeForInput(input.scheduledTime) || getDefaultScheduledTime()

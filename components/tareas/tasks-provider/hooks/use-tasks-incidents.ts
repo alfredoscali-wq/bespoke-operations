@@ -20,6 +20,7 @@ import {
 import {
   buildTaskRescheduleHistoryNote,
   buildTaskRescheduleUpdatePayload,
+  clearOperationalOrdersForOverdueReschedule,
   validateTaskRescheduleInput,
   type TaskRescheduleInput,
 } from "@/lib/tasks/reschedule"
@@ -356,40 +357,48 @@ export function useTasksIncidents({
               ...input,
               rescheduledBy,
             }
-      const updatePayload = buildTaskRescheduleUpdatePayload(
+      let updatePayload = buildTaskRescheduleUpdatePayload(
         task,
         rescheduleInput,
         targetStatus
       )
 
-      const nextDueDate = updatePayload.dueDate ?? task.dueDate
-      const nextCrewId =
-        updatePayload.crewId !== undefined
-          ? updatePayload.crewId
-          : resolveTaskCrewId(task)
+      // Vencida → programada: back to planning queue. Do not keep or reallocate
+      // execution_order (unique crew+date+order would block the date change).
+      if (workflowAction === "reschedule-from-overdue") {
+        updatePayload = clearOperationalOrdersForOverdueReschedule(updatePayload)
+      } else {
+        const nextDueDate = updatePayload.dueDate ?? task.dueDate
+        const nextCrewId =
+          updatePayload.crewId !== undefined
+            ? updatePayload.crewId
+            : resolveTaskCrewId(task)
 
-      if (
-        nextDueDate !== task.dueDate &&
-        nextCrewId &&
-        isOperationalOrderReorderable(task)
-      ) {
-        const orderUpdates = resolveOperationalOrderOnDateChange({
-          task,
-          newDueDate: nextDueDate,
-          allTasks: tasks,
-          crews: [],
-        })
+        if (
+          nextDueDate !== task.dueDate &&
+          nextCrewId &&
+          isOperationalOrderReorderable(task)
+        ) {
+          const orderUpdates = resolveOperationalOrderOnDateChange({
+            task,
+            newDueDate: nextDueDate,
+            allTasks: tasks,
+            crews: [],
+          })
 
-        if (orderUpdates.length > 0) {
-          const orderResult = await applyExecutionOrderUpdates(orderUpdates)
-          if (!orderResult.success) {
-            return orderResult
+          if (orderUpdates.length > 0) {
+            const orderResult = await applyExecutionOrderUpdates(orderUpdates)
+            if (!orderResult.success) {
+              return orderResult
+            }
           }
-        }
 
-        const taskOrderUpdate = orderUpdates.find((update) => update.taskId === id)
-        if (taskOrderUpdate) {
-          updatePayload.executionOrder = taskOrderUpdate.executionOrder
+          const taskOrderUpdate = orderUpdates.find(
+            (update) => update.taskId === id
+          )
+          if (taskOrderUpdate) {
+            updatePayload.executionOrder = taskOrderUpdate.executionOrder
+          }
         }
       }
 
