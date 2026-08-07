@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 
-import { formatActivityTimelineTime } from "@/lib/activity/activity-timeline-groups"
+import { formatDayActivityTimelineStamp } from "@/lib/activity/activity-timeline-groups"
 import type { DayGestion, DayGestionStatusTone } from "@/lib/activity/day-gestiones"
 import {
   DAY_GESTION_EMPHASIS_LABEL,
@@ -44,7 +44,7 @@ export function DayGestionCard({ gestion }: { gestion: DayGestion }) {
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="text-xs tabular-nums text-muted-foreground">
-            {formatActivityTimelineTime(gestion.startedAt)}
+            {formatDayActivityTimelineStamp(gestion.startedAt)}
           </p>
           <h3 className="mt-0.5 text-sm font-semibold text-foreground">
             {gestion.title}

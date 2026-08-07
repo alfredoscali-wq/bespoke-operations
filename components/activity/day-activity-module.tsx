@@ -45,6 +45,7 @@ import {
   useAnalysisEmployeesQuery,
   useJornadaPeriodEventsQuery,
 } from "@/lib/analysis/react-query"
+import type { AnalysisEmployee } from "@/lib/analysis/queries"
 import { buildExecutiveBrief, type ExecutiveBrief } from "@/lib/executive"
 import { indicatorCount, INDICATOR_IDS } from "@/lib/indicators"
 import { useAuth } from "@/components/auth/auth-provider"
@@ -72,6 +73,8 @@ import { FILTER_SELECT_TRIGGER_CLASS } from "@/lib/ui/visual-tokens"
 import { cn } from "@/lib/utils"
 
 const NONE_VALUE = "__none__"
+/** Stable empty list — `?? []` in render would break useEffect identity checks. */
+const EMPTY_DAY_ACTIVITY_EMPLOYEES: AnalysisEmployee[] = []
 
 type ExecutiveKpi = {
   id: DayActivityFilterId
@@ -231,7 +234,8 @@ export function DayActivityModule() {
     companyId,
     Boolean(allowed && isAuthReady && companyId)
   )
-  const employees = employeesQuery.data?.employees ?? []
+  // Stable reference: never allocate `[]` during render (breaks useEffect deps).
+  const employees = employeesQuery.data?.employees ?? EMPTY_DAY_ACTIVITY_EMPLOYEES
 
   const jornadaQuery = useJornadaPeriodEventsQuery(
     {
@@ -244,10 +248,10 @@ export function DayActivityModule() {
 
   useEffect(() => {
     if (!allowed || !employeeId) {
-      setBrief(null)
-      setGestiones([])
-      setDeriveError(null)
-      setIsDeriving(false)
+      setBrief((current) => (current === null ? current : null))
+      setGestiones((current) => (current.length === 0 ? current : []))
+      setDeriveError((current) => (current === null ? current : null))
+      setIsDeriving((current) => (current === false ? current : false))
       return
     }
 

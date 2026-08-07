@@ -90,6 +90,54 @@ export function formatActivityTimelineDate(createdAt: string): string {
   }).format(date)
 }
 
+const DAY_ACTIVITY_MONTH_SHORT = [
+  "Ene",
+  "Feb",
+  "Mar",
+  "Abr",
+  "May",
+  "Jun",
+  "Jul",
+  "Ago",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dic",
+] as const
+
+function formatActivityTimelineClockHm(date: Date): string {
+  return new Intl.DateTimeFormat("es-AR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date)
+}
+
+function formatActivityTimelineDayMonthYear(date: Date): string {
+  const day = String(date.getDate()).padStart(2, "0")
+  const month = DAY_ACTIVITY_MONTH_SHORT[date.getMonth()] ?? ""
+  return `${day} ${month} ${date.getFullYear()}`
+}
+
+/**
+ * Actividad de la Jornada — visible date + time for multi-day periods.
+ * Examples: "Hoy · 12:53" | "Ayer · 14:22" | "07 Ago 2026 · 12:53"
+ */
+export function formatDayActivityTimelineStamp(
+  createdAt: string,
+  now: Date = new Date()
+): string {
+  const date = new Date(createdAt)
+  if (Number.isNaN(date.getTime())) return createdAt
+
+  const time = formatActivityTimelineClockHm(date)
+  const group = resolveActivityTimelineGroupId(createdAt, now)
+
+  if (group === "today") return `Hoy · ${time}`
+  if (group === "yesterday") return `Ayer · ${time}`
+  return `${formatActivityTimelineDayMonthYear(date)} · ${time}`
+}
+
 export function toTimelineDateFromInput(value: string): string | undefined {
   if (!value) return undefined
   const date = new Date(`${value}T00:00:00`)
