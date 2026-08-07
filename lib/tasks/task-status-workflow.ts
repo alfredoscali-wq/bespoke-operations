@@ -47,7 +47,7 @@ const WORKFLOW_TRANSITIONS: Record<
   "report-incident": { from: ["en-curso"], to: "incidencia" },
   "resume-from-incident": { from: ["incidencia"], to: "en-curso" },
   "reschedule-from-incident": { from: ["incidencia"], to: "asignada" },
-  "reschedule-from-overdue": { from: ["vencida"], to: "asignada" },
+  "reschedule-from-overdue": { from: ["vencida"], to: "programada" },
   "reschedule-planning-return": {
     from: ["programada", "asignada", "vencida"],
     to: "programada",

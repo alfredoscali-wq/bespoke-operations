@@ -35,6 +35,19 @@ export function isTaskVencida(
   return isVencidaStatus(task.status)
 }
 
+/** KPI / bandeja: COUNT de OT con status vencida en el listado activo. */
+export function countVencidaTasks(
+  tasks: ReadonlyArray<Pick<Task, "status">>
+): number {
+  return tasks.filter((task) => isVencidaStatus(task.status)).length
+}
+
+export function listVencidaTasks<T extends Pick<Task, "status">>(
+  tasks: ReadonlyArray<T>
+): T[] {
+  return tasks.filter((task) => isVencidaStatus(task.status))
+}
+
 export function isAutoVencidaEligibleStatus(status: TaskStatus): boolean {
   return AUTO_VENCIDA_ELIGIBLE_STATUSES.includes(status)
 }

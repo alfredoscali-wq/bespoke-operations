@@ -84,6 +84,42 @@ export function buildRescheduleOperationalEvent(input: {
   )
 }
 
+/**
+ * Sprint OT Vencidas 1.0 — historial operativo al reprogramar desde vencida.
+ * eventType: ot_reprogramada_por_vencimiento
+ */
+export function buildOverdueRescheduleOperationalEvent(input: {
+  companyId: string
+  task: Task
+  reschedule: TaskRescheduleInput
+  actor: OperationalEventActor
+}): TaskOperationalEventInsert {
+  const fechaOriginal = input.task.dueDate
+  const nuevaFecha = input.reschedule.dueDate.trim()
+  const motivo =
+    input.reschedule.notes?.trim() || input.reschedule.reason.trim()
+
+  return applyOperationalEventActor(
+    {
+      companyId: input.companyId,
+      taskId: input.task.id,
+      eventType: "ot_reprogramada_por_vencimiento",
+      title: "OT reprogramada por vencimiento",
+      description: `Reprogramada por vencimiento: ${fechaOriginal} → ${nuevaFecha}`,
+      observations: motivo,
+      payload: {
+        task_id: input.task.id,
+        fecha_original: fechaOriginal,
+        nueva_fecha: nuevaFecha,
+        motivo,
+        usuario: input.actor.fullName,
+        timestamp: new Date().toISOString(),
+      },
+    },
+    input.actor
+  )
+}
+
 export function buildCancelOperationalEvent(input: {
   companyId: string
   task: Task

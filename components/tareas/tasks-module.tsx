@@ -27,6 +27,8 @@ import {
 } from "@/lib/tasks/task-list-scope"
 import { filterPlanningReturnedTasks, excludePlanningReturnedTasks } from "@/lib/tasks/planning-return"
 import { TasksPlanningReturnedKpi } from "@/components/tareas/tasks-planning-returned-kpi"
+import { TasksVencidasKpi } from "@/components/tareas/tasks-vencidas-kpi"
+import { TasksVencidasDrawer } from "@/components/tareas/tasks-vencidas-drawer"
 import { formatConsultationExpedienteCode } from "@/lib/customer-atenciones/consultation-expediente"
 import {
   clearConsultationOtCreatePrefill,
@@ -70,6 +72,7 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
   const [feedback, setFeedback] = useState<string | null>(null)
   const [planningReturnedFilterActive, setPlanningReturnedFilterActive] =
     useState(false)
+  const [vencidasDrawerOpen, setVencidasDrawerOpen] = useState(false)
   const [consultationPrefill, setConsultationPrefill] =
     useState<ConsultationOtCreatePrefill | null>(null)
   const [solicitudPrefill, setSolicitudPrefill] =
@@ -393,7 +396,12 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
       </div>
 
       {!isArchiveView ? (
-        <div className="max-w-sm">
+        <div className="grid max-w-2xl gap-3 sm:grid-cols-2">
+          <TasksVencidasKpi
+            tasks={scopedTasks}
+            isActive={vencidasDrawerOpen}
+            onOpen={() => setVencidasDrawerOpen(true)}
+          />
           <TasksPlanningReturnedKpi
             tasks={scopedTasks}
             isActive={planningReturnedFilterActive}
@@ -471,6 +479,12 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
             open={importOpen}
             onOpenChange={setImportOpen}
             onImported={(message) => setFeedback(message)}
+          />
+
+          <TasksVencidasDrawer
+            open={vencidasDrawerOpen}
+            onOpenChange={setVencidasDrawerOpen}
+            tasks={scopedTasks}
           />
         </>
       ) : null}

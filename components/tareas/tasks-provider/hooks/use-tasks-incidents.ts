@@ -28,6 +28,7 @@ import { resolveOperationalEventActor } from "@/lib/tasks/operational-event-acto
 import {
   buildCancelOperationalEvent,
   buildRescheduleOperationalEvent,
+  buildOverdueRescheduleOperationalEvent,
 } from "@/lib/tasks/operational-motivos"
 import {
   buildIncidentOperationalEvent,
@@ -411,12 +412,19 @@ export function useTasksIncidents({
 
       if (result.success && companyId) {
         void recordTaskOperationalEvent(
-          buildRescheduleOperationalEvent({
-            companyId,
-            task,
-            reschedule: rescheduleInput,
-            actor,
-          })
+          workflowAction === "reschedule-from-overdue"
+            ? buildOverdueRescheduleOperationalEvent({
+                companyId,
+                task,
+                reschedule: rescheduleInput,
+                actor,
+              })
+            : buildRescheduleOperationalEvent({
+                companyId,
+                task,
+                reschedule: rescheduleInput,
+                actor,
+              })
         )
       }
 
