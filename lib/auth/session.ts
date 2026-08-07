@@ -17,6 +17,11 @@ import {
   recordReleaseExpiredCall,
   recordReleaseExpiredQuery,
 } from "@/lib/customer-service/performance/release-expired-breakdown"
+import {
+  getAtcActionStore,
+  recordAtcActionCall,
+  recordAtcActionQuery,
+} from "@/lib/customer-service/performance/action-breakdown"
 import { fetchCompanyRoleById } from "@/lib/supabase/company-roles.queries"
 import { fetchEmployeeByAppUserId } from "@/lib/supabase/employees.queries"
 import { createClient } from "@/lib/supabase/server"
@@ -36,12 +41,14 @@ export type SessionUserLoadResult = {
 async function loadSessionUserParts(): Promise<SessionUserLoadResult | null> {
   const authSync = getAuthSyncStore()
   const releaseExpired = getReleaseExpiredStore()
+  const atcAction = getAtcActionStore()
   const supabase = await createClient()
 
   const sessionWallStarted = nowMs()
 
   recordAuthSyncCall("getUser()")
   recordReleaseExpiredCall("getUser()")
+  recordAtcActionCall("getUser()")
   const authLookup = await getAuthUser()
   const userDuration = authLookup.durationMs
   if (authSync) {
@@ -50,6 +57,11 @@ async function loadSessionUserParts(): Promise<SessionUserLoadResult | null> {
   }
   if (releaseExpired) {
     recordReleaseExpiredQuery("auth.getUser", userDuration, {
+      cached: authLookup.fromCache,
+    })
+  }
+  if (atcAction) {
+    recordAtcActionQuery("auth.getUser", userDuration, {
       cached: authLookup.fromCache,
     })
   }
@@ -66,6 +78,7 @@ async function loadSessionUserParts(): Promise<SessionUserLoadResult | null> {
 
   recordAuthSyncCall("employee lookup")
   recordReleaseExpiredCall("employee lookup")
+  recordAtcActionCall("employee lookup")
   const employeeStarted = nowMs()
   const employeeResult = await fetchEmployeeByAppUserId(supabase, user.id)
   const employeeDuration = nowMs() - employeeStarted
@@ -76,6 +89,9 @@ async function loadSessionUserParts(): Promise<SessionUserLoadResult | null> {
   if (releaseExpired) {
     addReleaseExpiredTimer("employeeMs", employeeDuration)
     recordReleaseExpiredQuery("employees", employeeDuration)
+  }
+  if (atcAction) {
+    recordAtcActionQuery("employees", employeeDuration)
   }
   const employee = employeeResult.data ?? null
 
@@ -93,6 +109,7 @@ async function loadSessionUserParts(): Promise<SessionUserLoadResult | null> {
 
   recordAuthSyncCall("role lookup")
   recordReleaseExpiredCall("role lookup")
+  recordAtcActionCall("role lookup")
   const roleStarted = nowMs()
   const roleResult = await fetchCompanyRoleById(supabase, employee.roleId)
   const roleDuration = nowMs() - roleStarted
@@ -103,6 +120,9 @@ async function loadSessionUserParts(): Promise<SessionUserLoadResult | null> {
   if (releaseExpired) {
     addReleaseExpiredTimer("roleMs", roleDuration)
     recordReleaseExpiredQuery("company_roles", roleDuration)
+  }
+  if (atcAction) {
+    recordAtcActionQuery("company_roles", roleDuration)
   }
   const role = roleResult.data ?? null
 

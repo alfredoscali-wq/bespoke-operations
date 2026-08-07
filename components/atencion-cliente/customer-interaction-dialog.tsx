@@ -34,6 +34,8 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 
 const KEEP_CURRENT_NEXT_STEP = "__keep_current__"
+/** Controlled empty sentinel — Radix Select treats "" / undefined as mode switches. */
+const UNSET_SELECT_VALUE = "__unset__"
 
 type CustomerInteractionDialogProps = {
   open: boolean
@@ -150,10 +152,14 @@ export function CustomerInteractionDialog({
                 Medio de contacto
               </Label>
               <Select
-                value={medium || undefined}
-                onValueChange={(value) =>
+                value={medium || UNSET_SELECT_VALUE}
+                onValueChange={(value) => {
+                  if (value === UNSET_SELECT_VALUE) {
+                    setMedium("")
+                    return
+                  }
                   setMedium(value as CustomerInteractionMedium)
-                }
+                }}
               >
                 <SelectTrigger
                   id="customer-interaction-medium"
@@ -176,8 +182,14 @@ export function CustomerInteractionDialog({
                 Resultado del contacto
               </Label>
               <Select
-                value={result || undefined}
-                onValueChange={setResult}
+                value={result || UNSET_SELECT_VALUE}
+                onValueChange={(value) => {
+                  if (value === UNSET_SELECT_VALUE) {
+                    setResult("")
+                    return
+                  }
+                  setResult(value)
+                }}
                 disabled={!medium}
               >
                 <SelectTrigger

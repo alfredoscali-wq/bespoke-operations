@@ -682,6 +682,29 @@ export function AtencionDetailScreen({
   async function handleStartManagement() {
     setActionError(null)
 
+    // Sprint 44.0 — prefer detail state id; prop is expandedConsultationId.
+    const consultationId = atencion?.id?.trim() || atencionId.trim()
+    if (process.env.NODE_ENV === "development") {
+      console.log(
+        "[ATC START]",
+        consultationId,
+        atencion?.id,
+        atencionId
+      )
+    }
+    if (atencion?.id && atencion.id !== atencionId) {
+      console.error(
+        "[ATC START] id mismatch: detail state vs panel prop",
+        atencion.id,
+        atencionId
+      )
+      setActionError(
+        "La consulta en pantalla no coincide con el expediente abierto. Cerrá y volvé a abrirla."
+      )
+      await loadDetail()
+      return
+    }
+
     if (
       atencion &&
       isConsultationManagedByAnotherEmployee(atencion, currentEmployeeId)
@@ -702,7 +725,7 @@ export function AtencionDetailScreen({
     // RC 3.2.3 — block a second concurrent management for this operator.
     if (
       myActiveManagement &&
-      myActiveManagement.atencionId !== atencionId
+      myActiveManagement.atencionId !== consultationId
     ) {
       notifyExclusiveManagementBlocked()
       return
@@ -711,7 +734,7 @@ export function AtencionDetailScreen({
     setIsStarting(true)
 
     try {
-      const result = await startConsultationManagement(atencionId)
+      const result = await startConsultationManagement(consultationId)
 
       if (!result.success) {
         if (result.code === "CONSULTATION_OPERATOR_ALREADY_MANAGING") {
@@ -736,6 +759,13 @@ export function AtencionDetailScreen({
           )
           // Provider did not refresh on failure — sync bandeja lock state.
           await reloadAfterAction()
+          onDataChanged?.()
+          return
+        }
+        // Sprint 44.0 — NOT_FOUND: drop stale detail cache and reload from DB.
+        if (result.code === "CONSULTATION_NOT_FOUND") {
+          setActionError(result.message)
+          await loadDetail()
           onDataChanged?.()
           return
         }
@@ -2186,10 +2216,14 @@ export function AtencionDetailScreen({
             <div className="space-y-2 border-t pt-4">
               <Label htmlFor="consultation-defer-next-step">Próximo paso</Label>
               <Select
-                value={deferNextStep}
-                onValueChange={(value) =>
+                value={deferNextStep || "__unset_defer__"}
+                onValueChange={(value) => {
+                  if (value === "__unset_defer__") {
+                    setDeferNextStep("")
+                    return
+                  }
                   setDeferNextStep(value as CustomerAtencionNextStep)
-                }
+                }}
               >
                 <SelectTrigger id="consultation-defer-next-step" className="w-full">
                   <SelectValue placeholder="Seleccionar próximo paso" />

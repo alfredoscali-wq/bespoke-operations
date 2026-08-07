@@ -40,10 +40,24 @@ import {
   recordReleaseExpiredQuery,
 } from "@/lib/customer-service/performance/release-expired-breakdown"
 import {
+  addAtcActionTimer,
+  getAtcActionStore,
+  recordAtcActionCall,
+  recordAtcActionQuery,
+} from "@/lib/customer-service/performance/action-breakdown"
+import {
   emitCustomerInteractionActivities,
   emitCustomerManagementActivities,
   emitCustomerOtLinkedActivity,
 } from "@/lib/customer-atenciones/emit-customer-activity"
+import { enqueue } from "@/lib/activity/activity-queue"
+
+function nowMs(): number {
+  if (typeof performance !== "undefined" && typeof performance.now === "function") {
+    return performance.now()
+  }
+  return Date.now()
+}
 
 export type ConsultationManagementServerResult =
   | { ok: true; data: ConsultationManagementRpcResult }
@@ -68,6 +82,8 @@ async function resolveLatestConsultationEventId(input: {
   actionTypes: string[]
 }): Promise<string | null> {
   const admin = createAdminClient()
+  const started = nowMs()
+  recordAtcActionCall("events.latest")
   const { data, error } = await admin
     .from("customer_atencion_events")
     .select("id")
@@ -78,12 +94,27 @@ async function resolveLatestConsultationEventId(input: {
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle()
+  const duration = nowMs() - started
+  if (getAtcActionStore()) {
+    recordAtcActionQuery("events.latest", duration)
+    addAtcActionTimer("latestEventMs", duration)
+    addAtcActionTimer("transformMs", duration)
+  }
 
   if (error || !data?.id) {
     return null
   }
 
   return data.id
+}
+
+/** Sprint 39.0 — event_id comes from RPC; no post-RPC events.latest query. */
+function recordLatestEventEliminated(): void {
+  const atcAction = getAtcActionStore()
+  if (!atcAction) return
+  recordAtcActionCall("events.latest")
+  recordAtcActionQuery("events.latest", 0, { cached: true })
+  addAtcActionTimer("latestEventMs", 0)
 }
 
 async function callConsultationManagementRpc(
@@ -95,12 +126,20 @@ async function callConsultationManagementRpc(
   })
   try {
     const admin = createAdminClient()
+    const atcAction = getAtcActionStore()
 
+    recordAtcActionCall(`rpc.${rpcName}`)
+    const rpcStarted = nowMs()
     const { data, error } = await perf.span(
       "RPC",
       () => (admin as unknown as AdminRpcClient).rpc(rpcName, args),
       { name: rpcName }
     )
+    const rpcDuration = nowMs() - rpcStarted
+    if (atcAction) {
+      addAtcActionTimer("rpcMs", rpcDuration)
+      recordAtcActionQuery("rpc", rpcDuration)
+    }
 
     if (error) {
       logOperationError("CONSULTATION MANAGEMENT", error)
@@ -114,9 +153,14 @@ async function callConsultationManagementRpc(
       }
     }
 
+    const parseStarted = nowMs()
     const parsed = perf.spanSync("Parse RPC", () =>
       parseConsultationManagementRpcResult(data)
     )
+    const parseDuration = nowMs() - parseStarted
+    if (atcAction) {
+      addAtcActionTimer("transformMs", parseDuration)
+    }
     if (!parsed) {
       perf.fail()
       return {
@@ -135,6 +179,28 @@ async function callConsultationManagementRpc(
   }
 }
 
+/**
+ * Sprint 42.0 — Activity Engine via activity-queue (enqueue → return).
+ * Never on the request critical path; auditoría still runs in process().
+ */
+function enqueueManagementActivities(
+  input: Parameters<typeof emitCustomerManagementActivities>[0]
+): void {
+  const atcAction = getAtcActionStore()
+  if (atcAction) {
+    recordAtcActionCall("activity.emit")
+    // Not on the request wall — record 0 for Sprint 37 comparison.
+    recordAtcActionQuery("activity", 0)
+  }
+
+  enqueue({
+    name: `atc.management.${input.kind}`,
+    run: async () => {
+      await emitCustomerManagementActivities(input)
+    },
+  })
+}
+
 export async function startCustomerAtencionManagement(input: {
   companyId: string
   atencionId: string
@@ -149,7 +215,7 @@ export async function startCustomerAtencionManagement(input: {
     }
   )
   if (result.ok && !result.data.idempotent) {
-    void emitCustomerManagementActivities({
+    enqueueManagementActivities({
       companyId: input.companyId,
       employeeId: input.employeeId,
       result: result.data,
@@ -177,14 +243,20 @@ export async function resolveCustomerAtencionConsultation(input: {
     }
   )
   if (result.ok) {
-    const eventId = await resolveLatestConsultationEventId({
-      companyId: input.companyId,
-      atencionId: input.atencionId,
-      employeeId: input.employeeId,
-      actionTypes: ["consulta_resuelta"],
-    })
-    result = { ok: true, data: { ...result.data, eventId } }
-    void emitCustomerManagementActivities({
+    // Sprint 39.0 — prefer event_id from RPC RETURNING (no events.latest).
+    // Fallback keeps attachment linking until migration is applied.
+    if (result.data.eventId) {
+      recordLatestEventEliminated()
+    } else {
+      const eventId = await resolveLatestConsultationEventId({
+        companyId: input.companyId,
+        atencionId: input.atencionId,
+        employeeId: input.employeeId,
+        actionTypes: ["consulta_resuelta"],
+      })
+      result = { ok: true, data: { ...result.data, eventId } }
+    }
+    enqueueManagementActivities({
       companyId: input.companyId,
       employeeId: input.employeeId,
       result: result.data,
@@ -305,35 +377,51 @@ export async function deferCustomerAtencionConsultation(input: {
     }
   )
   if (result.ok) {
-    const eventId = await resolveLatestConsultationEventId({
-      companyId: input.companyId,
-      atencionId: input.atencionId,
-      employeeId: input.employeeId,
-      actionTypes: ["consulta_pendiente"],
-    })
-    result = { ok: true, data: { ...result.data, eventId } }
-    void emitCustomerManagementActivities({
-      companyId: input.companyId,
-      employeeId: input.employeeId,
-      result: result.data,
-      detail: input.detail,
-      kind: "defer",
-    })
-    if (result.data.newNextStep === "contactar_cliente") {
+    const shouldDeriveCommercial =
+      result.data.newNextStep === "contactar_cliente"
+
+    // Sprint 39.0 — prefer event_id from RPC; no events.latest on happy path.
+    if (result.data.eventId) {
+      recordLatestEventEliminated()
+    } else {
+      const eventId = await resolveLatestConsultationEventId({
+        companyId: input.companyId,
+        atencionId: input.atencionId,
+        employeeId: input.employeeId,
+        actionTypes: ["consulta_pendiente"],
+      })
+      result = { ok: true, data: { ...result.data, eventId } }
+    }
+
+    if (shouldDeriveCommercial) {
       try {
-        const { deriveCommercialOpportunityFromCustomerService } = await import(
-          "@/lib/commercial/derive-from-customer-service"
-        )
+        const deriveStarted = nowMs()
+        recordAtcActionCall("commercial.derive")
+        const { deriveCommercialOpportunityFromCustomerService } =
+          await import("@/lib/commercial/derive-from-customer-service")
         await deriveCommercialOpportunityFromCustomerService({
           companyId: input.companyId,
           atencionId: input.atencionId,
           employeeId: input.employeeId,
           detail: input.detail,
         })
+        const deriveDuration = nowMs() - deriveStarted
+        if (getAtcActionStore()) {
+          recordAtcActionQuery("commercial.derive", deriveDuration)
+          addAtcActionTimer("transformMs", deriveDuration)
+        }
       } catch (error) {
         logOperationError("COMMERCIAL DERIVATION", error)
       }
     }
+
+    enqueueManagementActivities({
+      companyId: input.companyId,
+      employeeId: input.employeeId,
+      result: result.data,
+      detail: input.detail,
+      kind: "defer",
+    })
   }
   return result
 }
@@ -454,15 +542,20 @@ export async function registerCustomerAtencionInteraction(input: {
     }
   }
 
-  void emitCustomerInteractionActivities({
-    companyId: input.companyId,
-    employeeId: input.employeeId,
-    interactionKind: input.interactionKind,
-    detail: input.detail,
-    interactionResult: input.interactionResult,
-    nextActionAt: input.nextActionAt,
-    result: parsed,
-    clientInteraction: input.clientInteraction ?? null,
+  enqueue({
+    name: "atc.interaction",
+    run: async () => {
+      await emitCustomerInteractionActivities({
+        companyId: input.companyId,
+        employeeId: input.employeeId,
+        interactionKind: input.interactionKind,
+        detail: input.detail,
+        interactionResult: input.interactionResult,
+        nextActionAt: input.nextActionAt,
+        result: parsed,
+        clientInteraction: input.clientInteraction ?? null,
+      })
+    },
   })
 
   const derivedNextStep =
@@ -534,10 +627,15 @@ export async function linkCustomerAtencionToTask(input: {
     }
   }
 
-  void emitCustomerOtLinkedActivity({
-    companyId: input.companyId,
-    employeeId: input.employeeId,
-    result: parsed,
+  enqueue({
+    name: "atc.ot-linked",
+    run: async () => {
+      await emitCustomerOtLinkedActivity({
+        companyId: input.companyId,
+        employeeId: input.employeeId,
+        result: parsed,
+      })
+    },
   })
 
   return { ok: true, data: parsed }

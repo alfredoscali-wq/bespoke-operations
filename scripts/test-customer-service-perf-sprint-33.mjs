@@ -1,5 +1,6 @@
 /**
  * Sprint 33.0 — auth.getUser cache / reuse per request chain.
+ * Sprint 41.0 — proxy.ts + signed header (tests updated for new entrypoint).
  */
 import assert from "node:assert/strict"
 import test from "node:test"
@@ -22,11 +23,11 @@ import { setCustomerServicePerfEnabledForTests } from "../lib/customer-service/p
 
 const ROOT = process.cwd()
 
-test("Sprint 33.0: middleware forwards validated user via request-cache header", () => {
-  const middleware = readFileSync(join(ROOT, "middleware.ts"), "utf8")
-  assert.ok(middleware.includes("continueWithAuthUserRequestCache"))
-  assert.ok(middleware.includes("supabase.auth.getUser()"))
-  assert.ok(middleware.includes("recordProxyQuery(perf, \"auth.getUser\""))
+test("Sprint 33.0: proxy forwards validated user via request-cache header", () => {
+  const proxy = readFileSync(join(ROOT, "proxy.ts"), "utf8")
+  assert.ok(proxy.includes("continueWithAuthUserRequestCache"))
+  assert.ok(proxy.includes("supabase.auth.getUser()"))
+  assert.ok(proxy.includes("recordProxyQuery(perf, \"auth.getUser\""))
 })
 
 test("Sprint 33.0: getAuthUser prefers header cache then network", () => {
@@ -54,7 +55,7 @@ test("Sprint 33.0: session + release-expired use getAuthUser (no direct getUser)
   assert.ok(releaseAuth.includes("cached: authLookup.fromCache"))
 })
 
-test("Sprint 33.0: serialize/deserialize round-trip preserves id + metadata", () => {
+test("Sprint 33.0: serialize/deserialize round-trip preserves id + metadata", async () => {
   const user = {
     id: "user-1",
     email: "a@b.com",
@@ -68,12 +69,15 @@ test("Sprint 33.0: serialize/deserialize round-trip preserves id + metadata", ()
     role: "authenticated",
   }
 
-  const encoded = serializeAuthUserForRequestCache(user)
-  const decoded = deserializeAuthUserFromRequestCache(encoded)
+  const encodedBody = serializeAuthUserForRequestCache(user)
+  const decoded = deserializeAuthUserFromRequestCache(encodedBody)
   assert.equal(decoded?.id, "user-1")
   assert.equal(decoded?.email, "a@b.com")
   assert.equal(decoded?.user_metadata?.company_id, "co-1")
-  assert.equal(encodeAuthUserRequestCacheValue(null), AUTH_USER_REQUEST_CACHE_NONE)
+  assert.equal(
+    await encodeAuthUserRequestCacheValue(null, null),
+    AUTH_USER_REQUEST_CACHE_NONE
+  )
   assert.ok(BESPOKE_AUTH_USER_REQUEST_CACHE_HEADER.startsWith("x-bespoke-"))
 })
 

@@ -3,6 +3,11 @@ export {
   ACTIVITY_EVENT_TITLES,
   type ActivityEventAction,
 } from "@/lib/activity/actions"
+export {
+  enqueue as enqueueActivity,
+  process as processActivityQueue,
+  type ActivityQueueJob,
+} from "@/lib/activity/activity-queue"
 export type {
   RecordActivityInput,
   RecordActivityResult,

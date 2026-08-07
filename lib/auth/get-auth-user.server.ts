@@ -1,9 +1,11 @@
 /**
- * Sprint 33.0 — auth.getUser() with per-request-chain reuse.
+ * Sprint 33.0 / 41.0 — auth.getUser() with per-request-chain reuse.
  *
- * 1) Prefer middleware-validated user from request header (0–5 ms).
+ * 1) Prefer proxy-validated user from signed request header (0–5 ms).
  * 2) Else call supabase.auth.getUser() once (network).
  * 3) React.cache dedupes concurrent callers in the same server request.
+ *
+ * Sprint 41.0 — verify HMAC on the proxy cache; never trust a forged header.
  */
 
 import "server-only"
@@ -15,7 +17,8 @@ import type { AuthError, User } from "@supabase/supabase-js"
 import {
   AUTH_USER_REQUEST_CACHE_NONE,
   BESPOKE_AUTH_USER_REQUEST_CACHE_HEADER,
-  deserializeAuthUserFromRequestCache,
+  BESPOKE_AUTH_USER_REQUEST_CACHE_HEADER_LEGACY,
+  decodeAuthUserRequestCacheValue,
 } from "@/lib/auth/auth-user-request-cache"
 import { createClient } from "@/lib/supabase/server"
 
@@ -38,7 +41,9 @@ async function loadAuthUserUncached(): Promise<AuthUserLookupResult> {
 
   try {
     const headerStore = await headers()
-    const cachedRaw = headerStore.get(BESPOKE_AUTH_USER_REQUEST_CACHE_HEADER)
+    const cachedRaw =
+      headerStore.get(BESPOKE_AUTH_USER_REQUEST_CACHE_HEADER) ??
+      headerStore.get(BESPOKE_AUTH_USER_REQUEST_CACHE_HEADER_LEGACY)
 
     if (cachedRaw != null) {
       if (cachedRaw === AUTH_USER_REQUEST_CACHE_NONE) {
@@ -50,16 +55,16 @@ async function loadAuthUserUncached(): Promise<AuthUserLookupResult> {
         }
       }
 
-      const user = deserializeAuthUserFromRequestCache(cachedRaw)
-      if (user) {
+      const decoded = await decodeAuthUserRequestCacheValue(cachedRaw)
+      if (decoded.valid) {
         return {
-          user,
+          user: decoded.user,
           error: null,
           fromCache: true,
           durationMs: nowMs() - started,
         }
       }
-      // Corrupt/forged header — fall through to network validation.
+      // Corrupt/forged/unsigned-when-secret-required — fall through to network.
     }
   } catch {
     // headers() unavailable outside a request — fall through to network.
@@ -81,5 +86,6 @@ async function loadAuthUserUncached(): Promise<AuthUserLookupResult> {
 
 /**
  * Request-scoped auth user. Safe to call repeatedly in one handler tree.
+ * When proxy already validated the JWT, this is a cache hit (no second getUser).
  */
 export const getAuthUser = cache(loadAuthUserUncached)

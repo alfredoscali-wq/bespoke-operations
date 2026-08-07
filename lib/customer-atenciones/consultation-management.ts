@@ -236,7 +236,11 @@ export function mapConsultationManagementRpcError(
     }
   }
 
-  if (normalized.includes("CONSULTATION_NOT_FOUND") || normalized.includes("no encontrada")) {
+  // Sprint 44.0 — require explicit RPC code (avoid broad "no encontrada" false positives).
+  if (
+    normalized.includes("CONSULTATION_NOT_FOUND") ||
+    normalized.includes("Consulta no encontrada")
+  ) {
     return {
       code: "CONSULTATION_NOT_FOUND",
       message: "Consulta no encontrada.",

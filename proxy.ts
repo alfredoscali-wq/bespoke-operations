@@ -1,6 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
 
-import { continueWithAuthUserRequestCache } from "@/lib/auth/continue-with-auth-user-request-cache"
+import {
+  continueWithAuthUserRequestCache,
+  nextWithoutAuthUserRequestCache,
+} from "@/lib/auth/continue-with-auth-user-request-cache"
 import {
   resolveAccessDeniedRedirectPath,
   resolvePostLoginPathFromAuthMetadata,
@@ -28,13 +31,19 @@ import {
 import { isMobileApiPath } from "@/lib/mobile/v1/routing"
 import { createMiddlewareSupabaseClient } from "@/lib/supabase/middleware"
 
-export async function middleware(request: NextRequest) {
+/**
+ * Sprint 41.0 — Next.js 16 `proxy.ts` (replaces deprecated middleware.ts).
+ * Validates JWT once, then forwards a signed auth-user cache header so ATC
+ * handlers reuse the same user without a second auth.getUser() network call.
+ */
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const perf = beginProxyPerfSession(request.method, pathname)
 
   try {
     if (isMobileApiPath(pathname)) {
-      return NextResponse.next()
+      // Sprint 41.0 — strip forgeable auth-cache headers when proxy skips auth.
+      return nextWithoutAuthUserRequestCache(request)
     }
 
     const response = NextResponse.next({ request })
@@ -57,8 +66,7 @@ export async function middleware(request: NextRequest) {
     }
 
     // getUser() validates the JWT with Supabase Auth (network).
-    // Counted as Get User + JWT Validation (same call — no separate step today).
-    // Sprint 33.0 — result is forwarded to handlers via request-cache header.
+    // Sprint 33/41 — result is forwarded to handlers via signed request-cache header.
     recordProxyCall(perf, "getUser()")
     const started = nowMs()
     const {
@@ -77,7 +85,7 @@ export async function middleware(request: NextRequest) {
       : null
 
     // Load Employee / Load Permissions / Get Session are NOT executed in
-    // middleware today — timers remain "—" intentionally for the audit.
+    // proxy today — timers remain "—" intentionally for the audit.
 
     const isPublic = isAuthPublicPath(pathname)
 
@@ -150,7 +158,7 @@ function resolveAuthenticatedRedirect(
     const redirectUrl = request.nextUrl.clone()
     redirectUrl.pathname = resolvePostLoginPathFromAuthMetadata(
       systemRole,
-      user.user_metadata
+      user.user_metadata ?? undefined
     )
     redirectUrl.search = ""
     return NextResponse.redirect(redirectUrl)
@@ -165,13 +173,13 @@ function resolveAuthenticatedRedirect(
 
   if (
     isPlanificacionOperativaPath(pathname) &&
-    !canAccessPlanificacionOperativa(systemRole, user.user_metadata)
+    !canAccessPlanificacionOperativa(systemRole, user.user_metadata ?? undefined)
   ) {
     const redirectUrl = request.nextUrl.clone()
     redirectUrl.pathname = resolveAccessDeniedRedirectPath(
       systemRole,
-      user.user_metadata,
-      pathname
+      user.user_metadata ?? undefined,
+  pathname
     )
     redirectUrl.search = ""
     return NextResponse.redirect(redirectUrl)

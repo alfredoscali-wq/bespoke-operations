@@ -1,8 +1,15 @@
 /**
- * Sprint 32.0 — lightweight auth context for release-expired-managements.
- * Uses auth.getUser + JWT user_metadata only (no employees / company_roles).
+ * Sprint 38.0 — lightweight JWT auth context for ATC management actions.
+ * Pattern from Sprint 32.0 (release-expired): auth.getUser + user_metadata only.
+ * No SessionUser / employees / company_roles.
  *
- * Sprint 41.0 — getAuthUser() reuses the proxy-validated signed cache header.
+ * Sprint 41.0 — getAuthUser() reuses the proxy-validated signed cache header
+ * (no second auth.getUser network round-trip when proxy already ran).
+ *
+ * Sprint 44.0 — if JWT metadata lacks company_id/employee_id, resolve once from
+ * employees by app_user_id (same source as RLS auth_user_company_id). Prevents
+ * CONSULTATION_NOT_FOUND when the UI loads via employees.company_id but start
+ * used a missing/stale JWT company_id.
  */
 
 import "server-only"
@@ -18,21 +25,22 @@ import { DEMO_RESTRICTED_DIALOG_MESSAGE } from "@/lib/demo/constants"
 import { isDemoPlatformReadOnlyUser } from "@/lib/demo/demo-mode"
 import { hasWebModuleAccessFromMetadata } from "@/lib/roles/web-module-access"
 import {
-  addReleaseExpiredTimer,
-  getReleaseExpiredStore,
-  recordReleaseExpiredCall,
-  recordReleaseExpiredQuery,
-} from "@/lib/customer-service/performance/release-expired-breakdown"
+  getAtcActionStore,
+  recordAtcActionCall,
+  recordAtcActionQuery,
+} from "@/lib/customer-service/performance/action-breakdown"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { fetchEmployeeByAppUserId } from "@/lib/supabase/employees.queries"
 import type { SystemRole } from "@/lib/types/employees"
 
-export type ReleaseExpiredAuthContext = {
+export type CustomerActionAuthContext = {
   userId: string
   companyId: string
   employeeId: string | null
   roleId: string | null
 }
 
-type ReleaseExpiredAuthLoad = {
+type CustomerActionAuthLoad = {
   userId: string
   companyId: string | null
   employeeId: string | null
@@ -58,43 +66,63 @@ function nowMs(): number {
   return Date.now()
 }
 
-function markAuthTimers(wallStarted: number): void {
-  if (!getReleaseExpiredStore()) return
-  addReleaseExpiredTimer("sessionUserMs", nowMs() - wallStarted)
-  // Sprint 32.0 — DB lookups eliminated; record 0 for comparison vs Sprint 31.
-  addReleaseExpiredTimer("employeeMs", 0)
-  addReleaseExpiredTimer("roleMs", 0)
+async function resolveActorFromEmployees(appUserId: string): Promise<{
+  companyId: string | null
+  employeeId: string | null
+  durationMs: number
+}> {
+  const started = nowMs()
+  const admin = createAdminClient()
+  const result = await fetchEmployeeByAppUserId(admin, appUserId)
+  return {
+    companyId: result.data?.companyId ?? null,
+    employeeId: result.data?.id ?? null,
+    durationMs: nowMs() - started,
+  }
 }
 
-async function loadReleaseExpiredAuthFromJwt(): Promise<ReleaseExpiredAuthLoad | null> {
-  const releaseExpired = getReleaseExpiredStore()
-  const wallStarted = nowMs()
+async function loadCustomerActionAuthFromJwt(): Promise<CustomerActionAuthLoad | null> {
+  const atcAction = getAtcActionStore()
 
-  recordReleaseExpiredCall("getUser()")
+  recordAtcActionCall("getUser()")
   // Sprint 33.0 — reuse middleware-validated JWT when present (cache hit).
   const authLookup = await getAuthUser()
-  if (releaseExpired) {
-    recordReleaseExpiredQuery("auth.getUser", authLookup.durationMs, {
+  if (atcAction) {
+    recordAtcActionQuery("auth.getUser", authLookup.durationMs, {
       cached: authLookup.fromCache,
     })
+    recordAtcActionQuery("company_roles", 0)
   }
 
   const user = authLookup.user
   const error = authLookup.error
 
   if (error || !user) {
-    markAuthTimers(wallStarted)
+    if (atcAction) {
+      recordAtcActionQuery("employees", 0)
+    }
     return null
   }
 
   const metadata = (user.user_metadata ?? {}) as Record<string, unknown>
-  const companyId = readMetadataString(metadata, "company_id")
-  const employeeId = readMetadataString(metadata, "employee_id")
+  let companyId = readMetadataString(metadata, "company_id")
+  let employeeId = readMetadataString(metadata, "employee_id")
   const roleId =
     getMetadataRoleId(metadata) ?? readMetadataString(metadata, "role_id")
   const systemRole = getMetadataSystemRoleFromUser(metadata)
 
-  markAuthTimers(wallStarted)
+  // Sprint 44.0 — fill gaps from employees (RLS source of truth). Skip when JWT complete.
+  if (!companyId || !employeeId) {
+    recordAtcActionCall("employees.byAppUserId")
+    const resolved = await resolveActorFromEmployees(user.id)
+    if (atcAction) {
+      recordAtcActionQuery("employees", resolved.durationMs)
+    }
+    companyId = companyId ?? resolved.companyId
+    employeeId = employeeId ?? resolved.employeeId
+  } else if (atcAction) {
+    recordAtcActionQuery("employees", 0, { cached: true })
+  }
 
   return {
     userId: user.id,
@@ -107,11 +135,11 @@ async function loadReleaseExpiredAuthFromJwt(): Promise<ReleaseExpiredAuthLoad |
 }
 
 /**
- * Auth + JWT metadata only. Does not query employees or company_roles.
- * Returns null when unauthenticated or company_id is missing from metadata.
+ * Auth + JWT metadata, with Sprint 44 employees fallback when metadata is incomplete.
+ * Returns null when unauthenticated or company_id cannot be resolved.
  */
-export async function getReleaseExpiredAuthContext(): Promise<ReleaseExpiredAuthContext | null> {
-  const loaded = await loadReleaseExpiredAuthFromJwt()
+export async function getCustomerActionAuthContext(): Promise<CustomerActionAuthContext | null> {
+  const loaded = await loadCustomerActionAuthFromJwt()
   if (!loaded?.companyId) {
     return null
   }
@@ -128,16 +156,16 @@ export async function getReleaseExpiredAuthContext(): Promise<ReleaseExpiredAuth
  * Same validations / messages as requireAtencionClienteMutationContext,
  * resolved from JWT metadata instead of a full SessionUser load.
  */
-export async function requireReleaseExpiredAuthContext(): Promise<
+export async function requireCustomerActionAuthContext(): Promise<
   | {
       ok: true
       companyId: string
       employeeId: string
-      context: ReleaseExpiredAuthContext
+      context: CustomerActionAuthContext
     }
   | { ok: false; response: NextResponse }
 > {
-  const loaded = await loadReleaseExpiredAuthFromJwt()
+  const loaded = await loadCustomerActionAuthFromJwt()
 
   if (!loaded) {
     return {
@@ -212,7 +240,7 @@ export async function requireReleaseExpiredAuthContext(): Promise<
     }
   }
 
-  const context: ReleaseExpiredAuthContext = {
+  const context: CustomerActionAuthContext = {
     userId: loaded.userId,
     companyId: loaded.companyId,
     employeeId: loaded.employeeId,

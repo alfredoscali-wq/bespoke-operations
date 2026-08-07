@@ -23,16 +23,16 @@ import {
 
 const ROOT = process.cwd()
 
-test("Sprint 29.0: middleware emits PROXY BREAKDOWN / QUERY / DUPLICATE hooks", () => {
-  const middleware = readFileSync(join(ROOT, "middleware.ts"), "utf8")
-  assert.ok(middleware.includes("beginProxyPerfSession"))
-  assert.ok(middleware.includes("finishProxyPerfSession"))
-  assert.ok(middleware.includes("recordProxyCall(perf, \"getUser()\")"))
-  assert.ok(middleware.includes("recordProxyQuery(perf, \"auth.getUser\""))
-  assert.ok(middleware.includes("setProxyTimer(perf, \"getUserMs\""))
-  assert.ok(middleware.includes("setProxyTimer(perf, \"jwtValidationMs\""))
-  assert.ok(middleware.includes("loadMetadataMs"))
-  assert.ok(middleware.includes("redirectLogicMs"))
+test("Sprint 29.0: proxy emits PROXY BREAKDOWN / QUERY / DUPLICATE hooks", () => {
+  const proxy = readFileSync(join(ROOT, "proxy.ts"), "utf8")
+  assert.ok(proxy.includes("beginProxyPerfSession"))
+  assert.ok(proxy.includes("finishProxyPerfSession"))
+  assert.ok(proxy.includes("recordProxyCall(perf, \"getUser()\")"))
+  assert.ok(proxy.includes("recordProxyQuery(perf, \"auth.getUser\""))
+  assert.ok(proxy.includes("setProxyTimer(perf, \"getUserMs\""))
+  assert.ok(proxy.includes("setProxyTimer(perf, \"jwtValidationMs\""))
+  assert.ok(proxy.includes("loadMetadataMs"))
+  assert.ok(proxy.includes("redirectLogicMs"))
 })
 
 test("Sprint 29.0: sync-my-metadata + session + sync metadata instrument AUTH SYNC", () => {

@@ -53,26 +53,26 @@ function employeeDisplayName(row: {
 async function ensureCommercialDerivationCatalog(
   admin: SupabaseClient<Database>
 ): Promise<void> {
-  const { error: sourceError } = await admin.from("commercial_sources").upsert(
-    { code: "atencion_cliente", label: "Atención al Cliente", sort_order: 75 },
-    { onConflict: "code", ignoreDuplicates: true }
-  )
-  if (sourceError) {
-    logOperationError("COMMERCIAL DERIVATION CATALOG", sourceError)
-  }
-
-  const { error: typeError } = await admin
-    .from("commercial_activity_types")
-    .upsert(
+  // Sprint 40.0 — catalog upserts are independent.
+  const [sourceResult, typeResult] = await Promise.all([
+    admin.from("commercial_sources").upsert(
+      { code: "atencion_cliente", label: "Atención al Cliente", sort_order: 75 },
+      { onConflict: "code", ignoreDuplicates: true }
+    ),
+    admin.from("commercial_activity_types").upsert(
       {
         code: "derivacion",
         label: "Derivación desde Atención al Cliente",
         sort_order: 95,
       },
       { onConflict: "code", ignoreDuplicates: true }
-    )
-  if (typeError) {
-    logOperationError("COMMERCIAL DERIVATION CATALOG", typeError)
+    ),
+  ])
+  if (sourceResult.error) {
+    logOperationError("COMMERCIAL DERIVATION CATALOG", sourceResult.error)
+  }
+  if (typeResult.error) {
+    logOperationError("COMMERCIAL DERIVATION CATALOG", typeResult.error)
   }
 }
 
@@ -134,14 +134,19 @@ export async function deriveCommercialOpportunityFromCustomerService(input: {
 }): Promise<{ opportunityId: string; created: boolean } | null> {
   try {
     const admin = createAdminClient()
-    await ensureCommercialDerivationCatalog(admin)
 
-    const { data: atencion, error: atencionError } = await admin
-      .from("customer_atenciones")
-      .select("id, company_id, customer_id, motivo, channel, status, next_step")
-      .eq("id", input.atencionId)
-      .eq("company_id", input.companyId)
-      .maybeSingle()
+    // Sprint 40.0 — catalog ensure + atención row are independent.
+    const [, atencionResult] = await Promise.all([
+      ensureCommercialDerivationCatalog(admin),
+      admin
+        .from("customer_atenciones")
+        .select("id, company_id, customer_id, motivo, channel, status, next_step")
+        .eq("id", input.atencionId)
+        .eq("company_id", input.companyId)
+        .maybeSingle(),
+    ])
+
+    const { data: atencion, error: atencionError } = atencionResult
 
     if (atencionError || !atencion) {
       logOperationError(
@@ -151,11 +156,26 @@ export async function deriveCommercialOpportunityFromCustomerService(input: {
       return null
     }
 
-    const { data: customer, error: customerError } = await admin
-      .from("customers")
-      .select("id, name, phone, email, dni, address, locality, latitude, longitude")
-      .eq("id", atencion.customer_id)
-      .maybeSingle()
+    // Sprint 40.0 — customer + existing opportunity-by-atencion are independent.
+    const [customerResult, existingByAtencionResult] = await Promise.all([
+      admin
+        .from("customers")
+        .select(
+          "id, name, phone, email, dni, address, locality, latitude, longitude"
+        )
+        .eq("id", atencion.customer_id)
+        .maybeSingle(),
+      admin
+        .from("commercial_opportunities")
+        .select("id")
+        .eq("company_id", input.companyId)
+        .eq("source_atencion_id", input.atencionId)
+        .is("deleted_at", null)
+        .maybeSingle(),
+    ])
+
+    const { data: customer, error: customerError } = customerResult
+    const { data: existingByAtencion } = existingByAtencionResult
 
     if (customerError || !customer) {
       logOperationError(
@@ -164,14 +184,6 @@ export async function deriveCommercialOpportunityFromCustomerService(input: {
       )
       return null
     }
-
-    const { data: existingByAtencion } = await admin
-      .from("commercial_opportunities")
-      .select("id")
-      .eq("company_id", input.companyId)
-      .eq("source_atencion_id", input.atencionId)
-      .is("deleted_at", null)
-      .maybeSingle()
 
     let opportunity: CommercialOpportunity | null = null
     let created = false
@@ -185,29 +197,28 @@ export async function deriveCommercialOpportunityFromCustomerService(input: {
     }
 
     if (!opportunity) {
-      const contactMatch = await findCommercialPersonByContact(
-        admin,
-        input.companyId,
-        {
+      const dni = customer.dni?.trim() || ""
+      // Sprint 40.0 — contact + DNI person lookups are independent; contact wins.
+      const [contactMatch, byDniResult] = await Promise.all([
+        findCommercialPersonByContact(admin, input.companyId, {
           email: customer.email ?? undefined,
           phone: customer.phone ?? undefined,
           mobile: customer.phone ?? undefined,
-        }
-      )
+        }),
+        dni
+          ? admin
+              .from("commercial_people")
+              .select("id")
+              .eq("company_id", input.companyId)
+              .eq("document_number", dni)
+              .is("deleted_at", null)
+              .limit(1)
+              .maybeSingle()
+          : Promise.resolve({ data: null as { id: string } | null }),
+      ])
 
-      let personId = contactMatch.data?.id ?? null
-
-      if (!personId && customer.dni?.trim()) {
-        const { data: byDni } = await admin
-          .from("commercial_people")
-          .select("id")
-          .eq("company_id", input.companyId)
-          .eq("document_number", customer.dni.trim())
-          .is("deleted_at", null)
-          .limit(1)
-          .maybeSingle()
-        personId = byDni?.id ?? null
-      }
+      let personId =
+        contactMatch.data?.id ?? byDniResult.data?.id ?? null
 
       if (!personId) {
         const { firstName, lastName } = splitCustomerName(customer.name)
@@ -342,29 +353,38 @@ export async function deriveCommercialOpportunityFromCustomerService(input: {
       motivoLabel ||
       "Derivación desde Atención al Cliente"
 
-    const activityResult = await insertCommercialActivity(admin, {
-      companyId: input.companyId,
-      opportunityId: opportunity.id,
-      activityTypeCode: "derivacion",
-      employeeId: input.employeeId,
-      title: "Derivación desde Atención al Cliente",
-      description: reason,
-      status: "completed",
-      completedAt: new Date().toISOString(),
-      createdBy: input.employeeId,
-      metadata: {
-        automatic: true,
-        event: "derivation_from_customer_service",
+    // Sprint 40.0 — activity insert and atención handoff are independent.
+    const [activityResult, handedOff] = await Promise.all([
+      insertCommercialActivity(admin, {
+        companyId: input.companyId,
+        opportunityId: opportunity.id,
+        activityTypeCode: "derivacion",
+        employeeId: input.employeeId,
+        title: "Derivación desde Atención al Cliente",
+        description: reason,
+        status: "completed",
+        completedAt: new Date().toISOString(),
+        createdBy: input.employeeId,
+        metadata: {
+          automatic: true,
+          event: "derivation_from_customer_service",
+          atencionId: input.atencionId,
+          customerId: customer.id,
+          motivo: atencion.motivo,
+          channel: atencion.channel,
+          derivedByEmployeeId: input.employeeId,
+          derivedByName,
+          reason,
+          detail: input.detail?.trim() || null,
+        },
+      }),
+      handOffAtencionAfterCommercialDerivation(admin, {
+        companyId: input.companyId,
         atencionId: input.atencionId,
-        customerId: customer.id,
-        motivo: atencion.motivo,
-        channel: atencion.channel,
-        derivedByEmployeeId: input.employeeId,
-        derivedByName,
-        reason,
-        detail: input.detail?.trim() || null,
-      },
-    })
+        employeeId: input.employeeId,
+        opportunityCode: opportunity.code,
+      }),
+    ])
 
     if (activityResult.error || !activityResult.data) {
       logOperationError(
@@ -373,13 +393,6 @@ export async function deriveCommercialOpportunityFromCustomerService(input: {
           new Error("No se pudo registrar la actividad de derivación")
       )
     }
-
-    const handedOff = await handOffAtencionAfterCommercialDerivation(admin, {
-      companyId: input.companyId,
-      atencionId: input.atencionId,
-      employeeId: input.employeeId,
-      opportunityCode: opportunity.code,
-    })
 
     if (!handedOff) {
       logOperationError(

@@ -65,6 +65,9 @@ async function postConsultationManagement(
 export function startConsultationManagement(
   atencionId: string
 ): Promise<ConsultationManagementMutationResult> {
+  if (process.env.NODE_ENV === "development") {
+    console.log("[ATC START fetch]", atencionId)
+  }
   return postConsultationManagement(
     `/api/atencion-cliente/${atencionId}/start-management`
   )
