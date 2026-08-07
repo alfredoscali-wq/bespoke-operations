@@ -101,6 +101,24 @@ export async function releaseExpiredConsultationManagements(): Promise<
   | { success: true; releasedCount: number; timeoutMinutes: number }
   | { success: false; message: string; code?: string }
 > {
+  if (process.env.NODE_ENV === "development") {
+    const pathname =
+      typeof window !== "undefined" ? window.location.pathname : "(ssr)"
+    console.log(
+      "[ATC ReleaseExpired]",
+      "caller",
+      "releaseExpiredConsultationManagements",
+      pathname,
+      Date.now()
+    )
+    // Help identify unexpected stacks without changing control flow.
+    console.log(
+      "[ATC ReleaseExpired]",
+      "stack",
+      new Error().stack?.split("\n").slice(1, 8).join(" | ")
+    )
+  }
+
   const response = await fetch(
     "/api/atencion-cliente/release-expired-managements",
     { method: "POST" }

@@ -21,6 +21,10 @@ import type {
   CustomerSeguimientosRepositoryResult,
   UpdateCustomerSeguimientoCompletePayload,
 } from "@/lib/types/supabase/customer-seguimientos"
+import {
+  recordCustomerServiceCustomerLookup,
+  withCustomerServiceSeguimientoTiming,
+} from "@/lib/customer-service/performance"
 
 export type SupabaseCustomerSeguimientosClient = SupabaseClient<Database>
 
@@ -70,12 +74,18 @@ async function loadCustomerNamesById(
     return new Map()
   }
 
+  const startedAt = performance.now()
   const { data, error } = await client
     .from("customers")
     .select("id, name")
     .eq("company_id", companyId)
     .in("id", customerIds)
     .is("deleted_at", null)
+
+  recordCustomerServiceCustomerLookup({
+    customerIds,
+    durationMs: performance.now() - startedAt,
+  })
 
   if (error || !data) {
     return new Map()
@@ -109,15 +119,20 @@ export async function fetchPendingSeguimientosForEmployee(
   employeeId: string,
   referenceDate: Date
 ): Promise<CustomerSeguimientosRepositoryResult<CustomerSeguimientoAgendaRow[]>> {
-  const { data, error } = await client
-    .from("customer_seguimientos")
-    .select(SEGUIMIENTO_AGENDA_SELECT)
-    .eq("company_id", companyId)
-    .eq("assigned_employee_id", employeeId)
-    .eq("status", "pendiente")
-    .is("deleted_at", null)
-    .order("scheduled_date", { ascending: true })
-    .order("scheduled_time", { ascending: true, nullsFirst: false })
+  const { data, error } = await withCustomerServiceSeguimientoTiming(
+    "pending_for_employee",
+    () =>
+      client
+        .from("customer_seguimientos")
+        .select(SEGUIMIENTO_AGENDA_SELECT)
+        .eq("company_id", companyId)
+        .eq("assigned_employee_id", employeeId)
+        .eq("status", "pendiente")
+        .is("deleted_at", null)
+        .order("scheduled_date", { ascending: true })
+        .order("scheduled_time", { ascending: true, nullsFirst: false }),
+    (result) => result.data?.length ?? 0
+  )
 
   if (error) {
     return { data: null, error: mapSupabaseCustomerSeguimientoError(error) }
@@ -243,18 +258,23 @@ export async function fetchCompletedSeguimientosForEmployeeToday(
 ): Promise<CustomerSeguimientosRepositoryResult<CustomerSeguimientoJornadaRow[]>> {
   const { start, end } = getDayBoundsIso(referenceDate)
 
-  const { data, error } = await client
-    .from("customer_seguimientos")
-    .select(
-      "id, customer_id, source_atencion_id, completion_action, completed_at"
-    )
-    .eq("company_id", companyId)
-    .eq("completed_by_employee_id", employeeId)
-    .eq("status", "completado")
-    .gte("completed_at", start)
-    .lt("completed_at", end)
-    .is("deleted_at", null)
-    .order("completed_at", { ascending: false })
+  const { data, error } = await withCustomerServiceSeguimientoTiming(
+    "completed_today_for_employee",
+    () =>
+      client
+        .from("customer_seguimientos")
+        .select(
+          "id, customer_id, source_atencion_id, completion_action, completed_at"
+        )
+        .eq("company_id", companyId)
+        .eq("completed_by_employee_id", employeeId)
+        .eq("status", "completado")
+        .gte("completed_at", start)
+        .lt("completed_at", end)
+        .is("deleted_at", null)
+        .order("completed_at", { ascending: false }),
+    (result) => result.data?.length ?? 0
+  )
 
   if (error) {
     return { data: null, error: mapSupabaseCustomerSeguimientoError(error) }
@@ -289,16 +309,21 @@ export async function countSeguimientosResueltosForEmployeeInRange(
   employeeId: string,
   bounds: { start: string; end: string }
 ): Promise<CustomerSeguimientosRepositoryResult<number>> {
-  const { data: completedRows, error } = await client
-    .from("customer_seguimientos")
-    .select("id")
-    .eq("company_id", companyId)
-    .eq("completed_by_employee_id", employeeId)
-    .eq("status", "completado")
-    .gte("completed_at", bounds.start)
-    .lt("completed_at", bounds.end)
-    .is("deleted_at", null)
-    .not("completion_action", "is", null)
+  const { data: completedRows, error } = await withCustomerServiceSeguimientoTiming(
+    "count_resueltos_completed",
+    () =>
+      client
+        .from("customer_seguimientos")
+        .select("id")
+        .eq("company_id", companyId)
+        .eq("completed_by_employee_id", employeeId)
+        .eq("status", "completado")
+        .gte("completed_at", bounds.start)
+        .lt("completed_at", bounds.end)
+        .is("deleted_at", null)
+        .not("completion_action", "is", null),
+    (result) => result.data?.length ?? 0
+  )
 
   if (error) {
     return { data: null, error: mapSupabaseCustomerSeguimientoError(error) }
@@ -310,12 +335,18 @@ export async function countSeguimientosResueltosForEmployeeInRange(
     return { data: 0, error: null }
   }
 
-  const { data: followUpRows, error: followUpError } = await client
-    .from("customer_seguimientos")
-    .select("previous_seguimiento_id")
-    .eq("company_id", companyId)
-    .in("previous_seguimiento_id", completedIds)
-    .is("deleted_at", null)
+  const { data: followUpRows, error: followUpError } =
+    await withCustomerServiceSeguimientoTiming(
+      "count_resueltos_followups",
+      () =>
+        client
+          .from("customer_seguimientos")
+          .select("previous_seguimiento_id")
+          .eq("company_id", companyId)
+          .in("previous_seguimiento_id", completedIds)
+          .is("deleted_at", null),
+      (result) => result.data?.length ?? 0
+    )
 
   if (followUpError) {
     return {
@@ -385,13 +416,18 @@ export async function fetchAtencionClienteKpiSummary(
       start,
       end,
     }),
-    client
-      .from("customer_seguimientos")
-      .select("id", { count: "exact", head: true })
-      .eq("company_id", companyId)
-      .eq("assigned_employee_id", employeeId)
-      .eq("status", "pendiente")
-      .is("deleted_at", null),
+    withCustomerServiceSeguimientoTiming(
+      "kpi_pendientes_head",
+      () =>
+        client
+          .from("customer_seguimientos")
+          .select("id", { count: "exact", head: true })
+          .eq("company_id", companyId)
+          .eq("assigned_employee_id", employeeId)
+          .eq("status", "pendiente")
+          .is("deleted_at", null),
+      (result) => result.count ?? 0
+    ),
   ])
 
   if (atencionesResult.error) {

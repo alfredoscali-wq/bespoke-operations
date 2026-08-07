@@ -9,7 +9,7 @@ import {
   Trash2,
   UserRound,
 } from "lucide-react"
-import { useCallback, useEffect, useState, type ReactNode } from "react"
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 
 import { useAtencionCliente } from "@/components/atencion-cliente/atencion-cliente-provider"
 import { AdministrationResultDialog } from "@/components/atencion-cliente/administration-result-dialog"
@@ -26,6 +26,15 @@ import { AttachmentUploader, type StagedAttachmentFile } from "@/components/atta
 import { listAttachmentFiles } from "@/lib/attachments/client"
 import { uploadStagedAttachments } from "@/lib/attachments/upload-staged"
 import type { Attachment } from "@/lib/types/attachments"
+import { useCustomerAtencionDetail } from "@/lib/customer-service/performance/client-hooks"
+import {
+  measureAtcClientSpan,
+} from "@/lib/customer-service/performance/client-profiler"
+import {
+  finalizeAtcBreakdown,
+  measureAtcBreakdownPhase,
+  recordAtcBreakdownPhase,
+} from "@/lib/customer-service/performance/breakdown"
 import { ConsultationPermanentDeleteDialog } from "@/components/atencion-cliente/consultation-permanent-delete-dialog"
 import { ConsultationSituationSummaryCard } from "@/components/atencion-cliente/consultation-situation-summary-card"
 import { RetentionResultDialog } from "@/components/atencion-cliente/retention-result-dialog"
@@ -192,6 +201,8 @@ export function AtencionDetailScreen({
     cancelConsultationManagement,
     touchConsultationManagementActivity,
   } = useAtencionCliente()
+  // Registers ATC client perf bootstrap (RQ invalidation patch).
+  useCustomerAtencionDetail()
   const [atencion, setAtencion] = useState<CustomerAtencion | null>(null)
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [creatorEmployee, setCreatorEmployee] = useState<Employee | null>(null)
@@ -243,100 +254,270 @@ export function AtencionDetailScreen({
     string | null
   >(null)
 
-  const loadDetail = useCallback(async () => {
-    setIsLoading(true)
+  /** Sprint 28.4 — retain stable detail context across partial refreshes. */
+  const detailCacheRef = useRef({
+    activeManagementEmployeeId: null as string | null | undefined,
+    eventEmployeeNamesById: {} as Record<string, string>,
+    commercialResolution: null as string | null | undefined,
+  })
 
-    try {
-      const loadedAtencion = await refreshAtencionById(atencionId)
+  const applyAttachmentsGrouping = useCallback(
+    (attachments: Attachment[]) => {
+      const grouped: Record<string, Attachment[]> = {}
+      for (const item of attachments) {
+        const eventKey = item.timelineEventId ?? "_unlinked"
+        if (!grouped[eventKey]) {
+          grouped[eventKey] = []
+        }
+        grouped[eventKey].push(item)
+      }
+      setAttachmentsByEventId(grouped)
+    },
+    []
+  )
 
-      if (!loadedAtencion) {
-        setAtencion(null)
+  const loadAttachmentsForAtencion = useCallback(
+    async (recordId: string) => {
+      await measureAtcBreakdownPhase("attachments", async () => {
+        await measureAtcClientSpan(
+          "attachments",
+          async () => {
+            const attachmentsResult = await listAttachmentFiles({
+              module: "customer_attention",
+              recordId,
+            })
+            if (attachmentsResult.success) {
+              applyAttachmentsGrouping(
+                attachmentsResult.attachments as Attachment[]
+              )
+            } else {
+              setAttachmentsByEventId({})
+            }
+          },
+          { log: false, reason: "attachments" }
+        )
+      })
+    },
+    [applyAttachmentsGrouping]
+  )
+
+  const loadCommercialOpportunity = useCallback(
+    async (loadedAtencion: CustomerAtencion) => {
+      if (!isCommercialSalesHandoff(loadedAtencion)) {
         setCommercialOpportunity(null)
         return
       }
-
-      const [customerResult, creatorResult, activeResult, eventsResult] =
-        await Promise.all([
-          getCustomerById(loadedAtencion.customerId),
-          getEmployeeById(loadedAtencion.attendedByEmployeeId),
-          loadedAtencion.activeManagementEmployeeId
-            ? getEmployeeById(loadedAtencion.activeManagementEmployeeId)
-            : Promise.resolve({ data: null, error: null }),
-          listCustomerAtencionEventsByAtencionId(
-            loadedAtencion.companyId,
-            loadedAtencion.id
-          ),
-        ])
-
-      const loadedEvents = eventsResult.data ?? []
-      const uniqueEmployeeIds = [
-        ...new Set(loadedEvents.map((event) => event.employeeId)),
-      ]
-      const employeeResults = await Promise.all(
-        uniqueEmployeeIds.map(async (employeeId) => {
-          const result = await getEmployeeById(employeeId)
-          return [employeeId, formatEmployeeName(result.data)] as const
-        })
-      )
-
-      setAtencion(loadedAtencion)
-      setCustomer(customerResult.data)
-      setCreatorEmployee(creatorResult.data)
-      setActiveEmployee(activeResult.data)
-      setEvents(loadedEvents)
-      setEventEmployeeNamesById(Object.fromEntries(employeeResults))
-
-      const attachmentsResult = await listAttachmentFiles({
-        module: "customer_attention",
-        recordId: loadedAtencion.id,
-      })
-      if (attachmentsResult.success) {
-        const grouped: Record<string, Attachment[]> = {}
-        for (const item of attachmentsResult.attachments) {
-          const attachment = item as Attachment
-          const eventKey = attachment.timelineEventId ?? "_unlinked"
-          if (!grouped[eventKey]) {
-            grouped[eventKey] = []
-          }
-          grouped[eventKey].push(attachment)
-        }
-        setAttachmentsByEventId(grouped)
-      } else {
-        setAttachmentsByEventId({})
-      }
-
-      if (isCommercialSalesHandoff(loadedAtencion)) {
-        try {
-          const response = await fetch(
-            `/api/atencion-cliente/${loadedAtencion.id}/commercial-opportunity`
-          )
-          const payload = (await response.json().catch(() => null)) as {
-            success?: boolean
-            opportunity?: CommercialOpportunityLink | null
-          } | null
-          if (payload?.success && payload.opportunity) {
-            setCommercialOpportunity(payload.opportunity)
-          } else {
-            const code = extractCommercialOpportunityCode(
-              loadedAtencion.resolution
-            )
-            setCommercialOpportunity(
-              code ? { id: "", code } : null
-            )
-          }
-        } catch {
+      try {
+        const response = await fetch(
+          `/api/atencion-cliente/${loadedAtencion.id}/commercial-opportunity`
+        )
+        const payload = (await response.json().catch(() => null)) as {
+          success?: boolean
+          opportunity?: CommercialOpportunityLink | null
+        } | null
+        if (payload?.success && payload.opportunity) {
+          setCommercialOpportunity(payload.opportunity)
+        } else {
           const code = extractCommercialOpportunityCode(
             loadedAtencion.resolution
           )
           setCommercialOpportunity(code ? { id: "", code } : null)
         }
-      } else {
-        setCommercialOpportunity(null)
+      } catch {
+        const code = extractCommercialOpportunityCode(loadedAtencion.resolution)
+        setCommercialOpportunity(code ? { id: "", code } : null)
       }
+    },
+    []
+  )
+
+  const loadDetail = useCallback(async () => {
+    setIsLoading(true)
+
+    try {
+      await measureAtcClientSpan(
+        "detailLoad",
+        async () => {
+          const loadedAtencion = await refreshAtencionById(atencionId)
+
+          if (!loadedAtencion) {
+            setAtencion(null)
+            setCommercialOpportunity(null)
+            return
+          }
+
+          const [customerResult, creatorResult, activeResult, eventsResult] =
+            await Promise.all([
+              getCustomerById(loadedAtencion.customerId),
+              getEmployeeById(loadedAtencion.attendedByEmployeeId),
+              loadedAtencion.activeManagementEmployeeId
+                ? getEmployeeById(loadedAtencion.activeManagementEmployeeId)
+                : Promise.resolve({ data: null, error: null }),
+              listCustomerAtencionEventsByAtencionId(
+                loadedAtencion.companyId,
+                loadedAtencion.id
+              ),
+            ])
+
+          const loadedEvents = eventsResult.data ?? []
+          const uniqueEmployeeIds = [
+            ...new Set(loadedEvents.map((event) => event.employeeId)),
+          ]
+          const employeeResults = await Promise.all(
+            uniqueEmployeeIds.map(async (employeeId) => {
+              const result = await getEmployeeById(employeeId)
+              return [employeeId, formatEmployeeName(result.data)] as const
+            })
+          )
+          const namesById = Object.fromEntries(employeeResults)
+
+          setAtencion(loadedAtencion)
+          setCustomer(customerResult.data)
+          setCreatorEmployee(creatorResult.data)
+          setActiveEmployee(activeResult.data)
+          setEvents(loadedEvents)
+          setEventEmployeeNamesById(namesById)
+          detailCacheRef.current = {
+            activeManagementEmployeeId:
+              loadedAtencion.activeManagementEmployeeId,
+            eventEmployeeNamesById: namesById,
+            commercialResolution: loadedAtencion.resolution,
+          }
+
+          await loadAttachmentsForAtencion(loadedAtencion.id)
+          await loadCommercialOpportunity(loadedAtencion)
+        },
+        { reason: "useCustomerAtencionDetail.loadDetail" }
+      )
     } finally {
       setIsLoading(false)
     }
-  }, [atencionId, refreshAtencionById])
+  }, [
+    atencionId,
+    loadAttachmentsForAtencion,
+    loadCommercialOpportunity,
+    refreshAtencionById,
+  ])
+
+  /**
+   * Sprint 28.4 — incremental detail refresh after mutations.
+   * Reloads: atencion (status/lock), events, new event actors, optional attachments.
+   * Skips: customer, creator employee, unchanged attachments.
+   */
+  const refreshDetailPartial = useCallback(
+    async (options?: { includeAttachments?: boolean }) => {
+      if (process.env.NODE_ENV === "development") {
+        console.log(
+          "[ATC FastRefresh]",
+          "refreshDetailPartial",
+          options?.includeAttachments ? "withAttachments" : "core",
+          Date.now()
+        )
+      }
+
+      await measureAtcClientSpan(
+        "detailLoad",
+        async () => {
+          const coreStarted =
+            typeof performance !== "undefined" &&
+            typeof performance.now === "function"
+              ? performance.now()
+              : Date.now()
+
+          const loadedAtencion = await measureAtcBreakdownPhase(
+            "fetchAtencion",
+            () => refreshAtencionById(atencionId)
+          )
+          if (!loadedAtencion) {
+            setAtencion(null)
+            setCommercialOpportunity(null)
+            return
+          }
+
+          const eventsResult = await measureAtcBreakdownPhase(
+            "fetchEvents",
+            () =>
+              listCustomerAtencionEventsByAtencionId(
+                loadedAtencion.companyId,
+                loadedAtencion.id
+              )
+          )
+          const loadedEvents = eventsResult.data ?? []
+          const knownNames = detailCacheRef.current.eventEmployeeNamesById
+          const missingEmployeeIds = [
+            ...new Set(loadedEvents.map((event) => event.employeeId)),
+          ].filter((employeeId) => !knownNames[employeeId])
+
+          let nextNames = knownNames
+          if (missingEmployeeIds.length > 0) {
+            const employeeResults = await Promise.all(
+              missingEmployeeIds.map(async (employeeId) => {
+                const result = await getEmployeeById(employeeId)
+                return [employeeId, formatEmployeeName(result.data)] as const
+              })
+            )
+            nextNames = {
+              ...knownNames,
+              ...Object.fromEntries(employeeResults),
+            }
+            setEventEmployeeNamesById(nextNames)
+          }
+
+          const prevActiveId =
+            detailCacheRef.current.activeManagementEmployeeId ?? null
+          const nextActiveId =
+            loadedAtencion.activeManagementEmployeeId ?? null
+          if (nextActiveId !== prevActiveId) {
+            if (nextActiveId) {
+              const activeResult = await getEmployeeById(nextActiveId)
+              setActiveEmployee(activeResult.data)
+            } else {
+              setActiveEmployee(null)
+            }
+          }
+
+          setAtencion(loadedAtencion)
+          setEvents(loadedEvents)
+
+          if (isCommercialSalesHandoff(loadedAtencion)) {
+            await loadCommercialOpportunity(loadedAtencion)
+          } else {
+            setCommercialOpportunity(null)
+          }
+
+          detailCacheRef.current = {
+            activeManagementEmployeeId:
+              loadedAtencion.activeManagementEmployeeId,
+            eventEmployeeNamesById: nextNames,
+            commercialResolution: loadedAtencion.resolution,
+          }
+
+          const coreEnded =
+            typeof performance !== "undefined" &&
+            typeof performance.now === "function"
+              ? performance.now()
+              : Date.now()
+          recordAtcBreakdownPhase("loadDetail", coreEnded - coreStarted)
+
+          if (options?.includeAttachments) {
+            await loadAttachmentsForAtencion(loadedAtencion.id)
+          }
+        },
+        {
+          reason: options?.includeAttachments
+            ? "detailPartial+attachments"
+            : "detailPartial",
+          log: false,
+        }
+      )
+    },
+    [
+      atencionId,
+      loadAttachmentsForAtencion,
+      loadCommercialOpportunity,
+      refreshAtencionById,
+    ]
+  )
 
   useEffect(() => {
     void loadDetail()
@@ -368,7 +549,7 @@ export function AtencionDetailScreen({
         return
       }
       if (result.code === "CONSULTATION_MANAGEMENT_ACTOR_MISMATCH") {
-        await loadDetail()
+        await refreshDetailPartial()
       }
     }
 
@@ -385,16 +566,27 @@ export function AtencionDetailScreen({
     atencion,
     atencionId,
     currentEmployeeId,
-    loadDetail,
+    refreshDetailPartial,
     touchConsultationManagementActivity,
   ])
 
-  const reloadAfterAction = useCallback(async () => {
-    setSelectedPanelAction(null)
-    setSelectedAssistantOptionId(null)
-    await loadDetail()
-    onDataChanged?.()
-  }, [loadDetail, onDataChanged])
+  /**
+   * Sprint 28.4 — mutations use partial detail refresh (not full loadDetail).
+   * Pass includeAttachments after uploads / attachment edits.
+   * Sprint 28.5 — finalize [ATC Breakdown] after the detail refresh settles.
+   */
+  const reloadAfterAction = useCallback(
+    async (options?: { includeAttachments?: boolean }) => {
+      setSelectedPanelAction(null)
+      setSelectedAssistantOptionId(null)
+      try {
+        await refreshDetailPartial(options)
+      } finally {
+        await finalizeAtcBreakdown()
+      }
+    },
+    [refreshDetailPartial]
+  )
 
   function notifyExclusiveManagementBlocked() {
     if (onExclusiveManagementBlocked) {
@@ -464,11 +656,14 @@ export function AtencionDetailScreen({
                 parsed.startedAt ?? atencion?.activeManagementStartedAt,
             })
           )
+          // Provider did not refresh on failure — sync bandeja lock state.
           await reloadAfterAction()
+          onDataChanged?.()
           return
         }
         setActionError(result.message)
         await reloadAfterAction()
+        onDataChanged?.()
         return
       }
 
@@ -482,9 +677,12 @@ export function AtencionDetailScreen({
 
   async function uploadPendingAttachments(
     timelineEventId: string | null | undefined
-  ): Promise<{ ok: true } | { ok: false; message: string }> {
+  ): Promise<
+    | { ok: true; uploaded: boolean }
+    | { ok: false; message: string }
+  > {
     if (stagedAttachments.length === 0) {
-      return { ok: true }
+      return { ok: true, uploaded: false }
     }
 
     setIsUploadingAttachments(true)
@@ -507,7 +705,7 @@ export function AtencionDetailScreen({
 
       setStagedAttachments([])
       setAttachmentUploadProgress(null)
-      return { ok: true }
+      return { ok: true, uploaded: true }
     } finally {
       setIsUploadingAttachments(false)
     }
@@ -542,7 +740,7 @@ export function AtencionDetailScreen({
 
       const uploaded = await uploadPendingAttachments(result.data.eventId)
       if (!uploaded.ok) {
-        await reloadAfterAction()
+        await reloadAfterAction({ includeAttachments: true })
         return
       }
 
@@ -550,7 +748,7 @@ export function AtencionDetailScreen({
       setFollowUpNeeded(false)
       setSelectedFollowUpActions([])
       setSelectedAssistantOptionId(null)
-      await reloadAfterAction()
+      await reloadAfterAction({ includeAttachments: uploaded.uploaded })
     } finally {
       setIsResolving(false)
     }
@@ -585,13 +783,13 @@ export function AtencionDetailScreen({
 
       const uploaded = await uploadPendingAttachments(result.data.eventId)
       if (!uploaded.ok) {
-        await reloadAfterAction()
+        await reloadAfterAction({ includeAttachments: true })
         return
       }
 
       setDeferNextStep("")
       setResolution("")
-      await reloadAfterAction()
+      await reloadAfterAction({ includeAttachments: uploaded.uploaded })
     } finally {
       setIsDeferring(false)
     }
@@ -624,13 +822,13 @@ export function AtencionDetailScreen({
 
       const uploaded = await uploadPendingAttachments(result.data.eventId)
       if (!uploaded.ok) {
-        await reloadAfterAction()
+        await reloadAfterAction({ includeAttachments: true })
         return
       }
 
       setResolution("")
       setSelectedAssistantOptionId(null)
-      await reloadAfterAction()
+      await reloadAfterAction({ includeAttachments: uploaded.uploaded })
     } finally {
       setIsDeferring(false)
     }
@@ -1121,10 +1319,10 @@ export function AtencionDetailScreen({
     }
     const uploaded = await uploadPendingAttachments(result.data.eventId)
     if (!uploaded.ok) {
-      await reloadAfterAction()
+      await reloadAfterAction({ includeAttachments: true })
       return { success: false, message: uploaded.message }
     }
-    await reloadAfterAction()
+    await reloadAfterAction({ includeAttachments: uploaded.uploaded })
     return { success: true }
   }
 
@@ -1141,10 +1339,10 @@ export function AtencionDetailScreen({
     }
     const uploaded = await uploadPendingAttachments(result.data.eventId)
     if (!uploaded.ok) {
-      await reloadAfterAction()
+      await reloadAfterAction({ includeAttachments: true })
       return { success: false, message: uploaded.message }
     }
-    await reloadAfterAction()
+    await reloadAfterAction({ includeAttachments: uploaded.uploaded })
     return { success: true }
   }
 
@@ -1410,7 +1608,9 @@ export function AtencionDetailScreen({
                   presentation="panel"
                   attachmentsByEventId={attachmentsByEventId}
                   canDeleteAttachments={isSystemAdministrator}
-                  onAttachmentsChanged={reloadAfterAction}
+                  onAttachmentsChanged={() =>
+                    reloadAfterAction({ includeAttachments: true })
+                  }
                 />
               }
             />
@@ -1865,7 +2065,9 @@ export function AtencionDetailScreen({
             employeeNamesById={eventEmployeeNamesById}
             attachmentsByEventId={attachmentsByEventId}
             canDeleteAttachments={isSystemAdministrator}
-            onAttachmentsChanged={reloadAfterAction}
+            onAttachmentsChanged={() =>
+              reloadAfterAction({ includeAttachments: true })
+            }
           />
         }
       />

@@ -4,10 +4,12 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
 } from "react"
+import { QueryClient } from "@tanstack/react-query"
 
 import { useAuth } from "@/components/auth/auth-provider"
 import { useDemoMode } from "@/components/demo/demo-mode-provider"
@@ -26,6 +28,21 @@ import {
   buildFollowUpCreatedActivity,
 } from "@/lib/customer-atenciones/customer-activity-events"
 import { requestRegisterCustomerActivity } from "@/lib/customer-atenciones/register-customer-activity.client"
+import {
+  beginCustomerServiceInboxProfile,
+  finishCustomerServiceInboxProfile,
+} from "@/lib/customer-service/performance"
+import {
+  beginAtcBreakdown,
+  finalizeAtcBreakdown,
+  measureAtcBreakdownPhase,
+  type AtcBreakdownAction,
+} from "@/lib/customer-service/performance/breakdown"
+import {
+  installAtcClientQueryInvalidationPatch,
+  measureAtcClientSpan,
+  trackAtcQueryInvalidation,
+} from "@/lib/customer-service/performance/client-profiler"
 import { startPerformanceTrace } from "@/lib/performance"
 import type {
   SharedInboxHistoricalDaySummary,
@@ -256,8 +273,15 @@ type AtencionClienteContextValue = {
   myActiveManagement: OperatorActiveManagement | null
   refreshMyActiveManagement: () => Promise<void>
   loadAtencionPage: (query: CustomerAtencionListQuery) => Promise<void>
-  loadSharedInbox: (query: SharedInboxQuery) => Promise<void>
-  refreshSharedInbox: () => Promise<void>
+  loadSharedInbox: (
+    query: SharedInboxQuery,
+    options?: { mode?: "full" | "fast" }
+  ) => Promise<void>
+  /**
+   * Sprint 28.2 — default `fast` (rows + tray/status/operational from discovery).
+   * Pass `{ mode: "full" }` to force dashboard/KPI bundle reload.
+   */
+  refreshSharedInbox: (options?: { mode?: "full" | "fast" }) => Promise<void>
   refreshDashboard: () => Promise<void>
   fetchAtencionById: (id: string) => Promise<CustomerAtencion | null>
   fetchSeguimientoById: (id: string) => Promise<CustomerSeguimiento | null>
@@ -411,6 +435,14 @@ export function AtencionClienteProvider({
   const retencionCacheRef = useRef<Map<string, CustomerRetencion>>(new Map())
   const recuperacionCacheRef = useRef<Map<string, CustomerRecuperacion>>(new Map())
   const sharedInboxDashboardLoadedRef = useRef(false)
+  /** Sprint 28.3 — releaseExpired at most once per provider mount (enter / F5). */
+  const hasReleasedExpiredThisMountRef = useRef(false)
+  const sharedInboxQueryRef = useRef(sharedInboxQuery)
+  sharedInboxQueryRef.current = sharedInboxQuery
+
+  useEffect(() => {
+    installAtcClientQueryInvalidationPatch(QueryClient)
+  }, [])
 
   function createJornadaDashboardQuery(referenceDate: Date): SharedInboxQuery {
     return {
@@ -464,103 +496,196 @@ export function AtencionClienteProvider({
   )
 
   const loadSharedInbox = useCallback(
-    async (query: SharedInboxQuery) => {
+    async (
+      query: SharedInboxQuery,
+      options?: { mode?: "full" | "fast" }
+    ) => {
       if (!isAuthReady || !companyId) {
         return
       }
 
+      const mode = options?.mode ?? "full"
+      const isFast = mode === "fast"
+
       setIsSharedInboxLoading(true)
       setSharedInboxQuery(query)
+      const perfSession = beginCustomerServiceInboxProfile()
 
       try {
-        // RC 3.2.5 — release idle locks before painting the bandeja.
-        await releaseExpiredConsultationManagements()
-
-        const referenceDate = new Date()
-        const jornadaQuery = createJornadaDashboardQuery(referenceDate)
-        const shouldLoadDashboard = !sharedInboxDashboardLoadedRef.current
-        const createdDate =
-          normalizeSharedInboxCreatedDate(query.createdDate) ??
-          toLocalDateOnly(referenceDate)
-        const searching = Boolean(normalizeSharedInboxSearch(query.search))
-        const isHistoricalDay =
-          createdDate !== toLocalDateOnly(referenceDate) && !searching
-
-        if (shouldLoadDashboard) {
-          setIsSharedInboxDashboardLoading(true)
-        }
-
-        const [dashboardResult, rowsResult, historicalRowsResult] =
-          await Promise.all([
-            shouldLoadDashboard
-              ? loadSharedInboxBundle(companyId, jornadaQuery, referenceDate)
-              : Promise.resolve(null),
-            listSharedInboxConsultations(companyId, query, referenceDate),
-            isHistoricalDay
-              ? listSharedInboxConsultations(
-                  companyId,
-                  {
-                    ...jornadaQuery,
-                    createdDate,
-                  },
-                  referenceDate
+        await measureAtcClientSpan(
+          "inboxLoad",
+          async () => {
+            // Sprint 28.3 — releaseExpired is NOT a recurrent cost:
+            // - once per provider mount (enter / F5) on the first non-fast load
+            // - optional 5-minute timer (see effect below)
+            // Fast mutation refresh never runs it.
+            if (isFast) {
+              if (process.env.NODE_ENV === "development") {
+                console.log(
+                  "[ATC FastRefresh]",
+                  "loadSharedInbox",
+                  "mode=fast",
+                  "skip releaseExpired + dashboard bundle",
+                  Date.now()
                 )
-              : Promise.resolve(null),
-          ])
-
-        if (dashboardResult) {
-          setSharedInboxKpis(
-            dashboardResult.data?.kpis ?? EMPTY_SHARED_INBOX_KPIS
-          )
-          setSharedInboxOperationalCounts(
-            dashboardResult.data?.operationalCounts ??
-              EMPTY_SHARED_INBOX_OPERATIONAL_COUNTS
-          )
-          sharedInboxDashboardLoadedRef.current = true
-        }
-
-        setSharedInboxRows(rowsResult.data?.rows ?? [])
-        setSharedInboxWorkTrayCounts(
-          rowsResult.data?.workTrayCounts ??
-            EMPTY_SHARED_INBOX_WORK_TRAY_COUNTS
-        )
-        setSharedInboxStatusFilterCounts(
-          rowsResult.data?.statusFilterCounts ??
-            EMPTY_SHARED_INBOX_STATUS_FILTER_COUNTS
-        )
-
-        if (employeeId) {
-          void getOperatorActiveManagement(companyId, employeeId).then(
-            (activeResult) => {
-              if (activeResult.data) {
-                setMyActiveManagement(
-                  findOperatorActiveManagement([activeResult.data], employeeId)
-                )
-              } else {
-                setMyActiveManagement(null)
               }
+            } else if (!hasReleasedExpiredThisMountRef.current) {
+              hasReleasedExpiredThisMountRef.current = true
+              if (process.env.NODE_ENV === "development") {
+                console.log(
+                  "[ATC ReleaseExpired]",
+                  "caller",
+                  "loadSharedInbox:initialMount",
+                  typeof window !== "undefined"
+                    ? window.location.pathname
+                    : "(ssr)",
+                  Date.now()
+                )
+              }
+              await releaseExpiredConsultationManagements()
+            } else if (process.env.NODE_ENV === "development") {
+              console.log(
+                "[ATC ReleaseExpired]",
+                "caller",
+                "loadSharedInbox:skipped(alreadyRanThisMount)",
+                Date.now()
+              )
             }
-          )
-        }
 
-        if (historicalRowsResult?.data && isHistoricalDay) {
-          setSharedInboxHistoricalDaySummary(
-            computeHistoricalDaySummary(
-              historicalRowsResult.data.rows,
-              createdDate,
-              resolveSharedInboxReferenceDate({ createdDate }, referenceDate)
+            const referenceDate = new Date()
+            const jornadaQuery = createJornadaDashboardQuery(referenceDate)
+            const shouldLoadDashboard =
+              !isFast && !sharedInboxDashboardLoadedRef.current
+            const createdDate =
+              normalizeSharedInboxCreatedDate(query.createdDate) ??
+              toLocalDateOnly(referenceDate)
+            const searching = Boolean(normalizeSharedInboxSearch(query.search))
+            const isHistoricalDay =
+              createdDate !== toLocalDateOnly(referenceDate) && !searching
+
+            if (shouldLoadDashboard) {
+              setIsSharedInboxDashboardLoading(true)
+            }
+
+            const [dashboardResult, rowsResult, historicalRowsResult] =
+              await Promise.all([
+                shouldLoadDashboard
+                  ? loadSharedInboxBundle(companyId, jornadaQuery, referenceDate)
+                  : Promise.resolve(null),
+                listSharedInboxConsultations(companyId, query, referenceDate),
+                isHistoricalDay
+                  ? listSharedInboxConsultations(
+                      companyId,
+                      {
+                        ...jornadaQuery,
+                        createdDate,
+                      },
+                      referenceDate
+                    )
+                  : Promise.resolve(null),
+              ])
+
+            if (dashboardResult) {
+              setSharedInboxKpis(
+                dashboardResult.data?.kpis ?? EMPTY_SHARED_INBOX_KPIS
+              )
+              setSharedInboxOperationalCounts(
+                dashboardResult.data?.operationalCounts ??
+                  EMPTY_SHARED_INBOX_OPERATIONAL_COUNTS
+              )
+              sharedInboxDashboardLoadedRef.current = true
+            } else if (rowsResult.data?.operationalCounts) {
+              // Sprint 28.2 fast path — operational from list discovery (0 extra queries).
+              setSharedInboxOperationalCounts(rowsResult.data.operationalCounts)
+            }
+
+            setSharedInboxRows(rowsResult.data?.rows ?? [])
+            setSharedInboxWorkTrayCounts(
+              rowsResult.data?.workTrayCounts ??
+                EMPTY_SHARED_INBOX_WORK_TRAY_COUNTS
             )
-          )
-        } else {
-          setSharedInboxHistoricalDaySummary(null)
-        }
+            setSharedInboxStatusFilterCounts(
+              rowsResult.data?.statusFilterCounts ??
+                EMPTY_SHARED_INBOX_STATUS_FILTER_COUNTS
+            )
+
+            if (employeeId) {
+              void getOperatorActiveManagement(companyId, employeeId).then(
+                (activeResult) => {
+                  if (activeResult.data) {
+                    setMyActiveManagement(
+                      findOperatorActiveManagement(
+                        [activeResult.data],
+                        employeeId
+                      )
+                    )
+                  } else {
+                    setMyActiveManagement(null)
+                  }
+                }
+              )
+            }
+
+            if (historicalRowsResult?.data && isHistoricalDay) {
+              setSharedInboxHistoricalDaySummary(
+                computeHistoricalDaySummary(
+                  historicalRowsResult.data.rows,
+                  createdDate,
+                  resolveSharedInboxReferenceDate(
+                    { createdDate },
+                    referenceDate
+                  )
+                )
+              )
+            } else {
+              setSharedInboxHistoricalDaySummary(null)
+            }
+          },
+          { reason: isFast ? "loadSharedInbox:fast" : "loadSharedInbox" }
+        )
       } finally {
+        finishCustomerServiceInboxProfile(perfSession)
         setIsSharedInboxLoading(false)
         setIsSharedInboxDashboardLoading(false)
       }
     },
     [companyId, employeeId, isAuthReady]
   )
+
+  // Sprint 28.3 — periodic sweep while ATC provider is mounted (enter keeps locks honest).
+  useEffect(() => {
+    if (!isAuthReady || !companyId) {
+      return
+    }
+
+    const RELEASE_EXPIRED_INTERVAL_MS = 5 * 60_000
+    let cancelled = false
+
+    const intervalId = window.setInterval(() => {
+      void (async () => {
+        if (process.env.NODE_ENV === "development") {
+          console.log(
+            "[ATC ReleaseExpired]",
+            "caller",
+            "provider.interval-5m",
+            typeof window !== "undefined" ? window.location.pathname : "(ssr)",
+            Date.now()
+          )
+        }
+        await releaseExpiredConsultationManagements()
+        if (cancelled) {
+          return
+        }
+        // Sync bandeja so liberated consultations become visible (no KPI bundle).
+        await loadSharedInbox(sharedInboxQueryRef.current, { mode: "fast" })
+      })()
+    }, RELEASE_EXPIRED_INTERVAL_MS)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(intervalId)
+    }
+  }, [companyId, isAuthReady, loadSharedInbox])
 
   const refreshMyActiveManagement = useCallback(async () => {
     if (!isAuthReady || !companyId || !employeeId) {
@@ -579,11 +704,30 @@ export function AtencionClienteProvider({
     )
   }, [companyId, employeeId, isAuthReady])
 
-  const refreshSharedInbox = useCallback(async () => {
-    // Force a fresh jornada dashboard load after mutations.
-    sharedInboxDashboardLoadedRef.current = false
-    await Promise.all([loadSharedInbox(sharedInboxQuery), refreshMyActiveManagement()])
-  }, [loadSharedInbox, refreshMyActiveManagement, sharedInboxQuery])
+  const refreshSharedInbox = useCallback(
+    async (options?: { mode?: "full" | "fast" }) => {
+      // Sprint 28.2 — mutations default to fast (rows only).
+      // Full mode forces KPI/dashboard bundle (enter / F5 / explicit).
+      const mode = options?.mode ?? "fast"
+      if (mode === "full") {
+        sharedInboxDashboardLoadedRef.current = false
+      }
+      trackAtcQueryInvalidation(
+        ["customer_atenciones", "shared-inbox", sharedInboxQuery],
+        { log: false }
+      )
+      if (process.env.NODE_ENV === "development") {
+        console.log(
+          "[ATC FastRefresh]",
+          "refreshSharedInbox",
+          `mode=${mode}`,
+          Date.now()
+        )
+      }
+      await loadSharedInbox(sharedInboxQuery, { mode })
+    },
+    [loadSharedInbox, sharedInboxQuery]
+  )
 
   const refreshDashboard = useCallback(async () => {
     if (!isAuthReady || !companyId || !employeeId) {
@@ -615,10 +759,15 @@ export function AtencionClienteProvider({
         recuperacionesCountResult,
       ] = await Promise.all([
         getAtencionClienteDashboardSummary(companyId, employeeId, referenceDate),
-        listPendingSeguimientosForEmployee(
-          companyId,
-          employeeId,
-          referenceDate
+        measureAtcClientSpan(
+          "seguimientos",
+          () =>
+            listPendingSeguimientosForEmployee(
+              companyId,
+              employeeId,
+              referenceDate
+            ),
+          { reason: "useCustomerSeguimientos.pending" }
         ),
         listActiveRetencionesForEmployee(companyId, employeeId),
         getActiveRetencionesCount(companyId, employeeId),
@@ -746,14 +895,20 @@ export function AtencionClienteProvider({
         return null
       }
 
-      const result = await loadCustomerSeguimientoById(id, companyId)
+      return measureAtcClientSpan(
+        "seguimientos",
+        async () => {
+          const result = await loadCustomerSeguimientoById(id, companyId)
 
-      if (!result.data) {
-        return null
-      }
+          if (!result.data) {
+            return null
+          }
 
-      seguimientoCacheRef.current.set(id, result.data)
-      return result.data
+          seguimientoCacheRef.current.set(id, result.data)
+          return result.data
+        },
+        { reason: "fetchSeguimientoById" }
+      )
     },
     [companyId]
   )
@@ -997,7 +1152,8 @@ export function AtencionClienteProvider({
   const runConsultationManagementMutation = useCallback(
     async (
       atencionId: string,
-      mutation: () => Promise<ConsultationManagementMutationResult>
+      mutation: () => Promise<ConsultationManagementMutationResult>,
+      breakdownAction?: AtcBreakdownAction
     ): Promise<ConsultationManagementMutationResult> => {
       const perf = startPerformanceTrace("ATENCION MANAGEMENT", {
         layer: "frontend",
@@ -1011,31 +1167,45 @@ export function AtencionClienteProvider({
           }
         }
 
-        const result = await perf.span("Server mutation", () => mutation())
+        if (breakdownAction) {
+          beginAtcBreakdown(breakdownAction)
+        }
+
+        const result = await measureAtcBreakdownPhase("rpc", () =>
+          perf.span("Server mutation", () => mutation())
+        )
 
         if (result.success) {
-          await perf.span("Refresh UI", () =>
-            Promise.all([
-              refreshAtencionById(atencionId),
-              refreshSharedInbox(),
-            ])
+          // Sprint 28.0 — inbox once here. Detail UI calls loadDetail
+          // (refreshAtencionById + events + attachments) via reloadAfterAction.
+          // Do not refreshAtencionById here: that duplicated the atencion fetch.
+          await measureAtcBreakdownPhase("refreshInbox", () =>
+            perf.span("Refresh UI", () => refreshSharedInbox())
           )
+        } else if (breakdownAction) {
+          // No detail reload follows a failed mutation — close the breakdown now.
+          void finalizeAtcBreakdown()
         }
 
         perf.finish()
         return result
       } catch (error) {
+        if (breakdownAction) {
+          void finalizeAtcBreakdown()
+        }
         perf.fail(error)
         throw error
       }
     },
-    [isReadOnly, openRestrictedDialog, refreshAtencionById, refreshSharedInbox]
+    [isReadOnly, openRestrictedDialog, refreshSharedInbox]
   )
 
   const startConsultationManagementHandler = useCallback(
     async (atencionId: string) => {
-      return runConsultationManagementMutation(atencionId, () =>
-        startConsultationManagement(atencionId)
+      return runConsultationManagementMutation(
+        atencionId,
+        () => startConsultationManagement(atencionId),
+        "start-management"
       )
     },
     [runConsultationManagementMutation]
@@ -1070,8 +1240,15 @@ export function AtencionClienteProvider({
       resolution: string,
       followUpActions: string[] = []
     ) => {
-      return runConsultationManagementMutation(atencionId, () =>
-        resolveConsultationManagement(atencionId, resolution, followUpActions)
+      return runConsultationManagementMutation(
+        atencionId,
+        () =>
+          resolveConsultationManagement(
+            atencionId,
+            resolution,
+            followUpActions
+          ),
+        "resolve"
       )
     },
     [runConsultationManagementMutation]
@@ -1083,8 +1260,10 @@ export function AtencionClienteProvider({
       nextStep: CustomerAtencionNextStep,
       detail?: string
     ) => {
-      return runConsultationManagementMutation(atencionId, () =>
-        deferConsultationManagement(atencionId, nextStep, detail)
+      return runConsultationManagementMutation(
+        atencionId,
+        () => deferConsultationManagement(atencionId, nextStep, detail),
+        "defer"
       )
     },
     [runConsultationManagementMutation]
@@ -1108,6 +1287,8 @@ export function AtencionClienteProvider({
       )
 
       if (result.success) {
+        // No reloadAfterAction caller — refresh atencion cache for subsequent reads.
+        // Inbox refresh keeps bandeja row fields in sync; bandeja category unchanged.
         await Promise.all([
           refreshAtencionById(atencionId),
           refreshSharedInbox(),
@@ -1160,11 +1341,8 @@ export function AtencionClienteProvider({
       )
 
       if (result.success) {
-        await Promise.all([
-          refreshAtencionById(atencionId),
-          refreshSharedInbox(),
-          refreshMyActiveManagement(),
-        ])
+        // Sprint 28.0 — inbox once; detail reloadAfterAction owns atencion+events+attachments.
+        await refreshSharedInbox()
         setActionFeedback(
           result.managementReleased
             ? "Interacción registrada. La consulta permanece en su bandeja."
@@ -1174,13 +1352,7 @@ export function AtencionClienteProvider({
 
       return result
     },
-    [
-      isReadOnly,
-      openRestrictedDialog,
-      refreshAtencionById,
-      refreshMyActiveManagement,
-      refreshSharedInbox,
-    ]
+    [isReadOnly, openRestrictedDialog, refreshSharedInbox]
   )
 
   const linkConsultationOtHandler = useCallback(
@@ -1198,6 +1370,7 @@ export function AtencionClienteProvider({
       const result = await linkConsultationOtManagement(atencionId, taskId)
 
       if (result.success) {
+        // No panel reloadAfterAction path — keep cache + bandeja in sync.
         await Promise.all([
           refreshAtencionById(atencionId),
           refreshSharedInbox(),

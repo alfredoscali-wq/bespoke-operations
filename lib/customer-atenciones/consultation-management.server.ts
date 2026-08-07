@@ -35,6 +35,11 @@ import {
 import { logOperationError } from "@/lib/operations/user-messages"
 import { startPerformanceTrace } from "@/lib/performance"
 import {
+  addReleaseExpiredTimer,
+  getReleaseExpiredStore,
+  recordReleaseExpiredQuery,
+} from "@/lib/customer-service/performance/release-expired-breakdown"
+import {
   emitCustomerInteractionActivities,
   emitCustomerManagementActivities,
   emitCustomerOtLinkedActivity,
@@ -230,10 +235,25 @@ export async function releaseExpiredCustomerAtencionManagements(input: {
 > {
   const admin = createAdminClient()
 
+  const rpcStarted =
+    typeof performance !== "undefined" && typeof performance.now === "function"
+      ? performance.now()
+      : Date.now()
   const { data, error } = await (admin as unknown as AdminRpcClient).rpc(
     "release_expired_customer_atencion_managements",
     { p_company_id: input.companyId }
   )
+  const rpcEnded =
+    typeof performance !== "undefined" && typeof performance.now === "function"
+      ? performance.now()
+      : Date.now()
+  const rpcDuration = rpcEnded - rpcStarted
+
+  // Sprint 31.0 — optional release-expired breakdown (no-op when inactive).
+  if (getReleaseExpiredStore()) {
+    addReleaseExpiredTimer("rpcMs", rpcDuration)
+    recordReleaseExpiredQuery("rpc.release_expired", rpcDuration)
+  }
 
   if (error) {
     logOperationError("CONSULTATION MANAGEMENT", error)
@@ -246,12 +266,23 @@ export async function releaseExpiredCustomerAtencionManagements(input: {
     }
   }
 
+  const parseStarted =
+    typeof performance !== "undefined" && typeof performance.now === "function"
+      ? performance.now()
+      : Date.now()
   const record =
     data && typeof data === "object" ? (data as Record<string, unknown>) : null
   const releasedCount =
     typeof record?.released_count === "number" ? record.released_count : 0
   const timeoutMinutes =
     typeof record?.timeout_minutes === "number" ? record.timeout_minutes : 15
+  const parseEnded =
+    typeof performance !== "undefined" && typeof performance.now === "function"
+      ? performance.now()
+      : Date.now()
+  if (getReleaseExpiredStore()) {
+    addReleaseExpiredTimer("parseMs", parseEnded - parseStarted)
+  }
 
   return { ok: true, releasedCount, timeoutMinutes }
 }

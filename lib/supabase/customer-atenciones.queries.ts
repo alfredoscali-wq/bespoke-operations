@@ -46,6 +46,13 @@ import type {
   CreateCustomerAtencionPayload,
   CustomerAtencionesRepositoryResult,
 } from "@/lib/types/supabase/customer-atenciones"
+import {
+  getActiveCustomerServiceInboxSession,
+  measureCustomerServiceSourceQuery,
+  recordCustomerServiceCustomerLookup,
+  recordCustomerServiceRowsLoaded,
+  recordCustomerServiceSeguimientoQuery,
+} from "@/lib/customer-service/performance"
 
 export type SupabaseCustomerAtencionesClient = SupabaseClient<Database>
 
@@ -122,12 +129,18 @@ async function loadCustomerNamesById(
     return new Map()
   }
 
+  const startedAt = performance.now()
   const { data, error } = await client
     .from("customers")
     .select("id, name")
     .eq("company_id", companyId)
     .in("id", customerIds)
     .is("deleted_at", null)
+
+  recordCustomerServiceCustomerLookup({
+    customerIds,
+    durationMs: performance.now() - startedAt,
+  })
 
   if (error || !data) {
     return new Map()
@@ -242,13 +255,25 @@ async function loadLatestManagementAtByAtencionId(
     return new Map()
   }
 
-  const [seguimientosResult, eventsResult] = await Promise.all([
-    client
+  const seguimientosPromise = (async () => {
+    const startedAt = performance.now()
+    const result = await client
       .from("customer_seguimientos")
       .select("source_atencion_id, created_at")
       .eq("company_id", companyId)
       .in("source_atencion_id", atencionIds)
-      .is("deleted_at", null),
+      .is("deleted_at", null)
+    recordCustomerServiceSeguimientoQuery({
+      label: "inbox.latest_management",
+      atencionIds,
+      durationMs: performance.now() - startedAt,
+      rowCount: result.data?.length ?? 0,
+    })
+    return result
+  })()
+
+  const [seguimientosResult, eventsResult] = await Promise.all([
+    seguimientosPromise,
     client
       .from("customer_atencion_events")
       .select("customer_atencion_id, created_at, action_type")
@@ -430,10 +455,15 @@ async function fetchSharedInboxSourceRows(
       matchingCustomerIds,
     })
 
-    const { data, error } = await filteredQuery
-      .order("updated_at", { ascending: false })
-      .order("created_at", { ascending: false })
-      .limit(SHARED_INBOX_MAX_ROWS)
+    const { data, error } = await measureCustomerServiceSourceQuery(
+      "searchResult",
+      () =>
+        filteredQuery
+          .order("updated_at", { ascending: false })
+          .order("created_at", { ascending: false })
+          .limit(SHARED_INBOX_MAX_ROWS),
+      (result) => result.data?.length ?? 0
+    )
 
     if (error) {
       return { data: null, error: mapSupabaseCustomerAtencionError(error) }
@@ -457,10 +487,15 @@ async function fetchSharedInboxSourceRows(
       dayQuery = dayQuery.eq("channel", channelFilter)
     }
 
-    const { data, error } = await dayQuery
-      .order("updated_at", { ascending: false })
-      .order("created_at", { ascending: false })
-      .limit(SHARED_INBOX_MAX_ROWS)
+    const { data, error } = await measureCustomerServiceSourceQuery(
+      "dayResult",
+      () =>
+        dayQuery
+          .order("updated_at", { ascending: false })
+          .order("created_at", { ascending: false })
+          .limit(SHARED_INBOX_MAX_ROWS),
+      (result) => result.data?.length ?? 0
+    )
 
     if (error) {
       return { data: null, error: mapSupabaseCustomerAtencionError(error) }
@@ -483,10 +518,15 @@ async function fetchSharedInboxSourceRows(
       filteredQuery = filteredQuery.eq("channel", channelFilter)
     }
 
-    const { data, error } = await filteredQuery
-      .order("updated_at", { ascending: false })
-      .order("created_at", { ascending: false })
-      .limit(SHARED_INBOX_MAX_ROWS)
+    const { data, error } = await measureCustomerServiceSourceQuery(
+      "filteredResult",
+      () =>
+        filteredQuery
+          .order("updated_at", { ascending: false })
+          .order("created_at", { ascending: false })
+          .limit(SHARED_INBOX_MAX_ROWS),
+      (result) => result.data?.length ?? 0
+    )
 
     if (error) {
       return { data: null, error: mapSupabaseCustomerAtencionError(error) }
@@ -496,34 +536,53 @@ async function fetchSharedInboxSourceRows(
   } else {
     // Default board: active work + resolved today + recent resolved (any day).
     // "Todas" is not day-scoped; "Resueltas hoy" still has a complete day set.
+    const session = getActiveCustomerServiceInboxSession()
     const [activeResult, resolvedTodayResult, recentResolvedResult] =
       await Promise.all([
-        client
-          .from("customer_atenciones")
-          .select(ATENCION_INBOX_SELECT)
-          .eq("company_id", companyId)
-          .is("deleted_at", null)
-          .in("status", SHARED_INBOX_ACTIVE_STATUSES)
-          .order("updated_at", { ascending: false })
-          .order("created_at", { ascending: false })
-          .limit(SHARED_INBOX_MAX_ROWS),
-        client
-          .from("customer_atenciones")
-          .select(ATENCION_INBOX_SELECT)
-          .eq("company_id", companyId)
-          .is("deleted_at", null)
-          .eq("status", "resuelta")
-          .gte("updated_at", dayBounds.start)
-          .lt("updated_at", dayBounds.end)
-          .order("updated_at", { ascending: false }),
-        client
-          .from("customer_atenciones")
-          .select(ATENCION_INBOX_SELECT)
-          .eq("company_id", companyId)
-          .is("deleted_at", null)
-          .eq("status", "resuelta")
-          .order("updated_at", { ascending: false })
-          .limit(SHARED_INBOX_MAX_ROWS),
+        measureCustomerServiceSourceQuery(
+          "activeResult",
+          () =>
+            client
+              .from("customer_atenciones")
+              .select(ATENCION_INBOX_SELECT)
+              .eq("company_id", companyId)
+              .is("deleted_at", null)
+              .in("status", SHARED_INBOX_ACTIVE_STATUSES)
+              .order("updated_at", { ascending: false })
+              .order("created_at", { ascending: false })
+              .limit(SHARED_INBOX_MAX_ROWS),
+          (result) => result.data?.length ?? 0,
+          session
+        ),
+        measureCustomerServiceSourceQuery(
+          "resolvedTodayResult",
+          () =>
+            client
+              .from("customer_atenciones")
+              .select(ATENCION_INBOX_SELECT)
+              .eq("company_id", companyId)
+              .is("deleted_at", null)
+              .eq("status", "resuelta")
+              .gte("updated_at", dayBounds.start)
+              .lt("updated_at", dayBounds.end)
+              .order("updated_at", { ascending: false }),
+          (result) => result.data?.length ?? 0,
+          session
+        ),
+        measureCustomerServiceSourceQuery(
+          "recentResolvedResult",
+          () =>
+            client
+              .from("customer_atenciones")
+              .select(ATENCION_INBOX_SELECT)
+              .eq("company_id", companyId)
+              .is("deleted_at", null)
+              .eq("status", "resuelta")
+              .order("updated_at", { ascending: false })
+              .limit(SHARED_INBOX_MAX_ROWS),
+          (result) => result.data?.length ?? 0,
+          session
+        ),
       ])
 
     if (activeResult.error) {
@@ -552,8 +611,11 @@ async function fetchSharedInboxSourceRows(
     absorb(recentResolvedResult.data)
   }
 
+  const mergedRows = [...rowsById.values()]
+  recordCustomerServiceRowsLoaded(mergedRows.length)
+
   return {
-    data: await mapSharedInboxSourceRows(client, companyId, [...rowsById.values()]),
+    data: await mapSharedInboxSourceRows(client, companyId, mergedRows),
     error: null,
   }
 }
@@ -695,6 +757,8 @@ export type SharedInboxConsultationsPage = {
   workTrayCounts: SharedInboxWorkTrayCounts
   /** Same discovery set as the table — for quick-filter chips. */
   statusFilterCounts: SharedInboxStatusFilterCounts
+  /** Sprint 28.2 — from discovery rows (no KPI / bundle query). */
+  operationalCounts: SharedInboxOperationalCounts
 }
 
 export async function fetchSharedInboxBundle(
@@ -822,6 +886,7 @@ export async function fetchSharedInboxConsultations(
         discoveryRows,
         dayReference
       ),
+      operationalCounts: computeOperationalWorkCounts(discoveryRows),
     },
     error: null,
   }

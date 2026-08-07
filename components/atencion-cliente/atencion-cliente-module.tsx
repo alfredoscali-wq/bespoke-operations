@@ -11,6 +11,7 @@ import { ConsultationWorkbenchHeader } from "@/components/atencion-cliente/consu
 import { EquipoSection } from "@/components/atencion-cliente/equipo-section"
 import { ExclusiveManagementDialog } from "@/components/atencion-cliente/exclusive-management-dialog"
 import { useAtencionCliente } from "@/components/atencion-cliente/atencion-cliente-provider"
+import { useSharedInbox } from "@/lib/customer-service/performance/client-hooks"
 import type { SharedInboxQuery } from "@/lib/customer-atenciones/shared-inbox"
 import { Button } from "@/components/ui/button"
 import { EntityActionFeedback } from "@/components/ui/entity-action-feedback"
@@ -29,7 +30,6 @@ function createDefaultSharedInboxQuery(): SharedInboxQuery {
 
 export function AtencionClienteModule() {
   const {
-    loadSharedInbox,
     canViewEquipoReport,
     actionFeedback,
     clearActionFeedback,
@@ -37,6 +37,7 @@ export function AtencionClienteModule() {
     cancelConsultationManagement,
     refreshMyActiveManagement,
   } = useAtencionCliente()
+  const { loadSharedInbox } = useSharedInbox()
   const [moduleView, setModuleView] = useState<"personal" | "equipo">("personal")
   const [formOpen, setFormOpen] = useState(false)
   const [sharedInboxQuery, setSharedInboxQuery] = useState<SharedInboxQuery>(
@@ -52,6 +53,14 @@ export function AtencionClienteModule() {
   const [exclusiveDialogOpen, setExclusiveDialogOpen] = useState(false)
 
   useEffect(() => {
+    if (process.env.NODE_ENV === "development") {
+      console.log(
+        "[ATC Client]",
+        "AtencionClienteModule.loadSharedInbox",
+        typeof window !== "undefined" ? window.location.pathname : "(ssr)",
+        Date.now()
+      )
+    }
     void loadSharedInbox(sharedInboxQuery)
   }, [loadSharedInbox, sharedInboxQuery])
 

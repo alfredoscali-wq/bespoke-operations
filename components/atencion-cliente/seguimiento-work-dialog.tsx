@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
 
 import { useAtencionCliente } from "@/components/atencion-cliente/atencion-cliente-provider"
+import { useCustomerSeguimientos } from "@/lib/customer-service/performance/client-hooks"
 import {
   formatScheduledDateLabel,
   formatScheduledTimeLabel,
@@ -37,12 +38,11 @@ export function SeguimientoWorkDialog({
   onOpenChange,
 }: SeguimientoWorkDialogProps) {
   const {
-    fetchSeguimientoById,
     fetchAtencionById,
-    pendingSeguimientos,
     completeSeguimiento,
     completeSeguimientoWithFollowUp,
   } = useAtencionCliente()
+  const { fetchSeguimientoById, pendingSeguimientos } = useCustomerSeguimientos()
   const [seguimiento, setSeguimiento] = useState<CustomerSeguimiento | null>(null)
   const [atencion, setAtencion] = useState<CustomerAtencion | null>(null)
   const [mode, setMode] = useState<WorkMode>("resuelto")
