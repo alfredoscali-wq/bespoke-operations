@@ -12,6 +12,7 @@ export type AtcBreakdownAction =
 
 export type AtcBreakdownSnapshot = {
   action: AtcBreakdownAction
+  detailMode: "full" | "incremental" | null
   rpcMs: number | null
   refreshInboxMs: number | null
   fetchAtencionMs: number | null
@@ -24,6 +25,7 @@ export type AtcBreakdownSnapshot = {
 
 type AtcBreakdownSession = {
   action: AtcBreakdownAction
+  detailMode: "full" | "incremental" | null
   startedAt: number
   rpcMs: number | null
   refreshInboxMs: number | null
@@ -86,6 +88,7 @@ export function beginAtcBreakdown(action: AtcBreakdownAction): void {
 
   activeSession = {
     action,
+    detailMode: null,
     startedAt: nowMs(),
     rpcMs: null,
     refreshInboxMs: null,
@@ -96,6 +99,13 @@ export function beginAtcBreakdown(action: AtcBreakdownAction): void {
     renderMs: null,
     asyncFinishedAt: null,
   }
+}
+
+export function recordAtcBreakdownDetailMode(
+  mode: "full" | "incremental"
+): void {
+  if (!isCustomerServicePerfEnabled() || !activeSession) return
+  activeSession.detailMode = mode
 }
 
 export function recordAtcBreakdownPhase(
@@ -148,6 +158,13 @@ function logAtcBreakdown(snapshot: AtcBreakdownSnapshot): void {
     [
       "[ATC Breakdown]",
       `${padLabel("Action")} ${snapshot.action}`,
+      `${padLabel("Detail Mode")} ${
+        snapshot.detailMode === "incremental"
+          ? "Incremental"
+          : snapshot.detailMode === "full"
+            ? "Full"
+            : "—"
+      }`,
       "",
       `${padLabel("RPC")} ${formatMs(snapshot.rpcMs)}`,
       `${padLabel("Refresh Inbox")} ${formatMs(snapshot.refreshInboxMs)}`,
@@ -177,6 +194,7 @@ export async function finalizeAtcBreakdown(): Promise<void> {
 
   const snapshot: AtcBreakdownSnapshot = {
     action: session.action,
+    detailMode: session.detailMode,
     rpcMs: session.rpcMs,
     refreshInboxMs: session.refreshInboxMs,
     fetchAtencionMs: session.fetchAtencionMs,

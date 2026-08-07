@@ -28,8 +28,11 @@ test("Sprint 28.4: refreshDetailPartial skips customer/creator/full employee fan
   const partialEnd = detail.indexOf("const reloadAfterAction = useCallback")
   assert.ok(partialStart >= 0 && partialEnd > partialStart)
   const partialBlock = detail.slice(partialStart, partialEnd)
-  assert.ok(partialBlock.includes("refreshAtencionById(atencionId)"))
   assert.ok(partialBlock.includes("listCustomerAtencionEventsByAtencionId"))
+  assert.ok(
+    partialBlock.includes("refreshAtencionById(atencionId)") ||
+      partialBlock.includes("applyAtencionHeaderPatch")
+  )
   assert.equal(partialBlock.includes("getCustomerById"), false)
   assert.equal(partialBlock.includes("attendedByEmployeeId"), false)
 })
@@ -43,9 +46,5 @@ test("Sprint 28.4: reloadAfterAction uses partial; full loadDetail remains for m
   assert.ok(detail.includes("await refreshDetailPartial(options)"))
   assert.ok(detail.includes('reason: "useCustomerAtencionDetail.loadDetail"'))
   assert.ok(detail.includes("void loadDetail()"))
-  assert.ok(
-    detail.includes(
-      "reloadAfterAction({ includeAttachments: uploaded.uploaded })"
-    )
-  )
+  assert.ok(detail.includes("includeAttachments: uploaded.uploaded"))
 })

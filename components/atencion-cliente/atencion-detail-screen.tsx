@@ -33,8 +33,17 @@ import {
 import {
   finalizeAtcBreakdown,
   measureAtcBreakdownPhase,
+  recordAtcBreakdownDetailMode,
   recordAtcBreakdownPhase,
 } from "@/lib/customer-service/performance/breakdown"
+import {
+  applyAtencionHeaderPatch,
+  buildDeferAtencionPatch,
+  buildInteractionAtencionPatch,
+  buildResolveAtencionPatch,
+  buildStartManagementAtencionPatch,
+} from "@/lib/customer-atenciones/detail-incremental-patch"
+import type { ConsultationManagementRpcResult } from "@/lib/customer-atenciones/consultation-management"
 import { ConsultationPermanentDeleteDialog } from "@/components/atencion-cliente/consultation-permanent-delete-dialog"
 import { ConsultationSituationSummaryCard } from "@/components/atencion-cliente/consultation-situation-summary-card"
 import { RetentionResultDialog } from "@/components/atencion-cliente/retention-result-dialog"
@@ -260,6 +269,8 @@ export function AtencionDetailScreen({
     eventEmployeeNamesById: {} as Record<string, string>,
     commercialResolution: null as string | null | undefined,
   })
+  const atencionRef = useRef<CustomerAtencion | null>(null)
+  atencionRef.current = atencion
 
   const applyAttachmentsGrouping = useCallback(
     (attachments: Attachment[]) => {
@@ -400,16 +411,23 @@ export function AtencionDetailScreen({
   ])
 
   /**
-   * Sprint 28.4 — incremental detail refresh after mutations.
-   * Reloads: atencion (status/lock), events, new event actors, optional attachments.
+   * Sprint 28.4 / 36.0 — incremental detail refresh after mutations.
+   * - With atencionPatch: apply local header fields, fetch events only (no atencion row).
+   * - Without patch: fetch atencion + events (28.4 fallback for error / lock sync).
+   * - Attachments only when includeAttachments (uploads).
    * Skips: customer, creator employee, unchanged attachments.
    */
   const refreshDetailPartial = useCallback(
-    async (options?: { includeAttachments?: boolean }) => {
+    async (options?: {
+      includeAttachments?: boolean
+      atencionPatch?: Partial<CustomerAtencion>
+    }) => {
+      const useIncrementalHeader = Boolean(options?.atencionPatch)
       if (process.env.NODE_ENV === "development") {
         console.log(
           "[ATC FastRefresh]",
           "refreshDetailPartial",
+          useIncrementalHeader ? "incremental" : "header+events",
           options?.includeAttachments ? "withAttachments" : "core",
           Date.now()
         )
@@ -424,10 +442,25 @@ export function AtencionDetailScreen({
               ? performance.now()
               : Date.now()
 
-          const loadedAtencion = await measureAtcBreakdownPhase(
-            "fetchAtencion",
-            () => refreshAtencionById(atencionId)
+          recordAtcBreakdownDetailMode(
+            useIncrementalHeader ? "incremental" : "full"
           )
+
+          let loadedAtencion: CustomerAtencion | null = null
+
+          if (useIncrementalHeader && atencionRef.current && options?.atencionPatch) {
+            loadedAtencion = applyAtencionHeaderPatch(
+              atencionRef.current,
+              options.atencionPatch
+            )
+            recordAtcBreakdownPhase("fetchAtencion", 0)
+          } else {
+            loadedAtencion = await measureAtcBreakdownPhase(
+              "fetchAtencion",
+              () => refreshAtencionById(atencionId)
+            )
+          }
+
           if (!loadedAtencion) {
             setAtencion(null)
             setCommercialOpportunity(null)
@@ -501,12 +534,18 @@ export function AtencionDetailScreen({
 
           if (options?.includeAttachments) {
             await loadAttachmentsForAtencion(loadedAtencion.id)
+          } else {
+            recordAtcBreakdownPhase("attachments", 0)
           }
         },
         {
           reason: options?.includeAttachments
-            ? "detailPartial+attachments"
-            : "detailPartial",
+            ? useIncrementalHeader
+              ? "detailIncremental+attachments"
+              : "detailPartial+attachments"
+            : useIncrementalHeader
+              ? "detailIncremental"
+              : "detailPartial",
           log: false,
         }
       )
@@ -571,12 +610,15 @@ export function AtencionDetailScreen({
   ])
 
   /**
-   * Sprint 28.4 — mutations use partial detail refresh (not full loadDetail).
-   * Pass includeAttachments after uploads / attachment edits.
+   * Sprint 28.4 / 36.0 — mutations use incremental detail refresh (not full loadDetail).
+   * Pass atencionPatch after successful mutations; includeAttachments after uploads.
    * Sprint 28.5 — finalize [ATC Breakdown] after the detail refresh settles.
    */
   const reloadAfterAction = useCallback(
-    async (options?: { includeAttachments?: boolean }) => {
+    async (options?: {
+      includeAttachments?: boolean
+      atencionPatch?: Partial<CustomerAtencion>
+    }) => {
       setSelectedPanelAction(null)
       setSelectedAssistantOptionId(null)
       try {
@@ -587,6 +629,42 @@ export function AtencionDetailScreen({
     },
     [refreshDetailPartial]
   )
+
+  function reloadAfterManagementSuccess(input: {
+    result: ConsultationManagementRpcResult
+    kind: "start" | "defer" | "resolve"
+    includeAttachments?: boolean
+    detail?: string | null
+    resolution?: string
+    followUpActions?: string[]
+  }) {
+    const employeeId = currentEmployeeId?.trim() ?? ""
+    let atencionPatch: Partial<CustomerAtencion> | undefined
+
+    if (input.kind === "start" && employeeId) {
+      atencionPatch = buildStartManagementAtencionPatch({
+        result: input.result,
+        employeeId,
+      })
+    } else if (input.kind === "defer") {
+      atencionPatch = buildDeferAtencionPatch({
+        result: input.result,
+        detail: input.detail,
+      })
+    } else if (input.kind === "resolve" && employeeId) {
+      atencionPatch = buildResolveAtencionPatch({
+        result: input.result,
+        resolution: input.resolution ?? "",
+        followUpActions: input.followUpActions,
+        employeeId,
+      })
+    }
+
+    return reloadAfterAction({
+      includeAttachments: input.includeAttachments,
+      atencionPatch,
+    })
+  }
 
   function notifyExclusiveManagementBlocked() {
     if (onExclusiveManagementBlocked) {
@@ -669,7 +747,10 @@ export function AtencionDetailScreen({
 
       // Ownership is required for defer/resolve; historial hides gestion_iniciada.
       // RC 3.2.2 — assistant / area form appears immediately after start.
-      await reloadAfterAction()
+      await reloadAfterManagementSuccess({
+        result: result.data,
+        kind: "start",
+      })
     } finally {
       setIsStarting(false)
     }
@@ -739,8 +820,16 @@ export function AtencionDetailScreen({
       }
 
       const uploaded = await uploadPendingAttachments(result.data.eventId)
+      const resolutionText = resolution
+      const followUps = followUpNeeded ? selectedFollowUpActions : []
       if (!uploaded.ok) {
-        await reloadAfterAction({ includeAttachments: true })
+        await reloadAfterManagementSuccess({
+          result: result.data,
+          kind: "resolve",
+          includeAttachments: true,
+          resolution: resolutionText,
+          followUpActions: followUps,
+        })
         return
       }
 
@@ -748,7 +837,13 @@ export function AtencionDetailScreen({
       setFollowUpNeeded(false)
       setSelectedFollowUpActions([])
       setSelectedAssistantOptionId(null)
-      await reloadAfterAction({ includeAttachments: uploaded.uploaded })
+      await reloadAfterManagementSuccess({
+        result: result.data,
+        kind: "resolve",
+        includeAttachments: uploaded.uploaded,
+        resolution: resolutionText,
+        followUpActions: followUps,
+      })
     } finally {
       setIsResolving(false)
     }
@@ -770,10 +865,11 @@ export function AtencionDetailScreen({
     setIsDeferring(true)
 
     try {
+      const deferDetail = resolution.trim()
       const result = await deferConsultation(
         atencionId,
         deferNextStep,
-        resolution.trim()
+        deferDetail
       )
 
       if (!result.success) {
@@ -783,13 +879,23 @@ export function AtencionDetailScreen({
 
       const uploaded = await uploadPendingAttachments(result.data.eventId)
       if (!uploaded.ok) {
-        await reloadAfterAction({ includeAttachments: true })
+        await reloadAfterManagementSuccess({
+          result: result.data,
+          kind: "defer",
+          includeAttachments: true,
+          detail: deferDetail,
+        })
         return
       }
 
       setDeferNextStep("")
       setResolution("")
-      await reloadAfterAction({ includeAttachments: uploaded.uploaded })
+      await reloadAfterManagementSuccess({
+        result: result.data,
+        kind: "defer",
+        includeAttachments: uploaded.uploaded,
+        detail: deferDetail,
+      })
     } finally {
       setIsDeferring(false)
     }
@@ -822,13 +928,23 @@ export function AtencionDetailScreen({
 
       const uploaded = await uploadPendingAttachments(result.data.eventId)
       if (!uploaded.ok) {
-        await reloadAfterAction({ includeAttachments: true })
+        await reloadAfterManagementSuccess({
+          result: result.data,
+          kind: "defer",
+          includeAttachments: true,
+          detail: detail.trim(),
+        })
         return
       }
 
       setResolution("")
       setSelectedAssistantOptionId(null)
-      await reloadAfterAction({ includeAttachments: uploaded.uploaded })
+      await reloadAfterManagementSuccess({
+        result: result.data,
+        kind: "defer",
+        includeAttachments: uploaded.uploaded,
+        detail: detail.trim(),
+      })
     } finally {
       setIsDeferring(false)
     }
@@ -1319,10 +1435,20 @@ export function AtencionDetailScreen({
     }
     const uploaded = await uploadPendingAttachments(result.data.eventId)
     if (!uploaded.ok) {
-      await reloadAfterAction({ includeAttachments: true })
+      await reloadAfterManagementSuccess({
+        result: result.data,
+        kind: "resolve",
+        includeAttachments: true,
+        resolution: resolutionText,
+      })
       return { success: false, message: uploaded.message }
     }
-    await reloadAfterAction({ includeAttachments: uploaded.uploaded })
+    await reloadAfterManagementSuccess({
+      result: result.data,
+      kind: "resolve",
+      includeAttachments: uploaded.uploaded,
+      resolution: resolutionText,
+    })
     return { success: true }
   }
 
@@ -1339,10 +1465,20 @@ export function AtencionDetailScreen({
     }
     const uploaded = await uploadPendingAttachments(result.data.eventId)
     if (!uploaded.ok) {
-      await reloadAfterAction({ includeAttachments: true })
+      await reloadAfterManagementSuccess({
+        result: result.data,
+        kind: "defer",
+        includeAttachments: true,
+        detail,
+      })
       return { success: false, message: uploaded.message }
     }
-    await reloadAfterAction({ includeAttachments: uploaded.uploaded })
+    await reloadAfterManagementSuccess({
+      result: result.data,
+      kind: "defer",
+      includeAttachments: uploaded.uploaded,
+      detail,
+    })
     return { success: true }
   }
 
@@ -1639,7 +1775,11 @@ export function AtencionDetailScreen({
           atencionId={atencion.id}
           customerId={atencion.customerId}
           currentNextStep={atencion.nextStep ?? null}
-          onRegistered={reloadAfterAction}
+          onRegistered={async (result) => {
+            await reloadAfterAction({
+              atencionPatch: buildInteractionAtencionPatch(result),
+            })
+          }}
         />
 
         <RetentionResultDialog
@@ -1652,7 +1792,11 @@ export function AtencionDetailScreen({
               setActionError(result.message)
               return { success: false, message: result.message }
             }
-            await reloadAfterAction()
+            await reloadAfterManagementSuccess({
+              result: result.data,
+              kind: "resolve",
+              resolution: resolutionText,
+            })
             return { success: true }
           }}
           onDefer={async (nextStep, detail) => {
@@ -1666,7 +1810,11 @@ export function AtencionDetailScreen({
               setActionError(result.message)
               return { success: false, message: result.message }
             }
-            await reloadAfterAction()
+            await reloadAfterManagementSuccess({
+              result: result.data,
+              kind: "defer",
+              detail,
+            })
             return { success: true }
           }}
         />
@@ -1681,7 +1829,11 @@ export function AtencionDetailScreen({
               setActionError(result.message)
               return { success: false, message: result.message }
             }
-            await reloadAfterAction()
+            await reloadAfterManagementSuccess({
+              result: result.data,
+              kind: "resolve",
+              resolution: resolutionText,
+            })
             return { success: true }
           }}
           onDefer={async (nextStep, detail) => {
@@ -1695,7 +1847,11 @@ export function AtencionDetailScreen({
               setActionError(result.message)
               return { success: false, message: result.message }
             }
-            await reloadAfterAction()
+            await reloadAfterManagementSuccess({
+              result: result.data,
+              kind: "defer",
+              detail,
+            })
             return { success: true }
           }}
         />
@@ -1710,7 +1866,11 @@ export function AtencionDetailScreen({
               setActionError(result.message)
               return { success: false, message: result.message }
             }
-            await reloadAfterAction()
+            await reloadAfterManagementSuccess({
+              result: result.data,
+              kind: "resolve",
+              resolution: resolutionText,
+            })
             return { success: true }
           }}
           onDefer={async (nextStep, detail) => {
@@ -1724,7 +1884,11 @@ export function AtencionDetailScreen({
               setActionError(result.message)
               return { success: false, message: result.message }
             }
-            await reloadAfterAction()
+            await reloadAfterManagementSuccess({
+              result: result.data,
+              kind: "defer",
+              detail,
+            })
             return { success: true }
           }}
         />
@@ -2097,7 +2261,11 @@ export function AtencionDetailScreen({
             setActionError(result.message)
             return { success: false, message: result.message }
           }
-          await reloadAfterAction()
+          await reloadAfterManagementSuccess({
+            result: result.data,
+            kind: "resolve",
+            resolution: resolutionText,
+          })
           return { success: true }
         }}
         onDefer={async (nextStep, detail) => {
@@ -2111,7 +2279,11 @@ export function AtencionDetailScreen({
             setActionError(result.message)
             return { success: false, message: result.message }
           }
-          await reloadAfterAction()
+          await reloadAfterManagementSuccess({
+            result: result.data,
+            kind: "defer",
+            detail,
+          })
           return { success: true }
         }}
       />
@@ -2126,7 +2298,11 @@ export function AtencionDetailScreen({
             setActionError(result.message)
             return { success: false, message: result.message }
           }
-          await reloadAfterAction()
+          await reloadAfterManagementSuccess({
+            result: result.data,
+            kind: "resolve",
+            resolution: resolutionText,
+          })
           return { success: true }
         }}
         onDefer={async (nextStep, detail) => {
@@ -2140,7 +2316,11 @@ export function AtencionDetailScreen({
             setActionError(result.message)
             return { success: false, message: result.message }
           }
-          await reloadAfterAction()
+          await reloadAfterManagementSuccess({
+            result: result.data,
+            kind: "defer",
+            detail,
+          })
           return { success: true }
         }}
       />
@@ -2155,7 +2335,11 @@ export function AtencionDetailScreen({
             setActionError(result.message)
             return { success: false, message: result.message }
           }
-          await reloadAfterAction()
+          await reloadAfterManagementSuccess({
+            result: result.data,
+            kind: "resolve",
+            resolution: resolutionText,
+          })
           return { success: true }
         }}
         onDefer={async (nextStep, detail) => {
@@ -2169,7 +2353,11 @@ export function AtencionDetailScreen({
             setActionError(result.message)
             return { success: false, message: result.message }
           }
-          await reloadAfterAction()
+          await reloadAfterManagementSuccess({
+            result: result.data,
+            kind: "defer",
+            detail,
+          })
           return { success: true }
         }}
       />

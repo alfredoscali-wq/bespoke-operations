@@ -53,6 +53,7 @@ export {
   getActiveAtcBreakdownAction,
   getLastAtcBreakdownSnapshot,
   measureAtcBreakdownPhase,
+  recordAtcBreakdownDetailMode,
   recordAtcBreakdownPhase,
   resetAtcBreakdownForTests,
 } from "@/lib/customer-service/performance/breakdown"

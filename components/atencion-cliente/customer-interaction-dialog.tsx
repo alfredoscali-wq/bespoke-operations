@@ -13,6 +13,7 @@ import {
   formatCustomerAtencionNextStepLabel,
 } from "@/lib/customer-atenciones/format"
 import type { CustomerAtencionNextStep } from "@/lib/types/customer-atenciones"
+import type { ConsultationInteractionMutationResult } from "@/lib/supabase/customer-atenciones-management.browser"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -40,7 +41,9 @@ type CustomerInteractionDialogProps = {
   atencionId: string
   customerId: string
   currentNextStep: CustomerAtencionNextStep | null
-  onRegistered?: () => void | Promise<void>
+  onRegistered?: (
+    result: Extract<ConsultationInteractionMutationResult, { success: true }>
+  ) => void | Promise<void>
 }
 
 export function CustomerInteractionDialog({
@@ -119,7 +122,7 @@ export function CustomerInteractionDialog({
       }
 
       onOpenChange(false)
-      await onRegistered?.()
+      await onRegistered?.(response)
     } finally {
       setIsSaving(false)
     }
