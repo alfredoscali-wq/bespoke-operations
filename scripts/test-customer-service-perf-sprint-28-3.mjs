@@ -1,5 +1,6 @@
 /**
  * Sprint 28.3 — Smart releaseExpired (not recurrent on mutations/filters).
+ * Sprint 34.0 — initial release is fire-and-forget background (still once/mount).
  */
 import assert from "node:assert/strict"
 import test from "node:test"
@@ -31,9 +32,10 @@ test("Sprint 28.3: releaseExpired only on initial mount + 5m interval, not fast"
   assert.ok(loadBlock.includes("if (isFast)"))
   assert.ok(loadBlock.includes("hasReleasedExpiredThisMountRef.current = true"))
 
-  // Interval effect exists and refreshes rows after sweep.
+  // Interval effect exists; Sprint 34 routes it through background helper.
   assert.ok(provider.includes('mode: "fast"'))
   assert.ok(provider.includes("sharedInboxQueryRef.current"))
+  assert.ok(provider.includes("runReleaseExpiredInBackground"))
 })
 
 test("Sprint 28.3: mutations still use refreshSharedInbox without forcing full release", () => {

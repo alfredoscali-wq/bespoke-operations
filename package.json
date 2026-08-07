@@ -57,6 +57,7 @@
     "test:customer-service-perf-sprint-31": "npx tsx --conditions=react-server --test scripts/test-customer-service-perf-sprint-31.mjs",
     "test:customer-service-perf-sprint-32": "npx tsx --conditions=react-server --test scripts/test-customer-service-perf-sprint-32.mjs",
     "test:customer-service-perf-sprint-33": "npx tsx --conditions=react-server --test scripts/test-customer-service-perf-sprint-33.mjs",
+    "test:customer-service-perf-sprint-34": "npx tsx --test scripts/test-customer-service-perf-sprint-34.mjs",
     "test:oie-1-1-core": "npx tsx --test scripts/test-oie-1-1-core.mjs",
     "test:oie-1-2-ot-instrumentation": "npx tsx --test scripts/test-oie-1-2-ot-instrumentation.mjs",
     "test:activity-engine-1-1-ot-planning": "npx tsx --test scripts/test-activity-engine-1-1-ot-planning.mjs",

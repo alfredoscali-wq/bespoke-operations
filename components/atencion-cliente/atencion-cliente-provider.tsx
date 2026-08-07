@@ -437,12 +437,106 @@ export function AtencionClienteProvider({
   const sharedInboxDashboardLoadedRef = useRef(false)
   /** Sprint 28.3 — releaseExpired at most once per provider mount (enter / F5). */
   const hasReleasedExpiredThisMountRef = useRef(false)
+  /** Sprint 34.0 — prevent overlapping background release sweeps. */
+  const releaseExpiredInFlightRef = useRef(false)
   const sharedInboxQueryRef = useRef(sharedInboxQuery)
   sharedInboxQueryRef.current = sharedInboxQuery
+  const loadSharedInboxRef = useRef<
+    (
+      query: SharedInboxQuery,
+      options?: { mode?: "full" | "fast" }
+    ) => Promise<void>
+  >(async () => {})
 
   useEffect(() => {
     installAtcClientQueryInvalidationPatch(QueryClient)
   }, [])
+
+  /**
+   * Sprint 34.0 — releaseExpired never blocks first paint / inbox load.
+   * After the sweep, fast-refresh rows only when something was released.
+   */
+  const runReleaseExpiredInBackground = useCallback(
+    async (reason: string) => {
+      if (releaseExpiredInFlightRef.current) {
+        if (process.env.NODE_ENV === "development") {
+          console.log(
+            "[ATC ReleaseExpired]",
+            "caller",
+            `${reason}:skipped(inFlight)`,
+            Date.now()
+          )
+        }
+        return
+      }
+
+      releaseExpiredInFlightRef.current = true
+      const now = () =>
+        typeof performance !== "undefined" && typeof performance.now === "function"
+          ? performance.now()
+          : Date.now()
+      const wallStarted = now()
+      let startMs: number | null = null
+      let rpcMs: number | null = null
+      let refreshMs: number | null = null
+
+      try {
+        if (process.env.NODE_ENV === "development") {
+          console.log(
+            "[ATC ReleaseExpired]",
+            "caller",
+            reason,
+            typeof window !== "undefined" ? window.location.pathname : "(ssr)",
+            Date.now()
+          )
+        }
+
+        startMs = now() - wallStarted
+        const rpcStarted = now()
+        const result = await releaseExpiredConsultationManagements()
+        rpcMs = now() - rpcStarted
+
+        if (result.success && result.releasedCount > 0) {
+          const refreshStarted = now()
+          await loadSharedInboxRef.current(sharedInboxQueryRef.current, {
+            mode: "fast",
+          })
+          refreshMs = now() - refreshStarted
+        } else if (process.env.NODE_ENV === "development") {
+          console.log(
+            "[ATC ReleaseExpired]",
+            "background",
+            "skip fast refresh (no releases)",
+            result.success ? result.releasedCount : result.message,
+            Date.now()
+          )
+        }
+      } finally {
+        releaseExpiredInFlightRef.current = false
+        if (process.env.NODE_ENV === "development") {
+          const totalMs = now() - wallStarted
+          const pad = (label: string) => label.padEnd(22, ".")
+          const fmt = (value: number | null) =>
+            value == null ? "—" : `${Math.round(value)} ms`
+          console.info(
+            [
+              "[ATC RELEASE BACKGROUND]",
+              "",
+              `${pad("Start")} ${fmt(startMs)}`,
+              `${pad("RPC")} ${fmt(rpcMs)}`,
+              `${pad("Refresh")} ${fmt(refreshMs)}`,
+              "",
+              `${pad("TOTAL")} ${fmt(totalMs)}`,
+            ].join("\n")
+          )
+        }
+      }
+    },
+    []
+  )
+  const runReleaseExpiredInBackgroundRef = useRef(runReleaseExpiredInBackground)
+  runReleaseExpiredInBackgroundRef.current = runReleaseExpiredInBackground
+
 
   function createJornadaDashboardQuery(referenceDate: Date): SharedInboxQuery {
     return {
@@ -515,9 +609,11 @@ export function AtencionClienteProvider({
         await measureAtcClientSpan(
           "inboxLoad",
           async () => {
-            // Sprint 28.3 — releaseExpired is NOT a recurrent cost:
+            // Sprint 28.3 / 34.0 — releaseExpired is NOT a recurrent cost and
+            // must not block first paint:
             // - once per provider mount (enter / F5) on the first non-fast load
             // - optional 5-minute timer (see effect below)
+            // - runs in background; inbox load continues immediately
             // Fast mutation refresh never runs it.
             if (isFast) {
               if (process.env.NODE_ENV === "development") {
@@ -531,18 +627,9 @@ export function AtencionClienteProvider({
               }
             } else if (!hasReleasedExpiredThisMountRef.current) {
               hasReleasedExpiredThisMountRef.current = true
-              if (process.env.NODE_ENV === "development") {
-                console.log(
-                  "[ATC ReleaseExpired]",
-                  "caller",
-                  "loadSharedInbox:initialMount",
-                  typeof window !== "undefined"
-                    ? window.location.pathname
-                    : "(ssr)",
-                  Date.now()
-                )
-              }
-              await releaseExpiredConsultationManagements()
+              void runReleaseExpiredInBackgroundRef.current(
+                "loadSharedInbox:initialMount"
+              )
             } else if (process.env.NODE_ENV === "development") {
               console.log(
                 "[ATC ReleaseExpired]",
@@ -651,41 +738,24 @@ export function AtencionClienteProvider({
     },
     [companyId, employeeId, isAuthReady]
   )
+  loadSharedInboxRef.current = loadSharedInbox
 
   // Sprint 28.3 — periodic sweep while ATC provider is mounted (enter keeps locks honest).
+  // Sprint 34.0 — still background; fast-refresh only when releases occurred.
   useEffect(() => {
     if (!isAuthReady || !companyId) {
       return
     }
 
     const RELEASE_EXPIRED_INTERVAL_MS = 5 * 60_000
-    let cancelled = false
-
     const intervalId = window.setInterval(() => {
-      void (async () => {
-        if (process.env.NODE_ENV === "development") {
-          console.log(
-            "[ATC ReleaseExpired]",
-            "caller",
-            "provider.interval-5m",
-            typeof window !== "undefined" ? window.location.pathname : "(ssr)",
-            Date.now()
-          )
-        }
-        await releaseExpiredConsultationManagements()
-        if (cancelled) {
-          return
-        }
-        // Sync bandeja so liberated consultations become visible (no KPI bundle).
-        await loadSharedInbox(sharedInboxQueryRef.current, { mode: "fast" })
-      })()
+      void runReleaseExpiredInBackgroundRef.current("provider.interval-5m")
     }, RELEASE_EXPIRED_INTERVAL_MS)
 
     return () => {
-      cancelled = true
       window.clearInterval(intervalId)
     }
-  }, [companyId, isAuthReady, loadSharedInbox])
+  }, [companyId, isAuthReady])
 
   const refreshMyActiveManagement = useCallback(async () => {
     if (!isAuthReady || !companyId || !employeeId) {
