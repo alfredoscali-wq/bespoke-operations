@@ -12,6 +12,8 @@ import {
   dayActivityNavItem,
   executiveCenterNavItem,
   reportsNavItem,
+  subscriptionsNavItem,
+  tesoreriaNavItem,
   workforceMonitorNavItem,
 } from "@/lib/navigation/nav-items"
 import type { NavGroup, NavItem } from "@/lib/navigation/nav-types"
@@ -54,6 +56,8 @@ const ANALYSIS_NAV_ORDER: readonly string[] = [
   crewProductionNavItem.href,
   activityTimelineNavItem.href,
   reportsNavItem.href,
+  tesoreriaNavItem.href,
+  subscriptionsNavItem.href,
 ]
 
 function sortAnalysisNavItems(items: NavItem[]): NavItem[] {

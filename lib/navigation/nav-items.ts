@@ -22,6 +22,7 @@ import {
   Settings,
   Smartphone,
   TriangleAlert,
+  Tv,
   UserCog,
   Users,
   UsersRound,
@@ -180,6 +181,16 @@ export const tesoreriaNavItem: NavItem = {
   description:
     "Registro operativo de ingresos, egresos y saldo de la empresa.",
   moduleColor: "system",
+}
+
+export const subscriptionsNavItem: NavItem = {
+  title: "TV & Suscripciones",
+  href: "/subscriptions",
+  icon: Tv,
+  pageTitle: "TV & Suscripciones",
+  description:
+    "Administración de servicios recurrentes (Bespoke TV y futuros).",
+  moduleColor: "commercial",
 }
 
 export const gestionComercialNavItem: NavItem = {
@@ -377,6 +388,7 @@ export const analysisNavItems: NavItem[] = [
   crewProductionNavItem,
   activityTimelineNavItem,
   tesoreriaNavItem,
+  subscriptionsNavItem,
 ]
 
 export const systemNavItems: NavItem[] = [
