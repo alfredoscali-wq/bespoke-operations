@@ -65,6 +65,7 @@ function todayInputValue() {
 
 function buildInitialForm(type: TreasuryMovementType): FormState {
   const categories = listTreasuryCategoriesForType(type)
+  const isWithdrawal = type === TREASURY_MOVEMENT_TYPES.WITHDRAWAL
   return {
     movementDate: todayInputValue(),
     amount: "",
@@ -72,7 +73,7 @@ function buildInitialForm(type: TreasuryMovementType): FormState {
     origin: TREASURY_ORIGINS.MANUAL,
     employeeId: "none",
     notes: "",
-    hasReceipt: "no",
+    hasReceipt: isWithdrawal ? "no" : "no",
   }
 }
 
@@ -91,6 +92,7 @@ export function TreasuryMovementFormDialog({
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  const isWithdrawal = movementType === TREASURY_MOVEMENT_TYPES.WITHDRAWAL
   const isDirty = isFormStateDirty(form, baseline) || Boolean(receiptFile)
   const {
     handleOpenChange,
@@ -106,12 +108,16 @@ export function TreasuryMovementFormDialog({
   const employeeLabel =
     movementType === TREASURY_MOVEMENT_TYPES.EXPENSE
       ? "Entregado a"
-      : "Empleado"
+      : movementType === TREASURY_MOVEMENT_TYPES.WITHDRAWAL
+        ? "Retirado por"
+        : "Empleado"
 
   const title =
     movementType === TREASURY_MOVEMENT_TYPES.INCOME
       ? "Registrar Ingreso"
-      : "Registrar Egreso"
+      : movementType === TREASURY_MOVEMENT_TYPES.WITHDRAWAL
+        ? "Registrar Retiro"
+        : "Registrar Egreso"
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -126,7 +132,11 @@ export function TreasuryMovementFormDialog({
       setError("La fecha es obligatoria.")
       return
     }
-    if (form.hasReceipt === "yes" && !receiptFile) {
+    if (isWithdrawal && form.employeeId === "none") {
+      setError("Indicá quién realizó el retiro.")
+      return
+    }
+    if (!isWithdrawal && form.hasReceipt === "yes" && !receiptFile) {
       setError("Seleccione el archivo del comprobante.")
       return
     }
@@ -136,15 +146,15 @@ export function TreasuryMovementFormDialog({
       const result = await registerMovement(
         {
           movementType,
-          origin: form.origin,
-          category: form.category,
+          origin: isWithdrawal ? TREASURY_ORIGINS.MANUAL : form.origin,
+          category: isWithdrawal ? "retiro" : form.category,
           amount,
           movementDate: form.movementDate,
           employeeId: form.employeeId === "none" ? null : form.employeeId,
           status: TREASURY_STATUSES.CONFIRMED,
           notes: form.notes,
         },
-        form.hasReceipt === "yes" ? receiptFile : null
+        !isWithdrawal && form.hasReceipt === "yes" ? receiptFile : null
       )
 
       if (!result.success) {
@@ -170,28 +180,16 @@ export function TreasuryMovementFormDialog({
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
-            Registro operativo. Complete solo los datos necesarios.
+            {isWithdrawal
+              ? "El retiro reduce el saldo de caja sin registrarse como egreso operativo."
+              : "Registro operativo. Complete solo los datos necesarios."}
           </DialogDescription>
         </DialogHeader>
 
         <form className="space-y-4" onSubmit={(event) => void handleSubmit(event)}>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="treasury-date">Fecha</Label>
-              <Input
-                id="treasury-date"
-                type="date"
-                value={form.movementDate}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    movementDate: event.target.value,
-                  }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="treasury-amount">Monto</Label>
+              <Label htmlFor="treasury-amount">Monto *</Label>
               <Input
                 id="treasury-amount"
                 inputMode="decimal"
@@ -205,58 +203,77 @@ export function TreasuryMovementFormDialog({
                 }
               />
             </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label>Categoría</Label>
-              <Select
-                value={form.category}
-                onValueChange={(value) =>
-                  setForm((current) => ({ ...current, category: value }))
-                }
-              >
-                <SelectTrigger className={FILTER_SELECT_TRIGGER_CLASS}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((category) => (
-                    <SelectItem key={category.value} value={category.value}>
-                      {category.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Origen</Label>
-              <Select
-                value={form.origin}
-                onValueChange={(value) =>
+              <Label htmlFor="treasury-date">Fecha *</Label>
+              <Input
+                id="treasury-date"
+                type="date"
+                value={form.movementDate}
+                onChange={(event) =>
                   setForm((current) => ({
                     ...current,
-                    origin: value as TreasuryOrigin,
+                    movementDate: event.target.value,
                   }))
                 }
-              >
-                <SelectTrigger className={FILTER_SELECT_TRIGGER_CLASS}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(TREASURY_ORIGIN_LABELS) as TreasuryOrigin[]).map(
-                    (origin) => (
+              />
+            </div>
+          </div>
+
+          {!isWithdrawal ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Categoría</Label>
+                <Select
+                  value={form.category}
+                  onValueChange={(value) =>
+                    setForm((current) => ({ ...current, category: value }))
+                  }
+                >
+                  <SelectTrigger className={FILTER_SELECT_TRIGGER_CLASS}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((category) => (
+                      <SelectItem key={category.value} value={category.value}>
+                        {category.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Origen</Label>
+                <Select
+                  value={form.origin}
+                  onValueChange={(value) =>
+                    setForm((current) => ({
+                      ...current,
+                      origin: value as TreasuryOrigin,
+                    }))
+                  }
+                >
+                  <SelectTrigger className={FILTER_SELECT_TRIGGER_CLASS}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(
+                      Object.keys(TREASURY_ORIGIN_LABELS) as TreasuryOrigin[]
+                    ).map((origin) => (
                       <SelectItem key={origin} value={origin}>
                         {TREASURY_ORIGIN_LABELS[origin]}
                       </SelectItem>
-                    )
-                  )}
-                </SelectContent>
-              </Select>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-          </div>
+          ) : null}
 
           <div className="space-y-2">
-            <Label>{employeeLabel}</Label>
+            <Label>
+              {employeeLabel}
+              {isWithdrawal ? " *" : ""}
+            </Label>
             <Select
               value={form.employeeId}
               onValueChange={(value) =>
@@ -264,10 +281,14 @@ export function TreasuryMovementFormDialog({
               }
             >
               <SelectTrigger className={FILTER_SELECT_TRIGGER_CLASS}>
-                <SelectValue placeholder="Opcional" />
+                <SelectValue
+                  placeholder={isWithdrawal ? "Seleccionar" : "Opcional"}
+                />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">Sin asignar</SelectItem>
+                {!isWithdrawal ? (
+                  <SelectItem value="none">Sin asignar</SelectItem>
+                ) : null}
                 {employees.map((employee) => (
                   <SelectItem key={employee.id} value={employee.id}>
                     {employee.lastName}, {employee.firstName}
@@ -277,35 +298,37 @@ export function TreasuryMovementFormDialog({
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label>Comprobante</Label>
-            <Select
-              value={form.hasReceipt}
-              onValueChange={(value) =>
-                setForm((current) => ({
-                  ...current,
-                  hasReceipt: value as "yes" | "no",
-                }))
-              }
-            >
-              <SelectTrigger className={FILTER_SELECT_TRIGGER_CLASS}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="no">Sin comprobante</SelectItem>
-                <SelectItem value="yes">Con comprobante</SelectItem>
-              </SelectContent>
-            </Select>
-            {form.hasReceipt === "yes" ? (
-              <Input
-                type="file"
-                accept="image/*"
-                onChange={(event) =>
-                  setReceiptFile(event.target.files?.[0] ?? null)
+          {!isWithdrawal ? (
+            <div className="space-y-2">
+              <Label>Comprobante</Label>
+              <Select
+                value={form.hasReceipt}
+                onValueChange={(value) =>
+                  setForm((current) => ({
+                    ...current,
+                    hasReceipt: value as "yes" | "no",
+                  }))
                 }
-              />
-            ) : null}
-          </div>
+              >
+                <SelectTrigger className={FILTER_SELECT_TRIGGER_CLASS}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="no">Sin comprobante</SelectItem>
+                  <SelectItem value="yes">Con comprobante</SelectItem>
+                </SelectContent>
+              </Select>
+              {form.hasReceipt === "yes" ? (
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={(event) =>
+                    setReceiptFile(event.target.files?.[0] ?? null)
+                  }
+                />
+              ) : null}
+            </div>
+          ) : null}
 
           <div className="space-y-2">
             <Label htmlFor="treasury-notes">Observaciones</Label>
@@ -319,12 +342,17 @@ export function TreasuryMovementFormDialog({
                   notes: event.target.value,
                 }))
               }
+              placeholder={
+                isWithdrawal ? "Opcional" : undefined
+              }
             />
           </div>
 
-          <p className="text-xs text-muted-foreground">
-            Tipo: {TREASURY_TYPE_LABELS[movementType]}
-          </p>
+          {!isWithdrawal ? (
+            <p className="text-xs text-muted-foreground">
+              Tipo: {TREASURY_TYPE_LABELS[movementType]}
+            </p>
+          ) : null}
 
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
@@ -333,7 +361,11 @@ export function TreasuryMovementFormDialog({
               Cancelar
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Guardando..." : "Guardar"}
+              {isSubmitting
+                ? "Guardando..."
+                : isWithdrawal
+                  ? "Registrar Retiro"
+                  : "Guardar"}
             </Button>
           </DialogFooter>
         </form>

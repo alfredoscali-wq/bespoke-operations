@@ -12,6 +12,9 @@ export const KPI_GRID_LAYOUT = {
   /** RRHH compact primary row. */
   compact:
     "grid gap-2 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-8",
+  /** Tesorería UX 1.1 — five compact KPIs in one desktop row. */
+  treasury:
+    "grid gap-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5",
   /** Dashboard status sections with many items. */
   wide: "grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6",
   /** Dashboard RRHH block. */

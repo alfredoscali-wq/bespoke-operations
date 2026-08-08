@@ -566,6 +566,12 @@ export const ACTIVITY_ACTION_DEFINITIONS: Record<
     INFO,
     "Egreso registrado"
   ),
+  [ACTIVITY_ACTIONS.TREASURY_WITHDRAWAL_CREATED]: def(
+    TREASURY,
+    TREASURY_MOVEMENT,
+    INFO,
+    "Retiro registrado"
+  ),
   [ACTIVITY_ACTIONS.TREASURY_MOVEMENT_UPDATED]: def(
     TREASURY,
     TREASURY_MOVEMENT,

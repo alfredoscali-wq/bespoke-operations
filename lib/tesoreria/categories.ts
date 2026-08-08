@@ -3,6 +3,7 @@
 export const TREASURY_MOVEMENT_TYPES = {
   INCOME: "income",
   EXPENSE: "expense",
+  WITHDRAWAL: "withdrawal",
 } as const
 
 export type TreasuryMovementType =
@@ -47,9 +48,17 @@ export const TREASURY_EXPENSE_CATEGORIES = [
   "otro",
 ] as const
 
+/** Fixed internal category for withdrawals — not shown as a "motivo" in the form. */
+export const TREASURY_WITHDRAWAL_CATEGORIES = ["retiro"] as const
+
 export type TreasuryIncomeCategory = (typeof TREASURY_INCOME_CATEGORIES)[number]
 export type TreasuryExpenseCategory = (typeof TREASURY_EXPENSE_CATEGORIES)[number]
-export type TreasuryCategory = TreasuryIncomeCategory | TreasuryExpenseCategory
+export type TreasuryWithdrawalCategory =
+  (typeof TREASURY_WITHDRAWAL_CATEGORIES)[number]
+export type TreasuryCategory =
+  | TreasuryIncomeCategory
+  | TreasuryExpenseCategory
+  | TreasuryWithdrawalCategory
 
 export const TREASURY_INCOME_CATEGORY_LABELS: Record<
   TreasuryIncomeCategory,
@@ -57,7 +66,7 @@ export const TREASURY_INCOME_CATEGORY_LABELS: Record<
 > = {
   instalacion: "Instalación",
   reparacion: "Reparación",
-  cobranza: "Cobranza",
+  cobranza: "Cobranza OT",
   pago_manual: "Pago Manual",
   reintegro: "Reintegro",
   otro: "Otro",
@@ -74,6 +83,13 @@ export const TREASURY_EXPENSE_CATEGORY_LABELS: Record<
   viaticos: "Viáticos",
   repuestos: "Repuestos",
   otro: "Otro",
+}
+
+export const TREASURY_WITHDRAWAL_CATEGORY_LABELS: Record<
+  TreasuryWithdrawalCategory,
+  string
+> = {
+  retiro: "Retiro",
 }
 
 export const TREASURY_ORIGIN_LABELS: Record<TreasuryOrigin, string> = {
@@ -93,6 +109,7 @@ export const TREASURY_STATUS_LABELS: Record<TreasuryStatus, string> = {
 export const TREASURY_TYPE_LABELS: Record<TreasuryMovementType, string> = {
   income: "Ingreso",
   expense: "Egreso",
+  withdrawal: "Retiro",
 }
 
 export function listTreasuryCategoriesForType(
@@ -102,6 +119,13 @@ export function listTreasuryCategoriesForType(
     return TREASURY_INCOME_CATEGORIES.map((value) => ({
       value,
       label: TREASURY_INCOME_CATEGORY_LABELS[value],
+    }))
+  }
+
+  if (type === TREASURY_MOVEMENT_TYPES.WITHDRAWAL) {
+    return TREASURY_WITHDRAWAL_CATEGORIES.map((value) => ({
+      value,
+      label: TREASURY_WITHDRAWAL_CATEGORY_LABELS[value],
     }))
   }
 
@@ -121,6 +145,13 @@ export function formatTreasuryCategoryLabel(
       category
     )
   }
+  if (type === TREASURY_MOVEMENT_TYPES.WITHDRAWAL) {
+    return (
+      TREASURY_WITHDRAWAL_CATEGORY_LABELS[
+        category as TreasuryWithdrawalCategory
+      ] ?? category
+    )
+  }
   return (
     TREASURY_EXPENSE_CATEGORY_LABELS[category as TreasuryExpenseCategory] ??
     category
@@ -134,5 +165,16 @@ export function isTreasuryCategoryForType(
   if (type === TREASURY_MOVEMENT_TYPES.INCOME) {
     return (TREASURY_INCOME_CATEGORIES as readonly string[]).includes(category)
   }
+  if (type === TREASURY_MOVEMENT_TYPES.WITHDRAWAL) {
+    return (TREASURY_WITHDRAWAL_CATEGORIES as readonly string[]).includes(
+      category
+    )
+  }
   return (TREASURY_EXPENSE_CATEGORIES as readonly string[]).includes(category)
+}
+
+export function isTreasuryWithdrawalType(
+  type: TreasuryMovementType | string
+): boolean {
+  return type === TREASURY_MOVEMENT_TYPES.WITHDRAWAL
 }

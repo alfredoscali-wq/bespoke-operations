@@ -38,6 +38,7 @@ export type CreateTreasuryMovementInput = {
   status?: TreasuryStatus
   notes?: string
   receiptUrl?: string | null
+  metadata?: Record<string, unknown>
 }
 
 export type UpdateTreasuryMovementInput = {
@@ -55,6 +56,8 @@ export type TreasuryDashboardSummary = {
   currentBalance: number
   incomeToday: number
   expenseToday: number
+  /** Confirmed withdrawals in the current calendar month (local). */
+  withdrawalPeriod: number
   pendingRendition: number
 }
 

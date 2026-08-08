@@ -90,6 +90,7 @@ export function mapCreateTreasuryMovementInput(
     status: input.status ?? "confirmed",
     notes: input.notes?.trim() ?? "",
     receipt_url: input.receiptUrl ?? null,
+    metadata: input.metadata ?? {},
   }
 }
 

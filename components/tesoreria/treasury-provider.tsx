@@ -17,6 +17,9 @@ import {
   emitTreasuryMovementUpdated,
   emitTreasuryReceiptUploaded,
 } from "@/lib/activity/adapters/treasury-activity"
+import { resolveOperationalEventActor } from "@/lib/tasks/operational-event-actor"
+import { buildOtRendidaOperationalEvent } from "@/lib/tasks/operational-motivos"
+import { recordTaskOperationalEvent } from "@/lib/supabase/operational-control.browser"
 import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import {
   annulTreasuryMovement,
@@ -25,6 +28,10 @@ import {
   permanentlyDeleteTreasuryMovement,
   updateTreasuryMovement,
 } from "@/lib/supabase/treasury.browser"
+import {
+  confirmOtCashRendition,
+  listTreasuryOtRenditions,
+} from "@/lib/supabase/treasury-ot-renditions.browser"
 import { createClient } from "@/lib/supabase/client"
 import {
   canHardDeleteTreasury,
@@ -41,6 +48,10 @@ import type {
   TreasuryMovement,
   UpdateTreasuryMovementInput,
 } from "@/lib/types/tesoreria"
+import type {
+  ConfirmOtRenditionInput,
+  TreasuryOtRendition,
+} from "@/lib/types/treasury-ot-renditions"
 
 type MutationResult = {
   success: boolean
@@ -48,8 +59,16 @@ type MutationResult = {
   movement?: TreasuryMovement
 }
 
+type RenditionMutationResult = {
+  success: boolean
+  message?: string
+  rendition?: TreasuryOtRendition
+  movementId?: string
+}
+
 type TreasuryContextValue = {
   movements: TreasuryMovement[]
+  otRenditions: TreasuryOtRendition[]
   isReady: boolean
   canWrite: boolean
   canHardDelete: boolean
@@ -64,6 +83,10 @@ type TreasuryContextValue = {
   ) => Promise<MutationResult>
   cancelMovement: (id: string) => Promise<MutationResult>
   hardDeleteMovement: (id: string) => Promise<MutationResult>
+  confirmOtRendition: (
+    renditionId: string,
+    input: ConfirmOtRenditionInput
+  ) => Promise<RenditionMutationResult>
 }
 
 const TreasuryContext = createContext<TreasuryContextValue | null>(null)
@@ -72,6 +95,7 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
   const { sessionUser } = useAuth()
   const { companyId, isAuthReady } = useTenantCompanyId()
   const [movements, setMovements] = useState<TreasuryMovement[]>([])
+  const [otRenditions, setOtRenditions] = useState<TreasuryOtRendition[]>([])
   const [isReady, setIsReady] = useState(false)
 
   const canWrite = useMemo(
@@ -87,13 +111,28 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
   const refresh = useCallback(async () => {
     if (!companyId) {
       setMovements([])
+      setOtRenditions([])
       setIsReady(true)
       return
     }
 
-    const result = await listTreasuryMovements(companyId)
-    if (result.data) {
-      setMovements(result.data)
+    const [movementsResult, renditionsResult] = await Promise.all([
+      listTreasuryMovements(companyId),
+      listTreasuryOtRenditions(companyId),
+    ])
+
+    if (movementsResult.data) {
+      setMovements(movementsResult.data)
+    }
+    if (renditionsResult.data) {
+      setOtRenditions(renditionsResult.data)
+    } else if (renditionsResult.error) {
+      // Table may not exist until migration is applied — keep empty.
+      console.warn(
+        "[Tesorería] No se pudieron cargar pendientes de rendición.",
+        renditionsResult.error.message
+      )
+      setOtRenditions([])
     }
     setIsReady(true)
   }, [companyId])
@@ -267,9 +306,89 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
     [canHardDelete]
   )
 
+  const confirmOtRendition = useCallback(
+    async (
+      renditionId: string,
+      input: ConfirmOtRenditionInput
+    ): Promise<RenditionMutationResult> => {
+      if (!companyId) {
+        return { success: false, message: "No se pudo resolver la empresa." }
+      }
+      if (!canWrite) {
+        return {
+          success: false,
+          message: "No tiene permiso para registrar rendiciones.",
+        }
+      }
+
+      const current = otRenditions.find((item) => item.id === renditionId)
+      if (!current) {
+        return { success: false, message: "Rendición no encontrada." }
+      }
+
+      const confirmedByName =
+        sessionUser?.displayName?.trim() ||
+        sessionUser?.email?.trim() ||
+        "Usuario"
+
+      const result = await confirmOtCashRendition(current, {
+        ...input,
+        companyId,
+        confirmedBy: sessionUser?.employeeId ?? null,
+        confirmedByName,
+      })
+
+      if (result.error || !result.data) {
+        return {
+          success: false,
+          message:
+            result.error?.message ?? "No se pudo confirmar la rendición.",
+        }
+      }
+
+      const { rendition, movementId } = result.data
+      setOtRenditions((items) =>
+        items.map((item) => (item.id === rendition.id ? rendition : item))
+      )
+      void refresh()
+
+      const actor = resolveOperationalEventActor(
+        sessionUser,
+        confirmedByName
+      )
+      void recordTaskOperationalEvent(
+        buildOtRendidaOperationalEvent({
+          companyId,
+          taskId: rendition.taskId,
+          taskCode: rendition.taskCode,
+          customerName: rendition.customerName,
+          crewName: rendition.crewName,
+          amount: rendition.amount,
+          deliveredBy: rendition.deliveredBy,
+          actor,
+        })
+      )
+
+      return {
+        success: true,
+        rendition,
+        movementId,
+        message: "Rendición confirmada. Se registró el ingreso en Tesorería.",
+      }
+    },
+    [
+      canWrite,
+      companyId,
+      otRenditions,
+      refresh,
+      sessionUser,
+    ]
+  )
+
   const value = useMemo(
     () => ({
       movements,
+      otRenditions,
       isReady,
       canWrite,
       canHardDelete,
@@ -278,9 +397,11 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
       editMovement,
       cancelMovement,
       hardDeleteMovement,
+      confirmOtRendition,
     }),
     [
       movements,
+      otRenditions,
       isReady,
       canWrite,
       canHardDelete,
@@ -289,6 +410,7 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
       editMovement,
       cancelMovement,
       hardDeleteMovement,
+      confirmOtRendition,
     ]
   )
 

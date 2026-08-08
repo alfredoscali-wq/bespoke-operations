@@ -48,7 +48,8 @@ function validateCreateInput(
   if (!input.companyId.trim()) return "companyId es obligatorio."
   if (
     input.movementType !== TREASURY_MOVEMENT_TYPES.INCOME &&
-    input.movementType !== TREASURY_MOVEMENT_TYPES.EXPENSE
+    input.movementType !== TREASURY_MOVEMENT_TYPES.EXPENSE &&
+    input.movementType !== TREASURY_MOVEMENT_TYPES.WITHDRAWAL
   ) {
     return "Tipo de movimiento inválido."
   }
@@ -62,6 +63,12 @@ function validateCreateInput(
     return "El monto debe ser mayor a cero."
   }
   if (!input.movementDate.trim()) return "La fecha es obligatoria."
+  if (
+    input.movementType === TREASURY_MOVEMENT_TYPES.WITHDRAWAL &&
+    !input.employeeId?.trim()
+  ) {
+    return "Indicá quién realizó el retiro."
+  }
   return null
 }
 

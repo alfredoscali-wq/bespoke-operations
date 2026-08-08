@@ -5,7 +5,7 @@ import { KpiGridSkeleton } from "@/components/ui/kpi-grid-skeleton"
 
 export default function TesoreriaPage() {
   return (
-    <Suspense fallback={<KpiGridSkeleton count={4} layout="standard" />}>
+    <Suspense fallback={<KpiGridSkeleton count={5} layout="treasury" compact />}>
       <TreasuryModule />
     </Suspense>
   )

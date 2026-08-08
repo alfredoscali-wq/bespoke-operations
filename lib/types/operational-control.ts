@@ -27,6 +27,7 @@ export type TaskOperationalEventType =
   | "assigned"
   | "rescheduled"
   | "ot_reprogramada_por_vencimiento"
+  | "ot_rendida"
   | "started"
   | "checklist_completed"
   | "trabajo_realizado"

@@ -18,6 +18,7 @@ import {
   formatTreasuryAmount,
 } from "@/lib/tesoreria/summary"
 import type { TreasuryHistoryRange, TreasuryMovement } from "@/lib/types/tesoreria"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -166,15 +167,25 @@ export function TreasuryMovementsHistory() {
                     <TableCell className="whitespace-nowrap text-sm">
                       {movement.movementDate}
                     </TableCell>
-                    <TableCell
-                      className={cn(
-                        "text-sm font-medium",
-                        movement.movementType === TREASURY_MOVEMENT_TYPES.INCOME
-                          ? "text-emerald-700"
-                          : "text-rose-700"
+                    <TableCell className="text-sm">
+                      {movement.movementType ===
+                      TREASURY_MOVEMENT_TYPES.WITHDRAWAL ? (
+                        <Badge className="border-orange-200 bg-orange-50 text-orange-900 hover:bg-orange-50">
+                          {TREASURY_TYPE_LABELS[movement.movementType]}
+                        </Badge>
+                      ) : (
+                        <span
+                          className={cn(
+                            "font-medium",
+                            movement.movementType ===
+                              TREASURY_MOVEMENT_TYPES.INCOME
+                              ? "text-emerald-700"
+                              : "text-rose-700"
+                          )}
+                        >
+                          {TREASURY_TYPE_LABELS[movement.movementType]}
+                        </span>
                       )}
-                    >
-                      {TREASURY_TYPE_LABELS[movement.movementType]}
                     </TableCell>
                     <TableCell className="text-sm">
                       {formatTreasuryCategoryLabel(

@@ -13,6 +13,8 @@ import {
 } from "@/lib/tasks/task-status-workflow"
 import { hasOperationalSteps } from "@/lib/operational-steps/utils"
 import { applyWorkOrderApprovalEffects } from "@/lib/tasks/work-order-approval-effects"
+import { shouldCreateOtCashRendition } from "@/lib/tesoreria/ot-renditions"
+import { ensureOtCashRenditionForTask } from "@/lib/supabase/treasury-ot-renditions.browser"
 import {
   mergeTrabajoRealizadoIntoMetadata,
   validateTrabajoRealizado,
@@ -223,6 +225,18 @@ export function useTasksWorkflow({
 
       if (result.success && result.task) {
         await applyWorkOrderApprovalEffects(result.task)
+
+        // Cobranza OT: pending rendition only — never auto income.
+        if (shouldCreateOtCashRendition(result.task)) {
+          void ensureOtCashRenditionForTask(result.task.id).then((created) => {
+            if (created.error) {
+              console.warn(
+                "[Tesorería] No se pudo crear pendiente de rendición.",
+                created.error.message
+              )
+            }
+          })
+        }
       }
 
       return result

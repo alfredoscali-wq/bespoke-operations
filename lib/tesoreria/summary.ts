@@ -86,39 +86,53 @@ export function filterTreasuryMovementsBySearch(
   })
 }
 
-/** Saldo / KPIs from confirmed movements only (cancelled excluded). */
+/** Saldo / KPIs from confirmed movements only (cancelled excluded).
+ * Pendientes de Rendición OT are computed separately from treasury_ot_renditions.
+ */
 export function buildTreasuryDashboardSummary(
   movements: TreasuryMovement[],
   reference = new Date()
 ): TreasuryDashboardSummary {
   const todayKey = toDayKeyFromDate(startOfLocalDay(reference))
+  const monthFromKey = toDayKeyFromDate(startOfLocalMonth(reference))
   let currentBalance = 0
   let incomeToday = 0
   let expenseToday = 0
-  let pendingRendition = 0
+  let withdrawalPeriod = 0
+  const pendingRendition = 0
 
   for (const movement of movements) {
     if (movement.status === TREASURY_STATUSES.CANCELLED) continue
 
+    // Pending movements (legacy expense advances) do not affect OT rendition KPI.
     if (movement.status === TREASURY_STATUSES.PENDING) {
-      if (movement.movementType === TREASURY_MOVEMENT_TYPES.EXPENSE) {
-        pendingRendition += movement.amount
-      }
       continue
     }
 
     if (movement.status !== TREASURY_STATUSES.CONFIRMED) continue
 
+    const dayKey = toDayKey(movement.movementDate)
+
     if (movement.movementType === TREASURY_MOVEMENT_TYPES.INCOME) {
       currentBalance += movement.amount
-      if (toDayKey(movement.movementDate) === todayKey) {
+      if (dayKey === todayKey) {
         incomeToday += movement.amount
       }
-    } else {
+      continue
+    }
+
+    if (movement.movementType === TREASURY_MOVEMENT_TYPES.WITHDRAWAL) {
       currentBalance -= movement.amount
-      if (toDayKey(movement.movementDate) === todayKey) {
-        expenseToday += movement.amount
+      if (dayKey >= monthFromKey && dayKey <= todayKey) {
+        withdrawalPeriod += movement.amount
       }
+      continue
+    }
+
+    // Operational expense — never mixed with withdrawals or OT renditions.
+    currentBalance -= movement.amount
+    if (dayKey === todayKey) {
+      expenseToday += movement.amount
     }
   }
 
@@ -126,6 +140,7 @@ export function buildTreasuryDashboardSummary(
     currentBalance,
     incomeToday,
     expenseToday,
+    withdrawalPeriod,
     pendingRendition,
   }
 }

@@ -7,23 +7,48 @@ import {
 } from "@/lib/activity/types"
 import {
   TREASURY_MOVEMENT_TYPES,
+  TREASURY_TYPE_LABELS,
   type TreasuryMovementType,
 } from "@/lib/tesoreria/categories"
 import type { TreasuryMovement } from "@/lib/types/tesoreria"
 
 function movementDetail(movement: TreasuryMovement): string {
-  const kind =
-    movement.movementType === TREASURY_MOVEMENT_TYPES.INCOME
-      ? "Ingreso"
-      : "Egreso"
+  const kind = TREASURY_TYPE_LABELS[movement.movementType] ?? movement.movementType
   return `${kind} ${movement.amount} · ${movement.category}`
 }
 
+function resolveCreatedAction(movementType: TreasuryMovementType) {
+  if (movementType === TREASURY_MOVEMENT_TYPES.INCOME) {
+    return ACTIVITY_ACTIONS.TREASURY_INCOME_CREATED
+  }
+  if (movementType === TREASURY_MOVEMENT_TYPES.WITHDRAWAL) {
+    return ACTIVITY_ACTIONS.TREASURY_WITHDRAWAL_CREATED
+  }
+  return ACTIVITY_ACTIONS.TREASURY_EXPENSE_CREATED
+}
+
 export function emitTreasuryMovementCreated(movement: TreasuryMovement) {
-  const action =
-    movement.movementType === TREASURY_MOVEMENT_TYPES.INCOME
-      ? ACTIVITY_ACTIONS.TREASURY_INCOME_CREATED
-      : ACTIVITY_ACTIONS.TREASURY_EXPENSE_CREATED
+  const action = resolveCreatedAction(movement.movementType)
+
+  const metadata =
+    movement.movementType === TREASURY_MOVEMENT_TYPES.WITHDRAWAL
+      ? {
+          monto: movement.amount,
+          fecha: movement.movementDate,
+          retirado_por: movement.employeeName ?? movement.employeeId,
+          observaciones: movement.notes || null,
+          usuario_creador:
+            movement.registeredByName ?? movement.registeredBy ?? null,
+          movementType: movement.movementType,
+          status: movement.status,
+        }
+      : {
+          movementType: movement.movementType,
+          origin: movement.origin,
+          category: movement.category,
+          amount: movement.amount,
+          status: movement.status,
+        }
 
   void recordActivityEventClient({
     action,
@@ -31,13 +56,7 @@ export function emitTreasuryMovementCreated(movement: TreasuryMovement) {
     entityType: ACTIVITY_ENTITY_TYPES.TREASURY_MOVEMENT,
     entityId: movement.id,
     detail: movementDetail(movement),
-    metadata: {
-      movementType: movement.movementType,
-      origin: movement.origin,
-      category: movement.category,
-      amount: movement.amount,
-      status: movement.status,
-    },
+    metadata,
     origin: ACTIVITY_ORIGINS.WEB,
   })
 }

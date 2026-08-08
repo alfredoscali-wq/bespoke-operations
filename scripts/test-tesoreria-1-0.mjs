@@ -87,7 +87,9 @@ test("dashboard summary computes balance and pending rendition", () => {
   assert.equal(summary.currentBalance, 1300)
   assert.equal(summary.incomeToday, 1000)
   assert.equal(summary.expenseToday, 200)
-  assert.equal(summary.pendingRendition, 50)
+  assert.equal(summary.withdrawalPeriod, 0)
+  // OT pending rendition KPI is sourced from treasury_ot_renditions, not expense pending.
+  assert.equal(summary.pendingRendition, 0)
 })
 
 test("history range filters by local day keys", () => {

@@ -120,6 +120,41 @@ export function buildOverdueRescheduleOperationalEvent(input: {
   )
 }
 
+export function buildOtRendidaOperationalEvent(input: {
+  companyId: string
+  taskId: string
+  taskCode: string
+  customerName: string
+  crewName: string
+  amount: number
+  deliveredBy: string
+  actor: OperationalEventActor
+}): TaskOperationalEventInsert {
+  return applyOperationalEventActor(
+    {
+      companyId: input.companyId,
+      taskId: input.taskId,
+      eventType: "ot_rendida",
+      title: "OT rendida",
+      description: `Rendición de cobranza OT ${input.taskCode} · ${input.amount}`,
+      observations: input.deliveredBy
+        ? `Entrega: ${input.deliveredBy}`
+        : "",
+      payload: {
+        ot: input.taskCode,
+        task_id: input.taskId,
+        cliente: input.customerName,
+        cuadrilla: input.crewName,
+        importe: input.amount,
+        usuario_registro: input.actor.fullName,
+        persona_entrega: input.deliveredBy || null,
+        fecha_hora: new Date().toISOString(),
+      },
+    },
+    input.actor
+  )
+}
+
 export function buildCancelOperationalEvent(input: {
   companyId: string
   task: Task
