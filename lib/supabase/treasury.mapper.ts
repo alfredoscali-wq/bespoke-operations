@@ -1,4 +1,8 @@
-import type { TreasuryMovementUpdate } from "@/lib/supabase/database.aliases"
+import type {
+  TreasuryMovementInsert,
+  TreasuryMovementUpdate,
+} from "@/lib/supabase/database.aliases"
+import type { Json } from "@/lib/supabase/database.types"
 import type {
   CreateTreasuryMovementInput,
   TreasuryMovement,
@@ -77,7 +81,7 @@ export function mapTreasuryMovementRow(
 
 export function mapCreateTreasuryMovementInput(
   input: CreateTreasuryMovementInput
-) {
+): TreasuryMovementInsert {
   return {
     company_id: input.companyId,
     movement_type: input.movementType,
@@ -90,7 +94,8 @@ export function mapCreateTreasuryMovementInput(
     status: input.status ?? "confirmed",
     notes: input.notes?.trim() ?? "",
     receipt_url: input.receiptUrl ?? null,
-    metadata: input.metadata ?? {},
+    // Domain metadata stays Record<string, unknown>; Json is the DB boundary type.
+    metadata: (input.metadata ?? {}) as Json,
   }
 }
 
