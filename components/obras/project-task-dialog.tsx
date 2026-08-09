@@ -39,6 +39,7 @@ import {
   useProtectedFormDialog,
 } from "@/components/ui/protected-form-dialog"
 import { LocationInput } from "@/components/location/location-input"
+import { ProjectTaskChecklistEditor } from "@/components/obras/project-task-checklist-editor"
 import { hasCoordinates } from "@/lib/gps/coordinates"
 import { resolveLocationViaApi } from "@/lib/location/client/resolve-via-api"
 import {
