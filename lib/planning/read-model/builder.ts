@@ -130,10 +130,15 @@ export function buildPlanningReadModel(
           crew: applyDayOperationalBaseToCrew(selectedCrew, dayConfig.config),
           crews: activeCrews,
           availableMinutes: dayConfig.config.availableMinutes,
+          planningDate: date,
         })
       : null
 
-  const crewSummaries = buildPlanningCrewSummaries(filteredTasks, activeCrews)
+  const crewSummaries = buildPlanningCrewSummaries(
+    filteredTasks,
+    activeCrews,
+    date
+  )
 
   const crewPlanningButtonsById: Record<string, CrewPlanningButtonVisibility> =
     {}

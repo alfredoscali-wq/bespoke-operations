@@ -199,7 +199,7 @@ export function PlanningTaskAdjustSheet({
           <SheetTitle>Ajustes de planificación</SheetTitle>
           <SheetDescription>
             {task
-              ? `${task.code} · Ajuste de cuadrilla, turno y duración estimada.`
+              ? `${task.code} · Ajuste de cuadrilla, fecha, turno y duración estimada.`
               : "Seleccione una OT del listado."}
           </SheetDescription>
         </SheetHeader>
@@ -226,6 +226,18 @@ export function PlanningTaskAdjustSheet({
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="planning-adjust-date">Fecha operativa</Label>
+              <Input
+                id="planning-adjust-date"
+                type="date"
+                value={form.scheduledDate}
+                onChange={(event) =>
+                  updateField("scheduledDate", event.target.value)
+                }
+              />
             </div>
 
             <div className="space-y-2">

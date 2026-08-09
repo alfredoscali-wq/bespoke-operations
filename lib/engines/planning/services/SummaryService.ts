@@ -29,6 +29,8 @@ export type SummaryServiceInput = {
   >
   crews: readonly Pick<Crew, "id" | "name">[]
   availableMinutes: number
+  /** OPS 2.1A — planning day for multi-day duration share. */
+  planningDate?: string
 }
 
 const STATUS_LABEL: Record<CrewCapacityStatus, string> = {
@@ -64,6 +66,7 @@ export function buildCrewPlanningSummary(
     crew: input.crew,
     crews: input.crews,
     availableMinutes: input.availableMinutes,
+    planningDate: input.planningDate,
   })
 
   const warnings = validateCrewPlanning({

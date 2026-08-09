@@ -28,8 +28,10 @@ export type ObraTaskInsertIntegrityResult =
   | { ok: false; message: string }
 
 /**
- * Mirror of enforce_task_status_workflow INSERT rules after OBRAS OPS 1.0 hotfix.
- * Authoritative enforcement remains in DB: active Obra forces status=asignada.
+ * Mirror of enforce_task_status_workflow INSERT rules after OBRAS OPS 2.0.
+ * Authoritative enforcement remains in DB:
+ *   - planned Obra → borrador
+ *   - active Obra → programada (universo Planificación)
  */
 export function validateObraTaskInsertIntegrity(input: {
   task: ObraTaskInsertCandidate
@@ -67,28 +69,11 @@ export function validateObraTaskInsertIntegrity(input: {
       }
     }
 
-    // Hotfix: projects.status is source of truth for active Obras.
     if (project.status === "active") {
-      return { ok: true, status: "asignada" }
+      return { ok: true, status: "programada" }
     }
 
-    if (task.status === "asignada") {
-      return {
-        ok: false,
-        message:
-          "Solo se pueden crear tareas asignadas en una obra activa del mismo tenant.",
-      }
-    }
-
-    if (task.status !== "programada") {
-      return {
-        ok: false,
-        message:
-          "Las órdenes de trabajo nuevas deben crearse en estado programada.",
-      }
-    }
-
-    return { ok: true, status: "programada" }
+    return { ok: true, status: "borrador" }
   }
 
   if (task.status !== "programada") {

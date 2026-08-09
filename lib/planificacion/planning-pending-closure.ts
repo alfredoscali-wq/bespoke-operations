@@ -1,5 +1,6 @@
 import { resolveTaskCrewId } from "@/lib/tasks/crew-relation"
-import { isWorkOrderTask } from "@/lib/tasks/work-order"
+import { isPlanningUniverseTask } from "@/lib/planificacion/planning-universe"
+import { isTaskActiveOnPlanningDate } from "@/lib/planificacion/planning-date-range"
 import { isPendingClosureStatus } from "@/lib/tasks/task-status-workflow"
 import { compareTasksByDispatchRoute } from "@/lib/tasks/dispatch-order"
 import type { Crew } from "@/lib/types/crews"
@@ -13,8 +14,8 @@ export function listPendingClosureTasksForPlanningDate(
   return tasks
     .filter(
       (task) =>
-        isWorkOrderTask(task) &&
-        task.dueDate === date &&
+        isPlanningUniverseTask(task) &&
+        isTaskActiveOnPlanningDate(task, date) &&
         isPendingClosureStatus(task.status)
     )
     .sort((left, right) => compareTasksByDispatchRoute(left, right, crews))

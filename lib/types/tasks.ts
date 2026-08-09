@@ -1,4 +1,5 @@
 export type TaskStatus =
+  | "borrador"
   | "programada"
   | "asignada"
   | "vencida"

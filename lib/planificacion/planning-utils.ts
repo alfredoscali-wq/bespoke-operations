@@ -3,9 +3,10 @@ import { parseCambioDomicilioFromTask, isCambioDomicilioTask } from "@/lib/tasks
 import { formatScheduledTimeForInput } from "@/lib/tasks/scheduling"
 import {
   getWorkOrderServiceTypeLabel,
-  isWorkOrderTask,
   type WorkOrderShift,
 } from "@/lib/tasks/work-order"
+import { isPlanningUniverseTask } from "@/lib/planificacion/planning-universe"
+import { isTaskActiveOnPlanningDate } from "@/lib/planificacion/planning-date-range"
 import { hasCoordinates } from "@/lib/gps"
 import type { Crew } from "@/lib/types/crews"
 import type { Task } from "@/lib/types/tasks"
@@ -179,11 +180,11 @@ export function filterProgrammedTasksForPlanning(
   filters: PlanningFilters
 ): Task[] {
   return tasks.filter((task) => {
-    if (!isWorkOrderTask(task) || task.status !== "programada") {
+    if (!isPlanningUniverseTask(task) || task.status !== "programada") {
       return false
     }
 
-    if (task.dueDate !== filters.date) {
+    if (!isTaskActiveOnPlanningDate(task, filters.date)) {
       return false
     }
 
@@ -193,12 +194,14 @@ export function filterProgrammedTasksForPlanning(
 
 export function computePlanningKpis(
   tasks: Task[],
-  activeCrews: Crew[]
+  activeCrews: Crew[],
+  planningDate?: string
 ): PlanningKpis {
   const summary = calculatePlanningSummary({
     tasks,
     crews: activeCrews,
     groupByCrew: true,
+    planningDate,
   })
 
   return {
@@ -214,7 +217,8 @@ export function computePlanningKpis(
 
 export function buildPlanningCrewSummaries(
   tasks: Task[],
-  activeCrews: Crew[]
+  activeCrews: Crew[],
+  planningDate?: string
 ): PlanningCrewSummary[] {
   return [...activeCrews]
     .sort((left, right) => left.name.localeCompare(right.name, "es"))
@@ -224,6 +228,7 @@ export function buildPlanningCrewSummaries(
         tasks: crewTasks,
         crews: [crew],
         groupByCrew: false,
+        planningDate,
       })
 
       return {
@@ -288,6 +293,17 @@ export function resolvePlanningTaskClientLabel(task: Task): string {
     task.customerCompany?.trim() ||
     "Sin cliente"
   )
+}
+
+/** Nombre de Obra para OT vinculadas a project_id (OPS 2.0). */
+export function resolvePlanningTaskObraLabel(
+  task: Pick<Task, "projectId" | "projectName" | "projectCode">
+): string | null {
+  if (!task.projectId?.trim()) {
+    return null
+  }
+
+  return task.projectName?.trim() || task.projectCode?.trim() || "Obra"
 }
 
 export function resolvePlanningTaskCrewLabel(task: Pick<Task, "crewId" | "crew">): string {

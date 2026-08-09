@@ -32,6 +32,8 @@ type PlanningTaskListProps = {
   allScopeTasks: Task[]
   crews: Pick<Crew, "id" | "name">[]
   crewIdsInOrder: string[]
+  /** OPS 2.1A — selected planning calendar day. */
+  planningDate: string
   selectedTaskId: string | null
   /** OT open in adjust sheet — keep row visually active. */
   adjustingTaskId?: string | null
@@ -61,6 +63,7 @@ export function PlanningTaskList({
   allScopeTasks,
   crews,
   crewIdsInOrder,
+  planningDate,
   selectedTaskId,
   adjustingTaskId = null,
   reorderingTaskId = null,
@@ -275,6 +278,7 @@ export function PlanningTaskList({
                     <PlanningTaskTableRow
                       key={task.id}
                       task={task}
+                      planningDate={planningDate}
                       rowId={`planning-task-row-${task.id}`}
                       crewColor={crewColor}
                       readOnly={!rowEditable}

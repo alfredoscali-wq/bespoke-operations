@@ -26,6 +26,7 @@ export type TaskStatusVisualTone =
  */
 export const TASK_STATUS_VISUAL_TONE: Record<TaskStatus, TaskStatusVisualTone> =
   {
+    borrador: "dark",
     programada: "blue",
     asignada: "yellow",
     vencida: "amber",
@@ -39,6 +40,7 @@ export const TASK_STATUS_VISUAL_TONE: Record<TaskStatus, TaskStatusVisualTone> =
   }
 
 export const TASK_STATUS_DASHBOARD_TONE: Record<TaskStatus, VisualTone> = {
+  borrador: "dark",
   programada: "blue",
   asignada: "yellow",
   vencida: "amber",

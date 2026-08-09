@@ -3810,6 +3810,7 @@ export type Database = {
       task_priority: "alta" | "media" | "baja"
       task_status:
         | "pendiente"
+        | "borrador"
         | "asignada"
         | "en-curso"
         | "finalizada"
@@ -4029,6 +4030,7 @@ export const Constants = {
       task_priority: ["alta", "media", "baja"],
       task_status: [
         "pendiente",
+        "borrador",
         "asignada",
         "en-curso",
         "finalizada",

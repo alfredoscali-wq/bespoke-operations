@@ -65,25 +65,25 @@ export function canSoftDeleteUnstartedProjectAssignment(
 }
 
 /**
- * Soft delete is allowed while the OT is still in planning (`programada`), or for
- * unstarted Obra assignments (`asignada` + projectId, never started).
+ * Soft delete is allowed while the OT is still in planning (`programada`), draft Obra
+ * (`borrador`), or for unstarted Obra assignments (`asignada` + projectId, never started).
  *
  * OT con devolución activa por Planificación no se eliminan (KPI Devueltas).
  *
- * Passing only a status string keeps the legacy contract: only `programada`.
+ * Passing only a status string keeps the legacy contract: `programada` | `borrador`.
  */
 export function canSoftDeleteWorkOrder(
   input: TaskStatus | SoftDeleteWorkOrderCandidate
 ): boolean {
   if (typeof input === "string") {
-    return input === "programada"
+    return input === "programada" || input === "borrador"
   }
 
   if (hasActivePlanningReturn(input)) {
     return false
   }
 
-  if (input.status === "programada") {
+  if (input.status === "programada" || input.status === "borrador") {
     return true
   }
 
@@ -92,13 +92,17 @@ export function canSoftDeleteWorkOrder(
 
 /**
  * Admin soft-delete statuses (reuses deleted_at).
- * Includes planning, unstarted Obra assignments, and Archivo OT.
+ * Includes planning, drafts, unstarted Obra assignments, and Archivo OT.
  */
 export function canAdminSoftDeleteWorkOrder(
   input: TaskStatus | SoftDeleteWorkOrderCandidate
 ): boolean {
   if (typeof input === "string") {
-    return input === "programada" || isArchiveWorkOrderStatus(input)
+    return (
+      input === "programada" ||
+      input === "borrador" ||
+      isArchiveWorkOrderStatus(input)
+    )
   }
 
   return (

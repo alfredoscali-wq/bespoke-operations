@@ -120,3 +120,12 @@ export function formatPlanningDurationCompact(
 
   return `${minutes} min`
 }
+
+/** Compact label from absolute minutes (OPS 2.1A day share). */
+export function formatPlanningDurationMinutesCompact(minutes: number): string {
+  if (!Number.isFinite(minutes) || minutes <= 0) {
+    return "—"
+  }
+
+  return `${Math.round(minutes)} min`
+}

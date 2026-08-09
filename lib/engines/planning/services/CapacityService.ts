@@ -10,6 +10,7 @@ import type {
 import { planningRepository } from "@/lib/engines/planning/repositories/PlanningRepository"
 import { resolveCrewOperationalBase } from "@/lib/crews/operational-config"
 import { parseEstimatedDurationMinutes } from "@/lib/planificacion/planning-duration"
+import { resolvePlanningDayDurationMinutes } from "@/lib/planificacion/planning-date-range"
 import {
   listOrderedTasksForCrewJourney,
   resolveReturnToBaseMinutes,
@@ -35,6 +36,8 @@ export type CapacityServiceInput = {
   crews: readonly Pick<Crew, "id" | "name">[]
   /** Effective jornada capacity (habitual or day override). */
   availableMinutes: number
+  /** OPS 2.1A — when set, technical load uses daily duration share. */
+  planningDate?: string
 }
 
 function resolveStatus(
@@ -54,8 +57,17 @@ function resolveStatus(
 }
 
 function sumTechnicalMinutes(
-  tasks: readonly Pick<Task, "estimatedDuration">[]
+  tasks: readonly Task[],
+  planningDate?: string
 ): number {
+  if (planningDate?.trim()) {
+    const date = planningDate.trim()
+    return tasks.reduce(
+      (sum, task) => sum + resolvePlanningDayDurationMinutes(task, date),
+      0
+    )
+  }
+
   return tasks.reduce(
     (sum, task) => sum + parseEstimatedDurationMinutes(task.estimatedDuration),
     0
@@ -107,7 +119,7 @@ export function calculateCrewCapacity(
   )
 
   const taskCount = ordered.length
-  const technicalMinutes = sumTechnicalMinutes(ordered)
+  const technicalMinutes = sumTechnicalMinutes(ordered, input.planningDate)
   const travelMinutes =
     taskCount === 0 ? 0 : sumTravelMinutesForOrderedTasks(ordered)
   const departureMinutes =

@@ -3,6 +3,7 @@ import { isPendingClosureStatus } from "@/lib/tasks/task-status-workflow"
 import { isTaskArchivedStatus } from "@/lib/tasks/task-archived-status"
 
 export const ACTIVE_TASK_STATUSES: TaskStatus[] = [
+  "borrador",
   "programada",
   "asignada",
   "vencida",
@@ -50,8 +51,9 @@ export function canArchiveTaskByStatus(status: TaskStatus): boolean {
   return isTaskArchivedStatus(status)
 }
 
-/** Estados excluidos del calendario operativo activo (Archivo OT + canceladas). */
+/** Estados excluidos del calendario operativo activo (Archivo OT + canceladas + borradores Obra). */
 export const CALENDAR_HIDDEN_TASK_STATUSES: TaskStatus[] = [
+  "borrador",
   "finalizada",
   "cancelada",
   "cerrada",

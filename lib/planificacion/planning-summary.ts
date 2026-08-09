@@ -7,6 +7,7 @@ import {
   parseEstimatedDurationMinutes,
   PLANNING_DEFAULT_AVAILABLE_MINUTES,
 } from "@/lib/planificacion/planning-duration"
+import { resolvePlanningDayDurationMinutes } from "@/lib/planificacion/planning-date-range"
 import {
   listOrderedTasksForCrewJourney,
   sumTravelMinutesForOrderedTasks,
@@ -49,13 +50,29 @@ export type CalculatePlanningSummaryInput = {
    * When false, treats `tasks` as a single ordered journey.
    */
   groupByCrew?: boolean
+  /**
+   * OPS 2.1A — planning calendar day. When set, technical minutes use
+   * resolvePlanningDayDurationMinutes (multi-day split). When omitted, falls
+   * back to full estimated duration (legacy callers).
+   */
+  planningDate?: string
 }
 
 function sumTechnicalMinutes(
-  tasks: readonly Pick<Task, "estimatedDuration">[]
+  tasks: readonly Task[],
+  planningDate?: string
 ): number {
+  if (planningDate?.trim()) {
+    const date = planningDate.trim()
+    return tasks.reduce(
+      (sum, task) => sum + resolvePlanningDayDurationMinutes(task, date),
+      0
+    )
+  }
+
   return tasks.reduce(
-    (sum, task) => sum + parseEstimatedDurationMinutes(task.estimatedDuration),
+    (sum, task) =>
+      sum + parseEstimatedDurationMinutes(task.estimatedDuration ?? ""),
     0
   )
 }
@@ -159,7 +176,7 @@ export function calculatePlanningSummary(
     })
   }
 
-  const technicalMinutes = sumTechnicalMinutes(tasks)
+  const technicalMinutes = sumTechnicalMinutes(tasks, input.planningDate)
 
   if (!groupByCrew || crews.length === 0) {
     const ordered = sortTasksByDispatchRoute([...tasks], crews)

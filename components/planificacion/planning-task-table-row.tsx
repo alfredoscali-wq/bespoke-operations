@@ -3,13 +3,21 @@
 import { AlertCircle, CornerUpLeft, MapPinOff, Pencil } from "lucide-react"
 
 import { PlanningTaskOrderInput } from "@/components/planificacion/planning-task-order-input"
-import { TaskStatusBadge } from "@/components/tareas/task-badges"
+import { TaskOperationBadge, TaskStatusBadge } from "@/components/tareas/task-badges"
 import { Button } from "@/components/ui/button"
 import {
   countOperationalOrderReorderablesForTask,
   isOperationalOrderReorderable,
 } from "@/lib/planificacion/planning-execution-order"
-import { formatPlanningDurationCompact } from "@/lib/planificacion/planning-ui-density"
+import {
+  formatPlanningDurationCompact,
+  formatPlanningDurationMinutesCompact,
+} from "@/lib/planificacion/planning-ui-density"
+import {
+  formatPlanningMultiDayBadge,
+  resolvePlanningDayDurationMinutes,
+  resolvePlanningSpanDays,
+} from "@/lib/planificacion/planning-date-range"
 import { getTaskStatusSurfaceClass } from "@/lib/tasks/status-visual"
 import { formatDispatchOrderBadge, resolveTaskRouteOrder } from "@/lib/tasks/dispatch-order"
 import { resolveTaskCrewId } from "@/lib/tasks/crew-relation"
@@ -20,6 +28,7 @@ import {
 import {
   resolvePlanningTaskClientLabel,
   resolvePlanningTaskLocality,
+  resolvePlanningTaskObraLabel,
   resolvePlanningTaskShiftDisplayLabel,
   resolveTaskPlanningCoordinates,
 } from "@/lib/planificacion/planning-utils"
@@ -29,6 +38,8 @@ import { cn } from "@/lib/utils"
 
 type PlanningTaskTableRowProps = {
   task: Task
+  /** OPS 2.1A — selected planning calendar day. */
+  planningDate: string
   crewColor: string
   readOnly?: boolean
   selected: boolean
@@ -48,6 +59,7 @@ type PlanningTaskTableRowProps = {
  */
 export function PlanningTaskTableRow({
   task,
+  planningDate,
   crewColor,
   readOnly = false,
   selected,
@@ -63,9 +75,16 @@ export function PlanningTaskTableRow({
   const currentOrder = resolveTaskRouteOrder(task)
   const orderLabel = formatDispatchOrderBadge(currentOrder)
   const shiftLabel = resolvePlanningTaskShiftDisplayLabel(task)
-  const durationLabel = formatPlanningDurationCompact(task.estimatedDuration)
+  const spanDays = resolvePlanningSpanDays(task)
+  const dayMinutes = resolvePlanningDayDurationMinutes(task, planningDate)
+  const durationLabel =
+    spanDays > 1
+      ? formatPlanningDurationMinutesCompact(dayMinutes)
+      : formatPlanningDurationCompact(task.estimatedDuration)
+  const multiDayBadge = formatPlanningMultiDayBadge(task, planningDate)
   const displayCode = formatTaskAdminDisplayCode(task.code)
   const clientLabel = resolvePlanningTaskClientLabel(task)
+  const obraLabel = resolvePlanningTaskObraLabel(task)
   const localityLabel = resolvePlanningTaskLocality(task)
   const canEditOrder =
     !readOnly &&
@@ -145,6 +164,20 @@ export function PlanningTaskTableRow({
           >
             {displayCode}
           </button>
+          {obraLabel ? (
+            <TaskOperationBadge
+              task={task}
+              className="max-w-full shrink-0 px-1 text-[9px] leading-3"
+            />
+          ) : null}
+          {multiDayBadge ? (
+            <span
+              className="inline-flex shrink-0 rounded border border-sky-200 bg-sky-50 px-1 py-px text-[9px] font-medium leading-3 text-sky-800"
+              title={multiDayBadge}
+            >
+              {multiDayBadge}
+            </span>
+          ) : null}
           {!hasGps ? (
             <span
               className="inline-flex shrink-0 items-center text-[10px] font-medium text-muted-foreground"
@@ -158,25 +191,35 @@ export function PlanningTaskTableRow({
       </td>
 
       <td className="px-1.5 py-1 align-middle">
-        <div className="flex min-w-0 items-center gap-1">
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation()
-              onSelect()
-            }}
-            className="min-w-0 truncate text-left text-[13px] font-semibold text-foreground hover:underline"
-            title={clientLabel}
-          >
-            {clientLabel}
-          </button>
-          {hasObservations ? (
-            <span
-              className="inline-flex shrink-0 text-amber-600"
-              title="Información para la Cuadrilla"
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <div className="flex min-w-0 items-center gap-1">
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation()
+                onSelect()
+              }}
+              className="min-w-0 truncate text-left text-[13px] font-semibold text-foreground hover:underline"
+              title={clientLabel}
             >
-              <AlertCircle className="size-3.5" aria-hidden />
-              <span className="sr-only">Información para la Cuadrilla</span>
+              {clientLabel}
+            </button>
+            {hasObservations ? (
+              <span
+                className="inline-flex shrink-0 text-amber-600"
+                title="Información para la Cuadrilla"
+              >
+                <AlertCircle className="size-3.5" aria-hidden />
+                <span className="sr-only">Información para la Cuadrilla</span>
+              </span>
+            ) : null}
+          </div>
+          {obraLabel ? (
+            <span
+              className="truncate text-[11px] text-muted-foreground"
+              title={obraLabel}
+            >
+              {obraLabel}
             </span>
           ) : null}
         </div>
@@ -199,7 +242,11 @@ export function PlanningTaskTableRow({
 
       <td
         className="px-1 py-1 align-middle text-[12px] tabular-nums whitespace-nowrap text-muted-foreground"
-        title={task.estimatedDuration || undefined}
+        title={
+          spanDays > 1
+            ? `${task.estimatedDuration || "—"} · ${multiDayBadge ?? ""}`.trim()
+            : task.estimatedDuration || undefined
+        }
       >
         {durationLabel}
       </td>

@@ -1,6 +1,7 @@
 import { taskMatchesCrewId, resolveTaskCrewId } from "@/lib/tasks/crew-relation"
 import { hasActivePlanningReturn } from "@/lib/tasks/planning-return"
-import { isWorkOrderTask } from "@/lib/tasks/work-order"
+import { isPlanningUniverseTask } from "@/lib/planificacion/planning-universe"
+import { isTaskActiveOnPlanningDate } from "@/lib/planificacion/planning-date-range"
 import type { Crew } from "@/lib/types/crews"
 import type { Task } from "@/lib/types/tasks"
 
@@ -25,7 +26,7 @@ export function filterPlanningSessionTasks(
   filters: PlanningFilters
 ): Task[] {
   return tasks.filter((task) => {
-    if (!isWorkOrderTask(task) || task.dueDate !== filters.date) {
+    if (!isPlanningUniverseTask(task) || !isTaskActiveOnPlanningDate(task, filters.date)) {
       return false
     }
 

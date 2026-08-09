@@ -13,6 +13,7 @@ import {
 } from "@/lib/tasks/status-visual"
 
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
+  borrador: "Borrador",
   programada: "Programada",
   asignada: "Asignada",
   vencida: "Vencida",

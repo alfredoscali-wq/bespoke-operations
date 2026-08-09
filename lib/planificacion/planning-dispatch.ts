@@ -1,5 +1,6 @@
 import { taskMatchesCrewId } from "@/lib/tasks/crew-relation"
-import { isWorkOrderTask } from "@/lib/tasks/work-order"
+import { isPlanningUniverseTask } from "@/lib/planificacion/planning-universe"
+import { isTaskActiveOnPlanningDate } from "@/lib/planificacion/planning-date-range"
 import type { Crew } from "@/lib/types/crews"
 import type { Task, TaskStatus } from "@/lib/types/tasks"
 
@@ -13,6 +14,7 @@ export type PlanningDispatchMode = "editing" | "confirmed"
 
 /** OT excluidas de la planificación operativa (KPI, mapa, listado). */
 export const PLANNING_EXCLUDED_TASK_STATUSES: TaskStatus[] = [
+  "borrador",
   "finalizada",
   "cancelada",
   "pendiente-cierre",
@@ -51,11 +53,11 @@ export function filterProgrammedTasksForPlanningDate(
   filters: PlanningFilters
 ): Task[] {
   return tasks.filter((task) => {
-    if (!isWorkOrderTask(task) || task.status !== "programada") {
+    if (!isPlanningUniverseTask(task) || task.status !== "programada") {
       return false
     }
 
-    return task.dueDate === filters.date
+    return isTaskActiveOnPlanningDate(task, filters.date)
   })
 }
 
@@ -64,11 +66,11 @@ export function filterConfirmedDispatchTasksForPlanning(
   filters: PlanningFilters
 ): Task[] {
   return tasks.filter((task) => {
-    if (!isWorkOrderTask(task)) {
+    if (!isPlanningUniverseTask(task)) {
       return false
     }
 
-    if (task.dueDate !== filters.date) {
+    if (!isTaskActiveOnPlanningDate(task, filters.date)) {
       return false
     }
 

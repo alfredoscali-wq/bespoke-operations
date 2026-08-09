@@ -355,21 +355,31 @@ test("22. RPC de despacho sigue promoviendo tareas correctamente", () => {
   assert.match(sql, /dispatched_count/)
 })
 
-test("23. Obras Ops 1.0 + hotfix sin regresión (archivos intactos + create status)", () => {
+test("23. Obras Ops 2.0 create status (planned borrador / active programada)", () => {
   const ops10 = readFileSync(OPS_1_0_PATH, "utf8")
   const hotfix = readFileSync(HOTFIX_PATH, "utf8")
 
   assert.match(ops10, /start_project_operational_dispatch/)
   assert.doesNotMatch(ops10, /ubicación GPS/)
   assert.match(hotfix, /NEW\.status := 'asignada'::public\.task_status/)
-  assert.equal(resolveProjectTaskCreateStatus("active"), "asignada")
-  assert.equal(resolveProjectTaskCreateStatus("planned"), "programada")
+  assert.equal(resolveProjectTaskCreateStatus("active"), "programada")
+  assert.equal(resolveProjectTaskCreateStatus("planned"), "borrador")
 })
 
-test("24. execution_order sin regresión (obra tasks sin planning side-effects)", () => {
+test("24. execution_order: obra borrador sin side-effects; programada sí", () => {
   assert.equal(
-    shouldApplyPlanningQueueSideEffectsForTask({ projectId: "proj-1" }),
+    shouldApplyPlanningQueueSideEffectsForTask({
+      projectId: "proj-1",
+      status: "borrador",
+    }),
     false
+  )
+  assert.equal(
+    shouldApplyPlanningQueueSideEffectsForTask({
+      projectId: "proj-1",
+      status: "programada",
+    }),
+    true
   )
   assert.equal(
     shouldApplyPlanningQueueSideEffectsForTask({ projectId: null }),

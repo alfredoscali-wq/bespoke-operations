@@ -1213,6 +1213,8 @@ function PlanningModuleContent() {
 
               crewIdsInOrder={crewIdsInOrder}
 
+              planningDate={date}
+
               selectedTaskId={selectedTaskId}
 
               adjustingTaskId={adjustSheetTaskId}

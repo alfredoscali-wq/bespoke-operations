@@ -45,17 +45,29 @@ export function isArchiveWorkOrderStatus(status: TaskStatus): boolean {
   return ARCHIVE_WORK_ORDER_STATUSES.includes(status)
 }
 
-export function filterActiveWorkOrders<T extends { status: TaskStatus }>(
-  tasks: T[]
-): T[] {
-  return tasks.filter((task) => isActiveWorkOrderListStatus(task.status))
+/** OT de Obra viven en Obras + Planificación, no en el módulo Órdenes de Trabajo. */
+export function isTareasModuleWorkOrder(task: {
+  projectId?: string | null
+}): boolean {
+  return !task.projectId
 }
 
-export function filterArchivedWorkOrders<T extends { status: TaskStatus }>(
-  tasks: T[],
-  statusFilter: ArchiveOtStatusFilter = "all"
-): T[] {
-  const inArchive = tasks.filter((task) => isArchiveWorkOrderStatus(task.status))
+export function filterActiveWorkOrders<
+  T extends { status: TaskStatus; projectId?: string | null },
+>(tasks: T[]): T[] {
+  return tasks.filter(
+    (task) =>
+      isTareasModuleWorkOrder(task) && isActiveWorkOrderListStatus(task.status)
+  )
+}
+
+export function filterArchivedWorkOrders<
+  T extends { status: TaskStatus; projectId?: string | null },
+>(tasks: T[], statusFilter: ArchiveOtStatusFilter = "all"): T[] {
+  const inArchive = tasks.filter(
+    (task) =>
+      isTareasModuleWorkOrder(task) && isArchiveWorkOrderStatus(task.status)
+  )
 
   switch (statusFilter) {
     case "finalizada":

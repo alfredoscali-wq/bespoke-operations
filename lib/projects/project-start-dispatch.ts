@@ -22,7 +22,7 @@ function hasDueDate(task: ProjectStartDispatchTask): boolean {
   return Boolean(task.dueDate?.trim())
 }
 
-/** Client-side mirror of start_project_operational_dispatch preconditions. */
+/** Client-side mirror of start_project_operational_dispatch preconditions (OPS 2.0). */
 export function validateStartProjectDispatch(input: {
   projectStatus: ProjectStatus
   tasks: ProjectStartDispatchTask[]
@@ -58,11 +58,11 @@ export function validateStartProjectDispatch(input: {
     }
   }
 
-  const programadaTasks = activeTasks.filter(
-    (task) => task.status === "programada"
+  const borradorTasks = activeTasks.filter(
+    (task) => task.status === "borrador"
   )
 
-  const missingCrew = programadaTasks.filter((task) => !hasCrew(task))
+  const missingCrew = borradorTasks.filter((task) => !hasCrew(task))
   if (missingCrew.length > 0) {
     const codes = missingCrew.map((task) => task.code).join(", ")
     return {
@@ -71,7 +71,7 @@ export function validateStartProjectDispatch(input: {
     }
   }
 
-  const missingDate = programadaTasks.filter((task) => !hasDueDate(task))
+  const missingDate = borradorTasks.filter((task) => !hasDueDate(task))
   if (missingDate.length > 0) {
     const codes = missingDate.map((task) => task.code).join(", ")
     return {
@@ -80,7 +80,7 @@ export function validateStartProjectDispatch(input: {
     }
   }
 
-  const dispatchableTasks = programadaTasks.filter(
+  const dispatchableTasks = borradorTasks.filter(
     (task) => hasCrew(task) && hasDueDate(task)
   )
 
@@ -91,10 +91,10 @@ export function buildStartProjectDispatchHistoryDescription(
   dispatchedCount: number
 ): string {
   if (dispatchedCount === 1) {
-    return "Estado actualizado de Planificada a Activa. Despacho operativo: 1 tarea pasó a Asignada."
+    return "Estado actualizado de Planificada a Activa. Despacho operativo: 1 tarea pasó a Programada e ingresó a Planificación."
   }
 
-  return `Estado actualizado de Planificada a Activa. Despacho operativo: ${dispatchedCount} tareas pasaron a Asignada.`
+  return `Estado actualizado de Planificada a Activa. Despacho operativo: ${dispatchedCount} tareas pasaron a Programada e ingresaron a Planificación.`
 }
 
 export type StartProjectDispatchResult = {
@@ -132,10 +132,14 @@ export function parseStartProjectDispatchRpcResult(
 }
 
 /** Statuses that remain freely editable from the Obras module. */
-const OBRAS_EDITABLE_TASK_STATUSES: TaskStatus[] = ["programada", "asignada"]
+const OBRAS_EDITABLE_TASK_STATUSES: TaskStatus[] = [
+  "borrador",
+  "programada",
+  "asignada",
+]
 
 /**
- * Obra tasks (project_id set) may be edited from Obras while programada or asignada.
+ * Obra tasks (project_id set) may be edited from Obras while borrador, programada or asignada.
  * Normal OT keep their own admin guards (programada only).
  */
 export function canEditProjectTaskFromObras(
@@ -145,18 +149,30 @@ export function canEditProjectTaskFromObras(
   return OBRAS_EDITABLE_TASK_STATUSES.includes(task.status)
 }
 
+/**
+ * OPS 2.0 create status:
+ * - Obra no iniciada → borrador (fuera de Planificación / Mobile)
+ * - Obra active → programada (entra directo al universo de Planificación)
+ */
 export function resolveProjectTaskCreateStatus(
   projectStatus: ProjectStatus
 ): TaskStatus {
-  return projectStatus === "active" ? "asignada" : "programada"
+  return projectStatus === "active" ? "programada" : "borrador"
 }
 
 /**
- * Project (Obra) tasks must not enter OT planning queue side-effects
- * (execution_order allocation / compaction / confirm-planning lanes).
+ * Planning queue side-effects (execution_order):
+ * - OT de servicio: siempre
+ * - OT de Obra: solo cuando ya está en lane programada (no borrador)
  */
 export function shouldApplyPlanningQueueSideEffectsForTask(
-  task: Pick<Task, "projectId"> | { projectId?: string | null }
+  task:
+    | Pick<Task, "projectId" | "status">
+    | { projectId?: string | null; status?: TaskStatus | null }
 ): boolean {
-  return !task.projectId
+  if (!task.projectId) {
+    return true
+  }
+
+  return task.status === "programada"
 }

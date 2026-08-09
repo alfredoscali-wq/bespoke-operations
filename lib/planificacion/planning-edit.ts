@@ -35,6 +35,7 @@ import {
 export type PlanningEditFormState = {
   crewId: string
   shift: WorkOrderShift | ""
+  scheduledDate: string
   estimatedDurationPreset: WorkOrderDurationPreset | ""
   estimatedDurationCustomMinutes: string
   operationalOrder: string
@@ -44,6 +45,7 @@ export type PlanningEditFormState = {
 export const EMPTY_PLANNING_EDIT_FORM: PlanningEditFormState = {
   crewId: "",
   shift: "",
+  scheduledDate: "",
   estimatedDurationPreset: "",
   estimatedDurationCustomMinutes: "",
   operationalOrder: "",
@@ -61,6 +63,7 @@ export function buildPlanningEditFormFromTask(
   return {
     crewId,
     shift: resolveTaskShift(task) ?? "",
+    scheduledDate: task.dueDate || "",
     estimatedDurationPreset: preset,
     estimatedDurationCustomMinutes: customMinutes,
     operationalOrder: resolveOperationalOrderFormDefault({
@@ -147,6 +150,10 @@ export function validatePlanningAdjustForm(
     return { valid: false, message: "Seleccione el turno." }
   }
 
+  if (!form.scheduledDate.trim()) {
+    return { valid: false, message: "Seleccione la fecha operativa." }
+  }
+
   if (!form.estimatedDurationPreset) {
     return { valid: false, message: "Seleccione la duración estimada." }
   }
@@ -198,14 +205,15 @@ export function buildPlanningTaskUpdateBatch(input: {
   const snapshots = resolveCrewSnapshotsForAssignment(crew)
   const previousCrewId = resolveTaskCrewId(task, crews) ?? null
   const nextCrewId = form.crewId || null
+  const nextDueDate = form.scheduledDate.trim() || task.dueDate
   const executionOrderUpdates: ExecutionOrderUpdate[] = []
 
-  if (previousCrewId !== nextCrewId) {
+  if (previousCrewId !== nextCrewId || task.dueDate !== nextDueDate) {
     executionOrderUpdates.push(
       ...resolveOperationalOrderOnCrewChange({
         task,
         newCrewId: nextCrewId,
-        newDueDate: task.dueDate,
+        newDueDate: nextDueDate,
         desiredOrder: null,
         allTasks,
         crews,
@@ -217,6 +225,8 @@ export function buildPlanningTaskUpdateBatch(input: {
     crewId: snapshots.crewId,
     crew: snapshots.crew,
     supervisor: snapshots.supervisor,
+    startDate: nextDueDate,
+    dueDate: nextDueDate,
     scheduledTime: normalizeScheduledTimeForDb(resolveScheduledTimeFromShift(shift)),
     estimatedDuration: resolvePlanningEditEstimatedDuration(form),
     taskMetadata: mergeMaterialsNeededIntoMetadata(
