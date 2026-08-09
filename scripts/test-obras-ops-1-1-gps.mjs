@@ -202,12 +202,12 @@ test("10. fallo GPS al Iniciar Obra → RPC valida antes de mutar (migración)",
   assert.ok(gpsIdx > 0 && updateIdx > gpsIdx)
 })
 
-test("11. tarea de Obra resuelve coordenadas desde project", () => {
+test("11. tarea de Obra sin GPS propio resuelve desde project", () => {
   const resolved = resolveTaskStartCoordinatesFromSources({
     task: {
       projectId: "proj-1",
-      latitude: 1,
-      longitude: 2,
+      latitude: null,
+      longitude: null,
     },
     project: { latitude: LAT, longitude: LNG },
   })
@@ -219,7 +219,7 @@ test("11. tarea de Obra resuelve coordenadas desde project", () => {
   })
 })
 
-test("12. tarea de Obra NO usa task.latitude/longitude como fuente principal", () => {
+test("12. tarea de Obra prioriza task.latitude/longitude sobre GPS de Obra", () => {
   const resolved = resolveTaskStartCoordinatesFromSources({
     task: {
       projectId: "proj-1",
@@ -229,9 +229,9 @@ test("12. tarea de Obra NO usa task.latitude/longitude como fuente principal", (
     project: { latitude: LAT, longitude: LNG },
   })
 
-  assert.equal(resolved?.source, "project")
-  assert.notEqual(resolved?.latitude, 10)
-  assert.notEqual(resolved?.longitude, 20)
+  assert.equal(resolved?.source, "task")
+  assert.equal(resolved?.latitude, 10)
+  assert.equal(resolved?.longitude, 20)
 })
 
 test("13. OT normal sigue usando task.latitude/longitude", () => {
@@ -277,7 +277,7 @@ test("15. Project deleted → no puede resolver GPS", () => {
   assert.equal(resolved, null)
 })
 
-test("16. tarea histórica con relación inválida → no obtiene GPS", () => {
+test("16. tarea de Obra con GPS propio funciona aunque la Obra no resuelva", () => {
   const resolved = resolveTaskStartCoordinatesFromSources({
     task: {
       projectId: "missing-project",
@@ -287,7 +287,11 @@ test("16. tarea histórica con relación inválida → no obtiene GPS", () => {
     project: null,
   })
 
-  assert.equal(resolved, null)
+  assert.deepEqual(resolved, {
+    latitude: LAT,
+    longitude: LNG,
+    source: "task",
+  })
 })
 
 test("17. Obra active histórica recibe GPS → tarea existente lo utiliza inmediatamente", () => {
@@ -320,7 +324,7 @@ test("19. operario fuera de 50 m → rechazo existente", () => {
   assert.equal(isWithinTaskStartRadius(farLat, LNG, LAT, LNG), false)
 })
 
-test("20. sin GPS de Obra → TASK_LOCATION_REQUIRED message", () => {
+test("20. sin GPS de OT ni Obra → TASK_LOCATION_REQUIRED message", () => {
   const resolved = resolveTaskStartCoordinatesFromSources({
     task: { projectId: "proj-1", latitude: null, longitude: null },
     project: { latitude: null, longitude: null },
@@ -328,7 +332,7 @@ test("20. sin GPS de Obra → TASK_LOCATION_REQUIRED message", () => {
   assert.equal(resolved, null)
   assert.match(
     buildTaskStartLocationRequiredMessage(true),
-    /Obra no tiene ubicación GPS/i
+    /OT y la Obra no tienen ubicación GPS/i
   )
 })
 

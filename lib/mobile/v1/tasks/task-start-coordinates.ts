@@ -14,13 +14,23 @@ export type ProjectGpsSource = {
 
 /**
  * Pure resolution of operational start coordinates.
- * - OT normal (no projectId): task.latitude/longitude
- * - Obra task: project GPS only (caller must have filtered by company + not deleted)
+ * Priority:
+ * 1. OT GPS (task.latitude/longitude) — supports multi-point Obras
+ * 2. Obra GPS (project) when task has projectId
+ * 3. null → TASK_LOCATION_REQUIRED
  */
 export function resolveTaskStartCoordinatesFromSources(input: {
   task: Pick<Task, "projectId" | "latitude" | "longitude">
   project: ProjectGpsSource
 }): TaskStartCoordinates | null {
+  if (hasCoordinates(input.task.latitude, input.task.longitude)) {
+    return {
+      latitude: input.task.latitude as number,
+      longitude: input.task.longitude as number,
+      source: "task",
+    }
+  }
+
   if (input.task.projectId) {
     if (!input.project) {
       return null
@@ -37,22 +47,14 @@ export function resolveTaskStartCoordinatesFromSources(input: {
     }
   }
 
-  if (!hasCoordinates(input.task.latitude, input.task.longitude)) {
-    return null
-  }
-
-  return {
-    latitude: input.task.latitude as number,
-    longitude: input.task.longitude as number,
-    source: "task",
-  }
+  return null
 }
 
 export function buildTaskStartLocationRequiredMessage(
   hasProjectId: boolean
 ): string {
   if (hasProjectId) {
-    return "La Obra no tiene ubicación GPS registrada."
+    return "La OT y la Obra no tienen ubicación GPS registrada."
   }
 
   return "La orden de trabajo no tiene ubicación registrada."

@@ -4,6 +4,10 @@ import { toLocalDateOnly } from "@/lib/dates/date-only"
 import type { MobileAuthContext } from "@/lib/mobile/v1/auth/mobile-auth-context"
 import { MobileApiError } from "@/lib/mobile/v1/errors"
 import { fetchTodayAgendaTasks } from "@/lib/mobile/v1/agenda/agenda-queries"
+import {
+  formatOperationalDateRangeLabel,
+  resolveObraAgendaLegend,
+} from "@/lib/mobile/v1/agenda/operational-date-display"
 import { sortAgendaTasks } from "@/lib/mobile/v1/agenda/sort-agenda-tasks"
 import type {
   MobileAgendaTaskItem,
@@ -39,6 +43,9 @@ function mapTaskToAgendaItem(
 ): MobileAgendaTaskItem {
   const customerOrAssetName =
     task.customerName?.trim() || task.projectName?.trim() || "—"
+  const startDate = task.startDate?.trim() || task.dueDate
+  const isProjectTask = Boolean(task.projectId?.trim())
+  const projectName = task.projectName?.trim() || null
 
   return {
     id: task.id,
@@ -48,6 +55,7 @@ function mapTaskToAgendaItem(
     status: task.status,
     priority: task.priority,
     date: task.dueDate,
+    startDate,
     scheduledTime: task.scheduledTime?.trim() || null,
     customerOrAssetName,
     address: task.serviceAddress?.trim() || "—",
@@ -63,6 +71,11 @@ function mapTaskToAgendaItem(
       task,
       activeIncidentTaskIds
     ),
+    isProjectTask,
+    projectId: task.projectId?.trim() || null,
+    projectName,
+    dateLabel: formatOperationalDateRangeLabel(startDate, task.dueDate),
+    obraLabel: isProjectTask ? resolveObraAgendaLegend(projectName) : null,
   }
 }
 

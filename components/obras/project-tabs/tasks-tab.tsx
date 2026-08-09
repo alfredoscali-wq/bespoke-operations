@@ -151,6 +151,9 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
     dueDate: string
     estimatedDuration: string
     operationalChecklistTemplate: OperationalChecklistTemplateItem[]
+    latitude?: number | null
+    longitude?: number | null
+    sharedLocation?: string | null
   }) {
     if (dialogMode === "edit" && selectedTask) {
       if (!canEditProjectTaskFromObras(selectedTask)) {
@@ -173,6 +176,9 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
         crewId: snapshots.crewId,
         crew: snapshots.crew || payload.crew,
         estimatedDuration: payload.estimatedDuration,
+        latitude: payload.latitude ?? null,
+        longitude: payload.longitude ?? null,
+        sharedLocation: payload.sharedLocation ?? null,
         taskMetadata: mergeTaskMetadataWithTemplate(
           selectedTask,
           payload.operationalChecklistTemplate
@@ -209,6 +215,9 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
       startDate: payload.startDate,
       dueDate: payload.dueDate,
       estimatedDuration: payload.estimatedDuration,
+      latitude: payload.latitude ?? undefined,
+      longitude: payload.longitude ?? undefined,
+      sharedLocation: payload.sharedLocation ?? undefined,
       checklist: [],
       taskMetadata: mergeTaskMetadataWithTemplate(
         {},

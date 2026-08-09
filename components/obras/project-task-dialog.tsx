@@ -38,7 +38,9 @@ import {
   isFormStateDirty,
   useProtectedFormDialog,
 } from "@/components/ui/protected-form-dialog"
-import { ProjectTaskChecklistEditor } from "@/components/obras/project-task-checklist-editor"
+import { LocationInput } from "@/components/location/location-input"
+import { hasCoordinates } from "@/lib/gps/coordinates"
+import { resolveLocationViaApi } from "@/lib/location/client/resolve-via-api"
 import {
   normalizeOperationalChecklistTemplate,
   readOperationalChecklistTemplate,
@@ -88,6 +90,9 @@ type ProjectTaskDialogProps = {
     dueDate: string
     estimatedDuration: string
     operationalChecklistTemplate: OperationalChecklistTemplateItem[]
+    latitude?: number | null
+    longitude?: number | null
+    sharedLocation?: string | null
   }) => Promise<void>
 }
 
@@ -101,6 +106,9 @@ type TaskFormState = {
   startDate: string
   dueDate: string
   estimatedDuration: string
+  sharedLocation: string
+  latitude: number | null
+  longitude: number | null
 }
 
 function projectTypeToTaskType(type: Project["type"]): TaskType {
@@ -120,6 +128,9 @@ function buildCreateForm(project: Project): TaskFormState {
     startDate: today,
     dueDate: project.endDate || today,
     estimatedDuration: "",
+    sharedLocation: "",
+    latitude: null,
+    longitude: null,
   }
 }
 
@@ -134,6 +145,9 @@ function buildEditForm(task: Task, crews: { id: string; name: string }[]): TaskF
     startDate: task.startDate,
     dueDate: task.dueDate,
     estimatedDuration: task.estimatedDuration,
+    sharedLocation: task.sharedLocation?.trim() || "",
+    latitude: task.latitude ?? null,
+    longitude: task.longitude ?? null,
   }
 }
 
@@ -270,6 +284,26 @@ export function ProjectTaskDialog({
 
       const snapshots = resolveCrewSnapshotsForAssignment(selectedCrew)
 
+      let latitude: number | null = form.latitude
+      let longitude: number | null = form.longitude
+      let sharedLocation: string | null = form.sharedLocation.trim() || null
+
+      if (sharedLocation) {
+        if (!hasCoordinates(latitude, longitude)) {
+          const resolved = await resolveLocationViaApi(sharedLocation)
+          latitude = resolved.latitude
+          longitude = resolved.longitude
+          sharedLocation = resolved.normalizedLocation
+        }
+      } else if (!hasCoordinates(latitude, longitude)) {
+        latitude = null
+        longitude = null
+        sharedLocation = null
+      } else {
+        // Keep existing OT GPS when the paste field is empty but coords remain.
+        sharedLocation = null
+      }
+
       await onSubmit({
         code,
         title: form.title.trim(),
@@ -286,6 +320,9 @@ export function ProjectTaskDialog({
         operationalChecklistTemplate: normalizeOperationalChecklistTemplate(
           checklistTemplate
         ),
+        latitude,
+        longitude,
+        sharedLocation,
       })
 
       forceClose()
@@ -414,6 +451,40 @@ export function ProjectTaskDialog({
                 onChange={(event) => updateField("dueDate", event.target.value)}
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="task-ot-gps">GPS de la OT (opcional)</Label>
+            <p className="text-xs text-muted-foreground">
+              Si la OT tiene GPS propio, Field Agent lo usa al iniciar. Si no,
+              se usa el GPS de la Obra.
+            </p>
+            {hasCoordinates(form.latitude, form.longitude) ? (
+              <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                GPS OT cargado: {form.latitude!.toFixed(6)},{" "}
+                {form.longitude!.toFixed(6)}
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Sin GPS en la OT. Fallback: GPS de la Obra
+                {hasCoordinates(project.latitude, project.longitude)
+                  ? " (configurado)"
+                  : " (pendiente)"}
+                .
+              </p>
+            )}
+            <LocationInput
+              id="task-ot-gps"
+              value={form.sharedLocation}
+              onChange={(value) => {
+                setForm((current) => ({
+                  ...current,
+                  sharedLocation: value,
+                  latitude: null,
+                  longitude: null,
+                }))
+              }}
+            />
           </div>
 
           <div className="space-y-2">
