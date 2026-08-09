@@ -34,7 +34,7 @@ export function mapLeanAgendaRowToTask(
     supervisor: "",
     crew_id: null,
     crew: "",
-    start_date: row.due_date,
+    start_date: row.start_date ?? row.due_date,
     due_date: row.due_date,
     scheduled_time: null,
     original_scheduled_date: null,

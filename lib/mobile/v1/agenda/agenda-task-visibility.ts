@@ -21,8 +21,37 @@ export const FIELD_AGENT_AGENDA_QUERY_STATUSES: TaskStatus[] = [
   ...FIELD_AGENT_OVERDUE_STATUSES,
 ]
 
+function resolveOperationalStartDate(
+  task: Pick<Task, "dueDate"> & Partial<Pick<Task, "startDate">>
+): string {
+  const startDate = task.startDate?.trim()
+  if (startDate) {
+    return startDate
+  }
+
+  return task.dueDate
+}
+
+/**
+ * OT asignada visible when today falls within [startDate, dueDate] (inclusive).
+ * Single-day OTs (start === due) behave as before.
+ */
+export function isOperationalDateRangeActive(
+  task: Pick<Task, "dueDate"> & Partial<Pick<Task, "startDate">>,
+  referenceDate: string = toLocalDateOnly()
+): boolean {
+  const startDate = resolveOperationalStartDate(task)
+  const dueDate = task.dueDate
+
+  return (
+    compareDateOnly(startDate, referenceDate) <= 0 &&
+    compareDateOnly(referenceDate, dueDate) <= 0
+  )
+}
+
 export function isFieldAgentAgendaTaskVisible(
-  task: Pick<Task, "status" | "dueDate" | "taskMetadata">,
+  task: Pick<Task, "status" | "dueDate" | "taskMetadata"> &
+    Partial<Pick<Task, "startDate">>,
   referenceDate: string = toLocalDateOnly()
 ): boolean {
   if (FIELD_AGENT_ACTIVE_STATUSES.includes(task.status)) {
@@ -34,7 +63,7 @@ export function isFieldAgentAgendaTaskVisible(
   }
 
   if (FIELD_AGENT_SCHEDULED_STATUSES.includes(task.status)) {
-    return compareDateOnly(task.dueDate, referenceDate) <= 0
+    return isOperationalDateRangeActive(task, referenceDate)
   }
 
   return false

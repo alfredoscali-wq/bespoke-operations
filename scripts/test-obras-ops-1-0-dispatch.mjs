@@ -152,7 +152,7 @@ test("historial de despacho menciona cantidad de tareas", () => {
 test("Field Agent oculta asignada con fecha futura", () => {
   assert.equal(
     isFieldAgentAgendaTaskVisible(
-      { status: "asignada", dueDate: "2026-07-20" },
+      { status: "asignada", startDate: "2026-07-20", dueDate: "2026-07-20" },
       "2026-07-11"
     ),
     false
@@ -160,10 +160,19 @@ test("Field Agent oculta asignada con fecha futura", () => {
 
   assert.equal(
     isFieldAgentAgendaTaskVisible(
-      { status: "asignada", dueDate: "2026-07-11" },
+      { status: "asignada", startDate: "2026-07-11", dueDate: "2026-07-11" },
       "2026-07-11"
     ),
     true
+  )
+
+  assert.equal(
+    isFieldAgentAgendaTaskVisible(
+      { status: "asignada", startDate: "2026-07-10", dueDate: "2026-07-12" },
+      "2026-07-11"
+    ),
+    true,
+    "multi-day OT visible within operational range"
   )
 })
 

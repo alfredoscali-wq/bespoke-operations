@@ -34,7 +34,7 @@ assert.equal(
 
 assert.equal(
   isFieldAgentAgendaTaskVisible(
-    { status: "asignada", dueDate: "2026-07-04" },
+    { status: "asignada", startDate: "2026-07-04", dueDate: "2026-07-04" },
     "2026-07-04"
   ),
   true
@@ -42,10 +42,37 @@ assert.equal(
 
 assert.equal(
   isFieldAgentAgendaTaskVisible(
-    { status: "asignada", dueDate: "2026-07-10" },
+    { status: "asignada", startDate: "2026-07-10", dueDate: "2026-07-10" },
     "2026-07-04"
   ),
   false
+)
+
+assert.equal(
+  isFieldAgentAgendaTaskVisible(
+    { status: "asignada", startDate: "2026-07-04", dueDate: "2026-07-10" },
+    "2026-07-04"
+  ),
+  true,
+  "multi-day OT visible on start date"
+)
+
+assert.equal(
+  isFieldAgentAgendaTaskVisible(
+    { status: "asignada", startDate: "2026-07-04", dueDate: "2026-07-10" },
+    "2026-07-07"
+  ),
+  true,
+  "multi-day OT visible mid-range"
+)
+
+assert.equal(
+  isFieldAgentAgendaTaskVisible(
+    { status: "asignada", startDate: "2026-07-04", dueDate: "2026-07-10" },
+    "2026-07-11"
+  ),
+  false,
+  "multi-day OT hidden after end date"
 )
 
 const hiddenStatuses = [

@@ -12,6 +12,7 @@ export const MOBILE_AGENDA_TASK_SELECT = [
   "status",
   "priority",
   "work_order_number",
+  "start_date",
   "due_date",
   "scheduled_time",
   "customer_name",
