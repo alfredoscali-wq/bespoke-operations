@@ -1,23 +1,20 @@
--- OBRAS OPS 2.0 — FASE 1: OT de Obra ↔ Planificación Operativa
+-- OBRAS OPS 2.0 — FASE 1B: OT de Obra ↔ Planificación Operativa
 --
--- 1) Nuevo status 'borrador' para OT de Obra antes de iniciar la obra.
+-- Requiere migración previa:
+--   20261124000100_obras_ops_2_0_fase1_enum.sql
+-- (enum 'borrador' ya committed — evita ERROR 55P04).
+--
+-- 1) Transiciones: borrador → programada | cancelada
 -- 2) INSERT Obra: siempre nace borrador (planned) o programada (active).
 -- 3) Al iniciar Obra: borrador → programada (ingresa a Planificación).
 --    Ya NO se fuerza asignada ni se limpia execution_order.
+-- 4) Backfill: planned + programada → borrador (legado OPS 1.0).
 --
+-- Idempotente: CREATE OR REPLACE + backfill acotado por WHERE.
 -- NO modifica Mobile / Tesorería / Reportes.
--- Aplicar manualmente en Supabase SQL Editor si el pipeline no corre migraciones.
 
 -- ---------------------------------------------------------------------------
--- 1. Enum
--- ---------------------------------------------------------------------------
-ALTER TYPE public.task_status ADD VALUE IF NOT EXISTS 'borrador';
-
-COMMENT ON TYPE public.task_status IS
-  'Operational task statuses. borrador = OT de Obra previa a inicio (OPS 2.0).';
-
--- ---------------------------------------------------------------------------
--- 2. Transiciones: borrador → programada | cancelada
+-- 1. Transiciones: borrador → programada | cancelada
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.is_allowed_task_status_transition(
   old_status public.task_status,
@@ -49,7 +46,7 @@ COMMENT ON FUNCTION public.is_allowed_task_status_transition(public.task_status,
   'Validates operational task status transitions. OPS 2.0: borrador → programada|cancelada.';
 
 -- ---------------------------------------------------------------------------
--- 3. INSERT workflow: Obra → borrador (planned) / programada (active)
+-- 2. INSERT workflow: Obra → borrador (planned) / programada (active)
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.enforce_task_status_workflow()
 RETURNS trigger
@@ -132,7 +129,7 @@ COMMENT ON FUNCTION public.enforce_task_status_workflow() IS
   'Enforces task status workflow. OBRAS OPS 2.0: Obra INSERT → borrador (planned) o programada (active).';
 
 -- ---------------------------------------------------------------------------
--- 4. Start Obra: borrador → programada (universo Planificación)
+-- 3. Start Obra: borrador → programada (universo Planificación)
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.start_project_operational_dispatch(
   p_company_id uuid,
@@ -318,7 +315,7 @@ REVOKE EXECUTE ON FUNCTION public.start_project_operational_dispatch(uuid, uuid,
 GRANT EXECUTE ON FUNCTION public.start_project_operational_dispatch(uuid, uuid, text) TO service_role;
 
 -- ---------------------------------------------------------------------------
--- 5. Backfill: OT Obra en obras planned que quedaron como programada (OPS 1.0)
+-- 4. Backfill: OT Obra en obras planned que quedaron como programada (OPS 1.0)
 --    deben volver a borrador para no filtrar a Planificación antes del inicio.
 -- ---------------------------------------------------------------------------
 UPDATE public.tasks t
