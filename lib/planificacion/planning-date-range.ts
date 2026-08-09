@@ -3,7 +3,7 @@
  * One DB row; presence on every calendar day in [startDate, dueDate].
  */
 
-import { compareDateOnly, parseDateOnlyForDisplay } from "@/lib/dates/date-only"
+import { compareDateOnly, formatDateOnly, parseDateOnlyForDisplay } from "@/lib/dates/date-only"
 import { parseEstimatedDurationMinutes } from "@/lib/planificacion/planning-duration"
 import type { Task } from "@/lib/types/tasks"
 
@@ -148,4 +148,25 @@ export function formatPlanningMultiDayBadge(
   }
 
   return `Día ${dayIndex} de ${span}`
+}
+
+/**
+ * OPS 2.1B.1 — same date label as Planificación Obras:
+ * single-day → "10 ago 2026"
+ * multi-day → "08 ago 2026 → 10 ago 2026"
+ */
+export function formatPlanningTaskDateRangeLabel(
+  task: PlanningDateRangeTask
+): string {
+  const due = task.dueDate?.trim() ?? ""
+  if (!due) {
+    return "—"
+  }
+
+  const start = resolvePlanningRangeStartDate(task)
+  if (resolvePlanningSpanDays(task) <= 1 || !start || start === due) {
+    return formatDateOnly(due)
+  }
+
+  return `${formatDateOnly(start)} → ${formatDateOnly(due)}`
 }

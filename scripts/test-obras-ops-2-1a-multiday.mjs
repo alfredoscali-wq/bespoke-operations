@@ -3,6 +3,7 @@ import test from "node:test"
 
 import {
   formatPlanningMultiDayBadge,
+  formatPlanningTaskDateRangeLabel,
   isTaskActiveOnPlanningDate,
   resolvePlanningDayDurationMinutes,
   resolvePlanningDayIndex,
@@ -106,6 +107,22 @@ test("badge Día X de Y", () => {
   assert.equal(formatPlanningMultiDayBadge(task, "2026-08-09"), "Día 2 de 3")
   assert.equal(formatPlanningMultiDayBadge(makeSingleDayOt(), "2026-08-09"), null)
 })
+
+test("formatPlanningTaskDateRangeLabel: 1 día vs multi-día", () => {
+  assert.match(
+    formatPlanningTaskDateRangeLabel(makeSingleDayOt()),
+    /09.*ago.*2026/i
+  )
+  assert.doesNotMatch(
+    formatPlanningTaskDateRangeLabel(makeSingleDayOt()),
+    /→/
+  )
+  const range = formatPlanningTaskDateRangeLabel(makeMultiDayObra())
+  assert.match(range, /→/)
+  assert.match(range, /08.*ago.*2026/i)
+  assert.match(range, /10.*ago.*2026/i)
+})
+
 
 test("filtros planning: ruta excluye obra; lane obras proyecta 3 días", () => {
   const tasks = [makeMultiDayObra(), makeSingleDayOt()]

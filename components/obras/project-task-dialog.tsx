@@ -24,6 +24,7 @@ import {
   resolveCrewSnapshotsForAssignment,
   resolveTaskCrewId,
 } from "@/lib/tasks/crew-relation"
+import { readMaterialsNeededFromTask } from "@/lib/tasks/work-order"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -90,6 +91,7 @@ type ProjectTaskDialogProps = {
     startDate: string
     dueDate: string
     estimatedDuration: string
+    materialsNeeded: string
     operationalChecklistTemplate: OperationalChecklistTemplateItem[]
     latitude?: number | null
     longitude?: number | null
@@ -107,6 +109,7 @@ type TaskFormState = {
   startDate: string
   dueDate: string
   estimatedDuration: string
+  materialsNeeded: string
   sharedLocation: string
   latitude: number | null
   longitude: number | null
@@ -129,6 +132,7 @@ function buildCreateForm(project: Project): TaskFormState {
     startDate: today,
     dueDate: project.endDate || today,
     estimatedDuration: "",
+    materialsNeeded: "",
     sharedLocation: "",
     latitude: null,
     longitude: null,
@@ -146,6 +150,7 @@ function buildEditForm(task: Task, crews: { id: string; name: string }[]): TaskF
     startDate: task.startDate,
     dueDate: task.dueDate,
     estimatedDuration: task.estimatedDuration,
+    materialsNeeded: readMaterialsNeededFromTask(task),
     sharedLocation: task.sharedLocation?.trim() || "",
     latitude: task.latitude ?? null,
     longitude: task.longitude ?? null,
@@ -318,6 +323,7 @@ export function ProjectTaskDialog({
         startDate: form.startDate,
         dueDate: form.dueDate,
         estimatedDuration: form.estimatedDuration.trim(),
+        materialsNeeded: form.materialsNeeded.trim(),
         operationalChecklistTemplate: normalizeOperationalChecklistTemplate(
           checklistTemplate
         ),
@@ -359,7 +365,7 @@ export function ProjectTaskDialog({
           <DialogDescription>
             {mode === "create"
               ? `La orden de trabajo se asociará a ${project.code} — ${project.name}.`
-              : `Modifique los datos de la orden de trabajo en ${project.code}.`}
+              : `Edición supervisada en ${project.code}. No modifica estado ni orden de ruta.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -428,6 +434,31 @@ export function ProjectTaskDialog({
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="task-estimated-duration">Duración estimada</Label>
+              <Input
+                id="task-estimated-duration"
+                value={form.estimatedDuration}
+                onChange={(event) =>
+                  updateField("estimatedDuration", event.target.value)
+                }
+                placeholder="Ej. 8 h o 480 min"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="task-materials">Materiales necesarios</Label>
+            <Textarea
+              id="task-materials"
+              value={form.materialsNeeded}
+              onChange={(event) =>
+                updateField("materialsNeeded", event.target.value)
+              }
+              placeholder="Listado de materiales para la cuadrilla..."
+              rows={2}
+            />
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">

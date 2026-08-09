@@ -2,6 +2,7 @@ import type { ExecutionOrderUpdate } from "@/lib/planificacion/planning-executio
 import type { CreateTaskPayload, UpdateTaskPayload } from "@/lib/types/supabase/tasks"
 import type { Task, TaskDetail, TaskStatus } from "@/lib/types/tasks"
 import type { TaskRescheduleInput } from "@/lib/tasks/reschedule"
+import type { ProjectTaskIncidentResolveInput } from "@/lib/projects/project-task-incident-resolve"
 
 export type TaskMutationResult = {
   success: boolean
@@ -11,6 +12,9 @@ export type TaskMutationResult = {
 
 export type TaskMutationOptions = {
   administration?: boolean
+  /** Detail-history note (OPS 2.2 supervised Obra edit). */
+  historyNote?: string
+  historyActor?: string
 }
 
 export type TasksContextValue = {
@@ -96,6 +100,10 @@ export type TasksContextValue = {
   rescheduleProjectTask: (
     id: string,
     input: TaskRescheduleInput & { actor?: string }
+  ) => Promise<TaskMutationResult>
+  resolveProjectTaskIncident: (
+    id: string,
+    input: ProjectTaskIncidentResolveInput & { actor?: string }
   ) => Promise<TaskMutationResult>
   toggleChecklistItem: (taskId: string, itemId: string) => void
   syncOperationalStepsProgress: (

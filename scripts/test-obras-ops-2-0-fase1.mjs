@@ -32,9 +32,13 @@ import {
 } from "../lib/planificacion/planning-edit.ts"
 import { isFieldAgentAgendaTaskVisible } from "../lib/mobile/v1/agenda/agenda-task-visibility.ts"
 
-const MIGRATION_PATH = join(
+const MIGRATION_ENUM_PATH = join(
   process.cwd(),
-  "supabase/migrations/20261124000100_obras_ops_2_0_fase1_planning.sql"
+  "supabase/migrations/20261124000100_obras_ops_2_0_fase1_enum.sql"
+)
+const MIGRATION_PLANNING_PATH = join(
+  process.cwd(),
+  "supabase/migrations/20261124000200_obras_ops_2_0_fase1_planning.sql"
 )
 
 const COMPANY_A = "company-a"
@@ -301,16 +305,21 @@ test("OPS 2.0: adjust planning permite fecha + crew + duración", () => {
   assert.equal(batch.primaryPayload.estimatedDuration, "60 min")
 })
 
-test("OPS 2.0 migración: borrador enum + promote a programada sin limpiar lane", () => {
-  const sql = readFileSync(MIGRATION_PATH, "utf8")
+test("OPS 2.0 migración: enum separado + promote a programada sin limpiar lane", () => {
+  const enumSql = readFileSync(MIGRATION_ENUM_PATH, "utf8")
+  const planningSql = readFileSync(MIGRATION_PLANNING_PATH, "utf8")
 
-  assert.match(sql, /ADD VALUE IF NOT EXISTS 'borrador'/)
-  assert.match(sql, /old_status = 'borrador' AND new_status IN \('programada', 'cancelada'\)/)
-  assert.match(sql, /NEW\.status := 'borrador'::public\.task_status/)
-  assert.match(sql, /NEW\.status := 'programada'::public\.task_status/)
-  assert.match(sql, /t\.status = 'borrador'::public\.task_status/)
-  assert.match(sql, /status = 'programada'::public\.task_status/)
-  assert.doesNotMatch(sql, /execution_order = NULL/)
-  assert.doesNotMatch(sql, /status = 'asignada'::public\.task_status/)
-  assert.match(sql, /GRANT EXECUTE[\s\S]*TO service_role/)
+  assert.match(enumSql, /ADD VALUE IF NOT EXISTS 'borrador'/)
+  assert.doesNotMatch(enumSql, /CREATE OR REPLACE FUNCTION/)
+  assert.doesNotMatch(enumSql, /UPDATE public\.tasks/)
+
+  assert.doesNotMatch(planningSql, /ADD VALUE IF NOT EXISTS 'borrador'/)
+  assert.match(planningSql, /old_status = 'borrador' AND new_status IN \('programada', 'cancelada'\)/)
+  assert.match(planningSql, /NEW\.status := 'borrador'::public\.task_status/)
+  assert.match(planningSql, /NEW\.status := 'programada'::public\.task_status/)
+  assert.match(planningSql, /t\.status = 'borrador'::public\.task_status/)
+  assert.match(planningSql, /status = 'programada'::public\.task_status/)
+  assert.doesNotMatch(planningSql, /execution_order = NULL/)
+  assert.doesNotMatch(planningSql, /status = 'asignada'::public\.task_status/)
+  assert.match(planningSql, /GRANT EXECUTE[\s\S]*TO service_role/)
 })

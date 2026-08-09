@@ -477,6 +477,19 @@ export function mapWorkflowActionToActivityEmissions(
           },
         },
       ]
+    case "resolve-obra-incident":
+      return [
+        {
+          action: ACTIVITY_ACTIONS.TASK_RESCHEDULE,
+          detail: "Incidencia de Obra resuelta → programada.",
+          metadata: {
+            taskId: after.id,
+            previousStatus: before.status,
+            status: after.status,
+            projectId: after.projectId ?? null,
+          },
+        },
+      ]
     default:
       return []
   }

@@ -144,6 +144,8 @@ export function mapWorkflowActionToAuditAction(
     case "reschedule-from-active-incident":
     case "reschedule-obra":
       return AUDIT_ACTIONS.TASK_RESCHEDULE
+    case "resolve-obra-incident":
+      return AUDIT_ACTIONS.INCIDENT_SUPERVISOR_ACTION
     case "approve":
       return AUDIT_ACTIONS.TASK_FINISH
     default:
@@ -407,7 +409,11 @@ export function recordTaskMutationAudit(context: TaskMutationAuditContext): void
 
   const supplementalMetadata: Record<string, unknown> = {}
 
-  if (payload.dueDate !== undefined || payload.scheduledTime !== undefined) {
+  if (
+    payload.dueDate !== undefined ||
+    payload.startDate !== undefined ||
+    payload.scheduledTime !== undefined
+  ) {
     Object.assign(supplementalMetadata, buildTaskScheduleMetadata(before, after))
   }
 

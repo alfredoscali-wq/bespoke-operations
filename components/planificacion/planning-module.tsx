@@ -30,6 +30,8 @@ import { PlanningReturnToAtencionDialog } from "@/components/planificacion/plann
 import { PlanningTaskList } from "@/components/planificacion/planning-task-list"
 
 import { PlanningObrasActivasSection } from "@/components/planificacion/planning-obras-activas-section"
+import { PlanningObraIncidentResolveDialog } from "@/components/planificacion/planning-obra-incident-resolve-dialog"
+import type { ProjectTaskIncidentResolveInput } from "@/lib/projects/project-task-incident-resolve"
 
 import { PlanningJourneySummaryPanel } from "@/components/planificacion/planning-journey-summary-panel"
 
@@ -117,7 +119,7 @@ function PlanningModuleContent() {
 
   const { sessionUser } = useAuth()
 
-  const { tasks, isTasksReady, applyExecutionOrderUpdates, confirmPlanningTasks, reopenPlanningTasks, returnPlanningTaskToAtencion, refreshTasksFromServer, editTask } =
+  const { tasks, isTasksReady, applyExecutionOrderUpdates, confirmPlanningTasks, reopenPlanningTasks, returnPlanningTaskToAtencion, refreshTasksFromServer, editTask, resolveProjectTaskIncident } =
 
     useTasks()
 
@@ -142,6 +144,8 @@ function PlanningModuleContent() {
   const [adjustSheetTaskId, setAdjustSheetTaskId] = useState<string | null>(null)
   const [returnDialogTaskId, setReturnDialogTaskId] = useState<string | null>(null)
   const [isReturningToAtencion, setIsReturningToAtencion] = useState(false)
+  const [obraIncidentTaskId, setObraIncidentTaskId] = useState<string | null>(null)
+  const [isResolvingObraIncident, setIsResolvingObraIncident] = useState(false)
 
   const [reorderingTaskId, setReorderingTaskId] = useState<string | null>(null)
 
@@ -245,6 +249,45 @@ function PlanningModuleContent() {
   const returnDialogTask = useMemo(
     () => tasks.find((task) => task.id === returnDialogTaskId) ?? null,
     [tasks, returnDialogTaskId]
+  )
+
+  const obraIncidentTask = useMemo(
+    () => tasks.find((task) => task.id === obraIncidentTaskId) ?? null,
+    [tasks, obraIncidentTaskId]
+  )
+
+  const handleResolveObraIncident = useCallback(
+    async (input: ProjectTaskIncidentResolveInput) => {
+      if (!obraIncidentTaskId) {
+        return
+      }
+
+      setIsResolvingObraIncident(true)
+      setCrewActionError(null)
+      try {
+        const result = await resolveProjectTaskIncident(obraIncidentTaskId, {
+          ...input,
+          actor: supervisorName,
+        })
+
+        if (!result.success) {
+          throw new Error(
+            result.message ?? "No se pudo resolver la incidencia de Obra."
+          )
+        }
+
+        setObraIncidentTaskId(null)
+        void refreshTasksFromServer()
+      } finally {
+        setIsResolvingObraIncident(false)
+      }
+    },
+    [
+      obraIncidentTaskId,
+      resolveProjectTaskIncident,
+      supervisorName,
+      refreshTasksFromServer,
+    ]
   )
 
   const runAutomaticRouteRecalc = useCallback(
@@ -1214,31 +1257,9 @@ function PlanningModuleContent() {
 
               kpis={obrasKpis}
 
-              readOnly={!isEditingMode}
-
               onOpenTask={setSelectedTaskId}
 
-              onEditTask={
-
-                isEditingMode
-
-                  ? (taskId) => {
-
-                      const task = tasks.find((entry) => entry.id === taskId)
-
-                      if (task && isTaskPlanningEditable(task)) {
-
-                        setSelectedTaskId(taskId)
-
-                        setAdjustSheetTaskId(taskId)
-
-                      }
-
-                    }
-
-                  : undefined
-
-              }
+              onResolveIncident={setObraIncidentTaskId}
 
             />
 
@@ -1415,6 +1436,18 @@ function PlanningModuleContent() {
         task={returnDialogTask}
         isSubmitting={isReturningToAtencion}
         onConfirm={handleReturnToAtencion}
+      />
+
+      <PlanningObraIncidentResolveDialog
+        open={obraIncidentTaskId != null}
+        onOpenChange={(open) => {
+          if (!open && !isResolvingObraIncident) {
+            setObraIncidentTaskId(null)
+          }
+        }}
+        task={obraIncidentTask}
+        isSubmitting={isResolvingObraIncident}
+        onConfirm={handleResolveObraIncident}
       />
 
       <PlanningPrintMaterialsDialog

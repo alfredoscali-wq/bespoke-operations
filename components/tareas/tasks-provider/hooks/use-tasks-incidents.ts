@@ -4,6 +4,13 @@ import { useCallback } from "react"
 
 import { useAuth } from "@/components/auth/auth-provider"
 import { resolveProjectTaskRescheduleTargetStatus } from "@/lib/projects/project-task-reschedule"
+import {
+  assertProjectTaskIncidentResolvePayloadSafe,
+  buildProjectTaskIncidentResolvePayload,
+  canResolveProjectTaskIncidentFromPlanning,
+  formatProjectTaskIncidentResolveHistoryNote,
+  type ProjectTaskIncidentResolveInput,
+} from "@/lib/projects/project-task-incident-resolve"
 import { resolveIncidentReasonLabel } from "@/lib/tasks/incidents"
 import {
   canPerformTaskAction,
@@ -488,6 +495,64 @@ export function useTasksIncidents({
     [applyTaskReschedule]
   )
 
+  const resolveProjectTaskIncident = useCallback(
+    async (
+      id: string,
+      input: ProjectTaskIncidentResolveInput & { actor?: string }
+    ): Promise<TaskMutationResult> => {
+      const task = tasks.find((item) => item.id === id)
+      if (!task) {
+        return { success: false, message: "Orden de trabajo no encontrada." }
+      }
+
+      if (!canResolveProjectTaskIncidentFromPlanning(task)) {
+        return {
+          success: false,
+          message:
+            "Solo se pueden resolver incidencias de OT de Obra en estado incidencia.",
+        }
+      }
+
+      const payload = buildProjectTaskIncidentResolvePayload(task, input)
+      if (!assertProjectTaskIncidentResolvePayloadSafe(payload)) {
+        return {
+          success: false,
+          message:
+            "La resolución de incidencia de Obra no puede modificar orden de ruta ni identidad de obra.",
+        }
+      }
+
+      const actor = resolveActor(input.actor)
+      const historyNote = formatProjectTaskIncidentResolveHistoryNote(input, {
+        actor: actor.fullName,
+      })
+
+      if (input.decision === "keep-incident") {
+        return updateTaskFields(
+          id,
+          payload,
+          undefined,
+          historyNote,
+          actor.fullName
+        )
+      }
+
+      const validation = canPerformTaskAction(task, "resolve-obra-incident")
+      if (!validation.allowed) {
+        return { success: false, message: validation.message }
+      }
+
+      return updateTaskFields(
+        id,
+        payload,
+        "resolve-obra-incident",
+        historyNote,
+        actor.fullName
+      )
+    },
+    [tasks, updateTaskFields, resolveActor]
+  )
+
   return {
     cancelTask,
     reportTaskIncident,
@@ -496,5 +561,6 @@ export function useTasksIncidents({
     rescheduleTaskFromOverdue,
     reschedulePlanningReturnedTask,
     rescheduleProjectTask,
+    resolveProjectTaskIncident,
   }
 }

@@ -22,10 +22,12 @@ export function buildTaskStatusMetadata(
 }
 
 export function buildTaskScheduleMetadata(
-  before: Pick<Task, "dueDate" | "scheduledTime">,
-  after: Pick<Task, "dueDate" | "scheduledTime">
+  before: Pick<Task, "dueDate" | "scheduledTime" | "startDate">,
+  after: Pick<Task, "dueDate" | "scheduledTime" | "startDate">
 ) {
   return {
+    fecha_inicio_anterior: before.startDate ?? null,
+    fecha_inicio_nueva: after.startDate ?? null,
     fecha_anterior: before.dueDate,
     fecha_nueva: after.dueDate,
     hora_anterior: before.scheduledTime ?? null,

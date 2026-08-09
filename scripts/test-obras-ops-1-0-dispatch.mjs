@@ -205,13 +205,13 @@ test("OT normal asignada mantiene restricción admin (no editable)", () => {
   )
 })
 
-test("tarea de Obra en-curso no puede editarse libremente", () => {
+test("tarea de Obra en-curso puede editarse supervisadamente (OPS 2.2)", () => {
   assert.equal(
     canEditProjectTaskFromObras({
       projectId: "project-1",
       status: "en-curso",
     }),
-    false
+    true
   )
   assert.equal(
     canEditProjectTaskFromObras({

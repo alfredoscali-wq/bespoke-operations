@@ -32,18 +32,29 @@ import {
 } from "@/components/tareas/task-badges"
 import type { Project } from "@/lib/types/projects"
 import type { Task } from "@/lib/types/tasks"
-import { formatTaskDate } from "@/lib/tasks/constants"
 import { getTaskStatusSurfaceClass } from "@/lib/tasks/status-visual"
-import { compareDateOnly } from "@/lib/dates/date-only"
+import { compareDateOnly, toLocalDateOnly } from "@/lib/dates/date-only"
+import {
+  formatPlanningMultiDayBadge,
+  formatPlanningTaskDateRangeLabel,
+} from "@/lib/planificacion/planning-date-range"
 import {
   canEditProjectTaskFromObras,
   resolveProjectTaskCreateStatus,
 } from "@/lib/projects/project-start-dispatch"
+import {
+  assertProjectTaskSupervisedEditPayloadSafe,
+  buildProjectTaskSupervisedEditFieldChanges,
+  formatProjectTaskSupervisedEditHistoryNote,
+} from "@/lib/projects/project-task-supervised-edit"
 import { canRescheduleProjectTaskFromSession } from "@/lib/projects/project-task-reschedule"
 import { resolveProjectTaskRowActions } from "@/lib/projects/project-task-row-actions"
 import { ProjectTaskClosureReviewSheet } from "@/components/obras/project-task-closure-review-sheet"
 import { getTasksForProject } from "@/lib/tasks/utils"
 import { resolveCrewSnapshotsForAssignment, isTaskCrewArchived } from "@/lib/tasks/crew-relation"
+import {
+  mergeMaterialsNeededIntoMetadata,
+} from "@/lib/tasks/work-order"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -127,7 +138,7 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
       setFeedback({
         type: "error",
         message:
-          "Esta tarea ya inició su ejecución y no puede editarse libremente desde Obras.",
+          "Esta OT de Obra no puede editarse en su estado actual desde Obras.",
       })
       return
     }
@@ -150,6 +161,7 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
     startDate: string
     dueDate: string
     estimatedDuration: string
+    materialsNeeded: string
     operationalChecklistTemplate: OperationalChecklistTemplateItem[]
     latitude?: number | null
     longitude?: number | null
@@ -158,14 +170,14 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
     if (dialogMode === "edit" && selectedTask) {
       if (!canEditProjectTaskFromObras(selectedTask)) {
         throw new Error(
-          "Esta tarea ya inició su ejecución y no puede editarse libremente desde Obras."
+          "Esta OT de Obra no puede editarse en su estado actual desde Obras."
         )
       }
 
       const selectedCrew = getCrew(payload.crewId)
       const snapshots = resolveCrewSnapshotsForAssignment(selectedCrew)
 
-      const result = await editTask(selectedTask.id, {
+      const updatePayload = {
         title: payload.title,
         description: payload.description,
         observationsForCrew: payload.observationsForCrew,
@@ -179,10 +191,34 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
         latitude: payload.latitude ?? null,
         longitude: payload.longitude ?? null,
         sharedLocation: payload.sharedLocation ?? null,
-        taskMetadata: mergeTaskMetadataWithTemplate(
-          selectedTask,
-          payload.operationalChecklistTemplate
+        taskMetadata: mergeMaterialsNeededIntoMetadata(
+          mergeTaskMetadataWithTemplate(
+            selectedTask,
+            payload.operationalChecklistTemplate
+          ),
+          payload.materialsNeeded
         ),
+      }
+
+      if (!assertProjectTaskSupervisedEditPayloadSafe(updatePayload)) {
+        throw new Error(
+          "La edición supervisada no puede modificar estado, obra ni orden de ruta."
+        )
+      }
+
+      const fieldChanges = buildProjectTaskSupervisedEditFieldChanges(
+        selectedTask,
+        updatePayload,
+        payload.materialsNeeded
+      )
+      const historyNote = formatProjectTaskSupervisedEditHistoryNote(
+        fieldChanges,
+        { actor: actorName }
+      )
+
+      const result = await editTask(selectedTask.id, updatePayload, {
+        historyNote: historyNote ?? undefined,
+        historyActor: actorName,
       })
 
       if (!result.success) {
@@ -219,9 +255,12 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
       longitude: payload.longitude ?? undefined,
       sharedLocation: payload.sharedLocation ?? undefined,
       checklist: [],
-      taskMetadata: mergeTaskMetadataWithTemplate(
-        {},
-        payload.operationalChecklistTemplate
+      taskMetadata: mergeMaterialsNeededIntoMetadata(
+        mergeTaskMetadataWithTemplate(
+          {},
+          payload.operationalChecklistTemplate
+        ),
+        payload.materialsNeeded
       ),
       status: resolveProjectTaskCreateStatus(project.status),
     })
@@ -355,12 +394,12 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
           {actions.showEdit ? (
             <DropdownMenuItem onClick={() => openEditDialog(task)}>
               <Pencil className="size-4" />
-              Editar
+              Editar OT
             </DropdownMenuItem>
           ) : (
             <DropdownMenuItem disabled>
               <Pencil className="size-4" />
-              Editar
+              Editar OT
             </DropdownMenuItem>
           )}
           {actions.showDelete ? (
@@ -446,6 +485,11 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
           {projectTasks.map((task) => {
             const hasChecklist =
               readOperationalChecklistTemplate(task).length > 0
+            const dateRangeLabel = formatPlanningTaskDateRangeLabel(task)
+            const multiDayBadge = formatPlanningMultiDayBadge(
+              task,
+              toLocalDateOnly()
+            )
 
             return (
               <article
@@ -485,7 +529,12 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
                         getCrew={getCrew}
                         compact
                       />
-                      <span>{formatTaskDate(task.dueDate)}</span>
+                      <span className="tabular-nums">{dateRangeLabel}</span>
+                      {multiDayBadge ? (
+                        <span className="rounded border border-sky-200 bg-sky-50 px-1.5 py-px text-[10px] font-medium text-sky-800">
+                          {multiDayBadge}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                   {renderActions(task)}

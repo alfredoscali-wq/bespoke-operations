@@ -7,6 +7,7 @@ import {
   resolvePlanningDayDurationMinutes,
   resolvePlanningRangeStartDate,
 } from "@/lib/planificacion/planning-date-range"
+import { resolveIncidentReasonLabel } from "@/lib/tasks/incidents"
 import { resolveTaskCrewId } from "@/lib/tasks/crew-relation"
 import type { Crew } from "@/lib/types/crews"
 import type { Task } from "@/lib/types/tasks"
@@ -27,6 +28,7 @@ export type PlanningObrasKpis = {
 
 export type PlanningObraActiveRow = {
   taskId: string
+  projectId: string
   code: string
   title: string
   obraName: string
@@ -37,6 +39,11 @@ export type PlanningObraActiveRow = {
   dayBadge: string | null
   dayDurationMinutes: number
   status: Task["status"]
+  /** OPS 2.4 — open incident on Obra OT (status = incidencia). */
+  hasOpenIncident: boolean
+  incidentReasonLabel: string | null
+  incidentReportedAt: string | null
+  incidentReportedBy: string | null
 }
 
 export function computePlanningOperativeKpis(
@@ -93,15 +100,24 @@ export function buildPlanningObraActiveRows(
   crews: Pick<Crew, "id" | "name">[]
 ): PlanningObraActiveRow[] {
   return [...obraTasks]
-    .sort((left, right) => left.code.localeCompare(right.code, "es"))
+    .sort((left, right) => {
+      const leftIncident = left.status === "incidencia" ? 0 : 1
+      const rightIncident = right.status === "incidencia" ? 0 : 1
+      if (leftIncident !== rightIncident) {
+        return leftIncident - rightIncident
+      }
+      return left.code.localeCompare(right.code, "es")
+    })
     .map((task) => {
       const crewId = resolveTaskCrewId(task, crews) ?? null
       const crew = crewId
         ? crews.find((entry) => entry.id === crewId)
         : undefined
+      const hasOpenIncident = task.status === "incidencia"
 
       return {
         taskId: task.id,
+        projectId: task.projectId?.trim() || "",
         code: task.code,
         title: task.title?.trim() || task.code,
         obraName:
@@ -118,6 +134,16 @@ export function buildPlanningObraActiveRows(
           planningDate
         ),
         status: task.status,
+        hasOpenIncident,
+        incidentReasonLabel: hasOpenIncident
+          ? resolveIncidentReasonLabel(task.incidentReason)
+          : null,
+        incidentReportedAt: hasOpenIncident
+          ? task.incidentReportedAt?.trim() || null
+          : null,
+        incidentReportedBy: hasOpenIncident
+          ? task.incidentReportedBy?.trim() || null
+          : null,
       }
     })
 }

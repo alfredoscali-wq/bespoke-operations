@@ -131,16 +131,18 @@ export function parseStartProjectDispatchRpcResult(
   }
 }
 
-/** Statuses that remain freely editable from the Obras module. */
+/** Statuses that remain freely editable from the Obras module (OPS 2.2). */
 const OBRAS_EDITABLE_TASK_STATUSES: TaskStatus[] = [
   "borrador",
   "programada",
   "asignada",
+  "en-curso",
 ]
 
 /**
- * Obra tasks (project_id set) may be edited from Obras while borrador, programada or asignada.
- * Normal OT keep their own admin guards (programada only).
+ * Obra tasks (project_id set) may be edited from Obras while
+ * borrador / programada / asignada / en-curso (OPS 2.2 supervised edit).
+ * Does not touch status, dispatch_order, or execution_order.
  */
 export function canEditProjectTaskFromObras(
   task: Pick<Task, "projectId" | "status">

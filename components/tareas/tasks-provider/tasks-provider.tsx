@@ -78,6 +78,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     rescheduleTaskFromOverdue,
     reschedulePlanningReturnedTask,
     rescheduleProjectTask,
+    resolveProjectTaskIncident,
   } = useTasksIncidents({
     companyId,
     tasks,
@@ -144,6 +145,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       rescheduleTaskFromOverdue,
       reschedulePlanningReturnedTask,
       rescheduleProjectTask,
+      resolveProjectTaskIncident,
       toggleChecklistItem,
       syncOperationalStepsProgress,
       updateOperationalStepObservation,
@@ -180,6 +182,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       rescheduleTaskFromOverdue,
       reschedulePlanningReturnedTask,
       rescheduleProjectTask,
+      resolveProjectTaskIncident,
       toggleChecklistItem,
       syncOperationalStepsProgress,
       updateOperationalStepObservation,

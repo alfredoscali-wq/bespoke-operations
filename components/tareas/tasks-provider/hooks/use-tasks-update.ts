@@ -251,6 +251,21 @@ export function useTasksUpdate({
                 ...detail.history,
               ],
             })
+          } else if (historyNote?.trim()) {
+            const detail = getCachedDetail(id) ?? getTaskDetail(result.data)
+            cacheDetail(id, {
+              ...detail,
+              history: [
+                {
+                  id: `h-${Date.now()}`,
+                  action: "OT de Obra editada",
+                  description: historyNote.trim(),
+                  user: historyActor?.trim() || "Usuario",
+                  timestamp: new Date().toISOString(),
+                },
+                ...detail.history,
+              ],
+            })
           }
 
           setTasks((current) => {
@@ -363,7 +378,13 @@ export function useTasksUpdate({
         }
       }
 
-      return updateTaskFields(id, fieldsOnly)
+      return updateTaskFields(
+        id,
+        fieldsOnly,
+        undefined,
+        options?.historyNote,
+        options?.historyActor
+      )
     },
     [
       tasks,
