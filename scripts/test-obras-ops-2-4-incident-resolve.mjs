@@ -139,11 +139,24 @@ test("OPS 2.4: fila Obras Activas expone datos de incidencia", () => {
   assert.equal(rows[1]?.incidentReasonLabel, null)
 })
 
-test("OPS 2.4: tras resolver a programada, FA la ve sin depender de orders", () => {
+test("OPS 2.4: tras resolver a programada, FA no la ve hasta liberar (OPS 2.5)", () => {
   assert.equal(
     isFieldAgentAgendaTaskVisible(
       {
         status: "programada",
+        startDate: "2026-08-09",
+        dueDate: "2026-08-14",
+        projectId: "project-1",
+        crewId: "crew-1",
+      },
+      "2026-08-10"
+    ),
+    false
+  )
+  assert.equal(
+    isFieldAgentAgendaTaskVisible(
+      {
+        status: "asignada",
         startDate: "2026-08-09",
         dueDate: "2026-08-14",
         projectId: "project-1",

@@ -10,13 +10,11 @@ const FIELD_AGENT_ACTIVE_STATUSES: TaskStatus[] = [
   "en-aprobacion",
 ]
 
-const FIELD_AGENT_SCHEDULED_STATUSES: TaskStatus[] = ["asignada"]
-
 /**
- * OPS 2.1B: OT de Obra en programada (con cuadrilla) también van a agenda Mobile
- * sin pasar por Planificar/Replanificar de la ruta.
+ * OPS 2.5: Field Agent solo consume OT liberadas (asignada) o en ejecución.
+ * Obra programada = pendiente de envío — no aparece en agenda.
  */
-const FIELD_AGENT_OBRA_PROGRAMMED_STATUSES: TaskStatus[] = ["programada"]
+const FIELD_AGENT_SCHEDULED_STATUSES: TaskStatus[] = ["asignada"]
 
 const FIELD_AGENT_OVERDUE_STATUSES: TaskStatus[] = ["vencida"]
 
@@ -24,7 +22,6 @@ const FIELD_AGENT_OVERDUE_STATUSES: TaskStatus[] = ["vencida"]
 export const FIELD_AGENT_AGENDA_QUERY_STATUSES: TaskStatus[] = [
   ...FIELD_AGENT_ACTIVE_STATUSES,
   ...FIELD_AGENT_SCHEDULED_STATUSES,
-  ...FIELD_AGENT_OBRA_PROGRAMMED_STATUSES,
   ...FIELD_AGENT_OVERDUE_STATUSES,
 ]
 
@@ -42,6 +39,7 @@ function resolveOperationalStartDate(
 /**
  * OT asignada visible when today falls within [startDate, dueDate] (inclusive).
  * Single-day OTs (start === due) behave as before.
+ * OPS 2.5: today >= start_date (and today <= due_date).
  */
 export function isOperationalDateRangeActive(
   task: Pick<Task, "dueDate"> & Partial<Pick<Task, "startDate">>,
@@ -54,16 +52,6 @@ export function isOperationalDateRangeActive(
     compareDateOnly(startDate, referenceDate) <= 0 &&
     compareDateOnly(referenceDate, dueDate) <= 0
   )
-}
-
-function isObraTask(task: Partial<Pick<Task, "projectId">>): boolean {
-  return Boolean(task.projectId?.trim())
-}
-
-function hasCrewAssignment(
-  task: Partial<Pick<Task, "crewId" | "crew">>
-): boolean {
-  return Boolean(task.crewId?.trim() || task.crew?.trim())
 }
 
 export function isFieldAgentAgendaTaskVisible(
@@ -81,16 +69,6 @@ export function isFieldAgentAgendaTaskVisible(
 
   if (FIELD_AGENT_SCHEDULED_STATUSES.includes(task.status)) {
     return isOperationalDateRangeActive(task, referenceDate)
-  }
-
-  // OPS 2.1B: Obra programada con cuadrilla en rango operativo.
-  if (
-    isObraTask(task) &&
-    FIELD_AGENT_OBRA_PROGRAMMED_STATUSES.includes(task.status) &&
-    hasCrewAssignment(task) &&
-    isOperationalDateRangeActive(task, referenceDate)
-  ) {
-    return true
   }
 
   return false

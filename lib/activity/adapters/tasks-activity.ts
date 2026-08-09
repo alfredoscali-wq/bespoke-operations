@@ -490,6 +490,32 @@ export function mapWorkflowActionToActivityEmissions(
           },
         },
       ]
+    case "release-obra-to-field":
+      return [
+        {
+          action: ACTIVITY_ACTIONS.TASK_RESCHEDULE,
+          detail: "OT de Obra enviada a cuadrilla.",
+          metadata: {
+            taskId: after.id,
+            previousStatus: before.status,
+            status: after.status,
+            projectId: after.projectId ?? null,
+          },
+        },
+      ]
+    case "return-obra-from-field":
+      return [
+        {
+          action: ACTIVITY_ACTIONS.TASK_RESCHEDULE,
+          detail: "OT de Obra retirada del campo.",
+          metadata: {
+            taskId: after.id,
+            previousStatus: before.status,
+            status: after.status,
+            projectId: after.projectId ?? null,
+          },
+        },
+      ]
     default:
       return []
   }

@@ -1,4 +1,8 @@
 import { canEditProjectTaskFromObras } from "@/lib/projects/project-start-dispatch"
+import {
+  canReleaseProjectTaskToField,
+  canReturnProjectTaskToPlanning,
+} from "@/lib/projects/project-task-field-release"
 import { canRescheduleProjectTask } from "@/lib/projects/project-task-reschedule"
 import { isPendingClosureStatus } from "@/lib/tasks/task-status-workflow"
 import { canSoftDeleteWorkOrder } from "@/lib/tasks/work-order-deletion-policy"
@@ -10,6 +14,10 @@ export type ProjectTaskRowActions = {
   showDelete: boolean
   showReviewClosure: boolean
   showReschedule: boolean
+  /** OPS 2.5 — programada → asignada */
+  showReleaseToField: boolean
+  /** OPS 2.5 — asignada → programada */
+  showReturnFromField: boolean
 }
 
 export function resolveProjectTaskRowActions(
@@ -21,6 +29,8 @@ export function resolveProjectTaskRowActions(
     | "completedAt"
     | "closedAt"
     | "operationalSteps"
+    | "crewId"
+    | "crew"
   >
 ): ProjectTaskRowActions {
   return {
@@ -29,5 +39,7 @@ export function resolveProjectTaskRowActions(
     showDelete: canSoftDeleteWorkOrder(task),
     showReviewClosure: isPendingClosureStatus(task.status),
     showReschedule: canRescheduleProjectTask(task),
+    showReleaseToField: canReleaseProjectTaskToField(task),
+    showReturnFromField: canReturnProjectTaskToPlanning(task),
   }
 }

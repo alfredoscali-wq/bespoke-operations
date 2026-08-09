@@ -227,7 +227,7 @@ test("OPS 2.0/2.1B: borrador fuera; Obra programada en lane obras (no ruta)", ()
   assert.equal(resolvePlanningTaskObraLabel(service), null)
 })
 
-test("OPS 2.0/2.1B: Mobile ve Obra programada con cuadrilla; no borrador", () => {
+test("OPS 2.0/2.1B: Mobile no ve borrador; Obra programada requiere liberación OPS 2.5", () => {
   const today = "2026-07-15"
   assert.equal(
     isFieldAgentAgendaTaskVisible(
@@ -247,19 +247,20 @@ test("OPS 2.0/2.1B: Mobile ve Obra programada con cuadrilla; no borrador", () =>
       },
       today
     ),
-    true
+    false
   )
   assert.equal(
     isFieldAgentAgendaTaskVisible(
       {
-        status: "programada",
+        status: "asignada",
         startDate: today,
         dueDate: today,
-        projectId: undefined,
+        projectId: "p1",
+        crewId: "crew-1",
       },
       today
     ),
-    false
+    true
   )
 })
 

@@ -9,7 +9,9 @@ import {
   MoreHorizontal,
   Pencil,
   Plus,
+  Send,
   Trash2,
+  Undo2,
   ClipboardCheck,
 } from "lucide-react"
 
@@ -47,6 +49,7 @@ import {
   buildProjectTaskSupervisedEditFieldChanges,
   formatProjectTaskSupervisedEditHistoryNote,
 } from "@/lib/projects/project-task-supervised-edit"
+import { resolveProjectTaskFieldDispatchBadge } from "@/lib/projects/project-task-field-release"
 import { canRescheduleProjectTaskFromSession } from "@/lib/projects/project-task-reschedule"
 import { resolveProjectTaskRowActions } from "@/lib/projects/project-task-row-actions"
 import { ProjectTaskClosureReviewSheet } from "@/components/obras/project-task-closure-review-sheet"
@@ -82,6 +85,10 @@ type ProjectTasksTabProps = {
 }
 
 type DialogMode = "create" | "edit"
+type FieldDispatchConfirm = {
+  task: Task
+  mode: "release" | "return"
+}
 
 export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
   const { sessionUser } = useAuth()
@@ -92,6 +99,8 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
     deleteTask,
     removeTaskLocally,
     rescheduleProjectTask,
+    releaseProjectTaskToField,
+    returnProjectTaskFromField,
   } = useTasks()
   const { getCrew } = useCrews()
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -100,6 +109,9 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
   const [deleteTarget, setDeleteTarget] = useState<Task | null>(null)
   const [rescheduleTarget, setRescheduleTarget] = useState<Task | null>(null)
   const [isRescheduling, setIsRescheduling] = useState(false)
+  const [fieldDispatchConfirm, setFieldDispatchConfirm] =
+    useState<FieldDispatchConfirm | null>(null)
+  const [isFieldDispatching, setIsFieldDispatching] = useState(false)
   const [closureReviewTaskId, setClosureReviewTaskId] = useState<string | null>(
     null
   )
@@ -339,6 +351,39 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
     })
   }
 
+  async function handleFieldDispatchConfirm() {
+    if (!fieldDispatchConfirm) return
+
+    setIsFieldDispatching(true)
+    const { task, mode } = fieldDispatchConfirm
+    const result =
+      mode === "release"
+        ? await releaseProjectTaskToField(task.id, { actor: actorName })
+        : await returnProjectTaskFromField(task.id, { actor: actorName })
+    setIsFieldDispatching(false)
+
+    if (!result.success) {
+      setFeedback({
+        type: "error",
+        message:
+          result.message ??
+          (mode === "release"
+            ? "No se pudo enviar la OT a la cuadrilla."
+            : "No se pudo devolver la OT a Obras."),
+      })
+      return
+    }
+
+    setFieldDispatchConfirm(null)
+    setFeedback({
+      type: "success",
+      message:
+        mode === "release"
+          ? "OT enviada a la cuadrilla."
+          : "OT retirada del campo.",
+    })
+  }
+
   function renderActions(task: Task) {
     const actions = resolveProjectTaskRowActions(task)
     const showReschedule = canRescheduleProjectTaskFromSession(
@@ -347,7 +392,7 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
     )
 
     return (
-      <div className="flex shrink-0 items-center gap-1">
+      <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
         {actions.showReviewClosure ? (
           <Button
             size="sm"
@@ -366,7 +411,32 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
             onClick={() => openRescheduleDialog(task)}
           >
             <CalendarClock className="size-3.5" />
-            Reprogramar OT
+            Reprogramar
+          </Button>
+        ) : null}
+        {actions.showReleaseToField ? (
+          <Button
+            size="sm"
+            className="h-8 gap-1 px-2.5 text-xs"
+            onClick={() =>
+              setFieldDispatchConfirm({ task, mode: "release" })
+            }
+          >
+            <Send className="size-3.5" />
+            Enviar a Cuadrilla
+          </Button>
+        ) : null}
+        {actions.showReturnFromField ? (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 gap-1 px-2.5 text-xs"
+            onClick={() =>
+              setFieldDispatchConfirm({ task, mode: "return" })
+            }
+          >
+            <Undo2 className="size-3.5" />
+            Devolver a Obras
           </Button>
         ) : null}
         <DropdownMenu>
@@ -389,6 +459,26 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
             <DropdownMenuItem onClick={() => openRescheduleDialog(task)}>
               <CalendarClock className="size-4" />
               Reprogramar OT
+            </DropdownMenuItem>
+          ) : null}
+          {actions.showReleaseToField ? (
+            <DropdownMenuItem
+              onClick={() =>
+                setFieldDispatchConfirm({ task, mode: "release" })
+              }
+            >
+              <Send className="size-4" />
+              Enviar a Cuadrilla
+            </DropdownMenuItem>
+          ) : null}
+          {actions.showReturnFromField ? (
+            <DropdownMenuItem
+              onClick={() =>
+                setFieldDispatchConfirm({ task, mode: "return" })
+              }
+            >
+              <Undo2 className="size-4" />
+              Devolver a Obras
             </DropdownMenuItem>
           ) : null}
           {actions.showEdit ? (
@@ -490,6 +580,8 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
               task,
               toLocalDateOnly()
             )
+            const fieldDispatchBadge =
+              resolveProjectTaskFieldDispatchBadge(task)
 
             return (
               <article
@@ -503,6 +595,14 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
                         {task.code}
                       </p>
                       <TaskStatusBadge status={task.status} />
+                      {fieldDispatchBadge ? (
+                        <Badge
+                          variant="secondary"
+                          className="text-[10px] font-medium"
+                        >
+                          {fieldDispatchBadge}
+                        </Badge>
+                      ) : null}
                       <TaskPriorityBadge priority={task.priority} />
                       {hasChecklist ? (
                         <Badge variant="outline" className="text-[10px]">
@@ -577,6 +677,71 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
           onConfirm={handleRescheduleConfirm}
         />
       ) : null}
+
+      <Dialog
+        open={fieldDispatchConfirm !== null}
+        onOpenChange={(open) => {
+          if (!open && !isFieldDispatching) {
+            setFieldDispatchConfirm(null)
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {fieldDispatchConfirm?.mode === "return"
+                ? "Devolver OT a Obras"
+                : "Enviar OT a Campo"}
+            </DialogTitle>
+            <DialogDescription>
+              {fieldDispatchConfirm?.mode === "return" ? (
+                <>
+                  ¿Desea retirar esta OT del campo?
+                  <span className="mt-2 block text-muted-foreground">
+                    La cuadrilla dejará de visualizar esta OT hasta que vuelva a
+                    ser enviada.
+                  </span>
+                </>
+              ) : (
+                <>
+                  ¿Desea enviar esta OT a la cuadrilla asignada?
+                  <span className="mt-2 block text-muted-foreground">
+                    La OT quedará disponible para Field Agent según su fecha
+                    programada.
+                  </span>
+                </>
+              )}
+              {fieldDispatchConfirm?.task ? (
+                <span className="mt-2 block font-medium text-foreground">
+                  {fieldDispatchConfirm.task.code} —{" "}
+                  {fieldDispatchConfirm.task.title}
+                </span>
+              ) : null}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setFieldDispatchConfirm(null)}
+              disabled={isFieldDispatching}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void handleFieldDispatchConfirm()}
+              disabled={isFieldDispatching}
+            >
+              {isFieldDispatching
+                ? "Guardando…"
+                : fieldDispatchConfirm?.mode === "return"
+                  ? "Devolver a Obras"
+                  : "Enviar a Cuadrilla"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={deleteTarget !== null}

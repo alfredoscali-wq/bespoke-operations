@@ -105,6 +105,14 @@ export type TasksContextValue = {
     id: string,
     input: ProjectTaskIncidentResolveInput & { actor?: string }
   ) => Promise<TaskMutationResult>
+  releaseProjectTaskToField: (
+    id: string,
+    options?: { actor?: string }
+  ) => Promise<TaskMutationResult>
+  returnProjectTaskFromField: (
+    id: string,
+    options?: { actor?: string }
+  ) => Promise<TaskMutationResult>
   toggleChecklistItem: (taskId: string, itemId: string) => void
   syncOperationalStepsProgress: (
     taskId: string,

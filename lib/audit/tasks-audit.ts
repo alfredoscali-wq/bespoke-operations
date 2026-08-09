@@ -146,6 +146,9 @@ export function mapWorkflowActionToAuditAction(
       return AUDIT_ACTIONS.TASK_RESCHEDULE
     case "resolve-obra-incident":
       return AUDIT_ACTIONS.INCIDENT_SUPERVISOR_ACTION
+    case "release-obra-to-field":
+    case "return-obra-from-field":
+      return AUDIT_ACTIONS.TASK_RESCHEDULE
     case "approve":
       return AUDIT_ACTIONS.TASK_FINISH
     default:

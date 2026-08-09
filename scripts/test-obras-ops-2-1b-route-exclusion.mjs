@@ -155,12 +155,25 @@ test("CASO 3: mobile sort — obras primero; ruta mantiene orden", () => {
   )
 })
 
-test("CASO 3b: mobile visibility — Obra programada con crew en agenda", () => {
+test("CASO 3b: mobile visibility — Obra asignada en agenda; programada no", () => {
   const today = "2026-08-09"
   assert.equal(
     isFieldAgentAgendaTaskVisible(
       {
         status: "programada",
+        startDate: "2026-08-08",
+        dueDate: "2026-08-10",
+        projectId: "project-1",
+        crewId: "crew-1",
+      },
+      today
+    ),
+    false
+  )
+  assert.equal(
+    isFieldAgentAgendaTaskVisible(
+      {
+        status: "asignada",
         startDate: "2026-08-08",
         dueDate: "2026-08-10",
         projectId: "project-1",
