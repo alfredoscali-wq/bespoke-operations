@@ -1,5 +1,5 @@
 import { taskMatchesCrewId } from "@/lib/tasks/crew-relation"
-import { isPlanningUniverseTask } from "@/lib/planificacion/planning-universe"
+import { isOperationalRouteTask } from "@/lib/planificacion/planning-universe"
 import { isTaskActiveOnPlanningDate } from "@/lib/planificacion/planning-date-range"
 import type { Crew } from "@/lib/types/crews"
 import type { Task, TaskStatus } from "@/lib/types/tasks"
@@ -53,7 +53,7 @@ export function filterProgrammedTasksForPlanningDate(
   filters: PlanningFilters
 ): Task[] {
   return tasks.filter((task) => {
-    if (!isPlanningUniverseTask(task) || task.status !== "programada") {
+    if (!isOperationalRouteTask(task) || task.status !== "programada") {
       return false
     }
 
@@ -66,7 +66,7 @@ export function filterConfirmedDispatchTasksForPlanning(
   filters: PlanningFilters
 ): Task[] {
   return tasks.filter((task) => {
-    if (!isPlanningUniverseTask(task)) {
+    if (!isOperationalRouteTask(task)) {
       return false
     }
 

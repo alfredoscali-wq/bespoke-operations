@@ -1,5 +1,6 @@
 import { resolveTaskCrewId, taskMatchesCrewId } from "@/lib/tasks/crew-relation"
 import { isTaskActiveOnPlanningDate } from "@/lib/planificacion/planning-date-range"
+import { isOperationalRouteTask } from "@/lib/planificacion/planning-universe"
 import type { Crew } from "@/lib/types/crews"
 import type { Task, TaskStatus } from "@/lib/types/tasks"
 
@@ -129,6 +130,7 @@ export function filterOperationalOrderScope(
 
   return tasks.filter(
     (task) =>
+      isOperationalRouteTask(task) &&
       isTaskActiveOnPlanningDate(task, dueDate) &&
       taskMatchesCrewId(task, { id: crewId, name: "" })
   )

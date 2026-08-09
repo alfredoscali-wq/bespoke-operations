@@ -19,6 +19,11 @@ import {
   resolveMobileHasActiveIncidentForTask,
 } from "@/lib/mobile/v1/tasks/task-active-incident-guard"
 import { resolveDispatchOperationalOrder } from "@/lib/planificacion/planning-operational-order-core"
+import {
+  formatPlanningMultiDayBadge,
+  resolvePlanningDayIndex,
+  resolvePlanningSpanDays,
+} from "@/lib/planificacion/planning-date-range"
 import { resolveTaskOperationalTitle } from "@/lib/tasks/work-order"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { Task } from "@/lib/types/tasks"
@@ -39,13 +44,22 @@ function summarizeObservations(value: string | undefined): string | null {
 
 function mapTaskToAgendaItem(
   task: Task,
-  activeIncidentTaskIds: ReadonlySet<string>
+  activeIncidentTaskIds: ReadonlySet<string>,
+  referenceDate: string = toLocalDateOnly()
 ): MobileAgendaTaskItem {
   const customerOrAssetName =
     task.customerName?.trim() || task.projectName?.trim() || "—"
   const startDate = task.startDate?.trim() || task.dueDate
   const isProjectTask = Boolean(task.projectId?.trim())
   const projectName = task.projectName?.trim() || null
+  const span = isProjectTask ? resolvePlanningSpanDays(task) : 1
+  const dayIndex = isProjectTask
+    ? resolvePlanningDayIndex(task, referenceDate)
+    : null
+  const dayLabel =
+    isProjectTask && span > 1
+      ? formatPlanningMultiDayBadge(task, referenceDate)
+      : null
 
   return {
     id: task.id,
@@ -65,8 +79,11 @@ function mapTaskToAgendaItem(
       task.amountToCollect == null ? null : Number(task.amountToCollect),
     latitude: task.latitude ?? null,
     longitude: task.longitude ?? null,
-    executionOrder: resolveDispatchOperationalOrder(task),
-    dispatchOrder: task.dispatchOrder ?? null,
+    // OPS 2.1B: Obra fuera de ruta — nunca exponer órdenes de ruta.
+    executionOrder: isProjectTask
+      ? null
+      : resolveDispatchOperationalOrder(task),
+    dispatchOrder: isProjectTask ? null : (task.dispatchOrder ?? null),
     hasActiveIncident: resolveMobileHasActiveIncidentForTask(
       task,
       activeIncidentTaskIds
@@ -76,6 +93,9 @@ function mapTaskToAgendaItem(
     projectName,
     dateLabel: formatOperationalDateRangeLabel(startDate, task.dueDate),
     obraLabel: isProjectTask ? resolveObraAgendaLegend(projectName) : null,
+    dayLabel,
+    dayIndex,
+    daySpan: isProjectTask && span > 1 ? span : null,
   }
 }
 
@@ -121,7 +141,7 @@ export async function getMobileAgendaToday(
     workTeamId: resolved.workTeamId,
     workTeamName: resolved.workTeamName,
     items: sortedTasks.map((task) =>
-      mapTaskToAgendaItem(task, activeIncidentTaskIds)
+      mapTaskToAgendaItem(task, activeIncidentTaskIds, today)
     ),
   }
 }

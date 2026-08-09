@@ -1,8 +1,8 @@
-/**
- * Planning Read Model — Sprint 19 / Bloque F.
- * Single jornada snapshot for Planning UI consumption.
- */
-
+import type {
+  PlanningObraActiveRow,
+  PlanningObrasKpis,
+  PlanningOperativeKpis,
+} from "@/lib/planificacion/planning-obras-lane"
 import type { CrewPlanningSummary } from "@/lib/engines/planning/contracts/CrewPlanningSummary"
 import type { CrewPlanningButtonVisibility } from "@/lib/planificacion/planning-crew-state"
 import type { PlanningDayOperationalConfig } from "@/lib/planificacion/planning-day-config"
@@ -34,19 +34,27 @@ export type PlanningReadMetrics = {
   crewSummaries: PlanningCrewSummary[]
   crewPlanningSummary: CrewPlanningSummary | null
   crewPlanningButtonsById: Record<string, CrewPlanningButtonVisibility>
+  /** OPS 2.1B — KPIs de ruta operativa (sin Obra). */
+  operativeKpis: PlanningOperativeKpis
+  /** OPS 2.1B — KPIs de lane Obra. */
+  obrasKpis: PlanningObrasKpis
 }
 
 export type PlanningReadTasks = {
-  /** Work-order tasks in the current operational/overdue filter. */
+  /** Operational route tasks in the current filter. */
   filtered: Task[]
   /** Filtered tasks sorted by dispatch route. */
   sorted: Task[]
-  /** Crew-scoped list for map/list/journey. */
+  /** Crew-scoped list for map/list/journey (ruta). */
   list: Task[]
-  /** Programmed tasks for the planning date (order scope). */
+  /** Programmed operational tasks for the planning date (order scope). */
   planningOrderScope: Task[]
   /** Pending-closure tasks for the planning date. */
   pendingClosure: Task[]
+  /** OPS 2.1B — OT de Obra activas en la fecha (fuera de ruta). */
+  obrasActivas: Task[]
+  /** Rows for OBRAS ACTIVAS section. */
+  obrasActivasRows: PlanningObraActiveRow[]
 }
 
 export type PlanningReadDayConfig = {

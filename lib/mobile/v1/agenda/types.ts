@@ -30,6 +30,10 @@ export type MobileAgendaTaskItem = {
   dateLabel: string
   /** "OT de Obra" / "Obra: {name}" when isProjectTask; otherwise null. */
   obraLabel: string | null
+  /** OPS 2.1B — "Día X de Y" for multi-day Obra; null otherwise. */
+  dayLabel: string | null
+  dayIndex: number | null
+  daySpan: number | null
 }
 
 export type MobileAgendaTodayResponse = {

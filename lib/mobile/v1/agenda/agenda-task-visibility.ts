@@ -12,12 +12,19 @@ const FIELD_AGENT_ACTIVE_STATUSES: TaskStatus[] = [
 
 const FIELD_AGENT_SCHEDULED_STATUSES: TaskStatus[] = ["asignada"]
 
+/**
+ * OPS 2.1B: OT de Obra en programada (con cuadrilla) también van a agenda Mobile
+ * sin pasar por Planificar/Replanificar de la ruta.
+ */
+const FIELD_AGENT_OBRA_PROGRAMMED_STATUSES: TaskStatus[] = ["programada"]
+
 const FIELD_AGENT_OVERDUE_STATUSES: TaskStatus[] = ["vencida"]
 
 /** Statuses fetched for Field Agent agenda (filtered in memory by visibility rules). */
 export const FIELD_AGENT_AGENDA_QUERY_STATUSES: TaskStatus[] = [
   ...FIELD_AGENT_ACTIVE_STATUSES,
   ...FIELD_AGENT_SCHEDULED_STATUSES,
+  ...FIELD_AGENT_OBRA_PROGRAMMED_STATUSES,
   ...FIELD_AGENT_OVERDUE_STATUSES,
 ]
 
@@ -49,9 +56,19 @@ export function isOperationalDateRangeActive(
   )
 }
 
+function isObraTask(task: Partial<Pick<Task, "projectId">>): boolean {
+  return Boolean(task.projectId?.trim())
+}
+
+function hasCrewAssignment(
+  task: Partial<Pick<Task, "crewId" | "crew">>
+): boolean {
+  return Boolean(task.crewId?.trim() || task.crew?.trim())
+}
+
 export function isFieldAgentAgendaTaskVisible(
   task: Pick<Task, "status" | "dueDate" | "taskMetadata"> &
-    Partial<Pick<Task, "startDate">>,
+    Partial<Pick<Task, "startDate" | "projectId" | "crewId" | "crew">>,
   referenceDate: string = toLocalDateOnly()
 ): boolean {
   if (FIELD_AGENT_ACTIVE_STATUSES.includes(task.status)) {
@@ -64,6 +81,16 @@ export function isFieldAgentAgendaTaskVisible(
 
   if (FIELD_AGENT_SCHEDULED_STATUSES.includes(task.status)) {
     return isOperationalDateRangeActive(task, referenceDate)
+  }
+
+  // OPS 2.1B: Obra programada con cuadrilla en rango operativo.
+  if (
+    isObraTask(task) &&
+    FIELD_AGENT_OBRA_PROGRAMMED_STATUSES.includes(task.status) &&
+    hasCrewAssignment(task) &&
+    isOperationalDateRangeActive(task, referenceDate)
+  ) {
+    return true
   }
 
   return false

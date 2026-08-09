@@ -229,15 +229,55 @@ export function PlanningTaskAdjustSheet({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="planning-adjust-date">Fecha operativa</Label>
-              <Input
-                id="planning-adjust-date"
-                type="date"
-                value={form.scheduledDate}
-                onChange={(event) =>
-                  updateField("scheduledDate", event.target.value)
-                }
-              />
+              <Label htmlFor="planning-adjust-date">
+                {task.projectId ? "Fecha fin" : "Fecha operativa"}
+              </Label>
+              {task.projectId ? (
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label
+                      htmlFor="planning-adjust-start"
+                      className="text-xs text-muted-foreground"
+                    >
+                      Inicio
+                    </Label>
+                    <Input
+                      id="planning-adjust-start"
+                      type="date"
+                      value={form.startDate}
+                      onChange={(event) =>
+                        updateField("startDate", event.target.value)
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label
+                      htmlFor="planning-adjust-date"
+                      className="text-xs text-muted-foreground"
+                    >
+                      Fin
+                    </Label>
+                    <Input
+                      id="planning-adjust-date"
+                      type="date"
+                      value={form.scheduledDate}
+                      onChange={(event) =>
+                        updateField("scheduledDate", event.target.value)
+                      }
+                    />
+                  </div>
+                </div>
+              ) : (
+                <Input
+                  id="planning-adjust-date"
+                  type="date"
+                  value={form.scheduledDate}
+                  onChange={(event) => {
+                    updateField("scheduledDate", event.target.value)
+                    updateField("startDate", event.target.value)
+                  }}
+                />
+              )}
             </div>
 
             <div className="space-y-2">

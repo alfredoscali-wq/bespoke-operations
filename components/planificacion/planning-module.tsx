@@ -29,6 +29,8 @@ import { PlanningReturnToAtencionDialog } from "@/components/planificacion/plann
 
 import { PlanningTaskList } from "@/components/planificacion/planning-task-list"
 
+import { PlanningObrasActivasSection } from "@/components/planificacion/planning-obras-activas-section"
+
 import { PlanningJourneySummaryPanel } from "@/components/planificacion/planning-journey-summary-panel"
 
 import { PlanningDayConfigPanel } from "@/components/planificacion/planning-day-config-panel"
@@ -214,6 +216,9 @@ function PlanningModuleContent() {
   const crewPlanningButtonsById = readModel.metrics.crewPlanningButtonsById
   const planningOrderScopeTasks = readModel.tasks.planningOrderScope
   const pendingClosureTasks = readModel.tasks.pendingClosure
+  const obrasActivasRows = readModel.tasks.obrasActivasRows
+  const obrasKpis = readModel.metrics.obrasKpis
+  const operativeKpis = readModel.metrics.operativeKpis
   const crewIdsInOrder = readModel.crewIdsInOrder
   const crewNamesById = readModel.crewNamesById
   const activeCrewFilterName = readModel.activeCrewFilterName
@@ -1050,7 +1055,7 @@ function PlanningModuleContent() {
 
         <PlanningOperationalSummary
 
-          programmedCount={filteredTasks.length}
+          programmedCount={operativeKpis.programmedCount}
 
           overdueCount={overdueCount}
 
@@ -1201,6 +1206,42 @@ function PlanningModuleContent() {
 
           <div className="flex min-h-0 flex-1 flex-col gap-1.5 lg:flex-row">
 
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
+
+            <PlanningObrasActivasSection
+
+              rows={obrasActivasRows}
+
+              kpis={obrasKpis}
+
+              readOnly={!isEditingMode}
+
+              onOpenTask={setSelectedTaskId}
+
+              onEditTask={
+
+                isEditingMode
+
+                  ? (taskId) => {
+
+                      const task = tasks.find((entry) => entry.id === taskId)
+
+                      if (task && isTaskPlanningEditable(task)) {
+
+                        setSelectedTaskId(taskId)
+
+                        setAdjustSheetTaskId(taskId)
+
+                      }
+
+                    }
+
+                  : undefined
+
+              }
+
+            />
+
             <PlanningTaskList
 
               mode={dispatchMode}
@@ -1286,6 +1327,8 @@ function PlanningModuleContent() {
               className="min-h-0 min-w-0 flex-1 lg:h-full"
 
             />
+
+            </div>
 
             {listTasks.length > 0 ? (
               <div className="flex w-full shrink-0 flex-col gap-1.5 lg:w-[17.5rem]">

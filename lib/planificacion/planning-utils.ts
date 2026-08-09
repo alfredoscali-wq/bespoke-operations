@@ -5,7 +5,7 @@ import {
   getWorkOrderServiceTypeLabel,
   type WorkOrderShift,
 } from "@/lib/tasks/work-order"
-import { isPlanningUniverseTask } from "@/lib/planificacion/planning-universe"
+import { isOperationalRouteTask } from "@/lib/planificacion/planning-universe"
 import { isTaskActiveOnPlanningDate } from "@/lib/planificacion/planning-date-range"
 import { hasCoordinates } from "@/lib/gps"
 import type { Crew } from "@/lib/types/crews"
@@ -180,7 +180,7 @@ export function filterProgrammedTasksForPlanning(
   filters: PlanningFilters
 ): Task[] {
   return tasks.filter((task) => {
-    if (!isPlanningUniverseTask(task) || task.status !== "programada") {
+    if (!isOperationalRouteTask(task) || task.status !== "programada") {
       return false
     }
 

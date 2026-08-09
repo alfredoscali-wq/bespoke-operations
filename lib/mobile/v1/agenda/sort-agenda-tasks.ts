@@ -21,7 +21,11 @@ function compareScheduledTime(
   return normalizedLeft.localeCompare(normalizedRight)
 }
 
-export function sortAgendaTasks(tasks: Task[]): Task[] {
+function isAgendaObraTask(task: Pick<Task, "projectId">): boolean {
+  return Boolean(task.projectId?.trim())
+}
+
+function sortRouteAgendaTasks(tasks: Task[]): Task[] {
   if (tasksHavePersistedDispatchOrder(tasks)) {
     return sortTasksByDispatchRoute(tasks)
   }
@@ -47,4 +51,24 @@ export function sortAgendaTasks(tasks: Task[]): Task[] {
     const rightCreated = right.createdAt ?? ""
     return leftCreated.localeCompare(rightCreated)
   })
+}
+
+function sortObraAgendaTasks(tasks: Task[]): Task[] {
+  return [...tasks].sort((left, right) => {
+    const byName = (left.projectName ?? "").localeCompare(
+      right.projectName ?? "",
+      "es"
+    )
+    if (byName !== 0) return byName
+    return left.code.localeCompare(right.code, "es")
+  })
+}
+
+/**
+ * OPS 2.1B: Obras first (no route order), then operational jornada by dispatch route.
+ */
+export function sortAgendaTasks(tasks: Task[]): Task[] {
+  const obras = tasks.filter(isAgendaObraTask)
+  const route = tasks.filter((task) => !isAgendaObraTask(task))
+  return [...sortObraAgendaTasks(obras), ...sortRouteAgendaTasks(route)]
 }

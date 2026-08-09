@@ -16,6 +16,7 @@ import {
   filterProgrammedTasksForPlanningDate,
 } from "@/lib/planificacion/planning-dispatch"
 import {
+  filterObraPlanningTasksForDate,
   filterPlanningOperationalViewTasks,
   isJourneyFullyPlanned,
   resolveCrewPlanningButtonVisibility,
@@ -27,6 +28,11 @@ import {
   buildPlanningCrewSummaries,
   filterPlanningTasksByCrewFilter,
 } from "@/lib/planificacion/planning-utils"
+import {
+  buildPlanningObraActiveRows,
+  computePlanningObrasKpis,
+  computePlanningOperativeKpis,
+} from "@/lib/planificacion/planning-obras-lane"
 import { isWorkOrderTask } from "@/lib/tasks/work-order"
 import {
   countOperationallyOverdueTasks,
@@ -101,10 +107,20 @@ export function buildPlanningReadModel(
       ? filterConfirmedDispatchTasksForPlanning(sourceTasks, { date })
       : filterPlanningOperationalViewTasks(sourceTasks, { date })
 
+  const obrasActivas = overdueFilterActive
+    ? []
+    : filterObraPlanningTasksForDate(sourceTasks, { date })
+
   const sortedTasks = sortTasksByDispatchRoute(filteredTasks, sourceCrews)
 
   const listTasks = filterPlanningTasksByCrewFilter(
     filteredTasks,
+    crewFilterId,
+    activeCrews
+  )
+
+  const obrasForCrewFilter = filterPlanningTasksByCrewFilter(
+    obrasActivas,
     crewFilterId,
     activeCrews
   )
@@ -123,10 +139,14 @@ export function buildPlanningReadModel(
       }
     : null
 
+  const capacityTasksForSelectedCrew = selectedCrew
+    ? [...listTasks, ...obrasForCrewFilter]
+    : listTasks
+
   const crewPlanningSummary =
     selectedCrew && dayConfig
       ? buildCrewPlanningSummary({
-          tasks: listTasks,
+          tasks: capacityTasksForSelectedCrew,
           crew: applyDayOperationalBaseToCrew(selectedCrew, dayConfig.config),
           crews: activeCrews,
           availableMinutes: dayConfig.config.availableMinutes,
@@ -134,8 +154,10 @@ export function buildPlanningReadModel(
         })
       : null
 
+  /** Carga de cuadrilla = ruta + obras (capacidad); botones solo ven ruta. */
+  const capacityTasks = [...filteredTasks, ...obrasActivas]
   const crewSummaries = buildPlanningCrewSummaries(
-    filteredTasks,
+    capacityTasks,
     activeCrews,
     date
   )
@@ -167,6 +189,13 @@ export function buildPlanningReadModel(
     ? listOrderedTasksForCrewJourney(listTasks, crewFilterId, sourceCrews)
     : sortedTasks
 
+  const operativeKpis = computePlanningOperativeKpis(
+    filteredTasks,
+    date,
+    overdueCount
+  )
+  const obrasKpis = computePlanningObrasKpis(obrasActivas, date, activeCrews)
+
   const crewIdsInOrder = activeCrews.map((crew) => crew.id)
   const crewNamesById = Object.fromEntries(
     activeCrews.map((crew) => [crew.id, crew.name] as const)
@@ -196,6 +225,12 @@ export function buildPlanningReadModel(
       list: listTasks,
       planningOrderScope,
       pendingClosure,
+      obrasActivas: obrasForCrewFilter,
+      obrasActivasRows: buildPlanningObraActiveRows(
+        obrasForCrewFilter,
+        date,
+        activeCrews
+      ),
     },
     agenda: {
       crewId: crewFilterId,
@@ -208,6 +243,8 @@ export function buildPlanningReadModel(
       crewSummaries,
       crewPlanningSummary,
       crewPlanningButtonsById,
+      operativeKpis,
+      obrasKpis,
     },
     incidents: {
       active: [...activeIncidents],

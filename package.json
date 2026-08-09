@@ -138,6 +138,7 @@
     "test:obras-ops-1-3-checklist": "npx tsx --test scripts/test-obras-ops-1-3-checklist.mjs",
     "test:obras-ops-2-0-fase1": "npx tsx --test scripts/test-obras-ops-2-0-fase1.mjs",
     "test:obras-ops-2-1a-multiday": "npx tsx --test scripts/test-obras-ops-2-1a-multiday.mjs",
+    "test:obras-ops-2-1b-route-exclusion": "npx tsx --test scripts/test-obras-ops-2-1b-route-exclusion.mjs",
     "test:admin-force-delete": "npx tsx --test scripts/test-admin-force-delete.mjs",
     "db:rc1-1": "node scripts/apply-rc1-1-migration.mjs",
     "prepare:clientes": "npx tsx scripts/prepare-commercial-migration.ts",

@@ -11,6 +11,7 @@ import {
 import {
   filterPlanningOperationalViewTasks,
   filterPlanningSessionTasks,
+  filterObraPlanningTasksForDate,
 } from "../lib/planificacion/planning-crew-state.ts"
 import {
   filterConfirmedDispatchTasksForPlanning,
@@ -106,47 +107,68 @@ test("badge Día X de Y", () => {
   assert.equal(formatPlanningMultiDayBadge(makeSingleDayOt(), "2026-08-09"), null)
 })
 
-test("filtros planning proyectan OT en los 3 días (misma fila)", () => {
+test("filtros planning: ruta excluye obra; lane obras proyecta 3 días", () => {
   const tasks = [makeMultiDayObra(), makeSingleDayOt()]
   for (const date of ["2026-08-08", "2026-08-09", "2026-08-10"]) {
     const view = filterPlanningOperationalViewTasks(tasks, { date })
-    assert.ok(
+    assert.equal(
       view.some((t) => t.id === "obra-1"),
-      `obra visible en ${date}`
+      false,
+      `obra fuera de listado operativo en ${date}`
     )
-    assert.equal(view.filter((t) => t.id === "obra-1").length, 1)
+    assert.equal(
+      filterObraPlanningTasksForDate(tasks, { date }).some(
+        (t) => t.id === "obra-1"
+      ),
+      true,
+      `obra visible en lane obras en ${date}`
+    )
   }
 
   assert.equal(
-    filterPlanningOperationalViewTasks(tasks, { date: "2026-08-07" }).some(
+    filterObraPlanningTasksForDate(tasks, { date: "2026-08-07" }).some(
       (t) => t.id === "obra-1"
     ),
     false
   )
 
-  assert.ok(
+  assert.equal(
     filterProgrammedTasksForPlanning(tasks, { date: "2026-08-09" }).some(
       (t) => t.id === "obra-1"
-    )
+    ),
+    false
   )
-  assert.ok(
+  assert.equal(
     filterProgrammedTasksForPlanningDate(tasks, { date: "2026-08-08" }).some(
       (t) => t.id === "obra-1"
-    )
+    ),
+    false
   )
-  assert.ok(
+  assert.equal(
     filterPlanningSessionTasks(tasks, { date: "2026-08-10" }).some(
       (t) => t.id === "obra-1"
+    ),
+    false
+  )
+  assert.ok(
+    filterPlanningOperationalViewTasks(tasks, { date: "2026-08-09" }).some(
+      (t) => t.id === "ot-1"
     )
   )
 })
 
-test("confirmed mode también usa rango", () => {
+test("confirmed mode: obra no entra a confirmed route filter", () => {
   const tasks = [makeMultiDayObra({ status: "asignada" })]
-  assert.ok(
+  assert.equal(
     filterConfirmedDispatchTasksForPlanning(tasks, {
       date: "2026-08-09",
-    }).some((t) => t.id === "obra-1")
+    }).some((t) => t.id === "obra-1"),
+    false
+  )
+  assert.ok(
+    filterObraPlanningTasksForDate(tasks, { date: "2026-08-09" }).some(
+      (t) => t.id === "obra-1"
+    )
   )
 })
 
@@ -173,11 +195,11 @@ test("KPI cuadrilla usa duración diaria no total", () => {
   assert.ok((summaries[0]?.estimatedMinutes ?? 0) < 24 * 60)
 })
 
-test("order scope incluye OT multi-día en día intermedio", () => {
+test("order scope excluye OT de Obra multi-día (OPS 2.1B)", () => {
   const tasks = [makeMultiDayObra(), makeSingleDayOt()]
   const scope = filterOperationalOrderScope(tasks, "2026-08-09", "crew-1")
   assert.deepEqual(
-    scope.map((t) => t.id).sort(),
-    ["obra-1", "ot-1"].sort()
+    scope.map((t) => t.id),
+    ["ot-1"]
   )
 })

@@ -6,7 +6,7 @@ import {
 } from "@/lib/planificacion/planning-operational-order-core"
 import { taskMatchesCrewId } from "@/lib/tasks/crew-relation"
 import { hasActivePlanningReturn } from "@/lib/tasks/planning-return"
-import { isPlanningUniverseTask } from "@/lib/planificacion/planning-universe"
+import { isOperationalRouteTask } from "@/lib/planificacion/planning-universe"
 import { isTaskActiveOnPlanningDate } from "@/lib/planificacion/planning-date-range"
 import type { Crew } from "@/lib/types/crews"
 import type { Task, TaskStatus } from "@/lib/types/tasks"
@@ -52,13 +52,13 @@ export function isTaskReopenableForPlanning(
   return task.status === "asignada" || task.status === "vencida"
 }
 
-/** OT visibles en la vista operativa de planificación (editables + ruta congelada). */
+/** OT operativas visibles en la ruta de planificación (editables + ruta congelada). OPS 2.1B: sin Obra. */
 export function filterPlanningOperationalViewTasks(
   tasks: Task[],
   filters: PlanningFilters
 ): Task[] {
   return tasks.filter((task) => {
-    if (!isPlanningUniverseTask(task) || !isTaskActiveOnPlanningDate(task, filters.date)) {
+    if (!isOperationalRouteTask(task) || !isTaskActiveOnPlanningDate(task, filters.date)) {
       return false
     }
 

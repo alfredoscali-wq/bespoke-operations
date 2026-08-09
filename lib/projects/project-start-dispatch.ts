@@ -162,17 +162,13 @@ export function resolveProjectTaskCreateStatus(
 
 /**
  * Planning queue side-effects (execution_order):
- * - OT de servicio: siempre
- * - OT de Obra: solo cuando ya está en lane programada (no borrador)
+ * - OT de servicio: sí
+ * - OT de Obra (projectId): nunca (OPS 2.1B — fuera de ruta)
  */
 export function shouldApplyPlanningQueueSideEffectsForTask(
   task:
     | Pick<Task, "projectId" | "status">
     | { projectId?: string | null; status?: TaskStatus | null }
 ): boolean {
-  if (!task.projectId) {
-    return true
-  }
-
-  return task.status === "programada"
+  return !task.projectId
 }

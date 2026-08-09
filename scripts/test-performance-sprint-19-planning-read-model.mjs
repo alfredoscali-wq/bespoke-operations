@@ -58,9 +58,9 @@ function makeTask(overrides = {}) {
     code: "OT-1",
     title: "Instalacion",
     description: "",
-    projectId: "p1",
-    projectCode: "OB-1",
-    projectName: "Obra Centro",
+    projectId: undefined,
+    projectCode: "OT",
+    projectName: "Cliente",
     type: "fiber",
     status: "asignada",
     priority: "media",
@@ -125,8 +125,7 @@ test("Sprint 19: read model construction includes jornada slices", () => {
   assert.equal(model.crews.length, 1)
   assert.equal(model.employees.length, 1)
   assert.equal(model.availability.length, 1)
-  assert.equal(model.obras.length, 1)
-  assert.equal(model.obras[0].code, "OB-1")
+  assert.equal(model.obras.length, 0)
   assert.equal(model.tasks.list.length, 1)
   assert.equal(model.agenda.orderedTaskIds[0], "t1")
   assert.ok(

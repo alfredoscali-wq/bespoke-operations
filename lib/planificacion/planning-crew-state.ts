@@ -1,6 +1,9 @@
 import { taskMatchesCrewId, resolveTaskCrewId } from "@/lib/tasks/crew-relation"
 import { hasActivePlanningReturn } from "@/lib/tasks/planning-return"
-import { isPlanningUniverseTask } from "@/lib/planificacion/planning-universe"
+import {
+  isObraPlanningTask,
+  isOperationalRouteTask,
+} from "@/lib/planificacion/planning-universe"
 import { isTaskActiveOnPlanningDate } from "@/lib/planificacion/planning-date-range"
 import type { Crew } from "@/lib/types/crews"
 import type { Task } from "@/lib/types/tasks"
@@ -20,13 +23,19 @@ export type CrewPlanningButtonVisibility = {
   showPlannedBadge: boolean
 }
 
-/** OT en el circuito de planificación dinámica (aún no comenzaron). */
+/**
+ * OT operativas en el circuito de planificación dinámica (ruta diaria).
+ * OPS 2.1B: excluye OT de Obra — no afectan Planificar/Replanificar.
+ */
 export function filterPlanningSessionTasks(
   tasks: Task[],
   filters: PlanningFilters
 ): Task[] {
   return tasks.filter((task) => {
-    if (!isPlanningUniverseTask(task) || !isTaskActiveOnPlanningDate(task, filters.date)) {
+    if (
+      !isOperationalRouteTask(task) ||
+      !isTaskActiveOnPlanningDate(task, filters.date)
+    ) {
       return false
     }
 
@@ -35,6 +44,36 @@ export function filterPlanningSessionTasks(
     }
 
     return isTaskInDynamicPlanningPool(task.status)
+  })
+}
+
+/** OT de Obra activas en la fecha de planificación (capacidad / sección Obras). */
+export function filterObraPlanningTasksForDate(
+  tasks: Task[],
+  filters: PlanningFilters
+): Task[] {
+  return tasks.filter((task) => {
+    if (
+      !isObraPlanningTask(task) ||
+      !isTaskActiveOnPlanningDate(task, filters.date)
+    ) {
+      return false
+    }
+
+    if (hasActivePlanningReturn(task)) {
+      return false
+    }
+
+    if (
+      task.status === "borrador" ||
+      task.status === "cancelada" ||
+      task.status === "finalizada" ||
+      task.status === "cerrada"
+    ) {
+      return false
+    }
+
+    return true
   })
 }
 
@@ -133,13 +172,19 @@ export function isJourneyFullyPlanned(
     return false
   }
 
-  const crewsWithTasks = listActiveCrewsWithPlanningTasks(tasks, date, activeCrews)
+  const crewsWithTasks = listActiveCrewsWithPlanningTasks(
+    tasks,
+    date,
+    activeCrews
+  )
 
   if (crewsWithTasks.length === 0) {
     return false
   }
 
-  return crewsWithTasks.every((crew) => isCrewPlanningComplete(tasks, date, crew))
+  return crewsWithTasks.every((crew) =>
+    isCrewPlanningComplete(tasks, date, crew)
+  )
 }
 
 export {

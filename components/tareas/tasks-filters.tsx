@@ -91,6 +91,7 @@ const priorityOrder: Record<TaskPriority, number> = {
 }
 
 const statusOrder: Record<TaskStatus, number> = {
+  borrador: 0,
   programada: 1,
   asignada: 2,
   vencida: 3,

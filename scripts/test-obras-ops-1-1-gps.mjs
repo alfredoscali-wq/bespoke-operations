@@ -366,7 +366,7 @@ test("23. Obras Ops 2.0 create status (planned borrador / active programada)", (
   assert.equal(resolveProjectTaskCreateStatus("planned"), "borrador")
 })
 
-test("24. execution_order: obra borrador sin side-effects; programada sí", () => {
+test("24. execution_order: OT de Obra nunca aplica side-effects (OPS 2.1B)", () => {
   assert.equal(
     shouldApplyPlanningQueueSideEffectsForTask({
       projectId: "proj-1",
@@ -379,7 +379,7 @@ test("24. execution_order: obra borrador sin side-effects; programada sí", () =
       projectId: "proj-1",
       status: "programada",
     }),
-    true
+    false
   )
   assert.equal(
     shouldApplyPlanningQueueSideEffectsForTask({ projectId: null }),

@@ -36,6 +36,8 @@ export type PlanningEditFormState = {
   crewId: string
   shift: WorkOrderShift | ""
   scheduledDate: string
+  /** OPS 2.1B — start of multi-day range (Obra); defaults to scheduledDate. */
+  startDate: string
   estimatedDurationPreset: WorkOrderDurationPreset | ""
   estimatedDurationCustomMinutes: string
   operationalOrder: string
@@ -46,6 +48,7 @@ export const EMPTY_PLANNING_EDIT_FORM: PlanningEditFormState = {
   crewId: "",
   shift: "",
   scheduledDate: "",
+  startDate: "",
   estimatedDurationPreset: "",
   estimatedDurationCustomMinutes: "",
   operationalOrder: "",
@@ -64,6 +67,7 @@ export function buildPlanningEditFormFromTask(
     crewId,
     shift: resolveTaskShift(task) ?? "",
     scheduledDate: task.dueDate || "",
+    startDate: task.startDate?.trim() || task.dueDate || "",
     estimatedDurationPreset: preset,
     estimatedDurationCustomMinutes: customMinutes,
     operationalOrder: resolveOperationalOrderFormDefault({
@@ -154,6 +158,17 @@ export function validatePlanningAdjustForm(
     return { valid: false, message: "Seleccione la fecha operativa." }
   }
 
+  if (
+    form.startDate.trim() &&
+    form.scheduledDate.trim() &&
+    form.startDate.trim() > form.scheduledDate.trim()
+  ) {
+    return {
+      valid: false,
+      message: "La fecha de inicio no puede ser posterior a la fecha fin.",
+    }
+  }
+
   if (!form.estimatedDurationPreset) {
     return { valid: false, message: "Seleccione la duración estimada." }
   }
@@ -206,9 +221,17 @@ export function buildPlanningTaskUpdateBatch(input: {
   const previousCrewId = resolveTaskCrewId(task, crews) ?? null
   const nextCrewId = form.crewId || null
   const nextDueDate = form.scheduledDate.trim() || task.dueDate
+  const isObra = Boolean(task.projectId?.trim())
+  // OT operativas: un solo día operativo (start = due). OT de Obra: rango libre.
+  const nextStartDate = isObra
+    ? form.startDate.trim() || nextDueDate
+    : nextDueDate
   const executionOrderUpdates: ExecutionOrderUpdate[] = []
 
-  if (previousCrewId !== nextCrewId || task.dueDate !== nextDueDate) {
+  if (
+    !isObra &&
+    (previousCrewId !== nextCrewId || task.dueDate !== nextDueDate)
+  ) {
     executionOrderUpdates.push(
       ...resolveOperationalOrderOnCrewChange({
         task,
@@ -225,7 +248,7 @@ export function buildPlanningTaskUpdateBatch(input: {
     crewId: snapshots.crewId,
     crew: snapshots.crew,
     supervisor: snapshots.supervisor,
-    startDate: nextDueDate,
+    startDate: nextStartDate,
     dueDate: nextDueDate,
     scheduledTime: normalizeScheduledTimeForDb(resolveScheduledTimeFromShift(shift)),
     estimatedDuration: resolvePlanningEditEstimatedDuration(form),
@@ -236,6 +259,11 @@ export function buildPlanningTaskUpdateBatch(input: {
       },
       form.materialsNeeded
     ),
+  }
+
+  if (isObra) {
+    primaryPayload.executionOrder = null
+    primaryPayload.dispatchOrder = null
   }
 
   const taskOrderUpdate = executionOrderUpdates.find(

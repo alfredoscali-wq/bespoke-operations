@@ -20,6 +20,7 @@ import {
   isObraPlanningTask,
   isPlanningUniverseTask,
 } from "../lib/planificacion/planning-universe.ts"
+import { filterObraPlanningTasksForDate } from "../lib/planificacion/planning-crew-state.ts"
 import {
   filterProgrammedTasksForPlanning,
   resolvePlanningTaskObraLabel,
@@ -157,7 +158,7 @@ test("OPS 2.0: integrity planned → borrador; active → programada", () => {
   if (active.ok) assert.equal(active.status, "programada")
 })
 
-test("OPS 2.0: planning side-effects solo para obra programada", () => {
+test("OPS 2.0/2.1B: planning side-effects nunca para OT de Obra", () => {
   assert.equal(
     shouldApplyPlanningQueueSideEffectsForTask({
       projectId: "p1",
@@ -170,7 +171,7 @@ test("OPS 2.0: planning side-effects solo para obra programada", () => {
       projectId: "p1",
       status: "programada",
     }),
-    true
+    false
   )
   assert.equal(
     shouldApplyPlanningQueueSideEffectsForTask({ projectId: null }),
@@ -196,7 +197,7 @@ test("OPS 2.0: OT Obra no aparece en módulo Órdenes de Trabajo", () => {
   )
 })
 
-test("OPS 2.0: borrador fuera de Planificación; programada Obra dentro", () => {
+test("OPS 2.0/2.1B: borrador fuera; Obra programada en lane obras (no ruta)", () => {
   const draft = makeObraTask({ status: "borrador" })
   const scheduled = makeObraTask({ status: "programada" })
   const service = makeServiceOt()
@@ -209,25 +210,49 @@ test("OPS 2.0: borrador fuera de Planificación; programada Obra dentro", () => 
     { date: "2026-07-15" }
   )
   assert.deepEqual(
-    programmed.map((t) => t.id).sort(),
-    ["ot-1", "task-1"].sort()
+    programmed.map((t) => t.id),
+    ["ot-1"]
+  )
+  assert.deepEqual(
+    filterObraPlanningTasksForDate([draft, scheduled, service], {
+      date: "2026-07-15",
+    }).map((t) => t.id),
+    ["task-1"]
   )
   assert.equal(resolvePlanningTaskObraLabel(scheduled), "Obra Norte")
   assert.equal(resolvePlanningTaskObraLabel(service), null)
 })
 
-test("OPS 2.0: Mobile no ve borrador ni programada de Obra", () => {
+test("OPS 2.0/2.1B: Mobile ve Obra programada con cuadrilla; no borrador", () => {
   const today = "2026-07-15"
   assert.equal(
     isFieldAgentAgendaTaskVisible(
-      { status: "borrador", startDate: today, dueDate: today },
+      { status: "borrador", startDate: today, dueDate: today, projectId: "p1" },
       today
     ),
     false
   )
   assert.equal(
     isFieldAgentAgendaTaskVisible(
-      { status: "programada", startDate: today, dueDate: today },
+      {
+        status: "programada",
+        startDate: today,
+        dueDate: today,
+        projectId: "p1",
+        crewId: "crew-1",
+      },
+      today
+    ),
+    true
+  )
+  assert.equal(
+    isFieldAgentAgendaTaskVisible(
+      {
+        status: "programada",
+        startDate: today,
+        dueDate: today,
+        projectId: undefined,
+      },
       today
     ),
     false
