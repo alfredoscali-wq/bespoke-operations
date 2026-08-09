@@ -2,7 +2,8 @@ import "server-only"
 
 import { recordTaskMobileStartActivity } from "@/lib/activity/adapters/tasks-activity.server"
 import { recordTaskMobileStartAudit } from "@/lib/audit/tasks-audit.server"
-import { compareDateOnly, toLocalDateOnly } from "@/lib/dates/date-only"
+import { toLocalDateOnly } from "@/lib/dates/date-only"
+import { isOperationalDateRangeActive } from "@/lib/mobile/v1/agenda/agenda-task-visibility"
 import type { MobileAuthContext } from "@/lib/mobile/v1/auth/mobile-auth-context"
 import { MobileApiError } from "@/lib/mobile/v1/errors"
 import { fetchOperationalChecklistForServiceType } from "@/lib/mobile/v1/checklist/checklist-queries"
@@ -142,7 +143,7 @@ export async function startMobileTask(
         )
       }
       const today = toLocalDateOnly()
-      if (compareDateOnly(task.dueDate, today) > 0) {
+      if (!isOperationalDateRangeActive(task, today)) {
         throw new MobileApiError(
           "TASK_NOT_FOUND",
           "Orden de trabajo no encontrada.",
