@@ -17,6 +17,7 @@ import {
 
 import { useAuth } from "@/components/auth/auth-provider"
 import { useTasks } from "@/components/tareas/tasks-provider"
+import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import { TASK_DELETE_USER_MESSAGE } from "@/lib/operations/user-messages"
 import { ForceDeleteAction } from "@/components/admin/force-delete-action"
 import { useCrews } from "@/components/cuadrillas/crews-provider"
@@ -49,6 +50,9 @@ import {
   buildProjectTaskSupervisedEditFieldChanges,
   formatProjectTaskSupervisedEditHistoryNote,
 } from "@/lib/projects/project-task-supervised-edit"
+import { formatDailyAllocationHistoryNote } from "@/lib/projects/task-daily-allocations"
+import type { TaskDailyAllocationDraft } from "@/lib/projects/task-daily-allocations"
+import { syncTaskDailyAllocations } from "@/lib/supabase/task-daily-allocations.browser"
 import { resolveProjectTaskFieldDispatchBadge } from "@/lib/projects/project-task-field-release"
 import { canRescheduleProjectTaskFromSession } from "@/lib/projects/project-task-reschedule"
 import { resolveProjectTaskRowActions } from "@/lib/projects/project-task-row-actions"
@@ -92,6 +96,7 @@ type FieldDispatchConfirm = {
 
 export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
   const { sessionUser } = useAuth()
+  const { companyId, isAuthReady } = useTenantCompanyId()
   const {
     tasks,
     addTask,
@@ -101,6 +106,7 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
     rescheduleProjectTask,
     releaseProjectTaskToField,
     returnProjectTaskFromField,
+    refreshTasksFromServer,
   } = useTasks()
   const { getCrew } = useCrews()
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -178,7 +184,12 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
     latitude?: number | null
     longitude?: number | null
     sharedLocation?: string | null
+    dailyAllocations: TaskDailyAllocationDraft[]
   }) {
+    if (!isAuthReady || !companyId) {
+      throw new Error("No se pudo identificar la compañía para guardar la OT.")
+    }
+
     if (dialogMode === "edit" && selectedTask) {
       if (!canEditProjectTaskFromObras(selectedTask)) {
         throw new Error(
@@ -223,19 +234,34 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
         updatePayload,
         payload.materialsNeeded
       )
-      const historyNote = formatProjectTaskSupervisedEditHistoryNote(
+      const fieldHistory = formatProjectTaskSupervisedEditHistoryNote(
         fieldChanges,
         { actor: actorName }
       )
+      const allocationHistory = formatDailyAllocationHistoryNote(
+        selectedTask.dailyAllocations,
+        payload.dailyAllocations,
+        { actor: actorName }
+      )
+      const historyNote = [fieldHistory, allocationHistory]
+        .filter(Boolean)
+        .join(" ")
 
       const result = await editTask(selectedTask.id, updatePayload, {
-        historyNote: historyNote ?? undefined,
+        historyNote: historyNote || undefined,
         historyActor: actorName,
       })
 
       if (!result.success) {
         throw new Error(result.message ?? "No se pudo actualizar la orden de trabajo.")
       }
+
+      await syncTaskDailyAllocations({
+        companyId,
+        taskId: selectedTask.id,
+        allocations: payload.dailyAllocations,
+      })
+      void refreshTasksFromServer({ silent: true })
 
       setFeedback({
         type: "success",
@@ -247,7 +273,7 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
     const selectedCrew = getCrew(payload.crewId)
     const snapshots = resolveCrewSnapshotsForAssignment(selectedCrew)
 
-    await addTask({
+    const created = await addTask({
       code: payload.code,
       title: payload.title,
       description: payload.description,
@@ -276,6 +302,13 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
       ),
       status: resolveProjectTaskCreateStatus(project.status),
     })
+
+    await syncTaskDailyAllocations({
+      companyId,
+      taskId: created.id,
+      allocations: payload.dailyAllocations,
+    })
+    void refreshTasksFromServer({ silent: true })
 
     setFeedback({
       type: "success",

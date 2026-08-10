@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import {
@@ -25,6 +25,13 @@ import {
   resolveTaskCrewId,
 } from "@/lib/tasks/crew-relation"
 import { readMaterialsNeededFromTask } from "@/lib/tasks/work-order"
+import {
+  isMultiDayOperationalRange,
+  parseTotalMinutesFromEstimatedDuration,
+  resolveDailyAllocationMode,
+  validateManualDailyAllocations,
+  type TaskDailyAllocationDraft,
+} from "@/lib/projects/task-daily-allocations"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -41,6 +48,10 @@ import {
 } from "@/components/ui/protected-form-dialog"
 import { LocationInput } from "@/components/location/location-input"
 import { ProjectTaskChecklistEditor } from "@/components/obras/project-task-checklist-editor"
+import {
+  ProjectTaskDailyAllocationSection,
+  type ProjectTaskDailyAllocationValue,
+} from "@/components/obras/project-task-daily-allocation-section"
 import { hasCoordinates } from "@/lib/gps/coordinates"
 import { resolveLocationViaApi } from "@/lib/location/client/resolve-via-api"
 import {
@@ -96,6 +107,8 @@ type ProjectTaskDialogProps = {
     latitude?: number | null
     longitude?: number | null
     sharedLocation?: string | null
+    /** OPS 2.6 — empty = automatic / legacy even-split */
+    dailyAllocations: TaskDailyAllocationDraft[]
   }) => Promise<void>
 }
 
@@ -187,6 +200,23 @@ export function ProjectTaskDialog({
   >([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [allocationValue, setAllocationValue] =
+    useState<ProjectTaskDailyAllocationValue>({
+      mode: "automatic",
+      allocations: [],
+    })
+  const [baselineAllocationValue, setBaselineAllocationValue] =
+    useState<ProjectTaskDailyAllocationValue>({
+      mode: "automatic",
+      allocations: [],
+    })
+
+  const handleAllocationChange = useCallback(
+    (next: ProjectTaskDailyAllocationValue) => {
+      setAllocationValue(next)
+    },
+    []
+  )
 
   const isFormDirty = isFormStateDirty(form, baselineForm)
   const isChecklistDirty =
@@ -200,7 +230,11 @@ export function ProjectTaskDialog({
         dropEmptyTitles: false,
       })
     )
-  const isDirty = isFormDirty || isChecklistDirty
+  const isAllocationDirty =
+    allocationValue.mode !== baselineAllocationValue.mode ||
+    JSON.stringify(allocationValue.allocations) !==
+      JSON.stringify(baselineAllocationValue.allocations)
+  const isDirty = isFormDirty || isChecklistDirty || isAllocationDirty
   const {
     handleOpenChange,
     requestClose,
@@ -242,6 +276,16 @@ export function ProjectTaskDialog({
     setBaselineForm(nextForm)
     setChecklistTemplate(nextChecklist)
     setBaselineChecklistTemplate(nextChecklist)
+
+    const nextAllocation: ProjectTaskDailyAllocationValue =
+      mode === "edit" && task
+        ? {
+            mode: resolveDailyAllocationMode(task.dailyAllocations),
+            allocations: task.dailyAllocations ? [...task.dailyAllocations] : [],
+          }
+        : { mode: "automatic", allocations: [] }
+    setAllocationValue(nextAllocation)
+    setBaselineAllocationValue(nextAllocation)
   }, [open, mode, project, task, assignableCrews, crews])
 
   function updateField<K extends keyof TaskFormState>(
@@ -268,6 +312,28 @@ export function ProjectTaskDialog({
     if (form.dueDate < form.startDate) {
       setError("La fecha límite no puede ser anterior a la fecha de inicio.")
       return
+    }
+
+    const totalMinutes = parseTotalMinutesFromEstimatedDuration(
+      form.estimatedDuration.trim()
+    )
+    let dailyAllocations: TaskDailyAllocationDraft[] = []
+
+    if (
+      isMultiDayOperationalRange(form.startDate, form.dueDate) &&
+      allocationValue.mode === "manual"
+    ) {
+      const validation = validateManualDailyAllocations({
+        startDate: form.startDate,
+        dueDate: form.dueDate,
+        totalMinutes,
+        allocations: allocationValue.allocations,
+      })
+      if (!validation.ok) {
+        setError(validation.message)
+        return
+      }
+      dailyAllocations = allocationValue.allocations
     }
 
     const isSameCrew =
@@ -330,6 +396,7 @@ export function ProjectTaskDialog({
         latitude,
         longitude,
         sharedLocation,
+        dailyAllocations,
       })
 
       forceClose()
@@ -484,6 +551,14 @@ export function ProjectTaskDialog({
               />
             </div>
           </div>
+
+          <ProjectTaskDailyAllocationSection
+            startDate={form.startDate}
+            dueDate={form.dueDate}
+            estimatedDuration={form.estimatedDuration}
+            value={allocationValue}
+            onChange={handleAllocationChange}
+          />
 
           <div className="space-y-2">
             <Label htmlFor="task-ot-gps">GPS de la OT (opcional)</Label>

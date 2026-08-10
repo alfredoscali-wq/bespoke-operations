@@ -6,6 +6,7 @@ import {
   mapTaskRowToTask,
   mapUpdatePayloadToUpdate,
 } from "@/lib/supabase/tasks.mapper"
+import { fetchTaskDailyAllocationsByCompany } from "@/lib/supabase/task-daily-allocations.queries"
 import type { Task } from "@/lib/types/tasks"
 import type {
   CreateTaskPayload,
@@ -31,6 +32,37 @@ import {
 import { resolveNextPlanningQueuePosition } from "@/lib/planificacion/planning-dynamic"
 
 export type SupabaseTasksClient = SupabaseClient<Database>
+
+async function attachDailyAllocations(
+  client: SupabaseTasksClient,
+  companyId: string,
+  tasks: Task[]
+): Promise<Task[]> {
+  if (tasks.length === 0) {
+    return tasks
+  }
+
+  try {
+    const byTask = await fetchTaskDailyAllocationsByCompany(
+      client as unknown as SupabaseClient,
+      companyId
+    )
+    if (byTask.size === 0) {
+      return tasks
+    }
+
+    return tasks.map((task) => {
+      const dailyAllocations = byTask.get(task.id)
+      if (!dailyAllocations || dailyAllocations.length === 0) {
+        return task
+      }
+      return { ...task, dailyAllocations }
+    })
+  } catch {
+    // Soft-fail: capacity falls back to even split without allocations.
+    return tasks
+  }
+}
 
 export function mapSupabaseTaskError(error: {
   code?: string
@@ -97,8 +129,9 @@ export async function fetchTasks(
     return { data: null, error: mapSupabaseTaskError(error) }
   }
 
+  const tasks = (data ?? []).map(mapTaskRowToTask)
   return {
-    data: (data ?? []).map(mapTaskRowToTask),
+    data: await attachDailyAllocations(client, companyId, tasks),
     error: null,
   }
 }

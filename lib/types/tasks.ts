@@ -99,6 +99,14 @@ export type Task = {
   taskMetadata?: Record<string, unknown>
   executionOrder?: number | null
   dispatchOrder?: number | null
+  /**
+   * OPS 2.6 — optional per-day minutes for multi-day Obra OTs.
+   * Empty/undefined → planning even-splits estimatedDuration.
+   */
+  dailyAllocations?: Array<{
+    workDate: string
+    allocatedMinutes: number
+  }>
 }
 
 export type TaskEvidence = {

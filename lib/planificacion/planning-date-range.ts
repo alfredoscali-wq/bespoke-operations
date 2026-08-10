@@ -5,10 +5,11 @@
 
 import { compareDateOnly, formatDateOnly, parseDateOnlyForDisplay } from "@/lib/dates/date-only"
 import { parseEstimatedDurationMinutes } from "@/lib/planificacion/planning-duration"
+import { resolveMinutesForWorkDate } from "@/lib/projects/task-daily-allocations"
 import type { Task } from "@/lib/types/tasks"
 
 export type PlanningDateRangeTask = Pick<Task, "dueDate"> &
-  Partial<Pick<Task, "startDate" | "estimatedDuration">>
+  Partial<Pick<Task, "startDate" | "estimatedDuration" | "dailyAllocations">>
 
 /** start_date if set; otherwise due_date. */
 export function resolvePlanningRangeStartDate(
@@ -97,9 +98,9 @@ export function resolvePlanningDayIndex(
 }
 
 /**
- * Daily load share for KPIs: totalMinutes / spanDays (integer, remainder on last days).
- * Example: 24h over 08→10 → 8h each day.
- * Returns 0 if the OT is not active on planningDate.
+ * Daily load for KPIs / capacity.
+ * OPS 2.6: when task.dailyAllocations exist, use allocated minutes for the day.
+ * Otherwise: even-split totalMinutes / spanDays (legacy).
  */
 export function resolvePlanningDayDurationMinutes(
   task: PlanningDateRangeTask,
@@ -107,6 +108,14 @@ export function resolvePlanningDayDurationMinutes(
 ): number {
   if (!isTaskActiveOnPlanningDate(task, planningDate)) {
     return 0
+  }
+
+  const allocated = resolveMinutesForWorkDate(
+    task.dailyAllocations,
+    planningDate.trim()
+  )
+  if (allocated != null) {
+    return allocated
   }
 
   const totalMinutes = parseEstimatedDurationMinutes(
