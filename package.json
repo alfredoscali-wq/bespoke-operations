@@ -143,6 +143,7 @@
     "test:obras-ops-2-4-incident-resolve": "npx tsx --test scripts/test-obras-ops-2-4-incident-resolve.mjs",
     "test:obras-ops-2-5-field-release": "npx tsx --test scripts/test-obras-ops-2-5-field-release.mjs",
     "test:obras-ops-2-6-daily-allocations": "npx tsx --test scripts/test-obras-ops-2-6-daily-allocations.mjs",
+    "test:tesoreria-2-1-payment-method": "npx tsx --test scripts/test-tesoreria-2-1-payment-method.mjs",
     "test:admin-force-delete": "npx tsx --test scripts/test-admin-force-delete.mjs",
     "db:rc1-1": "node scripts/apply-rc1-1-migration.mjs",
     "prepare:clientes": "npx tsx scripts/prepare-commercial-migration.ts",

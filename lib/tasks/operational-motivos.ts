@@ -5,6 +5,7 @@ import type { OperationalMotivo } from "@/lib/types/operational-control"
 import type { Task } from "@/lib/types/tasks"
 import type { TaskRescheduleInput } from "@/lib/tasks/reschedule"
 import type { TaskOperationalEventInsert } from "@/lib/types/operational-control"
+import { formatTreasuryPaymentMethodLabel } from "@/lib/tesoreria/ot-rendition-payment"
 
 export const DEFAULT_CANCELACION_MOTIVO_OPTIONS = [
   { value: "cliente-solicito", label: "Cliente solicitó cancelación" },
@@ -129,14 +130,18 @@ export function buildOtRendidaOperationalEvent(input: {
   amount: number
   deliveredBy: string
   actor: OperationalEventActor
+  paymentMethodExpected?: string | null
+  paymentMethodReceived?: string | null
 }): TaskOperationalEventInsert {
+  const expected = formatTreasuryPaymentMethodLabel(input.paymentMethodExpected)
+  const received = formatTreasuryPaymentMethodLabel(input.paymentMethodReceived)
   return applyOperationalEventActor(
     {
       companyId: input.companyId,
       taskId: input.taskId,
       eventType: "ot_rendida",
-      title: "OT rendida",
-      description: `Rendición de cobranza OT ${input.taskCode} · ${input.amount}`,
+      title: "Rendición de Cobranza",
+      description: `Rendición de Cobranza OT ${input.taskCode} · Esperado: ${expected} · Cobrado: ${received} · ${input.amount}`,
       observations: input.deliveredBy
         ? `Entrega: ${input.deliveredBy}`
         : "",
@@ -149,6 +154,8 @@ export function buildOtRendidaOperationalEvent(input: {
         usuario_registro: input.actor.fullName,
         persona_entrega: input.deliveredBy || null,
         fecha_hora: new Date().toISOString(),
+        payment_method_expected: input.paymentMethodExpected ?? null,
+        payment_method_received: input.paymentMethodReceived ?? null,
       },
     },
     input.actor

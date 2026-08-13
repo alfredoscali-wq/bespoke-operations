@@ -6,6 +6,7 @@ import Link from "next/link"
 
 import { useTreasury } from "@/components/tesoreria/treasury-provider"
 import { TreasuryConfirmRenditionDialog } from "@/components/tesoreria/treasury-confirm-rendition-dialog"
+import { formatTreasuryPaymentMethodLabel } from "@/lib/tesoreria/ot-rendition-payment"
 import {
   TREASURY_OT_RENDITION_STATUS_LABELS,
 } from "@/lib/tesoreria/ot-rendition-status"
@@ -58,6 +59,7 @@ export function TreasuryPendingRenditionsList({
               <TableHead>Cliente</TableHead>
               <TableHead>Cuadrilla</TableHead>
               <TableHead>Importe</TableHead>
+              <TableHead>Medio Esperado</TableHead>
               <TableHead>Fecha Cobro</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
@@ -67,7 +69,7 @@ export function TreasuryPendingRenditionsList({
             {!isReady ? (
               <TableRow>
                 <TableCell
-                  colSpan={7}
+                  colSpan={8}
                   className="h-20 text-center text-sm text-muted-foreground"
                 >
                   Cargando pendientes...
@@ -76,7 +78,7 @@ export function TreasuryPendingRenditionsList({
             ) : rows.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={7}
+                  colSpan={8}
                   className="h-20 text-center text-sm text-muted-foreground"
                 >
                   No hay OT pendientes de rendición.
@@ -96,6 +98,9 @@ export function TreasuryPendingRenditionsList({
                   </TableCell>
                   <TableCell className="tabular-nums">
                     {formatTreasuryAmount(row.amount)}
+                  </TableCell>
+                  <TableCell>
+                    {formatTreasuryPaymentMethodLabel(row.paymentMethodExpected)}
                   </TableCell>
                   <TableCell className="whitespace-nowrap tabular-nums">
                     {row.collectionDate}

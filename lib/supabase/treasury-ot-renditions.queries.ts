@@ -8,6 +8,10 @@ import type { Database } from "@/lib/supabase/database.types"
 import {
   OT_RENDITION_INCOME_CATEGORY,
 } from "@/lib/tesoreria/ot-renditions"
+import {
+  formatOtRenditionPaymentAuditNote,
+  isTreasuryReceivedPaymentMethod,
+} from "@/lib/tesoreria/ot-rendition-payment"
 import { TREASURY_OT_RENDITION_STATUSES } from "@/lib/tesoreria/ot-rendition-status"
 import {
   TREASURY_MOVEMENT_TYPES,
@@ -109,6 +113,28 @@ export async function confirmTreasuryOtRendition(
     }
   }
 
+  const paymentMethodReceived = input.paymentMethodReceived?.trim() || ""
+  if (
+    !paymentMethodReceived ||
+    !(
+      isTreasuryReceivedPaymentMethod(paymentMethodReceived) ||
+      paymentMethodReceived === "tarjeta"
+    )
+  ) {
+    return {
+      data: null,
+      error: {
+        code: "INVALID_PAYMENT_METHOD",
+        message: "Seleccione el medio realmente cobrado.",
+      },
+    }
+  }
+
+  const paymentAuditNote = formatOtRenditionPaymentAuditNote({
+    expected: rendition.paymentMethodExpected,
+    received: paymentMethodReceived,
+  })
+
   const movementResult = await insertTreasuryMovement(client, {
     companyId: input.companyId,
     movementType: TREASURY_MOVEMENT_TYPES.INCOME,
@@ -123,6 +149,7 @@ export async function confirmTreasuryOtRendition(
       [
         `Rendición OT ${rendition.taskCode}`.trim(),
         rendition.customerName ? `Cliente: ${rendition.customerName}` : "",
+        paymentAuditNote,
         input.deliveredBy?.trim()
           ? `Entrega: ${input.deliveredBy.trim()}`
           : "",
@@ -135,6 +162,8 @@ export async function confirmTreasuryOtRendition(
       taskCode: rendition.taskCode,
       renditionId: rendition.id,
       source: "ot_rendition",
+      paymentMethodExpected: rendition.paymentMethodExpected,
+      paymentMethodReceived,
     },
   })
 
@@ -156,6 +185,8 @@ export async function confirmTreasuryOtRendition(
       amount,
       delivered_by: input.deliveredBy?.trim() || "",
       notes: input.notes?.trim() || "",
+      payment_method_expected: rendition.paymentMethodExpected,
+      payment_method_received: paymentMethodReceived,
       treasury_movement_id: movementResult.data.id,
       confirmed_by: input.confirmedBy,
       confirmed_by_name: input.confirmedByName,

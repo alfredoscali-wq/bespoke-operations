@@ -22,6 +22,8 @@ export type TreasuryOtRenditionRow = {
   confirmed_by: string | null
   confirmed_by_name: string
   confirmed_at: string | null
+  payment_method_expected: string | null
+  payment_method_received: string | null
   created_at: string
   updated_at: string
 }
@@ -55,6 +57,8 @@ export function mapTreasuryOtRenditionRow(
     confirmedBy: row.confirmed_by,
     confirmedByName: row.confirmed_by_name ?? "",
     confirmedAt: row.confirmed_at,
+    paymentMethodExpected: row.payment_method_expected?.trim() || null,
+    paymentMethodReceived: row.payment_method_received?.trim() || null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }

@@ -3,7 +3,9 @@
 import { useMemo, useState } from "react"
 import { Trash2 } from "lucide-react"
 
+import { TreasuryPaymentMatchBadge } from "@/components/tesoreria/treasury-payment-match-badge"
 import { useTreasury } from "@/components/tesoreria/treasury-provider"
+import { readOtRenditionPaymentFromMetadata } from "@/lib/tesoreria/ot-rendition-payment"
 import {
   formatTreasuryCategoryLabel,
   TREASURY_MOVEMENT_TYPES,
@@ -161,6 +163,10 @@ export function TreasuryMovementsHistory() {
                   canWrite && movement.status !== TREASURY_STATUSES.CANCELLED
                 const showDelete = canHardDelete
                 const hasActions = showCancel || showDelete
+                const renditionPayment =
+                  movement.metadata?.source === "ot_rendition"
+                    ? readOtRenditionPaymentFromMetadata(movement.metadata)
+                    : null
 
                 return (
                   <TableRow key={movement.id}>
@@ -188,10 +194,20 @@ export function TreasuryMovementsHistory() {
                       )}
                     </TableCell>
                     <TableCell className="text-sm">
-                      {formatTreasuryCategoryLabel(
-                        movement.movementType,
-                        movement.category
-                      )}
+                      <div className="flex flex-col items-start gap-1">
+                        <span>
+                          {formatTreasuryCategoryLabel(
+                            movement.movementType,
+                            movement.category
+                          )}
+                        </span>
+                        {renditionPayment ? (
+                          <TreasuryPaymentMatchBadge
+                            expected={renditionPayment.expected}
+                            received={renditionPayment.received}
+                          />
+                        ) : null}
+                      </div>
                     </TableCell>
                     <TableCell className="text-sm">
                       {TREASURY_ORIGIN_LABELS[movement.origin]}

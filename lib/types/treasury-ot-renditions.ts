@@ -23,6 +23,9 @@ export type TreasuryOtRendition = {
   confirmedBy: string | null
   confirmedByName: string
   confirmedAt: string | null
+  /** Snapshot of tasks.payment_method — never written back to the OT. */
+  paymentMethodExpected: string | null
+  paymentMethodReceived: string | null
   createdAt: string
   updatedAt: string
 }
@@ -31,6 +34,7 @@ export type ConfirmOtRenditionInput = {
   amountReceived: number
   deliveredBy?: string
   notes?: string
+  paymentMethodReceived: string
 }
 
 export type OtRenditionKpi = {

@@ -365,6 +365,8 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
           crewName: rendition.crewName,
           amount: rendition.amount,
           deliveredBy: rendition.deliveredBy,
+          paymentMethodExpected: rendition.paymentMethodExpected,
+          paymentMethodReceived: rendition.paymentMethodReceived,
           actor,
         })
       )
