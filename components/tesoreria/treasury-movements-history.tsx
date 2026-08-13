@@ -5,7 +5,10 @@ import { Trash2 } from "lucide-react"
 
 import { TreasuryPaymentMatchBadge } from "@/components/tesoreria/treasury-payment-match-badge"
 import { useTreasury } from "@/components/tesoreria/treasury-provider"
-import { readOtRenditionPaymentFromMetadata } from "@/lib/tesoreria/ot-rendition-payment"
+import {
+  formatTreasuryPaymentMethodLabel,
+  readOtRenditionPaymentFromMetadata,
+} from "@/lib/tesoreria/ot-rendition-payment"
 import {
   formatTreasuryCategoryLabel,
   TREASURY_MOVEMENT_TYPES,
@@ -202,10 +205,17 @@ export function TreasuryMovementsHistory() {
                           )}
                         </span>
                         {renditionPayment ? (
-                          <TreasuryPaymentMatchBadge
-                            expected={renditionPayment.expected}
-                            received={renditionPayment.received}
-                          />
+                          <>
+                            <span className="text-xs text-muted-foreground">
+                              {formatTreasuryPaymentMethodLabel(
+                                renditionPayment.received
+                              )}
+                            </span>
+                            <TreasuryPaymentMatchBadge
+                              expected={renditionPayment.expected}
+                              received={renditionPayment.received}
+                            />
+                          </>
                         ) : null}
                       </div>
                     </TableCell>

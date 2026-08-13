@@ -69,8 +69,11 @@ test("match vs modified badges", () => {
   assert.equal(resolveOtRenditionPaymentMatch(null, "efectivo"), null)
 
   const badge = read("components/tesoreria/treasury-payment-match-badge.tsx")
-  assert.match(badge, /✓ Coincide/)
+  assert.doesNotMatch(badge, /✓ Coincide/)
   assert.match(badge, /⚠ Medio Modificado/)
+  assert.match(badge, /match !== "modified"/)
+  assert.match(badge, /Esperado:/)
+  assert.match(badge, /Cobrado:/)
 })
 
 test("audit note and operational event keep Esperado / Cobrado without mutating OT", () => {
