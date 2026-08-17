@@ -22,6 +22,10 @@ import {
   generateWorkOrderTaskCodeFromCodes,
   isWorkOrderTask,
 } from "@/lib/tasks/work-order"
+import {
+  buildObraTaskCodePrefix,
+  generateTaskCodeFromOccupied,
+} from "@/lib/tasks/utils"
 import { resolveNextPlanningQueuePosition } from "@/lib/planificacion/planning-dynamic"
 import { shouldApplyPlanningQueueSideEffectsForTask } from "@/lib/projects/project-start-dispatch"
 import { recordTaskCreateAudit } from "@/lib/audit/tasks-audit"
@@ -117,7 +121,22 @@ export function useTasksCreate({
           }
         }
 
-        console.log("BEFORE INSERT", payload)
+        if (payload.projectId && payload.projectCode?.trim()) {
+          const prefix = buildObraTaskCodePrefix(payload.projectCode)
+          const occupiedCodesResult = await perf.span(
+            "List occupied obra codes",
+            () => listOccupiedTaskCodesByPrefix(companyId, prefix, client)
+          )
+          const mergedCodes = new Set<string>([
+            payload.code,
+            ...tasks.map((task) => task.code),
+            ...(occupiedCodesResult.data ?? []),
+          ])
+          payload = {
+            ...payload,
+            code: generateTaskCodeFromOccupied(payload.projectCode, mergedCodes),
+          }
+        }
 
         const result = await perf.span("Insert task", () =>
           createTask(payload, client)
@@ -126,7 +145,8 @@ export function useTasksCreate({
         if (!result.data) {
           logOperationError("TASK CREATE", result.error)
           throw new Error(
-            "No fue posible crear la orden de trabajo. Intente nuevamente."
+            result.error?.message?.trim() ||
+              "No fue posible crear la orden de trabajo. Intente nuevamente."
           )
         }
 

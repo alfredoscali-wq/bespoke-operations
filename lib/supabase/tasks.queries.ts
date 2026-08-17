@@ -15,6 +15,8 @@ import type {
 } from "@/lib/types/supabase/tasks"
 import { TASK_DELETE_USER_MESSAGE } from "@/lib/operations/user-messages"
 import { ACTIVE_TASK_STATUSES } from "@/lib/tasks/status-groups"
+import { validateObraTaskInsertIntegrity } from "@/lib/projects/obra-task-insert-integrity"
+import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
 import {
   canAdminModifyWorkOrder,
   WORK_ORDER_ADMIN_MUTATION_BLOCKED_MESSAGE,
@@ -190,11 +192,86 @@ export async function insertTask(
   client: SupabaseTasksClient,
   payload: CreateTaskPayload
 ): Promise<TasksRepositoryResult<Task>> {
-  const insertPayload = mapCreatePayloadToInsert(payload)
+  let insertPayload = payload
+  const projectId = payload.projectId?.trim() || null
+
+  if (projectId) {
+    const companyId = payload.companyId ?? BESPOKE_PRODUCTION_COMPANY_ID
+    const crewId = payload.crewId?.trim() || null
+
+    const { data: projectRow, error: projectError } = await client
+      .from("projects")
+      .select("id, company_id, status, deleted_at")
+      .eq("id", projectId)
+      .maybeSingle()
+
+    if (projectError) {
+      return { data: null, error: mapSupabaseTaskError(projectError) }
+    }
+
+    let crew:
+      | { id: string; companyId: string; deletedAt: string | null }
+      | null = null
+
+    if (crewId) {
+      const { data: crewRow, error: crewError } = await client
+        .from("crews")
+        .select("id, company_id, deleted_at")
+        .eq("id", crewId)
+        .maybeSingle()
+
+      if (crewError) {
+        return { data: null, error: mapSupabaseTaskError(crewError) }
+      }
+
+      if (crewRow) {
+        crew = {
+          id: crewRow.id,
+          companyId: crewRow.company_id,
+          deletedAt: crewRow.deleted_at,
+        }
+      }
+    }
+
+    const integrity = validateObraTaskInsertIntegrity({
+      task: {
+        companyId,
+        projectId,
+        crewId,
+        status: payload.status ?? "programada",
+      },
+      project: projectRow
+        ? {
+            id: projectRow.id,
+            companyId: projectRow.company_id,
+            status: projectRow.status,
+            deletedAt: projectRow.deleted_at,
+          }
+        : null,
+      crew,
+    })
+
+    if (!integrity.ok) {
+      return {
+        data: null,
+        error: {
+          code: "WORKFLOW",
+          message: integrity.message,
+        },
+      }
+    }
+
+    insertPayload = {
+      ...payload,
+      status: integrity.status,
+    }
+  }
+
+  const mapped = mapCreatePayloadToInsert(insertPayload)
 
   const { data, error } = await client
     .from("tasks")
-    .insert(insertPayload)
+    .insert(mapped)
     .select("*")
     .single()
 

@@ -143,6 +143,7 @@
     "test:obras-ops-2-4-incident-resolve": "npx tsx --test scripts/test-obras-ops-2-4-incident-resolve.mjs",
     "test:obras-ops-2-5-field-release": "npx tsx --test scripts/test-obras-ops-2-5-field-release.mjs",
     "test:obras-ops-2-6-daily-allocations": "npx tsx --test scripts/test-obras-ops-2-6-daily-allocations.mjs",
+    "test:obras-hotfix-active-create": "npx tsx --test scripts/test-obras-hotfix-active-create.mjs",
     "test:tesoreria-2-1-payment-method": "npx tsx --test scripts/test-tesoreria-2-1-payment-method.mjs",
     "test:tesoreria-2-2-payment-method-kpis": "npx tsx --test scripts/test-tesoreria-2-2-payment-method-kpis.mjs",
     "test:tesoreria-2-2a-payment-match-badge": "npx tsx --test scripts/test-tesoreria-2-2a-payment-match-badge.mjs",

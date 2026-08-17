@@ -99,19 +99,47 @@ export function generateFieldServiceTaskCode(tasks: Task[]): string {
   return code
 }
 
-export function generateTaskCode(projectCode: string, tasks: Task[]): string {
+export function buildObraTaskCodePrefix(projectCode: string): string {
   const sanitized = projectCode.replace(/[^a-zA-Z0-9]/g, "").toUpperCase()
-  const prefix = `TSK-${sanitized}-`
-  const projectTasks = tasks.filter((task) => task.projectCode === projectCode)
-  let counter = projectTasks.length + 1
-  let code = `${prefix}${String(counter).padStart(3, "0")}`
+  return `TSK-${sanitized}-`
+}
 
-  while (tasks.some((task) => task.code === code)) {
-    counter += 1
-    code = `${prefix}${String(counter).padStart(3, "0")}`
+export function generateTaskCodeFromOccupied(
+  projectCode: string,
+  occupiedCodes: Iterable<string>
+): string {
+  const prefix = buildObraTaskCodePrefix(projectCode)
+  const knownCodes = new Set(
+    [...occupiedCodes].map((code) => code.trim()).filter(Boolean)
+  )
+  const escapedPrefix = prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  const pattern = new RegExp(`^${escapedPrefix}(\\d+)$`)
+
+  let maxCounter = 0
+  for (const code of knownCodes) {
+    const match = code.match(pattern)
+    if (!match) continue
+    maxCounter = Math.max(maxCounter, Number.parseInt(match[1], 10))
   }
 
-  return code
+  let counter = maxCounter + 1
+  let generated = `${prefix}${String(counter).padStart(3, "0")}`
+  while (knownCodes.has(generated)) {
+    counter += 1
+    generated = `${prefix}${String(counter).padStart(3, "0")}`
+  }
+
+  return generated
+}
+
+export function generateTaskCode(
+  projectCode: string,
+  tasks: Pick<Task, "code">[]
+): string {
+  return generateTaskCodeFromOccupied(
+    projectCode,
+    tasks.map((task) => task.code)
+  )
 }
 
 /** Visual-only label for admin lists (e.g. TSK-OT-010 → OT-010). */

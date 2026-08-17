@@ -149,7 +149,7 @@ export function mapCreatePayloadToInsert(payload: CreateTaskPayload): TaskInsert
       getInitialTaskStatus({ crewId: payload.crewId, crew: payload.crew }),
     priority: payload.priority ?? "media",
     supervisor: payload.supervisor.trim(),
-    crew_id: payload.crewId ?? null,
+    crew_id: payload.crewId?.trim() || null,
     crew: payload.crew.trim(),
     start_date: payload.startDate,
     due_date: payload.dueDate,
