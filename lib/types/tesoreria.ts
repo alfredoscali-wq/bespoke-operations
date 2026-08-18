@@ -53,10 +53,13 @@ export type UpdateTreasuryMovementInput = {
 }
 
 export type TreasuryDashboardSummary = {
+  /** Confirmed net of the selected period: ingresos − egresos − retiros. */
   currentBalance: number
-  incomeToday: number
-  expenseToday: number
-  /** Confirmed withdrawals in the current calendar month (local). */
+  /** Confirmed incomes in the selected period. */
+  income: number
+  /** Confirmed operational expenses in the selected period. */
+  expense: number
+  /** Confirmed withdrawals in the selected period. */
   withdrawalPeriod: number
   pendingRendition: number
 }

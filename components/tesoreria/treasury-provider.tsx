@@ -45,6 +45,7 @@ import {
 } from "@/lib/tesoreria/receipt-storage"
 import type {
   CreateTreasuryMovementInput,
+  TreasuryHistoryRange,
   TreasuryMovement,
   UpdateTreasuryMovementInput,
 } from "@/lib/types/tesoreria"
@@ -72,6 +73,8 @@ type TreasuryContextValue = {
   isReady: boolean
   canWrite: boolean
   canHardDelete: boolean
+  historyRange: TreasuryHistoryRange
+  setHistoryRange: (range: TreasuryHistoryRange) => void
   refresh: () => Promise<void>
   registerMovement: (
     input: Omit<CreateTreasuryMovementInput, "companyId" | "registeredBy">,
@@ -97,6 +100,8 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
   const [movements, setMovements] = useState<TreasuryMovement[]>([])
   const [otRenditions, setOtRenditions] = useState<TreasuryOtRendition[]>([])
   const [isReady, setIsReady] = useState(false)
+  const [historyRange, setHistoryRange] =
+    useState<TreasuryHistoryRange>("today")
 
   const canWrite = useMemo(
     () => canWriteTreasury(sessionUser?.systemRole),
@@ -394,6 +399,8 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
       isReady,
       canWrite,
       canHardDelete,
+      historyRange,
+      setHistoryRange,
       refresh,
       registerMovement,
       editMovement,
@@ -407,6 +414,8 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
       isReady,
       canWrite,
       canHardDelete,
+      historyRange,
+      setHistoryRange,
       refresh,
       registerMovement,
       editMovement,

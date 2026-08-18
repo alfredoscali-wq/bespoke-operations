@@ -10,6 +10,7 @@ import {
 
 import { TreasuryPaymentMethodKpis } from "@/components/tesoreria/treasury-payment-method-kpis"
 import { TreasuryPendingRenditionKpi } from "@/components/tesoreria/treasury-pending-rendition-kpi"
+import { TreasuryPeriodToggle } from "@/components/tesoreria/treasury-period-toggle"
 import { useTreasury } from "@/components/tesoreria/treasury-provider"
 import {
   buildTreasuryDashboardSummary,
@@ -27,19 +28,27 @@ export function TreasurySummaryCards({
   pendingRenditionFilterActive,
   onPendingRenditionToggle,
 }: TreasurySummaryCardsProps) {
-  const { movements, isReady } = useTreasury()
+  const { movements, isReady, historyRange, setHistoryRange } = useTreasury()
   const [now] = useState(() => new Date())
   const summary = useMemo(
-    () => buildTreasuryDashboardSummary(movements, now),
-    [movements, now]
+    () => buildTreasuryDashboardSummary(movements, now, historyRange),
+    [movements, now, historyRange]
   )
 
   return (
     <div className="space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground">Período</p>
+        <TreasuryPeriodToggle
+          value={historyRange}
+          onChange={setHistoryRange}
+        />
+      </div>
+
       <KpiCardGrid layout="treasury">
         <FilterableKpiCard
-          label="Ingresos del Día"
-          value={formatTreasuryAmount(summary.incomeToday)}
+          label="Ingresos"
+          value={formatTreasuryAmount(summary.income)}
           icon={ArrowUpCircle}
           tone="green"
           compact
@@ -47,8 +56,8 @@ export function TreasurySummaryCards({
           disabled
         />
         <FilterableKpiCard
-          label="Egresos del Día"
-          value={formatTreasuryAmount(summary.expenseToday)}
+          label="Egresos"
+          value={formatTreasuryAmount(summary.expense)}
           icon={ArrowDownCircle}
           tone="red"
           compact
@@ -70,7 +79,7 @@ export function TreasurySummaryCards({
           onToggle={onPendingRenditionToggle}
         />
         <FilterableKpiCard
-          label="Saldo Actual"
+          label="Saldo del Período"
           value={formatTreasuryAmount(summary.currentBalance)}
           icon={Banknote}
           compact

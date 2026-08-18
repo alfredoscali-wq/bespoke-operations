@@ -4,6 +4,7 @@ import { useMemo, useState } from "react"
 import { Trash2 } from "lucide-react"
 
 import { TreasuryPaymentMatchBadge } from "@/components/tesoreria/treasury-payment-match-badge"
+import { TreasuryPeriodToggle } from "@/components/tesoreria/treasury-period-toggle"
 import { useTreasury } from "@/components/tesoreria/treasury-provider"
 import {
   formatTreasuryPaymentMethodLabel,
@@ -22,7 +23,7 @@ import {
   filterTreasuryMovementsBySearch,
   formatTreasuryAmount,
 } from "@/lib/tesoreria/summary"
-import type { TreasuryHistoryRange, TreasuryMovement } from "@/lib/types/tesoreria"
+import type { TreasuryMovement } from "@/lib/types/tesoreria"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -44,23 +45,17 @@ import {
 } from "@/components/ui/table"
 import { cn } from "@/lib/utils"
 
-const RANGE_OPTIONS: Array<{ value: TreasuryHistoryRange; label: string }> = [
-  { value: "today", label: "Hoy" },
-  { value: "week", label: "Semana" },
-  { value: "month", label: "Mes" },
-  { value: "all", label: "Todo" },
-]
-
 export function TreasuryMovementsHistory() {
   const {
     movements,
     isReady,
     canWrite,
     canHardDelete,
+    historyRange,
+    setHistoryRange,
     cancelMovement,
     hardDeleteMovement,
   } = useTreasury()
-  const [range, setRange] = useState<TreasuryHistoryRange>("month")
   const [search, setSearch] = useState("")
   const [busyId, setBusyId] = useState<string | null>(null)
   const [pendingDelete, setPendingDelete] = useState<TreasuryMovement | null>(
@@ -70,9 +65,9 @@ export function TreasuryMovementsHistory() {
   const [isDeleting, setIsDeleting] = useState(false)
 
   const rows = useMemo(() => {
-    const byRange = filterTreasuryMovementsByRange(movements, range)
+    const byRange = filterTreasuryMovementsByRange(movements, historyRange)
     return filterTreasuryMovementsBySearch(byRange, search)
-  }, [movements, range, search])
+  }, [movements, historyRange, search])
 
   async function handleCancel(id: string) {
     setBusyId(id)
@@ -110,19 +105,10 @@ export function TreasuryMovementsHistory() {
             Movimientos más recientes primero.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {RANGE_OPTIONS.map((option) => (
-            <Button
-              key={option.value}
-              type="button"
-              size="sm"
-              variant={range === option.value ? "default" : "outline"}
-              onClick={() => setRange(option.value)}
-            >
-              {option.label}
-            </Button>
-          ))}
-        </div>
+        <TreasuryPeriodToggle
+          value={historyRange}
+          onChange={setHistoryRange}
+        />
       </div>
 
       <Input

@@ -1,12 +1,25 @@
 import {
   TREASURY_MOVEMENT_TYPES,
+  TREASURY_ORIGINS,
   TREASURY_STATUSES,
 } from "@/lib/tesoreria/categories"
+import { isPendingOtRendition } from "@/lib/tesoreria/ot-rendition-status"
 import type {
   TreasuryDashboardSummary,
   TreasuryHistoryRange,
   TreasuryMovement,
 } from "@/lib/types/tesoreria"
+import type { TreasuryOtRendition } from "@/lib/types/treasury-ot-renditions"
+
+export const TREASURY_HISTORY_RANGE_OPTIONS: Array<{
+  value: TreasuryHistoryRange
+  label: string
+}> = [
+  { value: "today", label: "Hoy" },
+  { value: "week", label: "Semana" },
+  { value: "month", label: "Mes" },
+  { value: "all", label: "Todo" },
+]
 
 function startOfLocalDay(reference = new Date()): Date {
   const date = new Date(reference)
@@ -39,27 +52,32 @@ function toDayKey(isoDate: string): string {
   return isoDate.slice(0, 10)
 }
 
+export function isTreasuryDayKeyInRange(
+  dayKey: string,
+  range: TreasuryHistoryRange,
+  reference = new Date()
+): boolean {
+  if (range === "all") return true
+
+  const todayKey = toDayKeyFromDate(startOfLocalDay(reference))
+  if (range === "today") return dayKey === todayKey
+
+  const from =
+    range === "week"
+      ? startOfLocalWeek(reference)
+      : startOfLocalMonth(reference)
+  const fromKey = toDayKeyFromDate(from)
+  return dayKey >= fromKey && dayKey <= todayKey
+}
+
 export function filterTreasuryMovementsByRange(
   movements: TreasuryMovement[],
   range: TreasuryHistoryRange,
   reference = new Date()
 ): TreasuryMovement[] {
-  if (range === "all") return movements
-
-  const todayKey = toDayKeyFromDate(startOfLocalDay(reference))
-  const from =
-    range === "today"
-      ? startOfLocalDay(reference)
-      : range === "week"
-        ? startOfLocalWeek(reference)
-        : startOfLocalMonth(reference)
-  const fromKey = toDayKeyFromDate(from)
-
-  return movements.filter((movement) => {
-    const key = toDayKey(movement.movementDate)
-    if (range === "today") return key === todayKey
-    return key >= fromKey && key <= todayKey
-  })
+  return movements.filter((movement) =>
+    isTreasuryDayKeyInRange(toDayKey(movement.movementDate), range, reference)
+  )
 }
 
 export function filterTreasuryMovementsBySearch(
@@ -86,60 +104,112 @@ export function filterTreasuryMovementsBySearch(
   })
 }
 
-/** Saldo / KPIs from confirmed movements only (cancelled excluded).
- * Pendientes de Rendición OT are computed separately from treasury_ot_renditions.
+type PendingOtRenditionRef = Pick<
+  TreasuryOtRendition,
+  "id" | "taskId" | "taskCode" | "treasuryMovementId"
+>
+
+function readMetadataString(
+  metadata: Record<string, unknown> | null | undefined,
+  key: string
+): string | null {
+  const value = metadata?.[key]
+  if (typeof value !== "string") return null
+  const trimmed = value.trim()
+  return trimmed || null
+}
+
+/**
+ * OT pending cash is a separate stock and must never be treated as available money.
+ * Used to detect confirmed incomes that still belong to a pendiente_rendicion OT.
+ */
+export function isTreasuryIncomeLinkedToPendingOtRendition(
+  movement: Pick<
+    TreasuryMovement,
+    "id" | "movementType" | "origin" | "notes" | "metadata"
+  >,
+  pendingRenditions: ReadonlyArray<PendingOtRenditionRef>
+): boolean {
+  if (movement.movementType !== TREASURY_MOVEMENT_TYPES.INCOME) return false
+  if (pendingRenditions.length === 0) return false
+
+  const taskId = readMetadataString(movement.metadata, "taskId")
+  const renditionId = readMetadataString(movement.metadata, "renditionId")
+  const notes = movement.notes ?? ""
+
+  return pendingRenditions.some((item) => {
+    if (item.treasuryMovementId && item.treasuryMovementId === movement.id) {
+      return true
+    }
+    if (renditionId && renditionId === item.id) return true
+    if (taskId && taskId === item.taskId) return true
+    if (
+      movement.origin === TREASURY_ORIGINS.TASK &&
+      item.taskCode.trim() &&
+      notes.includes(item.taskCode.trim())
+    ) {
+      return true
+    }
+    return false
+  })
+}
+
+function isConfirmedTreasuryMovement(
+  movement: Pick<TreasuryMovement, "status">
+): boolean {
+  return movement.status === TREASURY_STATUSES.CONFIRMED
+}
+
+/** KPIs from confirmed history movements in the selected period.
+ * Saldo del Período = ingresos − egresos − retiros of that same range.
+ * Pending OT renditions are a separate stock and are never added here.
  */
 export function buildTreasuryDashboardSummary(
   movements: TreasuryMovement[],
-  reference = new Date()
+  reference = new Date(),
+  range: TreasuryHistoryRange = "today"
 ): TreasuryDashboardSummary {
-  const todayKey = toDayKeyFromDate(startOfLocalDay(reference))
-  const monthFromKey = toDayKeyFromDate(startOfLocalMonth(reference))
   let currentBalance = 0
-  let incomeToday = 0
-  let expenseToday = 0
+  let income = 0
+  let expense = 0
   let withdrawalPeriod = 0
   const pendingRendition = 0
 
   for (const movement of movements) {
     if (movement.status === TREASURY_STATUSES.CANCELLED) continue
-
-    // Pending movements (legacy expense advances) do not affect OT rendition KPI.
-    if (movement.status === TREASURY_STATUSES.PENDING) {
+    if (movement.status === TREASURY_STATUSES.PENDING) continue
+    if (!isConfirmedTreasuryMovement(movement)) continue
+    if (
+      !isTreasuryDayKeyInRange(
+        toDayKey(movement.movementDate),
+        range,
+        reference
+      )
+    ) {
       continue
     }
 
-    if (movement.status !== TREASURY_STATUSES.CONFIRMED) continue
-
-    const dayKey = toDayKey(movement.movementDate)
-
     if (movement.movementType === TREASURY_MOVEMENT_TYPES.INCOME) {
+      income += movement.amount
       currentBalance += movement.amount
-      if (dayKey === todayKey) {
-        incomeToday += movement.amount
-      }
       continue
     }
 
     if (movement.movementType === TREASURY_MOVEMENT_TYPES.WITHDRAWAL) {
+      withdrawalPeriod += movement.amount
       currentBalance -= movement.amount
-      if (dayKey >= monthFromKey && dayKey <= todayKey) {
-        withdrawalPeriod += movement.amount
-      }
       continue
     }
 
     // Operational expense — never mixed with withdrawals or OT renditions.
+    expense += movement.amount
     currentBalance -= movement.amount
-    if (dayKey === todayKey) {
-      expenseToday += movement.amount
-    }
   }
 
   return {
     currentBalance,
-    incomeToday,
-    expenseToday,
+    income,
+    expense,
     withdrawalPeriod,
     pendingRendition,
   }

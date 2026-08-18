@@ -38,6 +38,10 @@ test("bucket mapping groups debit/credit/tarjeta into Tarjetas", () => {
     resolveTreasuryPaymentMethodKpiBucket("mercadopago"),
     "mercadopago"
   )
+  assert.equal(
+    resolveTreasuryPaymentMethodKpiBucket("mercado_pago"),
+    "mercadopago"
+  )
   assert.equal(resolveTreasuryPaymentMethodKpiBucket("debito"), "tarjetas")
   assert.equal(resolveTreasuryPaymentMethodKpiBucket("credito"), "tarjetas")
   assert.equal(resolveTreasuryPaymentMethodKpiBucket("tarjeta"), "tarjetas")
@@ -67,7 +71,7 @@ test("visual order and labels match Tesorería 2.2", () => {
   assert.equal(TREASURY_PAYMENT_METHOD_KPI_LABELS.otro, "Otros")
 })
 
-test("sums today by payment_method_received and hides zero buckets", () => {
+test("sums today by payment_method_received and keeps zero buckets visible", () => {
   const now = new Date(2026, 7, 13, 12, 0, 0)
   const day = todayKey(now)
   const kpis = buildOtRenditionPaymentMethodKpis(
@@ -121,6 +125,7 @@ test("sums today by payment_method_received and hides zero buckets", () => {
         paymentMethodReceived: "cheque",
       },
     ],
+    "today",
     now
   )
 
@@ -131,11 +136,13 @@ test("sums today by payment_method_received and hides zero buckets", () => {
       { key: "transferencia", amount: 340000 },
       { key: "mercadopago", amount: 85000 },
       { key: "tarjetas", amount: 60000 },
+      { key: "cheque", amount: 0 },
+      { key: "otro", amount: 0 },
     ]
   )
 })
 
-test("zero-amount and other-day methods disappear automatically", () => {
+test("zero-amount methods stay visible at $0", () => {
   const now = new Date(2026, 7, 13, 12, 0, 0)
   const day = todayKey(now)
   const withoutMp = buildOtRenditionPaymentMethodKpis(
@@ -153,15 +160,23 @@ test("zero-amount and other-day methods disappear automatically", () => {
         paymentMethodReceived: "transferencia",
       },
     ],
+    "today",
     now
   )
   assert.deepEqual(
     withoutMp.map((item) => item.key),
-    ["efectivo", "transferencia"]
+    [
+      "efectivo",
+      "transferencia",
+      "mercadopago",
+      "tarjetas",
+      "cheque",
+      "otro",
+    ]
   )
   assert.equal(
-    withoutMp.some((item) => item.key === "mercadopago"),
-    false
+    withoutMp.find((item) => item.key === "mercadopago")?.amount,
+    0
   )
 })
 
@@ -175,21 +190,20 @@ test("uses payment_method_received, never expected", () => {
 test("UI secondary row under primary KPIs without filters or semaphores", () => {
   const summary = read("components/tesoreria/treasury-summary-cards.tsx")
   assert.match(summary, /TreasuryPaymentMethodKpis/)
-  assert.match(summary, /Ingresos del Día/)
+  assert.match(summary, /label="Ingresos"/)
   assert.match(summary, /Pendientes de Rendición|TreasuryPendingRenditionKpi/)
-  assert.match(summary, /Saldo Actual/)
+  assert.match(summary, /Saldo del Período/)
+  assert.doesNotMatch(summary, /Caja física disponible/)
+  assert.doesNotMatch(summary, /Saldo Actual/)
 
   const secondary = read(
     "components/tesoreria/treasury-payment-method-kpis.tsx"
   )
-  assert.match(secondary, /Cobranza del día por medio/)
+  assert.match(secondary, /Composición de la cobranza/)
   assert.match(secondary, /TREASURY_PAYMENT_METHOD_KPI_HINT/)
-  assert.match(secondary, /buildOtRenditionPaymentMethodKpis/)
+  assert.match(secondary, /buildTreasuryIncomeCompositionKpis/)
   assert.match(secondary, /tone="gray"/)
   assert.match(secondary, /disabled/)
   assert.doesNotMatch(secondary, /onClick|href=/)
-  assert.equal(
-    TREASURY_PAYMENT_METHOD_KPI_HINT,
-    "Basado en el medio realmente cobrado al momento de la rendición."
-  )
+  assert.match(TREASURY_PAYMENT_METHOD_KPI_HINT, /coincide con Ingresos/)
 })

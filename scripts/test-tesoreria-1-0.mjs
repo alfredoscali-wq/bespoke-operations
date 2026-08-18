@@ -84,9 +84,9 @@ test("dashboard summary computes balance and pending rendition", () => {
     reference
   )
 
-  assert.equal(summary.currentBalance, 1300)
-  assert.equal(summary.incomeToday, 1000)
-  assert.equal(summary.expenseToday, 200)
+  assert.equal(summary.currentBalance, 800)
+  assert.equal(summary.income, 1000)
+  assert.equal(summary.expense, 200)
   assert.equal(summary.withdrawalPeriod, 0)
   // OT pending rendition KPI is sourced from treasury_ot_renditions, not expense pending.
   assert.equal(summary.pendingRendition, 0)
@@ -152,13 +152,13 @@ test("removing a confirmed movement updates operational balance", () => {
 
   const before = buildTreasuryDashboardSummary(movements, reference)
   assert.equal(before.currentBalance, 800)
-  assert.equal(before.expenseToday, 200)
+  assert.equal(before.expense, 200)
 
   const after = buildTreasuryDashboardSummary(
     movements.filter((item) => item.id !== "delete-me"),
     reference
   )
   assert.equal(after.currentBalance, 1000)
-  assert.equal(after.expenseToday, 0)
-  assert.equal(after.incomeToday, 1000)
+  assert.equal(after.expense, 0)
+  assert.equal(after.income, 1000)
 })
