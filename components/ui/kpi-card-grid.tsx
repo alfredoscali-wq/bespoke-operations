@@ -15,6 +15,9 @@ export const KPI_GRID_LAYOUT = {
   /** Tesorería UX 1.1 — five compact KPIs in one desktop row. */
   treasury:
     "grid gap-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5",
+  /** Tesorería 3.2 — six compact KPIs including Dinero en Caja. */
+  treasurySix:
+    "grid gap-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6",
   /** Dashboard status sections with many items. */
   wide: "grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6",
   /** Dashboard RRHH block. */

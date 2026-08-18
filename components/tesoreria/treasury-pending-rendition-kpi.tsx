@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo } from "react"
 import { Banknote } from "lucide-react"
 
 import { useTreasury } from "@/components/tesoreria/treasury-provider"
@@ -11,16 +11,9 @@ import {
 import { formatTreasuryAmount } from "@/lib/tesoreria/summary"
 import { FilterableKpiCard } from "@/components/ui/filterable-kpi-card"
 
-type TreasuryPendingRenditionKpiProps = {
-  isActive: boolean
-  onToggle: () => void
-}
-
-export function TreasuryPendingRenditionKpi({
-  isActive,
-  onToggle,
-}: TreasuryPendingRenditionKpiProps) {
-  const { otRenditions, isReady } = useTreasury()
+export function TreasuryPendingRenditionKpi() {
+  const { otRenditions, isReady, historyFilter, toggleHistoryFilter } =
+    useTreasury()
   const kpi = useMemo(
     () => buildOtRenditionKpi(otRenditions),
     [otRenditions]
@@ -34,9 +27,9 @@ export function TreasuryPendingRenditionKpi({
       icon={Banknote}
       tone="amber"
       compact
-      isActive={isActive}
+      isActive={historyFilter.type === "pendingRendition"}
       isLoading={!isReady}
-      onClick={onToggle}
+      onClick={() => toggleHistoryFilter({ type: "pendingRendition" })}
       ariaLabel={`Pendientes de Rendición: ${kpi.count} OT, ${formatTreasuryAmount(kpi.totalAmount)}`}
     />
   )

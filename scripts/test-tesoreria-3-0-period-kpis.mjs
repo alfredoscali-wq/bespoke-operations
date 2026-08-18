@@ -190,7 +190,8 @@ test("UI shares the period, drops caja física, and always shows six gray method
   assert.match(secondary, /buildTreasuryIncomeCompositionKpis/)
   assert.match(secondary, /tone="gray"/)
   assert.match(secondary, /xl:grid-cols-6/)
-  assert.doesNotMatch(secondary, /onClick|href=/)
+  assert.match(secondary, /toggleHistoryFilter/)
+  assert.match(secondary, /onClick/)
   assert.doesNotMatch(secondary, /items\.length === 0/)
 
   const kpis = read("lib/tesoreria/ot-rendition-payment-kpis.ts")

@@ -158,6 +158,21 @@ export function formatTreasuryCategoryLabel(
   )
 }
 
+export function formatTreasuryCategoryKeyLabel(category: string): string {
+  if (category in TREASURY_INCOME_CATEGORY_LABELS) {
+    return TREASURY_INCOME_CATEGORY_LABELS[category as TreasuryIncomeCategory]
+  }
+  if (category in TREASURY_EXPENSE_CATEGORY_LABELS) {
+    return TREASURY_EXPENSE_CATEGORY_LABELS[category as TreasuryExpenseCategory]
+  }
+  if (category in TREASURY_WITHDRAWAL_CATEGORY_LABELS) {
+    return TREASURY_WITHDRAWAL_CATEGORY_LABELS[
+      category as TreasuryWithdrawalCategory
+    ]
+  }
+  return category
+}
+
 export function isTreasuryCategoryForType(
   type: TreasuryMovementType,
   category: string

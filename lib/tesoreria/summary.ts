@@ -3,6 +3,7 @@ import {
   TREASURY_ORIGINS,
   TREASURY_STATUSES,
 } from "@/lib/tesoreria/categories"
+import { formatTreasuryExpensePaymentMethodLabel } from "@/lib/tesoreria/ot-rendition-payment"
 import { isPendingOtRendition } from "@/lib/tesoreria/ot-rendition-status"
 import type {
   TreasuryDashboardSummary,
@@ -88,6 +89,12 @@ export function filterTreasuryMovementsBySearch(
   if (!term) return movements
 
   return movements.filter((movement) => {
+    const paymentMethod =
+      readMetadataString(movement.metadata, "paymentMethod") ??
+      readMetadataString(movement.metadata, "paymentMethodReceived") ??
+      readMetadataString(movement.metadata, "payment_method") ??
+      readMetadataString(movement.metadata, "payment_method_received")
+
     const haystack = [
       movement.category,
       movement.origin,
@@ -97,6 +104,10 @@ export function filterTreasuryMovementsBySearch(
       movement.status,
       movement.movementType,
       String(movement.amount),
+      paymentMethod ?? "",
+      movement.movementType === TREASURY_MOVEMENT_TYPES.EXPENSE
+        ? formatTreasuryExpensePaymentMethodLabel(paymentMethod)
+        : "",
     ]
       .join(" ")
       .toLowerCase()
@@ -176,6 +187,7 @@ export function buildTreasuryDashboardSummary(
   const pendingRendition = 0
 
   for (const movement of movements) {
+    if (movement.deletedAt) continue
     if (movement.status === TREASURY_STATUSES.CANCELLED) continue
     if (movement.status === TREASURY_STATUSES.PENDING) continue
     if (!isConfirmedTreasuryMovement(movement)) continue
@@ -221,4 +233,18 @@ export function formatTreasuryAmount(amount: number): string {
     currency: "ARS",
     maximumFractionDigits: 2,
   }).format(amount)
+}
+
+export function formatTreasurySignedAmount(amount: number): string {
+  if (amount > 0) return `+${formatTreasuryAmount(amount)}`
+  return formatTreasuryAmount(amount)
+}
+
+export function formatTreasuryHistoryRangeLabel(
+  range: TreasuryHistoryRange
+): string {
+  return (
+    TREASURY_HISTORY_RANGE_OPTIONS.find((option) => option.value === range)
+      ?.label ?? range
+  )
 }

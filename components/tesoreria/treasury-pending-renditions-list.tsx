@@ -6,6 +6,7 @@ import Link from "next/link"
 
 import { useTreasury } from "@/components/tesoreria/treasury-provider"
 import { TreasuryConfirmRenditionDialog } from "@/components/tesoreria/treasury-confirm-rendition-dialog"
+import { TreasuryHistoryFilterBanner } from "@/components/tesoreria/treasury-history-filter-banner"
 import { formatTreasuryPaymentMethodLabel } from "@/lib/tesoreria/ot-rendition-payment"
 import {
   TREASURY_OT_RENDITION_STATUS_LABELS,
@@ -24,14 +25,8 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
-type TreasuryPendingRenditionsListProps = {
-  active: boolean
-}
-
-export function TreasuryPendingRenditionsList({
-  active,
-}: TreasuryPendingRenditionsListProps) {
-  const { otRenditions, isReady, canWrite } = useTreasury()
+export function TreasuryPendingRenditionsList() {
+  const { otRenditions, isReady, canWrite, historyFilter } = useTreasury()
   const [selected, setSelected] = useState<TreasuryOtRendition | null>(null)
 
   const rows = useMemo(
@@ -39,7 +34,7 @@ export function TreasuryPendingRenditionsList({
     [otRenditions]
   )
 
-  if (!active) return null
+  if (historyFilter.type !== "pendingRendition") return null
 
   return (
     <div className="space-y-4 rounded-xl border bg-card p-4 shadow-sm">
@@ -50,6 +45,8 @@ export function TreasuryPendingRenditionsList({
           eliminar desde aquí.
         </p>
       </div>
+
+      <TreasuryHistoryFilterBanner />
 
       <div className="overflow-x-auto rounded-lg border">
         <Table>

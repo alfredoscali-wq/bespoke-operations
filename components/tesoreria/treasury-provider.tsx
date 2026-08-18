@@ -38,6 +38,11 @@ import {
   canWriteTreasury,
 } from "@/lib/tesoreria/permissions"
 import {
+  resolveTreasuryHistoryFilterSelection,
+  TREASURY_HISTORY_FILTER_NONE,
+  type TreasuryHistoryFilter,
+} from "@/lib/tesoreria/history-filter"
+import {
   buildTreasuryReceiptStoragePath,
   TREASURY_RECEIPT_MAX_BYTES,
   TREASURY_RECEIPT_MIME_TYPES,
@@ -75,6 +80,10 @@ type TreasuryContextValue = {
   canHardDelete: boolean
   historyRange: TreasuryHistoryRange
   setHistoryRange: (range: TreasuryHistoryRange) => void
+  historyFilter: TreasuryHistoryFilter
+  toggleHistoryFilter: (filter: TreasuryHistoryFilter) => void
+  selectHistoryFilter: (filter: TreasuryHistoryFilter) => void
+  clearHistoryFilter: () => void
   refresh: () => Promise<void>
   registerMovement: (
     input: Omit<CreateTreasuryMovementInput, "companyId" | "registeredBy">,
@@ -102,6 +111,9 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
   const [isReady, setIsReady] = useState(false)
   const [historyRange, setHistoryRange] =
     useState<TreasuryHistoryRange>("today")
+  const [historyFilter, setHistoryFilter] = useState<TreasuryHistoryFilter>(
+    TREASURY_HISTORY_FILTER_NONE
+  )
 
   const canWrite = useMemo(
     () => canWriteTreasury(sessionUser?.systemRole),
@@ -311,6 +323,26 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
     [canHardDelete]
   )
 
+  const toggleHistoryFilter = useCallback((next: TreasuryHistoryFilter) => {
+    setHistoryFilter((current) =>
+      resolveTreasuryHistoryFilterSelection(current, next, "toggle")
+    )
+  }, [])
+
+  const selectHistoryFilter = useCallback((next: TreasuryHistoryFilter) => {
+    setHistoryFilter(
+      resolveTreasuryHistoryFilterSelection(
+        TREASURY_HISTORY_FILTER_NONE,
+        next,
+        "replace"
+      )
+    )
+  }, [])
+
+  const clearHistoryFilter = useCallback(() => {
+    setHistoryFilter(TREASURY_HISTORY_FILTER_NONE)
+  }, [])
+
   const confirmOtRendition = useCallback(
     async (
       renditionId: string,
@@ -401,6 +433,10 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
       canHardDelete,
       historyRange,
       setHistoryRange,
+      historyFilter,
+      toggleHistoryFilter,
+      selectHistoryFilter,
+      clearHistoryFilter,
       refresh,
       registerMovement,
       editMovement,
@@ -415,7 +451,10 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
       canWrite,
       canHardDelete,
       historyRange,
-      setHistoryRange,
+      historyFilter,
+      toggleHistoryFilter,
+      selectHistoryFilter,
+      clearHistoryFilter,
       refresh,
       registerMovement,
       editMovement,

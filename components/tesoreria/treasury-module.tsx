@@ -1,9 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import { ArrowDownCircle, ArrowUpCircle, Wallet } from "lucide-react"
+import { ArrowDownCircle, ArrowUpCircle, LayoutList, Wallet } from "lucide-react"
 
 import { EmployeesProvider } from "@/components/rrhh/employees-provider"
+import { TreasuryCategorySummaryDialog } from "@/components/tesoreria/treasury-category-summary-dialog"
 import { TreasuryMovementFormDialog } from "@/components/tesoreria/treasury-movement-form-dialog"
 import { TreasuryMovementsHistory } from "@/components/tesoreria/treasury-movements-history"
 import { TreasuryPendingRenditionsList } from "@/components/tesoreria/treasury-pending-renditions-list"
@@ -14,10 +15,10 @@ import type { TreasuryMovementType } from "@/lib/tesoreria/categories"
 import { Button } from "@/components/ui/button"
 
 function TreasuryModuleContent() {
-  const { canWrite } = useTreasury()
+  const { canWrite, historyFilter } = useTreasury()
   const [formType, setFormType] = useState<TreasuryMovementType | null>(null)
-  const [pendingRenditionFilterActive, setPendingRenditionFilterActive] =
-    useState(false)
+  const [categorySummaryOpen, setCategorySummaryOpen] = useState(false)
+  const pendingFilterActive = historyFilter.type === "pendingRendition"
 
   return (
     <div className="space-y-6">
@@ -29,12 +30,7 @@ function TreasuryModuleContent() {
         </p>
       </div>
 
-      <TreasurySummaryCards
-        pendingRenditionFilterActive={pendingRenditionFilterActive}
-        onPendingRenditionToggle={() =>
-          setPendingRenditionFilterActive((current) => !current)
-        }
-      />
+      <TreasurySummaryCards />
 
       <div className="flex flex-wrap gap-3">
         <Button
@@ -66,6 +62,15 @@ function TreasuryModuleContent() {
           <Wallet className="size-4" />
           Registrar Retiro
         </Button>
+        <Button
+          type="button"
+          variant="outline"
+          className="gap-2"
+          onClick={() => setCategorySummaryOpen(true)}
+        >
+          <LayoutList className="size-4" />
+          Resumen por Categoría
+        </Button>
         {!canWrite ? (
           <p className="self-center text-xs text-muted-foreground">
             Solo lectura. La edición está disponible para Administración.
@@ -73,8 +78,8 @@ function TreasuryModuleContent() {
         ) : null}
       </div>
 
-      <TreasuryPendingRenditionsList active={pendingRenditionFilterActive} />
-      {!pendingRenditionFilterActive ? <TreasuryMovementsHistory /> : null}
+      <TreasuryPendingRenditionsList />
+      {!pendingFilterActive ? <TreasuryMovementsHistory /> : null}
 
       {formType ? (
         <TreasuryMovementFormDialog
@@ -86,6 +91,11 @@ function TreasuryModuleContent() {
           }}
         />
       ) : null}
+
+      <TreasuryCategorySummaryDialog
+        open={categorySummaryOpen}
+        onOpenChange={setCategorySummaryOpen}
+      />
     </div>
   )
 }

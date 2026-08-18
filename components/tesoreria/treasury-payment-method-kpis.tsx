@@ -37,7 +37,8 @@ const KPI_ICONS: Record<TreasuryPaymentMethodKpiKey, LucideIcon> = {
 }
 
 export function TreasuryPaymentMethodKpis() {
-  const { movements, isReady, historyRange } = useTreasury()
+  const { movements, isReady, historyRange, historyFilter, toggleHistoryFilter } =
+    useTreasury()
   const [now] = useState(() => new Date())
 
   const items = useMemo(
@@ -77,8 +78,14 @@ export function TreasuryPaymentMethodKpis() {
             icon={KPI_ICONS[item.key]}
             tone="gray"
             compact
-            disabled
             isLoading={!isReady}
+            isActive={
+              historyFilter.type === "paymentMethod" &&
+              historyFilter.key === item.key
+            }
+            onClick={() =>
+              toggleHistoryFilter({ type: "paymentMethod", key: item.key })
+            }
             cardClassName="min-h-[4.5rem]"
             ariaLabel={`${item.label}: ${formatTreasuryAmount(item.amount)}`}
           />

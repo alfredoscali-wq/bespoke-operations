@@ -3,10 +3,13 @@
 import { useMemo, useState } from "react"
 import { Trash2 } from "lucide-react"
 
+import { TreasuryHistoryFilterBanner } from "@/components/tesoreria/treasury-history-filter-banner"
 import { TreasuryPaymentMatchBadge } from "@/components/tesoreria/treasury-payment-match-badge"
 import { TreasuryPeriodToggle } from "@/components/tesoreria/treasury-period-toggle"
 import { useTreasury } from "@/components/tesoreria/treasury-provider"
+import { readTreasuryIncomeReceivedPaymentMethod } from "@/lib/tesoreria/ot-rendition-payment-kpis"
 import {
+  formatTreasuryExpensePaymentMethodLabel,
   formatTreasuryPaymentMethodLabel,
   readOtRenditionPaymentFromMetadata,
 } from "@/lib/tesoreria/ot-rendition-payment"
@@ -19,7 +22,9 @@ import {
   TREASURY_TYPE_LABELS,
 } from "@/lib/tesoreria/categories"
 import {
-  filterTreasuryMovementsByRange,
+  applyTreasuryHistoryFilter,
+} from "@/lib/tesoreria/history-filter"
+import {
   filterTreasuryMovementsBySearch,
   formatTreasuryAmount,
 } from "@/lib/tesoreria/summary"
@@ -53,6 +58,7 @@ export function TreasuryMovementsHistory() {
     canHardDelete,
     historyRange,
     setHistoryRange,
+    historyFilter,
     cancelMovement,
     hardDeleteMovement,
   } = useTreasury()
@@ -64,10 +70,17 @@ export function TreasuryMovementsHistory() {
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
+  const [now] = useState(() => new Date())
+
   const rows = useMemo(() => {
-    const byRange = filterTreasuryMovementsByRange(movements, historyRange)
-    return filterTreasuryMovementsBySearch(byRange, search)
-  }, [movements, historyRange, search])
+    const filtered = applyTreasuryHistoryFilter(
+      movements,
+      historyFilter,
+      historyRange,
+      now
+    )
+    return filterTreasuryMovementsBySearch(filtered, search)
+  }, [movements, historyFilter, historyRange, now, search])
 
   async function handleCancel(id: string) {
     setBusyId(id)
@@ -110,6 +123,8 @@ export function TreasuryMovementsHistory() {
           onChange={setHistoryRange}
         />
       </div>
+
+      <TreasuryHistoryFilterBanner />
 
       <Input
         className="h-9 max-w-sm bg-background"
@@ -202,6 +217,13 @@ export function TreasuryMovementsHistory() {
                               received={renditionPayment.received}
                             />
                           </>
+                        ) : movement.movementType ===
+                          TREASURY_MOVEMENT_TYPES.EXPENSE ? (
+                          <span className="text-xs text-muted-foreground">
+                            {formatTreasuryExpensePaymentMethodLabel(
+                              readTreasuryIncomeReceivedPaymentMethod(movement)
+                            )}
+                          </span>
                         ) : null}
                       </div>
                     </TableCell>

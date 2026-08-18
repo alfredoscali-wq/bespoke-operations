@@ -213,3 +213,81 @@ export function buildOtRenditionPaymentMethodKpis(
 
   return toKpiList(totals)
 }
+
+type CashMovementSource = Pick<
+  TreasuryMovement,
+  "movementType" | "status" | "amount" | "movementDate" | "metadata"
+>
+
+function isExplicitEfectivoPaymentMethod(
+  movement: Pick<TreasuryMovement, "metadata">
+): boolean {
+  return (
+    resolveTreasuryPaymentMethodKpiBucket(
+      readTreasuryIncomeReceivedPaymentMethod(movement)
+    ) === "efectivo"
+  )
+}
+
+export function isTreasuryPhysicalCashIncome(
+  movement: Pick<TreasuryMovement, "movementType" | "metadata">
+): boolean {
+  if (movement.movementType !== TREASURY_MOVEMENT_TYPES.INCOME) return false
+  return isExplicitEfectivoPaymentMethod(movement)
+}
+
+export function isTreasuryPhysicalCashExpense(
+  movement: Pick<TreasuryMovement, "movementType" | "metadata">
+): boolean {
+  if (movement.movementType !== TREASURY_MOVEMENT_TYPES.EXPENSE) return false
+  return isExplicitEfectivoPaymentMethod(movement)
+}
+
+/**
+ * Tesorería 3.2/3.3 — physical cash accumulated from the start of the current month.
+ * Independent of Hoy/Semana/Mes/Todo. Only explicit efectivo incomes; unclassified
+ * manuals stay in Otros and do not enter the cash box. Only expenses with medio
+ * Efectivo reduce cash. Unspecified historical expenses do not. Withdrawals always
+ * reduce cash (physical cash leaving the box).
+ */
+export function buildTreasuryCashInBoxMonth(
+  movements: ReadonlyArray<CashMovementSource>,
+  reference = new Date()
+): number {
+  let cash = 0
+
+  for (const movement of movements) {
+    if (movement.status !== TREASURY_STATUSES.CONFIRMED) continue
+    if (
+      !isTreasuryDayKeyInRange(
+        toDayKey(movement.movementDate),
+        "month",
+        reference
+      )
+    ) {
+      continue
+    }
+
+    const amount = movement.amount
+    if (!Number.isFinite(amount) || amount <= 0) continue
+
+    if (movement.movementType === TREASURY_MOVEMENT_TYPES.INCOME) {
+      if (isTreasuryPhysicalCashIncome(movement)) cash += amount
+      continue
+    }
+
+    if (movement.movementType === TREASURY_MOVEMENT_TYPES.WITHDRAWAL) {
+      cash -= amount
+      continue
+    }
+
+    if (
+      movement.movementType === TREASURY_MOVEMENT_TYPES.EXPENSE &&
+      isTreasuryPhysicalCashExpense(movement)
+    ) {
+      cash -= amount
+    }
+  }
+
+  return cash
+}

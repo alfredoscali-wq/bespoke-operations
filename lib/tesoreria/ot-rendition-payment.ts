@@ -44,6 +44,16 @@ export function formatTreasuryPaymentMethodLabel(
   return PAYMENT_METHOD_LABELS[trimmed] ?? trimmed
 }
 
+export const TREASURY_UNSPECIFIED_PAYMENT_METHOD_LABEL = "Sin especificar"
+
+export function formatTreasuryExpensePaymentMethodLabel(
+  method: string | null | undefined
+): string {
+  const trimmed = method?.trim()
+  if (!trimmed) return TREASURY_UNSPECIFIED_PAYMENT_METHOD_LABEL
+  return formatTreasuryPaymentMethodLabel(trimmed)
+}
+
 export function isTreasuryReceivedPaymentMethod(
   value: string | null | undefined
 ): value is TreasuryReceivedPaymentMethod {

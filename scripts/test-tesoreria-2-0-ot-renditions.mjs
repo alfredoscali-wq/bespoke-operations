@@ -85,12 +85,12 @@ test("confirm flow creates Cobranza OT income + ot_rendida event", () => {
 
 test("UI: clickable KPI + list + confirm modal without delete", () => {
   const module = read("components/tesoreria/treasury-module.tsx")
-  assert.match(module, /pendingRenditionFilterActive/)
   assert.match(module, /TreasuryPendingRenditionsList/)
+  assert.match(module, /pendingFilterActive|pendingRendition/)
 
   const kpi = read("components/tesoreria/treasury-pending-rendition-kpi.tsx")
   assert.match(kpi, /Pendientes de Rendición/)
-  assert.match(kpi, /onToggle/)
+  assert.match(kpi, /toggleHistoryFilter|pendingRendition/)
   assert.match(kpi, /tone="amber"/)
 
   const list = read("components/tesoreria/treasury-pending-renditions-list.tsx")

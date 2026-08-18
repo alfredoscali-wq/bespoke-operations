@@ -5,6 +5,7 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
   Banknote,
+  CircleDollarSign,
   Wallet,
 } from "lucide-react"
 
@@ -12,6 +13,7 @@ import { TreasuryPaymentMethodKpis } from "@/components/tesoreria/treasury-payme
 import { TreasuryPendingRenditionKpi } from "@/components/tesoreria/treasury-pending-rendition-kpi"
 import { TreasuryPeriodToggle } from "@/components/tesoreria/treasury-period-toggle"
 import { useTreasury } from "@/components/tesoreria/treasury-provider"
+import { buildTreasuryCashInBoxMonth } from "@/lib/tesoreria/ot-rendition-payment-kpis"
 import {
   buildTreasuryDashboardSummary,
   formatTreasuryAmount,
@@ -19,20 +21,23 @@ import {
 import { FilterableKpiCard } from "@/components/ui/filterable-kpi-card"
 import { KpiCardGrid } from "@/components/ui/kpi-card-grid"
 
-type TreasurySummaryCardsProps = {
-  pendingRenditionFilterActive: boolean
-  onPendingRenditionToggle: () => void
-}
-
-export function TreasurySummaryCards({
-  pendingRenditionFilterActive,
-  onPendingRenditionToggle,
-}: TreasurySummaryCardsProps) {
-  const { movements, isReady, historyRange, setHistoryRange } = useTreasury()
+export function TreasurySummaryCards() {
+  const {
+    movements,
+    isReady,
+    historyRange,
+    setHistoryRange,
+    historyFilter,
+    toggleHistoryFilter,
+  } = useTreasury()
   const [now] = useState(() => new Date())
   const summary = useMemo(
     () => buildTreasuryDashboardSummary(movements, now, historyRange),
     [movements, now, historyRange]
+  )
+  const cashInBox = useMemo(
+    () => buildTreasuryCashInBoxMonth(movements, now),
+    [movements, now]
   )
 
   return (
@@ -45,7 +50,7 @@ export function TreasurySummaryCards({
         />
       </div>
 
-      <KpiCardGrid layout="treasury">
+      <KpiCardGrid layout="treasurySix">
         <FilterableKpiCard
           label="Ingresos"
           value={formatTreasuryAmount(summary.income)}
@@ -53,7 +58,8 @@ export function TreasurySummaryCards({
           tone="green"
           compact
           isLoading={!isReady}
-          disabled
+          isActive={historyFilter.type === "income"}
+          onClick={() => toggleHistoryFilter({ type: "income" })}
         />
         <FilterableKpiCard
           label="Egresos"
@@ -62,7 +68,8 @@ export function TreasurySummaryCards({
           tone="red"
           compact
           isLoading={!isReady}
-          disabled
+          isActive={historyFilter.type === "expense"}
+          onClick={() => toggleHistoryFilter({ type: "expense" })}
         />
         <FilterableKpiCard
           label="Retiros del Período"
@@ -72,19 +79,29 @@ export function TreasurySummaryCards({
           hint="Dinero retirado de caja."
           compact
           isLoading={!isReady}
-          disabled
+          isActive={historyFilter.type === "withdrawal"}
+          onClick={() => toggleHistoryFilter({ type: "withdrawal" })}
         />
-        <TreasuryPendingRenditionKpi
-          isActive={pendingRenditionFilterActive}
-          onToggle={onPendingRenditionToggle}
-        />
+        <TreasuryPendingRenditionKpi />
         <FilterableKpiCard
           label="Saldo del Período"
           value={formatTreasuryAmount(summary.currentBalance)}
-          icon={Banknote}
+          icon={CircleDollarSign}
           compact
           isLoading={!isReady}
-          disabled
+          isActive={historyFilter.type === "periodBalance"}
+          onClick={() => toggleHistoryFilter({ type: "periodBalance" })}
+        />
+        <FilterableKpiCard
+          label="Dinero en Caja"
+          value={formatTreasuryAmount(cashInBox)}
+          hint="Efectivo acumulado del mes"
+          icon={Banknote}
+          tone="blue"
+          compact
+          isLoading={!isReady}
+          isActive={historyFilter.type === "cashInBox"}
+          onClick={() => toggleHistoryFilter({ type: "cashInBox" })}
         />
       </KpiCardGrid>
 

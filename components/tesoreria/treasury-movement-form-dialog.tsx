@@ -14,6 +14,10 @@ import {
   type TreasuryMovementType,
   type TreasuryOrigin,
 } from "@/lib/tesoreria/categories"
+import {
+  isTreasuryReceivedPaymentMethod,
+  TREASURY_RECEIVED_PAYMENT_METHOD_OPTIONS,
+} from "@/lib/tesoreria/ot-rendition-payment"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -53,6 +57,7 @@ type FormState = {
   employeeId: string
   notes: string
   hasReceipt: "yes" | "no"
+  paymentMethod: string
 }
 
 function todayInputValue() {
@@ -74,6 +79,7 @@ function buildInitialForm(type: TreasuryMovementType): FormState {
     employeeId: "none",
     notes: "",
     hasReceipt: isWithdrawal ? "no" : "no",
+    paymentMethod: "",
   }
 }
 
@@ -93,6 +99,7 @@ export function TreasuryMovementFormDialog({
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const isWithdrawal = movementType === TREASURY_MOVEMENT_TYPES.WITHDRAWAL
+  const isExpense = movementType === TREASURY_MOVEMENT_TYPES.EXPENSE
   const isDirty = isFormStateDirty(form, baseline) || Boolean(receiptFile)
   const {
     handleOpenChange,
@@ -140,6 +147,10 @@ export function TreasuryMovementFormDialog({
       setError("Seleccione el archivo del comprobante.")
       return
     }
+    if (isExpense && !isTreasuryReceivedPaymentMethod(form.paymentMethod)) {
+      setError("Seleccioná el medio de pago.")
+      return
+    }
 
     setIsSubmitting(true)
     try {
@@ -153,6 +164,9 @@ export function TreasuryMovementFormDialog({
           employeeId: form.employeeId === "none" ? null : form.employeeId,
           status: TREASURY_STATUSES.CONFIRMED,
           notes: form.notes,
+          metadata: isExpense
+            ? { paymentMethod: form.paymentMethod }
+            : undefined,
         },
         !isWithdrawal && form.hasReceipt === "yes" ? receiptFile : null
       )
@@ -241,6 +255,33 @@ export function TreasuryMovementFormDialog({
                   </SelectContent>
                 </Select>
               </div>
+              {isExpense ? (
+                <div className="space-y-2">
+                  <Label>Medio de pago *</Label>
+                  <Select
+                    value={form.paymentMethod || undefined}
+                    onValueChange={(value) =>
+                      setForm((current) => ({
+                        ...current,
+                        paymentMethod: value,
+                      }))
+                    }
+                  >
+                    <SelectTrigger className={FILTER_SELECT_TRIGGER_CLASS}>
+                      <SelectValue placeholder="Seleccionar" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TREASURY_RECEIVED_PAYMENT_METHOD_OPTIONS.map(
+                        (method) => (
+                          <SelectItem key={method.value} value={method.value}>
+                            {method.label}
+                          </SelectItem>
+                        )
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : null}
               <div className="space-y-2">
                 <Label>Origen</Label>
                 <Select

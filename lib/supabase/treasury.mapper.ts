@@ -111,5 +111,6 @@ export function mapUpdateTreasuryMovementInput(
   if (input.status !== undefined) update.status = input.status
   if (input.notes !== undefined) update.notes = input.notes.trim()
   if (input.receiptUrl !== undefined) update.receipt_url = input.receiptUrl
+  if (input.metadata !== undefined) update.metadata = input.metadata as Json
   return update
 }

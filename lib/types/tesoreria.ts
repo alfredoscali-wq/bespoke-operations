@@ -50,6 +50,7 @@ export type UpdateTreasuryMovementInput = {
   status?: TreasuryStatus
   notes?: string
   receiptUrl?: string | null
+  metadata?: Record<string, unknown>
 }
 
 export type TreasuryDashboardSummary = {
