@@ -1,10 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import { CalendarClock } from "lucide-react"
+import { CalendarClock, Trash2 } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 import { useAuth } from "@/components/auth/auth-provider"
 import { TaskRescheduleDialog } from "@/components/tareas/task-reschedule-dialog"
+import { WorkOrderPlanningReturnDeleteDialog } from "@/components/tareas/work-order-planning-return-delete-dialog"
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { formatTaskDateTime } from "@/lib/tasks/constants"
 import { formatScheduledTimeForInput } from "@/lib/tasks/scheduling"
@@ -27,11 +29,15 @@ export function TaskPlanningReturnRecordPanel({
   task,
 }: TaskPlanningReturnRecordPanelProps) {
   const { sessionUser } = useAuth()
-  const { reschedulePlanningReturnedTask } = useTasks()
+  const { reschedulePlanningReturnedTask, deleteTask, removeTaskLocally } =
+    useTasks()
+  const router = useRouter()
   const returnInfo = readPlanningReturnInfo(task)
   const [rescheduleOpen, setRescheduleOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [feedback, setFeedback] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   if (!returnInfo) {
     return null
@@ -68,6 +74,27 @@ export function TaskPlanningReturnRecordPanel({
     setRescheduleOpen(false)
   }
 
+  async function handleDelete(observation: string) {
+    setIsSubmitting(true)
+    setDeleteError(null)
+
+    const result = await deleteTask(task.id, {
+      administration: true,
+      observation,
+    })
+
+    setIsSubmitting(false)
+
+    if (!result.success) {
+      setDeleteError(result.message ?? "No se pudo eliminar la orden de trabajo.")
+      return
+    }
+
+    setDeleteOpen(false)
+    removeTaskLocally(task.id)
+    router.push("/tareas")
+  }
+
   return (
     <>
       <Card className="border-amber-200 bg-amber-50/60 shadow-sm">
@@ -75,16 +102,33 @@ export function TaskPlanningReturnRecordPanel({
           <CardTitle className="text-base text-amber-950">
             Devuelta por Planificación
           </CardTitle>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="gap-1.5 border-amber-300 bg-background/80"
-            onClick={() => setRescheduleOpen(true)}
-          >
-            <CalendarClock className="size-4" />
-            Reprogramar
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="gap-1.5 border-amber-300 bg-background/80"
+              onClick={() => setRescheduleOpen(true)}
+              disabled={isSubmitting}
+            >
+              <CalendarClock className="size-4" />
+              Reprogramar
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              className="gap-1.5"
+              disabled={isSubmitting}
+              onClick={() => {
+                setDeleteError(null)
+                setDeleteOpen(true)
+              }}
+            >
+              <Trash2 className="size-4" />
+              Eliminar
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
           <div>
@@ -146,6 +190,18 @@ export function TaskPlanningReturnRecordPanel({
         description="Seleccione una nueva fecha. Al confirmar, la OT deja el KPI Devueltas por Planificación y vuelve al flujo normal."
         isSubmitting={isSubmitting}
         onConfirm={handleReschedule}
+      />
+
+      <WorkOrderPlanningReturnDeleteDialog
+        open={deleteOpen}
+        onOpenChange={(open) => {
+          setDeleteOpen(open)
+          if (!open) setDeleteError(null)
+        }}
+        taskLabel={task.code?.trim() || task.title}
+        onConfirm={handleDelete}
+        isSubmitting={isSubmitting}
+        error={deleteError}
       />
     </>
   )

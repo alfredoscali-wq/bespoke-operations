@@ -54,9 +54,16 @@ export async function updateWorkOrderThroughAdminApi(
   return body.task
 }
 
-export async function deleteWorkOrderThroughAdminApi(taskId: string): Promise<void> {
+export async function deleteWorkOrderThroughAdminApi(
+  taskId: string,
+  options?: { observation?: string }
+): Promise<void> {
   const response = await fetch(`/api/tasks/${taskId}`, {
     method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      observation: options?.observation?.trim() || undefined,
+    }),
   })
 
   if (!response.ok) {

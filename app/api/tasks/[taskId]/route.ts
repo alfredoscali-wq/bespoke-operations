@@ -62,7 +62,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
 }
 
-export async function DELETE(_request: Request, context: RouteContext) {
+export async function DELETE(request: Request, context: RouteContext) {
   const auth = await requireWritablePlatformSession()
 
   if (!auth.ok) {
@@ -73,10 +73,24 @@ export async function DELETE(_request: Request, context: RouteContext) {
   }
 
   const { taskId } = await context.params
+  let observation: string | undefined
+  try {
+    const body = (await request.json()) as { observation?: unknown }
+    if (typeof body.observation === "string") {
+      observation = body.observation
+    }
+  } catch {
+    observation = undefined
+  }
 
   try {
     const client = await createClient()
-    await deleteWorkOrderFromAdmin(client, taskId, auth.sessionUser)
+    await deleteWorkOrderFromAdmin(
+      client,
+      taskId,
+      auth.sessionUser,
+      observation
+    )
 
     return NextResponse.json({ success: true })
   } catch (error) {

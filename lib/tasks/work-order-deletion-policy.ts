@@ -9,7 +9,10 @@ export const WORK_ORDER_SOFT_DELETE_BLOCKED_MESSAGE =
   "No se puede eliminar una orden de trabajo que ya ingresó al circuito operativo."
 
 export const WORK_ORDER_PLANNING_RETURN_DELETE_BLOCKED_MESSAGE =
-  "No se puede eliminar una orden de trabajo devuelta por planificación. Reprográmela o gestónela desde el KPI Devueltas."
+  "No se puede eliminar una orden de trabajo devuelta por planificación. Reprográmela o elimínela desde el KPI Devueltas."
+
+export const WORK_ORDER_PLANNING_RETURN_DELETE_OBSERVATION_REQUIRED_MESSAGE =
+  "Indique una observación para eliminar la orden de trabajo."
 
 export const WORK_ORDER_PERMANENT_DELETE_FORBIDDEN_MESSAGE =
   "Solo un administrador del sistema puede eliminar definitivamente una orden de trabajo."
@@ -68,7 +71,8 @@ export function canSoftDeleteUnstartedProjectAssignment(
  * Soft delete is allowed while the OT is still in planning (`programada`), draft Obra
  * (`borrador`), or for unstarted Obra assignments (`asignada` + projectId, never started).
  *
- * OT con devolución activa por Planificación no se eliminan (KPI Devueltas).
+ * OT con devolución activa por Planificación no usan este soft-delete genérico:
+ * se eliminan desde el KPI Devueltas con observación obligatoria.
  *
  * Passing only a status string keeps the legacy contract: `programada` | `borrador`.
  */
@@ -106,8 +110,29 @@ export function canAdminSoftDeleteWorkOrder(
   }
 
   return (
-    canSoftDeleteWorkOrder(input) || isArchiveWorkOrderStatus(input.status)
+    canSoftDeleteWorkOrder(input) ||
+    canDeletePlanningReturnedWorkOrder(input) ||
+    isArchiveWorkOrderStatus(input.status)
   )
+}
+
+export function canDeletePlanningReturnedWorkOrder(
+  task: Pick<SoftDeleteWorkOrderCandidate, "taskMetadata">
+): boolean {
+  return hasActivePlanningReturn(task)
+}
+
+export function validatePlanningReturnDeleteObservation(
+  observation: string | null | undefined
+): { allowed: boolean; message?: string } {
+  if (!observation?.trim()) {
+    return {
+      allowed: false,
+      message: WORK_ORDER_PLANNING_RETURN_DELETE_OBSERVATION_REQUIRED_MESSAGE,
+    }
+  }
+
+  return { allowed: true }
 }
 
 export const WORK_ORDER_PERMANENT_DELETE_ARCHIVED_ONLY_MESSAGE =

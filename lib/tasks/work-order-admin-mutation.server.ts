@@ -25,7 +25,7 @@ import {
 } from "@/lib/tasks/work-order-admin-mutation"
 import {
   canAdminSoftDeleteWorkOrder,
-  WORK_ORDER_PLANNING_RETURN_DELETE_BLOCKED_MESSAGE,
+  validatePlanningReturnDeleteObservation,
 } from "@/lib/tasks/work-order-deletion-policy"
 import { hasActivePlanningReturn } from "@/lib/tasks/planning-return"
 import { isArchiveWorkOrderStatus } from "@/lib/tasks/task-list-scope"
@@ -56,13 +56,24 @@ function assertAdminWorkOrderMutable(task: Task): void {
 
 function assertAdminWorkOrderSoftDeletable(
   task: Task,
-  sessionUser: SessionUser
+  sessionUser: SessionUser,
+  observation?: string
 ): void {
+  if (hasActivePlanningReturn(task)) {
+    const validation = validatePlanningReturnDeleteObservation(observation)
+    if (!validation.allowed) {
+      throw new WorkOrderAdminMutationError(
+        validation.message ??
+          "Indique una observación para eliminar la orden de trabajo.",
+        400
+      )
+    }
+    return
+  }
+
   if (!canAdminSoftDeleteWorkOrder(task)) {
     throw new WorkOrderAdminMutationError(
-      hasActivePlanningReturn(task)
-        ? WORK_ORDER_PLANNING_RETURN_DELETE_BLOCKED_MESSAGE
-        : WORK_ORDER_ADMIN_MUTATION_BLOCKED_MESSAGE,
+      WORK_ORDER_ADMIN_MUTATION_BLOCKED_MESSAGE,
       409
     )
   }
@@ -244,11 +255,12 @@ export async function updateWorkOrderFromAdmin(
 export async function deleteWorkOrderFromAdmin(
   client: SupabaseTasksClient,
   taskId: string,
-  sessionUser: SessionUser
+  sessionUser: SessionUser,
+  observation?: string
 ): Promise<void> {
   assertWritableAdminRole(sessionUser)
   const existing = await fetchTaskForAdminMutation(client, taskId)
-  assertAdminWorkOrderSoftDeletable(existing, sessionUser)
+  assertAdminWorkOrderSoftDeletable(existing, sessionUser, observation)
 
   const originCrewId = existing.crewId?.trim() || null
   const originDueDate = existing.dueDate?.trim() || null

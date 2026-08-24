@@ -22,8 +22,11 @@ import { resolveTaskRowSurfaceTone } from "../lib/tasks/status-visual.ts"
 import { isTaskVencida, shouldAutoTransitionToVencida } from "../lib/tasks/vencida-status.ts"
 import { canPerformTaskAction } from "../lib/tasks/task-status-workflow.ts"
 import {
+  canAdminSoftDeleteWorkOrder,
+  canDeletePlanningReturnedWorkOrder,
   canSoftDeleteWorkOrder,
   resolveWorkOrderRowMenuPolicy,
+  validatePlanningReturnDeleteObservation,
 } from "../lib/tasks/work-order-deletion-policy.ts"
 import { canAdminModifyWorkOrderTask } from "../lib/tasks/work-order-admin-mutation.ts"
 import { isCriticalPendingTask } from "../lib/calendar/critical-pending.ts"
@@ -177,7 +180,7 @@ test("OT devuelta no se mezcla con el listado activo ni aparece como vencida", (
   )
 })
 
-test("OT devuelta por planificación no permite soft-delete", () => {
+test("OT devuelta por planificación no permite soft-delete genérico", () => {
   const returnedProgramada = {
     status: "programada",
     taskMetadata: buildPlanningReturnToAtencionUpdate(baseTask, {
@@ -195,9 +198,19 @@ test("OT devuelta por planificación no permite soft-delete", () => {
   assert.equal(canSoftDeleteWorkOrder(returnedVencida), false)
   assert.equal(canSoftDeleteWorkOrder(regularProgramada), true)
   assert.equal(canSoftDeleteWorkOrder("programada"), true)
+  assert.equal(canDeletePlanningReturnedWorkOrder(returnedProgramada), true)
+  assert.equal(canDeletePlanningReturnedWorkOrder(returnedVencida), true)
+  assert.equal(canAdminSoftDeleteWorkOrder(returnedProgramada), true)
+  assert.equal(canAdminSoftDeleteWorkOrder(returnedVencida), true)
+  assert.equal(validatePlanningReturnDeleteObservation("").allowed, false)
+  assert.equal(validatePlanningReturnDeleteObservation("   ").allowed, false)
+  assert.equal(
+    validatePlanningReturnDeleteObservation("Cliente no estará").allowed,
+    true
+  )
 })
 
-test("bandeja Devueltas: menú solo Ver detalle; sin editar ni eliminar", () => {
+test("bandeja Devueltas: menú sin editar; eliminar requiere observación", () => {
   const returned = {
     status: "programada",
     taskMetadata: buildPlanningReturnToAtencionUpdate(baseTask, {
@@ -243,6 +256,10 @@ test("UI expone acción Devolver a Atención en planificación y KPI en tareas",
   assert.match(tasksModule, /planningReturned/)
   assert.match(tasksModule, /excludePlanningReturnedTasks/)
   assert.match(rowActions, /Reprogramar/)
-  assert.match(rowActions, /isPlanningReturnTray/)
+  assert.match(rowActions, /showPlanningReturnReschedule/)
+  assert.match(rowActions, /WorkOrderPlanningReturnDeleteDialog/)
+  assert.match(rowActions, /Eliminar/)
   assert.match(returnPanel, /Reprogramar/)
+  assert.match(returnPanel, /Eliminar/)
+  assert.match(returnPanel, /WorkOrderPlanningReturnDeleteDialog/)
 })

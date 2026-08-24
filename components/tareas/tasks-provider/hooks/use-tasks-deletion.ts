@@ -14,8 +14,12 @@ import {
   deleteTask as deleteTaskInSupabase,
 } from "@/lib/supabase/tasks.browser"
 import { deleteWorkOrderThroughAdminApi } from "@/lib/supabase/tasks-admin-api.client"
+import { hasActivePlanningReturn } from "@/lib/tasks/planning-return"
 import {
+  canDeletePlanningReturnedWorkOrder,
   canSoftDeleteWorkOrder,
+  validatePlanningReturnDeleteObservation,
+  WORK_ORDER_PLANNING_RETURN_DELETE_BLOCKED_MESSAGE,
   WORK_ORDER_SOFT_DELETE_BLOCKED_MESSAGE,
 } from "@/lib/tasks/work-order-deletion-policy"
 import { TASK_DELETE_USER_MESSAGE } from "@/lib/operations/user-messages"
@@ -71,8 +75,19 @@ export function useTasksDeletion({
           return { success: false, message: TASK_DELETE_USER_MESSAGE }
         }
 
+        if (canDeletePlanningReturnedWorkOrder(existing)) {
+          const validation = validatePlanningReturnDeleteObservation(
+            options.observation
+          )
+          if (!validation.allowed) {
+            return { success: false, message: validation.message }
+          }
+        }
+
         try {
-          await deleteWorkOrderThroughAdminApi(id)
+          await deleteWorkOrderThroughAdminApi(id, {
+            observation: options.observation,
+          })
         } catch (error) {
           return {
             success: false,
@@ -86,7 +101,10 @@ export function useTasksDeletion({
         setTasks((current) => current.filter((item) => item.id !== id))
         deleteCachedDetail(id)
         setDetailVersion((version) => version + 1)
-        recordTaskDeleteAudit(existing, { administration: true })
+        recordTaskDeleteAudit(existing, {
+          administration: true,
+          observation: options.observation,
+        })
 
         return { success: true }
       }
@@ -94,7 +112,9 @@ export function useTasksDeletion({
       if (!canSoftDeleteWorkOrder(existing)) {
         return {
           success: false,
-          message: WORK_ORDER_SOFT_DELETE_BLOCKED_MESSAGE,
+          message: hasActivePlanningReturn(existing)
+            ? WORK_ORDER_PLANNING_RETURN_DELETE_BLOCKED_MESSAGE
+            : WORK_ORDER_SOFT_DELETE_BLOCKED_MESSAGE,
         }
       }
 

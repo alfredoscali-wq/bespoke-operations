@@ -5,6 +5,7 @@ import { useTasks } from "@/components/tareas/tasks-provider"
 import { TaskWorkOrderDialog } from "@/components/tareas/task-work-order-dialog"
 import { TaskRescheduleDialog } from "@/components/tareas/task-reschedule-dialog"
 import { WorkOrderAdminSoftDeleteDialog } from "@/components/tareas/work-order-admin-soft-delete-dialog"
+import { WorkOrderPlanningReturnDeleteDialog } from "@/components/tareas/work-order-planning-return-delete-dialog"
 import { ForceDeleteAction } from "@/components/admin/force-delete-action"
 import {
   canAdminModifyWorkOrderTask,
@@ -213,10 +214,14 @@ export function TaskAdminRowActions({
     useTasks()
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [planningReturnDeleteOpen, setPlanningReturnDeleteOpen] = useState(false)
   const [editBlockedOpen, setEditBlockedOpen] = useState(false)
   const [rescheduleOpen, setRescheduleOpen] = useState(false)
   const [vencidaRescheduleOpen, setVencidaRescheduleOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [planningReturnDeleteError, setPlanningReturnDeleteError] = useState<
+    string | null
+  >(null)
   const [isRescheduling, setIsRescheduling] = useState(false)
 
   const viewHref = detailHref ?? `/tareas/${task.id}`
@@ -305,6 +310,29 @@ export function TaskAdminRowActions({
     })
   }
 
+  async function handlePlanningReturnDelete(observation: string) {
+    setIsDeleting(true)
+    setPlanningReturnDeleteError(null)
+    const result = await deleteTask(task.id, {
+      administration: true,
+      observation,
+    })
+    setIsDeleting(false)
+
+    if (!result.success) {
+      setPlanningReturnDeleteError(
+        result.message ?? TASK_DELETE_USER_MESSAGE
+      )
+      return
+    }
+
+    setPlanningReturnDeleteOpen(false)
+    onFeedback({
+      variant: "success",
+      message: "Orden de trabajo eliminada correctamente.",
+    })
+  }
+
   async function handlePlanningReturnReschedule(input: TaskRescheduleInput) {
     setIsRescheduling(true)
     const result = await reschedulePlanningReturnedTask(task.id, {
@@ -358,6 +386,19 @@ export function TaskAdminRowActions({
             onClick={() => setRescheduleOpen(true)}
           >
             <CalendarClock className="size-4" />
+          </AdminRowActionButton>
+        ) : null}
+
+        {showPlanningReturnReschedule ? (
+          <AdminRowActionButton
+            label="Eliminar"
+            destructive
+            onClick={() => {
+              setPlanningReturnDeleteError(null)
+              setPlanningReturnDeleteOpen(true)
+            }}
+          >
+            <Trash2 className="size-4" />
           </AdminRowActionButton>
         ) : null}
 
@@ -421,6 +462,18 @@ export function TaskAdminRowActions({
         description="Seleccione una nueva fecha. Al confirmar, la OT deja el KPI Devueltas por Planificación y vuelve al flujo normal."
         isSubmitting={isRescheduling}
         onConfirm={handlePlanningReturnReschedule}
+      />
+
+      <WorkOrderPlanningReturnDeleteDialog
+        open={planningReturnDeleteOpen}
+        onOpenChange={(open) => {
+          setPlanningReturnDeleteOpen(open)
+          if (!open) setPlanningReturnDeleteError(null)
+        }}
+        taskLabel={taskLabel}
+        onConfirm={handlePlanningReturnDelete}
+        isSubmitting={isDeleting}
+        error={planningReturnDeleteError}
       />
 
       <TaskReprogramFromVencidaDialog

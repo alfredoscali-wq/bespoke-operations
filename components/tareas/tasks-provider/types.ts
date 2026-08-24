@@ -15,6 +15,8 @@ export type TaskMutationOptions = {
   /** Detail-history note (OPS 2.2 supervised Obra edit). */
   historyNote?: string
   historyActor?: string
+  /** Required when deleting an OT from Devueltas por Planificación. */
+  observation?: string
 }
 
 export type TasksContextValue = {

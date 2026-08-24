@@ -337,8 +337,9 @@ export function recordTaskWorkflowStatusAudit(
 
 export function recordTaskDeleteAudit(
   task: Pick<Task, "id" | "code" | "title" | "workOrderNumber" | "status">,
-  options?: { administration?: boolean }
+  options?: { administration?: boolean; observation?: string }
 ) {
+  const observation = options?.observation?.trim()
   recordTaskAuditEvent({
     action: AUDIT_ACTIONS.TASK_DELETE,
     task,
@@ -346,6 +347,7 @@ export function recordTaskDeleteAudit(
       deletedAt: new Date().toISOString(),
       status: task.status,
       softDelete: true,
+      ...(observation ? { observation } : {}),
       ...(options?.administration
         ? { deletedByRole: "administrador", administration: true }
         : {}),
@@ -353,6 +355,7 @@ export function recordTaskDeleteAudit(
   })
   recordTaskDeleteActivity(task as Task, {
     administration: options?.administration === true,
+    observation,
   })
 }
 

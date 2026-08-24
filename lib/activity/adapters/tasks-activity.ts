@@ -804,20 +804,24 @@ export function recordTaskCreateActivity(task: Task): void {
 
 export function recordTaskDeleteActivity(
   task: Task,
-  options?: { administration?: boolean }
+  options?: { administration?: boolean; observation?: string }
 ): void {
+  const observation = options?.observation?.trim()
   void recordActivityEventClient({
     action: ACTIVITY_ACTIONS.TASK_DELETE,
     module: ACTIVITY_MODULES.TASKS,
     entityType: ACTIVITY_ENTITY_TYPES.TASK,
     entityId: task.id,
-    detail: options?.administration
-      ? "OT eliminada por administrador (soft delete)."
-      : "OT eliminada (soft delete).",
+    detail: observation
+      ? `OT eliminada. Observación: ${observation}`
+      : options?.administration
+        ? "OT eliminada por administrador (soft delete)."
+        : "OT eliminada (soft delete).",
     metadata: {
       code: task.code,
       status: task.status,
       administration: options?.administration === true,
+      ...(observation ? { observation } : {}),
     },
     origin: ACTIVITY_ORIGINS.WEB,
   })
