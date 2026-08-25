@@ -88,6 +88,7 @@
     "test:sprint-ux-1-operational-visibility": "npx tsx --test scripts/test-sprint-ux-1-operational-visibility.mjs",
     "test:sprint-ux-2-map-centered-planning": "npx tsx --test scripts/test-sprint-ux-2-map-centered-planning.mjs",
     "test:ux-2-1-sidebar-areas": "npx tsx --test scripts/test-ux-2-1-sidebar-areas.mjs",
+    "test:ux-2-2-header-logo": "npx tsx --test scripts/test-ux-2-2-header-logo.mjs",
     "test:planning-task-observations": "npx tsx --test scripts/test-planning-task-observations.mjs",
     "test:ot-field-agent-ops-sprint": "npx tsx --test scripts/test-ot-field-agent-ops-sprint.mjs",
     "test:task-start-distance-enforcement": "npx tsx --test scripts/test-task-start-distance-enforcement.mjs",

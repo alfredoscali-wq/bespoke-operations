@@ -5,9 +5,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { ChevronDown, ChevronLeft, ChevronRight, Plus, X } from "lucide-react"
 
-import { useAuth } from "@/components/auth/auth-provider"
 import { useOperationalProfile } from "@/components/operations/operational-profile-provider"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
@@ -15,7 +13,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { resolveAuthDisplay } from "@/lib/auth/auth-display"
 import { BESPOKE_LOGO_SRC } from "@/lib/branding/logo"
 import type { NavGroup, NavItem } from "@/lib/navigation"
 import {
@@ -115,42 +112,10 @@ function SidebarBrand({
         alt="Bespoke Operations"
         className={cn(
           "shrink-0 object-contain object-center",
-          compact ? "h-9 w-auto" : "h-10 w-auto"
+          compact ? "h-11 w-auto max-w-[60px]" : "h-16 w-auto max-w-[184px]"
         )}
       />
     </Link>
-  )
-}
-
-function SidebarProfile({
-  profileLabel,
-}: {
-  profileLabel: string
-}) {
-  const { sessionUser } = useAuth()
-  const userDisplay = resolveAuthDisplay(sessionUser)
-
-  return (
-    <div className="px-0.5">
-      <div className="flex items-center gap-2.5">
-        <Avatar size="sm" className="size-9 shadow-sm">
-          <AvatarFallback className="bg-slate-100 text-[11px] font-semibold text-slate-600">
-            {userDisplay.initials}
-          </AvatarFallback>
-        </Avatar>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[13px] font-semibold tracking-tight text-slate-800">
-            {userDisplay.displayName}
-          </p>
-          <p className="mt-0.5 text-[10px] font-semibold tracking-[0.14em] text-slate-400 uppercase">
-            Perfil operativo
-          </p>
-          <p className="truncate text-xs font-medium text-slate-500">
-            {profileLabel}
-          </p>
-        </div>
-      </div>
-    </div>
   )
 }
 
@@ -251,7 +216,7 @@ export function AppSidebar({
   onCloseMobile,
 }: AppSidebarProps) {
   const pathname = usePathname()
-  const { navGroups, profile, profileLabel, homePath } = useOperationalProfile()
+  const { navGroups, profile, homePath } = useOperationalProfile()
   const compact = collapsed && !mobileOpen
   const areaKey = navGroups.map((group) => group.id).join("|")
   const areaIds = useMemo(
@@ -315,30 +280,27 @@ export function AppSidebar({
     <>
       <div
         className={cn(
-          "relative flex shrink-0 flex-col px-3",
-          compact ? "h-[4.75rem] items-center justify-center py-2" : "gap-3 pt-3 pb-4"
+          "relative flex shrink-0 items-center px-3",
+          compact ? "h-[4.75rem] justify-center py-2" : "gap-2 py-3"
         )}
       >
-        <div className={cn("flex items-center", compact ? "justify-center" : "gap-2")}>
-          <SidebarBrand
-            compact={compact}
-            homePath={homePath}
-            onCloseMobile={onCloseMobile}
-          />
+        <SidebarBrand
+          compact={compact}
+          homePath={homePath}
+          onCloseMobile={onCloseMobile}
+        />
 
-          {!compact && (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="ml-auto hidden shrink-0 text-slate-400 hover:text-slate-600 lg:inline-flex"
-              onClick={onToggleCollapse}
-              aria-label="Contraer menú"
-            >
-              <ChevronLeft className="size-4" />
-            </Button>
-          )}
-        </div>
-        {compact ? null : <SidebarProfile profileLabel={profileLabel} />}
+        {!compact && (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="ml-auto hidden shrink-0 text-slate-400 hover:text-slate-600 lg:inline-flex"
+            onClick={onToggleCollapse}
+            aria-label="Contraer menú"
+          >
+            <ChevronLeft className="size-4" />
+          </Button>
+        )}
 
         <Button
           variant="ghost"

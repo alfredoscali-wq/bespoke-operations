@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { UserRound } from "lucide-react"
+import { ChevronDown, UserRound } from "lucide-react"
 
 import { useAuth } from "@/components/auth/auth-provider"
 import { resolveAuthDisplay } from "@/lib/auth/auth-display"
@@ -31,7 +31,7 @@ export function UserAccountMenu() {
           disabled={!isAuthReady}
           aria-label="Menú de cuenta"
         >
-          <span className="hidden max-w-[140px] truncate text-xs font-medium text-foreground md:inline">
+          <span className="hidden max-w-[200px] truncate whitespace-nowrap text-xs font-medium text-slate-800 lg:max-w-[240px] md:inline">
             {userDisplay.displayName}
           </span>
           <Avatar size="sm">
@@ -39,6 +39,7 @@ export function UserAccountMenu() {
               {userDisplay.initials}
             </AvatarFallback>
           </Avatar>
+          <ChevronDown className="hidden size-3.5 shrink-0 text-slate-400 md:block" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">

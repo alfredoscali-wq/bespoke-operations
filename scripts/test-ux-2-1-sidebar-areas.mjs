@@ -260,7 +260,7 @@ test("íconos y estados activos del sidebar", () => {
   const sidebar = read("components/layout/app-sidebar.tsx")
   assert.match(sidebar, /font-semibold/)
   assert.match(sidebar, /--sidebar-area-/)
-  assert.match(sidebar, /Perfil operativo/)
+  assert.doesNotMatch(sidebar, /Perfil operativo/)
   assert.match(sidebar, /Bespoke Operations/)
   assert.match(read("app/globals.css"), /--sidebar-area-operations/)
   assert.match(read("app/globals.css"), /--sidebar-area-isp/)
