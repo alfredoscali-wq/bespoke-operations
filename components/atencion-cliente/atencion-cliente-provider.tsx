@@ -1971,4 +1971,8 @@ export function useAtencionCliente() {
   return context
 }
 
+export function useAtencionClienteOptional() {
+  return useContext(AtencionClienteContext)
+}
+
 export { createBrowserCustomerAtencionesClient }

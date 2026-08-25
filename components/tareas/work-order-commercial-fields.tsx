@@ -5,7 +5,7 @@ import type { WorkOrderFormInput } from "@/lib/tasks/work-order"
 
 type CommercialFormSlice = Pick<
   WorkOrderFormInput,
-  "serviceType" | "technology" | "contractedPlan" | "installationIp"
+  "serviceType" | "technology" | "contractedPlan" | "serviceCatalogId" | "installationIp"
 >
 
 type WorkOrderCommercialFieldsProps<T extends CommercialFormSlice> = {

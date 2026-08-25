@@ -6,6 +6,7 @@ export type CreateCustomerPayload = {
   dni?: string | null
   phone?: string | null
   email?: string | null
+  whatsapp?: string | null
   address?: string | null
   locality?: string | null
   technology?: string | null
@@ -30,6 +31,7 @@ export type UpdateCustomerPayload = Partial<{
   dni: string | null
   phone: string | null
   email: string | null
+  whatsapp: string | null
   address: string | null
   locality: string | null
   technology: string | null

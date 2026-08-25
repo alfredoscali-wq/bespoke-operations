@@ -1,11 +1,9 @@
 "use client"
 
-import {
-  getPlanOptionsForTechnology,
-  sanitizePlanForTechnology,
-  WIRELESS_CONTRACTED_PLAN_LABEL,
-  type ContractedPlan,
-} from "@/lib/tasks/commercial-plan"
+import { useEffect } from "react"
+
+import { useOtCatalogPlans } from "@/lib/isp/use-ot-catalog-plans"
+import type { ContractedPlan } from "@/lib/tasks/commercial-plan"
 import {
   WORK_ORDER_TECHNOLOGY_OPTIONS,
   type WorkOrderFormInput,
@@ -24,7 +22,11 @@ import {
 
 type CommercialFormSlice = Pick<
   WorkOrderFormInput,
-  "serviceType" | "technology" | "contractedPlan" | "installationIp"
+  | "serviceType"
+  | "technology"
+  | "contractedPlan"
+  | "serviceCatalogId"
+  | "installationIp"
 >
 
 type WorkOrderTechnologyPlanFieldsProps<T extends CommercialFormSlice> = {
@@ -44,22 +46,65 @@ export function WorkOrderTechnologyPlanFields<T extends CommercialFormSlice>({
   technologyLabel = "Tecnología *",
   planLabel = "Plan contratado *",
 }: WorkOrderTechnologyPlanFieldsProps<T>) {
+  const { plans, loading } = useOtCatalogPlans(
+    form.technology,
+    form.serviceCatalogId || null
+  )
+  const isWireless = form.technology === "wireless"
+
+  useEffect(() => {
+    if (loading || !isWireless || plans.length !== 1) return
+
+    const only = plans[0]
+    if (
+      form.serviceCatalogId === only.catalogId &&
+      form.contractedPlan === only.contractedPlanCode
+    ) {
+      return
+    }
+
+    updateField(
+      "contractedPlan" as keyof T,
+      only.contractedPlanCode as ContractedPlan as T[keyof T]
+    )
+    updateField(
+      "serviceCatalogId" as keyof T,
+      (only.catalogId || "") as T[keyof T]
+    )
+  }, [
+    form.contractedPlan,
+    form.serviceCatalogId,
+    isWireless,
+    loading,
+    plans,
+  ])
+
   if (!showTechnology && !showPlan) {
     return null
   }
 
-  const planOptions = getPlanOptionsForTechnology(form.technology)
-  const isWireless = form.technology === "wireless"
-
   function handleTechnologyChange(value: WorkOrderTechnology) {
     updateField("technology" as keyof T, value as T[keyof T])
-    updateField(
-      "contractedPlan" as keyof T,
-      sanitizePlanForTechnology(form.contractedPlan, value) as T[keyof T]
-    )
+    updateField("contractedPlan" as keyof T, "" as T[keyof T])
+    updateField("serviceCatalogId" as keyof T, "" as T[keyof T])
     if (value !== "wireless") {
       updateField("installationIp" as keyof T, "" as T[keyof T])
     }
+  }
+
+  function handlePlanSelect(catalogId: string, contractedPlanCode: string) {
+    updateField(
+      "contractedPlan" as keyof T,
+      contractedPlanCode as ContractedPlan as T[keyof T]
+    )
+    updateField("serviceCatalogId" as keyof T, catalogId as T[keyof T])
+  }
+
+  function isSelected(catalogId: string, contractedPlanCode: string) {
+    if (form.serviceCatalogId && catalogId) {
+      return form.serviceCatalogId === catalogId
+    }
+    return form.contractedPlan === contractedPlanCode
   }
 
   return (
@@ -90,18 +135,25 @@ export function WorkOrderTechnologyPlanFields<T extends CommercialFormSlice>({
       {showPlan && form.technology ? (
         <div className="space-y-2">
           <Label>{planLabel}</Label>
-          {isWireless ? (
+          {isWireless && plans.length <= 1 ? (
             <div className="rounded-lg border bg-background px-3 py-2.5 text-sm font-medium">
-              {WIRELESS_CONTRACTED_PLAN_LABEL}
+              {plans[0]?.label ?? (loading ? "Cargando plan…" : "Sin plan activo")}
             </div>
+          ) : plans.length === 0 && !loading ? (
+            <p className="text-sm text-muted-foreground">
+              No hay planes activos para esta tecnología.
+            </p>
           ) : (
             <div className="space-y-2">
-              {planOptions.map((option) => {
-                const selected = form.contractedPlan === option.value
+              {plans.map((option) => {
+                const selected = isSelected(
+                  option.catalogId,
+                  option.contractedPlanCode
+                )
 
                 return (
                   <label
-                    key={option.value}
+                    key={option.catalogId || option.contractedPlanCode}
                     className={cn(
                       "flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 text-sm transition-colors",
                       selected
@@ -112,12 +164,12 @@ export function WorkOrderTechnologyPlanFields<T extends CommercialFormSlice>({
                     <input
                       type="radio"
                       name="contracted-plan"
-                      value={option.value}
+                      value={option.catalogId || option.contractedPlanCode}
                       checked={selected}
                       onChange={() =>
-                        updateField(
-                          "contractedPlan" as keyof T,
-                          option.value as ContractedPlan as T[keyof T]
+                        handlePlanSelect(
+                          option.catalogId,
+                          option.contractedPlanCode
                         )
                       }
                       className="size-4 shrink-0 accent-primary"

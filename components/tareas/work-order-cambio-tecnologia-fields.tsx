@@ -44,11 +44,13 @@ export function WorkOrderCambioTecnologiaFields({
         description="Nueva tecnología y plan. Si termina en Fibra, complete los datos FTTH."
         technology={form.newTechnology}
         contractedPlan={form.newContractedPlan || form.contractedPlan}
+        serviceCatalogId={form.serviceCatalogId}
         onTechnologyChange={updateNewTechnology}
         onContractedPlanChange={(value: ContractedPlan) => {
           updateField("newContractedPlan", value)
           updateField("contractedPlan", value)
         }}
+        onServiceCatalogIdChange={(value) => updateField("serviceCatalogId", value)}
         napBox={form.napBox}
         napPort={form.napPort}
         onuSerial={form.onuSerial}

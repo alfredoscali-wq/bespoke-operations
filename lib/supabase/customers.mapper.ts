@@ -33,6 +33,7 @@ export function mapCustomerRowToCustomer(row: CustomerRow): Customer {
     name: row.name,
     phone: row.phone ?? undefined,
     email: row.email ?? undefined,
+    whatsapp: row.whatsapp ?? undefined,
     address: row.address ?? undefined,
     locality: row.locality ?? undefined,
     technology: row.technology ?? undefined,
@@ -100,6 +101,7 @@ export function mapCustomerInsert(
     dni: trimOptional(payload.dni),
     phone: trimOptional(payload.phone),
     email: trimOptional(payload.email),
+    whatsapp: trimOptional(payload.whatsapp),
     address: trimOptional(payload.address),
     locality: trimOptional(payload.locality),
     technology: trimOptional(payload.technology),
@@ -140,6 +142,9 @@ export function mapCustomerUpdate(
   }
   if (payload.email !== undefined) {
     update.email = trimOptional(payload.email)
+  }
+  if (payload.whatsapp !== undefined) {
+    update.whatsapp = trimOptional(payload.whatsapp)
   }
   if (payload.address !== undefined) {
     update.address = trimOptional(payload.address)

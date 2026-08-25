@@ -63,6 +63,16 @@ export type SystemAuditLogUpdate =
 export type TaskRow = Database["public"]["Tables"]["tasks"]["Row"]
 export type TaskInsert = Database["public"]["Tables"]["tasks"]["Insert"]
 export type TaskUpdate = Database["public"]["Tables"]["tasks"]["Update"]
+export type IspServiceCatalogRow =
+  Database["public"]["Tables"]["isp_service_catalog"]["Row"]
+export type IspServiceCatalogInsert =
+  Database["public"]["Tables"]["isp_service_catalog"]["Insert"]
+export type IspServiceCatalogUpdate =
+  Database["public"]["Tables"]["isp_service_catalog"]["Update"]
+export type IspMigrationRunRow =
+  Database["public"]["Tables"]["isp_migration_runs"]["Row"]
+export type IspCompanySettingsRow =
+  Database["public"]["Tables"]["isp_company_settings"]["Row"]
 export type TaskPhotoRow = Database["public"]["Tables"]["task_photos"]["Row"]
 export type TaskPhotoInsert =
   Database["public"]["Tables"]["task_photos"]["Insert"]

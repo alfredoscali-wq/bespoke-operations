@@ -93,6 +93,7 @@ export type Task = {
   serviceType?: string | null
   locality?: string | null
   contractedPlan?: string | null
+  serviceCatalogId?: string | null
   installationCost?: number | null
   amountToCollect?: number | null
   paymentMethod?: string | null

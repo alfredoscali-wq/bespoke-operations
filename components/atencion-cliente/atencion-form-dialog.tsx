@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 
-import { useAtencionCliente } from "@/components/atencion-cliente/atencion-cliente-provider"
+import { useAtencionClienteOptional } from "@/components/atencion-cliente/atencion-cliente-provider"
 import {
   CUSTOMER_ATENCION_CHANNEL_OPTIONS,
   CUSTOMER_ATENCION_MOTIVO_OPTIONS,
@@ -118,6 +118,13 @@ type AtencionFormDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   onCreated?: (atencionId: string) => void
+  initialCustomer?: Customer | null
+  targetCustomerIds?: string[]
+  lockCustomer?: boolean
+  createAtencion?: (
+    input: NewCustomerAtencionInput
+  ) => Promise<{ success: boolean; message?: string; atencion?: { id: string } }>
+  searchCustomers?: (query: string, limit?: number) => Promise<Customer[]>
 }
 
 function CustomerSearchField({
@@ -251,8 +258,15 @@ export function AtencionFormDialog({
   open,
   onOpenChange,
   onCreated,
+  initialCustomer = null,
+  targetCustomerIds,
+  lockCustomer = false,
+  createAtencion: createAtencionProp,
+  searchCustomers: searchCustomersProp,
 }: AtencionFormDialogProps) {
-  const { searchCustomers, createAtencion } = useAtencionCliente()
+  const ctx = useAtencionClienteOptional()
+  const createAtencion = createAtencionProp ?? ctx?.createAtencion
+  const searchCustomers = searchCustomersProp ?? ctx?.searchCustomers
   const [form, setForm] = useState<AtencionFormState>(emptyForm)
   const [baselineForm, setBaselineForm] = useState<AtencionFormState>(emptyForm)
   const [customerMode, setCustomerMode] =
@@ -270,6 +284,8 @@ export function AtencionFormDialog({
   const [continuationArea, setContinuationArea] = useState<
     ContinuationArea | ""
   >("")
+
+  const lockedCustomerCount = new Set(targetCustomerIds ?? []).size
 
   const isDirty =
     isFormStateDirty(form, baselineForm) ||
@@ -301,10 +317,14 @@ export function AtencionFormDialog({
     setBaselineQuickCustomerForm(emptyQuickCustomerForm)
     setContinuationArea("")
     setError(null)
-  }, [open])
+    if (initialCustomer) {
+      setSelectedCustomer(initialCustomer)
+    }
+  }, [initialCustomer, open])
 
   const handleCustomerSearch = useCallback(
-    (query: string) => searchCustomers(query),
+    (query: string) =>
+      searchCustomers ? searchCustomers(query) : Promise.resolve([]),
     [searchCustomers]
   )
 
@@ -312,7 +332,7 @@ export function AtencionFormDialog({
     event.preventDefault()
     setError(null)
 
-    if (customerMode === "existing" && !selectedCustomer) {
+    if (customerMode === "existing" && !selectedCustomer && !targetCustomerIds?.length) {
       setError("Selecciona un cliente.")
       return
     }
@@ -367,18 +387,53 @@ export function AtencionFormDialog({
           : undefined,
     }
 
+    const customerIds = [
+      ...new Set(
+        targetCustomerIds?.length
+          ? targetCustomerIds
+          : selectedCustomer
+            ? [selectedCustomer.id]
+            : []
+      ),
+    ]
+
     setIsSubmitting(true)
 
     try {
-      const result = await createAtencion(input)
-
-      if (!result.success) {
-        setError(result.message ?? "No se pudo registrar la atencion.")
+      if (!createAtencion) {
+        setError("No se pudo registrar la atencion.")
         return
       }
 
+      let lastId = ""
+      if (customerMode === "unregistered") {
+        const result = await createAtencion(input)
+        if (!result.success) {
+          setError(result.message ?? "No se pudo registrar la atencion.")
+          return
+        }
+        lastId = result.atencion?.id ?? ""
+      } else {
+        if (customerIds.length === 0) {
+          setError("Selecciona un cliente.")
+          return
+        }
+        for (const customerId of customerIds) {
+          const result = await createAtencion({
+            ...input,
+            customerId,
+            quickCustomer: undefined,
+          })
+          if (!result.success) {
+            setError(result.message ?? "No se pudo registrar la atencion.")
+            return
+          }
+          lastId = result.atencion?.id ?? lastId
+        }
+      }
+
       forceClose()
-      onCreated?.(result.atencion?.id ?? "")
+      onCreated?.(lastId)
     } finally {
       setIsSubmitting(false)
     }
@@ -409,6 +464,22 @@ export function AtencionFormDialog({
           </DialogHeader>
 
           <form className="space-y-3" onSubmit={handleSubmit}>
+            {lockCustomer ? (
+              <div className="rounded-lg border border-border/70 bg-muted/20 px-3 py-2 text-sm">
+                {lockedCustomerCount > 1 ? (
+                  <p>
+                    Se registrará una atención para{" "}
+                    <strong>{lockedCustomerCount} abonados</strong> seleccionados.
+                  </p>
+                ) : selectedCustomer ? (
+                  <p>
+                    Cliente:{" "}
+                    <span className="font-medium">{selectedCustomer.name}</span>
+                  </p>
+                ) : null}
+              </div>
+            ) : (
+              <>
             <div className="space-y-2">
               <Label>Cliente</Label>
               <div className="grid gap-2 sm:grid-cols-2">
@@ -466,6 +537,8 @@ export function AtencionFormDialog({
                 value={quickCustomerForm}
                 onChange={setQuickCustomerForm}
               />
+            )}
+              </>
             )}
 
             <div className="grid gap-3 sm:grid-cols-2">

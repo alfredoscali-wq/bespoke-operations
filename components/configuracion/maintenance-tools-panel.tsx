@@ -1,9 +1,11 @@
 "use client"
 
 import Link from "next/link"
-import { AlertTriangle, ArrowRight, ShieldAlert, Trash2, Wrench } from "lucide-react"
+import { AlertTriangle, ArrowRight, ShieldAlert, Trash2, Upload, Wrench } from "lucide-react"
 
+import { useAuth } from "@/components/auth/auth-provider"
 import { useIsSystemAdministrator } from "@/lib/auth/use-is-system-administrator"
+import { canAccessIspMigration } from "@/lib/isp/permissions"
 import {
   Card,
   CardContent,
@@ -13,9 +15,11 @@ import {
 } from "@/components/ui/card"
 
 export function MaintenanceToolsPanel() {
+  const { sessionUser } = useAuth()
   const isAdministrator = useIsSystemAdministrator()
+  const canMigrateIsp = canAccessIspMigration(sessionUser)
 
-  if (!isAdministrator) {
+  if (!isAdministrator && !canMigrateIsp) {
     return (
       <Card className="border-destructive/30">
         <CardHeader>
@@ -38,6 +42,36 @@ export function MaintenanceToolsPanel() {
         </p>
       </div>
 
+      {canMigrateIsp ? (
+        <Card>
+          <CardHeader>
+            <div className="flex items-start gap-3">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-muted text-foreground">
+                <Upload className="size-5" />
+              </div>
+              <div className="space-y-1">
+                <CardTitle className="text-base">Migración de abonados</CardTitle>
+                <CardDescription>
+                  Importar los abonados actuales de un ISP (clientes, catálogo,
+                  servicios y conexiones) sin reconstruirlos desde OT históricas.
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <Link
+              href="/administracion/migracion-isp"
+              className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+            >
+              Abrir migración de abonados
+              <ArrowRight className="size-4" />
+            </Link>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {isAdministrator ? (
+        <>
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Automatizaciones</CardTitle>
@@ -115,6 +149,8 @@ export function MaintenanceToolsPanel() {
           </div>
         </CardContent>
       </Card>
+        </>
+      ) : null}
     </div>
   )
 }

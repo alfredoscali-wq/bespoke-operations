@@ -1,11 +1,9 @@
 "use client"
 
-import {
-  getPlanOptionsForTechnology,
-  sanitizePlanForTechnology,
-  WIRELESS_CONTRACTED_PLAN_LABEL,
-  type ContractedPlan,
-} from "@/lib/tasks/commercial-plan"
+import { useEffect } from "react"
+
+import { useOtCatalogPlans } from "@/lib/isp/use-ot-catalog-plans"
+import { type ContractedPlan } from "@/lib/tasks/commercial-plan"
 import { isFtthTechnology } from "@/lib/tasks/ftth-installation"
 import {
   WORK_ORDER_TECHNOLOGY_OPTIONS,
@@ -24,6 +22,7 @@ import {
 
 export type WorkOrderFtthInstallationValues = {
   contractedPlan: ContractedPlan | ""
+  serviceCatalogId?: string
   napBox: string
   napPort: string
   onuSerial: string
@@ -33,6 +32,7 @@ type WorkOrderFtthInstallationFieldsProps = {
   technology: WorkOrderTechnology | ""
   values: WorkOrderFtthInstallationValues
   onContractedPlanChange?: (plan: ContractedPlan) => void
+  onServiceCatalogIdChange?: (catalogId: string) => void
   onNapBoxChange?: (value: string) => void
   onNapPortChange?: (value: string) => void
   onOnuSerialChange?: (value: string) => void
@@ -59,6 +59,7 @@ export function WorkOrderFtthInstallationFields({
   technology,
   values,
   onContractedPlanChange,
+  onServiceCatalogIdChange,
   onNapBoxChange,
   onNapPortChange,
   onOnuSerialChange,
@@ -69,14 +70,50 @@ export function WorkOrderFtthInstallationFields({
   idPrefix = "ftth",
   planLabel = "Plan *",
 }: WorkOrderFtthInstallationFieldsProps) {
+  const { plans, loading } = useOtCatalogPlans(
+    technology,
+    values.serviceCatalogId || null
+  )
+  const isWireless = technology === "wireless"
+  const planIsReadOnly = planReadOnly ?? readOnly
+  const showFtthInputs = showInstallationFields && isFtthTechnology(technology)
+
+  useEffect(() => {
+    if (loading || !isWireless || plans.length !== 1) return
+
+    const only = plans[0]
+    if (
+      values.serviceCatalogId === only.catalogId &&
+      values.contractedPlan === only.contractedPlanCode
+    ) {
+      return
+    }
+
+    onContractedPlanChange?.(only.contractedPlanCode as ContractedPlan)
+    onServiceCatalogIdChange?.(only.catalogId)
+  }, [
+    isWireless,
+    loading,
+    plans,
+    values.contractedPlan,
+    values.serviceCatalogId,
+  ])
+
   if (!technology) {
     return null
   }
 
-  const planOptions = getPlanOptionsForTechnology(technology)
-  const isWireless = technology === "wireless"
-  const planIsReadOnly = planReadOnly ?? readOnly
-  const showFtthInputs = showInstallationFields && isFtthTechnology(technology)
+  function isSelected(catalogId: string, contractedPlanCode: string) {
+    if (values.serviceCatalogId && catalogId) {
+      return values.serviceCatalogId === catalogId
+    }
+    return values.contractedPlan === contractedPlanCode
+  }
+
+  const selectedLabel =
+    plans.find((option) =>
+      isSelected(option.catalogId, option.contractedPlanCode)
+    )?.label ?? values.contractedPlan
 
   return (
     <div className="space-y-4">
@@ -86,25 +123,27 @@ export function WorkOrderFtthInstallationFields({
           {planIsReadOnly ? (
             <ReadOnlyRow
               label={planLabel.replace(/\s*\*$/, "")}
-              value={
-                isWireless
-                  ? WIRELESS_CONTRACTED_PLAN_LABEL
-                  : planOptions.find((option) => option.value === values.contractedPlan)
-                      ?.label ?? values.contractedPlan
-              }
+              value={selectedLabel}
             />
-          ) : isWireless ? (
+          ) : isWireless && plans.length <= 1 ? (
             <div className="rounded-lg border bg-background px-3 py-2.5 text-sm font-medium">
-              {WIRELESS_CONTRACTED_PLAN_LABEL}
+              {plans[0]?.label ?? (loading ? "Cargando plan…" : "Sin plan activo")}
             </div>
+          ) : plans.length === 0 && !loading ? (
+            <p className="text-sm text-muted-foreground">
+              No hay planes activos para esta tecnología.
+            </p>
           ) : (
             <div className="space-y-2">
-              {planOptions.map((option) => {
-                const selected = values.contractedPlan === option.value
+              {plans.map((option) => {
+                const selected = isSelected(
+                  option.catalogId,
+                  option.contractedPlanCode
+                )
 
                 return (
                   <label
-                    key={option.value}
+                    key={option.catalogId || option.contractedPlanCode}
                     className={cn(
                       "flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 text-sm transition-colors",
                       selected
@@ -115,9 +154,14 @@ export function WorkOrderFtthInstallationFields({
                     <input
                       type="radio"
                       name={`${idPrefix}-contracted-plan`}
-                      value={option.value}
+                      value={option.catalogId || option.contractedPlanCode}
                       checked={selected}
-                      onChange={() => onContractedPlanChange?.(option.value)}
+                      onChange={() => {
+                        onContractedPlanChange?.(
+                          option.contractedPlanCode as ContractedPlan
+                        )
+                        onServiceCatalogIdChange?.(option.catalogId)
+                      }}
                       className="size-4 shrink-0 accent-primary"
                     />
                     {option.label}
@@ -181,8 +225,10 @@ type WorkOrderTechnologyStateSectionProps = {
   description?: string
   technology: WorkOrderTechnology | ""
   contractedPlan: ContractedPlan | ""
+  serviceCatalogId?: string
   onTechnologyChange?: (technology: WorkOrderTechnology) => void
   onContractedPlanChange?: (plan: ContractedPlan) => void
+  onServiceCatalogIdChange?: (catalogId: string) => void
   napBox?: string
   napPort?: string
   onuSerial?: string
@@ -201,8 +247,10 @@ export function WorkOrderTechnologyStateSection({
   description,
   technology,
   contractedPlan,
+  serviceCatalogId = "",
   onTechnologyChange,
   onContractedPlanChange,
+  onServiceCatalogIdChange,
   napBox = "",
   napPort = "",
   onuSerial = "",
@@ -217,9 +265,8 @@ export function WorkOrderTechnologyStateSection({
 }: WorkOrderTechnologyStateSectionProps) {
   function handleTechnologyChange(value: WorkOrderTechnology) {
     onTechnologyChange?.(value)
-    onContractedPlanChange?.(
-      sanitizePlanForTechnology(contractedPlan, value) as ContractedPlan
-    )
+    onContractedPlanChange?.("" as ContractedPlan)
+    onServiceCatalogIdChange?.("")
   }
 
   return (
@@ -262,8 +309,9 @@ export function WorkOrderTechnologyStateSection({
       {technology ? (
         <WorkOrderFtthInstallationFields
           technology={technology}
-          values={{ contractedPlan, napBox, napPort, onuSerial }}
+          values={{ contractedPlan, serviceCatalogId, napBox, napPort, onuSerial }}
           onContractedPlanChange={onContractedPlanChange}
+          onServiceCatalogIdChange={onServiceCatalogIdChange}
           onNapBoxChange={onNapBoxChange}
           onNapPortChange={onNapPortChange}
           onOnuSerialChange={onOnuSerialChange}

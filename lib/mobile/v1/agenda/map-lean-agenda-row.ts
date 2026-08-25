@@ -22,6 +22,7 @@ export function mapLeanAgendaRowToTask(
     customer_dni: null,
     customer_id: null,
     service_address: null,
+    service_catalog_id: null,
     latitude: null,
     longitude: null,
     shared_location: "",

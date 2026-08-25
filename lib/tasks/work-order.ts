@@ -359,6 +359,7 @@ export type WorkOrderFormInput = {
   newSharedLocation: string
   observationsForCrew: string
   contractedPlan: ContractedPlan | ""
+  serviceCatalogId: string
   installationIp: string
   amountToCollect: string
   paymentMethod: WorkOrderPaymentMethod | ""
@@ -414,6 +415,7 @@ export function getDefaultWorkOrderForm(): WorkOrderFormInput {
     newSharedLocation: "",
     observationsForCrew: "",
     contractedPlan: "",
+    serviceCatalogId: "",
     installationIp: "",
     amountToCollect: "",
     paymentMethod: "",
@@ -745,7 +747,7 @@ export function validateWorkOrderForm(
         }
       }
       if (
-        input.currentTechnology === "fiber" &&
+        input.currentTechnology &&
         !resolveCurrentContractedPlanFromForm(input)
       ) {
         return {
@@ -754,7 +756,7 @@ export function validateWorkOrderForm(
         }
       }
       if (
-        input.newTechnology === "fiber" &&
+        input.newTechnology &&
         !resolveContractedPlanFromForm(input)
       ) {
         return {
@@ -771,7 +773,7 @@ export function validateWorkOrderForm(
         }
       }
       if (
-        input.currentTechnology === "fiber" &&
+        input.currentTechnology &&
         !resolveCurrentContractedPlanFromForm(input)
       ) {
         return {
@@ -780,7 +782,7 @@ export function validateWorkOrderForm(
         }
       }
       if (
-        input.newTechnology === "fiber" &&
+        input.newTechnology &&
         !resolveContractedPlanFromForm(input)
       ) {
         return {
@@ -933,6 +935,7 @@ export function buildWorkOrderCreatePayload(input: {
     locality: locality || undefined,
     taskMetadata: buildTaskMetadata(form),
     contractedPlan: contractedPlan ?? undefined,
+    serviceCatalogId: form.serviceCatalogId.trim() || undefined,
     amountToCollect: amountToCollect ?? undefined,
     paymentMethod:
       form.serviceType === "instalacion-nueva" ? paymentMethod : undefined,
@@ -1001,21 +1004,16 @@ export function buildCommercialFormFromTask(
   task: Task
 ): Pick<
   WorkOrderFormInput,
-  "serviceType" | "technology" | "contractedPlan" | "installationIp"
+  "serviceType" | "technology" | "contractedPlan" | "serviceCatalogId" | "installationIp"
 > {
   const technology = resolveWorkOrderTechnologyFromTask(task)
-  const contractedPlan =
-    task.contractedPlan === "50Mb" ||
-    task.contractedPlan === "100Mb" ||
-    task.contractedPlan === "300Mb" ||
-    task.contractedPlan === "20Mb"
-      ? task.contractedPlan
-      : ""
+  const contractedPlan = task.contractedPlan?.trim() || ""
 
   return {
     serviceType: (task.serviceType as WorkOrderServiceType) ?? "",
     technology,
-    contractedPlan,
+    contractedPlan: contractedPlan as WorkOrderFormInput["contractedPlan"],
+    serviceCatalogId: task.serviceCatalogId ?? "",
     installationIp:
       technology === "wireless" ? readInstallationIpFromTask(task) : "",
   }
@@ -1203,6 +1201,7 @@ export function buildWorkOrderUpdatePayload(input: {
     locality: payload.locality,
     taskMetadata: payload.taskMetadata,
     contractedPlan: payload.contractedPlan,
+    serviceCatalogId: payload.serviceCatalogId,
     amountToCollect: payload.amountToCollect,
     paymentMethod: payload.paymentMethod,
     latitude: payload.latitude,

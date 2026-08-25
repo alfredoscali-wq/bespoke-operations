@@ -113,6 +113,7 @@ export function mapTaskRowToTask(row: TaskRow): Task {
     serviceType: row.service_type,
     locality: row.locality,
     contractedPlan: row.contracted_plan?.trim() || undefined,
+    serviceCatalogId: row.service_catalog_id || undefined,
     installationCost: mapNullableNumber(row.installation_cost),
     amountToCollect: mapNullableNumber(row.amount_to_collect),
     paymentMethod: row.payment_method?.trim() || undefined,
@@ -161,6 +162,7 @@ export function mapCreatePayloadToInsert(payload: CreateTaskPayload): TaskInsert
     service_type: payload.serviceType ?? null,
     locality: payload.locality ?? null,
     contracted_plan: payload.contractedPlan?.trim() || null,
+    service_catalog_id: payload.serviceCatalogId?.trim() || null,
     installation_cost: payload.installationCost ?? null,
     amount_to_collect: payload.amountToCollect ?? null,
     payment_method: payload.paymentMethod ?? null,
@@ -284,6 +286,9 @@ export function mapUpdatePayloadToUpdate(payload: UpdateTaskPayload): TaskUpdate
   if (payload.locality !== undefined) update.locality = payload.locality
   if (payload.contractedPlan !== undefined) {
     update.contracted_plan = payload.contractedPlan?.trim() || null
+  }
+  if (payload.serviceCatalogId !== undefined) {
+    update.service_catalog_id = payload.serviceCatalogId?.trim() || null
   }
   if (payload.installationCost !== undefined) {
     update.installation_cost = payload.installationCost

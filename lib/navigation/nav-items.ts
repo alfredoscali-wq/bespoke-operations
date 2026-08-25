@@ -7,9 +7,11 @@ import {
   Building2,
   CalendarClock,
   CalendarRange,
+  Cable,
   Camera,
   Compass,
   Contact,
+  IdCard,
   Factory,
   FileText,
   Headset,
@@ -96,6 +98,34 @@ export const customersNavItem: NavItem = {
   pageTitle: "Clientes",
   description: "Directorio de clientes para operaciones de campo.",
   moduleColor: "customers",
+}
+
+export const clientes360NavItem: NavItem = {
+  title: "Clientes 360°",
+  href: "/clientes-360",
+  icon: IdCard,
+  pageTitle: "Clientes 360°",
+  description:
+    "Vista integral de los abonados ISP: servicios, conexiones, OT y actividad.",
+  moduleColor: "customers",
+}
+
+export const conexionesNavItem: NavItem = {
+  title: "Conexiones",
+  href: "/conexiones",
+  icon: Cable,
+  pageTitle: "Conexiones",
+  description: "Servicios y conexiones técnicas de abonados ISP.",
+  moduleColor: "ops",
+}
+
+export const serviciosNavItem: NavItem = {
+  title: "Servicios",
+  href: "/servicios",
+  icon: Package,
+  pageTitle: "Servicios",
+  description: "Catálogo de servicios y planes comerciales del ISP.",
+  moduleColor: "commercial",
 }
 
 export const atencionClienteNavItem: NavItem = {

@@ -1686,6 +1686,7 @@ export type Database = {
           validated_at: string | null
           validated_by: string | null
           validation_status: string
+          whatsapp: string | null
         }
         Insert: {
           address?: string | null
@@ -1716,6 +1717,7 @@ export type Database = {
           validated_at?: string | null
           validated_by?: string | null
           validation_status?: string
+          whatsapp?: string | null
         }
         Update: {
           address?: string | null
@@ -1746,6 +1748,7 @@ export type Database = {
           validated_at?: string | null
           validated_by?: string | null
           validation_status?: string
+          whatsapp?: string | null
         }
         Relationships: [
           {
@@ -1753,6 +1756,707 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      isp_connections: {
+        Row: {
+          company_id: string
+          connection_type: string
+          core_name: string | null
+          core_profile_id: string | null
+          created_at: string
+          deleted_at: string | null
+          gateway: string | null
+          id: string
+          ip_address: string | null
+          last_sync_at: string | null
+          notes: string | null
+          pppoe_password: string | null
+          pppoe_username: string | null
+          prefix_length: number | null
+          provision_error: string | null
+          provisioned_at: string | null
+          external_code: string | null
+          service_id: string
+          source_task_id: string | null
+          technical_profile: string | null
+          technical_profile_id: string | null
+          technical_status: string
+          updated_at: string
+          vlan: string | null
+        }
+        Insert: {
+          company_id: string
+          connection_type: string
+          core_name?: string | null
+          core_profile_id?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          gateway?: string | null
+          id?: string
+          ip_address?: string | null
+          last_sync_at?: string | null
+          notes?: string | null
+          pppoe_password?: string | null
+          pppoe_username?: string | null
+          prefix_length?: number | null
+          provision_error?: string | null
+          provisioned_at?: string | null
+          external_code?: string | null
+          service_id: string
+          source_task_id?: string | null
+          technical_profile?: string | null
+          technical_profile_id?: string | null
+          technical_status?: string
+          updated_at?: string
+          vlan?: string | null
+        }
+        Update: {
+          company_id?: string
+          connection_type?: string
+          core_name?: string | null
+          core_profile_id?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          gateway?: string | null
+          id?: string
+          ip_address?: string | null
+          last_sync_at?: string | null
+          notes?: string | null
+          pppoe_password?: string | null
+          pppoe_username?: string | null
+          prefix_length?: number | null
+          provision_error?: string | null
+          provisioned_at?: string | null
+          external_code?: string | null
+          service_id?: string
+          source_task_id?: string | null
+          technical_profile?: string | null
+          technical_profile_id?: string | null
+          technical_status?: string
+          updated_at?: string
+          vlan?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "isp_connections_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "isp_connections_technical_profile_id_fkey"
+            columns: ["technical_profile_id"]
+            isOneToOne: false
+            referencedRelation: "isp_technical_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "isp_connections_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: true
+            referencedRelation: "isp_services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "isp_connections_source_task_id_fkey"
+            columns: ["source_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      isp_service_catalog: {
+        Row: {
+          allowed_connection_types: string[]
+          billing_method: string
+          billing_period: string
+          category: string
+          code: string | null
+          company_id: string
+          created_at: string
+          currency: string
+          customer_type: string
+          deleted_at: string | null
+          description: string | null
+          download_speed_mbps: number | null
+          external_code: string | null
+          id: string
+          is_active: boolean
+          is_seed: boolean
+          legacy_plan_code: string | null
+          monthly_price: number | null
+          name: string
+          ot_label: string | null
+          price_is_configurable: boolean
+          requires_connection: boolean
+          speed_unit: string
+          technical_profile_id: string | null
+          technology: string | null
+          updated_at: string
+          upload_speed_mbps: number | null
+        }
+        Insert: {
+          allowed_connection_types?: string[]
+          billing_method?: string
+          billing_period?: string
+          category: string
+          code?: string | null
+          company_id: string
+          created_at?: string
+          currency?: string
+          customer_type: string
+          deleted_at?: string | null
+          description?: string | null
+          download_speed_mbps?: number | null
+          external_code?: string | null
+          id?: string
+          is_active?: boolean
+          is_seed?: boolean
+          legacy_plan_code?: string | null
+          monthly_price?: number | null
+          name: string
+          ot_label?: string | null
+          price_is_configurable?: boolean
+          requires_connection?: boolean
+          speed_unit?: string
+          technical_profile_id?: string | null
+          technology?: string | null
+          updated_at?: string
+          upload_speed_mbps?: number | null
+        }
+        Update: {
+          allowed_connection_types?: string[]
+          billing_method?: string
+          billing_period?: string
+          category?: string
+          code?: string | null
+          company_id?: string
+          created_at?: string
+          currency?: string
+          customer_type?: string
+          deleted_at?: string | null
+          description?: string | null
+          download_speed_mbps?: number | null
+          external_code?: string | null
+          id?: string
+          is_active?: boolean
+          is_seed?: boolean
+          legacy_plan_code?: string | null
+          monthly_price?: number | null
+          name?: string
+          ot_label?: string | null
+          price_is_configurable?: boolean
+          requires_connection?: boolean
+          speed_unit?: string
+          technical_profile_id?: string | null
+          technology?: string | null
+          updated_at?: string
+          upload_speed_mbps?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "isp_service_catalog_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "isp_service_catalog_technical_profile_id_fkey"
+            columns: ["technical_profile_id"]
+            isOneToOne: false
+            referencedRelation: "isp_technical_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      isp_technical_profiles: {
+        Row: {
+          code: string
+          company_id: string
+          connection_type: string | null
+          core_name: string | null
+          core_profile_id: string | null
+          created_at: string
+          deleted_at: string | null
+          description: string | null
+          download_speed: number | null
+          id: string
+          is_active: boolean
+          name: string
+          speed_unit: string
+          technology: string | null
+          updated_at: string
+          upload_speed: number | null
+        }
+        Insert: {
+          code: string
+          company_id: string
+          connection_type?: string | null
+          core_name?: string | null
+          core_profile_id?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          description?: string | null
+          download_speed?: number | null
+          id?: string
+          is_active?: boolean
+          name: string
+          speed_unit?: string
+          technology?: string | null
+          updated_at?: string
+          upload_speed?: number | null
+        }
+        Update: {
+          code?: string
+          company_id?: string
+          connection_type?: string | null
+          core_name?: string | null
+          core_profile_id?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          description?: string | null
+          download_speed?: number | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          speed_unit?: string
+          technology?: string | null
+          updated_at?: string
+          upload_speed?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "isp_technical_profiles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      isp_services: {
+        Row: {
+          activation_date: string | null
+          catalog_code: string | null
+          catalog_id: string | null
+          commercial_status: string
+          company_id: string
+          contracted_speed: string | null
+          created_at: string
+          customer_id: string
+          deleted_at: string | null
+          download_speed: number | null
+          external_code: string | null
+          id: string
+          list_price: number | null
+          monthly_collection_method: string
+          monthly_fee: number | null
+          notes: string | null
+          plan_name: string
+          replaced_service_id: string | null
+          source_task_id: string | null
+          speed_unit: string
+          technology: string | null
+          updated_at: string
+          upload_speed: number | null
+        }
+        Insert: {
+          activation_date?: string | null
+          catalog_code?: string | null
+          catalog_id?: string | null
+          commercial_status?: string
+          company_id: string
+          contracted_speed?: string | null
+          created_at?: string
+          customer_id: string
+          deleted_at?: string | null
+          download_speed?: number | null
+          external_code?: string | null
+          id?: string
+          list_price?: number | null
+          monthly_collection_method?: string
+          monthly_fee?: number | null
+          notes?: string | null
+          plan_name: string
+          replaced_service_id?: string | null
+          source_task_id?: string | null
+          speed_unit?: string
+          technology?: string | null
+          updated_at?: string
+          upload_speed?: number | null
+        }
+        Update: {
+          activation_date?: string | null
+          catalog_code?: string | null
+          catalog_id?: string | null
+          commercial_status?: string
+          company_id?: string
+          contracted_speed?: string | null
+          created_at?: string
+          customer_id?: string
+          deleted_at?: string | null
+          download_speed?: number | null
+          external_code?: string | null
+          id?: string
+          list_price?: number | null
+          monthly_collection_method?: string
+          monthly_fee?: number | null
+          notes?: string | null
+          plan_name?: string
+          replaced_service_id?: string | null
+          source_task_id?: string | null
+          speed_unit?: string
+          technology?: string | null
+          updated_at?: string
+          upload_speed?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "isp_services_catalog_id_fkey"
+            columns: ["catalog_id"]
+            isOneToOne: false
+            referencedRelation: "isp_service_catalog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "isp_services_replaced_service_id_fkey"
+            columns: ["replaced_service_id"]
+            isOneToOne: false
+            referencedRelation: "isp_services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "isp_services_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "isp_services_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "isp_services_source_task_id_fkey"
+            columns: ["source_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      isp_subscribers: {
+        Row: {
+          company_id: string
+          created_at: string
+          customer_id: string
+          deleted_at: string | null
+          id: string
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          customer_id: string
+          deleted_at?: string | null
+          id?: string
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          customer_id?: string
+          deleted_at?: string | null
+          id?: string
+          source?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "isp_subscribers_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "isp_subscribers_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      isp_company_settings: {
+        Row: {
+          company_id: string
+          onboarding_cutoff_at: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          company_id: string
+          onboarding_cutoff_at?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          company_id?: string
+          onboarding_cutoff_at?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "isp_company_settings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      isp_connection_equipment: {
+        Row: {
+          brand: string | null
+          company_id: string
+          connection_id: string
+          cpe: string | null
+          created_at: string
+          deleted_at: string | null
+          equipment_type: string | null
+          external_code: string | null
+          id: string
+          mac: string | null
+          management_ip: string | null
+          model: string | null
+          notes: string | null
+          olt: string | null
+          onu: string | null
+          ont: string | null
+          pon: string | null
+          port: string | null
+          sector: string | null
+          serial_number: string | null
+          tower: string | null
+          updated_at: string
+        }
+        Insert: {
+          brand?: string | null
+          company_id: string
+          connection_id: string
+          cpe?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          equipment_type?: string | null
+          external_code?: string | null
+          id?: string
+          mac?: string | null
+          management_ip?: string | null
+          model?: string | null
+          notes?: string | null
+          olt?: string | null
+          onu?: string | null
+          ont?: string | null
+          pon?: string | null
+          port?: string | null
+          sector?: string | null
+          serial_number?: string | null
+          tower?: string | null
+          updated_at?: string
+        }
+        Update: {
+          brand?: string | null
+          company_id?: string
+          connection_id?: string
+          cpe?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          equipment_type?: string | null
+          external_code?: string | null
+          id?: string
+          mac?: string | null
+          management_ip?: string | null
+          model?: string | null
+          notes?: string | null
+          olt?: string | null
+          onu?: string | null
+          ont?: string | null
+          pon?: string | null
+          port?: string | null
+          sector?: string | null
+          serial_number?: string | null
+          tower?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "isp_connection_equipment_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "isp_connection_equipment_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "isp_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      isp_migration_runs: {
+        Row: {
+          catalog_count: number
+          company_id: string
+          completed_at: string | null
+          connections_count: number
+          created_at: string
+          created_by: string | null
+          created_by_label: string | null
+          customers_count: number
+          equipment_count: number
+          errors_count: number
+          file_sha256: string | null
+          filename: string
+          id: string
+          imported_catalog_count: number
+          imported_connections_count: number
+          imported_customers_count: number
+          imported_equipment_count: number
+          imported_services_count: number
+          result_message: string | null
+          services_count: number
+          started_at: string
+          status: string
+          summary: Json
+          updated_at: string
+          warnings_count: number
+        }
+        Insert: {
+          catalog_count?: number
+          company_id: string
+          completed_at?: string | null
+          connections_count?: number
+          created_at?: string
+          created_by?: string | null
+          created_by_label?: string | null
+          customers_count?: number
+          equipment_count?: number
+          errors_count?: number
+          file_sha256?: string | null
+          filename: string
+          id?: string
+          imported_catalog_count?: number
+          imported_connections_count?: number
+          imported_customers_count?: number
+          imported_equipment_count?: number
+          imported_services_count?: number
+          result_message?: string | null
+          services_count?: number
+          started_at?: string
+          status?: string
+          summary?: Json
+          updated_at?: string
+          warnings_count?: number
+        }
+        Update: {
+          catalog_count?: number
+          company_id?: string
+          completed_at?: string | null
+          connections_count?: number
+          created_at?: string
+          created_by?: string | null
+          created_by_label?: string | null
+          customers_count?: number
+          equipment_count?: number
+          errors_count?: number
+          file_sha256?: string | null
+          filename?: string
+          id?: string
+          imported_catalog_count?: number
+          imported_connections_count?: number
+          imported_customers_count?: number
+          imported_equipment_count?: number
+          imported_services_count?: number
+          result_message?: string | null
+          services_count?: number
+          started_at?: string
+          status?: string
+          summary?: Json
+          updated_at?: string
+          warnings_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "isp_migration_runs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      isp_migration_staging_rows: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          issues: Json
+          payload: Json
+          row_number: number
+          run_id: string
+          sheet: string
+          validation_status: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          issues?: Json
+          payload?: Json
+          row_number: number
+          run_id: string
+          sheet: string
+          validation_status: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          issues?: Json
+          payload?: Json
+          row_number?: number
+          run_id?: string
+          sheet?: string
+          validation_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "isp_migration_staging_rows_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "isp_migration_staging_rows_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "isp_migration_runs"
             referencedColumns: ["id"]
           },
         ]
@@ -3009,6 +3713,7 @@ export type Database = {
           rescheduled_by: string
           scheduled_time: string | null
           service_address: string | null
+          service_catalog_id: string | null
           service_type: string | null
           shared_location: string
           start_date: string
@@ -3071,6 +3776,7 @@ export type Database = {
           rescheduled_by?: string
           scheduled_time?: string | null
           service_address?: string | null
+          service_catalog_id?: string | null
           service_type?: string | null
           shared_location?: string
           start_date: string
@@ -3133,6 +3839,7 @@ export type Database = {
           rescheduled_by?: string
           scheduled_time?: string | null
           service_address?: string | null
+          service_catalog_id?: string | null
           service_type?: string | null
           shared_location?: string
           start_date?: string
@@ -3150,6 +3857,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_service_catalog_id_fkey"
+            columns: ["service_catalog_id"]
+            isOneToOne: false
+            referencedRelation: "isp_service_catalog"
             referencedColumns: ["id"]
           },
           {
@@ -3454,6 +4168,38 @@ export type Database = {
       apply_dispatch_order_updates: {
         Args: { p_company_id: string; p_updates: Json }
         Returns: undefined
+      }
+      create_isp_onboarding: {
+        Args: { p_payload: Json }
+        Returns: Json
+      }
+      create_isp_subscriber_service: {
+        Args: { p_payload: Json }
+        Returns: Json
+      }
+      create_isp_service_connection: {
+        Args: { p_payload: Json }
+        Returns: Json
+      }
+      isp_create_connection_on_service: {
+        Args: { p_connection: Json; p_service_id: string }
+        Returns: string
+      }
+      update_isp_contracted_service: {
+        Args: { p_payload: Json }
+        Returns: Json
+      }
+      update_isp_connection: {
+        Args: { p_payload: Json }
+        Returns: Json
+      }
+      remove_isp_subscriber_membership: {
+        Args: { p_customer_id: string }
+        Returns: Json
+      }
+      import_isp_migration: {
+        Args: { p_force?: boolean; p_run_id: string }
+        Returns: Json
       }
       auth_can_assign_customer_retencion: { Args: never; Returns: boolean }
       auth_can_create_customer_retencion: { Args: never; Returns: boolean }

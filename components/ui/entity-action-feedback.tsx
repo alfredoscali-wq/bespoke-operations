@@ -13,7 +13,7 @@ export function EntityActionFeedback({
     <p
       className={
         variant === "success"
-          ? "text-sm text-emerald-700"
+          ? "text-sm text-emerald-700 dark:text-emerald-300"
           : "text-sm text-destructive"
       }
       role="status"

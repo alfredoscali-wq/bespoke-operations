@@ -102,7 +102,7 @@ type TaskFormState = {
   sharedLocation: string
   commercial: Pick<
     WorkOrderFormInput,
-    "serviceType" | "technology" | "contractedPlan" | "installationIp"
+    "serviceType" | "technology" | "contractedPlan" | "serviceCatalogId" | "installationIp"
   >
 }
 
@@ -252,6 +252,8 @@ export function TaskEditDialog({
             ...(showCommercialFields
               ? {
                   contractedPlan: resolveContractedPlanFromForm(form.commercial),
+                  serviceCatalogId:
+                    form.commercial.serviceCatalogId.trim() || null,
                   taskMetadata: mergeInstallationCommercialMetadata(
                     task.taskMetadata,
                     form.commercial

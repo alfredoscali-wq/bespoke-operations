@@ -81,6 +81,10 @@ export function isDemoRestrictedAdminPath(pathname: string): boolean {
     return true
   }
 
+  if (pathname === "/administracion" || pathname.startsWith("/administracion/")) {
+    return true
+  }
+
   if (
     pathname === "/clientes/migracion" ||
     pathname.startsWith("/clientes/migracion/")

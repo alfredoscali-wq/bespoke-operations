@@ -54,6 +54,7 @@ export type UpdateTaskPayload = Partial<{
   serviceType?: string | null
   locality?: string | null
   contractedPlan?: string | null
+  serviceCatalogId?: string | null
   installationCost?: number | null
   amountToCollect?: number | null
   customerDni?: string | null

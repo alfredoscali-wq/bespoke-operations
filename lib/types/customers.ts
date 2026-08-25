@@ -9,6 +9,7 @@ export interface Customer {
   name: string
   phone?: string
   email?: string
+  whatsapp?: string
 
   address?: string
   locality?: string
@@ -74,6 +75,7 @@ export type NewCustomerInput = {
   dni?: string
   phone?: string
   email?: string
+  whatsapp?: string
   address?: string
   locality?: string
   technology?: string

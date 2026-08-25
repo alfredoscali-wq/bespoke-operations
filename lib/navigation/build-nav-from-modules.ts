@@ -8,6 +8,8 @@ import {
   activityNavItem,
   activityTimelineNavItem,
   archivoOtNavItem,
+  conexionesNavItem,
+  serviciosNavItem,
   crewProductionNavItem,
   dayActivityNavItem,
   executiveCenterNavItem,
@@ -109,6 +111,11 @@ export function buildNavGroupsFromModuleVisibility(
         existing.items.push(archivoOtNavItem)
       }
 
+      if (definition.key === "clientes_360") {
+        existing.items.push(conexionesNavItem)
+        existing.items.push(serviciosNavItem)
+      }
+
       continue
     }
 
@@ -116,6 +123,11 @@ export function buildNavGroupsFromModuleVisibility(
 
     if (definition.key === "work_orders") {
       items.push(archivoOtNavItem)
+    }
+
+    if (definition.key === "clientes_360") {
+      items.push(conexionesNavItem)
+      items.push(serviciosNavItem)
     }
 
     groups.set(groupKey, {

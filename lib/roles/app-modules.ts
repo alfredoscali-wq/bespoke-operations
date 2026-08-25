@@ -2,6 +2,7 @@ import {
   calendarNavItem,
   crewsNavItem,
   customersNavItem,
+  clientes360NavItem,
   atencionClienteNavItem,
   dashboardNavItem,
   dispositivosNavItem,
@@ -31,6 +32,7 @@ export const APP_MODULE_KEYS = [
   "work_orders",
   "planificacion",
   "customers",
+  "clientes_360",
   "atencion_cliente",
   "crews",
   "contractors",
@@ -104,6 +106,13 @@ export const APP_MODULE_DEFINITIONS: AppModuleDefinition[] = [
     navItem: customersNavItem,
     groupId: "operations",
     pathPrefixes: ["/clientes"],
+  },
+  {
+    key: "clientes_360",
+    label: "Clientes 360°",
+    navItem: clientes360NavItem,
+    groupId: "operations",
+    pathPrefixes: ["/clientes-360", "/conexiones", "/servicios"],
   },
   {
     key: "atencion_cliente",
@@ -225,7 +234,7 @@ export const APP_MODULE_DEFINITIONS: AppModuleDefinition[] = [
     navItem: maintenanceNavItem,
     groupId: "administration",
     groupLabel: "Administración",
-    pathPrefixes: ["/mantenimiento"],
+    pathPrefixes: ["/mantenimiento", "/administracion"],
   },
 ]
 

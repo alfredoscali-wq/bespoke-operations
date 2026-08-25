@@ -198,12 +198,8 @@ function resolvePlanForTechnology(
 ): ContractedPlan | null {
   if (!technology) return null
 
-  if (technology === "wireless") {
-    return WIRELESS_CONTRACTED_PLAN
-  }
-
-  if (plan === "50Mb" || plan === "100Mb" || plan === "300Mb") {
-    return plan
+  if (plan.trim()) {
+    return plan as ContractedPlan
   }
 
   return null
@@ -249,10 +245,10 @@ export function isPlanValidForTechnology(
   }
 
   if (technology === "wireless") {
-    return plan === WIRELESS_CONTRACTED_PLAN
+    return true
   }
 
-  return FIBER_CONTRACTED_PLAN_OPTIONS.some((option) => option.value === plan)
+  return true
 }
 
 export function sanitizePlanForTechnology(
@@ -263,15 +259,15 @@ export function sanitizePlanForTechnology(
     return ""
   }
 
-  if (technology === "wireless") {
-    return WIRELESS_CONTRACTED_PLAN
+  if (technology === "wireless" && (plan === "50Mb" || plan === "100Mb" || plan === "300Mb")) {
+    return ""
   }
 
-  if (isPlanValidForTechnology(plan, technology)) {
-    return plan
+  if (technology === "fiber" && plan === "20Mb") {
+    return ""
   }
 
-  return ""
+  return plan.trim() ? (plan as ContractedPlan) : ""
 }
 
 export function taskHasCommercialInfo(
@@ -288,31 +284,19 @@ export function taskHasCommercialInfo(
 }
 
 function readMetadataPlan(value: unknown): ContractedPlan | "" {
-  if (
-    value === "50Mb" ||
-    value === "100Mb" ||
-    value === "300Mb" ||
-    value === "20Mb"
-  ) {
-    return value
+  if (typeof value !== "string" || !value.trim()) {
+    return ""
   }
 
-  return ""
+  return value.trim() as ContractedPlan
 }
 
 export function resolveContractedPlanFromTask(
   task: Pick<Task, "contractedPlan" | "taskMetadata" | "serviceType" | "type">
 ): ContractedPlan | null {
-  const direct =
-    task.contractedPlan === "50Mb" ||
-    task.contractedPlan === "100Mb" ||
-    task.contractedPlan === "300Mb" ||
-    task.contractedPlan === "20Mb"
-      ? task.contractedPlan
-      : ""
-
+  const direct = task.contractedPlan?.trim()
   if (direct) {
-    return direct
+    return direct as ContractedPlan
   }
 
   const metadata = task.taskMetadata ?? {}

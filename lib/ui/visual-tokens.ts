@@ -16,34 +16,34 @@ export const KPI_TONE_STYLES: Record<
   { card: string; icon: string; iconColor: string }
 > = {
   green: {
-    card: "border-emerald-100/80 bg-emerald-500/[0.04]",
-    icon: "bg-emerald-500/[0.08]",
-    iconColor: "text-emerald-700",
+    card: "border-emerald-100/80 bg-emerald-500/[0.04] dark:border-emerald-800/50 dark:bg-emerald-500/[0.08]",
+    icon: "bg-emerald-500/[0.08] dark:bg-emerald-500/20",
+    iconColor: "text-emerald-700 dark:text-emerald-300",
   },
   red: {
-    card: "border-red-100/80 bg-red-500/[0.04]",
-    icon: "bg-red-500/[0.08]",
-    iconColor: "text-red-700",
+    card: "border-red-100/80 bg-red-500/[0.04] dark:border-red-800/50 dark:bg-red-500/[0.08]",
+    icon: "bg-red-500/[0.08] dark:bg-red-500/20",
+    iconColor: "text-red-700 dark:text-red-300",
   },
   yellow: {
-    card: "border-amber-100/80 bg-amber-500/[0.05]",
-    icon: "bg-amber-500/[0.08]",
-    iconColor: "text-amber-800",
+    card: "border-amber-100/80 bg-amber-500/[0.05] dark:border-amber-800/50 dark:bg-amber-500/[0.08]",
+    icon: "bg-amber-500/[0.08] dark:bg-amber-500/20",
+    iconColor: "text-amber-800 dark:text-amber-200",
   },
   blue: {
-    card: "border-blue-100/80 bg-blue-500/[0.04]",
-    icon: "bg-blue-500/[0.08]",
-    iconColor: "text-blue-700",
+    card: "border-blue-100/80 bg-blue-500/[0.04] dark:border-blue-800/50 dark:bg-blue-500/[0.08]",
+    icon: "bg-blue-500/[0.08] dark:bg-blue-500/20",
+    iconColor: "text-blue-700 dark:text-blue-300",
   },
   violet: {
-    card: "border-violet-100/80 bg-violet-500/[0.04]",
-    icon: "bg-violet-500/[0.08]",
-    iconColor: "text-violet-700",
+    card: "border-violet-100/80 bg-violet-500/[0.04] dark:border-violet-800/50 dark:bg-violet-500/[0.08]",
+    icon: "bg-violet-500/[0.08] dark:bg-violet-500/20",
+    iconColor: "text-violet-700 dark:text-violet-300",
   },
   gray: {
-    card: "border-slate-200/80 bg-slate-500/[0.04]",
-    icon: "bg-slate-500/[0.08]",
-    iconColor: "text-slate-700",
+    card: "border-slate-200/80 bg-slate-500/[0.04] dark:border-slate-700/60 dark:bg-slate-500/[0.08]",
+    icon: "bg-slate-500/[0.08] dark:bg-slate-500/20",
+    iconColor: "text-slate-700 dark:text-slate-300",
   },
   neutral: {
     card: "border-border/80 bg-muted/40",
@@ -51,19 +51,19 @@ export const KPI_TONE_STYLES: Record<
     iconColor: "text-primary",
   },
   orange: {
-    card: "border-orange-100/80 bg-orange-500/[0.05]",
-    icon: "bg-orange-500/[0.08]",
-    iconColor: "text-orange-800",
+    card: "border-orange-100/80 bg-orange-500/[0.05] dark:border-orange-800/50 dark:bg-orange-500/[0.08]",
+    icon: "bg-orange-500/[0.08] dark:bg-orange-500/20",
+    iconColor: "text-orange-800 dark:text-orange-200",
   },
   amber: {
-    card: "border-amber-200/80 bg-amber-500/[0.06]",
-    icon: "bg-amber-500/[0.1]",
-    iconColor: "text-amber-900",
+    card: "border-amber-200/80 bg-amber-500/[0.06] dark:border-amber-700/50 dark:bg-amber-500/[0.1]",
+    icon: "bg-amber-500/[0.1] dark:bg-amber-500/20",
+    iconColor: "text-amber-900 dark:text-amber-200",
   },
   dark: {
-    card: "border-zinc-300/80 bg-zinc-700/[0.06]",
-    icon: "bg-zinc-600/[0.1]",
-    iconColor: "text-zinc-800",
+    card: "border-zinc-300/80 bg-zinc-700/[0.06] dark:border-zinc-600/60 dark:bg-zinc-500/[0.1]",
+    icon: "bg-zinc-600/[0.1] dark:bg-zinc-500/20",
+    iconColor: "text-zinc-800 dark:text-zinc-200",
   },
 }
 
@@ -72,16 +72,47 @@ export const STATUS_BADGE_BASE =
   "rounded-md border px-2.5 py-0.5 text-xs font-medium shadow-none"
 
 export const STATUS_TONE_STYLES: Record<VisualTone, string> = {
-  green: "border-emerald-200/80 bg-emerald-50 text-emerald-800",
-  red: "border-red-200/80 bg-red-50 text-red-800",
-  yellow: "border-amber-200/80 bg-amber-50 text-amber-900",
-  blue: "border-blue-200/80 bg-blue-50 text-blue-800",
-  violet: "border-violet-200/80 bg-violet-50 text-violet-800",
-  gray: "border-slate-200/80 bg-slate-50 text-slate-700",
+  green:
+    "border-emerald-200/80 bg-emerald-50 text-emerald-800 dark:border-emerald-800/70 dark:bg-emerald-950/60 dark:text-emerald-200",
+  red: "border-red-200/80 bg-red-50 text-red-800 dark:border-red-800/70 dark:bg-red-950/60 dark:text-red-200",
+  yellow:
+    "border-amber-200/80 bg-amber-50 text-amber-900 dark:border-amber-800/70 dark:bg-amber-950/60 dark:text-amber-200",
+  blue: "border-blue-200/80 bg-blue-50 text-blue-800 dark:border-blue-800/70 dark:bg-blue-950/60 dark:text-blue-200",
+  violet:
+    "border-violet-200/80 bg-violet-50 text-violet-800 dark:border-violet-800/70 dark:bg-violet-950/60 dark:text-violet-200",
+  gray: "border-slate-200/80 bg-slate-50 text-slate-700 dark:border-slate-700/70 dark:bg-slate-900/60 dark:text-slate-200",
   neutral: "border-border/80 bg-muted/50 text-foreground",
-  orange: "border-orange-200/80 bg-orange-50 text-orange-900",
-  amber: "border-amber-300/80 bg-amber-100 text-amber-950",
-  dark: "border-zinc-400/80 bg-zinc-100 text-zinc-800",
+  orange:
+    "border-orange-200/80 bg-orange-50 text-orange-900 dark:border-orange-800/70 dark:bg-orange-950/60 dark:text-orange-200",
+  amber:
+    "border-amber-300/80 bg-amber-100 text-amber-950 dark:border-amber-700/70 dark:bg-amber-950/70 dark:text-amber-100",
+  dark: "border-zinc-400/80 bg-zinc-100 text-zinc-800 dark:border-zinc-600/70 dark:bg-zinc-800/70 dark:text-zinc-100",
+}
+
+export const STATUS_DOT_STYLES: Record<VisualTone, string> = {
+  green: "bg-emerald-500",
+  red: "bg-red-500",
+  yellow: "bg-amber-500",
+  blue: "bg-blue-500",
+  violet: "bg-violet-500",
+  gray: "bg-slate-400",
+  neutral: "bg-muted-foreground",
+  orange: "bg-orange-500",
+  amber: "bg-amber-600",
+  dark: "bg-zinc-600 dark:bg-zinc-300",
+}
+
+export const STATUS_ACCENT_BORDER_STYLES: Record<VisualTone, string> = {
+  green: "border-l-emerald-500",
+  red: "border-l-red-500",
+  yellow: "border-l-amber-500",
+  blue: "border-l-blue-500",
+  violet: "border-l-violet-500",
+  gray: "border-l-slate-400",
+  neutral: "border-l-border",
+  orange: "border-l-orange-500",
+  amber: "border-l-amber-500",
+  dark: "border-l-zinc-600",
 }
 
 /** Calendar event surfaces aligned with status tones. */
