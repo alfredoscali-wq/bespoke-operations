@@ -76,9 +76,11 @@ test("ruta /activity resuelve al módulo history (acceso admin vía visibility)"
 
 test("nav incluye Activity Engine cuando history está visible", () => {
   const groups = buildNavGroupsFromModuleVisibility(createFullModuleVisibility())
-  const system = groups.find((group) => group.id === "system")
-  assert.ok(system)
-  const hrefs = system.items.map((item) => item.href)
+  const hrefs = groups.flatMap((group) => group.items.map((item) => item.href))
   assert.ok(hrefs.includes("/historial"))
   assert.ok(hrefs.includes("/activity"))
+  const analysis = groups.find((group) => group.id === "analysis")
+  assert.ok(analysis?.items.some((item) => item.href === "/activity"))
+  const system = groups.find((group) => group.id === "system")
+  assert.ok(system?.items.some((item) => item.href === "/historial"))
 })

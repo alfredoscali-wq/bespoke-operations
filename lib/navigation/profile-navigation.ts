@@ -6,6 +6,7 @@ import {
   type OperationalProfile,
 } from "@/lib/operations/operational-profile"
 import type { NavGroup, NavItem } from "@/lib/navigation/nav-types"
+import { arrangeNavItemsIntoAreas } from "@/lib/navigation/sidebar-areas"
 import {
   calendarNavItem,
   crewsNavItem,
@@ -200,7 +201,9 @@ export function buildNavGroupsForProfile(
     return []
   }
 
-  return PROFILE_NAV_BUILDERS[profile]()
+  return arrangeNavItemsIntoAreas(
+    PROFILE_NAV_BUILDERS[profile]().flatMap((group) => group.items)
+  )
 }
 
 export function getAllNavItemsForProfile(profile: OperationalProfile): NavItem[] {

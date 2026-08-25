@@ -24,6 +24,7 @@ export function AppShell({ children, title, subtitle }: AppShellProps) {
         collapsed={sidebarCollapsed}
         mobileOpen={mobileMenuOpen}
         onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
+        onExpandSidebar={() => setSidebarCollapsed(false)}
         onCloseMobile={() => setMobileMenuOpen(false)}
       />
 

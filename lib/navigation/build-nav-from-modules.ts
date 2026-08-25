@@ -18,6 +18,7 @@ import {
   tesoreriaNavItem,
   workforceMonitorNavItem,
 } from "@/lib/navigation/nav-items"
+import { arrangeNavItemsIntoAreas } from "@/lib/navigation/sidebar-areas"
 import type { NavGroup, NavItem } from "@/lib/navigation/nav-types"
 
 const GROUP_ORDER: Array<{
@@ -154,20 +155,16 @@ export function buildNavGroupsFromModuleVisibility(
     analysis.items = sortAnalysisNavItems(analysis.items)
   }
 
-  return GROUP_ORDER.flatMap(({ id, groupId, label }) => {
-    const group = groups.get(groupId)
-    if (!group || group.items.length === 0) {
-      return []
-    }
+  return arrangeNavItemsIntoAreas(
+    GROUP_ORDER.flatMap(({ groupId }) => {
+      const group = groups.get(groupId)
+      if (!group || group.items.length === 0) {
+        return []
+      }
 
-    return [
-      {
-        ...group,
-        id,
-        label: group.label ?? label,
-      },
-    ]
-  })
+      return group.items
+    })
+  )
 }
 
 export function getAllNavItemsFromModuleVisibility(

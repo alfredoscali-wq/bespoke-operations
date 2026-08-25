@@ -1,20 +1,18 @@
 import {
   Archive,
-  Banknote,
-  BarChart3,
-  BookOpen,
+  Box,
   BriefcaseBusiness,
   Building2,
   CalendarClock,
-  CalendarRange,
+  CalendarDays,
   Cable,
   Camera,
   Compass,
   Contact,
-  IdCard,
+  ContactRound,
   Factory,
   FileText,
-  Headset,
+  Headphones,
   History,
   LayoutDashboard,
   ListChecks,
@@ -28,7 +26,10 @@ import {
   UserCog,
   Users,
   UsersRound,
+  WalletCards,
   Wrench,
+  BarChart3,
+  BookOpen,
 } from "lucide-react"
 
 import type { NavItem } from "@/lib/navigation/nav-types"
@@ -65,7 +66,7 @@ export const planificacionNavItem: NavItem = {
 export const calendarNavItem: NavItem = {
   title: "Calendario Operativo",
   href: "/operations/calendar",
-  icon: CalendarRange,
+  icon: CalendarDays,
   pageTitle: "Calendario Operativo",
   description:
     "Visualizar órdenes de trabajo, ausencias y estado operativo de cuadrillas en una vista semanal.",
@@ -94,7 +95,7 @@ export const archivoOtNavItem: NavItem = {
 export const customersNavItem: NavItem = {
   title: "Clientes",
   href: "/clientes",
-  icon: Contact,
+  icon: ContactRound,
   pageTitle: "Clientes",
   description: "Directorio de clientes para operaciones de campo.",
   moduleColor: "customers",
@@ -103,7 +104,7 @@ export const customersNavItem: NavItem = {
 export const clientes360NavItem: NavItem = {
   title: "Clientes 360°",
   href: "/clientes-360",
-  icon: IdCard,
+  icon: Contact,
   pageTitle: "Clientes 360°",
   description:
     "Vista integral de los abonados ISP: servicios, conexiones, OT y actividad.",
@@ -131,7 +132,7 @@ export const serviciosNavItem: NavItem = {
 export const atencionClienteNavItem: NavItem = {
   title: "Atención al Cliente",
   href: "/atencion-cliente",
-  icon: Headset,
+  icon: Headphones,
   pageTitle: "Atención al Cliente",
   description:
     "Registro y seguimiento de atenciones, contactos y gestión comercial del cliente.",
@@ -178,7 +179,7 @@ export const contractorsNavItem: NavItem = {
 export const materialsNavItem: NavItem = {
   title: "Materiales",
   href: "/materiales",
-  icon: Package,
+  icon: Box,
   pageTitle: "Gestión de Materiales",
   description: "Inventario, stock, movimientos y asignaciones a obras.",
   moduleColor: "ops",
@@ -206,7 +207,7 @@ export const reportsNavItem: NavItem = {
 export const tesoreriaNavItem: NavItem = {
   title: "Tesorería",
   href: "/tesoreria",
-  icon: Banknote,
+  icon: WalletCards,
   pageTitle: "Tesorería",
   description:
     "Registro operativo de ingresos, egresos y saldo de la empresa.",

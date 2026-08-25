@@ -127,6 +127,23 @@
   --module-intelligence-active: #345687;
   --module-system: #6e7a86;
   --module-system-active: #54606c;
+
+  --sidebar-area-operations: #5a7ea8;
+  --sidebar-area-customers: #4d8f99;
+  --sidebar-area-isp: #7d6ea8;
+  --sidebar-area-field: #4d9178;
+  --sidebar-area-analysis: #5d6aa6;
+  --sidebar-area-administration: #c4845a;
+  --sidebar-area-rrhh: #a67a96;
+  --sidebar-area-system: #6d7c8c;
+  --sidebar-area-operations-soft: #f3f6fa;
+  --sidebar-area-customers-soft: #f2f8f9;
+  --sidebar-area-isp-soft: #f6f4fa;
+  --sidebar-area-field-soft: #f2f8f5;
+  --sidebar-area-analysis-soft: #f3f4fa;
+  --sidebar-area-administration-soft: #faf6f2;
+  --sidebar-area-rrhh-soft: #f9f4f7;
+  --sidebar-area-system-soft: #f4f6f8;
 }
 
 .dark {
@@ -178,6 +195,23 @@
   --module-intelligence-active: #98b4dc;
   --module-system: #96a2ae;
   --module-system-active: #b0bcc8;
+
+  --sidebar-area-operations: #5a7ea8;
+  --sidebar-area-customers: #4d8f99;
+  --sidebar-area-isp: #7d6ea8;
+  --sidebar-area-field: #4d9178;
+  --sidebar-area-analysis: #5d6aa6;
+  --sidebar-area-administration: #c4845a;
+  --sidebar-area-rrhh: #a67a96;
+  --sidebar-area-system: #6d7c8c;
+  --sidebar-area-operations-soft: #f3f6fa;
+  --sidebar-area-customers-soft: #f2f8f9;
+  --sidebar-area-isp-soft: #f6f4fa;
+  --sidebar-area-field-soft: #f2f8f5;
+  --sidebar-area-analysis-soft: #f3f4fa;
+  --sidebar-area-administration-soft: #faf6f2;
+  --sidebar-area-rrhh-soft: #f9f4f7;
+  --sidebar-area-system-soft: #f4f6f8;
 }
 
 @layer base {
