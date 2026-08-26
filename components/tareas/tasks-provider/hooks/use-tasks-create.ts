@@ -29,6 +29,7 @@ import { startPerformanceTrace } from "@/lib/performance"
 import { resolveOperationalEventActor } from "@/lib/tasks/operational-event-actor"
 import { buildCreatedOperationalEvent } from "@/lib/tasks/operational-events"
 import { recordTaskOperationalEvent } from "@/lib/supabase/operational-control.browser"
+import { syncCreateCustomerDraftLocation } from "@/lib/tasks/work-order-idempotency"
 import type { CreateTaskPayload } from "@/lib/types/supabase/tasks"
 import type { Task } from "@/lib/types/tasks"
 
@@ -98,6 +99,7 @@ export function useTasksCreate({
         )
 
         payload = stripClientExecutionOrder(payload)
+        payload = syncCreateCustomerDraftLocation(payload)
 
         if (payload.projectId && payload.projectCode?.trim()) {
           const prefix = buildObraTaskCodePrefix(payload.projectCode)
@@ -134,20 +136,29 @@ export function useTasksCreate({
           )
         }
 
-        perf.spanSync("UI update", () => {
-          cacheDetail(result.data!.id, getTaskDetail(result.data!))
-          setTasks((current) => [result.data!, ...current])
-        })
-        recordTaskCreateAudit(result.data)
+        const { task, idempotentReplay } = result.data
 
-        if (companyId) {
+        perf.spanSync("UI update", () => {
+          cacheDetail(task.id, getTaskDetail(task))
+          setTasks((current) => {
+            if (current.some((item) => item.id === task.id)) {
+              return current
+            }
+            return [task, ...current]
+          })
+        })
+        if (!idempotentReplay) {
+          recordTaskCreateAudit(task)
+        }
+
+        if (companyId && !idempotentReplay) {
           void recordTaskOperationalEvent(
             buildCreatedOperationalEvent({
               companyId,
-              task: result.data,
+              task,
               actor: resolveOperationalEventActor(sessionUser),
-              description: result.data.code?.trim()
-                ? `Código ${result.data.code.trim()}`
+              description: task.code?.trim()
+                ? `Código ${task.code.trim()}`
                 : "",
             })
           )
@@ -155,11 +166,11 @@ export function useTasksCreate({
 
         perf.finish({
           companyId,
-          crewId: result.data.crewId ?? null,
-          dueDate: result.data.dueDate ?? null,
-          executionOrder: result.data.executionOrder ?? null,
+          crewId: task.crewId ?? null,
+          dueDate: task.dueDate ?? null,
+          executionOrder: task.executionOrder ?? null,
         })
-        return result.data
+        return task
       } catch (error) {
         perf.fail(error)
         throw error

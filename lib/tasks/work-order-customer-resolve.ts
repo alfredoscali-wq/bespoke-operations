@@ -21,6 +21,53 @@ export type WorkOrderCustomerResolution =
   | { action: "create" }
   | { action: "require-lookup" }
 
+export type WorkOrderCustomerCreateDraft = {
+  name: string
+  dni?: string | null
+  phone?: string | null
+  email?: string | null
+  address?: string | null
+  locality?: string | null
+  technology?: string | null
+  contractedPlan?: string | null
+  latitude?: number | null
+  longitude?: number | null
+  sharedLocation?: string | null
+}
+
+function trimToNull(value: string | null | undefined): string | null {
+  const trimmed = value?.trim() ?? ""
+  return trimmed ? trimmed : null
+}
+
+export function buildWorkOrderCustomerCreateDraft(input: {
+  customerName: string
+  customerDni?: string | null
+  customerPhone?: string | null
+  customerEmail?: string | null
+  address?: string | null
+  locality?: string | null
+  technology?: string | null
+  contractedPlan?: string | null
+  latitude?: number | null
+  longitude?: number | null
+  sharedLocation?: string | null
+}): WorkOrderCustomerCreateDraft {
+  return {
+    name: input.customerName.trim(),
+    dni: trimToNull(input.customerDni),
+    phone: trimToNull(input.customerPhone),
+    email: trimToNull(input.customerEmail),
+    address: trimToNull(input.address),
+    locality: trimToNull(input.locality),
+    technology: trimToNull(input.technology),
+    contractedPlan: trimToNull(input.contractedPlan),
+    latitude: input.latitude ?? null,
+    longitude: input.longitude ?? null,
+    sharedLocation: trimToNull(input.sharedLocation),
+  }
+}
+
 export function planWorkOrderCustomerResolution(input: {
   serviceType: string | null | undefined
   formCustomerId: string | null | undefined

@@ -1,3 +1,4 @@
+import type { WorkOrderCustomerCreateDraft } from "@/lib/tasks/work-order-customer-resolve"
 import type {
   ChecklistItem,
   OperationalStep,
@@ -12,6 +13,17 @@ export type CreateTaskPayload = Omit<Task, "id" | "progress" | "status"> & {
   progress?: number
   projectId?: string | null
   status?: TaskStatus
+  idempotencyKey?: string | null
+  createCustomerDraft?: WorkOrderCustomerCreateDraft | null
+  atencionId?: string | null
+  commercialSolicitudId?: string | null
+}
+
+export type InsertTaskResult = {
+  task: Task
+  taskId: string
+  created: boolean
+  idempotentReplay: boolean
 }
 
 export type UpdateTaskPayload = Partial<{
@@ -77,6 +89,9 @@ export type TasksRepositoryErrorCode =
   | "DUPLICATE_EXECUTION_ORDER"
   | "TASK_EXECUTION_ORDER_CONFLICT"
   | "DUPLICATE_DISPATCH_ORDER"
+  | "IDEMPOTENCY_PAYLOAD_CONFLICT"
+  | "IDEMPOTENCY_OPERATION_DELETED"
+  | "IDEMPOTENCY_KEY_INVALID"
   | "VALIDATION"
   | "WORKFLOW"
   | "ACTIVE_TASK"

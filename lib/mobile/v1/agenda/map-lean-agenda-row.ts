@@ -67,6 +67,7 @@ export function mapLeanAgendaRowToTask(
     task_metadata: {},
     execution_order: null,
     dispatch_order: null,
+    idempotency_key: null,
     company_id: "",
     updated_at: "",
     deleted_at: null,

@@ -138,6 +138,7 @@
     "test:ot-1-3-location": "npx tsx --test scripts/test-ot-1-3-location.mjs",
     "test:ot-1-4-customer-integrity": "npx tsx --test scripts/test-ot-1-4-customer-integrity.mjs",
     "test:ot-1-4-1-customer-reuse": "npx tsx --test scripts/test-ot-1-4-1-customer-reuse.mjs",
+    "test:ot-1-5-idempotency": "npx tsx --test scripts/test-ot-1-5-idempotency.mjs",
     "test:task-reference-photo-delete": "npx tsx --test scripts/test-task-reference-photo-delete.mjs",
     "test:customer-retenciones-sprint-6-0": "npx tsx --test scripts/test-customer-retenciones-sprint-6-0.mjs",
     "test:obras-ops-1-0-dispatch": "npx tsx --test scripts/test-obras-ops-1-0-dispatch.mjs",

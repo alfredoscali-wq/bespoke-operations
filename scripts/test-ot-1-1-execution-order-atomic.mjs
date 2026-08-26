@@ -8,9 +8,9 @@
  * before relying on the RPC in a live environment.
  *
  * Pending (not this sprint):
- * - OT vencidas occupancy policy → OT 1.2
  * - Persistent error log
- * - Create-endpoint idempotency keys (none exist today)
+ *
+ * Idempotency keys: OT 1.5.1 (`create_work_order_idempotent`).
  */
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
@@ -244,7 +244,7 @@ test("import loop of 10 OTs gets consecutive orders without a frontend array", a
 test("frontend no longer decides the definitive execution_order on create", () => {
   assert.doesNotMatch(createHook, /resolveNextPlanningQueuePosition/)
   assert.match(createHook, /stripClientExecutionOrder/)
-  assert.match(createHook, /result\.data\.executionOrder/)
+  assert.match(createHook, /task\.executionOrder/)
   const stripped = stripClientExecutionOrder({
     ...plannedOt,
     code: "TSK-OT-001",
@@ -334,7 +334,11 @@ test("regresión: reprogramación y vencidas no se modificaron en este sprint", 
   assert.match(vencidaSync, /status:\s*"vencida"/)
 })
 
-test("no create-time idempotency key exists yet (documented pending)", () => {
-  assert.doesNotMatch(queries, /idempotency/i)
+test("OT 1.1 RPC file remains the slot authority; OT 1.5.1 adds the key", () => {
   assert.doesNotMatch(sql, /idempotency/i)
+  const ot151 = read(
+    "supabase/migrations/20261144000100_ot_1_5_1_task_idempotency.sql"
+  )
+  assert.match(ot151, /idempotency_key/)
+  assert.match(ot151, /create_task_with_execution_order/)
 })

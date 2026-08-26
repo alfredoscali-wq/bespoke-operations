@@ -4397,6 +4397,7 @@ export type Database = {
           estimated_duration: string
           execution_order: number | null
           id: string
+          idempotency_key: string | null
           incident_observation: string
           incident_reason: string
           incident_reported_at: string | null
@@ -4460,6 +4461,7 @@ export type Database = {
           estimated_duration?: string
           execution_order?: number | null
           id?: string
+          idempotency_key?: string | null
           incident_observation?: string
           incident_reason?: string
           incident_reported_at?: string | null
@@ -4523,6 +4525,7 @@ export type Database = {
           estimated_duration?: string
           execution_order?: number | null
           id?: string
+          idempotency_key?: string | null
           incident_observation?: string
           incident_reason?: string
           incident_reported_at?: string | null
@@ -4884,6 +4887,10 @@ export type Database = {
         Returns: Json
       }
       create_task_with_execution_order: {
+        Args: { p_payload: Json }
+        Returns: Json
+      }
+      create_work_order_idempotent: {
         Args: { p_payload: Json }
         Returns: Json
       }

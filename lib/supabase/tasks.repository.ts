@@ -13,6 +13,7 @@ import {
 import type { Task } from "@/lib/types/tasks"
 import type {
   CreateTaskPayload,
+  InsertTaskResult,
   TasksRepositoryResult,
   UpdateTaskPayload,
 } from "@/lib/types/supabase/tasks"
@@ -38,7 +39,7 @@ export async function getTaskById(
 export async function createTask(
   payload: CreateTaskPayload,
   client?: SupabaseTasksClient
-): Promise<TasksRepositoryResult<Task>> {
+): Promise<TasksRepositoryResult<InsertTaskResult>> {
   return insertTask(client ?? (await createServerTasksClient()), payload)
 }
 

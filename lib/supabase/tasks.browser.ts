@@ -12,6 +12,7 @@ import { applyVencidaSyncFromApi } from "@/lib/tasks/vencida-sync.client"
 import type { Task } from "@/lib/types/tasks"
 import type {
   CreateTaskPayload,
+  InsertTaskResult,
   TasksRepositoryResult,
   UpdateTaskPayload,
 } from "@/lib/types/supabase/tasks"
@@ -56,7 +57,7 @@ export async function listOccupiedTaskCodesByPrefix(
 export async function createTask(
   payload: CreateTaskPayload,
   client: SupabaseTasksClient = createBrowserTasksClient()
-): Promise<TasksRepositoryResult<Task>> {
+): Promise<TasksRepositoryResult<InsertTaskResult>> {
   return insertTask(client, payload)
 }
 

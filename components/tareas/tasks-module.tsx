@@ -40,11 +40,6 @@ import {
   readSolicitudOtCreatePrefill,
   type SolicitudOtCreatePrefill,
 } from "@/lib/commercial/solicitud-ot-create"
-import { resolveCommercialActorEmployeeId } from "@/lib/commercial/module-access"
-import { useAuth } from "@/components/auth/auth-provider"
-import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
-import { linkConsultationOtManagement } from "@/lib/supabase/customer-atenciones-management.browser"
-import { linkCommercialSolicitudToWorkOrderBrowser } from "@/lib/supabase/commercial-solicitudes.browser"
 import { Button } from "@/components/ui/button"
 
 const TASKS_PAGE_SIZE = 25
@@ -58,8 +53,6 @@ type TasksModuleProps = {
 export function TasksModule({ mode = "active" }: TasksModuleProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { sessionUser } = useAuth()
-  const { companyId } = useTenantCompanyId()
   const { tasks, addTask } = useTasks()
   const { crews } = useCrews()
   const isArchiveView = mode === "archive"
@@ -77,12 +70,6 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
     useState<ConsultationOtCreatePrefill | null>(null)
   const [solicitudPrefill, setSolicitudPrefill] =
     useState<SolicitudOtCreatePrefill | null>(null)
-
-  const actorEmployeeId = useMemo(
-    () =>
-      sessionUser ? resolveCommercialActorEmployeeId(sessionUser) : null,
-    [sessionUser]
-  )
 
   useEffect(() => {
     const status = parseTaskStatusQuery(searchParams.get("status"))
@@ -314,25 +301,9 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
     const solicitudId = solicitudPrefill?.solicitudId
     const opportunityId = solicitudPrefill?.opportunityId
 
-    if (solicitudId && companyId) {
-      const linkResult = await linkCommercialSolicitudToWorkOrderBrowser(
-        companyId,
-        solicitudId,
-        result.task.id,
-        { employeeId: actorEmployeeId }
-      )
+    if (solicitudId) {
       clearSolicitudOtCreatePrefill(solicitudId)
       setSolicitudPrefill(null)
-
-      if (linkResult.error || !linkResult.data) {
-        setFeedback(
-          result.photoUpload.failedPhotos > 0
-            ? `La OT se creó, pero no se pudo vincular a la solicitud: ${linkResult.error?.message ?? "error"}. Algunas fotos no pudieron cargarse.`
-            : `La OT se creó, pero no se pudo vincular a la solicitud: ${linkResult.error?.message ?? "error"}`
-        )
-        return
-      }
-
       setFeedback(
         result.photoUpload.failedPhotos > 0
           ? "OT creada y vinculada a la solicitud. Algunas fotos no pudieron cargarse."
@@ -345,22 +316,8 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
     }
 
     if (atencionId) {
-      const linkResult = await linkConsultationOtManagement(
-        atencionId,
-        result.task.id
-      )
       clearConsultationOtCreatePrefill(atencionId)
       setConsultationPrefill(null)
-
-      if (!linkResult.success) {
-        setFeedback(
-          result.photoUpload.failedPhotos > 0
-            ? `La OT se creó, pero no se pudo vincular a la consulta: ${linkResult.message} Algunas fotos no pudieron cargarse.`
-            : `La OT se creó, pero no se pudo vincular a la consulta: ${linkResult.message}`
-        )
-        return
-      }
-
       setFeedback(
         result.photoUpload.failedPhotos > 0
           ? "OT creada y vinculada a la consulta. Algunas fotos no pudieron cargarse."

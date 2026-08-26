@@ -11,6 +11,7 @@ import { fetchTaskDailyAllocationsByCompany } from "@/lib/supabase/task-daily-al
 import type { Task } from "@/lib/types/tasks"
 import type {
   CreateTaskPayload,
+  InsertTaskResult,
   TasksRepositoryErrorCode,
   TasksRepositoryResult,
   UpdateTaskPayload,
@@ -39,6 +40,17 @@ import {
   TASK_EXECUTION_ORDER_CONFLICT_CODE,
   TASK_EXECUTION_ORDER_CONFLICT_MESSAGE,
 } from "@/lib/tasks/execution-order-create"
+import {
+  buildCreateWorkOrderIdempotentRpcPayload,
+  parseCreateWorkOrderIdempotentResponse,
+  toCreateWorkOrderIdempotentResult,
+  WORK_ORDER_IDEMPOTENCY_KEY_INVALID_CODE,
+  WORK_ORDER_IDEMPOTENCY_KEY_INVALID_MESSAGE,
+  WORK_ORDER_IDEMPOTENCY_OPERATION_DELETED_CODE,
+  WORK_ORDER_IDEMPOTENCY_OPERATION_DELETED_MESSAGE,
+  WORK_ORDER_IDEMPOTENCY_PAYLOAD_CONFLICT_CODE,
+  WORK_ORDER_IDEMPOTENCY_PAYLOAD_CONFLICT_MESSAGE,
+} from "@/lib/tasks/work-order-idempotency"
 
 export type SupabaseTasksClient = SupabaseClient<Database>
 
@@ -87,6 +99,27 @@ export function mapSupabaseTaskError(error: {
     }
   }
 
+  if (blob.includes(WORK_ORDER_IDEMPOTENCY_OPERATION_DELETED_CODE)) {
+    return {
+      code: WORK_ORDER_IDEMPOTENCY_OPERATION_DELETED_CODE,
+      message: WORK_ORDER_IDEMPOTENCY_OPERATION_DELETED_MESSAGE,
+    }
+  }
+
+  if (blob.includes(WORK_ORDER_IDEMPOTENCY_PAYLOAD_CONFLICT_CODE)) {
+    return {
+      code: WORK_ORDER_IDEMPOTENCY_PAYLOAD_CONFLICT_CODE,
+      message: WORK_ORDER_IDEMPOTENCY_PAYLOAD_CONFLICT_MESSAGE,
+    }
+  }
+
+  if (blob.includes(WORK_ORDER_IDEMPOTENCY_KEY_INVALID_CODE)) {
+    return {
+      code: WORK_ORDER_IDEMPOTENCY_KEY_INVALID_CODE,
+      message: WORK_ORDER_IDEMPOTENCY_KEY_INVALID_MESSAGE,
+    }
+  }
+
   if (error.code === "23514" || error.message.includes("TASK_STATUS_")) {
     return {
       code: "WORKFLOW" as const,
@@ -98,6 +131,14 @@ export function mapSupabaseTaskError(error: {
 
   if (error.code === "23505") {
     const detail = `${error.message} ${error.details ?? ""} ${error.hint ?? ""}`
+    if (detail.includes("tasks_company_idempotency_key_unique")) {
+      return {
+        code: "CONFLICT" as const,
+        message:
+          "No pudimos completar la creación. Intentá nuevamente.",
+      }
+    }
+
     if (
       detail.includes("tasks_execution_order_crew_date_unique")
     ) {
@@ -223,7 +264,7 @@ export async function fetchTaskById(
 export async function insertTask(
   client: SupabaseTasksClient,
   payload: CreateTaskPayload
-): Promise<TasksRepositoryResult<Task>> {
+): Promise<TasksRepositoryResult<InsertTaskResult>> {
   let insertPayload = payload
   const projectId = payload.projectId?.trim() || null
 
@@ -305,9 +346,19 @@ export async function insertTask(
     dispatch_order: null,
   }
 
-  const { data, error } = await client.rpc("create_task_with_execution_order", {
-    p_payload: mapped as unknown as Json,
-  })
+  const idempotencyKey = insertPayload.idempotencyKey?.trim() || ""
+  const rpcResult = idempotencyKey
+    ? await client.rpc("create_work_order_idempotent", {
+        p_payload: buildCreateWorkOrderIdempotentRpcPayload(
+          mapped as unknown as Record<string, unknown>,
+          insertPayload
+        ),
+      })
+    : await client.rpc("create_task_with_execution_order", {
+        p_payload: mapped as unknown as Json,
+      })
+
+  const { data, error } = rpcResult
 
   if (error) {
     const mappedError = mapInsertTaskError(error)
@@ -321,7 +372,8 @@ export async function insertTask(
     return { data: null, error: mappedError }
   }
 
-  if (!data || typeof data !== "object" || Array.isArray(data) || !("id" in data)) {
+  const parsed = parseCreateWorkOrderIdempotentResponse(data)
+  if (!parsed) {
     return {
       data: null,
       error: {
@@ -331,9 +383,15 @@ export async function insertTask(
     }
   }
 
-  const created = mapTaskRowToTask(data as TaskRow)
+  const created = mapTaskRowToTask(parsed.task as TaskRow)
 
-  return { data: created, error: null }
+  return {
+    data: toCreateWorkOrderIdempotentResult(created, {
+      created: parsed.created,
+      idempotentReplay: parsed.idempotentReplay,
+    }),
+    error: null,
+  }
 }
 
 export async function patchTask(

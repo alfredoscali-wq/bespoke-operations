@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import { DemoWriteBlockedError } from "@/lib/demo/demo-write-block"
 
@@ -37,7 +37,14 @@ import {
   applySolicitudPrefillToForm,
   applyWorkOrderServiceTypeChange,
 } from "@/lib/tasks/work-order-customer-prefill"
-import { planWorkOrderCustomerResolution } from "@/lib/tasks/work-order-customer-resolve"
+import {
+  buildWorkOrderCustomerCreateDraft,
+  planWorkOrderCustomerResolution,
+} from "@/lib/tasks/work-order-customer-resolve"
+import {
+  createWorkOrderIdempotencyKey,
+  shouldRotateWorkOrderIdempotencyKey,
+} from "@/lib/tasks/work-order-idempotency"
 import {
   canAdminModifyWorkOrder,
 } from "@/lib/tasks/work-order-admin-mutation"
@@ -583,7 +590,7 @@ export function TaskWorkOrderDialog({
   solicitudPrefill = null,
 }: TaskWorkOrderDialogProps) {
   const isEditMode = mode === "edit" && Boolean(task)
-  const { searchCustomers, createCustomer, updateCustomer, fetchCustomerById } =
+  const { searchCustomers, updateCustomer, fetchCustomerById } =
     useCustomers()
   const { crews } = useCrews()
   const [form, setForm] = useState<WorkOrderFormInput>(getDefaultWorkOrderForm)
@@ -604,6 +611,9 @@ export function TaskWorkOrderDialog({
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [saveConfirmOpen, setSaveConfirmOpen] = useState(false)
+  const createIdempotencyKeyRef = useRef<string | null>(null)
+  const submitInFlightRef = useRef(false)
+  const dialogWasOpenRef = useRef(false)
 
   const isDirty =
     isFormStateDirty(form, baselineForm) || referencePhotos.length > 0
@@ -615,6 +625,22 @@ export function TaskWorkOrderDialog({
     setDiscardOpen,
     confirmDiscard,
   } = useProtectedFormDialog({ open, onOpenChange, isDirty })
+
+  useEffect(() => {
+    if (
+      shouldRotateWorkOrderIdempotencyKey({
+        dialogOpen: open,
+        isEditMode,
+        previousOpen: dialogWasOpenRef.current,
+      })
+    ) {
+      createIdempotencyKeyRef.current = createWorkOrderIdempotencyKey()
+    } else if (!open || isEditMode) {
+      createIdempotencyKeyRef.current = null
+    }
+
+    dialogWasOpenRef.current = open
+  }, [open, isEditMode])
 
   const handleCustomerSearch = useCallback(
     async (query: string) => {
@@ -847,7 +873,10 @@ export function TaskWorkOrderDialog({
     return true
   }
 
-  async function resolveCustomerIdForSave(): Promise<string | null> {
+  async function resolveCustomerForSave(): Promise<{
+    customerId: string | null
+    createCustomerDraft: ReturnType<typeof buildWorkOrderCustomerCreateDraft> | null
+  } | null> {
     const plan = planWorkOrderCustomerResolution({
       serviceType: form.serviceType,
       formCustomerId: form.customerId,
@@ -861,21 +890,10 @@ export function TaskWorkOrderDialog({
     }
 
     if (plan.action === "create") {
-      const customerResult = await createCustomer({
-        name: form.customerName.trim(),
-        dni: form.customerDni.trim() || undefined,
-        phone: form.customerPhone.trim() || undefined,
-        email: form.customerEmail.trim() || undefined,
-        address: form.address.trim() || undefined,
-        locality: form.locality.trim() || undefined,
-        technology: form.technology || undefined,
-      })
-
-      if (!customerResult.success || !customerResult.customer) {
-        throw new Error(customerResult.message ?? "No se pudo crear el cliente.")
+      return {
+        customerId: null,
+        createCustomerDraft: buildWorkOrderCustomerCreateDraft(form),
       }
-
-      return customerResult.customer.id
     }
 
     const customerId = plan.customerId
@@ -896,22 +914,36 @@ export function TaskWorkOrderDialog({
       }
     }
 
-    return customerId
+    return { customerId, createCustomerDraft: null }
   }
 
-  async function performCreate(customerId: string) {
+  async function performCreate(resolution: {
+    customerId: string | null
+    createCustomerDraft: ReturnType<typeof buildWorkOrderCustomerCreateDraft> | null
+  }) {
     if (!onSubmit) {
       throw new Error("No se configuró la acción de creación.")
     }
 
+    const idempotencyKey = createIdempotencyKeyRef.current
+    if (!idempotencyKey) {
+      throw new Error("No se pudo iniciar la operación de creación.")
+    }
+
     const selectedCrew = crews.find((crew) => crew.id === form.crewId)
-    const payload = buildWorkOrderCreatePayload({
-      form,
-      existingTasks,
-      customerId,
-      checklist: taskDefaultChecklist,
-      crew: selectedCrew ?? null,
-    })
+    const payload: CreateTaskPayload = {
+      ...buildWorkOrderCreatePayload({
+        form,
+        existingTasks,
+        customerId: resolution.customerId?.trim() || undefined,
+        checklist: taskDefaultChecklist,
+        crew: selectedCrew ?? null,
+      }),
+      idempotencyKey,
+      createCustomerDraft: resolution.createCustomerDraft,
+      atencionId: consultationPrefill?.atencionId ?? null,
+      commercialSolicitudId: solicitudPrefill?.solicitudId ?? null,
+    }
 
     const createdTask = await onSubmit(payload)
 
@@ -932,7 +964,11 @@ export function TaskWorkOrderDialog({
     revokePendingTaskReferencePhotos(referencePhotos)
     setReferencePhotos([])
     onTaskCreated?.({ task: createdTask, photoUpload })
-    await prepareCustomerSyncAfterCreate(createdTask, customerId, form)
+    await prepareCustomerSyncAfterCreate(
+      createdTask,
+      createdTask.customerId ?? resolution.customerId ?? "",
+      form
+    )
     forceClose()
   }
 
@@ -972,25 +1008,31 @@ export function TaskWorkOrderDialog({
       return
     }
 
-    const valid = await validateBeforeSave()
-    if (!valid) {
-      return
+    if (!isEditMode) {
+      if (submitInFlightRef.current) {
+        return
+      }
+      submitInFlightRef.current = true
+      setIsSubmitting(true)
     }
-
-    if (isEditMode) {
-      setSaveConfirmOpen(true)
-      return
-    }
-
-    setIsSubmitting(true)
 
     try {
-      const customerId = await resolveCustomerIdForSave()
-      if (!customerId) {
+      const valid = await validateBeforeSave()
+      if (!valid) {
         return
       }
 
-      await performCreate(customerId)
+      if (isEditMode) {
+        setSaveConfirmOpen(true)
+        return
+      }
+
+      const resolution = await resolveCustomerForSave()
+      if (!resolution) {
+        return
+      }
+
+      await performCreate(resolution)
     } catch (submitError) {
       if (submitError instanceof DemoWriteBlockedError) {
         return
@@ -1002,7 +1044,10 @@ export function TaskWorkOrderDialog({
           : "No se pudo crear la orden de trabajo."
       )
     } finally {
-      setIsSubmitting(false)
+      if (!isEditMode) {
+        submitInFlightRef.current = false
+        setIsSubmitting(false)
+      }
     }
   }
 
@@ -1011,12 +1056,12 @@ export function TaskWorkOrderDialog({
     setIsSubmitting(true)
 
     try {
-      const customerId = await resolveCustomerIdForSave()
-      if (!customerId) {
+      const resolution = await resolveCustomerForSave()
+      if (!resolution) {
         return
       }
 
-      await performEdit(customerId)
+      await performEdit(resolution.customerId ?? "")
     } catch (submitError) {
       if (submitError instanceof DemoWriteBlockedError) {
         return
@@ -1186,7 +1231,9 @@ export function TaskWorkOrderDialog({
               disabled={isSubmitting || !form.serviceType}
             >
               {isSubmitting
-                ? "Guardando..."
+                ? isEditMode
+                  ? "Guardando..."
+                  : "Creando OT..."
                 : isEditMode
                   ? "Guardar cambios"
                   : "Guardar orden"}

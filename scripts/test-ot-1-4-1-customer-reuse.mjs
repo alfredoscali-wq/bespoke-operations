@@ -367,7 +367,8 @@ test("12 no se llama createCustomer cuando customerId es válido", () => {
     dialogSource.indexOf("const customerId = plan.customerId")
   )
   assert.match(dialogSource, /planWorkOrderCustomerResolution/)
-  assert.match(createBranch, /createCustomer\(/)
+  assert.match(createBranch, /buildWorkOrderCustomerCreateDraft/)
+  assert.doesNotMatch(createBranch, /createCustomer\(/)
   assert.equal(
     planWorkOrderCustomerResolution({
       serviceType: "instalacion-nueva",

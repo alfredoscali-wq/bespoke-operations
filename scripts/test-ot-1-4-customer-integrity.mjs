@@ -112,8 +112,8 @@ test("save de instalación nueva reutiliza form.customerId y solo crea si falta"
     dialogSource.indexOf("if (plan.action === \"create\")"),
     dialogSource.indexOf("const customerId = plan.customerId")
   )
-  assert.match(createBranch, /createCustomer\(/)
-  assert.doesNotMatch(createBranch, /plan\.action === "reuse"/)
+  assert.match(createBranch, /buildWorkOrderCustomerCreateDraft/)
+  assert.doesNotMatch(createBranch, /createCustomer\(/)
 })
 
 test("import de instalación nueva reutiliza customerId explícito", () => {
@@ -219,8 +219,8 @@ test("instalación nueva no ofrece sync de ficha; lookup está desactivado", () 
   assert.match(dialogSource, /requiresCustomerLookup\(form\.serviceType\) && !customerSelected/)
 })
 
-test("doble click: isSubmitting se prende después de validar", () => {
+test("doble click: isSubmitting se prende antes de validar", () => {
   const validateIdx = handleSubmit.indexOf("await validateBeforeSave")
   const submittingIdx = handleSubmit.indexOf("setIsSubmitting(true)")
-  assert.ok(validateIdx >= 0 && submittingIdx > validateIdx)
+  assert.ok(submittingIdx >= 0 && validateIdx > submittingIdx)
 })
