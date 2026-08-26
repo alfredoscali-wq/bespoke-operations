@@ -222,7 +222,7 @@ export function applyValidationToRow(
     newTechnology:
       resolveImportTechnology(row.data.newTechnology) || row.data.newTechnology,
     crewId: crew?.id ?? "",
-    customerId: customer?.id ?? "",
+    customerId: row.data.customerId.trim() || customer?.id || "",
   }
 
   const issues = validateImportRow(row.rowNumber, data, context)

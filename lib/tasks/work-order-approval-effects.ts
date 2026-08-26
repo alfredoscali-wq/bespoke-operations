@@ -15,6 +15,11 @@ import {
 import type { Customer, UpdateCustomerInput } from "@/lib/types/customers"
 import type { Task } from "@/lib/types/tasks"
 import { hasCoordinates } from "@/lib/gps"
+import {
+  isCustomerStatusActive,
+  CUSTOMER_STATUS_PENDING_ACTIVATION,
+} from "@/lib/customers/format"
+import { didTaskReuseExistingCustomer } from "@/lib/tasks/work-order-customer-resolve"
 
 /** Solo instalacion-nueva mueve al cliente a pendiente de activación al aprobar. */
 
@@ -139,10 +144,26 @@ function buildInstalacionNuevaUpdate(
     assignStringField(update, "contractedPlan", plan, customer.contractedPlan)
   }
 
-  assignStatus(update, "pendiente-activacion", customer.status)
+  if (shouldSetPendingActivationOnInstallation(customer, task)) {
+    assignStatus(update, CUSTOMER_STATUS_PENDING_ACTIVATION, customer.status)
+  }
   applyFtthFields(update, task, customer)
 
   return update
+}
+
+export function shouldSetPendingActivationOnInstallation(
+  customer: Pick<Customer, "status">,
+  task: Pick<Task, "taskMetadata">
+): boolean {
+  if (
+    didTaskReuseExistingCustomer(task.taskMetadata) &&
+    isCustomerStatusActive(customer.status)
+  ) {
+    return false
+  }
+
+  return true
 }
 
 function buildCambioDomicilioUpdate(

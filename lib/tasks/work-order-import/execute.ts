@@ -2,10 +2,10 @@ import { taskDefaultChecklist } from "@/components/tareas/task-form-dialog"
 import {
   buildWorkOrderCreatePayload,
   getDefaultWorkOrderForm,
-  isNewInstallationWorkOrder,
   requiresCustomerLookup,
   type WorkOrderFormInput,
 } from "@/lib/tasks/work-order"
+import { planWorkOrderCustomerResolution } from "@/lib/tasks/work-order-customer-resolve"
 import type {
   WorkOrderImportExecutionResult,
   WorkOrderImportReportRow,
@@ -151,9 +151,16 @@ export async function executeWorkOrderImport(input: {
     }
 
     try {
-      let customerId = row.data.customerId
+      let customerId = row.data.customerId.trim()
+      const customerPlan = planWorkOrderCustomerResolution({
+        serviceType: row.data.serviceType,
+        formCustomerId: customerId,
+        isEditMode: false,
+      })
 
-      if (isNewInstallationWorkOrder(row.data.serviceType)) {
+      if (customerPlan.action === "reuse") {
+        customerId = customerPlan.customerId
+      } else if (customerPlan.action === "create") {
         const customerResult = await createCustomer({
           name: row.data.customerName.trim(),
           phone: row.data.customerPhone.trim() || undefined,
@@ -201,10 +208,7 @@ export async function executeWorkOrderImport(input: {
         customerId = customer.id
       }
 
-      const form = importRowToFormInput({
-        ...row,
-        data: { ...row.data, customerId },
-      })
+      const form = importRowToFormInput(row)
 
       const selectedCrew = form.crewId
         ? crews.find((crew) => crew.id === form.crewId)

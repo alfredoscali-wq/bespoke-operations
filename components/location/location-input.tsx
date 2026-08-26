@@ -18,6 +18,8 @@ export type LocationInputProps = {
   label?: string
   placeholder?: string
   required?: boolean
+  /** Native HTML required. Defaults to false so JS validation owns the message. */
+  htmlRequired?: boolean
   readOnly?: boolean
   disabled?: boolean
   className?: string
@@ -40,6 +42,7 @@ export function LocationInput({
   label = LOCATION_INPUT_DEFAULT_LABEL,
   placeholder = LOCATION_INPUT_DEFAULT_PLACEHOLDER,
   required = false,
+  htmlRequired = false,
   readOnly = false,
   disabled = false,
   className,
@@ -64,7 +67,7 @@ export function LocationInput({
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={onKeyDown}
         placeholder={placeholder}
-        required={required}
+        required={htmlRequired}
         readOnly={readOnly}
         disabled={disabled}
         autoComplete="off"

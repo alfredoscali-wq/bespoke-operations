@@ -1,5 +1,6 @@
 import { hasCoordinates } from "@/lib/gps"
 import { resolveLocationViaApi } from "@/lib/location/client/resolve-via-api"
+import { shouldResolveLocationOnSave } from "@/lib/tasks/work-order-location"
 import type { ResolvedLocation } from "@/lib/location/types"
 import type {
   CreateTaskPayload,
@@ -32,11 +33,7 @@ async function resolveIfNeeded(
   cache: Map<string, ResolvedLocation>
 ): Promise<ResolvedLocation | null> {
   const trimmed = sharedLocation.trim()
-  if (!trimmed) {
-    return null
-  }
-
-  if (hasCoordinates(latitude, longitude)) {
+  if (!shouldResolveLocationOnSave(trimmed, latitude, longitude)) {
     return null
   }
 

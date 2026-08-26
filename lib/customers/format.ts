@@ -21,10 +21,18 @@ export function formatCustomerAddressLabel(customer: {
   const locality = customer.locality?.trim()
 
   if (address && locality) {
-    return `${address} - ${locality}`
+    return `${address} · ${locality}`
   }
 
-  return address || locality || null
+  if (address) {
+    return address
+  }
+
+  if (locality) {
+    return `Sin domicilio registrado · ${locality}`
+  }
+
+  return null
 }
 
 export function formatCustomerStatusLabel(status: string): string {

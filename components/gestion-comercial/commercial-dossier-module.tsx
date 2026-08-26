@@ -34,6 +34,8 @@ import {
 import { resolveCommercialActorEmployeeId } from "@/lib/commercial/module-access"
 import {
   buildSolicitudOtCreateHref,
+  buildSolicitudOtLocationFromPerson,
+  readTrustedCustomerId,
   storeSolicitudOtCreatePrefill,
   type SolicitudOtCreatePrefill,
 } from "@/lib/commercial/solicitud-ot-create"
@@ -244,6 +246,8 @@ function CommercialDossierContent({
       lastName: person.lastName,
       companyName: person.companyName,
     })
+    const location = buildSolicitudOtLocationFromPerson(person)
+    const customerId = readTrustedCustomerId(displayOpportunity.sourceCustomerId)
     return {
       solicitudId: solicitud.id,
       opportunityId: displayOpportunity.id,
@@ -253,8 +257,8 @@ function CommercialDossierContent({
       observations: solicitud.observations,
       customerName: clientName,
       customerPhone: person.phone.trim() || person.mobile.trim(),
-      address: person.address.trim() || person.street.trim(),
-      locality: person.city.trim(),
+      ...location,
+      ...(customerId ? { customerId } : {}),
     }
   }
 

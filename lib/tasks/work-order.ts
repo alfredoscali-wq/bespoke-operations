@@ -33,7 +33,11 @@ import {
   getDefaultScheduledTime,
   normalizeScheduledTimeForDb,
 } from "@/lib/tasks/scheduling"
-import { validateLocationInput } from "@/lib/location"
+import { validateWorkOrderLocation } from "@/lib/tasks/work-order-location"
+import {
+  applyReusedExistingCustomerMetadata,
+  preserveReusedExistingCustomerMetadata,
+} from "@/lib/tasks/work-order-customer-resolve"
 
 export type WorkOrderServiceType =
   | "instalacion-nueva"
@@ -618,59 +622,15 @@ export function resolveWorkOrderSharedLocation(
 }
 
 export function validateWorkOrderSharedLocation(
-  input: Pick<
-    WorkOrderFormInput,
-    "serviceType" | "sharedLocation" | "newSharedLocation" | "currentSharedLocation"
-  >
+  input: WorkOrderFormInput
 ): { valid: boolean; message?: string } {
-  if (input.serviceType === "cambio-domicilio") {
-    const newLocation = input.newSharedLocation.trim()
-    if (!newLocation) {
-      return {
-        valid: false,
-        message:
-          "La ubicación GPS del nuevo domicilio es obligatoria. Pegue el enlace de Google Maps.",
-      }
-    }
+  const location = validateWorkOrderLocation(input)
+  if (!location.valid && (location.missing === "gps" || location.missing === "gps-partial")) {
+    return { valid: false, message: location.message }
+  }
 
-    const newFormat = validateLocationInput(newLocation)
-    if (!newFormat.valid) {
-      return {
-        valid: false,
-        message: "Pegue una ubicación válida de Google Maps para el nuevo domicilio.",
-      }
-    }
-
-    const currentLocation = input.currentSharedLocation.trim()
-    if (currentLocation) {
-      const currentFormat = validateLocationInput(currentLocation)
-      if (!currentFormat.valid) {
-        return {
-          valid: false,
-          message:
-            "Pegue una ubicación válida de Google Maps para el domicilio actual.",
-        }
-      }
-    }
-
+  if (location.valid) {
     return { valid: true }
-  }
-
-  const location = resolveWorkOrderSharedLocation(input)
-  if (!location) {
-    return {
-      valid: false,
-      message:
-        "La ubicación GPS es obligatoria. Pegue el enlace de Google Maps.",
-    }
-  }
-
-  const formatValidation = validateLocationInput(location)
-  if (!formatValidation.valid) {
-    return {
-      valid: false,
-      message: "Pegue una ubicación válida de Google Maps.",
-    }
   }
 
   return { valid: true }
@@ -703,14 +663,16 @@ export function validateWorkOrderForm(
     return { valid: false, message: "La duración estimada es obligatoria." }
   }
 
+  const locationValidation = validateWorkOrderLocation(input)
+  if (!locationValidation.valid) {
+    return {
+      valid: false,
+      message: locationValidation.message,
+    }
+  }
+
   switch (input.serviceType) {
     case "instalacion-nueva":
-      if (!input.address.trim()) {
-        return { valid: false, message: "La dirección es obligatoria." }
-      }
-      if (!input.locality.trim()) {
-        return { valid: false, message: "La localidad es obligatoria." }
-      }
       if (!input.technology) {
         return { valid: false, message: "Seleccione la tecnología." }
       }
@@ -732,18 +694,6 @@ export function validateWorkOrderForm(
         return {
           valid: false,
           message: "Indique tecnología actual y tecnología en el nuevo domicilio.",
-        }
-      }
-      if (!input.currentAddress.trim() || !input.newAddress.trim()) {
-        return {
-          valid: false,
-          message: "Indique dirección actual y nueva dirección.",
-        }
-      }
-      if (!input.currentLocality.trim() || !input.newLocality.trim()) {
-        return {
-          valid: false,
-          message: "Indique localidad actual y nueva localidad.",
         }
       }
       if (
@@ -790,14 +740,8 @@ export function validateWorkOrderForm(
           message: "Seleccione el plan de la nueva tecnología.",
         }
       }
-      if (!input.address.trim()) {
-        return { valid: false, message: "La dirección es obligatoria." }
-      }
       break
     case "service-tecnico":
-      if (!input.address.trim()) {
-        return { valid: false, message: "La dirección es obligatoria." }
-      }
       if (!input.serviceReason) {
         return { valid: false, message: "Seleccione el motivo del service." }
       }
@@ -809,9 +753,6 @@ export function validateWorkOrderForm(
     case "retiro-equipos":
     case "relevamiento":
     case "postventa":
-      if (!input.address.trim()) {
-        return { valid: false, message: "La dirección es obligatoria." }
-      }
       if (input.serviceType === "postventa" && !input.postventaDetail.trim()) {
         return { valid: false, message: "El detalle de postventa es obligatorio." }
       }
@@ -838,11 +779,6 @@ export function validateWorkOrderForm(
       break
     default:
       break
-  }
-
-  const sharedLocationValidation = validateWorkOrderSharedLocation(input)
-  if (!sharedLocationValidation.valid) {
-    return sharedLocationValidation
   }
 
   return { valid: true }
@@ -884,19 +820,15 @@ export function buildWorkOrderCreatePayload(input: {
   const locality = resolvePrimaryLocality(form)
   const sharedLocation =
     form.serviceType === "cambio-domicilio"
-      ? form.newSharedLocation.trim() || form.sharedLocation.trim()
+      ? form.newSharedLocation.trim()
       : form.sharedLocation.trim()
   const contractedPlan = resolveContractedPlanFromForm(form)
   const amountToCollect = parseAmountToCollectInput(form.amountToCollect)
   const paymentMethod = resolvePaymentMethodFromForm(form.paymentMethod)
   const latitude =
-    form.serviceType === "cambio-domicilio"
-      ? form.newLatitude ?? form.latitude
-      : form.latitude
+    form.serviceType === "cambio-domicilio" ? form.newLatitude : form.latitude
   const longitude =
-    form.serviceType === "cambio-domicilio"
-      ? form.newLongitude ?? form.longitude
-      : form.longitude
+    form.serviceType === "cambio-domicilio" ? form.newLongitude : form.longitude
 
   return {
     code: generateWorkOrderTaskCode(existingTasks),
@@ -933,7 +865,11 @@ export function buildWorkOrderCreatePayload(input: {
     operationalSteps: resolveOperationalStepsForWorkOrder(form),
     serviceType: form.serviceType as WorkOrderServiceType,
     locality: locality || undefined,
-    taskMetadata: buildTaskMetadata(form),
+    taskMetadata: applyReusedExistingCustomerMetadata(buildTaskMetadata(form), {
+      serviceType: form.serviceType,
+      formCustomerId: form.customerId,
+      resolvedCustomerId: customerId,
+    }),
     contractedPlan: contractedPlan ?? undefined,
     serviceCatalogId: form.serviceCatalogId.trim() || undefined,
     amountToCollect: amountToCollect ?? undefined,
@@ -1199,7 +1135,10 @@ export function buildWorkOrderUpdatePayload(input: {
     operationalSteps: payload.operationalSteps,
     serviceType: payload.serviceType,
     locality: payload.locality,
-    taskMetadata: payload.taskMetadata,
+    taskMetadata: preserveReusedExistingCustomerMetadata(
+      payload.taskMetadata,
+      input.task.taskMetadata
+    ),
     contractedPlan: payload.contractedPlan,
     serviceCatalogId: payload.serviceCatalogId,
     amountToCollect: payload.amountToCollect,

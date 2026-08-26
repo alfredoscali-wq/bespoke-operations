@@ -123,6 +123,10 @@ export function WorkOrderAddressLocationBlock({
         <div className="rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground">
           Las coordenadas se resolverán al guardar la orden de trabajo.
         </div>
+      ) : locationLinkRequired ? (
+        <p className="text-xs text-amber-700 dark:text-amber-400">
+          ⚠ GPS pendiente
+        </p>
       ) : null}
     </div>
   )

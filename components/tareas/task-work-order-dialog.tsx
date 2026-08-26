@@ -33,6 +33,12 @@ import {
   type WorkOrderServiceType,
 } from "@/lib/tasks/work-order"
 import {
+  applyCustomerToForm,
+  applySolicitudPrefillToForm,
+  applyWorkOrderServiceTypeChange,
+} from "@/lib/tasks/work-order-customer-prefill"
+import { planWorkOrderCustomerResolution } from "@/lib/tasks/work-order-customer-resolve"
+import {
   canAdminModifyWorkOrder,
 } from "@/lib/tasks/work-order-admin-mutation"
 import { WorkOrderCambioTecnologiaFields } from "@/components/tareas/work-order-cambio-tecnologia-fields"
@@ -514,28 +520,6 @@ function WorkOrderDynamicFields({
   }
 }
 
-function applyCustomerToForm(
-  customer: Customer
-): Partial<WorkOrderFormInput> {
-  const technology =
-    customer.technology === "fiber" || customer.technology === "wireless"
-      ? customer.technology
-      : ""
-
-  return {
-    customerId: customer.id,
-    customerName: customer.name,
-    customerPhone: customer.phone ?? "",
-    customerEmail: customer.email ?? "",
-    address: customer.address ?? "",
-    locality: customer.locality ?? "",
-    technology,
-    currentAddress: customer.address ?? "",
-    currentLocality: customer.locality ?? "",
-    currentTechnology: technology,
-  }
-}
-
 function WorkOrderCrewInfoFields({
   form,
   updateField,
@@ -688,11 +672,7 @@ export function TaskWorkOrderDialog({
 
     const nextForm = getDefaultWorkOrderForm()
     if (solicitudPrefill) {
-      nextForm.serviceType = "instalacion-nueva"
-      nextForm.customerName = solicitudPrefill.customerName
-      nextForm.customerPhone = solicitudPrefill.customerPhone
-      nextForm.address = solicitudPrefill.address
-      nextForm.locality = solicitudPrefill.locality
+      Object.assign(nextForm, applySolicitudPrefillToForm(solicitudPrefill))
       nextForm.observationsForCrew =
         buildCrewObservationsFromSolicitud(solicitudPrefill)
       Object.assign(nextForm, applySuggestedDurationPreset("instalacion-nueva"))
@@ -707,7 +687,7 @@ export function TaskWorkOrderDialog({
       return []
     })
     setPhotosError(null)
-    setCustomerSelected(false)
+    setCustomerSelected(Boolean(solicitudPrefill?.customerId?.trim()))
     setLinkedCustomer(null)
     setCustomerSyncState(null)
     setError(null)
@@ -751,14 +731,7 @@ export function TaskWorkOrderDialog({
   }
 
   function handleServiceTypeChange(value: WorkOrderServiceType) {
-    setForm({
-      ...getDefaultWorkOrderForm(),
-      serviceType: value,
-      scheduledDate: form.scheduledDate,
-      ...applySuggestedDurationPreset(value),
-    })
-    setCustomerSelected(false)
-    setLinkedCustomer(null)
+    setForm((current) => applyWorkOrderServiceTypeChange(current, value))
     setError(null)
   }
 
@@ -875,13 +848,19 @@ export function TaskWorkOrderDialog({
   }
 
   async function resolveCustomerIdForSave(): Promise<string | null> {
-    const customerId = form.customerId.trim()
+    const plan = planWorkOrderCustomerResolution({
+      serviceType: form.serviceType,
+      formCustomerId: form.customerId,
+      isEditMode,
+      taskCustomerId: task?.customerId,
+    })
 
-    if (isNewInstallationWorkOrder(form.serviceType)) {
-      if (isEditMode) {
-        return customerId || task?.customerId?.trim() || null
-      }
+    if (plan.action === "require-lookup") {
+      setError("Seleccione un cliente registrado.")
+      return null
+    }
 
+    if (plan.action === "create") {
       const customerResult = await createCustomer({
         name: form.customerName.trim(),
         dni: form.customerDni.trim() || undefined,
@@ -899,10 +878,7 @@ export function TaskWorkOrderDialog({
       return customerResult.customer.id
     }
 
-    if (requiresCustomerLookup(form.serviceType) && !customerId) {
-      setError("Seleccione un cliente registrado.")
-      return null
-    }
+    const customerId = plan.customerId
 
     if (form.serviceType === "reconexion") {
       const reconexionCustomer =
@@ -1150,6 +1126,8 @@ export function TaskWorkOrderDialog({
           {form.serviceType && form.serviceType !== "cambio-domicilio" ? (
             <WorkOrderLocationSection
               sharedLocation={form.sharedLocation}
+              latitude={form.latitude}
+              longitude={form.longitude}
               onSharedLocationChange={(value) =>
                 updateField("sharedLocation", value)
               }

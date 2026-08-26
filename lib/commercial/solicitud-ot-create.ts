@@ -3,6 +3,8 @@
  * Mirrors consultation-ot-create (RC 3.2.6) without coupling to Atención.
  */
 
+import { resolveCopiedGps } from "@/lib/tasks/work-order-location"
+
 const STORAGE_PREFIX = "bespoke.solicitud-ot-prefill."
 
 export type SolicitudOtCreatePrefill = {
@@ -16,6 +18,42 @@ export type SolicitudOtCreatePrefill = {
   customerPhone: string
   address: string
   locality: string
+  latitude?: number | null
+  longitude?: number | null
+  sharedLocation?: string | null
+  /** Trusted customers.id from the origin (e.g. opportunity.sourceCustomerId). Never inferred. */
+  customerId?: string
+}
+
+export function readTrustedCustomerId(
+  value: string | null | undefined
+): string {
+  return value?.trim() ?? ""
+}
+
+export function buildSolicitudOtLocationFromPerson(person: {
+  address?: string | null
+  street?: string | null
+  city?: string | null
+  latitude?: number | null
+  longitude?: number | null
+}): Pick<
+  SolicitudOtCreatePrefill,
+  "address" | "locality" | "latitude" | "longitude" | "sharedLocation"
+> {
+  const gps = resolveCopiedGps({
+    latitude: person.latitude,
+    longitude: person.longitude,
+    sharedLocation: null,
+  })
+
+  return {
+    address: person.address?.trim() || person.street?.trim() || "",
+    locality: person.city?.trim() || "",
+    latitude: gps.latitude,
+    longitude: gps.longitude,
+    sharedLocation: gps.sharedLocation || null,
+  }
 }
 
 export function buildSolicitudOtCreateHref(solicitudId: string): string {
