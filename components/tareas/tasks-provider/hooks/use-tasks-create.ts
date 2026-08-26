@@ -18,16 +18,12 @@ import {
 } from "@/lib/supabase/tasks.browser"
 import { logOperationError } from "@/lib/operations/user-messages"
 import { getInitialTaskStatus } from "@/lib/tasks/task-status-workflow"
-import {
-  generateWorkOrderTaskCodeFromCodes,
-  isWorkOrderTask,
-} from "@/lib/tasks/work-order"
+import { generateWorkOrderTaskCodeFromCodes } from "@/lib/tasks/work-order"
 import {
   buildObraTaskCodePrefix,
   generateTaskCodeFromOccupied,
 } from "@/lib/tasks/utils"
-import { resolveNextPlanningQueuePosition } from "@/lib/planificacion/planning-dynamic"
-import { shouldApplyPlanningQueueSideEffectsForTask } from "@/lib/projects/project-start-dispatch"
+import { stripClientExecutionOrder } from "@/lib/tasks/execution-order-create"
 import { recordTaskCreateAudit } from "@/lib/audit/tasks-audit"
 import { startPerformanceTrace } from "@/lib/performance"
 import { resolveOperationalEventActor } from "@/lib/tasks/operational-event-actor"
@@ -101,25 +97,7 @@ export function useTasksCreate({
           enrichCreateTaskPayloadWithResolvedLocation(payload)
         )
 
-        const crewId = payload.crewId?.trim() || null
-        const dueDate = payload.dueDate?.trim()
-        if (
-          shouldApplyPlanningQueueSideEffectsForTask(payload) &&
-          isWorkOrderTask(payload as Task) &&
-          crewId &&
-          dueDate &&
-          (payload.status === "programada" || payload.status == null)
-        ) {
-          payload = {
-            ...payload,
-            status: payload.status ?? "programada",
-            executionOrder: resolveNextPlanningQueuePosition({
-              tasks,
-              dueDate,
-              crewId,
-            }),
-          }
-        }
+        payload = stripClientExecutionOrder(payload)
 
         if (payload.projectId && payload.projectCode?.trim()) {
           const prefix = buildObraTaskCodePrefix(payload.projectCode)
@@ -143,7 +121,13 @@ export function useTasksCreate({
         )
 
         if (!result.data) {
-          logOperationError("TASK CREATE", result.error)
+          logOperationError("TASK CREATE", {
+            code: result.error?.code ?? "UNKNOWN",
+            companyId,
+            crewId: payload.crewId ?? null,
+            dueDate: payload.dueDate ?? null,
+            executionOrder: null,
+          })
           throw new Error(
             result.error?.message?.trim() ||
               "No fue posible crear la orden de trabajo. Intente nuevamente."
@@ -169,7 +153,12 @@ export function useTasksCreate({
           )
         }
 
-        perf.finish()
+        perf.finish({
+          companyId,
+          crewId: result.data.crewId ?? null,
+          dueDate: result.data.dueDate ?? null,
+          executionOrder: result.data.executionOrder ?? null,
+        })
         return result.data
       } catch (error) {
         perf.fail(error)

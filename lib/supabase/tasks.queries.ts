@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
-import type { Database } from "@/lib/supabase/database.types"
+import type { Database, Json } from "@/lib/supabase/database.types"
+import type { TaskRow } from "@/lib/supabase/database.aliases"
 import {
   mapCreatePayloadToInsert,
   mapTaskRowToTask,
@@ -13,7 +14,7 @@ import type {
   TasksRepositoryResult,
   UpdateTaskPayload,
 } from "@/lib/types/supabase/tasks"
-import { TASK_DELETE_USER_MESSAGE } from "@/lib/operations/user-messages"
+import { TASK_DELETE_USER_MESSAGE, logOperationError } from "@/lib/operations/user-messages"
 import { ACTIVE_TASK_STATUSES } from "@/lib/tasks/status-groups"
 import { validateObraTaskInsertIntegrity } from "@/lib/projects/obra-task-insert-integrity"
 import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
@@ -32,6 +33,11 @@ import {
   type ExecutionOrderUpdate,
 } from "@/lib/planificacion/planning-execution-order"
 import { resolveNextPlanningQueuePosition } from "@/lib/planificacion/planning-dynamic"
+import {
+  stripClientExecutionOrder,
+  TASK_EXECUTION_ORDER_CONFLICT_CODE,
+  TASK_EXECUTION_ORDER_CONFLICT_MESSAGE,
+} from "@/lib/tasks/execution-order-create"
 
 export type SupabaseTasksClient = SupabaseClient<Database>
 
@@ -72,6 +78,14 @@ export function mapSupabaseTaskError(error: {
   details?: string | null
   hint?: string | null
 }) {
+  const blob = `${error.code ?? ""} ${error.message} ${error.details ?? ""} ${error.hint ?? ""}`
+  if (blob.includes(TASK_EXECUTION_ORDER_CONFLICT_CODE)) {
+    return {
+      code: TASK_EXECUTION_ORDER_CONFLICT_CODE,
+      message: TASK_EXECUTION_ORDER_CONFLICT_MESSAGE,
+    }
+  }
+
   if (error.code === "23514" || error.message.includes("TASK_STATUS_")) {
     return {
       code: "WORKFLOW" as const,
@@ -114,6 +128,23 @@ export function mapSupabaseTaskError(error: {
     code: "UNKNOWN" as const,
     message: error.message,
   }
+}
+
+/** Create path: unexpected unique collisions become a retryable structured conflict. */
+export function mapInsertTaskError(error: {
+  code?: string
+  message: string
+  details?: string | null
+  hint?: string | null
+}) {
+  const mapped = mapSupabaseTaskError(error)
+  if (mapped.code === "DUPLICATE_EXECUTION_ORDER") {
+    return {
+      code: TASK_EXECUTION_ORDER_CONFLICT_CODE,
+      message: TASK_EXECUTION_ORDER_CONFLICT_MESSAGE,
+    }
+  }
+  return mapped
 }
 
 export async function fetchTasks(
@@ -267,19 +298,41 @@ export async function insertTask(
     }
   }
 
-  const mapped = mapCreatePayloadToInsert(insertPayload)
-
-  const { data, error } = await client
-    .from("tasks")
-    .insert(mapped)
-    .select("*")
-    .single()
-
-  if (error) {
-    return { data: null, error: mapSupabaseTaskError(error) }
+  const mapped = {
+    ...mapCreatePayloadToInsert(stripClientExecutionOrder(insertPayload)),
+    execution_order: null,
+    dispatch_order: null,
   }
 
-  return { data: mapTaskRowToTask(data), error: null }
+  const { data, error } = await client.rpc("create_task_with_execution_order", {
+    p_payload: mapped as unknown as Json,
+  })
+
+  if (error) {
+    const mappedError = mapInsertTaskError(error)
+    logOperationError("TASK CREATE", {
+      code: mappedError.code,
+      companyId: insertPayload.companyId ?? null,
+      crewId: insertPayload.crewId ?? null,
+      dueDate: insertPayload.dueDate ?? null,
+      executionOrder: null,
+    })
+    return { data: null, error: mappedError }
+  }
+
+  if (!data || typeof data !== "object" || Array.isArray(data) || !("id" in data)) {
+    return {
+      data: null,
+      error: {
+        code: "UNKNOWN",
+        message: "No fue posible crear la orden de trabajo. Intente nuevamente.",
+      },
+    }
+  }
+
+  const created = mapTaskRowToTask(data as TaskRow)
+
+  return { data: created, error: null }
 }
 
 export async function patchTask(
