@@ -35,7 +35,7 @@ export async function applyVencidaSyncFromApi(
   return result.tasks
 }
 
-/** Applies only status changes from a vencida sync — never replaces whole task rows. */
+/** Applies vencida sync fields — never replaces whole task rows. */
 export function mergeVencidaStatusIntoTasks(
   current: Task[],
   syncedTasks: Task[]
@@ -49,6 +49,9 @@ export function mergeVencidaStatusIntoTasks(
     const syncedStatus = syncedStatusById.get(task.id)
     if (syncedStatus && syncedStatus !== task.status) {
       changed = true
+      if (syncedStatus === "vencida") {
+        return { ...task, status: "vencida" as const, executionOrder: null }
+      }
       return { ...task, status: syncedStatus }
     }
     return task
@@ -118,7 +121,9 @@ export async function applyVencidaSyncFromApiDetailed(
 
     return {
       tasks: tasks.map((task) =>
-        updatedIds.has(task.id) ? { ...task, status: "vencida" } : task
+        updatedIds.has(task.id)
+          ? { ...task, status: "vencida" as const, executionOrder: null }
+          : task
       ),
       candidateCount: candidates.length,
       updatedTaskIds: body.updatedTaskIds,

@@ -23,11 +23,13 @@ import {
   type TaskWorkflowAction,
 } from "@/lib/tasks/task-status-workflow"
 import { resolveTaskCrewId } from "@/lib/tasks/crew-relation"
+import { shouldAssignExecutionOrderOnCreate } from "@/lib/tasks/execution-order-create"
 import {
   buildOperationalOrderRemovalUpdates,
   isOperationalOrderReorderable,
   resolveOperationalOrderOnDateChange,
 } from "@/lib/planificacion/planning-execution-order"
+import { resolveNextPlanningQueuePosition } from "@/lib/planificacion/planning-dynamic"
 import {
   buildTaskRescheduleHistoryNote,
   buildTaskRescheduleUpdatePayload,
@@ -374,10 +376,34 @@ export function useTasksIncidents({
         targetStatus
       )
 
-      // Vencida → programada: back to planning queue. Do not keep or reallocate
-      // execution_order (unique crew+date+order would block the date change).
+      // Vencida → programada: never reuse the historical order. Clear, then
+      // take the first free slot on the new crew + date.
       if (workflowAction === "reschedule-from-overdue") {
         updatePayload = clearOperationalOrdersForOverdueReschedule(updatePayload)
+        const nextCrewId =
+          (updatePayload.crewId !== undefined
+            ? updatePayload.crewId
+            : task.crewId
+          )?.trim() || null
+        const nextDueDate =
+          (updatePayload.dueDate ?? task.dueDate)?.trim() || null
+        if (
+          shouldAssignExecutionOrderOnCreate({
+            projectId: task.projectId,
+            projectCode: task.projectCode,
+            serviceType: task.serviceType,
+            crewId: nextCrewId,
+            dueDate: nextDueDate,
+            status: targetStatus,
+          })
+        ) {
+          updatePayload.executionOrder = resolveNextPlanningQueuePosition({
+            tasks,
+            dueDate: nextDueDate!,
+            crewId: nextCrewId!,
+            excludeTaskId: id,
+          })
+        }
       } else {
         const nextDueDate = updatePayload.dueDate ?? task.dueDate
         const nextCrewId =

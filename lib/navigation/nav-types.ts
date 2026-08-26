@@ -10,6 +10,8 @@ export type NavItem = {
   pageTitle?: string
   /** Visual divider above this item within its group (sidebar only). */
   separatorBefore?: boolean
+  /** Nest under this sibling href when both items are visible in the same area. */
+  parentHref?: string
   /** Stable module identity color (CSS --module-*). */
   moduleColor?: ModuleColorId
 }

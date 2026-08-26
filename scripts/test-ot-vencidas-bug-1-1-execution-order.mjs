@@ -21,20 +21,7 @@ test("clearOperationalOrdersForOverdueReschedule nulls both order fields", () =>
   )
 })
 
-test("incidents hook applies overdue order-clear and skips date reorder path", () => {
-  const source = read(
-    "components/tareas/tasks-provider/hooks/use-tasks-incidents.ts"
-  )
-  assert.match(source, /clearOperationalOrdersForOverdueReschedule/)
-  assert.match(source, /reschedule-from-overdue/)
-  // Overdue branch clears orders before update; reorder stays in the else branch.
-  assert.match(
-    source,
-    /if \(workflowAction === "reschedule-from-overdue"\) \{\s*updatePayload = clearOperationalOrdersForOverdueReschedule\(updatePayload\)\s*\} else \{/
-  )
-})
-
-test("vencida is not operational-order reorderable (stale order kept without clear)", () => {
+test("vencida is not operational-order reorderable; OT 1.2 releases the slot", () => {
   const core = read("lib/planificacion/planning-operational-order-core.ts")
   assert.match(
     core,
@@ -44,6 +31,16 @@ test("vencida is not operational-order reorderable (stale order kept without cle
     core,
     /OPERATIONAL_ORDER_REORDERABLE_STATUSES\s*=\s*\[[^\]]*"vencida"/
   )
+  assert.match(core, /export function occupiesExecutionOrderSlot/)
+})
+
+test("overdue reschedule still clears orders before assigning a new slot", () => {
+  const source = read(
+    "components/tareas/tasks-provider/hooks/use-tasks-incidents.ts"
+  )
+  assert.match(source, /clearOperationalOrdersForOverdueReschedule/)
+  assert.match(source, /reschedule-from-overdue/)
+  assert.match(source, /resolveNextPlanningQueuePosition/)
 })
 
 test("unique constraint error maps to the observed user message", () => {

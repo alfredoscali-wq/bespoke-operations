@@ -22,6 +22,7 @@ import {
   tesoreriaNavItem,
   subscriptionsNavItem,
   gestionComercialNavItem,
+  facturacionNavItem,
 } from "@/lib/navigation/nav-items"
 import type { NavItem } from "@/lib/navigation/nav-types"
 
@@ -42,6 +43,7 @@ export const APP_MODULE_KEYS = [
   "tesoreria",
   "subscriptions",
   "gestion_comercial",
+  "facturacion",
   "employees",
   "news",
   "settings",
@@ -179,6 +181,14 @@ export const APP_MODULE_DEFINITIONS: AppModuleDefinition[] = [
     navItem: gestionComercialNavItem,
     groupId: "operations",
     pathPrefixes: ["/gestion-comercial"],
+  },
+  {
+    key: "facturacion",
+    label: "Facturación",
+    navItem: facturacionNavItem,
+    groupId: "administration",
+    groupLabel: "Administración",
+    pathPrefixes: ["/configuracion/facturacion", "/facturacion"],
   },
   {
     key: "employees",

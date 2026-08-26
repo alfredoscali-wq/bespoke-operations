@@ -20,6 +20,7 @@ import {
   SIDEBAR_SECTIONS_STORAGE_KEY,
   isNavItemActive,
   mergeSidebarSectionState,
+  nestSidebarNavItems,
   parseSidebarSectionState,
   resolveSidebarAreaId,
   serializeSidebarSectionState,
@@ -49,12 +50,14 @@ function NavLink({
   siblingHrefs,
   areaId,
   onCloseMobile,
+  nested = false,
 }: {
   item: NavItem
   pathname: string
   siblingHrefs: readonly string[]
   areaId: string
   onCloseMobile: () => void
+  nested?: boolean
 }) {
   const isActive = isNavItemActive(pathname, item.href, siblingHrefs)
   const Icon = item.icon
@@ -67,6 +70,7 @@ function NavLink({
       aria-current={isActive ? "page" : undefined}
       className={cn(
         "group relative flex items-center gap-2.5 rounded-[8px] px-2.5 py-1.5 text-[13px] transition-[background-color,color,box-shadow] duration-200",
+        nested && "ml-4 pl-2.5",
         isActive
           ? "font-semibold text-slate-800"
           : "font-medium text-slate-600 hover:bg-[color-mix(in_oklab,var(--area-accent)_8%,white)] hover:text-slate-800"
@@ -191,15 +195,27 @@ function AreaSection({
       >
         <div className="overflow-hidden">
           <div className="flex flex-col gap-0.5 pt-0.5 pb-1">
-            {group.items.map((item) => (
-              <NavLink
-                key={`${group.id}-${item.href}-${item.title}`}
-                item={item}
-                pathname={pathname}
-                siblingHrefs={siblingHrefs}
-                areaId={areaId}
-                onCloseMobile={onCloseMobile}
-              />
+            {nestSidebarNavItems(group.items).map(({ item, children }) => (
+              <div key={`${group.id}-${item.href}-${item.title}`}>
+                <NavLink
+                  item={item}
+                  pathname={pathname}
+                  siblingHrefs={siblingHrefs}
+                  areaId={areaId}
+                  onCloseMobile={onCloseMobile}
+                />
+                {children.map((child) => (
+                  <NavLink
+                    key={`${group.id}-${child.href}-${child.title}`}
+                    item={child}
+                    pathname={pathname}
+                    siblingHrefs={siblingHrefs}
+                    areaId={areaId}
+                    onCloseMobile={onCloseMobile}
+                    nested
+                  />
+                ))}
+              </div>
             ))}
           </div>
         </div>

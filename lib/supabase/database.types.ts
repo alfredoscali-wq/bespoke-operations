@@ -2199,6 +2199,716 @@ export type Database = {
           },
         ]
       }
+      isp_billing_company_settings: {
+        Row: {
+          active: boolean
+          auto_prepare_day_one: boolean
+          city: string
+          company_id: string
+          created_at: string
+          email: string
+          id: string
+          legal_name: string
+          logo_url: string | null
+          phone: string
+          postal_code: string
+          province: string
+          tax_address: string
+          tax_id: string
+          updated_at: string
+          vat_condition: string
+          website: string
+        }
+        Insert: {
+          active?: boolean
+          auto_prepare_day_one?: boolean
+          city?: string
+          company_id: string
+          created_at?: string
+          email?: string
+          id?: string
+          legal_name: string
+          logo_url?: string | null
+          phone?: string
+          postal_code?: string
+          province?: string
+          tax_address: string
+          tax_id: string
+          updated_at?: string
+          vat_condition: string
+          website?: string
+        }
+        Update: {
+          active?: boolean
+          auto_prepare_day_one?: boolean
+          city?: string
+          company_id?: string
+          created_at?: string
+          email?: string
+          id?: string
+          legal_name?: string
+          logo_url?: string | null
+          phone?: string
+          postal_code?: string
+          province?: string
+          tax_address?: string
+          tax_id?: string
+          updated_at?: string
+          vat_condition?: string
+          website?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "isp_billing_company_settings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      isp_billing_point_of_sales: {
+        Row: {
+          active: boolean
+          company_id: string
+          created_at: string
+          description: string
+          id: string
+          number: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          company_id: string
+          created_at?: string
+          description?: string
+          id?: string
+          number: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          company_id?: string
+          created_at?: string
+          description?: string
+          id?: string
+          number?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "isp_billing_point_of_sales_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      isp_billing_document_sequences: {
+        Row: {
+          company_id: string
+          created_at: string
+          document_type: string
+          id: string
+          issued_count: number
+          next_number: number
+          point_of_sale_id: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          document_type: string
+          id?: string
+          issued_count?: number
+          next_number?: number
+          point_of_sale_id: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          document_type?: string
+          id?: string
+          issued_count?: number
+          next_number?: number
+          point_of_sale_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "isp_billing_document_sequences_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "isp_billing_document_sequences_point_of_sale_id_fkey"
+            columns: ["point_of_sale_id"]
+            isOneToOne: false
+            referencedRelation: "isp_billing_point_of_sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      isp_billing_integrations: {
+        Row: {
+          company_id: string
+          created_at: string
+          environment: string | null
+          last_sync_at: string | null
+          provider: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          environment?: string | null
+          last_sync_at?: string | null
+          provider: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          environment?: string | null
+          last_sync_at?: string | null
+          provider?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "isp_billing_integrations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      isp_billing_documents: {
+        Row: {
+          authorization_status: string
+          billing_company_settings_id: string
+          billing_run_id: string | null
+          cae: string | null
+          cae_expires_at: string | null
+          company_id: string
+          created_at: string
+          customer_city_snapshot: string
+          customer_document_number_snapshot: string
+          customer_document_type_snapshot: string
+          customer_email_snapshot: string
+          customer_id: string
+          customer_name_snapshot: string
+          customer_postal_code_snapshot: string
+          customer_province_snapshot: string
+          customer_tax_address_snapshot: string
+          customer_tax_id_snapshot: string
+          customer_vat_condition_snapshot: string
+          discount_total: number
+          document_type: string
+          due_date: string | null
+          formatted_number: string | null
+          id: string
+          issue_date: string
+          issuer_city_snapshot: string
+          issuer_email_snapshot: string
+          issuer_legal_name_snapshot: string
+          issuer_logo_url_snapshot: string | null
+          issuer_phone_snapshot: string
+          issuer_postal_code_snapshot: string
+          issuer_province_snapshot: string
+          issuer_tax_address_snapshot: string
+          issuer_tax_id_snapshot: string
+          issuer_vat_condition_snapshot: string
+          issuer_website_snapshot: string
+          number: number | null
+          observations: string
+          period_month: number | null
+          period_year: number | null
+          point_of_sale_id: string
+          point_of_sale_number: number
+          status: string
+          subscriber_id: string | null
+          subtotal: number
+          tax_total: number
+          total: number
+          updated_at: string
+        }
+        Insert: {
+          authorization_status?: string
+          billing_company_settings_id: string
+          billing_run_id?: string | null
+          cae?: string | null
+          cae_expires_at?: string | null
+          company_id: string
+          created_at?: string
+          customer_city_snapshot?: string
+          customer_document_number_snapshot?: string
+          customer_document_type_snapshot?: string
+          customer_email_snapshot?: string
+          customer_id: string
+          customer_name_snapshot: string
+          customer_postal_code_snapshot?: string
+          customer_province_snapshot?: string
+          customer_tax_address_snapshot?: string
+          customer_tax_id_snapshot?: string
+          customer_vat_condition_snapshot?: string
+          discount_total?: number
+          document_type: string
+          due_date?: string | null
+          formatted_number?: string | null
+          id?: string
+          issue_date?: string
+          issuer_city_snapshot?: string
+          issuer_email_snapshot?: string
+          issuer_legal_name_snapshot: string
+          issuer_logo_url_snapshot?: string | null
+          issuer_phone_snapshot?: string
+          issuer_postal_code_snapshot?: string
+          issuer_province_snapshot?: string
+          issuer_tax_address_snapshot?: string
+          issuer_tax_id_snapshot: string
+          issuer_vat_condition_snapshot: string
+          issuer_website_snapshot?: string
+          number?: number | null
+          observations?: string
+          period_month?: number | null
+          period_year?: number | null
+          point_of_sale_id: string
+          point_of_sale_number: number
+          status?: string
+          subscriber_id?: string | null
+          subtotal?: number
+          tax_total?: number
+          total?: number
+          updated_at?: string
+        }
+        Update: {
+          authorization_status?: string
+          billing_company_settings_id?: string
+          billing_run_id?: string | null
+          cae?: string | null
+          cae_expires_at?: string | null
+          company_id?: string
+          created_at?: string
+          customer_city_snapshot?: string
+          customer_document_number_snapshot?: string
+          customer_document_type_snapshot?: string
+          customer_email_snapshot?: string
+          customer_id?: string
+          customer_name_snapshot?: string
+          customer_postal_code_snapshot?: string
+          customer_province_snapshot?: string
+          customer_tax_address_snapshot?: string
+          customer_tax_id_snapshot?: string
+          customer_vat_condition_snapshot?: string
+          discount_total?: number
+          document_type?: string
+          due_date?: string | null
+          formatted_number?: string | null
+          id?: string
+          issue_date?: string
+          issuer_city_snapshot?: string
+          issuer_email_snapshot?: string
+          issuer_legal_name_snapshot?: string
+          issuer_logo_url_snapshot?: string | null
+          issuer_phone_snapshot?: string
+          issuer_postal_code_snapshot?: string
+          issuer_province_snapshot?: string
+          issuer_tax_address_snapshot?: string
+          issuer_tax_id_snapshot?: string
+          issuer_vat_condition_snapshot?: string
+          issuer_website_snapshot?: string
+          number?: number | null
+          observations?: string
+          period_month?: number | null
+          period_year?: number | null
+          point_of_sale_id?: string
+          point_of_sale_number?: number
+          status?: string
+          subscriber_id?: string | null
+          subtotal?: number
+          tax_total?: number
+          total?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "isp_billing_documents_billing_company_settings_id_fkey"
+            columns: ["billing_company_settings_id"]
+            isOneToOne: false
+            referencedRelation: "isp_billing_company_settings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "isp_billing_documents_billing_run_id_fkey"
+            columns: ["billing_run_id"]
+            isOneToOne: false
+            referencedRelation: "isp_billing_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "isp_billing_documents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "isp_billing_documents_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "isp_billing_documents_point_of_sale_id_fkey"
+            columns: ["point_of_sale_id"]
+            isOneToOne: false
+            referencedRelation: "isp_billing_point_of_sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "isp_billing_documents_subscriber_id_fkey"
+            columns: ["subscriber_id"]
+            isOneToOne: false
+            referencedRelation: "isp_subscribers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      isp_billing_document_items: {
+        Row: {
+          company_id: string
+          created_at: string
+          description: string
+          discount: number
+          document_id: string
+          id: string
+          line_total: number
+          quantity: number
+          service_id: string | null
+          sort_order: number
+          tax_amount: number
+          tax_rate: number
+          tax_type: string
+          taxable_base: number
+          unit_price: number
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          description: string
+          discount?: number
+          document_id: string
+          id?: string
+          line_total?: number
+          quantity?: number
+          service_id?: string | null
+          sort_order?: number
+          tax_amount?: number
+          tax_rate?: number
+          tax_type?: string
+          taxable_base?: number
+          unit_price?: number
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          description?: string
+          discount?: number
+          document_id?: string
+          id?: string
+          line_total?: number
+          quantity?: number
+          service_id?: string | null
+          sort_order?: number
+          tax_amount?: number
+          tax_rate?: number
+          tax_type?: string
+          taxable_base?: number
+          unit_price?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "isp_billing_document_items_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "isp_billing_document_items_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "isp_billing_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "isp_billing_document_items_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "isp_services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      isp_billing_document_events: {
+        Row: {
+          company_id: string
+          created_at: string
+          document_id: string
+          event_type: string
+          id: string
+          payload: Json
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          document_id: string
+          event_type: string
+          id?: string
+          payload?: Json
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          document_id?: string
+          event_type?: string
+          id?: string
+          payload?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "isp_billing_document_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "isp_billing_document_events_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "isp_billing_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      isp_billing_runs: {
+        Row: {
+          cancelled_at: string | null
+          company_id: string
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          created_by: string | null
+          errors_count: number
+          id: string
+          period_month: number
+          period_year: number
+          prepared_at: string | null
+          proportional_documents: number
+          status: string
+          total_amount: number
+          total_customers: number
+          total_documents: number
+          updated_at: string
+          warnings_count: number
+        }
+        Insert: {
+          cancelled_at?: string | null
+          company_id: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          errors_count?: number
+          id?: string
+          period_month: number
+          period_year: number
+          prepared_at?: string | null
+          proportional_documents?: number
+          status?: string
+          total_amount?: number
+          total_customers?: number
+          total_documents?: number
+          updated_at?: string
+          warnings_count?: number
+        }
+        Update: {
+          cancelled_at?: string | null
+          company_id?: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          errors_count?: number
+          id?: string
+          period_month?: number
+          period_year?: number
+          prepared_at?: string | null
+          proportional_documents?: number
+          status?: string
+          total_amount?: number
+          total_customers?: number
+          total_documents?: number
+          updated_at?: string
+          warnings_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "isp_billing_runs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      isp_billing_run_items: {
+        Row: {
+          activation_date: string | null
+          catalog_code: string | null
+          company_id: string
+          concepts: Json
+          created_at: string
+          customer_id: string
+          customer_name: string
+          document_id: string | null
+          document_type: string | null
+          error_code: string | null
+          error_message: string | null
+          id: string
+          list_price: number | null
+          monthly_amount: number
+          proportional_amount: number
+          proportional_days: number
+          proportional_period_label: string
+          requires_review: boolean
+          run_id: string
+          service_id: string
+          service_name: string
+          status: string
+          subscriber_id: string | null
+          suggested_action: string | null
+          total_amount: number
+          warning_code: string | null
+          warning_message: string | null
+        }
+        Insert: {
+          activation_date?: string | null
+          catalog_code?: string | null
+          company_id: string
+          concepts?: Json
+          created_at?: string
+          customer_id: string
+          customer_name?: string
+          document_id?: string | null
+          document_type?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          list_price?: number | null
+          monthly_amount?: number
+          proportional_amount?: number
+          proportional_days?: number
+          proportional_period_label?: string
+          requires_review?: boolean
+          run_id: string
+          service_id: string
+          service_name?: string
+          status?: string
+          subscriber_id?: string | null
+          suggested_action?: string | null
+          total_amount?: number
+          warning_code?: string | null
+          warning_message?: string | null
+        }
+        Update: {
+          activation_date?: string | null
+          catalog_code?: string | null
+          company_id?: string
+          concepts?: Json
+          created_at?: string
+          customer_id?: string
+          customer_name?: string
+          document_id?: string | null
+          document_type?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          list_price?: number | null
+          monthly_amount?: number
+          proportional_amount?: number
+          proportional_days?: number
+          proportional_period_label?: string
+          requires_review?: boolean
+          run_id?: string
+          service_id?: string
+          service_name?: string
+          status?: string
+          subscriber_id?: string | null
+          suggested_action?: string | null
+          total_amount?: number
+          warning_code?: string | null
+          warning_message?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "isp_billing_run_items_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "isp_billing_run_items_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "isp_billing_run_items_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "isp_billing_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "isp_billing_run_items_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "isp_billing_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "isp_billing_run_items_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "isp_services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "isp_billing_run_items_subscriber_id_fkey"
+            columns: ["subscriber_id"]
+            isOneToOne: false
+            referencedRelation: "isp_subscribers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       isp_company_settings: {
         Row: {
           company_id: string
@@ -4172,6 +4882,22 @@ export type Database = {
       create_isp_onboarding: {
         Args: { p_payload: Json }
         Returns: Json
+      }
+      create_task_with_execution_order: {
+        Args: { p_payload: Json }
+        Returns: Json
+      }
+      issue_isp_billing_document: {
+        Args: { p_document_id: string }
+        Returns: Json
+      }
+      cancel_isp_billing_document: {
+        Args: { p_document_id: string }
+        Returns: Json
+      }
+      format_isp_billing_document_number: {
+        Args: { p_number: number; p_point_of_sale: number }
+        Returns: string
       }
       create_isp_subscriber_service: {
         Args: { p_payload: Json }

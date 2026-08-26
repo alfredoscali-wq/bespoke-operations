@@ -12,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { canAccessIspBilling } from "@/lib/isp/permissions"
 import {
   canAccessSettingsConfigWebModule,
   canManageCompanyAreasWeb,
@@ -67,6 +68,7 @@ export function ConfigurationHubPanel() {
   const canAccessWorkOrderTypes = canAccessSettingsConfigWebModule(sessionUser)
   const canAccessIncidentTypes = canAccessSettingsConfigWebModule(sessionUser)
   const canAccessAreas = canManageCompanyAreasWeb(sessionUser)
+  const canAccessBillingConfig = canAccessIspBilling(sessionUser)
 
   const categories: ConfigCategory[] = [
     {
@@ -125,6 +127,16 @@ export function ConfigurationHubPanel() {
       label: "Empresa",
       icon: Building2,
       items: [
+        ...(canAccessBillingConfig
+          ? [
+              {
+                title: "Facturación",
+                description:
+                  "Empresa emisora, punto de venta, comprobantes e integraciones fiscales.",
+                href: "/configuracion/facturacion",
+              },
+            ]
+          : []),
         ...(canAccessWorkOrderTypes
           ? [
               {

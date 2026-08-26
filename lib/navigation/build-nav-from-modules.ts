@@ -13,6 +13,9 @@ import {
   crewProductionNavItem,
   dayActivityNavItem,
   executiveCenterNavItem,
+  facturacionConfigNavItem,
+  facturacionComprobantesNavItem,
+  facturacionMensualNavItem,
   reportsNavItem,
   subscriptionsNavItem,
   tesoreriaNavItem,
@@ -117,6 +120,12 @@ export function buildNavGroupsFromModuleVisibility(
         existing.items.push(serviciosNavItem)
       }
 
+      if (definition.key === "facturacion") {
+        existing.items.push(facturacionConfigNavItem)
+        existing.items.push(facturacionComprobantesNavItem)
+        existing.items.push(facturacionMensualNavItem)
+      }
+
       continue
     }
 
@@ -129,6 +138,12 @@ export function buildNavGroupsFromModuleVisibility(
     if (definition.key === "clientes_360") {
       items.push(conexionesNavItem)
       items.push(serviciosNavItem)
+    }
+
+    if (definition.key === "facturacion") {
+      items.push(facturacionConfigNavItem)
+      items.push(facturacionComprobantesNavItem)
+      items.push(facturacionMensualNavItem)
     }
 
     groups.set(groupKey, {

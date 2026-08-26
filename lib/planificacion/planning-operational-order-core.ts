@@ -20,6 +20,41 @@ export function isOperationalOrderReorderable(
   )
 }
 
+export type ExecutionOrderSlotOccupant = Pick<
+  Task,
+  "crewId" | "executionOrder" | "status" | "projectId"
+> & {
+  deletedAt?: string | null
+}
+
+/**
+ * Single definition of whether a row occupies an execution_order slot
+ * in the active service-OT queue. Aligns with
+ * tasks_execution_order_crew_date_unique after vencidas release execution_order.
+ */
+export function occupiesExecutionOrderSlot(
+  task: ExecutionOrderSlotOccupant
+): boolean {
+  if (task.deletedAt) {
+    return false
+  }
+
+  if (task.projectId?.trim()) {
+    return false
+  }
+
+  if (task.status === "vencida") {
+    return false
+  }
+
+  if (!task.crewId?.trim()) {
+    return false
+  }
+
+  const order = task.executionOrder
+  return order != null && Number.isFinite(order) && order > 0
+}
+
 function normalizePositiveOrder(
   value: number | null | undefined
 ): number | null {

@@ -50,7 +50,10 @@ export function buildTaskCrewMetadata(
 }
 
 export function buildTaskVencidaAuditMetadata(
-  task: Pick<Task, "status" | "dueDate" | "scheduledTime" | "crewId" | "crew">
+  task: Pick<
+    Task,
+    "status" | "dueDate" | "scheduledTime" | "crewId" | "crew" | "executionOrder"
+  >
 ) {
   const tieneCuadrilla = Boolean(task.crewId || task.crew?.trim())
 
@@ -59,6 +62,7 @@ export function buildTaskVencidaAuditMetadata(
     fecha_anterior: task.dueDate,
     hora_anterior: task.scheduledTime ?? null,
     tiene_cuadrilla: tieneCuadrilla,
+    orden_ejecucion_anterior: task.executionOrder ?? null,
     automatic: true,
   }
 }

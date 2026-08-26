@@ -60,3 +60,15 @@ export function canCreateIspAtencion(sessionUser: SessionLike): boolean {
 export function canRemoveIspSubscriber(sessionUser: SessionLike): boolean {
   return isAdministradorSessionUser(sessionUser)
 }
+
+export function canAccessIspBilling(
+  sessionUser: Pick<SessionUser, "systemRole" | "roleCode" | "moduleVisibility"> | null | undefined
+): boolean {
+  return hasWebModuleAccess(sessionUser, "facturacion")
+}
+
+export function canWriteIspBilling(
+  sessionUser: Pick<SessionUser, "systemRole" | "roleCode" | "moduleVisibility"> | null | undefined
+): boolean {
+  return canAccessIspBilling(sessionUser)
+}

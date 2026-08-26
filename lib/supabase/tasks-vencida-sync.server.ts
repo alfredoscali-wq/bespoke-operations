@@ -15,6 +15,7 @@ import { SYSTEM_AUDIT_ACTOR } from "@/lib/audit/system-actor"
 import { patchTask } from "@/lib/supabase/tasks.queries"
 import type { SupabaseTasksClient } from "@/lib/supabase/tasks.queries"
 import { shouldAutoTransitionToVencida } from "@/lib/tasks/vencida-status"
+import { buildVencidaExecutionOrderReleasePatch } from "@/lib/tasks/execution-order-create"
 import type { Task } from "@/lib/types/tasks"
 
 export async function syncVencidaTasksWithAudit(
@@ -31,13 +32,19 @@ export async function syncVencidaTasksWithAudit(
   const updatedTaskIds: string[] = []
 
   for (const task of candidates) {
-    const result = await patchTask(client, task.id, { status: "vencida" })
+    const result = await patchTask(client, task.id, {
+      ...buildVencidaExecutionOrderReleasePatch(),
+    })
 
     if (result.error) {
       throw new Error(result.error.message)
     }
 
-    const nextTask = result.data ?? { ...task, status: "vencida" as const }
+    const nextTask = result.data ?? {
+      ...task,
+      status: "vencida" as const,
+      executionOrder: null,
+    }
     updatedById.set(task.id, nextTask)
     updatedTaskIds.push(task.id)
 

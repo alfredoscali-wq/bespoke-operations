@@ -3,11 +3,13 @@ import { NextResponse } from "next/server"
 import { getSessionUser, type SessionUser } from "@/lib/auth/session"
 import { requireWritablePlatformSession } from "@/lib/auth/require-writable-platform-session"
 import {
+  canAccessIspBilling,
   canAccessIspMigration,
   canAccessIspModule,
   canReadIspCatalogForOt,
   canRemoveIspSubscriber,
 } from "@/lib/isp/permissions"
+import { ISP_BILLING_FORBIDDEN_MESSAGE } from "@/lib/isp/billing-constants"
 import { ISP_SUBSCRIBER_REMOVAL_FORBIDDEN_MESSAGE } from "@/lib/isp/subscriber-removal"
 
 export type IspRouteContext = {
@@ -191,6 +193,60 @@ export async function requireIspMigrationWriteContext(): Promise<
       ok: false,
       response: NextResponse.json(
         { success: false, message: "No tiene acceso a la migración de abonados." },
+        { status: 403 }
+      ),
+    }
+  }
+
+  return buildCompanyContext(auth.sessionUser)
+}
+
+export async function requireIspBillingReadContext(): Promise<
+  IspRouteContext | IspRouteContextFailure
+> {
+  const sessionUser = await getSessionUser()
+  if (!sessionUser) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { success: false, message: "Debe iniciar sesión." },
+        { status: 401 }
+      ),
+    }
+  }
+
+  if (!canAccessIspBilling(sessionUser)) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { success: false, message: ISP_BILLING_FORBIDDEN_MESSAGE },
+        { status: 403 }
+      ),
+    }
+  }
+
+  return buildCompanyContext(sessionUser)
+}
+
+export async function requireIspBillingWriteContext(): Promise<
+  IspRouteContext | IspRouteContextFailure
+> {
+  const auth = await requireWritablePlatformSession()
+  if (!auth.ok) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { success: false, message: auth.message },
+        { status: auth.status }
+      ),
+    }
+  }
+
+  if (!canAccessIspBilling(auth.sessionUser)) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { success: false, message: ISP_BILLING_FORBIDDEN_MESSAGE },
         { status: 403 }
       ),
     }

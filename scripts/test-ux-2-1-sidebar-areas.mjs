@@ -62,6 +62,10 @@ test("todos los módulos actuales siguen disponibles", () => {
     "/reportes/operativos",
     "/activity/cuadrillas",
     "/tesoreria",
+    "/facturacion",
+    "/facturacion/comprobantes",
+    "/facturacion/mensual",
+    "/configuracion/facturacion",
     "/subscriptions",
     "/gestion-comercial/oportunidades",
     "/activity/timeline",
@@ -110,6 +114,9 @@ test("el menú queda organizado por las 8 áreas", () => {
   assert.ok(byArea.analysis.includes("/activity/cuadrillas"))
   assert.deepEqual(byArea.administration, [
     "/tesoreria",
+    "/facturacion",
+    "/facturacion/comprobantes",
+    "/facturacion/mensual",
     "/subscriptions",
     "/gestion-comercial/oportunidades",
     "/activity/timeline",
@@ -118,6 +125,7 @@ test("el menú queda organizado por las 8 áreas", () => {
   assert.deepEqual(byArea.rrhh, ["/rrhh", "/novedades"])
   assert.deepEqual(byArea.system, [
     "/configuracion",
+    "/configuracion/facturacion",
     "/usuarios",
     "/dispositivos",
     "/historial",
@@ -150,6 +158,11 @@ test("la misma lógica de área aplica a las demás rutas", () => {
   assert.equal(resolveSidebarAreaId("/activity/executive-center"), "analysis")
   assert.equal(resolveSidebarAreaId("/activity/timeline"), "administration")
   assert.equal(resolveSidebarAreaId("/tesoreria"), "administration")
+  assert.equal(resolveSidebarAreaId("/facturacion"), "administration")
+  assert.equal(
+    resolveSidebarAreaId("/configuracion/facturacion"),
+    "system"
+  )
   assert.equal(resolveSidebarAreaId("/rrhh"), "rrhh")
   assert.equal(resolveSidebarAreaId("/configuracion/tipos-ot"), "system")
   assert.equal(

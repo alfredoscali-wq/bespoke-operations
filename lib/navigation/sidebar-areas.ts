@@ -97,6 +97,9 @@ const AREA_ITEM_HREFS: Record<SidebarAreaId, readonly string[]> = {
   ],
   administration: [
     "/tesoreria",
+    "/facturacion",
+    "/facturacion/comprobantes",
+    "/facturacion/mensual",
     "/subscriptions",
     "/gestion-comercial/oportunidades",
     "/activity/timeline",
@@ -105,6 +108,7 @@ const AREA_ITEM_HREFS: Record<SidebarAreaId, readonly string[]> = {
   rrhh: ["/rrhh", "/novedades", "/operations/availability"],
   system: [
     "/configuracion",
+    "/configuracion/facturacion",
     "/usuarios",
     "/dispositivos",
     "/historial",
@@ -136,6 +140,9 @@ const PATH_AREA_PREFIXES: Array<{ prefix: string; area: SidebarAreaId }> = [
   { prefix: "/evidencias", area: "field" },
   { prefix: "/reportes", area: "analysis" },
   { prefix: "/tesoreria", area: "administration" },
+  { prefix: "/configuracion/facturacion", area: "system" },
+  { prefix: "/facturacion/configuracion", area: "system" },
+  { prefix: "/facturacion", area: "administration" },
   { prefix: "/subscriptions", area: "administration" },
   { prefix: "/gestion-comercial", area: "administration" },
   { prefix: "/mantenimiento", area: "administration" },
@@ -209,6 +216,35 @@ export function findActiveNavHref(
     .filter((href) => pathMatchesHref(pathname, href))
     .sort((left, right) => right.length - left.length)
   return matches[0] ?? null
+}
+
+export type NestedSidebarNavItem = {
+  item: NavItem
+  children: NavItem[]
+}
+
+export function nestSidebarNavItems(
+  items: readonly NavItem[]
+): NestedSidebarNavItem[] {
+  const presentHrefs = new Set(items.map((item) => item.href))
+  const nestedHrefs = new Set<string>()
+  const childrenByParent = new Map<string, NavItem[]>()
+
+  for (const item of items) {
+    const parentHref = item.parentHref
+    if (!parentHref || !presentHrefs.has(parentHref)) continue
+    nestedHrefs.add(item.href)
+    const children = childrenByParent.get(parentHref) ?? []
+    children.push(item)
+    childrenByParent.set(parentHref, children)
+  }
+
+  return items
+    .filter((item) => !nestedHrefs.has(item.href))
+    .map((item) => ({
+      item,
+      children: childrenByParent.get(item.href) ?? [],
+    }))
 }
 
 export function arrangeNavItemsIntoAreas(items: readonly NavItem[]): NavGroup[] {

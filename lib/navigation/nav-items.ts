@@ -5,6 +5,7 @@ import {
   Building2,
   CalendarClock,
   CalendarDays,
+  CalendarRange,
   Cable,
   Camera,
   Compass,
@@ -19,6 +20,7 @@ import {
   MapPinned,
   Package,
   Radar,
+  Receipt,
   Settings,
   Smartphone,
   TriangleAlert,
@@ -212,6 +214,48 @@ export const tesoreriaNavItem: NavItem = {
   description:
     "Registro operativo de ingresos, egresos y saldo de la empresa.",
   moduleColor: "system",
+}
+
+export const facturacionNavItem: NavItem = {
+  title: "Facturación",
+  href: "/facturacion",
+  icon: Receipt,
+  pageTitle: "Facturación",
+  description: "Comprobantes y documentos de la empresa facturadora.",
+  moduleColor: "commercial",
+}
+
+export const facturacionComprobantesNavItem: NavItem = {
+  title: "Comprobantes",
+  href: "/facturacion/comprobantes",
+  icon: FileText,
+  pageTitle: "Comprobantes",
+  description:
+    "Gestioná facturas, presupuestos y demás documentos emitidos.",
+  parentHref: "/facturacion",
+  moduleColor: "commercial",
+}
+
+export const facturacionMensualNavItem: NavItem = {
+  title: "Facturación mensual",
+  href: "/facturacion/mensual",
+  icon: CalendarRange,
+  pageTitle: "Facturación mensual",
+  description:
+    "Prepará, revisá y confirmá el ciclo mensual antes de emitir comprobantes.",
+  parentHref: "/facturacion",
+  moduleColor: "commercial",
+}
+
+export const facturacionConfigNavItem: NavItem = {
+  title: "Facturación",
+  href: "/configuracion/facturacion",
+  icon: Receipt,
+  pageTitle: "Configuración de facturación",
+  description:
+    "Configurá la empresa emisora, punto de venta, comprobantes e integraciones fiscales.",
+  parentHref: "/configuracion",
+  moduleColor: "commercial",
 }
 
 export const subscriptionsNavItem: NavItem = {
@@ -424,9 +468,13 @@ export const analysisNavItems: NavItem[] = [
 
 export const systemNavItems: NavItem[] = [
   settingsNavItem,
+  facturacionConfigNavItem,
   historyNavItem,
   usersNavItem,
   dispositivosNavItem,
 ]
 
-export const administrationNavItems: NavItem[] = [maintenanceNavItem]
+export const administrationNavItems: NavItem[] = [
+  facturacionNavItem,
+  maintenanceNavItem,
+]

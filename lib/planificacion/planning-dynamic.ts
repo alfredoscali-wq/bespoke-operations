@@ -1,6 +1,7 @@
 import {
   filterOperationalOrderScope,
   isOperationalOrderReorderable,
+  occupiesExecutionOrderSlot,
   resolveDispatchOperationalOrder,
   resolvePlanningExecutionOrder,
 } from "@/lib/planificacion/planning-operational-order-core"
@@ -147,11 +148,14 @@ export function collectOccupiedOperationalOrderSlots(
       continue
     }
 
-    if (isOperationalOrderReorderable(task)) {
-      const order = resolvePlanningExecutionOrder(task)
+    if (occupiesExecutionOrderSlot(task)) {
+      const order = task.executionOrder
       if (order != null && order > 0) {
         occupied.add(Math.floor(order))
       }
+    }
+
+    if (isOperationalOrderReorderable(task)) {
       continue
     }
 

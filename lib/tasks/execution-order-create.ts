@@ -1,3 +1,4 @@
+import { occupiesExecutionOrderSlot } from "@/lib/planificacion/planning-operational-order-core"
 import { isWorkOrderTask } from "@/lib/tasks/work-order"
 import { shouldApplyPlanningQueueSideEffectsForTask } from "@/lib/projects/project-start-dispatch"
 import { resolveFirstAvailableOperationalOrderSlot } from "@/lib/planificacion/planning-dynamic"
@@ -69,6 +70,26 @@ export function stripClientExecutionOrder(
   const next = { ...payload }
   delete next.executionOrder
   return next
+}
+
+export { occupiesExecutionOrderSlot }
+
+/** Persist patch used when an OT becomes vencida. Does not touch dispatch_order. */
+export function buildVencidaExecutionOrderReleasePatch(): {
+  status: "vencida"
+  executionOrder: null
+} {
+  return { status: "vencida", executionOrder: null }
+}
+
+export function applyVencidaExecutionOrderRelease<
+  T extends { status: string; executionOrder?: number | null },
+>(task: T): T {
+  if (task.status !== "vencida") {
+    return task
+  }
+
+  return { ...task, executionOrder: null }
 }
 
 export type ExecutionOrderScopeKey = {

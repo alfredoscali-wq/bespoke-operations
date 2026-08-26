@@ -28,6 +28,11 @@ import {
   maintenanceNavItem,
   materialsNavItem,
   newsNavItem,
+  facturacionComprobantesNavItem,
+  facturacionMensualNavItem,
+  facturacionConfigNavItem,
+  facturacionNavItem,
+  tesoreriaNavItem,
   planificacionNavItem,
   projectsNavItem,
   reportsNavItem,
@@ -82,6 +87,7 @@ const PROFILE_NAV_BUILDERS: Record<
       label: "Sistema",
       items: [
         settingsNavItem,
+        facturacionConfigNavItem,
         historyNavItem,
         usersNavItem,
         dispositivosNavItem,
@@ -90,7 +96,7 @@ const PROFILE_NAV_BUILDERS: Record<
     {
       id: "administration",
       label: "Administración",
-      items: [maintenanceNavItem],
+      items: [facturacionNavItem, facturacionComprobantesNavItem, facturacionMensualNavItem, tesoreriaNavItem, maintenanceNavItem],
     },
   ],
   supervisor: () => [
@@ -147,6 +153,16 @@ const PROFILE_NAV_BUILDERS: Record<
         crewProductionNavItem,
         reportsNavItem,
       ],
+    },
+    {
+      id: "system",
+      label: "Sistema",
+      items: [facturacionConfigNavItem],
+    },
+    {
+      id: "administration",
+      label: "Administración",
+      items: [facturacionNavItem, facturacionComprobantesNavItem, facturacionMensualNavItem],
     },
   ],
   ventas: () => [
