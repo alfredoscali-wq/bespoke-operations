@@ -11,6 +11,7 @@ import { fetchTaskDailyAllocationsByCompany } from "@/lib/supabase/task-daily-al
 import type { Task } from "@/lib/types/tasks"
 import type {
   CreateTaskPayload,
+  TasksRepositoryErrorCode,
   TasksRepositoryResult,
   UpdateTaskPayload,
 } from "@/lib/types/supabase/tasks"
@@ -77,7 +78,7 @@ export function mapSupabaseTaskError(error: {
   message: string
   details?: string | null
   hint?: string | null
-}) {
+}): { code: TasksRepositoryErrorCode; message: string } {
   const blob = `${error.code ?? ""} ${error.message} ${error.details ?? ""} ${error.hint ?? ""}`
   if (blob.includes(TASK_EXECUTION_ORDER_CONFLICT_CODE)) {
     return {
@@ -136,7 +137,7 @@ export function mapInsertTaskError(error: {
   message: string
   details?: string | null
   hint?: string | null
-}) {
+}): { code: TasksRepositoryErrorCode; message: string } {
   const mapped = mapSupabaseTaskError(error)
   if (mapped.code === "DUPLICATE_EXECUTION_ORDER") {
     return {
