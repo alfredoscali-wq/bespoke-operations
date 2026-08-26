@@ -17,7 +17,11 @@ import {
   type IspBillingIntegrationProvider,
   type IspBillingIntegrationStatus,
 } from "@/lib/isp/billing-constants"
-import type { Database } from "@/lib/supabase/database.types"
+import {
+  parseIspBillingTemplateSettings,
+  serializeIspBillingTemplateSettings,
+} from "@/lib/isp/billing-template-settings"
+import type { Database, Json } from "@/lib/supabase/database.types"
 
 type SettingsRow =
   Database["public"]["Tables"]["isp_billing_company_settings"]["Row"]
@@ -107,6 +111,9 @@ export function mapBillingCompanySettings(input: {
     email: input.settings.email,
     website: input.settings.website,
     logoUrl: input.settings.logo_url,
+    templateSettings: parseIspBillingTemplateSettings(
+      input.settings.template_settings
+    ),
     active: input.settings.active,
     createdAt: input.settings.created_at,
     updatedAt: input.settings.updated_at,
@@ -133,6 +140,9 @@ export function mapBillingDraftToSettingsInsert(
     email: draft.email.trim(),
     website: draft.website.trim(),
     logo_url: draft.logoUrl.trim() || null,
+    template_settings: serializeIspBillingTemplateSettings(
+      draft.templateSettings
+    ) as Json,
     active: true,
   }
 }

@@ -39,6 +39,8 @@ import {
   vatConditionLabel,
 } from "@/lib/isp/billing-document-integrity"
 import type { IspBillingDocument } from "@/lib/isp/billing-document-types"
+import type { IspBillingTemplateSettings } from "@/lib/isp/billing-template-settings"
+import type { IspBillingCompanySettings } from "@/lib/isp/billing-types"
 import { canWriteIspBilling } from "@/lib/isp/permissions"
 import { formatDateOnly } from "@/lib/dates/date-only"
 
@@ -57,6 +59,8 @@ export function IspBillingDocumentDetailScreen({
   const { sessionUser } = useAuth()
   const canWrite = canWriteIspBilling(sessionUser)
   const [document, setDocument] = useState<IspBillingDocument | null>(null)
+  const [templateSettings, setTemplateSettings] =
+    useState<IspBillingTemplateSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [previewOpen, setPreviewOpen] = useState(false)
@@ -66,7 +70,10 @@ export function IspBillingDocumentDetailScreen({
   async function load() {
     setLoading(true)
     try {
-      const response = await fetch(`/api/isp/billing/documents/${documentId}`)
+      const [response, settingsResponse] = await Promise.all([
+        fetch(`/api/isp/billing/documents/${documentId}`),
+        fetch("/api/isp/billing/settings"),
+      ])
       const payload = (await response.json()) as {
         document?: IspBillingDocument
         message?: string
@@ -75,6 +82,12 @@ export function IspBillingDocumentDetailScreen({
         throw new Error(payload.message || "No se pudo cargar el comprobante.")
       }
       setDocument(payload.document)
+      if (settingsResponse.ok) {
+        const settingsPayload = (await settingsResponse.json()) as {
+          settings?: IspBillingCompanySettings | null
+        }
+        setTemplateSettings(settingsPayload.settings?.templateSettings ?? null)
+      }
       setError("")
     } catch (cause) {
       setError(
@@ -212,6 +225,11 @@ export function IspBillingDocumentDetailScreen({
         <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>
       ) : null}
 
+      <IspBillingDocumentPreview
+        document={document}
+        templateSettings={templateSettings}
+      />
+
       <div className="grid gap-5 lg:grid-cols-2">
         <Card>
           <CardHeader>
@@ -341,11 +359,14 @@ export function IspBillingDocumentDetailScreen({
       </Button>
 
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle>Vista previa</DialogTitle>
           </DialogHeader>
-          <IspBillingDocumentPreview document={document} />
+          <IspBillingDocumentPreview
+            document={document}
+            templateSettings={templateSettings}
+          />
         </DialogContent>
       </Dialog>
 

@@ -5,6 +5,7 @@ import type {
   IspBillingIntegrationStatus,
   IspBillingVatCondition,
 } from "@/lib/isp/billing-constants"
+import type { IspBillingTemplateSettings } from "@/lib/isp/billing-template-settings"
 
 export type IspBillingPointOfSale = {
   id: string
@@ -60,6 +61,7 @@ export type IspBillingCompanySettings = {
   email: string
   website: string
   logoUrl: string | null
+  templateSettings: IspBillingTemplateSettings
   active: boolean
   createdAt: string
   updatedAt: string
@@ -80,6 +82,7 @@ export type IspBillingCompanySettingsDraft = {
   email: string
   website: string
   logoUrl: string
+  templateSettings: IspBillingTemplateSettings
   pointOfSale: IspBillingPointOfSaleDraft
   sequences: IspBillingDocumentSequenceDraft[]
 }

@@ -68,6 +68,7 @@ const listScreen = read("components/isp/isp-billing-documents-list-screen.tsx")
 const formScreen = read("components/isp/isp-billing-document-form-screen.tsx")
 const detailScreen = read("components/isp/isp-billing-document-detail-screen.tsx")
 const preview = read("components/isp/isp-billing-document-preview.tsx")
+const templateSource = read("lib/isp/billing-document-template.ts")
 const typesFile = read("lib/supabase/database.types.ts")
 
 const adminUser = {
@@ -311,6 +312,7 @@ test("10. Modificar cliente después no cambia el snapshot", () => {
   )
   assert.match(detailScreen, /Snapshot fiscal al momento del comprobante/)
   assert.match(pdfSource, /customerNameSnapshot/)
+  assert.match(templateSource, /customerNameSnapshot/)
   assert.doesNotMatch(pdfSource, /from\("customers"\)/)
 })
 
@@ -445,12 +447,18 @@ test("22. PDF y vista previa usan datos reales, sin CAE", () => {
   assert.match(text, /Internet FTTH 100 Mbps/)
   assert.match(text, /DOCUMENTO NO VÁLIDO COMO FACTURA/)
   assert.doesNotMatch(text, /CAE 7/)
-  assert.throws(
-    () => buildBillingDocumentPdf(sampleDocument({ cae: "12345678912345" })),
-    /CAE/
+  assert.doesNotMatch(text, /\bCAE\b/)
+  const withCae = buildBillingDocumentPdf(
+    sampleDocument({
+      documentType: "factura_b",
+      cae: "12345678912345",
+      caeExpiresAt: "2026-09-15",
+    })
   )
-  assert.match(preview, /issuerLegalNameSnapshot/)
-  assert.match(preview, /customerNameSnapshot/)
+  assert.match(Buffer.from(withCae).toString("latin1"), /12345678912345/)
+  assert.match(templateSource, /issuerLegalNameSnapshot/)
+  assert.match(templateSource, /customerNameSnapshot/)
+  assert.match(preview, /buildBillingDocumentTemplateModelFromDocument/)
   assert.match(pdfApi, /buildBillingDocumentPdf/)
   assert.match(pdfApi, /loadBillingLogoDataUrl/)
 })

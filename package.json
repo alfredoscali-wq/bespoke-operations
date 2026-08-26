@@ -177,6 +177,7 @@
     "test:isp-1-6a-billing-company-settings": "npx tsx --test scripts/test-isp-1-6a-billing-company-settings.mjs",
     "test:isp-1-6b-comprobantes": "npx tsx --test scripts/test-isp-1-6b-comprobantes.mjs",
     "test:isp-1-6c-facturacion-mensual": "npx tsx --test scripts/test-isp-1-6c-facturacion-mensual.mjs",
+    "test:isp-1-7-document-template": "npx tsx --test scripts/test-isp-1-7-document-template.mjs",
     "test:admin-force-delete": "npx tsx --test scripts/test-admin-force-delete.mjs",
     "db:rc1-1": "node scripts/apply-rc1-1-migration.mjs",
     "prepare:clientes": "npx tsx scripts/prepare-commercial-migration.ts",

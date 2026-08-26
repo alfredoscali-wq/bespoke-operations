@@ -66,6 +66,8 @@ async function saveSettings(request: Request) {
   const draft: IspBillingCompanySettingsDraft = {
     ...emptyBillingDraft(),
     ...body,
+    templateSettings:
+      body.templateSettings ?? emptyBillingDraft().templateSettings,
     pointOfSale: {
       ...emptyBillingDraft().pointOfSale,
       ...body.pointOfSale,

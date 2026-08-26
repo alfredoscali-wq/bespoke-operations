@@ -2215,6 +2215,7 @@ export type Database = {
           province: string
           tax_address: string
           tax_id: string
+          template_settings: Json
           updated_at: string
           vat_condition: string
           website: string
@@ -2234,6 +2235,7 @@ export type Database = {
           province?: string
           tax_address: string
           tax_id: string
+          template_settings?: Json
           updated_at?: string
           vat_condition: string
           website?: string
@@ -2253,6 +2255,7 @@ export type Database = {
           province?: string
           tax_address?: string
           tax_id?: string
+          template_settings?: Json
           updated_at?: string
           vat_condition?: string
           website?: string

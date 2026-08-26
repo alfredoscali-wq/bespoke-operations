@@ -6,6 +6,7 @@ import {
   loadBillingLogoDataUrl,
 } from "@/lib/isp/billing-document-pdf"
 import { getIspBillingDocument } from "@/lib/isp/billing-document-queries"
+import { getIspBillingSettings } from "@/lib/isp/billing-queries"
 import { requireIspBillingReadContext } from "@/lib/isp/route-context"
 import { createClient } from "@/lib/supabase/server"
 
@@ -19,8 +20,12 @@ export async function GET(_request: Request, context: RouteContext) {
   try {
     const client = await createClient()
     const document = await getIspBillingDocument(client, auth.companyId, id)
+    const settings = await getIspBillingSettings(client, auth.companyId)
     const logoDataUrl = await loadBillingLogoDataUrl(document.issuerLogoUrlSnapshot)
-    const bytes = buildBillingDocumentPdf(document, { logoDataUrl })
+    const bytes = buildBillingDocumentPdf(document, {
+      logoDataUrl,
+      templateSettings: settings?.templateSettings,
+    })
     const fileName = billingDocumentPdfFileName(document)
     return new NextResponse(new Uint8Array(bytes), {
       status: 200,

@@ -2,9 +2,12 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react"
 import Link from "next/link"
-import { Receipt } from "lucide-react"
 
 import { useAuth } from "@/components/auth/auth-provider"
+import {
+  IspBillingDocumentA4Stage,
+  IspBillingDocumentSheet,
+} from "@/components/isp/isp-billing-document-sheet"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -13,6 +16,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -22,6 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
 import {
   ARGENTINA_PROVINCES,
   ISP_BILLING_ARCA_HELP,
@@ -33,14 +38,22 @@ import {
   ISP_BILLING_SIRO_NOT_CONFIGURED_LABEL,
   ISP_BILLING_VAT_CONDITION_LABELS,
   ISP_BILLING_VAT_CONDITIONS,
+  type IspBillingDocumentType,
   type IspBillingVatCondition,
 } from "@/lib/isp/billing-constants"
+import { buildBillingDocumentPreviewModel } from "@/lib/isp/billing-document-template"
 import {
   buildBillingConfigurationStatus,
   emptyBillingDraft,
   formatCuit,
   isFiscalBillingDocument,
 } from "@/lib/isp/billing-integrity"
+import {
+  ISP_BILLING_FOOTER_LEGEND_MAX_LENGTH,
+  ISP_BILLING_LOGO_POSITIONS,
+  type IspBillingLogoPosition,
+  type IspBillingTemplateSettings,
+} from "@/lib/isp/billing-template-settings"
 import type {
   IspBillingCompanySettings,
   IspBillingCompanySettingsDraft,
@@ -91,6 +104,8 @@ export function IspBillingSettingsScreen() {
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<string | null>(null)
+  const [previewType, setPreviewType] =
+    useState<IspBillingDocumentType>("factura_b")
 
   const liveStatus = useMemo(
     () =>
@@ -143,7 +158,20 @@ export function IspBillingSettingsScreen() {
           throw new Error(body.message ?? "No se pudo cargar la configuración.")
         }
         if (cancelled) return
-        if (body.draft) setDraft(body.draft)
+        if (body.draft) {
+          setDraft({
+            ...emptyBillingDraft(),
+            ...body.draft,
+            templateSettings: {
+              ...emptyBillingDraft().templateSettings,
+              ...body.draft.templateSettings,
+            },
+            pointOfSale: {
+              ...emptyBillingDraft().pointOfSale,
+              ...body.draft.pointOfSale,
+            },
+          })
+        }
         setSettings(body.settings ?? null)
       })
       .catch((cause) => {
@@ -174,6 +202,26 @@ export function IspBillingSettingsScreen() {
     setDraft((current) => ({ ...current, [key]: value }))
     setFeedback(null)
   }
+
+  function patchTemplate<K extends keyof IspBillingTemplateSettings>(
+    key: K,
+    value: IspBillingTemplateSettings[K]
+  ) {
+    setDraft((current) => ({
+      ...current,
+      templateSettings: { ...current.templateSettings, [key]: value },
+    }))
+    setFeedback(null)
+  }
+
+  const previewModel = useMemo(
+    () =>
+      buildBillingDocumentPreviewModel({
+        draft,
+        documentType: previewType,
+      }),
+    [draft, previewType]
+  )
 
   async function handleLogo(file: File | undefined) {
     if (!file) return
@@ -237,10 +285,6 @@ export function IspBillingSettingsScreen() {
       setSaving(false)
     }
   }
-
-  const vatLabel = draft.vatCondition
-    ? ISP_BILLING_VAT_CONDITION_LABELS[draft.vatCondition]
-    : "—"
 
   return (
     <div className="space-y-5">
@@ -578,43 +622,157 @@ export function IspBillingSettingsScreen() {
             <CardHeader>
               <CardTitle>Diseño del comprobante</CardTitle>
               <CardDescription>
-                Vista previa del encabezado con los datos reales de la empresa configurada.
+                Plantilla visual A4. La estructura es fija; solo se configuran
+                logo, datos visibles y leyenda. No modifica importes ni
+                snapshots fiscales.
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="flex items-start gap-4">
-                  {draft.logoUrl ? (
-                    <img
-                      src={draft.logoUrl}
-                      alt=""
-                      className="h-14 w-auto object-contain"
-                    />
-                  ) : (
-                    <div className="flex size-14 items-center justify-center rounded-lg bg-slate-50 text-slate-300">
-                      <Receipt className="size-6" />
-                    </div>
-                  )}
-                  <div className="min-w-0 space-y-1">
-                    <p className="text-base font-semibold text-slate-900">
-                      {draft.legalName.trim() || "Razón social"}
-                    </p>
-                    <p className="text-sm text-slate-600">
-                      CUIT {formatCuit(draft.taxId) || "—"} · {vatLabel}
-                    </p>
-                    <p className="text-sm text-slate-500">
-                      {[draft.taxAddress, draft.city, draft.province, draft.postalCode]
-                        .filter(Boolean)
-                        .join(" · ") || "Domicilio fiscal"}
-                    </p>
-                    <p className="text-xs text-slate-400">
-                      {[draft.phone, draft.email, draft.website]
-                        .filter(Boolean)
-                        .join(" · ") || "Datos de contacto opcionales"}
-                    </p>
-                  </div>
-                </div>
+            <CardContent className="space-y-6">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="flex items-center gap-2 text-sm text-slate-700">
+                  <Checkbox
+                    checked={draft.templateSettings.showLogo}
+                    disabled={!canWrite}
+                    onCheckedChange={(checked) =>
+                      patchTemplate("showLogo", checked === true)
+                    }
+                  />
+                  Mostrar logo
+                </label>
+                <Field label="Posición del logo" htmlFor="billing-logo-position">
+                  <Select
+                    value={draft.templateSettings.logoPosition}
+                    disabled={!canWrite || !draft.templateSettings.showLogo}
+                    onValueChange={(value) =>
+                      patchTemplate(
+                        "logoPosition",
+                        value as IspBillingLogoPosition
+                      )
+                    }
+                  >
+                    <SelectTrigger id="billing-logo-position">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ISP_BILLING_LOGO_POSITIONS.map((value) => (
+                        <SelectItem key={value} value={value}>
+                          {value === "left"
+                            ? "Izquierda"
+                            : value === "center"
+                              ? "Centro"
+                              : "Derecha"}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label="URL del logo" htmlFor="billing-logo-url">
+                  <Input
+                    id="billing-logo-url"
+                    value={draft.logoUrl}
+                    disabled={!canWrite}
+                    placeholder="https://"
+                    onChange={(event) => patch("logoUrl", event.target.value)}
+                  />
+                </Field>
+                <label className="flex items-center gap-2 text-sm text-slate-700">
+                  <Checkbox
+                    checked={draft.templateSettings.showAddress}
+                    disabled={!canWrite}
+                    onCheckedChange={(checked) =>
+                      patchTemplate("showAddress", checked === true)
+                    }
+                  />
+                  Mostrar domicilio
+                </label>
+                <label className="flex items-center gap-2 text-sm text-slate-700">
+                  <Checkbox
+                    checked={draft.templateSettings.showPhone}
+                    disabled={!canWrite}
+                    onCheckedChange={(checked) =>
+                      patchTemplate("showPhone", checked === true)
+                    }
+                  />
+                  Mostrar teléfono
+                </label>
+                <label className="flex items-center gap-2 text-sm text-slate-700">
+                  <Checkbox
+                    checked={draft.templateSettings.showEmail}
+                    disabled={!canWrite}
+                    onCheckedChange={(checked) =>
+                      patchTemplate("showEmail", checked === true)
+                    }
+                  />
+                  Mostrar email
+                </label>
+                <label className="flex items-center gap-2 text-sm text-slate-700">
+                  <Checkbox
+                    checked={draft.templateSettings.showObservations}
+                    disabled={!canWrite}
+                    onCheckedChange={(checked) =>
+                      patchTemplate("showObservations", checked === true)
+                    }
+                  />
+                  Mostrar observaciones
+                </label>
               </div>
+              <Field
+                label="Leyenda inferior personalizada"
+                htmlFor="billing-footer-legend"
+              >
+                <Textarea
+                  id="billing-footer-legend"
+                  value={draft.templateSettings.footerLegend}
+                  disabled={!canWrite}
+                  maxLength={ISP_BILLING_FOOTER_LEGEND_MAX_LENGTH}
+                  placeholder="Texto opcional al pie del comprobante"
+                  onChange={(event) =>
+                    patchTemplate("footerLegend", event.target.value)
+                  }
+                />
+                <p className="text-xs text-slate-400">
+                  Máximo {ISP_BILLING_FOOTER_LEGEND_MAX_LENGTH} caracteres. Sin
+                  HTML. La leyenda de documento no fiscal no se puede ocultar.
+                </p>
+              </Field>
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <Field label="Vista previa" htmlFor="billing-preview-type">
+                  <Select
+                    value={previewType}
+                    onValueChange={(value) =>
+                      setPreviewType(value as IspBillingDocumentType)
+                    }
+                  >
+                    <SelectTrigger id="billing-preview-type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(
+                        [
+                          "factura_a",
+                          "factura_b",
+                          "factura_c",
+                          "presupuesto",
+                          "comprobante_x",
+                          "nota_credito",
+                          "nota_debito",
+                        ] as const
+                      ).map((value) => (
+                        <SelectItem key={value} value={value}>
+                          {ISP_BILLING_DOCUMENT_TYPE_LABELS[value]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <p className="text-xs text-slate-400">
+                  Usa los datos reales de la empresa y un cliente de ejemplo. No
+                  crea un comprobante.
+                </p>
+              </div>
+              <IspBillingDocumentA4Stage className="rounded-xl">
+                <IspBillingDocumentSheet model={previewModel} />
+              </IspBillingDocumentA4Stage>
             </CardContent>
           </Card>
 

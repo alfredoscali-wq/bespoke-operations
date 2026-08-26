@@ -36,6 +36,13 @@ import type {
   IspBillingPointOfSale,
   IspBillingPointOfSaleDraft,
 } from "@/lib/isp/billing-types"
+import {
+  DEFAULT_ISP_BILLING_TEMPLATE_SETTINGS,
+  ISP_BILLING_LOGO_URL_INVALID_MESSAGE,
+  isAllowedBillingLogoUrl,
+  parseIspBillingTemplateSettings,
+  validateIspBillingTemplateSettingsInput,
+} from "@/lib/isp/billing-template-settings"
 
 const CUIT_MULTIPLIERS = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2] as const
 
@@ -140,6 +147,7 @@ export function emptyBillingDraft(): IspBillingCompanySettingsDraft {
     email: "",
     website: "",
     logoUrl: "",
+    templateSettings: { ...DEFAULT_ISP_BILLING_TEMPLATE_SETTINGS },
     pointOfSale: {
       number: "1",
       description: "Punto de venta principal",
@@ -174,6 +182,7 @@ export function settingsToDraft(
     email: settings.email,
     website: settings.website,
     logoUrl: settings.logoUrl ?? "",
+    templateSettings: parseIspBillingTemplateSettings(settings.templateSettings),
     pointOfSale: settings.pointOfSale
       ? {
           id: settings.pointOfSale.id,
@@ -328,6 +337,15 @@ export function validateBillingCompanyDraft(
       message: "El email no es válido.",
     })
   }
+
+  if (!isAllowedBillingLogoUrl(draft.logoUrl)) {
+    issues.push({
+      field: "logoUrl",
+      message: ISP_BILLING_LOGO_URL_INVALID_MESSAGE,
+    })
+  }
+
+  issues.push(...validateIspBillingTemplateSettingsInput(draft.templateSettings))
 
   issues.push(
     ...validatePointOfSaleDraft(
