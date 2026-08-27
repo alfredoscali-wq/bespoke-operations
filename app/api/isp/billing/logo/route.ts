@@ -4,8 +4,12 @@ import {
   ISP_BILLING_LOGO_BUCKET,
   ISP_BILLING_LOGO_MAX_BYTES,
 } from "@/lib/isp/billing-constants"
-import { isAllowedBillingLogoFile } from "@/lib/isp/billing-integrity"
+import {
+  isAllowedBillingLogoFile,
+  resolveBillingLogoMimeType,
+} from "@/lib/isp/billing-integrity"
 import { requireIspBillingWriteContext } from "@/lib/isp/route-context"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 
 export async function POST(request: Request) {
@@ -30,10 +34,16 @@ export async function POST(request: Request) {
     )
   }
 
+  const mimeType = resolveBillingLogoMimeType({
+    mimeType: file.type,
+    fileName: file.name,
+  })
+
   if (
     !isAllowedBillingLogoFile({
-      mimeType: file.type,
+      mimeType,
       size: file.size,
+      fileName: file.name,
     })
   ) {
     return NextResponse.json(
@@ -46,11 +56,10 @@ export async function POST(request: Request) {
   }
 
   const extension =
-    file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg"
+    mimeType === "image/png" ? "png" : mimeType === "image/webp" ? "webp" : "jpg"
   const path = `${auth.companyId}/logo.${extension}`
 
   try {
-    const client = await createClient()
     const bytes = new Uint8Array(await file.arrayBuffer())
     if (bytes.byteLength > ISP_BILLING_LOGO_MAX_BYTES) {
       return NextResponse.json(
@@ -59,23 +68,31 @@ export async function POST(request: Request) {
       )
     }
 
-    const { error } = await client.storage
+    const admin = createAdminClient()
+    const { error } = await admin.storage
       .from(ISP_BILLING_LOGO_BUCKET)
       .upload(path, bytes, {
-        contentType: file.type,
+        contentType: mimeType,
         upsert: true,
       })
     if (error) {
       throw error
     }
 
-    const { data } = client.storage
+    const { data } = admin.storage
       .from(ISP_BILLING_LOGO_BUCKET)
       .getPublicUrl(path)
+    const url = data.publicUrl
+
+    const client = await createClient()
+    await client
+      .from("isp_billing_company_settings")
+      .update({ logo_url: url })
+      .eq("company_id", auth.companyId)
 
     return NextResponse.json({
       success: true,
-      url: data.publicUrl,
+      url,
     })
   } catch (error) {
     return NextResponse.json(

@@ -284,6 +284,9 @@ export async function upsertIspBillingSettings(
   }
 
   const payload = mapBillingDraftToSettingsInsert(companyId, draft)
+  if (!payload.logo_url && current?.logoUrl) {
+    payload.logo_url = current.logoUrl
+  }
   const { data: saved, error } = await client
     .from("isp_billing_company_settings")
     .upsert(payload, { onConflict: "company_id" })

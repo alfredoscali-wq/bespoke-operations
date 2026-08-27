@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState, type ReactNode } from "react"
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import Link from "next/link"
 
 import { useAuth } from "@/components/auth/auth-provider"
@@ -106,6 +106,10 @@ export function IspBillingSettingsScreen() {
   const [feedback, setFeedback] = useState<string | null>(null)
   const [previewType, setPreviewType] =
     useState<IspBillingDocumentType>("factura_b")
+  const draftRef = useRef(draft)
+  const uploadingLogoRef = useRef(false)
+  draftRef.current = draft
+  uploadingLogoRef.current = uploadingLogo
 
   const liveStatus = useMemo(
     () =>
@@ -199,7 +203,11 @@ export function IspBillingSettingsScreen() {
     key: K,
     value: IspBillingCompanySettingsDraft[K]
   ) {
-    setDraft((current) => ({ ...current, [key]: value }))
+    setDraft((current) => {
+      const next = { ...current, [key]: value }
+      draftRef.current = next
+      return next
+    })
     setFeedback(null)
   }
 
@@ -225,6 +233,7 @@ export function IspBillingSettingsScreen() {
 
   async function handleLogo(file: File | undefined) {
     if (!file) return
+    uploadingLogoRef.current = true
     setUploadingLogo(true)
     setError(null)
     try {
@@ -248,12 +257,17 @@ export function IspBillingSettingsScreen() {
         cause instanceof Error ? cause.message : "No se pudo cargar el logo."
       )
     } finally {
+      uploadingLogoRef.current = false
       setUploadingLogo(false)
     }
   }
 
   async function handleSave() {
     if (!canWrite) return
+    if (uploadingLogoRef.current) {
+      setError("Esperá a que termine de subirse el logo.")
+      return
+    }
     setSaving(true)
     setError(null)
     setFeedback(null)
@@ -261,7 +275,7 @@ export function IspBillingSettingsScreen() {
       const response = await fetch("/api/isp/billing/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(draft),
+        body: JSON.stringify(draftRef.current),
       })
       const body = (await response.json()) as {
         success: boolean
@@ -312,8 +326,15 @@ export function IspBillingSettingsScreen() {
             </Link>
           ) : null}
         </div>
-        <Button onClick={() => void handleSave()} disabled={!canWrite || saving}>
-          {saving ? "Guardando…" : "Guardar configuración"}
+        <Button
+          onClick={() => void handleSave()}
+          disabled={!canWrite || saving || uploadingLogo}
+        >
+          {uploadingLogo
+            ? "Subiendo logo…"
+            : saving
+              ? "Guardando…"
+              : "Guardar configuración"}
         </Button>
       </div>
 
@@ -493,6 +514,8 @@ export function IspBillingSettingsScreen() {
                       alt="Logo de la empresa facturadora"
                       className="h-12 w-auto object-contain"
                     />
+                  ) : uploadingLogo ? (
+                    <span className="text-xs text-slate-400">Subiendo…</span>
                   ) : (
                     <span className="text-xs text-slate-400">Opcional</span>
                   )}

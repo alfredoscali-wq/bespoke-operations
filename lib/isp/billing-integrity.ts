@@ -123,12 +123,30 @@ export function isValidBillingEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)
 }
 
+export function resolveBillingLogoMimeType(input: {
+  mimeType?: string | null
+  fileName?: string | null
+}): string {
+  const mime = (input.mimeType ?? "").trim().toLowerCase()
+  if ((ISP_BILLING_LOGO_MIME_TYPES as readonly string[]).includes(mime)) {
+    return mime === "image/jpg" ? "image/jpeg" : mime
+  }
+
+  const fileName = (input.fileName ?? "").trim().toLowerCase()
+  if (fileName.endsWith(".png")) return "image/png"
+  if (fileName.endsWith(".webp")) return "image/webp"
+  if (fileName.endsWith(".jpg") || fileName.endsWith(".jpeg")) return "image/jpeg"
+  return mime
+}
+
 export function isAllowedBillingLogoFile(input: {
   mimeType: string
   size: number
+  fileName?: string
 }): boolean {
+  const mimeType = resolveBillingLogoMimeType(input)
   return (
-    (ISP_BILLING_LOGO_MIME_TYPES as readonly string[]).includes(input.mimeType) &&
+    (ISP_BILLING_LOGO_MIME_TYPES as readonly string[]).includes(mimeType) &&
     input.size > 0 &&
     input.size <= ISP_BILLING_LOGO_MAX_BYTES
   )
