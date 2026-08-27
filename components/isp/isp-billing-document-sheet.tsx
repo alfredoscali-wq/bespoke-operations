@@ -7,6 +7,7 @@ import {
   BILLING_DOCUMENT_TABLE_COLUMNS,
   type BillingDocumentTemplateModel,
 } from "@/lib/isp/billing-document-template"
+import { BILLING_DOCUMENT_LAYOUT as L } from "@/lib/isp/billing-document-layout"
 import { cn } from "@/lib/utils"
 
 function SectionLabel({ children }: { children: ReactNode }) {
@@ -37,10 +38,8 @@ function IssuerLogo({
     <img
       src={model.issuer.logoUrl}
       alt=""
-      className={cn(
-        "h-[64px] w-auto max-w-[220px] object-contain object-left",
-        className
-      )}
+      className={cn("w-auto object-contain object-left", className)}
+      style={{ height: L.logo.heightPx, maxWidth: L.logo.maxWidthPx }}
     />
   )
 }
@@ -71,7 +70,14 @@ function IssuerBlock({ model }: { model: BillingDocumentTemplateModel }) {
   const logo = <IssuerLogo model={model} />
 
   return (
-    <div className="min-w-0 space-y-3.5">
+    <div
+      className="min-w-0 text-left"
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        rowGap: `${L.logo.gapBelowMm}mm`,
+      }}
+    >
       {logo ? (
         <div
           className={cn(
@@ -82,7 +88,14 @@ function IssuerBlock({ model }: { model: BillingDocumentTemplateModel }) {
           {logo}
         </div>
       ) : null}
-      <div className="space-y-1.5 text-left">
+      <div
+        className="text-left"
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          rowGap: `${L.rhythm.issuerStackMm}mm`,
+        }}
+      >
         <p className="text-[15.5px] leading-snug font-semibold tracking-tight text-neutral-900">
           {model.issuer.legalName}
         </p>
@@ -134,8 +147,20 @@ function IdentificationBlock({ model }: { model: BillingDocumentTemplateModel })
   const showKindLabel = letter !== "X"
 
   return (
-    <div className="w-[min(44%,248px)] shrink-0 border-l border-neutral-200 pl-8">
-      <div className="ml-auto w-[148px] border border-neutral-200 px-4 py-3.5 text-center">
+    <div
+      className="shrink-0 border-l border-neutral-200"
+      style={{
+        width: `min(${L.header.identMaxPercent}%, ${L.header.identWidthPx}px)`,
+        paddingLeft: L.header.identPadLeftPx,
+      }}
+    >
+      <div
+        className="ml-auto border border-neutral-200 text-center"
+        style={{
+          width: L.header.cardWidthPx,
+          padding: `${L.header.cardPadYMm}mm ${L.header.cardPadXMm}mm`,
+        }}
+      >
         {showKindLabel ? (
           <p
             className={cn(
@@ -151,9 +176,14 @@ function IdentificationBlock({ model }: { model: BillingDocumentTemplateModel })
         {letter ? (
           <div
             className={cn(
-              "mx-auto flex size-[52px] items-center justify-center bg-primary",
-              showKindLabel ? "mt-2.5" : "mt-0"
+              "mx-auto flex items-center justify-center bg-primary",
+              !showKindLabel && "mt-0"
             )}
+            style={{
+              width: L.header.letterSizePx,
+              height: L.header.letterSizePx,
+              marginTop: showKindLabel ? L.header.kindToLetterMm + "mm" : 0,
+            }}
           >
             <span className="text-[28px] leading-none font-semibold text-white">
               {letter}
@@ -161,7 +191,10 @@ function IdentificationBlock({ model }: { model: BillingDocumentTemplateModel })
           </div>
         ) : null}
       </div>
-      <dl className="mt-5 space-y-2">
+      <dl
+        className="space-y-2"
+        style={{ marginTop: `${L.header.afterCardMm}mm` }}
+      >
         <IdentificationMetaRow
           label="Punto de venta"
           value={model.identification.pointOfSaleLabel}
@@ -219,23 +252,35 @@ export function IspBillingDocumentSheet({
     <article
       data-billing-document-sheet="true"
       className="flex flex-col bg-white text-[#1c2028] shadow-[0_12px_40px_rgba(15,23,42,0.10)]"
-      style={{ minHeight: "297mm", padding: "20mm 20mm 18mm" }}
+      style={{
+        minHeight: "297mm",
+        padding: `${L.margin.topMm}mm ${L.margin.xMm}mm ${L.margin.bottomMm}mm`,
+      }}
     >
       <div className="flex-1">
-        <header className="flex items-start justify-between gap-12">
+        <header
+          className="flex items-start justify-between"
+          style={{ gap: L.header.columnGapPx }}
+        >
           <div className="min-w-0 flex-1">
             <IssuerBlock model={model} />
           </div>
           <IdentificationBlock model={model} />
         </header>
 
-        <div className="mt-9">
+        <div style={{ marginTop: `${L.header.afterHeaderMm}mm` }}>
           <Hairline />
         </div>
 
-        <section className="mt-7">
+        <section style={{ marginTop: `${L.rhythm.afterHairlineMm}mm` }}>
           <SectionLabel>Cliente</SectionLabel>
-          <div className="mt-3.5 max-w-md space-y-1.5 text-[11px] leading-[1.55]">
+          <div
+            className="space-y-1.5 text-[11px] leading-[1.55]"
+            style={{
+              marginTop: `${L.rhythm.afterSectionLabelMm}mm`,
+              maxWidth: L.customer.widthPx,
+            }}
+          >
             <p className="text-[13.5px] leading-snug font-semibold text-neutral-900">
               {model.customer.name}
             </p>
@@ -252,18 +297,17 @@ export function IspBillingDocumentSheet({
           </div>
         </section>
 
-        <section className="mt-9">
+        <section style={{ marginTop: `${L.rhythm.afterCustomerMm}mm` }}>
           <SectionLabel>Conceptos</SectionLabel>
-          <div className="mt-3.5 overflow-hidden">
+          <div
+            className="overflow-hidden"
+            style={{ marginTop: `${L.rhythm.afterSectionLabelMm}mm` }}
+          >
             <table className="w-full table-fixed border-collapse text-[10.5px]">
               <colgroup>
-                <col className="w-[5%]" />
-                <col className="w-[34%]" />
-                <col className="w-[8%]" />
-                <col className="w-[14%]" />
-                <col className="w-[13%]" />
-                <col className="w-[13%]" />
-                <col className="w-[13%]" />
+                {L.table.columns.map((width, index) => (
+                  <col key={index} style={{ width: `${width}%` }} />
+                ))}
               </colgroup>
               <thead>
                 <tr className="bg-primary/10">
@@ -320,7 +364,13 @@ export function IspBillingDocumentSheet({
           </div>
         </section>
 
-        <dl className="ml-auto mt-10 w-full max-w-[220px] space-y-2.5 text-[11px]">
+        <dl
+          className="ml-auto w-full space-y-2.5 text-[11px]"
+          style={{
+            marginTop: `${L.rhythm.afterTableMm}mm`,
+            maxWidth: L.totals.widthPx,
+          }}
+        >
           {model.totals.map((row) => (
             <div
               key={row.label}
@@ -354,17 +404,35 @@ export function IspBillingDocumentSheet({
         </dl>
 
         {model.observations ? (
-          <section className="mt-12">
+          <section style={{ marginTop: `${L.rhythm.afterTotalsMm}mm` }}>
             <SectionLabel>Observaciones</SectionLabel>
-            <p className="mt-3.5 max-w-lg text-[11px] leading-[1.6] text-neutral-600">
+            <p
+              className="text-[11px] leading-[1.6] text-neutral-600"
+              style={{
+                marginTop: `${L.rhythm.afterSectionLabelMm}mm`,
+                maxWidth: L.observations.widthPx,
+              }}
+            >
               {model.observations}
             </p>
           </section>
         ) : null}
       </div>
 
-      <footer className="mt-14 border-t border-neutral-200 pt-6">
-        <div className="grid grid-cols-[1fr_auto_72px] items-start gap-10">
+      <footer
+        className="border-t border-neutral-200"
+        style={{
+          marginTop: `${L.rhythm.beforeFooterMm}mm`,
+          paddingTop: `${L.rhythm.footerPadTopMm}mm`,
+        }}
+      >
+        <div
+          className="grid items-start"
+          style={{
+            gridTemplateColumns: `1fr auto ${L.footer.qrSizePx}px`,
+            gap: `${L.footer.columnGapMm}mm`,
+          }}
+        >
           <div className="min-w-0 space-y-2 text-[9px] leading-relaxed text-neutral-400">
             {model.nonFiscalNotice ? (
               <p className="font-medium tracking-[0.08em] text-neutral-600 uppercase">
@@ -373,7 +441,10 @@ export function IspBillingDocumentSheet({
             ) : null}
             {model.footerLegend ? <p>{model.footerLegend}</p> : null}
           </div>
-          <div className="min-w-[158px] space-y-1.5 text-[10px] text-neutral-500">
+          <div
+            className="space-y-1.5 text-[10px] text-neutral-500"
+            style={{ minWidth: L.footer.caeWidthPx }}
+          >
             <p>
               <span className="text-neutral-400">CAE: </span>
               <span
@@ -401,7 +472,8 @@ export function IspBillingDocumentSheet({
             </p>
             <div
               data-billing-qr-reserved="true"
-              className="flex size-[72px] items-center justify-center border border-dashed border-neutral-300 text-[8px] tracking-[0.14em] text-neutral-400 uppercase"
+              className="flex items-center justify-center border border-dashed border-neutral-300 text-[8px] tracking-[0.14em] text-neutral-400 uppercase"
+              style={{ width: L.footer.qrSizePx, height: L.footer.qrSizePx }}
             >
               {BILLING_DOCUMENT_QR_ZONE_LABEL}
             </div>

@@ -1,10 +1,14 @@
 import { jsPDF } from "jspdf"
 
 import {
+  BILLING_DOCUMENT_LAYOUT as L,
+  billingPxToMm,
+  billingPxToPt,
+} from "@/lib/isp/billing-document-layout"
+import {
   BILLING_DOCUMENT_QR_RESERVED_LABEL,
   BILLING_DOCUMENT_QR_ZONE_LABEL,
   BILLING_DOCUMENT_TABLE_COLUMNS,
-  BILLING_DOCUMENT_VISUAL,
   buildBillingDocumentTemplateModelFromDocument,
   type BillingDocumentTemplateModel,
 } from "@/lib/isp/billing-document-template"
@@ -12,33 +16,38 @@ import { ISP_BILLING_DOCUMENT_TYPE_LABELS } from "@/lib/isp/billing-constants"
 import type { IspBillingDocument } from "@/lib/isp/billing-document-types"
 import type { IspBillingTemplateSettings } from "@/lib/isp/billing-template-settings"
 
-const MARGIN = 20
-const ACCENT = BILLING_DOCUMENT_VISUAL.accent
-const ACCENT_SOFT = BILLING_DOCUMENT_VISUAL.accentSoft
-const INK = BILLING_DOCUMENT_VISUAL.ink
-const MUTED = BILLING_DOCUMENT_VISUAL.muted
-const LINE = BILLING_DOCUMENT_VISUAL.line
-const DISCOUNT = BILLING_DOCUMENT_VISUAL.discount
-const IDENT_WIDTH = 64
-const LOGO_MAX_W = 50
-const LOGO_MAX_H = 24
-const FOOTER_HEIGHT = 36
-const HEADER_GAP = 18
+const ACCENT = L.colors.accent
+const ACCENT_SOFT = L.colors.accentSoft
+const INK = L.colors.ink
+const MUTED = L.colors.muted
+const LINE = L.colors.line
+const DISCOUNT = L.colors.discount
+const MARGIN_X: number = L.margin.xMm
+const MARGIN_TOP: number = L.margin.topMm
+const MARGIN_BOTTOM: number = L.margin.bottomMm
+
+function pageWidth(doc: jsPDF): number {
+  return doc.internal.pageSize.getWidth()
+}
 
 function pageHeight(doc: jsPDF): number {
   return doc.internal.pageSize.getHeight()
 }
 
 function contentBottom(doc: jsPDF): number {
-  return pageHeight(doc) - MARGIN - FOOTER_HEIGHT - 4
+  return pageHeight(doc) - MARGIN_BOTTOM - L.footer.heightMm
 }
 
 function ensureSpace(doc: jsPDF, y: number, height: number): number {
   if (y + height > contentBottom(doc)) {
     doc.addPage()
-    return MARGIN + 4
+    return MARGIN_TOP + 4
   }
   return y
+}
+
+function pdfSafeText(text: string): string {
+  return text.replaceAll("\u2212", "-")
 }
 
 function writeWrapped(
@@ -47,10 +56,10 @@ function writeWrapped(
   x: number,
   y: number,
   maxWidth: number,
-  lineHeight = 4.2,
+  lineHeight: number,
   align: "left" | "right" = "left"
 ): number {
-  const lines = doc.splitTextToSize(text, maxWidth) as string[]
+  const lines = doc.splitTextToSize(pdfSafeText(text), maxWidth) as string[]
   for (const line of lines) {
     y = ensureSpace(doc, y, lineHeight)
     doc.text(line, x, y, align === "right" ? { align: "right" } : undefined)
@@ -59,120 +68,205 @@ function writeWrapped(
   return y
 }
 
-function tableColumns(pageWidth: number) {
-  const usable = pageWidth - MARGIN * 2
-  const indexW = 8
-  const quantityW = 14
-  const unitW = 26
-  const discountW = 24
-  const taxW = 24
-  const amountW = 24
-  const descriptionW =
-    usable - indexW - quantityW - unitW - discountW - taxW - amountW
-  const indexRight = MARGIN + indexW
-  const descriptionX = indexRight + 1
-  const quantityRight = descriptionX + descriptionW
-  const unitRight = quantityRight + unitW
-  const discountRight = unitRight + discountW
-  const taxRight = discountRight + taxW
-  const amountRight = pageWidth - MARGIN
+function usableWidth(doc: jsPDF): number {
+  return pageWidth(doc) - MARGIN_X * 2
+}
+
+function tableColumns(doc: jsPDF) {
+  const usable = usableWidth(doc)
+  const widths = L.table.columns.map((percent) => (usable * percent) / 100)
+  let cursor = MARGIN_X
+  const cols = widths.map((width) => {
+    const start = cursor
+    cursor += width
+    return { start, end: cursor, width }
+  })
+  const pad = 2.2
   return {
-    indexRight,
-    descriptionX,
-    descriptionWidth: descriptionW - 2,
-    quantityRight,
-    unitRight,
-    discountRight,
-    taxRight,
-    amountRight,
+    indexRight: cols[0].end - 1.2,
+    descriptionX: cols[1].start + pad,
+    descriptionWidth: cols[1].width - pad * 2,
+    quantityRight: cols[2].end - pad,
+    unitRight: cols[3].end - pad,
+    discountRight: cols[4].end - pad,
+    taxRight: cols[5].end - pad,
+    amountRight: cols[6].end - pad,
   }
 }
 
-function drawHairline(
-  doc: jsPDF,
-  y: number,
-  pageWidth: number,
-  color: [number, number, number] = LINE
-) {
-  doc.setDrawColor(...color)
+function drawHairline(doc: jsPDF, y: number) {
+  doc.setDrawColor(...LINE)
   doc.setLineWidth(0.18)
-  doc.line(MARGIN, y, pageWidth - MARGIN, y)
+  doc.line(MARGIN_X, y, pageWidth(doc) - MARGIN_X, y)
 }
 
 function drawSectionLabel(doc: jsPDF, text: string, y: number): number {
   doc.setFont("helvetica", "bold")
-  doc.setFontSize(7.5)
+  doc.setFontSize(billingPxToPt(L.type.sectionLabelPx))
   doc.setTextColor(...ACCENT)
-  doc.text(text.toUpperCase(), MARGIN, y)
+  doc.text(text.toUpperCase(), MARGIN_X, y)
   doc.setTextColor(...INK)
-  return y + 5
+  return (
+    y +
+    billingPxToMm(L.type.sectionLabelPx * 1.375) +
+    L.rhythm.afterSectionLabelMm
+  )
 }
 
-function drawTableHeader(doc: jsPDF, y: number, pageWidth: number): number {
-  const cols = tableColumns(pageWidth)
-  const height = 7
+function writeStack(
+  doc: jsPDF,
+  lines: string[],
+  x: number,
+  y: number,
+  maxWidth: number,
+  lineMm: number,
+  stackMm: number
+): number {
+  lines.forEach((line, index) => {
+    y = writeWrapped(doc, line, x, y, maxWidth, lineMm)
+    if (index < lines.length - 1) y += stackMm
+  })
+  return y
+}
+
+function drawTableHeader(doc: jsPDF, y: number): number {
+  const cols = tableColumns(doc)
+  const height = L.table.headerHeightMm
   doc.setFillColor(...ACCENT_SOFT)
-  doc.rect(MARGIN, y - 4.6, pageWidth - MARGIN * 2, height, "F")
+  doc.rect(MARGIN_X, y, usableWidth(doc), height, "F")
+  const textY = y + height * 0.68
   doc.setFont("helvetica", "bold")
-  doc.setFontSize(6.8)
+  doc.setFontSize(billingPxToPt(L.type.tablePx))
   doc.setTextColor(...MUTED)
   const labels = BILLING_DOCUMENT_TABLE_COLUMNS
-  doc.text(labels[0].label, cols.indexRight, y, { align: "right" })
-  doc.text(labels[1].label, cols.descriptionX, y)
-  doc.text(labels[2].label, cols.quantityRight, y, { align: "right" })
-  doc.text(labels[3].label, cols.unitRight, y, { align: "right" })
-  doc.text(labels[4].label, cols.discountRight, y, { align: "right" })
-  doc.text(labels[5].label, cols.taxRight, y, { align: "right" })
-  doc.text(labels[6].label, cols.amountRight, y, { align: "right" })
+  doc.text(labels[0].label, cols.indexRight, textY, { align: "right" })
+  doc.text(labels[1].label, cols.descriptionX, textY)
+  doc.text(labels[2].label, cols.quantityRight, textY, { align: "right" })
+  doc.text(labels[3].label, cols.unitRight, textY, { align: "right" })
+  doc.text(labels[4].label, cols.discountRight, textY, { align: "right" })
+  doc.text(labels[5].label, cols.taxRight, textY, { align: "right" })
+  doc.text(labels[6].label, cols.amountRight, textY, { align: "right" })
   doc.setTextColor(...INK)
-  return y + 6.5
+  return y + height
+}
+
+function identWidth(doc: jsPDF): number {
+  return Math.min(
+    L.header.identWidthMm,
+    (usableWidth(doc) * L.header.identMaxPercent) / 100
+  )
+}
+
+function identLeft(doc: jsPDF): number {
+  return pageWidth(doc) - MARGIN_X - identWidth(doc)
+}
+
+function rasterSizeFromDataUrl(
+  dataUrl: string
+): { width: number; height: number } | null {
+  const comma = dataUrl.indexOf(",")
+  if (comma < 0) return null
+  const binary = Buffer.from(dataUrl.slice(comma + 1), "base64")
+  if (binary.length < 24) return null
+  if (binary[0] === 0x89 && binary[1] === 0x50) {
+    return {
+      width: binary.readUInt32BE(16),
+      height: binary.readUInt32BE(20),
+    }
+  }
+  if (binary[0] === 0xff && binary[1] === 0xd8) {
+    let i = 2
+    while (i + 9 < binary.length) {
+      if (binary[i] !== 0xff) break
+      const marker = binary[i + 1]
+      const size = binary.readUInt16BE(i + 2)
+      if (
+        marker >= 0xc0 &&
+        marker <= 0xcf &&
+        marker !== 0xc4 &&
+        marker !== 0xc8 &&
+        marker !== 0xcc
+      ) {
+        return {
+          height: binary.readUInt16BE(i + 5),
+          width: binary.readUInt16BE(i + 7),
+        }
+      }
+      i += 2 + size
+    }
+  }
+  return null
+}
+
+function logoDrawSize(dataUrl: string): { widthMm: number; heightMm: number } {
+  const boxW = L.logo.maxWidthMm
+  const boxH = L.logo.heightMm
+  const natural = rasterSizeFromDataUrl(dataUrl)
+  if (!natural || natural.width < 1 || natural.height < 1) {
+    return { widthMm: boxW, heightMm: boxH }
+  }
+  const aspect = natural.width / natural.height
+  let heightMm = boxH
+  let widthMm = heightMm * aspect
+  if (widthMm > boxW) {
+    widthMm = boxW
+    heightMm = widthMm / aspect
+  }
+  return { widthMm, heightMm }
 }
 
 function drawIdentificationBlock(
   doc: jsPDF,
   model: BillingDocumentTemplateModel,
-  pageWidth: number,
   y: number
 ): number {
-  const x = pageWidth - MARGIN - IDENT_WIDTH
-  const right = pageWidth - MARGIN
-  let cursor = y + 4
-
+  const right = pageWidth(doc) - MARGIN_X
+  const contentLeft = identLeft(doc) + L.header.identPadLeftMm
   const letter = model.identification.letter
   const showKindLabel = letter !== "X"
-  const cardWidth = 40
+  const kindLabel = model.identification.kindLabel
+  const cardWidth = L.header.cardWidthMm
   const cardX = right - cardWidth
-  const box = 14
-  const letterBox = letter ? box + 2 : 0
-  const cardHeight = (showKindLabel ? 10 : 6) + letterBox
+  const box = L.header.letterSizeMm
+  const kindPx = kindLabel.length > 10 ? 9 : L.type.identKindPx
+  const kindLineMm = billingPxToMm(kindPx * 1.375)
+  const cardHeight =
+    L.header.cardPadYMm +
+    (showKindLabel ? kindLineMm : 0) +
+    (showKindLabel && letter ? L.header.kindToLetterMm : 0) +
+    (letter ? box : 0) +
+    L.header.cardPadYMm
+
   doc.setDrawColor(...LINE)
   doc.setLineWidth(0.25)
-  doc.rect(cardX, cursor - 4, cardWidth, cardHeight)
+  doc.rect(cardX, y, cardWidth, cardHeight)
+
+  let innerY = y + L.header.cardPadYMm
   if (showKindLabel) {
-    const kindLabel = model.identification.kindLabel
     doc.setFont("helvetica", "bold")
-    doc.setFontSize(kindLabel.length > 10 ? 6.4 : 8.5)
+    doc.setFontSize(billingPxToPt(kindPx))
     doc.setTextColor(...INK)
-    doc.text(kindLabel, cardX + cardWidth / 2, cursor + 1.2, {
+    doc.text(kindLabel, cardX + cardWidth / 2, innerY + kindLineMm * 0.75, {
       align: "center",
     })
-    cursor += 6
+    innerY += kindLineMm
+    if (letter) innerY += L.header.kindToLetterMm
   }
 
   if (letter) {
     const boxX = cardX + (cardWidth - box) / 2
-    if (!showKindLabel) cursor += 1
     doc.setFillColor(...ACCENT)
-    doc.rect(boxX, cursor, box, box, "F")
+    doc.rect(boxX, innerY, box, box, "F")
     doc.setFont("helvetica", "bold")
-    doc.setFontSize(16)
+    doc.setFontSize(billingPxToPt(L.header.letterFontPx))
     doc.setTextColor(255, 255, 255)
-    doc.text(letter, boxX + box / 2, cursor + 10.1, {
+    doc.text(letter, boxX + box / 2, innerY + box * 0.72, {
       align: "center",
     })
-    cursor += box + 4
+    innerY += box
   }
 
+  let cursor = y + cardHeight + L.header.afterCardMm
   const rows: Array<[string, string]> = [
     ["Punto de venta", model.identification.pointOfSaleLabel],
     ["Número", model.identification.documentNumberLabel],
@@ -185,20 +279,26 @@ function drawIdentificationBlock(
     rows.push(["Condición frente al IVA", model.identification.vatConditionLabel])
   }
 
-  doc.setFontSize(8)
+  const metaLineMm = billingPxToMm(L.type.identMetaValuePx * 1.375)
+  const valueWidth = Math.max(24, (right - contentLeft) * 0.58)
   for (const [label, value] of rows) {
-    cursor += 5.8
     doc.setFont("helvetica", "normal")
+    doc.setFontSize(billingPxToPt(L.type.identMetaLabelPx))
     doc.setTextColor(...MUTED)
-    doc.text(label, x, cursor)
+    doc.text(label, contentLeft, cursor)
     doc.setFont("helvetica", "bold")
+    doc.setFontSize(billingPxToPt(L.type.identMetaValuePx))
     doc.setTextColor(...INK)
-    const valueLines = doc.splitTextToSize(value, 34) as string[]
+    const valueLines = doc.splitTextToSize(
+      pdfSafeText(value),
+      valueWidth
+    ) as string[]
     doc.text(valueLines[0] ?? value, right, cursor, { align: "right" })
     for (const extra of valueLines.slice(1)) {
-      cursor += 3.8
+      cursor += metaLineMm
       doc.text(extra, right, cursor, { align: "right" })
     }
+    cursor += metaLineMm + L.header.metaRowMm
   }
 
   doc.setTextColor(...INK)
@@ -213,35 +313,59 @@ function drawLogo(
 ): boolean {
   try {
     const format = /image\/jpe?g/i.test(logoDataUrl) ? "JPEG" : "PNG"
-    doc.addImage(logoDataUrl, format, x, y, LOGO_MAX_W, LOGO_MAX_H)
+    const size = logoDrawSize(logoDataUrl)
+    const drawY = y + (L.logo.heightMm - size.heightMm) / 2
+    doc.addImage(
+      logoDataUrl,
+      format,
+      x,
+      drawY,
+      size.widthMm,
+      size.heightMm
+    )
     return true
   } catch {
     return false
   }
 }
 
-function drawFiscalFooter(doc: jsPDF, model: BillingDocumentTemplateModel) {
-  const pageWidth = doc.internal.pageSize.getWidth()
-  const top = pageHeight(doc) - MARGIN - FOOTER_HEIGHT
-  drawHairline(doc, top, pageWidth)
+function writeFooterWrapped(
+  doc: jsPDF,
+  text: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  lineHeight: number
+): number {
+  const lines = doc.splitTextToSize(pdfSafeText(text), maxWidth) as string[]
+  for (const line of lines.slice(0, 4)) {
+    doc.text(line, x, y)
+    y += lineHeight
+  }
+  return y
+}
 
-  const qrSize = 18
-  const qrX = pageWidth - MARGIN - qrSize
-  const col3 = qrX - 4
-  const col2Width = 58
-  const col2 = col3 - col2Width
-  const legendWidth = col2 - MARGIN - 4
-  let y = top + 5
+function drawFiscalFooter(doc: jsPDF, model: BillingDocumentTemplateModel) {
+  const width = pageWidth(doc)
+  const top = pageHeight(doc) - MARGIN_BOTTOM - L.footer.heightMm
+  drawHairline(doc, top)
+
+  const qrSize = L.footer.qrSizeMm
+  const qrX = width - MARGIN_X - qrSize
+  const col2Width = L.footer.caeWidthMm
+  const col2 = qrX - L.footer.columnGapMm - col2Width
+  const legendWidth = Math.max(24, col2 - MARGIN_X - L.footer.columnGapMm)
+  let y = top + L.rhythm.footerPadTopMm
 
   doc.setFont("helvetica", "normal")
-  doc.setFontSize(6.5)
+  doc.setFontSize(billingPxToPt(L.type.footerLegendPx))
   doc.setTextColor(...MUTED)
   if (model.nonFiscalNotice) {
     doc.setFont("helvetica", "bold")
     y = writeFooterWrapped(
       doc,
       model.nonFiscalNotice,
-      MARGIN,
+      MARGIN_X,
       y,
       legendWidth,
       3.4
@@ -252,7 +376,7 @@ function drawFiscalFooter(doc: jsPDF, model: BillingDocumentTemplateModel) {
     y = writeFooterWrapped(
       doc,
       model.footerLegend,
-      MARGIN,
+      MARGIN_X,
       y,
       legendWidth,
       3.4
@@ -260,12 +384,12 @@ function drawFiscalFooter(doc: jsPDF, model: BillingDocumentTemplateModel) {
   }
 
   doc.setFont("helvetica", "normal")
-  doc.setFontSize(7)
+  doc.setFontSize(billingPxToPt(L.type.caePx))
   doc.setTextColor(...MUTED)
   doc.text("CAE:", col2, top + 6)
   doc.setTextColor(...INK)
   doc.setFont("helvetica", model.fiscal.showCae ? "bold" : "normal")
-  doc.text(model.fiscal.caeDisplay, col2 + 10, top + 6)
+  doc.text(pdfSafeText(model.fiscal.caeDisplay), col2 + 10, top + 6)
   doc.setFont("helvetica", "normal")
   doc.setTextColor(...MUTED)
   const caeDue = doc.splitTextToSize(
@@ -278,11 +402,11 @@ function drawFiscalFooter(doc: jsPDF, model: BillingDocumentTemplateModel) {
     caeY += 3.4
   }
 
-  doc.setFontSize(5.5)
+  doc.setFontSize(billingPxToPt(L.type.qrCaptionPx))
   doc.setTextColor(...MUTED)
   const qrCaption = doc.splitTextToSize(
     BILLING_DOCUMENT_QR_RESERVED_LABEL,
-    qrSize + 10
+    qrSize + 8
   ) as string[]
   let captionY = top + 4.5
   for (const line of qrCaption.slice(0, 2)) {
@@ -293,42 +417,11 @@ function drawFiscalFooter(doc: jsPDF, model: BillingDocumentTemplateModel) {
   doc.setLineDashPattern([1, 1], 0)
   doc.rect(qrX, top + 10, qrSize, qrSize)
   doc.setLineDashPattern([], 0)
-  doc.setFontSize(5)
+  doc.setFontSize(billingPxToPt(L.type.qrCaptionPx))
   doc.text(BILLING_DOCUMENT_QR_ZONE_LABEL, qrX + qrSize / 2, top + 10 + qrSize / 2, {
     align: "center",
   })
   doc.setTextColor(...INK)
-}
-
-function writeIssuerDetail(
-  doc: jsPDF,
-  text: string,
-  y: number,
-  maxWidth: number,
-  withMark: boolean
-): number {
-  if (withMark) {
-    doc.setFillColor(...ACCENT)
-    doc.circle(MARGIN + 0.8, y - 0.9, 0.7, "F")
-    return writeWrapped(doc, text, MARGIN + 4, y, maxWidth - 4, 4.2)
-  }
-  return writeWrapped(doc, text, MARGIN, y, maxWidth, 4.2)
-}
-
-function writeFooterWrapped(
-  doc: jsPDF,
-  text: string,
-  x: number,
-  y: number,
-  maxWidth: number,
-  lineHeight: number
-): number {
-  const lines = doc.splitTextToSize(text, maxWidth) as string[]
-  for (const line of lines.slice(0, 4)) {
-    doc.text(line, x, y)
-    y += lineHeight
-  }
-  return y
 }
 
 function renderBillingDocumentPdf(
@@ -336,188 +429,182 @@ function renderBillingDocumentPdf(
   options?: { logoDataUrl?: string | null }
 ): ArrayBuffer {
   const doc = new jsPDF({ unit: "mm", format: "a4" })
-  const pageWidth = doc.internal.pageSize.getWidth()
-  const leftWidth = pageWidth - MARGIN * 2 - IDENT_WIDTH - HEADER_GAP
+  const width = pageWidth(doc)
+  const identX = identLeft(doc)
+  const leftWidth = identX - MARGIN_X - L.header.columnGapMm
   const logoDataUrl =
     model.issuer.showLogo && model.issuer.logoUrl
       ? (options?.logoDataUrl ?? null)
       : null
 
-  let y = MARGIN + 2
-  const identBottom = drawIdentificationBlock(doc, model, pageWidth, y)
+  let y: number = MARGIN_TOP
+  const identBottom = drawIdentificationBlock(doc, model, y)
 
-  let textY = y + 3
+  const nameAscent = billingPxToMm(L.type.issuerNamePx * 0.8)
+  let textY = y + nameAscent
   if (logoDataUrl) {
-    let logoX = MARGIN
+    const drawW = logoDrawSize(logoDataUrl).widthMm
+    let logoX = MARGIN_X
     if (model.issuer.logoPosition === "center") {
-      logoX = MARGIN + Math.max(0, (leftWidth - LOGO_MAX_W) / 2)
+      logoX = MARGIN_X + Math.max(0, (leftWidth - drawW) / 2)
     } else if (model.issuer.logoPosition === "right") {
-      logoX = MARGIN + Math.max(0, leftWidth - LOGO_MAX_W)
+      logoX = MARGIN_X + Math.max(0, leftWidth - drawW)
     }
     const logoPlaced = drawLogo(doc, logoDataUrl, logoX, y)
-    if (logoPlaced) textY = y + LOGO_MAX_H + 6
+    if (logoPlaced) {
+      textY = y + L.logo.heightMm + L.logo.gapBelowMm + nameAscent
+    }
   }
 
   doc.setFont("helvetica", "bold")
-  doc.setFontSize(11.5)
+  doc.setFontSize(billingPxToPt(L.type.issuerNamePx))
   doc.setTextColor(...INK)
-  textY = writeWrapped(doc, model.issuer.legalName, MARGIN, textY, leftWidth, 5)
+  textY = writeWrapped(
+    doc,
+    model.issuer.legalName,
+    MARGIN_X,
+    textY,
+    leftWidth,
+    L.rhythm.issuerNameLineMm
+  )
+  textY += L.rhythm.issuerStackMm
 
   doc.setFont("helvetica", "normal")
-  doc.setFontSize(8)
+  doc.setFontSize(billingPxToPt(L.type.issuerDetailPx))
   doc.setTextColor(...MUTED)
-  if (model.issuer.taxId) {
-    textY = writeIssuerDetail(doc, `CUIT ${model.issuer.taxId}`, textY, leftWidth, false)
-  }
-  if (model.issuer.vatConditionLabel !== "—") {
-    textY = writeIssuerDetail(
-      doc,
-      model.issuer.vatConditionLabel,
-      textY,
-      leftWidth,
-      false
-    )
-  }
-  if (model.issuer.addressLine) {
-    textY = writeIssuerDetail(doc, model.issuer.addressLine, textY, leftWidth, true)
-  }
-  if (model.issuer.localityLine) {
-    textY = writeIssuerDetail(doc, model.issuer.localityLine, textY, leftWidth, false)
-  }
-  if (model.issuer.phone) {
-    textY = writeIssuerDetail(doc, model.issuer.phone, textY, leftWidth, true)
-  }
-  if (model.issuer.email) {
-    textY = writeIssuerDetail(doc, model.issuer.email, textY, leftWidth, true)
-  }
-  if (model.issuer.website) {
-    textY = writeIssuerDetail(doc, model.issuer.website, textY, leftWidth, true)
-  }
+  const issuerLines = [
+    model.issuer.taxId ? `CUIT ${model.issuer.taxId}` : null,
+    model.issuer.vatConditionLabel !== "—"
+      ? model.issuer.vatConditionLabel
+      : null,
+    model.issuer.addressLine,
+    model.issuer.localityLine,
+    model.issuer.phone,
+    model.issuer.email,
+    model.issuer.website,
+  ].filter((line): line is string => Boolean(line))
 
-  y = Math.max(identBottom, textY) + 9
-  const dividerX = pageWidth - MARGIN - IDENT_WIDTH - HEADER_GAP / 2
+  textY = writeStack(
+    doc,
+    issuerLines,
+    MARGIN_X,
+    textY,
+    leftWidth,
+    L.rhythm.issuerLineMm,
+    L.rhythm.issuerStackMm
+  )
+
+  y = Math.max(identBottom, textY)
   doc.setDrawColor(...LINE)
   doc.setLineWidth(0.18)
-  doc.line(dividerX, MARGIN, dividerX, y - 4)
-  drawHairline(doc, y, pageWidth)
-  y += 8
+  doc.line(identX, MARGIN_TOP, identX, y)
+  y += L.header.afterHeaderMm
+  drawHairline(doc, y)
+  y += L.rhythm.afterHairlineMm
 
   y = drawSectionLabel(doc, "Cliente", y)
-  const contentWidth = pageWidth - MARGIN * 2
-  let leftY = y
+  const customerWidth = Math.min(L.customer.widthMm, usableWidth(doc))
   doc.setFont("helvetica", "bold")
-  doc.setFontSize(10.5)
+  doc.setFontSize(billingPxToPt(L.type.customerNamePx))
   doc.setTextColor(...INK)
-  leftY = writeWrapped(
+  y = writeWrapped(
     doc,
     model.customer.name,
-    MARGIN,
-    leftY,
-    contentWidth * 0.72,
-    5
+    MARGIN_X,
+    y,
+    customerWidth,
+    L.rhythm.customerNameLineMm
   )
+  y += L.rhythm.issuerStackMm
   doc.setFont("helvetica", "normal")
-  doc.setFontSize(8.5)
+  doc.setFontSize(billingPxToPt(L.type.customerDetailPx))
   doc.setTextColor(...MUTED)
-  leftY = writeWrapped(
-    doc,
+  const customerLines = [
     model.customer.documentLabel,
-    MARGIN,
-    leftY,
-    contentWidth * 0.72,
-    4.3
+    model.customer.vatConditionLabel,
+    model.customer.addressLine,
+    model.customer.localityLine,
+  ].filter((line): line is string => Boolean(line))
+  y = writeStack(
+    doc,
+    customerLines,
+    MARGIN_X,
+    y,
+    customerWidth,
+    L.rhythm.issuerLineMm,
+    L.rhythm.issuerStackMm
   )
-  if (model.customer.vatConditionLabel) {
-    leftY = writeWrapped(
-      doc,
-      model.customer.vatConditionLabel,
-      MARGIN,
-      leftY,
-      contentWidth * 0.72,
-      4.3
-    )
-  }
-  if (model.customer.addressLine) {
-    leftY = writeWrapped(
-      doc,
-      model.customer.addressLine,
-      MARGIN,
-      leftY,
-      contentWidth * 0.72,
-      4.3
-    )
-  }
-  if (model.customer.localityLine) {
-    leftY = writeWrapped(
-      doc,
-      model.customer.localityLine,
-      MARGIN,
-      leftY,
-      contentWidth * 0.72,
-      4.3
-    )
-  }
-  y = leftY + 9
-  y = drawSectionLabel(doc, "Conceptos", y)
-  y = drawTableHeader(doc, y, pageWidth)
 
-  const cols = tableColumns(pageWidth)
+  y += L.rhythm.afterCustomerMm
+  y = drawSectionLabel(doc, "Conceptos", y)
+  y = drawTableHeader(doc, y)
+
+  const cols = tableColumns(doc)
+  const tableFont = billingPxToPt(L.type.tablePx)
+  const tableAscent = billingPxToMm(L.type.tablePx * 0.8)
   for (const item of model.items) {
     const descLines = doc.splitTextToSize(
-      item.description,
+      pdfSafeText(item.description),
       cols.descriptionWidth
     ) as string[]
-    const rowHeight = Math.max(5.4, descLines.length * 4)
-    if (y + rowHeight + 4 > contentBottom(doc)) {
+    const rowHeight =
+      L.table.rowPadMm * 2 + descLines.length * L.table.lineMm
+    if (y + rowHeight > contentBottom(doc)) {
       doc.addPage()
-      y = drawTableHeader(doc, MARGIN + 6, pageWidth)
+      y = drawTableHeader(doc, MARGIN_TOP)
     }
 
+    const rowTextY = y + L.table.rowPadMm + tableAscent
     doc.setFont("helvetica", "normal")
-    doc.setFontSize(8)
+    doc.setFontSize(tableFont)
     doc.setTextColor(...MUTED)
-    doc.text(item.indexLabel, cols.indexRight, y, { align: "right" })
+    doc.text(item.indexLabel, cols.indexRight, rowTextY, { align: "right" })
     doc.setTextColor(...INK)
-    let descY = y
+    let descY = rowTextY
     for (const line of descLines) {
       doc.text(line, cols.descriptionX, descY)
-      descY += 4
+      descY += L.table.lineMm
     }
     doc.setTextColor(...MUTED)
-    doc.text(item.quantityLabel, cols.quantityRight, y, { align: "right" })
-    doc.text(item.unitPriceLabel, cols.unitRight, y, { align: "right" })
+    doc.text(item.quantityLabel, cols.quantityRight, rowTextY, { align: "right" })
+    doc.text(item.unitPriceLabel, cols.unitRight, rowTextY, { align: "right" })
     if (item.hasDiscount) doc.setTextColor(...DISCOUNT)
-    doc.text(item.discountLabel, cols.discountRight, y, { align: "right" })
+    doc.text(pdfSafeText(item.discountLabel), cols.discountRight, rowTextY, {
+      align: "right",
+    })
     doc.setTextColor(...MUTED)
-    doc.text(item.taxLabel, cols.taxRight, y, { align: "right" })
+    doc.text(pdfSafeText(item.taxLabel), cols.taxRight, rowTextY, {
+      align: "right",
+    })
     doc.setTextColor(...INK)
     doc.setFont("helvetica", "bold")
-    doc.text(item.amountLabel, cols.amountRight, y, { align: "right" })
+    doc.text(pdfSafeText(item.amountLabel), cols.amountRight, rowTextY, {
+      align: "right",
+    })
     doc.setFont("helvetica", "normal")
-    y = Math.max(descY, y + 5.2)
-    drawHairline(doc, y, pageWidth)
-    y += 4.6
+    y += rowHeight
+    drawHairline(doc, y)
   }
 
-  y += 8
-  const totalsWidth = 62
-  const totalsX = pageWidth - MARGIN - totalsWidth
+  y += L.rhythm.afterTableMm
+  const totalsWidth = L.totals.widthMm
+  const totalsX = width - MARGIN_X - totalsWidth
   for (const row of model.totals) {
-    y = ensureSpace(doc, y, row.emphasize ? 12 : 6.5)
     if (row.variant === "total") {
+      y += L.totals.totalGapMm
+      y = ensureSpace(doc, y, L.totals.totalGapMm + 8)
       doc.setDrawColor(...ACCENT)
-      doc.setLineWidth(0.55)
-      doc.line(totalsX, y - 3.6, pageWidth - MARGIN, y - 3.6)
+      doc.setLineWidth(billingPxToMm(2))
+      doc.line(totalsX, y, width - MARGIN_X, y)
+      y += L.totals.totalGapMm + billingPxToMm(L.type.totalPx * 0.8)
       doc.setFont("helvetica", "bold")
-      doc.setFontSize(11.5)
+      doc.setFontSize(billingPxToPt(L.type.totalPx))
       doc.setTextColor(...ACCENT)
-    } else if (row.variant === "discount") {
-      doc.setFont("helvetica", "normal")
-      doc.setFontSize(9)
-      doc.setTextColor(...MUTED)
     } else {
+      y = ensureSpace(doc, y, L.rhythm.totalsRowMm + 4)
+      y += billingPxToMm(L.type.totalsPx * 0.8)
       doc.setFont("helvetica", "normal")
-      doc.setFontSize(9)
+      doc.setFontSize(billingPxToPt(L.type.totalsPx))
       doc.setTextColor(...MUTED)
     }
     doc.text(row.label, totalsX, y)
@@ -526,21 +613,30 @@ function renderBillingDocumentPdf(
     } else if (row.variant !== "total") {
       doc.setTextColor(...INK)
     }
-    const amountLabel =
-      row.variant === "discount"
-        ? row.amountLabel.replaceAll("\u2212", "-")
-        : row.amountLabel
-    doc.text(amountLabel, pageWidth - MARGIN, y, { align: "right" })
-    y += row.emphasize ? 8 : 5.4
+    doc.text(pdfSafeText(row.amountLabel), width - MARGIN_X, y, {
+      align: "right",
+    })
+    if (row.variant === "total") {
+      y += billingPxToMm(L.type.totalPx * 0.6)
+    } else {
+      y += billingPxToMm(L.type.totalsPx * 0.6) + L.rhythm.totalsRowMm
+    }
   }
 
   if (model.observations) {
-    y = ensureSpace(doc, y + 10, 16)
+    y = ensureSpace(doc, y + L.rhythm.afterTotalsMm, 16)
     y = drawSectionLabel(doc, "Observaciones", y)
     doc.setFont("helvetica", "normal")
-    doc.setFontSize(8.5)
+    doc.setFontSize(billingPxToPt(L.type.observationsPx))
     doc.setTextColor(...MUTED)
-    y = writeWrapped(doc, model.observations, MARGIN, y, pageWidth - MARGIN * 2)
+    y = writeWrapped(
+      doc,
+      model.observations,
+      MARGIN_X,
+      y,
+      Math.min(L.observations.widthMm, usableWidth(doc)),
+      L.rhythm.issuerLineMm
+    )
   }
 
   if (y > contentBottom(doc) - 2) {

@@ -19,6 +19,7 @@ import {
   ISP_BILLING_TEMPLATE_PREVIEW_CUSTOMER,
   ISP_BILLING_TEMPLATE_PREVIEW_ITEMS,
 } from "../lib/isp/billing-document-template.ts"
+import { BILLING_DOCUMENT_LAYOUT } from "../lib/isp/billing-document-layout.ts"
 import {
   snapshotDiffersFromLiveCustomer,
 } from "../lib/isp/billing-document-integrity.ts"
@@ -645,4 +646,27 @@ test("25. configuración inválida rechazada", () => {
   assert.doesNotMatch(sql, /ALTER TABLE public\.isp_billing_documents/)
   assert.match(sheet, /minHeight: "297mm"/)
   assert.match(sheet, /max-w-\[min\(100%,210mm\)\]/)
+})
+
+test("26. preview y PDF usan el mismo layout", () => {
+  assert.match(sheet, /BILLING_DOCUMENT_LAYOUT/)
+  assert.match(pdfSource, /BILLING_DOCUMENT_LAYOUT/)
+  assert.doesNotMatch(pdfSource, /\.circle\(/)
+  assert.doesNotMatch(pdfSource, /withMark/)
+  assert.doesNotMatch(pdfSource, /\* 0\.55/)
+  assert.doesNotMatch(pdfSource, /\* 0\.45/)
+  assert.deepEqual([...BILLING_DOCUMENT_LAYOUT.table.columns], [5, 34, 8, 14, 13, 13, 13])
+  assert.equal(BILLING_DOCUMENT_LAYOUT.margin.xMm, 20)
+  assert.equal(BILLING_DOCUMENT_LAYOUT.margin.topMm, 20)
+  assert.equal(BILLING_DOCUMENT_LAYOUT.page.heightMm, 297)
+  assert.equal(BILLING_DOCUMENT_LAYOUT.logo.heightPx, 64)
+  assert.equal(BILLING_DOCUMENT_LAYOUT.header.letterSizePx, 52)
+  assert.equal(BILLING_DOCUMENT_LAYOUT.customer.widthPx, 448)
+  assert.equal(BILLING_DOCUMENT_LAYOUT.footer.qrSizePx, 72)
+  assert.match(sheet, /L\.margin\.topMm/)
+  assert.match(sheet, /L\.header\.afterHeaderMm/)
+  assert.match(sheet, /L\.customer\.widthPx/)
+  assert.match(pdfSource, /L\.customer\.widthMm/)
+  assert.match(pdfSource, /L\.header\.afterHeaderMm/)
+  assert.match(pdfSource, /logoPosition === "center"/)
 })
