@@ -133,6 +133,7 @@
     "test:work-order-contact-commercial-hotfix": "npx tsx --test scripts/test-work-order-contact-commercial-hotfix.mjs",
     "test:work-order-execution-order-edit-hotfix": "npx tsx --test scripts/test-work-order-execution-order-edit-hotfix.mjs",
     "test:work-order-admin-execution-order-hotfix": "npx tsx --test scripts/test-work-order-admin-execution-order-hotfix.mjs",
+    "test:ot-scheduled-time-type-hotfix": "npx tsx --test scripts/test-ot-scheduled-time-type-hotfix.mjs",
     "test:ot-1-1-execution-order-atomic": "npx tsx --test scripts/test-ot-1-1-execution-order-atomic.mjs",
     "test:ot-1-2-vencidas-execution-order": "npx tsx --test scripts/test-ot-1-2-vencidas-execution-order.mjs",
     "test:ot-1-3-location": "npx tsx --test scripts/test-ot-1-3-location.mjs",

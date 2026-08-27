@@ -1,6 +1,7 @@
 import type { TaskInsert, TaskRow, TaskUpdate } from "@/lib/supabase/database.aliases"
 import type { Json } from "@/lib/supabase/database.types"
 import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
+import { normalizeScheduledTimeForDb } from "@/lib/tasks/scheduling"
 import { getInitialTaskStatus } from "@/lib/tasks/task-status-workflow"
 import { normalizeTaskStatusFromDatabase } from "@/lib/tasks/task-archived-status"
 import type { ChecklistItem, OperationalStep, Task, TaskStatus } from "@/lib/types/tasks"
@@ -154,7 +155,7 @@ export function mapCreatePayloadToInsert(payload: CreateTaskPayload): TaskInsert
     crew: payload.crew.trim(),
     start_date: payload.startDate,
     due_date: payload.dueDate,
-    scheduled_time: payload.scheduledTime ?? null,
+    scheduled_time: normalizeScheduledTimeForDb(payload.scheduledTime),
     estimated_duration: payload.estimatedDuration.trim(),
     checklist: payload.checklist,
     operational_steps: (payload.operationalSteps ?? []) as Json,
@@ -252,13 +253,15 @@ export function mapUpdatePayloadToUpdate(payload: UpdateTaskPayload): TaskUpdate
   if (payload.startDate !== undefined) update.start_date = payload.startDate
   if (payload.dueDate !== undefined) update.due_date = payload.dueDate
   if (payload.scheduledTime !== undefined) {
-    update.scheduled_time = payload.scheduledTime
+    update.scheduled_time = normalizeScheduledTimeForDb(payload.scheduledTime)
   }
   if (payload.originalScheduledDate !== undefined) {
     update.original_scheduled_date = payload.originalScheduledDate
   }
   if (payload.originalScheduledTime !== undefined) {
-    update.original_scheduled_time = payload.originalScheduledTime
+    update.original_scheduled_time = normalizeScheduledTimeForDb(
+      payload.originalScheduledTime
+    )
   }
   if (payload.rescheduledBy !== undefined) {
     update.rescheduled_by = payload.rescheduledBy?.trim() || ""
