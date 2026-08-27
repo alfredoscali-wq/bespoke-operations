@@ -280,25 +280,38 @@ function drawIdentificationBlock(
   }
 
   const metaLineMm = billingPxToMm(L.type.identMetaValuePx * 1.375)
-  const valueWidth = Math.max(24, (right - contentLeft) * 0.58)
+  const identInner = right - contentLeft
+  const usable = Math.max(24, identInner - L.header.metaGapMm)
+  const valueWidth = (usable * L.header.metaValuePercent) / 100
+  const labelWidth = (usable * L.header.metaLabelPercent) / 100
   for (const [label, value] of rows) {
-    doc.setFont("helvetica", "normal")
-    doc.setFontSize(billingPxToPt(L.type.identMetaLabelPx))
-    doc.setTextColor(...MUTED)
-    doc.text(label, contentLeft, cursor)
-    doc.setFont("helvetica", "bold")
-    doc.setFontSize(billingPxToPt(L.type.identMetaValuePx))
-    doc.setTextColor(...INK)
+    const labelLines = doc.splitTextToSize(
+      pdfSafeText(label),
+      labelWidth
+    ) as string[]
     const valueLines = doc.splitTextToSize(
       pdfSafeText(value),
       valueWidth
     ) as string[]
-    doc.text(valueLines[0] ?? value, right, cursor, { align: "right" })
-    for (const extra of valueLines.slice(1)) {
+    const lineCount = Math.max(labelLines.length, valueLines.length, 1)
+    for (let index = 0; index < lineCount; index += 1) {
+      const labelLine = labelLines[index]
+      const valueLine = valueLines[index]
+      if (labelLine) {
+        doc.setFont("helvetica", "normal")
+        doc.setFontSize(billingPxToPt(L.type.identMetaLabelPx))
+        doc.setTextColor(...MUTED)
+        doc.text(labelLine, contentLeft, cursor)
+      }
+      if (valueLine) {
+        doc.setFont("helvetica", "bold")
+        doc.setFontSize(billingPxToPt(L.type.identMetaValuePx))
+        doc.setTextColor(...INK)
+        doc.text(valueLine, right, cursor, { align: "right" })
+      }
       cursor += metaLineMm
-      doc.text(extra, right, cursor, { align: "right" })
     }
-    cursor += metaLineMm + L.header.metaRowMm
+    cursor += L.header.metaRowMm
   }
 
   doc.setTextColor(...INK)

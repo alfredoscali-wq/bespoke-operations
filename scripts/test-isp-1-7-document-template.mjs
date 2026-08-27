@@ -669,4 +669,8 @@ test("26. preview y PDF usan el mismo layout", () => {
   assert.match(pdfSource, /L\.customer\.widthMm/)
   assert.match(pdfSource, /L\.header\.afterHeaderMm/)
   assert.match(pdfSource, /logoPosition === "center"/)
+  assert.equal(BILLING_DOCUMENT_LAYOUT.header.metaLabelPercent, 46)
+  assert.equal(BILLING_DOCUMENT_LAYOUT.header.metaValuePercent, 54)
+  assert.match(sheet, /metaLabelPercent/)
+  assert.match(pdfSource, /pdfSafeText\(label\)/)
 })

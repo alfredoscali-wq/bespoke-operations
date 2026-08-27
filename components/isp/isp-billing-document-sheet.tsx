@@ -133,9 +133,15 @@ function IdentificationMetaRow({
   value: string
 }) {
   return (
-    <div className="flex items-baseline justify-between gap-6">
-      <dt className="text-[10.5px] text-neutral-500">{label}</dt>
-      <dd className="max-w-[58%] text-right text-[11px] font-semibold text-neutral-900">
+    <div
+      className="grid items-start"
+      style={{
+        gridTemplateColumns: `minmax(0, ${L.header.metaLabelPercent}fr) minmax(0, ${L.header.metaValuePercent}fr)`,
+        columnGap: L.header.metaGapPx,
+      }}
+    >
+      <dt className="text-[10.5px] leading-snug text-neutral-500">{label}</dt>
+      <dd className="text-right text-[11px] leading-snug font-semibold text-neutral-900">
         {value}
       </dd>
     </div>
@@ -253,6 +259,7 @@ export function IspBillingDocumentSheet({
       data-billing-document-sheet="true"
       className="flex flex-col bg-white text-[#1c2028] shadow-[0_12px_40px_rgba(15,23,42,0.10)]"
       style={{
+        width: "210mm",
         minHeight: "297mm",
         padding: `${L.margin.topMm}mm ${L.margin.xMm}mm ${L.margin.bottomMm}mm`,
       }}
