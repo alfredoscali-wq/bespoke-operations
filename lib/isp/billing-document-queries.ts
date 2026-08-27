@@ -88,13 +88,8 @@ async function replaceDocumentItems(
   documentId: string,
   draftItems: IspBillingDocumentDraftInput["items"]
 ) {
-  const totals = calculateBillingTotals(
-    itemsFromDraft(draftItems).map((item) => ({
-      quantity: item.quantity,
-      unitPrice: item.unitPrice,
-      discount: item.discount,
-    }))
-  )
+  const prepared = itemsFromDraft(draftItems)
+  const totals = calculateBillingTotals(prepared)
 
   const { error: deleteError } = await client
     .from("isp_billing_document_items")
@@ -108,7 +103,7 @@ async function replaceDocumentItems(
       .from("isp_billing_document_items")
       .insert(
         totals.lines.map((line, index) => {
-          const draft = itemsFromDraft(draftItems)[index]
+          const draft = prepared[index]
           return {
             company_id: companyId,
             document_id: documentId,
@@ -119,7 +114,7 @@ async function replaceDocumentItems(
             discount: line.discount,
             taxable_base: line.taxableBase,
             tax_amount: line.taxAmount,
-            tax_type: "",
+            tax_type: line.taxType,
             tax_rate: line.taxRate,
             line_total: line.lineTotal,
             sort_order: index,
@@ -339,13 +334,7 @@ export async function createIspBillingDocument(
   )
   void customer
 
-  const totals = calculateBillingTotals(
-    itemsFromDraft(draft.items).map((item) => ({
-      quantity: item.quantity,
-      unitPrice: item.unitPrice,
-      discount: item.discount,
-    }))
-  )
+  const totals = calculateBillingTotals(itemsFromDraft(draft.items))
 
   const { data, error } = await client
     .from("isp_billing_documents")

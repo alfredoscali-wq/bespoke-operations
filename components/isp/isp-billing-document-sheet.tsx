@@ -1,6 +1,9 @@
 import type { ReactNode } from "react"
+import { Globe, Mail, MapPin, Phone, type LucideIcon } from "lucide-react"
 
 import {
+  BILLING_DOCUMENT_QR_RESERVED_LABEL,
+  BILLING_DOCUMENT_QR_ZONE_LABEL,
   BILLING_DOCUMENT_TABLE_COLUMNS,
   type BillingDocumentTemplateModel,
 } from "@/lib/isp/billing-document-template"
@@ -8,7 +11,7 @@ import { cn } from "@/lib/utils"
 
 function SectionLabel({ children }: { children: ReactNode }) {
   return (
-    <p className="text-[9px] font-medium tracking-[0.18em] text-primary uppercase">
+    <p className="text-[9px] font-semibold tracking-[0.22em] text-primary uppercase">
       {children}
     </p>
   )
@@ -17,7 +20,7 @@ function SectionLabel({ children }: { children: ReactNode }) {
 function Hairline({ accent = false }: { accent?: boolean }) {
   return (
     <div
-      className={cn("h-px w-full", accent ? "bg-primary/45" : "bg-neutral-200")}
+      className={cn("h-px w-full", accent ? "bg-primary/35" : "bg-neutral-200")}
     />
   )
 }
@@ -34,94 +37,156 @@ function IssuerLogo({
     <img
       src={model.issuer.logoUrl}
       alt=""
-      className={cn("h-11 w-auto max-w-[140px] object-contain", className)}
+      className={cn(
+        "h-[64px] w-auto max-w-[220px] object-contain object-left",
+        className
+      )}
     />
+  )
+}
+
+function IssuerLine({
+  icon: Icon,
+  children,
+}: {
+  icon?: LucideIcon
+  children: ReactNode
+}) {
+  return (
+    <p className="flex items-start gap-2 text-[11px] leading-[1.55] text-neutral-500">
+      {Icon ? (
+        <Icon
+          aria-hidden="true"
+          className="mt-0.5 size-3 shrink-0 text-primary"
+          strokeWidth={1.75}
+        />
+      ) : null}
+      <span>{children}</span>
+    </p>
   )
 }
 
 function IssuerBlock({ model }: { model: BillingDocumentTemplateModel }) {
   const position = model.issuer.logoPosition
   const logo = <IssuerLogo model={model} />
-  const text = (
-    <div className="min-w-0 space-y-1">
-      <p className="text-[15px] leading-tight font-semibold tracking-tight text-neutral-900">
-        {model.issuer.legalName}
-      </p>
-      <p className="text-[11px] text-neutral-600">
-        CUIT {model.issuer.taxId}
-        {model.issuer.vatConditionLabel !== "—"
-          ? ` · ${model.issuer.vatConditionLabel}`
-          : ""}
-      </p>
-      {model.issuer.addressLine ? (
-        <p className="text-[11px] text-neutral-500">{model.issuer.addressLine}</p>
-      ) : null}
-      {model.issuer.localityLine ? (
-        <p className="text-[11px] text-neutral-500">{model.issuer.localityLine}</p>
-      ) : null}
-      {model.issuer.phone || model.issuer.email ? (
-        <p className="text-[11px] text-neutral-500">
-          {[model.issuer.phone, model.issuer.email].filter(Boolean).join(" · ")}
-        </p>
-      ) : null}
-    </div>
-  )
-
-  if (!logo) return text
-
-  if (position === "center") {
-    return (
-      <div className="space-y-3">
-        <div className="flex justify-center">{logo}</div>
-        {text}
-      </div>
-    )
-  }
-
-  if (position === "right") {
-    return (
-      <div className="flex items-start justify-between gap-4">
-        {text}
-        {logo}
-      </div>
-    )
-  }
 
   return (
-    <div className="flex items-start gap-4">
-      {logo}
-      {text}
+    <div className="min-w-0 space-y-3.5">
+      {logo ? (
+        <div
+          className={cn(
+            position === "center" && "flex justify-center",
+            position === "right" && "flex justify-end"
+          )}
+        >
+          {logo}
+        </div>
+      ) : null}
+      <div className="space-y-1.5 text-left">
+        <p className="text-[15.5px] leading-snug font-semibold tracking-tight text-neutral-900">
+          {model.issuer.legalName}
+        </p>
+        <p className="text-[11px] text-neutral-600">CUIT {model.issuer.taxId}</p>
+        {model.issuer.vatConditionLabel !== "—" ? (
+          <p className="text-[11px] text-neutral-600">
+            {model.issuer.vatConditionLabel}
+          </p>
+        ) : null}
+        {model.issuer.addressLine ? (
+          <IssuerLine icon={MapPin}>{model.issuer.addressLine}</IssuerLine>
+        ) : null}
+        {model.issuer.localityLine ? (
+          <IssuerLine>{model.issuer.localityLine}</IssuerLine>
+        ) : null}
+        {model.issuer.phone ? (
+          <IssuerLine icon={Phone}>{model.issuer.phone}</IssuerLine>
+        ) : null}
+        {model.issuer.email ? (
+          <IssuerLine icon={Mail}>{model.issuer.email}</IssuerLine>
+        ) : null}
+        {model.issuer.website ? (
+          <IssuerLine icon={Globe}>{model.issuer.website}</IssuerLine>
+        ) : null}
+      </div>
     </div>
   )
 }
 
-function IdentificationBox({ model }: { model: BillingDocumentTemplateModel }) {
+function IdentificationMetaRow({
+  label,
+  value,
+}: {
+  label: string
+  value: string
+}) {
   return (
-    <div className="w-[148px] shrink-0 border border-primary/35 px-3 py-3 text-center">
-      {model.identification.letter ? (
-        <p className="text-[34px] leading-none font-semibold tracking-tight text-primary">
-          {model.identification.letter}
-        </p>
-      ) : null}
-      <p
-        className={cn(
-          "font-medium tracking-[0.18em] text-neutral-800 uppercase",
-          model.identification.letter ? "mt-2 text-[9px]" : "text-[11px]"
-        )}
-      >
-        {model.identification.kindLabel}
-      </p>
-      <p className="mt-2 font-mono text-[11px] tracking-wide text-neutral-800">
-        {model.identification.numberLabel}
-      </p>
-      <p className="mt-1 text-[10px] text-neutral-500">
-        {model.identification.issueDateLabel}
-      </p>
-      {model.identification.dueDateLabel ? (
-        <p className="mt-0.5 text-[9px] text-neutral-400">
-          Vence {model.identification.dueDateLabel}
-        </p>
-      ) : null}
+    <div className="flex items-baseline justify-between gap-6">
+      <dt className="text-[10.5px] text-neutral-500">{label}</dt>
+      <dd className="max-w-[58%] text-right text-[11px] font-semibold text-neutral-900">
+        {value}
+      </dd>
+    </div>
+  )
+}
+
+function IdentificationBlock({ model }: { model: BillingDocumentTemplateModel }) {
+  const letter = model.identification.letter
+  const showKindLabel = letter !== "X"
+
+  return (
+    <div className="w-[min(44%,248px)] shrink-0 border-l border-neutral-200 pl-8">
+      <div className="ml-auto w-[148px] border border-neutral-200 px-4 py-3.5 text-center">
+        {showKindLabel ? (
+          <p
+            className={cn(
+              "leading-snug font-semibold text-neutral-900 uppercase",
+              model.identification.kindLabel.length > 10
+                ? "text-[9px] tracking-[0.12em]"
+                : "text-[11px] tracking-[0.22em]"
+            )}
+          >
+            {model.identification.kindLabel}
+          </p>
+        ) : null}
+        {letter ? (
+          <div
+            className={cn(
+              "mx-auto flex size-[52px] items-center justify-center bg-primary",
+              showKindLabel ? "mt-2.5" : "mt-0"
+            )}
+          >
+            <span className="text-[28px] leading-none font-semibold text-white">
+              {letter}
+            </span>
+          </div>
+        ) : null}
+      </div>
+      <dl className="mt-5 space-y-2">
+        <IdentificationMetaRow
+          label="Punto de venta"
+          value={model.identification.pointOfSaleLabel}
+        />
+        <IdentificationMetaRow
+          label="Número"
+          value={model.identification.documentNumberLabel}
+        />
+        <IdentificationMetaRow
+          label="Fecha"
+          value={model.identification.issueDateLabel}
+        />
+        {model.identification.dueDateLabel ? (
+          <IdentificationMetaRow
+            label="Vencimiento"
+            value={model.identification.dueDateLabel}
+          />
+        ) : null}
+        {model.identification.vatConditionLabel ? (
+          <IdentificationMetaRow
+            label="Condición frente al IVA"
+            value={model.identification.vatConditionLabel}
+          />
+        ) : null}
+      </dl>
     </div>
   )
 }
@@ -153,147 +218,196 @@ export function IspBillingDocumentSheet({
   return (
     <article
       data-billing-document-sheet="true"
-      className="bg-white text-[#1c2028] shadow-[0_12px_40px_rgba(15,23,42,0.10)]"
-      style={{ minHeight: "297mm", padding: "14mm 16mm 16mm" }}
+      className="flex flex-col bg-white text-[#1c2028] shadow-[0_12px_40px_rgba(15,23,42,0.10)]"
+      style={{ minHeight: "297mm", padding: "20mm 20mm 18mm" }}
     >
-      <header className="flex items-start justify-between gap-6">
-        <div className="min-w-0 flex-1">
-          <IssuerBlock model={model} />
-        </div>
-        <IdentificationBox model={model} />
-      </header>
+      <div className="flex-1">
+        <header className="flex items-start justify-between gap-12">
+          <div className="min-w-0 flex-1">
+            <IssuerBlock model={model} />
+          </div>
+          <IdentificationBlock model={model} />
+        </header>
 
-      <div className="mt-6">
-        <Hairline accent />
-      </div>
-
-      <section className="mt-6">
-        <SectionLabel>Datos del cliente</SectionLabel>
-        <div className="mt-1.5">
+        <div className="mt-9">
           <Hairline />
         </div>
-        <div className="mt-3 grid gap-x-8 gap-y-2 text-[11px] sm:grid-cols-2">
-          <div className="space-y-1">
-            <p className="text-[13px] font-medium text-neutral-900">
+
+        <section className="mt-7">
+          <SectionLabel>Cliente</SectionLabel>
+          <div className="mt-3.5 max-w-md space-y-1.5 text-[11px] leading-[1.55]">
+            <p className="text-[13.5px] leading-snug font-semibold text-neutral-900">
               {model.customer.name}
             </p>
-            <p className="text-neutral-500">{model.customer.documentLabel}</p>
+            <p className="text-neutral-600">{model.customer.documentLabel}</p>
             {model.customer.vatConditionLabel ? (
-              <p className="text-neutral-500">{model.customer.vatConditionLabel}</p>
+              <p className="text-neutral-600">{model.customer.vatConditionLabel}</p>
             ) : null}
-          </div>
-          <div className="space-y-1 text-neutral-500 sm:text-right">
-            {model.customer.addressLine ? <p>{model.customer.addressLine}</p> : null}
+            {model.customer.addressLine ? (
+              <p className="text-neutral-500">{model.customer.addressLine}</p>
+            ) : null}
             {model.customer.localityLine ? (
-              <p>{model.customer.localityLine}</p>
+              <p className="text-neutral-500">{model.customer.localityLine}</p>
             ) : null}
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section className="mt-8">
-        <SectionLabel>Conceptos</SectionLabel>
-        <div className="mt-3">
-          <table className="w-full border-collapse text-[11px]">
-            <thead>
-              <tr className="bg-primary/10 text-primary">
-                {BILLING_DOCUMENT_TABLE_COLUMNS.map((column) => (
-                  <th
-                    key={column.key}
-                    className={cn(
-                      "border-b border-primary/25 py-2 font-medium tracking-[0.12em] uppercase",
-                      column.key === "quantity" && "w-14 pr-2 text-left",
-                      column.key === "description" && "px-2 text-left",
-                      column.key === "unitPrice" && "w-28 px-2 text-right",
-                      column.key === "amount" && "w-28 pl-2 text-right"
-                    )}
-                  >
-                    {column.label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {model.items.map((item, index) => (
-                <tr
-                  key={`${item.description}-${index}`}
-                  className="border-b border-neutral-200"
-                >
-                  <td className="py-2.5 pr-2 align-top text-neutral-500">
-                    {item.quantityLabel}
-                  </td>
-                  <td className="px-2 py-2.5 align-top text-neutral-800">
-                    {item.description}
-                  </td>
-                  <td className="px-2 py-2.5 align-top text-right tabular-nums text-neutral-500">
-                    {item.unitPriceLabel}
-                  </td>
-                  <td className="py-2.5 pl-2 align-top text-right tabular-nums text-neutral-800">
-                    {item.amountLabel}
-                  </td>
+        <section className="mt-9">
+          <SectionLabel>Conceptos</SectionLabel>
+          <div className="mt-3.5 overflow-hidden">
+            <table className="w-full table-fixed border-collapse text-[10.5px]">
+              <colgroup>
+                <col className="w-[5%]" />
+                <col className="w-[34%]" />
+                <col className="w-[8%]" />
+                <col className="w-[14%]" />
+                <col className="w-[13%]" />
+                <col className="w-[13%]" />
+                <col className="w-[13%]" />
+              </colgroup>
+              <thead>
+                <tr className="bg-primary/10">
+                  {BILLING_DOCUMENT_TABLE_COLUMNS.map((column) => (
+                    <th
+                      key={column.key}
+                      className={cn(
+                        "py-2.5 font-semibold tracking-[0.04em] whitespace-nowrap text-neutral-600 uppercase",
+                        column.align === "right" ? "px-2.5 text-right" : "px-3 text-left",
+                        column.key === "index" && "pl-2.5 pr-1"
+                      )}
+                    >
+                      {column.label}
+                    </th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <dl className="ml-auto mt-6 w-full max-w-[240px] space-y-1.5 text-[11px]">
-        {model.totals.map((row) => (
-          <div
-            key={row.label}
-            className={cn(
-              "flex items-baseline justify-between gap-6",
-              row.emphasize &&
-                "mt-2 border-t border-neutral-800 pt-2 text-[13px] font-semibold tracking-wide text-neutral-900"
-            )}
-          >
-            <dt className={row.emphasize ? "text-neutral-900" : "text-neutral-500"}>
-              {row.label}
-            </dt>
-            <dd className="tabular-nums">{row.amountLabel}</dd>
+              </thead>
+              <tbody>
+                {model.items.map((item, index) => (
+                  <tr
+                    key={`${item.description}-${index}`}
+                    className="border-b border-neutral-100"
+                  >
+                    <td className="py-2.5 pr-1.5 pl-2.5 align-top text-right tabular-nums text-neutral-400">
+                      {item.indexLabel}
+                    </td>
+                    <td className="px-3 py-2.5 align-top text-neutral-800">
+                      {item.description}
+                    </td>
+                    <td className="px-2.5 py-2.5 align-top text-right tabular-nums text-neutral-600">
+                      {item.quantityLabel}
+                    </td>
+                    <td className="px-2.5 py-2.5 align-top text-right tabular-nums text-neutral-600">
+                      {item.unitPriceLabel}
+                    </td>
+                    <td
+                      className={cn(
+                        "px-2.5 py-2.5 align-top text-right tabular-nums",
+                        item.hasDiscount ? "text-red-700" : "text-neutral-400"
+                      )}
+                    >
+                      {item.discountLabel}
+                    </td>
+                    <td className="px-2.5 py-2.5 align-top text-right text-neutral-600">
+                      {item.taxLabel}
+                    </td>
+                    <td className="px-2.5 py-2.5 align-top text-right tabular-nums font-medium text-neutral-900">
+                      {item.amountLabel}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        ))}
-      </dl>
-
-      {model.observations ? (
-        <section className="mt-8">
-          <SectionLabel>Observaciones</SectionLabel>
-          <div className="mt-1.5">
-            <Hairline />
-          </div>
-          <p className="mt-3 max-w-xl text-[11px] leading-relaxed text-neutral-600">
-            {model.observations}
-          </p>
         </section>
-      ) : null}
 
-      {model.nonFiscalNotice ? (
-        <p className="mt-10 border border-neutral-900 px-3 py-2.5 text-center text-[11px] font-semibold tracking-[0.16em] text-neutral-900">
-          {model.nonFiscalNotice}
-        </p>
-      ) : null}
+        <dl className="ml-auto mt-10 w-full max-w-[220px] space-y-2.5 text-[11px]">
+          {model.totals.map((row) => (
+            <div
+              key={row.label}
+              className={cn(
+                "flex items-baseline justify-between gap-10",
+                row.variant === "total" &&
+                  "mt-3.5 border-t-2 border-primary pt-3.5 text-[15px] font-semibold tracking-wide text-primary"
+              )}
+            >
+              <dt
+                className={cn(
+                  row.variant === "total" && "text-primary",
+                  row.variant === "default" && "text-neutral-500",
+                  row.variant === "discount" && "text-neutral-500",
+                  row.variant === "tax" && "text-neutral-500"
+                )}
+              >
+                {row.label}
+              </dt>
+              <dd
+                className={cn(
+                  "tabular-nums",
+                  row.variant === "discount" && "text-red-700",
+                  row.variant === "total" && "text-primary"
+                )}
+              >
+                {row.amountLabel}
+              </dd>
+            </div>
+          ))}
+        </dl>
 
-      {model.fiscal.showCae && model.fiscal.cae ? (
-        <section className="mt-10">
-          <SectionLabel>Información fiscal</SectionLabel>
-          <div className="mt-1.5">
-            <Hairline />
-          </div>
-          <div className="mt-3 text-[11px] text-neutral-600">
-            <p>CAE {model.fiscal.cae}</p>
-            {model.fiscal.caeExpiresAtLabel ? (
-              <p>Vto. CAE {model.fiscal.caeExpiresAtLabel}</p>
+        {model.observations ? (
+          <section className="mt-12">
+            <SectionLabel>Observaciones</SectionLabel>
+            <p className="mt-3.5 max-w-lg text-[11px] leading-[1.6] text-neutral-600">
+              {model.observations}
+            </p>
+          </section>
+        ) : null}
+      </div>
+
+      <footer className="mt-14 border-t border-neutral-200 pt-6">
+        <div className="grid grid-cols-[1fr_auto_72px] items-start gap-10">
+          <div className="min-w-0 space-y-2 text-[9px] leading-relaxed text-neutral-400">
+            {model.nonFiscalNotice ? (
+              <p className="font-medium tracking-[0.08em] text-neutral-600 uppercase">
+                {model.nonFiscalNotice}
+              </p>
             ) : null}
+            {model.footerLegend ? <p>{model.footerLegend}</p> : null}
           </div>
-        </section>
-      ) : null}
-
-      {model.footerLegend ? (
-        <p className="mt-10 text-center text-[10px] leading-relaxed text-neutral-400">
-          {model.footerLegend}
-        </p>
-      ) : null}
+          <div className="min-w-[158px] space-y-1.5 text-[10px] text-neutral-500">
+            <p>
+              <span className="text-neutral-400">CAE: </span>
+              <span
+                className={
+                  model.fiscal.showCae ? "font-medium text-neutral-800" : undefined
+                }
+              >
+                {model.fiscal.caeDisplay}
+              </span>
+            </p>
+            <p>
+              <span className="text-neutral-400">Fecha de vencimiento CAE: </span>
+              <span
+                className={
+                  model.fiscal.showCae ? "font-medium text-neutral-800" : undefined
+                }
+              >
+                {model.fiscal.caeExpiresDisplay}
+              </span>
+            </p>
+          </div>
+          <div className="text-center">
+            <p className="mb-1.5 text-[8px] tracking-[0.12em] text-neutral-400 uppercase">
+              {BILLING_DOCUMENT_QR_RESERVED_LABEL}
+            </p>
+            <div
+              data-billing-qr-reserved="true"
+              className="flex size-[72px] items-center justify-center border border-dashed border-neutral-300 text-[8px] tracking-[0.14em] text-neutral-400 uppercase"
+            >
+              {BILLING_DOCUMENT_QR_ZONE_LABEL}
+            </div>
+          </div>
+        </div>
+      </footer>
     </article>
   )
 }

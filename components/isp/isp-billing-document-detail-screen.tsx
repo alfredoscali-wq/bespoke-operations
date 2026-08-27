@@ -28,6 +28,8 @@ import {
   ISP_BILLING_DOCUMENT_ARCA_PENDING,
   ISP_BILLING_DOCUMENT_CANCEL_CONFIRM,
   ISP_BILLING_DOCUMENT_TYPE_LABELS,
+  ISP_BILLING_LINE_TAX_LABELS,
+  isIspBillingLineTaxCode,
 } from "@/lib/isp/billing-constants"
 import { formatCuit, isFiscalBillingDocument } from "@/lib/isp/billing-integrity"
 import {
@@ -286,6 +288,15 @@ export function IspBillingDocumentDetailScreen({
                 <p className="font-medium text-slate-800">{item.description}</p>
                 <p className="text-slate-500">
                   {item.quantity} × {formatBillingMoney(item.unitPrice)}
+                  {item.discount > 0
+                    ? ` · Descuento ${formatBillingMoney(item.discount)}`
+                    : ""}
+                  {isIspBillingLineTaxCode(item.taxType) &&
+                  item.taxType !== "iva_0"
+                    ? ` · ${ISP_BILLING_LINE_TAX_LABELS[item.taxType]}`
+                    : item.taxAmount > 0
+                      ? ` · IVA ${item.taxRate}%`
+                      : ""}
                 </p>
               </div>
               <p className="font-medium">{formatBillingMoney(item.lineTotal)}</p>
@@ -305,7 +316,7 @@ export function IspBillingDocumentDetailScreen({
               <dd>{formatBillingMoney(document.taxTotal)}</dd>
             </div>
             <div className="flex justify-between font-semibold text-slate-900">
-              <dt>Total</dt>
+              <dt>TOTAL</dt>
               <dd>{formatBillingMoney(document.total)}</dd>
             </div>
           </dl>

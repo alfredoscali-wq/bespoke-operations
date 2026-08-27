@@ -1,10 +1,13 @@
 import {
   ISP_BILLING_DOCUMENT_NON_FISCAL_NOTICE,
+  ISP_BILLING_LINE_TAX_LABELS,
+  isIspBillingLineTaxCode,
   type IspBillingDocumentType,
 } from "@/lib/isp/billing-constants"
 import {
   formatBillingDocumentNumber,
   formatBillingMoney,
+  formatIspBillingIvaRateLabel,
   vatConditionLabel,
 } from "@/lib/isp/billing-document-integrity"
 import type { IspBillingDocument } from "@/lib/isp/billing-document-types"
@@ -13,27 +16,45 @@ import {
   DEFAULT_ISP_BILLING_TEMPLATE_SETTINGS,
   parseIspBillingTemplateSettings,
   sanitizeBillingFooterLegend,
+  sanitizeBillingObservationsText,
   type IspBillingLogoPosition,
   type IspBillingTemplateSettings,
 } from "@/lib/isp/billing-template-settings"
-import { formatDateOnly } from "@/lib/dates/date-only"
+import { parseDateOnlyForDisplay } from "@/lib/dates/date-only"
 import type { IspBillingCompanySettingsDraft } from "@/lib/isp/billing-types"
 
 export const BILLING_DOCUMENT_TABLE_COLUMNS = [
-  { key: "quantity", label: "Cant." },
-  { key: "description", label: "Descripción" },
-  { key: "unitPrice", label: "P. unitario" },
-  { key: "amount", label: "Importe" },
+  { key: "index", label: "#", align: "right" },
+  { key: "description", label: "DESCRIPCIÓN", align: "left" },
+  { key: "quantity", label: "CANT.", align: "right" },
+  { key: "unitPrice", label: "PRECIO UNIT.", align: "right" },
+  { key: "discount", label: "DESCUENTO", align: "right" },
+  { key: "tax", label: "IMPUESTO", align: "right" },
+  { key: "amount", label: "IMPORTE", align: "right" },
 ] as const
+
+export const BILLING_DOCUMENT_QR_RESERVED_LABEL =
+  "QR (cuando esté disponible)"
+export const BILLING_DOCUMENT_QR_ZONE_LABEL = "ZONA QR"
+export const BILLING_DOCUMENT_CAE_PLACEHOLDER = "—"
+
+export const BILLING_DOCUMENT_VISUAL = {
+  accent: [37, 99, 235] as [number, number, number],
+  accentSoft: [237, 242, 252] as [number, number, number],
+  ink: [28, 32, 40] as [number, number, number],
+  muted: [108, 114, 126] as [number, number, number],
+  line: [226, 230, 236] as [number, number, number],
+  discount: [185, 28, 28] as [number, number, number],
+}
 
 export const ISP_BILLING_DOCUMENT_IDENTIFICATION: Record<
   IspBillingDocumentType,
-  { letter: "A" | "B" | "C" | null; kindLabel: string }
+  { letter: "A" | "B" | "C" | "X" | null; kindLabel: string }
 > = {
   factura_a: { letter: "A", kindLabel: "FACTURA" },
   factura_b: { letter: "B", kindLabel: "FACTURA" },
   factura_c: { letter: "C", kindLabel: "FACTURA" },
-  comprobante_x: { letter: null, kindLabel: "COMPROBANTE X" },
+  comprobante_x: { letter: "X", kindLabel: "COMPROBANTE X" },
   presupuesto: { letter: null, kindLabel: "PRESUPUESTO" },
   nota_credito: { letter: null, kindLabel: "NOTA DE CRÉDITO" },
   nota_debito: { letter: null, kindLabel: "NOTA DE DÉBITO" },
@@ -75,26 +96,34 @@ export const ISP_BILLING_TEMPLATE_PREVIEW_ITEMS = [
 ] as const
 
 export type BillingDocumentTemplateLine = {
+  indexLabel: string
   quantityLabel: string
   description: string
   unitPriceLabel: string
+  discountLabel: string
+  taxLabel: string
   amountLabel: string
+  hasDiscount: boolean
 }
 
 export type BillingDocumentTemplateTotal = {
   label: string
   amountLabel: string
   emphasize: boolean
+  variant: "default" | "discount" | "tax" | "total"
 }
 
 export type BillingDocumentTemplateModel = {
   documentType: IspBillingDocumentType
   identification: {
-    letter: "A" | "B" | "C" | null
+    letter: "A" | "B" | "C" | "X" | null
     kindLabel: string
     numberLabel: string
+    pointOfSaleLabel: string
+    documentNumberLabel: string
     issueDateLabel: string
     dueDateLabel: string | null
+    vatConditionLabel: string | null
   }
   issuer: {
     legalName: string
@@ -125,6 +154,8 @@ export type BillingDocumentTemplateModel = {
     cae: string | null
     caeExpiresAtLabel: string | null
     showCae: boolean
+    caeDisplay: string
+    caeExpiresDisplay: string
   }
 }
 
@@ -158,14 +189,54 @@ type TemplateItemInput = {
   quantity: number
   description: string
   unitPrice: number
+  discount?: number
   lineTotal: number
   taxAmount: number
   taxRate: number
+  taxType?: string | null
 }
 
 function joinParts(parts: Array<string | null | undefined>): string | null {
   const joined = parts.map((part) => part?.trim() ?? "").filter(Boolean).join(" · ")
   return joined || null
+}
+
+function lineTaxLabel(item: TemplateItemInput): string {
+  if (item.taxRate > 0) return formatIspBillingIvaRateLabel(item.taxRate)
+  const taxType = String(item.taxType ?? "").trim()
+  if (isIspBillingLineTaxCode(taxType)) {
+    if (taxType === "iva_0") return "IVA 0%"
+    return ISP_BILLING_LINE_TAX_LABELS[taxType]
+  }
+  return "—"
+}
+
+function splitDocumentNumber(
+  formattedNumber: string | null,
+  pointOfSaleNumber: number
+): { pointOfSaleLabel: string; documentNumberLabel: string } {
+  const pointOfSaleLabel = pointOfSaleNumber
+    ? String(pointOfSaleNumber).padStart(4, "0")
+    : "—"
+  const formatted = formattedNumber?.trim() ?? ""
+  const match = formatted.match(/^(\d{4})-(\d{8})$/)
+  if (match) {
+    return { pointOfSaleLabel: match[1] ?? pointOfSaleLabel, documentNumberLabel: match[2] ?? "—" }
+  }
+  if (!formatted || formatted.endsWith("-00000000")) {
+    return { pointOfSaleLabel, documentNumberLabel: "—" }
+  }
+  return { pointOfSaleLabel, documentNumberLabel: formatted }
+}
+
+function formatBillingDocumentDate(value: string): string {
+  const parsed = parseDateOnlyForDisplay(value)
+  if (Number.isNaN(parsed.getTime())) return value
+  return new Intl.DateTimeFormat("es-AR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(parsed)
 }
 
 function formatQuantity(value: number): string {
@@ -202,9 +273,10 @@ function buildTaxRows(input: {
 
   if (grouped.size > 0) {
     return [...grouped.entries()].map(([rate, amount]) => ({
-      label: rate > 0 ? `IVA ${rate}%` : "Impuestos",
+      label: rate > 0 ? formatIspBillingIvaRateLabel(rate) : "Impuestos",
       amountLabel: formatBillingMoney(amount),
       emphasize: false,
+      variant: "tax" as const,
     }))
   }
 
@@ -213,6 +285,7 @@ function buildTaxRows(input: {
       label: "Impuestos",
       amountLabel: formatBillingMoney(input.taxTotal),
       emphasize: false,
+      variant: "tax",
     },
   ]
 }
@@ -250,9 +323,23 @@ export function buildBillingDocumentTemplateModel(input: {
     (input.pointOfSaleNumber
       ? `${String(input.pointOfSaleNumber).padStart(4, "0")}-00000000`
       : "Sin número")
+  const splitNumber = splitDocumentNumber(
+    input.formattedNumber,
+    input.pointOfSaleNumber
+  )
   const footerLegend = sanitizeBillingFooterLegend(template.footerLegend)
-  const observations = input.observations.trim()
+  const defaultObservations = sanitizeBillingObservationsText(
+    template.observationsText
+  )
+  const observations = input.observations.trim() || defaultObservations
   const cae = input.cae?.trim() || null
+  const issuerVatLabel = vatConditionLabel(input.issuer.vatCondition)
+  const issuerVatConditionLabel =
+    issuerVatLabel && issuerVatLabel !== "—" ? issuerVatLabel : null
+  const caeExpiresAtLabel =
+    cae && input.caeExpiresAt
+      ? formatBillingDocumentDate(input.caeExpiresAt)
+      : null
 
   return {
     documentType: input.documentType,
@@ -260,10 +347,13 @@ export function buildBillingDocumentTemplateModel(input: {
       letter: identification.letter,
       kindLabel: identification.kindLabel,
       numberLabel,
-      issueDateLabel: formatDateOnly(input.issueDate, { locale: "es-AR" }),
+      pointOfSaleLabel: splitNumber.pointOfSaleLabel,
+      documentNumberLabel: splitNumber.documentNumberLabel,
+      issueDateLabel: formatBillingDocumentDate(input.issueDate),
       dueDateLabel: input.dueDate
-        ? formatDateOnly(input.dueDate, { locale: "es-AR" })
+        ? formatBillingDocumentDate(input.dueDate)
         : null,
+      vatConditionLabel: issuerVatConditionLabel,
     },
     issuer: {
       legalName: input.issuer.legalName.trim() || "Empresa facturadora",
@@ -299,24 +389,33 @@ export function buildBillingDocumentTemplateModel(input: {
         input.customer.postalCode,
       ]),
     },
-    items: input.items.map((item) => ({
-      quantityLabel: formatQuantity(item.quantity),
-      description: item.description.trim() || "—",
-      unitPriceLabel: formatBillingMoney(item.unitPrice),
-      amountLabel: formatBillingMoney(item.lineTotal),
-    })),
+    items: input.items.map((item, index) => {
+      const discount = item.discount ?? 0
+      return {
+        indexLabel: String(index + 1),
+        quantityLabel: formatQuantity(item.quantity),
+        description: item.description.trim() || "—",
+        unitPriceLabel: formatBillingMoney(item.unitPrice),
+        discountLabel: discount > 0 ? formatBillingMoney(discount) : "—",
+        taxLabel: lineTaxLabel(item),
+        amountLabel: formatBillingMoney(item.lineTotal),
+        hasDiscount: discount > 0,
+      }
+    }),
     totals: [
       {
         label: "Subtotal",
         amountLabel: formatBillingMoney(input.subtotal),
         emphasize: false,
+        variant: "default",
       },
       ...(input.discountTotal > 0
         ? [
             {
               label: "Descuentos",
-              amountLabel: formatBillingMoney(input.discountTotal),
+              amountLabel: `− ${formatBillingMoney(input.discountTotal)}`,
               emphasize: false,
+              variant: "discount" as const,
             },
           ]
         : []),
@@ -325,6 +424,7 @@ export function buildBillingDocumentTemplateModel(input: {
         label: "TOTAL",
         amountLabel: formatBillingMoney(input.total),
         emphasize: true,
+        variant: "total",
       },
     ],
     observations:
@@ -335,10 +435,10 @@ export function buildBillingDocumentTemplateModel(input: {
       : ISP_BILLING_DOCUMENT_NON_FISCAL_NOTICE,
     fiscal: {
       cae,
-      caeExpiresAtLabel: cae && input.caeExpiresAt
-        ? formatDateOnly(input.caeExpiresAt, { locale: "es-AR" })
-        : null,
+      caeExpiresAtLabel,
       showCae: Boolean(cae),
+      caeDisplay: cae || BILLING_DOCUMENT_CAE_PLACEHOLDER,
+      caeExpiresDisplay: caeExpiresAtLabel || BILLING_DOCUMENT_CAE_PLACEHOLDER,
     },
   }
 }
@@ -381,9 +481,11 @@ export function buildBillingDocumentTemplateModelFromDocument(
       quantity: item.quantity,
       description: item.description,
       unitPrice: item.unitPrice,
+      discount: item.discount,
       lineTotal: item.lineTotal,
       taxAmount: item.taxAmount,
       taxRate: item.taxRate,
+      taxType: item.taxType,
     })),
     subtotal: document.subtotal,
     discountTotal: document.discountTotal,
@@ -446,7 +548,9 @@ export function buildBillingDocumentPreviewModel(input: {
     discountTotal: 0,
     taxTotal: 0,
     total: subtotal,
-    observations: ISP_BILLING_TEMPLATE_PREVIEW_OBSERVATIONS,
+    observations:
+      input.draft.templateSettings.observationsText.trim() ||
+      ISP_BILLING_TEMPLATE_PREVIEW_OBSERVATIONS,
     cae: null,
     caeExpiresAt: null,
     templateSettings: input.draft.templateSettings,

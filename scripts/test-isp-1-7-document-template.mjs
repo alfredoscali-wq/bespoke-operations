@@ -303,6 +303,16 @@ test("7. mostrar/ocultar observaciones", () => {
   })
   assert.ok(shown.observations)
   assert.equal(hidden.observations, null)
+  const custom = buildBillingDocumentPreviewModel({
+    draft: completeDraft({
+      templateSettings: {
+        ...DEFAULT_ISP_BILLING_TEMPLATE_SETTINGS,
+        observationsText: "Muchas gracias por su confianza.",
+      },
+    }),
+    documentType: "factura_b",
+  })
+  assert.equal(custom.observations, "Muchas gracias por su confianza.")
 })
 
 test("8. leyenda configurable", () => {
@@ -317,6 +327,8 @@ test("8. leyenda configurable", () => {
   })
   assert.equal(model.footerLegend, "Gracias por confiar en Bespoke.")
   assert.match(screen, /Leyenda inferior personalizada/)
+  assert.match(screen, /htmlFor="billing-observations-text"/)
+  assert.match(screen, /Mostrar email/)
   assert.equal(ISP_BILLING_FOOTER_LEGEND_MAX_LENGTH, 240)
 })
 
@@ -383,7 +395,9 @@ test("14. Comprobante X", () => {
     draft: completeDraft(),
     documentType: "comprobante_x",
   })
+  assert.equal(model.identification.letter, "X")
   assert.equal(model.identification.kindLabel, "COMPROBANTE X")
+  assert.match(sheet, /letter !== "X"/)
   assert.equal(model.nonFiscalNotice, ISP_BILLING_DOCUMENT_NON_FISCAL_NOTICE)
 })
 
@@ -426,14 +440,17 @@ test("17. documento no fiscal muestra leyenda", () => {
   assert.doesNotMatch(screen, /ocultar leyenda no fiscal/)
 })
 
-test("18. CAE NULL no muestra CAE", () => {
+test("18. CAE NULL no inventa CAE ni QR", () => {
   const model = buildBillingDocumentTemplateModelFromDocument(sampleDocument())
   assert.equal(model.fiscal.showCae, false)
   assert.equal(model.fiscal.cae, null)
+  assert.equal(model.fiscal.caeDisplay, "—")
   const text = pdfText(buildBillingDocumentPdf(sampleDocument()))
-  assert.doesNotMatch(text, /\bCAE\b/)
-  assert.doesNotMatch(sheet, /QR/)
+  assert.doesNotMatch(text, /CAE \d{8,}/)
+  assert.match(sheet, /data-billing-qr-reserved/)
+  assert.match(sheet, /BILLING_DOCUMENT_QR_ZONE_LABEL/)
   assert.doesNotMatch(pdfSource, /qrcode|QR ficticio/i)
+  assert.doesNotMatch(pdfSource, /addImage\([^\)]*qr/i)
 })
 
 test("19. snapshot histórico se respeta", () => {
@@ -497,7 +514,11 @@ test("22. PDF utiliza la misma estructura", () => {
   assert.match(text, /PRESUPUESTO/)
   assert.match(text, /Juan Pérez/)
   assert.match(text, /Internet FTTH 100 Mbps/)
-  assert.match(text, /Cant\./)
+  assert.match(text, /CANT\./)
+  assert.match(text, /DESCRIPCIÓN|DESCRIPCI/)
+  assert.match(text, /PRECIO UNIT\./)
+  assert.match(text, /CLIENTE/)
+  assert.match(text, /CONCEPTOS/)
   assert.match(text, /TOTAL/)
   assert.match(text, /DOCUMENTO NO VÁLIDO COMO FACTURA/)
   for (const column of BILLING_DOCUMENT_TABLE_COLUMNS) {
@@ -599,6 +620,7 @@ test("25. configuración inválida rechazada", () => {
   assert.deepEqual(Object.keys(serialized).sort(), [
     "footer_legend",
     "logo_position",
+    "observations_text",
     "show_address",
     "show_email",
     "show_logo",

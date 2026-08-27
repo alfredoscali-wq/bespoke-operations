@@ -2,6 +2,7 @@ export const ISP_BILLING_LOGO_POSITIONS = ["left", "center", "right"] as const
 export type IspBillingLogoPosition = (typeof ISP_BILLING_LOGO_POSITIONS)[number]
 
 export const ISP_BILLING_FOOTER_LEGEND_MAX_LENGTH = 240
+export const ISP_BILLING_OBSERVATIONS_TEXT_MAX_LENGTH = 240
 export const ISP_BILLING_LOGO_URL_MAX_LENGTH = 2048
 
 export const ISP_BILLING_TEMPLATE_INVALID_MESSAGE =
@@ -13,6 +14,7 @@ export const ISP_BILLING_TEMPLATE_LOGO_POSITION_MESSAGE =
 export const ISP_BILLING_TEMPLATE_FOOTER_HTML_MESSAGE =
   "La leyenda inferior no puede incluir HTML."
 export const ISP_BILLING_TEMPLATE_FOOTER_LENGTH_MESSAGE = `La leyenda inferior supera el máximo de ${ISP_BILLING_FOOTER_LEGEND_MAX_LENGTH} caracteres.`
+export const ISP_BILLING_TEMPLATE_OBSERVATIONS_LENGTH_MESSAGE = `Las observaciones superan el máximo de ${ISP_BILLING_OBSERVATIONS_TEXT_MAX_LENGTH} caracteres.`
 export const ISP_BILLING_LOGO_URL_INVALID_MESSAGE =
   "La URL del logo no es válida."
 
@@ -23,6 +25,7 @@ export type IspBillingTemplateSettings = {
   showEmail: boolean
   showAddress: boolean
   showObservations: boolean
+  observationsText: string
   footerLegend: string
 }
 
@@ -39,6 +42,7 @@ export const DEFAULT_ISP_BILLING_TEMPLATE_SETTINGS: IspBillingTemplateSettings =
     showEmail: true,
     showAddress: true,
     showObservations: true,
+    observationsText: "",
     footerLegend: "",
   }
 
@@ -49,6 +53,7 @@ const API_KEYS = [
   "showEmail",
   "showAddress",
   "showObservations",
+  "observationsText",
   "footerLegend",
 ] as const
 
@@ -59,6 +64,7 @@ const DB_KEYS = [
   "show_email",
   "show_address",
   "show_observations",
+  "observations_text",
   "footer_legend",
 ] as const
 
@@ -92,12 +98,20 @@ export function isAllowedBillingLogoUrl(value: string): boolean {
 }
 
 export function sanitizeBillingFooterLegend(value: string): string {
+  return sanitizeBillingPlainText(value, ISP_BILLING_FOOTER_LEGEND_MAX_LENGTH)
+}
+
+export function sanitizeBillingObservationsText(value: string): string {
+  return sanitizeBillingPlainText(value, ISP_BILLING_OBSERVATIONS_TEXT_MAX_LENGTH)
+}
+
+function sanitizeBillingPlainText(value: string, maxLength: number): string {
   return value
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
     .replace(/<[^>]*>/g, "")
     .replace(/[<>]/g, "")
     .trim()
-    .slice(0, ISP_BILLING_FOOTER_LEGEND_MAX_LENGTH)
+    .slice(0, maxLength)
 }
 
 function footerLooksLikeHtml(value: string): boolean {
@@ -124,6 +138,11 @@ function readLegend(record: Record<string, unknown>): string {
   return typeof value === "string" ? sanitizeBillingFooterLegend(value) : ""
 }
 
+function readObservationsText(record: Record<string, unknown>): string {
+  const value = record.observations_text ?? record.observationsText
+  return typeof value === "string" ? sanitizeBillingObservationsText(value) : ""
+}
+
 export function parseIspBillingTemplateSettings(
   raw: unknown
 ): IspBillingTemplateSettings {
@@ -146,6 +165,7 @@ export function parseIspBillingTemplateSettings(
       "showObservations",
       true
     ),
+    observationsText: readObservationsText(raw),
     footerLegend: readLegend(raw),
   }
 }
@@ -159,6 +179,7 @@ export function serializeIspBillingTemplateSettings(
   show_email: boolean
   show_address: boolean
   show_observations: boolean
+  observations_text: string
   footer_legend: string
 } {
   const parsed = parseIspBillingTemplateSettings(settings)
@@ -169,6 +190,7 @@ export function serializeIspBillingTemplateSettings(
     show_email: parsed.showEmail,
     show_address: parsed.showAddress,
     show_observations: parsed.showObservations,
+    observations_text: sanitizeBillingObservationsText(parsed.observationsText),
     footer_legend: sanitizeBillingFooterLegend(parsed.footerLegend),
   }
 }
@@ -252,6 +274,28 @@ export function validateIspBillingTemplateSettingsInput(
       issues.push({
         field: "templateSettings.footerLegend",
         message: ISP_BILLING_TEMPLATE_FOOTER_LENGTH_MESSAGE,
+      })
+    }
+  }
+
+  const observations = raw.observationsText ?? raw.observations_text
+  if (observations !== undefined) {
+    if (typeof observations !== "string") {
+      issues.push({
+        field: "templateSettings.observationsText",
+        message: ISP_BILLING_TEMPLATE_INVALID_MESSAGE,
+      })
+    } else if (footerLooksLikeHtml(observations)) {
+      issues.push({
+        field: "templateSettings.observationsText",
+        message: ISP_BILLING_TEMPLATE_FOOTER_HTML_MESSAGE,
+      })
+    } else if (
+      observations.trim().length > ISP_BILLING_OBSERVATIONS_TEXT_MAX_LENGTH
+    ) {
+      issues.push({
+        field: "templateSettings.observationsText",
+        message: ISP_BILLING_TEMPLATE_OBSERVATIONS_LENGTH_MESSAGE,
       })
     }
   }

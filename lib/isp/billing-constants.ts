@@ -155,6 +155,67 @@ export const ISP_BILLING_DOCUMENT_ITEMS_REQUIRED =
   "El comprobante debe tener al menos un concepto."
 export const ISP_BILLING_DOCUMENT_ITEM_DESCRIPTION_REQUIRED =
   "Cada concepto necesita una descripción."
+export const ISP_BILLING_DOCUMENT_ITEM_QUANTITY_INVALID =
+  "La cantidad no es un número válido."
+export const ISP_BILLING_DOCUMENT_ITEM_QUANTITY_POSITIVE =
+  "La cantidad debe ser mayor a 0."
+export const ISP_BILLING_DOCUMENT_ITEM_UNIT_PRICE_INVALID =
+  "El precio unitario no es un número válido."
+export const ISP_BILLING_DOCUMENT_ITEM_UNIT_PRICE_NEGATIVE =
+  "El precio unitario no puede ser negativo."
+export const ISP_BILLING_DOCUMENT_ITEM_DISCOUNT_INVALID =
+  "El descuento no es un número válido."
+export const ISP_BILLING_DOCUMENT_ITEM_DISCOUNT_NEGATIVE =
+  "El descuento no puede ser negativo."
+export const ISP_BILLING_DOCUMENT_ITEM_DISCOUNT_EXCEEDS =
+  "El descuento no puede superar el importe bruto de la línea."
+export const ISP_BILLING_DOCUMENT_ITEM_TAX_INVALID =
+  "El impuesto de la línea no es válido."
+
+export const ISP_BILLING_LINE_TAX_CODES = [
+  "iva_21",
+  "iva_105",
+  "iva_27",
+  "iva_0",
+  "exento",
+  "no_gravado",
+] as const
+
+export type IspBillingLineTaxCode =
+  (typeof ISP_BILLING_LINE_TAX_CODES)[number]
+
+export const ISP_BILLING_DEFAULT_LINE_TAX_CODE: IspBillingLineTaxCode =
+  "iva_0"
+
+export const ISP_BILLING_LINE_TAX_RATES: Record<
+  IspBillingLineTaxCode,
+  number
+> = {
+  iva_21: 21,
+  iva_105: 10.5,
+  iva_27: 27,
+  iva_0: 0,
+  exento: 0,
+  no_gravado: 0,
+}
+
+export const ISP_BILLING_LINE_TAX_LABELS: Record<
+  IspBillingLineTaxCode,
+  string
+> = {
+  iva_21: "21%",
+  iva_105: "10,5%",
+  iva_27: "27%",
+  iva_0: "0%",
+  exento: "Exento",
+  no_gravado: "No gravado",
+}
+
+export function isIspBillingLineTaxCode(
+  value: string
+): value is IspBillingLineTaxCode {
+  return (ISP_BILLING_LINE_TAX_CODES as readonly string[]).includes(value)
+}
 export const ISP_BILLING_DOCUMENT_ISSUER_REQUIRED =
   "Falta la empresa facturadora. Completá Sistema → Configuración → Facturación."
 export const ISP_BILLING_DOCUMENT_POS_REQUIRED = "Falta el punto de venta."

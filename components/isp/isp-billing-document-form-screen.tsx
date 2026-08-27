@@ -31,14 +31,20 @@ import {
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import {
+  ISP_BILLING_DEFAULT_LINE_TAX_CODE,
   ISP_BILLING_DOCUMENT_TYPE_LABELS,
   ISP_BILLING_DOCUMENT_TYPES,
+  ISP_BILLING_LINE_TAX_CODES,
+  ISP_BILLING_LINE_TAX_LABELS,
+  isIspBillingLineTaxCode,
 } from "@/lib/isp/billing-constants"
 import { formatCuit } from "@/lib/isp/billing-integrity"
 import {
+  calculateBillingLine,
   calculateBillingTotals,
   emptyDocumentItemDraft,
   formatBillingMoney,
+  resolveIspBillingLineTax,
   suggestedServiceConcept,
   todayIsoDate,
   vatConditionLabel,
@@ -53,6 +59,17 @@ import type {
 import { canWriteIspBilling } from "@/lib/isp/permissions"
 import { useAuth } from "@/components/auth/auth-provider"
 
+function FieldHelp({ children }: { children: string }) {
+  return <p className="text-xs text-slate-400">{children}</p>
+}
+
+function lineTaxValue(taxType: string | null | undefined): string {
+  const value = String(taxType ?? "").trim()
+  return isIspBillingLineTaxCode(value)
+    ? value
+    : ISP_BILLING_DEFAULT_LINE_TAX_CODE
+}
+
 function buildPreviewDocument(input: {
   documentType: string
   issueDate: string
@@ -65,9 +82,11 @@ function buildPreviewDocument(input: {
   if (!input.context || !input.customer) return null
   const totals = calculateBillingTotals(
     input.items.map((item) => ({
-      quantity: Number(item.quantity) || 0,
-      unitPrice: Number(item.unitPrice) || 0,
-      discount: Number(item.discount) || 0,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      discount: item.discount,
+      taxType: item.taxType,
+      taxRate: item.taxRate,
     }))
   )
   const snapshot = input.customer.snapshot
@@ -130,7 +149,7 @@ function buildPreviewDocument(input: {
       discount: line.discount,
       taxableBase: line.taxableBase,
       taxAmount: line.taxAmount,
-      taxType: "",
+      taxType: line.taxType,
       taxRate: line.taxRate,
       lineTotal: line.lineTotal,
       sortOrder: index,
@@ -205,6 +224,10 @@ export function IspBillingDocumentFormScreen({
                 quantity: item.quantity,
                 unitPrice: item.unitPrice,
                 discount: item.discount,
+                taxType: resolveIspBillingLineTax({
+                  taxType: item.taxType,
+                  taxRate: item.taxRate,
+                }).taxType,
               }))
             : [emptyDocumentItemDraft()]
         )
@@ -281,9 +304,11 @@ export function IspBillingDocumentFormScreen({
     () =>
       calculateBillingTotals(
         items.map((item) => ({
-          quantity: Number(item.quantity) || 0,
-          unitPrice: Number(item.unitPrice) || 0,
-          discount: Number(item.discount) || 0,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          discount: item.discount,
+          taxType: item.taxType,
+          taxRate: item.taxRate,
         }))
       ),
     [items]
@@ -543,6 +568,7 @@ export function IspBillingDocumentFormScreen({
                           quantity: 1,
                           unitPrice: service.monthlyFee ?? 0,
                           discount: 0,
+                          taxType: ISP_BILLING_DEFAULT_LINE_TAX_CODE,
                           serviceId: service.id,
                         },
                       ])
@@ -558,86 +584,179 @@ export function IspBillingDocumentFormScreen({
             </div>
           ) : null}
 
-          {items.map((item, index) => (
-            <div
-              key={`${item.id ?? "new"}-${index}`}
-              className="grid gap-2 rounded-lg border border-slate-100 p-3 sm:grid-cols-[1fr_90px_120px_110px_auto]"
-            >
-              <Input
-                value={String(item.description)}
-                placeholder="Descripción"
-                aria-label={`Descripción del concepto ${index + 1}`}
-                onChange={(event) =>
-                  setItems((current) =>
-                    current.map((row, rowIndex) =>
-                      rowIndex === index
-                        ? { ...row, description: event.target.value }
-                        : row
-                    )
-                  )
-                }
-              />
-              <Input
-                inputMode="decimal"
-                value={String(item.quantity)}
-                placeholder="Cantidad"
-                aria-label={`Cantidad del concepto ${index + 1}`}
-                onChange={(event) =>
-                  setItems((current) =>
-                    current.map((row, rowIndex) =>
-                      rowIndex === index
-                        ? { ...row, quantity: event.target.value }
-                        : row
-                    )
-                  )
-                }
-              />
-              <Input
-                inputMode="decimal"
-                value={String(item.unitPrice)}
-                placeholder="Precio"
-                aria-label={`Precio unitario del concepto ${index + 1}`}
-                onChange={(event) =>
-                  setItems((current) =>
-                    current.map((row, rowIndex) =>
-                      rowIndex === index
-                        ? { ...row, unitPrice: event.target.value }
-                        : row
-                    )
-                  )
-                }
-              />
-              <Input
-                inputMode="decimal"
-                value={String(item.discount ?? 0)}
-                placeholder="Descuento"
-                aria-label={`Descuento del concepto ${index + 1}`}
-                onChange={(event) =>
-                  setItems((current) =>
-                    current.map((row, rowIndex) =>
-                      rowIndex === index
-                        ? { ...row, discount: event.target.value }
-                        : row
-                    )
-                  )
-                }
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                onClick={() =>
-                  setItems((current) =>
-                    current.length === 1
-                      ? [emptyDocumentItemDraft()]
-                      : current.filter((_, rowIndex) => rowIndex !== index)
-                  )
-                }
+          {items.map((item, index) => {
+            const line = calculateBillingLine({
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              discount: item.discount,
+              taxType: item.taxType,
+              taxRate: item.taxRate,
+            })
+            return (
+              <div
+                key={`${item.id ?? "new"}-${index}`}
+                className="space-y-3 rounded-lg border border-slate-100 p-3"
               >
-                <Trash2 className="size-4" />
-              </Button>
-            </div>
-          ))}
+                <div className="flex items-start gap-2">
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <Label htmlFor={`item-description-${index}`}>
+                      Descripción
+                    </Label>
+                    <Input
+                      id={`item-description-${index}`}
+                      value={String(item.description)}
+                      placeholder="Descripción"
+                      aria-label={`Descripción del concepto ${index + 1}`}
+                      onChange={(event) =>
+                        setItems((current) =>
+                          current.map((row, rowIndex) =>
+                            rowIndex === index
+                              ? { ...row, description: event.target.value }
+                              : row
+                          )
+                        )
+                      }
+                    />
+                    <FieldHelp>
+                      Texto del concepto que verá el cliente.
+                    </FieldHelp>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="mt-6"
+                    aria-label={`Quitar concepto ${index + 1}`}
+                    onClick={() =>
+                      setItems((current) =>
+                        current.length === 1
+                          ? [emptyDocumentItemDraft()]
+                          : current.filter((_, rowIndex) => rowIndex !== index)
+                      )
+                    }
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                  <div className="space-y-1">
+                    <Label htmlFor={`item-quantity-${index}`}>Cantidad</Label>
+                    <Input
+                      id={`item-quantity-${index}`}
+                      inputMode="decimal"
+                      value={String(item.quantity)}
+                      placeholder="Cantidad"
+                      aria-label={`Cantidad del concepto ${index + 1}`}
+                      onChange={(event) =>
+                        setItems((current) =>
+                          current.map((row, rowIndex) =>
+                            rowIndex === index
+                              ? { ...row, quantity: event.target.value }
+                              : row
+                          )
+                        )
+                      }
+                    />
+                    <FieldHelp>Unidades del concepto. Debe ser mayor a 0.</FieldHelp>
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor={`item-unit-price-${index}`}>
+                      Precio unitario
+                    </Label>
+                    <Input
+                      id={`item-unit-price-${index}`}
+                      inputMode="decimal"
+                      value={String(item.unitPrice)}
+                      placeholder="Precio"
+                      aria-label={`Precio unitario del concepto ${index + 1}`}
+                      onChange={(event) =>
+                        setItems((current) =>
+                          current.map((row, rowIndex) =>
+                            rowIndex === index
+                              ? { ...row, unitPrice: event.target.value }
+                              : row
+                          )
+                        )
+                      }
+                    />
+                    <FieldHelp>
+                      Precio de cada unidad, sin descuento ni impuesto.
+                    </FieldHelp>
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor={`item-discount-${index}`}>Descuento</Label>
+                    <Input
+                      id={`item-discount-${index}`}
+                      inputMode="decimal"
+                      value={String(item.discount ?? 0)}
+                      placeholder="Descuento"
+                      aria-label={`Descuento del concepto ${index + 1}`}
+                      onChange={(event) =>
+                        setItems((current) =>
+                          current.map((row, rowIndex) =>
+                            rowIndex === index
+                              ? { ...row, discount: event.target.value }
+                              : row
+                          )
+                        )
+                      }
+                    />
+                    <FieldHelp>
+                      Monto a restar de esta línea. No puede superar cantidad ×
+                      precio.
+                    </FieldHelp>
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor={`item-tax-${index}`}>Impuesto</Label>
+                    <Select
+                      value={lineTaxValue(item.taxType)}
+                      onValueChange={(value) =>
+                        setItems((current) =>
+                          current.map((row, rowIndex) =>
+                            rowIndex === index
+                              ? { ...row, taxType: value }
+                              : row
+                          )
+                        )
+                      }
+                    >
+                      <SelectTrigger
+                        id={`item-tax-${index}`}
+                        aria-label={`Impuesto del concepto ${index + 1}`}
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ISP_BILLING_LINE_TAX_CODES.map((code) => (
+                          <SelectItem key={code} value={code}>
+                            {ISP_BILLING_LINE_TAX_LABELS[code]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FieldHelp>
+                      Alícuota de esta línea. No se aplica automáticamente.
+                    </FieldHelp>
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor={`item-amount-${index}`}>Importe</Label>
+                    <Input
+                      id={`item-amount-${index}`}
+                      readOnly
+                      tabIndex={-1}
+                      value={formatBillingMoney(line.taxableBase)}
+                      aria-label={`Importe del concepto ${index + 1}`}
+                      className="bg-slate-50"
+                    />
+                    <FieldHelp>
+                      Se calcula como cantidad × precio unitario − descuento.
+                    </FieldHelp>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
 
           <dl className="ml-auto max-w-xs space-y-1 text-sm">
             <div className="flex justify-between text-slate-500">
@@ -653,7 +772,7 @@ export function IspBillingDocumentFormScreen({
               <dd>{formatBillingMoney(totals.taxTotal)}</dd>
             </div>
             <div className="flex justify-between border-t border-slate-100 pt-2 font-semibold text-slate-900">
-              <dt>Total</dt>
+              <dt>TOTAL</dt>
               <dd>{formatBillingMoney(totals.total)}</dd>
             </div>
           </dl>

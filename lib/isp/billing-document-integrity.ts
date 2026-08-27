@@ -1,12 +1,24 @@
 import {
+  ISP_BILLING_DEFAULT_LINE_TAX_CODE,
   ISP_BILLING_DOCUMENT_ISSUED_PENDING_LABEL,
   ISP_BILLING_DOCUMENT_ITEMS_REQUIRED,
   ISP_BILLING_DOCUMENT_ITEM_DESCRIPTION_REQUIRED,
+  ISP_BILLING_DOCUMENT_ITEM_DISCOUNT_EXCEEDS,
+  ISP_BILLING_DOCUMENT_ITEM_DISCOUNT_INVALID,
+  ISP_BILLING_DOCUMENT_ITEM_DISCOUNT_NEGATIVE,
+  ISP_BILLING_DOCUMENT_ITEM_QUANTITY_INVALID,
+  ISP_BILLING_DOCUMENT_ITEM_QUANTITY_POSITIVE,
+  ISP_BILLING_DOCUMENT_ITEM_TAX_INVALID,
+  ISP_BILLING_DOCUMENT_ITEM_UNIT_PRICE_INVALID,
+  ISP_BILLING_DOCUMENT_ITEM_UNIT_PRICE_NEGATIVE,
   ISP_BILLING_DOCUMENT_CUSTOMER_REQUIRED,
   ISP_BILLING_DOCUMENT_TYPE_INVALID,
   ISP_BILLING_DOCUMENT_TYPE_LABELS,
+  ISP_BILLING_LINE_TAX_RATES,
   ISP_BILLING_VAT_CONDITION_LABELS,
+  isIspBillingLineTaxCode,
   type IspBillingDocumentType,
+  type IspBillingLineTaxCode,
   type IspBillingVatCondition,
 } from "@/lib/isp/billing-constants"
 import {
@@ -52,6 +64,68 @@ export function parseBillingQuantity(
 ): number {
   const parsed = parseBillingMoney(value)
   return parsed > 0 ? parsed : 0
+}
+
+const BILLING_NUMBER_PATTERN = /^-?\d+([.,]\d*)?$/
+
+export function isValidBillingNumberInput(
+  value: number | string | null | undefined,
+  options?: { emptyMeansZero?: boolean }
+): boolean {
+  if (typeof value === "number") return Number.isFinite(value)
+  if (value == null) return Boolean(options?.emptyMeansZero)
+  const trimmed = String(value).trim()
+  if (!trimmed) return Boolean(options?.emptyMeansZero)
+  if (!BILLING_NUMBER_PATTERN.test(trimmed)) return false
+  const parsed = Number(trimmed.replace(",", "."))
+  return Number.isFinite(parsed)
+}
+
+const KNOWN_LINE_TAX_RATES: ReadonlyArray<{
+  rate: number
+  code: IspBillingLineTaxCode
+}> = [
+  { rate: 21, code: "iva_21" },
+  { rate: 10.5, code: "iva_105" },
+  { rate: 27, code: "iva_27" },
+]
+
+function ratesMatch(left: number, right: number): boolean {
+  return Math.abs(left - right) < 0.0001
+}
+
+export function resolveIspBillingLineTax(input: {
+  taxType?: string | null
+  taxRate?: number | string | null
+}): { taxType: IspBillingLineTaxCode; taxRate: number } {
+  const rawType = String(input.taxType ?? "").trim()
+  if (isIspBillingLineTaxCode(rawType)) {
+    return {
+      taxType: rawType,
+      taxRate: ISP_BILLING_LINE_TAX_RATES[rawType],
+    }
+  }
+
+  const rate = parseBillingMoney(input.taxRate)
+  const known = KNOWN_LINE_TAX_RATES.find((entry) =>
+    ratesMatch(entry.rate, rate)
+  )
+  if (known) {
+    return { taxType: known.code, taxRate: known.rate }
+  }
+
+  return {
+    taxType: ISP_BILLING_DEFAULT_LINE_TAX_CODE,
+    taxRate: 0,
+  }
+}
+
+export function formatIspBillingIvaRateLabel(rate: number): string {
+  const formatted = new Intl.NumberFormat("es-AR", {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 0,
+  }).format(roundBillingMoney(rate))
+  return `IVA ${formatted}%`
 }
 
 export function formatBillingMoney(value: number): string {
@@ -106,11 +180,12 @@ export function defaultAuthorizationStatus(
 }
 
 export function calculateBillingLine(input: {
-  quantity: number
-  unitPrice: number
-  discount?: number
-  taxAmount?: number
-  taxRate?: number
+  quantity: number | string
+  unitPrice: number | string
+  discount?: number | string | null
+  taxAmount?: number | string | null
+  taxType?: string | null
+  taxRate?: number | string | null
 }): {
   quantity: number
   unitPrice: number
@@ -118,6 +193,7 @@ export function calculateBillingLine(input: {
   gross: number
   taxableBase: number
   taxAmount: number
+  taxType: IspBillingLineTaxCode
   taxRate: number
   lineTotal: number
 } {
@@ -127,8 +203,14 @@ export function calculateBillingLine(input: {
   const gross = roundBillingMoney(quantity * unitPrice)
   const boundedDiscount = Math.min(discount, gross)
   const taxableBase = roundBillingMoney(gross - boundedDiscount)
-  const taxAmount = 0
-  const taxRate = 0
+  const tax = resolveIspBillingLineTax({
+    taxType: input.taxType,
+    taxRate: input.taxRate,
+  })
+  const taxAmount =
+    tax.taxRate > 0
+      ? roundBillingMoney((taxableBase * tax.taxRate) / 100)
+      : 0
   return {
     quantity,
     unitPrice,
@@ -136,17 +218,20 @@ export function calculateBillingLine(input: {
     gross,
     taxableBase,
     taxAmount,
-    taxRate,
+    taxType: tax.taxType,
+    taxRate: tax.taxRate,
     lineTotal: taxableBase,
   }
 }
 
 export function calculateBillingTotals(
   items: Array<{
-    quantity: number
-    unitPrice: number
-    discount?: number
-    taxAmount?: number
+    quantity: number | string
+    unitPrice: number | string
+    discount?: number | string | null
+    taxAmount?: number | string | null
+    taxType?: string | null
+    taxRate?: number | string | null
   }>
 ): {
   subtotal: number
@@ -162,7 +247,9 @@ export function calculateBillingTotals(
   const discountTotal = roundBillingMoney(
     lines.reduce((sum, line) => sum + line.discount, 0)
   )
-  const taxTotal = 0
+  const taxTotal = roundBillingMoney(
+    lines.reduce((sum, line) => sum + line.taxAmount, 0)
+  )
   const total = roundBillingMoney(subtotal - discountTotal + taxTotal)
   return { subtotal, discountTotal, taxTotal, total, lines }
 }
@@ -285,16 +372,72 @@ export function validateBillingDocumentDraft(
         message: ISP_BILLING_DOCUMENT_ITEM_DESCRIPTION_REQUIRED,
       })
     }
-    if (parseBillingQuantity(item.quantity) <= 0) {
+    const quantityValid = isValidBillingNumberInput(item.quantity, {
+      emptyMeansZero: false,
+    })
+    if (!quantityValid) {
       issues.push({
         field: `items.${index}.quantity`,
-        message: "La cantidad debe ser mayor a 0.",
+        message: ISP_BILLING_DOCUMENT_ITEM_QUANTITY_INVALID,
+      })
+    } else if (parseBillingQuantity(item.quantity) <= 0) {
+      issues.push({
+        field: `items.${index}.quantity`,
+        message: ISP_BILLING_DOCUMENT_ITEM_QUANTITY_POSITIVE,
       })
     }
-    if (parseBillingMoney(item.unitPrice) < 0) {
+
+    const unitPriceValid = isValidBillingNumberInput(item.unitPrice, {
+      emptyMeansZero: true,
+    })
+    if (!unitPriceValid) {
       issues.push({
         field: `items.${index}.unitPrice`,
-        message: "El precio unitario no puede ser negativo.",
+        message: ISP_BILLING_DOCUMENT_ITEM_UNIT_PRICE_INVALID,
+      })
+    } else if (parseBillingMoney(item.unitPrice) < 0) {
+      issues.push({
+        field: `items.${index}.unitPrice`,
+        message: ISP_BILLING_DOCUMENT_ITEM_UNIT_PRICE_NEGATIVE,
+      })
+    }
+
+    const discountValid = isValidBillingNumberInput(item.discount, {
+      emptyMeansZero: true,
+    })
+    if (!discountValid) {
+      issues.push({
+        field: `items.${index}.discount`,
+        message: ISP_BILLING_DOCUMENT_ITEM_DISCOUNT_INVALID,
+      })
+    } else if (parseBillingMoney(item.discount) < 0) {
+      issues.push({
+        field: `items.${index}.discount`,
+        message: ISP_BILLING_DOCUMENT_ITEM_DISCOUNT_NEGATIVE,
+      })
+    } else if (
+      quantityValid &&
+      unitPriceValid &&
+      parseBillingQuantity(item.quantity) > 0 &&
+      parseBillingMoney(item.unitPrice) >= 0
+    ) {
+      const gross = roundBillingMoney(
+        parseBillingQuantity(item.quantity) *
+          parseBillingMoney(item.unitPrice)
+      )
+      if (parseBillingMoney(item.discount) > gross) {
+        issues.push({
+          field: `items.${index}.discount`,
+          message: ISP_BILLING_DOCUMENT_ITEM_DISCOUNT_EXCEEDS,
+        })
+      }
+    }
+
+    const taxType = String(item.taxType ?? "").trim()
+    if (taxType && !isIspBillingLineTaxCode(taxType)) {
+      issues.push({
+        field: `items.${index}.taxType`,
+        message: ISP_BILLING_DOCUMENT_ITEM_TAX_INVALID,
       })
     }
   }
@@ -317,6 +460,7 @@ export function emptyDocumentItemDraft(): IspBillingDocumentItemDraft {
     quantity: 1,
     unitPrice: 0,
     discount: 0,
+    taxType: ISP_BILLING_DEFAULT_LINE_TAX_CODE,
     serviceId: null,
   }
 }
@@ -332,18 +476,32 @@ export function documentTypeLabel(type: IspBillingDocumentType): string {
 
 export function itemsFromDraft(
   items: readonly IspBillingDocumentItemDraft[]
-): Pick<IspBillingDocumentItem, "description" | "quantity" | "unitPrice" | "discount" | "serviceId" | "sortOrder">[] {
+): Pick<
+  IspBillingDocumentItem,
+  | "description"
+  | "quantity"
+  | "unitPrice"
+  | "discount"
+  | "taxType"
+  | "taxRate"
+  | "serviceId"
+  | "sortOrder"
+>[] {
   return items.map((item, index) => {
     const line = calculateBillingLine({
-      quantity: parseBillingQuantity(item.quantity),
-      unitPrice: parseBillingMoney(item.unitPrice),
-      discount: parseBillingMoney(item.discount),
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      discount: item.discount,
+      taxType: item.taxType,
+      taxRate: item.taxRate,
     })
     return {
       description: String(item.description ?? "").trim(),
       quantity: line.quantity,
       unitPrice: line.unitPrice,
       discount: line.discount,
+      taxType: line.taxType,
+      taxRate: line.taxRate,
       serviceId: item.serviceId?.trim() ? item.serviceId : null,
       sortOrder: index,
     }

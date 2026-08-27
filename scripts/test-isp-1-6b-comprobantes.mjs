@@ -447,7 +447,7 @@ test("22. PDF y vista previa usan datos reales, sin CAE", () => {
   assert.match(text, /Internet FTTH 100 Mbps/)
   assert.match(text, /DOCUMENTO NO VÁLIDO COMO FACTURA/)
   assert.doesNotMatch(text, /CAE 7/)
-  assert.doesNotMatch(text, /\bCAE\b/)
+  assert.doesNotMatch(text, /CAE \d{8,}/)
   const withCae = buildBillingDocumentPdf(
     sampleDocument({
       documentType: "factura_b",

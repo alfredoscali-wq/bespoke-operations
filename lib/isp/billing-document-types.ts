@@ -64,6 +64,8 @@ export type IspBillingDocumentItemDraft = {
   quantity: number | string
   unitPrice: number | string
   discount?: number | string
+  taxType?: string | null
+  taxRate?: number | string | null
 }
 
 export type IspBillingDocumentEvent = {

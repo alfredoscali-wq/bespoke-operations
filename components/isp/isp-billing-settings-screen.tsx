@@ -50,6 +50,7 @@ import {
 } from "@/lib/isp/billing-integrity"
 import {
   ISP_BILLING_FOOTER_LEGEND_MAX_LENGTH,
+  ISP_BILLING_OBSERVATIONS_TEXT_MAX_LENGTH,
   ISP_BILLING_LOGO_POSITIONS,
   type IspBillingLogoPosition,
   type IspBillingTemplateSettings,
@@ -720,6 +721,7 @@ export function IspBillingSettingsScreen() {
                 </label>
                 <label className="flex items-center gap-2 text-sm text-slate-700">
                   <Checkbox
+                    id="billing-show-email"
                     checked={draft.templateSettings.showEmail}
                     disabled={!canWrite}
                     onCheckedChange={(checked) =>
@@ -739,6 +741,26 @@ export function IspBillingSettingsScreen() {
                   Mostrar observaciones
                 </label>
               </div>
+              <Field
+                label="Observaciones"
+                htmlFor="billing-observations-text"
+              >
+                <Textarea
+                  id="billing-observations-text"
+                  value={draft.templateSettings.observationsText}
+                  disabled={!canWrite || !draft.templateSettings.showObservations}
+                  maxLength={ISP_BILLING_OBSERVATIONS_TEXT_MAX_LENGTH}
+                  placeholder="Texto que aparece en Observaciones del comprobante"
+                  onChange={(event) =>
+                    patchTemplate("observationsText", event.target.value)
+                  }
+                />
+                <p className="text-xs text-slate-400">
+                  Máximo {ISP_BILLING_OBSERVATIONS_TEXT_MAX_LENGTH} caracteres.
+                  Si el comprobante no trae observaciones propias, se usa este
+                  texto.
+                </p>
+              </Field>
               <Field
                 label="Leyenda inferior personalizada"
                 htmlFor="billing-footer-legend"
