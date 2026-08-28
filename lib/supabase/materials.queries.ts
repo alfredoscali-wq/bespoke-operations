@@ -17,6 +17,7 @@ import type { Database } from "@/lib/supabase/database.types"
 import type {
   MaterialCatalogDisplayRow,
   MaterialCatalogItem,
+  MaterialActiveReservation,
   MaterialDetail,
   MaterialInventoryRow,
   MaterialMovement,
@@ -567,6 +568,17 @@ export async function fetchMaterialDetail(
     0
   )
 
+  const reservationsResult = await fetchMaterialActiveReservations(
+    client,
+    companyId,
+    materialId,
+    warehouseId
+  )
+
+  if (reservationsResult.error) {
+    return { data: null, error: reservationsResult.error }
+  }
+
   const movements = movementsResult.data
   const history = movements.map(movementToHistoryEvent)
 
@@ -574,6 +586,7 @@ export async function fetchMaterialDetail(
     data: {
       movements,
       assignments: [],
+      activeReservations: reservationsResult.data ?? [],
       history,
       stats: {
         assignedQuantity: 0,
@@ -584,6 +597,77 @@ export async function fetchMaterialDetail(
     },
     error: null,
   }
+}
+
+export async function fetchMaterialActiveReservations(
+  client: SupabaseMaterialsClient,
+  companyId: string,
+  materialId: string,
+  warehouseId?: string
+): Promise<MaterialsRepositoryResult<MaterialActiveReservation[]>> {
+  let query = client
+    .from("task_material_lines")
+    .select(
+      `
+        id,
+        task_id,
+        quantity_planned,
+        unit,
+        status,
+        warehouse_id,
+        warehouse:warehouses(name),
+        task:tasks(
+          code,
+          title,
+          customer_name,
+          project:projects(name, code)
+        )
+      `
+    )
+    .eq("company_id", companyId)
+    .eq("material_id", materialId)
+    .eq("status", "reserved")
+
+  if (warehouseId) {
+    query = query.eq("warehouse_id", warehouseId)
+  }
+
+  const { data, error } = await query.order("updated_at", { ascending: false })
+
+  if (error) {
+    return { data: null, error: mapError(error) }
+  }
+
+  const reservations: MaterialActiveReservation[] = (data ?? []).map((row) => {
+    const task = row.task as {
+      code?: string | null
+      title?: string | null
+      customer_name?: string | null
+      project?: { name?: string | null; code?: string | null } | null
+    } | null
+    const warehouse = row.warehouse as { name?: string | null } | null
+    const projectLabel = task?.project?.name?.trim() || task?.project?.code?.trim()
+    const customerLabel =
+      projectLabel ||
+      task?.customer_name?.trim() ||
+      task?.title?.trim() ||
+      "—"
+
+    return {
+      id: row.id,
+      taskId: row.task_id,
+      taskCode: task?.code?.trim() || "—",
+      taskTitle: task?.title?.trim() || "—",
+      customerLabel,
+      quantity: Number(row.quantity_planned),
+      unit: row.unit,
+      warehouseId: row.warehouse_id,
+      warehouseName: warehouse?.name?.trim() || "—",
+      status: row.status,
+    }
+  })
+
+  return { data: reservations, error: null }
 }
 
 export async function recordMaterialMovement(

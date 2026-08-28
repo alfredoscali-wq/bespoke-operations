@@ -256,7 +256,7 @@ export function mapMovementRow(row: MovementWithRelations): MaterialMovement {
   const absQuantity = parseNumber(row.quantity)
   let signedQuantity: number
 
-  if (row.movement_type === "exit" || row.movement_type === "transfer") {
+  if (row.movement_type === "exit" || row.movement_type === "transfer" || row.movement_type === "consumption") {
     signedQuantity = -absQuantity
   } else if (row.movement_type === "adjustment") {
     const delta = parseAdjustmentDeltaFromNotes(row.notes)

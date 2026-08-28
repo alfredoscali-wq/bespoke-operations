@@ -40,7 +40,10 @@
 |-------|-----------|
 | `work_order_types` | Tipos de OT y checklist operativo |
 | `incident_types` | Tipos de incidencia configurables |
-| `materials` | Inventario de materiales |
+| `materials` | Catálogo de materiales y equipos |
+| `warehouses` | Depósitos / almacenes |
+| `material_stock_levels` | Stock por material y depósito |
+| `material_movements` | Entradas, salidas, transferencias y ajustes |
 
 ### Mobile / Campo
 
@@ -132,6 +135,8 @@ Las migraciones viven en `supabase/migrations/` con prefijo timestamp:
 20260614000000_create_tasks.sql
 …
 20260915000100_baseline_workflow_finalizada_terminal.sql
+…
+20261149000106_materials_1_0_7_catalog_inventory.sql  ← última aplicada en remoto (2026-08-28)
 ```
 
 ### Aplicación
@@ -155,6 +160,10 @@ O manualmente via SQL Editor del Dashboard.
 | Multi-tenant RLS | `20260913000100_multi_tenant_rls_sprint_c1.sql` |
 | Riesgos críticos | `20260914000100_critical_risks_sprint_c4_1.sql` |
 | Finalizada terminal | `20260915000100_baseline_workflow_finalizada_terminal.sql` |
+| Materiales 1.0 inventario | `20261149000100_materials_1_0_inventory.sql` |
+| Materiales 1.0.7 catálogo/inventario | `20261149000106_materials_1_0_7_catalog_inventory.sql` |
+
+**Materiales 1.0–1.0.7:** las siete migraciones `20261149000100`–`20261149000106` están **aplicadas en Supabase remoto** (2026-08-28). Detalle en [supabase-migrations.md](./supabase-migrations.md#historial-de-migraciones-aplicadas-en-supabase-remoto).
 
 Documentación operativa de setup: [supabase-setup.md](./supabase-setup.md), [supabase-migrations.md](./supabase-migrations.md)
 

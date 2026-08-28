@@ -79,3 +79,41 @@ console.log(result)
 ## Políticas RLS
 
 La migración incluye políticas permisivas para desarrollo (sin auth). Sustituir cuando se implementen roles en una fase posterior.
+
+---
+
+## Historial de migraciones aplicadas en Supabase remoto
+
+Registro de migraciones del repositorio **confirmadas aplicadas** en el proyecto Supabase de desarrollo/producción (SQL Editor o `supabase db push`). Actualizar esta tabla al aplicar nuevas migraciones.
+
+**Última actualización del historial:** 2026-08-28  
+**Última migración aplicada en remoto:** `20261149000106_materials_1_0_7_catalog_inventory.sql`
+
+### Materiales 1.0 — Inventario y catálogo (2026-08-28)
+
+Todas las migraciones del módulo Materiales (sprints 1.0 → 1.0.7) están **aplicadas en Supabase remoto**.
+
+| Archivo | Sprint | Contenido | Remoto |
+|---------|--------|-----------|--------|
+| `20261149000100_materials_1_0_inventory.sql` | 1.0 | Tablas (`warehouses`, `materials`, `material_stock_levels`, `material_movements`), enums, RLS, RPCs base | ✅ Aplicada |
+| `20261149000101_materials_1_0_1_hotfix.sql` | 1.0.1 | Hotfix `create_material` + depósito inicial (histórico; 1.0.7 revierte el stock level al crear) | ✅ Aplicada |
+| `20261149000102_materials_1_0_2_inventory_backfill.sql` | 1.0.2 | Backfill stock levels para materiales activos sin fila de inventario | ✅ Aplicada |
+| `20261149000103_materials_1_0_4_catalog_photo.sql` | 1.0.4 | Foto de catálogo + módulo `attachments` para materiales | ✅ Aplicada |
+| `20261149000104_materials_1_0_5_catalog_delete.sql` | 1.0.5 | `delete_material` — eliminación lógica del catálogo | ✅ Aplicada |
+| `20261149000105_materials_1_0_6_reusable_codes.sql` | 1.0.6 | Códigos reutilizables (`materials_company_active_code_unique`), foto en alta, mensajes duplicado | ✅ Aplicada |
+| `20261149000106_materials_1_0_7_catalog_inventory.sql` | 1.0.7 | Separación catálogo ≠ inventario; `create_material` sin stock level; limpieza huérfanos | ✅ Aplicada |
+
+**Nota:** Sprint 1.0.3 (corrección de stock + UX) no generó migración SQL; los cambios son solo de aplicación.
+
+**Estado funcional tras 1.0.7:** crear material solo registra catálogo; inventario aparece al registrar entrada de stock. KPI y UI: **Materiales en catálogo** / **Catálogo** / **Inventario**.
+
+### Verificar en remoto
+
+```sql
+SELECT version, name
+FROM supabase_migrations.schema_migrations
+WHERE name LIKE '%materials_1_0%'
+ORDER BY version;
+```
+
+Deben listarse las siete entradas anteriores.

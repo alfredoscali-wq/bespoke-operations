@@ -183,7 +183,7 @@ export function MaterialDetailView({
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <p className="text-xs text-muted-foreground">Stock en depósito</p>
+            <p className="text-xs text-muted-foreground">Stock físico</p>
             <p className="text-sm font-medium tabular-nums">
               {hasInventoryHistory
                 ? `${(
@@ -195,11 +195,27 @@ export function MaterialDetailView({
             </p>
           </div>
           <div>
-            <p className="text-xs text-muted-foreground">Stock total</p>
+            <p className="text-xs text-muted-foreground">Reservado</p>
             <p className="text-sm font-medium tabular-nums">
               {hasInventoryHistory
-                ? `${totalStock.toLocaleString("es-MX")} ${formatUnitLabel(material.unit)}`
-                : "Sin stock registrado"}
+                ? `${(
+                    currentWarehouseStock?.quantityReserved ??
+                    material.quantityReserved ??
+                    0
+                  ).toLocaleString("es-MX")} ${formatUnitLabel(material.unit)}`
+                : "—"}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Disponible</p>
+            <p className="text-sm font-medium tabular-nums">
+              {hasInventoryHistory
+                ? `${(
+                    currentWarehouseStock?.netAvailable ??
+                    material.netAvailable ??
+                    0
+                  ).toLocaleString("es-MX")} ${formatUnitLabel(material.unit)}`
+                : "—"}
             </p>
           </div>
           <div>
@@ -230,7 +246,7 @@ export function MaterialDetailView({
               Movimientos ({detail.movements.length})
             </TabsTrigger>
             <TabsTrigger value="assignments">
-              Asignaciones ({detail.assignments.length})
+              Reservas activas ({detail.activeReservations.length})
             </TabsTrigger>
             <TabsTrigger value="history">
               Historial ({detail.history.length})
@@ -245,7 +261,9 @@ export function MaterialDetailView({
           <MaterialMovementsTab movements={detail.movements} />
         </TabsContent>
         <TabsContent value="assignments">
-          <MaterialAssignmentsTab assignments={detail.assignments} />
+          <MaterialAssignmentsTab
+            activeReservations={detail.activeReservations}
+          />
         </TabsContent>
         <TabsContent value="history">
           <MaterialHistoryTab history={detail.history} />

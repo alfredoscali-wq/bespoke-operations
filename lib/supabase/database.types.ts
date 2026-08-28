@@ -4572,6 +4572,89 @@ export type Database = {
           },
         ]
       }
+      task_material_lines: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          material_id: string
+          materials_confirmed_at: string | null
+          materials_confirmed_by: string | null
+          notes: string | null
+          quantity_consumed: number | null
+          quantity_planned: number
+          quantity_returned: number | null
+          status: Database["public"]["Enums"]["task_material_line_status"]
+          task_id: string
+          unit: string
+          updated_at: string
+          warehouse_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          material_id: string
+          materials_confirmed_at?: string | null
+          materials_confirmed_by?: string | null
+          notes?: string | null
+          quantity_consumed?: number | null
+          quantity_planned: number
+          quantity_returned?: number | null
+          status?: Database["public"]["Enums"]["task_material_line_status"]
+          task_id: string
+          unit: string
+          updated_at?: string
+          warehouse_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          material_id?: string
+          materials_confirmed_at?: string | null
+          materials_confirmed_by?: string | null
+          notes?: string | null
+          quantity_consumed?: number | null
+          quantity_planned?: number
+          quantity_returned?: number | null
+          status?: Database["public"]["Enums"]["task_material_line_status"]
+          task_id?: string
+          unit?: string
+          updated_at?: string
+          warehouse_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_material_lines_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_material_lines_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_material_lines_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_material_lines_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           amount_to_collect: number | null
@@ -5206,6 +5289,58 @@ export type Database = {
         }
         Returns: Json
       }
+      create_task_material_line_with_reservation: {
+        Args: {
+          p_task_id: string
+          p_material_id: string
+          p_warehouse_id: string
+          p_quantity_planned: number
+          p_unit: string
+          p_notes?: string | null
+        }
+        Returns: Json
+      }
+      update_task_material_line_with_reservation: {
+        Args: {
+          p_task_id: string
+          p_line_id: string
+          p_quantity_planned?: number | null
+          p_warehouse_id?: string | null
+          p_notes?: string | null
+        }
+        Returns: Json
+      }
+      remove_task_material_line_with_reservation: {
+        Args: {
+          p_task_id: string
+          p_line_id: string
+        }
+        Returns: Json
+      }
+      reserve_task_material_lines_for_task: {
+        Args: { p_task_id: string }
+        Returns: Json
+      }
+      release_all_task_material_reservations: {
+        Args: { p_task_id: string }
+        Returns: Json
+      }
+      confirm_task_material_consumption: {
+        Args: {
+          p_task_id: string
+          p_use_all?: boolean
+          p_lines?: Json
+        }
+        Returns: Json
+      }
+      task_has_active_catalog_material_lines: {
+        Args: { p_task_id: string }
+        Returns: boolean
+      }
+      task_has_reserved_catalog_material_lines: {
+        Args: { p_task_id: string }
+        Returns: boolean
+      }
       create_task_with_execution_order: {
         Args: { p_payload: Json }
         Returns: Json
@@ -5598,7 +5733,18 @@ export type Database = {
       evidence_status: "pending-review" | "approved" | "rejected"
       mobile_device_status: "ACTIVE" | "BLOCKED"
       material_item_type: "consumable" | "equipment"
-      material_movement_type: "entry" | "exit" | "transfer" | "adjustment"
+      material_movement_type:
+        | "entry"
+        | "exit"
+        | "transfer"
+        | "adjustment"
+        | "consumption"
+        | "return"
+      task_material_line_status:
+        | "planned"
+        | "reserved"
+        | "consumed"
+        | "cancelled"
       project_status:
         | "planned"
         | "active"

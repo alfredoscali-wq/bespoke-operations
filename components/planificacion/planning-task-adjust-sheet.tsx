@@ -22,6 +22,11 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  TaskMaterialLinesEditor,
+  useMaterialsContextLoader,
+  type TaskMaterialLinesEditorHandle,
+} from "@/components/materiales/task-material-lines-editor"
 import { useTasks } from "@/components/tareas/tasks-provider"
 import {
   getCrewsForTaskSelection,
@@ -69,6 +74,14 @@ export function PlanningTaskAdjustSheet({
   )
   const [error, setError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const materialLinesRef = useRef<TaskMaterialLinesEditorHandle>(null)
+  const {
+    catalog,
+    inventory,
+    warehouseContext,
+    isLoading: isMaterialsContextLoading,
+    error: materialsContextError,
+  } = useMaterialsContextLoader()
   /** Seed form once per open+task; ignore remote refreshes while editing. */
   const seededTaskIdRef = useRef<string | null>(null)
   const latestSeedInputsRef = useRef({ task, allTasks, crews })
@@ -155,6 +168,13 @@ export function PlanningTaskAdjustSheet({
     setError(null)
 
     try {
+      const lineValidation = materialLinesRef.current?.validate()
+      if (lineValidation && !lineValidation.valid) {
+        throw new Error(
+          lineValidation.message ?? "Revise los materiales del catálogo."
+        )
+      }
+
       const batch = buildPlanningTaskUpdateBatch({
         task,
         form,
@@ -178,6 +198,8 @@ export function PlanningTaskAdjustSheet({
           )
         }
       }
+
+      await materialLinesRef.current?.sync(task.id)
 
       onSaved?.(result.task)
       onOpenChange(false)
@@ -378,6 +400,21 @@ export function PlanningTaskAdjustSheet({
               </section>
             ) : null}
 
+            <TaskMaterialLinesEditor
+              ref={materialLinesRef}
+              taskId={task.id}
+              catalog={catalog}
+              inventory={inventory}
+              warehouseContext={warehouseContext}
+              disabled={isSaving || isMaterialsContextLoading}
+            />
+
+            {materialsContextError ? (
+              <p className="text-sm text-amber-700 dark:text-amber-400">
+                {materialsContextError}
+              </p>
+            ) : null}
+
             <div className="space-y-2">
               <Label htmlFor="planning-adjust-materials">
                 Materiales Necesarios
@@ -396,7 +433,8 @@ export function PlanningTaskAdjustSheet({
               />
               <p className="text-xs text-muted-foreground">
                 Texto libre para preparación de la cuadrilla. No se muestra en
-                Field Agent.
+                Field Agent. Utilizá este campo para materiales o indicaciones
+                que todavía no estén en el catálogo.
               </p>
             </div>
 

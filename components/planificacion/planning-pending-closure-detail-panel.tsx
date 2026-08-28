@@ -1,6 +1,7 @@
 "use client"
 
 import { PlanningIncidentTaskContextPanel } from "@/components/planificacion/planning-incident-task-context-panel"
+import { TaskMaterialsPanel } from "@/components/materiales/task-materials-panel"
 import { TaskAdminOperationalChecklist } from "@/components/tareas/task-admin-operational-checklist"
 import { formatTaskDateTime } from "@/lib/tasks/constants"
 import {
@@ -102,6 +103,8 @@ export function PlanningPendingClosureDetailPanel({
           </Card>
         ) : null}
       </div>
+
+      <TaskMaterialsPanel task={task} showConsumptionConfirmation />
 
       {briefHistory.length > 0 ? (
         <Card

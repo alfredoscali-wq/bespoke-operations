@@ -20,11 +20,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { fetchTaskMaterialLinesForTasksClient } from "@/lib/materials/task-material-lines.client"
 import {
   buildPlanningMaterialsReport,
+  formatStructuredLineForPrint,
   printPlanningMaterialsReport,
   type PlanningMaterialsReport,
 } from "@/lib/planificacion/planning-print-materials"
+import { filterPlanningTasksByCrewFilter } from "@/lib/planificacion/planning-utils"
+import type { TaskMaterialLineView } from "@/lib/types/materials"
 import type { Crew } from "@/lib/types/crews"
 import type { Task } from "@/lib/types/tasks"
 
@@ -47,6 +51,10 @@ export function PlanningPrintMaterialsDialog({
 }: PlanningPrintMaterialsDialogProps) {
   const [crewId, setCrewId] = useState("")
   const [error, setError] = useState<string | null>(null)
+  const [linesByTaskId, setLinesByTaskId] = useState<
+    Record<string, TaskMaterialLineView[]>
+  >({})
+  const [isLoadingLines, setIsLoadingLines] = useState(false)
 
   useEffect(() => {
     if (!open) {
@@ -63,6 +71,44 @@ export function PlanningPrintMaterialsDialog({
     setError(null)
   }, [open, initialCrewId, crews])
 
+  useEffect(() => {
+    if (!open || !crewId) {
+      setLinesByTaskId({})
+      return
+    }
+
+    const crewTasks = filterPlanningTasksByCrewFilter(tasks, crewId, crews)
+    const taskIds = crewTasks.map((task) => task.id)
+    if (taskIds.length === 0) {
+      setLinesByTaskId({})
+      return
+    }
+
+    let cancelled = false
+    setIsLoadingLines(true)
+
+    void fetchTaskMaterialLinesForTasksClient(taskIds)
+      .then((grouped) => {
+        if (!cancelled) setLinesByTaskId(grouped)
+      })
+      .catch((loadError) => {
+        if (!cancelled) {
+          setError(
+            loadError instanceof Error
+              ? loadError.message
+              : "No se pudieron cargar materiales estructurados."
+          )
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingLines(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [open, crewId, tasks, crews])
+
   const reportResult = useMemo(() => {
     if (!crewId) {
       return null
@@ -73,8 +119,9 @@ export function PlanningPrintMaterialsDialog({
       crews,
       planningDate,
       crewId,
+      linesByTaskId,
     })
-  }, [tasks, crews, planningDate, crewId])
+  }, [tasks, crews, planningDate, crewId, linesByTaskId])
 
   const report: PlanningMaterialsReport | null =
     reportResult?.ok === true ? reportResult.report : null
@@ -87,6 +134,7 @@ export function PlanningPrintMaterialsDialog({
       crews,
       planningDate,
       crewId,
+      linesByTaskId,
     })
 
     if (!result.ok) {
@@ -136,6 +184,12 @@ export function PlanningPrintMaterialsDialog({
             </Select>
           </div>
 
+          {isLoadingLines ? (
+            <p className="text-sm text-muted-foreground">
+              Cargando materiales del catálogo…
+            </p>
+          ) : null}
+
           {report ? (
             <div className="rounded-lg border bg-muted/20 p-3 text-sm">
               <p className="font-medium text-foreground">
@@ -159,9 +213,30 @@ export function PlanningPrintMaterialsDialog({
                       <p className="text-xs text-muted-foreground">
                         {row.address}
                       </p>
-                      <pre className="mt-2 whitespace-pre-wrap font-sans text-sm text-foreground">
-                        {row.materialsNeeded}
-                      </pre>
+                      {row.structuredLines.length > 0 ? (
+                        <div className="mt-2 space-y-1">
+                          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            Materiales del catálogo
+                          </p>
+                          <ul className="list-disc pl-4 text-sm">
+                            {row.structuredLines.map((line) => (
+                              <li key={`${line.code}-${line.warehouseName}-${line.quantityPlanned}`}>
+                                {formatStructuredLineForPrint(line)}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+                      {row.materialsNeeded ? (
+                        <div className="mt-2 space-y-1">
+                          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            Materiales / indicaciones adicionales
+                          </p>
+                          <pre className="whitespace-pre-wrap font-sans text-sm text-foreground">
+                            {row.materialsNeeded}
+                          </pre>
+                        </div>
+                      ) : null}
                     </li>
                   ))}
                 </ul>
@@ -188,7 +263,7 @@ export function PlanningPrintMaterialsDialog({
             type="button"
             className="gap-2"
             onClick={handlePrint}
-            disabled={!crewId}
+            disabled={!crewId || isLoadingLines}
           >
             <Printer className="size-4" />
             Imprimir

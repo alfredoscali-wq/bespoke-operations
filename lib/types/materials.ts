@@ -20,8 +20,15 @@ export type MovementType =
   | "transfer"
   | "consumption"
   | "adjustment"
+  | "return"
 
-export type DbMovementType = "entry" | "exit" | "transfer" | "adjustment"
+export type DbMovementType =
+  | "entry"
+  | "exit"
+  | "transfer"
+  | "adjustment"
+  | "consumption"
+  | "return"
 
 export type AssignmentStatus = "assigned" | "in-use" | "consumed" | "returned"
 
@@ -154,6 +161,7 @@ export type MaterialHistoryEvent = {
 export type MaterialDetail = {
   movements: MaterialMovement[]
   assignments: MaterialAssignment[]
+  activeReservations: MaterialActiveReservation[]
   history: MaterialHistoryEvent[]
   stats: {
     assignedQuantity: number
@@ -181,6 +189,63 @@ export type EntityMaterialsStats = {
   totalItems: number
   totalQuantity: number
   materialCount: number
+}
+
+export type TaskMaterialLineStatus =
+  | "planned"
+  | "reserved"
+  | "consumed"
+  | "cancelled"
+
+export type TaskMaterialLine = {
+  id: string
+  companyId: string
+  taskId: string
+  materialId: string
+  warehouseId: string
+  quantityPlanned: number
+  quantityConsumed: number | null
+  quantityReturned: number | null
+  unit: string
+  notes: string | null
+  status: TaskMaterialLineStatus
+  materialsConfirmedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+/** Line with joined catalog / warehouse labels for UI. */
+export type TaskMaterialLineView = TaskMaterialLine & {
+  materialCode: string
+  materialName: string
+  warehouseName: string
+  quantityAvailable: number | null
+  quantityReserved: number | null
+  netAvailable: number | null
+  /** Reserved amount for this line when status is reserved/consumed. */
+  quantityReservedForLine: number | null
+}
+
+export type MaterialActiveReservation = {
+  id: string
+  taskId: string
+  taskCode: string
+  taskTitle: string
+  customerLabel: string
+  quantity: number
+  unit: string
+  warehouseId: string
+  warehouseName: string
+  status: TaskMaterialLineStatus
+}
+
+export type TaskMaterialLineDraft = {
+  clientKey: string
+  materialId: string
+  warehouseId: string
+  quantityPlanned: number
+  unit: string
+  notes?: string | null
 }
 
 export type WarehouseSelectionMode = "auto" | "manual"

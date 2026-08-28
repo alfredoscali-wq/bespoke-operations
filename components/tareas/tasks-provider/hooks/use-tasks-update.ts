@@ -19,6 +19,7 @@ import { logOperationError } from "@/lib/operations/user-messages"
 import { mapTaskToUpdatePayload } from "@/lib/supabase/tasks.mapper"
 import {
   getWorkflowHistoryEntry,
+  getTransitionForAction,
   type TaskWorkflowAction,
 } from "@/lib/tasks/task-status-workflow"
 import { syncTaskProgress } from "@/lib/tasks/utils"
@@ -31,6 +32,11 @@ import {
 import {
   recordTaskMutationAudit,
 } from "@/lib/audit/tasks-audit"
+import {
+  recordMaterialReservationCreatedAudit,
+  recordMaterialReservationReleasedAudit,
+} from "@/lib/audit/material-reservations-audit"
+import { fetchTaskMaterialLinesClient } from "@/lib/materials/task-material-lines.client"
 import type { UpdateTaskPayload } from "@/lib/types/supabase/tasks"
 import type { Task } from "@/lib/types/tasks"
 import type { TaskRescheduleInput } from "@/lib/tasks/reschedule"
@@ -205,6 +211,23 @@ export function useTasksUpdate({
 
       try {
         const client = createBrowserTasksClient()
+        let reservedLinesBeforeTransition: Awaited<
+          ReturnType<typeof fetchTaskMaterialLinesClient>
+        > = []
+
+        if (workflowAction) {
+          const { to } = getTransitionForAction(workflowAction)
+          if (to === "cancelada") {
+            try {
+              reservedLinesBeforeTransition = (
+                await fetchTaskMaterialLinesClient(id)
+              ).filter((line) => line.status === "reserved")
+            } catch {
+              reservedLinesBeforeTransition = []
+            }
+          }
+        }
+
         const payloadWithPlanningReturnClear =
           shouldClearPlanningReturnOnScheduleUpdate(existing, payload.dueDate)
             ? {
@@ -232,6 +255,31 @@ export function useTasksUpdate({
           }
 
           if (workflowAction) {
+            const { to } = getTransitionForAction(workflowAction)
+
+            if (to === "asignada" && existing.status !== "asignada") {
+              void fetchTaskMaterialLinesClient(id).then((lines) => {
+                const reserved = lines.filter((line) => line.status === "reserved")
+                if (reserved.length > 0) {
+                  recordMaterialReservationCreatedAudit({
+                    taskId: id,
+                    taskCode: result.data?.code,
+                    lines: reserved,
+                  })
+                }
+              })
+            }
+
+            if (to === "cancelada" && reservedLinesBeforeTransition.length > 0) {
+              for (const line of reservedLinesBeforeTransition) {
+                recordMaterialReservationReleasedAudit({
+                  taskId: id,
+                  taskCode: existing.code,
+                  line,
+                })
+              }
+            }
+
             const detail = getCachedDetail(id) ?? getTaskDetail(result.data)
             const historyEntry = getWorkflowHistoryEntry(
               workflowAction,
@@ -289,7 +337,10 @@ export function useTasksUpdate({
           logOperationError("TASK UPDATE", result.error)
           return {
             success: false,
-            message: result.error.message,
+            message:
+              result.error.code === "VALIDATION"
+                ? result.error.message
+                : result.error.message,
           }
         }
       } catch (error) {

@@ -23,8 +23,8 @@ type MaterialDetailStatsProps = {
 
 const statItems = [
   {
-    key: "stock" as const,
-    label: "Stock Actual",
+    key: "physical" as const,
+    label: "Stock Físico",
     icon: PackageOpen,
     color: "text-primary bg-primary/8",
     getValue: (material: Material) =>
@@ -33,11 +33,20 @@ const statItems = [
   },
   {
     key: "reserved" as const,
-    label: "Unidades Reservadas",
+    label: "Reservado",
     icon: PackageCheck,
     color: "text-emerald-600 bg-emerald-50",
-    getValue: (_material: Material, stats: MaterialDetail["stats"]) =>
-      stats.totalReserved.toLocaleString("es-MX"),
+    getValue: (material: Material, stats: MaterialDetail["stats"]) =>
+      (material.quantityReserved ?? stats.totalReserved).toLocaleString("es-MX"),
+    suffix: (material: Material) => formatUnitLabel(material.unit),
+  },
+  {
+    key: "available" as const,
+    label: "Disponible",
+    icon: PackageOpen,
+    color: "text-blue-600 bg-blue-50",
+    getValue: (material: Material) =>
+      (material.netAvailable ?? material.stock).toLocaleString("es-MX"),
     suffix: (material: Material) => formatUnitLabel(material.unit),
   },
   {

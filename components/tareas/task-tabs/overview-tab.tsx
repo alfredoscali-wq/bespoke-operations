@@ -46,6 +46,7 @@ import {
 } from "@/components/tareas/work-order-technology-state-detail"
 import { taskRequiresFtthInstallation } from "@/lib/tasks/ftth-installation"
 import { isFieldServiceTask } from "@/lib/tasks/utils"
+import { isPendingClosureStatus } from "@/lib/tasks/task-status-workflow"
 import { TaskEvidenceSummary } from "@/components/evidencias/task-evidence-summary"
 import { TaskMaterialsPanel } from "@/components/materiales/task-materials-panel"
 import { TaskReferencePhotosSection } from "@/components/tareas/task-reference-photos-section"
@@ -512,7 +513,10 @@ export function TaskOverviewTab({ task }: TaskOverviewTabProps) {
           </>
         ) : null}
         <TaskReferencePhotosSection taskId={liveTask.id} />
-        <TaskMaterialsPanel taskId={liveTask.id} />
+        <TaskMaterialsPanel
+          task={liveTask}
+          showConsumptionConfirmation={isPendingClosureStatus(liveTask.status)}
+        />
       </div>
     </div>
   )

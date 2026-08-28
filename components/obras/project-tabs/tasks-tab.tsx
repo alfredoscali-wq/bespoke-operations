@@ -185,6 +185,7 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
     longitude?: number | null
     sharedLocation?: string | null
     dailyAllocations: TaskDailyAllocationDraft[]
+    syncMaterialLines?: (taskId: string) => Promise<void>
   }) {
     if (!isAuthReady || !companyId) {
       throw new Error("No se pudo identificar la compañía para guardar la OT.")
@@ -256,6 +257,10 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
         throw new Error(result.message ?? "No se pudo actualizar la orden de trabajo.")
       }
 
+      if (payload.syncMaterialLines) {
+        await payload.syncMaterialLines(selectedTask.id)
+      }
+
       await syncTaskDailyAllocations({
         companyId,
         taskId: selectedTask.id,
@@ -302,6 +307,10 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
       ),
       status: resolveProjectTaskCreateStatus(project.status),
     })
+
+    if (payload.syncMaterialLines) {
+      await payload.syncMaterialLines(created.id)
+    }
 
     await syncTaskDailyAllocations({
       companyId,

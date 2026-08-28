@@ -77,6 +77,7 @@ export const MOVEMENT_TYPE_LABELS: Record<MovementType, string> = {
   transfer: "Transferencia",
   consumption: "Consumo",
   adjustment: "Ajuste",
+  return: "Devolución",
 }
 
 export const MOVEMENT_TYPE_STYLES: Record<MovementType, string> = {
@@ -85,6 +86,7 @@ export const MOVEMENT_TYPE_STYLES: Record<MovementType, string> = {
   transfer: "bg-blue-50 text-blue-700 border-blue-100",
   consumption: "bg-orange-50 text-orange-700 border-orange-100",
   adjustment: "bg-slate-100 text-slate-700 border-slate-200",
+  return: "bg-violet-50 text-violet-700 border-violet-100",
 }
 
 export const ASSIGNMENT_STATUS_LABELS: Record<AssignmentStatus, string> = {
@@ -120,6 +122,8 @@ export const DB_MOVEMENT_TYPE_TO_UI: Record<DbMovementType, MovementType> = {
   exit: "outbound",
   transfer: "transfer",
   adjustment: "adjustment",
+  consumption: "consumption",
+  return: "return",
 }
 
 export function formatMaterialDateTime(date: string) {

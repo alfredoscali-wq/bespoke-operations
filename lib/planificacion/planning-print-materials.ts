@@ -1,4 +1,5 @@
 import { formatDateOnly } from "@/lib/dates/date-only"
+import { formatUnitLabel } from "@/lib/materials/units"
 import {
   filterPlanningTasksByCrewFilter,
   resolvePlanningTaskClientLabel,
@@ -11,13 +12,23 @@ import {
 import { resolveTaskAddressLabel } from "@/lib/tasks/operational-category"
 import { readMaterialsNeededFromTask } from "@/lib/tasks/work-order"
 import type { Crew } from "@/lib/types/crews"
+import type { TaskMaterialLineView } from "@/lib/types/materials"
 import type { Task } from "@/lib/types/tasks"
+
+export type PlanningMaterialsStructuredLine = {
+  code: string
+  name: string
+  quantityPlanned: number
+  unitLabel: string
+  warehouseName: string
+}
 
 export type PlanningMaterialsReportRow = {
   executionOrder: string
   workOrderNumber: string
   clientName: string
   address: string
+  structuredLines: PlanningMaterialsStructuredLine[]
   materialsNeeded: string
 }
 
@@ -30,11 +41,25 @@ export type PlanningMaterialsReport = {
 }
 
 function resolveWorkOrderNumber(task: Task): string {
-  return (
-    task.workOrderNumber?.trim() ||
-    task.code?.trim() ||
-    "—"
-  )
+  return task.workOrderNumber?.trim() || task.code?.trim() || "—"
+}
+
+export function mapTaskMaterialLineToStructuredPrintLine(
+  line: TaskMaterialLineView
+): PlanningMaterialsStructuredLine {
+  return {
+    code: line.materialCode,
+    name: line.materialName,
+    quantityPlanned: line.quantityPlanned,
+    unitLabel: formatUnitLabel(line.unit),
+    warehouseName: line.warehouseName,
+  }
+}
+
+export function formatStructuredLineForPrint(
+  line: PlanningMaterialsStructuredLine
+): string {
+  return `${line.code} — ${line.name} — ${line.quantityPlanned.toLocaleString("es-AR")} ${line.unitLabel} — ${line.warehouseName}`
 }
 
 export function buildPlanningMaterialsReport(input: {
@@ -42,6 +67,7 @@ export function buildPlanningMaterialsReport(input: {
   crews: Pick<Crew, "id" | "name">[]
   planningDate: string
   crewId: string
+  linesByTaskId?: Record<string, TaskMaterialLineView[]>
 }): { ok: true; report: PlanningMaterialsReport } | { ok: false; message: string } {
   const crewId = input.crewId.trim()
   if (!crewId) {
@@ -53,6 +79,7 @@ export function buildPlanningMaterialsReport(input: {
     return { ok: false, message: "Cuadrilla no encontrada." }
   }
 
+  const linesByTaskId = input.linesByTaskId ?? {}
   const crewTasks = filterPlanningTasksByCrewFilter(
     input.tasks,
     crewId,
@@ -63,7 +90,11 @@ export function buildPlanningMaterialsReport(input: {
   const rows: PlanningMaterialsReportRow[] = sorted
     .map((task) => {
       const materialsNeeded = readMaterialsNeededFromTask(task)
-      if (!materialsNeeded) {
+      const structuredLines = (linesByTaskId[task.id] ?? []).map(
+        mapTaskMaterialLineToStructuredPrintLine
+      )
+
+      if (structuredLines.length === 0 && !materialsNeeded) {
         return null
       }
 
@@ -73,6 +104,7 @@ export function buildPlanningMaterialsReport(input: {
         workOrderNumber: resolveWorkOrderNumber(task),
         clientName: resolvePlanningTaskClientLabel(task),
         address: resolveTaskAddressLabel(task),
+        structuredLines,
         materialsNeeded,
       }
     })
@@ -108,8 +140,30 @@ export function buildPlanningMaterialsReportHtml(
     report.rows.length === 0
       ? `<p class="empty">No hay materiales registrados para esta cuadrilla.</p>`
       : report.rows
-          .map(
-            (row) => `
+          .map((row) => {
+            const structuredHtml =
+              row.structuredLines.length > 0
+                ? `<div class="materials-block">
+            <div class="materials-label">Materiales del catálogo</div>
+            <ul class="structured-list">
+              ${row.structuredLines
+                .map(
+                  (line) =>
+                    `<li>${escapeHtml(formatStructuredLineForPrint(line))}</li>`
+                )
+                .join("")}
+            </ul>
+          </div>`
+                : ""
+
+            const freeTextHtml = row.materialsNeeded
+              ? `<div class="materials-block">
+            <div class="materials-label">Materiales / indicaciones adicionales</div>
+            <pre class="materials-body">${escapeHtml(row.materialsNeeded)}</pre>
+          </div>`
+              : ""
+
+            return `
         <section class="ot">
           <div class="ot-meta">
             <div><strong>Orden:</strong> ${escapeHtml(row.executionOrder)}</div>
@@ -117,12 +171,10 @@ export function buildPlanningMaterialsReportHtml(
             <div><strong>Cliente:</strong> ${escapeHtml(row.clientName)}</div>
             <div><strong>Dirección:</strong> ${escapeHtml(row.address)}</div>
           </div>
-          <div class="materials">
-            <div class="materials-label">Materiales Necesarios</div>
-            <pre class="materials-body">${escapeHtml(row.materialsNeeded)}</pre>
-          </div>
+          ${structuredHtml}
+          ${freeTextHtml}
         </section>`
-          )
+          })
           .join("")
 
   return `<!DOCTYPE html>
@@ -154,6 +206,9 @@ export function buildPlanningMaterialsReportHtml(
       gap: 4px 16px;
       margin-bottom: 10px;
     }
+    .materials-block + .materials-block {
+      margin-top: 10px;
+    }
     .materials-label {
       font-weight: 700;
       margin-bottom: 4px;
@@ -161,6 +216,10 @@ export function buildPlanningMaterialsReportHtml(
       text-transform: uppercase;
       letter-spacing: 0.02em;
       color: #333;
+    }
+    .structured-list {
+      margin: 0;
+      padding-left: 18px;
     }
     .materials-body {
       white-space: pre-wrap;
@@ -193,12 +252,8 @@ export function printPlanningMaterialsReport(
     return false
   }
 
-  // Build HTML before opening the window so a failure never yields a blank tab.
   const html = buildPlanningMaterialsReportHtml(report)
 
-  // Do not pass noopener/noreferrer in windowFeatures: browsers still open a
-  // blank tab but return null (or a disconnected Window), so document.write
-  // never runs and the print window stays empty.
   const printWindow = window.open("", "_blank", "width=900,height=700")
   if (!printWindow || printWindow.closed) {
     return false
@@ -222,7 +277,6 @@ export function printPlanningMaterialsReport(
     }
   }
 
-  // Allow layout/paint before the print dialog.
   if (printWindow.document.readyState === "complete") {
     printWindow.setTimeout(triggerPrint, 250)
   } else {

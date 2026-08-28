@@ -1,7 +1,12 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
+import {
+  TaskMaterialLinesEditor,
+  useMaterialsContextLoader,
+  type TaskMaterialLinesEditorHandle,
+} from "@/components/materiales/task-material-lines-editor"
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import {
   getCrewsForTaskSelection,
@@ -109,6 +114,7 @@ type ProjectTaskDialogProps = {
     sharedLocation?: string | null
     /** OPS 2.6 — empty = automatic / legacy even-split */
     dailyAllocations: TaskDailyAllocationDraft[]
+    syncMaterialLines?: (taskId: string) => Promise<void>
   }) => Promise<void>
 }
 
@@ -200,6 +206,14 @@ export function ProjectTaskDialog({
   >([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const materialLinesRef = useRef<TaskMaterialLinesEditorHandle>(null)
+  const {
+    catalog,
+    inventory,
+    warehouseContext,
+    isLoading: isMaterialsContextLoading,
+    error: materialsContextError,
+  } = useMaterialsContextLoader()
   const [allocationValue, setAllocationValue] =
     useState<ProjectTaskDailyAllocationValue>({
       mode: "automatic",
@@ -314,6 +328,12 @@ export function ProjectTaskDialog({
       return
     }
 
+    const lineValidation = materialLinesRef.current?.validate()
+    if (lineValidation && !lineValidation.valid) {
+      setError(lineValidation.message ?? "Revise los materiales del catálogo.")
+      return
+    }
+
     const totalMinutes = parseTotalMinutesFromEstimatedDuration(
       form.estimatedDuration.trim()
     )
@@ -397,6 +417,9 @@ export function ProjectTaskDialog({
         longitude,
         sharedLocation,
         dailyAllocations,
+        syncMaterialLines: async (targetTaskId: string) => {
+          await materialLinesRef.current?.sync(targetTaskId)
+        },
       })
 
       forceClose()
@@ -515,6 +538,21 @@ export function ProjectTaskDialog({
             </div>
           </div>
 
+          <TaskMaterialLinesEditor
+            ref={materialLinesRef}
+            taskId={mode === "edit" ? task?.id : null}
+            catalog={catalog}
+            inventory={inventory}
+            warehouseContext={warehouseContext}
+            disabled={isSubmitting || isMaterialsContextLoading}
+          />
+
+          {materialsContextError ? (
+            <p className="text-sm text-amber-700 dark:text-amber-400">
+              {materialsContextError}
+            </p>
+          ) : null}
+
           <div className="space-y-2">
             <Label htmlFor="task-materials">Materiales necesarios</Label>
             <Textarea
@@ -526,6 +564,10 @@ export function ProjectTaskDialog({
               placeholder="Listado de materiales para la cuadrilla..."
               rows={2}
             />
+            <p className="text-xs text-muted-foreground">
+              Utilizá este campo para materiales o indicaciones que todavía no
+              estén en el catálogo.
+            </p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">

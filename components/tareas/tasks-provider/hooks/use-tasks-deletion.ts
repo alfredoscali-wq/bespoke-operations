@@ -24,6 +24,8 @@ import {
 } from "@/lib/tasks/work-order-deletion-policy"
 import { TASK_DELETE_USER_MESSAGE } from "@/lib/operations/user-messages"
 import { recordTaskDeleteAudit } from "@/lib/audit/tasks-audit"
+import { recordMaterialReservationReleasedAudit } from "@/lib/audit/material-reservations-audit"
+import { fetchTaskMaterialLinesClient } from "@/lib/materials/task-material-lines.client"
 import { resolveTaskCrewId } from "@/lib/tasks/crew-relation"
 import type { Task } from "@/lib/types/tasks"
 
@@ -122,8 +124,21 @@ export function useTasksDeletion({
         return { success: false, message: TASK_DELETE_USER_MESSAGE }
       }
 
+      let reservedLinesBeforeDelete: Awaited<
+        ReturnType<typeof fetchTaskMaterialLinesClient>
+      > = []
+
       try {
         const client = createBrowserTasksClient()
+
+        try {
+          reservedLinesBeforeDelete = (
+            await fetchTaskMaterialLinesClient(id)
+          ).filter((line) => line.status === "reserved")
+        } catch {
+          reservedLinesBeforeDelete = []
+        }
+
         const result = await deleteTaskInSupabase(id, client)
 
         if (result.error) {
@@ -160,6 +175,14 @@ export function useTasksDeletion({
       deleteCachedDetail(id)
       setDetailVersion((version) => version + 1)
       recordTaskDeleteAudit(existing)
+
+      for (const line of reservedLinesBeforeDelete) {
+        recordMaterialReservationReleasedAudit({
+          taskId: id,
+          taskCode: existing.code,
+          line,
+        })
+      }
 
       return { success: true }
     },

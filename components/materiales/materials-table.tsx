@@ -62,7 +62,10 @@ export function MaterialsTable({ rows, onEdit }: MaterialsTableProps) {
                 <TableHead>Código</TableHead>
                 <TableHead>Material</TableHead>
                 <TableHead>Categoría</TableHead>
-                <TableHead>Stock disponible</TableHead>
+                <TableHead>Stock físico</TableHead>
+                <TableHead>Reservado</TableHead>
+                <TableHead>Disponible</TableHead>
+                <TableHead>Stock mínimo</TableHead>
                 <TableHead>Unidad</TableHead>
                 <TableHead>Depósito</TableHead>
                 <TableHead>Estado</TableHead>
@@ -98,11 +101,15 @@ export function MaterialsTable({ rows, onEdit }: MaterialsTableProps) {
                   </TableCell>
                   <TableCell className="tabular-nums">
                     {row.quantityAvailable.toLocaleString("es-MX")}
-                    {row.quantityReserved > 0 ? (
-                      <p className="text-xs text-muted-foreground">
-                        {row.netAvailable.toLocaleString("es-MX")} disponible neto
-                      </p>
-                    ) : null}
+                  </TableCell>
+                  <TableCell className="tabular-nums text-muted-foreground">
+                    {row.quantityReserved.toLocaleString("es-MX")}
+                  </TableCell>
+                  <TableCell className="tabular-nums font-medium">
+                    {row.netAvailable.toLocaleString("es-MX")}
+                  </TableCell>
+                  <TableCell className="tabular-nums">
+                    {row.minStock.toLocaleString("es-MX")}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {formatUnitLabel(row.unit)}
@@ -157,9 +164,19 @@ export function MaterialsTable({ rows, onEdit }: MaterialsTableProps) {
                     <p className="font-semibold tabular-nums text-foreground">
                       {row.quantityAvailable.toLocaleString("es-MX")}
                     </p>
-                    <p className="text-muted-foreground">
-                      Disponible ({formatUnitLabel(row.unit)})
+                    <p className="text-muted-foreground">Físico</p>
+                  </div>
+                  <div className="rounded-lg border bg-muted/20 p-2">
+                    <p className="font-semibold tabular-nums text-foreground">
+                      {row.quantityReserved.toLocaleString("es-MX")}
                     </p>
+                    <p className="text-muted-foreground">Reservado</p>
+                  </div>
+                  <div className="rounded-lg border bg-muted/20 p-2">
+                    <p className="font-semibold tabular-nums text-foreground">
+                      {row.netAvailable.toLocaleString("es-MX")}
+                    </p>
+                    <p className="text-muted-foreground">Disponible</p>
                   </div>
                   <div className="rounded-lg border bg-muted/20 p-2">
                     <p className="font-semibold tabular-nums text-foreground">

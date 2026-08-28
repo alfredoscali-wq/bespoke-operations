@@ -129,6 +129,21 @@ export function mapSupabaseTaskError(error: {
     }
   }
 
+  if (error.message.includes("Stock insuficiente")) {
+    return {
+      code: "VALIDATION" as const,
+      message: error.message,
+    }
+  }
+
+  if (error.message.includes("MATERIAL_CONSUMPTION_REQUIRED")) {
+    return {
+      code: "VALIDATION" as const,
+      message:
+        "Debe confirmar los materiales utilizados antes de finalizar la OT.",
+    }
+  }
+
   if (error.code === "23505") {
     const detail = `${error.message} ${error.details ?? ""} ${error.hint ?? ""}`
     if (detail.includes("tasks_company_idempotency_key_unique")) {

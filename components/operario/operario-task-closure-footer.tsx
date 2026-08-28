@@ -6,6 +6,8 @@ import { AlertTriangle, ClipboardCheck, Loader2, Play } from "lucide-react"
 import { useOperario } from "@/components/operario/operario-provider"
 import { OperarioTaskIncidentDialog } from "@/components/operario/operario-task-incident-dialog"
 import { OperarioTaskTrabajoRealizadoDialog } from "@/components/operario/operario-task-trabajo-realizado-dialog"
+import { TaskMaterialConsumptionPanel } from "@/components/materiales/task-material-consumption-panel"
+import { fetchReservedTaskMaterialLinesClient } from "@/lib/materials/task-material-consumption.client"
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { getOperationalStepPhotoCounts, getTaskEvidencePhotoCount } from "@/lib/supabase/task-photos.browser"
 import { hasOperationalSteps } from "@/lib/operational-steps/utils"
@@ -45,6 +47,41 @@ export function OperarioTaskClosureFooter({
   const [isPending, setIsPending] = useState(false)
   const [incidentDialogOpen, setIncidentDialogOpen] = useState(false)
   const [trabajoDialogOpen, setTrabajoDialogOpen] = useState(false)
+  const [materialsConfirmed, setMaterialsConfirmed] = useState(false)
+  const [hasReservedMaterials, setHasReservedMaterials] = useState<boolean | null>(
+    null
+  )
+
+  const closureValidation = validateTaskClosureForSubmit(task, {
+    evidenceCount,
+    stepPhotoCounts,
+  })
+  const closureBlocked = !closureValidation.allowed
+  const showStart = task.status === "asignada"
+  const showInProgressActions = task.status === "en-curso"
+  const pendingClosure = isPendingClosureStatus(task.status)
+  const hasIncident = isIncidentStatus(task.status)
+  const hasOverdue = isTaskVencida(task)
+
+  useEffect(() => {
+    if (!pendingClosure) {
+      setHasReservedMaterials(null)
+      return
+    }
+
+    let cancelled = false
+    void fetchReservedTaskMaterialLinesClient(task.id)
+      .then((lines) => {
+        if (!cancelled) setHasReservedMaterials(lines.length > 0)
+      })
+      .catch(() => {
+        if (!cancelled) setHasReservedMaterials(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [task.id, pendingClosure])
 
   useEffect(() => {
     if (usesSteps) {
@@ -78,17 +115,6 @@ export function OperarioTaskClosureFooter({
     }
   }, [task.id, usesSteps, stepsRefreshKey])
 
-  const closureValidation = validateTaskClosureForSubmit(task, {
-    evidenceCount,
-    stepPhotoCounts,
-  })
-  const closureBlocked = !closureValidation.allowed
-  const showStart = task.status === "asignada"
-  const showInProgressActions = task.status === "en-curso"
-  const pendingClosure = isPendingClosureStatus(task.status)
-  const hasIncident = isIncidentStatus(task.status)
-  const hasOverdue = isTaskVencida(task)
-
   if (hasOverdue) {
     return (
       <div className="fixed inset-x-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom,0px))] z-40 border-t border-red-200 bg-red-50/95 px-4 py-4 backdrop-blur supports-[backdrop-filter]:bg-red-50/90 dark:border-red-900 dark:bg-red-950/90">
@@ -100,15 +126,37 @@ export function OperarioTaskClosureFooter({
   }
 
   if (pendingClosure) {
+    if (hasReservedMaterials === null) {
+      return null
+    }
+
+    if (!hasReservedMaterials) {
+      return null
+    }
+
     return (
       <div className="fixed inset-x-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom,0px))] z-40 border-t border-amber-200 bg-amber-50/95 px-4 py-4 backdrop-blur supports-[backdrop-filter]:bg-amber-50/90 dark:border-amber-900 dark:bg-amber-950/90">
-        <div className="mx-auto max-w-lg space-y-1">
-          <p className="text-base font-semibold text-amber-900 dark:text-amber-100">
-            🟡 Pendiente de cierre
-          </p>
-          <p className="text-sm text-amber-800 dark:text-amber-200">
-            El supervisor debe cerrar la orden de trabajo desde el panel administrativo.
-          </p>
+        <div className="mx-auto max-w-lg space-y-3">
+          <TaskMaterialConsumptionPanel
+            taskId={task.id}
+            onConfirmed={() => {
+              setMaterialsConfirmed(true)
+              onActionMessage?.("Materiales confirmados.")
+              onActionError?.(null)
+            }}
+            onError={onActionError}
+          />
+          {materialsConfirmed ? (
+            <p className="text-sm text-amber-800 dark:text-amber-200">
+              Materiales confirmados. El supervisor debe cerrar la orden de
+              trabajo desde el panel administrativo.
+            </p>
+          ) : (
+            <p className="text-sm text-amber-800 dark:text-amber-200">
+              El supervisor debe cerrar la orden de trabajo desde el panel
+              administrativo.
+            </p>
+          )}
         </div>
       </div>
     )

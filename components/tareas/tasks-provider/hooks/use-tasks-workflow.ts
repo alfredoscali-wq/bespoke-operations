@@ -12,7 +12,8 @@ import {
   type TaskWorkflowAction,
 } from "@/lib/tasks/task-status-workflow"
 import { hasOperationalSteps } from "@/lib/operational-steps/utils"
-import { applyWorkOrderApprovalEffects } from "@/lib/tasks/work-order-approval-effects"
+import { MATERIAL_CONSUMPTION_REQUIRED_MESSAGE } from "@/lib/materials/task-material-consumption"
+import { fetchReservedTaskMaterialLinesClient } from "@/lib/materials/task-material-consumption.client"
 import { shouldCreateOtCashRendition } from "@/lib/tesoreria/ot-renditions"
 import { ensureOtCashRenditionForTask } from "@/lib/supabase/treasury-ot-renditions.browser"
 import {
@@ -30,6 +31,7 @@ import {
   buildTrabajoRealizadoOperationalEvent,
 } from "@/lib/tasks/operational-events"
 import { recordTaskOperationalEvent } from "@/lib/supabase/operational-control.browser"
+import { applyWorkOrderApprovalEffects } from "@/lib/tasks/work-order-approval-effects"
 import type { UpdateTaskPayload } from "@/lib/types/supabase/tasks"
 import type { Task, TaskStatus } from "@/lib/types/tasks"
 
@@ -221,6 +223,18 @@ export function useTasksWorkflow({
 
   const approveTask = useCallback(
     async (id: string): Promise<TaskMutationResult> => {
+      try {
+        const reservedLines = await fetchReservedTaskMaterialLinesClient(id)
+        if (reservedLines.length > 0) {
+          return {
+            success: false,
+            message: MATERIAL_CONSUMPTION_REQUIRED_MESSAGE,
+          }
+        }
+      } catch {
+        // Sin acceso al módulo o sin líneas reservadas: el trigger SQL protege el cierre.
+      }
+
       const result = await applyWorkflowTransition(id, "approve")
 
       if (result.success && result.task) {
