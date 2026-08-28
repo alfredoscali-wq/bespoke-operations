@@ -2,10 +2,20 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { Eye, FileText, Plus, Search } from "lucide-react"
+import { Eye, FileText, Plus, Search, Trash2 } from "lucide-react"
 
+import { useAuth } from "@/components/auth/auth-provider"
 import { IspTonedStatusBadge } from "@/components/isp/isp-status-badges"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { EntityActionFeedback } from "@/components/ui/entity-action-feedback"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
@@ -24,6 +34,9 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import {
+  ISP_BILLING_DOCUMENT_DELETE_CONFIRM_DESCRIPTION,
+  ISP_BILLING_DOCUMENT_DELETE_CONFIRM_TITLE,
+  ISP_BILLING_DOCUMENT_DELETED_MESSAGE,
   ISP_BILLING_DOCUMENTS_EMPTY_DESCRIPTION,
   ISP_BILLING_DOCUMENTS_EMPTY_TITLE,
   ISP_BILLING_DOCUMENTS_SUBTITLE,
@@ -38,6 +51,7 @@ import {
 } from "@/lib/isp/billing-document-integrity"
 import type { IspBillingDocumentListItem, IspBillingIssueContext } from "@/lib/isp/billing-document-types"
 import { formatDateOnly } from "@/lib/dates/date-only"
+import { canDeleteIspBillingDocument } from "@/lib/isp/permissions"
 
 const STATUS_FILTERS = [
   { value: "all", label: "Todos los estados" },
@@ -47,6 +61,9 @@ const STATUS_FILTERS = [
 ]
 
 export function IspBillingDocumentsListScreen() {
+  const { sessionUser } = useAuth()
+  const canDelete = canDeleteIspBillingDocument(sessionUser)
+
   const [items, setItems] = useState<IspBillingDocumentListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -59,6 +76,15 @@ export function IspBillingDocumentsListScreen() {
   const [pointOfSaleOptions, setPointOfSaleOptions] = useState<
     Array<{ id: string; label: string }>
   >([])
+  const [reloadKey, setReloadKey] = useState(0)
+  const [deleteTarget, setDeleteTarget] = useState<IspBillingDocumentListItem | null>(
+    null
+  )
+  const [deleting, setDeleting] = useState(false)
+  const [feedback, setFeedback] = useState<string | null>(null)
+  const [feedbackVariant, setFeedbackVariant] = useState<"success" | "error">(
+    "success"
+  )
 
   useEffect(() => {
     fetch("/api/isp/billing/documents/context")
@@ -116,7 +142,36 @@ export function IspBillingDocumentsListScreen() {
         if (!controller.signal.aborted) setLoading(false)
       })
     return () => controller.abort()
-  }, [query])
+  }, [query, reloadKey])
+
+  async function confirmDelete() {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      const response = await fetch(
+        `/api/isp/billing/documents/${deleteTarget.id}`,
+        { method: "DELETE" }
+      )
+      const payload = (await response.json()) as {
+        success?: boolean
+        message?: string
+      }
+      if (!response.ok || payload.success === false) {
+        throw new Error(payload.message || "No se pudo eliminar el comprobante.")
+      }
+      setDeleteTarget(null)
+      setFeedback(payload.message ?? ISP_BILLING_DOCUMENT_DELETED_MESSAGE)
+      setFeedbackVariant("success")
+      setReloadKey((value) => value + 1)
+    } catch (cause) {
+      setFeedback(
+        cause instanceof Error ? cause.message : "No se pudo eliminar el comprobante."
+      )
+      setFeedbackVariant("error")
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   return (
     <div className="space-y-5">
@@ -139,6 +194,10 @@ export function IspBillingDocumentsListScreen() {
           </Link>
         </Button>
       </div>
+
+      {feedback ? (
+        <EntityActionFeedback message={feedback} variant={feedbackVariant} />
+      ) : null}
 
       <div className="grid gap-2 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <div className="relative sm:col-span-2 xl:col-span-1">
@@ -269,12 +328,26 @@ export function IspBillingDocumentsListScreen() {
                         </IspTonedStatusBadge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button asChild variant="ghost" size="sm">
-                          <Link href={`/facturacion/comprobantes/${item.id}`}>
-                            <Eye className="size-4" />
-                            Ver
-                          </Link>
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button asChild variant="ghost" size="sm">
+                            <Link href={`/facturacion/comprobantes/${item.id}`}>
+                              <Eye className="size-4" />
+                              Ver
+                            </Link>
+                          </Button>
+                          {canDelete ? (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setDeleteTarget(item)}
+                              aria-label="Eliminar comprobante"
+                            >
+                              <Trash2 className="size-4" />
+                              Eliminar
+                            </Button>
+                          ) : null}
+                        </div>
                       </TableCell>
                     </TableRow>
                   )
@@ -287,9 +360,8 @@ export function IspBillingDocumentsListScreen() {
             {items.map((item) => {
               const display = displayBillingDocumentStatus(item)
               return (
-                <Link
+                <div
                   key={item.id}
-                  href={`/facturacion/comprobantes/${item.id}`}
                   className="rounded-xl border border-slate-200 bg-white p-4"
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -314,12 +386,65 @@ export function IspBillingDocumentsListScreen() {
                       {formatBillingMoney(item.total)}
                     </span>
                   </div>
-                </Link>
+                  <div className="mt-3 flex items-center gap-2">
+                    <Button asChild variant="outline" size="sm">
+                      <Link href={`/facturacion/comprobantes/${item.id}`}>
+                        <Eye className="size-4" />
+                        Ver
+                      </Link>
+                    </Button>
+                    {canDelete ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setDeleteTarget(item)}
+                      >
+                        <Trash2 className="size-4" />
+                        Eliminar
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
               )
             })}
           </div>
         </>
       )}
+
+      <Dialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setDeleteTarget(null)
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{ISP_BILLING_DOCUMENT_DELETE_CONFIRM_TITLE}</DialogTitle>
+            <DialogDescription>
+              {ISP_BILLING_DOCUMENT_DELETE_CONFIRM_DESCRIPTION}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeleteTarget(null)}
+              disabled={deleting}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => void confirmDelete()}
+              disabled={deleting}
+            >
+              Eliminar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

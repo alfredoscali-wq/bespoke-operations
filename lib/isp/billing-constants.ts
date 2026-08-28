@@ -232,6 +232,12 @@ export const ISP_BILLING_DOCUMENT_CANCEL_CONFIRM =
   "¿Querés anular este comprobante?"
 export const ISP_BILLING_DOCUMENT_CANCELLED_MESSAGE =
   "El comprobante fue anulado."
+export const ISP_BILLING_DOCUMENT_DELETE_CONFIRM_TITLE = "¿Eliminar comprobante?"
+export const ISP_BILLING_DOCUMENT_DELETE_CONFIRM_DESCRIPTION =
+  "El comprobante quedará eliminado y no aparecerá en el listado."
+export const ISP_BILLING_DOCUMENT_DELETED_MESSAGE = "El comprobante fue eliminado."
+export const ISP_BILLING_DOCUMENT_DELETE_FORBIDDEN =
+  "Solo un administrador puede eliminar comprobantes."
 export const ISP_BILLING_DOCUMENT_NON_FISCAL_NOTICE =
   "DOCUMENTO NO VÁLIDO COMO FACTURA"
 export const ISP_BILLING_DOCUMENT_ARCA_PENDING =

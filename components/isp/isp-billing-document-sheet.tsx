@@ -7,7 +7,14 @@ import {
   BILLING_DOCUMENT_TABLE_COLUMNS,
   type BillingDocumentTemplateModel,
 } from "@/lib/isp/billing-document-template"
-import { BILLING_DOCUMENT_LAYOUT as L } from "@/lib/isp/billing-document-layout"
+import {
+  BILLING_DOCUMENT_LAYOUT as L,
+  billingContentAreaHeightMm,
+} from "@/lib/isp/billing-document-layout"
+import {
+  planBillingDocumentPages,
+  type BillingDocumentPageSlice,
+} from "@/lib/isp/billing-document-pagination"
 import { cn } from "@/lib/utils"
 
 function SectionLabel({ children }: { children: ReactNode }) {
@@ -230,6 +237,331 @@ function IdentificationBlock({ model }: { model: BillingDocumentTemplateModel })
   )
 }
 
+function DocumentHeader({ model }: { model: BillingDocumentTemplateModel }) {
+  return (
+    <>
+      <header
+        className="flex items-start justify-between"
+        style={{ gap: L.header.columnGapPx }}
+      >
+        <div className="min-w-0 flex-1">
+          <IssuerBlock model={model} />
+        </div>
+        <IdentificationBlock model={model} />
+      </header>
+      <div style={{ marginTop: `${L.header.afterHeaderMm}mm` }}>
+        <Hairline />
+      </div>
+    </>
+  )
+}
+
+function CustomerSection({ model }: { model: BillingDocumentTemplateModel }) {
+  return (
+    <section style={{ marginTop: `${L.rhythm.afterHairlineMm}mm` }}>
+      <SectionLabel>Cliente</SectionLabel>
+      <div
+        className="space-y-1.5 text-[11px] leading-[1.55]"
+        style={{
+          marginTop: `${L.rhythm.afterSectionLabelMm}mm`,
+          maxWidth: L.customer.widthPx,
+        }}
+      >
+        <p className="text-[13.5px] leading-snug font-semibold text-neutral-900">
+          {model.customer.name}
+        </p>
+        <p className="text-neutral-600">{model.customer.documentLabel}</p>
+        {model.customer.vatConditionLabel ? (
+          <p className="text-neutral-600">{model.customer.vatConditionLabel}</p>
+        ) : null}
+        {model.customer.addressLine ? (
+          <p className="text-neutral-500">{model.customer.addressLine}</p>
+        ) : null}
+        {model.customer.localityLine ? (
+          <p className="text-neutral-500">{model.customer.localityLine}</p>
+        ) : null}
+      </div>
+    </section>
+  )
+}
+
+function ConceptsTable({
+  model,
+  itemIndices,
+  showSectionLabel,
+  sectionMarginTop,
+}: {
+  model: BillingDocumentTemplateModel
+  itemIndices: number[]
+  showSectionLabel: boolean
+  sectionMarginTop: number
+}) {
+  const items = itemIndices.map((index) => model.items[index])
+
+  return (
+    <section
+      style={{
+        marginTop: sectionMarginTop > 0 ? `${sectionMarginTop}mm` : 0,
+      }}
+    >
+      {showSectionLabel ? <SectionLabel>Conceptos</SectionLabel> : null}
+      <div
+        className="overflow-hidden"
+        style={{
+          marginTop: showSectionLabel
+            ? `${L.rhythm.afterSectionLabelMm}mm`
+            : 0,
+        }}
+      >
+        <table className="w-full table-fixed border-collapse text-[10.5px]">
+          <colgroup>
+            {L.table.columns.map((width, index) => (
+              <col key={index} style={{ width: `${width}%` }} />
+            ))}
+          </colgroup>
+          <thead>
+            <tr className="bg-primary/10">
+              {BILLING_DOCUMENT_TABLE_COLUMNS.map((column) => (
+                <th
+                  key={column.key}
+                  className={cn(
+                    "py-2.5 font-semibold tracking-[0.04em] whitespace-nowrap text-neutral-600 uppercase",
+                    column.align === "right" ? "px-2.5 text-right" : "px-3 text-left",
+                    column.key === "index" && "pl-2.5 pr-1"
+                  )}
+                >
+                  {column.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item, index) => (
+              <tr
+                key={`${item.description}-${index}`}
+                className="border-b border-neutral-100"
+              >
+                <td className="py-2.5 pr-1.5 pl-2.5 align-top text-right tabular-nums text-neutral-400">
+                  {item.indexLabel}
+                </td>
+                <td className="px-3 py-2.5 align-top text-neutral-800">
+                  {item.description}
+                </td>
+                <td className="px-2.5 py-2.5 align-top text-right tabular-nums text-neutral-600">
+                  {item.quantityLabel}
+                </td>
+                <td className="px-2.5 py-2.5 align-top text-right tabular-nums text-neutral-600">
+                  {item.unitPriceLabel}
+                </td>
+                <td
+                  className={cn(
+                    "px-2.5 py-2.5 align-top text-right tabular-nums",
+                    item.hasDiscount ? "text-red-700" : "text-neutral-400"
+                  )}
+                >
+                  {item.discountLabel}
+                </td>
+                <td className="px-2.5 py-2.5 align-top text-right text-neutral-600">
+                  {item.taxLabel}
+                </td>
+                <td className="px-2.5 py-2.5 align-top text-right tabular-nums font-medium text-neutral-900">
+                  {item.amountLabel}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  )
+}
+
+function TotalsSection({ model }: { model: BillingDocumentTemplateModel }) {
+  return (
+    <dl
+      className="ml-auto w-full space-y-2.5 text-[11px]"
+      style={{
+        marginTop: `${L.rhythm.afterTableMm}mm`,
+        maxWidth: L.totals.widthPx,
+      }}
+    >
+      {model.totals.map((row) => (
+        <div
+          key={row.label}
+          className={cn(
+            "flex items-baseline justify-between gap-10",
+            row.variant === "total" &&
+              "mt-3.5 border-t-2 border-primary pt-3.5 text-[15px] font-semibold tracking-wide text-primary"
+          )}
+        >
+          <dt
+            className={cn(
+              row.variant === "total" && "text-primary",
+              row.variant === "default" && "text-neutral-500",
+              row.variant === "discount" && "text-neutral-500",
+              row.variant === "tax" && "text-neutral-500"
+            )}
+          >
+            {row.label}
+          </dt>
+          <dd
+            className={cn(
+              "tabular-nums",
+              row.variant === "discount" && "text-red-700",
+              row.variant === "total" && "text-primary"
+            )}
+          >
+            {row.amountLabel}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
+
+function ObservationsSection({ model }: { model: BillingDocumentTemplateModel }) {
+  if (!model.observations) return null
+  return (
+    <section style={{ marginTop: `${L.rhythm.afterTotalsMm}mm` }}>
+      <SectionLabel>Observaciones</SectionLabel>
+      <p
+        className="text-[11px] leading-[1.6] text-neutral-600"
+        style={{
+          marginTop: `${L.rhythm.afterSectionLabelMm}mm`,
+          maxWidth: L.observations.widthPx,
+        }}
+      >
+        {model.observations}
+      </p>
+    </section>
+  )
+}
+
+function FiscalFooter({ model }: { model: BillingDocumentTemplateModel }) {
+  return (
+    <footer
+      className="border-t border-neutral-200"
+      style={{
+        paddingTop: `${L.rhythm.footerPadTopMm}mm`,
+        height: `${L.footer.heightMm}mm`,
+        boxSizing: "border-box",
+      }}
+    >
+      <div
+        className="grid items-start"
+        style={{
+          gridTemplateColumns: `1fr auto ${L.footer.qrSizePx}px`,
+          gap: `${L.footer.columnGapMm}mm`,
+        }}
+      >
+        <div className="min-w-0 space-y-2 text-[9px] leading-relaxed text-neutral-400">
+          {model.nonFiscalNotice ? (
+            <p className="font-medium tracking-[0.08em] text-neutral-600 uppercase">
+              {model.nonFiscalNotice}
+            </p>
+          ) : null}
+          {model.footerLegend ? <p>{model.footerLegend}</p> : null}
+        </div>
+        <div
+          className="space-y-1.5 text-[10px] text-neutral-500"
+          style={{ minWidth: L.footer.caeWidthPx }}
+        >
+          <p>
+            <span className="text-neutral-400">CAE: </span>
+            <span
+              className={
+                model.fiscal.showCae ? "font-medium text-neutral-800" : undefined
+              }
+            >
+              {model.fiscal.caeDisplay}
+            </span>
+          </p>
+          <p>
+            <span className="text-neutral-400">Fecha de vencimiento CAE: </span>
+            <span
+              className={
+                model.fiscal.showCae ? "font-medium text-neutral-800" : undefined
+              }
+            >
+              {model.fiscal.caeExpiresDisplay}
+            </span>
+          </p>
+        </div>
+        <div className="text-center">
+          <p className="mb-1.5 text-[8px] tracking-[0.12em] text-neutral-400 uppercase">
+            {BILLING_DOCUMENT_QR_RESERVED_LABEL}
+          </p>
+          <div
+            data-billing-qr-reserved="true"
+            className="flex items-center justify-center border border-dashed border-neutral-300 text-[8px] tracking-[0.14em] text-neutral-400 uppercase"
+            style={{ width: L.footer.qrSizePx, height: L.footer.qrSizePx }}
+          >
+            {BILLING_DOCUMENT_QR_ZONE_LABEL}
+          </div>
+        </div>
+      </div>
+    </footer>
+  )
+}
+
+function BillingDocumentPage({
+  model,
+  slice,
+}: {
+  model: BillingDocumentTemplateModel
+  slice: BillingDocumentPageSlice
+}) {
+  return (
+    <article
+      data-billing-document-sheet="true"
+      data-billing-document-page={slice.pageIndex + 1}
+      className="bg-white text-[#1c2028] shadow-[0_12px_40px_rgba(15,23,42,0.10)]"
+      style={{
+        width: "100%",
+        aspectRatio: `${L.page.widthMm} / ${L.page.heightMm}`,
+        boxSizing: "border-box",
+        padding: `${L.margin.topMm}mm ${L.margin.xMm}mm ${L.margin.bottomMm}mm`,
+        position: "relative",
+      }}
+    >
+      <div
+        style={{
+          maxHeight: `${billingContentAreaHeightMm()}mm`,
+          overflow: "hidden",
+        }}
+      >
+        {slice.showDocumentHeader ? <DocumentHeader model={model} /> : null}
+        {slice.showCustomer ? <CustomerSection model={model} /> : null}
+        {slice.itemIndices.length > 0 || slice.showTableHeader ? (
+          <ConceptsTable
+            model={model}
+            itemIndices={slice.itemIndices}
+            showSectionLabel={
+              slice.showDocumentHeader && slice.itemIndices.length > 0
+            }
+            sectionMarginTop={
+              slice.showDocumentHeader ? L.rhythm.afterCustomerMm : 0
+            }
+          />
+        ) : null}
+        {slice.showTotals ? <TotalsSection model={model} /> : null}
+        {slice.showObservations ? <ObservationsSection model={model} /> : null}
+      </div>
+      <div
+        style={{
+          position: "absolute",
+          left: `${L.margin.xMm}mm`,
+          right: `${L.margin.xMm}mm`,
+          bottom: `${L.margin.bottomMm}mm`,
+          width: `calc(100% - ${L.margin.xMm * 2}mm)`,
+        }}
+      >
+        <FiscalFooter model={model} />
+      </div>
+    </article>
+  )
+}
+
 export function IspBillingDocumentA4Stage({
   children,
   className,
@@ -244,7 +576,9 @@ export function IspBillingDocumentA4Stage({
         className
       )}
     >
-      <div className="mx-auto w-full max-w-[min(100%,210mm)]">{children}</div>
+      <div className="mx-auto w-full max-w-[210mm]">
+        <div className="space-y-6">{children}</div>
+      </div>
     </div>
   )
 }
@@ -254,239 +588,13 @@ export function IspBillingDocumentSheet({
 }: {
   model: BillingDocumentTemplateModel
 }) {
+  const plan = planBillingDocumentPages(model)
+
   return (
-    <article
-      data-billing-document-sheet="true"
-      className="flex flex-col bg-white text-[#1c2028] shadow-[0_12px_40px_rgba(15,23,42,0.10)]"
-      style={{
-        width: "210mm",
-        minHeight: "297mm",
-        padding: `${L.margin.topMm}mm ${L.margin.xMm}mm ${L.margin.bottomMm}mm`,
-      }}
-    >
-      <div className="flex-1">
-        <header
-          className="flex items-start justify-between"
-          style={{ gap: L.header.columnGapPx }}
-        >
-          <div className="min-w-0 flex-1">
-            <IssuerBlock model={model} />
-          </div>
-          <IdentificationBlock model={model} />
-        </header>
-
-        <div style={{ marginTop: `${L.header.afterHeaderMm}mm` }}>
-          <Hairline />
-        </div>
-
-        <section style={{ marginTop: `${L.rhythm.afterHairlineMm}mm` }}>
-          <SectionLabel>Cliente</SectionLabel>
-          <div
-            className="space-y-1.5 text-[11px] leading-[1.55]"
-            style={{
-              marginTop: `${L.rhythm.afterSectionLabelMm}mm`,
-              maxWidth: L.customer.widthPx,
-            }}
-          >
-            <p className="text-[13.5px] leading-snug font-semibold text-neutral-900">
-              {model.customer.name}
-            </p>
-            <p className="text-neutral-600">{model.customer.documentLabel}</p>
-            {model.customer.vatConditionLabel ? (
-              <p className="text-neutral-600">{model.customer.vatConditionLabel}</p>
-            ) : null}
-            {model.customer.addressLine ? (
-              <p className="text-neutral-500">{model.customer.addressLine}</p>
-            ) : null}
-            {model.customer.localityLine ? (
-              <p className="text-neutral-500">{model.customer.localityLine}</p>
-            ) : null}
-          </div>
-        </section>
-
-        <section style={{ marginTop: `${L.rhythm.afterCustomerMm}mm` }}>
-          <SectionLabel>Conceptos</SectionLabel>
-          <div
-            className="overflow-hidden"
-            style={{ marginTop: `${L.rhythm.afterSectionLabelMm}mm` }}
-          >
-            <table className="w-full table-fixed border-collapse text-[10.5px]">
-              <colgroup>
-                {L.table.columns.map((width, index) => (
-                  <col key={index} style={{ width: `${width}%` }} />
-                ))}
-              </colgroup>
-              <thead>
-                <tr className="bg-primary/10">
-                  {BILLING_DOCUMENT_TABLE_COLUMNS.map((column) => (
-                    <th
-                      key={column.key}
-                      className={cn(
-                        "py-2.5 font-semibold tracking-[0.04em] whitespace-nowrap text-neutral-600 uppercase",
-                        column.align === "right" ? "px-2.5 text-right" : "px-3 text-left",
-                        column.key === "index" && "pl-2.5 pr-1"
-                      )}
-                    >
-                      {column.label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {model.items.map((item, index) => (
-                  <tr
-                    key={`${item.description}-${index}`}
-                    className="border-b border-neutral-100"
-                  >
-                    <td className="py-2.5 pr-1.5 pl-2.5 align-top text-right tabular-nums text-neutral-400">
-                      {item.indexLabel}
-                    </td>
-                    <td className="px-3 py-2.5 align-top text-neutral-800">
-                      {item.description}
-                    </td>
-                    <td className="px-2.5 py-2.5 align-top text-right tabular-nums text-neutral-600">
-                      {item.quantityLabel}
-                    </td>
-                    <td className="px-2.5 py-2.5 align-top text-right tabular-nums text-neutral-600">
-                      {item.unitPriceLabel}
-                    </td>
-                    <td
-                      className={cn(
-                        "px-2.5 py-2.5 align-top text-right tabular-nums",
-                        item.hasDiscount ? "text-red-700" : "text-neutral-400"
-                      )}
-                    >
-                      {item.discountLabel}
-                    </td>
-                    <td className="px-2.5 py-2.5 align-top text-right text-neutral-600">
-                      {item.taxLabel}
-                    </td>
-                    <td className="px-2.5 py-2.5 align-top text-right tabular-nums font-medium text-neutral-900">
-                      {item.amountLabel}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <dl
-          className="ml-auto w-full space-y-2.5 text-[11px]"
-          style={{
-            marginTop: `${L.rhythm.afterTableMm}mm`,
-            maxWidth: L.totals.widthPx,
-          }}
-        >
-          {model.totals.map((row) => (
-            <div
-              key={row.label}
-              className={cn(
-                "flex items-baseline justify-between gap-10",
-                row.variant === "total" &&
-                  "mt-3.5 border-t-2 border-primary pt-3.5 text-[15px] font-semibold tracking-wide text-primary"
-              )}
-            >
-              <dt
-                className={cn(
-                  row.variant === "total" && "text-primary",
-                  row.variant === "default" && "text-neutral-500",
-                  row.variant === "discount" && "text-neutral-500",
-                  row.variant === "tax" && "text-neutral-500"
-                )}
-              >
-                {row.label}
-              </dt>
-              <dd
-                className={cn(
-                  "tabular-nums",
-                  row.variant === "discount" && "text-red-700",
-                  row.variant === "total" && "text-primary"
-                )}
-              >
-                {row.amountLabel}
-              </dd>
-            </div>
-          ))}
-        </dl>
-
-        {model.observations ? (
-          <section style={{ marginTop: `${L.rhythm.afterTotalsMm}mm` }}>
-            <SectionLabel>Observaciones</SectionLabel>
-            <p
-              className="text-[11px] leading-[1.6] text-neutral-600"
-              style={{
-                marginTop: `${L.rhythm.afterSectionLabelMm}mm`,
-                maxWidth: L.observations.widthPx,
-              }}
-            >
-              {model.observations}
-            </p>
-          </section>
-        ) : null}
-      </div>
-
-      <footer
-        className="border-t border-neutral-200"
-        style={{
-          marginTop: `${L.rhythm.beforeFooterMm}mm`,
-          paddingTop: `${L.rhythm.footerPadTopMm}mm`,
-        }}
-      >
-        <div
-          className="grid items-start"
-          style={{
-            gridTemplateColumns: `1fr auto ${L.footer.qrSizePx}px`,
-            gap: `${L.footer.columnGapMm}mm`,
-          }}
-        >
-          <div className="min-w-0 space-y-2 text-[9px] leading-relaxed text-neutral-400">
-            {model.nonFiscalNotice ? (
-              <p className="font-medium tracking-[0.08em] text-neutral-600 uppercase">
-                {model.nonFiscalNotice}
-              </p>
-            ) : null}
-            {model.footerLegend ? <p>{model.footerLegend}</p> : null}
-          </div>
-          <div
-            className="space-y-1.5 text-[10px] text-neutral-500"
-            style={{ minWidth: L.footer.caeWidthPx }}
-          >
-            <p>
-              <span className="text-neutral-400">CAE: </span>
-              <span
-                className={
-                  model.fiscal.showCae ? "font-medium text-neutral-800" : undefined
-                }
-              >
-                {model.fiscal.caeDisplay}
-              </span>
-            </p>
-            <p>
-              <span className="text-neutral-400">Fecha de vencimiento CAE: </span>
-              <span
-                className={
-                  model.fiscal.showCae ? "font-medium text-neutral-800" : undefined
-                }
-              >
-                {model.fiscal.caeExpiresDisplay}
-              </span>
-            </p>
-          </div>
-          <div className="text-center">
-            <p className="mb-1.5 text-[8px] tracking-[0.12em] text-neutral-400 uppercase">
-              {BILLING_DOCUMENT_QR_RESERVED_LABEL}
-            </p>
-            <div
-              data-billing-qr-reserved="true"
-              className="flex items-center justify-center border border-dashed border-neutral-300 text-[8px] tracking-[0.14em] text-neutral-400 uppercase"
-              style={{ width: L.footer.qrSizePx, height: L.footer.qrSizePx }}
-            >
-              {BILLING_DOCUMENT_QR_ZONE_LABEL}
-            </div>
-          </div>
-        </div>
-      </footer>
-    </article>
+    <>
+      {plan.pages.map((slice) => (
+        <BillingDocumentPage key={slice.pageIndex} model={model} slice={slice} />
+      ))}
+    </>
   )
 }

@@ -34,14 +34,18 @@ function pageHeight(doc: jsPDF): number {
   return doc.internal.pageSize.getHeight()
 }
 
+function innerBottom(doc: jsPDF): number {
+  return pageHeight(doc) - MARGIN_BOTTOM
+}
+
 function contentBottom(doc: jsPDF): number {
-  return pageHeight(doc) - MARGIN_BOTTOM - L.footer.heightMm
+  return innerBottom(doc) - L.footer.heightMm
 }
 
 function ensureSpace(doc: jsPDF, y: number, height: number): number {
   if (y + height > contentBottom(doc)) {
     doc.addPage()
-    return MARGIN_TOP + 4
+    return MARGIN_TOP
   }
   return y
 }
@@ -360,7 +364,7 @@ function writeFooterWrapped(
 
 function drawFiscalFooter(doc: jsPDF, model: BillingDocumentTemplateModel) {
   const width = pageWidth(doc)
-  const top = pageHeight(doc) - MARGIN_BOTTOM - L.footer.heightMm
+  const top = contentBottom(doc)
   drawHairline(doc, top)
 
   const qrSize = L.footer.qrSizeMm
@@ -602,10 +606,28 @@ function renderBillingDocumentPdf(
   y += L.rhythm.afterTableMm
   const totalsWidth = L.totals.widthMm
   const totalsX = width - MARGIN_X - totalsWidth
+  const totalsBlockHeight = (() => {
+    let height = 0
+    for (const row of model.totals) {
+      if (row.variant === "total") {
+        height +=
+          L.totals.totalGapMm +
+          L.totals.totalGapMm +
+          billingPxToMm(L.type.totalPx * 0.8) +
+          billingPxToMm(L.type.totalPx * 0.6)
+      } else {
+        height +=
+          billingPxToMm(L.type.totalsPx * 0.8) +
+          billingPxToMm(L.type.totalsPx * 0.6) +
+          L.rhythm.totalsRowMm
+      }
+    }
+    return height
+  })()
+  y = ensureSpace(doc, y, totalsBlockHeight)
   for (const row of model.totals) {
     if (row.variant === "total") {
       y += L.totals.totalGapMm
-      y = ensureSpace(doc, y, L.totals.totalGapMm + 8)
       doc.setDrawColor(...ACCENT)
       doc.setLineWidth(billingPxToMm(2))
       doc.line(totalsX, y, width - MARGIN_X, y)
@@ -614,7 +636,6 @@ function renderBillingDocumentPdf(
       doc.setFontSize(billingPxToPt(L.type.totalPx))
       doc.setTextColor(...ACCENT)
     } else {
-      y = ensureSpace(doc, y, L.rhythm.totalsRowMm + 4)
       y += billingPxToMm(L.type.totalsPx * 0.8)
       doc.setFont("helvetica", "normal")
       doc.setFontSize(billingPxToPt(L.type.totalsPx))
@@ -637,7 +658,7 @@ function renderBillingDocumentPdf(
   }
 
   if (model.observations) {
-    y = ensureSpace(doc, y + L.rhythm.afterTotalsMm, 16)
+    y += L.rhythm.afterTotalsMm
     y = drawSectionLabel(doc, "Observaciones", y)
     doc.setFont("helvetica", "normal")
     doc.setFontSize(billingPxToPt(L.type.observationsPx))
@@ -652,9 +673,6 @@ function renderBillingDocumentPdf(
     )
   }
 
-  if (y > contentBottom(doc) - 2) {
-    doc.addPage()
-  }
   const totalPages = doc.getNumberOfPages()
   for (let page = 1; page <= totalPages; page += 1) {
     doc.setPage(page)

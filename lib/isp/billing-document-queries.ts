@@ -55,6 +55,7 @@ async function loadDocumentBundle(
     .select("*")
     .eq("company_id", companyId)
     .eq("id", documentId)
+    .is("deleted_at", null)
     .maybeSingle()
   if (error) throw new Error(error.message)
   if (!data) throw new Error(ISP_BILLING_DOCUMENT_NOT_FOUND)
@@ -265,6 +266,7 @@ export async function listIspBillingDocuments(
     .from("isp_billing_documents")
     .select("*")
     .eq("company_id", companyId)
+    .is("deleted_at", null)
     .order("issue_date", { ascending: false })
     .order("created_at", { ascending: false })
 
@@ -485,6 +487,7 @@ export async function updateIspBillingDocument(
     .eq("id", documentId)
     .eq("company_id", companyId)
     .eq("status", "draft")
+    .is("deleted_at", null)
   if (error) throw new Error(mapWriteError(error))
 
   await client.from("isp_billing_document_events").insert({
@@ -531,6 +534,17 @@ export async function cancelIspBillingDocument(
   })
   if (error) throw new Error(error.message)
   return loadDocumentBundle(client, companyId, documentId)
+}
+
+export async function deleteIspBillingDocument(
+  client: IspBillingDocumentQueriesClient,
+  _companyId: string,
+  documentId: string
+): Promise<void> {
+  const { error } = await client.rpc("soft_delete_isp_billing_document", {
+    p_document_id: documentId,
+  })
+  if (error) throw new Error(error.message)
 }
 
 export function toBillingDocumentList(items: IspBillingDocument[]) {

@@ -644,8 +644,8 @@ test("25. configuración inválida rechazada", () => {
   assert.match(sql, /isp_billing_company_settings/)
   assert.doesNotMatch(sql, /wsfe|solicitarCae|siro\.com/)
   assert.doesNotMatch(sql, /ALTER TABLE public\.isp_billing_documents/)
-  assert.match(sheet, /minHeight: "297mm"/)
-  assert.match(sheet, /max-w-\[min\(100%,210mm\)\]/)
+  assert.match(sheet, /aspectRatio: `\$\{L\.page\.widthMm\} \/ \${L\.page\.heightMm\}`/)
+  assert.match(sheet, /boxSizing: "border-box"/)
 })
 
 test("26. preview y PDF usan el mismo layout", () => {

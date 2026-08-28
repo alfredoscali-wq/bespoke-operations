@@ -112,8 +112,32 @@ export const BILLING_DOCUMENT_LAYOUT = {
     caeWidthPx: 158,
     caeWidthMm: billingPxToMm(158),
     columnGapMm: billingPxToMm(40),
+    /** Band between flowing content and inner bottom (above bottom margin). */
     heightMm: billingPxToMm(110),
   },
 } as const
+
+/** Y coordinate where flowing body content must end (footer band starts here). */
+export function billingContentBottomMm(
+  pageHeightMm = BILLING_DOCUMENT_LAYOUT.page.heightMm
+): number {
+  return (
+    pageHeightMm -
+    BILLING_DOCUMENT_LAYOUT.margin.bottomMm -
+    BILLING_DOCUMENT_LAYOUT.footer.heightMm
+  )
+}
+
+export function billingInnerBottomMm(
+  pageHeightMm = BILLING_DOCUMENT_LAYOUT.page.heightMm
+): number {
+  return pageHeightMm - BILLING_DOCUMENT_LAYOUT.margin.bottomMm
+}
+
+export function billingContentAreaHeightMm(
+  pageHeightMm = BILLING_DOCUMENT_LAYOUT.page.heightMm
+): number {
+  return billingContentBottomMm(pageHeightMm) - BILLING_DOCUMENT_LAYOUT.margin.topMm
+}
 
 export type BillingDocumentLayout = typeof BILLING_DOCUMENT_LAYOUT

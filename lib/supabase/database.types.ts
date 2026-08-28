@@ -2414,6 +2414,7 @@ export type Database = {
           customer_tax_address_snapshot: string
           customer_tax_id_snapshot: string
           customer_vat_condition_snapshot: string
+          deleted_at: string | null
           discount_total: number
           document_type: string
           due_date: string | null
@@ -2463,6 +2464,7 @@ export type Database = {
           customer_tax_address_snapshot?: string
           customer_tax_id_snapshot?: string
           customer_vat_condition_snapshot?: string
+          deleted_at?: string | null
           discount_total?: number
           document_type: string
           due_date?: string | null
@@ -2512,6 +2514,7 @@ export type Database = {
           customer_tax_address_snapshot?: string
           customer_tax_id_snapshot?: string
           customer_vat_condition_snapshot?: string
+          deleted_at?: string | null
           discount_total?: number
           document_type?: string
           due_date?: string | null
@@ -4902,6 +4905,10 @@ export type Database = {
         Returns: Json
       }
       cancel_isp_billing_document: {
+        Args: { p_document_id: string }
+        Returns: Json
+      }
+      soft_delete_isp_billing_document: {
         Args: { p_document_id: string }
         Returns: Json
       }

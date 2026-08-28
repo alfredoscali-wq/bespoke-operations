@@ -51,6 +51,7 @@ const EVENT_LABELS = {
   updated: "Actualizado",
   issued: "Emitido",
   cancelled: "Anulado",
+  deleted: "Eliminado",
 } as const
 
 export function IspBillingDocumentDetailScreen({

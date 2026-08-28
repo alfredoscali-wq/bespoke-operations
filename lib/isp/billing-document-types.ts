@@ -35,6 +35,7 @@ export const ISP_BILLING_DOCUMENT_EVENT_TYPES = [
   "updated",
   "issued",
   "cancelled",
+  "deleted",
 ] as const
 
 export type IspBillingDocumentEventType =

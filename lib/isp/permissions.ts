@@ -72,3 +72,7 @@ export function canWriteIspBilling(
 ): boolean {
   return canAccessIspBilling(sessionUser)
 }
+
+export function canDeleteIspBillingDocument(sessionUser: SessionLike): boolean {
+  return isAdministradorSessionUser(sessionUser)
+}
