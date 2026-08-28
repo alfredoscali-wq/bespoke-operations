@@ -7,6 +7,7 @@ import {
 
 import type { Material, MaterialDetail } from "@/lib/types/materials"
 import { formatMaterialDateTime } from "@/lib/materials/constants"
+import { formatUnitLabel } from "@/lib/materials/units"
 import { cn } from "@/lib/utils"
 import {
   Card,
@@ -28,16 +29,16 @@ const statItems = [
     color: "text-primary bg-primary/8",
     getValue: (material: Material) =>
       material.stock.toLocaleString("es-MX"),
-    suffix: (material: Material) => material.unit,
+    suffix: (material: Material) => formatUnitLabel(material.unit),
   },
   {
-    key: "assigned" as const,
-    label: "Cantidad Asignada",
+    key: "reserved" as const,
+    label: "Unidades Reservadas",
     icon: PackageCheck,
     color: "text-emerald-600 bg-emerald-50",
     getValue: (_material: Material, stats: MaterialDetail["stats"]) =>
-      stats.assignedQuantity.toLocaleString("es-MX"),
-    suffix: (material: Material) => material.unit,
+      stats.totalReserved.toLocaleString("es-MX"),
+    suffix: (material: Material) => formatUnitLabel(material.unit),
   },
   {
     key: "movements" as const,

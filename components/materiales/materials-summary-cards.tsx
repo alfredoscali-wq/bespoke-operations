@@ -1,11 +1,12 @@
+"use client"
+
 import {
   AlertTriangle,
   ArrowLeftRight,
   Package,
-  PackageCheck,
+  PackageMinus,
 } from "lucide-react"
 
-import { getMaterialsSummary } from "@/lib/data/materials"
 import type { MaterialsSummary } from "@/lib/types/materials"
 import type { VisualTone } from "@/lib/ui/visual-tokens"
 import { KpiCard } from "@/components/ui/kpi-card"
@@ -15,12 +16,14 @@ const cards: {
   label: string
   icon: typeof Package
   tone: VisualTone
+  onClickKey?: "catalog"
 }[] = [
   {
     key: "totalMaterials",
-    label: "Total de Materiales",
+    label: "Materiales en catálogo",
     icon: Package,
     tone: "neutral",
+    onClickKey: "catalog",
   },
   {
     key: "lowStockItems",
@@ -35,25 +38,36 @@ const cards: {
     tone: "blue",
   },
   {
-    key: "assignedMaterials",
-    label: "Materiales Asignados",
-    icon: PackageCheck,
+    key: "reservedQuantity",
+    label: "Unidades Reservadas",
+    icon: PackageMinus,
     tone: "green",
   },
 ]
 
-export function MaterialsSummaryCards() {
-  const summary = getMaterialsSummary()
+type MaterialsSummaryCardsProps = {
+  summary: MaterialsSummary | null
+  isLoading?: boolean
+  onOpenCatalog?: () => void
+}
 
+export function MaterialsSummaryCards({
+  summary,
+  isLoading = false,
+  onOpenCatalog,
+}: MaterialsSummaryCardsProps) {
   return (
     <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
       {cards.map((card) => (
         <KpiCard
           key={card.key}
           label={card.label}
-          value={summary[card.key]}
+          value={isLoading ? "—" : summary?.[card.key] ?? 0}
           icon={card.icon}
           tone={card.tone}
+          onClick={
+            card.onClickKey === "catalog" ? onOpenCatalog : undefined
+          }
         />
       ))}
     </div>

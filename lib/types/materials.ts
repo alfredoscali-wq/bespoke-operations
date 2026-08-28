@@ -6,6 +6,8 @@ export type MaterialCategory =
   | "network-equipment"
   | "consumables"
 
+export type MaterialItemType = "consumable" | "equipment"
+
 export type MaterialStatus =
   | "available"
   | "low-stock"
@@ -19,8 +21,69 @@ export type MovementType =
   | "consumption"
   | "adjustment"
 
+export type DbMovementType = "entry" | "exit" | "transfer" | "adjustment"
+
 export type AssignmentStatus = "assigned" | "in-use" | "consumed" | "returned"
 
+export type Warehouse = {
+  id: string
+  companyId: string
+  name: string
+  active: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+/** Row in inventory list: one material in one warehouse. */
+export type MaterialInventoryRow = {
+  stockLevelId: string
+  materialId: string
+  warehouseId: string
+  code: string
+  name: string
+  category: MaterialCategory
+  itemType: MaterialItemType
+  unit: string
+  minStock: number
+  quantityAvailable: number
+  quantityReserved: number
+  netAvailable: number
+  warehouse: string
+  status: MaterialStatus
+  manufacturer: string
+  description: string
+  active: boolean
+  /** True when stock level row is not persisted yet (orphan material). */
+  isSynthetic?: boolean
+  photoAttachmentId?: string | null
+}
+
+/** Material catalog record (without warehouse context). */
+export type MaterialCatalogItem = {
+  id: string
+  companyId: string
+  code: string
+  name: string
+  category: MaterialCategory
+  itemType: MaterialItemType
+  unit: string
+  minStock: number
+  manufacturer: string
+  description: string
+  active: boolean
+  createdAt: string
+  updatedAt: string
+  photoAttachmentId?: string | null
+}
+
+/** Catalog list row with aggregated inventory context. */
+export type MaterialCatalogDisplayRow = MaterialCatalogItem & {
+  totalStock: number | null
+  inventoryStatus: MaterialStatus | "no-inventory"
+  hasInventoryHistory: boolean
+}
+
+/** Legacy shape used by some panels; maps from inventory row when possible. */
 export type Material = {
   id: string
   code: string
@@ -33,6 +96,12 @@ export type Material = {
   status: MaterialStatus
   description: string
   manufacturer: string
+  itemType?: MaterialItemType
+  stockLevelId?: string
+  warehouseId?: string
+  materialId?: string
+  quantityReserved?: number
+  netAvailable?: number
 }
 
 export type MaterialMovement = {
@@ -42,6 +111,10 @@ export type MaterialMovement = {
   quantity: number
   timestamp: string
   user: string
+  warehouseId: string
+  warehouseName: string
+  destinationWarehouseId?: string
+  destinationWarehouseName?: string
   reference?: string
   projectId?: string
   projectCode?: string
@@ -86,6 +159,7 @@ export type MaterialDetail = {
     assignedQuantity: number
     totalMovements: number
     lastMovementAt: string | null
+    totalReserved: number
   }
 }
 
@@ -93,7 +167,7 @@ export type MaterialsSummary = {
   totalMaterials: number
   lowStockItems: number
   todaysMovements: number
-  assignedMaterials: number
+  reservedQuantity: number
 }
 
 export type MaterialFilters = {
@@ -107,4 +181,12 @@ export type EntityMaterialsStats = {
   totalItems: number
   totalQuantity: number
   materialCount: number
+}
+
+export type WarehouseSelectionMode = "auto" | "manual"
+
+export type WarehouseSelectionContext = {
+  warehouses: Warehouse[]
+  mode: WarehouseSelectionMode
+  defaultWarehouseId: string | null
 }

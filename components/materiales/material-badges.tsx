@@ -11,6 +11,8 @@ import {
   MATERIAL_CATEGORY_STYLES,
   MATERIAL_STATUS_LABELS,
   MATERIAL_STATUS_STYLES,
+  CATALOG_INVENTORY_STATUS_LABELS,
+  CATALOG_INVENTORY_STATUS_STYLES,
   MOVEMENT_TYPE_LABELS,
   MOVEMENT_TYPE_STYLES,
 } from "@/lib/materials/constants"
@@ -38,9 +40,24 @@ export function MaterialStatusBadge({
   status,
   className,
 }: {
-  status: MaterialStatus
+  status: MaterialStatus | "no-inventory"
   className?: string
 }) {
+  if (status === "no-inventory") {
+    return (
+      <Badge
+        variant="outline"
+        className={cn(
+          "font-medium",
+          CATALOG_INVENTORY_STATUS_STYLES["no-inventory"],
+          className
+        )}
+      >
+        {CATALOG_INVENTORY_STATUS_LABELS["no-inventory"]}
+      </Badge>
+    )
+  }
+
   return (
     <Badge
       variant="outline"

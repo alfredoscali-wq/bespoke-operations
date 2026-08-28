@@ -1,10 +1,13 @@
 import type {
   AssignmentStatus,
+  DbMovementType,
   MaterialCategory,
+  MaterialItemType,
   MaterialStatus,
   MovementType,
 } from "@/lib/types/materials"
 import { formatDateOnlyDateTime } from "@/lib/dates/date-only"
+import { resolveStockStatus } from "@/lib/materials/stock-status"
 
 export const MATERIAL_CATEGORY_LABELS: Record<MaterialCategory, string> = {
   "fiber-optic": "Fibra Óptica",
@@ -45,6 +48,22 @@ export const MATERIAL_STATUS_STYLES: Record<MaterialStatus, string> = {
   discontinued: "bg-slate-100 text-slate-600 border-slate-200",
 }
 
+export const CATALOG_INVENTORY_STATUS_LABELS: Record<
+  MaterialStatus | "no-inventory",
+  string
+> = {
+  ...MATERIAL_STATUS_LABELS,
+  "no-inventory": "Sin stock registrado",
+}
+
+export const CATALOG_INVENTORY_STATUS_STYLES: Record<
+  MaterialStatus | "no-inventory",
+  string
+> = {
+  ...MATERIAL_STATUS_STYLES,
+  "no-inventory": "bg-slate-50 text-slate-600 border-slate-200",
+}
+
 export const MATERIAL_STATUS_OPTIONS = Object.entries(
   MATERIAL_STATUS_LABELS
 ).map(([value, label]) => ({
@@ -82,13 +101,26 @@ export const ASSIGNMENT_STATUS_STYLES: Record<AssignmentStatus, string> = {
   returned: "bg-slate-100 text-slate-600 border-slate-200",
 }
 
-export const MATERIAL_WAREHOUSES = [
-  "Almacén Central — MTY",
-  "Bodega Norte — Sector B",
-  "Bodega Querétaro — PI",
-  "Bodega Wireless — GDL",
-  "Patio Postes — PUE",
-] as const
+export const MATERIAL_ITEM_TYPE_LABELS: Record<MaterialItemType, string> = {
+  consumable: "Consumible",
+  equipment: "Equipo",
+}
+
+export const MATERIAL_ITEM_TYPE_OPTIONS = Object.entries(
+  MATERIAL_ITEM_TYPE_LABELS
+).map(([value, label]) => ({
+  value: value as MaterialItemType,
+  label,
+}))
+
+export const MATERIAL_UNIT_SUGGESTIONS = ["m", "un"] as const
+
+export const DB_MOVEMENT_TYPE_TO_UI: Record<DbMovementType, MovementType> = {
+  entry: "inbound",
+  exit: "outbound",
+  transfer: "transfer",
+  adjustment: "adjustment",
+}
 
 export function formatMaterialDateTime(date: string) {
   return formatDateOnlyDateTime(date)
@@ -100,7 +132,5 @@ export function resolveMaterialStatus(
   current: MaterialStatus
 ): MaterialStatus {
   if (current === "discontinued") return "discontinued"
-  if (stock === 0) return "out-of-stock"
-  if (stock <= minStock) return "low-stock"
-  return "available"
+  return resolveStockStatus(stock, minStock, true)
 }

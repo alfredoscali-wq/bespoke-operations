@@ -3568,6 +3568,201 @@ export type Database = {
           },
         ]
       }
+      material_movements: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          destination_warehouse_id: string | null
+          id: string
+          material_id: string
+          movement_type: Database["public"]["Enums"]["material_movement_type"]
+          notes: string
+          quantity: number
+          reference_id: string | null
+          reference_type: string | null
+          warehouse_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          destination_warehouse_id?: string | null
+          id?: string
+          material_id: string
+          movement_type: Database["public"]["Enums"]["material_movement_type"]
+          notes?: string
+          quantity: number
+          reference_id?: string | null
+          reference_type?: string | null
+          warehouse_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          destination_warehouse_id?: string | null
+          id?: string
+          material_id?: string
+          movement_type?: Database["public"]["Enums"]["material_movement_type"]
+          notes?: string
+          quantity?: number
+          reference_id?: string | null
+          reference_type?: string | null
+          warehouse_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "material_movements_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_movements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_movements_destination_warehouse_id_fkey"
+            columns: ["destination_warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_movements_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_movements_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      material_stock_levels: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          material_id: string
+          quantity_available: number
+          quantity_reserved: number
+          updated_at: string
+          warehouse_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          material_id: string
+          quantity_available?: number
+          quantity_reserved?: number
+          updated_at?: string
+          warehouse_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          material_id?: string
+          quantity_available?: number
+          quantity_reserved?: number
+          updated_at?: string
+          warehouse_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "material_stock_levels_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_stock_levels_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_stock_levels_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      materials: {
+        Row: {
+          active: boolean
+          category: string
+          code: string
+          company_id: string
+          created_at: string
+          description: string
+          id: string
+          manufacturer: string
+          min_stock: number
+          name: string
+          photo_attachment_id: string | null
+          type: Database["public"]["Enums"]["material_item_type"]
+          unit: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          category: string
+          code: string
+          company_id: string
+          created_at?: string
+          description?: string
+          id?: string
+          manufacturer?: string
+          min_stock?: number
+          name: string
+          photo_attachment_id?: string | null
+          type?: Database["public"]["Enums"]["material_item_type"]
+          unit: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          category?: string
+          code?: string
+          company_id?: string
+          created_at?: string
+          description?: string
+          id?: string
+          manufacturer?: string
+          min_stock?: number
+          name?: string
+          photo_attachment_id?: string | null
+          type?: Database["public"]["Enums"]["material_item_type"]
+          unit?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "materials_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mobile_devices: {
         Row: {
           android_version: string
@@ -4608,6 +4803,41 @@ export type Database = {
           },
         ]
       }
+      warehouses: {
+        Row: {
+          active: boolean
+          company_id: string
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          company_id: string
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          company_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "warehouses_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       treasury_movements: {
         Row: {
           amount: number
@@ -4892,6 +5122,90 @@ export type Database = {
         Args: { p_payload: Json }
         Returns: Json
       }
+      create_material: {
+        Args: {
+          p_active?: boolean
+          p_category: string
+          p_code: string
+          p_description?: string
+          p_manufacturer?: string
+          p_min_stock?: number
+          p_name: string
+          p_type?: Database["public"]["Enums"]["material_item_type"]
+          p_unit: string
+        }
+        Returns: Json
+      }
+      create_warehouse: {
+        Args: { p_name: string }
+        Returns: Json
+      }
+      delete_material: {
+        Args: { p_material_id: string }
+        Returns: Json
+      }
+      update_material: {
+        Args: {
+          p_active?: boolean
+          p_category?: string
+          p_code?: string
+          p_clear_photo?: boolean
+          p_description?: string
+          p_manufacturer?: string
+          p_material_id: string
+          p_min_stock?: number
+          p_name?: string
+          p_photo_attachment_id?: string
+          p_type?: Database["public"]["Enums"]["material_item_type"]
+          p_unit?: string
+        }
+        Returns: Json
+      }
+      update_warehouse: {
+        Args: {
+          p_active?: boolean
+          p_name?: string
+          p_warehouse_id: string
+        }
+        Returns: Json
+      }
+      record_material_stock_entry: {
+        Args: {
+          p_material_id: string
+          p_notes?: string
+          p_quantity: number
+          p_warehouse_id: string
+        }
+        Returns: Json
+      }
+      record_material_stock_exit: {
+        Args: {
+          p_material_id: string
+          p_notes?: string
+          p_quantity: number
+          p_warehouse_id: string
+        }
+        Returns: Json
+      }
+      record_material_stock_transfer: {
+        Args: {
+          p_destination_warehouse_id: string
+          p_material_id: string
+          p_notes?: string
+          p_quantity: number
+          p_warehouse_id: string
+        }
+        Returns: Json
+      }
+      record_material_stock_adjustment: {
+        Args: {
+          p_material_id: string
+          p_new_quantity: number
+          p_notes?: string
+          p_warehouse_id: string
+        }
+        Returns: Json
+      }
       create_task_with_execution_order: {
         Args: { p_payload: Json }
         Returns: Json
@@ -4949,6 +5263,7 @@ export type Database = {
       auth_can_manage_company_roles: { Args: never; Returns: boolean }
       auth_can_manage_employee_types: { Args: never; Returns: boolean }
       auth_can_manage_incident_types: { Args: never; Returns: boolean }
+      auth_can_manage_materials: { Args: never; Returns: boolean }
       auth_can_manage_operational_motivos: { Args: never; Returns: boolean }
       auth_can_manage_task_incident: {
         Args: { p_incident_id: string }
@@ -5282,6 +5597,8 @@ export type Database = {
       evidence_file_type: "photo" | "pdf" | "plan" | "video"
       evidence_status: "pending-review" | "approved" | "rejected"
       mobile_device_status: "ACTIVE" | "BLOCKED"
+      material_item_type: "consumable" | "equipment"
+      material_movement_type: "entry" | "exit" | "transfer" | "adjustment"
       project_status:
         | "planned"
         | "active"

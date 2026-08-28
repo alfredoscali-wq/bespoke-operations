@@ -18,6 +18,7 @@ type KpiCardProps = {
   hint?: React.ReactNode
   compact?: boolean
   className?: string
+  onClick?: () => void
 }
 
 export function KpiCard({
@@ -28,12 +29,34 @@ export function KpiCard({
   hint,
   compact = false,
   className,
+  onClick,
 }: KpiCardProps) {
   const styles = KPI_TONE_STYLES[tone]
+  const interactive = Boolean(onClick)
 
   if (compact) {
     return (
-      <Card className={cn("shadow-sm", styles.card, className)}>
+      <Card
+        className={cn(
+          "shadow-sm",
+          styles.card,
+          interactive && "cursor-pointer transition-colors hover:bg-muted/30",
+          className
+        )}
+        onClick={onClick}
+        role={interactive ? "button" : undefined}
+        tabIndex={interactive ? 0 : undefined}
+        onKeyDown={
+          interactive
+            ? (event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault()
+                  onClick?.()
+                }
+              }
+            : undefined
+        }
+      >
         <CardContent className="flex items-center justify-between gap-2 px-3 py-2.5">
           <div className="min-w-0">
             <p className="truncate text-[11px] font-medium text-muted-foreground">
@@ -62,7 +85,27 @@ export function KpiCard({
   }
 
   return (
-    <Card className={cn("shadow-sm", styles.card, className)}>
+    <Card
+      className={cn(
+        "shadow-sm",
+        styles.card,
+        interactive && "cursor-pointer transition-colors hover:bg-muted/30",
+        className
+      )}
+      onClick={onClick}
+      role={interactive ? "button" : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      onKeyDown={
+        interactive
+          ? (event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault()
+                onClick?.()
+              }
+            }
+          : undefined
+      }
+    >
       <CardHeader className="px-5 pb-2 pt-5">
         <div className="flex items-center justify-between gap-3">
           <CardTitle className="text-sm font-medium text-muted-foreground">

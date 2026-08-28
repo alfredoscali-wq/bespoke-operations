@@ -56,9 +56,9 @@ export function MaterialMovementsTab({
                 <TableHead>Fecha</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Cantidad</TableHead>
-                <TableHead>Referencia</TableHead>
-                <TableHead>Obra / Orden de trabajo</TableHead>
+                <TableHead>Depósito</TableHead>
                 <TableHead>Usuario</TableHead>
+                <TableHead>Observación</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -74,34 +74,15 @@ export function MaterialMovementsTab({
                     {movement.quantity > 0 ? "+" : ""}
                     {movement.quantity.toLocaleString("es-MX")}
                   </TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">
-                    {movement.reference ?? "—"}
-                  </TableCell>
-                  <TableCell>
-                    {movement.projectCode ? (
-                      <div className="space-y-0.5 text-sm">
-                        {movement.projectId && (
-                          <Link
-                            href={`/obras/${movement.projectId}`}
-                            className="font-mono text-xs text-primary hover:underline"
-                          >
-                            {movement.projectCode}
-                          </Link>
-                        )}
-                        {movement.taskCode && movement.taskId && (
-                          <Link
-                            href={`/tareas/${movement.taskId}`}
-                            className="block text-xs text-muted-foreground hover:text-primary"
-                          >
-                            {movement.taskCode}
-                          </Link>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-sm text-muted-foreground">—</span>
-                    )}
+                  <TableCell className="text-sm">
+                    {movement.destinationWarehouseName
+                      ? `${movement.warehouseName} → ${movement.destinationWarehouseName}`
+                      : movement.warehouseName}
                   </TableCell>
                   <TableCell className="text-sm">{movement.user}</TableCell>
+                  <TableCell className="max-w-[200px] text-sm text-muted-foreground">
+                    {movement.notes ?? "—"}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -124,9 +105,10 @@ export function MaterialMovementsTab({
               <p className="text-xs text-muted-foreground">
                 {formatMaterialDateTime(movement.timestamp)}
               </p>
-              {movement.notes && (
+              <p className="text-sm">{movement.warehouseName}</p>
+              {movement.notes ? (
                 <p className="text-sm text-muted-foreground">{movement.notes}</p>
-              )}
+              ) : null}
               <p className="text-xs text-muted-foreground">{movement.user}</p>
             </div>
           ))}

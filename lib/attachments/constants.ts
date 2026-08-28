@@ -7,6 +7,7 @@ export const ATTACHMENT_MODULES = [
   "tasks",
   "employees",
   "customers",
+  "materials",
 ] as const
 
 export type AttachmentModule = (typeof ATTACHMENT_MODULES)[number]

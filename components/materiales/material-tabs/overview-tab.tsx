@@ -10,6 +10,7 @@ import {
   MaterialStatusBadge,
 } from "@/components/materiales/material-badges"
 import type { Material } from "@/lib/types/materials"
+import { formatUnitLabel } from "@/lib/materials/units"
 import { Progress } from "@/components/ui/progress"
 import {
   Card,
@@ -52,7 +53,7 @@ export function MaterialOverviewTab({ material }: MaterialOverviewTabProps) {
     {
       icon: Building2,
       label: "Stock mínimo",
-      value: `${material.minStock.toLocaleString("es-MX")} ${material.unit}`,
+      value: `${material.minStock.toLocaleString("es-MX")} ${formatUnitLabel(material.unit)}`,
     },
   ]
 
@@ -108,7 +109,7 @@ export function MaterialOverviewTab({ material }: MaterialOverviewTabProps) {
               {material.stock.toLocaleString("es-MX")}
             </span>
             <span className="text-sm text-muted-foreground">
-              {material.unit}
+              {formatUnitLabel(material.unit)}
             </span>
           </div>
           <Progress value={stockRatio} className="h-2.5" />
@@ -116,7 +117,8 @@ export function MaterialOverviewTab({ material }: MaterialOverviewTabProps) {
             <p>
               Mínimo operativo:{" "}
               <span className="font-medium text-foreground">
-                {material.minStock.toLocaleString("es-MX")} {material.unit}
+                {material.minStock.toLocaleString("es-MX")}{" "}
+                {formatUnitLabel(material.unit)}
               </span>
             </p>
             <p className="mt-2 leading-relaxed">

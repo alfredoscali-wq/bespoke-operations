@@ -144,6 +144,38 @@ async function assertCommercialTerritorialActivityRecord(input: {
   return { data: true, error: null }
 }
 
+async function assertMaterialsRecord(input: {
+  companyId: string
+  recordId: string
+}): Promise<AttachmentsRepositoryResult<true>> {
+  const admin = createAdminClient()
+  const { data, error } = await admin
+    .from("materials")
+    .select("id")
+    .eq("company_id", input.companyId)
+    .eq("id", input.recordId)
+    .maybeSingle()
+
+  if (error) {
+    return {
+      data: null,
+      error: { code: "RECORD_LOOKUP_FAILED", message: error.message },
+    }
+  }
+
+  if (!data) {
+    return {
+      data: null,
+      error: {
+        code: "RECORD_NOT_FOUND",
+        message: "No se encontró el material asociado al adjunto.",
+      },
+    }
+  }
+
+  return { data: true, error: null }
+}
+
 export async function assertAttachmentRecordAccess(input: {
   companyId: string
   module: AttachmentModule
@@ -154,6 +186,8 @@ export async function assertAttachmentRecordAccess(input: {
       return assertCustomerAttentionRecord(input)
     case "commercial":
       return assertCommercialTerritorialActivityRecord(input)
+    case "materials":
+      return assertMaterialsRecord(input)
     default:
       return {
         data: null,

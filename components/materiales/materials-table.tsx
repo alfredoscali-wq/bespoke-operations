@@ -1,12 +1,15 @@
 "use client"
 
 import Link from "next/link"
+import { Pencil } from "lucide-react"
 
 import {
   MaterialCategoryBadge,
   MaterialStatusBadge,
 } from "@/components/materiales/material-badges"
-import type { Material } from "@/lib/types/materials"
+import type { MaterialInventoryRow } from "@/lib/types/materials"
+import { formatUnitLabel } from "@/lib/materials/units"
+import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
@@ -24,22 +27,30 @@ import {
 } from "@/components/ui/table"
 
 type MaterialsTableProps = {
-  materials: Material[]
+  rows: MaterialInventoryRow[]
+  onEdit?: (row: MaterialInventoryRow) => void
 }
 
-export function MaterialsTable({ materials }: MaterialsTableProps) {
-  if (materials.length === 0) {
+function buildDetailHref(row: MaterialInventoryRow) {
+  const params = new URLSearchParams({ warehouse: row.warehouseId })
+  return `/materiales/${row.materialId}?${params.toString()}`
+}
+
+export function MaterialsTable({ rows, onEdit }: MaterialsTableProps) {
+  if (rows.length === 0) {
     return (
       <div className="rounded-xl border border-dashed bg-muted/20 px-6 py-16 text-center">
         <p className="text-sm font-medium text-foreground">
-          No se encontraron materiales
+          No hay materiales en inventario
         </p>
         <p className="mt-1 text-sm text-muted-foreground">
-          Ajusta los filtros para ver más resultados.
+          Los materiales aparecen aquí cuando se registra una entrada de stock.
         </p>
       </div>
     )
   }
+
+  const showActions = Boolean(onEdit)
 
   return (
     <>
@@ -51,49 +62,71 @@ export function MaterialsTable({ materials }: MaterialsTableProps) {
                 <TableHead>Código</TableHead>
                 <TableHead>Material</TableHead>
                 <TableHead>Categoría</TableHead>
-                <TableHead>Stock</TableHead>
+                <TableHead>Stock disponible</TableHead>
                 <TableHead>Unidad</TableHead>
-                <TableHead>Almacén</TableHead>
+                <TableHead>Depósito</TableHead>
                 <TableHead>Estado</TableHead>
+                {showActions ? (
+                  <TableHead className="w-[120px]">Acciones</TableHead>
+                ) : null}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {materials.map((material) => (
-                <TableRow key={material.id}>
+              {rows.map((row) => (
+                <TableRow key={row.stockLevelId}>
                   <TableCell>
                     <Link
-                      href={`/materiales/${material.id}`}
+                      href={buildDetailHref(row)}
                       className="font-mono text-sm font-medium hover:text-primary"
                     >
-                      {material.code}
+                      {row.code}
                     </Link>
                   </TableCell>
                   <TableCell>
                     <Link
-                      href={`/materiales/${material.id}`}
+                      href={buildDetailHref(row)}
                       className="font-medium hover:text-primary"
                     >
-                      {material.name}
+                      {row.name}
                     </Link>
                     <p className="text-xs text-muted-foreground">
-                      {material.manufacturer}
+                      {row.manufacturer}
                     </p>
                   </TableCell>
                   <TableCell>
-                    <MaterialCategoryBadge category={material.category} />
+                    <MaterialCategoryBadge category={row.category} />
                   </TableCell>
                   <TableCell className="tabular-nums">
-                    {material.stock.toLocaleString("es-MX")}
+                    {row.quantityAvailable.toLocaleString("es-MX")}
+                    {row.quantityReserved > 0 ? (
+                      <p className="text-xs text-muted-foreground">
+                        {row.netAvailable.toLocaleString("es-MX")} disponible neto
+                      </p>
+                    ) : null}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {material.unit}
+                    {formatUnitLabel(row.unit)}
                   </TableCell>
                   <TableCell className="max-w-[180px] text-sm text-muted-foreground">
-                    {material.warehouse}
+                    {row.warehouse}
                   </TableCell>
                   <TableCell>
-                    <MaterialStatusBadge status={material.status} />
+                    <MaterialStatusBadge status={row.status} />
                   </TableCell>
+                  {showActions ? (
+                    <TableCell>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={() => onEdit?.(row)}
+                      >
+                        <Pencil className="size-3.5" />
+                        Editar
+                      </Button>
+                    </TableCell>
+                  ) : null}
                 </TableRow>
               ))}
             </TableBody>
@@ -102,35 +135,35 @@ export function MaterialsTable({ materials }: MaterialsTableProps) {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:hidden">
-        {materials.map((material) => (
-          <Link key={material.id} href={`/materiales/${material.id}`}>
+        {rows.map((row) => (
+          <Link key={row.stockLevelId} href={buildDetailHref(row)}>
             <Card className="h-full shadow-sm transition-colors hover:bg-muted/30">
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="font-mono text-xs text-primary">
-                      {material.code}
-                    </p>
-                    <CardTitle className="text-base">{material.name}</CardTitle>
+                    <p className="font-mono text-xs text-primary">{row.code}</p>
+                    <CardTitle className="text-base">{row.name}</CardTitle>
                     <CardDescription className="line-clamp-2">
-                      {material.warehouse}
+                      {row.warehouse}
                     </CardDescription>
                   </div>
-                  <MaterialStatusBadge status={material.status} />
+                  <MaterialStatusBadge status={row.status} />
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
-                <MaterialCategoryBadge category={material.category} />
+                <MaterialCategoryBadge category={row.category} />
                 <div className="grid grid-cols-2 gap-2 text-center text-xs">
                   <div className="rounded-lg border bg-muted/20 p-2">
                     <p className="font-semibold tabular-nums text-foreground">
-                      {material.stock.toLocaleString("es-MX")}
+                      {row.quantityAvailable.toLocaleString("es-MX")}
                     </p>
-                    <p className="text-muted-foreground">Stock ({material.unit})</p>
+                    <p className="text-muted-foreground">
+                      Disponible ({formatUnitLabel(row.unit)})
+                    </p>
                   </div>
                   <div className="rounded-lg border bg-muted/20 p-2">
                     <p className="font-semibold tabular-nums text-foreground">
-                      {material.minStock.toLocaleString("es-MX")}
+                      {row.minStock.toLocaleString("es-MX")}
                     </p>
                     <p className="text-muted-foreground">Mínimo</p>
                   </div>
