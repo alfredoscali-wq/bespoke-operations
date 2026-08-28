@@ -10,7 +10,6 @@ import { computeOverdueDays, formatOverdueDaysLabel } from "@/lib/tasks/overdue-
 import type { TaskStatus } from "@/lib/types/tasks"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   Sheet,
   SheetContent,
@@ -70,16 +69,19 @@ export function CalendarCriticalPendingSheet() {
         if (!open) closeCriticalPendingPanel()
       }}
     >
-      <SheetContent side="right" className="flex w-full flex-col sm:max-w-lg">
-        <SheetHeader>
+      <SheetContent
+        side="right"
+        className="flex h-full max-h-[100dvh] w-full flex-col overflow-hidden sm:max-w-lg"
+      >
+        <SheetHeader className="shrink-0 border-b pb-4">
           <SheetTitle>Pendientes críticos</SheetTitle>
           <SheetDescription>
             Órdenes de trabajo en estado Vencida que requieren reprogramación
           </SheetDescription>
         </SheetHeader>
 
-        <ScrollArea className="flex-1 px-4">
-          <div className="space-y-3 pb-6">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+          <div className="space-y-3">
             {criticalPendingTasks.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No hay pendientes críticos en este momento.
@@ -124,7 +126,7 @@ export function CalendarCriticalPendingSheet() {
               ))
             )}
           </div>
-        </ScrollArea>
+        </div>
       </SheetContent>
     </Sheet>
   )

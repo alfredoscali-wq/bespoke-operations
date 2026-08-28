@@ -17,6 +17,7 @@ import {
   useProjectsUI,
 } from "@/components/obras/projects-ui-provider"
 import {
+  parseOverdueOtQuery,
   parseProjectHealthQuery,
   parseProjectOperationalCategoryQuery,
   parseProjectStatusQuery,
@@ -41,14 +42,17 @@ function ProjectsModuleContent() {
     metricsByProjectId,
   } = useProjectsUI()
   const [filters, setFilters] = useState(defaultProjectFilters)
+  const [overdueOtFilterActive, setOverdueOtFilterActive] = useState(false)
 
   useEffect(() => {
     const status = parseProjectStatusQuery(searchParams.get("status"))
     const health = parseProjectHealthQuery(searchParams.get("health"))
+    const overdueOt = parseOverdueOtQuery(searchParams.get("overdueOt"))
     const category = parseProjectOperationalCategoryQuery(
       searchParams.get("category")
     )
 
+    setOverdueOtFilterActive(overdueOt)
     setFilters((current) => ({
       ...current,
       ...(status !== "all" ? { status } : {}),
@@ -71,15 +75,22 @@ function ProjectsModuleContent() {
   const displayedProjects = useMemo(() => {
     const filtered = filterProjects(categoryFilteredProjects, filters)
 
-    if (filters.health === "all") {
-      return filtered
-    }
-
     return filtered.filter((project) => {
       const metrics = metricsByProjectId.get(project.id)
-      return metrics?.health === filters.health
+      if (overdueOtFilterActive && (metrics?.overdueTasks ?? 0) <= 0) {
+        return false
+      }
+      if (filters.health !== "all" && metrics?.health !== filters.health) {
+        return false
+      }
+      return true
     })
-  }, [categoryFilteredProjects, filters, metricsByProjectId])
+  }, [
+    categoryFilteredProjects,
+    filters,
+    metricsByProjectId,
+    overdueOtFilterActive,
+  ])
 
   return (
     <div className="space-y-5">

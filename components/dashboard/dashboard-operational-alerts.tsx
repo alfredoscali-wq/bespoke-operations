@@ -42,13 +42,18 @@ export function DashboardOperationalAlerts({
           const content = (
             <div
               className={cn(
-                "rounded-xl border px-4 py-3 text-sm font-medium shadow-sm transition-colors",
+                "rounded-xl border px-4 py-3 text-sm shadow-sm transition-colors",
                 ALERT_STYLES[alert.severity],
                 alert.href && "hover:brightness-[0.98]"
               )}
             >
-              <span aria-hidden>{ALERT_PREFIX[alert.severity]} </span>
-              {alert.message}
+              <p className="font-medium">
+                <span aria-hidden>{ALERT_PREFIX[alert.severity]} </span>
+                {alert.message}
+              </p>
+              {alert.description ? (
+                <p className="mt-1 text-xs opacity-90">{alert.description}</p>
+              ) : null}
             </div>
           )
 

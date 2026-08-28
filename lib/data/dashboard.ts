@@ -39,6 +39,7 @@ export type DashboardOperationalAlert = {
   id: string
   severity: DashboardAlertSeverity
   message: string
+  description?: string
   href?: string
 }
 
@@ -157,12 +158,26 @@ export function buildOperationalAlerts(input: {
   const alerts: DashboardOperationalAlert[] = []
 
   const overdueTasks = input.tasks.filter((task) => isTaskOverdue(task))
-  if (overdueTasks.length > 0) {
+  const projectOverdueTasks = overdueTasks.filter((task) => !isFieldServiceTask(task))
+  const fieldOverdueTasks = overdueTasks.filter((task) => isFieldServiceTask(task))
+
+  if (fieldOverdueTasks.length > 0) {
     alerts.push({
-      id: "overdue-tasks",
+      id: "overdue-field-tasks",
       severity: "critical",
-      message: `${overdueTasks.length} OT${overdueTasks.length === 1 ? "" : "s"} vencida${overdueTasks.length === 1 ? "" : "s"}`,
-      href: "/tareas?status=vencida",
+      message: `${fieldOverdueTasks.length} OT${fieldOverdueTasks.length === 1 ? "" : "s"} vencida${fieldOverdueTasks.length === 1 ? "" : "s"}`,
+      description: "Requieren reprogramación",
+      href: moduleFilterUrls.tasks.status("vencida"),
+    })
+  }
+
+  if (projectOverdueTasks.length > 0) {
+    alerts.push({
+      id: "overdue-project-tasks",
+      severity: "critical",
+      message: `${projectOverdueTasks.length} OT vencida${projectOverdueTasks.length === 1 ? "" : "s"} de Obras`,
+      description: "Requieren reprogramación",
+      href: moduleFilterUrls.projects.overdueOt(),
     })
   }
 

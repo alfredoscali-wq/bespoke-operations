@@ -139,6 +139,10 @@ export function parseVencidasQuery(value: string | null): boolean {
   return value === "1" || value === "true"
 }
 
+export function parseOverdueOtQuery(value: string | null): boolean {
+  return value === "1" || value === "true"
+}
+
 export function parseProjectOperationalCategoryQuery(
   value: string | null
 ): OperationalProjectCategory | null {
@@ -219,6 +223,7 @@ export const moduleFilterUrls = {
       buildModuleUrl("/obras", { category }),
     health: (health: ProjectHealth) =>
       buildModuleUrl("/obras", { health }),
+    overdueOt: () => buildModuleUrl("/obras", { overdueOt: "1" }),
   },
   customers: {
     quickFilter: (filter: CustomerQuickFilter) =>
