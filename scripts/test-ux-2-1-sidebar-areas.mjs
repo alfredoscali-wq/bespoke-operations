@@ -55,6 +55,7 @@ test("todos los módulos actuales siguen disponibles", () => {
     "/network/agents",
     "/network/sites",
     "/network/devices",
+    "/network/topology",
     "/network/discovery",
     "/cuadrillas",
     "/contratistas",
@@ -103,7 +104,7 @@ test("el menú queda organizado por las áreas laterales", () => {
     "/atencion-cliente",
   ])
   assert.deepEqual(byArea.isp, ["/servicios", "/conexiones"])
-  assert.deepEqual(byArea.network, ["/network", "/network/agents", "/network/sites", "/network/devices", "/network/discovery"])
+  assert.deepEqual(byArea.network, ["/network", "/network/agents", "/network/sites", "/network/devices", "/network/topology", "/network/discovery"])
   assert.deepEqual(byArea.field, [
     "/cuadrillas",
     "/contratistas",

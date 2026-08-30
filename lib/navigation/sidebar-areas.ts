@@ -93,7 +93,7 @@ const AREA_ITEM_HREFS: Record<SidebarAreaId, readonly string[]> = {
   ],
   customers: ["/clientes", "/clientes-360", "/atencion-cliente"],
   isp: ["/servicios", "/conexiones"],
-  network: ["/network", "/network/agents", "/network/sites", "/network/devices", "/network/discovery"],
+  network: ["/network", "/network/agents", "/network/sites", "/network/devices", "/network/topology", "/network/discovery"],
   field: ["/cuadrillas", "/contratistas", "/materiales", "/evidencias"],
   analysis: [
     "/activity/executive-center",

@@ -35,6 +35,7 @@ import {
   Network,
   ScanSearch,
   Server,
+  Waypoints,
 } from "lucide-react"
 
 import type { NavItem } from "@/lib/navigation/nav-types"
@@ -169,6 +170,16 @@ export const networkDevicesNavItem: NavItem = {
   icon: Server,
   pageTitle: "Devices de red",
   description: "Inventario descubierto por Network Agents.",
+  parentHref: "/network",
+  moduleColor: "ops",
+}
+
+export const networkTopologyNavItem: NavItem = {
+  title: "Topología",
+  href: "/network/topology",
+  icon: Waypoints,
+  pageTitle: "Topología de red",
+  description: "Grafo de dispositivos administrados, vecinos y enlaces descubiertos.",
   parentHref: "/network",
   moduleColor: "ops",
 }

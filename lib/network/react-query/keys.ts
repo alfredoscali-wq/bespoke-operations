@@ -3,4 +3,5 @@ export const networkQueryKeys = {
   devices: () => ["network", "devices"] as const,
   device: (deviceId: string) => ["network", "devices", deviceId] as const,
   summary: () => ["network", "summary"] as const,
+  topology: () => ["network", "topology"] as const,
 }

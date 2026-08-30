@@ -19,6 +19,7 @@ import {
   networkAgentsNavItem,
   networkSitesNavItem,
   networkDevicesNavItem,
+  networkTopologyNavItem,
   networkDiscoveryNavItem,
   reportsNavItem,
   subscriptionsNavItem,
@@ -128,6 +129,7 @@ export function buildNavGroupsFromModuleVisibility(
         existing.items.push(networkAgentsNavItem)
         existing.items.push(networkSitesNavItem)
         existing.items.push(networkDevicesNavItem)
+        existing.items.push(networkTopologyNavItem)
         existing.items.push(networkDiscoveryNavItem)
       }
 
@@ -155,6 +157,7 @@ export function buildNavGroupsFromModuleVisibility(
       items.push(networkAgentsNavItem)
       items.push(networkSitesNavItem)
       items.push(networkDevicesNavItem)
+      items.push(networkTopologyNavItem)
       items.push(networkDiscoveryNavItem)
     }
 
