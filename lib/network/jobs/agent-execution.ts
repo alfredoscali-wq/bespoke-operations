@@ -494,6 +494,7 @@ export async function submitNetworkMonitoringJobResult(input: {
       deviceId,
       snapshot: null,
       success: false,
+      jobId: input.jobId,
       errorCode: "POLL_FAILED",
       errorMessage,
     })
@@ -536,6 +537,7 @@ export async function submitNetworkMonitoringJobResult(input: {
       deviceId,
       snapshot: null,
       success: false,
+      jobId: input.jobId,
       errorCode: "INVALID_SNAPSHOT",
       errorMessage: parsed.message,
     })
@@ -579,6 +581,7 @@ export async function submitNetworkMonitoringJobResult(input: {
     deviceId,
     snapshot: parsed.snapshot,
     success: true,
+    jobId: input.jobId,
   })
 
   const result = compactMonitoringResult({

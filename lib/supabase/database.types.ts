@@ -4422,6 +4422,70 @@ export type Database = {
           },
         ]
       }
+      network_device_status_events: {
+        Row: {
+          changed_at: string
+          company_id: string
+          consecutive_failures: number | null
+          created_at: string
+          deleted_at: string | null
+          device_id: string
+          id: string
+          job_id: string | null
+          message: string | null
+          new_status: string
+          previous_status: string
+        }
+        Insert: {
+          changed_at: string
+          company_id: string
+          consecutive_failures?: number | null
+          created_at?: string
+          deleted_at?: string | null
+          device_id: string
+          id?: string
+          job_id?: string | null
+          message?: string | null
+          new_status: string
+          previous_status: string
+        }
+        Update: {
+          changed_at?: string
+          company_id?: string
+          consecutive_failures?: number | null
+          created_at?: string
+          deleted_at?: string | null
+          device_id?: string
+          id?: string
+          job_id?: string | null
+          message?: string | null
+          new_status?: string
+          previous_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "network_device_status_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "network_device_status_events_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "network_devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "network_device_status_events_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "network_agent_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       network_interface_status: {
         Row: {
           company_id: string

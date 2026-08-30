@@ -100,7 +100,7 @@ test("12: offline con last_success_at viejo pero last_poll_at fresco → offline
 
 test("13: no se modifica ni persiste unknown por TTL", () => {
   const persist = functionSource(
-    read("lib/network/monitoring/queries.ts"),
+    read("lib/network/monitoring/persist-snapshot.ts"),
     "persistMonitoringSnapshot"
   )
   assert.doesNotMatch(persist, /displayMonitoringStatus/)

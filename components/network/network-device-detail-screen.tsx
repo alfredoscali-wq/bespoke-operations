@@ -28,20 +28,28 @@ import {
   NETWORK_DEVICE_TYPE_LABELS,
   formatNetworkBytes,
   formatNetworkCpu,
+  formatNetworkHistoryChangedAt,
+  formatNetworkHistoryDuration,
   formatNetworkLastSeen,
   formatNetworkMemory,
   formatNetworkTemperature,
   formatNetworkTimestamp,
 } from "@/lib/network/labels"
 import { invalidateNetworkOperationalQueries } from "@/lib/network/react-query/invalidate"
+import { useNetworkDeviceHistoryQuery } from "@/lib/network/react-query/use-network-device-history-query"
 import { useNetworkDeviceQuery } from "@/lib/network/react-query/use-network-device-query"
-import type { NetworkInterfaceMonitoring } from "@/lib/network/types"
+import type {
+  NetworkDeviceStatusHistory,
+  NetworkDeviceStatusHistoryEvent,
+  NetworkInterfaceMonitoring,
+} from "@/lib/network/types"
 import { STATUS_TONE_STYLES } from "@/lib/ui/visual-tokens"
 import { cn } from "@/lib/utils"
 
 export function NetworkDeviceDetailScreen({ deviceId }: { deviceId: string }) {
   const queryClient = useQueryClient()
   const { data: device, error, isPending } = useNetworkDeviceQuery(deviceId)
+  const historyQuery = useNetworkDeviceHistoryQuery(deviceId)
   const [pollMessage, setPollMessage] = useState<string | null>(null)
   const [polling, setPolling] = useState(false)
 
@@ -188,6 +196,12 @@ export function NetworkDeviceDetailScreen({ deviceId }: { deviceId: string }) {
             <p className="text-sm text-destructive">{device.monitoring.errorMessage}</p>
           ) : null}
 
+          <DeviceStatusHistorySection
+            isPending={historyQuery.isPending}
+            error={historyQuery.error}
+            history={historyQuery.data}
+          />
+
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Interfaces</CardTitle>
@@ -291,6 +305,91 @@ export function NetworkDeviceDetailScreen({ deviceId }: { deviceId: string }) {
             </CardContent>
           </Card>
         </>
+      ) : null}
+    </div>
+  )
+}
+
+function DeviceStatusHistorySection({
+  isPending,
+  error,
+  history,
+}: {
+  isPending: boolean
+  error: unknown
+  history: NetworkDeviceStatusHistory | undefined
+}) {
+  const historyError =
+    error instanceof Error
+      ? error.message
+      : error
+        ? "No se pudo cargar el histórico."
+        : null
+  const events = history?.events ?? []
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Historial de estado</CardTitle>
+        <CardDescription>
+          Transiciones persistidas de Monitoring. No incluye cada poll.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {isPending && !history ? (
+          <p className="text-sm text-muted-foreground">Cargando histórico…</p>
+        ) : null}
+        {historyError ? (
+          <p className="text-sm text-destructive">{historyError}</p>
+        ) : null}
+        {!isPending && !historyError && events.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Sin cambios de estado registrados
+          </p>
+        ) : null}
+        {events.map((event) => (
+          <StatusHistoryEventItem key={event.id} event={event} />
+        ))}
+      </CardContent>
+    </Card>
+  )
+}
+
+function StatusHistoryEventItem({
+  event,
+}: {
+  event: NetworkDeviceStatusHistoryEvent
+}) {
+  const previousLabel = NETWORK_DEVICE_STATUS_LABELS[event.previousStatus]
+  const nextLabel = NETWORK_DEVICE_STATUS_LABELS[event.newStatus]
+
+  return (
+    <div className="rounded-md border px-3 py-2 text-sm">
+      <div className="flex flex-wrap items-center gap-2">
+        <StatusBadge
+          className={cn(
+            STATUS_TONE_STYLES[NETWORK_DEVICE_STATUS_TONES[event.previousStatus]]
+          )}
+        >
+          {previousLabel}
+        </StatusBadge>
+        <span className="text-muted-foreground">→</span>
+        <StatusBadge
+          className={cn(
+            STATUS_TONE_STYLES[NETWORK_DEVICE_STATUS_TONES[event.newStatus]]
+          )}
+        >
+          {nextLabel}
+        </StatusBadge>
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground">
+        {formatNetworkHistoryChangedAt(event.changedAt)}
+      </p>
+      <p className="text-xs text-muted-foreground">
+        Duración: {formatNetworkHistoryDuration(event.durationSeconds)}
+      </p>
+      {event.message ? (
+        <p className="mt-1 text-sm text-muted-foreground">{event.message}</p>
       ) : null}
     </div>
   )

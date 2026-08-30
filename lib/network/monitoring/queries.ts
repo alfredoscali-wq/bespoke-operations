@@ -3,18 +3,16 @@ import "server-only"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type { Database } from "@/lib/supabase/database.types"
-import type { MonitoringSnapshot } from "@/lib/network/monitoring/contract"
 import { MONITORING_POLL_INTERVAL_MS } from "@/lib/network/monitoring/contract"
-import {
-  displayMonitoringStatus,
-  isMonitoringOperationalStatus,
-  nextMonitoringOperationalState,
-} from "@/lib/network/monitoring/status"
+import { displayMonitoringStatus } from "@/lib/network/monitoring/status"
+import { persistMonitoringSnapshot } from "@/lib/network/monitoring/persist-snapshot"
 import { tallyManagedMonitoringSummary } from "@/lib/network/monitoring/summary-tally"
 import type {
   NetworkDeviceMonitoring,
   NetworkInterfaceMonitoring,
 } from "@/lib/network/types"
+
+export { persistMonitoringSnapshot }
 
 type Client = SupabaseClient<Database>
 type DeviceStatusRow = Database["public"]["Tables"]["network_device_status"]["Row"]
@@ -318,165 +316,4 @@ export async function findInflightMonitoringJobForDevice(
     return payload && payload.deviceId === input.deviceId
   })
   return match ?? null
-}
-
-export async function persistMonitoringSnapshot(
-  client: Client,
-  input: {
-    companyId: string
-    deviceId: string
-    snapshot: MonitoringSnapshot | null
-    success: boolean
-    errorCode?: string | null
-    errorMessage?: string | null
-  }
-): Promise<{
-  status: string
-  consecutiveFailures: number
-  previousStatus: string
-}> {
-  const now = new Date().toISOString()
-  const { data: existing, error: findError } = await client
-    .from("network_device_status")
-    .select("*")
-    .eq("company_id", input.companyId)
-    .eq("device_id", input.deviceId)
-    .is("deleted_at", null)
-    .maybeSingle()
-
-  if (findError) throw new Error(findError.message)
-
-  const previousStatus = isMonitoringOperationalStatus(existing?.status)
-    ? existing.status
-    : "unknown"
-  const next = nextMonitoringOperationalState({
-    previousStatus,
-    consecutiveFailures: existing?.consecutive_failures ?? 0,
-    success: input.success,
-  })
-
-  const patch = {
-    status: next.status,
-    last_poll_at: now,
-    last_success_at: input.success ? now : existing?.last_success_at ?? null,
-    consecutive_failures: next.consecutiveFailures,
-    uptime: input.success ? input.snapshot?.uptime ?? null : existing?.uptime ?? null,
-    cpu_load: input.success ? input.snapshot?.cpuLoad ?? null : existing?.cpu_load ?? null,
-    memory_total: input.success
-      ? input.snapshot?.memoryTotal ?? null
-      : existing?.memory_total ?? null,
-    memory_available: input.success
-      ? input.snapshot?.memoryAvailable ?? null
-      : existing?.memory_available ?? null,
-    routeros_version: input.success
-      ? input.snapshot?.routerosVersion ?? null
-      : existing?.routeros_version ?? null,
-    temperature: input.success
-      ? input.snapshot?.temperature ?? null
-      : existing?.temperature ?? null,
-    error_code: input.success ? null : input.errorCode ?? "POLL_FAILED",
-    error_message: input.success ? null : input.errorMessage ?? "Polling falló.",
-  }
-
-  if (existing) {
-    const { error } = await client
-      .from("network_device_status")
-      .update(patch)
-      .eq("id", existing.id)
-      .eq("company_id", input.companyId)
-    if (error) throw new Error(error.message)
-  } else {
-    const { error } = await client.from("network_device_status").insert({
-      company_id: input.companyId,
-      device_id: input.deviceId,
-      ...patch,
-    })
-    if (error) throw new Error(error.message)
-  }
-
-  if (input.success && input.snapshot) {
-    await persistInterfaceCounters(client, {
-      companyId: input.companyId,
-      deviceId: input.deviceId,
-      snapshot: input.snapshot,
-      polledAt: now,
-    })
-  }
-
-  return {
-    status: next.status,
-    consecutiveFailures: next.consecutiveFailures,
-    previousStatus,
-  }
-}
-
-async function persistInterfaceCounters(
-  client: Client,
-  input: {
-    companyId: string
-    deviceId: string
-    snapshot: MonitoringSnapshot
-    polledAt: string
-  }
-) {
-  const { data: inventory, error: inventoryError } = await client
-    .from("network_interfaces")
-    .select("id, name")
-    .eq("company_id", input.companyId)
-    .eq("device_id", input.deviceId)
-    .is("deleted_at", null)
-
-  if (inventoryError) throw new Error(inventoryError.message)
-
-  const byName = new Map(
-    (inventory ?? []).map((item) => [item.name.trim().toLowerCase(), item])
-  )
-
-  for (const iface of input.snapshot.interfaces) {
-    const match = byName.get(iface.name.trim().toLowerCase())
-    if (!match) continue
-
-    const { data: existing, error: findError } = await client
-      .from("network_interface_status")
-      .select("id")
-      .eq("company_id", input.companyId)
-      .eq("interface_id", match.id)
-      .is("deleted_at", null)
-      .maybeSingle()
-
-    if (findError) throw new Error(findError.message)
-
-    const patch = {
-      interface_name: iface.name,
-      status: iface.status,
-      speed_mbps: iface.speedMbps,
-      rx_bytes: iface.rxBytes,
-      tx_bytes: iface.txBytes,
-      rx_packets: iface.rxPackets,
-      tx_packets: iface.txPackets,
-      rx_errors: iface.rxErrors,
-      tx_errors: iface.txErrors,
-      rx_drops: iface.rxDrops,
-      tx_drops: iface.txDrops,
-      last_poll_at: input.polledAt,
-    }
-
-    if (existing) {
-      const { error } = await client
-        .from("network_interface_status")
-        .update(patch)
-        .eq("id", existing.id)
-        .eq("company_id", input.companyId)
-      if (error) throw new Error(error.message)
-      continue
-    }
-
-    const { error } = await client.from("network_interface_status").insert({
-      company_id: input.companyId,
-      device_id: input.deviceId,
-      interface_id: match.id,
-      ...patch,
-    })
-    if (error) throw new Error(error.message)
-  }
 }

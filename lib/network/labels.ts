@@ -107,6 +107,35 @@ export function formatNetworkTimestamp(
   return date.toLocaleString("es-AR")
 }
 
+export function formatNetworkHistoryChangedAt(
+  value: string | null | undefined
+): string {
+  if (!value) return "—"
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return "—"
+  const day = date.toLocaleDateString("es-AR", { day: "numeric", month: "short" })
+  const time = date.toLocaleTimeString("es-AR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  })
+  return `${day} · ${time}`
+}
+
+/** Formats API durationSeconds. Does not recompute from timestamps. */
+export function formatNetworkHistoryDuration(
+  durationSeconds: number | null | undefined
+): string {
+  if (durationSeconds == null || !Number.isFinite(durationSeconds)) {
+    return "abierta"
+  }
+  const seconds = Math.max(0, Math.floor(durationSeconds))
+  if (seconds < 60) return `${seconds} s`
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} min`
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)} h`
+  return `${Math.floor(seconds / 86400)} d`
+}
+
 export function formatNetworkBytes(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) return "—"
   const units = ["B", "KB", "MB", "GB", "TB"]

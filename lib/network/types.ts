@@ -178,6 +178,21 @@ export type NetworkDeviceMonitoring = {
   interfaces: NetworkInterfaceMonitoring[]
 }
 
+export type NetworkDeviceStatusHistoryEvent = {
+  id: string
+  previousStatus: "unknown" | "online" | "offline" | "degraded"
+  newStatus: "unknown" | "online" | "offline" | "degraded"
+  changedAt: string
+  jobId: string | null
+  consecutiveFailures: number | null
+  message: string | null
+  durationSeconds: number | null
+}
+
+export type NetworkDeviceStatusHistory = {
+  events: NetworkDeviceStatusHistoryEvent[]
+}
+
 export type NetworkInterfaceMonitoring = {
   interfaceId: string
   interfaceName: string
