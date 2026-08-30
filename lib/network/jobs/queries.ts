@@ -4,7 +4,13 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type { Database, Json } from "@/lib/supabase/database.types"
 import { mapNetworkJobRow } from "@/lib/network/mapper"
-import type { NetworkJobType } from "@/lib/network/constants"
+import {
+  NETWORK_JOB_DISPATCHED_STALE_MS,
+  NETWORK_JOB_RUNNING_STALE_MS,
+  NETWORK_JOB_STALE_DISPATCHED_ERROR,
+  NETWORK_JOB_STALE_RUNNING_ERROR,
+  type NetworkJobType,
+} from "@/lib/network/constants"
 import type { NetworkAgentJob, NetworkDiscoveryJobView } from "@/lib/network/types"
 
 type Client = SupabaseClient<Database>
@@ -111,6 +117,66 @@ export async function getNetworkAgentJob(
   }
 
   return data
+}
+
+export async function recoverStaleNetworkAgentJobs(
+  client: Client,
+  input: { companyId: string }
+): Promise<{ dispatched: number; running: number }> {
+  const now = new Date()
+  const nowIso = now.toISOString()
+  const dispatchedCutoff = new Date(
+    now.getTime() - NETWORK_JOB_DISPATCHED_STALE_MS
+  ).toISOString()
+  const runningCutoff = new Date(
+    now.getTime() - NETWORK_JOB_RUNNING_STALE_MS
+  ).toISOString()
+
+  const { data: dispatchedRows, error: dispatchedError } = await client
+    .from("network_agent_jobs")
+    .update({
+      status: "failed",
+      error_message: NETWORK_JOB_STALE_DISPATCHED_ERROR,
+      completed_at: nowIso,
+    })
+    .eq("company_id", input.companyId)
+    .eq("status", "dispatched")
+    .lte("dispatched_at", dispatchedCutoff)
+    .is("completed_at", null)
+    .is("deleted_at", null)
+    .select("id")
+
+  if (dispatchedError) {
+    throw new Error(dispatchedError.message)
+  }
+
+  const { data: runningRows, error: runningError } = await client
+    .from("network_agent_jobs")
+    .update({
+      status: "failed",
+      error_message: NETWORK_JOB_STALE_RUNNING_ERROR,
+      completed_at: nowIso,
+    })
+    .eq("company_id", input.companyId)
+    .eq("status", "running")
+    .lte("started_at", runningCutoff)
+    .is("completed_at", null)
+    .is("deleted_at", null)
+    .select("id")
+
+  if (runningError) {
+    throw new Error(runningError.message)
+  }
+
+  const dispatched = dispatchedRows?.length ?? 0
+  const running = runningRows?.length ?? 0
+  if (dispatched + running > 0) {
+    console.info(
+      `[Network API] network job recovery: dispatched=${dispatched} running=${running}`
+    )
+  }
+
+  return { dispatched, running }
 }
 
 export async function claimNextPendingNetworkAgentJob(

@@ -18,6 +18,7 @@ import {
   createPendingNetworkAgentJob,
   getNetworkAgentJob,
   markNetworkAgentJobRunning,
+  recoverStaleNetworkAgentJobs,
 } from "@/lib/network/jobs/queries"
 import {
   compactDiscoveryResult,
@@ -134,6 +135,11 @@ async function claimOrEnqueueAuthorizedJob(auth: NetworkAgentAuth, admin: AdminC
 
 export async function claimAuthorizedNetworkAgentJob(auth: NetworkAgentAuth) {
   const admin = createAdminClient()
+  try {
+    await recoverStaleNetworkAgentJobs(admin, { companyId: auth.companyId })
+  } catch (error) {
+    console.error("[Network API] job recovery failed", error)
+  }
   const job = await claimOrEnqueueAuthorizedJob(auth, admin)
 
   if (!job) {

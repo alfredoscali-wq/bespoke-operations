@@ -105,3 +105,11 @@ export const NETWORK_AGENT_TOKEN_PREFIX = "bna_" as const
 
 export const NETWORK_MONITORING_POLL_INTERVAL_MS = 60_000
 export const NETWORK_MONITORING_OFFLINE_FAILURES = 3
+
+export const NETWORK_JOB_DISPATCHED_STALE_MS = 2 * 60 * 1000
+export const NETWORK_JOB_RUNNING_STALE_MS = 10 * 60 * 1000
+
+export const NETWORK_JOB_STALE_DISPATCHED_ERROR =
+  "Job abandonado después del claim"
+export const NETWORK_JOB_STALE_RUNNING_ERROR =
+  "Job abandonado durante la ejecución"
