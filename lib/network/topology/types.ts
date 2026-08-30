@@ -16,6 +16,7 @@ export type NetworkTopologyNode = {
   deviceType: NetworkDeviceType
   kind: NetworkTopologyNodeKind
   operationalStatus: MonitoringOperationalStatus | null
+  lastPollAt: string | null
   interfaces: NetworkTopologyInterface[]
 }
 

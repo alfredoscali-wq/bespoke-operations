@@ -105,6 +105,7 @@ export async function getNetworkTopologyGraph(
           ? displayed
           : "unknown"
         : null,
+      lastPollAt: managed ? statuses.get(row.id)?.lastPollAt ?? null : null,
       interfaces: interfacesByDevice.get(row.id) ?? [],
     }
   })

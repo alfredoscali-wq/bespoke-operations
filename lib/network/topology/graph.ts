@@ -81,6 +81,105 @@ export function formatTopologyPeerLink(input: {
   return protocol ? `${localIface} → ${identity} · ${protocol}` : `${localIface} → ${identity}`
 }
 
+export function formatTopologyProtocols(
+  protocol: string | null | undefined
+): string {
+  const protocols = parseProtocols(protocol)
+  if (protocols.length === 0) return "—"
+  return protocols.map((item) => item.toUpperCase()).join(" · ")
+}
+
+export function topologyManagedDeviceHref(node: {
+  id: string
+  kind: NetworkTopologyNodeKind
+}): string | null {
+  if (node.kind !== "managed") return null
+  return `/network/devices/${node.id}`
+}
+
+export type TopologyEdgeEndpointDetail = {
+  deviceId: string | null
+  identity: string
+  hostname: string | null
+  managementIp: string | null
+  interfaceName: string | null
+  kind: NetworkTopologyNodeKind | null
+  operationalStatus: MonitoringOperationalStatus | null
+  lastPollAt: string | null
+  monitored: boolean
+  deviceHref: string | null
+}
+
+export type TopologyEdgeDetail = {
+  edgeId: string
+  localInterfaceName: string | null
+  remoteInterfaceName: string | null
+  interfacesLabel: string
+  protocolsLabel: string
+  protocol: string | null
+  endpointA: TopologyEdgeEndpointDetail
+  endpointB: TopologyEdgeEndpointDetail
+}
+
+function toEdgeEndpoint(
+  node: NetworkTopologyNode | null | undefined,
+  interfaceName: string | null
+): TopologyEdgeEndpointDetail {
+  const iface = interfaceName?.trim() || null
+  if (!node) {
+    return {
+      deviceId: null,
+      identity: "vecino",
+      hostname: null,
+      managementIp: null,
+      interfaceName: iface,
+      kind: null,
+      operationalStatus: null,
+      lastPollAt: null,
+      monitored: false,
+      deviceHref: null,
+    }
+  }
+  const monitored = node.kind === "managed"
+  return {
+    deviceId: node.id,
+    identity: formatTopologyNodeIdentity(node.hostname, node.managementIp),
+    hostname: node.hostname,
+    managementIp: node.managementIp,
+    interfaceName: iface,
+    kind: node.kind,
+    operationalStatus: monitored ? node.operationalStatus : null,
+    lastPollAt: monitored ? node.lastPollAt : null,
+    monitored,
+    deviceHref: topologyManagedDeviceHref(node),
+  }
+}
+
+export function buildTopologyEdgeDetail(
+  edge: NetworkTopologyEdge,
+  nodesById: Map<string, NetworkTopologyNode>
+): TopologyEdgeDetail {
+  return {
+    edgeId: edge.id,
+    localInterfaceName: edge.localInterfaceName,
+    remoteInterfaceName: edge.remoteInterfaceName,
+    interfacesLabel: formatTopologyLinkLabel(
+      edge.localInterfaceName,
+      edge.remoteInterfaceName
+    ),
+    protocolsLabel: formatTopologyProtocols(edge.protocol),
+    protocol: edge.protocol,
+    endpointA: toEdgeEndpoint(
+      nodesById.get(edge.sourceDeviceId),
+      edge.localInterfaceName
+    ),
+    endpointB: toEdgeEndpoint(
+      nodesById.get(edge.targetDeviceId),
+      edge.remoteInterfaceName
+    ),
+  }
+}
+
 export function uniqueTopologyInterfaces(
   interfaces: NetworkTopologyInterface[]
 ): NetworkTopologyInterface[] {
@@ -247,6 +346,7 @@ export type TopologyGraphDeviceInput = {
   origin: string | null
   kind: NetworkTopologyNodeKind
   operationalStatus: MonitoringOperationalStatus | null
+  lastPollAt: string | null
   interfaces: NetworkTopologyInterface[]
 }
 
@@ -299,6 +399,7 @@ function toTopologyNode(device: TopologyGraphDeviceInput): NetworkTopologyNode {
     deviceType: device.deviceType,
     kind: device.kind,
     operationalStatus: device.operationalStatus,
+    lastPollAt: device.lastPollAt ?? null,
     interfaces: device.interfaces,
   }
 }

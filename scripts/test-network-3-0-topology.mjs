@@ -7,10 +7,13 @@ import { isManagedNetworkDevice } from "../lib/network/devices/managed.ts"
 import { displayMonitoringStatus } from "../lib/network/monitoring/status.ts"
 import {
   buildCanonicalTopologyGraph,
+  buildTopologyEdgeDetail,
   formatTopologyLinkLabel,
   formatTopologyNodeIdentity,
   formatTopologyPeerLink,
+  formatTopologyProtocols,
   mergeTopologyEdges,
+  topologyManagedDeviceHref,
   uniqueTopologyInterfaces,
 } from "../lib/network/topology/graph.ts"
 
@@ -40,6 +43,7 @@ function labDevice(input) {
     origin: "discovery",
     hostname: null,
     managementIp: null,
+    lastPollAt: null,
     ...input,
   }
 }
@@ -52,6 +56,7 @@ function labDevices() {
       managementIp: "192.168.56.2",
       origin: "discovery",
       kind: "managed",
+      lastPollAt: "2026-08-30T16:00:00.000Z",
       interfaces: [{ id: "c-e2", name: "ether2", status: "up" }],
     }),
     labDevice({
@@ -60,6 +65,7 @@ function labDevices() {
       managementIp: "10.10.1.2",
       origin: "discovery",
       kind: "managed",
+      lastPollAt: "2026-08-30T16:00:00.000Z",
       interfaces: [
         { id: "n-e2", name: "ether2", status: "up" },
         { id: "n-e3", name: "ether3", status: "up" },
@@ -71,6 +77,7 @@ function labDevices() {
       managementIp: "10.10.2.2",
       origin: "discovery",
       kind: "managed",
+      lastPollAt: "2026-08-30T16:00:00.000Z",
       interfaces: [{ id: "s-e2", name: "ether2", status: "up" }],
     }),
     labDevice({
@@ -563,4 +570,118 @@ test("Discovery, freshness 2.6 y Devices 2.7 permanecen intactos", () => {
     /buildCanonicalTopologyGraph/
   )
 })
+
+test("3.1: detalle de enlace A/B conserva interfaces, protocolos e identidad", () => {
+  const graph = buildCanonicalTopologyGraph(labDevices(), labLinks())
+  assert.equal(graph.nodes.length, 3)
+  assert.equal(graph.edges.length, 2)
+  const nodesById = new Map(graph.nodes.map((node) => [node.id, node]))
+  const coreNorte = graph.edges.find((edge) => {
+    const pair = [edge.sourceDeviceId, edge.targetDeviceId].sort().join("::")
+    return pair === `${CORE_M}::${NORTE_M}`
+  })
+  assert.ok(coreNorte)
+  const detail = buildTopologyEdgeDetail(coreNorte, nodesById)
+  assert.equal(detail.localInterfaceName, "ether2")
+  assert.equal(detail.remoteInterfaceName, "ether2")
+  assert.equal(detail.interfacesLabel, "ether2 ↔ ether2")
+  assert.equal(detail.protocol, "mndp")
+  assert.equal(detail.protocolsLabel, "MNDP")
+  assert.equal(detail.endpointA.identity, "CORE-LAB · 192.168.56.2")
+  assert.equal(detail.endpointB.identity, "NODO-NORTE · 10.10.1.2")
+  assert.equal(detail.endpointA.managementIp, "192.168.56.2")
+  assert.equal(detail.endpointB.managementIp, "10.10.1.2")
+  assert.equal(
+    detail.endpointA.identity.includes("10.10.1.1") ||
+      detail.endpointB.identity.includes("10.10.1.1"),
+    false
+  )
+})
+
+test("3.1: administrado muestra estado y href; vecino no inventa estado ni navega", () => {
+  const orphan = labDevice({
+    id: "dev-switch",
+    hostname: "SWITCH-FOO",
+    managementIp: "10.10.9.9",
+    origin: "neighbor",
+    kind: "neighbor",
+  })
+  const graph = buildCanonicalTopologyGraph(
+    [...labDevices(), orphan],
+    [
+      ...labLinks(),
+      {
+        id: "l-orphan",
+        fromDeviceId: CORE_M,
+        toDeviceId: "dev-switch",
+        fromInterfaceName: "ether1",
+        toInterfaceName: "ether8",
+        protocol: "cdp,lldp,mndp",
+      },
+    ]
+  )
+  assert.equal(graph.nodes.length, 4)
+  const nodesById = new Map(graph.nodes.map((node) => [node.id, node]))
+  const mixed = graph.edges.find((edge) => {
+    const pair = [edge.sourceDeviceId, edge.targetDeviceId].sort().join("::")
+    return pair === `${CORE_M}::dev-switch`
+  })
+  assert.ok(mixed)
+  const detail = buildTopologyEdgeDetail(mixed, nodesById)
+  assert.equal(detail.localInterfaceName, "ether1")
+  assert.equal(detail.remoteInterfaceName, "ether8")
+  assert.equal(detail.protocolsLabel, "CDP · LLDP · MNDP")
+  assert.equal(detail.endpointA.identity, "CORE-LAB · 192.168.56.2")
+  assert.equal(detail.endpointB.identity, "SWITCH-FOO · 10.10.9.9")
+  assert.equal(detail.endpointA.monitored, true)
+  assert.equal(detail.endpointA.operationalStatus, "online")
+  assert.equal(detail.endpointA.lastPollAt, "2026-08-30T16:00:00.000Z")
+  assert.equal(detail.endpointA.deviceHref, `/network/devices/${CORE_M}`)
+  assert.equal(detail.endpointB.monitored, false)
+  assert.equal(detail.endpointB.operationalStatus, null)
+  assert.equal(detail.endpointB.lastPollAt, null)
+  assert.equal(detail.endpointB.deviceHref, null)
+  assert.equal(topologyManagedDeviceHref(orphan), null)
+  assert.equal(
+    topologyManagedDeviceHref({ id: CORE_M, kind: "managed" }),
+    `/network/devices/${CORE_M}`
+  )
+  assert.equal(formatTopologyProtocols("cdp,lldp,mndp"), "CDP · LLDP · MNDP")
+  assert.equal(formatTopologyProtocols(null), "—")
+  assert.equal(formatTopologyLinkLabel("ether2", null), "ether2")
+
+  const now = Date.parse("2026-08-30T16:00:00.000Z")
+  const recent = new Date(now - 60_000).toISOString()
+  const stale = new Date(now - 301_000).toISOString()
+  assert.equal(displayMonitoringStatus("online", recent, now), "online")
+  assert.equal(displayMonitoringStatus("online", stale, now), "unknown")
+  assert.doesNotMatch(
+    read("lib/network/topology/graph.ts"),
+    /displayMonitoringStatus/
+  )
+  assert.match(
+    read("lib/network/topology/queries.ts"),
+    /listNetworkDeviceOperationalStatuses/
+  )
+  assert.match(read("lib/network/topology/queries.ts"), /lastPollAt: managed/)
+})
+
+test("3.1: panel selecciona nodo o enlace y reutiliza la query única", () => {
+  const screen = read("components/network/network-topology-screen.tsx")
+  assert.match(screen, /kind: "edge"/)
+  assert.match(screen, /kind: "node"/)
+  assert.match(screen, /buildTopologyEdgeDetail/)
+  assert.match(screen, /Ver dispositivo/)
+  assert.match(screen, /topologyManagedDeviceHref/)
+  assert.match(screen, /No monitoreado/)
+  assert.match(screen, /Cerrar/)
+  assert.match(screen, /setSelection\(null\)/)
+  assert.doesNotMatch(screen, /Ver detalle/)
+  assert.doesNotMatch(screen, /refetchInterval/)
+  assert.doesNotMatch(screen, /displayMonitoringStatus/)
+  const hook = read("lib/network/react-query/use-network-topology-query.ts")
+  assert.doesNotMatch(hook, /refetchInterval/)
+  assert.match(hook, /staleTime: Infinity/)
+})
+
 

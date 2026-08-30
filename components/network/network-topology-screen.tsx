@@ -9,9 +9,15 @@ import {
   NETWORK_DEVICE_STATUS_LABELS,
   NETWORK_DEVICE_STATUS_TONES,
   NETWORK_DEVICE_TYPE_LABELS,
+  formatNetworkTimestamp,
 } from "@/lib/network/labels"
 import { useNetworkTopologyQuery } from "@/lib/network/react-query/use-network-topology-query"
-import { formatTopologyPeerLink } from "@/lib/network/topology/graph"
+import {
+  buildTopologyEdgeDetail,
+  formatTopologyNodeIdentity,
+  formatTopologyPeerLink,
+  topologyManagedDeviceHref,
+} from "@/lib/network/topology/graph"
 import type {
   NetworkTopologyEdge,
   NetworkTopologyNode,
@@ -21,6 +27,10 @@ import { cn } from "@/lib/utils"
 
 const CANVAS_WIDTH = 920
 const CANVAS_HEIGHT = 520
+
+type TopologySelection =
+  | { kind: "node"; id: string }
+  | { kind: "edge"; id: string }
 
 function layoutNodes(nodes: NetworkTopologyNode[]) {
   if (nodes.length === 0) return []
@@ -58,21 +68,29 @@ function nodeStroke(node: NetworkTopologyNode): string {
 
 export function NetworkTopologyScreen() {
   const { data, error, isPending } = useNetworkTopologyQuery()
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selection, setSelection] = useState<TopologySelection | null>(null)
   const graph = data ?? { nodes: [], edges: [] }
   const positioned = useMemo(() => layoutNodes(graph.nodes), [graph.nodes])
   const byId = useMemo(
     () => new Map(positioned.map((node) => [node.id, node])),
     [positioned]
   )
-  const selected = selectedId ? (byId.get(selectedId) ?? null) : null
+  const selectedNode =
+    selection?.kind === "node" ? (byId.get(selection.id) ?? null) : null
+  const selectedEdge =
+    selection?.kind === "edge"
+      ? (graph.edges.find((edge) => edge.id === selection.id) ?? null)
+      : null
   const relatedEdges = useMemo(
     () =>
-      graph.edges.filter(
-        (edge) =>
-          edge.sourceDeviceId === selectedId || edge.targetDeviceId === selectedId
-      ),
-    [graph.edges, selectedId]
+      selectedNode
+        ? graph.edges.filter(
+            (edge) =>
+              edge.sourceDeviceId === selectedNode.id ||
+              edge.targetDeviceId === selectedNode.id
+          )
+        : [],
+    [graph.edges, selectedNode]
   )
 
   const loadError =
@@ -96,7 +114,7 @@ export function NetworkTopologyScreen() {
         <p className="text-sm text-destructive">{loadError}</p>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="overflow-auto rounded-lg border bg-card">
           {isPending && graph.nodes.length === 0 ? (
             <p className="p-6 text-sm text-muted-foreground">Cargando topología…</p>
@@ -112,21 +130,43 @@ export function NetworkTopologyScreen() {
               role="img"
               aria-label="Topología de red"
             >
+              <rect
+                width={CANVAS_WIDTH}
+                height={CANVAS_HEIGHT}
+                fill="transparent"
+                onClick={() => setSelection(null)}
+              />
               {graph.edges.map((edge) => {
                 const source = byId.get(edge.sourceDeviceId)
                 const target = byId.get(edge.targetDeviceId)
                 if (!source || !target) return null
                 const mx = (source.x + target.x) / 2
                 const my = (source.y + target.y) / 2
+                const active = selection?.kind === "edge" && selection.id === edge.id
                 return (
-                  <g key={edge.id}>
+                  <g
+                    key={edge.id}
+                    className="cursor-pointer"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      setSelection({ kind: "edge", id: edge.id })
+                    }}
+                  >
                     <line
                       x1={source.x}
                       y1={source.y}
                       x2={target.x}
                       y2={target.y}
-                      stroke="#94a3b8"
-                      strokeWidth={1.5}
+                      stroke="transparent"
+                      strokeWidth={12}
+                    />
+                    <line
+                      x1={source.x}
+                      y1={source.y}
+                      x2={target.x}
+                      y2={target.y}
+                      stroke={active ? "#0f172a" : "#94a3b8"}
+                      strokeWidth={active ? 3 : 1.5}
                     />
                     <text
                       x={mx}
@@ -144,14 +184,21 @@ export function NetworkTopologyScreen() {
                 <g
                   key={node.id}
                   transform={`translate(${node.x}, ${node.y})`}
-                  onClick={() => setSelectedId(node.id)}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    setSelection({ kind: "node", id: node.id })
+                  }}
                   className="cursor-pointer"
                 >
                   <circle
-                    r={selectedId === node.id ? 22 : 18}
+                    r={
+                      selection?.kind === "node" && selection.id === node.id ? 22 : 18
+                    }
                     fill={nodeFill(node)}
                     stroke={nodeStroke(node)}
-                    strokeWidth={selectedId === node.id ? 3 : 2}
+                    strokeWidth={
+                      selection?.kind === "node" && selection.id === node.id ? 3 : 2
+                    }
                     strokeDasharray={node.kind === "neighbor" ? "4 3" : undefined}
                   />
                   <text
@@ -180,15 +227,23 @@ export function NetworkTopologyScreen() {
         </div>
 
         <aside className="rounded-lg border bg-card p-4 text-sm">
-          {selected ? (
+          {selectedNode ? (
             <SelectedNodePanel
-              node={selected}
+              node={selectedNode}
               edges={relatedEdges}
               nodesById={byId}
+              onClose={() => setSelection(null)}
+              onSelectEdge={(edgeId) => setSelection({ kind: "edge", id: edgeId })}
+            />
+          ) : selectedEdge ? (
+            <SelectedEdgePanel
+              edge={selectedEdge}
+              nodesById={byId}
+              onClose={() => setSelection(null)}
             />
           ) : (
             <p className="text-muted-foreground">
-              Seleccioná un dispositivo para ver hostname, origen y enlaces.
+              Seleccioná un dispositivo o un enlace.
             </p>
           )}
         </aside>
@@ -197,28 +252,34 @@ export function NetworkTopologyScreen() {
   )
 }
 
-function SelectedNodePanel({
-  node,
-  edges,
-  nodesById,
-}: {
-  node: NetworkTopologyNode
-  edges: NetworkTopologyEdge[]
-  nodesById: Map<string, NetworkTopologyNode & { x: number; y: number }>
-}) {
+function PanelCloseButton({ onClose }: { onClose: () => void }) {
   return (
-    <div className="space-y-3">
-      <div>
-        <p className="text-base font-medium">
-          {node.hostname || node.managementIp || "Sin nombre"}
-        </p>
-        <p className="text-muted-foreground">{node.managementIp || "Sin IP"}</p>
+    <button
+      type="button"
+      className="text-xs text-muted-foreground underline"
+      onClick={onClose}
+    >
+      Cerrar
+    </button>
+  )
+}
+
+function OperationalStatusBlock({
+  node,
+}: {
+  node: Pick<NetworkTopologyNode, "kind" | "operationalStatus" | "lastPollAt">
+}) {
+  if (node.kind !== "managed") {
+    return (
+      <div className="space-y-1">
+        <p className="text-muted-foreground">No monitoreado</p>
+        <p className="text-muted-foreground">Última observación: —</p>
       </div>
-      <p>
-        {NETWORK_DEVICE_TYPE_LABELS[node.deviceType]} ·{" "}
-        {node.kind === "managed" ? "Administrado" : "Vecino descubierto"}
-      </p>
-      {node.kind === "managed" && node.operationalStatus ? (
+    )
+  }
+  return (
+    <div className="space-y-1">
+      {node.operationalStatus ? (
         <StatusBadge
           className={cn(
             STATUS_TONE_STYLES[NETWORK_DEVICE_STATUS_TONES[node.operationalStatus]]
@@ -229,9 +290,49 @@ function SelectedNodePanel({
       ) : (
         <p className="text-muted-foreground">Sin estado operativo de monitoring.</p>
       )}
-      {node.kind === "managed" ? (
-        <Link className="inline-block underline" href={`/network/devices/${node.id}`}>
-          Ver detalle
+      <p className="text-muted-foreground">
+        Última observación: {formatNetworkTimestamp(node.lastPollAt)}
+      </p>
+    </div>
+  )
+}
+
+function SelectedNodePanel({
+  node,
+  edges,
+  nodesById,
+  onClose,
+  onSelectEdge,
+}: {
+  node: NetworkTopologyNode
+  edges: NetworkTopologyEdge[]
+  nodesById: Map<string, NetworkTopologyNode & { x: number; y: number }>
+  onClose: () => void
+  onSelectEdge: (edgeId: string) => void
+}) {
+  const deviceHref = topologyManagedDeviceHref(node)
+  return (
+    <div className="space-y-3">
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Nodo
+        </p>
+        <PanelCloseButton onClose={onClose} />
+      </div>
+      <div>
+        <p className="text-base font-medium">
+          {formatTopologyNodeIdentity(node.hostname, node.managementIp)}
+        </p>
+        <p className="text-muted-foreground">{node.managementIp || "Sin IP"}</p>
+      </div>
+      <p>
+        {NETWORK_DEVICE_TYPE_LABELS[node.deviceType]} ·{" "}
+        {node.kind === "managed" ? "Administrado" : "Vecino descubierto"}
+      </p>
+      <OperationalStatusBlock node={node} />
+      {deviceHref ? (
+        <Link className="inline-block underline" href={deviceHref}>
+          Ver dispositivo
         </Link>
       ) : null}
       <div>
@@ -248,12 +349,18 @@ function SelectedNodePanel({
               const other = nodesById.get(otherId)
               return (
                 <li key={edge.id}>
-                  {formatTopologyPeerLink({
-                    selectedDeviceId: node.id,
-                    edge,
-                    peerHostname: other?.hostname,
-                    peerManagementIp: other?.managementIp,
-                  })}
+                  <button
+                    type="button"
+                    className="text-left underline-offset-2 hover:underline"
+                    onClick={() => onSelectEdge(edge.id)}
+                  >
+                    {formatTopologyPeerLink({
+                      selectedDeviceId: node.id,
+                      edge,
+                      peerHostname: other?.hostname,
+                      peerManagementIp: other?.managementIp,
+                    })}
+                  </button>
                 </li>
               )
             })}
@@ -272,6 +379,69 @@ function SelectedNodePanel({
             ))}
           </ul>
         </div>
+      ) : null}
+    </div>
+  )
+}
+
+function SelectedEdgePanel({
+  edge,
+  nodesById,
+  onClose,
+}: {
+  edge: NetworkTopologyEdge
+  nodesById: Map<string, NetworkTopologyNode>
+  onClose: () => void
+}) {
+  const detail = buildTopologyEdgeDetail(edge, nodesById)
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Enlace
+        </p>
+        <PanelCloseButton onClose={onClose} />
+      </div>
+      <div>
+        <p className="text-base font-medium">{detail.interfacesLabel}</p>
+        <p className="text-muted-foreground">{detail.protocolsLabel}</p>
+      </div>
+      <EdgeEndpointBlock title="Dispositivo A" endpoint={detail.endpointA} />
+      <EdgeEndpointBlock title="Dispositivo B" endpoint={detail.endpointB} />
+    </div>
+  )
+}
+
+function EdgeEndpointBlock({
+  title,
+  endpoint,
+}: {
+  title: string
+  endpoint: ReturnType<typeof buildTopologyEdgeDetail>["endpointA"]
+}) {
+  return (
+    <div className="space-y-1 rounded-md border px-3 py-2">
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {title}
+      </p>
+      <p className="font-medium">{endpoint.identity}</p>
+      {endpoint.managementIp && endpoint.hostname ? (
+        <p className="text-muted-foreground">{endpoint.managementIp}</p>
+      ) : null}
+      <p>
+        Interfaz: {endpoint.interfaceName ?? "—"}
+      </p>
+      <OperationalStatusBlock
+        node={{
+          kind: endpoint.kind === "managed" ? "managed" : "neighbor",
+          operationalStatus: endpoint.operationalStatus,
+          lastPollAt: endpoint.lastPollAt,
+        }}
+      />
+      {endpoint.deviceHref ? (
+        <Link className="inline-block underline" href={endpoint.deviceHref}>
+          Ver dispositivo
+        </Link>
       ) : null}
     </div>
   )
