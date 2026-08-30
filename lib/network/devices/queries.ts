@@ -14,6 +14,7 @@ import {
   getNetworkDeviceMonitoring,
   listNetworkDeviceOperationalStatuses,
 } from "@/lib/network/monitoring/queries"
+import { buildManagedNetworkDeviceOrFilter } from "@/lib/network/devices/managed"
 import type {
   NetworkDevice,
   NetworkDeviceDetail,
@@ -29,11 +30,27 @@ export async function listNetworkDevices(
   client: Client,
   companyId: string
 ): Promise<NetworkDevice[]> {
+  const { data: targets, error: targetError } = await client
+    .from("network_discovery_targets")
+    .select("agent_id, host")
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+
+  if (targetError) {
+    throw new Error(targetError.message)
+  }
+
+  const managedFilter = buildManagedNetworkDeviceOrFilter(targets ?? [])
+  if (!managedFilter) {
+    return []
+  }
+
   const { data, error } = await client
     .from("network_devices")
     .select("*, network_sites ( name ), network_agents ( name )")
     .eq("company_id", companyId)
     .is("deleted_at", null)
+    .or(managedFilter)
     .order("last_seen_at", { ascending: false })
 
   if (error) {
@@ -49,9 +66,12 @@ export async function listNetworkDevices(
     return mapNetworkDeviceRow(row, {
       siteName: site?.name ?? null,
       agentName: agent?.name ?? null,
+      lastPollAt: operational?.lastPollAt ?? null,
       operationalStatus:
-        operational === "online" || operational === "offline" || operational === "degraded"
-          ? operational
+        operational?.status === "online" ||
+        operational?.status === "offline" ||
+        operational?.status === "degraded"
+          ? operational.status
           : "unknown",
     })
   })

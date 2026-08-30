@@ -124,6 +124,7 @@ export function mapNetworkDeviceRow(
     siteName?: string | null
     agentName?: string | null
     operationalStatus?: "unknown" | "online" | "offline" | "degraded"
+    lastPollAt?: string | null
   }
 ): NetworkDevice {
   return {
@@ -146,6 +147,7 @@ export function mapNetworkDeviceRow(
     origin: isDeviceOrigin(row.origin) ? row.origin : "discovery",
     firstSeenAt: row.first_seen_at,
     lastSeenAt: row.last_seen_at,
+    lastPollAt: extras?.lastPollAt ?? null,
     operationalStatus: extras?.operationalStatus ?? "unknown",
   }
 }

@@ -97,7 +97,15 @@ export async function getNetworkDeviceMonitoring(
 export async function listNetworkDeviceOperationalStatuses(
   client: Client,
   companyId: string
-): Promise<Map<string, DeviceStatusRow["status"]>> {
+): Promise<
+  Map<
+    string,
+    {
+      status: DeviceStatusRow["status"]
+      lastPollAt: string | null
+    }
+  >
+> {
   const { data, error } = await client
     .from("network_device_status")
     .select("device_id, status, last_poll_at")
@@ -105,9 +113,15 @@ export async function listNetworkDeviceOperationalStatuses(
     .is("deleted_at", null)
 
   if (error) throw new Error(error.message)
-  const map = new Map<string, DeviceStatusRow["status"]>()
+  const map = new Map<
+    string,
+    { status: DeviceStatusRow["status"]; lastPollAt: string | null }
+  >()
   for (const row of data ?? []) {
-    map.set(row.device_id, displayMonitoringStatus(row.status, row.last_poll_at))
+    map.set(row.device_id, {
+      status: displayMonitoringStatus(row.status, row.last_poll_at),
+      lastPollAt: row.last_poll_at,
+    })
   }
   return map
 }

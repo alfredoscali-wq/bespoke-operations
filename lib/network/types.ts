@@ -137,6 +137,7 @@ export type NetworkDevice = {
   origin: NetworkDeviceOrigin
   firstSeenAt: string
   lastSeenAt: string
+  lastPollAt: string | null
   operationalStatus: "unknown" | "online" | "offline" | "degraded"
 }
 

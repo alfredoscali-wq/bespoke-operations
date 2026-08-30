@@ -16,7 +16,7 @@ import {
   NETWORK_DEVICE_STATUS_LABELS,
   NETWORK_DEVICE_STATUS_TONES,
   NETWORK_DEVICE_TYPE_LABELS,
-  formatNetworkLastSeen,
+  formatNetworkTimestamp,
 } from "@/lib/network/labels"
 import { useNetworkDevicesQuery } from "@/lib/network/react-query/use-network-devices-query"
 import { STATUS_TONE_STYLES } from "@/lib/ui/visual-tokens"
@@ -96,7 +96,7 @@ export function NetworkDevicesScreen() {
                   </StatusBadge>
                 </TableCell>
                 <TableCell>{device.siteName || "Sin sitio"}</TableCell>
-                <TableCell>{formatNetworkLastSeen(device.lastSeenAt)}</TableCell>
+                <TableCell>{formatNetworkTimestamp(device.lastPollAt)}</TableCell>
               </TableRow>
             ))
           )}
