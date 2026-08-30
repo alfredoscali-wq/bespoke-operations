@@ -6,14 +6,125 @@ import test from "node:test"
 import { isManagedNetworkDevice } from "../lib/network/devices/managed.ts"
 import { displayMonitoringStatus } from "../lib/network/monitoring/status.ts"
 import {
+  buildCanonicalTopologyGraph,
   formatTopologyLinkLabel,
+  formatTopologyNodeIdentity,
+  formatTopologyPeerLink,
   mergeTopologyEdges,
+  uniqueTopologyInterfaces,
 } from "../lib/network/topology/graph.ts"
 
 const root = resolve(import.meta.dirname, "..")
 
 function read(relativePath) {
   return readFileSync(resolve(root, relativePath), "utf8")
+}
+
+const COMPANY = "co-1"
+const AGENT = "ag-1"
+const SITE = "site-1"
+const CORE_M = "dev-core-m"
+const CORE_N = "dev-core-n"
+const NORTE_M = "dev-norte-m"
+const NORTE_N = "dev-norte-n"
+const SUR_M = "dev-sur-m"
+
+function labDevice(input) {
+  return {
+    companyId: COMPANY,
+    agentId: AGENT,
+    siteId: SITE,
+    deviceType: "router",
+    operationalStatus: input.kind === "managed" ? "online" : null,
+    interfaces: [],
+    origin: "discovery",
+    hostname: null,
+    managementIp: null,
+    ...input,
+  }
+}
+
+function labDevices() {
+  return [
+    labDevice({
+      id: CORE_M,
+      hostname: "CORE-LAB",
+      managementIp: "192.168.56.2",
+      origin: "discovery",
+      kind: "managed",
+      interfaces: [{ id: "c-e2", name: "ether2", status: "up" }],
+    }),
+    labDevice({
+      id: NORTE_M,
+      hostname: "NODO-NORTE",
+      managementIp: "10.10.1.2",
+      origin: "discovery",
+      kind: "managed",
+      interfaces: [
+        { id: "n-e2", name: "ether2", status: "up" },
+        { id: "n-e3", name: "ether3", status: "up" },
+      ],
+    }),
+    labDevice({
+      id: SUR_M,
+      hostname: "NODO-SUR",
+      managementIp: "10.10.2.2",
+      origin: "discovery",
+      kind: "managed",
+      interfaces: [{ id: "s-e2", name: "ether2", status: "up" }],
+    }),
+    labDevice({
+      id: CORE_N,
+      hostname: "CORE-LAB",
+      managementIp: "10.10.1.1",
+      origin: "neighbor",
+      kind: "neighbor",
+    }),
+    labDevice({
+      id: NORTE_N,
+      hostname: "NODO-NORTE",
+      managementIp: "10.10.2.1",
+      origin: "neighbor",
+      kind: "neighbor",
+    }),
+  ]
+}
+
+function labLinks() {
+  return [
+    {
+      id: "l1",
+      fromDeviceId: CORE_M,
+      toDeviceId: NORTE_M,
+      fromInterfaceName: "ether2",
+      toInterfaceName: null,
+      protocol: "mndp",
+    },
+    {
+      id: "l2",
+      fromDeviceId: NORTE_M,
+      toDeviceId: CORE_N,
+      fromInterfaceName: "ether2",
+      toInterfaceName: null,
+      protocol: "mndp",
+    },
+    {
+      id: "l3",
+      fromDeviceId: NORTE_M,
+      toDeviceId: SUR_M,
+      fromInterfaceName: "ether3",
+      toInterfaceName: null,
+      protocol: "mndp",
+    },
+    {
+      id: "l4",
+      fromDeviceId: SUR_M,
+      toDeviceId: NORTE_N,
+      fromInterfaceName: "ether2",
+      toInterfaceName: null,
+      protocol: "mndp",
+    },
+  ]
 }
 
 test("1: la ruta /network/topology existe", () => {
@@ -30,8 +141,10 @@ test("2: existe la API y query de topology", () => {
 
 test("3: el grafo devuelve nodes y edges", () => {
   const queries = read("lib/network/topology/queries.ts")
-  assert.match(queries, /nodes/)
-  assert.match(queries, /edges: mergeTopologyEdges/)
+  assert.match(queries, /buildCanonicalTopologyGraph\(devices, rawLinks\)/)
+  const graph = read("lib/network/topology/graph.ts")
+  assert.match(graph, /nodes/)
+  assert.match(graph, /edges: mergeTopologyEdges/)
   const types = read("lib/network/topology/types.ts")
   assert.match(types, /export type NetworkTopologyGraph/)
   assert.match(types, /nodes: NetworkTopologyNode\[\]/)
@@ -53,15 +166,16 @@ test("4-5: administrados vs vecinos usan el criterio de target, no origin", () =
   assert.equal(neighbor, false)
   const query = read("lib/network/topology/queries.ts")
   assert.match(query, /isManagedNetworkDevice/)
-  assert.doesNotMatch(query, /origin/)
   assert.match(query, /kind: managed \? "managed" : "neighbor"/)
+  assert.match(query, /origin: row.origin/)
+  assert.doesNotMatch(query, /kind: row.origin/)
 })
 
 test("6-8: no se inventan ni duplican enlaces; se conservan interfaces", () => {
   const query = read("lib/network/topology/queries.ts")
   assert.match(query, /from\("network_links"\)/)
   assert.doesNotMatch(query, /agent_id === .*agent_id/)
-  assert.match(query, /mergeTopologyEdges\(rawLinks\)/)
+  assert.match(query, /buildCanonicalTopologyGraph\(devices, rawLinks\)/)
 
   const forward = {
     id: "link-1",
@@ -138,3 +252,315 @@ test("16-17: no hay polling periódico ni Realtime en topology", () => {
   assert.doesNotMatch(screen, /realtime|channel\(|supabase\.channel/i)
   assert.doesNotMatch(hook, /realtime|channel\(/i)
 })
+
+test("deduplica el mismo enlace y combina protocolos CDP/LLDP/MNDP", () => {
+  const duplicates = mergeTopologyEdges([
+    {
+      id: "a",
+      fromDeviceId: "norte",
+      toDeviceId: "core",
+      fromInterfaceName: "ether2",
+      toInterfaceName: null,
+      protocol: "cdp,lldp,mndp",
+    },
+    {
+      id: "b",
+      fromDeviceId: "norte",
+      toDeviceId: "core",
+      fromInterfaceName: "ether2",
+      toInterfaceName: null,
+      protocol: "cdp,lldp,mndp",
+    },
+    {
+      id: "c",
+      fromDeviceId: "norte",
+      toDeviceId: "core",
+      fromInterfaceName: "ether2",
+      toInterfaceName: null,
+      protocol: "mndp",
+    },
+  ])
+  assert.equal(duplicates.length, 1)
+  assert.equal(
+    duplicates[0].localInterfaceName?.toLowerCase() === "ether2" ||
+      duplicates[0].remoteInterfaceName?.toLowerCase() === "ether2",
+    true
+  )
+  assert.equal(duplicates[0].protocol, "cdp,lldp,mndp")
+
+  const reordered = mergeTopologyEdges([
+    {
+      id: "m",
+      fromDeviceId: "norte",
+      toDeviceId: "core",
+      fromInterfaceName: "ether2",
+      toInterfaceName: null,
+      protocol: "mndp",
+    },
+    {
+      id: "l",
+      fromDeviceId: "norte",
+      toDeviceId: "core",
+      fromInterfaceName: "ether2",
+      toInterfaceName: null,
+      protocol: "lldp",
+    },
+    {
+      id: "c",
+      fromDeviceId: "norte",
+      toDeviceId: "core",
+      fromInterfaceName: "ether2",
+      toInterfaceName: null,
+      protocol: "cdp",
+    },
+  ])
+  assert.equal(reordered.length, 1)
+  assert.equal(reordered[0].protocol, "cdp,lldp,mndp")
+})
+
+test("interfaces distintas no se fusionan; A→B y B→A equivalentes sí", () => {
+  const distinct = mergeTopologyEdges([
+    {
+      id: "e2",
+      fromDeviceId: "norte",
+      toDeviceId: "core",
+      fromInterfaceName: "ether2",
+      toInterfaceName: null,
+      protocol: "mndp",
+    },
+    {
+      id: "e3",
+      fromDeviceId: "norte",
+      toDeviceId: "core",
+      fromInterfaceName: "ether3",
+      toInterfaceName: null,
+      protocol: "mndp",
+    },
+  ])
+  assert.equal(distinct.length, 2)
+
+  const reverse = mergeTopologyEdges([
+    {
+      id: "fwd",
+      fromDeviceId: "core",
+      toDeviceId: "norte",
+      fromInterfaceName: "ether2",
+      toInterfaceName: null,
+      protocol: "cdp",
+    },
+    {
+      id: "rev",
+      fromDeviceId: "norte",
+      toDeviceId: "core",
+      fromInterfaceName: "wlan1",
+      toInterfaceName: null,
+      protocol: "lldp",
+    },
+  ])
+  assert.equal(reverse.length, 1)
+  assert.equal(reverse[0].label, "ether2 ↔ wlan1")
+  assert.equal(reverse[0].protocol, "cdp,lldp")
+})
+
+test("panel identifica destino por hostname + IP; nodos homónimos no se fusionan", () => {
+  assert.equal(
+    formatTopologyNodeIdentity("NODO-NORTE", "10.10.1.2"),
+    "NODO-NORTE · 10.10.1.2"
+  )
+  assert.equal(
+    formatTopologyNodeIdentity("NODO-NORTE", "10.10.2.1"),
+    "NODO-NORTE · 10.10.2.1"
+  )
+  assert.notEqual(
+    formatTopologyNodeIdentity("NODO-NORTE", "10.10.1.2"),
+    formatTopologyNodeIdentity("NODO-NORTE", "10.10.2.1")
+  )
+
+  const edge = mergeTopologyEdges([
+    {
+      id: "link",
+      fromDeviceId: "aaa-norte",
+      toDeviceId: "zzz-core",
+      fromInterfaceName: "ether2",
+      toInterfaceName: null,
+      protocol: "cdp,lldp,mndp",
+    },
+  ])[0]
+  assert.equal(
+    formatTopologyPeerLink({
+      selectedDeviceId: "aaa-norte",
+      edge,
+      peerHostname: "CORE-LAB",
+      peerManagementIp: "192.168.56.2",
+    }),
+    "ether2 → CORE-LAB · 192.168.56.2 · cdp,lldp,mndp"
+  )
+
+  const screen = read("components/network/network-topology-screen.tsx")
+  assert.match(screen, /formatTopologyPeerLink/)
+  assert.doesNotMatch(screen, /other\.hostname \|\| other\.managementIp/)
+})
+
+test("interfaces del nodo no se duplican; Discovery permanece intacto", () => {
+  const unique = uniqueTopologyInterfaces([
+    { id: "i1", name: "ether2", status: "up" },
+    { id: "i1", name: "ether2", status: "up" },
+    { id: "i2", name: "ether2", status: "up" },
+    { id: "i3", name: "ether3", status: "up" },
+  ])
+  assert.equal(unique.length, 2)
+  assert.deepEqual(
+    unique.map((item) => item.name),
+    ["ether2", "ether3"]
+  )
+  assert.match(read("lib/network/topology/queries.ts"), /uniqueTopologyInterfaces/)
+  assert.doesNotMatch(
+    read("lib/network/discovery/parse-snapshot.ts"),
+    /mergeTopologyEdges|formatTopologyPeerLink|buildCanonicalTopologyGraph/
+  )
+})
+
+test("identidad canónica: 5 devices → 3 nodos; vecinos .1 se resuelven al administrado", () => {
+  const graph = buildCanonicalTopologyGraph(labDevices(), labLinks())
+  assert.equal(labDevices().length, 5)
+  assert.equal(graph.nodes.length, 3)
+  assert.deepEqual(
+    graph.nodes.map((node) => node.id).sort(),
+    [CORE_M, NORTE_M, SUR_M].sort()
+  )
+  assert.equal(
+    graph.nodes.every((node) => node.kind === "managed"),
+    true
+  )
+
+  const core = graph.nodes.find((node) => node.hostname === "CORE-LAB")
+  const norte = graph.nodes.find((node) => node.hostname === "NODO-NORTE")
+  assert.equal(core?.id, CORE_M)
+  assert.equal(core?.managementIp, "192.168.56.2")
+  assert.equal(norte?.id, NORTE_M)
+  assert.equal(norte?.managementIp, "10.10.1.2")
+  assert.equal(
+    graph.nodes.some((node) => node.managementIp === "10.10.1.1"),
+    false
+  )
+  assert.equal(
+    graph.nodes.some((node) => node.managementIp === "10.10.2.1"),
+    false
+  )
+})
+
+test("enlaces bidireccionales equivalentes se fusionan a CORE↔NORTE y NORTE↔SUR", () => {
+  const graph = buildCanonicalTopologyGraph(labDevices(), labLinks())
+  assert.equal(graph.edges.length, 2)
+
+  const pairKey = (edge) =>
+    [edge.sourceDeviceId, edge.targetDeviceId].sort().join("::")
+  const keys = graph.edges.map(pairKey).sort()
+  assert.deepEqual(keys, [`${CORE_M}::${NORTE_M}`, `${NORTE_M}::${SUR_M}`].sort())
+
+  const norteEdges = graph.edges.filter(
+    (edge) => edge.sourceDeviceId === NORTE_M || edge.targetDeviceId === NORTE_M
+  )
+  assert.equal(norteEdges.length, 2)
+
+  const nodesById = new Map(graph.nodes.map((node) => [node.id, node]))
+  const labels = norteEdges
+    .map((edge) => {
+      const otherId =
+        edge.sourceDeviceId === NORTE_M ? edge.targetDeviceId : edge.sourceDeviceId
+      const other = nodesById.get(otherId)
+      return formatTopologyPeerLink({
+        selectedDeviceId: NORTE_M,
+        edge,
+        peerHostname: other?.hostname,
+        peerManagementIp: other?.managementIp,
+      })
+    })
+    .sort()
+  assert.deepEqual(labels, [
+    "ether2 → CORE-LAB · 192.168.56.2 · mndp",
+    "ether3 → NODO-SUR · 10.10.2.2 · mndp",
+  ])
+  assert.equal(
+    labels.some((label) => label.includes("10.10.1.1") || label.includes("10.10.2.1")),
+    false
+  )
+})
+
+test("no se fusionan enlaces físicos distintos; vecino sin equivalente permanece", () => {
+  const distinct = buildCanonicalTopologyGraph(labDevices(), [
+    ...labLinks(),
+    {
+      id: "l-extra",
+      fromDeviceId: NORTE_M,
+      toDeviceId: CORE_M,
+      fromInterfaceName: "ether5",
+      toInterfaceName: null,
+      protocol: "lldp",
+    },
+  ])
+  const coreNorte = distinct.edges.filter((edge) => {
+    const pair = [edge.sourceDeviceId, edge.targetDeviceId].sort().join("::")
+    return pair === `${CORE_M}::${NORTE_M}`
+  })
+  assert.equal(coreNorte.length, 2)
+  assert.equal(distinct.edges.length, 3)
+
+  const orphan = labDevice({
+    id: "dev-switch",
+    hostname: "SWITCH-FOO",
+    managementIp: "10.10.9.9",
+    origin: "neighbor",
+    kind: "neighbor",
+  })
+  const withOrphan = buildCanonicalTopologyGraph([...labDevices(), orphan], labLinks())
+  assert.equal(withOrphan.nodes.length, 4)
+  const leftover = withOrphan.nodes.find((node) => node.id === "dev-switch")
+  assert.equal(leftover?.kind, "neighbor")
+  assert.equal(leftover?.managementIp, "10.10.9.9")
+
+  const otherSite = labDevice({
+    id: "dev-norte-other-site",
+    hostname: "NODO-NORTE",
+    managementIp: "10.99.0.1",
+    origin: "neighbor",
+    kind: "neighbor",
+    siteId: "site-other",
+  })
+  const scoped = buildCanonicalTopologyGraph([...labDevices(), otherSite], labLinks())
+  assert.equal(scoped.nodes.length, 4)
+  assert.equal(
+    scoped.nodes.some((node) => node.id === "dev-norte-other-site"),
+    true
+  )
+})
+
+test("Discovery, freshness 2.6 y Devices 2.7 permanecen intactos", () => {
+  assert.doesNotMatch(
+    read("lib/network/discovery/parse-snapshot.ts"),
+    /buildCanonicalTopologyGraph|topologyCanonicalIdentityKey/
+  )
+  assert.doesNotMatch(
+    read("network-agent/src/index.ts"),
+    /buildCanonicalTopologyGraph/
+  )
+  const status = read("lib/network/monitoring/status.ts")
+  assert.match(status, /NETWORK_MONITORING_STATUS_TTL_MS/)
+  assert.match(status, /export function displayMonitoringStatus/)
+  assert.doesNotMatch(status, /buildCanonicalTopologyGraph/)
+  const query = read("lib/network/topology/queries.ts")
+  assert.match(query, /listNetworkDeviceOperationalStatuses/)
+  assert.match(
+    read("lib/network/devices/queries.ts"),
+    /buildManagedNetworkDeviceOrFilter/
+  )
+  assert.doesNotMatch(
+    read("lib/network/devices/queries.ts"),
+    /buildCanonicalTopologyGraph/
+  )
+  assert.doesNotMatch(
+    read("lib/network/devices/managed.ts"),
+    /buildCanonicalTopologyGraph/
+  )
+})
+

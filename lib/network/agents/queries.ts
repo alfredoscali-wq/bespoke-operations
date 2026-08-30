@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type { Database } from "@/lib/supabase/database.types"
 import { NETWORK_AGENT_STATUSES } from "@/lib/network/constants"
+import { selectManagedNetworkDevices } from "@/lib/network/devices/managed"
 import { countNetworkMonitoringSummary } from "@/lib/network/monitoring/queries"
 import { mapNetworkAgentRow } from "@/lib/network/mapper"
 import type { NetworkAgent, NetworkHomeSummary } from "@/lib/network/types"
@@ -201,7 +202,7 @@ export async function getNetworkHomeSummary(
   client: Client,
   companyId: string
 ): Promise<NetworkHomeSummary> {
-  const [sites, agents, jobs, devices] = await Promise.all([
+  const [sites, agents, jobs, devices, targets] = await Promise.all([
     client
       .from("network_sites")
       .select("id", { count: "exact", head: true })
@@ -220,7 +221,12 @@ export async function getNetworkHomeSummary(
       .is("deleted_at", null),
     client
       .from("network_devices")
-      .select("id", { count: "exact", head: true })
+      .select("id, company_id, agent_id, management_ip")
+      .eq("company_id", companyId)
+      .is("deleted_at", null),
+    client
+      .from("network_discovery_targets")
+      .select("company_id, agent_id, host")
       .eq("company_id", companyId)
       .is("deleted_at", null),
   ])
@@ -229,6 +235,7 @@ export async function getNetworkHomeSummary(
   if (agents.error) throw new Error(agents.error.message)
   if (jobs.error) throw new Error(jobs.error.message)
   if (devices.error) throw new Error(devices.error.message)
+  if (targets.error) throw new Error(targets.error.message)
 
   const agentsByStatus = emptyStatusCounts()
   for (const row of agents.data ?? []) {
@@ -237,13 +244,30 @@ export async function getNetworkHomeSummary(
     }
   }
 
-  const deviceCount = devices.count ?? 0
-  const monitoring = await countNetworkMonitoringSummary(client, companyId, deviceCount)
+  const managed = selectManagedNetworkDevices(
+    (devices.data ?? []).map((row) => ({
+      id: row.id,
+      companyId: row.company_id,
+      agentId: row.agent_id,
+      managementIp: row.management_ip,
+    })),
+    (targets.data ?? []).map((row) => ({
+      companyId: row.company_id,
+      agentId: row.agent_id,
+      host: row.host,
+    }))
+  )
+  const managedDeviceIds = new Set(managed.map((device) => device.id))
+  const monitoring = await countNetworkMonitoringSummary(
+    client,
+    companyId,
+    managedDeviceIds
+  )
 
   return {
     siteCount: sites.count ?? 0,
     agentCount: (agents.data ?? []).length,
-    deviceCount,
+    deviceCount: managed.length,
     agentsByStatus,
     pendingJobCount: jobs.count ?? 0,
     ...monitoring,

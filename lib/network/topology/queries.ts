@@ -6,11 +6,14 @@ import type { Database } from "@/lib/supabase/database.types"
 import { isManagedNetworkDevice } from "@/lib/network/devices/managed"
 import { NETWORK_DEVICE_TYPES, type NetworkDeviceType } from "@/lib/network/constants"
 import { listNetworkDeviceOperationalStatuses } from "@/lib/network/monitoring/queries"
-import { mergeTopologyEdges } from "@/lib/network/topology/graph"
+import {
+  buildCanonicalTopologyGraph,
+  uniqueTopologyInterfaces,
+  type TopologyGraphDeviceInput,
+} from "@/lib/network/topology/graph"
 import type {
   NetworkTopologyGraph,
   NetworkTopologyInterface,
-  NetworkTopologyNode,
 } from "@/lib/network/topology/types"
 
 type Client = SupabaseClient<Database>
@@ -29,7 +32,7 @@ export async function getNetworkTopologyGraph(
     await Promise.all([
       client
         .from("network_devices")
-        .select("id, company_id, agent_id, hostname, management_ip, device_type")
+        .select("id, company_id, agent_id, site_id, hostname, management_ip, device_type, origin")
         .eq("company_id", companyId)
         .is("deleted_at", null),
       client
@@ -69,10 +72,10 @@ export async function getNetworkTopologyGraph(
     interfaceNameById.set(row.id, row.name)
     const list = interfacesByDevice.get(row.device_id) ?? []
     list.push({ id: row.id, name: row.name, status: row.status })
-    interfacesByDevice.set(row.device_id, list)
+    interfacesByDevice.set(row.device_id, uniqueTopologyInterfaces(list))
   }
 
-  const nodes: NetworkTopologyNode[] = (devicesResult.data ?? []).map((row) => {
+  const devices: TopologyGraphDeviceInput[] = (devicesResult.data ?? []).map((row) => {
     const managed = targets.some((target) =>
       isManagedNetworkDevice(
         {
@@ -86,9 +89,13 @@ export async function getNetworkTopologyGraph(
     const displayed = statuses.get(row.id)?.status
     return {
       id: row.id,
+      companyId: row.company_id,
+      agentId: row.agent_id,
+      siteId: row.site_id,
       hostname: row.hostname,
       managementIp: row.management_ip,
       deviceType: asDeviceType(row.device_type),
+      origin: row.origin,
       kind: managed ? "managed" : "neighbor",
       operationalStatus: managed
         ? displayed === "online" ||
@@ -102,9 +109,9 @@ export async function getNetworkTopologyGraph(
     }
   })
 
-  const nodeIds = new Set(nodes.map((node) => node.id))
+  const deviceIds = new Set(devices.map((device) => device.id))
   const rawLinks = (linksResult.data ?? []).flatMap((row) => {
-    if (!nodeIds.has(row.from_device_id) || !nodeIds.has(row.to_device_id)) {
+    if (!deviceIds.has(row.from_device_id) || !deviceIds.has(row.to_device_id)) {
       return []
     }
     return [
@@ -123,8 +130,5 @@ export async function getNetworkTopologyGraph(
     ]
   })
 
-  return {
-    nodes,
-    edges: mergeTopologyEdges(rawLinks),
-  }
+  return buildCanonicalTopologyGraph(devices, rawLinks)
 }

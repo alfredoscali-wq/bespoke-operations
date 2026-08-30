@@ -9,6 +9,7 @@ import {
   selectManagedNetworkDevices,
 } from "../lib/network/devices/managed.ts"
 import { formatNetworkTimestamp } from "../lib/network/labels.ts"
+import { tallyManagedMonitoringSummary } from "../lib/network/monitoring/summary-tally.ts"
 
 const root = resolve(import.meta.dirname, "..")
 
@@ -213,5 +214,87 @@ test("NULL last_poll_at no inventa fecha", () => {
   assert.equal(formatNetworkTimestamp(undefined), "—")
   assert.equal(formatNetworkTimestamp(""), "—")
   assert.notEqual(formatNetworkTimestamp(null), new Date().toISOString())
+})
+
+test("Resumen cuenta solo dispositivos administrados", () => {
+  const companyId = "company-a"
+  const agentA = "agent-a"
+  const inventory = [
+    { id: "core", companyId, agentId: agentA, managementIp: "192.168.56.2" },
+    { id: "norte", companyId, agentId: agentA, managementIp: "10.10.1.2" },
+    { id: "sur", companyId, agentId: agentA, managementIp: "10.10.2.2" },
+    { id: "n11", companyId, agentId: agentA, managementIp: "10.10.1.1" },
+    { id: "n21", companyId, agentId: agentA, managementIp: "10.10.2.1" },
+  ]
+  const targets = [
+    { companyId, agentId: agentA, host: "192.168.56.2" },
+    { companyId, agentId: agentA, host: "10.10.1.2" },
+    { companyId, agentId: agentA, host: "10.10.2.2" },
+  ]
+  const managed = selectManagedNetworkDevices(inventory, targets)
+  assert.equal(inventory.length, 5)
+  assert.equal(managed.length, 3)
+  assert.deepEqual(
+    managed.map((item) => item.id).sort(),
+    ["core", "norte", "sur"]
+  )
+
+  const now = Date.parse("2026-08-30T16:10:00.000Z")
+  const recent = new Date(now - 60_000).toISOString()
+  const kpis = tallyManagedMonitoringSummary({
+    managedDeviceIds: new Set(managed.map((item) => item.id)),
+    statusRows: [
+      { device_id: "core", status: "online", last_poll_at: recent },
+      { device_id: "norte", status: "online", last_poll_at: recent },
+      { device_id: "sur", status: "online", last_poll_at: recent },
+      { device_id: "n11", status: "online", last_poll_at: recent },
+      { device_id: "n21", status: "unknown", last_poll_at: recent },
+    ],
+    interfaceRows: [
+      { device_id: "core", status: "up" },
+      { device_id: "n11", status: "up" },
+      { device_id: "n21", status: "down" },
+    ],
+    now,
+  })
+  assert.equal(kpis.devicesOnline, 3)
+  assert.equal(kpis.devicesOffline, 0)
+  assert.equal(kpis.devicesUnknown, 0)
+  assert.equal(kpis.interfacesUp, 1)
+  assert.equal(kpis.interfacesDown, 0)
+
+  const summary = functionSource(
+    read("lib/network/agents/queries.ts"),
+    "getNetworkHomeSummary"
+  )
+  assert.match(summary, /selectManagedNetworkDevices/)
+  assert.match(summary, /deviceCount: managed\.length/)
+  assert.doesNotMatch(summary, /devices\.count/)
+  assert.doesNotMatch(summary, /origin/)
+
+  const count = functionSource(
+    read("lib/network/monitoring/queries.ts"),
+    "countNetworkMonitoringSummary"
+  )
+  assert.match(count, /tallyManagedMonitoringSummary/)
+  assert.match(count, /device_id/)
+
+  const status = read("lib/network/monitoring/status.ts")
+  assert.match(status, /NETWORK_MONITORING_STATUS_TTL_MS/)
+  assert.match(status, /export function displayMonitoringStatus/)
+
+  const list = functionSource(
+    read("lib/network/devices/queries.ts"),
+    "listNetworkDevices"
+  )
+  assert.match(list, /buildManagedNetworkDeviceOrFilter/)
+  assert.doesNotMatch(
+    read("lib/network/discovery/parse-snapshot.ts"),
+    /getNetworkHomeSummary|tallyManagedMonitoringSummary/
+  )
+  assert.match(
+    read("lib/network/topology/queries.ts"),
+    /isManagedNetworkDevice/
+  )
 })
 

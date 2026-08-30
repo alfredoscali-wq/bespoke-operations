@@ -10,6 +10,7 @@ import {
   isMonitoringOperationalStatus,
   nextMonitoringOperationalState,
 } from "@/lib/network/monitoring/status"
+import { tallyManagedMonitoringSummary } from "@/lib/network/monitoring/summary-tally"
 import type {
   NetworkDeviceMonitoring,
   NetworkInterfaceMonitoring,
@@ -129,7 +130,7 @@ export async function listNetworkDeviceOperationalStatuses(
 export async function countNetworkMonitoringSummary(
   client: Client,
   companyId: string,
-  deviceCount: number
+  managedDeviceIds: ReadonlySet<string>
 ): Promise<{
   devicesOnline: number
   devicesOffline: number
@@ -137,15 +138,25 @@ export async function countNetworkMonitoringSummary(
   interfacesUp: number
   interfacesDown: number
 }> {
+  if (managedDeviceIds.size === 0) {
+    return {
+      devicesOnline: 0,
+      devicesOffline: 0,
+      devicesUnknown: 0,
+      interfacesUp: 0,
+      interfacesDown: 0,
+    }
+  }
+
   const [devices, interfaces] = await Promise.all([
     client
       .from("network_device_status")
-      .select("status, last_poll_at")
+      .select("device_id, status, last_poll_at")
       .eq("company_id", companyId)
       .is("deleted_at", null),
     client
       .from("network_interface_status")
-      .select("status")
+      .select("device_id, status")
       .eq("company_id", companyId)
       .is("deleted_at", null),
   ])
@@ -153,30 +164,11 @@ export async function countNetworkMonitoringSummary(
   if (devices.error) throw new Error(devices.error.message)
   if (interfaces.error) throw new Error(interfaces.error.message)
 
-  let devicesOnline = 0
-  let devicesOffline = 0
-  for (const row of devices.data ?? []) {
-    const displayed = displayMonitoringStatus(row.status, row.last_poll_at)
-    if (displayed === "online") devicesOnline += 1
-    if (displayed === "offline") devicesOffline += 1
-  }
-
-  let interfacesUp = 0
-  let interfacesDown = 0
-  for (const row of interfaces.data ?? []) {
-    const status = (row.status ?? "").toLowerCase()
-    if (status === "up" || status === "running") interfacesUp += 1
-    else if (status === "down") interfacesDown += 1
-  }
-
-  const known = devicesOnline + devicesOffline
-  return {
-    devicesOnline,
-    devicesOffline,
-    devicesUnknown: Math.max(0, deviceCount - known),
-    interfacesUp,
-    interfacesDown,
-  }
+  return tallyManagedMonitoringSummary({
+    managedDeviceIds,
+    statusRows: devices.data ?? [],
+    interfaceRows: interfaces.data ?? [],
+  })
 }
 
 export async function resolveMonitoringTargetForDevice(

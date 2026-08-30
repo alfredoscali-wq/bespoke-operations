@@ -11,6 +11,7 @@ import {
   NETWORK_DEVICE_TYPE_LABELS,
 } from "@/lib/network/labels"
 import { useNetworkTopologyQuery } from "@/lib/network/react-query/use-network-topology-query"
+import { formatTopologyPeerLink } from "@/lib/network/topology/graph"
 import type {
   NetworkTopologyEdge,
   NetworkTopologyNode,
@@ -247,11 +248,12 @@ function SelectedNodePanel({
               const other = nodesById.get(otherId)
               return (
                 <li key={edge.id}>
-                  {edge.label}
-                  {other
-                    ? ` · ${other.hostname || other.managementIp || "vecino"}`
-                    : ""}
-                  {edge.protocol ? ` · ${edge.protocol}` : ""}
+                  {formatTopologyPeerLink({
+                    selectedDeviceId: node.id,
+                    edge,
+                    peerHostname: other?.hostname,
+                    peerManagementIp: other?.managementIp,
+                  })}
                 </li>
               )
             })}
