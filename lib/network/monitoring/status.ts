@@ -1,3 +1,4 @@
+import { NETWORK_MONITORING_STATUS_TTL_MS } from "@/lib/network/constants"
 import {
   MONITORING_OFFLINE_FAILURE_THRESHOLD,
   MONITORING_OPERATIONAL_STATUSES,
@@ -11,6 +12,41 @@ export function isMonitoringOperationalStatus(
     typeof value === "string" &&
     (MONITORING_OPERATIONAL_STATUSES as readonly string[]).includes(value)
   )
+}
+
+function parseLastPollAtMs(lastPollAt: string | null | undefined): number | null {
+  if (typeof lastPollAt !== "string" || lastPollAt.trim() === "") return null
+  const parsed = Date.parse(lastPollAt)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function resolveNowMs(now?: number | Date): number {
+  if (now instanceof Date) return now.getTime()
+  if (typeof now === "number" && Number.isFinite(now)) return now
+  return Date.now()
+}
+
+/**
+ * Display-only freshness. Does not persist unknown and does not use last_success_at.
+ * Stale when last_poll_at <= now - NETWORK_MONITORING_STATUS_TTL_MS.
+ */
+export function displayMonitoringStatus(
+  status: unknown,
+  lastPollAt: string | null | undefined,
+  now?: number | Date
+): MonitoringOperationalStatus {
+  const persisted = isMonitoringOperationalStatus(status) ? status : "unknown"
+  if (persisted === "unknown") return "unknown"
+
+  const pollMs = parseLastPollAtMs(lastPollAt)
+  if (pollMs == null) return "unknown"
+
+  const nowMs = resolveNowMs(now)
+  if (pollMs <= nowMs - NETWORK_MONITORING_STATUS_TTL_MS) {
+    return "unknown"
+  }
+
+  return persisted
 }
 
 /**

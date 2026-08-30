@@ -5,12 +5,15 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import type { Database } from "@/lib/supabase/database.types"
 import type { MonitoringSnapshot } from "@/lib/network/monitoring/contract"
 import { MONITORING_POLL_INTERVAL_MS } from "@/lib/network/monitoring/contract"
-import { nextMonitoringOperationalState } from "@/lib/network/monitoring/status"
+import {
+  displayMonitoringStatus,
+  isMonitoringOperationalStatus,
+  nextMonitoringOperationalState,
+} from "@/lib/network/monitoring/status"
 import type {
   NetworkDeviceMonitoring,
   NetworkInterfaceMonitoring,
 } from "@/lib/network/types"
-import { isMonitoringOperationalStatus } from "@/lib/network/monitoring/status"
 
 type Client = SupabaseClient<Database>
 type DeviceStatusRow = Database["public"]["Tables"]["network_device_status"]["Row"]
@@ -26,7 +29,7 @@ export function mapDeviceStatusRow(row: DeviceStatusRow): Omit<
   "interfaces"
 > {
   return {
-    status: isMonitoringOperationalStatus(row.status) ? row.status : "unknown",
+    status: displayMonitoringStatus(row.status, row.last_poll_at),
     lastPollAt: row.last_poll_at,
     lastSuccessAt: row.last_success_at,
     consecutiveFailures: row.consecutive_failures,
@@ -97,14 +100,14 @@ export async function listNetworkDeviceOperationalStatuses(
 ): Promise<Map<string, DeviceStatusRow["status"]>> {
   const { data, error } = await client
     .from("network_device_status")
-    .select("device_id, status")
+    .select("device_id, status, last_poll_at")
     .eq("company_id", companyId)
     .is("deleted_at", null)
 
   if (error) throw new Error(error.message)
   const map = new Map<string, DeviceStatusRow["status"]>()
   for (const row of data ?? []) {
-    map.set(row.device_id, row.status)
+    map.set(row.device_id, displayMonitoringStatus(row.status, row.last_poll_at))
   }
   return map
 }
@@ -123,7 +126,7 @@ export async function countNetworkMonitoringSummary(
   const [devices, interfaces] = await Promise.all([
     client
       .from("network_device_status")
-      .select("status")
+      .select("status, last_poll_at")
       .eq("company_id", companyId)
       .is("deleted_at", null),
     client
@@ -139,8 +142,9 @@ export async function countNetworkMonitoringSummary(
   let devicesOnline = 0
   let devicesOffline = 0
   for (const row of devices.data ?? []) {
-    if (row.status === "online") devicesOnline += 1
-    if (row.status === "offline") devicesOffline += 1
+    const displayed = displayMonitoringStatus(row.status, row.last_poll_at)
+    if (displayed === "online") devicesOnline += 1
+    if (displayed === "offline") devicesOffline += 1
   }
 
   let interfacesUp = 0

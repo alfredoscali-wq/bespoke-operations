@@ -177,6 +177,7 @@
     "test:network-2-2-agent-poll-robustness": "npx tsx --test scripts/test-network-2-2-agent-poll-robustness.mjs",
     "test:network-2-4-ui-refresh": "npx tsx --test scripts/test-network-2-4-ui-refresh.mjs",
     "test:network-2-5-job-recovery": "npx tsx --test scripts/test-network-2-5-job-recovery.mjs",
+    "test:network-2-6-status-freshness": "npx tsx --test scripts/test-network-2-6-status-freshness.mjs",
     "network-agent": "npx tsx network-agent/src/index.ts",
     "test:isp-1-0-clientes-360": "npx tsx --test scripts/test-isp-1-0-clientes-360.mjs",
     "test:isp-1-1-catalogo-ot": "npx tsx --test scripts/test-isp-1-1-catalogo-ot.mjs",
