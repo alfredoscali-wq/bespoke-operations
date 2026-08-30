@@ -16,7 +16,9 @@ import {
   buildTopologyEdgeDetail,
   formatTopologyNodeIdentity,
   formatTopologyPeerLink,
+  resolveTopologySelection,
   topologyManagedDeviceHref,
+  type TopologySelection,
 } from "@/lib/network/topology/graph"
 import type {
   NetworkTopologyEdge,
@@ -27,10 +29,6 @@ import { cn } from "@/lib/utils"
 
 const CANVAS_WIDTH = 920
 const CANVAS_HEIGHT = 520
-
-type TopologySelection =
-  | { kind: "node"; id: string }
-  | { kind: "edge"; id: string }
 
 function layoutNodes(nodes: NetworkTopologyNode[]) {
   if (nodes.length === 0) return []
@@ -70,16 +68,23 @@ export function NetworkTopologyScreen() {
   const { data, error, isPending } = useNetworkTopologyQuery()
   const [selection, setSelection] = useState<TopologySelection | null>(null)
   const graph = data ?? { nodes: [], edges: [] }
+  const activeSelection = resolveTopologySelection(
+    selection,
+    graph.nodes,
+    graph.edges
+  )
   const positioned = useMemo(() => layoutNodes(graph.nodes), [graph.nodes])
   const byId = useMemo(
     () => new Map(positioned.map((node) => [node.id, node])),
     [positioned]
   )
   const selectedNode =
-    selection?.kind === "node" ? (byId.get(selection.id) ?? null) : null
+    activeSelection?.kind === "node"
+      ? (byId.get(activeSelection.id) ?? null)
+      : null
   const selectedEdge =
-    selection?.kind === "edge"
-      ? (graph.edges.find((edge) => edge.id === selection.id) ?? null)
+    activeSelection?.kind === "edge"
+      ? (graph.edges.find((edge) => edge.id === activeSelection.id) ?? null)
       : null
   const relatedEdges = useMemo(
     () =>
@@ -142,7 +147,8 @@ export function NetworkTopologyScreen() {
                 if (!source || !target) return null
                 const mx = (source.x + target.x) / 2
                 const my = (source.y + target.y) / 2
-                const active = selection?.kind === "edge" && selection.id === edge.id
+                const active =
+                  activeSelection?.kind === "edge" && activeSelection.id === edge.id
                 return (
                   <g
                     key={edge.id}
@@ -192,12 +198,18 @@ export function NetworkTopologyScreen() {
                 >
                   <circle
                     r={
-                      selection?.kind === "node" && selection.id === node.id ? 22 : 18
+                      activeSelection?.kind === "node" &&
+                      activeSelection.id === node.id
+                        ? 22
+                        : 18
                     }
                     fill={nodeFill(node)}
                     stroke={nodeStroke(node)}
                     strokeWidth={
-                      selection?.kind === "node" && selection.id === node.id ? 3 : 2
+                      activeSelection?.kind === "node" &&
+                      activeSelection.id === node.id
+                        ? 3
+                        : 2
                     }
                     strokeDasharray={node.kind === "neighbor" ? "4 3" : undefined}
                   />

@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query"
 
+import { NETWORK_QUERY_OPTIONS } from "@/lib/network/react-query/defaults"
 import { networkQueryKeys } from "@/lib/network/react-query/keys"
 import type { NetworkTopologyGraph } from "@/lib/network/topology/types"
 
@@ -22,8 +23,6 @@ export function useNetworkTopologyQuery() {
   return useQuery({
     queryKey: networkQueryKeys.topology(),
     queryFn: fetchNetworkTopology,
-    refetchOnWindowFocus: false,
-    refetchOnMount: true,
-    staleTime: Infinity,
+    ...NETWORK_QUERY_OPTIONS,
   })
 }

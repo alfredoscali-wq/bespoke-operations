@@ -39,6 +39,22 @@ type Cluster = {
   protocols: string[]
 }
 
+export type TopologySelection =
+  | { kind: "node"; id: string }
+  | { kind: "edge"; id: string }
+
+export function resolveTopologySelection(
+  selection: TopologySelection | null,
+  nodes: ReadonlyArray<{ id: string }>,
+  edges: ReadonlyArray<{ id: string }>
+): TopologySelection | null {
+  if (!selection) return null
+  if (selection.kind === "node") {
+    return nodes.some((node) => node.id === selection.id) ? selection : null
+  }
+  return edges.some((edge) => edge.id === selection.id) ? selection : null
+}
+
 export function topologyUndirectedPairKey(left: string, right: string): string {
   return left < right ? `${left}::${right}` : `${right}::${left}`
 }

@@ -4,7 +4,10 @@ import { resolve } from "node:path"
 import test from "node:test"
 
 import { isManagedNetworkDevice } from "../lib/network/devices/managed.ts"
+import { NETWORK_MONITORING_STATUS_TTL_MS } from "../lib/network/constants.ts"
 import { displayMonitoringStatus } from "../lib/network/monitoring/status.ts"
+import { NETWORK_UI_REFETCH_INTERVAL_MS } from "../lib/network/react-query/defaults.ts"
+import { networkQueryKeys } from "../lib/network/react-query/keys.ts"
 import {
   buildCanonicalTopologyGraph,
   buildTopologyEdgeDetail,
@@ -13,6 +16,7 @@ import {
   formatTopologyPeerLink,
   formatTopologyProtocols,
   mergeTopologyEdges,
+  resolveTopologySelection,
   topologyManagedDeviceHref,
   uniqueTopologyInterfaces,
 } from "../lib/network/topology/graph.ts"
@@ -249,15 +253,22 @@ test("12-15: Discovery, Agent, auto-poll y jobs no fueron modificados", () => {
   )
 })
 
-test("16-17: no hay polling periódico ni Realtime en topology", () => {
+test("16-17: refresh automático 15s via React Query, sin Realtime ni timers", () => {
   const hook = read("lib/network/react-query/use-network-topology-query.ts")
-  assert.doesNotMatch(hook, /refetchInterval/)
-  assert.doesNotMatch(hook, /NETWORK_QUERY_OPTIONS/)
-  assert.match(hook, /staleTime: Infinity/)
-  const screen = read("components/network/network-topology-screen.tsx")
-  assert.doesNotMatch(screen, /refetchInterval/)
-  assert.doesNotMatch(screen, /realtime|channel\(|supabase\.channel/i)
+  assert.match(hook, /\.\.\.NETWORK_QUERY_OPTIONS/)
+  assert.match(hook, /networkQueryKeys\.topology\(\)/)
+  assert.match(hook, /fetch\("\/api\/network\/topology"\)/)
+  assert.doesNotMatch(hook, /staleTime: Infinity/)
+  assert.doesNotMatch(hook, /setInterval/)
+  assert.doesNotMatch(hook, /setTimeout/)
   assert.doesNotMatch(hook, /realtime|channel\(/i)
+  const screen = read("components/network/network-topology-screen.tsx")
+  assert.doesNotMatch(screen, /setInterval/)
+  assert.doesNotMatch(screen, /setTimeout/)
+  assert.doesNotMatch(screen, /realtime|channel\(|supabase\.channel/i)
+  assert.doesNotMatch(screen, /fetch\(/)
+  assert.match(screen, /resolveTopologySelection/)
+  assert.match(screen, /isPending && graph\.nodes\.length === 0/)
 })
 
 test("deduplica el mismo enlace y combina protocolos CDP/LLDP/MNDP", () => {
@@ -677,11 +688,77 @@ test("3.1: panel selecciona nodo o enlace y reutiliza la query única", () => {
   assert.match(screen, /Cerrar/)
   assert.match(screen, /setSelection\(null\)/)
   assert.doesNotMatch(screen, /Ver detalle/)
-  assert.doesNotMatch(screen, /refetchInterval/)
   assert.doesNotMatch(screen, /displayMonitoringStatus/)
+  assert.match(screen, /resolveTopologySelection/)
   const hook = read("lib/network/react-query/use-network-topology-query.ts")
-  assert.doesNotMatch(hook, /refetchInterval/)
-  assert.match(hook, /staleTime: Infinity/)
+  assert.match(hook, /\.\.\.NETWORK_QUERY_OPTIONS/)
+  assert.doesNotMatch(hook, /staleTime: Infinity/)
+})
+
+test("hotfix refresh: 15s, query key, endpoint y sin timers/Realtime", () => {
+  assert.equal(NETWORK_UI_REFETCH_INTERVAL_MS, 15_000)
+  assert.deepEqual(networkQueryKeys.topology(), ["network", "topology"])
+  const hook = read("lib/network/react-query/use-network-topology-query.ts")
+  assert.match(hook, /networkQueryKeys\.topology\(\)/)
+  assert.match(hook, /\.\.\.NETWORK_QUERY_OPTIONS/)
+  assert.match(hook, /fetch\("\/api\/network\/topology"\)/)
+  assert.doesNotMatch(hook, /setInterval/)
+  assert.doesNotMatch(hook, /setTimeout/)
+  assert.doesNotMatch(hook, /realtime|channel\(/i)
+  const route = read("app/api/network/topology/route.ts")
+  assert.match(route, /export async function GET/)
+  assert.match(route, /getNetworkTopologyGraph/)
+  const screen = read("components/network/network-topology-screen.tsx")
+  assert.match(screen, /useNetworkTopologyQuery\(\)/)
+  assert.doesNotMatch(screen, /fetch\(/)
+  assert.doesNotMatch(screen, /setInterval/)
+  assert.doesNotMatch(screen, /setTimeout/)
+})
+
+test("hotfix refresh: la selección se conserva o se limpia según el grafo nuevo", () => {
+  const nodes = [{ id: "dev-core" }, { id: "dev-norte" }]
+  const edges = [{ id: "edge-core-norte" }]
+  assert.deepEqual(
+    resolveTopologySelection({ kind: "node", id: "dev-core" }, nodes, edges),
+    { kind: "node", id: "dev-core" }
+  )
+  assert.deepEqual(
+    resolveTopologySelection({ kind: "edge", id: "edge-core-norte" }, nodes, edges),
+    { kind: "edge", id: "edge-core-norte" }
+  )
+  assert.deepEqual(
+    resolveTopologySelection({ kind: "node", id: "dev-core" }, [...nodes], [...edges]),
+    { kind: "node", id: "dev-core" }
+  )
+  assert.equal(
+    resolveTopologySelection({ kind: "node", id: "gone" }, nodes, edges),
+    null
+  )
+  assert.equal(
+    resolveTopologySelection({ kind: "edge", id: "gone" }, nodes, edges),
+    null
+  )
+  const screen = read("components/network/network-topology-screen.tsx")
+  assert.match(screen, /resolveTopologySelection\(\s*selection/)
+  assert.doesNotMatch(screen, /setSelection\(null\).*data/)
+})
+
+test("hotfix refresh: freshness 2.6 sigue en lectura y puede verse en el próximo fetch", () => {
+  assert.equal(NETWORK_MONITORING_STATUS_TTL_MS, 300_000)
+  const queries = read("lib/network/topology/queries.ts")
+  assert.match(queries, /listNetworkDeviceOperationalStatuses/)
+  assert.doesNotMatch(queries, /from\("network_device_status"\)/)
+  const statuses = read("lib/network/monitoring/queries.ts")
+  assert.match(statuses, /export async function listNetworkDeviceOperationalStatuses/)
+  assert.match(statuses, /displayMonitoringStatus\(row\.status, row\.last_poll_at\)/)
+  assert.equal(
+    displayMonitoringStatus("online", "2026-08-30T16:00:00.000Z", Date.parse("2026-08-30T16:04:59.000Z")),
+    "online"
+  )
+  assert.equal(
+    displayMonitoringStatus("online", "2026-08-30T16:00:00.000Z", Date.parse("2026-08-30T16:05:00.000Z")),
+    "unknown"
+  )
 })
 
 
