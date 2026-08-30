@@ -123,7 +123,7 @@ test("cubre todos los sidebar areas definidos con pantallas", () => {
   const groups = buildAreaConfigSidebarGroups()
   const covered = new Set(groups.map((group) => group.id))
   for (const areaId of SIDEBAR_AREA_IDS) {
-    if (areaId === "field" || areaId === "customers" || areaId === "isp") {
+    if (areaId === "field" || areaId === "customers" || areaId === "isp" || areaId === "network") {
       assert.ok(covered.has(areaId), `falta área ${areaId}`)
     }
   }

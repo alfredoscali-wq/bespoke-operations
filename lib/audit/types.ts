@@ -17,6 +17,7 @@ export const AUDIT_MODULES = {
   USUARIOS: "usuarios",
   SISTEMA: "sistema",
   CONTRATISTAS: "contratistas",
+  NETWORK: "network",
 } as const
 
 export type AuditModule = (typeof AUDIT_MODULES)[keyof typeof AUDIT_MODULES]
@@ -33,6 +34,9 @@ export const AUDIT_ENTITY_TYPES = {
   MOBILE_DEVICE: "mobile_device",
   WORK_TEAM_SHIFT: "work_team_shift",
   INCIDENT: "incident",
+  NETWORK_AGENT: "network_agent",
+  NETWORK_AGENT_JOB: "network_agent_job",
+  NETWORK_DEVICE: "network_device",
 } as const
 
 export type AuditEntityType =
@@ -99,6 +103,11 @@ export const AUDIT_ACTIONS = {
   INCIDENT_CREATED: "INCIDENT_CREATED",
   INCIDENT_SUPERVISOR_ACTION: "INCIDENT_SUPERVISOR_ACTION",
   INCIDENT_CLOSED: "INCIDENT_CLOSED",
+  NETWORK_AGENT_ENROLLED: "NETWORK_AGENT_ENROLLED",
+  NETWORK_AGENT_STATUS_CHANGED: "NETWORK_AGENT_STATUS_CHANGED",
+  NETWORK_DISCOVERY_COMPLETED: "NETWORK_DISCOVERY_COMPLETED",
+  NETWORK_DISCOVERY_FAILED: "NETWORK_DISCOVERY_FAILED",
+  NETWORK_DEVICE_STATUS_CHANGED: "NETWORK_DEVICE_STATUS_CHANGED",
 } as const
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS]
@@ -119,6 +128,8 @@ export type WriteAuditLogInput = {
   metadata?: Record<string, unknown>
   ipAddress?: string | null
   userAgent?: string | null
+  /** Required when performedBy is system so demo agents never write production. */
+  companyId?: string | null
 }
 
 export type AuditLogEntry = {

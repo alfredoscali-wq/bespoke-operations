@@ -157,6 +157,20 @@ export function buildAuditDescription(input: BuildAuditDescriptionInput): string
       return fallback || "Acción de supervisor sobre incidencia."
     case AUDIT_ACTIONS.INCIDENT_CLOSED:
       return fallback || "Incidencia cerrada."
+    case AUDIT_ACTIONS.NETWORK_AGENT_ENROLLED:
+      return label
+        ? `Network Agent enrolado: ${label}.`
+        : "Network Agent enrolado."
+    case AUDIT_ACTIONS.NETWORK_AGENT_STATUS_CHANGED:
+      return fallback || (label ? `Cambio de estado de Network Agent: ${label}.` : "Cambio de estado de Network Agent.")
+    case AUDIT_ACTIONS.NETWORK_DISCOVERY_COMPLETED:
+      return label
+        ? `Discovery de red completado: ${label}.`
+        : "Discovery de red completado."
+    case AUDIT_ACTIONS.NETWORK_DISCOVERY_FAILED:
+      return fallback || (label ? `Discovery de red fallido: ${label}.` : "Discovery de red fallido.")
+    case AUDIT_ACTIONS.NETWORK_DEVICE_STATUS_CHANGED:
+      return fallback || (label ? `Cambio de estado operativo: ${label}.` : "Cambio de estado operativo de red.")
     default:
       return fallback || "Evento registrado en Historial del Sistema."
   }

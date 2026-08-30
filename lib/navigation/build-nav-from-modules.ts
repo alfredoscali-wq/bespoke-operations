@@ -16,6 +16,10 @@ import {
   facturacionConfigNavItem,
   facturacionComprobantesNavItem,
   facturacionMensualNavItem,
+  networkAgentsNavItem,
+  networkSitesNavItem,
+  networkDevicesNavItem,
+  networkDiscoveryNavItem,
   reportsNavItem,
   subscriptionsNavItem,
   tesoreriaNavItem,
@@ -120,6 +124,13 @@ export function buildNavGroupsFromModuleVisibility(
         existing.items.push(serviciosNavItem)
       }
 
+      if (definition.key === "network") {
+        existing.items.push(networkAgentsNavItem)
+        existing.items.push(networkSitesNavItem)
+        existing.items.push(networkDevicesNavItem)
+        existing.items.push(networkDiscoveryNavItem)
+      }
+
       if (definition.key === "facturacion") {
         existing.items.push(facturacionConfigNavItem)
         existing.items.push(facturacionComprobantesNavItem)
@@ -138,6 +149,13 @@ export function buildNavGroupsFromModuleVisibility(
     if (definition.key === "clientes_360") {
       items.push(conexionesNavItem)
       items.push(serviciosNavItem)
+    }
+
+    if (definition.key === "network") {
+      items.push(networkAgentsNavItem)
+      items.push(networkSitesNavItem)
+      items.push(networkDevicesNavItem)
+      items.push(networkDiscoveryNavItem)
     }
 
     if (definition.key === "facturacion") {

@@ -15,6 +15,7 @@ export const AUDIT_MODULE_LABELS: Record<AuditModule, string> = {
   [AUDIT_MODULES.USUARIOS]: "Usuarios",
   [AUDIT_MODULES.SISTEMA]: "Sistema",
   [AUDIT_MODULES.CONTRATISTAS]: "Contratistas",
+  [AUDIT_MODULES.NETWORK]: "Network",
 }
 
 export const AUDIT_ENTITY_TYPE_LABELS: Record<AuditEntityType, string> = {
@@ -29,6 +30,9 @@ export const AUDIT_ENTITY_TYPE_LABELS: Record<AuditEntityType, string> = {
   mobile_device: "Dispositivo móvil",
   work_team_shift: "Jornada operativa",
   incident: "Incidencia",
+  network_agent: "Network Agent",
+  network_agent_job: "Network Job",
+  network_device: "Dispositivo de red",
 }
 
 export const AUDIT_SEVERITY_LABELS: Record<AuditSeverity, string> = {
@@ -98,6 +102,11 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   INCIDENT_CREATED: "Incidencia reportada",
   INCIDENT_SUPERVISOR_ACTION: "Acción de supervisor sobre incidencia",
   INCIDENT_CLOSED: "Incidencia cerrada",
+  NETWORK_AGENT_ENROLLED: "Network Agent enrolado",
+  NETWORK_AGENT_STATUS_CHANGED: "Cambio de estado de Network Agent",
+  NETWORK_DISCOVERY_COMPLETED: "Discovery de red completado",
+  NETWORK_DISCOVERY_FAILED: "Discovery de red fallido",
+  NETWORK_DEVICE_STATUS_CHANGED: "Cambio de estado operativo de red",
 }
 
 export function formatAuditModuleLabel(module: AuditModule | string): string {

@@ -23,6 +23,7 @@ import {
   subscriptionsNavItem,
   gestionComercialNavItem,
   facturacionNavItem,
+  networkNavItem,
 } from "@/lib/navigation/nav-items"
 import type { NavItem } from "@/lib/navigation/nav-types"
 
@@ -34,6 +35,7 @@ export const APP_MODULE_KEYS = [
   "planificacion",
   "customers",
   "clientes_360",
+  "network",
   "atencion_cliente",
   "crews",
   "contractors",
@@ -115,6 +117,13 @@ export const APP_MODULE_DEFINITIONS: AppModuleDefinition[] = [
     navItem: clientes360NavItem,
     groupId: "operations",
     pathPrefixes: ["/clientes-360", "/conexiones", "/servicios"],
+  },
+  {
+    key: "network",
+    label: "Network",
+    navItem: networkNavItem,
+    groupId: "operations",
+    pathPrefixes: ["/network"],
   },
   {
     key: "atencion_cliente",

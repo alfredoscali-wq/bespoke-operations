@@ -32,6 +32,9 @@ import {
   Wrench,
   BarChart3,
   BookOpen,
+  Network,
+  ScanSearch,
+  Server,
 } from "lucide-react"
 
 import type { NavItem } from "@/lib/navigation/nav-types"
@@ -129,6 +132,55 @@ export const serviciosNavItem: NavItem = {
   pageTitle: "Servicios",
   description: "Catálogo de servicios y planes comerciales del ISP.",
   moduleColor: "commercial",
+}
+
+export const networkNavItem: NavItem = {
+  title: "Network",
+  href: "/network",
+  icon: Network,
+  pageTitle: "Bespoke Network",
+  description: "Sitios de infraestructura, agents y estado de la red.",
+  moduleColor: "ops",
+}
+
+export const networkAgentsNavItem: NavItem = {
+  title: "Agents",
+  href: "/network/agents",
+  icon: Radar,
+  pageTitle: "Network Agents",
+  description: "Agents enrolados y último heartbeat.",
+  parentHref: "/network",
+  moduleColor: "ops",
+}
+
+export const networkSitesNavItem: NavItem = {
+  title: "Sitios",
+  href: "/network/sites",
+  icon: Factory,
+  pageTitle: "Sitios de red",
+  description: "POP, nodos, torres y demás sitios de infraestructura.",
+  parentHref: "/network",
+  moduleColor: "ops",
+}
+
+export const networkDevicesNavItem: NavItem = {
+  title: "Devices",
+  href: "/network/devices",
+  icon: Server,
+  pageTitle: "Devices de red",
+  description: "Inventario descubierto por Network Agents.",
+  parentHref: "/network",
+  moduleColor: "ops",
+}
+
+export const networkDiscoveryNavItem: NavItem = {
+  title: "Discovery",
+  href: "/network/discovery",
+  icon: ScanSearch,
+  pageTitle: "Discovery de red",
+  description: "Jobs de discovery MikroTik y destinos autorizados.",
+  parentHref: "/network",
+  moduleColor: "ops",
 }
 
 export const atencionClienteNavItem: NavItem = {

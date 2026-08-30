@@ -127,6 +127,11 @@ function resolveAuditCompanyId(input: WriteAuditLogInput): string {
     return resolveTenantCompanyId(input.performedBy.sessionUser)
   }
 
+  const explicit = input.companyId?.trim()
+  if (explicit) {
+    return explicit
+  }
+
   return BESPOKE_PRODUCTION_COMPANY_ID
 }
 

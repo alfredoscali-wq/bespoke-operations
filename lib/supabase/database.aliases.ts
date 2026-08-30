@@ -166,3 +166,15 @@ export type EmployeeAvailabilityInsert =
   Database["public"]["Tables"]["employee_availability"]["Insert"]
 export type EmployeeAvailabilityUpdate =
   Database["public"]["Tables"]["employee_availability"]["Update"]
+export type NetworkSiteRow = Database["public"]["Tables"]["network_sites"]["Row"]
+export type NetworkAgentRow =
+  Database["public"]["Tables"]["network_agents"]["Row"]
+export type NetworkAgentJobRow =
+  Database["public"]["Tables"]["network_agent_jobs"]["Row"]
+export type NetworkDeviceRow =
+  Database["public"]["Tables"]["network_devices"]["Row"]
+export type NetworkInterfaceRow =
+  Database["public"]["Tables"]["network_interfaces"]["Row"]
+export type NetworkLinkRow = Database["public"]["Tables"]["network_links"]["Row"]
+export type NetworkDiscoveryTargetRow =
+  Database["public"]["Tables"]["network_discovery_targets"]["Row"]

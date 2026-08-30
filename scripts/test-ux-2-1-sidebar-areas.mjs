@@ -51,6 +51,11 @@ test("todos los módulos actuales siguen disponibles", () => {
     "/atencion-cliente",
     "/servicios",
     "/conexiones",
+    "/network",
+    "/network/agents",
+    "/network/sites",
+    "/network/devices",
+    "/network/discovery",
     "/cuadrillas",
     "/contratistas",
     "/materiales",
@@ -81,7 +86,7 @@ test("todos los módulos actuales siguen disponibles", () => {
   }
 })
 
-test("el menú queda organizado por las 8 áreas", () => {
+test("el menú queda organizado por las áreas laterales", () => {
   const byArea = hrefsByArea()
   assert.deepEqual(Object.keys(byArea), [...SIDEBAR_AREA_IDS])
   assert.deepEqual(byArea.operations, [
@@ -98,6 +103,7 @@ test("el menú queda organizado por las 8 áreas", () => {
     "/atencion-cliente",
   ])
   assert.deepEqual(byArea.isp, ["/servicios", "/conexiones"])
+  assert.deepEqual(byArea.network, ["/network", "/network/agents", "/network/sites", "/network/devices", "/network/discovery"])
   assert.deepEqual(byArea.field, [
     "/cuadrillas",
     "/contratistas",
@@ -154,6 +160,7 @@ test("la misma lógica de área aplica a las demás rutas", () => {
   assert.equal(resolveSidebarAreaId("/tareas/abc"), "operations")
   assert.equal(resolveSidebarAreaId("/servicios/1"), "isp")
   assert.equal(resolveSidebarAreaId("/conexiones/1"), "isp")
+  assert.equal(resolveSidebarAreaId("/network/agents"), "network")
   assert.equal(resolveSidebarAreaId("/cuadrillas"), "field")
   assert.equal(resolveSidebarAreaId("/activity/executive-center"), "analysis")
   assert.equal(resolveSidebarAreaId("/activity/timeline"), "administration")

@@ -3,6 +3,7 @@ import {
   ChartNoAxesCombined,
   Contact,
   LayoutDashboard,
+  Network,
   Settings,
   UsersRound,
   WalletCards,
@@ -17,6 +18,7 @@ export const SIDEBAR_AREA_IDS = [
   "operations",
   "customers",
   "isp",
+  "network",
   "field",
   "analysis",
   "administration",
@@ -47,6 +49,11 @@ export const SIDEBAR_AREA_META: Record<SidebarAreaId, SidebarAreaMeta> = {
     id: "isp",
     label: "ISP",
     icon: Cable,
+  },
+  network: {
+    id: "network",
+    label: "Network",
+    icon: Network,
   },
   field: {
     id: "field",
@@ -86,6 +93,7 @@ const AREA_ITEM_HREFS: Record<SidebarAreaId, readonly string[]> = {
   ],
   customers: ["/clientes", "/clientes-360", "/atencion-cliente"],
   isp: ["/servicios", "/conexiones"],
+  network: ["/network", "/network/agents", "/network/sites", "/network/devices", "/network/discovery"],
   field: ["/cuadrillas", "/contratistas", "/materiales", "/evidencias"],
   analysis: [
     "/activity/executive-center",
@@ -121,6 +129,7 @@ const PATH_AREA_PREFIXES: Array<{ prefix: string; area: SidebarAreaId }> = [
   { prefix: "/atencion-cliente", area: "customers" },
   { prefix: "/servicios", area: "isp" },
   { prefix: "/conexiones", area: "isp" },
+  { prefix: "/network", area: "network" },
   { prefix: "/activity/executive-center", area: "analysis" },
   { prefix: "/activity/workforce-monitor", area: "analysis" },
   { prefix: "/activity/jornada", area: "analysis" },

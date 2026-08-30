@@ -3832,6 +3832,684 @@ export type Database = {
           },
         ]
       }
+      network_sites: {
+        Row: {
+          address: string | null
+          company_id: string
+          created_at: string
+          deleted_at: string | null
+          description: string | null
+          id: string
+          kind: string
+          latitude: number | null
+          locality: string | null
+          longitude: number | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          company_id: string
+          created_at?: string
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          kind: string
+          latitude?: number | null
+          locality?: string | null
+          longitude?: number | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          company_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          kind?: string
+          latitude?: number | null
+          locality?: string | null
+          longitude?: number | null
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "network_sites_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      network_agents: {
+        Row: {
+          company_id: string
+          created_at: string
+          credential_token_hash: string | null
+          deleted_at: string | null
+          enrolled_at: string | null
+          enrollment_expires_at: string | null
+          enrollment_token_hash: string | null
+          hostname: string | null
+          id: string
+          last_seen_at: string | null
+          name: string
+          site_id: string | null
+          status: string
+          updated_at: string
+          version: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          credential_token_hash?: string | null
+          deleted_at?: string | null
+          enrolled_at?: string | null
+          enrollment_expires_at?: string | null
+          enrollment_token_hash?: string | null
+          hostname?: string | null
+          id?: string
+          last_seen_at?: string | null
+          name: string
+          site_id?: string | null
+          status?: string
+          updated_at?: string
+          version?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          credential_token_hash?: string | null
+          deleted_at?: string | null
+          enrolled_at?: string | null
+          enrollment_expires_at?: string | null
+          enrollment_token_hash?: string | null
+          hostname?: string | null
+          id?: string
+          last_seen_at?: string | null
+          name?: string
+          site_id?: string | null
+          status?: string
+          updated_at?: string
+          version?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "network_agents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "network_agents_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "network_sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      network_agent_jobs: {
+        Row: {
+          agent_id: string
+          company_id: string
+          completed_at: string | null
+          created_at: string
+          deleted_at: string | null
+          dispatched_at: string | null
+          error_message: string | null
+          id: string
+          job_type: string
+          payload: Json
+          result: Json | null
+          site_id: string | null
+          started_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          company_id: string
+          completed_at?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          dispatched_at?: string | null
+          error_message?: string | null
+          id?: string
+          job_type: string
+          payload?: Json
+          result?: Json | null
+          site_id?: string | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          company_id?: string
+          completed_at?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          dispatched_at?: string | null
+          error_message?: string | null
+          id?: string
+          job_type?: string
+          payload?: Json
+          result?: Json | null
+          site_id?: string | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "network_agent_jobs_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "network_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "network_agent_jobs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "network_agent_jobs_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "network_sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      network_devices: {
+        Row: {
+          agent_id: string | null
+          company_id: string
+          created_at: string
+          deleted_at: string | null
+          device_type: string
+          fingerprint: string
+          firmware_version: string | null
+          first_seen_at: string
+          hostname: string | null
+          id: string
+          last_seen_at: string
+          mac_address: string | null
+          management_ip: string | null
+          manufacturer: string | null
+          model: string | null
+          origin: string
+          serial_number: string | null
+          site_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          agent_id?: string | null
+          company_id: string
+          created_at?: string
+          deleted_at?: string | null
+          device_type?: string
+          fingerprint: string
+          firmware_version?: string | null
+          first_seen_at?: string
+          hostname?: string | null
+          id?: string
+          last_seen_at?: string
+          mac_address?: string | null
+          management_ip?: string | null
+          manufacturer?: string | null
+          model?: string | null
+          origin?: string
+          serial_number?: string | null
+          site_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string | null
+          company_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          device_type?: string
+          fingerprint?: string
+          firmware_version?: string | null
+          first_seen_at?: string
+          hostname?: string | null
+          id?: string
+          last_seen_at?: string
+          mac_address?: string | null
+          management_ip?: string | null
+          manufacturer?: string | null
+          model?: string | null
+          origin?: string
+          serial_number?: string | null
+          site_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "network_devices_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "network_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "network_devices_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "network_devices_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "network_sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      network_discovery_targets: {
+        Row: {
+          agent_id: string
+          company_id: string
+          created_at: string
+          deleted_at: string | null
+          host: string
+          id: string
+          name: string
+          port: number
+          protocol: string
+          secret_ciphertext: string
+          secret_iv: string
+          secret_tag: string
+          site_id: string | null
+          updated_at: string
+          username: string
+          vendor: string
+        }
+        Insert: {
+          agent_id: string
+          company_id: string
+          created_at?: string
+          deleted_at?: string | null
+          host: string
+          id?: string
+          name: string
+          port: number
+          protocol: string
+          secret_ciphertext: string
+          secret_iv: string
+          secret_tag: string
+          site_id?: string | null
+          updated_at?: string
+          username: string
+          vendor: string
+        }
+        Update: {
+          agent_id?: string
+          company_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          host?: string
+          id?: string
+          name?: string
+          port?: number
+          protocol?: string
+          secret_ciphertext?: string
+          secret_iv?: string
+          secret_tag?: string
+          site_id?: string | null
+          updated_at?: string
+          username?: string
+          vendor?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "network_discovery_targets_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "network_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "network_discovery_targets_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "network_discovery_targets_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "network_sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      network_interfaces: {
+        Row: {
+          addresses: Json
+          company_id: string
+          created_at: string
+          deleted_at: string | null
+          description: string | null
+          device_id: string
+          id: string
+          interface_type: string | null
+          last_seen_at: string
+          mac_address: string | null
+          name: string
+          speed_mbps: number | null
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          addresses?: Json
+          company_id: string
+          created_at?: string
+          deleted_at?: string | null
+          description?: string | null
+          device_id: string
+          id?: string
+          interface_type?: string | null
+          last_seen_at?: string
+          mac_address?: string | null
+          name: string
+          speed_mbps?: number | null
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          addresses?: Json
+          company_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          description?: string | null
+          device_id?: string
+          id?: string
+          interface_type?: string | null
+          last_seen_at?: string
+          mac_address?: string | null
+          name?: string
+          speed_mbps?: number | null
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "network_interfaces_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "network_interfaces_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "network_devices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      network_links: {
+        Row: {
+          company_id: string
+          created_at: string
+          deleted_at: string | null
+          from_device_id: string
+          from_interface_id: string | null
+          id: string
+          last_seen_at: string
+          protocol: string | null
+          to_device_id: string
+          to_interface_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          deleted_at?: string | null
+          from_device_id: string
+          from_interface_id?: string | null
+          id?: string
+          last_seen_at?: string
+          protocol?: string | null
+          to_device_id: string
+          to_interface_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          from_device_id?: string
+          from_interface_id?: string | null
+          id?: string
+          last_seen_at?: string
+          protocol?: string | null
+          to_device_id?: string
+          to_interface_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "network_links_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "network_links_from_device_id_fkey"
+            columns: ["from_device_id"]
+            isOneToOne: false
+            referencedRelation: "network_devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "network_links_from_interface_id_fkey"
+            columns: ["from_interface_id"]
+            isOneToOne: false
+            referencedRelation: "network_interfaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "network_links_to_device_id_fkey"
+            columns: ["to_device_id"]
+            isOneToOne: false
+            referencedRelation: "network_devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "network_links_to_interface_id_fkey"
+            columns: ["to_interface_id"]
+            isOneToOne: false
+            referencedRelation: "network_interfaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      network_device_status: {
+        Row: {
+          company_id: string
+          consecutive_failures: number
+          cpu_load: number | null
+          created_at: string
+          deleted_at: string | null
+          device_id: string
+          error_code: string | null
+          error_message: string | null
+          id: string
+          last_poll_at: string | null
+          last_success_at: string | null
+          memory_available: number | null
+          memory_total: number | null
+          routeros_version: string | null
+          status: string
+          temperature: number | null
+          updated_at: string
+          uptime: string | null
+        }
+        Insert: {
+          company_id: string
+          consecutive_failures?: number
+          cpu_load?: number | null
+          created_at?: string
+          deleted_at?: string | null
+          device_id: string
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          last_poll_at?: string | null
+          last_success_at?: string | null
+          memory_available?: number | null
+          memory_total?: number | null
+          routeros_version?: string | null
+          status?: string
+          temperature?: number | null
+          updated_at?: string
+          uptime?: string | null
+        }
+        Update: {
+          company_id?: string
+          consecutive_failures?: number
+          cpu_load?: number | null
+          created_at?: string
+          deleted_at?: string | null
+          device_id?: string
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          last_poll_at?: string | null
+          last_success_at?: string | null
+          memory_available?: number | null
+          memory_total?: number | null
+          routeros_version?: string | null
+          status?: string
+          temperature?: number | null
+          updated_at?: string
+          uptime?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "network_device_status_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "network_device_status_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: true
+            referencedRelation: "network_devices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      network_interface_status: {
+        Row: {
+          company_id: string
+          created_at: string
+          deleted_at: string | null
+          device_id: string
+          id: string
+          interface_id: string
+          interface_name: string
+          last_poll_at: string | null
+          rx_bytes: number | null
+          rx_drops: number | null
+          rx_errors: number | null
+          rx_packets: number | null
+          speed_mbps: number | null
+          status: string | null
+          tx_bytes: number | null
+          tx_drops: number | null
+          tx_errors: number | null
+          tx_packets: number | null
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          deleted_at?: string | null
+          device_id: string
+          id?: string
+          interface_id: string
+          interface_name: string
+          last_poll_at?: string | null
+          rx_bytes?: number | null
+          rx_drops?: number | null
+          rx_errors?: number | null
+          rx_packets?: number | null
+          speed_mbps?: number | null
+          status?: string | null
+          tx_bytes?: number | null
+          tx_drops?: number | null
+          tx_errors?: number | null
+          tx_packets?: number | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          device_id?: string
+          id?: string
+          interface_id?: string
+          interface_name?: string
+          last_poll_at?: string | null
+          rx_bytes?: number | null
+          rx_drops?: number | null
+          rx_errors?: number | null
+          rx_packets?: number | null
+          speed_mbps?: number | null
+          status?: string | null
+          tx_bytes?: number | null
+          tx_drops?: number | null
+          tx_errors?: number | null
+          tx_packets?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "network_interface_status_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "network_interface_status_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "network_devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "network_interface_status_interface_id_fkey"
+            columns: ["interface_id"]
+            isOneToOne: true
+            referencedRelation: "network_interfaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       operational_motivos: {
         Row: {
           code: string

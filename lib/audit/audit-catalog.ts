@@ -318,6 +318,31 @@ export const AUDIT_ACTION_DEFINITIONS: Record<AuditAction, AuditActionDefinition
       entityType: AUDIT_ENTITY_TYPES.INCIDENT,
       severity: AUDIT_SEVERITIES.INFO,
     },
+    [AUDIT_ACTIONS.NETWORK_AGENT_ENROLLED]: {
+      module: AUDIT_MODULES.NETWORK,
+      entityType: AUDIT_ENTITY_TYPES.NETWORK_AGENT,
+      severity: AUDIT_SEVERITIES.INFO,
+    },
+    [AUDIT_ACTIONS.NETWORK_AGENT_STATUS_CHANGED]: {
+      module: AUDIT_MODULES.NETWORK,
+      entityType: AUDIT_ENTITY_TYPES.NETWORK_AGENT,
+      severity: AUDIT_SEVERITIES.INFO,
+    },
+    [AUDIT_ACTIONS.NETWORK_DISCOVERY_COMPLETED]: {
+      module: AUDIT_MODULES.NETWORK,
+      entityType: AUDIT_ENTITY_TYPES.NETWORK_AGENT_JOB,
+      severity: AUDIT_SEVERITIES.INFO,
+    },
+    [AUDIT_ACTIONS.NETWORK_DISCOVERY_FAILED]: {
+      module: AUDIT_MODULES.NETWORK,
+      entityType: AUDIT_ENTITY_TYPES.NETWORK_AGENT_JOB,
+      severity: AUDIT_SEVERITIES.WARNING,
+    },
+    [AUDIT_ACTIONS.NETWORK_DEVICE_STATUS_CHANGED]: {
+      module: AUDIT_MODULES.NETWORK,
+      entityType: AUDIT_ENTITY_TYPES.NETWORK_DEVICE,
+      severity: AUDIT_SEVERITIES.INFO,
+    },
   }
 
 export function isAuditAction(value: string): value is AuditAction {

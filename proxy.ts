@@ -29,6 +29,7 @@ import {
   sanitizeRedirectPath,
 } from "@/lib/auth/routes"
 import { isMobileApiPath } from "@/lib/mobile/v1/routing"
+import { isNetworkApiPath } from "@/lib/network/v1/routing"
 import { createMiddlewareSupabaseClient } from "@/lib/supabase/middleware"
 
 /**
@@ -41,7 +42,7 @@ export async function proxy(request: NextRequest) {
   const perf = beginProxyPerfSession(request.method, pathname)
 
   try {
-    if (isMobileApiPath(pathname)) {
+    if (isMobileApiPath(pathname) || isNetworkApiPath(pathname)) {
       // Sprint 41.0 — strip forgeable auth-cache headers when proxy skips auth.
       return nextWithoutAuthUserRequestCache(request)
     }
