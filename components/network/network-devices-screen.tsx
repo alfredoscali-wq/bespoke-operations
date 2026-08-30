@@ -1,6 +1,5 @@
 "use client"
 
-import { useEffect, useState } from "react"
 import Link from "next/link"
 
 import { NetworkSubnav } from "@/components/network/network-subnav"
@@ -19,34 +18,18 @@ import {
   NETWORK_DEVICE_TYPE_LABELS,
   formatNetworkLastSeen,
 } from "@/lib/network/labels"
-import type { NetworkDevice } from "@/lib/network/types"
+import { useNetworkDevicesQuery } from "@/lib/network/react-query/use-network-devices-query"
 import { STATUS_TONE_STYLES } from "@/lib/ui/visual-tokens"
 import { cn } from "@/lib/utils"
 
 export function NetworkDevicesScreen() {
-  const [devices, setDevices] = useState<NetworkDevice[]>([])
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    fetch("/api/network/devices")
-      .then(async (response) => {
-        const body = (await response.json()) as {
-          success: boolean
-          devices?: NetworkDevice[]
-          message?: string
-        }
-        if (!body.success) throw new Error(body.message)
-        setDevices(body.devices ?? [])
-        setError(null)
-      })
-      .catch((loadError: unknown) => {
-        setError(
-          loadError instanceof Error
-            ? loadError.message
-            : "No se pudieron cargar los devices."
-        )
-      })
-  }, [])
+  const { data: devices = [], error, isPending } = useNetworkDevicesQuery()
+  const loadError =
+    error instanceof Error
+      ? error.message
+      : error
+        ? "No se pudieron cargar los devices."
+        : null
 
   return (
     <div className="space-y-6">
@@ -58,7 +41,9 @@ export function NetworkDevicesScreen() {
         <NetworkSubnav current="devices" />
       </div>
 
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {loadError && devices.length === 0 ? (
+        <p className="text-sm text-destructive">{loadError}</p>
+      ) : null}
 
       <Table>
         <TableHeader>
@@ -77,7 +62,9 @@ export function NetworkDevicesScreen() {
           {devices.length === 0 ? (
             <TableRow>
               <TableCell colSpan={8} className="text-muted-foreground">
-                Todavía no hay devices. Ejecutá un discovery desde un Agent.
+                {isPending
+                  ? "Cargando devices…"
+                  : "Todavía no hay devices. Ejecutá un discovery desde un Agent."}
               </TableCell>
             </TableRow>
           ) : (

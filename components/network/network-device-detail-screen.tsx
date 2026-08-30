@@ -1,7 +1,8 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useState } from "react"
 import Link from "next/link"
+import { useQueryClient } from "@tanstack/react-query"
 
 import { NetworkSubnav } from "@/components/network/network-subnav"
 import { Button } from "@/components/ui/button"
@@ -32,40 +33,24 @@ import {
   formatNetworkTemperature,
   formatNetworkTimestamp,
 } from "@/lib/network/labels"
-import type { NetworkDeviceDetail, NetworkInterfaceMonitoring } from "@/lib/network/types"
+import { invalidateNetworkOperationalQueries } from "@/lib/network/react-query/invalidate"
+import { useNetworkDeviceQuery } from "@/lib/network/react-query/use-network-device-query"
+import type { NetworkInterfaceMonitoring } from "@/lib/network/types"
 import { STATUS_TONE_STYLES } from "@/lib/ui/visual-tokens"
 import { cn } from "@/lib/utils"
 
 export function NetworkDeviceDetailScreen({ deviceId }: { deviceId: string }) {
-  const [device, setDevice] = useState<NetworkDeviceDetail | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const queryClient = useQueryClient()
+  const { data: device, error, isPending } = useNetworkDeviceQuery(deviceId)
   const [pollMessage, setPollMessage] = useState<string | null>(null)
   const [polling, setPolling] = useState(false)
 
-  const loadDevice = useCallback(() => {
-    return fetch(`/api/network/devices/${deviceId}`)
-      .then(async (response) => {
-        const body = (await response.json()) as {
-          success: boolean
-          device?: NetworkDeviceDetail
-          message?: string
-        }
-        if (!body.success) throw new Error(body.message)
-        setDevice(body.device ?? null)
-        setError(null)
-      })
-      .catch((loadError: unknown) => {
-        setError(
-          loadError instanceof Error
-            ? loadError.message
-            : "No se pudo cargar el dispositivo."
-        )
-      })
-  }, [deviceId])
-
-  useEffect(() => {
-    void loadDevice()
-  }, [loadDevice])
+  const loadError =
+    error instanceof Error
+      ? error.message
+      : error
+        ? "No se pudo cargar el dispositivo."
+        : null
 
   async function requestPoll() {
     setPolling(true)
@@ -91,9 +76,7 @@ export function NetworkDeviceDetailScreen({ deviceId }: { deviceId: string }) {
           ? `Polling solicitado (${body.job.jobType ?? "job"} ${body.job.status ?? ""}). Job ${body.job.id}.`
           : "Polling solicitado. El estado se actualiza cuando el Agent complete el job."
       )
-      window.setTimeout(() => {
-        void loadDevice()
-      }, 8000)
+      await invalidateNetworkOperationalQueries(queryClient, deviceId)
     } catch (pollError: unknown) {
       setPollMessage(
         pollError instanceof Error ? pollError.message : "No se pudo solicitar el polling."
@@ -136,7 +119,10 @@ export function NetworkDeviceDetailScreen({ deviceId }: { deviceId: string }) {
         ) : null}
       </div>
 
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {loadError && !device ? <p className="text-sm text-destructive">{loadError}</p> : null}
+      {isPending && !device ? (
+        <p className="text-sm text-muted-foreground">Cargando dispositivo…</p>
+      ) : null}
 
       {device ? (
         <>

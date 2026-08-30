@@ -1,47 +1,29 @@
 "use client"
 
-import { useEffect, useState } from "react"
 import Link from "next/link"
 
 import { NetworkSubnav } from "@/components/network/network-subnav"
 import {
   Card,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
+  CardContent,
 } from "@/components/ui/card"
 import { NETWORK_AGENT_STATUS_LABELS } from "@/lib/network/labels"
 import { NETWORK_AGENT_STATUSES } from "@/lib/network/constants"
-import type { NetworkHomeSummary, NetworkSite } from "@/lib/network/types"
+import { useNetworkSummaryQuery } from "@/lib/network/react-query/use-network-summary-query"
 
 export function NetworkHomeScreen() {
-  const [summary, setSummary] = useState<NetworkHomeSummary | null>(null)
-  const [sites, setSites] = useState<NetworkSite[]>([])
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    fetch("/api/network/summary")
-      .then(async (response) => {
-        const body = (await response.json()) as {
-          success: boolean
-          summary?: NetworkHomeSummary
-          sites?: NetworkSite[]
-          message?: string
-        }
-        if (!body.success) throw new Error(body.message)
-        setSummary(body.summary ?? null)
-        setSites(body.sites ?? [])
-        setError(null)
-      })
-      .catch((loadError: unknown) => {
-        setError(
-          loadError instanceof Error
-            ? loadError.message
-            : "No se pudo cargar Network."
-        )
-      })
-  }, [])
+  const { data, error } = useNetworkSummaryQuery()
+  const summary = data?.summary ?? null
+  const sites = data?.sites ?? []
+  const loadError =
+    error instanceof Error
+      ? error.message
+      : error
+        ? "No se pudo cargar Network."
+        : null
 
   return (
     <div className="space-y-6">
@@ -53,8 +35,8 @@ export function NetworkHomeScreen() {
         <NetworkSubnav current="home" />
       </div>
 
-      {error ? (
-        <p className="text-sm text-destructive">{error}</p>
+      {loadError && !data ? (
+        <p className="text-sm text-destructive">{loadError}</p>
       ) : null}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
