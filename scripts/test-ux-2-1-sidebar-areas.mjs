@@ -102,6 +102,7 @@ test("el menú queda organizado por las áreas laterales", () => {
     "/clientes",
     "/clientes-360",
     "/atencion-cliente",
+    "/subscriptions",
   ])
   assert.deepEqual(byArea.isp, ["/servicios", "/conexiones"])
   assert.deepEqual(byArea.network, ["/network", "/network/agents", "/network/sites", "/network/devices", "/network/topology", "/network/discovery"])
@@ -124,7 +125,6 @@ test("el menú queda organizado por las áreas laterales", () => {
     "/facturacion",
     "/facturacion/comprobantes",
     "/facturacion/mensual",
-    "/subscriptions",
     "/gestion-comercial/oportunidades",
     "/activity/timeline",
     "/mantenimiento",
@@ -167,6 +167,7 @@ test("la misma lógica de área aplica a las demás rutas", () => {
   assert.equal(resolveSidebarAreaId("/activity/timeline"), "administration")
   assert.equal(resolveSidebarAreaId("/tesoreria"), "administration")
   assert.equal(resolveSidebarAreaId("/facturacion"), "administration")
+  assert.equal(resolveSidebarAreaId("/subscriptions"), "customers")
   assert.equal(
     resolveSidebarAreaId("/configuracion/facturacion"),
     "system"

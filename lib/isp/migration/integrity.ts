@@ -4,6 +4,12 @@ import {
   ISP_MIGRATION_HIDDEN_SECRET,
 } from "@/lib/isp/migration/constants"
 import {
+  buildIspMigrationCatalogIndex,
+  resolveIspMigrationCommercialCatalog,
+  resolveIspMigrationTvComponent,
+  type IspMigrationTvComponent,
+} from "@/lib/isp/migration/tv-component"
+import {
   formatContractedSpeed,
   isExampleMigrationRow,
   mapCatalogBillingMethod,
@@ -227,6 +233,7 @@ export function validateIspMigration(
   const existingCatalogByName = new Map(
     existing.catalog.map((item) => [lower(item.name), item])
   )
+  const catalogIndex = buildIspMigrationCatalogIndex(existing.catalog)
   const existingCustomerByCode = new Map(
     existing.customers
       .filter((item) => item.externalCode)
@@ -909,6 +916,21 @@ export function validateIspMigration(
       )
     }
 
+    const serviceName = values.nombre_servicio?.trim() ?? ""
+    const commercialMatch = catalogCode
+      ? resolveIspMigrationCommercialCatalog({
+          catalogoIdExterno: catalogCode,
+          nombreServicio: serviceName,
+          fileCatalogIds: catalogIds,
+          index: catalogIndex,
+        })
+      : null
+    let resolvedCatalog =
+      commercialMatch?.ok && commercialMatch.source === "existing"
+        ? commercialMatch.catalog
+        : null
+    let tvComponent: IspMigrationTvComponent | null = null
+
     if (!catalogCode) {
       rowIssues.push(
         issue(
@@ -920,10 +942,7 @@ export function validateIspMigration(
           "El identificador de catálogo es obligatorio."
         )
       )
-    } else if (
-      !catalogIds.has(lower(catalogCode)) &&
-      !existingCatalogByCode.has(lower(catalogCode))
-    ) {
+    } else if (!commercialMatch || !commercialMatch.ok) {
       rowIssues.push(
         issue(
           "SERVICIOS",
@@ -931,9 +950,39 @@ export function validateIspMigration(
           "catalogo_id_externo",
           catalogCode,
           "error",
-          "No existe un servicio de catálogo con este identificador."
+          commercialMatch && !commercialMatch.ok
+            ? commercialMatch.message
+            : "Servicio no encontrado en el catálogo de la empresa."
         )
       )
+    } else if (resolvedCatalog) {
+      if (resolvedCatalog.isActive === false) {
+        rowIssues.push(
+          issue(
+            "SERVICIOS",
+            row.rowNumber,
+            "catalogo_id_externo",
+            catalogCode,
+            "warning",
+            "El servicio comercial está inactivo. No se reactivará el catálogo."
+          )
+        )
+      }
+      const tv = resolveIspMigrationTvComponent(resolvedCatalog, catalogIndex.byId)
+      if (!tv.ok) {
+        rowIssues.push(
+          issue(
+            "SERVICIOS",
+            row.rowNumber,
+            "nombre_servicio",
+            resolvedCatalog.name,
+            "error",
+            tv.message
+          )
+        )
+      } else {
+        tvComponent = tv.component
+      }
     }
 
     const commercial = mapCommercialStatus(values.estado_comercial ?? "")
@@ -1107,6 +1156,7 @@ export function validateIspMigration(
     const snapshotName =
       values.nombre_servicio?.trim() ||
       catalogNameByCode.get(lower(catalogCode)) ||
+      resolvedCatalog?.name ||
       existingCatalogByCode.get(lower(catalogCode))?.name ||
       ""
 
@@ -1146,6 +1196,12 @@ export function validateIspMigration(
         velocidad_bajada: values.velocidad_bajada?.trim() ?? "",
         velocidad_subida: values.velocidad_subida?.trim() ?? "",
         medio_cobranza: values.medio_cobranza?.trim() ?? "",
+        resolved_catalog_id: resolvedCatalog?.id ?? null,
+        tv_plan_catalog_id: tvComponent?.tvPlanCatalogId ?? null,
+        tv_plan_name: tvComponent?.tvPlanName ?? null,
+        tv_plan_code: tvComponent?.tvPlanCode ?? null,
+        tv_monthly_price: tvComponent?.tvMonthlyPrice ?? null,
+        has_tv_component: Boolean(tvComponent),
         _source: values,
       },
       validationStatus: status,

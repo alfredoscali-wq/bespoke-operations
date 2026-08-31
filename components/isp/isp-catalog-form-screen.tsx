@@ -15,13 +15,16 @@ import {
 } from "@/lib/isp/catalog-constants"
 import {
   applyTechnicalProfileToCatalogDraft,
+  canCatalogItemIncludeTv,
   catalogCategoryLabel,
   catalogConnectionTypeLabel,
   catalogItemToDraft,
   catalogTechnologyLabel,
   emptyCatalogDraft,
   emptyTechnicalProfileDraft,
+  formatCatalogMoney,
   formatCatalogSpeedUnit,
+  isSelectableTvCatalogPlan,
   validateCatalogDraft,
 } from "@/lib/isp/catalog-integrity"
 import type {
@@ -52,6 +55,7 @@ export function IspCatalogFormScreen({ catalogId }: IspCatalogFormScreenProps) {
   const router = useRouter()
   const [draft, setDraft] = useState<IspCatalogDraft>(emptyCatalogDraft())
   const [profiles, setProfiles] = useState<IspTechnicalProfile[]>([])
+  const [tvPlans, setTvPlans] = useState<IspCatalogItem[]>([])
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
@@ -63,6 +67,21 @@ export function IspCatalogFormScreen({ catalogId }: IspCatalogFormScreenProps) {
           items?: IspTechnicalProfile[]
         }
         if (body.success) setProfiles(body.items ?? [])
+      })
+      .catch(() => undefined)
+  }, [])
+
+  useEffect(() => {
+    fetch("/api/isp/catalog?category=tv&status=all")
+      .then(async (response) => {
+        const body = (await response.json()) as {
+          success: boolean
+          items?: IspCatalogItem[]
+        }
+        if (!body.success) return
+        setTvPlans(
+          (body.items ?? []).filter((item) => item.category === "tv")
+        )
       })
       .catch(() => undefined)
   }, [])
@@ -86,6 +105,25 @@ export function IspCatalogFormScreen({ catalogId }: IspCatalogFormScreenProps) {
 
   function update<K extends keyof IspCatalogDraft>(key: K, value: IspCatalogDraft[K]) {
     setDraft((current) => ({ ...current, [key]: value }))
+  }
+
+  function updateCategory(value: string) {
+    setDraft((current) => ({
+      ...current,
+      category: value,
+      includesTv: canCatalogItemIncludeTv(value) ? current.includesTv : false,
+      tvPlanCatalogId: canCatalogItemIncludeTv(value)
+        ? current.tvPlanCatalogId
+        : "",
+    }))
+  }
+
+  function updateIncludesTv(checked: boolean) {
+    setDraft((current) => ({
+      ...current,
+      includesTv: checked,
+      tvPlanCatalogId: checked ? current.tvPlanCatalogId : "",
+    }))
   }
 
   function updateProfile<K extends keyof IspTechnicalProfileDraft>(
@@ -155,6 +193,17 @@ export function IspCatalogFormScreen({ catalogId }: IspCatalogFormScreenProps) {
     (item) => item.id === draft.technicalProfileId
   )
 
+  const selectedTvPlan = tvPlans.find(
+    (item) => item.id === draft.tvPlanCatalogId
+  )
+  const selectableTvPlans = tvPlans.filter((item) =>
+    isSelectableTvCatalogPlan(item, {
+      currentCatalogId: catalogId,
+      selectedTvPlanId: draft.tvPlanCatalogId,
+    })
+  )
+  const showTvComponent = canCatalogItemIncludeTv(draft.category)
+
   const confirmation = useMemo(
     () => ({
       code: draft.code.trim() || "—",
@@ -165,6 +214,18 @@ export function IspCatalogFormScreen({ catalogId }: IspCatalogFormScreenProps) {
       price: draft.monthlyPrice.trim()
         ? `$ ${draft.monthlyPrice} ${draft.currency || "ARS"}`
         : "Sin precio",
+      tv: !showTvComponent
+        ? "No aplica"
+        : draft.includesTv && selectedTvPlan
+          ? selectedTvPlan.name
+          : "Sin TV",
+      tvCharge:
+        draft.includesTv && selectedTvPlan
+          ? formatCatalogMoney(
+              selectedTvPlan.monthlyPrice,
+              selectedTvPlan.currency
+            )
+          : "—",
       technology: catalogTechnologyLabel(draft.technology || null),
       types:
         draft.allowedConnectionTypes
@@ -175,7 +236,7 @@ export function IspCatalogFormScreen({ catalogId }: IspCatalogFormScreenProps) {
         : selectedProfile?.code || "Sin perfil",
       status: draft.isActive ? "Activo" : "Inactivo",
     }),
-    [draft, selectedProfile]
+    [draft, selectedProfile, selectedTvPlan, showTvComponent]
   )
 
   async function handleSubmit() {
@@ -264,7 +325,7 @@ export function IspCatalogFormScreen({ catalogId }: IspCatalogFormScreenProps) {
           <Field label="Categoría">
             <Select
               value={draft.category || undefined}
-              onValueChange={(value) => update("category", value)}
+              onValueChange={updateCategory}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Seleccionar" />
@@ -370,6 +431,71 @@ export function IspCatalogFormScreen({ catalogId }: IspCatalogFormScreenProps) {
           </div>
         </div>
       </section>
+
+      {showTvComponent ? (
+        <section className="space-y-3 rounded-xl border p-4">
+          <h2 className="text-sm font-semibold">Componente TV</h2>
+          <p className="text-xs text-muted-foreground">
+            El servicio comercial sigue siendo un único abono. El cargo TV es
+            interno y no reemplaza el precio mensual total.
+          </p>
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox
+              checked={draft.includesTv}
+              onCheckedChange={(checked) =>
+                updateIncludesTv(checked === true)
+              }
+            />
+            Este servicio incluye TV
+          </label>
+          {draft.includesTv ? (
+            selectableTvPlans.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No hay planes TV activos en el catálogo.
+              </p>
+            ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Plan TV">
+                <Select
+                  value={draft.tvPlanCatalogId || undefined}
+                  onValueChange={(value) => update("tvPlanCatalogId", value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar plan TV" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {selectableTvPlans.map((plan) => (
+                      <SelectItem key={plan.id} value={plan.id}>
+                        {plan.name} —{" "}
+                        {formatCatalogMoney(plan.monthlyPrice, plan.currency)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field
+                label="Cargo TV"
+                hint="Referencia del plan TV. No es el precio total del servicio."
+              >
+                <Input
+                  value={
+                    selectedTvPlan
+                      ? formatCatalogMoney(
+                          selectedTvPlan.monthlyPrice,
+                          selectedTvPlan.currency
+                        )
+                      : "—"
+                  }
+                  disabled
+                />
+              </Field>
+            </div>
+            )
+          ) : (
+            <p className="text-sm text-muted-foreground">Plan TV: Sin TV</p>
+          )}
+        </section>
+      ) : null}
 
       <section className="space-y-3 rounded-xl border p-4">
         <h2 className="text-sm font-semibold">2. Características</h2>
@@ -639,8 +765,20 @@ export function IspCatalogFormScreen({ catalogId }: IspCatalogFormScreenProps) {
             <dd>{confirmation.category}</dd>
           </div>
           <div>
-            <dt className="text-xs text-muted-foreground">Precio</dt>
+            <dt className="text-xs text-muted-foreground">
+              Precio mensual (abono)
+            </dt>
             <dd>{confirmation.price}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-muted-foreground">Componente TV</dt>
+            <dd>{confirmation.tv}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-muted-foreground">
+              Cargo TV (referencia)
+            </dt>
+            <dd>{confirmation.tvCharge}</dd>
           </div>
           <div>
             <dt className="text-xs text-muted-foreground">Tecnología</dt>

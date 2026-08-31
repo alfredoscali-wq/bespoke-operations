@@ -61,6 +61,18 @@ test("agrupa pantallas como el sidebar", () => {
   assert.ok(
     customers.screens.some((screen) => screen.title === "Clientes 360°")
   )
+  assert.ok(
+    customers.screens.some((screen) => screen.title === "TV & Suscripciones")
+  )
+
+  const administration = groups.find((group) => group.id === "administration")
+  assert.ok(administration)
+  assert.equal(
+    administration.screens.some(
+      (screen) => screen.title === "TV & Suscripciones"
+    ),
+    false
+  )
 
   const isp = groups.find((group) => group.id === "isp")
   assert.ok(isp)

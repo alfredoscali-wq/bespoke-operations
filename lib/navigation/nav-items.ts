@@ -327,7 +327,7 @@ export const subscriptionsNavItem: NavItem = {
   icon: Tv,
   pageTitle: "TV & Suscripciones",
   description:
-    "Administración de servicios recurrentes (Bespoke TV y futuros).",
+    "Escritorio del servicio TV de los abonados de Clientes 360.",
   moduleColor: "commercial",
 }
 
@@ -526,7 +526,6 @@ export const analysisNavItems: NavItem[] = [
   crewProductionNavItem,
   activityTimelineNavItem,
   tesoreriaNavItem,
-  subscriptionsNavItem,
 ]
 
 export const systemNavItems: NavItem[] = [

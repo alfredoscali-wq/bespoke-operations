@@ -1,91 +1,40 @@
-import type {
-  SubscriptionCommissionStatus,
-  SubscriptionCustomerStatus,
-  SubscriptionSaleStatus,
-} from "@/lib/subscriptions/statuses"
+import type { IspCommercialStatus } from "@/lib/isp/constants"
 
-export type SubscriptionService = {
+export type TvCatalogPlan = {
   id: string
   companyId: string
+  code: string
   name: string
-  description: string
   monthlyPrice: number
+  category: "tv"
+  requiresConnection: boolean
+  billingMethod: string
   isActive: boolean
-  createdAt: string
-  updatedAt: string
-  deletedAt: string | null
+  usedCount: number
 }
 
-export type SubscriptionCustomer = {
-  id: string
-  companyId: string
+export type TvSubscriberRow = {
   serviceId: string
-  firstName: string
-  lastName: string
-  dni: string
-  email: string
-  phone: string
-  address: string
-  city: string
-  status: SubscriptionCustomerStatus
-  activationDate: string | null
-  createdAt: string
-  updatedAt: string
-  deletedAt: string | null
-  serviceName?: string
-}
-
-export type SubscriptionSale = {
-  id: string
-  companyId: string
   customerId: string
-  serviceId: string
-  sellerEmployeeId: string | null
-  saleDate: string
-  monthlyPrice: number
-  firstInvoiceAmount: number
-  status: SubscriptionSaleStatus
-  createdAt: string
-  updatedAt: string
-  deletedAt: string | null
-  customerName?: string
-  serviceName?: string
-  sellerName?: string
-}
-
-export type SubscriptionCommission = {
-  id: string
   companyId: string
-  saleId: string
-  employeeId: string
-  commissionAmount: number
-  status: SubscriptionCommissionStatus
-  createdAt: string
-  updatedAt: string
-  deletedAt: string | null
-  employeeName?: string
-  customerName?: string
-}
-
-export type CreateSubscriptionPreAltaInput = {
-  companyId: string
-  serviceId: string
-  firstName: string
-  lastName: string
-  dni: string
+  customerName: string
   phone: string
-  email?: string
-  address?: string
-  city?: string
-  activationDate: string
-  sellerEmployeeId?: string | null
-  commissionAmount?: number
+  locality: string
+  dni: string
+  customerNumber: string
+  commercialPlanName: string
+  commercialCatalogId: string
+  tvPlanCatalogId: string
+  planCode: string
+  planName: string
+  monthlyPrice: number
+  commercialStatus: IspCommercialStatus
+  activationDate: string | null
 }
 
-export type SubscriptionDashboardSummary = {
-  activeSubscribers: number
-  pendingPayment: number
-  pendingActivation: number
-  signupsThisMonth: number
-  expectedBilling: number
+export type TvSubscriberListPage = {
+  items: TvSubscriberRow[]
+  total: number
+  page: number
+  pageSize: number
 }

@@ -113,6 +113,11 @@ function buildInstructions(): string[][] {
     ["Catálogo vs abonados"],
     ["El precio del catálogo es lo que el ISP vende hoy. El precio del servicio es el precio contratado del cliente y no cambia si luego se actualiza el catálogo."],
     [""],
+    ["Componente TV"],
+    [
+      "No agregue una columna de plan TV. Informe únicamente el servicio comercial contratado (catalogo_id_externo / nombre_servicio). Si ese servicio incluye TV, Bespoke lo obtiene de la configuración de Servicios. Un servicio sin componente TV no genera suscripción TV.",
+    ],
+    [""],
     ["DATOS DE EJEMPLO"],
     ["Las filas con identificadores EJEMPLO-... o marcadas como DATOS DE EJEMPLO son de demostración y se ignoran automáticamente al validar. No hace falta eliminarlas. No mezcle identificadores demo con abonados reales."],
     [""],
@@ -121,7 +126,32 @@ function buildInstructions(): string[][] {
   ]
 }
 
-export function buildIspMigrationTemplateWorkbook(): ArrayBuffer {
+function applyRangeValidation(
+  sheet: XLSX.WorkSheet,
+  columnIndex: number,
+  rangeFormula: string
+) {
+  const column = columnLetter(columnIndex)
+  const validations =
+    (sheet as XLSX.WorkSheet & { "!dataValidation"?: SheetDataValidation[] })[
+      "!dataValidation"
+    ] ?? []
+  validations.push({
+    type: "list",
+    operator: "equal",
+    sqref: `${column}${DATA_ROW_START}:${column}${DATA_ROW_END}`,
+    formula1: rangeFormula,
+    allowBlank: 1,
+    showDropDown: true,
+  })
+  ;(sheet as XLSX.WorkSheet & { "!dataValidation"?: SheetDataValidation[] })[
+    "!dataValidation"
+  ] = validations
+}
+
+export function buildIspMigrationTemplateWorkbook(options?: {
+  commercialServiceNames?: string[]
+}): ArrayBuffer {
   const workbook = XLSX.utils.book_new()
 
   const customers = sheetFromHeaders(ISP_MIGRATION_CUSTOMER_HEADERS, [
@@ -275,6 +305,28 @@ export function buildIspMigrationTemplateWorkbook(): ArrayBuffer {
   ])
   applyListValidation(services, 10, ["SIRO", "Pendiente"])
 
+  const commercialNames = [
+    ...new Set(
+      (options?.commercialServiceNames ?? [])
+        .map((name) => name.trim())
+        .filter(Boolean)
+    ),
+  ]
+  const availableServices =
+    commercialNames.length > 0
+      ? sheetFromHeaders(
+          ["nombre_servicio"],
+          commercialNames.map((name) => [name])
+        )
+      : null
+  if (availableServices) {
+    applyRangeValidation(
+      services,
+      3,
+      `'SERVICIOS_DISPONIBLES'!$A$2:$A$${commercialNames.length + 1}`
+    )
+  }
+
   const connections = sheetFromHeaders(ISP_MIGRATION_CONNECTION_HEADERS, [
     [
       "EJEMPLO-CON-001",
@@ -331,6 +383,13 @@ export function buildIspMigrationTemplateWorkbook(): ArrayBuffer {
   XLSX.utils.book_append_sheet(workbook, services, "SERVICIOS")
   XLSX.utils.book_append_sheet(workbook, connections, "CONEXIONES")
   XLSX.utils.book_append_sheet(workbook, equipment, "EQUIPAMIENTO")
+  if (availableServices) {
+    XLSX.utils.book_append_sheet(
+      workbook,
+      availableServices,
+      "SERVICIOS_DISPONIBLES"
+    )
+  }
   XLSX.utils.book_append_sheet(workbook, instructions, "INSTRUCCIONES")
 
   return XLSX.write(workbook, { bookType: "xlsx", type: "array" }) as ArrayBuffer

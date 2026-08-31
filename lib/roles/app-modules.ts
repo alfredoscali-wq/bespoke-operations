@@ -180,8 +180,7 @@ export const APP_MODULE_DEFINITIONS: AppModuleDefinition[] = [
     key: "subscriptions",
     label: "TV & Suscripciones",
     navItem: subscriptionsNavItem,
-    groupId: "analysis",
-    groupLabel: "📊 Análisis",
+    groupId: "operations",
     pathPrefixes: ["/subscriptions"],
   },
   {

@@ -59,8 +59,14 @@ export type IspMigrationExistingCustomer = {
 
 export type IspMigrationExistingCatalog = {
   id: string
+  companyId?: string | null
   externalCode: string | null
+  code?: string | null
   name: string
+  category?: string | null
+  isActive?: boolean
+  monthlyPrice?: number | null
+  tvPlanCatalogId?: string | null
 }
 
 export type IspMigrationExistingService = {
@@ -152,6 +158,12 @@ export type IspMigrationServicePayload = {
   commercial_status: IspCommercialStatus
   billing_method: IspMonthlyCollectionMethod
   observaciones: string
+  resolved_catalog_id?: string | null
+  tv_plan_catalog_id?: string | null
+  tv_plan_name?: string | null
+  tv_plan_code?: string | null
+  tv_monthly_price?: number | null
+  has_tv_component?: boolean
 }
 
 export type IspMigrationRunStatus =

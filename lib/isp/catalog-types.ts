@@ -40,6 +40,15 @@ export type IspTechnicalProfileDraft = {
   isActive: boolean
 }
 
+export type IspCatalogTvPlan = {
+  id: string
+  companyId: string
+  code: string | null
+  name: string
+  monthlyPrice: number | null
+  isActive: boolean
+}
+
 export type IspCatalogItem = {
   id: string
   companyId: string
@@ -63,6 +72,8 @@ export type IspCatalogItem = {
   allowedConnectionTypes: IspCatalogConnectionType[]
   technicalProfileId: string | null
   technicalProfile?: IspTechnicalProfile | null
+  tvPlanCatalogId: string | null
+  tvPlan?: IspCatalogTvPlan | null
   otLabel: string | null
   legacyPlanCode: string | null
   isSeed: boolean
@@ -93,6 +104,8 @@ export type IspCatalogDraft = {
   createTechnicalProfile: boolean
   technicalProfile: IspTechnicalProfileDraft
   otLabel: string
+  includesTv: boolean
+  tvPlanCatalogId: string
 }
 
 export type IspCatalogListFilters = {

@@ -2,19 +2,23 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 
 import {
   assertTechnicalProfileForCatalog,
+  assertTvPlanForCatalog,
   canPhysicallyDeleteCatalogItem,
   mapCatalogWriteError,
   matchesCatalogFilters,
+  resolvedTvPlanCatalogId,
   validateCatalogDraft,
 } from "@/lib/isp/catalog-integrity"
 import {
   mapCatalogDraftToInsert,
   mapIspCatalogRow,
+  mapIspCatalogTvPlanRow,
 } from "@/lib/isp/catalog-mapper"
 import type {
   IspCatalogDraft,
   IspCatalogItem,
   IspCatalogListFilters,
+  IspCatalogTvPlan,
   IspTechnicalProfile,
 } from "@/lib/isp/catalog-types"
 import type { Database } from "@/lib/supabase/database.types"
@@ -77,6 +81,93 @@ async function attachTechnicalProfiles(
       ? (profiles.get(item.technicalProfileId) ?? null)
       : null,
   }))
+}
+
+type TvPlanLookup = IspCatalogTvPlan & { category: string }
+
+async function attachTvPlans(
+  client: IspCatalogQueriesClient,
+  companyId: string,
+  items: IspCatalogItem[]
+): Promise<IspCatalogItem[]> {
+  const ids = [
+    ...new Set(
+      items
+        .map((item) => item.tvPlanCatalogId)
+        .filter((id): id is string => Boolean(id))
+    ),
+  ]
+  if (ids.length === 0) return items
+
+  const { data, error } = await client
+    .from("isp_service_catalog")
+    .select("id, company_id, code, name, monthly_price, is_active, category")
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .in("id", ids)
+
+  if (error) throw new Error(error.message)
+
+  const plans = new Map(
+    (data ?? []).map((row) => [row.id, mapIspCatalogTvPlanRow(row)])
+  )
+  return items.map((item) => ({
+    ...item,
+    tvPlan: item.tvPlanCatalogId
+      ? (plans.get(item.tvPlanCatalogId) ?? null)
+      : null,
+  }))
+}
+
+async function hydrateCatalogItems(
+  client: IspCatalogQueriesClient,
+  companyId: string,
+  items: IspCatalogItem[]
+): Promise<IspCatalogItem[]> {
+  return attachTvPlans(
+    client,
+    companyId,
+    await attachTechnicalProfiles(client, companyId, items)
+  )
+}
+
+async function resolveTvPlanForCatalog(
+  client: IspCatalogQueriesClient,
+  companyId: string,
+  draft: IspCatalogDraft,
+  options: {
+    catalogId?: string | null
+    currentlyLinkedTvPlanId?: string | null
+  } = {}
+): Promise<{ id: string | null; plan: IspCatalogTvPlan | null }> {
+  const selected = resolvedTvPlanCatalogId(draft)
+  if (!selected) return { id: null, plan: null }
+
+  const { data, error } = await client
+    .from("isp_service_catalog")
+    .select("id, company_id, code, name, monthly_price, is_active, category")
+    .eq("company_id", companyId)
+    .eq("id", selected)
+    .is("deleted_at", null)
+    .maybeSingle()
+
+  if (error) throw new Error(error.message)
+
+  const tvPlan: TvPlanLookup | null = data
+    ? { ...mapIspCatalogTvPlanRow(data), category: data.category }
+    : null
+
+  const check = assertTvPlanForCatalog({
+    companyId,
+    catalogId: options.catalogId,
+    selectedTvPlanId: selected,
+    tvPlan,
+    currentlyLinkedTvPlanId: options.currentlyLinkedTvPlanId,
+  })
+  if (!check.ok) {
+    throw new Error(check.message)
+  }
+  return { id: selected, plan: tvPlan }
 }
 
 async function persistLinkedProfileSpeeds(
@@ -172,8 +263,8 @@ export async function listIspCatalog(
   const mapped = (data ?? []).map((row) =>
     mapIspCatalogRow(row, usage.get(row.id) ?? 0)
   )
-  const withProfiles = await attachTechnicalProfiles(client, companyId, mapped)
-  return withProfiles.filter((item) => matchesCatalogFilters(item, filters))
+  const hydrated = await hydrateCatalogItems(client, companyId, mapped)
+  return hydrated.filter((item) => matchesCatalogFilters(item, filters))
 }
 
 export async function getIspCatalogItem(
@@ -193,7 +284,7 @@ export async function getIspCatalogItem(
   if (!data) return null
 
   const usage = await countCatalogUsage(client, companyId, [id])
-  const [item] = await attachTechnicalProfiles(client, companyId, [
+  const [item] = await hydrateCatalogItems(client, companyId, [
     mapIspCatalogRow(data, usage.get(id) ?? 0),
   ])
   return item ?? null
@@ -222,7 +313,7 @@ export async function listIspCatalogForOt(
   })
 
   if (error) throw new Error(error.message)
-  return attachTechnicalProfiles(
+  return hydrateCatalogItems(
     client,
     companyId,
     (data ?? []).map((row) => mapIspCatalogRow(row))
@@ -240,6 +331,7 @@ export async function createIspCatalogItem(
   }
 
   const resolved = await resolveTechnicalProfileId(client, companyId, draft)
+  const tvResolved = await resolveTvPlanForCatalog(client, companyId, draft)
   const insert = mapCatalogDraftToInsert(companyId, draft, resolved.id)
   const speeds = {
     download: insert.download_speed_mbps ?? null,
@@ -258,7 +350,8 @@ export async function createIspCatalogItem(
   return mapIspCatalogRow(
     data,
     0,
-    profileWithCatalogSpeeds(resolved.profile, speeds)
+    profileWithCatalogSpeeds(resolved.profile, speeds),
+    tvResolved.plan
   )
 }
 
@@ -282,6 +375,10 @@ export async function updateIspCatalogItem(
     draft,
     current.technicalProfileId
   )
+  const tvResolved = await resolveTvPlanForCatalog(client, companyId, draft, {
+    catalogId: id,
+    currentlyLinkedTvPlanId: current.tvPlanCatalogId,
+  })
   const insert = mapCatalogDraftToInsert(companyId, draft, resolved.id)
   const speeds = {
     download: insert.download_speed_mbps ?? null,
@@ -309,6 +406,7 @@ export async function updateIspCatalogItem(
       requires_connection: insert.requires_connection,
       allowed_connection_types: insert.allowed_connection_types,
       technical_profile_id: insert.technical_profile_id,
+      tv_plan_catalog_id: insert.tv_plan_catalog_id,
       ot_label: insert.ot_label,
     })
     .eq("company_id", companyId)
@@ -323,7 +421,8 @@ export async function updateIspCatalogItem(
   return mapIspCatalogRow(
     data,
     usage.get(id) ?? 0,
-    profileWithCatalogSpeeds(resolved.profile, speeds)
+    profileWithCatalogSpeeds(resolved.profile, speeds),
+    tvResolved.plan
   )
 }
 
@@ -344,7 +443,7 @@ export async function setIspCatalogActive(
 
   if (error) throw new Error(error.message)
   const usage = await countCatalogUsage(client, companyId, [id])
-  const [item] = await attachTechnicalProfiles(client, companyId, [
+  const [item] = await hydrateCatalogItems(client, companyId, [
     mapIspCatalogRow(data, usage.get(id) ?? 0),
   ])
   if (!item) throw new Error("Servicio no encontrado.")

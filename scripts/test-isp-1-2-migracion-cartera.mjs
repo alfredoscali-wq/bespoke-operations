@@ -246,7 +246,7 @@ test("10. servicio con catálogo inexistente", () => {
   })
   assert.ok(
     result.issues.some((issue) =>
-      issue.message.includes("No existe un servicio de catálogo")
+      issue.message.includes("Servicio no encontrado en el catálogo de la empresa")
     )
   )
 })

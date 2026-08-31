@@ -1,75 +1,43 @@
 "use client"
 
-import { useMemo, useState } from "react"
-import {
-  Banknote,
-  CalendarPlus,
-  Clock3,
-  UserCheck,
-  Users,
-} from "lucide-react"
+import { Tv } from "lucide-react"
 
 import { useSubscriptions } from "@/components/subscriptions/subscriptions-provider"
-import { formatSubscriptionMoney } from "@/lib/subscriptions/proration"
-import { summarizeSubscriptions } from "@/lib/subscriptions/summary"
 import { FilterableKpiCard } from "@/components/ui/filterable-kpi-card"
 import { KpiCardGrid } from "@/components/ui/kpi-card-grid"
+import { formatTvMoney, tvKpiTone } from "@/lib/subscriptions/tv-plans"
 
 export function SubscriptionsSummaryCards() {
-  const { customers, services, isReady } = useSubscriptions()
-  const [now] = useState(() => new Date())
-  const summary = useMemo(
-    () => summarizeSubscriptions(customers, services, now),
-    [customers, services, now]
-  )
+  const { summary, selectedPlan, setSelectedPlan, isSummaryReady } =
+    useSubscriptions()
+  const plans = summary?.plans ?? []
 
   return (
-    <KpiCardGrid layout="treasury">
-      <FilterableKpiCard
-        label="Suscriptores Activos"
-        value={summary.activeSubscribers}
-        icon={Users}
-        tone="green"
-        compact
-        isLoading={!isReady}
-        disabled
-      />
-      <FilterableKpiCard
-        label="Pendientes de Pago"
-        value={summary.pendingPayment}
-        icon={Clock3}
-        tone="amber"
-        compact
-        isLoading={!isReady}
-        disabled
-      />
-      <FilterableKpiCard
-        label="Pendientes de Activación"
-        value={summary.pendingActivation}
-        icon={UserCheck}
-        tone="blue"
-        compact
-        isLoading={!isReady}
-        disabled
-      />
-      <FilterableKpiCard
-        label="Altas del Mes"
-        value={summary.signupsThisMonth}
-        icon={CalendarPlus}
-        compact
-        isLoading={!isReady}
-        disabled
-      />
-      <FilterableKpiCard
-        label="Facturación Esperada"
-        value={formatSubscriptionMoney(summary.expectedBilling)}
-        icon={Banknote}
-        tone="green"
-        hint="Suma de abonos de activos"
-        compact
-        isLoading={!isReady}
-        disabled
-      />
-    </KpiCardGrid>
+    <section className="space-y-3">
+      <div>
+        <h2 className="text-sm font-semibold">Planes</h2>
+        <p className="text-xs text-muted-foreground">
+          Hacé click en un plan para filtrar el listado. El ingreso es cantidad
+          × precio actual del catálogo TV.
+        </p>
+      </div>
+      <KpiCardGrid layout="standard">
+        {plans.map((plan, index) => (
+          <FilterableKpiCard
+            key={plan.catalogId}
+            label={plan.name}
+            value={plan.activeCount}
+            icon={Tv}
+            tone={tvKpiTone(index)}
+            compact
+            isLoading={!isSummaryReady}
+            isActive={selectedPlan === plan.catalogId}
+            onClick={() => setSelectedPlan(plan.catalogId)}
+            hint={`${formatTvMoney(plan.monthlyRevenue)} / mes`}
+            ariaLabel={`Ver clientes con ${plan.name}`}
+          />
+        ))}
+      </KpiCardGrid>
+    </section>
   )
 }

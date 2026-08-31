@@ -83,6 +83,14 @@ export const ISP_MIGRATION_SERVICE_HEADERS = [
   "observaciones",
 ] as const
 
+export const ISP_MIGRATION_SERVICE_NOT_FOUND_MESSAGE =
+  "Servicio no encontrado en el catálogo de la empresa."
+
+export function ispMigrationInvalidTvRefMessage(serviceName: string): string {
+  const name = serviceName.trim() || "comercial"
+  return `El servicio '${name}' referencia un plan TV inexistente o inválido.`
+}
+
 export const ISP_MIGRATION_CONNECTION_HEADERS = [
   "conexion_id_externo",
   "servicio_id_externo",

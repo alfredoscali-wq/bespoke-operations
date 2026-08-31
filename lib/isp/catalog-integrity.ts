@@ -21,6 +21,7 @@ import type {
   IspCatalogItem,
   IspCatalogListFilters,
   IspCatalogServiceSnapshot,
+  IspCatalogTvPlan,
   IspOtPlanOption,
   IspTechnicalProfile,
   IspTechnicalProfileDraft,
@@ -50,6 +51,18 @@ export const ISP_CATALOG_PROFILE_NOT_FOUND_MESSAGE =
   "El servicio requiere un perfil técnico existente."
 export const ISP_CATALOG_PROFILE_INACTIVE_MESSAGE =
   "El perfil técnico no está activo."
+export const ISP_CATALOG_TV_PLAN_REQUIRED_MESSAGE =
+  "Seleccione el plan TV."
+export const ISP_CATALOG_TV_PLAN_NOT_FOUND_MESSAGE =
+  "El componente TV requiere un plan TV existente."
+export const ISP_CATALOG_TV_PLAN_CROSS_COMPANY_MESSAGE =
+  "El servicio no puede usar un plan TV de otra empresa."
+export const ISP_CATALOG_TV_PLAN_CATEGORY_MESSAGE =
+  "El componente TV debe ser un plan de categoría TV."
+export const ISP_CATALOG_TV_PLAN_INACTIVE_MESSAGE =
+  "El plan TV no está activo."
+export const ISP_CATALOG_TV_PLAN_SELF_MESSAGE =
+  "El componente TV no puede referenciar el mismo servicio."
 export const ISP_TECHNICAL_PROFILE_CODE_REQUIRED_MESSAGE =
   "Indique el código del perfil técnico."
 export const ISP_TECHNICAL_PROFILE_NAME_REQUIRED_MESSAGE =
@@ -511,6 +524,138 @@ export function assertTechnicalProfileForCatalog(input: {
   return { ok: true }
 }
 
+export function canCatalogItemIncludeTv(
+  category: string | null | undefined
+): boolean {
+  return (category ?? "").trim().toLowerCase() !== "tv"
+}
+
+export function resolvedTvPlanCatalogId(
+  draft: Pick<IspCatalogDraft, "category" | "includesTv" | "tvPlanCatalogId">
+): string | null {
+  if (!canCatalogItemIncludeTv(draft.category)) return null
+  if (!draft.includesTv) return null
+  const id = draft.tvPlanCatalogId.trim()
+  return id || null
+}
+
+export function catalogItemHasTvComponent(
+  item: Pick<IspCatalogItem, "tvPlanCatalogId">
+): boolean {
+  return Boolean(item.tvPlanCatalogId)
+}
+
+export function catalogTvComponentListLabel(
+  tvPlan: Pick<IspCatalogTvPlan, "name"> | null | undefined
+): string {
+  if (!tvPlan?.name.trim()) return "—"
+  return tvPlan.name.replace(/^TV\s+/i, "").trim() || tvPlan.name
+}
+
+export function isSelectableTvCatalogPlan(
+  item: Pick<IspCatalogItem, "id" | "category" | "isActive">,
+  options: {
+    currentCatalogId?: string | null
+    selectedTvPlanId?: string | null
+  } = {}
+): boolean {
+  if (item.category !== "tv") return false
+  if (options.currentCatalogId && item.id === options.currentCatalogId) {
+    return false
+  }
+  return item.isActive || item.id === (options.selectedTvPlanId ?? "")
+}
+
+export type CommercialTvComponentLookup = {
+  commercialCatalogId: string
+  commercialName: string
+  commercialMonthlyPrice: number | null
+  tvPlanCatalogId: string
+  tvPlanCode: string | null
+  tvPlanName: string
+  tvMonthlyPrice: number | null
+}
+
+export function resolveCommercialTvComponent(input: {
+  actorCompanyId: string
+  commercial: Pick<
+    IspCatalogItem,
+    "id" | "companyId" | "name" | "monthlyPrice" | "tvPlanCatalogId"
+  >
+  tvPlan:
+    | (Pick<
+        IspCatalogTvPlan,
+        "id" | "companyId" | "code" | "name" | "monthlyPrice"
+      > & { category: string })
+    | null
+    | undefined
+}): CommercialTvComponentLookup | null {
+  if (input.commercial.companyId !== input.actorCompanyId) return null
+  const tvPlanId = input.commercial.tvPlanCatalogId
+  if (!tvPlanId) return null
+  const plan = input.tvPlan
+  if (!plan || plan.id !== tvPlanId) return null
+  if (plan.companyId !== input.actorCompanyId) return null
+  if (plan.category !== "tv") return null
+  return {
+    commercialCatalogId: input.commercial.id,
+    commercialName: input.commercial.name,
+    commercialMonthlyPrice: input.commercial.monthlyPrice,
+    tvPlanCatalogId: plan.id,
+    tvPlanCode: plan.code,
+    tvPlanName: plan.name,
+    tvMonthlyPrice: plan.monthlyPrice,
+  }
+}
+
+export function formatCatalogMoney(
+  value: number | null | undefined,
+  currency = "ARS"
+): string {
+  if (value == null) return "—"
+  const amount = `$ ${value.toLocaleString("es-AR", {
+    maximumFractionDigits: 0,
+  })}`
+  return currency && currency !== "ARS" ? `${amount} ${currency}` : amount
+}
+
+export function assertTvPlanForCatalog(input: {
+  companyId: string
+  catalogId?: string | null
+  selectedTvPlanId: string | null | undefined
+  tvPlan:
+    | (Pick<IspCatalogTvPlan, "id" | "companyId" | "isActive"> & {
+        category: string
+      })
+    | null
+    | undefined
+  currentlyLinkedTvPlanId?: string | null
+}): { ok: boolean; message?: string } {
+  const selected = input.selectedTvPlanId?.trim() ?? ""
+  if (!selected) return { ok: true }
+
+  if (input.catalogId && selected === input.catalogId) {
+    return { ok: false, message: ISP_CATALOG_TV_PLAN_SELF_MESSAGE }
+  }
+
+  if (!input.tvPlan || input.tvPlan.id !== selected) {
+    return { ok: false, message: ISP_CATALOG_TV_PLAN_NOT_FOUND_MESSAGE }
+  }
+  if (input.tvPlan.companyId !== input.companyId) {
+    return { ok: false, message: ISP_CATALOG_TV_PLAN_CROSS_COMPANY_MESSAGE }
+  }
+  if (input.tvPlan.category !== "tv") {
+    return { ok: false, message: ISP_CATALOG_TV_PLAN_CATEGORY_MESSAGE }
+  }
+  if (
+    !input.tvPlan.isActive &&
+    input.currentlyLinkedTvPlanId !== input.tvPlan.id
+  ) {
+    return { ok: false, message: ISP_CATALOG_TV_PLAN_INACTIVE_MESSAGE }
+  }
+  return { ok: true }
+}
+
 export function suggestConnectionTypeFromCatalogAndOt(input: {
   technology: IspTechnology | ""
   installationIp?: string | null
@@ -677,6 +822,12 @@ export function validateCatalogDraft(
     return validateTechnicalProfileDraft(draft.technicalProfile)
   }
 
+  if (canCatalogItemIncludeTv(draft.category) && draft.includesTv) {
+    if (!draft.tvPlanCatalogId.trim()) {
+      return { valid: false, message: ISP_CATALOG_TV_PLAN_REQUIRED_MESSAGE }
+    }
+  }
+
   return { valid: true }
 }
 
@@ -708,6 +859,18 @@ export function mapCatalogWriteError(error: {
   }
   if (message.includes("perfil técnico existente")) {
     return ISP_CATALOG_PROFILE_NOT_FOUND_MESSAGE
+  }
+  if (message.includes("plan TV de otra empresa")) {
+    return ISP_CATALOG_TV_PLAN_CROSS_COMPANY_MESSAGE
+  }
+  if (message.includes("plan de categoría TV")) {
+    return ISP_CATALOG_TV_PLAN_CATEGORY_MESSAGE
+  }
+  if (message.includes("plan TV existente")) {
+    return ISP_CATALOG_TV_PLAN_NOT_FOUND_MESSAGE
+  }
+  if (message.includes("referenciar el mismo servicio")) {
+    return ISP_CATALOG_TV_PLAN_SELF_MESSAGE
   }
   return message || "No se pudo guardar el servicio."
 }
@@ -770,6 +933,8 @@ export function emptyCatalogDraft(): IspCatalogDraft {
     createTechnicalProfile: false,
     technicalProfile: emptyTechnicalProfileDraft(),
     otLabel: "",
+    includesTv: false,
+    tvPlanCatalogId: "",
   }
 }
 
@@ -800,6 +965,8 @@ export function catalogItemToDraft(item: IspCatalogItem): IspCatalogDraft {
       ? technicalProfileToDraft(item.technicalProfile)
       : emptyTechnicalProfileDraft(),
     otLabel: item.otLabel ?? "",
+    includesTv: Boolean(item.tvPlanCatalogId),
+    tvPlanCatalogId: item.tvPlanCatalogId ?? "",
   }
 }
 

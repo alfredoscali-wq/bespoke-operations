@@ -1,36 +1,42 @@
-import type { SupabaseClient } from "@supabase/supabase-js"
-
-import { calculateProratedAmount } from "@/lib/subscriptions/proration"
+import { escapeCustomerSearchPattern } from "@/lib/customers/customer-list"
+import { isIspCommercialStatus } from "@/lib/isp/labels"
 import {
-  canTransitionSubscriptionCustomer,
-  SUBSCRIPTION_COMMISSION_STATUSES,
-  SUBSCRIPTION_CUSTOMER_STATUSES,
-  SUBSCRIPTION_SALE_STATUSES,
-  type SubscriptionCommissionStatus,
-  type SubscriptionCustomerStatus,
-} from "@/lib/subscriptions/statuses"
+  canChangeTvPlanCode,
+  isTvOnlyCatalogWrite,
+  tvPlanWriteDraftToCatalogDraft,
+  validateTvPlanWriteDraft,
+  TV_PLAN_CODE_LOCKED_MESSAGE,
+  TV_PLAN_NOT_TV_CATEGORY_MESSAGE,
+  type TvPlanWriteDraft,
+} from "@/lib/subscriptions/tv-catalog"
 import {
-  mapSubscriptionCommissionRow,
-  mapSubscriptionCustomerRow,
-  mapSubscriptionSaleRow,
-  mapSubscriptionServiceRow,
-  type SubscriptionCommissionRow,
-  type SubscriptionCustomerRow,
-  type SubscriptionSaleRow,
-  type SubscriptionServiceRow,
-} from "@/lib/supabase/subscriptions.mapper"
-import type { Database } from "@/lib/supabase/database.types"
+  DEFAULT_TV_LIST_PAGE_SIZE,
+  isTvCatalogCategory,
+  resolveTvListCommercialIds,
+  TV_KPI_ACTIVE_STATUS,
+  summarizeTvPlans,
+  type TvCommercialServiceOption,
+  type TvDeskSummary,
+  type TvListStatusFilter,
+  type TvSelectedCommercialFilter,
+  type TvSelectedPlanFilter,
+} from "@/lib/subscriptions/tv-plans"
 import type {
-  CreateSubscriptionPreAltaInput,
-  SubscriptionCommission,
-  SubscriptionCustomer,
-  SubscriptionSale,
-  SubscriptionService,
+  TvCatalogPlan,
+  TvSubscriberListPage,
+  TvSubscriberRow,
 } from "@/lib/types/subscriptions"
+import type { Database } from "@/lib/supabase/database.types"
+import type { SupabaseClient } from "@supabase/supabase-js"
+import {
+  createIspCatalogItem,
+  setIspCatalogActive,
+  updateIspCatalogItem,
+} from "@/lib/isp/catalog-queries"
 
-export type SupabaseSubscriptionsClient = SupabaseClient<Database>
+export type SupabaseTvClient = SupabaseClient<Database>
 
-export type SubscriptionsRepositoryResult<T> =
+export type TvRepositoryResult<T> =
   | { data: T; error: null }
   | { data: null; error: { code: string; message: string } }
 
@@ -41,44 +47,203 @@ function mapError(error: { code?: string; message: string }) {
   }
 }
 
-const SERVICE_SELECT = "*" as const
+type CatalogRow = {
+  id: string
+  company_id: string
+  code: string | null
+  name: string
+  monthly_price: number | string | null
+  category: string
+  requires_connection: boolean
+  billing_method: string
+  is_active: boolean
+}
 
-const CUSTOMER_SELECT = `
-  *,
-  service:subscription_services!subscription_customers_service_id_fkey(name)
-` as const
+type CustomerEmbed = {
+  id: string
+  name: string | null
+  phone: string | null
+  locality: string | null
+  dni: string | null
+  customer_number: string | null
+} | null
 
-const SALE_SELECT = `
-  *,
-  customer:subscription_customers!subscription_sales_customer_id_fkey(
-    first_name, last_name
-  ),
-  service:subscription_services!subscription_sales_service_id_fkey(name),
-  seller:employees!subscription_sales_seller_employee_id_fkey(
-    first_name, last_name, preferred_name
-  )
-` as const
+type ServiceListRow = {
+  id: string
+  company_id: string
+  customer_id: string
+  catalog_id: string | null
+  plan_name: string
+  monthly_fee: number | string | null
+  commercial_status: string
+  activation_date: string | null
+  customer: CustomerEmbed | CustomerEmbed[]
+  catalog?: {
+    code: string | null
+    name: string
+    monthly_price: number | string | null
+    category: string
+    tv_plan_catalog_id: string | null
+  } | null
+}
 
-const COMMISSION_SELECT = `
-  *,
-  employee:employees!subscription_commissions_employee_id_fkey(
-    first_name, last_name, preferred_name
-  ),
-  sale:subscription_sales!subscription_commissions_sale_id_fkey(
-    customer:subscription_customers!subscription_sales_customer_id_fkey(
-      first_name, last_name
-    )
-  )
-` as const
+function toNumber(value: number | string | null | undefined): number {
+  const n = typeof value === "number" ? value : Number(value)
+  return Number.isFinite(n) ? n : 0
+}
 
-export async function fetchSubscriptionServices(
-  client: SupabaseSubscriptionsClient,
+function embedOne<T>(value: T | T[] | null | undefined): T | null {
+  if (Array.isArray(value)) return value[0] ?? null
+  return value ?? null
+}
+
+function mapCatalogPlan(
+  row: CatalogRow,
+  usedCount = 0
+): TvCatalogPlan | null {
+  if (!isTvCatalogCategory(row.category)) return null
+  const code = row.code?.trim() ?? ""
+  if (!code) return null
+  return {
+    id: row.id,
+    companyId: row.company_id,
+    code,
+    name: row.name.trim() || code,
+    monthlyPrice: toNumber(row.monthly_price),
+    category: "tv",
+    requiresConnection: row.requires_connection,
+    billingMethod: row.billing_method,
+    isActive: row.is_active,
+    usedCount,
+  }
+}
+
+async function countTvPlanUsage(
+  client: SupabaseTvClient,
+  companyId: string,
+  planIds: string[]
+): Promise<Map<string, number>> {
+  const counts = new Map<string, number>()
+  if (planIds.length === 0) return counts
+
+  const [{ data: services }, { data: tasks }, { data: commercial }] =
+    await Promise.all([
+      client
+        .from("isp_services")
+        .select("catalog_id")
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .in("catalog_id", planIds),
+      client
+        .from("tasks")
+        .select("service_catalog_id")
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .in("service_catalog_id", planIds),
+      client
+        .from("isp_service_catalog")
+        .select("tv_plan_catalog_id")
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .in("tv_plan_catalog_id", planIds),
+    ])
+
+  for (const row of services ?? []) {
+    const id = row.catalog_id
+    if (!id) continue
+    counts.set(id, (counts.get(id) ?? 0) + 1)
+  }
+  for (const row of tasks ?? []) {
+    const id = row.service_catalog_id
+    if (!id) continue
+    counts.set(id, (counts.get(id) ?? 0) + 1)
+  }
+  for (const row of commercial ?? []) {
+    const id = row.tv_plan_catalog_id
+    if (!id) continue
+    counts.set(id, (counts.get(id) ?? 0) + 1)
+  }
+  return counts
+}
+
+type CommercialTvCatalogRow = {
+  id: string
+  name: string
+  tv_plan_catalog_id: string | null
+}
+
+async function fetchCommercialCatalogsWithTv(
+  client: SupabaseTvClient,
   companyId: string
-): Promise<SubscriptionsRepositoryResult<SubscriptionService[]>> {
-  const { data, error } = await (client as SupabaseClient)
-    .from("subscription_services")
-    .select(SERVICE_SELECT)
+): Promise<TvRepositoryResult<TvCommercialServiceOption[]>> {
+  const { data, error } = await client
+    .from("isp_service_catalog")
+    .select("id, name, tv_plan_catalog_id")
     .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .not("tv_plan_catalog_id", "is", null)
+    .order("name", { ascending: true })
+
+  if (error) {
+    return { data: null, error: mapError(error) }
+  }
+
+  const options: TvCommercialServiceOption[] = []
+  for (const row of (data ?? []) as CommercialTvCatalogRow[]) {
+    const tvId = row.tv_plan_catalog_id
+    if (!tvId) continue
+    options.push({
+      id: row.id,
+      name: row.name.trim() || "Servicio comercial",
+      tvPlanCatalogId: tvId,
+    })
+  }
+  return { data: options, error: null }
+}
+
+async function commercialCatalogIdsByTvPlan(
+  client: SupabaseTvClient,
+  companyId: string
+): Promise<TvRepositoryResult<Map<string, string[]>>> {
+  const catalogs = await fetchCommercialCatalogsWithTv(client, companyId)
+  if (catalogs.error || !catalogs.data) {
+    return {
+      data: null,
+      error:
+        catalogs.error ?? {
+          code: "UNKNOWN",
+          message: "No se pudieron leer los componentes TV.",
+        },
+    }
+  }
+
+  const grouped = new Map<string, string[]>()
+  for (const row of catalogs.data) {
+    const current = grouped.get(row.tvPlanCatalogId) ?? []
+    current.push(row.id)
+    grouped.set(row.tvPlanCatalogId, current)
+  }
+  return { data: grouped, error: null }
+}
+
+export async function fetchTvCommercialServiceOptions(
+  client: SupabaseTvClient,
+  companyId: string
+): Promise<TvRepositoryResult<TvCommercialServiceOption[]>> {
+  return fetchCommercialCatalogsWithTv(client, companyId)
+}
+
+export async function fetchTvCatalogPlans(
+  client: SupabaseTvClient,
+  companyId: string
+): Promise<TvRepositoryResult<TvCatalogPlan[]>> {
+  const { data, error } = await client
+    .from("isp_service_catalog")
+    .select(
+      "id, company_id, code, name, monthly_price, category, requires_connection, billing_method, is_active"
+    )
+    .eq("company_id", companyId)
+    .eq("category", "tv")
     .is("deleted_at", null)
     .order("name", { ascending: true })
 
@@ -86,347 +251,419 @@ export async function fetchSubscriptionServices(
     return { data: null, error: mapError(error) }
   }
 
-  return {
-    data: ((data ?? []) as SubscriptionServiceRow[]).map(
-      mapSubscriptionServiceRow
-    ),
-    error: null,
-  }
+  const rows = (data ?? []) as CatalogRow[]
+  const usage = await countTvPlanUsage(
+    client,
+    companyId,
+    rows.map((row) => row.id)
+  )
+  const plans = rows
+    .map((row) => mapCatalogPlan(row, usage.get(row.id) ?? 0))
+    .filter((plan): plan is TvCatalogPlan => plan != null)
+
+  return { data: plans, error: null }
 }
 
-export async function fetchSubscriptionCustomers(
-  client: SupabaseSubscriptionsClient,
+export async function fetchTvDeskSummary(
+  client: SupabaseTvClient,
   companyId: string
-): Promise<SubscriptionsRepositoryResult<SubscriptionCustomer[]>> {
-  const { data, error } = await (client as SupabaseClient)
-    .from("subscription_customers")
-    .select(CUSTOMER_SELECT)
-    .eq("company_id", companyId)
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false })
-
-  if (error) {
-    return { data: null, error: mapError(error) }
-  }
-
-  return {
-    data: ((data ?? []) as SubscriptionCustomerRow[]).map(
-      mapSubscriptionCustomerRow
-    ),
-    error: null,
-  }
-}
-
-export async function fetchSubscriptionSales(
-  client: SupabaseSubscriptionsClient,
-  companyId: string
-): Promise<SubscriptionsRepositoryResult<SubscriptionSale[]>> {
-  const { data, error } = await (client as SupabaseClient)
-    .from("subscription_sales")
-    .select(SALE_SELECT)
-    .eq("company_id", companyId)
-    .is("deleted_at", null)
-    .order("sale_date", { ascending: false })
-    .order("created_at", { ascending: false })
-
-  if (error) {
-    return { data: null, error: mapError(error) }
-  }
-
-  return {
-    data: ((data ?? []) as SubscriptionSaleRow[]).map(mapSubscriptionSaleRow),
-    error: null,
-  }
-}
-
-export async function fetchSubscriptionCommissions(
-  client: SupabaseSubscriptionsClient,
-  companyId: string
-): Promise<SubscriptionsRepositoryResult<SubscriptionCommission[]>> {
-  const { data, error } = await (client as SupabaseClient)
-    .from("subscription_commissions")
-    .select(COMMISSION_SELECT)
-    .eq("company_id", companyId)
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false })
-
-  if (error) {
-    return { data: null, error: mapError(error) }
-  }
-
-  return {
-    data: ((data ?? []) as SubscriptionCommissionRow[]).map(
-      mapSubscriptionCommissionRow
-    ),
-    error: null,
-  }
-}
-
-function validatePreAltaInput(
-  input: CreateSubscriptionPreAltaInput
-): string | null {
-  if (!input.companyId.trim()) return "companyId es obligatorio."
-  if (!input.serviceId.trim()) return "El servicio es obligatorio."
-  if (!input.firstName.trim()) return "El nombre es obligatorio."
-  if (!input.lastName.trim()) return "El apellido es obligatorio."
-  if (!input.dni.trim()) return "El DNI es obligatorio."
-  if (!input.phone.trim()) return "El teléfono es obligatorio."
-  if (!input.activationDate.trim()) return "La fecha de alta es obligatoria."
-  return null
-}
-
-export async function createSubscriptionPreAlta(
-  client: SupabaseSubscriptionsClient,
-  input: CreateSubscriptionPreAltaInput
-): Promise<
-  SubscriptionsRepositoryResult<{
-    customer: SubscriptionCustomer
-    sale: SubscriptionSale
-    commission: SubscriptionCommission | null
-  }>
-> {
-  const validationError = validatePreAltaInput(input)
-  if (validationError) {
+): Promise<TvRepositoryResult<TvDeskSummary>> {
+  const catalog = await fetchTvCatalogPlans(client, companyId)
+  if (catalog.error || !catalog.data) {
     return {
       data: null,
-      error: { code: "VALIDATION", message: validationError },
+      error:
+        catalog.error ?? {
+          code: "UNKNOWN",
+          message: "Catálogo TV no disponible.",
+        },
     }
   }
 
-  const { data: serviceRow, error: serviceError } = await (
-    client as SupabaseClient
-  )
-    .from("subscription_services")
-    .select(SERVICE_SELECT)
-    .eq("id", input.serviceId)
-    .eq("company_id", input.companyId)
-    .is("deleted_at", null)
-    .maybeSingle()
-
-  if (serviceError) {
-    return { data: null, error: mapError(serviceError) }
-  }
-  if (!serviceRow) {
+  const grouped = await commercialCatalogIdsByTvPlan(client, companyId)
+  if (grouped.error || !grouped.data) {
     return {
       data: null,
-      error: { code: "NOT_FOUND", message: "Servicio no encontrado." },
+      error:
+        grouped.error ?? {
+          code: "UNKNOWN",
+          message: "No se pudieron leer los componentes TV.",
+        },
     }
   }
 
-  const service = mapSubscriptionServiceRow(
-    serviceRow as SubscriptionServiceRow
-  )
-  const firstInvoiceAmount = calculateProratedAmount(
-    service.monthlyPrice,
-    input.activationDate
-  )
+  const counts = await Promise.all(
+    catalog.data.map(async (plan) => {
+      const commercialIds = grouped.data.get(plan.id) ?? []
+      if (commercialIds.length === 0) {
+        return { plan, activeCount: 0, error: null }
+      }
+      const { count, error } = await client
+        .from("isp_services")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", companyId)
+        .in("catalog_id", commercialIds)
+        .eq("commercial_status", TV_KPI_ACTIVE_STATUS)
+        .is("deleted_at", null)
 
-  const { data: customerRow, error: customerError } = await (
-    client as SupabaseClient
-  )
-    .from("subscription_customers")
-    .insert({
-      company_id: input.companyId,
-      service_id: input.serviceId,
-      first_name: input.firstName.trim(),
-      last_name: input.lastName.trim(),
-      dni: input.dni.trim(),
-      email: input.email?.trim() ?? "",
-      phone: input.phone.trim(),
-      address: input.address?.trim() ?? "",
-      city: input.city?.trim() ?? "",
-      status: SUBSCRIPTION_CUSTOMER_STATUSES.PENDING_PAYMENT,
-      activation_date: input.activationDate,
+      if (error) {
+        return { plan, activeCount: 0, error }
+      }
+      return { plan, activeCount: count ?? 0, error: null }
     })
-    .select(CUSTOMER_SELECT)
-    .single()
-
-  if (customerError || !customerRow) {
-    return {
-      data: null,
-      error: mapError(
-        customerError ?? { message: "No se pudo crear la pre-alta." }
-      ),
-    }
-  }
-
-  const customer = mapSubscriptionCustomerRow(
-    customerRow as SubscriptionCustomerRow
   )
 
-  const sellerId = input.sellerEmployeeId?.trim() || null
+  const failed = counts.find((item) => item.error)
+  if (failed?.error) {
+    return { data: null, error: mapError(failed.error) }
+  }
 
-  const { data: saleRow, error: saleError } = await (client as SupabaseClient)
-    .from("subscription_sales")
-    .insert({
-      company_id: input.companyId,
-      customer_id: customer.id,
-      service_id: input.serviceId,
-      seller_employee_id: sellerId,
-      sale_date: input.activationDate,
-      monthly_price: service.monthlyPrice,
-      first_invoice_amount: firstInvoiceAmount,
-      status: SUBSCRIPTION_SALE_STATUSES.OPEN,
-    })
-    .select(SALE_SELECT)
-    .single()
+  return {
+    data: summarizeTvPlans(
+      counts.map((item) => ({
+        code: item.plan.code,
+        catalogId: item.plan.id,
+        name: item.plan.name,
+        monthlyPrice: item.plan.monthlyPrice,
+        isActive: item.plan.isActive,
+        activeCount: item.activeCount,
+      }))
+    ),
+    error: null,
+  }
+}
 
-  if (saleError || !saleRow) {
-    await (client as SupabaseClient)
-      .from("subscription_customers")
-      .update({ deleted_at: new Date().toISOString() })
-      .eq("id", customer.id)
+function mapListRow(
+  row: ServiceListRow,
+  tvPlansById: Map<string, TvCatalogPlan>
+): TvSubscriberRow | null {
+  const embedded = embedOne(row.catalog)
+  const tvPlanId = embedded?.tv_plan_catalog_id ?? null
+  if (!tvPlanId) return null
+  const tvPlan = tvPlansById.get(tvPlanId)
+  if (!tvPlan) return null
+  if (!isIspCommercialStatus(row.commercial_status)) return null
 
+  const customer = embedOne(row.customer)
+  if (!customer) return null
+
+  return {
+    serviceId: row.id,
+    customerId: row.customer_id,
+    companyId: row.company_id,
+    customerName: customer.name?.trim() || "Sin nombre",
+    phone: customer.phone?.trim() || "",
+    locality: customer.locality?.trim() || "",
+    dni: customer.dni?.trim() || "",
+    customerNumber: customer.customer_number?.trim() || "",
+    commercialPlanName: row.plan_name.trim() || embedded?.name || "—",
+    commercialCatalogId: row.catalog_id ?? "",
+    tvPlanCatalogId: tvPlan.id,
+    planCode: tvPlan.code,
+    planName: tvPlan.name,
+    monthlyPrice: tvPlan.monthlyPrice,
+    commercialStatus: row.commercial_status,
+    activationDate: row.activation_date,
+  }
+}
+
+export async function fetchTvSubscriberPage(
+  client: SupabaseTvClient,
+  input: {
+    companyId: string
+    plans: TvCatalogPlan[]
+    selectedPlan: TvSelectedPlanFilter
+    selectedCommercialId?: TvSelectedCommercialFilter
+    status: TvListStatusFilter
+    search?: string
+    page: number
+    pageSize?: number
+  }
+): Promise<TvRepositoryResult<TvSubscriberListPage>> {
+  const pageSize = input.pageSize ?? DEFAULT_TV_LIST_PAGE_SIZE
+  const page = Math.max(1, input.page)
+  const from = (page - 1) * pageSize
+  const to = from + pageSize - 1
+  const tvPlansById = new Map(input.plans.map((plan) => [plan.id, plan]))
+
+  const grouped = await commercialCatalogIdsByTvPlan(client, input.companyId)
+  if (grouped.error || !grouped.data) {
     return {
       data: null,
-      error: mapError(
-        saleError ?? { message: "No se pudo registrar la venta." }
-      ),
+      error:
+        grouped.error ?? {
+          code: "UNKNOWN",
+          message: "No se pudieron leer los componentes TV.",
+        },
     }
   }
 
-  const sale = mapSubscriptionSaleRow(saleRow as SubscriptionSaleRow)
-  let commission: SubscriptionCommission | null = null
+  const commercialIds = resolveTvListCommercialIds({
+    commercialIdsByTvPlan: grouped.data,
+    selectedPlan: input.selectedPlan,
+    selectedCommercialId: input.selectedCommercialId ?? "all",
+  })
 
-  const commissionAmount = input.commissionAmount ?? 0
-  if (sellerId && Number.isFinite(commissionAmount) && commissionAmount > 0) {
-    const { data: commissionRow, error: commissionError } = await (
-      client as SupabaseClient
-    )
-      .from("subscription_commissions")
-      .insert({
-        company_id: input.companyId,
-        sale_id: sale.id,
-        employee_id: sellerId,
-        commission_amount: commissionAmount,
-        status: SUBSCRIPTION_COMMISSION_STATUSES.PENDING,
-      })
-      .select(COMMISSION_SELECT)
-      .single()
+  if (commercialIds.length === 0) {
+    return {
+      data: { items: [], total: 0, page, pageSize },
+      error: null,
+    }
+  }
 
-    if (commissionError || !commissionRow) {
+  let customerIds: string[] | null = null
+  const search = input.search?.trim() ?? ""
+  if (search) {
+    const pattern = escapeCustomerSearchPattern(search)
+    const { data: matches, error: searchError } = await client
+      .from("customers")
+      .select("id")
+      .eq("company_id", input.companyId)
+      .is("deleted_at", null)
+      .or(
+        `name.ilike.${pattern},phone.ilike.${pattern},whatsapp.ilike.${pattern},locality.ilike.${pattern},dni.ilike.${pattern},customer_number.ilike.${pattern}`
+      )
+      .limit(500)
+
+    if (searchError) {
+      return { data: null, error: mapError(searchError) }
+    }
+    customerIds = (matches ?? []).map((row) => row.id)
+    if (customerIds.length === 0) {
       return {
-        data: null,
-        error: mapError(
-          commissionError ?? { message: "No se pudo registrar la comisión." }
-        ),
+        data: { items: [], total: 0, page, pageSize },
+        error: null,
       }
     }
-
-    commission = mapSubscriptionCommissionRow(
-      commissionRow as SubscriptionCommissionRow
-    )
   }
 
-  return { data: { customer, sale, commission }, error: null }
-}
-
-export async function transitionSubscriptionCustomer(
-  client: SupabaseSubscriptionsClient,
-  customerId: string,
-  nextStatus: SubscriptionCustomerStatus
-): Promise<SubscriptionsRepositoryResult<SubscriptionCustomer>> {
-  const { data: existing, error: fetchError } = await (client as SupabaseClient)
-    .from("subscription_customers")
-    .select(CUSTOMER_SELECT)
-    .eq("id", customerId)
-    .is("deleted_at", null)
-    .maybeSingle()
-
-  if (fetchError) {
-    return { data: null, error: mapError(fetchError) }
-  }
-  if (!existing) {
-    return {
-      data: null,
-      error: { code: "NOT_FOUND", message: "Suscriptor no encontrado." },
-    }
-  }
-
-  const current = mapSubscriptionCustomerRow(
-    existing as SubscriptionCustomerRow
-  )
-  if (!canTransitionSubscriptionCustomer(current.status, nextStatus)) {
-    return {
-      data: null,
-      error: {
-        code: "INVALID_TRANSITION",
-        message: `No se puede pasar de ${current.status} a ${nextStatus}.`,
-      },
-    }
-  }
-
-  const { data: updated, error: updateError } = await (client as SupabaseClient)
-    .from("subscription_customers")
-    .update({ status: nextStatus })
-    .eq("id", customerId)
-    .is("deleted_at", null)
-    .select(CUSTOMER_SELECT)
-    .single()
-
-  if (updateError || !updated) {
-    return {
-      data: null,
-      error: mapError(
-        updateError ?? { message: "No se pudo actualizar el estado." }
+  let query = client
+    .from("isp_services")
+    .select(
+      `
+      id,
+      company_id,
+      customer_id,
+      catalog_id,
+      plan_name,
+      monthly_fee,
+      commercial_status,
+      activation_date,
+      customer:customers!isp_services_customer_id_fkey(
+        id, name, phone, locality, dni, customer_number
       ),
-    }
-  }
-
-  if (nextStatus === SUBSCRIPTION_CUSTOMER_STATUSES.ACTIVE) {
-    await (client as SupabaseClient)
-      .from("subscription_sales")
-      .update({ status: SUBSCRIPTION_SALE_STATUSES.COMPLETED })
-      .eq("customer_id", customerId)
-      .eq("status", SUBSCRIPTION_SALE_STATUSES.OPEN)
-      .is("deleted_at", null)
-  }
-
-  if (nextStatus === SUBSCRIPTION_CUSTOMER_STATUSES.CANCELLED) {
-    await (client as SupabaseClient)
-      .from("subscription_sales")
-      .update({ status: SUBSCRIPTION_SALE_STATUSES.CANCELLED })
-      .eq("customer_id", customerId)
-      .eq("status", SUBSCRIPTION_SALE_STATUSES.OPEN)
-      .is("deleted_at", null)
-  }
-
-  return {
-    data: mapSubscriptionCustomerRow(updated as SubscriptionCustomerRow),
-    error: null,
-  }
-}
-
-export async function markSubscriptionCommissionPaid(
-  client: SupabaseSubscriptionsClient,
-  commissionId: string
-): Promise<SubscriptionsRepositoryResult<SubscriptionCommission>> {
-  const { data, error } = await (client as SupabaseClient)
-    .from("subscription_commissions")
-    .update({ status: SUBSCRIPTION_COMMISSION_STATUSES.PAID })
-    .eq("id", commissionId)
-    .eq("status", SUBSCRIPTION_COMMISSION_STATUSES.PENDING)
+      catalog:isp_service_catalog!isp_services_catalog_id_fkey(
+        code, name, monthly_price, category, tv_plan_catalog_id
+      )
+    `,
+      { count: "exact" }
+    )
+    .eq("company_id", input.companyId)
     .is("deleted_at", null)
-    .select(COMMISSION_SELECT)
-    .maybeSingle()
+    .in("catalog_id", commercialIds)
+    .order("activation_date", { ascending: false })
+    .range(from, to)
 
+  if (customerIds) {
+    query = query.in("customer_id", customerIds)
+  }
+
+  if (input.status !== "all") {
+    query = query.eq("commercial_status", input.status)
+  }
+
+  const { data, error, count } = await query
   if (error) {
     return { data: null, error: mapError(error) }
   }
-  if (!data) {
-    return {
-      data: null,
-      error: {
-        code: "NOT_FOUND",
-        message: "Comisión no encontrada o ya pagada.",
-      },
-    }
-  }
+
+  const items = ((data ?? []) as unknown as ServiceListRow[])
+    .map((row) => mapListRow(row, tvPlansById))
+    .filter((row): row is TvSubscriberRow => row != null)
 
   return {
-    data: mapSubscriptionCommissionRow(data as SubscriptionCommissionRow),
+    data: {
+      items,
+      total: count ?? items.length,
+      page,
+      pageSize,
+    },
     error: null,
   }
 }
 
-export type { SubscriptionCommissionStatus }
+export async function createTvCatalogPlan(
+  client: SupabaseTvClient,
+  companyId: string,
+  draft: TvPlanWriteDraft
+): Promise<TvRepositoryResult<TvCatalogPlan>> {
+  const validation = validateTvPlanWriteDraft(draft)
+  if (!validation.valid) {
+    return {
+      data: null,
+      error: { code: "VALIDATION", message: validation.message ?? "Datos inválidos." },
+    }
+  }
+
+  try {
+    const item = await createIspCatalogItem(
+      client,
+      companyId,
+      tvPlanWriteDraftToCatalogDraft(draft)
+    )
+    if (!isTvOnlyCatalogWrite(item.category)) {
+      return {
+        data: null,
+        error: { code: "VALIDATION", message: TV_PLAN_NOT_TV_CATEGORY_MESSAGE },
+      }
+    }
+    return {
+      data: {
+        id: item.id,
+        companyId: item.companyId,
+        code: item.code ?? draft.code.trim(),
+        name: item.name,
+        monthlyPrice: item.monthlyPrice ?? 0,
+        category: "tv",
+        requiresConnection: item.requiresConnection,
+        billingMethod: item.billingMethod,
+        isActive: item.isActive,
+        usedCount: item.usedCount ?? 0,
+      },
+      error: null,
+    }
+  } catch (error) {
+    return {
+      data: null,
+      error: mapError(
+        error instanceof Error ? error : { message: "No se pudo crear el plan TV." }
+      ),
+    }
+  }
+}
+
+export async function updateTvCatalogPlan(
+  client: SupabaseTvClient,
+  companyId: string,
+  id: string,
+  draft: TvPlanWriteDraft
+): Promise<TvRepositoryResult<TvCatalogPlan>> {
+  const validation = validateTvPlanWriteDraft(draft)
+  if (!validation.valid) {
+    return {
+      data: null,
+      error: { code: "VALIDATION", message: validation.message ?? "Datos inválidos." },
+    }
+  }
+
+  const catalog = await fetchTvCatalogPlans(client, companyId)
+  if (catalog.error || !catalog.data) {
+    return {
+      data: null,
+      error: catalog.error ?? { code: "UNKNOWN", message: "Plan TV no encontrado." },
+    }
+  }
+  const current = catalog.data.find((plan) => plan.id === id)
+  if (!current) {
+    return {
+      data: null,
+      error: { code: "NOT_FOUND", message: "Plan TV no encontrado." },
+    }
+  }
+
+  const nextCode = draft.code.trim()
+  if (
+    nextCode !== current.code &&
+    !canChangeTvPlanCode(current.usedCount)
+  ) {
+    return {
+      data: null,
+      error: { code: "VALIDATION", message: TV_PLAN_CODE_LOCKED_MESSAGE },
+    }
+  }
+
+  try {
+    const item = await updateIspCatalogItem(
+      client,
+      companyId,
+      id,
+      tvPlanWriteDraftToCatalogDraft({
+        ...draft,
+        code: nextCode !== current.code ? nextCode : current.code,
+      })
+    )
+    if (!isTvOnlyCatalogWrite(item.category)) {
+      return {
+        data: null,
+        error: { code: "VALIDATION", message: TV_PLAN_NOT_TV_CATEGORY_MESSAGE },
+      }
+    }
+    return {
+      data: {
+        id: item.id,
+        companyId: item.companyId,
+        code: item.code ?? current.code,
+        name: item.name,
+        monthlyPrice: item.monthlyPrice ?? 0,
+        category: "tv",
+        requiresConnection: item.requiresConnection,
+        billingMethod: item.billingMethod,
+        isActive: item.isActive,
+        usedCount: item.usedCount ?? current.usedCount,
+      },
+      error: null,
+    }
+  } catch (error) {
+    return {
+      data: null,
+      error: mapError(
+        error instanceof Error
+          ? error
+          : { message: "No se pudo actualizar el plan TV." }
+      ),
+    }
+  }
+}
+
+export async function setTvCatalogPlanActive(
+  client: SupabaseTvClient,
+  companyId: string,
+  id: string,
+  isActive: boolean
+): Promise<TvRepositoryResult<TvCatalogPlan>> {
+  const catalog = await fetchTvCatalogPlans(client, companyId)
+  if (catalog.error || !catalog.data) {
+    return {
+      data: null,
+      error: catalog.error ?? { code: "UNKNOWN", message: "Plan TV no encontrado." },
+    }
+  }
+  const current = catalog.data.find((plan) => plan.id === id)
+  if (!current) {
+    return {
+      data: null,
+      error: { code: "NOT_FOUND", message: "Plan TV no encontrado." },
+    }
+  }
+
+  try {
+    const item = await setIspCatalogActive(client, companyId, id, isActive)
+    return {
+      data: {
+        ...current,
+        isActive: item.isActive,
+        usedCount: item.usedCount ?? current.usedCount,
+      },
+      error: null,
+    }
+  } catch (error) {
+    return {
+      data: null,
+      error: mapError(
+        error instanceof Error
+          ? error
+          : { message: "No se pudo actualizar el estado del plan TV." }
+      ),
+    }
+  }
+}

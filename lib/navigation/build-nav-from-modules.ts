@@ -22,7 +22,6 @@ import {
   networkTopologyNavItem,
   networkDiscoveryNavItem,
   reportsNavItem,
-  subscriptionsNavItem,
   tesoreriaNavItem,
   workforceMonitorNavItem,
 } from "@/lib/navigation/nav-items"
@@ -68,7 +67,6 @@ const ANALYSIS_NAV_ORDER: readonly string[] = [
   activityTimelineNavItem.href,
   reportsNavItem.href,
   tesoreriaNavItem.href,
-  subscriptionsNavItem.href,
 ]
 
 function sortAnalysisNavItems(items: NavItem[]): NavItem[] {

@@ -4,10 +4,12 @@ import {
   isIspCatalogCustomerType,
   isIspCatalogTechnology,
   parseOptionalNonNegativeNumber,
+  resolvedTvPlanCatalogId,
 } from "@/lib/isp/catalog-integrity"
 import type {
   IspCatalogDraft,
   IspCatalogItem,
+  IspCatalogTvPlan,
   IspTechnicalProfile,
   IspTechnicalProfileDraft,
 } from "@/lib/isp/catalog-types"
@@ -80,10 +82,32 @@ export function mapTechnicalProfileDraftToInsert(
   }
 }
 
+export function mapIspCatalogTvPlanRow(
+  row: Pick<
+    IspServiceCatalogRow,
+    | "id"
+    | "company_id"
+    | "code"
+    | "name"
+    | "monthly_price"
+    | "is_active"
+  >
+): IspCatalogTvPlan {
+  return {
+    id: row.id,
+    companyId: row.company_id,
+    code: row.code,
+    name: row.name,
+    monthlyPrice: row.monthly_price,
+    isActive: row.is_active,
+  }
+}
+
 export function mapIspCatalogRow(
   row: IspServiceCatalogRow,
   usedCount = 0,
-  technicalProfile: IspTechnicalProfile | null = null
+  technicalProfile: IspTechnicalProfile | null = null,
+  tvPlan: IspCatalogTvPlan | null = null
 ): IspCatalogItem {
   return {
     id: row.id,
@@ -114,6 +138,8 @@ export function mapIspCatalogRow(
     ),
     technicalProfileId: row.technical_profile_id,
     technicalProfile,
+    tvPlanCatalogId: row.tv_plan_catalog_id,
+    tvPlan: tvPlan ?? null,
     otLabel: row.ot_label,
     legacyPlanCode: row.legacy_plan_code,
     isSeed: row.is_seed,
@@ -150,6 +176,7 @@ export function mapCatalogDraftToInsert(
       ? draft.allowedConnectionTypes
       : [],
     technical_profile_id: technicalProfileId,
+    tv_plan_catalog_id: resolvedTvPlanCatalogId(draft),
     ot_label: draft.otLabel.trim() || null,
   }
 }

@@ -13,6 +13,7 @@ import {
   catalogCategoryLabel,
   catalogConnectionTypeLabel,
   catalogTechnologyLabel,
+  formatCatalogMoney,
   formatCatalogSpeedValue,
   formatCatalogSpeedUnit,
   resolveCatalogCharacteristics,
@@ -123,7 +124,7 @@ export function IspCatalogDetailScreen({ catalogId }: { catalogId: string }) {
             value={ISP_CATALOG_CUSTOMER_TYPE_LABELS[item.customerType]}
           />
           <Item
-            label="Precio"
+            label="Precio mensual (abono)"
             value={formatPrice(item.monthlyPrice, item.currency)}
           />
           <Item
@@ -147,6 +148,35 @@ export function IspCatalogDetailScreen({ catalogId }: { catalogId: string }) {
             <Item label="Descripción" value={item.description || "—"} />
           </div>
         </dl>
+      </section>
+
+      <section className="space-y-3 rounded-xl border p-4">
+        <h2 className="text-sm font-semibold">Componente TV</h2>
+        <p className="text-xs text-muted-foreground">
+          El cargo TV es interno. No es un segundo cobro ni el precio total del
+          servicio.
+        </p>
+        {item.category === "tv" ? (
+          <p className="text-sm text-muted-foreground">
+            Este registro es un plan TV del catálogo, no un abono comercial con
+            componente.
+          </p>
+        ) : item.tvPlan ? (
+          <dl className="grid gap-3 sm:grid-cols-2">
+            <Item label="Incluye TV" value="Sí" />
+            <Item label="Plan TV" value={item.tvPlan.name} />
+            <Item label="Código TV" value={item.tvPlan.code || "—"} />
+            <Item
+              label="Cargo TV (referencia)"
+              value={formatCatalogMoney(item.tvPlan.monthlyPrice, item.currency)}
+            />
+          </dl>
+        ) : (
+          <dl className="grid gap-3 sm:grid-cols-2">
+            <Item label="Incluye TV" value="No" />
+            <Item label="Plan TV" value="Sin TV" />
+          </dl>
+        )}
       </section>
 
       <section className="space-y-3 rounded-xl border p-4">

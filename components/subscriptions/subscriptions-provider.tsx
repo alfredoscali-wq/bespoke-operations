@@ -12,50 +12,60 @@ import {
 import { useAuth } from "@/components/auth/auth-provider"
 import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import { canWriteSubscriptions } from "@/lib/subscriptions/permissions"
-import type { SubscriptionCustomerStatus } from "@/lib/subscriptions/statuses"
+import type { TvPlanWriteDraft } from "@/lib/subscriptions/tv-catalog"
 import {
-  listSubscriptionCommissions,
-  listSubscriptionCustomers,
-  listSubscriptionSales,
-  listSubscriptionServices,
-  paySubscriptionCommission,
-  registerSubscriptionPreAlta,
-  updateSubscriptionCustomerStatus,
+  createTvPlan,
+  listTvCatalogPlans,
+  listTvCommercialServiceOptions,
+  listTvDeskSummary,
+  listTvSubscribers,
+  setTvPlanActive,
+  updateTvPlan,
 } from "@/lib/supabase/subscriptions.browser"
+import {
+  DEFAULT_TV_LIST_PAGE_SIZE,
+  EMPTY_TV_DESK_FILTERS,
+  TV_KPI_ACTIVE_STATUS,
+  type TvCommercialServiceOption,
+  type TvDeskSummary,
+  type TvListStatusFilter,
+  type TvSelectedCommercialFilter,
+  type TvSelectedPlanFilter,
+} from "@/lib/subscriptions/tv-plans"
 import type {
-  CreateSubscriptionPreAltaInput,
-  SubscriptionCommission,
-  SubscriptionCustomer,
-  SubscriptionSale,
-  SubscriptionService,
+  TvCatalogPlan,
+  TvSubscriberListPage,
 } from "@/lib/types/subscriptions"
 
-type MutationResult = {
-  success: boolean
-  message?: string
-}
-
 type SubscriptionsContextValue = {
-  services: SubscriptionService[]
-  customers: SubscriptionCustomer[]
-  sales: SubscriptionSale[]
-  commissions: SubscriptionCommission[]
-  isReady: boolean
+  plans: TvCatalogPlan[]
+  summary: TvDeskSummary | null
+  commercialOptions: TvCommercialServiceOption[]
+  list: TvSubscriberListPage | null
+  selectedPlan: TvSelectedPlanFilter
+  selectedCommercialId: TvSelectedCommercialFilter
+  statusFilter: TvListStatusFilter
+  search: string
+  page: number
+  isSummaryReady: boolean
+  isListLoading: boolean
   canWrite: boolean
-  bespokeTvService: SubscriptionService | null
-  refresh: () => Promise<void>
-  createPreAlta: (
-    input: Omit<CreateSubscriptionPreAltaInput, "companyId">
-  ) => Promise<MutationResult>
-  transitionCustomer: (
-    customerId: string,
-    nextStatus: SubscriptionCustomerStatus
-  ) => Promise<MutationResult>
-  markCommissionPaid: (commissionId: string) => Promise<MutationResult>
+  error: string | null
+  setSelectedPlan: (plan: TvSelectedPlanFilter) => void
+  setSelectedPlanFilter: (plan: TvSelectedPlanFilter) => void
+  setSelectedCommercialId: (id: TvSelectedCommercialFilter) => void
+  setStatusFilter: (status: TvListStatusFilter) => void
+  setSearch: (value: string) => void
+  setPage: (page: number) => void
+  clearFilters: () => void
+  createPlan: (draft: TvPlanWriteDraft) => Promise<string | null>
+  updatePlan: (id: string, draft: TvPlanWriteDraft) => Promise<string | null>
+  togglePlanActive: (plan: TvCatalogPlan) => Promise<string | null>
 }
 
-const SubscriptionsContext =
-  createContext<SubscriptionsContextValue | null>(null)
+const SubscriptionsContext = createContext<SubscriptionsContextValue | null>(
+  null
+)
 
 export function SubscriptionsProvider({
   children,
@@ -64,194 +74,253 @@ export function SubscriptionsProvider({
 }) {
   const { sessionUser } = useAuth()
   const { companyId, isAuthReady } = useTenantCompanyId()
-  const [services, setServices] = useState<SubscriptionService[]>([])
-  const [customers, setCustomers] = useState<SubscriptionCustomer[]>([])
-  const [sales, setSales] = useState<SubscriptionSale[]>([])
-  const [commissions, setCommissions] = useState<SubscriptionCommission[]>(
+  const canWrite = canWriteSubscriptions(sessionUser?.systemRole)
+  const [plans, setPlans] = useState<TvCatalogPlan[]>([])
+  const [summary, setSummary] = useState<TvDeskSummary | null>(null)
+  const [commercialOptions, setCommercialOptions] = useState<
+    TvCommercialServiceOption[]
+  >([])
+  const [list, setList] = useState<TvSubscriberListPage | null>(null)
+  const [selectedPlan, setSelectedPlanState] =
+    useState<TvSelectedPlanFilter>("all")
+  const [selectedCommercialId, setSelectedCommercialState] =
+    useState<TvSelectedCommercialFilter>("all")
+  const [statusFilter, setStatusFilterState] =
+    useState<TvListStatusFilter>(TV_KPI_ACTIVE_STATUS)
+  const [searchInput, setSearch] = useState("")
+  const [debouncedSearch, setDebouncedSearch] = useState("")
+  const [page, setPageState] = useState(1)
+  const [isSummaryReady, setIsSummaryReady] = useState(false)
+  const [catalogLoaded, setCatalogLoaded] = useState(false)
+  const [isListLoading, setIsListLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [deskEpoch, setDeskEpoch] = useState(0)
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setDebouncedSearch(searchInput)
+    }, 300)
+    return () => window.clearTimeout(timeout)
+  }, [searchInput])
+
+  const setSelectedPlan = useCallback((plan: TvSelectedPlanFilter) => {
+    setSelectedPlanState(plan)
+    setSelectedCommercialState("all")
+    setStatusFilterState(TV_KPI_ACTIVE_STATUS)
+    setPageState(1)
+  }, [])
+
+  const setSelectedPlanFilter = useCallback((plan: TvSelectedPlanFilter) => {
+    setSelectedPlanState(plan)
+    setSelectedCommercialState("all")
+    setPageState(1)
+  }, [])
+
+  const setSelectedCommercialId = useCallback(
+    (id: TvSelectedCommercialFilter) => {
+      setSelectedCommercialState(id)
+      setPageState(1)
+    },
     []
   )
-  const [isReady, setIsReady] = useState(false)
 
-  const canWrite = useMemo(
-    () => canWriteSubscriptions(sessionUser?.systemRole),
-    [sessionUser?.systemRole]
-  )
+  const setStatusFilter = useCallback((status: TvListStatusFilter) => {
+    setStatusFilterState(status)
+    setPageState(1)
+  }, [])
 
-  const bespokeTvService = useMemo(
-    () =>
-      services.find(
-        (service) =>
-          service.isActive &&
-          service.name.trim().toLowerCase() === "bespoke tv"
-      ) ??
-      services.find((service) => service.isActive) ??
-      null,
-    [services]
-  )
+  const setPage = useCallback((next: number) => {
+    setPageState(Math.max(1, next))
+  }, [])
 
-  const refresh = useCallback(async () => {
-    if (!companyId) {
-      setServices([])
-      setCustomers([])
-      setSales([])
-      setCommissions([])
-      setIsReady(true)
-      return
-    }
+  const clearFilters = useCallback(() => {
+    setSelectedPlanState(EMPTY_TV_DESK_FILTERS.selectedPlan)
+    setSelectedCommercialState(EMPTY_TV_DESK_FILTERS.selectedCommercialId)
+    setStatusFilterState(EMPTY_TV_DESK_FILTERS.status)
+    setSearch(EMPTY_TV_DESK_FILTERS.search)
+    setDebouncedSearch(EMPTY_TV_DESK_FILTERS.search)
+    setPageState(1)
+  }, [])
 
-    const [servicesResult, customersResult, salesResult, commissionsResult] =
-      await Promise.all([
-        listSubscriptionServices(companyId),
-        listSubscriptionCustomers(companyId),
-        listSubscriptionSales(companyId),
-        listSubscriptionCommissions(companyId),
-      ])
+  useEffect(() => {
+    setPageState(1)
+  }, [debouncedSearch])
 
-    if (servicesResult.data) setServices(servicesResult.data)
-    else if (servicesResult.error) {
-      console.warn(
-        "[Suscripciones] No se pudieron cargar servicios.",
-        servicesResult.error.message
-      )
-      setServices([])
-    }
-
-    if (customersResult.data) setCustomers(customersResult.data)
-    else if (customersResult.error) {
-      console.warn(
-        "[Suscripciones] No se pudieron cargar suscriptores.",
-        customersResult.error.message
-      )
-      setCustomers([])
-    }
-
-    if (salesResult.data) setSales(salesResult.data)
-    else setSales([])
-
-    if (commissionsResult.data) setCommissions(commissionsResult.data)
-    else setCommissions([])
-
-    setIsReady(true)
-  }, [companyId])
+  const reloadDesk = useCallback(() => {
+    setDeskEpoch((current) => current + 1)
+  }, [])
 
   useEffect(() => {
     if (!isAuthReady) return
-    setIsReady(false)
-    void refresh()
-  }, [isAuthReady, refresh])
+    if (!companyId) {
+      setPlans([])
+      setSummary(null)
+      setCommercialOptions([])
+      setIsSummaryReady(true)
+      setCatalogLoaded(true)
+      return
+    }
 
-  const createPreAlta = useCallback(
-    async (
-      input: Omit<CreateSubscriptionPreAltaInput, "companyId">
-    ): Promise<MutationResult> => {
-      if (!companyId) {
-        return { success: false, message: "No se pudo resolver la empresa." }
+    let cancelled = false
+    setIsSummaryReady(false)
+    setCatalogLoaded(false)
+    void (async () => {
+      const [catalogResult, summaryResult, commercialResult] = await Promise.all([
+        listTvCatalogPlans(companyId),
+        listTvDeskSummary(companyId),
+        listTvCommercialServiceOptions(companyId),
+      ])
+      if (cancelled) return
+      if (catalogResult.error) {
+        setError(catalogResult.error.message)
+        setPlans([])
+      } else {
+        setPlans(catalogResult.data ?? [])
       }
-      if (!canWrite) {
-        return {
-          success: false,
-          message: "No tiene permiso para crear pre-altas.",
-        }
+      if (summaryResult.error) {
+        setError(summaryResult.error.message)
+        setSummary(null)
+      } else {
+        setSummary(summaryResult.data)
+        if (!catalogResult.error) setError(null)
       }
+      if (commercialResult.error) {
+        setCommercialOptions([])
+      } else {
+        setCommercialOptions(commercialResult.data ?? [])
+      }
+      setIsSummaryReady(true)
+      setCatalogLoaded(true)
+    })()
 
-      const result = await registerSubscriptionPreAlta({
-        ...input,
+    return () => {
+      cancelled = true
+    }
+  }, [companyId, isAuthReady, deskEpoch])
+
+  useEffect(() => {
+    if (!isAuthReady || !companyId || !catalogLoaded) {
+      setList(null)
+      return
+    }
+
+    let cancelled = false
+    setIsListLoading(true)
+    void (async () => {
+      const result = await listTvSubscribers({
         companyId,
+        plans,
+        selectedPlan,
+        selectedCommercialId,
+        status: statusFilter,
+        search: debouncedSearch,
+        page,
+        pageSize: DEFAULT_TV_LIST_PAGE_SIZE,
       })
-
-      if (result.error || !result.data) {
-        return {
-          success: false,
-          message: result.error?.message ?? "No se pudo crear la pre-alta.",
-        }
+      if (cancelled) return
+      if (result.error) {
+        setError(result.error.message)
+        setList(null)
+      } else {
+        setList(result.data)
       }
+      setIsListLoading(false)
+    })()
 
-      await refresh()
-      return { success: true }
+    return () => {
+      cancelled = true
+    }
+  }, [
+    companyId,
+    isAuthReady,
+    plans,
+    selectedPlan,
+    selectedCommercialId,
+    statusFilter,
+    debouncedSearch,
+    page,
+    catalogLoaded,
+  ])
+
+  const createPlan = useCallback(
+    async (draft: TvPlanWriteDraft) => {
+      const result = await createTvPlan(draft)
+      if (result.error) return result.error.message
+      reloadDesk()
+      return null
     },
-    [canWrite, companyId, refresh]
+    [reloadDesk]
   )
 
-  const transitionCustomer = useCallback(
-    async (
-      customerId: string,
-      nextStatus: SubscriptionCustomerStatus
-    ): Promise<MutationResult> => {
-      if (!canWrite) {
-        return {
-          success: false,
-          message: "No tiene permiso para cambiar el estado.",
-        }
-      }
-
-      const result = await updateSubscriptionCustomerStatus(
-        customerId,
-        nextStatus
-      )
-      if (result.error || !result.data) {
-        return {
-          success: false,
-          message:
-            result.error?.message ?? "No se pudo actualizar el estado.",
-        }
-      }
-
-      await refresh()
-      return { success: true }
+  const updatePlan = useCallback(
+    async (id: string, draft: TvPlanWriteDraft) => {
+      const result = await updateTvPlan(id, draft)
+      if (result.error) return result.error.message
+      reloadDesk()
+      return null
     },
-    [canWrite, refresh]
+    [reloadDesk]
   )
 
-  const markCommissionPaid = useCallback(
-    async (commissionId: string): Promise<MutationResult> => {
-      if (!canWrite) {
-        return {
-          success: false,
-          message: "No tiene permiso para marcar comisiones.",
-        }
-      }
-
-      const result = await paySubscriptionCommission(commissionId)
-      if (result.error || !result.data) {
-        return {
-          success: false,
-          message:
-            result.error?.message ?? "No se pudo marcar la comisión como pagada.",
-        }
-      }
-
-      await refresh()
-      return { success: true }
+  const togglePlanActive = useCallback(
+    async (plan: TvCatalogPlan) => {
+      const result = await setTvPlanActive(plan.id, !plan.isActive)
+      if (result.error) return result.error.message
+      reloadDesk()
+      return null
     },
-    [canWrite, refresh]
+    [reloadDesk]
   )
 
   const value = useMemo<SubscriptionsContextValue>(
     () => ({
-      services,
-      customers,
-      sales,
-      commissions,
-      isReady,
+      plans,
+      summary,
+      commercialOptions,
+      list,
+      selectedPlan,
+      selectedCommercialId,
+      statusFilter,
+      search: searchInput,
+      page,
+      isSummaryReady,
+      isListLoading,
       canWrite,
-      bespokeTvService,
-      refresh,
-      createPreAlta,
-      transitionCustomer,
-      markCommissionPaid,
+      error,
+      setSelectedPlan,
+      setSelectedPlanFilter,
+      setSelectedCommercialId,
+      setStatusFilter,
+      setSearch,
+      setPage,
+      clearFilters,
+      createPlan,
+      updatePlan,
+      togglePlanActive,
     }),
     [
-      services,
-      customers,
-      sales,
-      commissions,
-      isReady,
+      plans,
+      summary,
+      commercialOptions,
+      list,
+      selectedPlan,
+      selectedCommercialId,
+      statusFilter,
+      searchInput,
+      page,
+      isSummaryReady,
+      isListLoading,
       canWrite,
-      bespokeTvService,
-      refresh,
-      createPreAlta,
-      transitionCustomer,
-      markCommissionPaid,
+      error,
+      setSelectedPlan,
+      setSelectedPlanFilter,
+      setSelectedCommercialId,
+      setStatusFilter,
+      setPage,
+      clearFilters,
+      createPlan,
+      updatePlan,
+      togglePlanActive,
     ]
   )
 

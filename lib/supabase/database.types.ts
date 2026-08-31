@@ -1897,6 +1897,7 @@ export type Database = {
           speed_unit: string
           technical_profile_id: string | null
           technology: string | null
+          tv_plan_catalog_id: string | null
           updated_at: string
           upload_speed_mbps: number | null
         }
@@ -1926,6 +1927,7 @@ export type Database = {
           speed_unit?: string
           technical_profile_id?: string | null
           technology?: string | null
+          tv_plan_catalog_id?: string | null
           updated_at?: string
           upload_speed_mbps?: number | null
         }
@@ -1955,6 +1957,7 @@ export type Database = {
           speed_unit?: string
           technical_profile_id?: string | null
           technology?: string | null
+          tv_plan_catalog_id?: string | null
           updated_at?: string
           upload_speed_mbps?: number | null
         }
@@ -1971,6 +1974,13 @@ export type Database = {
             columns: ["technical_profile_id"]
             isOneToOne: false
             referencedRelation: "isp_technical_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "isp_service_catalog_tv_plan_catalog_id_fkey"
+            columns: ["tv_plan_catalog_id"]
+            isOneToOne: false
+            referencedRelation: "isp_service_catalog"
             referencedColumns: ["id"]
           },
         ]

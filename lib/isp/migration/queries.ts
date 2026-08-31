@@ -106,7 +106,9 @@ export async function loadIspMigrationExistingState(
       .is("deleted_at", null),
     client
       .from("isp_service_catalog")
-      .select("id, external_code, name")
+      .select(
+        "id, company_id, external_code, code, name, category, is_active, monthly_price, tv_plan_catalog_id"
+      )
       .eq("company_id", companyId)
       .is("deleted_at", null),
     client
@@ -150,8 +152,14 @@ export async function loadIspMigrationExistingState(
     })),
     catalog: (catalog.data ?? []).map((row) => ({
       id: row.id,
+      companyId: row.company_id,
       externalCode: row.external_code,
+      code: row.code,
       name: row.name,
+      category: row.category,
+      isActive: row.is_active,
+      monthlyPrice: row.monthly_price,
+      tvPlanCatalogId: row.tv_plan_catalog_id,
     })),
     services: (services.data ?? []).map((row) => ({
       id: row.id,

@@ -14,6 +14,7 @@ import {
   catalogCategoryLabel,
   catalogConnectionTypeLabel,
   catalogTechnologyLabel,
+  catalogTvComponentListLabel,
   formatCatalogSpeedLabel,
 } from "@/lib/isp/catalog-integrity"
 import type { IspCatalogItem } from "@/lib/isp/catalog-types"
@@ -181,6 +182,7 @@ export function IspCatalogListScreen() {
               <TableHead>Tecnología</TableHead>
               <TableHead>Velocidad</TableHead>
               <TableHead>Precio mensual</TableHead>
+              <TableHead>TV</TableHead>
               <TableHead>Tipo de conexión</TableHead>
               <TableHead>Perfil técnico</TableHead>
               <TableHead>Estado</TableHead>
@@ -190,7 +192,7 @@ export function IspCatalogListScreen() {
           <TableBody>
             {items.length === 0 && !loading ? (
               <TableRow>
-                <TableCell colSpan={10} className="text-muted-foreground">
+                <TableCell colSpan={11} className="text-muted-foreground">
                   No hay servicios para los filtros seleccionados.
                 </TableCell>
               </TableRow>
@@ -214,6 +216,11 @@ export function IspCatalogListScreen() {
                 <TableCell>{formatCatalogSpeedLabel(item)}</TableCell>
                 <TableCell>
                   {formatPrice(item.monthlyPrice, item.currency)}
+                </TableCell>
+                <TableCell>
+                  {item.category === "tv"
+                    ? "—"
+                    : catalogTvComponentListLabel(item.tvPlan)}
                 </TableCell>
                 <TableCell>
                   <div className="flex flex-wrap gap-1">
