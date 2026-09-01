@@ -2,6 +2,7 @@ import type { Json } from "@/lib/supabase/database.types"
 import { mapIspServiceRow } from "@/lib/isp/mapper"
 import { resolveEffectiveCommercialStatus } from "@/lib/isp/subscriber-service-integrity"
 import type { IspQueriesClient } from "@/lib/isp/queries"
+import { ISP_CONNECTION_NOT_FOUND_MESSAGE } from "@/lib/isp/connection-delete"
 import type {
   IspConnectionDraft,
   IspSubscriberServiceResult,
@@ -140,6 +141,47 @@ export async function updateIspConnection(
     connectionId: result.connectionId ?? payload.connectionId,
     serviceId: result.serviceId ?? null,
   }
+}
+
+export async function deleteIspConnection(
+  client: IspQueriesClient,
+  companyId: string,
+  connectionId: string
+): Promise<{ deleted: true; connectionId: string }> {
+  const now = new Date().toISOString()
+
+  const { data: current, error: loadError } = await client
+    .from("isp_connections")
+    .select("id")
+    .eq("company_id", companyId)
+    .eq("id", connectionId)
+    .is("deleted_at", null)
+    .maybeSingle()
+
+  if (loadError) throw new Error(loadError.message)
+  if (!current) throw new Error(ISP_CONNECTION_NOT_FOUND_MESSAGE)
+
+  const { error: equipmentError } = await client
+    .from("isp_connection_equipment")
+    .update({ deleted_at: now })
+    .eq("company_id", companyId)
+    .eq("connection_id", connectionId)
+    .is("deleted_at", null)
+
+  if (equipmentError) throw new Error(equipmentError.message)
+
+  const { data, error } = await client
+    .from("isp_connections")
+    .update({ deleted_at: now })
+    .eq("company_id", companyId)
+    .eq("id", connectionId)
+    .is("deleted_at", null)
+    .select("id")
+
+  if (error) throw new Error(error.message)
+  if (!data?.length) throw new Error(ISP_CONNECTION_NOT_FOUND_MESSAGE)
+
+  return { deleted: true, connectionId }
 }
 
 export async function getIspContractedService(

@@ -18,6 +18,7 @@ import {
   formatCatalogSpeedLabel,
 } from "@/lib/isp/catalog-integrity"
 import type { IspCatalogItem } from "@/lib/isp/catalog-types"
+import { IspCatalogDeleteButton } from "@/components/isp/isp-catalog-delete-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -52,6 +53,7 @@ export function IspCatalogListScreen() {
   const [items, setItems] = useState<IspCatalogItem[]>([])
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [reloadToken, setReloadToken] = useState(0)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -83,7 +85,7 @@ export function IspCatalogListScreen() {
       .finally(() => setLoading(false))
 
     return () => controller.abort()
-  }, [search, category, customerType, technology, status])
+  }, [search, category, customerType, technology, status, reloadToken])
 
   const subtitle = useMemo(() => {
     if (loading) return "Cargando servicios..."
@@ -251,6 +253,11 @@ export function IspCatalogListScreen() {
                     <Button asChild size="sm" variant="ghost">
                       <Link href={`/servicios/${item.id}/editar`}>Editar</Link>
                     </Button>
+                    <IspCatalogDeleteButton
+                      item={item}
+                      onDeleted={() => setReloadToken((token) => token + 1)}
+                      onError={setError}
+                    />
                   </div>
                 </TableCell>
               </TableRow>

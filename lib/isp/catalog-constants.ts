@@ -161,3 +161,19 @@ export const ISP_CATALOG_SEED_ITEMS = [
     allowedConnectionTypes: ["static_ip"] as IspCatalogConnectionType[],
   },
 ] as const
+
+export const ISP_OT_REQUIRED_SEED_CODES = ISP_CATALOG_SEED_ITEMS.map(
+  (item) => item.code
+)
+
+export function isOtRequiredSeedCatalogItem(item: {
+  code?: string | null
+  legacyPlanCode?: string | null
+}): boolean {
+  const code = item.code?.trim().toUpperCase()
+  const legacy = item.legacyPlanCode?.trim()
+  return ISP_CATALOG_SEED_ITEMS.some(
+    (seed) =>
+      seed.code.toUpperCase() === code || seed.legacyPlanCode === legacy
+  )
+}

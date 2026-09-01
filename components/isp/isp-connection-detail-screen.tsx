@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 
+import { IspConnectionDeleteButton } from "@/components/isp/isp-connection-delete-dialog"
 import { IspCommercialStatusBadge, IspTechnicalStatusBadge } from "@/components/isp/isp-status-badges"
 import { IspSubscriberServiceSheet } from "@/components/isp/isp-subscriber-service-sheet"
 import { Button } from "@/components/ui/button"
@@ -21,6 +23,7 @@ import { connectionFieldsForType } from "@/lib/isp/integrity"
 import type { IspConnectionDetail } from "@/lib/isp/types"
 
 export function IspConnectionDetailScreen({ connectionId }: { connectionId: string }) {
+  const router = useRouter()
   const [detail, setDetail] = useState<IspConnectionDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [actionMessage, setActionMessage] = useState<string | null>(null)
@@ -71,8 +74,18 @@ export function IspConnectionDetailScreen({ connectionId }: { connectionId: stri
             size="sm"
             onClick={() => setEditOpen(true)}
           >
-            Editar conexión
+            Editar
           </Button>
+          <IspConnectionDeleteButton
+            target={{
+              id: connection.id,
+              customerName: customer.name,
+              planName: service.planName,
+              technology: service.technology,
+            }}
+            onDeleted={() => router.push("/conexiones")}
+            onError={setError}
+          />
           <Button asChild variant="outline" size="sm">
             <Link href={`/clientes-360/${customer.id}`}>Ver en Clientes 360°</Link>
           </Button>
@@ -163,7 +176,7 @@ export function IspConnectionDetailScreen({ connectionId }: { connectionId: stri
           <CardTitle>Acciones</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
-          {["Suspender", "Rehabilitar", "Reprovisionar", "Modificar", "Dar de baja"].map(
+          {["Suspender", "Rehabilitar", "Reprovisionar", "Modificar"].map(
             (label) => (
               <Button
                 key={label}

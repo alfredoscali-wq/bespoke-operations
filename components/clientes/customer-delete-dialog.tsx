@@ -131,7 +131,11 @@ export function CustomerDeleteDialog({
                 ) : null}
               </>
             ) : (
-              <span className="block text-destructive">{blockedMessage}</span>
+              <span className="block text-destructive">
+                {deleteCheck.allowed === false && deleteCheck.message
+                  ? deleteCheck.message
+                  : blockedMessage}
+              </span>
             )}
           </DialogDescription>
         </DialogHeader>

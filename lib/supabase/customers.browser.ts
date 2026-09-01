@@ -4,6 +4,7 @@ import {
   deleteCustomer as removeCustomer,
   fetchCustomerDuplicateIndex,
   getCustomerById as fetchCustomerById,
+  getCustomerExcludeBlock,
   getCustomerLocalityOptions as fetchCustomerLocalityOptions,
   getCustomerOperationalSummaryCounts,
   listCustomersPaginated,
@@ -12,8 +13,6 @@ import {
   updateCustomer as patchCustomer,
   type SupabaseCustomersClient,
 } from "@/lib/supabase/customers.queries"
-import { getCustomerOperationalActivity } from "@/lib/customers/customer-activity"
-import { canDeleteCustomerWithActivity } from "@/lib/customers/customer-activity"
 import type {
   Customer,
   CustomerListPage,
@@ -75,8 +74,7 @@ export async function checkCustomerCanDelete(
   customerId: string,
   client: SupabaseCustomersClient = createBrowserCustomersClient()
 ): Promise<{ allowed: true } | { allowed: false; message: string }> {
-  const activity = await getCustomerOperationalActivity(client, customerId)
-  return canDeleteCustomerWithActivity(activity)
+  return getCustomerExcludeBlock(client, customerId)
 }
 
 export async function searchCustomers(

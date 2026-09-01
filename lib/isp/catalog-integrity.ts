@@ -10,6 +10,7 @@ import {
   ISP_CATALOG_SPEED_UNIT_LABELS,
   ISP_CATALOG_TECHNOLOGIES,
   ISP_CATALOG_TECHNOLOGY_LABELS,
+  isOtRequiredSeedCatalogItem,
   OT_TECHNOLOGY_TO_CATALOG,
   type IspCatalogCategory,
   type IspCatalogConnectionType,
@@ -40,7 +41,16 @@ export const ISP_CATALOG_CATEGORY_REQUIRED_MESSAGE = "Indique la categoría."
 export const ISP_CATALOG_CUSTOMER_TYPE_REQUIRED_MESSAGE =
   "Indique el tipo de cliente."
 export const ISP_CATALOG_USED_CANNOT_DELETE_MESSAGE =
-  "No se puede eliminar un servicio que ya fue utilizado. Márquelo como inactivo."
+  "Este servicio está siendo utilizado y no puede eliminarse."
+export const ISP_OT_REQUIRED_CATALOG_CANNOT_DELETE_MESSAGE =
+  "Este plan es necesario para las OT de nueva instalación (Fibra 50/100/300 Mb y Wireless 20 Mb) y no puede eliminarse."
+export const ISP_CATALOG_DELETE_CONFIRM_TITLE = "¿Eliminar este servicio?"
+export const ISP_CATALOG_DELETE_CONFIRM_BODY =
+  "Esta acción quitará el servicio del catálogo."
+export const ISP_CATALOG_USED_DEACTIVATE_EXPLANATION =
+  "Hay clientes, órdenes de trabajo u otras referencias vinculadas. Desactivarlo lo oculta para nuevas asignaciones; los clientes y abonos existentes no cambian. El plan TV asociado, si existe, no se modifica."
+export const ISP_CATALOG_DEACTIVATE_ACTION_LABEL = "Desactivar servicio"
+export const ISP_CATALOG_IN_USE_CODE = "IN_USE"
 export const ISP_CATALOG_CROSS_COMPANY_MESSAGE =
   "No se puede usar un catálogo de otra empresa."
 export const ISP_CATALOG_INACTIVE_HIDDEN_FROM_NEW_OT_MESSAGE =
@@ -465,6 +475,52 @@ export function canPhysicallyDeleteCatalogItem(input: {
   return { allowed: true }
 }
 
+export function canDeleteCatalogItemFromServicios(item: {
+  code?: string | null
+  legacyPlanCode?: string | null
+}): { allowed: true } | { allowed: false; message: string } {
+  if (isOtRequiredSeedCatalogItem(item)) {
+    return {
+      allowed: false,
+      message: ISP_OT_REQUIRED_CATALOG_CANNOT_DELETE_MESSAGE,
+    }
+  }
+  return { allowed: true }
+}
+
+export type CatalogDeleteDecision = {
+  mode: "delete"
+  title: string
+  description: string
+}
+
+export function resolveCatalogDeleteDecision(_input?: {
+  blockingReferenceCount?: number
+  isActive?: boolean
+}): CatalogDeleteDecision {
+  return {
+    mode: "delete",
+    title: ISP_CATALOG_DELETE_CONFIRM_TITLE,
+    description: ISP_CATALOG_DELETE_CONFIRM_BODY,
+  }
+}
+
+export class IspCatalogInUseError extends Error {
+  readonly code = ISP_CATALOG_IN_USE_CODE
+  readonly canDeactivate = true
+
+  constructor(message = ISP_CATALOG_USED_CANNOT_DELETE_MESSAGE) {
+    super(message)
+    this.name = "IspCatalogInUseError"
+  }
+}
+
+export function isIspCatalogInUseError(
+  error: unknown
+): error is IspCatalogInUseError {
+  return error instanceof IspCatalogInUseError
+}
+
 export function assertCatalogCompanyMatch(input: {
   companyId: string
   catalogCompanyId?: string | null
@@ -840,6 +896,9 @@ export function mapCatalogWriteError(error: {
   message?: string
 }): string {
   const message = error.message ?? ""
+  if (error.code === "23503") {
+    return ISP_CATALOG_USED_CANNOT_DELETE_MESSAGE
+  }
   if (error.code === "23505") {
     if (message.includes("isp_service_catalog_company_code")) {
       return ISP_CATALOG_CODE_UNIQUE_MESSAGE

@@ -57,6 +57,7 @@ export type CustomersRepositoryErrorCode =
   | "DUPLICATE_NUMBER"
   | "HAS_ASSOCIATED_TASKS"
   | "HAS_OPERATIONAL_ACTIVITY"
+  | "HAS_ISP_SERVICES"
   | "VALIDATION"
   | "UNKNOWN"
 

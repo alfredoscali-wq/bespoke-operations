@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server"
 
+import { ISP_CONNECTION_NOT_FOUND_MESSAGE } from "@/lib/isp/connection-delete"
 import { getIspConnectionDetail } from "@/lib/isp/queries"
-import { updateIspConnection } from "@/lib/isp/subscriber-service-queries"
+import {
+  deleteIspConnection,
+  updateIspConnection,
+} from "@/lib/isp/subscriber-service-queries"
 import {
   mergeConnectionEdit,
   validateConnectionUpdate,
@@ -102,5 +106,25 @@ export async function PATCH(request: Request, context: RouteContext) {
       },
       { status: 400 }
     )
+  }
+}
+
+export async function DELETE(_request: Request, context: RouteContext) {
+  const auth = await requireIspWriteContext()
+  if (!auth.ok) return auth.response
+
+  const { id } = await context.params
+
+  try {
+    const client = await createClient()
+    await deleteIspConnection(client, auth.companyId, id)
+    return NextResponse.json({ success: true, deleted: true })
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "No se pudo eliminar la conexión."
+    const status = message === ISP_CONNECTION_NOT_FOUND_MESSAGE ? 404 : 400
+    return NextResponse.json({ success: false, message }, { status })
   }
 }

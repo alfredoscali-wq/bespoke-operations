@@ -20,7 +20,10 @@ import {
 } from "@/lib/customers/customer-list"
 import type { CustomerOperationalSummary } from "@/lib/customers/customer-operational"
 import { CUSTOMER_STATUS_PENDING_ACTIVATION } from "@/lib/customers/format"
-import { CUSTOMER_DELETE_BLOCKED_MESSAGE } from "@/lib/customers/customer-delete"
+import {
+  CUSTOMER_DELETE_BLOCKED_MESSAGE,
+  CUSTOMER_HAS_ISP_SERVICES_EXCLUDE_MESSAGE,
+} from "@/lib/customers/customer-delete"
 import type { CustomerRow } from "@/lib/supabase/database.aliases"
 import type { Database } from "@/lib/supabase/database.types"
 import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
@@ -47,6 +50,19 @@ function mapSupabaseCustomerError(error: {
     return {
       code: "DUPLICATE_NUMBER" as const,
       message: "Ya existe un cliente con ese número.",
+    }
+  }
+
+  if (
+    error.code === "23503" &&
+    (error.message.includes("isp_services_customer_id_fkey") ||
+      error.message.includes("isp_subscribers_customer_id_fkey") ||
+      error.message.includes("isp_billing_run_items_customer_id_fkey") ||
+      error.message.includes("isp_billing_documents_customer_id_fkey"))
+  ) {
+    return {
+      code: "HAS_ISP_SERVICES" as const,
+      message: CUSTOMER_HAS_ISP_SERVICES_EXCLUDE_MESSAGE,
     }
   }
 
@@ -607,19 +623,74 @@ export async function updateCustomer(
   }
 }
 
+async function customerHasIspPortfolio(
+  client: SupabaseCustomersClient,
+  customerId: string
+): Promise<boolean> {
+  const { count: serviceCount, error: serviceError } = await client
+    .from("isp_services")
+    .select("id", { count: "exact", head: true })
+    .eq("customer_id", customerId)
+
+  if (serviceError) {
+    return false
+  }
+
+  if ((serviceCount ?? 0) > 0) {
+    return true
+  }
+
+  const { count: subscriberCount, error: subscriberError } = await client
+    .from("isp_subscribers")
+    .select("id", { count: "exact", head: true })
+    .eq("customer_id", customerId)
+
+  if (subscriberError) {
+    return false
+  }
+
+  return (subscriberCount ?? 0) > 0
+}
+
+export async function getCustomerExcludeBlock(
+  client: SupabaseCustomersClient,
+  customerId: string
+): Promise<{ allowed: true } | { allowed: false; message: string }> {
+  const activity = await getCustomerOperationalActivity(client, customerId)
+  const excludeCheck = canExcludeCustomerFromOperations(activity)
+
+  if (!excludeCheck.allowed) {
+    return {
+      allowed: false,
+      message: excludeCheck.message || CUSTOMER_DELETE_BLOCKED_MESSAGE,
+    }
+  }
+
+  if (await customerHasIspPortfolio(client, customerId)) {
+    return {
+      allowed: false,
+      message: CUSTOMER_HAS_ISP_SERVICES_EXCLUDE_MESSAGE,
+    }
+  }
+
+  return { allowed: true }
+}
+
 export async function deleteCustomer(
   client: SupabaseCustomersClient,
   id: string
 ): Promise<CustomersRepositoryResult<void>> {
-  const activity = await getCustomerOperationalActivity(client, id)
-  const excludeCheck = canExcludeCustomerFromOperations(activity)
+  const excludeCheck = await getCustomerExcludeBlock(client, id)
 
   if (!excludeCheck.allowed) {
     return {
       data: null,
       error: {
-        code: "HAS_OPERATIONAL_ACTIVITY",
-        message: excludeCheck.message || CUSTOMER_DELETE_BLOCKED_MESSAGE,
+        code:
+          excludeCheck.message === CUSTOMER_HAS_ISP_SERVICES_EXCLUDE_MESSAGE
+            ? "HAS_ISP_SERVICES"
+            : "HAS_OPERATIONAL_ACTIVITY",
+        message: excludeCheck.message,
       },
     }
   }

@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server"
 
 import {
+  deleteIspCatalogItem,
   getIspCatalogItem,
   setIspCatalogActive,
   updateIspCatalogItem,
 } from "@/lib/isp/catalog-queries"
+import {
+  ISP_CATALOG_IN_USE_CODE,
+  isIspCatalogInUseError,
+} from "@/lib/isp/catalog-integrity"
 import type { IspCatalogDraft } from "@/lib/isp/catalog-types"
 import {
   requireIspReadContext,
@@ -89,5 +94,33 @@ export async function PATCH(request: Request, context: RouteContext) {
       },
       { status: 400 }
     )
+  }
+}
+
+export async function DELETE(_request: Request, context: RouteContext) {
+  const auth = await requireIspWriteContext()
+  if (!auth.ok) return auth.response
+
+  const { id } = await context.params
+
+  try {
+    const client = await createClient()
+    await deleteIspCatalogItem(client, auth.companyId, id)
+    return NextResponse.json({ success: true, deleted: true })
+  } catch (error) {
+    if (isIspCatalogInUseError(error)) {
+      return NextResponse.json(
+        {
+          success: false,
+          code: ISP_CATALOG_IN_USE_CODE,
+          message: error.message,
+        },
+        { status: 409 }
+      )
+    }
+    const message =
+      error instanceof Error ? error.message : "No se pudo eliminar el servicio."
+    const status = message === "Servicio no encontrado." ? 404 : 400
+    return NextResponse.json({ success: false, message }, { status })
   }
 }

@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 
+import type { SubscriberServiceSheetMode } from "@/components/isp/isp-subscriber-service-sheet"
+import { IspConnectionDeleteButton } from "@/components/isp/isp-connection-delete-dialog"
 import { IspCommercialStatusBadge, IspTechnicalStatusBadge } from "@/components/isp/isp-status-badges"
 import { IspSubscriberServiceSheet } from "@/components/isp/isp-subscriber-service-sheet"
 import { Button } from "@/components/ui/button"
@@ -36,6 +38,7 @@ import {
   formatIspTechnologyLabel,
 } from "@/lib/isp/labels"
 import type {
+  IspConnectionDetail,
   IspConnectionListItem,
   IspService,
   IspServiceWithConnection,
@@ -57,6 +60,8 @@ export function IspConnectionsListScreen() {
   const [selectedServiceId, setSelectedServiceId] = useState("")
   const [sheetService, setSheetService] =
     useState<IspServiceWithConnection | null>(null)
+  const [sheetMode, setSheetMode] =
+    useState<SubscriberServiceSheetMode>("create-connection")
   const [sheetOpen, setSheetOpen] = useState(false)
 
   useEffect(() => {
@@ -120,7 +125,28 @@ export function IspConnectionsListScreen() {
       catalogCategory: null,
       connection: null,
     })
+    setSheetMode("create-connection")
     setPickerOpen(false)
+    setSheetOpen(true)
+  }
+
+  async function openEditConnection(item: IspConnectionListItem) {
+    const response = await fetch(`/api/isp/connections/${item.id}`)
+    const body = (await response.json()) as {
+      success: boolean
+      detail?: IspConnectionDetail
+      message?: string
+    }
+    if (!body.success || !body.detail) {
+      setError(body.message ?? "Conexión no encontrada.")
+      return
+    }
+    setSheetService({
+      ...body.detail.service,
+      catalogCategory: null,
+      connection: body.detail.connection,
+    })
+    setSheetMode("edit-connection")
     setSheetOpen(true)
   }
 
@@ -232,6 +258,7 @@ export function IspConnectionsListScreen() {
               <TableHead>Core</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead>Salud</TableHead>
+              <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -259,6 +286,31 @@ export function IspConnectionsListScreen() {
                   </div>
                 </TableCell>
                 <TableCell>{item.healthLabel}</TableCell>
+                <TableCell className="text-right">
+                  <div className="flex justify-end gap-2">
+                    <Button asChild size="sm" variant="outline">
+                      <Link href={`/conexiones/${item.id}`}>Ver</Link>
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => void openEditConnection(item)}
+                    >
+                      Editar
+                    </Button>
+                    <IspConnectionDeleteButton
+                      target={{
+                        id: item.id,
+                        customerName: item.customerName,
+                        planName: item.planName,
+                        technology: item.technology,
+                      }}
+                      onDeleted={() => setReloadKey((value) => value + 1)}
+                      onError={setError}
+                    />
+                  </div>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -267,7 +319,7 @@ export function IspConnectionsListScreen() {
       {sheetService ? (
         <IspSubscriberServiceSheet
           open={sheetOpen}
-          mode="create-connection"
+          mode={sheetMode}
           customerId={sheetService.customerId}
           service={sheetService}
           onClose={() => {

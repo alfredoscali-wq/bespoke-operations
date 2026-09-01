@@ -80,6 +80,7 @@ export type IspCatalogItem = {
   createdAt: string
   updatedAt: string
   usedCount?: number
+  canPhysicallyDelete?: boolean
 }
 
 export type IspCatalogDraft = {

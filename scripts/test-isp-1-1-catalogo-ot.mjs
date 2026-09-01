@@ -290,8 +290,13 @@ test("16-17. multi-tenant y RLS del catálogo", () => {
 test("18. no eliminar servicio utilizado", () => {
   assert.equal(canPhysicallyDeleteCatalogItem({ usedCount: 2 }).allowed, false)
   assert.equal(canPhysicallyDeleteCatalogItem({ usedCount: 0 }).allowed, true)
-  const queries = read("lib/isp/catalog-queries.ts")
-  assert.doesNotMatch(queries, /\.delete\(/)
+  const sql = read(
+    "supabase/migrations/20261129000100_isp_1_1_catalogo_servicios.sql"
+  )
+  assert.doesNotMatch(sql, /FOR DELETE/)
+  assert.match(sql, /GRANT SELECT, INSERT, UPDATE ON public.isp_service_catalog/)
+  assert.doesNotMatch(sql, /GRANT DELETE ON public.isp_service_catalog/)
+  assert.match(sql, /ON DELETE RESTRICT/)
 })
 
 test("OT 1-6. Fibra y Wireless muestran planes activos del catálogo", () => {

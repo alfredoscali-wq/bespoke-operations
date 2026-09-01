@@ -19,6 +19,7 @@ import {
   resolveCatalogCharacteristics,
 } from "@/lib/isp/catalog-integrity"
 import type { IspCatalogItem } from "@/lib/isp/catalog-types"
+import { IspCatalogDeleteButton } from "@/components/isp/isp-catalog-delete-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 
@@ -97,6 +98,11 @@ export function IspCatalogDetailScreen({ catalogId }: { catalogId: string }) {
           <Button asChild variant="outline">
             <Link href={`/servicios/${item.id}/editar`}>Editar</Link>
           </Button>
+          <IspCatalogDeleteButton
+            item={item}
+            onDeleted={() => router.push("/servicios")}
+            onError={setError}
+          />
           <Button
             type="button"
             variant="outline"

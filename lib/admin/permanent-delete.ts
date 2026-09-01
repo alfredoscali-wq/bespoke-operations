@@ -17,6 +17,7 @@ import {
   assertTaskPermanentDeleteAllowed,
   PERMANENT_DELETE_NOT_IMPLEMENTED_MESSAGE,
 } from "@/lib/admin/permanent-delete-policy"
+import { deleteIspDependentsForCustomer } from "@/lib/admin/permanent-delete-isp-customer"
 import { collectTaskIncidentPhotoStoragePaths } from "@/lib/admin/permanent-delete-task-records-plan"
 import type { PermanentDeleteEntityType } from "@/lib/admin/permanent-delete-types"
 import { TASK_INCIDENT_PHOTOS_STORAGE_BUCKET } from "@/lib/supabase/task-incident-photos.storage"
@@ -285,6 +286,8 @@ export async function permanentDeleteCustomer(
   for (const task of tasks ?? []) {
     await permanentDeleteTaskRecords(client, task.id)
   }
+
+  await deleteIspDependentsForCustomer(client, input.customerId)
 
   const { error: customerDeleteError } = await client
     .from("customers")

@@ -301,8 +301,6 @@ test("16. servicio histórico no se elimina", () => {
     canPhysicallyDeleteCatalogItem({ usedCount: 1 }).allowed,
     false
   )
-  const queries = read("lib/isp/catalog-queries.ts")
-  assert.doesNotMatch(queries, /\.delete\(/)
   assert.match(sql, /GRANT SELECT, INSERT, UPDATE ON public.isp_technical_profiles/)
   assert.doesNotMatch(sql, /GRANT DELETE ON public.isp_technical_profiles/)
 })

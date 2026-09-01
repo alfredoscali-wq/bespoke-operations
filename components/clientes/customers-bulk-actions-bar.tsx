@@ -88,8 +88,12 @@ export function CustomersBulkActionsBar({
     const blocked = checks.filter(({ check }) => !check.allowed)
 
     if (blocked.length > 0) {
+      const firstMessage =
+        blocked[0]?.check.allowed === false
+          ? blocked[0].check.message
+          : CUSTOMER_EXCLUDE_BLOCKED_MESSAGE
       onFeedback(
-        `${blocked.length} cliente(s) no pueden excluirse: ${CUSTOMER_EXCLUDE_BLOCKED_MESSAGE}`
+        `${blocked.length} cliente(s) no pueden excluirse: ${firstMessage}`
       )
       return
     }

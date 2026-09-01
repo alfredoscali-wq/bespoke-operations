@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import {
   assertTechnicalProfileForCatalog,
   assertTvPlanForCatalog,
+  canDeleteCatalogItemFromServicios,
   canPhysicallyDeleteCatalogItem,
   mapCatalogWriteError,
   matchesCatalogFilters,
@@ -30,40 +31,86 @@ import {
 
 export type IspCatalogQueriesClient = SupabaseClient<Database>
 
-async function countCatalogUsage(
+type CatalogReferenceCounts = {
+  usedCount: number
+  blockingCount: number
+}
+
+function emptyCatalogReferenceCounts(): CatalogReferenceCounts {
+  return { usedCount: 0, blockingCount: 0 }
+}
+
+function bumpCatalogReference(
+  counts: Map<string, CatalogReferenceCounts>,
+  id: string | null | undefined,
+  field: keyof CatalogReferenceCounts
+) {
+  if (!id) return
+  const current = counts.get(id) ?? emptyCatalogReferenceCounts()
+  current[field] += 1
+  counts.set(id, current)
+}
+
+async function countCatalogReferences(
   client: IspCatalogQueriesClient,
   companyId: string,
   catalogIds: string[]
-): Promise<Map<string, number>> {
-  const counts = new Map<string, number>()
+): Promise<Map<string, CatalogReferenceCounts>> {
+  const counts = new Map<string, CatalogReferenceCounts>()
   if (catalogIds.length === 0) return counts
 
-  const [{ data: services }, { data: tasks }] = await Promise.all([
-    client
-      .from("isp_services")
-      .select("catalog_id")
-      .eq("company_id", companyId)
-      .is("deleted_at", null)
-      .in("catalog_id", catalogIds),
-    client
-      .from("tasks")
-      .select("service_catalog_id")
-      .eq("company_id", companyId)
-      .is("deleted_at", null)
-      .in("service_catalog_id", catalogIds),
-  ])
+  const [{ data: services }, { data: tasks }, { data: tvComponents }] =
+    await Promise.all([
+      client
+        .from("isp_services")
+        .select("catalog_id, deleted_at")
+        .eq("company_id", companyId)
+        .in("catalog_id", catalogIds),
+      client
+        .from("tasks")
+        .select("service_catalog_id, deleted_at")
+        .eq("company_id", companyId)
+        .in("service_catalog_id", catalogIds),
+      client
+        .from("isp_service_catalog")
+        .select("id, tv_plan_catalog_id")
+        .eq("company_id", companyId)
+        .in("tv_plan_catalog_id", catalogIds),
+    ])
 
   for (const row of services ?? []) {
-    const id = row.catalog_id
-    if (!id) continue
-    counts.set(id, (counts.get(id) ?? 0) + 1)
+    bumpCatalogReference(counts, row.catalog_id, "blockingCount")
+    if (!row.deleted_at) {
+      bumpCatalogReference(counts, row.catalog_id, "usedCount")
+    }
   }
   for (const row of tasks ?? []) {
-    const id = row.service_catalog_id
-    if (!id) continue
-    counts.set(id, (counts.get(id) ?? 0) + 1)
+    bumpCatalogReference(counts, row.service_catalog_id, "blockingCount")
+    if (!row.deleted_at) {
+      bumpCatalogReference(counts, row.service_catalog_id, "usedCount")
+    }
+  }
+  for (const row of tvComponents ?? []) {
+    if (row.tv_plan_catalog_id === row.id) continue
+    bumpCatalogReference(counts, row.tv_plan_catalog_id, "blockingCount")
+    bumpCatalogReference(counts, row.tv_plan_catalog_id, "usedCount")
   }
   return counts
+}
+
+function applyCatalogReferenceCounts(
+  item: IspCatalogItem,
+  refs: CatalogReferenceCounts | undefined
+): IspCatalogItem {
+  const usedCount = refs?.usedCount ?? 0
+  const blockingCount = refs?.blockingCount ?? 0
+  return {
+    ...item,
+    usedCount,
+    canPhysicallyDelete: canPhysicallyDeleteCatalogItem({
+      usedCount: blockingCount,
+    }).allowed,
+  }
 }
 
 async function attachTechnicalProfiles(
@@ -259,9 +306,12 @@ export async function listIspCatalog(
   if (error) throw new Error(error.message)
 
   const ids = (data ?? []).map((row) => row.id)
-  const usage = await countCatalogUsage(client, companyId, ids)
+  const refs = await countCatalogReferences(client, companyId, ids)
   const mapped = (data ?? []).map((row) =>
-    mapIspCatalogRow(row, usage.get(row.id) ?? 0)
+    applyCatalogReferenceCounts(
+      mapIspCatalogRow(row, refs.get(row.id)?.usedCount ?? 0),
+      refs.get(row.id)
+    )
   )
   const hydrated = await hydrateCatalogItems(client, companyId, mapped)
   return hydrated.filter((item) => matchesCatalogFilters(item, filters))
@@ -283,9 +333,12 @@ export async function getIspCatalogItem(
   if (error) throw new Error(error.message)
   if (!data) return null
 
-  const usage = await countCatalogUsage(client, companyId, [id])
+  const refs = await countCatalogReferences(client, companyId, [id])
   const [item] = await hydrateCatalogItems(client, companyId, [
-    mapIspCatalogRow(data, usage.get(id) ?? 0),
+    applyCatalogReferenceCounts(
+      mapIspCatalogRow(data, refs.get(id)?.usedCount ?? 0),
+      refs.get(id)
+    ),
   ])
   return item ?? null
 }
@@ -347,11 +400,14 @@ export async function createIspCatalogItem(
 
   if (error) throw new Error(mapCatalogWriteError(error))
   await persistLinkedProfileSpeeds(client, companyId, resolved.id, speeds)
-  return mapIspCatalogRow(
-    data,
-    0,
-    profileWithCatalogSpeeds(resolved.profile, speeds),
-    tvResolved.plan
+  return applyCatalogReferenceCounts(
+    mapIspCatalogRow(
+      data,
+      0,
+      profileWithCatalogSpeeds(resolved.profile, speeds),
+      tvResolved.plan
+    ),
+    emptyCatalogReferenceCounts()
   )
 }
 
@@ -417,12 +473,15 @@ export async function updateIspCatalogItem(
 
   if (error) throw new Error(mapCatalogWriteError(error))
   await persistLinkedProfileSpeeds(client, companyId, resolved.id, speeds)
-  const usage = await countCatalogUsage(client, companyId, [id])
-  return mapIspCatalogRow(
-    data,
-    usage.get(id) ?? 0,
-    profileWithCatalogSpeeds(resolved.profile, speeds),
-    tvResolved.plan
+  const refs = await countCatalogReferences(client, companyId, [id])
+  return applyCatalogReferenceCounts(
+    mapIspCatalogRow(
+      data,
+      refs.get(id)?.usedCount ?? 0,
+      profileWithCatalogSpeeds(resolved.profile, speeds),
+      tvResolved.plan
+    ),
+    refs.get(id)
   )
 }
 
@@ -442,9 +501,12 @@ export async function setIspCatalogActive(
     .single()
 
   if (error) throw new Error(error.message)
-  const usage = await countCatalogUsage(client, companyId, [id])
+  const refs = await countCatalogReferences(client, companyId, [id])
   const [item] = await hydrateCatalogItems(client, companyId, [
-    mapIspCatalogRow(data, usage.get(id) ?? 0),
+    applyCatalogReferenceCounts(
+      mapIspCatalogRow(data, refs.get(id)?.usedCount ?? 0),
+      refs.get(id)
+    ),
   ])
   if (!item) throw new Error("Servicio no encontrado.")
   return item
@@ -457,11 +519,64 @@ export async function deactivateIspCatalogItem(
 ): Promise<IspCatalogItem> {
   const current = await getIspCatalogItem(client, companyId, id)
   if (!current) throw new Error("Servicio no encontrado.")
-  const deletion = canPhysicallyDeleteCatalogItem({
-    usedCount: current.usedCount ?? 0,
-  })
-  if (!deletion.allowed) {
-    return setIspCatalogActive(client, companyId, id, false)
-  }
   return setIspCatalogActive(client, companyId, id, false)
+}
+
+export async function deleteIspCatalogItem(
+  client: IspCatalogQueriesClient,
+  companyId: string,
+  id: string
+): Promise<{ deleted: true }> {
+  const current = await getIspCatalogItem(client, companyId, id)
+  if (!current) throw new Error("Servicio no encontrado.")
+
+  const required = canDeleteCatalogItemFromServicios(current)
+  if (!required.allowed) {
+    throw new Error(required.message)
+  }
+
+  const refs = await countCatalogReferences(client, companyId, [id])
+  const blockingCount = refs.get(id)?.blockingCount ?? 0
+  const physical = canPhysicallyDeleteCatalogItem({ usedCount: blockingCount })
+
+  if (physical.allowed) {
+    const { data, error } = await client
+      .from("isp_service_catalog")
+      .delete()
+      .eq("company_id", companyId)
+      .eq("id", id)
+      .is("deleted_at", null)
+      .select("id")
+
+    if (error) {
+      if (error.code === "23503") {
+        return logicallyRemoveCatalogItem(client, companyId, id)
+      }
+      throw new Error(mapCatalogWriteError(error))
+    }
+    if (!data?.length) {
+      throw new Error("Servicio no encontrado.")
+    }
+    return { deleted: true }
+  }
+
+  return logicallyRemoveCatalogItem(client, companyId, id)
+}
+
+async function logicallyRemoveCatalogItem(
+  client: IspCatalogQueriesClient,
+  companyId: string,
+  id: string
+): Promise<{ deleted: true }> {
+  const { data, error } = await client
+    .from("isp_service_catalog")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("company_id", companyId)
+    .eq("id", id)
+    .is("deleted_at", null)
+    .select("id")
+
+  if (error) throw new Error(mapCatalogWriteError(error))
+  if (!data?.length) throw new Error("Servicio no encontrado.")
+  return { deleted: true }
 }
