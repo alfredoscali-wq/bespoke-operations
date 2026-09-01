@@ -98,6 +98,18 @@ test("4. desactivar (acción aparte) no modifica clientes ni abonos existentes",
   assert.match(setActiveFn, /\.from\("isp_service_catalog"\)/)
 })
 
+test("la lista permite activar y desactivar el estado", () => {
+  const toggle = read("components/isp/isp-catalog-active-toggle.tsx")
+  assert.match(list, /IspCatalogActiveToggle/)
+  assert.match(toggle, /method: "PATCH"/)
+  assert.match(toggle, /isActive: !item.isActive/)
+  assert.match(toggle, /ISP_CATALOG_DEACTIVATE_ACTION_LABEL/)
+  assert.match(toggle, /ISP_CATALOG_ACTIVATE_ACTION_LABEL/)
+  assert.match(toggle, /role="switch"/)
+  assert.doesNotMatch(toggle, /isp_services/)
+  assert.doesNotMatch(toggle, /method: "DELETE"/)
+})
+
 test("5. desactivar impide nuevas asignaciones en OT", () => {
   assert.equal(isCatalogItemVisibleInNewOt({ isActive: false }), false)
   assert.equal(isCatalogItemVisibleInNewOt({ isActive: true }), true)

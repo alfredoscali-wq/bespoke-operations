@@ -18,6 +18,7 @@ import {
   formatCatalogSpeedLabel,
 } from "@/lib/isp/catalog-integrity"
 import type { IspCatalogItem } from "@/lib/isp/catalog-types"
+import { IspCatalogActiveToggle } from "@/components/isp/isp-catalog-active-toggle"
 import { IspCatalogRowActions } from "@/components/isp/isp-catalog-row-actions"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -91,6 +92,20 @@ export function IspCatalogListScreen() {
     if (loading) return "Cargando servicios..."
     return `${items.length} servicio${items.length === 1 ? "" : "s"}`
   }, [items.length, loading])
+
+  function handleCatalogUpdated(updated: IspCatalogItem) {
+    setError(null)
+    setItems((current) => {
+      const matchesFilter =
+        status === "all" ||
+        (status === "active" && updated.isActive) ||
+        (status === "inactive" && !updated.isActive)
+      if (!matchesFilter) {
+        return current.filter((row) => row.id !== updated.id)
+      }
+      return current.map((row) => (row.id === updated.id ? updated : row))
+    })
+  }
 
   return (
     <div className="space-y-6">
@@ -241,9 +256,11 @@ export function IspCatalogListScreen() {
                   {item.technicalProfile?.code ?? "—"}
                 </TableCell>
                 <TableCell>
-                  <Badge variant={item.isActive ? "secondary" : "outline"}>
-                    {item.isActive ? "Activo" : "Inactivo"}
-                  </Badge>
+                  <IspCatalogActiveToggle
+                    item={item}
+                    onUpdated={handleCatalogUpdated}
+                    onError={setError}
+                  />
                 </TableCell>
                 <TableCell className="text-right">
                   <IspCatalogRowActions

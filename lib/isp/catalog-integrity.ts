@@ -47,6 +47,7 @@ export const ISP_CATALOG_DELETE_CONFIRM_BODY =
 export const ISP_CATALOG_USED_DEACTIVATE_EXPLANATION =
   "Hay clientes, órdenes de trabajo u otras referencias vinculadas. Desactivarlo lo oculta para nuevas asignaciones; los clientes y abonos existentes no cambian. El plan TV asociado, si existe, no se modifica."
 export const ISP_CATALOG_DEACTIVATE_ACTION_LABEL = "Desactivar servicio"
+export const ISP_CATALOG_ACTIVATE_ACTION_LABEL = "Activar servicio"
 export const ISP_CATALOG_IN_USE_CODE = "IN_USE"
 export const ISP_CATALOG_CROSS_COMPANY_MESSAGE =
   "No se puede usar un catálogo de otra empresa."
