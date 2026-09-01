@@ -18,7 +18,7 @@ import {
   formatCatalogSpeedLabel,
 } from "@/lib/isp/catalog-integrity"
 import type { IspCatalogItem } from "@/lib/isp/catalog-types"
-import { IspCatalogDeleteButton } from "@/components/isp/isp-catalog-delete-dialog"
+import { IspCatalogRowActions } from "@/components/isp/isp-catalog-row-actions"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -246,19 +246,11 @@ export function IspCatalogListScreen() {
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right">
-                  <div className="flex justify-end gap-2">
-                    <Button asChild size="sm" variant="outline">
-                      <Link href={`/servicios/${item.id}`}>Ver</Link>
-                    </Button>
-                    <Button asChild size="sm" variant="ghost">
-                      <Link href={`/servicios/${item.id}/editar`}>Editar</Link>
-                    </Button>
-                    <IspCatalogDeleteButton
-                      item={item}
-                      onDeleted={() => setReloadToken((token) => token + 1)}
-                      onError={setError}
-                    />
-                  </div>
+                  <IspCatalogRowActions
+                    item={item}
+                    onDeleted={() => setReloadToken((token) => token + 1)}
+                    onError={setError}
+                  />
                 </TableCell>
               </TableRow>
             ))}

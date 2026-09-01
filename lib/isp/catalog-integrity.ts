@@ -10,7 +10,6 @@ import {
   ISP_CATALOG_SPEED_UNIT_LABELS,
   ISP_CATALOG_TECHNOLOGIES,
   ISP_CATALOG_TECHNOLOGY_LABELS,
-  isOtRequiredSeedCatalogItem,
   OT_TECHNOLOGY_TO_CATALOG,
   type IspCatalogCategory,
   type IspCatalogConnectionType,
@@ -42,8 +41,6 @@ export const ISP_CATALOG_CUSTOMER_TYPE_REQUIRED_MESSAGE =
   "Indique el tipo de cliente."
 export const ISP_CATALOG_USED_CANNOT_DELETE_MESSAGE =
   "Este servicio está siendo utilizado y no puede eliminarse."
-export const ISP_OT_REQUIRED_CATALOG_CANNOT_DELETE_MESSAGE =
-  "Este plan es necesario para las OT de nueva instalación (Fibra 50/100/300 Mb y Wireless 20 Mb) y no puede eliminarse."
 export const ISP_CATALOG_DELETE_CONFIRM_TITLE = "¿Eliminar este servicio?"
 export const ISP_CATALOG_DELETE_CONFIRM_BODY =
   "Esta acción quitará el servicio del catálogo."
@@ -471,19 +468,6 @@ export function canPhysicallyDeleteCatalogItem(input: {
 }): { allowed: boolean; message?: string } {
   if (input.usedCount > 0) {
     return { allowed: false, message: ISP_CATALOG_USED_CANNOT_DELETE_MESSAGE }
-  }
-  return { allowed: true }
-}
-
-export function canDeleteCatalogItemFromServicios(item: {
-  code?: string | null
-  legacyPlanCode?: string | null
-}): { allowed: true } | { allowed: false; message: string } {
-  if (isOtRequiredSeedCatalogItem(item)) {
-    return {
-      allowed: false,
-      message: ISP_OT_REQUIRED_CATALOG_CANNOT_DELETE_MESSAGE,
-    }
   }
   return { allowed: true }
 }

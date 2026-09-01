@@ -3,7 +3,6 @@
 import { useState } from "react"
 
 import {
-  canDeleteCatalogItemFromServicios,
   ISP_CATALOG_DELETE_CONFIRM_BODY,
   ISP_CATALOG_DELETE_CONFIRM_TITLE,
 } from "@/lib/isp/catalog-integrity"
@@ -24,23 +23,24 @@ type CatalogDeleteResponse = {
   message?: string
 }
 
-export function IspCatalogDeleteButton({
+export function IspCatalogDeleteDialog({
   item,
+  open,
+  onOpenChange,
   onDeleted,
   onError,
 }: {
   item: IspCatalogItem
+  open: boolean
+  onOpenChange: (open: boolean) => void
   onDeleted: () => void
-  onUpdated?: (item: IspCatalogItem) => void
   onError?: (message: string) => void
 }) {
-  const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
-  const deleteCheck = canDeleteCatalogItemFromServicios(item)
 
   function close() {
     if (busy) return
-    setOpen(false)
+    onOpenChange(false)
   }
 
   async function confirmDelete() {
@@ -54,7 +54,7 @@ export function IspCatalogDeleteButton({
         onError?.(body.message ?? "No se pudo eliminar el servicio.")
         return
       }
-      setOpen(false)
+      onOpenChange(false)
       onDeleted()
     } catch {
       onError?.("No se pudo eliminar el servicio.")
@@ -63,9 +63,55 @@ export function IspCatalogDeleteButton({
     }
   }
 
-  if (!deleteCheck.allowed) {
-    return null
-  }
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) close()
+        else onOpenChange(true)
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{ISP_CATALOG_DELETE_CONFIRM_TITLE}</DialogTitle>
+          <DialogDescription>
+            {ISP_CATALOG_DELETE_CONFIRM_BODY}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={busy}
+            onClick={close}
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            disabled={busy}
+            onClick={() => void confirmDelete()}
+          >
+            Eliminar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+export function IspCatalogDeleteButton({
+  item,
+  onDeleted,
+  onError,
+}: {
+  item: IspCatalogItem
+  onDeleted: () => void
+  onUpdated?: (item: IspCatalogItem) => void
+  onError?: (message: string) => void
+}) {
+  const [open, setOpen] = useState(false)
 
   return (
     <>
@@ -77,39 +123,13 @@ export function IspCatalogDeleteButton({
       >
         Eliminar
       </Button>
-      <Dialog
+      <IspCatalogDeleteDialog
+        item={item}
         open={open}
-        onOpenChange={(next) => {
-          if (!next) close()
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{ISP_CATALOG_DELETE_CONFIRM_TITLE}</DialogTitle>
-            <DialogDescription>
-              {ISP_CATALOG_DELETE_CONFIRM_BODY}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={busy}
-              onClick={close}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              disabled={busy}
-              onClick={() => void confirmDelete()}
-            >
-              Eliminar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        onOpenChange={setOpen}
+        onDeleted={onDeleted}
+        onError={onError}
+      />
     </>
   )
 }

@@ -3,7 +3,6 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import {
   assertTechnicalProfileForCatalog,
   assertTvPlanForCatalog,
-  canDeleteCatalogItemFromServicios,
   canPhysicallyDeleteCatalogItem,
   mapCatalogWriteError,
   matchesCatalogFilters,
@@ -530,11 +529,6 @@ export async function deleteIspCatalogItem(
   const current = await getIspCatalogItem(client, companyId, id)
   if (!current) throw new Error("Servicio no encontrado.")
 
-  const required = canDeleteCatalogItemFromServicios(current)
-  if (!required.allowed) {
-    throw new Error(required.message)
-  }
-
   const refs = await countCatalogReferences(client, companyId, [id])
   const blockingCount = refs.get(id)?.blockingCount ?? 0
   const physical = canPhysicallyDeleteCatalogItem({ usedCount: blockingCount })
@@ -550,29 +544,38 @@ export async function deleteIspCatalogItem(
 
     if (error) {
       if (error.code === "23503") {
-        return logicallyRemoveCatalogItem(client, companyId, id)
+        return logicallyRemoveCatalogItem(client, companyId, current)
       }
       throw new Error(mapCatalogWriteError(error))
     }
     if (!data?.length) {
-      throw new Error("Servicio no encontrado.")
+      return logicallyRemoveCatalogItem(client, companyId, current)
     }
     return { deleted: true }
   }
 
-  return logicallyRemoveCatalogItem(client, companyId, id)
+  return logicallyRemoveCatalogItem(client, companyId, current)
 }
 
 async function logicallyRemoveCatalogItem(
   client: IspCatalogQueriesClient,
   companyId: string,
-  id: string
+  current: IspCatalogItem
 ): Promise<{ deleted: true }> {
+  if (current.category === "tv") {
+    const { error: clearError } = await client
+      .from("isp_service_catalog")
+      .update({ tv_plan_catalog_id: null })
+      .eq("company_id", companyId)
+      .eq("tv_plan_catalog_id", current.id)
+    if (clearError) throw new Error(mapCatalogWriteError(clearError))
+  }
+
   const { data, error } = await client
     .from("isp_service_catalog")
     .update({ deleted_at: new Date().toISOString() })
     .eq("company_id", companyId)
-    .eq("id", id)
+    .eq("id", current.id)
     .is("deleted_at", null)
     .select("id")
 

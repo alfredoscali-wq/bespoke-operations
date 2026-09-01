@@ -8,14 +8,10 @@ import test from "node:test"
 
 import {
   ISP_CATALOG_SEED_ITEMS,
-  isOtRequiredSeedCatalogItem,
 } from "../lib/isp/catalog-constants.ts"
 import {
-  canDeleteCatalogItemFromServicios,
-  ISP_OT_REQUIRED_CATALOG_CANNOT_DELETE_MESSAGE,
-} from "../lib/isp/catalog-integrity.ts"
-import {
   buildOtPlanOptionsFromCatalog,
+  isCatalogItemVisibleInNewOt,
 } from "../lib/isp/catalog-integrity.ts"
 
 const root = resolve(import.meta.dirname, "..")
@@ -119,17 +115,14 @@ test("la OT wireless pide IP de instalación", () => {
   assert.match(technologyFields, /installationIp/)
 })
 
-test("no se pueden volver a eliminar del catálogo", () => {
-  const blocked = canDeleteCatalogItemFromServicios({
-    code: "FTTH-100",
-    legacyPlanCode: "100Mb",
-  })
-  assert.equal(blocked.allowed, false)
-  assert.equal(blocked.message, ISP_OT_REQUIRED_CATALOG_CANNOT_DELETE_MESSAGE)
+test("un servicio eliminado o inactivo no aparece en nuevas OT", () => {
+  assert.equal(isCatalogItemVisibleInNewOt({ isActive: true }), true)
+  assert.equal(isCatalogItemVisibleInNewOt({ isActive: false }), false)
   assert.equal(
-    canDeleteCatalogItemFromServicios({ code: "EMP-DEDICADO" }).allowed,
-    true
+    isCatalogItemVisibleInNewOt({ isActive: true, deletedAt: "2026-09-01" }),
+    false
   )
-  assert.equal(isOtRequiredSeedCatalogItem({ code: "WIRELESS-20" }), true)
-  assert.match(queries, /canDeleteCatalogItemFromServicios/)
+  assert.match(queries, /listIspCatalogForOt/)
+  assert.match(queries, /\.eq\("is_active", true\)/)
+  assert.doesNotMatch(queries, /canDeleteCatalogItemFromServicios/)
 })

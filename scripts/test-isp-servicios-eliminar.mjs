@@ -33,6 +33,9 @@ const tvComponentSql = read(
 const deleteSql = read(
   "supabase/migrations/20261207000100_isp_servicios_catalog_delete.sql"
 )
+const danglingTvSql = read(
+  "supabase/migrations/20261210000100_isp_catalog_delete_with_dangling_tv.sql"
+)
 const queries = read("lib/isp/catalog-queries.ts")
 const integrity = read("lib/isp/catalog-integrity.ts")
 const route = read("app/api/isp/catalog/[id]/route.ts")
@@ -108,7 +111,9 @@ test("5. desactivar impide nuevas asignaciones en OT", () => {
 
 test("6. no se elimina el plan TV asociado", () => {
   const deleteFn = deleteFnSource()
-  assert.doesNotMatch(deleteFn, /\.eq\("tv_plan_catalog_id"/)
+  assert.match(deleteFn, /if \(current.category === "tv"\)/)
+  assert.match(deleteFn, /update\(\{ tv_plan_catalog_id: null \}\)/)
+  assert.doesNotMatch(deleteFn, /\.delete\(\)[\s\S]{0,120}tv_plan_catalog_id/)
   assert.match(deleteFn, /\.eq\("id", id\)/)
   assert.match(
     tvComponentSql,
@@ -174,13 +179,24 @@ test("10. no se eliminan registros relacionados accidentalmente", () => {
 })
 
 test("UX: Eliminar confirma y quita el servicio del catálogo", () => {
-  assert.match(list, /IspCatalogDeleteButton/)
-  assert.match(list, /Editar/)
+  const rowActions = read("components/isp/isp-catalog-row-actions.tsx")
+  assert.match(list, /IspCatalogRowActions/)
+  assert.doesNotMatch(list, />Ver</)
+  assert.doesNotMatch(list, />Editar</)
+  assert.doesNotMatch(rowActions, /MoreHorizontal/)
+  assert.doesNotMatch(rowActions, /DropdownMenu/)
+  assert.match(rowActions, /<Eye /)
+  assert.match(rowActions, /<Pencil /)
+  assert.match(rowActions, /<Trash2 /)
+  assert.match(rowActions, /label="Ver"/)
+  assert.match(rowActions, /label="Editar"/)
+  assert.match(rowActions, /label="Eliminar"/)
   assert.match(detail, /IspCatalogDeleteButton/)
   assert.match(dialog, /Eliminar/)
   assert.match(dialog, /ISP_CATALOG_DELETE_CONFIRM_TITLE/)
   assert.match(dialog, /ISP_CATALOG_DELETE_CONFIRM_BODY/)
   assert.doesNotMatch(dialog, /forcedInUse/)
+  assert.doesNotMatch(dialog, /canDeleteCatalogItemFromServicios/)
 })
 
 test("no modifica importador, Clientes 360 ni /subscriptions", () => {
@@ -190,8 +206,32 @@ test("no modifica importador, Clientes 360 ni /subscriptions", () => {
   assert.doesNotMatch(integrity, /ON DELETE CASCADE/)
 })
 
-test("los planes de OT 50/100/300 Mb y Wireless 20 no se pueden eliminar", () => {
-  assert.match(queries, /canDeleteCatalogItemFromServicios/)
-  assert.match(dialog, /canDeleteCatalogItemFromServicios/)
-  assert.match(dialog, /if \(!deleteCheck.allowed\)/)
+test("cualquier servicio del catálogo se puede eliminar y deja de aparecer en OT", () => {
+  const deleteFn = deleteFnSource()
+  assert.doesNotMatch(deleteFn, /canDeleteCatalogItemFromServicios/)
+  assert.doesNotMatch(integrity, /ISP_OT_REQUIRED_CATALOG_CANNOT_DELETE_MESSAGE/)
+  assert.equal(
+    isCatalogItemVisibleInNewOt({ isActive: true, deletedAt: "2026-09-01" }),
+    false
+  )
+  assert.equal(isCatalogItemVisibleInNewOt({ isActive: true }), true)
+  assert.match(danglingTvSql, /IF NEW.deleted_at IS NOT NULL THEN/)
+  assert.match(deleteFn, /tv_plan_catalog_id: null/)
+})
+
+test("si el DELETE físico no aplica filas, se quita del catálogo con deleted_at", () => {
+  const deleteFn = deleteFnSource()
+  assert.match(
+    deleteFn,
+    /if \(!data\?\.length\) \{\s*return logicallyRemoveCatalogItem/
+  )
+  assert.doesNotMatch(
+    deleteFn,
+    /if \(!data\?\.length\) \{\s*throw new Error\("Servicio no encontrado\."\)/
+  )
+  const rlsSql = read(
+    "supabase/migrations/20261211000100_isp_catalog_delete_rls.sql"
+  )
+  assert.match(rlsSql, /isp_service_catalog_delete_policy/)
+  assert.match(rlsSql, /GRANT DELETE ON public\.isp_service_catalog/)
 })
