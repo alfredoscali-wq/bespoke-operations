@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Plus, Search, Upload } from "lucide-react"
+import { Download, Plus, Search, Upload } from "lucide-react"
 
 import { AtencionFormDialog } from "@/components/atencion-cliente/atencion-form-dialog"
 import { useAuth } from "@/components/auth/auth-provider"
@@ -104,6 +104,7 @@ export function IspCustomerListScreen() {
   const [feedbackVariant, setFeedbackVariant] = useState<"success" | "error">(
     "success"
   )
+  const [exporting, setExporting] = useState(false)
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -287,6 +288,39 @@ export function IspCustomerListScreen() {
     }
   }
 
+  async function exportActiveCustomersExcel() {
+    setExporting(true)
+    try {
+      const response = await fetch("/api/isp/customers/export", {
+        cache: "no-store",
+        credentials: "same-origin",
+      })
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as {
+          message?: string
+        } | null
+        throw new Error(body?.message ?? "No se pudo exportar el Excel.")
+      }
+      const blob = await response.blob()
+      const header = response.headers.get("Content-Disposition") ?? ""
+      const match = header.match(/filename="([^"]+)"/)
+      const filename = match?.[1] ?? "Clientes360_ABNet.xlsx"
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = filename
+      link.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      showFeedback(
+        error instanceof Error ? error.message : "No se pudo exportar el Excel.",
+        "error"
+      )
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -297,6 +331,15 @@ export function IspCustomerListScreen() {
               <Plus className="size-4" />
               Nuevo Cliente
             </Link>
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={exporting}
+            onClick={() => void exportActiveCustomersExcel()}
+          >
+            <Download className="size-4" />
+            {exporting ? "Exportando..." : "Exportar Excel"}
           </Button>
           {canImport ? (
             <Button asChild variant="outline">

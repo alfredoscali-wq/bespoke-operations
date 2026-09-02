@@ -48,7 +48,7 @@ export type CustomerOperationalSummary = {
   revisar: number
 }
 
-function isCommerciallyActiveCustomer(customer: Customer): boolean {
+export function isCommerciallyActiveCustomer(customer: Customer): boolean {
   return (
     customer.validationStatus === "active" &&
     !isCustomerStatusPendingActivation(customer.status)

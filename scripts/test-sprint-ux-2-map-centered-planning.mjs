@@ -348,17 +348,22 @@ test("toolbar mantiene selector de fecha con espaciado reducido", async () => {
   assert.match(file, /gap-2/)
 })
 
-test("resolvePlanningMapBaseLayerConfig expone satélite por defecto sin API key", () => {
-  assert.equal(PLANNING_MAP_DEFAULT_BASE_LAYER, "satellite")
+test("resolvePlanningMapBaseLayerConfig expone OSM street por defecto sin API key", () => {
+  assert.equal(PLANNING_MAP_DEFAULT_BASE_LAYER, "street")
 
   const config = resolvePlanningMapBaseLayerConfig()
-  assert.equal(config.id, "satellite")
-  assert.match(config.url, /World_Imagery/)
-  assert.ok(config.options.attribution)
+  assert.equal(config.id, "street")
+  assert.match(config.url, /^https:\/\/\{s\}\.tile\.openstreetmap\.org\//)
+  assert.match(config.options.attribution ?? "", /OpenStreetMap/)
   assert.equal(config.options.maxZoom, 19)
+  assert.equal(config.options.maxNativeZoom, 19)
+
+  const satellite = resolvePlanningMapBaseLayerConfig("satellite")
+  assert.equal(satellite.id, "satellite")
+  assert.match(satellite.url, /World_Imagery/)
 })
 
-test("planning map usa capa satelital Esri por defecto", async () => {
+test("planning map usa capa OSM street centralizada, sin URL en el canvas", async () => {
   const tilesFile = await readFile(
     "lib/planificacion/planning-map-tiles.ts",
     "utf8"
@@ -368,11 +373,13 @@ test("planning map usa capa satelital Esri por defecto", async () => {
     "utf8"
   )
 
-  assert.match(tilesFile, /PLANNING_MAP_DEFAULT_BASE_LAYER[\s\S]*"satellite"/)
-  assert.match(tilesFile, /World_Imagery/)
-  assert.match(tilesFile, /attribution:/)
-  assert.match(canvasFile, /resolvePlanningMapBaseLayerConfig/)
+  assert.match(tilesFile, /PLANNING_MAP_DEFAULT_BASE_LAYER[\s\S]*"street"/)
+  assert.match(tilesFile, /https:\/\/\{s\}\.tile\.openstreetmap\.org/)
+  assert.match(tilesFile, /OpenStreetMap/)
+  assert.doesNotMatch(tilesFile, /prefetch|bulk download|preloadTiles/)
+  assert.match(canvasFile, /resolvePlanningMapBaseLayerConfig\(baseLayerId\)/)
   assert.doesNotMatch(canvasFile, /tile\.openstreetmap\.org/)
+  assert.doesNotMatch(canvasFile, /World_Imagery/)
 })
 
 test("OPS 2.4.6 — duración siempre en minutos; Turno sin truncate", async () => {

@@ -43,5 +43,8 @@ next-env.d.ts
 # Dump del sistema comercial (datos reales)
 data/
 
+# Excel temporal de depuración ABNet (PII)
+/exports/
+
 # Supabase CLI (generado localmente al vincular el proyecto)
 supabase/.temp/

@@ -1,15 +1,22 @@
 "use client"
 
-import { useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import dynamic from "next/dynamic"
 import { Loader2, RefreshCw } from "lucide-react"
 
+import { PlanningMapBaseLayerControl } from "@/components/planificacion/planning-map-base-layer-control"
 import { PlanningTaskOrderInput } from "@/components/planificacion/planning-task-order-input"
 import { PlanningTaskObservationsBlock } from "@/components/planificacion/planning-task-observations-block"
 import { Button } from "@/components/ui/button"
 import type { Task } from "@/lib/types/tasks"
 import type { Crew } from "@/lib/types/crews"
 import type { PlanningTaskCoordinates } from "@/lib/planificacion/planning-utils"
+import {
+  PLANNING_MAP_DEFAULT_BASE_LAYER,
+  readPlanningMapBaseLayerFromSession,
+  writePlanningMapBaseLayerToSession,
+  type PlanningMapSelectableBaseLayerId,
+} from "@/lib/planificacion/planning-map-tiles"
 import {
   buildPlanningCrewColorIndex,
   buildPlanningCrewLegendItems,
@@ -245,6 +252,8 @@ export function PlanningMap({
 }: PlanningMapProps) {
   const markers = buildPlanningMapMarkers(tasks)
   const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null
+  const [baseLayerId, setBaseLayerId] =
+    useState<PlanningMapSelectableBaseLayerId>(PLANNING_MAP_DEFAULT_BASE_LAYER)
   const crewColorIndex = useMemo(
     () => buildPlanningCrewColorIndex(crewIdsInOrder),
     [crewIdsInOrder]
@@ -253,6 +262,15 @@ export function PlanningMap({
     () => buildPlanningCrewLegendItems(crewIdsInOrder, crewNamesById),
     [crewIdsInOrder, crewNamesById]
   )
+
+  useEffect(() => {
+    setBaseLayerId(readPlanningMapBaseLayerFromSession())
+  }, [])
+
+  function handleBaseLayerChange(layerId: PlanningMapSelectableBaseLayerId) {
+    setBaseLayerId(layerId)
+    writePlanningMapBaseLayerToSession(layerId)
+  }
 
   return (
     <section
@@ -305,6 +323,12 @@ export function PlanningMap({
           viewRefreshToken={mapRefreshToken}
           activeCrewFilterId={activeCrewFilterId}
           crews={crews}
+          baseLayerId={baseLayerId}
+        />
+
+        <PlanningMapBaseLayerControl
+          value={baseLayerId}
+          onChange={handleBaseLayerChange}
         />
 
         {selectedTask ? (

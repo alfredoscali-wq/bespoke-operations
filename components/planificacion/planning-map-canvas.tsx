@@ -25,7 +25,11 @@ import {
   resolvePlanningTaskServiceLabel,
   type PlanningMapViewConfig,
 } from "@/lib/planificacion/planning-utils"
-import { resolvePlanningMapBaseLayerConfig } from "@/lib/planificacion/planning-map-tiles"
+import {
+  PLANNING_MAP_DEFAULT_BASE_LAYER,
+  resolvePlanningMapBaseLayerConfig,
+  type PlanningMapSelectableBaseLayerId,
+} from "@/lib/planificacion/planning-map-tiles"
 
 import "leaflet/dist/leaflet.css"
 
@@ -220,6 +224,7 @@ type PlanningMapCanvasProps = {
   viewRefreshToken?: number
   activeCrewFilterId?: string | null
   crews?: Pick<Crew, "id" | "name">[]
+  baseLayerId?: PlanningMapSelectableBaseLayerId
 }
 
 export function PlanningMapCanvas({
@@ -232,10 +237,12 @@ export function PlanningMapCanvas({
   viewRefreshToken = 0,
   activeCrewFilterId = null,
   crews = [],
+  baseLayerId = PLANNING_MAP_DEFAULT_BASE_LAYER,
 }: PlanningMapCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
   const markerLayerRef = useRef<L.LayerGroup | null>(null)
+  const tileLayerRef = useRef<L.TileLayer | null>(null)
   const markerRefsRef = useRef<
     Map<string, { instanceKey: string; marker: L.Marker }>
   >(new Map())
@@ -261,9 +268,6 @@ export function PlanningMapCanvas({
       attributionControl: true,
     })
 
-    const baseLayerConfig = resolvePlanningMapBaseLayerConfig()
-    L.tileLayer(baseLayerConfig.url, baseLayerConfig.options).addTo(map)
-
     markerLayerRef.current = L.layerGroup().addTo(map)
     mapRef.current = map
 
@@ -284,9 +288,28 @@ export function PlanningMapCanvas({
       map.remove()
       mapRef.current = null
       markerLayerRef.current = null
+      tileLayerRef.current = null
       markerRefsRef.current.clear()
     }
   }, [])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) {
+      return
+    }
+
+    const config = resolvePlanningMapBaseLayerConfig(baseLayerId)
+    const nextLayer = L.tileLayer(config.url, config.options)
+    nextLayer.addTo(map)
+
+    const previousLayer = tileLayerRef.current
+    tileLayerRef.current = nextLayer
+
+    if (previousLayer && map.hasLayer(previousLayer)) {
+      map.removeLayer(previousLayer)
+    }
+  }, [baseLayerId])
 
   useEffect(() => {
     const map = mapRef.current
