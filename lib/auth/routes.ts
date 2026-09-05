@@ -29,6 +29,12 @@ export function isPasswordChangeGuardAllowedPath(pathname: string): boolean {
   return isChangePasswordPath(pathname)
 }
 
+const GOOGLE_SITE_VERIFICATION_PATH = /^\/google[0-9a-f]+\.html$/i
+
+export function isGoogleSiteVerificationPath(pathname: string): boolean {
+  return GOOGLE_SITE_VERIFICATION_PATH.test(pathname)
+}
+
 export function isAuthPublicPath(pathname: string): boolean {
   if (pathname === LOGIN_PATH || pathname.startsWith(`${LOGIN_PATH}/`)) {
     return true
@@ -38,6 +44,10 @@ export function isAuthPublicPath(pathname: string): boolean {
     pathname === AUTH_CALLBACK_PATH ||
     pathname.startsWith(`${AUTH_CALLBACK_PATH}/`)
   ) {
+    return true
+  }
+
+  if (isGoogleSiteVerificationPath(pathname)) {
     return true
   }
 
