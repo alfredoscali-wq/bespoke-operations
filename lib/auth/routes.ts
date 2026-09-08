@@ -51,6 +51,10 @@ export function isAuthPublicPath(pathname: string): boolean {
     return true
   }
 
+  if (pathname === "/privacidad.html") {
+    return true
+  }
+
   if (pathname.startsWith("/api/health")) {
     return true
   }
