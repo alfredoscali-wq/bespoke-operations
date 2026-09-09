@@ -17,6 +17,10 @@ import {
 } from "lucide-react"
 
 import { useAuth } from "@/components/auth/auth-provider"
+import {
+  TemporaryPasswordDialog,
+  type TemporaryPasswordReveal,
+} from "@/components/auth/temporary-password-dialog"
 import { AssignExternalUserCrewDialog } from "@/components/contratistas/assign-external-user-crew-dialog"
 import { useContractors } from "@/components/contratistas/contractors-provider"
 import { ContractorFormDialog } from "@/components/contratistas/contractor-form-dialog"
@@ -27,7 +31,6 @@ import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { useEmployees } from "@/components/rrhh/employees-provider"
 import {
   buildPasswordResetToDniFeedback,
-  buildProvisionedCredentialsFeedback,
   buildResetPasswordToDniDescription,
 } from "@/lib/auth/initial-credentials-policy"
 import { requestResetEmployeePassword } from "@/lib/auth/reset-password-client"
@@ -123,6 +126,8 @@ export function ContractorDetailPageClient({
   const [busyUserId, setBusyUserId] = useState<string | null>(null)
   const [isResettingPassword, setIsResettingPassword] = useState(false)
   const [isDeletingUser, setIsDeletingUser] = useState(false)
+  const [passwordReveal, setPasswordReveal] =
+    useState<TemporaryPasswordReveal | null>(null)
 
   const contractorCrews = useMemo(
     () => filterExternalCrews(crews, contractorId),
@@ -213,6 +218,17 @@ export function ContractorDetailPageClient({
       const result = await provisionEmployeeAccess(employee.id)
       if (!result.success) {
         setFeedback(result.message ?? "No se pudo provisionar el acceso.")
+        return
+      }
+      if (result.temporaryPassword) {
+        setPasswordReveal({
+          password: result.temporaryPassword,
+          displayName: getEmployeeDisplayName(employee),
+          nationalId: employee.nationalId,
+        })
+        setFeedback(
+          "Acceso provisionado. Entregue la contraseña temporal al empleado."
+        )
         return
       }
       setFeedback("Acceso provisionado correctamente.")
@@ -682,15 +698,24 @@ export function ContractorDetailPageClient({
         contractorName={getContractorDisplayName(contractor)}
         mode={editingUser ? "edit" : "create"}
         employee={editingUser}
-        onSaved={(saved) =>
+        onSaved={(saved, extras) => {
+          if (extras?.temporaryPassword) {
+            setPasswordReveal({
+              password: extras.temporaryPassword,
+              displayName: getEmployeeDisplayName(saved),
+              nationalId: saved.nationalId,
+            })
+            setFeedback(
+              "Acceso creado. Entregue la contraseña temporal al usuario."
+            )
+            return
+          }
           setFeedback(
             editingUser
               ? "Usuario Field Agent actualizado."
-              : buildProvisionedCredentialsFeedback(
-                  getEmployeeDisplayName(saved)
-                )
+              : `${getEmployeeDisplayName(saved)}: acceso creado.`
           )
-        }
+        }}
       />
 
       <AssignExternalUserCrewDialog
@@ -795,6 +820,12 @@ export function ContractorDetailPageClient({
           }}
         />
       ) : null}
+      <TemporaryPasswordDialog
+        reveal={passwordReveal}
+        onOpenChange={(open) => {
+          if (!open) setPasswordReveal(null)
+        }}
+      />
     </div>
   )
 }

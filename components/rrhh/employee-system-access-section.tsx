@@ -15,6 +15,10 @@ import {
 } from "lucide-react"
 
 import { useAuth } from "@/components/auth/auth-provider"
+import {
+  TemporaryPasswordDialog,
+  type TemporaryPasswordReveal,
+} from "@/components/auth/temporary-password-dialog"
 import { useCompanyRoles } from "@/components/configuracion/use-company-roles"
 import { EmployeeSystemAccessDialog } from "@/components/rrhh/employee-system-access-dialog"
 import { useEmployees } from "@/components/rrhh/employees-provider"
@@ -112,6 +116,8 @@ export function EmployeeSystemAccessSection({
   const [provisionSuccess, setProvisionSuccess] = useState<string | null>(null)
   const [resetError, setResetError] = useState<string | null>(null)
   const [resetSuccess, setResetSuccess] = useState<string | null>(null)
+  const [passwordReveal, setPasswordReveal] =
+    useState<TemporaryPasswordReveal | null>(null)
 
   const isAdministrator = sessionUser?.systemRole === "administrador"
   const canCreateAccess =
@@ -143,6 +149,18 @@ export function EmployeeSystemAccessSection({
       if (!result.success) {
         setProvisionError(
           result.message ?? "No se pudo crear el acceso del empleado."
+        )
+        return
+      }
+
+      if (result.temporaryPassword) {
+        setPasswordReveal({
+          password: result.temporaryPassword,
+          displayName: `${employee.firstName} ${employee.lastName}`.trim(),
+          nationalId: employee.nationalId,
+        })
+        setProvisionSuccess(
+          "Acceso provisionado. Entregue la contraseña temporal al empleado."
         )
         return
       }
@@ -371,6 +389,12 @@ export function EmployeeSystemAccessSection({
         onOpenChange={setDialogOpen}
         employee={employee}
         onSubmit={handleSave}
+      />
+      <TemporaryPasswordDialog
+        reveal={passwordReveal}
+        onOpenChange={(open) => {
+          if (!open) setPasswordReveal(null)
+        }}
       />
     </>
   )

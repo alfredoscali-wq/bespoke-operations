@@ -4,6 +4,7 @@ export type ProvisionEmployeeAccessResponse =
       authUserId: string
       reused?: boolean
       created?: boolean
+      temporaryPassword?: string
     }
   | { success: false; error: string }
 
@@ -20,7 +21,7 @@ export async function requestProvisionEmployeeAccess(
 
   const data = (await response.json()) as ProvisionEmployeeAccessResponse
 
-  if (!response.ok) {
+  if (!response.ok || !data.success) {
     return {
       success: false,
       error:
@@ -30,5 +31,13 @@ export async function requestProvisionEmployeeAccess(
     }
   }
 
-  return data
+  return {
+    success: true,
+    authUserId: data.authUserId,
+    reused: data.reused,
+    created: data.created,
+    ...(data.temporaryPassword
+      ? { temporaryPassword: data.temporaryPassword }
+      : {}),
+  }
 }

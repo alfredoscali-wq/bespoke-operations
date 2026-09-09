@@ -111,15 +111,23 @@ export async function POST(request: Request) {
       })
     }
 
-    return NextResponse.json(
-      {
-        success: true,
-        authUserId: result.authUserId,
-        reused: result.reused,
-        created: result.created,
-      },
-      { status: result.created ? 201 : 200 }
-    )
+    const payload: {
+      success: true
+      authUserId: string
+      reused: boolean
+      created: boolean
+      temporaryPassword?: string
+    } = {
+      success: true,
+      authUserId: result.authUserId,
+      reused: result.reused,
+      created: result.created,
+    }
+    if (result.temporaryPassword) {
+      payload.temporaryPassword = result.temporaryPassword
+    }
+
+    return NextResponse.json(payload, { status: result.created ? 201 : 200 })
   } catch (error) {
     const message =
       error instanceof Error

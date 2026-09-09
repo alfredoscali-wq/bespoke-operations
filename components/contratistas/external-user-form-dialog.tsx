@@ -45,7 +45,10 @@ type ExternalUserFormDialogProps = {
   contractorName: string
   mode?: "create" | "edit"
   employee?: Employee | null
-  onSaved?: (employee: Employee) => void
+  onSaved?: (
+    employee: Employee,
+    extras?: { temporaryPassword?: string }
+  ) => void
 }
 
 type FormState = {
@@ -247,6 +250,7 @@ function ExternalUserFormDialogBody({
           `Usuario creado, pero no se pudo provisionar Auth: ${provision.message ?? "error desconocido"}`
         )
       }
+      const temporaryPassword = provision.temporaryPassword
       if (provision.employee) {
         saved = provision.employee
       }
@@ -266,7 +270,10 @@ function ExternalUserFormDialogBody({
         }
       }
 
-      onSaved?.(saved)
+      onSaved?.(
+        saved,
+        temporaryPassword ? { temporaryPassword } : undefined
+      )
       forceClose()
     } catch (submitError) {
       setError(

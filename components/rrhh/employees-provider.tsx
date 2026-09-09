@@ -72,7 +72,12 @@ type EmployeesContextValue = {
   ) => Promise<EmployeeMutationResult & { employee?: Employee }>
   provisionEmployeeAccess: (
     id: string
-  ) => Promise<EmployeeMutationResult & { employee?: Employee }>
+  ) => Promise<
+    EmployeeMutationResult & {
+      employee?: Employee
+      temporaryPassword?: string
+    }
+  >
   resetEmployeePassword: (
     id: string
   ) => Promise<EmployeeMutationResult & { employee?: Employee }>
@@ -319,6 +324,7 @@ export function EmployeesProvider({ children }: { children: React.ReactNode }) {
           }
         }
 
+        const temporaryPassword = result.temporaryPassword
         const client = createBrowserEmployeesClient()
         const employeeResult = await getEmployeeById(id, client)
 
@@ -326,14 +332,19 @@ export function EmployeesProvider({ children }: { children: React.ReactNode }) {
           setEmployees((current) =>
             sortEmployees(replaceEmployeeInList(current, employeeResult.data!))
           )
-          return { success: true, employee: employeeResult.data }
+          return {
+            success: true,
+            employee: employeeResult.data,
+            ...(temporaryPassword ? { temporaryPassword } : {}),
+          }
         }
 
         return {
-          success: false,
+          success: true,
           message:
             employeeResult.error?.message ??
             "El acceso fue creado, pero no se pudo refrescar el empleado.",
+          ...(temporaryPassword ? { temporaryPassword } : {}),
         }
       } catch {
         return {

@@ -72,20 +72,29 @@ test("provisioning no loguea DNI, password ni secretos derivados", () => {
   assert.doesNotMatch(logPayloads, /contraseña/i)
 })
 
-test("createUser sigue usando DNI como password (modelo intacto) fuera de logs", () => {
+test("createUser usa password temporal; national_id sigue siendo DNI", () => {
   assert.match(
     provisionService,
-    /createUser\(\{\s*email,\s*password: input\.normalizedDni/
+    /createUser\(\{\s*email,\s*password: temporaryPassword/
   )
+  assert.doesNotMatch(provisionService, /password: input\.normalizedDni/)
   assert.match(provisionService, /national_id: input\.normalizedDni/)
+  assert.match(provisionService, /generateTemporaryPassword/)
 })
 
-test("ruta de provision no devuelve password", () => {
+test("ruta de provision solo devuelve temporaryPassword one-shot en éxito", () => {
   assert.match(provisionRoute, /authUserId: result\.authUserId/)
   assert.match(provisionRoute, /reused: result\.reused/)
   assert.match(provisionRoute, /created: result\.created/)
-  assert.doesNotMatch(provisionRoute, /password/)
+  assert.match(provisionRoute, /payload\.temporaryPassword = result\.temporaryPassword/)
   assert.doesNotMatch(provisionRoute, /normalizedDni/)
+  const failBlock = provisionRoute.slice(
+    provisionRoute.indexOf("if (!result.success)"),
+    provisionRoute.indexOf("const admin = createAdminClient()")
+  )
+  const catchBlock = provisionRoute.slice(provisionRoute.indexOf("catch (error)"))
+  assert.doesNotMatch(failBlock, /temporaryPassword/)
+  assert.doesNotMatch(catchBlock, /temporaryPassword/)
 })
 
 test("reset no loguea ni responde password/DNI", () => {

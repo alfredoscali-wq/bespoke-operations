@@ -15,6 +15,7 @@ import {
   findAuthUserByDni,
   findAuthUserById,
 } from "@/lib/auth/auth-user-lookup"
+import { generateTemporaryPassword } from "@/lib/auth/temporary-password"
 import { createAdminClient, type SupabaseAdminClient } from "@/lib/supabase/admin"
 import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
 import {
@@ -23,14 +24,42 @@ import {
 } from "@/lib/supabase/employees.queries"
 import type { Employee } from "@/lib/types/employees"
 
+export type AuthProvisioningSuccess = {
+  success: true
+  authUserId: string
+  reused: boolean
+  created: boolean
+  temporaryPassword?: string
+}
+
 export type AuthProvisioningResult =
-  | {
-      success: true
-      authUserId: string
-      reused: boolean
-      created: boolean
-    }
+  | AuthProvisioningSuccess
   | { success: false; error: string }
+
+function provisionSuccessWithoutSecret(
+  authUserId: string
+): AuthProvisioningSuccess {
+  return {
+    success: true,
+    authUserId,
+    reused: true,
+    created: false,
+  }
+}
+
+function provisionSuccessWithTemporaryPassword(input: {
+  authUserId: string
+  created: boolean
+  temporaryPassword: string
+}): AuthProvisioningSuccess {
+  return {
+    success: true,
+    authUserId: input.authUserId,
+    reused: false,
+    created: input.created,
+    temporaryPassword: input.temporaryPassword,
+  }
+}
 
 function logProvision(
   level: "info" | "warn" | "error",
@@ -184,13 +213,33 @@ async function unbanAuthUserIfNeeded(
   }
 }
 
+async function assignTemporaryPasswordToAuthUser(
+  admin: SupabaseAdminClient,
+  authUserId: string
+): Promise<string> {
+  const temporaryPassword = generateTemporaryPassword()
+  const { error } = await admin.auth.admin.updateUserById(authUserId, {
+    password: temporaryPassword,
+  })
+  if (error) {
+    throw new Error(
+      error.message ?? "No se pudo asignar la contraseña temporal."
+    )
+  }
+  return temporaryPassword
+}
+
 async function createAuthUserForEmployee(input: {
   admin: SupabaseAdminClient
   employee: Employee
   normalizedDni: string
   companyId: string
-}): Promise<User> {
+}): Promise<
+  | { user: User; created: true; temporaryPassword: string }
+  | { user: User; created: false }
+> {
   const email = buildAuthEmail(input.normalizedDni, input.companyId)
+  const temporaryPassword = generateTemporaryPassword()
 
   logProvision("info", "Creating Auth user", {
     employeeId: input.employee.id,
@@ -199,7 +248,7 @@ async function createAuthUserForEmployee(input: {
 
   const { data, error } = await input.admin.auth.admin.createUser({
     email,
-    password: input.normalizedDni,
+    password: temporaryPassword,
     email_confirm: true,
     user_metadata: {
       employee_id: input.employee.id,
@@ -214,13 +263,14 @@ async function createAuthUserForEmployee(input: {
 
   if (error) {
     // Race: another request created the same identity — recover by lookup.
+    // The generated password was never applied; caller must rotate (Case C).
     const recovered = await findAuthUserByDni(input.admin, input.normalizedDni)
     if (recovered) {
       logProvision("info", "Create collided; recovered existing Auth user", {
         employeeId: input.employee.id,
         authUserId: recovered.id,
       })
-      return recovered
+      return { user: recovered, created: false }
     }
 
     throw new Error(error.message)
@@ -242,7 +292,7 @@ async function createAuthUserForEmployee(input: {
     throw new Error(consistency.error)
   }
 
-  return user
+  return { user, created: true, temporaryPassword }
 }
 
 /**
@@ -250,13 +300,22 @@ async function createAuthUserForEmployee(input: {
  *
  * Model:
  * - Person identity = DNI → at most one Auth user
+ * - Initial secret = generateTemporaryPassword() (never DNI)
  * - Employment record = employees row (contractor_id null | set)
  * - Active employees.app_user_id is unique (DB); login binds to the active linked row
  *
- * Idempotent: repeated "Crear acceso" on the same employee always succeeds.
- * Future subjects (providers, external supervisors, customers) should resolve
- * the same Auth user via findAuthUserByDni + metadata, then bind their own
- * subject table — without changing Auth creation rules.
+ * Cases:
+ * - A: no Auth → createUser(temporary) → link → return secret once
+ * - B: employee.app_user_id + Auth exist → sync only, no rotation, no secret
+ * - C: Auth exists, employee.app_user_id empty → rotate secret → link → return once
+ *
+ * Atomicity: Auth create/rotate and employees.app_user_id are not a single
+ * transaction. The secret is never persisted. If link fails after Auth
+ * create/rotate, the next call is Case C and issues a new secret. The previous
+ * secret is not recoverable and is not returned on error.
+ *
+ * Idempotent Case B: repeated "Crear acceso" on an already-linked employee
+ * succeeds without rotating the password.
  */
 export async function provisionAuthIdentityForEmployee(
   employeeId: string,
@@ -313,7 +372,7 @@ export async function provisionAuthIdentityForEmployee(
       contractorId: employee.contractorId ?? null,
     })
 
-    // Path A — already linked: sync only (fully idempotent).
+    // Case B — already linked: sync only. Do not rotate or return a secret.
     if (employee.appUserId) {
       const linked = await findAuthUserById(admin, employee.appUserId)
       if (linked) {
@@ -323,12 +382,7 @@ export async function provisionAuthIdentityForEmployee(
           employeeId: trimmedId,
           authUserId: linked.id,
         })
-        return {
-          success: true,
-          authUserId: linked.id,
-          reused: true,
-          created: false,
-        }
+        return provisionSuccessWithoutSecret(linked.id)
       }
 
       logProvision("warn", "Stale app_user_id; will re-resolve by DNI", {
@@ -337,24 +391,40 @@ export async function provisionAuthIdentityForEmployee(
       })
     }
 
-    // Path B — find existing Auth identity by DNI (any email suffix / metadata).
+    // Case C — existing Auth without a link on this employee.
+    // Case A — no Auth; createUser, or recover + rotate if create collides.
     let authUser = await findAuthUserByDni(admin, normalizedDni)
     let created = false
+    let issuedTemporaryPassword: string
 
     if (authUser) {
-      logProvision("info", "Reusing existing Auth identity", {
+      logProvision("info", "Reusing existing Auth identity; rotating secret", {
         employeeId: trimmedId,
         authUserId: authUser.id,
       })
       await unbanAuthUserIfNeeded(admin, authUser.id)
+      issuedTemporaryPassword = await assignTemporaryPasswordToAuthUser(
+        admin,
+        authUser.id
+      )
     } else {
-      authUser = await createAuthUserForEmployee({
+      const createdResult = await createAuthUserForEmployee({
         admin,
         employee,
         normalizedDni,
         companyId,
       })
-      created = true
+      authUser = createdResult.user
+      created = createdResult.created
+      if (createdResult.created) {
+        issuedTemporaryPassword = createdResult.temporaryPassword
+      } else {
+        await unbanAuthUserIfNeeded(admin, authUser.id)
+        issuedTemporaryPassword = await assignTemporaryPasswordToAuthUser(
+          admin,
+          authUser.id
+        )
+      }
     }
 
     await linkEmployeeToAuthUser(admin, trimmedId, authUser.id, normalizedDni)
@@ -364,15 +434,14 @@ export async function provisionAuthIdentityForEmployee(
       employeeId: trimmedId,
       authUserId: authUser.id,
       created,
-      reused: !created,
+      reused: false,
     })
 
-    return {
-      success: true,
+    return provisionSuccessWithTemporaryPassword({
       authUserId: authUser.id,
-      reused: !created,
       created,
-    }
+      temporaryPassword: issuedTemporaryPassword,
+    })
   } catch (error) {
     const message =
       error instanceof Error
