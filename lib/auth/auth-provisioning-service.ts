@@ -114,9 +114,7 @@ async function transferAuthLinkIfNeeded(
       logProvision("error", "Auth identity collision across different DNIs", {
         authUserId,
         targetEmployeeId,
-        targetDni: targetNormalizedDni,
         otherEmployeeId: row.id,
-        otherDni,
       })
       throw new Error(
         "Integridad de identidad: el usuario Auth ya está vinculado a otro empleado activo con distinto DNI. No se puede reutilizar."
@@ -127,7 +125,6 @@ async function transferAuthLinkIfNeeded(
       authUserId,
       fromEmployeeId: row.id,
       toEmployeeId: targetEmployeeId,
-      dni: targetNormalizedDni,
       fromContractorId: row.contractor_id,
       reason:
         "same_person_new_employment_row_required_by_app_user_id_unique_index",
@@ -197,7 +194,7 @@ async function createAuthUserForEmployee(input: {
 
   logProvision("info", "Creating Auth user", {
     employeeId: input.employee.id,
-    email,
+    companyId: input.companyId,
   })
 
   const { data, error } = await input.admin.auth.admin.createUser({
@@ -311,7 +308,6 @@ export async function provisionAuthIdentityForEmployee(
 
     logProvision("info", "Provision start", {
       employeeId: trimmedId,
-      dni: normalizedDni,
       companyId,
       existingAppUserId: employee.appUserId ?? null,
       contractorId: employee.contractorId ?? null,
@@ -349,7 +345,6 @@ export async function provisionAuthIdentityForEmployee(
       logProvision("info", "Reusing existing Auth identity", {
         employeeId: trimmedId,
         authUserId: authUser.id,
-        authEmail: authUser.email ?? null,
       })
       await unbanAuthUserIfNeeded(admin, authUser.id)
     } else {
