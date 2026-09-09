@@ -322,7 +322,7 @@ export async function provisionAuthIdentityForEmployee(
       const linked = await findAuthUserById(admin, employee.appUserId)
       if (linked) {
         await unbanAuthUserIfNeeded(admin, linked.id)
-        await syncProvisionedMetadata(trimmedId)
+        await syncProvisionedMetadata(trimmedId, sessionCompanyId)
         logProvision("info", "Provision idempotent (already linked)", {
           employeeId: trimmedId,
           authUserId: linked.id,
@@ -363,7 +363,7 @@ export async function provisionAuthIdentityForEmployee(
     }
 
     await linkEmployeeToAuthUser(admin, trimmedId, authUser.id, normalizedDni)
-    await syncProvisionedMetadata(trimmedId)
+    await syncProvisionedMetadata(trimmedId, sessionCompanyId)
 
     logProvision("info", "Provision complete", {
       employeeId: trimmedId,
@@ -391,11 +391,14 @@ export async function provisionAuthIdentityForEmployee(
   }
 }
 
-async function syncProvisionedMetadata(employeeId: string) {
+async function syncProvisionedMetadata(
+  employeeId: string,
+  sessionCompanyId: string
+) {
   const { syncEmployeeAuthMetadata } = await import(
     "@/lib/auth/sync-employee-auth-metadata"
   )
-  const result = await syncEmployeeAuthMetadata(employeeId)
+  const result = await syncEmployeeAuthMetadata(employeeId, sessionCompanyId)
   if (!result.success) {
     logProvision("warn", "Metadata sync failed after provision", {
       employeeId,

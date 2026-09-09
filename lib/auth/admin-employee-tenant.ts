@@ -1,5 +1,6 @@
 /**
- * Tenant isolation for admin Auth operations (provision / reset-password).
+ * Tenant isolation for admin Auth operations (provision, reset-password,
+ * soft-delete, metadata sync, disable access).
  *
  * Authorization is derived from the administrative session, never from
  * request-body company_id and never from possessing service_role.

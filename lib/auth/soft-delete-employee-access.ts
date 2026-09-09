@@ -1,5 +1,9 @@
 import "server-only"
 
+import {
+  ADMIN_EMPLOYEE_NOT_ACCESSIBLE_ERROR,
+  resolveAdminEmployeeTenantAccess,
+} from "@/lib/auth/admin-employee-tenant"
 import { createAdminClient } from "@/lib/supabase/admin"
 import {
   fetchEmployeeById,
@@ -20,7 +24,8 @@ export type SoftDeleteEmployeeAccessResult =
  * Does not physically delete Auth or employee records.
  */
 export async function softDeleteEmployeeAccess(
-  employeeId: string
+  employeeId: string,
+  sessionCompanyId: string
 ): Promise<SoftDeleteEmployeeAccessResult> {
   const trimmedId = employeeId.trim()
 
@@ -33,12 +38,13 @@ export async function softDeleteEmployeeAccess(
 
   const admin = createAdminClient()
   const employeeResult = await fetchEmployeeById(admin, trimmedId)
-
-  if (employeeResult.error || !employeeResult.data) {
-    return {
-      success: false,
-      error: employeeResult.error?.message ?? "Empleado no encontrado.",
-    }
+  const tenantAccess = resolveAdminEmployeeTenantAccess({
+    sessionCompanyId,
+    employeeCompanyId: employeeResult.data?.companyId,
+    employeeFound: Boolean(employeeResult.data) && !employeeResult.error,
+  })
+  if (!tenantAccess.ok || !employeeResult.data) {
+    return { success: false, error: ADMIN_EMPLOYEE_NOT_ACCESSIBLE_ERROR }
   }
 
   const employee = employeeResult.data

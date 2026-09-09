@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server"
 
+import {
+  ADMIN_EMPLOYEE_NOT_ACCESSIBLE_ERROR,
+  ADMIN_EMPLOYEE_NOT_ACCESSIBLE_STATUS,
+  ADMIN_SESSION_COMPANY_UNAVAILABLE_ERROR,
+} from "@/lib/auth/admin-employee-tenant"
 import { softDeleteEmployeeAccess } from "@/lib/auth/soft-delete-employee-access"
 import { getSessionUser } from "@/lib/auth/session"
 
@@ -56,11 +61,26 @@ export async function POST(request: Request) {
     )
   }
 
+  const sessionCompanyId = sessionUser.companyId?.trim()
+  if (!sessionCompanyId) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: ADMIN_SESSION_COMPANY_UNAVAILABLE_ERROR,
+      },
+      { status: 403 }
+    )
+  }
+
   try {
-    const result = await softDeleteEmployeeAccess(employeeId)
+    const result = await softDeleteEmployeeAccess(employeeId, sessionCompanyId)
 
     if (!result.success) {
-      return NextResponse.json(result, { status: 422 })
+      const status =
+        result.error === ADMIN_EMPLOYEE_NOT_ACCESSIBLE_ERROR
+          ? ADMIN_EMPLOYEE_NOT_ACCESSIBLE_STATUS
+          : 422
+      return NextResponse.json(result, { status })
     }
 
     return NextResponse.json(result, { status: 200 })

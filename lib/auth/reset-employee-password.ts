@@ -106,7 +106,7 @@ export async function resetEmployeePassword(
   const { syncEmployeeAuthMetadata } = await import(
     "@/lib/auth/sync-employee-auth-metadata"
   )
-  await syncEmployeeAuthMetadata(trimmedId)
+  await syncEmployeeAuthMetadata(trimmedId, sessionCompanyId)
 
   return { success: true }
 }

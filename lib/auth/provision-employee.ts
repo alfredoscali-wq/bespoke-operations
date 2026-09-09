@@ -11,6 +11,10 @@ export {
   type AuthProvisioningResult,
 } from "@/lib/auth/auth-provisioning-service"
 
+import {
+  ADMIN_EMPLOYEE_NOT_ACCESSIBLE_ERROR,
+  resolveAdminEmployeeTenantAccess,
+} from "@/lib/auth/admin-employee-tenant"
 import { createAdminClient } from "@/lib/supabase/admin"
 import {
   fetchEmployeeById,
@@ -26,7 +30,8 @@ export type DisableEmployeeAccessResult =
  * Soft-delete flows should use softDeleteEmployeeAccess instead (ban + keep Auth).
  */
 export async function disableEmployeeAccess(
-  employeeId: string
+  employeeId: string,
+  sessionCompanyId: string
 ): Promise<DisableEmployeeAccessResult> {
   const trimmedId = employeeId.trim()
 
@@ -39,12 +44,13 @@ export async function disableEmployeeAccess(
 
   const admin = createAdminClient()
   const employeeResult = await fetchEmployeeById(admin, trimmedId)
-
-  if (employeeResult.error || !employeeResult.data) {
-    return {
-      success: false,
-      error: employeeResult.error?.message ?? "Empleado no encontrado.",
-    }
+  const tenantAccess = resolveAdminEmployeeTenantAccess({
+    sessionCompanyId,
+    employeeCompanyId: employeeResult.data?.companyId,
+    employeeFound: Boolean(employeeResult.data) && !employeeResult.error,
+  })
+  if (!tenantAccess.ok || !employeeResult.data) {
+    return { success: false, error: ADMIN_EMPLOYEE_NOT_ACCESSIBLE_ERROR }
   }
 
   const employee = employeeResult.data

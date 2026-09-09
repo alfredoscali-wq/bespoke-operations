@@ -1,5 +1,9 @@
 import "server-only"
 
+import {
+  ADMIN_EMPLOYEE_NOT_ACCESSIBLE_ERROR,
+  resolveAdminEmployeeTenantAccess,
+} from "@/lib/auth/admin-employee-tenant"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { fetchCompanyRoleById } from "@/lib/supabase/company-roles.queries"
 import {
@@ -44,7 +48,8 @@ function isAuthSyncContext(
 }
 
 async function resolveEmployeeAndRole(
-  input: string | AuthSyncContext
+  input: string | AuthSyncContext,
+  sessionCompanyId?: string
 ): Promise<
   | { ok: true; employee: Employee; role: CompanyRole | null }
   | { ok: false; error: string }
@@ -66,11 +71,13 @@ async function resolveEmployeeAndRole(
     recordAuthSyncQuery("employees", employeeDuration)
   }
 
-  if (employeeResult.error || !employeeResult.data) {
-    return {
-      ok: false,
-      error: employeeResult.error?.message ?? "Empleado no encontrado.",
-    }
+  const tenantAccess = resolveAdminEmployeeTenantAccess({
+    sessionCompanyId,
+    employeeCompanyId: employeeResult.data?.companyId,
+    employeeFound: Boolean(employeeResult.data) && !employeeResult.error,
+  })
+  if (!tenantAccess.ok || !employeeResult.data) {
+    return { ok: false, error: ADMIN_EMPLOYEE_NOT_ACCESSIBLE_ERROR }
   }
 
   const employee = employeeResult.data
@@ -94,13 +101,19 @@ async function resolveEmployeeAndRole(
 /**
  * Sync Auth user_metadata from employee + role.
  * Pass AuthSyncContext to reuse rows already loaded by getSessionUser (Sprint 30.0).
- * Pass employeeId string when the caller has not loaded those rows yet.
+ * Pass employeeId + sessionCompanyId when the caller has not loaded those rows yet.
+ * The string path is fail-closed: sessionCompanyId is required and checked
+ * before any Auth Admin mutation.
  */
 export async function syncEmployeeAuthMetadata(
-  input: string | AuthSyncContext
+  input: string | AuthSyncContext,
+  sessionCompanyId?: string
 ): Promise<{ success: true } | { success: false; error: string }> {
   const authSync = getAuthSyncStore()
-  const resolved = await resolveEmployeeAndRole(input)
+  const resolved = await resolveEmployeeAndRole(
+    input,
+    isAuthSyncContext(input) ? undefined : sessionCompanyId
+  )
 
   if (!resolved.ok) {
     return { success: false, error: resolved.error }
