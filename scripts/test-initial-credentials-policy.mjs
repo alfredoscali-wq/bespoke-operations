@@ -10,9 +10,10 @@ import {
   resolveInitialPasswordFromDni,
 } from "../lib/auth/initial-credentials-policy.ts"
 
-test("política fija usuario DNI y contraseña temporal en alta", () => {
+test("política fija usuario DNI y contraseña temporal en alta y reset", () => {
   assert.equal(INITIAL_CREDENTIALS_POLICY.loginIdentifier, "DNI")
   assert.equal(INITIAL_CREDENTIALS_POLICY.initialPassword, "temporary")
+  assert.equal(INITIAL_CREDENTIALS_POLICY.resetPassword, "temporary")
   assert.equal(INITIAL_CREDENTIALS_POLICY.requireChangeOnFirstLogin, true)
 })
 
@@ -21,7 +22,7 @@ test("resolveInitialPasswordFromDni normaliza dígitos", () => {
   assert.equal(resolveInitialPasswordFromDni("abc"), null)
 })
 
-test("mensajes de alta ya no dicen contraseña = DNI; reset sí (7.5.2C)", () => {
+test("mensajes de alta y reset ya no dicen contraseña = DNI", () => {
   const info = buildInitialCredentialsInfoMessage("30.112.233")
   assert.match(info, /usuario = DNI/)
   assert.match(info, /30112233/)
@@ -30,11 +31,14 @@ test("mensajes de alta ya no dicen contraseña = DNI; reset sí (7.5.2C)", () =>
   assert.match(info, /primer inicio/)
 
   const reset = buildResetPasswordToDniDescription("30112233")
-  assert.match(reset, /30112233/)
+  assert.match(reset, /temporal/)
+  assert.doesNotMatch(reset, /contraseña temporal será el DNI/)
   assert.match(reset, /cambiarla/)
 
   const provisioned = buildProvisionedCredentialsFeedback("Juan Pérez")
   assert.match(provisioned, /Juan Pérez/)
   assert.doesNotMatch(provisioned, /contraseña inicial = DNI/)
-  assert.match(buildPasswordResetToDniFeedback("Ana"), /Ana/)
+  const resetFeedback = buildPasswordResetToDniFeedback("Ana")
+  assert.match(resetFeedback, /Ana/)
+  assert.doesNotMatch(resetFeedback, /restablecida al DNI/)
 })

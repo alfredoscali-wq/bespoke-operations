@@ -5,6 +5,8 @@ import {
   resolveAdminEmployeeTenantAccess,
 } from "@/lib/auth/admin-employee-tenant"
 import { normalizeDni } from "@/lib/auth/auth-identity"
+import { resolveAuthUserById } from "@/lib/auth/auth-user-lookup"
+import { generateTemporaryPassword } from "@/lib/auth/temporary-password"
 import { createAdminClient } from "@/lib/supabase/admin"
 import {
   fetchEmployeeById,
@@ -12,8 +14,16 @@ import {
 } from "@/lib/supabase/employees.queries"
 import type { Employee } from "@/lib/types/employees"
 
+const AUTH_NOT_FOUND_ERROR =
+  "El empleado no tiene un usuario Auth válido."
+const AUTH_LOOKUP_ERROR =
+  "No se pudo verificar el usuario Auth. Intente nuevamente."
+const AUTH_UPDATE_ERROR = "No se pudo restablecer la contraseña en Auth."
+const EMPLOYEE_PATCH_ERROR =
+  "La contraseña fue restablecida, pero no se pudo actualizar el estado del empleado en RRHH."
+
 export type ResetEmployeePasswordResult =
-  | { success: true }
+  | { success: true; temporaryPassword: string }
   | { success: false; error: string }
 
 function validateEmployeeForPasswordReset(
@@ -39,8 +49,8 @@ function validateEmployeeForPasswordReset(
 }
 
 /**
- * Restablece la contraseña temporal al DNI y marca must_change_password.
- * @see lib/auth/initial-credentials-policy.ts
+ * Restablece la contraseña a un temporal CSPRNG y marca must_change_password.
+ * El secreto se devuelve una sola vez; nunca se persiste ni se loguea.
  */
 export async function resetEmployeePassword(
   employeeId: string,
@@ -73,20 +83,31 @@ export async function resetEmployeePassword(
     return validationError
   }
 
-  const normalizedDni = normalizeDni(employee.nationalId!.trim())
   const authUserId = employee.appUserId!
+  const authUser = await resolveAuthUserById(admin, authUserId)
+  if (!authUser.ok) {
+    return {
+      success: false,
+      error:
+        authUser.reason === "lookup_error"
+          ? AUTH_LOOKUP_ERROR
+          : AUTH_NOT_FOUND_ERROR,
+    }
+  }
+
+  const temporaryPassword = generateTemporaryPassword()
 
   const { error: authError } = await admin.auth.admin.updateUserById(
     authUserId,
     {
-      password: normalizedDni,
+      password: temporaryPassword,
     }
   )
 
   if (authError) {
     return {
       success: false,
-      error: authError.message || "No se pudo restablecer la contraseña en Auth.",
+      error: AUTH_UPDATE_ERROR,
     }
   }
 
@@ -97,9 +118,7 @@ export async function resetEmployeePassword(
   if (patchResult.error || !patchResult.data) {
     return {
       success: false,
-      error:
-        patchResult.error?.message ??
-        "La contraseña fue restablecida, pero no se pudo actualizar el estado del empleado en RRHH.",
+      error: EMPLOYEE_PATCH_ERROR,
     }
   }
 
@@ -108,5 +127,5 @@ export async function resetEmployeePassword(
   )
   await syncEmployeeAuthMetadata(trimmedId, sessionCompanyId)
 
-  return { success: true }
+  return { success: true, temporaryPassword }
 }

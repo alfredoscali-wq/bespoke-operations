@@ -267,6 +267,18 @@ export function ContractorDetailPageClient({
         setFeedback(result.error)
         return
       }
+      if (result.temporaryPassword) {
+        setPasswordReveal({
+          password: result.temporaryPassword,
+          displayName: getEmployeeDisplayName(resetUser),
+          nationalId: resetUser.nationalId,
+        })
+        setFeedback(
+          "Se generó una contraseña temporal. El usuario deberá cambiarla al ingresar."
+        )
+        setResetUser(null)
+        return
+      }
       setFeedback(
         buildPasswordResetToDniFeedback(getEmployeeDisplayName(resetUser))
       )
@@ -757,7 +769,7 @@ export function ContractorDetailPageClient({
               onClick={() => void handleConfirmResetPassword()}
               disabled={isResettingPassword}
             >
-              {isResettingPassword ? "Restableciendo…" : "Restablecer al DNI"}
+              {isResettingPassword ? "Restableciendo…" : "Confirmar restablecimiento"}
             </Button>
           </DialogFooter>
         </DialogContent>

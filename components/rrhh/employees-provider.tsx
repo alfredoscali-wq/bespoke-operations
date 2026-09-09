@@ -80,7 +80,12 @@ type EmployeesContextValue = {
   >
   resetEmployeePassword: (
     id: string
-  ) => Promise<EmployeeMutationResult & { employee?: Employee }>
+  ) => Promise<
+    EmployeeMutationResult & {
+      employee?: Employee
+      temporaryPassword?: string
+    }
+  >
   removeEmployee: (id: string) => Promise<EmployeeMutationResult>
   /** Drops an employee from local cache after server-side soft delete. */
   forgetEmployee: (id: string) => void
@@ -380,6 +385,7 @@ export function EmployeesProvider({ children }: { children: React.ReactNode }) {
           }
         }
 
+        const temporaryPassword = result.temporaryPassword
         const client = createBrowserEmployeesClient()
         const employeeResult = await getEmployeeById(id, client)
 
@@ -387,14 +393,19 @@ export function EmployeesProvider({ children }: { children: React.ReactNode }) {
           setEmployees((current) =>
             sortEmployees(replaceEmployeeInList(current, employeeResult.data!))
           )
-          return { success: true, employee: employeeResult.data }
+          return {
+            success: true,
+            employee: employeeResult.data,
+            ...(temporaryPassword ? { temporaryPassword } : {}),
+          }
         }
 
         return {
-          success: false,
+          success: true,
           message:
             employeeResult.error?.message ??
             "La contraseña fue restablecida, pero no se pudo refrescar el empleado.",
+          ...(temporaryPassword ? { temporaryPassword } : {}),
         }
       } catch {
         return {

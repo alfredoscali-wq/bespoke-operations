@@ -1,9 +1,9 @@
 /**
- * Política de credenciales iniciales (empleados internos y usuarios Field Agent externos).
+ * Política de credenciales (empleados internos y usuarios Field Agent externos).
  *
  * - Identificador de login (usuario): DNI (solo dígitos en Auth).
  * - Contraseña inicial en provisioning: generateTemporaryPassword() (Sprint 7.5.2B).
- * - Reset de contraseña: todavía DNI (Sprint 7.5.2C).
+ * - Contraseña de reset: generateTemporaryPassword() (Sprint 7.5.2C).
  * - Tras provisionar o restablecer: must_change_password = true.
  *
  * Portal web: PasswordChangeGuard obliga el cambio en el primer inicio.
@@ -15,6 +15,7 @@ import { normalizeDni } from "@/lib/auth/auth-identity"
 export const INITIAL_CREDENTIALS_POLICY = {
   loginIdentifier: "DNI",
   initialPassword: "temporary",
+  resetPassword: "temporary",
   requireChangeOnFirstLogin: true,
 } as const
 
@@ -33,9 +34,13 @@ export function buildInitialCredentialsInfoMessage(dniPreview?: string): string 
 }
 
 /** Texto para diálogo de restablecimiento. */
-export function buildResetPasswordToDniDescription(dni: string | null | undefined): string {
-  const display = dni?.trim() || "—"
-  return `La contraseña temporal será el DNI (${display}). El usuario deberá cambiarla al iniciar sesión.`
+export function buildResetPasswordToDniDescription(
+  dni: string | null | undefined
+): string {
+  const dniLabel = dni?.trim()
+    ? ` El usuario de acceso sigue siendo el DNI (${dni.trim()}).`
+    : ""
+  return `Se generará una contraseña temporal. Entréguesela al empleado ahora; no se volverá a mostrar.${dniLabel} Deberá cambiarla al iniciar sesión.`
 }
 
 /** Feedback tras alta/provisión exitosa. */
@@ -54,5 +59,5 @@ export function buildTemporaryPasswordDeliveryMessage(
 
 /** Feedback tras restablecer. */
 export function buildPasswordResetToDniFeedback(displayName: string): string {
-  return `Contraseña de ${displayName} restablecida al DNI. Deberá cambiarla en el próximo inicio.`
+  return `Se generó una contraseña temporal para ${displayName}. El usuario deberá cambiarla al ingresar.`
 }

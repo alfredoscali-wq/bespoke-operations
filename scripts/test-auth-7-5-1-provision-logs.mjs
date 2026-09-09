@@ -97,12 +97,18 @@ test("ruta de provision solo devuelve temporaryPassword one-shot en éxito", () 
   assert.doesNotMatch(catchBlock, /temporaryPassword/)
 })
 
-test("reset no loguea ni responde password/DNI", () => {
+test("reset no loguea secretos; temporaryPassword solo en éxito", () => {
   assert.doesNotMatch(resetService, /console\./)
   assert.doesNotMatch(resetRoute, /console\./)
-  assert.match(resetRoute, /return NextResponse\.json\(result, \{ status: 200 \}\)/)
-  assert.doesNotMatch(resetRoute, /password:/)
+  assert.match(resetRoute, /temporaryPassword: result\.temporaryPassword/)
   assert.doesNotMatch(resetRoute, /normalizedDni/)
+  const failBlock = resetRoute.slice(
+    resetRoute.indexOf("if (!result.success)"),
+    resetRoute.indexOf("const admin = createAdminClient()")
+  )
+  const catchBlock = resetRoute.slice(resetRoute.lastIndexOf("} catch {"))
+  assert.doesNotMatch(failBlock, /temporaryPassword/)
+  assert.doesNotMatch(catchBlock, /temporaryPassword/)
   const auditFn = resetAudit.slice(
     resetAudit.indexOf("export async function recordUserPasswordResetAudit"),
     resetAudit.indexOf("export async function recordUserRoleChangeAudit")

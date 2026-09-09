@@ -187,6 +187,19 @@ export function EmployeeSystemAccessSection({
       }
 
       setResetDialogOpen(false)
+
+      if (result.temporaryPassword) {
+        setPasswordReveal({
+          password: result.temporaryPassword,
+          displayName: `${employee.firstName} ${employee.lastName}`.trim(),
+          nationalId: employee.nationalId,
+        })
+        setResetSuccess(
+          "Se generó una contraseña temporal. El usuario deberá cambiarla al ingresar."
+        )
+        return
+      }
+
       setResetSuccess(
         "Contraseña restablecida. El empleado deberá cambiarla al iniciar sesión."
       )

@@ -83,7 +83,10 @@ export async function POST(request: Request) {
         result.error === ADMIN_EMPLOYEE_NOT_ACCESSIBLE_ERROR
           ? ADMIN_EMPLOYEE_NOT_ACCESSIBLE_STATUS
           : 422
-      return NextResponse.json(result, { status })
+      return NextResponse.json(
+        { success: false, error: result.error },
+        { status }
+      )
     }
 
     const admin = createAdminClient()
@@ -97,17 +100,18 @@ export async function POST(request: Request) {
       })
     }
 
-    return NextResponse.json(result, { status: 200 })
-  } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : "No se pudo restablecer la contraseña del empleado."
-
+    return NextResponse.json(
+      {
+        success: true,
+        temporaryPassword: result.temporaryPassword,
+      },
+      { status: 200 }
+    )
+  } catch {
     return NextResponse.json(
       {
         success: false,
-        error: message,
+        error: "No se pudo restablecer la contraseña del empleado.",
       },
       { status: 500 }
     )

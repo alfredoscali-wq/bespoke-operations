@@ -79,7 +79,8 @@ test("2. create nuevo NO usa normalizedDni como password", () => {
   assert.doesNotMatch(createFn, /password: input\.normalizedDni/)
   assert.doesNotMatch(provisionService, /password: input\.normalizedDni/)
   assert.match(createFn, /national_id: input\.normalizedDni/)
-  assert.match(resetService, /password: normalizedDni/)
+  assert.doesNotMatch(resetService, /password: normalizedDni/)
+  assert.match(resetService, /password: temporaryPassword/)
 })
 
 test("3. create nuevo pone must_change=true", () => {
@@ -253,7 +254,6 @@ test("14. password temporal anterior nunca se reutiliza", () => {
   assert.doesNotMatch(provisionService, /previousPassword/)
   assert.doesNotMatch(provisionService, /lastTemporary/)
   assert.doesNotMatch(provisionService, /from\("temporary/)
-  assert.doesNotMatch(resetService, /generateTemporaryPassword/)
 })
 
 test("15. error final NO devuelve password", () => {
@@ -310,7 +310,7 @@ test("UI muestra el temporal one-shot y omite copy DNI como password", () => {
   assert.match(passwordDialog, /buildTemporaryPasswordDeliveryMessage/)
 })
 
-test("reset no fue modificado por 7.5.2B", () => {
-  assert.doesNotMatch(resetService, /generateTemporaryPassword/)
-  assert.match(resetService, /password: normalizedDni/)
+test("reset usa el helper de 7.5.2A", () => {
+  assert.match(resetService, /generateTemporaryPassword/)
+  assert.doesNotMatch(resetService, /password: normalizedDni/)
 })

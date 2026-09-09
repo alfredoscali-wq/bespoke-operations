@@ -76,9 +76,29 @@ export async function findAuthUserById(
   admin: SupabaseAdminClient,
   authUserId: string
 ): Promise<User | null> {
+  const resolved = await resolveAuthUserById(admin, authUserId)
+  if (!resolved.ok) return null
+  return resolved.user
+}
+
+export type AuthUserByIdResolution =
+  | { ok: true; user: User }
+  | { ok: false; reason: "not_found" | "lookup_error" }
+
+/**
+ * Fail-closed Auth lookup by id. Distinguishes missing user from Admin API errors.
+ * Callers must not treat lookup_error as stale/missing.
+ */
+export async function resolveAuthUserById(
+  admin: SupabaseAdminClient,
+  authUserId: string
+): Promise<AuthUserByIdResolution> {
   const { data, error } = await admin.auth.admin.getUserById(authUserId)
-  if (error || !data.user) {
-    return null
+  if (error) {
+    return { ok: false, reason: "lookup_error" }
   }
-  return data.user
+  if (!data.user) {
+    return { ok: false, reason: "not_found" }
+  }
+  return { ok: true, user: data.user }
 }

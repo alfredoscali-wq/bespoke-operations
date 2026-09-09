@@ -1,5 +1,5 @@
 export type ResetEmployeePasswordResponse =
-  | { success: true }
+  | { success: true; temporaryPassword?: string }
   | { success: false; error: string }
 
 export async function requestResetEmployeePassword(
@@ -15,7 +15,7 @@ export async function requestResetEmployeePassword(
 
   const data = (await response.json()) as ResetEmployeePasswordResponse
 
-  if (!response.ok) {
+  if (!response.ok || !data.success) {
     return {
       success: false,
       error:
@@ -25,5 +25,10 @@ export async function requestResetEmployeePassword(
     }
   }
 
-  return data
+  return {
+    success: true,
+    ...(data.temporaryPassword
+      ? { temporaryPassword: data.temporaryPassword }
+      : {}),
+  }
 }
