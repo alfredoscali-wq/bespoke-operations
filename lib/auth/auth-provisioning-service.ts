@@ -3,6 +3,10 @@ import "server-only"
 import type { User } from "@supabase/supabase-js"
 
 import {
+  ADMIN_EMPLOYEE_NOT_ACCESSIBLE_ERROR,
+  resolveAdminEmployeeTenantAccess,
+} from "@/lib/auth/admin-employee-tenant"
+import {
   assertAuthEmailMatchesEmployeeDni,
   buildAuthEmail,
   normalizeDni,
@@ -258,7 +262,8 @@ async function createAuthUserForEmployee(input: {
  * subject table — without changing Auth creation rules.
  */
 export async function provisionAuthIdentityForEmployee(
-  employeeId: string
+  employeeId: string,
+  sessionCompanyId: string
 ): Promise<AuthProvisioningResult> {
   const trimmedId = employeeId.trim()
 
@@ -270,11 +275,13 @@ export async function provisionAuthIdentityForEmployee(
 
   try {
     const employeeResult = await fetchEmployeeById(admin, trimmedId)
-    if (employeeResult.error || !employeeResult.data) {
-      return {
-        success: false,
-        error: employeeResult.error?.message ?? "Empleado no encontrado.",
-      }
+    const tenantAccess = resolveAdminEmployeeTenantAccess({
+      sessionCompanyId,
+      employeeCompanyId: employeeResult.data?.companyId,
+      employeeFound: Boolean(employeeResult.data) && !employeeResult.error,
+    })
+    if (!tenantAccess.ok || !employeeResult.data) {
+      return { success: false, error: ADMIN_EMPLOYEE_NOT_ACCESSIBLE_ERROR }
     }
 
     const employee = employeeResult.data
@@ -399,12 +406,16 @@ async function syncProvisionedMetadata(employeeId: string) {
 
 /** @deprecated Prefer provisionAuthIdentityForEmployee — kept for call-site compatibility. */
 export async function provisionEmployeeAccess(
-  employeeId: string
+  employeeId: string,
+  sessionCompanyId: string
 ): Promise<
   | { success: true; authUserId: string }
   | { success: false; error: string }
 > {
-  const result = await provisionAuthIdentityForEmployee(employeeId)
+  const result = await provisionAuthIdentityForEmployee(
+    employeeId,
+    sessionCompanyId
+  )
   if (!result.success) {
     return { success: false, error: result.error }
   }

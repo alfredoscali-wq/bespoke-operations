@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server"
 
 import { recordUserPasswordResetAudit } from "@/lib/audit/users-audit.server"
+import {
+  ADMIN_EMPLOYEE_NOT_ACCESSIBLE_ERROR,
+  ADMIN_EMPLOYEE_NOT_ACCESSIBLE_STATUS,
+  ADMIN_SESSION_COMPANY_UNAVAILABLE_ERROR,
+} from "@/lib/auth/admin-employee-tenant"
 import { resetEmployeePassword } from "@/lib/auth/reset-employee-password"
 import { getSessionUser } from "@/lib/auth/session"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -59,11 +64,26 @@ export async function POST(request: Request) {
     )
   }
 
+  const sessionCompanyId = sessionUser.companyId?.trim()
+  if (!sessionCompanyId) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: ADMIN_SESSION_COMPANY_UNAVAILABLE_ERROR,
+      },
+      { status: 403 }
+    )
+  }
+
   try {
-    const result = await resetEmployeePassword(employeeId)
+    const result = await resetEmployeePassword(employeeId, sessionCompanyId)
 
     if (!result.success) {
-      return NextResponse.json(result, { status: 422 })
+      const status =
+        result.error === ADMIN_EMPLOYEE_NOT_ACCESSIBLE_ERROR
+          ? ADMIN_EMPLOYEE_NOT_ACCESSIBLE_STATUS
+          : 422
+      return NextResponse.json(result, { status })
     }
 
     const admin = createAdminClient()
