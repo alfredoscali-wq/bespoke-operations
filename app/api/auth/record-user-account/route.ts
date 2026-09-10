@@ -4,6 +4,10 @@ import { recordUserAccountChangesAudit } from "@/lib/audit/users-audit.server"
 import { hasUserAccountFieldChanges } from "@/lib/audit/users-audit"
 import type { Employee, UpdateEmployeeInput } from "@/lib/types/employees"
 import { getSessionUser } from "@/lib/auth/session"
+import {
+  denyIfPasswordChangeRequired,
+  passwordChangeRequiredResponse,
+} from "@/lib/auth/require-password-compliant-session"
 
 type RecordUserAccountBody = {
   before?: Employee
@@ -19,6 +23,11 @@ export async function POST(request: Request) {
       { success: false, error: "Debe iniciar sesión." },
       { status: 401 }
     )
+  }
+
+  const passwordDenial = denyIfPasswordChangeRequired(sessionUser)
+  if (passwordDenial) {
+    return passwordChangeRequiredResponse()
   }
 
   if (sessionUser.systemRole !== "administrador") {

@@ -18,7 +18,7 @@ export async function PATCH(request: Request, context: RouteContext) {
 
   if (!auth.ok) {
     return NextResponse.json(
-      { success: false, message: auth.message },
+      { success: false, message: auth.message, error: auth.message, ...(auth.code ? { code: auth.code } : {}) },
       { status: auth.status }
     )
   }
@@ -67,7 +67,7 @@ export async function DELETE(request: Request, context: RouteContext) {
 
   if (!auth.ok) {
     return NextResponse.json(
-      { success: false, message: auth.message },
+      { success: false, message: auth.message, error: auth.message, ...(auth.code ? { code: auth.code } : {}) },
       { status: auth.status }
     )
   }

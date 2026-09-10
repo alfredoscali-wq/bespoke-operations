@@ -7,6 +7,10 @@ import {
 } from "@/lib/auth/admin-employee-tenant"
 import { softDeleteEmployeeAccess } from "@/lib/auth/soft-delete-employee-access"
 import { getSessionUser } from "@/lib/auth/session"
+import {
+  denyIfPasswordChangeRequired,
+  passwordChangeRequiredResponse,
+} from "@/lib/auth/require-password-compliant-session"
 
 type SoftDeleteRequestBody = {
   employeeId?: string
@@ -23,6 +27,11 @@ export async function POST(request: Request) {
       },
       { status: 401 }
     )
+  }
+
+  const passwordDenial = denyIfPasswordChangeRequired(sessionUser)
+  if (passwordDenial) {
+    return passwordChangeRequiredResponse()
   }
 
   if (sessionUser.systemRole !== "administrador") {

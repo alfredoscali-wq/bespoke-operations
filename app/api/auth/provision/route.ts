@@ -11,6 +11,10 @@ import {
 } from "@/lib/auth/admin-employee-tenant"
 import { provisionAuthIdentityForEmployee } from "@/lib/auth/auth-provisioning-service"
 import { getSessionUser } from "@/lib/auth/session"
+import {
+  denyIfPasswordChangeRequired,
+  passwordChangeRequiredResponse,
+} from "@/lib/auth/require-password-compliant-session"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { fetchEmployeeById } from "@/lib/supabase/employees.queries"
 
@@ -29,6 +33,11 @@ export async function POST(request: Request) {
       },
       { status: 401 }
     )
+  }
+
+  const passwordDenial = denyIfPasswordChangeRequired(sessionUser)
+  if (passwordDenial) {
+    return passwordChangeRequiredResponse()
   }
 
   if (sessionUser.systemRole !== "administrador") {

@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server"
 
+import {
+  jsonFromSessionAuthFailure,
+  requireLoadedPasswordCompliantSession,
+} from "@/lib/auth/require-password-compliant-session"
 import { getSessionUser, type SessionUser } from "@/lib/auth/session"
 import { requireWritablePlatformSession } from "@/lib/auth/require-writable-platform-session"
 import { hasWebModuleAccess } from "@/lib/roles/web-module-access"
@@ -35,16 +39,9 @@ function buildCompanyContext(
 export async function requireSubscriptionsReadContext(): Promise<
   SubscriptionsRouteContext | SubscriptionsRouteContextFailure
 > {
-  const sessionUser = await getSessionUser()
-  if (!sessionUser) {
-    return {
-      ok: false,
-      response: NextResponse.json(
-        { success: false, message: "Debe iniciar sesión." },
-        { status: 401 }
-      ),
-    }
-  }
+  const loaded = requireLoadedPasswordCompliantSession(await getSessionUser())
+  if (!loaded.ok) return loaded
+  const sessionUser = loaded.sessionUser
   if (!hasWebModuleAccess(sessionUser, "subscriptions")) {
     return {
       ok: false,
@@ -62,13 +59,7 @@ export async function requireSubscriptionsWriteContext(): Promise<
 > {
   const auth = await requireWritablePlatformSession()
   if (!auth.ok) {
-    return {
-      ok: false,
-      response: NextResponse.json(
-        { success: false, message: auth.message },
-        { status: auth.status }
-      ),
-    }
+    return { ok: false, response: jsonFromSessionAuthFailure(auth) }
   }
   if (!hasWebModuleAccess(auth.sessionUser, "subscriptions")) {
     return {

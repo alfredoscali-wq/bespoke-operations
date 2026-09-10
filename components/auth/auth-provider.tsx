@@ -13,7 +13,7 @@ import type { User } from "@supabase/supabase-js"
 
 import { resolveSignInEmailCandidates } from "@/lib/auth/auth-identity"
 import { resolvePostLoginPathFromSessionUser } from "@/lib/auth/module-access"
-import { sanitizeRedirectPath } from "@/lib/auth/routes"
+import { CHANGE_PASSWORD_PATH, sanitizeRedirectPath } from "@/lib/auth/routes"
 import { buildSessionUserFromAuthUser } from "@/lib/auth/resolve-session-user"
 import type { SessionUser } from "@/lib/auth/types"
 import { recordUserSessionAudit } from "@/lib/audit/users-audit"
@@ -236,6 +236,12 @@ export function redirectAfterSignIn(
   sessionUser: SessionUser,
   nextPath?: string | null
 ) {
+  if (sessionUser.mustChangePassword) {
+    router.push(CHANGE_PASSWORD_PATH)
+    router.refresh()
+    return
+  }
+
   const destination = sanitizeRedirectPath(
     nextPath,
     resolvePostLoginPathFromSessionUser(sessionUser)

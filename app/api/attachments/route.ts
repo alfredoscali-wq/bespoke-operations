@@ -25,7 +25,7 @@ function jsonError(message: string, status: number, code?: string) {
 export async function GET(request: Request) {
   const auth = await requireWritablePlatformSession()
   if (!auth.ok) {
-    return jsonError(auth.message, auth.status)
+    return jsonError(auth.message, auth.status, auth.code)
   }
 
   const companyId = auth.sessionUser.companyId?.trim() ?? ""
@@ -98,7 +98,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const auth = await requireWritablePlatformSession()
   if (!auth.ok) {
-    return jsonError(auth.message, auth.status)
+    return jsonError(auth.message, auth.status, auth.code)
   }
 
   const companyId = auth.sessionUser.companyId?.trim() ?? ""

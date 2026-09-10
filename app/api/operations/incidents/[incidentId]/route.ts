@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server"
 
 import { getSessionUser } from "@/lib/auth/session"
+import {
+  denyIfPasswordChangeRequired,
+  passwordChangeRequiredResponse,
+} from "@/lib/auth/require-password-compliant-session"
 import { requireWritablePlatformSession } from "@/lib/auth/require-writable-platform-session"
 import {
   getOperationsIncidentById,
@@ -20,6 +24,11 @@ export async function GET(_request: Request, context: RouteContext) {
       { success: false, message: "Debe iniciar sesión para realizar esta acción." },
       { status: 401 }
     )
+  }
+
+  const passwordDenial = denyIfPasswordChangeRequired(sessionUser)
+  if (passwordDenial) {
+    return passwordChangeRequiredResponse()
   }
 
   const { incidentId } = await context.params
@@ -47,7 +56,7 @@ export async function PATCH(request: Request, context: RouteContext) {
 
   if (!auth.ok) {
     return NextResponse.json(
-      { success: false, message: auth.message },
+      { success: false, message: auth.message, error: auth.message, ...(auth.code ? { code: auth.code } : {}) },
       { status: auth.status }
     )
   }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 
+import { jsonFromSessionAuthFailure } from "@/lib/auth/require-password-compliant-session"
 import { requireWritablePlatformSession } from "@/lib/auth/require-writable-platform-session"
 import type { SessionUser } from "@/lib/auth/types"
 import {
@@ -26,10 +27,7 @@ export async function requireAtencionClienteMutationContext(): Promise<
   if (!auth.ok) {
     return {
       ok: false,
-      response: NextResponse.json(
-        { success: false, message: auth.message },
-        { status: auth.status }
-      ),
+      response: jsonFromSessionAuthFailure(auth),
     }
   }
 
@@ -91,10 +89,7 @@ export async function requireAtencionClienteAdminMutationContext(): Promise<
   if (!auth.ok) {
     return {
       ok: false,
-      response: NextResponse.json(
-        { success: false, message: auth.message },
-        { status: auth.status }
-      ),
+      response: jsonFromSessionAuthFailure(auth),
     }
   }
 

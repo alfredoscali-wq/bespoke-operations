@@ -13,7 +13,13 @@ export async function GET() {
   const auth = await requireAdministratorSession()
 
   if (!auth.ok) {
-    return NextResponse.json({ error: auth.message }, { status: auth.status })
+    return NextResponse.json(
+      {
+        error: auth.message,
+        ...(auth.code ? { code: auth.code } : {}),
+      },
+      { status: auth.status }
+    )
   }
 
   try {
@@ -43,7 +49,13 @@ export async function POST(request: Request) {
   const auth = await requireAdministratorSession()
 
   if (!auth.ok) {
-    return NextResponse.json({ error: auth.message }, { status: auth.status })
+    return NextResponse.json(
+      {
+        error: auth.message,
+        ...(auth.code ? { code: auth.code } : {}),
+      },
+      { status: auth.status }
+    )
   }
 
   try {

@@ -2,6 +2,10 @@ import { NextResponse } from "next/server"
 
 import { getSessionUser } from "@/lib/auth/session"
 import {
+  denyIfPasswordChangeRequired,
+  passwordChangeRequiredResponse,
+} from "@/lib/auth/require-password-compliant-session"
+import {
   listOperationsIncidents,
   parseOperationsIncidentListFilters,
 } from "@/lib/operations/incidents/task-incident-operations.server"
@@ -14,6 +18,11 @@ export async function GET(request: Request) {
       { success: false, message: "Debe iniciar sesión para realizar esta acción." },
       { status: 401 }
     )
+  }
+
+  const passwordDenial = denyIfPasswordChangeRequired(sessionUser)
+  if (passwordDenial) {
+    return passwordChangeRequiredResponse()
   }
 
   const { searchParams } = new URL(request.url)

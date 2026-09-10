@@ -10,6 +10,11 @@ import "server-only"
 import { NextResponse } from "next/server"
 
 import { getAuthUser } from "@/lib/auth/get-auth-user.server"
+import { getSessionUser } from "@/lib/auth/session"
+import {
+  denyIfPasswordChangeRequired,
+  passwordChangeRequiredResponse,
+} from "@/lib/auth/require-password-compliant-session"
 import {
   getMetadataRoleId,
   getMetadataSystemRoleFromUser,
@@ -150,6 +155,25 @@ export async function requireReleaseExpiredAuthContext(): Promise<
         { status: 401 }
       ),
     }
+  }
+
+  const sessionUser = await getSessionUser()
+  if (!sessionUser) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        {
+          success: false,
+          message: "Debe iniciar sesión para realizar esta acción.",
+        },
+        { status: 401 }
+      ),
+    }
+  }
+
+  const passwordDenial = denyIfPasswordChangeRequired(sessionUser)
+  if (passwordDenial) {
+    return { ok: false, response: passwordChangeRequiredResponse() }
   }
 
   if (

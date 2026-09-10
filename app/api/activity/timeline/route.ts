@@ -15,6 +15,10 @@ import {
   type ActivityQueryResult,
 } from "@/lib/activity/query-service"
 import { getSessionUser } from "@/lib/auth/session"
+import {
+  denyIfPasswordChangeRequired,
+  passwordChangeRequiredResponse,
+} from "@/lib/auth/require-password-compliant-session"
 import { resolveTenantCompanyId } from "@/lib/operations/tenant-scope"
 
 function optionalParam(value: string | null): string | undefined {
@@ -186,6 +190,11 @@ export async function GET(request: Request) {
       { success: false, message: "Debe iniciar sesión." },
       { status: 401 }
     )
+  }
+
+  const passwordDenial = denyIfPasswordChangeRequired(sessionUser)
+  if (passwordDenial) {
+    return passwordChangeRequiredResponse()
   }
 
   const { searchParams } = new URL(request.url)

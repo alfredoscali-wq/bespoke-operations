@@ -3,6 +3,10 @@ import { NextResponse } from "next/server"
 import { canAccessOperationsIntelligence } from "@/lib/activity/operations-intelligence"
 import { loadCrewProductionReadModel } from "@/lib/analysis/crew-production/load-read-model.server"
 import { getSessionUser } from "@/lib/auth/session"
+import {
+  denyIfPasswordChangeRequired,
+  passwordChangeRequiredResponse,
+} from "@/lib/auth/require-password-compliant-session"
 import { resolveTenantCompanyId } from "@/lib/operations/tenant-scope"
 
 function optionalParam(value: string | null): string | undefined {
@@ -18,6 +22,11 @@ export async function GET(request: Request) {
       { success: false, message: "Debe iniciar sesión." },
       { status: 401 }
     )
+  }
+
+  const passwordDenial = denyIfPasswordChangeRequired(sessionUser)
+  if (passwordDenial) {
+    return passwordChangeRequiredResponse()
   }
 
   if (!canAccessOperationsIntelligence(sessionUser.systemRole)) {

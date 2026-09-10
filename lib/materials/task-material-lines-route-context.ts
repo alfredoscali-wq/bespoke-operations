@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server"
 
+import {
+  jsonFromSessionAuthFailure,
+  requireLoadedPasswordCompliantSession,
+} from "@/lib/auth/require-password-compliant-session"
 import { getSessionUser, type SessionUser } from "@/lib/auth/session"
 import { requireWritablePlatformSession } from "@/lib/auth/require-writable-platform-session"
 import { canAccessMaterialsModule } from "@/lib/materials/permissions"
@@ -56,17 +60,9 @@ function buildContext(
 export async function requireTaskMaterialLinesReadContext(): Promise<
   TaskMaterialLinesRouteContext | TaskMaterialLinesRouteContextFailure
 > {
-  const sessionUser = await getSessionUser()
-  if (!sessionUser) {
-    return {
-      ok: false,
-      response: NextResponse.json(
-        { success: false, message: "Debe iniciar sesión." },
-        { status: 401 }
-      ),
-    }
-  }
-  return buildContext(sessionUser)
+  const loaded = requireLoadedPasswordCompliantSession(await getSessionUser())
+  if (!loaded.ok) return loaded
+  return buildContext(loaded.sessionUser)
 }
 
 export async function requireTaskMaterialLinesMutationContext(): Promise<
@@ -74,13 +70,7 @@ export async function requireTaskMaterialLinesMutationContext(): Promise<
 > {
   const auth = await requireWritablePlatformSession()
   if (!auth.ok) {
-    return {
-      ok: false,
-      response: NextResponse.json(
-        { success: false, message: auth.message },
-        { status: auth.status }
-      ),
-    }
+    return { ok: false, response: jsonFromSessionAuthFailure(auth) }
   }
   return buildContext(auth.sessionUser)
 }

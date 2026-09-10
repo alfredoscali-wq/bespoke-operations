@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server"
 
+import {
+  jsonFromSessionAuthFailure,
+  requireLoadedPasswordCompliantSession,
+} from "@/lib/auth/require-password-compliant-session"
 import { getSessionUser, type SessionUser } from "@/lib/auth/session"
 import { requireWritablePlatformSession } from "@/lib/auth/require-writable-platform-session"
 import {
@@ -71,18 +75,9 @@ function buildCompanyContext(
 export async function requireIspReadContext(): Promise<
   IspRouteContext | IspRouteContextFailure
 > {
-  const sessionUser = await getSessionUser()
-  if (!sessionUser) {
-    return {
-      ok: false,
-      response: NextResponse.json(
-        { success: false, message: "Debe iniciar sesión." },
-        { status: 401 }
-      ),
-    }
-  }
-
-  return buildContext(sessionUser)
+  const loaded = requireLoadedPasswordCompliantSession(await getSessionUser())
+  if (!loaded.ok) return loaded
+  return buildContext(loaded.sessionUser)
 }
 
 export async function requireIspWriteContext(): Promise<
@@ -90,13 +85,7 @@ export async function requireIspWriteContext(): Promise<
 > {
   const auth = await requireWritablePlatformSession()
   if (!auth.ok) {
-    return {
-      ok: false,
-      response: NextResponse.json(
-        { success: false, message: auth.message },
-        { status: auth.status }
-      ),
-    }
+    return { ok: false, response: jsonFromSessionAuthFailure(auth) }
   }
 
   return buildContext(auth.sessionUser)
@@ -124,16 +113,9 @@ export async function requireIspSubscriberRemovalContext(): Promise<
 export async function requireIspCatalogOtReadContext(): Promise<
   IspRouteContext | IspRouteContextFailure
 > {
-  const sessionUser = await getSessionUser()
-  if (!sessionUser) {
-    return {
-      ok: false,
-      response: NextResponse.json(
-        { success: false, message: "Debe iniciar sesión." },
-        { status: 401 }
-      ),
-    }
-  }
+  const loaded = requireLoadedPasswordCompliantSession(await getSessionUser())
+  if (!loaded.ok) return loaded
+  const sessionUser = loaded.sessionUser
 
   if (!canReadIspCatalogForOt(sessionUser)) {
     return {
@@ -151,16 +133,9 @@ export async function requireIspCatalogOtReadContext(): Promise<
 export async function requireIspMigrationReadContext(): Promise<
   IspRouteContext | IspRouteContextFailure
 > {
-  const sessionUser = await getSessionUser()
-  if (!sessionUser) {
-    return {
-      ok: false,
-      response: NextResponse.json(
-        { success: false, message: "Debe iniciar sesión." },
-        { status: 401 }
-      ),
-    }
-  }
+  const loaded = requireLoadedPasswordCompliantSession(await getSessionUser())
+  if (!loaded.ok) return loaded
+  const sessionUser = loaded.sessionUser
 
   if (!canAccessIspMigration(sessionUser)) {
     return {
@@ -180,13 +155,7 @@ export async function requireIspMigrationWriteContext(): Promise<
 > {
   const auth = await requireWritablePlatformSession()
   if (!auth.ok) {
-    return {
-      ok: false,
-      response: NextResponse.json(
-        { success: false, message: auth.message },
-        { status: auth.status }
-      ),
-    }
+    return { ok: false, response: jsonFromSessionAuthFailure(auth) }
   }
 
   if (!canAccessIspMigration(auth.sessionUser)) {
@@ -205,16 +174,9 @@ export async function requireIspMigrationWriteContext(): Promise<
 export async function requireIspBillingReadContext(): Promise<
   IspRouteContext | IspRouteContextFailure
 > {
-  const sessionUser = await getSessionUser()
-  if (!sessionUser) {
-    return {
-      ok: false,
-      response: NextResponse.json(
-        { success: false, message: "Debe iniciar sesión." },
-        { status: 401 }
-      ),
-    }
-  }
+  const loaded = requireLoadedPasswordCompliantSession(await getSessionUser())
+  if (!loaded.ok) return loaded
+  const sessionUser = loaded.sessionUser
 
   if (!canAccessIspBilling(sessionUser)) {
     return {
@@ -234,13 +196,7 @@ export async function requireIspBillingWriteContext(): Promise<
 > {
   const auth = await requireWritablePlatformSession()
   if (!auth.ok) {
-    return {
-      ok: false,
-      response: NextResponse.json(
-        { success: false, message: auth.message },
-        { status: auth.status }
-      ),
-    }
+    return { ok: false, response: jsonFromSessionAuthFailure(auth) }
   }
 
   if (!canAccessIspBilling(auth.sessionUser)) {
@@ -261,13 +217,7 @@ export async function requireIspBillingAdminContext(): Promise<
 > {
   const auth = await requireWritablePlatformSession()
   if (!auth.ok) {
-    return {
-      ok: false,
-      response: NextResponse.json(
-        { success: false, message: auth.message },
-        { status: auth.status }
-      ),
-    }
+    return { ok: false, response: jsonFromSessionAuthFailure(auth) }
   }
 
   if (!canAccessIspBilling(auth.sessionUser)) {

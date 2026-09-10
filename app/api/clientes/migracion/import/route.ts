@@ -19,7 +19,13 @@ export async function POST() {
   const auth = await requireAdministratorSession()
 
   if (!auth.ok) {
-    return NextResponse.json({ error: auth.message }, { status: auth.status })
+    return NextResponse.json(
+      {
+        error: auth.message,
+        ...(auth.code ? { code: auth.code } : {}),
+      },
+      { status: auth.status }
+    )
   }
 
   try {

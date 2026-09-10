@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server"
 
 import { getSessionUser } from "@/lib/auth/session"
+import {
+  denyIfPasswordChangeRequired,
+  passwordChangeRequiredResponse,
+} from "@/lib/auth/require-password-compliant-session"
 import type { AtencionClienteRouteContext } from "@/lib/customer-atenciones/consultation-management-route"
 import {
   canAccessAtencionClienteModule,
@@ -23,6 +27,11 @@ export async function GET(
       { success: false, message: "Debe iniciar sesión." },
       { status: 401 }
     )
+  }
+
+  const passwordDenial = denyIfPasswordChangeRequired(sessionUser)
+  if (passwordDenial) {
+    return passwordChangeRequiredResponse()
   }
 
   if (!canAccessAtencionClienteModule(sessionUser)) {

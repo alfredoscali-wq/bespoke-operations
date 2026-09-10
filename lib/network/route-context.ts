@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server"
 
+import {
+  jsonFromSessionAuthFailure,
+  requireLoadedPasswordCompliantSession,
+} from "@/lib/auth/require-password-compliant-session"
 import { getSessionUser, type SessionUser } from "@/lib/auth/session"
 import { requireWritablePlatformSession } from "@/lib/auth/require-writable-platform-session"
 import { canAccessNetworkModule } from "@/lib/network/permissions"
@@ -45,18 +49,10 @@ function buildContext(
 export async function requireNetworkReadContext(): Promise<
   NetworkRouteContext | NetworkRouteContextFailure
 > {
-  const sessionUser = await getSessionUser()
-  if (!sessionUser) {
-    return {
-      ok: false,
-      response: NextResponse.json(
-        { success: false, message: "Debe iniciar sesión." },
-        { status: 401 }
-      ),
-    }
-  }
+  const loaded = requireLoadedPasswordCompliantSession(await getSessionUser())
+  if (!loaded.ok) return loaded
 
-  return buildContext(sessionUser)
+  return buildContext(loaded.sessionUser)
 }
 
 export async function requireNetworkWriteContext(): Promise<
@@ -64,13 +60,7 @@ export async function requireNetworkWriteContext(): Promise<
 > {
   const auth = await requireWritablePlatformSession()
   if (!auth.ok) {
-    return {
-      ok: false,
-      response: NextResponse.json(
-        { success: false, message: auth.message },
-        { status: auth.status }
-      ),
-    }
+    return { ok: false, response: jsonFromSessionAuthFailure(auth) }
   }
 
   return buildContext(auth.sessionUser)

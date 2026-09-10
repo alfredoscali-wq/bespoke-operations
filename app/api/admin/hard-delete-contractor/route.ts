@@ -12,7 +12,11 @@ export async function POST(request: Request) {
 
   if (!auth.ok) {
     return NextResponse.json(
-      { success: false, error: auth.message },
+      {
+        success: false,
+        error: auth.message,
+        ...(auth.code ? { code: auth.code } : {}),
+      },
       { status: auth.status }
     )
   }
