@@ -22,9 +22,14 @@ export type MobileBearerMiddlewareResult =
   | { ok: true; context: MobileAuthenticatedContext }
   | { ok: false; response: NextResponse<MobileApiErrorResponse> }
 
+export type MobileBearerMiddlewareOptions = {
+  allowPasswordChangeRequired?: boolean
+}
+
 export async function mobileBearerMiddleware(
   request: Request,
-  requestContext: MobileRequestContext
+  requestContext: MobileRequestContext,
+  options?: MobileBearerMiddlewareOptions
 ): Promise<MobileBearerMiddlewareResult> {
   const accessToken = extractBearerToken(request)
 
@@ -47,7 +52,7 @@ export async function mobileBearerMiddleware(
   }
 
   try {
-    const auth = await resolveMobileAuthFromAccessToken(accessToken)
+    const auth = await resolveMobileAuthFromAccessToken(accessToken, options)
 
     return {
       ok: true,

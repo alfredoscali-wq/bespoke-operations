@@ -13,5 +13,6 @@ export function mapMobileLoginUser(
     companyId: employee.companyId,
     employeeId: employee.id,
     role: employee.systemRole,
+    mustChangePassword: employee.mustChangePassword,
   }
 }

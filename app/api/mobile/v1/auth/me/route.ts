@@ -4,12 +4,16 @@ import { handleProtectedMobileRoute } from "@/lib/mobile/v1/handle-mobile-route"
 import { mobileApiSuccessResponse } from "@/lib/mobile/v1/response-factory"
 
 export async function GET(request: Request) {
-  return handleProtectedMobileRoute(request, async (context) => {
-    const auth = requireAuthenticatedUser(context)
+  return handleProtectedMobileRoute(
+    request,
+    async (context) => {
+      const auth = requireAuthenticatedUser(context)
 
-    return mobileApiSuccessResponse(
-      context.request,
-      mapMobileAuthProfile(auth)
-    )
-  })
+      return mobileApiSuccessResponse(
+        context.request,
+        mapMobileAuthProfile(auth)
+      )
+    },
+    { allowPasswordChangeRequired: true }
+  )
 }

@@ -22,9 +22,14 @@ export async function handlePublicMobileRoute(
   }
 }
 
+export type HandleProtectedMobileRouteOptions = {
+  allowPasswordChangeRequired?: boolean
+}
+
 export async function handleProtectedMobileRoute(
   request: Request,
-  handler: (context: MobileAuthenticatedContext) => Promise<NextResponse>
+  handler: (context: MobileAuthenticatedContext) => Promise<NextResponse>,
+  options?: HandleProtectedMobileRouteOptions
 ): Promise<NextResponse> {
   const requestContext = createMobileRequestContext(request)
   const perf = startPerformanceTrace("MOBILE AUTH GATE", {
@@ -33,7 +38,7 @@ export async function handleProtectedMobileRoute(
   })
 
   const authResult = await perf.span("Auth", () =>
-    requireAuthenticatedMobileUser(request)
+    requireAuthenticatedMobileUser(request, options)
   )
 
   if (!authResult.ok) {

@@ -16,6 +16,7 @@ export type MobileLoginUser = {
   companyId: string
   employeeId: string
   role: SystemRole
+  mustChangePassword: boolean
 }
 
 export type MobileLoginResponse = {

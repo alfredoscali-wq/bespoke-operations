@@ -117,14 +117,34 @@ extractBearerToken
         ↓
 resolveMobileAuthFromAccessToken → Supabase auth.getUser(jwt)
         ↓
-employees lookup + access validation
+employees lookup (employees.must_change_password → sessionUser.mustChangePassword)
+        ↓
+PASSWORD_CHANGE_REQUIRED (403) if mustChangePassword=true
+        ↓
+systemAccess / employment status (USER_DISABLED)
         ↓
 MobileAuthContext
         ↓
 Endpoint handler (via handleProtectedMobileRoute)
 ```
 
-Route handlers receive `MobileAuthenticatedContext` and must **not** parse `Authorization` manually.
+Route handlers receive `MobileAuthenticatedContext` and must **not** parse `Authorization` manually, except `POST /auth/change-password`, which reuses the already-validated Bearer token to update the **authenticated** Auth user.
+
+Password-compliance authority is `employees.must_change_password` via `sessionUser.mustChangePassword`. JWT `user_metadata` is not the authority. The decision helper is `denyIfPasswordChangeRequired` (same as Web 7.5.2D). Mobile uses its own error envelope; it does not reuse the Web JSON helper.
+
+### Password change required
+
+When `employees.must_change_password` is true:
+
+| Surface | Behavior |
+|---------|----------|
+| `POST /auth/login` | Allowed. Returns tokens and `user.mustChangePassword: true` |
+| `POST /auth/refresh` | Allowed (needed if the access token expires before the password is changed) |
+| `GET /auth/me` | Allowed. Returns `mustChangePassword: true` |
+| `POST /auth/change-password` | Allowed |
+| All other protected Mobile APIs | **403** `PASSWORD_CHANGE_REQUIRED` |
+
+An access token issued before an admin reset remains cryptographically valid until expiry. The next protected business request reloads the employee row and returns 403. Refresh tokens are not revoked in this sprint.
 
 ### MobileAuthContext
 
@@ -138,16 +158,18 @@ Built once per authenticated request:
 | `role` | `system_role` |
 | `email` | Employee email or auth email |
 | `displayName` | Employee full name |
+| `mustChangePassword` | `employees.must_change_password` (via SessionUser) |
 
-### Unauthorized responses
+### Unauthorized / password-required responses
 
 When the Bearer token is missing, malformed, invalid, or expired, the API responds with:
 
 | Status | Code | Message |
 |--------|------|---------|
 | 401 | `UNAUTHORIZED` | No autorizado |
+| 403 | `PASSWORD_CHANGE_REQUIRED` | Debe cambiar su contraseña antes de continuar. |
 
-All token failures share the same public response (no distinction between missing, expired, or invalid).
+All token failures share the same public 401 (no distinction between missing, expired, or invalid). Missing Bearer is never mapped to `PASSWORD_CHANGE_REQUIRED`.
 
 ### Helpers (server)
 
@@ -160,7 +182,7 @@ All token failures share the same public response (no distinction between missin
 | `requireEmployee()` | Ensures `employeeId` is present |
 | `handleProtectedMobileRoute()` | Wrapper for protected route handlers |
 
-Refresh token exchange is prepared in `lib/mobile/v1/auth/contracts.ts` but not implemented yet.
+`POST /auth/refresh` and `POST /auth/change-password` are implemented. Logout remains reserved in `lib/mobile/v1/auth/contracts.ts`.
 
 ---
 
@@ -208,7 +230,8 @@ Public. Authenticates a field user and returns Supabase tokens for subsequent mo
       "email": "juan@empresa.com",
       "companyId": "company-uuid",
       "employeeId": "employee-uuid",
-      "role": "operario"
+      "role": "operario",
+      "mustChangePassword": false
     }
   }
 }
@@ -217,11 +240,12 @@ Public. Authenticates a field user and returns Supabase tokens for subsequent mo
 | `data` field | Description |
 |--------------|-------------|
 | `accessToken` | Bearer token for authenticated mobile calls |
-| `refreshToken` | Token for future refresh endpoint (not implemented yet) |
+| `refreshToken` | Token for `POST /auth/refresh` |
 | `expiresIn` | Access token lifetime in seconds |
 | `user.id` | Supabase Auth user id |
 | `user.employeeId` | RRHH employee record id |
 | `user.role` | System role (`operario`, `supervisor`, etc.) |
+| `user.mustChangePassword` | `true` when `employees.must_change_password` is true. Login still succeeds. |
 
 #### Error example — `401`
 
@@ -246,6 +270,7 @@ Public. Authenticates a field user and returns Supabase tokens for subsequent mo
 | 401 | `INVALID_CREDENTIALS` | Credenciales inválidas |
 | 401 | `UNAUTHORIZED` | No autorizado (Bearer inválido o ausente) |
 | 403 | `USER_DISABLED` | Usuario deshabilitado |
+| 403 | `PASSWORD_CHANGE_REQUIRED` | Not returned by login. Returned by protected business APIs when the flag is true. |
 | 404 | `EMPLOYEE_NOT_FOUND` | Empleado inexistente |
 | 405 | `INVALID_REQUEST` | Método no permitido |
 | 500 | `INTERNAL_ERROR` | Error interno |
@@ -276,10 +301,13 @@ Authorization: Bearer <access_token>
     "email": "juan@empresa.com",
     "companyId": "company-uuid",
     "employeeId": "employee-uuid",
-    "role": "operario"
+    "role": "operario",
+    "mustChangePassword": false
   }
 }
 ```
+
+Allowed while `mustChangePassword` is true so the client can read the flag after refresh.
 
 #### Error example — `401`
 
@@ -302,6 +330,56 @@ Authorization: Bearer <access_token>
 | 403 | `USER_DISABLED` | Usuario deshabilitado |
 | 404 | `EMPLOYEE_NOT_FOUND` | Empleado inexistente |
 | 500 | `INTERNAL_ERROR` | Error interno |
+
+---
+
+### POST `/api/mobile/v1/auth/change-password`
+
+Protected. Allowed even when `employees.must_change_password` is true. Changes the **authenticated** user's Auth password, then sets that employee's `must_change_password` to `false`.
+
+Identity comes only from the Bearer token. The body must not be used to select another user. Extra fields such as `employeeId` are ignored.
+
+#### Request headers
+
+```
+Authorization: Bearer <access_token>
+```
+
+#### Request
+
+```json
+{
+  "newPassword": "********"
+}
+```
+
+| Field | Required | Notes |
+|-------|----------|-------|
+| `newPassword` | Yes | Minimum 8 characters (same floor as the web form). Auth may still reject weak or reused passwords. |
+
+#### Success — `200`
+
+```json
+{
+  "success": true,
+  "apiVersion": "v1",
+  "requestId": "550e8400-e29b-41d4-a716-446655440000",
+  "serverTime": "2026-06-29T22:15:30Z",
+  "data": {
+    "ok": true
+  }
+}
+```
+
+If Auth accepts the password but the employee row cannot be updated, the API returns **500** `INTERNAL_ERROR` with an explicit sync-failure message. It does **not** report success. Auth and Postgres are not a single transaction.
+
+| Status | Code | Message |
+|--------|------|---------|
+| 400 | `INVALID_REQUEST` | Validation / Auth password rejection |
+| 401 | `UNAUTHORIZED` | No autorizado |
+| 403 | `USER_DISABLED` | Usuario deshabilitado |
+| 404 | `EMPLOYEE_NOT_FOUND` | Empleado inexistente |
+| 500 | `INTERNAL_ERROR` | Auth updated but employee flag could not be cleared, or unexpected error |
 
 ---
 
@@ -346,5 +424,7 @@ Route handlers must not embed business rules or hand-build JSON envelopes.
 - Login uses Supabase `signInWithPassword` with the public anon key (stateless, no cookies).
 - Protected routes validate `Authorization: Bearer` via Supabase `auth.getUser(jwt)` — no cookies or query tokens.
 - Employee access checks reuse RRHH flags (`system_access`, employment status).
+- `must_change_password` is enforced at the shared Bearer gate with `denyIfPasswordChangeRequired`. Exceptions: login, refresh, `/auth/me`, change-password.
+- Change-password updates Auth as the token subject (user JWT, not `service_role` targeting another user), then patches the session employee flag.
 - Access tokens are never logged.
-- Refresh token, device registration, and session revocation endpoints are prepared in `lib/mobile/v1/auth/contracts.ts` for future sprints.
+- Session revocation after admin reset is out of scope; the employee re-read on the next request blocks business APIs.

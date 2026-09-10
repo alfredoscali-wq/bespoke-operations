@@ -18,11 +18,16 @@ export type RequireAuthenticatedMobileUserResult =
   | { ok: true; context: MobileAuthenticatedContext }
   | { ok: false; response: NextResponse<MobileApiErrorResponse> }
 
+export type RequireAuthenticatedMobileUserOptions = {
+  allowPasswordChangeRequired?: boolean
+}
+
 export async function requireAuthenticatedMobileUser(
-  request: Request
+  request: Request,
+  options?: RequireAuthenticatedMobileUserOptions
 ): Promise<RequireAuthenticatedMobileUserResult> {
   const requestContext = createMobileRequestContext(request)
-  return mobileBearerMiddleware(request, requestContext)
+  return mobileBearerMiddleware(request, requestContext, options)
 }
 
 export function getAuthenticatedMobileUser(

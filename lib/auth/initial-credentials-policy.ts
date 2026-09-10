@@ -7,7 +7,8 @@
  * - Tras provisionar o restablecer: must_change_password = true.
  *
  * Portal web: PasswordChangeGuard obliga el cambio en el primer inicio.
- * Field Agent (móvil): preparado vía metadata/DB; enforcement en app móvil = mejora futura.
+ * Field Agent (móvil): el gate Bearer bloquea APIs de negocio con
+ * PASSWORD_CHANGE_REQUIRED; POST /api/mobile/v1/auth/change-password completa el circuito.
  */
 
 import { normalizeDni } from "@/lib/auth/auth-identity"

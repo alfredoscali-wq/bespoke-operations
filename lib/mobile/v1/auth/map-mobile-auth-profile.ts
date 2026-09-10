@@ -10,5 +10,6 @@ export function mapMobileAuthProfile(auth: MobileAuthContext): MobileLoginUser {
     companyId: auth.companyId,
     employeeId: auth.employeeId,
     role: auth.role,
+    mustChangePassword: auth.mustChangePassword,
   }
 }

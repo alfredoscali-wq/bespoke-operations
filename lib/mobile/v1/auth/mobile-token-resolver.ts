@@ -1,5 +1,6 @@
 import "server-only"
 
+import { denyIfPasswordChangeRequired } from "@/lib/auth/require-password-compliant-session"
 import { buildSessionUserFromAuthUser } from "@/lib/auth/resolve-session-user"
 import { assertEmployeeCanUseMobile } from "@/lib/mobile/v1/auth/assert-employee-mobile-access"
 import { createMobileAuthClient } from "@/lib/mobile/v1/auth/create-mobile-auth-client"
@@ -15,12 +16,25 @@ import { decodeJwtTiming } from "@/lib/mobile/v1/auth/decode-jwt-exp"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { fetchEmployeeByAppUserId } from "@/lib/supabase/employees.queries"
 
+export type ResolveMobileAuthOptions = {
+  /**
+   * When true, skips PASSWORD_CHANGE_REQUIRED so change-password /auth/me
+   * can run while employees.must_change_password is still true.
+   */
+  allowPasswordChangeRequired?: boolean
+}
+
 /**
  * Validates a Supabase access token and resolves the mobile auth context.
  * Token-related failures always surface as 401 without distinguishing cause.
+ *
+ * Order: token → employee → password compliance → systemAccess/status.
+ * Authority for password compliance is sessionUser.mustChangePassword
+ * from the employee row, not JWT user_metadata.
  */
 export async function resolveMobileAuthFromAccessToken(
-  accessToken: string
+  accessToken: string,
+  options?: ResolveMobileAuthOptions
 ): Promise<MobileAuthContext> {
   const authClient = createMobileAuthClient()
 
@@ -53,9 +67,16 @@ export async function resolveMobileAuthFromAccessToken(
   }
 
   const employee = employeeResult.data
-  assertEmployeeCanUseMobile(employee)
-
   const sessionUser = buildSessionUserFromAuthUser(data.user, employee)
+
+  if (!options?.allowPasswordChangeRequired) {
+    const denial = denyIfPasswordChangeRequired(sessionUser)
+    if (denial) {
+      throw new MobileApiError(denial.code, denial.message, denial.status)
+    }
+  }
+
+  assertEmployeeCanUseMobile(employee)
 
   return buildMobileAuthContext(sessionUser, employee)
 }

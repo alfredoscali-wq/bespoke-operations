@@ -9,6 +9,7 @@ export type MobileAuthContext = {
   role: SystemRole
   email: string
   displayName: string
+  mustChangePassword: boolean
 }
 
 export function buildMobileAuthContext(
@@ -22,5 +23,6 @@ export function buildMobileAuthContext(
     role: employee.systemRole,
     email: employee.email?.trim() || sessionUser.email,
     displayName: sessionUser.displayName,
+    mustChangePassword: sessionUser.mustChangePassword,
   }
 }
