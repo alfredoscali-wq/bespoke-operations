@@ -119,8 +119,6 @@ resolveMobileAuthFromAccessToken → Supabase auth.getUser(jwt)
         ↓
 employees lookup (employees.must_change_password → sessionUser.mustChangePassword)
         ↓
-PASSWORD_CHANGE_REQUIRED (403) if mustChangePassword=true
-        ↓
 systemAccess / employment status (USER_DISABLED)
         ↓
 MobileAuthContext
@@ -130,7 +128,9 @@ Endpoint handler (via handleProtectedMobileRoute)
 
 Route handlers receive `MobileAuthenticatedContext` and must **not** parse `Authorization` manually, except `POST /auth/change-password`, which reuses the already-validated Bearer token to update the **authenticated** Auth user.
 
-Password-compliance authority is `employees.must_change_password` via `sessionUser.mustChangePassword`. JWT `user_metadata` is not the authority. The decision helper is `denyIfPasswordChangeRequired` (same as Web 7.5.2D). Mobile uses its own error envelope; it does not reuse the Web JSON helper.
+Password-compliance authority is `employees.must_change_password` via `sessionUser.mustChangePassword`. JWT `user_metadata` is not the authority. Web still uses `denyIfPasswordChangeRequired`. Mobile uses its own error envelope; it does not reuse the Web JSON helper.
+
+Legacy Field Agent compatibility: current deployed mobile client cannot handle `PASSWORD_CHANGE_REQUIRED`. Password-change enforcement for Mobile is temporarily disabled at the bearer gate until the client supports the change-password flow. The flag remains on the session and on `GET /auth/me`. `POST /auth/change-password` remains available for a future APK.
 
 ### Password change required
 
@@ -139,12 +139,12 @@ When `employees.must_change_password` is true:
 | Surface | Behavior |
 |---------|----------|
 | `POST /auth/login` | Allowed. Returns tokens and `user.mustChangePassword: true` |
-| `POST /auth/refresh` | Allowed (needed if the access token expires before the password is changed) |
+| `POST /auth/refresh` | Allowed |
 | `GET /auth/me` | Allowed. Returns `mustChangePassword: true` |
 | `POST /auth/change-password` | Allowed |
-| All other protected Mobile APIs | **403** `PASSWORD_CHANGE_REQUIRED` |
+| All other protected Mobile APIs | Allowed (legacy Field Agent hotfix). Flag is **not** auto-cleared. |
 
-An access token issued before an admin reset remains cryptographically valid until expiry. The next protected business request reloads the employee row and returns 403. Refresh tokens are not revoked in this sprint.
+The employee row is still re-read on each protected request. Refresh tokens are not revoked by this hotfix.
 
 ### MobileAuthContext
 
@@ -167,7 +167,7 @@ When the Bearer token is missing, malformed, invalid, or expired, the API respon
 | Status | Code | Message |
 |--------|------|---------|
 | 401 | `UNAUTHORIZED` | No autorizado |
-| 403 | `PASSWORD_CHANGE_REQUIRED` | Debe cambiar su contraseña antes de continuar. |
+| 403 | `PASSWORD_CHANGE_REQUIRED` | Not returned by the current Mobile bearer gate (legacy Field Agent hotfix). Web still returns this code. |
 
 All token failures share the same public 401 (no distinction between missing, expired, or invalid). Missing Bearer is never mapped to `PASSWORD_CHANGE_REQUIRED`.
 
@@ -270,7 +270,7 @@ Public. Authenticates a field user and returns Supabase tokens for subsequent mo
 | 401 | `INVALID_CREDENTIALS` | Credenciales inválidas |
 | 401 | `UNAUTHORIZED` | No autorizado (Bearer inválido o ausente) |
 | 403 | `USER_DISABLED` | Usuario deshabilitado |
-| 403 | `PASSWORD_CHANGE_REQUIRED` | Not returned by login. Returned by protected business APIs when the flag is true. |
+| 403 | `PASSWORD_CHANGE_REQUIRED` | Not returned by login. Not returned by the current Mobile bearer gate (legacy Field Agent hotfix). |
 | 404 | `EMPLOYEE_NOT_FOUND` | Empleado inexistente |
 | 405 | `INVALID_REQUEST` | Método no permitido |
 | 500 | `INTERNAL_ERROR` | Error interno |
@@ -424,7 +424,8 @@ Route handlers must not embed business rules or hand-build JSON envelopes.
 - Login uses Supabase `signInWithPassword` with the public anon key (stateless, no cookies).
 - Protected routes validate `Authorization: Bearer` via Supabase `auth.getUser(jwt)` — no cookies or query tokens.
 - Employee access checks reuse RRHH flags (`system_access`, employment status).
-- `must_change_password` is enforced at the shared Bearer gate with `denyIfPasswordChangeRequired`. Exceptions: login, refresh, `/auth/me`, change-password.
+- Legacy Field Agent compatibility: current deployed mobile client cannot handle `PASSWORD_CHANGE_REQUIRED`. Password-change enforcement for Mobile is temporarily disabled at the bearer gate until the client supports the change-password flow.
+- `employees.must_change_password` remains the source of truth on the session / `GET /auth/me`. It is not auto-cleared.
 - Change-password updates Auth as the token subject (user JWT, not `service_role` targeting another user), then patches the session employee flag.
 - Access tokens are never logged.
-- Session revocation after admin reset is out of scope; the employee re-read on the next request blocks business APIs.
+- Session revocation after admin reset is out of scope.

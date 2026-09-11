@@ -90,9 +90,11 @@ test("2. login must_change=true → 200 path, flag true, tokens still issued", (
   assert.doesNotMatch(loginService, /PASSWORD_CHANGE_REQUIRED/)
 })
 
-test("3. Bearer + must_change=true → 403 PASSWORD_CHANGE_REQUIRED", () => {
-  assert.match(resolverFn, /denyIfPasswordChangeRequired\(sessionUser\)/)
-  assert.match(resolverFn, /throw new MobileApiError\(denial\.code, denial\.message, denial\.status\)/)
+test("3. Bearer + must_change=true → no 403 PASSWORD_CHANGE_REQUIRED (legacy Field Agent hotfix)", () => {
+  assert.doesNotMatch(resolverFn, /denyIfPasswordChangeRequired/)
+  assert.doesNotMatch(resolverFn, /throw new MobileApiError\(denial/)
+  assert.doesNotMatch(resolverFn, /MOBILE_API_ERROR_MESSAGES\.PASSWORD_CHANGE_REQUIRED/)
+  assert.match(resolverFn, /assertEmployeeCanUseMobile\(employee\)/)
   assert.match(mobileErrors, /"PASSWORD_CHANGE_REQUIRED"/)
   assert.match(read("lib/auth/require-password-compliant-session.ts"), /PASSWORD_CHANGE_REQUIRED_STATUS = 403/)
 })
@@ -104,10 +106,11 @@ test("4. Bearer + must_change=false → gate continues to systemAccess", () => {
     "export function passwordChangeRequiredResponse"
   )
   assert.match(denyFn, /if \(!sessionUser\.mustChangePassword\) \{\s*return null/)
-  const passwordIdx = resolverFn.indexOf("denyIfPasswordChangeRequired")
+  const employeeIdx = resolverFn.indexOf("fetchEmployeeByAppUserId")
   const disabledIdx = resolverFn.indexOf("assertEmployeeCanUseMobile")
-  assert.ok(passwordIdx >= 0)
-  assert.ok(passwordIdx < disabledIdx)
+  assert.ok(employeeIdx >= 0)
+  assert.ok(disabledIdx > employeeIdx)
+  assert.doesNotMatch(resolverFn, /denyIfPasswordChangeRequired/)
 })
 
 test("5. sin Bearer → 401, no PASSWORD_CHANGE_REQUIRED", () => {
@@ -132,7 +135,7 @@ test("6. employee inexistente conserva 404", () => {
   assert.doesNotMatch(missingEmployee, /PASSWORD_CHANGE_REQUIRED/)
   assert.ok(
     resolverFn.indexOf("EMPLOYEE_NOT_FOUND") <
-      resolverFn.indexOf("denyIfPasswordChangeRequired")
+      resolverFn.indexOf("assertEmployeeCanUseMobile")
   )
 })
 
@@ -178,13 +181,14 @@ test("10. después del cambio: flag false; siguiente API usa employee fresco", (
 test("11. user_metadata no es autoridad del gate", () => {
   assert.doesNotMatch(resolverFn, /user_metadata/)
   assert.doesNotMatch(resolverFn, /must_change_password/)
-  assert.match(resolverFn, /denyIfPasswordChangeRequired\(sessionUser\)/)
+  assert.doesNotMatch(resolverFn, /denyIfPasswordChangeRequired/)
   assert.match(loginMap, /mustChangePassword: employee\.mustChangePassword/)
 })
 
-test("12. reset + token previo: siguiente request relee employee y aplica el gate", () => {
+test("12. reset + token previo: siguiente request relee employee; no bloquea por password", () => {
   assert.match(resolverFn, /fetchEmployeeByAppUserId/)
-  assert.match(resolverFn, /denyIfPasswordChangeRequired\(sessionUser\)/)
+  assert.match(resolverFn, /buildSessionUserFromAuthUser\(data\.user, employee\)/)
+  assert.doesNotMatch(resolverFn, /denyIfPasswordChangeRequired/)
   assert.doesNotMatch(read("lib/auth/reset-employee-password.ts"), /signOut/)
   assert.doesNotMatch(
     read("lib/auth/reset-employee-password.ts"),
@@ -204,7 +208,7 @@ test("14. login sigue permitido con must_change=true", () => {
   assert.match(read("app/api/mobile/v1/auth/login/route.ts"), /authenticateMobileLogin/)
 })
 
-test("15. devices/agenda/tasks/incidents bloqueados por gate común, sin guards por route", () => {
+test("15. devices/agenda/tasks/incidents usan gate común, sin guards de password por route", () => {
   const files = walkRouteFiles(join(root, "app", "api", "mobile", "v1"))
   const exempt = new Set([
     "app/api/mobile/v1/auth/login/route.ts",
@@ -232,7 +236,7 @@ test("15. devices/agenda/tasks/incidents bloqueados por gate común, sin guards 
 
   assert.deepEqual(duplicated, [])
   assert.deepEqual(unguarded, [])
-  assert.match(resolver, /denyIfPasswordChangeRequired/)
+  assert.doesNotMatch(resolver, /denyIfPasswordChangeRequired/)
   assert.match(handleRoute, /requireAuthenticatedMobileUser\(request, options\)/)
 })
 
@@ -243,12 +247,16 @@ test("16. envelope Mobile correcto", () => {
   assert.doesNotMatch(middleware, /passwordChangeRequiredResponse/)
 })
 
-test("17. denyIfPasswordChangeRequired reutilizado", () => {
-  assert.match(
+test("17. denyIfPasswordChangeRequired permanece para Web, no en el bearer gate Mobile", () => {
+  assert.doesNotMatch(
     resolver,
     /from "@\/lib\/auth\/require-password-compliant-session"/
   )
   assert.match(helperWeb, /export function denyIfPasswordChangeRequired/)
+  assert.match(
+    read("lib/auth/require-administrator.ts"),
+    /denyIfPasswordChangeRequired/
+  )
 })
 
 test("18. assertEmployeeCanUseMobile y 401 UNAUTHORIZED intactos", () => {
@@ -281,14 +289,13 @@ test("19. /auth/me expone mustChangePassword desde employee/session", () => {
   )
 })
 
-test("20. orden token → employee → password → systemAccess", () => {
+test("20. orden token → employee → systemAccess (password gate desactivado)", () => {
   const tokenIdx = resolverFn.indexOf("auth.getUser(accessToken)")
   const employeeIdx = resolverFn.indexOf("fetchEmployeeByAppUserId")
-  const passwordIdx = resolverFn.indexOf("denyIfPasswordChangeRequired")
   const disabledIdx = resolverFn.indexOf("assertEmployeeCanUseMobile")
   assert.ok(tokenIdx < employeeIdx)
-  assert.ok(employeeIdx < passwordIdx)
-  assert.ok(passwordIdx < disabledIdx)
+  assert.ok(employeeIdx < disabledIdx)
+  assert.equal(resolverFn.indexOf("denyIfPasswordChangeRequired"), -1)
 })
 
 test("21. network agent y PasswordChangeGuard Web no se tocan", () => {

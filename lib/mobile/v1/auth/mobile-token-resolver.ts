@@ -1,6 +1,5 @@
 import "server-only"
 
-import { denyIfPasswordChangeRequired } from "@/lib/auth/require-password-compliant-session"
 import { buildSessionUserFromAuthUser } from "@/lib/auth/resolve-session-user"
 import { assertEmployeeCanUseMobile } from "@/lib/mobile/v1/auth/assert-employee-mobile-access"
 import { createMobileAuthClient } from "@/lib/mobile/v1/auth/create-mobile-auth-client"
@@ -18,8 +17,8 @@ import { fetchEmployeeByAppUserId } from "@/lib/supabase/employees.queries"
 
 export type ResolveMobileAuthOptions = {
   /**
-   * When true, skips PASSWORD_CHANGE_REQUIRED so change-password /auth/me
-   * can run while employees.must_change_password is still true.
+   * Retained for a future Field Agent that can handle PASSWORD_CHANGE_REQUIRED.
+   * Currently ignored at the Mobile bearer gate (legacy client compatibility).
    */
   allowPasswordChangeRequired?: boolean
 }
@@ -28,14 +27,17 @@ export type ResolveMobileAuthOptions = {
  * Validates a Supabase access token and resolves the mobile auth context.
  * Token-related failures always surface as 401 without distinguishing cause.
  *
- * Order: token → employee → password compliance → systemAccess/status.
- * Authority for password compliance is sessionUser.mustChangePassword
- * from the employee row, not JWT user_metadata.
+ * Order: token → employee → systemAccess/status.
+ * mustChangePassword is loaded onto the session from the employee row
+ * (not JWT user_metadata) and remains visible on GET /auth/me.
  */
 export async function resolveMobileAuthFromAccessToken(
   accessToken: string,
   options?: ResolveMobileAuthOptions
 ): Promise<MobileAuthContext> {
+  // Legacy Field Agent compatibility: current deployed mobile client cannot handle PASSWORD_CHANGE_REQUIRED. Password-change enforcement for Mobile is temporarily disabled at the bearer gate until the client supports the change-password flow.
+  void options
+
   const authClient = createMobileAuthClient()
 
   const { data, error } = await authClient.auth.getUser(accessToken)
@@ -68,13 +70,6 @@ export async function resolveMobileAuthFromAccessToken(
 
   const employee = employeeResult.data
   const sessionUser = buildSessionUserFromAuthUser(data.user, employee)
-
-  if (!options?.allowPasswordChangeRequired) {
-    const denial = denyIfPasswordChangeRequired(sessionUser)
-    if (denial) {
-      throw new MobileApiError(denial.code, denial.message, denial.status)
-    }
-  }
 
   assertEmployeeCanUseMobile(employee)
 

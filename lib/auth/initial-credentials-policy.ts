@@ -9,8 +9,9 @@
  * Portal web: PasswordChangeGuard obliga el cambio en el primer inicio.
  * POST /api/auth/change-password actualiza Auth con el JWT de sesión y
  * baja must_change_password solo del empleado de la sesión (service_role).
- * Field Agent (móvil): el gate Bearer bloquea APIs de negocio con
- * PASSWORD_CHANGE_REQUIRED; POST /api/mobile/v1/auth/change-password completa el circuito.
+ * Field Agent (móvil): POST /api/mobile/v1/auth/change-password permanece
+ * disponible. Password-change enforcement for Mobile is temporarily disabled
+ * at the bearer gate until the client supports the change-password flow.
  */
 
 import { normalizeDni } from "@/lib/auth/auth-identity"
