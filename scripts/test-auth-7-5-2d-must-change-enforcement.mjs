@@ -117,9 +117,17 @@ test("6. login permitido", () => {
 })
 
 test("7. change-password permitido", () => {
-  assert.match(changePassword, /supabase\.auth\.updateUser\(\{\s*password: params\.newPassword/)
-  assert.match(changePassword, /mustChangePassword: false/)
-  assert.doesNotMatch(changePassword, /app\/api/)
+  const changeRoute = read("app/api/auth/change-password/route.ts")
+  const changeServer = read("lib/auth/change-password.server.ts")
+  assert.doesNotMatch(changeRoute, /denyIfPasswordChangeRequired/)
+  assert.match(changeRoute, /getSessionUser\(\)/)
+  assert.match(changeRoute, /sessionUser\.employeeId/)
+  assert.doesNotMatch(changeServer, /body\.employeeId/)
+  assert.match(changeServer, /patchEmployee\(admin, employeeId/)
+  assert.match(changeServer, /mustChangePassword: false/)
+  assert.match(changePassword, /\/api\/auth\/change-password/)
+  assert.doesNotMatch(changePassword, /updateEmployee/)
+  assert.doesNotMatch(changePassword, /employees\.browser/)
 })
 
 test("8. logout permitido", () => {
@@ -258,10 +266,14 @@ test("shared helpers cubren require* web", () => {
   )
 })
 
-test("bootstrap endpoints exentos: audit-session y sync-my-metadata", () => {
+test("bootstrap endpoints exentos: audit-session, sync-my-metadata y change-password", () => {
   assert.doesNotMatch(auditSession, /denyIfPasswordChangeRequired/)
   assert.doesNotMatch(syncMine, /denyIfPasswordChangeRequired/)
   assert.match(syncMine, /getSessionUserWithAuthSyncContext/)
+  assert.doesNotMatch(
+    read("app/api/auth/change-password/route.ts"),
+    /denyIfPasswordChangeRequired/
+  )
 })
 
 test("coverage: APIs web de negocio pasan por el guard; E vacío", () => {
@@ -284,7 +296,8 @@ test("coverage: APIs web de negocio pasan por el guard; E vacío", () => {
     }
     if (
       rel.endsWith("/api/auth/audit-session/route.ts") ||
-      rel.endsWith("/api/auth/sync-my-metadata/route.ts")
+      rel.endsWith("/api/auth/sync-my-metadata/route.ts") ||
+      rel.endsWith("/api/auth/change-password/route.ts")
     ) {
       counts.C += 1
       continue
@@ -298,6 +311,6 @@ test("coverage: APIs web de negocio pasan por el guard; E vacío", () => {
 
   assert.equal(counts.E.length, 0, `ungarded business APIs: ${counts.E.join(", ")}`)
   assert.ok(counts.A >= 140, `expected broad web coverage, got A=${counts.A}`)
-  assert.equal(counts.C, 2)
+  assert.equal(counts.C, 3)
   assert.ok(counts.D >= 20)
 })

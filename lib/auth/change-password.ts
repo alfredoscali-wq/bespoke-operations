@@ -1,65 +1,60 @@
-import { createClient } from "@/lib/supabase/client"
-import { updateEmployee } from "@/lib/supabase/employees.browser"
-
-const EMPLOYEE_SYNC_ERROR_MESSAGE =
-  "La contraseña fue actualizada correctamente, pero no se pudo sincronizar el estado del empleado. Contacte al administrador."
-
 export type ChangePasswordResult =
   | { ok: true }
-  | { ok: false; phase: "auth"; message: string }
-  | { ok: false; phase: "employee"; message: string }
+  | { ok: false; phase: "auth" | "employee" | "validation"; message: string }
 
-function resolveAuthErrorMessage(error: unknown): string {
-  if (error && typeof error === "object" && "message" in error) {
-    const message = String(error.message).toLowerCase()
-
-    if (message.includes("same password")) {
-      return "La nueva contraseña debe ser distinta a la actual."
-    }
-
-    if (message.includes("weak password") || message.includes("password")) {
-      return "La contraseña no cumple los requisitos de seguridad."
-    }
-  }
-
-  return "No se pudo actualizar la contraseña. Intente nuevamente."
-}
-
+/**
+ * Client helper for the change-password form.
+ * Posts only newPassword; the server binds the employee from the session.
+ */
 export async function changePassword(params: {
   newPassword: string
-  employeeId: string | null
 }): Promise<ChangePasswordResult> {
-  const supabase = createClient()
+  let response: Response
 
-  const { error: authError } = await supabase.auth.updateUser({
-    password: params.newPassword,
-  })
-
-  if (authError) {
+  try {
+    response = await fetch("/api/auth/change-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ newPassword: params.newPassword }),
+    })
+  } catch {
     return {
       ok: false,
       phase: "auth",
-      message: resolveAuthErrorMessage(authError),
+      message: "No se pudo actualizar la contraseña. Intente nuevamente.",
     }
   }
 
-  if (!params.employeeId) {
-    return {
-      ok: false,
-      phase: "employee",
-      message: EMPLOYEE_SYNC_ERROR_MESSAGE,
-    }
+  let payload: {
+    success?: boolean
+    phase?: string
+    error?: string
+    message?: string
+  } = {}
+
+  try {
+    payload = (await response.json()) as typeof payload
+  } catch {
+    payload = {}
   }
 
-  const employeeResult = await updateEmployee(params.employeeId, {
-    mustChangePassword: false,
-  })
+  if (!response.ok || payload.success === false) {
+    const phase =
+      payload.phase === "employee" ||
+      payload.phase === "validation" ||
+      payload.phase === "auth"
+        ? payload.phase
+        : response.status >= 500
+          ? "employee"
+          : "auth"
 
-  if (employeeResult.error || !employeeResult.data) {
     return {
       ok: false,
-      phase: "employee",
-      message: EMPLOYEE_SYNC_ERROR_MESSAGE,
+      phase,
+      message:
+        payload.error?.trim() ||
+        payload.message?.trim() ||
+        "No se pudo actualizar la contraseña. Intente nuevamente.",
     }
   }
 

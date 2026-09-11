@@ -15,19 +15,25 @@ type EmployeeMutationResult = {
   employee?: Employee
 }
 
-function hasAuthFields(payload: NewEmployeeInput): boolean {
-  return (
-    payload.systemAccess !== undefined ||
-    payload.systemRole !== undefined ||
-    payload.mustChangePassword !== undefined
-  )
-}
-
-function buildAuthUpdate(payload: NewEmployeeInput): UpdateEmployeeInput {
+function toDirectoryInsertPayload(payload: NewEmployeeInput): NewEmployeeInput {
   return {
-    systemAccess: payload.systemAccess,
-    systemRole: payload.systemRole,
-    mustChangePassword: payload.mustChangePassword ?? false,
+    employeeCode: payload.employeeCode,
+    firstName: payload.firstName,
+    lastName: payload.lastName,
+    preferredName: payload.preferredName,
+    nationalId: payload.nationalId,
+    birthDate: payload.birthDate,
+    email: payload.email,
+    phone: payload.phone,
+    jobTitle: payload.jobTitle,
+    department: payload.department,
+    employeeType: payload.employeeType,
+    employeeTypeId: payload.employeeTypeId,
+    employmentStatus: payload.employmentStatus,
+    hireDate: payload.hireDate,
+    terminationDate: payload.terminationDate,
+    notes: payload.notes,
+    contractorId: payload.contractorId,
   }
 }
 
@@ -39,7 +45,8 @@ export async function executeEmployeeImport(input: {
     payload: UpdateEmployeeInput
   ) => Promise<EmployeeMutationResult>
 }): Promise<EmployeeImportExecutionResult> {
-  const { rows, addEmployee, editEmployee } = input
+  const { rows, addEmployee } = input
+  // Privileged Auth columns are not written from import; keep the dialog signature.
 
   const failures: EmployeeImportFailureDetail[] = []
   let created = 0
@@ -58,7 +65,7 @@ export async function executeEmployeeImport(input: {
     }
 
     try {
-      const createResult = await addEmployee(row.payload)
+      const createResult = await addEmployee(toDirectoryInsertPayload(row.payload))
 
       if (!createResult.success || !createResult.employee) {
         failed += 1
@@ -68,24 +75,6 @@ export async function executeEmployeeImport(input: {
             createResult.message ?? "No se pudo registrar al empleado",
         })
         continue
-      }
-
-      if (hasAuthFields(row.payload)) {
-        const authResult = await editEmployee(
-          createResult.employee.id,
-          buildAuthUpdate(row.payload)
-        )
-
-        if (!authResult.success) {
-          failed += 1
-          failures.push({
-            rowNumber: row.rowNumber,
-            message:
-              authResult.message ??
-              "Empleado creado pero no se pudo actualizar el acceso al sistema",
-          })
-          continue
-        }
       }
 
       created += 1

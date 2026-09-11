@@ -110,7 +110,6 @@ export function ChangePasswordForm() {
     try {
       const result = await changePassword({
         newPassword,
-        employeeId: sessionUser.employeeId,
       })
 
       if (!result.ok) {
