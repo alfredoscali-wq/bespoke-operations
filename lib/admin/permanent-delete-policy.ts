@@ -20,6 +20,26 @@ export const PERMANENT_DELETE_CUSTOMER_BLOCKED_MESSAGE =
 export const PERMANENT_DELETE_EMPLOYEE_BLOCKED_MESSAGE =
   "No se puede eliminar definitivamente un empleado con historial operativo."
 
+export const PERMANENT_DELETE_NOT_FOUND_MESSAGE = "Registro no encontrado."
+
+export const PERMANENT_DELETE_NOT_FOUND_STATUS = 404 as const
+
+export class PermanentDeleteNotFoundError extends Error {
+  readonly status = PERMANENT_DELETE_NOT_FOUND_STATUS
+
+  constructor() {
+    super(PERMANENT_DELETE_NOT_FOUND_MESSAGE)
+    this.name = "PermanentDeleteNotFoundError"
+  }
+}
+
+export function resolvePermanentDeleteSessionCompanyId(
+  sessionUser: { companyId?: string | null } | null | undefined
+): string | null {
+  const companyId = sessionUser?.companyId?.trim() ?? ""
+  return companyId || null
+}
+
 export function canShowPermanentDeleteAction(
   systemRole: string | null | undefined
 ): boolean {
@@ -36,12 +56,14 @@ export function assertPermanentDeleteEntityImplemented(
 
 export async function assertTaskPermanentDeleteAllowed(
   client: SupabaseAdminClient,
-  taskId: string
+  taskId: string,
+  companyId: string
 ): Promise<{ status: TaskStatus }> {
   const { data: task, error } = await client
     .from("tasks")
     .select("status")
     .eq("id", taskId)
+    .eq("company_id", companyId)
     .maybeSingle()
 
   if (error) {
@@ -49,7 +71,7 @@ export async function assertTaskPermanentDeleteAllowed(
   }
 
   if (!task) {
-    throw new Error("Orden de trabajo no encontrada.")
+    throw new PermanentDeleteNotFoundError()
   }
 
   const status = task.status as TaskStatus
@@ -63,12 +85,29 @@ export async function assertTaskPermanentDeleteAllowed(
 
 export async function assertCustomerPermanentDeleteAllowed(
   client: SupabaseAdminClient,
-  customerId: string
+  customerId: string,
+  companyId: string
 ): Promise<void> {
+  const { data: customer, error: customerError } = await client
+    .from("customers")
+    .select("id")
+    .eq("id", customerId)
+    .eq("company_id", companyId)
+    .maybeSingle()
+
+  if (customerError) {
+    throw new Error(`No se pudo leer el cliente: ${customerError.message}`)
+  }
+
+  if (!customer) {
+    throw new PermanentDeleteNotFoundError()
+  }
+
   const { data: tasks, error } = await client
     .from("tasks")
     .select("id, status")
     .eq("customer_id", customerId)
+    .eq("company_id", companyId)
     .is("deleted_at", null)
 
   if (error) {

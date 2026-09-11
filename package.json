@@ -83,6 +83,7 @@
     "test:auth-7-5-2d-must-change-enforcement": "npx tsx --test scripts/test-auth-7-5-2d-must-change-enforcement.mjs",
     "test:auth-7-5-2e-mobile-must-change-enforcement": "npx tsx --test scripts/test-auth-7-5-2e-mobile-must-change-enforcement.mjs",
     "test:auth-7-7-employees-authorization": "npx tsx --test scripts/test-auth-7-7-employees-authorization.mjs",
+    "test:security-h1-permanent-delete": "npx tsx --test scripts/test-security-h1-permanent-delete.mjs",
     "test:planning-incidents-supervisor-actions": "node --experimental-strip-types --test scripts/test-planning-incidents-supervisor-actions.mjs",
     "test:supervisor-reschedule-active-task-plan": "npx tsx --test scripts/test-supervisor-reschedule-active-task-plan.mjs",
     "test:planning-pending-closure-sheet": "node --experimental-strip-types --test scripts/test-planning-pending-closure-sheet-state.mjs",

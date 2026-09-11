@@ -8,6 +8,7 @@ import {
   writeAuditLog,
 } from "@/lib/audit"
 import type { SessionUser } from "@/lib/auth/types"
+import { ADMIN_SESSION_COMPANY_UNAVAILABLE_ERROR } from "@/lib/auth/admin-employee-tenant"
 import type { SupabaseAdminClient } from "@/lib/supabase/admin"
 import { EVIDENCES_STORAGE_BUCKET } from "@/lib/supabase/evidences.storage"
 import { TASK_PHOTOS_STORAGE_BUCKET } from "@/lib/supabase/task-photos.storage"
@@ -15,6 +16,7 @@ import {
   assertCustomerPermanentDeleteAllowed,
   assertPermanentDeleteEntityImplemented,
   assertTaskPermanentDeleteAllowed,
+  PermanentDeleteNotFoundError,
   PERMANENT_DELETE_NOT_IMPLEMENTED_MESSAGE,
 } from "@/lib/admin/permanent-delete-policy"
 import { deleteIspDependentsForCustomer } from "@/lib/admin/permanent-delete-isp-customer"
@@ -35,6 +37,14 @@ export type PermanentDeleteResult = {
 type StorageBackedRow = {
   storage_bucket: string | null
   storage_path: string | null
+}
+
+function requirePermanentDeleteCompanyId(companyId: string | undefined): string {
+  const trimmed = companyId?.trim() ?? ""
+  if (!trimmed) {
+    throw new Error(ADMIN_SESSION_COMPANY_UNAVAILABLE_ERROR)
+  }
+  return trimmed
 }
 
 async function removeStorageObjects(
@@ -66,12 +76,14 @@ async function removeStorageObjects(
 
 async function permanentDeleteTaskIncidents(
   client: SupabaseAdminClient,
-  taskId: string
+  taskId: string,
+  companyId: string
 ) {
   const { data: incidents, error: incidentsReadError } = await client
     .from("task_incidents")
     .select("id")
     .eq("task_id", taskId)
+    .eq("company_id", companyId)
 
   if (incidentsReadError) {
     throw new Error(
@@ -112,6 +124,7 @@ async function permanentDeleteTaskIncidents(
     .from("task_incidents")
     .delete()
     .eq("task_id", taskId)
+    .eq("company_id", companyId)
 
   if (incidentsDeleteError) {
     throw new Error(
@@ -122,14 +135,16 @@ async function permanentDeleteTaskIncidents(
 
 async function permanentDeleteTaskRecords(
   client: SupabaseAdminClient,
-  taskId: string
+  taskId: string,
+  companyId: string
 ) {
-  await permanentDeleteTaskIncidents(client, taskId)
+  await permanentDeleteTaskIncidents(client, taskId, companyId)
 
   const { data: evidences, error: evidencesReadError } = await client
     .from("evidences")
     .select("storage_bucket, storage_path")
     .eq("task_id", taskId)
+    .eq("company_id", companyId)
 
   if (evidencesReadError) {
     throw new Error(
@@ -143,6 +158,7 @@ async function permanentDeleteTaskRecords(
     .from("task_photos")
     .select("storage_bucket, storage_path")
     .eq("task_id", taskId)
+    .eq("company_id", companyId)
 
   if (photosReadError) {
     throw new Error(
@@ -162,6 +178,7 @@ async function permanentDeleteTaskRecords(
     .from("evidences")
     .delete()
     .eq("task_id", taskId)
+    .eq("company_id", companyId)
 
   if (evidencesDeleteError) {
     throw new Error(
@@ -173,6 +190,7 @@ async function permanentDeleteTaskRecords(
     .from("task_photos")
     .delete()
     .eq("task_id", taskId)
+    .eq("company_id", companyId)
 
   if (photosDeleteError) {
     throw new Error(
@@ -184,6 +202,7 @@ async function permanentDeleteTaskRecords(
     .from("tasks")
     .delete()
     .eq("id", taskId)
+    .eq("company_id", companyId)
 
   if (taskDeleteError) {
     throw new Error(
@@ -196,13 +215,17 @@ export async function permanentDeleteTask(
   client: SupabaseAdminClient,
   input: {
     taskId: string
+    companyId: string
     sessionUser: SessionUser
   }
 ): Promise<PermanentDeleteResult> {
+  const companyId = requirePermanentDeleteCompanyId(input.companyId)
+
   const { data: task, error: taskReadError } = await client
     .from("tasks")
-    .select("id, code, title, customer_id")
+    .select("id, code, title, customer_id, company_id, status")
     .eq("id", input.taskId)
+    .eq("company_id", companyId)
     .maybeSingle()
 
   if (taskReadError) {
@@ -210,15 +233,15 @@ export async function permanentDeleteTask(
   }
 
   if (!task) {
-    throw new Error("Orden de trabajo no encontrada.")
+    throw new PermanentDeleteNotFoundError()
   }
 
-  await assertTaskPermanentDeleteAllowed(client, input.taskId)
+  await assertTaskPermanentDeleteAllowed(client, input.taskId, companyId)
 
   const entityLabel = task.code?.trim() || task.title?.trim() || input.taskId
   const administratorName = input.sessionUser.displayName?.trim() || "Administrador"
 
-  await permanentDeleteTaskRecords(client, input.taskId)
+  await permanentDeleteTaskRecords(client, input.taskId, companyId)
 
   await writeAuditLog(client, {
     action: AUDIT_ACTIONS.TASK_DELETE_PERMANENT,
@@ -232,6 +255,7 @@ export async function permanentDeleteTask(
       code: task.code,
       title: task.title,
       customerId: task.customer_id,
+      companyId,
     },
   })
   return {
@@ -247,13 +271,17 @@ export async function permanentDeleteCustomer(
   client: SupabaseAdminClient,
   input: {
     customerId: string
+    companyId: string
     sessionUser: SessionUser
   }
 ): Promise<PermanentDeleteResult> {
+  const companyId = requirePermanentDeleteCompanyId(input.companyId)
+
   const { data: customer, error: customerReadError } = await client
     .from("customers")
-    .select("id, name, customer_number, external_customer_code")
+    .select("id, name, customer_number, external_customer_code, company_id")
     .eq("id", input.customerId)
+    .eq("company_id", companyId)
     .maybeSingle()
 
   if (customerReadError) {
@@ -261,10 +289,10 @@ export async function permanentDeleteCustomer(
   }
 
   if (!customer) {
-    throw new Error("Cliente no encontrado.")
+    throw new PermanentDeleteNotFoundError()
   }
 
-  await assertCustomerPermanentDeleteAllowed(client, input.customerId)
+  await assertCustomerPermanentDeleteAllowed(client, input.customerId, companyId)
 
   const entityLabel =
     customer.name?.trim() ||
@@ -276,6 +304,7 @@ export async function permanentDeleteCustomer(
     .from("tasks")
     .select("id")
     .eq("customer_id", input.customerId)
+    .eq("company_id", companyId)
 
   if (tasksReadError) {
     throw new Error(
@@ -284,15 +313,16 @@ export async function permanentDeleteCustomer(
   }
 
   for (const task of tasks ?? []) {
-    await permanentDeleteTaskRecords(client, task.id)
+    await permanentDeleteTaskRecords(client, task.id, companyId)
   }
 
-  await deleteIspDependentsForCustomer(client, input.customerId)
+  await deleteIspDependentsForCustomer(client, input.customerId, companyId)
 
   const { error: customerDeleteError } = await client
     .from("customers")
     .delete()
     .eq("id", input.customerId)
+    .eq("company_id", companyId)
 
   if (customerDeleteError) {
     throw new Error(`No se pudo eliminar el cliente: ${customerDeleteError.message}`)
@@ -313,6 +343,7 @@ export async function permanentDeleteCustomer(
       customerNumber: customer.customer_number,
       externalCustomerCode: customer.external_customer_code,
       deletedTaskCount: tasks?.length ?? 0,
+      companyId,
     },
   })
   return {
@@ -329,14 +360,17 @@ export async function executePermanentDelete(
   input: {
     entityType: PermanentDeleteEntityType
     entityId: string
+    companyId: string
     sessionUser: SessionUser
   }
 ): Promise<PermanentDeleteResult> {
+  const companyId = requirePermanentDeleteCompanyId(input.companyId)
   assertPermanentDeleteEntityImplemented(input.entityType)
 
   if (input.entityType === "customer") {
     return permanentDeleteCustomer(client, {
       customerId: input.entityId,
+      companyId,
       sessionUser: input.sessionUser,
     })
   }
@@ -344,6 +378,7 @@ export async function executePermanentDelete(
   if (input.entityType === "task") {
     return permanentDeleteTask(client, {
       taskId: input.entityId,
+      companyId,
       sessionUser: input.sessionUser,
     })
   }

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
+import { ADMIN_SESSION_COMPANY_UNAVAILABLE_ERROR } from "@/lib/auth/admin-employee-tenant"
 import { ISP_CUSTOMER_HARD_DELETE_DEPENDENCY_ORDER } from "@/lib/isp/connection-delete"
 import type { Database } from "@/lib/supabase/database.types"
 
@@ -30,12 +31,18 @@ async function throwIf(
 
 export async function deleteIspDependentsForCustomer(
   client: AdminClient,
-  customerId: string
+  customerId: string,
+  companyId: string
 ): Promise<void> {
+  if (!companyId.trim()) {
+    throw new Error(ADMIN_SESSION_COMPANY_UNAVAILABLE_ERROR)
+  }
+
   const { data: services, error: servicesError } = await client
     .from("isp_services")
     .select("id")
     .eq("customer_id", customerId)
+    .eq("company_id", companyId)
 
   await throwIf(servicesError, "No se pudieron leer los servicios ISP del cliente")
   const serviceIds = (services ?? []).map((row) => row.id)
@@ -45,6 +52,7 @@ export async function deleteIspDependentsForCustomer(
       .from("isp_connections")
       .select("id")
       .in("service_id", serviceIds)
+      .eq("company_id", companyId)
 
     await throwIf(
       connectionsError,
@@ -57,6 +65,7 @@ export async function deleteIspDependentsForCustomer(
         .from("isp_connection_equipment")
         .delete()
         .in("connection_id", connectionIds)
+        .eq("company_id", companyId)
       await throwIf(
         equipmentError,
         "No se pudo eliminar el equipamiento de las conexiones"
@@ -66,6 +75,7 @@ export async function deleteIspDependentsForCustomer(
         .from("isp_connections")
         .delete()
         .in("id", connectionIds)
+        .eq("company_id", companyId)
       await throwIf(connectionsDeleteError, "No se pudieron eliminar las conexiones")
     }
   }
@@ -74,6 +84,7 @@ export async function deleteIspDependentsForCustomer(
     .from("isp_billing_run_items")
     .delete()
     .eq("customer_id", customerId)
+    .eq("company_id", companyId)
   await throwIf(
     runItemsError,
     "No se pudieron eliminar las líneas de facturación mensual del cliente"
@@ -83,6 +94,7 @@ export async function deleteIspDependentsForCustomer(
     .from("isp_billing_documents")
     .delete()
     .eq("customer_id", customerId)
+    .eq("company_id", companyId)
   await throwIf(
     documentsError,
     "No se pudieron eliminar los comprobantes del cliente"
@@ -93,6 +105,7 @@ export async function deleteIspDependentsForCustomer(
       .from("isp_services")
       .update({ replaced_service_id: null })
       .in("id", serviceIds)
+      .eq("company_id", companyId)
     await throwIf(
       clearReplacedError,
       "No se pudo desvincular el historial de planes del cliente"
@@ -102,6 +115,7 @@ export async function deleteIspDependentsForCustomer(
       .from("isp_services")
       .delete()
       .in("id", serviceIds)
+      .eq("company_id", companyId)
     await throwIf(servicesDeleteError, "No se pudieron eliminar los servicios ISP")
   }
 
@@ -109,5 +123,6 @@ export async function deleteIspDependentsForCustomer(
     .from("isp_subscribers")
     .delete()
     .eq("customer_id", customerId)
+    .eq("company_id", companyId)
   await throwIf(subscribersError, "No se pudo eliminar el abonado ISP")
 }

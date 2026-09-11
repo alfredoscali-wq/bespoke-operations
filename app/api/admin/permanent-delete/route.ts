@@ -1,13 +1,23 @@
 import { NextResponse } from "next/server"
 
 import { executePermanentDelete } from "@/lib/admin/permanent-delete"
+import {
+  PermanentDeleteNotFoundError,
+  resolvePermanentDeleteSessionCompanyId,
+} from "@/lib/admin/permanent-delete-policy"
 import { isPermanentDeleteEntityType } from "@/lib/admin/permanent-delete-types"
+import { ADMIN_SESSION_COMPANY_UNAVAILABLE_ERROR } from "@/lib/auth/admin-employee-tenant"
 import { requireAdministratorSession } from "@/lib/auth/require-administrator"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 type PermanentDeleteRequestBody = {
   entityType?: string
   entityId?: string
+  companyId?: string
+}
+
+function jsonError(message: string, status: number) {
+  return NextResponse.json({ success: false, message }, { status })
 }
 
 export async function POST(request: Request) {
@@ -17,6 +27,18 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { success: false, message: auth.message, error: auth.message, ...(auth.code ? { code: auth.code } : {}) },
       { status: auth.status }
+    )
+  }
+
+  const sessionCompanyId = resolvePermanentDeleteSessionCompanyId(auth.sessionUser)
+  if (!sessionCompanyId) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: ADMIN_SESSION_COMPANY_UNAVAILABLE_ERROR,
+        error: ADMIN_SESSION_COMPANY_UNAVAILABLE_ERROR,
+      },
+      { status: 403 }
     )
   }
 
@@ -56,6 +78,7 @@ export async function POST(request: Request) {
     const result = await executePermanentDelete(admin, {
       entityType,
       entityId,
+      companyId: sessionCompanyId,
       sessionUser: auth.sessionUser,
     })
 
@@ -67,11 +90,19 @@ export async function POST(request: Request) {
       deletedTasks: result.deletedTasks,
     })
   } catch (error) {
+    if (error instanceof PermanentDeleteNotFoundError) {
+      return jsonError(error.message, error.status)
+    }
+
     const message =
       error instanceof Error
         ? error.message
         : "No se pudo eliminar definitivamente el registro."
 
-    return NextResponse.json({ success: false, message }, { status: 500 })
+    if (message === ADMIN_SESSION_COMPANY_UNAVAILABLE_ERROR) {
+      return jsonError(message, 403)
+    }
+
+    return jsonError(message, 500)
   }
 }

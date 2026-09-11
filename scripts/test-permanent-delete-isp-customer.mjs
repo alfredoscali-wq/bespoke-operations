@@ -64,7 +64,12 @@ function createRecordingClient({
         calls.push({ table, op })
         return chain
       },
-      eq() {
+      eq(column, value) {
+        const last = calls[calls.length - 1]
+        if (last) {
+          last.eq = last.eq ?? []
+          last.eq.push([column, value])
+        }
         return chain
       },
       in() {
@@ -99,7 +104,7 @@ function createRecordingClient({
 
 test("Eliminar definitivamente limpia ISP antes de borrar customers", () => {
   const ispCall = permanentDelete.indexOf(
-    "await deleteIspDependentsForCustomer(client, input.customerId)"
+    "await deleteIspDependentsForCustomer(client, input.customerId, companyId)"
   )
   const customerDelete = permanentDelete.indexOf(
     "const { error: customerDeleteError }"
@@ -139,7 +144,7 @@ test("el orden de borrado ISP no usa CASCADE desde customers", () => {
 
 test("deleteIspDependentsForCustomer borra en el orden correcto", async () => {
   const client = createRecordingClient()
-  await deleteIspDependentsForCustomer(client, "cust-1")
+  await deleteIspDependentsForCustomer(client, "cust-1", "company-a")
   assert.deepEqual(
     client.calls.map((call) => `${call.op}:${call.table}`),
     [
@@ -158,11 +163,17 @@ test("deleteIspDependentsForCustomer borra en el orden correcto", async () => {
     (call) => call.table === "isp_services" && call.op === "update"
   )
   assert.deepEqual(replacedUpdate.payload, { replaced_service_id: null })
+  for (const call of client.calls) {
+    assert.ok(
+      call.eq?.some(([column, value]) => column === "company_id" && value === "company-a"),
+      `${call.op}:${call.table} must filter by company_id`
+    )
+  }
 })
 
 test("sin servicios ISP no intenta borrar conexiones ni servicios", async () => {
   const client = createRecordingClient({ serviceIds: [], connectionIds: [] })
-  await deleteIspDependentsForCustomer(client, "cust-empty")
+  await deleteIspDependentsForCustomer(client, "cust-empty", "company-a")
   assert.deepEqual(
     client.calls.map((call) => `${call.op}:${call.table}`),
     [
