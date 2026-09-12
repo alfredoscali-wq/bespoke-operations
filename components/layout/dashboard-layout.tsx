@@ -13,7 +13,15 @@ import { ProfileHomeRedirect } from "@/components/operations/profile-home-redire
 import { useAuth } from "@/components/auth/auth-provider"
 import { AnalysisQueryProvider } from "@/lib/analysis/react-query"
 
-function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
+function DashboardLayoutContent({
+  children,
+  logoSrc,
+  logoAlt,
+}: {
+  children: React.ReactNode
+  logoSrc?: string
+  logoAlt?: string
+}) {
   const pathname = usePathname()
   const { profile } = useOperationalProfile()
   const { sessionUser } = useAuth()
@@ -26,18 +34,28 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   return (
     <>
       <ProfileHomeRedirect />
-      <AppShell title={title} subtitle={subtitle}>
+      <AppShell title={title} subtitle={subtitle} logoSrc={logoSrc} logoAlt={logoAlt}>
         <ModuleAccessGuard>{children}</ModuleAccessGuard>
       </AppShell>
     </>
   )
 }
 
-export function DashboardLayout({ children }: { children: React.ReactNode }) {
+export function DashboardLayout({
+  children,
+  logoSrc,
+  logoAlt,
+}: {
+  children: React.ReactNode
+  logoSrc?: string
+  logoAlt?: string
+}) {
   return (
     <OperationalProfileProvider>
       <AnalysisQueryProvider>
-        <DashboardLayoutContent>{children}</DashboardLayoutContent>
+        <DashboardLayoutContent logoSrc={logoSrc} logoAlt={logoAlt}>
+          {children}
+        </DashboardLayoutContent>
       </AnalysisQueryProvider>
     </OperationalProfileProvider>
   )

@@ -11,9 +11,17 @@ type AppShellProps = {
   children: React.ReactNode
   title: string
   subtitle?: string
+  logoSrc?: string
+  logoAlt?: string
 }
 
-export function AppShell({ children, title, subtitle }: AppShellProps) {
+export function AppShell({
+  children,
+  title,
+  subtitle,
+  logoSrc,
+  logoAlt,
+}: AppShellProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const { showBanner } = useDemoMode()
@@ -26,6 +34,8 @@ export function AppShell({ children, title, subtitle }: AppShellProps) {
         onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
         onExpandSidebar={() => setSidebarCollapsed(false)}
         onCloseMobile={() => setMobileMenuOpen(false)}
+        logoSrc={logoSrc}
+        logoAlt={logoAlt}
       />
 
       <div className="flex min-w-0 flex-1 flex-col">

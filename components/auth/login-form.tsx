@@ -9,12 +9,11 @@ import {
   redirectAfterSignIn,
   useAuth,
 } from "@/components/auth/auth-provider"
-import { BESPOKE_LOGO_SRC } from "@/lib/branding/logo"
+import { getAppLogoAlt, getAppLogoSrc } from "@/lib/branding/logo"
 import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -43,7 +42,13 @@ function resolveSignInErrorMessage(error: unknown): string {
   return "No se pudo iniciar sesión. Verifique sus credenciales."
 }
 
-function LoginFormInner() {
+function LoginFormInner({
+  logoSrc,
+  logoAlt,
+}: {
+  logoSrc: string
+  logoAlt: string
+}) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { signIn, isAuthReady } = useAuth()
@@ -82,19 +87,15 @@ function LoginFormInner() {
 
   return (
     <Card className="w-full max-w-md shadow-lg">
-      <CardHeader className="space-y-4 text-center">
+      <CardHeader className="pb-2 pt-8 text-center">
         <Image
-          src={BESPOKE_LOGO_SRC}
-          alt="Bespoke Operations"
-          width={220}
-          height={68}
+          src={logoSrc}
+          alt={logoAlt}
+          width={320}
+          height={56}
           className="mx-auto h-14 w-auto object-contain"
           priority
         />
-        <CardDescription>
-          Ingrese con su DNI o correo electrónico y contraseña para acceder a la
-          plataforma.
-        </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -152,6 +153,17 @@ function LoginFormInner() {
   )
 }
 
-export function LoginForm() {
-  return <LoginFormInner />
+export function LoginForm({
+  logoSrc,
+  logoAlt,
+}: {
+  logoSrc?: string
+  logoAlt?: string
+}) {
+  return (
+    <LoginFormInner
+      logoSrc={logoSrc ?? getAppLogoSrc()}
+      logoAlt={logoAlt ?? getAppLogoAlt()}
+    />
+  )
 }

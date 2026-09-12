@@ -13,7 +13,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { BESPOKE_LOGO_SRC } from "@/lib/branding/logo"
+import { getAppLogoAlt, getAppLogoSrc } from "@/lib/branding/logo"
 import type { NavGroup, NavItem } from "@/lib/navigation"
 import {
   SIDEBAR_AREA_META,
@@ -34,6 +34,8 @@ type AppSidebarProps = {
   onToggleCollapse: () => void
   onExpandSidebar: () => void
   onCloseMobile: () => void
+  logoSrc?: string
+  logoAlt?: string
 }
 
 function areaColor(areaId: string): string {
@@ -100,10 +102,14 @@ function SidebarBrand({
   compact,
   homePath,
   onCloseMobile,
+  logoSrc,
+  logoAlt,
 }: {
   compact: boolean
   homePath: string
   onCloseMobile: () => void
+  logoSrc: string
+  logoAlt: string
 }) {
   return (
     <Link
@@ -112,11 +118,11 @@ function SidebarBrand({
       onClick={onCloseMobile}
     >
       <img
-        src={BESPOKE_LOGO_SRC}
-        alt="Bespoke Operations"
+        src={logoSrc}
+        alt={logoAlt}
         className={cn(
           "shrink-0 object-contain object-center",
-          compact ? "h-11 w-auto max-w-[60px]" : "h-16 w-auto max-w-[184px]"
+          compact ? "h-11 w-auto max-w-[60px]" : "h-12 w-auto max-w-[188px]"
         )}
       />
     </Link>
@@ -230,7 +236,11 @@ export function AppSidebar({
   onToggleCollapse,
   onExpandSidebar,
   onCloseMobile,
+  logoSrc,
+  logoAlt,
 }: AppSidebarProps) {
+  const brandSrc = logoSrc ?? getAppLogoSrc()
+  const brandAlt = logoAlt ?? getAppLogoAlt()
   const pathname = usePathname()
   const { navGroups, profile, homePath } = useOperationalProfile()
   const compact = collapsed && !mobileOpen
@@ -304,6 +314,8 @@ export function AppSidebar({
           compact={compact}
           homePath={homePath}
           onCloseMobile={onCloseMobile}
+          logoSrc={brandSrc}
+          logoAlt={brandAlt}
         />
 
         {!compact && (
