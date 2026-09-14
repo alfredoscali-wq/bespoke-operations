@@ -1,3 +1,4 @@
+import { hasCoordinates } from "@/lib/gps"
 import type {
   MobileShiftDeviceRequest,
   MobileShiftFinishRequest,
@@ -42,10 +43,18 @@ function readDeviceRequest(body: unknown): MobileShiftDeviceRequest {
 }
 
 function readLocation(body: Record<string, unknown>) {
-  return {
-    latitude: readRequiredNumber(body.latitude, "latitude"),
-    longitude: readRequiredNumber(body.longitude, "longitude"),
+  const latitude = readRequiredNumber(body.latitude, "latitude")
+  const longitude = readRequiredNumber(body.longitude, "longitude")
+
+  if (!hasCoordinates(latitude, longitude)) {
+    throw new MobileApiError(
+      "INVALID_REQUEST",
+      "Coordenadas GPS inválidas.",
+      400
+    )
   }
+
+  return { latitude, longitude }
 }
 
 export function validateMobileShiftStartRequest(

@@ -213,6 +213,7 @@ test("15. devices/agenda/tasks/incidents usan gate común, sin guards de passwor
   const exempt = new Set([
     "app/api/mobile/v1/auth/login/route.ts",
     "app/api/mobile/v1/auth/refresh/route.ts",
+    "app/api/mobile/v1/bootstrap/route.ts",
     "app/api/mobile/v1/auth/me/route.ts",
     "app/api/mobile/v1/auth/change-password/route.ts",
   ])

@@ -7,6 +7,11 @@ import {
 import type { MobileAuthContext } from "@/lib/mobile/v1/auth/mobile-auth-context"
 import { MobileApiError } from "@/lib/mobile/v1/errors"
 import { resolveMobileWorkTeam } from "@/lib/mobile/v1/shifts/resolve-work-team"
+import { evaluateShiftStartLocationPolicy } from "@/lib/mobile/v1/shifts/shift-location-validation"
+import {
+  loadCompanyShiftLocationSettings,
+  loadCrewOperationalBaseCoordinates,
+} from "@/lib/mobile/v1/shifts/shift-start-location.server"
 import type {
   MobileShiftCurrentResponse,
   MobileShiftFinishRequest,
@@ -87,6 +92,36 @@ export async function startMobileShift(
         "Ya existe una jornada activa para este equipo.",
         409
       )
+    }
+
+    const settings = await perf.span("Shift location settings", () =>
+      loadCompanyShiftLocationSettings(admin, auth.companyId)
+    )
+
+    if (settings.shiftLocationValidationEnabled) {
+      const reference = await perf.span("Crew operational base", () =>
+        loadCrewOperationalBaseCoordinates(
+          admin,
+          auth.companyId,
+          resolved.workTeamId
+        )
+      )
+      const policy = evaluateShiftStartLocationPolicy({
+        validationEnabled: true,
+        radiusMeters: settings.shiftRadiusMeters,
+        deviceLatitude: request.latitude,
+        deviceLongitude: request.longitude,
+        referenceLatitude: reference?.latitude ?? null,
+        referenceLongitude: reference?.longitude ?? null,
+      })
+
+      if (policy.shouldBlock) {
+        throw new MobileApiError(
+          policy.code ?? "SHIFT_LOCATION_OUT_OF_RANGE",
+          policy.message ?? "Ubicación fuera del radio de jornada.",
+          409
+        )
+      }
     }
 
     let shift: WorkTeamShiftRecord

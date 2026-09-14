@@ -2,6 +2,7 @@ import { MOBILE_API_BASE_PATH } from "@/lib/mobile/v1/constants"
 
 const MOBILE_PUBLIC_PATHS = new Set([
   `${MOBILE_API_BASE_PATH}/auth/login`,
+  `${MOBILE_API_BASE_PATH}/bootstrap`,
 ])
 
 /** Any route under /api/mobile/v1/ — bypasses web cookie middleware entirely. */

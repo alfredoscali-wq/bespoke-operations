@@ -9,10 +9,8 @@ import { MobileApiError } from "@/lib/mobile/v1/errors"
 import { fetchOperationalChecklistForServiceType } from "@/lib/mobile/v1/checklist/checklist-queries"
 import type { MobileOperationalChecklistItem } from "@/lib/mobile/v1/checklist/types"
 import { resolveMobileWorkTeam } from "@/lib/mobile/v1/shifts/resolve-work-team"
-import {
-  evaluateTaskStartDistancePolicy,
-  getTaskStartDistanceEnforcementRuntimeSnapshot,
-} from "@/lib/mobile/v1/tasks/geo-utils"
+import { evaluateTaskStartDistancePolicy } from "@/lib/mobile/v1/tasks/geo-utils"
+import { loadCompanyTaskLocationSettings } from "@/lib/mobile/v1/tasks/task-start-location.server"
 import { resolveMobileTaskCommercialFields } from "@/lib/mobile/v1/tasks/task-commercial-fields"
 import { resolveWorkOrderTechnologyFromTask } from "@/lib/tasks/work-order"
 import { resolveTaskStartCoordinates } from "@/lib/mobile/v1/tasks/resolve-task-start-coordinates"
@@ -182,6 +180,10 @@ export async function startMobileTask(
       )
     }
 
+    const settings = await perf.span("Task location settings", () =>
+      loadCompanyTaskLocationSettings(admin, auth.companyId)
+    )
+
     perf.section("Distance policy")
     const distancePolicy = perf.spanSync("calculo", () =>
       evaluateTaskStartDistancePolicy({
@@ -189,18 +191,19 @@ export async function startMobileTask(
         operatorLongitude: request.longitude,
         targetLatitude: startCoordinates.latitude,
         targetLongitude: startCoordinates.longitude,
+        enforcementEnabled: settings.taskLocationValidationEnabled,
+        maxDistanceMeters: settings.taskRadiusMeters,
       })
     )
     const distanceToClientMeters = distancePolicy.distanceToClientMeters
-    const enforcementRuntime = getTaskStartDistanceEnforcementRuntimeSnapshot()
-    // Ops diagnostic only — does not alter allow/deny. Never logs raw env values.
     console.warn("[Mobile API][task-start-distance]", {
       taskId: task.id,
       distanceMeters: Math.round(distanceToClientMeters),
       withinRadius: distancePolicy.withinRadius,
       shouldBlock: distancePolicy.shouldBlock,
       policyEnforcementEnabled: distancePolicy.enforcementEnabled,
-      runtime: enforcementRuntime,
+      taskRadiusMeters: settings.taskRadiusMeters,
+      source: startCoordinates.source,
     })
     perf.spanSync("validacion", () => {
       if (distancePolicy.shouldBlock) {

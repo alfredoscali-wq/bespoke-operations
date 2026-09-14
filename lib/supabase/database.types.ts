@@ -919,6 +919,7 @@ export type Database = {
           created_at: string
           deleted_at: string | null
           id: string
+          mobile_code: string | null
           name: string
           slug: string
           updated_at: string
@@ -927,6 +928,7 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           id?: string
+          mobile_code?: string | null
           name: string
           slug: string
           updated_at?: string
@@ -935,11 +937,91 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           id?: string
+          mobile_code?: string | null
           name?: string
           slug?: string
           updated_at?: string
         }
         Relationships: []
+      }
+      company_branding: {
+        Row: {
+          company_id: string
+          created_at: string
+          logo_url: string | null
+          primary_color: string | null
+          secondary_color: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          logo_url?: string | null
+          primary_color?: string | null
+          secondary_color?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          logo_url?: string | null
+          primary_color?: string | null
+          secondary_color?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_branding_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      company_mobile_settings: {
+        Row: {
+          company_id: string
+          created_at: string
+          gps_heartbeat_enabled: boolean
+          gps_heartbeat_interval_seconds: number
+          shift_location_validation_enabled: boolean
+          shift_radius_meters: number
+          task_location_validation_enabled: boolean
+          task_radius_meters: number
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          gps_heartbeat_enabled?: boolean
+          gps_heartbeat_interval_seconds?: number
+          shift_location_validation_enabled?: boolean
+          shift_radius_meters?: number
+          task_location_validation_enabled?: boolean
+          task_radius_meters?: number
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          gps_heartbeat_enabled?: boolean
+          gps_heartbeat_interval_seconds?: number
+          shift_location_validation_enabled?: boolean
+          shift_radius_meters?: number
+          task_location_validation_enabled?: boolean
+          task_radius_meters?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_mobile_settings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       company_roles: {
         Row: {

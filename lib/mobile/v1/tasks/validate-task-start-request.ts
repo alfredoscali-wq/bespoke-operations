@@ -1,3 +1,4 @@
+import { hasCoordinates } from "@/lib/gps"
 import { MobileApiError } from "@/lib/mobile/v1/errors"
 import type { MobileTaskStartRequest } from "@/lib/mobile/v1/tasks/types"
 
@@ -47,11 +48,21 @@ export function validateMobileTaskStartRequest(body: unknown): MobileTaskStartRe
   }
 
   const record = body as Record<string, unknown>
+  const latitude = readRequiredNumber(record.latitude, "latitude")
+  const longitude = readRequiredNumber(record.longitude, "longitude")
+
+  if (!hasCoordinates(latitude, longitude)) {
+    throw new MobileApiError(
+      "INVALID_REQUEST",
+      "Coordenadas GPS inválidas.",
+      400
+    )
+  }
 
   return {
     deviceId: readRequiredString(record.deviceId, "deviceId"),
-    latitude: readRequiredNumber(record.latitude, "latitude"),
-    longitude: readRequiredNumber(record.longitude, "longitude"),
+    latitude,
+    longitude,
     accuracyMeters: readOptionalNumber(record.accuracyMeters, "accuracyMeters"),
   }
 }

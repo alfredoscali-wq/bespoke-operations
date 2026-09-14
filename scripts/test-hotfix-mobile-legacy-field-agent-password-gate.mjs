@@ -213,6 +213,7 @@ test("hotfix 10. APIs protegidas siguen pasando por el bearer gate común", () =
   const publicRoutes = new Set([
     "app/api/mobile/v1/auth/login/route.ts",
     "app/api/mobile/v1/auth/refresh/route.ts",
+    "app/api/mobile/v1/bootstrap/route.ts",
   ])
   const unguarded = []
 

@@ -6,6 +6,7 @@ export type MobileApiErrorCode =
   | "PASSWORD_CHANGE_REQUIRED"
   | "USER_DISABLED"
   | "EMPLOYEE_NOT_FOUND"
+  | "COMPANY_NOT_FOUND"
   | "INTERNAL_ERROR"
   | "NOT_IMPLEMENTED"
   | "DEVICE_NOT_FOUND"
@@ -13,6 +14,8 @@ export type MobileApiErrorCode =
   | "WORK_TEAM_NOT_ASSIGNED"
   | "SHIFT_ALREADY_ACTIVE"
   | "SHIFT_NOT_ACTIVE"
+  | "SHIFT_LOCATION_OUT_OF_RANGE"
+  | "SHIFT_LOCATION_REQUIRED"
   | "TASK_NOT_FOUND"
   | "TASK_INVALID_STATUS"
   | "TASK_LOCATION_OUT_OF_RANGE"
@@ -44,5 +47,6 @@ export const MOBILE_API_ERROR_MESSAGES = {
   PASSWORD_CHANGE_REQUIRED: "Debe cambiar su contraseña antes de continuar.",
   USER_DISABLED: "Usuario deshabilitado",
   EMPLOYEE_NOT_FOUND: "Empleado inexistente",
+  COMPANY_NOT_FOUND: "Empresa no encontrada.",
   INTERNAL_ERROR: "Error interno",
 } as const

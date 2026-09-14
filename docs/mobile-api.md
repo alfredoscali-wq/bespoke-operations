@@ -186,6 +186,68 @@ All token failures share the same public 401 (no distinction between missing, ex
 
 ---
 
+## Bootstrap
+
+### POST `/api/mobile/v1/bootstrap`
+
+Public. Resolves a company **before** login from `companies.mobile_code` only.
+
+#### Request
+
+```json
+{
+  "companyCode": "ABNET"
+}
+```
+
+| Field | Required | Notes |
+|-------|----------|-------|
+| `companyCode` | Yes | Trimmed, case-insensitive. Not `companyId` or `slug`. |
+
+#### Success — `200`
+
+```json
+{
+  "success": true,
+  "apiVersion": "v1",
+  "requestId": "550e8400-e29b-41d4-a716-446655440000",
+  "serverTime": "2026-06-29T22:15:30Z",
+  "data": {
+    "companyId": "company-uuid",
+    "companyName": "ABNet",
+    "branding": {
+      "logoUrl": "https://cdn.example.com/logo.png",
+      "primaryColor": "#023166",
+      "secondaryColor": "#0694DA"
+    },
+    "operations": {
+      "shiftLocationValidationEnabled": false,
+      "shiftRadiusMeters": 150,
+      "taskLocationValidationEnabled": false,
+      "taskRadiusMeters": 150,
+      "gpsHeartbeatEnabled": true,
+      "gpsHeartbeatIntervalSeconds": 60
+    }
+  }
+}
+```
+
+`branding` is always present. Unconfigured companies return `null` for `logoUrl`, `primaryColor`, and `secondaryColor`. Bootstrap does not invent host/env or billing defaults. The app may fall back to generic Bespoke chrome.
+
+`operations` is always present. If `company_mobile_settings` has no row, bootstrap returns the sprint defaults in memory and does **not** insert a row. These values are configuration for Mobile; they do not yet govern jornada or OT GPS runtime.
+
+Lookup uses `companies.mobile_code` only, then `company_branding` and `company_mobile_settings` for that `company_id`. Soft-deleted companies (`deleted_at` set) return 404 and never expose branding or operations.
+
+#### Error — `404`
+
+| Status | Code | Message |
+|--------|------|---------|
+| 400 | `INVALID_REQUEST` | Missing/empty `companyCode` or invalid JSON |
+| 404 | `COMPANY_NOT_FOUND` | Unknown or soft-deleted company (same public message) |
+| 405 | `INVALID_REQUEST` | Método no permitido |
+
+---
+
 ## Authentication endpoints
 
 ### POST `/api/mobile/v1/auth/login`
