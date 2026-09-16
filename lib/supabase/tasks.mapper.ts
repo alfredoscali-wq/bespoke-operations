@@ -88,8 +88,8 @@ export function mapTaskRowToTask(row: TaskRow): Task {
     supervisor: row.supervisor,
     crewId: row.crew_id ?? undefined,
     crew: row.crew,
-    startDate: row.start_date,
-    dueDate: row.due_date,
+    startDate: row.start_date ?? "",
+    dueDate: row.due_date ?? "",
     scheduledTime: row.scheduled_time,
     originalScheduledDate: row.original_scheduled_date ?? undefined,
     originalScheduledTime: row.original_scheduled_time ?? undefined,
@@ -154,7 +154,7 @@ export function mapCreatePayloadToInsert(payload: CreateTaskPayload): TaskInsert
     crew_id: payload.crewId?.trim() || null,
     crew: payload.crew.trim(),
     start_date: payload.startDate,
-    due_date: payload.dueDate,
+    due_date: payload.dueDate?.trim() || null,
     scheduled_time: normalizeScheduledTimeForDb(payload.scheduledTime),
     estimated_duration: payload.estimatedDuration.trim(),
     checklist: payload.checklist,
@@ -251,7 +251,9 @@ export function mapUpdatePayloadToUpdate(payload: UpdateTaskPayload): TaskUpdate
   if (payload.crewId !== undefined) update.crew_id = payload.crewId
   if (payload.crew !== undefined) update.crew = payload.crew.trim()
   if (payload.startDate !== undefined) update.start_date = payload.startDate
-  if (payload.dueDate !== undefined) update.due_date = payload.dueDate
+  if (payload.dueDate !== undefined) {
+    update.due_date = payload.dueDate?.trim() || null
+  }
   if (payload.scheduledTime !== undefined) {
     update.scheduled_time = normalizeScheduledTimeForDb(payload.scheduledTime)
   }

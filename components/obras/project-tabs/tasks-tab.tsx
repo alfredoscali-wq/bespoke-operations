@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import {
   AlertTriangle,
@@ -13,6 +13,7 @@ import {
   Trash2,
   Undo2,
   ClipboardCheck,
+  Route,
 } from "lucide-react"
 
 import { useAuth } from "@/components/auth/auth-provider"
@@ -23,6 +24,13 @@ import { ForceDeleteAction } from "@/components/admin/force-delete-action"
 import { useCrews } from "@/components/cuadrillas/crews-provider"
 import { TaskCrewAssignmentCell } from "@/components/obras/task-crew-assignment-cell"
 import { ProjectTaskDialog } from "@/components/obras/project-task-dialog"
+import { ProjectDesignOtProposalDialog } from "@/components/obras/project-design-ot-proposal-dialog"
+import { ProjectDesignOtProposalsSection } from "@/components/obras/project-design-ot-proposals-section"
+import {
+  ProjectDesignTendidoOtDialog,
+  type TendidoOtCreatePayload,
+} from "@/components/obras/project-design-tendido-ot-dialog"
+import { ProjectDesignGenerateOtDialog } from "@/components/obras/design/project-design-generate-ot-dialog"
 import { ProjectTaskRescheduleDialog } from "@/components/obras/project-task-reschedule-dialog"
 import {
   mergeTaskMetadataWithTemplate,
@@ -37,6 +45,7 @@ import type { Project } from "@/lib/types/projects"
 import type { Task } from "@/lib/types/tasks"
 import { getTaskStatusSurfaceClass } from "@/lib/tasks/status-visual"
 import { compareDateOnly, toLocalDateOnly } from "@/lib/dates/date-only"
+import { hasCoordinates } from "@/lib/gps/coordinates"
 import {
   formatPlanningMultiDayBadge,
   formatPlanningTaskDateRangeLabel,
@@ -57,11 +66,30 @@ import { resolveProjectTaskFieldDispatchBadge } from "@/lib/projects/project-tas
 import { canRescheduleProjectTaskFromSession } from "@/lib/projects/project-task-reschedule"
 import { resolveProjectTaskRowActions } from "@/lib/projects/project-task-row-actions"
 import { ProjectTaskClosureReviewSheet } from "@/components/obras/project-task-closure-review-sheet"
-import { getTasksForProject } from "@/lib/tasks/utils"
+import { getTasksForProject, generateTaskCode } from "@/lib/tasks/utils"
 import { resolveCrewSnapshotsForAssignment, isTaskCrewArchived } from "@/lib/tasks/crew-relation"
 import {
   mergeMaterialsNeededIntoMetadata,
 } from "@/lib/tasks/work-order"
+import {
+  buildCreatedProposalPatch,
+  buildObraTaskCreatePayloadFromProposal,
+  buildProposalEditPatch,
+  canCancelProjectDesignOtProposal,
+  planProjectDesignOtProposals,
+  validateProposalForObraTaskCreate,
+} from "@/lib/projects/design/ot-proposals"
+import { mergeTendidoPlanIntoMetadata } from "@/lib/projects/design/tendido"
+import {
+  createProjectDesignOtProposals,
+  listProjectDesignOtProposals,
+  updateProjectDesignOtProposal,
+} from "@/lib/supabase/project-design-ot.browser"
+import { listProjectDesign } from "@/lib/supabase/project-design.browser"
+import type {
+  CreateProjectDesignOtProposalInput,
+  ProjectDesignOtProposal,
+} from "@/lib/types/project-design-ot"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -126,6 +154,21 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
     type: "success" | "error"
     message: string
   } | null>(null)
+  const [proposals, setProposals] = useState<ProjectDesignOtProposal[]>([])
+  const [selectedProposal, setSelectedProposal] =
+    useState<ProjectDesignOtProposal | null>(null)
+  const [proposalDialogOpen, setProposalDialogOpen] = useState(false)
+  const [proposalBusy, setProposalBusy] = useState(false)
+  const [generateOpen, setGenerateOpen] = useState(false)
+  const [generateBusy, setGenerateBusy] = useState(false)
+  const [generateSummary, setGenerateSummary] = useState<{
+    nodeNew: number
+    napNew: number
+    reused: number
+    payloads: CreateProjectDesignOtProposalInput[]
+  }>({ nodeNew: 0, napNew: 0, reused: 0, payloads: [] })
+  const [tendidoOpen, setTendidoOpen] = useState(false)
+  const [tendidoBusy, setTendidoBusy] = useState(false)
 
   const actorName =
     sessionUser?.displayName?.trim() ||
@@ -144,6 +187,410 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
     () => projectTasks.filter((task) => isTaskCrewArchived(task, getCrew)).length,
     [projectTasks, getCrew]
   )
+
+  const loadProposals = useCallback(async () => {
+    if (!isAuthReady || !companyId) return
+    const result = await listProjectDesignOtProposals(companyId, project.id)
+    if (result.error || !result.data) {
+      setFeedback({
+        type: "error",
+        message:
+          result.error?.message ?? "No se pudieron cargar las OTs preliminares.",
+      })
+      return
+    }
+    setProposals(result.data)
+  }, [companyId, isAuthReady, project.id])
+
+  useEffect(() => {
+    let cancelled = false
+
+    void (async () => {
+      if (!isAuthReady || !companyId) return
+      const result = await listProjectDesignOtProposals(companyId, project.id)
+      if (cancelled) return
+      if (result.error || !result.data) {
+        setFeedback({
+          type: "error",
+          message:
+            result.error?.message ?? "No se pudieron cargar las OTs preliminares.",
+        })
+        return
+      }
+      setProposals(result.data)
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [companyId, isAuthReady, project.id])
+
+  async function openGenerateOtProposals() {
+    if (!isAuthReady || !companyId) {
+      setFeedback({
+        type: "error",
+        message: "No se pudo identificar la compañía para generar preliminares.",
+      })
+      return
+    }
+
+    setGenerateBusy(true)
+    const [design, existing] = await Promise.all([
+      listProjectDesign(companyId, project.id),
+      listProjectDesignOtProposals(companyId, project.id),
+    ])
+    setGenerateBusy(false)
+
+    if (design.error || !design.data) {
+      setFeedback({
+        type: "error",
+        message: design.error?.message ?? "No se pudo cargar el diseño.",
+      })
+      return
+    }
+    if (existing.error || !existing.data) {
+      setFeedback({
+        type: "error",
+        message:
+          existing.error?.message ?? "No se pudieron cargar las preliminares.",
+      })
+      return
+    }
+
+    setProposals(existing.data)
+    setGenerateSummary(
+      planProjectDesignOtProposals({
+        companyId,
+        projectId: project.id,
+        elements: design.data.elements,
+        existing: existing.data,
+      })
+    )
+    setGenerateOpen(true)
+  }
+
+  async function confirmGenerateOtProposals() {
+    if (!isAuthReady || !companyId) return
+    if (generateSummary.payloads.length === 0) {
+      setGenerateOpen(false)
+      return
+    }
+
+    setGenerateBusy(true)
+    const result = await createProjectDesignOtProposals(
+      companyId,
+      project.id,
+      generateSummary.payloads
+    )
+    setGenerateBusy(false)
+    if (result.error || !result.data) {
+      setFeedback({
+        type: "error",
+        message: result.error?.message ?? "No se pudieron generar las preliminares.",
+      })
+      return
+    }
+
+    await loadProposals()
+    setGenerateOpen(false)
+    const count = result.data.length
+    setFeedback({
+      type: "success",
+      message:
+        count === 1
+          ? "Se generó 1 OT preliminar."
+          : `Se generaron ${count} OTs preliminares.`,
+    })
+  }
+
+  function openProposalDialog(proposal: ProjectDesignOtProposal) {
+    setSelectedProposal(proposal)
+    setProposalDialogOpen(true)
+  }
+
+  function upsertProposal(next: ProjectDesignOtProposal) {
+    setProposals((current) => {
+      const index = current.findIndex((item) => item.id === next.id)
+      if (index < 0) return [...current, next]
+      const copy = [...current]
+      copy[index] = next
+      return copy
+    })
+    setSelectedProposal(next)
+  }
+
+  async function handleSaveProposal(next: ProjectDesignOtProposal) {
+    if (!isAuthReady || !companyId) {
+      setFeedback({
+        type: "error",
+        message: "No se pudo identificar la compañía para guardar la preliminar.",
+      })
+      return false
+    }
+
+    setProposalBusy(true)
+    const result = await updateProjectDesignOtProposal(
+      companyId,
+      project.id,
+      next.id,
+      buildProposalEditPatch(next, {
+        title: next.title,
+        workType: next.workType,
+        priority: next.priority,
+        crewId: next.crewId,
+        startDate: next.startDate,
+        dueDate: next.dueDate,
+        latitude: next.latitude,
+        longitude: next.longitude,
+        observations: next.observations,
+        operationalChecklistTemplate: next.operationalChecklistTemplate,
+      })
+    )
+    setProposalBusy(false)
+
+    if (result.error || !result.data) {
+      setFeedback({
+        type: "error",
+        message: result.error?.message ?? "No se pudo guardar la preliminar.",
+      })
+      return false
+    }
+
+    upsertProposal(result.data)
+    return true
+  }
+
+  async function handleCreateOtFromProposal(proposal: ProjectDesignOtProposal) {
+    if (!isAuthReady || !companyId) {
+      setFeedback({
+        type: "error",
+        message: "No se pudo identificar la compañía para crear la OT.",
+      })
+      return false
+    }
+
+    const validation = validateProposalForObraTaskCreate(proposal)
+    if (!validation.ok) {
+      setFeedback({ type: "error", message: validation.message })
+      return false
+    }
+
+    const selectedCrew = proposal.crewId ? getCrew(proposal.crewId) : undefined
+    const snapshots = resolveCrewSnapshotsForAssignment(selectedCrew)
+    const built = buildObraTaskCreatePayloadFromProposal({
+      project,
+      proposal,
+      crewName: snapshots.crew,
+      supervisor: snapshots.supervisor,
+    })
+    if (!built.ok) {
+      setFeedback({ type: "error", message: built.message })
+      return false
+    }
+
+    setProposalBusy(true)
+    try {
+      const latestResult = await listProjectDesignOtProposals(companyId, project.id)
+      const latest = latestResult.data?.find((item) => item.id === proposal.id)
+      if (latest && (latest.status === "created" || latest.taskId)) {
+        upsertProposal(latest)
+        setFeedback({
+          type: "error",
+          message: "Esta preliminar ya tiene una OT creada.",
+        })
+        return false
+      }
+
+      const created = await addTask({
+        code: generateTaskCode(project.code, tasks),
+        title: built.payload.title,
+        description: built.payload.description,
+        observationsForCrew: built.payload.observationsForCrew,
+        projectId: built.payload.projectId,
+        projectCode: built.payload.projectCode,
+        projectName: built.payload.projectName,
+        type: built.payload.type,
+        priority: built.payload.priority,
+        supervisor: built.payload.supervisor || snapshots.supervisor,
+        crewId: snapshots.crewId ?? undefined,
+        crew: snapshots.crew || built.payload.crew,
+        startDate: built.payload.startDate,
+        dueDate: built.payload.dueDate,
+        estimatedDuration: built.payload.estimatedDuration,
+        latitude: built.payload.latitude,
+        longitude: built.payload.longitude,
+        checklist: [],
+        taskMetadata: mergeMaterialsNeededIntoMetadata(
+          built.payload.taskMetadata,
+          ""
+        ),
+        status: built.status,
+      })
+
+      let linked = await updateProjectDesignOtProposal(
+        companyId,
+        project.id,
+        proposal.id,
+        buildCreatedProposalPatch(created.id)
+      )
+      if (linked.error || !linked.data) {
+        linked = await updateProjectDesignOtProposal(
+          companyId,
+          project.id,
+          proposal.id,
+          buildCreatedProposalPatch(created.id)
+        )
+      }
+      if (linked.error || !linked.data) {
+        setFeedback({
+          type: "error",
+          message:
+            "La OT se creó, pero no se pudo vincular la preliminar. Recargá la pestaña e intentá de nuevo.",
+        })
+        await loadProposals()
+        void refreshTasksFromServer({ silent: true })
+        return false
+      }
+
+      await syncTaskDailyAllocations({
+        companyId,
+        taskId: created.id,
+        allocations: [],
+      })
+      void refreshTasksFromServer({ silent: true })
+      upsertProposal(linked.data)
+      setFeedback({
+        type: "success",
+        message: `OT creada: ${created.code}. Ya podés enviarla a cuadrilla desde la OT real.`,
+      })
+      return true
+    } catch (caught) {
+      setFeedback({
+        type: "error",
+        message:
+          caught instanceof Error
+            ? caught.message
+            : "No se pudo crear la orden de trabajo.",
+      })
+      return false
+    } finally {
+      setProposalBusy(false)
+    }
+  }
+
+  async function handleCancelProposal(proposal: ProjectDesignOtProposal) {
+    if (!isAuthReady || !companyId) {
+      setFeedback({
+        type: "error",
+        message: "No se pudo identificar la compañía para cancelar la preliminar.",
+      })
+      return false
+    }
+    if (!canCancelProjectDesignOtProposal(proposal)) {
+      setFeedback({
+        type: "error",
+        message: "Esta preliminar ya no se puede cancelar.",
+      })
+      return false
+    }
+
+    setProposalBusy(true)
+    const result = await updateProjectDesignOtProposal(
+      companyId,
+      project.id,
+      proposal.id,
+      { status: "cancelled" }
+    )
+    setProposalBusy(false)
+    if (result.error || !result.data) {
+      setFeedback({
+        type: "error",
+        message: result.error?.message ?? "No se pudo cancelar la preliminar.",
+      })
+      return false
+    }
+
+    setProposals((current) =>
+      current.map((item) => (item.id === result.data!.id ? result.data! : item))
+    )
+    setSelectedProposal(result.data)
+    setFeedback({
+      type: "success",
+      message: "Preliminar cancelada. Podés volver a generarla desde Diseño.",
+    })
+    return true
+  }
+
+  async function handleCreateTendidoOt(payload: TendidoOtCreatePayload) {
+    if (!isAuthReady || !companyId) {
+      setFeedback({
+        type: "error",
+        message: "No se pudo identificar la compañía para crear la OT.",
+      })
+      return false
+    }
+
+    const selectedCrew = getCrew(payload.crewId)
+    const snapshots = resolveCrewSnapshotsForAssignment(selectedCrew)
+    const hasGps = hasCoordinates(payload.latitude, payload.longitude)
+
+    setTendidoBusy(true)
+    try {
+      const created = await addTask({
+        code: generateTaskCode(project.code, tasks),
+        title: payload.title,
+        description: "",
+        observationsForCrew: payload.observations,
+        projectId: project.id,
+        projectCode: project.code,
+        projectName: project.name,
+        type: project.type,
+        priority: payload.priority,
+        supervisor: snapshots.supervisor,
+        crewId: snapshots.crewId ?? undefined,
+        crew: snapshots.crew,
+        startDate: payload.startDate,
+        dueDate: payload.dueDate,
+        estimatedDuration: "",
+        latitude: hasGps ? (payload.latitude as number) : undefined,
+        longitude: hasGps ? (payload.longitude as number) : undefined,
+        checklist: [],
+        taskMetadata: mergeMaterialsNeededIntoMetadata(
+          mergeTaskMetadataWithTemplate(
+            {
+              taskMetadata: mergeTendidoPlanIntoMetadata({}, payload.plan),
+            },
+            payload.operationalChecklistTemplate
+          ),
+          ""
+        ),
+        status: resolveProjectTaskCreateStatus(project.status),
+      })
+
+      await syncTaskDailyAllocations({
+        companyId,
+        taskId: created.id,
+        allocations: [],
+      })
+      void refreshTasksFromServer({ silent: true })
+      setFeedback({
+        type: "success",
+        message: `OT de Tendido creada: ${created.code}.`,
+      })
+      return true
+    } catch (caught) {
+      setFeedback({
+        type: "error",
+        message:
+          caught instanceof Error
+            ? caught.message
+            : "No se pudo crear la orden de trabajo de Tendido.",
+      })
+      return false
+    } finally {
+      setTendidoBusy(false)
+    }
+  }
 
   function openCreateDialog() {
     setDialogMode("create")
@@ -568,10 +1015,31 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
             {projectTasks.length} OT
           </p>
         </div>
-        <Button size="sm" className="gap-1.5 self-start" onClick={openCreateDialog}>
-          <Plus className="size-4" />
-          Nueva OT
-        </Button>
+        <div className="flex flex-wrap gap-2 self-start">
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            onClick={() => void openGenerateOtProposals()}
+            disabled={generateBusy}
+          >
+            Generar OTs preliminares
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            onClick={() => setTendidoOpen(true)}
+            disabled={tendidoBusy || !isAuthReady || !companyId}
+          >
+            <Route className="size-4" />
+            OT de Tendido
+          </Button>
+          <Button size="sm" className="gap-1.5" onClick={openCreateDialog}>
+            <Plus className="size-4" />
+            Nueva OT
+          </Button>
+        </div>
       </div>
 
       {archivedCrewTaskCount > 0 && (
@@ -599,6 +1067,14 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
           {feedback.message}
         </p>
       )}
+
+      <ProjectDesignOtProposalsSection
+        proposals={proposals}
+        tasks={projectTasks}
+        designHref={`/obras/${project.id}/diseno`}
+        getCrew={getCrew}
+        onSelect={openProposalDialog}
+      />
 
       {projectTasks.length === 0 ? (
         <Card className="border-dashed shadow-sm">
@@ -686,6 +1162,47 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
           })}
         </div>
       )}
+
+      <ProjectDesignGenerateOtDialog
+        open={generateOpen}
+        nodeNew={generateSummary.nodeNew}
+        napNew={generateSummary.napNew}
+        reused={generateSummary.reused}
+        busy={generateBusy}
+        onOpenChange={setGenerateOpen}
+        onConfirm={() => void confirmGenerateOtProposals()}
+      />
+
+      <ProjectDesignOtProposalDialog
+        key={selectedProposal?.id ?? "proposal-closed"}
+        open={proposalDialogOpen}
+        proposal={selectedProposal}
+        taskCode={
+          selectedProposal?.taskId
+            ? projectTasks.find((task) => task.id === selectedProposal.taskId)
+                ?.code ?? null
+            : null
+        }
+        busy={proposalBusy}
+        onOpenChange={(open) => {
+          setProposalDialogOpen(open)
+          if (!open) setSelectedProposal(null)
+        }}
+        onSave={handleSaveProposal}
+        onCreateOt={handleCreateOtFromProposal}
+        onCancelProposal={handleCancelProposal}
+      />
+
+      {companyId && tendidoOpen ? (
+        <ProjectDesignTendidoOtDialog
+          open={tendidoOpen}
+          project={project}
+          companyId={companyId}
+          busy={tendidoBusy}
+          onOpenChange={setTendidoOpen}
+          onCreate={handleCreateTendidoOt}
+        />
+      ) : null}
 
       <ProjectTaskDialog
         open={dialogOpen}

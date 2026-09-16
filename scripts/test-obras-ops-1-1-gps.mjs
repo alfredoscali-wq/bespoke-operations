@@ -355,7 +355,7 @@ test("22. RPC de despacho sigue promoviendo tareas correctamente", () => {
   assert.match(sql, /dispatched_count/)
 })
 
-test("23. Obras Ops 2.0 create status (planned borrador / active programada)", () => {
+test("23. Obras Ops 2.0 create status (planned y active programada)", () => {
   const ops10 = readFileSync(OPS_1_0_PATH, "utf8")
   const hotfix = readFileSync(HOTFIX_PATH, "utf8")
 
@@ -363,7 +363,7 @@ test("23. Obras Ops 2.0 create status (planned borrador / active programada)", (
   assert.doesNotMatch(ops10, /ubicación GPS/)
   assert.match(hotfix, /NEW\.status := 'asignada'::public\.task_status/)
   assert.equal(resolveProjectTaskCreateStatus("active"), "programada")
-  assert.equal(resolveProjectTaskCreateStatus("planned"), "borrador")
+  assert.equal(resolveProjectTaskCreateStatus("planned"), "programada")
 })
 
 test("24. execution_order: OT de Obra nunca aplica side-effects (OPS 2.1B)", () => {

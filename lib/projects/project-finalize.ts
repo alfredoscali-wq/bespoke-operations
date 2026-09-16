@@ -1,5 +1,5 @@
 import type { ProjectStatus } from "@/lib/types/projects"
-import type { Task, TaskStatus } from "@/lib/types/tasks"
+import type { Task } from "@/lib/types/tasks"
 import { PROJECT_STATUS_LABELS } from "@/lib/projects/constants"
 import { canTransitionProjectStatus } from "@/lib/projects/utils"
 import {
@@ -52,10 +52,10 @@ export function buildFinalizeBlockedOpenTasksMessage(openCount: number): string 
     return PROJECT_FINALIZE_BLOCKED_OPEN_TASKS_MESSAGE
   }
 
-  const suffix =
-    openCount === 1 ? "1 pendiente" : `${openCount} pendientes`
+  const countLabel =
+    openCount === 1 ? "1 OT pendiente" : `${openCount} OTs pendientes`
 
-  return `${PROJECT_FINALIZE_BLOCKED_OPEN_TASKS_MESSAGE} (${suffix}).`
+  return `${PROJECT_FINALIZE_BLOCKED_OPEN_TASKS_MESSAGE} Hay ${countLabel} de ejecución.`
 }
 
 export function buildFinalizeProjectHistoryDescription(

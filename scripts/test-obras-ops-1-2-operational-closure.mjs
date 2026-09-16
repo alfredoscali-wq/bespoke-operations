@@ -88,7 +88,9 @@ for (const status of BLOCKING_STATUSES) {
 
     assert.equal(result.ok, false)
     if (!result.ok) {
-      assert.match(result.message, /Ã³rdenes de trabajo abiertas/i)
+      assert.ok(
+        result.message.includes(PROJECT_FINALIZE_BLOCKED_OPEN_TASKS_MESSAGE)
+      )
     }
   })
 }
@@ -138,7 +140,7 @@ test("finalizar obra: OT normales sin projectId no bloquean", () => {
   assert.equal(result.ok, true)
 })
 
-test("finalizar obra: estado invÃ¡lido de project rechazado", () => {
+test("finalizar obra: estado inv?lido de project rechazado", () => {
   const result = validateFinalizeProject({
     projectStatus: "planned",
     tasks: [],
@@ -161,11 +163,11 @@ test("finalizar obra pausada sin OT abiertas puede finalizar", () => {
 
 test("mensaje de bloqueo incluye cantidad de OT pendientes", () => {
   const message = buildFinalizeBlockedOpenTasksMessage(3)
-  assert.match(message, /3 pendientes/)
-  assert.match(message, /Ã³rdenes de trabajo abiertas/i)
+  assert.match(message, /3 OTs pendientes/)
+  assert.ok(message.includes(PROJECT_FINALIZE_BLOCKED_OPEN_TASKS_MESSAGE))
 })
 
-test("historial de finalizaciÃ³n describe transiciÃ³n", () => {
+test("historial de finalizaci?n describe transici?n", () => {
   assert.match(
     buildFinalizeProjectHistoryDescription("active"),
     /Activa a Finalizada/
@@ -176,7 +178,7 @@ test("historial de finalizaciÃ³n describe transiciÃ³n", () => {
   )
 })
 
-test("parseFinalizeProjectRpcResult acepta respuesta vÃ¡lida", () => {
+test("parseFinalizeProjectRpcResult acepta respuesta v?lida", () => {
   const parsed = parseFinalizeProjectRpcResult({
     project_id: PROJECT_ID,
     previous_status: "active",
@@ -190,7 +192,7 @@ test("parseFinalizeProjectRpcResult acepta respuesta vÃ¡lida", () => {
   assert.equal(parsed?.nextStatus, "closed")
 })
 
-test("parseFinalizeProjectRpcResult rechaza respuesta invÃ¡lida", () => {
+test("parseFinalizeProjectRpcResult rechaza respuesta inv?lida", () => {
   assert.equal(parseFinalizeProjectRpcResult(null), null)
   assert.equal(
     parseFinalizeProjectRpcResult({
@@ -225,7 +227,7 @@ test("countOpenTasksForProjectFinalize cuenta solo tareas de la obra", () => {
   )
 })
 
-test("migraciÃ³n finalize_project_operational: FOR UPDATE y multi-tenant", () => {
+test("migraci?n finalize_project_operational: FOR UPDATE y multi-tenant", () => {
   const sql = readFileSync(MIGRATION_PATH, "utf8")
 
   assert.match(sql, /finalize_project_operational/)
@@ -241,13 +243,13 @@ test("migraciÃ³n finalize_project_operational: FOR UPDATE y multi-tenant", () =>
   assert.match(sql, /SECURITY DEFINER/)
   assert.match(sql, /SET search_path = public/)
   assert.match(sql, /auth_is_demo_platform_read_only/)
-  assert.match(sql, /Ã³rdenes de trabajo abiertas/)
+  assert.match(sql, /trabajo abiertas/)
   assert.doesNotMatch(sql, /UPDATE public\.tasks/)
   assert.doesNotMatch(sql, /GRANT EXECUTE[\s\S]*TO authenticated/)
   assert.match(sql, /GRANT EXECUTE[\s\S]*TO service_role/)
 })
 
-test("migraciÃ³n: atomicidad âÿÿ solo actualiza project si no hay OT abiertas", () => {
+test("migraci?n: atomicidad ï¿½ï¿½ï¿½ solo actualiza project si no hay OT abiertas", () => {
   const sql = readFileSync(MIGRATION_PATH, "utf8")
   const openCountIdx = sql.indexOf("v_open_task_count")
   const updateIdx = sql.indexOf("UPDATE public.projects")
@@ -257,7 +259,7 @@ test("migraciÃ³n: atomicidad âÿÿ solo actualiza project si no hay OT abiertas", 
   assert.ok(openCountIdx > 0 && openCountIdx < updateIdx)
 })
 
-test("API finalize: sesiÃ³n writable + mÃ³dulo projects + prefetch tenant", () => {
+test("API finalize: sesi?n writable + m?dulo projects + prefetch tenant", () => {
   const source = readFileSync(FINALIZE_API_PATH, "utf8")
 
   assert.match(source, /requireWritablePlatformSession/)
@@ -292,7 +294,7 @@ test("API finalize: module access permitido con projects", () => {
   assert.equal(canAccessObrasModuleForFinalize, canAccessObrasModuleForStart)
 })
 
-test("reapertura closed âÿÿ active sin regresiÃ³n", () => {
+test("reapertura closed ï¿½ï¿½ï¿½ active sin regresi?n", () => {
   const reopen = canTransitionProjectStatus("closed", "active")
   assert.equal(reopen.allowed, true)
 
@@ -300,7 +302,7 @@ test("reapertura closed âÿÿ active sin regresiÃ³n", () => {
   assert.equal(finalizeFromClosed.allowed, false)
 })
 
-test("acciÃ³n Ver disponible para todas las OT de obra", () => {
+test("acci?n Ver disponible para todas las OT de obra", () => {
   for (const status of [
     ...BLOCKING_STATUSES,
     ...NON_BLOCKING_STATUSES,
@@ -312,7 +314,7 @@ test("acciÃ³n Ver disponible para todas las OT de obra", () => {
   }
 })
 
-test("acciÃ³n Editar programada disponible", () => {
+test("acci?n Editar programada disponible", () => {
   const actions = resolveProjectTaskRowActions(
     makeObraTask({ status: "programada" })
   )
@@ -320,21 +322,21 @@ test("acciÃ³n Editar programada disponible", () => {
   assert.equal(canEditProjectTaskFromObras(makeObraTask({ status: "programada" })), true)
 })
 
-test("acciÃ³n Editar asignada disponible", () => {
+test("acci?n Editar asignada disponible", () => {
   const actions = resolveProjectTaskRowActions(
     makeObraTask({ status: "asignada" })
   )
   assert.equal(actions.showEdit, true)
 })
 
-test("acciÃ³n Editar en-curso no disponible", () => {
+test("accion Editar en-curso disponible (OPS 2.2 supervised edit)", () => {
   const actions = resolveProjectTaskRowActions(
     makeObraTask({ status: "en-curso" })
   )
-  assert.equal(actions.showEdit, false)
+  assert.equal(actions.showEdit, true)
 })
 
-test("acciÃ³n Eliminar programada disponible", () => {
+test("acci?n Eliminar programada disponible", () => {
   const actions = resolveProjectTaskRowActions(
     makeObraTask({ status: "programada" })
   )
@@ -385,26 +387,26 @@ test("pendiente-cierre muestra Revisar cierre", () => {
   assert.equal(isPendingClosureStatus("pendiente-cierre"), true)
 })
 
-test("en-aprobacion tambiÃ©n muestra Revisar cierre", () => {
+test("en-aprobacion tambi?n muestra Revisar cierre", () => {
   const actions = resolveProjectTaskRowActions(
     makeObraTask({ status: "en-aprobacion" })
   )
   assert.equal(actions.showReviewClosure, true)
 })
 
-test("aprobar cierre: pendiente-cierre âÿÿ finalizada", () => {
+test("aprobar cierre: pendiente-cierre ï¿½ï¿½ï¿½ finalizada", () => {
   const transition = getTransitionForAction("approve")
   assert.ok(transition.from.includes("pendiente-cierre"))
   assert.equal(transition.to, "finalizada")
 })
 
-test("rechazar cierre: pendiente-cierre âÿÿ en-curso", () => {
+test("rechazar cierre: pendiente-cierre ï¿½ï¿½ï¿½ en-curso", () => {
   const transition = getTransitionForAction("reject")
   assert.ok(transition.from.includes("pendiente-cierre"))
   assert.equal(transition.to, "en-curso")
 })
 
-test("OT de obra no aplica side-effects de PlanificaciÃ³n", () => {
+test("OT de obra no aplica side-effects de Planificaci?n", () => {
   assert.equal(
     shouldApplyPlanningQueueSideEffectsForTask({ projectId: PROJECT_ID }),
     false
@@ -415,7 +417,7 @@ test("OT de obra no aplica side-effects de PlanificaciÃ³n", () => {
   )
 })
 
-test("OT normales sin project_id mantienen reglas de ediciÃ³n admin", () => {
+test("OT normales sin project_id mantienen reglas de edici?n admin", () => {
   assert.equal(
     canEditProjectTaskFromObras({ projectId: null, status: "asignada" }),
     false
@@ -490,7 +492,7 @@ test("KPIs tras approve: finalizada deja de contar como activa", () => {
   assert.equal(stats.completedTasks, 1)
 })
 
-test("sheet de revisiÃ³n reutiliza PlanningPendingClosureDetailPanel", () => {
+test("sheet de revisi?n reutiliza PlanningPendingClosureDetailPanel", () => {
   const source = readFileSync(CLOSURE_SHEET_PATH, "utf8")
 
   assert.match(source, /PlanningPendingClosureDetailPanel/)
@@ -501,9 +503,9 @@ test("sheet de revisiÃ³n reutiliza PlanningPendingClosureDetailPanel", () => {
 })
 
 test("mensaje base de bloqueo coincide con spec", () => {
-  assert.equal(
+  assert.match(
     PROJECT_FINALIZE_BLOCKED_OPEN_TASKS_MESSAGE,
-    "No se puede finalizar la Obra mientras existan Ã³rdenes de trabajo abiertas."
+    /No se puede finalizar la Obra porque todav.+ hay OTs pendientes de ejecuci/
   )
 })
 

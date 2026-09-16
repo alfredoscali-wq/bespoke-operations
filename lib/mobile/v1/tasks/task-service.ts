@@ -16,20 +16,16 @@ import {
   resolveTaskHasActiveIncidentRecord,
 } from "@/lib/mobile/v1/tasks/task-active-incident-guard"
 import { resolveMobileWorkTeam } from "@/lib/mobile/v1/shifts/resolve-work-team"
-import type {
-  MobileTaskChecklistItem,
-  MobileTaskDetailResponse,
-  MobileTaskEvidenceRequirement,
-  MobileTaskNextWorkItem,
-  MobileTaskReferencePhoto,
-} from "@/lib/mobile/v1/tasks/types"
-import { resolveMobileTaskCommercialFields } from "@/lib/mobile/v1/tasks/task-commercial-fields"
-import { resolveMobileTaskCurrentLocationFields } from "@/lib/mobile/v1/tasks/task-current-location-fields"
-import { taskMatchesCrewId } from "@/lib/tasks/crew-relation"
 import {
-  resolveServiceTechnicalWorkInfoFromTask,
-  resolveTaskOperationalTitle,
-} from "@/lib/tasks/work-order"
+  mapMobileTaskDetailResponse,
+  mapMobileTaskNextWorkItem,
+  mapMobileTaskReferencePhotos,
+} from "@/lib/mobile/v1/tasks/task-detail-mapper"
+import { fetchProjectGpsForCompany } from "@/lib/mobile/v1/tasks/resolve-task-start-coordinates"
+import type {
+  MobileTaskDetailResponse,
+} from "@/lib/mobile/v1/tasks/types"
+import { taskMatchesCrewId } from "@/lib/tasks/crew-relation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { fetchTaskReferencePhotos } from "@/lib/supabase/task-photos.queries"
 import { mapTaskRowToTask } from "@/lib/supabase/tasks.mapper"
@@ -55,103 +51,6 @@ async function fetchTaskForCompany(
   }
 
   return data ? mapTaskRowToTask(data) : null
-}
-
-function resolveCustomerOrAssetName(task: Task): string {
-  return task.customerName?.trim() || task.projectName?.trim() || "—"
-}
-
-function resolveContactPerson(task: Task): string | null {
-  const customerName = task.customerName?.trim()
-  const projectName = task.projectName?.trim()
-
-  if (customerName && projectName && customerName !== projectName) {
-    return customerName
-  }
-
-  return task.customerCompany?.trim() || null
-}
-
-function mapEvidenceRequirements(task: Task): MobileTaskEvidenceRequirement[] {
-  return (task.operationalSteps ?? []).map((step) => ({
-    id: step.id,
-    label: step.label,
-    stepKind: step.stepKind === "text" ? "text" : "photo",
-    required: true,
-  }))
-}
-
-function mapNextWorkItem(task: Task | undefined): MobileTaskNextWorkItem | null {
-  if (!task) {
-    return null
-  }
-
-  return {
-    scheduledTime: task.scheduledTime?.trim() || null,
-    workType: resolveTaskOperationalTitle(task),
-    customerOrAssetName: resolveCustomerOrAssetName(task),
-  }
-}
-
-function mapReferencePhotos(photos: Awaited<
-  ReturnType<typeof fetchTaskReferencePhotos>
->["data"]): MobileTaskReferencePhoto[] {
-  return (photos ?? [])
-    .map((photo) => {
-      const url = photo.signedUrl?.trim() || photo.fileUrl?.trim()
-      if (!url) {
-        return null
-      }
-
-      return {
-        id: photo.id,
-        fileName: photo.fileName,
-        description: photo.description?.trim() || "",
-        url,
-      }
-    })
-    .filter((photo): photo is MobileTaskReferencePhoto => photo !== null)
-}
-
-function mapTaskToDetailResponse(
-  task: Task,
-  nextWork: MobileTaskNextWorkItem | null,
-  checklist: MobileTaskChecklistItem[],
-  referencePhotos: MobileTaskReferencePhoto[],
-  hasActiveIncident: boolean
-): MobileTaskDetailResponse {
-  const commercialFields = resolveMobileTaskCommercialFields(task)
-  const workInfo = resolveServiceTechnicalWorkInfoFromTask(task)
-  const currentLocation = resolveMobileTaskCurrentLocationFields(task)
-
-  return {
-    id: task.id,
-    workOrderNumber: task.workOrderNumber?.trim() || task.code?.trim() || null,
-    workType: resolveTaskOperationalTitle(task),
-    serviceType: task.serviceType?.trim() || null,
-    status: task.status,
-    priority: task.priority,
-    scheduledTime: task.scheduledTime?.trim() || null,
-    customerOrAssetName: resolveCustomerOrAssetName(task),
-    contactPerson: resolveContactPerson(task),
-    phone: task.customerPhone?.trim() || null,
-    address: task.serviceAddress?.trim() || "—",
-    locality: task.locality?.trim() || null,
-    latitude: task.latitude ?? null,
-    longitude: task.longitude ?? null,
-    currentAddress: currentLocation.currentAddress,
-    currentLatitude: currentLocation.currentLatitude,
-    currentLongitude: currentLocation.currentLongitude,
-    observations: task.observationsForCrew?.trim() || null,
-    ...commercialFields,
-    serviceReason: workInfo?.reasonLabel ?? null,
-    serviceDetail: workInfo?.detail ?? null,
-    checklist,
-    evidenceRequirements: mapEvidenceRequirements(task),
-    referencePhotos,
-    nextWork,
-    hasActiveIncident,
-  }
 }
 
 export async function getMobileTaskDetail(
@@ -237,7 +136,7 @@ export async function getMobileTaskDetail(
   const referencePhotosResult = await fetchTaskReferencePhotos(admin, task.id)
   const referencePhotos = referencePhotosResult.error
     ? []
-    : mapReferencePhotos(referencePhotosResult.data)
+    : mapMobileTaskReferencePhotos(referencePhotosResult.data)
 
   const hasActiveIncidentRecord = await resolveTaskHasActiveIncidentRecord(
     admin,
@@ -248,12 +147,17 @@ export async function getMobileTaskDetail(
     hasActiveIncidentRecord,
   })
 
-  return mapTaskToDetailResponse(
+  const projectGps = task.projectId
+    ? await fetchProjectGpsForCompany(admin, auth.companyId, task.projectId)
+    : null
+
+  return mapMobileTaskDetailResponse(
     task,
-    mapNextWorkItem(nextTask),
+    mapMobileTaskNextWorkItem(nextTask),
     checklist,
     referencePhotos,
-    hasActiveIncident
+    hasActiveIncident,
+    projectGps
   )
 }
 

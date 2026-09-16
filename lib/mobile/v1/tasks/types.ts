@@ -1,5 +1,9 @@
 import type { TaskPriority, TaskStatus } from "@/lib/types/tasks"
 import type { MobileChecklistFieldType } from "@/lib/mobile/v1/checklist/types"
+import type {
+  MobileProjectDesignSourceDto,
+  MobileProjectDesignWorkTypeDto,
+} from "@/lib/mobile/v1/projects/types"
 
 export type MobileTaskChecklistResponseValue = {
   confirmed?: boolean
@@ -54,6 +58,9 @@ export type MobileTaskDetailResponse = {
   locality: string | null
   latitude: number | null
   longitude: number | null
+  /** GPS of the Obra; null when the OT has no project or the Obra has no GPS. */
+  projectLatitude: number | null
+  projectLongitude: number | null
   /** Origin domicile for cambio-domicilio OTs; null for other service types. */
   currentAddress?: string | null
   currentLatitude?: number | null
@@ -72,6 +79,11 @@ export type MobileTaskDetailResponse = {
   referencePhotos: MobileTaskReferencePhoto[]
   nextWork: MobileTaskNextWorkItem | null
   hasActiveIncident: boolean
+  projectId: string | null
+  projectName: string | null
+  isProjectTask: boolean
+  projectDesignWorkType: MobileProjectDesignWorkTypeDto | null
+  projectDesignSource: MobileProjectDesignSourceDto | null
 }
 
 export type MobileTaskStartRequest = {

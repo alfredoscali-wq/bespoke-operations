@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
 
 import {
   TaskMaterialLinesEditor,
@@ -176,6 +176,43 @@ function buildEditForm(task: Task, crews: { id: string; name: string }[]): TaskF
   }
 }
 
+function buildProjectTaskDialogReset(input: {
+  mode: "create" | "edit"
+  project: Project
+  task?: Task | null
+  crews: { id: string; name: string }[]
+  assignableCrews: { id: string }[]
+}): {
+  form: TaskFormState
+  checklist: ReturnType<typeof readOperationalChecklistTemplate>
+  allocation: ProjectTaskDailyAllocationValue
+} {
+  const form =
+    input.mode === "edit" && input.task
+      ? buildEditForm(input.task, input.crews)
+      : {
+          ...buildCreateForm(input.project),
+          crewId: input.assignableCrews[0]?.id ?? "",
+        }
+
+  const checklist =
+    input.mode === "edit" && input.task
+      ? readOperationalChecklistTemplate(input.task)
+      : []
+
+  const allocation: ProjectTaskDailyAllocationValue =
+    input.mode === "edit" && input.task
+      ? {
+          mode: resolveDailyAllocationMode(input.task.dailyAllocations),
+          allocations: input.task.dailyAllocations
+            ? [...input.task.dailyAllocations]
+            : [],
+        }
+      : { mode: "automatic", allocations: [] }
+
+  return { form, checklist, allocation }
+}
+
 export function ProjectTaskDialog({
   open,
   onOpenChange,
@@ -224,6 +261,57 @@ export function ProjectTaskDialog({
       mode: "automatic",
       allocations: [],
     })
+  const [dialogSync, setDialogSync] = useState<{
+    open: boolean
+    mode: "create" | "edit"
+    project: Project
+    task?: Task | null
+    assignableCrews: { id: string }[]
+    crews: { id: string; name: string }[]
+  }>({
+    open: false,
+    mode,
+    project,
+    task,
+    assignableCrews,
+    crews,
+  })
+
+  if (open) {
+    if (
+      !dialogSync.open ||
+      mode !== dialogSync.mode ||
+      project !== dialogSync.project ||
+      task !== dialogSync.task ||
+      assignableCrews !== dialogSync.assignableCrews ||
+      crews !== dialogSync.crews
+    ) {
+      setDialogSync({
+        open: true,
+        mode,
+        project,
+        task,
+        assignableCrews,
+        crews,
+      })
+      setError(null)
+      const next = buildProjectTaskDialogReset({
+        mode,
+        project,
+        task,
+        crews,
+        assignableCrews,
+      })
+      setForm(next.form)
+      setBaselineForm(next.form)
+      setChecklistTemplate(next.checklist)
+      setBaselineChecklistTemplate(next.checklist)
+      setAllocationValue(next.allocation)
+      setBaselineAllocationValue(next.allocation)
+    }
+  } else if (dialogSync.open) {
+    setDialogSync({ ...dialogSync, open: false })
+  }
 
   const handleAllocationChange = useCallback(
     (next: ProjectTaskDailyAllocationValue) => {
@@ -269,39 +357,6 @@ export function ProjectTaskDialog({
         )
       : resolveSupervisorFromCrew(selectedCrew)
 
-  useEffect(() => {
-    if (!open) return
-
-    setError(null)
-    const nextForm =
-      mode === "edit" && task
-        ? buildEditForm(task, crews)
-        : {
-            ...buildCreateForm(project),
-            crewId: assignableCrews[0]?.id ?? "",
-          }
-
-    const nextChecklist =
-      mode === "edit" && task
-        ? readOperationalChecklistTemplate(task)
-        : []
-
-    setForm(nextForm)
-    setBaselineForm(nextForm)
-    setChecklistTemplate(nextChecklist)
-    setBaselineChecklistTemplate(nextChecklist)
-
-    const nextAllocation: ProjectTaskDailyAllocationValue =
-      mode === "edit" && task
-        ? {
-            mode: resolveDailyAllocationMode(task.dailyAllocations),
-            allocations: task.dailyAllocations ? [...task.dailyAllocations] : [],
-          }
-        : { mode: "automatic", allocations: [] }
-    setAllocationValue(nextAllocation)
-    setBaselineAllocationValue(nextAllocation)
-  }, [open, mode, project, task, assignableCrews, crews])
-
   function updateField<K extends keyof TaskFormState>(
     key: K,
     value: TaskFormState[K]
@@ -318,12 +373,12 @@ export function ProjectTaskDialog({
       return
     }
 
-    if (!form.dueDate || !form.startDate) {
-      setError("Las fechas de inicio y límite son obligatorias.")
+    if (!form.startDate) {
+      setError("La fecha de inicio es obligatoria.")
       return
     }
 
-    if (form.dueDate < form.startDate) {
+    if (form.dueDate && form.dueDate < form.startDate) {
       setError("La fecha límite no puede ser anterior a la fecha de inicio.")
       return
     }
@@ -437,8 +492,7 @@ export function ProjectTaskDialog({
   const isValid =
     form.title.trim() !== "" &&
     form.crewId !== "" &&
-    form.startDate !== "" &&
-    form.dueDate !== ""
+    form.startDate !== ""
 
   return (
     <>
@@ -584,7 +638,7 @@ export function ProjectTaskDialog({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="task-due-date">Fecha límite</Label>
+              <Label htmlFor="task-due-date">Fecha límite (opcional)</Label>
               <Input
                 id="task-due-date"
                 type="date"

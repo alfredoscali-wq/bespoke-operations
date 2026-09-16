@@ -275,10 +275,10 @@ test("OT normal programada sigue recalculando execution_order ante cambio crew/f
   )
 })
 
-test("nueva tarea en obra active nace programada; planned nace borrador", () => {
+test("nueva tarea en obra planned o active nace programada", () => {
   assert.equal(resolveProjectTaskCreateStatus("active"), "programada")
-  assert.equal(resolveProjectTaskCreateStatus("planned"), "borrador")
-  assert.equal(resolveProjectTaskCreateStatus("paused"), "borrador")
+  assert.equal(resolveProjectTaskCreateStatus("planned"), "programada")
+  assert.equal(resolveProjectTaskCreateStatus("paused"), "programada")
 })
 
 test("soft delete de asignada sin obra permanece bloqueado", () => {
@@ -406,7 +406,7 @@ test("hardening: asignada con project deleted → rechazada", () => {
   assert.equal(result.ok, false)
 })
 
-test("hardening: asignada con project planned → coerción a borrador", () => {
+test("hardening: asignada con project planned → coerción a programada", () => {
   const result = validateObraTaskInsertIntegrity({
     task: makeAsignadaInsert(),
     project: makeActiveProject({ status: "planned" }),
@@ -414,7 +414,7 @@ test("hardening: asignada con project planned → coerción a borrador", () => {
   })
   assert.equal(result.ok, true)
   if (result.ok) {
-    assert.equal(result.status, "borrador")
+    assert.equal(result.status, "programada")
   }
 })
 
@@ -430,7 +430,7 @@ test("hardening: asignada con project closed → coerción a borrador", () => {
   }
 })
 
-test("hardening: obra con crew same-tenant → permitida como borrador", () => {
+test("hardening: obra planned con crew same-tenant → permitida como programada", () => {
   const result = validateObraTaskInsertIntegrity({
     task: {
       companyId: COMPANY_A,
@@ -443,7 +443,7 @@ test("hardening: obra con crew same-tenant → permitida como borrador", () => {
   })
   assert.equal(result.ok, true)
   if (result.ok) {
-    assert.equal(result.status, "borrador")
+    assert.equal(result.status, "programada")
   }
 })
 
@@ -550,7 +550,7 @@ test("OPS 2.0: obra active + cliente envía asignada → coerción a programada"
   }
 })
 
-test("OPS 2.0: obra planned + tarea nueva → borrador", () => {
+test("OPS 2.0: obra planned + tarea nueva → programada", () => {
   const result = validateObraTaskInsertIntegrity({
     task: makeAsignadaInsert({ status: "programada" }),
     project: makeActiveProject({ status: "planned" }),
@@ -558,7 +558,7 @@ test("OPS 2.0: obra planned + tarea nueva → borrador", () => {
   })
   assert.equal(result.ok, true)
   if (result.ok) {
-    assert.equal(result.status, "borrador")
+    assert.equal(result.status, "programada")
   }
 })
 

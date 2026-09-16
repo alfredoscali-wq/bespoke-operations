@@ -152,14 +152,14 @@ export function canEditProjectTaskFromObras(
 }
 
 /**
- * OPS 2.0 create status:
- * - Obra no iniciada → borrador (fuera de Planificación / Mobile)
- * - Obra active → programada (entra directo al universo de Planificación)
+ * OTs de Obra V1.2: nascen programada aunque la Obra siga planned.
+ * No requiere “Iniciar Obra”.
  */
 export function resolveProjectTaskCreateStatus(
   projectStatus: ProjectStatus
 ): TaskStatus {
-  return projectStatus === "active" ? "programada" : "borrador"
+  void projectStatus
+  return "programada"
 }
 
 /**

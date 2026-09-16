@@ -81,9 +81,9 @@ function makeServiceOt(overrides = {}) {
   }
 }
 
-test("OPS 2.0: create status borrador en planned; programada en active", () => {
-  assert.equal(resolveProjectTaskCreateStatus("planned"), "borrador")
-  assert.equal(resolveProjectTaskCreateStatus("paused"), "borrador")
+test("OPS 2.0: create status programada en planned y active", () => {
+  assert.equal(resolveProjectTaskCreateStatus("planned"), "programada")
+  assert.equal(resolveProjectTaskCreateStatus("paused"), "programada")
   assert.equal(resolveProjectTaskCreateStatus("active"), "programada")
 })
 
@@ -124,7 +124,7 @@ test("OPS 2.0: historial menciona Programada / Planificación", () => {
   )
 })
 
-test("OPS 2.0: integrity planned → borrador; active → programada", () => {
+test("OPS 2.0: integrity planned → programada; active → programada", () => {
   const planned = validateObraTaskInsertIntegrity({
     task: {
       companyId: COMPANY_A,
@@ -141,7 +141,7 @@ test("OPS 2.0: integrity planned → borrador; active → programada", () => {
     crew: { id: CREW_A, companyId: COMPANY_A, deletedAt: null },
   })
   assert.equal(planned.ok, true)
-  if (planned.ok) assert.equal(planned.status, "borrador")
+  if (planned.ok) assert.equal(planned.status, "programada")
 
   const active = validateObraTaskInsertIntegrity({
     task: {

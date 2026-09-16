@@ -10,7 +10,7 @@ import type { Task } from "@/lib/types/tasks"
 
 type AdminClient = SupabaseClient
 
-async function fetchProjectGpsForCompany(
+export async function fetchProjectGpsForCompany(
   client: AdminClient,
   companyId: string,
   projectId: string

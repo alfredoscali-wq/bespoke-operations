@@ -54,6 +54,30 @@ export type ProjectHistoryInsert =
   Database["public"]["Tables"]["project_history"]["Insert"]
 export type ProjectHistoryUpdate =
   Database["public"]["Tables"]["project_history"]["Update"]
+export type ProjectDesignElementRow =
+  Database["public"]["Tables"]["project_design_elements"]["Row"]
+export type ProjectDesignElementInsert =
+  Database["public"]["Tables"]["project_design_elements"]["Insert"]
+export type ProjectDesignElementUpdate =
+  Database["public"]["Tables"]["project_design_elements"]["Update"]
+export type ProjectDesignSegmentRow =
+  Database["public"]["Tables"]["project_design_segments"]["Row"]
+export type ProjectDesignSegmentInsert =
+  Database["public"]["Tables"]["project_design_segments"]["Insert"]
+export type ProjectDesignSegmentUpdate =
+  Database["public"]["Tables"]["project_design_segments"]["Update"]
+export type ProjectDesignGainRow =
+  Database["public"]["Tables"]["project_design_gains"]["Row"]
+export type ProjectDesignGainInsert =
+  Database["public"]["Tables"]["project_design_gains"]["Insert"]
+export type ProjectDesignGainUpdate =
+  Database["public"]["Tables"]["project_design_gains"]["Update"]
+export type ProjectDesignOtProposalRow =
+  Database["public"]["Tables"]["project_design_ot_proposals"]["Row"]
+export type ProjectDesignOtProposalInsert =
+  Database["public"]["Tables"]["project_design_ot_proposals"]["Insert"]
+export type ProjectDesignOtProposalUpdate =
+  Database["public"]["Tables"]["project_design_ot_proposals"]["Update"]
 export type SystemAuditLogRow =
   Database["public"]["Tables"]["system_audit_log"]["Row"]
 export type SystemAuditLogInsert =

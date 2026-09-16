@@ -177,7 +177,6 @@ export function getProjectActions(status: ProjectStatus): ProjectAction[] {
     case "planned":
       return [
         { id: "edit", label: "Editar obra", variant: "outline" },
-        { id: "start", label: "Iniciar obra" },
         { id: "archive", label: "Archivar obra", variant: "destructive" },
       ]
     case "closed":

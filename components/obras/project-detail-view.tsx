@@ -13,10 +13,6 @@ import { ProjectDetailOperationalHeader } from "@/components/obras/project-detai
 import { ForceDeleteAction } from "@/components/admin/force-delete-action"
 import { getProjectActions } from "@/lib/projects/utils"
 import {
-  buildStartProjectDispatchHistoryDescription,
-  validateStartProjectDispatch,
-} from "@/lib/projects/project-start-dispatch"
-import {
   buildFinalizeProjectHistoryDescription,
   validateFinalizeProject,
 } from "@/lib/projects/project-finalize"
@@ -59,7 +55,6 @@ export function ProjectDetailView({
   const {
     getProject,
     updateProject,
-    startProject,
     pauseProject,
     resumeProject,
     finalizeProject,
@@ -191,45 +186,8 @@ export function ProjectDetailView({
       case "edit":
         setEditOpen(true)
         break
-      case "start": {
-        const projectTasks = getTasksForProject(project, tasks)
-        const validation = validateStartProjectDispatch({
-          projectStatus: project.status,
-          tasks: projectTasks,
-          latitude: project.latitude,
-          longitude: project.longitude,
-        })
-
-        if (!validation.ok) {
-          setError(validation.message)
-          setFeedback(null)
-          return
-        }
-
-        void (async () => {
-          setError(null)
-          setFeedback(null)
-          setIsBusy(true)
-
-          const result = await startProject(project.id)
-          setIsBusy(false)
-
-          if (!result.success) {
-            setError(result.message ?? "No se pudo completar la acción.")
-            return
-          }
-
-          setFeedback(
-            buildStartProjectDispatchHistoryDescription(
-              result.dispatchedCount ?? validation.dispatchableTasks.length
-            )
-          )
-          const loaded = await loadHistory(project.id)
-          setHistory(loaded)
-          await refreshTasksFromServer()
-        })()
+      case "start":
         break
-      }
       case "pause":
         setPauseOpen(true)
         break

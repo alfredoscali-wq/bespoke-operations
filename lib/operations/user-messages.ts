@@ -14,7 +14,7 @@ export const PROJECT_ARCHIVE_BLOCKED_ACTIVE_TASKS_MESSAGE =
   "No se puede archivar la obra. Existen órdenes de trabajo activas asociadas. Finalice o cancele todas las órdenes de trabajo antes de archivar la obra."
 
 export const PROJECT_FINALIZE_BLOCKED_OPEN_TASKS_MESSAGE =
-  "No se puede finalizar la Obra mientras existan órdenes de trabajo abiertas."
+  "No se puede finalizar la Obra porque todavía hay OTs pendientes de ejecución."
 
 export function logOperationError(scope: string, error: unknown) {
   console.error(`[${scope}]`, error)

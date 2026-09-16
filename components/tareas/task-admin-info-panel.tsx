@@ -16,6 +16,7 @@ import { useProjects } from "@/components/obras/projects-provider"
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { TaskAdminMetricCard } from "@/components/tareas/task-admin-metric-card"
 import { TaskAdminOperationalChecklist } from "@/components/tareas/task-admin-operational-checklist"
+import { ProjectDesignTendidoOtTracesSection } from "@/components/obras/project-design-tendido-ot-traces-section"
 import { WorkOrderCambioDomicilioDetail } from "@/components/tareas/work-order-cambio-domicilio-detail"
 import { WorkOrderDualTechnologyDetail } from "@/components/tareas/work-order-technology-state-detail"
 import { isCambioDomicilioTask } from "@/lib/tasks/cambio-domicilio"
@@ -326,6 +327,8 @@ function TaskAdminInfoPanelContent({
           </CardContent>
         </Card>
       ) : null}
+
+      <ProjectDesignTendidoOtTracesSection task={liveTask} />
 
       <TaskAdminOperationalChecklist task={liveTask} />
     </div>

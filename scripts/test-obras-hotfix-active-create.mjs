@@ -25,8 +25,8 @@ function read(relPath) {
   return readFileSync(resolve(root, relPath), "utf8")
 }
 
-test("1. OT en Obra planned nace borrador", () => {
-  assert.equal(resolveProjectTaskCreateStatus("planned"), "borrador")
+test("1. OT en Obra planned nace programada", () => {
+  assert.equal(resolveProjectTaskCreateStatus("planned"), "programada")
   const result = validateObraTaskInsertIntegrity({
     task: {
       companyId: "co",
@@ -38,7 +38,7 @@ test("1. OT en Obra planned nace borrador", () => {
     crew: { id: "c1", companyId: "co", deletedAt: null },
   })
   assert.equal(result.ok, true)
-  if (result.ok) assert.equal(result.status, "borrador")
+  if (result.ok) assert.equal(result.status, "programada")
 })
 
 test("3. OT en Obra active nace programada (nunca asignada)", () => {

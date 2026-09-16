@@ -4,6 +4,7 @@ import Link from "next/link"
 import {
   ArrowLeft,
   CalendarDays,
+  Map,
   MapPin,
   MoreHorizontal,
   Pencil,
@@ -124,6 +125,17 @@ export function ProjectDetailOperationalHeader({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 lg:max-w-md lg:justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            asChild
+          >
+            <Link href={`/obras/${project.id}/diseno`}>
+              <Map className="size-4" />
+              Diseño de Obra
+            </Link>
+          </Button>
           <Button
             variant="outline"
             size="sm"

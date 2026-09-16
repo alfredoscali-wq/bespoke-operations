@@ -25,6 +25,8 @@ function mapRpcErrorMessage(message: string): { status: number; code: string } {
   if (
     normalized.includes("órdenes de trabajo abiertas") ||
     normalized.includes("ordenes de trabajo abiertas") ||
+    normalized.includes("ots pendientes") ||
+    normalized.includes("pendientes de ejecución") ||
     normalized.includes("activa o pausada")
   ) {
     return { status: 409, code: "VALIDATION" }

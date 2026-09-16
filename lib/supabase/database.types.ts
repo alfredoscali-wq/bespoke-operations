@@ -4742,6 +4742,330 @@ export type Database = {
           },
         ]
       }
+      project_design_elements: {
+        Row: {
+          color: string
+          company_id: string
+          created_at: string
+          display_order: number
+          icon: string
+          id: string
+          kind: string
+          latitude: number
+          longitude: number
+          name: string
+          notes: string
+          gain_m: number
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          company_id: string
+          created_at?: string
+          display_order?: number
+          icon?: string
+          id?: string
+          kind: string
+          latitude: number
+          longitude: number
+          name: string
+          notes?: string
+          gain_m?: number
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          company_id?: string
+          created_at?: string
+          display_order?: number
+          icon?: string
+          id?: string
+          kind?: string
+          latitude?: number
+          longitude?: number
+          name?: string
+          notes?: string
+          gain_m?: number
+          project_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_design_elements_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_design_elements_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_design_gains: {
+        Row: {
+          company_id: string
+          created_at: string
+          gain_m: number
+          id: string
+          latitude: number
+          longitude: number
+          observations: string | null
+          project_id: string
+          segment_id: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          gain_m: number
+          id?: string
+          latitude: number
+          longitude: number
+          observations?: string | null
+          project_id: string
+          segment_id: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          gain_m?: number
+          id?: string
+          latitude?: number
+          longitude?: number
+          observations?: string | null
+          project_id?: string
+          segment_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_design_gains_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_design_gains_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_design_gains_segment_id_fkey"
+            columns: ["segment_id"]
+            isOneToOne: false
+            referencedRelation: "project_design_segments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_design_ot_proposals: {
+        Row: {
+          company_id: string
+          created_at: string
+          crew_id: string | null
+          design_color: string | null
+          design_gain_m: number | null
+          design_icon: string | null
+          design_name: string | null
+          due_date: string | null
+          id: string
+          latitude: number | null
+          longitude: number | null
+          observations: string | null
+          operational_checklist_template: Json
+          priority: string | null
+          project_id: string
+          source_element_id: string
+          source_element_kind: string
+          start_date: string | null
+          status: string
+          task_id: string | null
+          title: string
+          updated_at: string
+          work_type: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          crew_id?: string | null
+          design_color?: string | null
+          design_gain_m?: number | null
+          design_icon?: string | null
+          design_name?: string | null
+          due_date?: string | null
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          observations?: string | null
+          operational_checklist_template?: Json
+          priority?: string | null
+          project_id: string
+          source_element_id: string
+          source_element_kind: string
+          start_date?: string | null
+          status?: string
+          task_id?: string | null
+          title: string
+          updated_at?: string
+          work_type: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          crew_id?: string | null
+          design_color?: string | null
+          design_gain_m?: number | null
+          design_icon?: string | null
+          design_name?: string | null
+          due_date?: string | null
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          observations?: string | null
+          operational_checklist_template?: Json
+          priority?: string | null
+          project_id?: string
+          source_element_id?: string
+          source_element_kind?: string
+          start_date?: string | null
+          status?: string
+          task_id?: string | null
+          title?: string
+          updated_at?: string
+          work_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_design_ot_proposals_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_design_ot_proposals_crew_id_fkey"
+            columns: ["crew_id"]
+            isOneToOne: false
+            referencedRelation: "crews"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_design_ot_proposals_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_design_ot_proposals_source_element_id_fkey"
+            columns: ["source_element_id"]
+            isOneToOne: false
+            referencedRelation: "project_design_elements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_design_ot_proposals_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_design_segments: {
+        Row: {
+          cable_reference: string
+          color: string
+          company_id: string
+          created_at: string
+          destination_element_id: string | null
+          display_order: number
+          geometry: Json
+          id: string
+          name: string
+          notes: string
+          origin_element_id: string | null
+          planned_length_m: number
+          project_id: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          cable_reference?: string
+          color?: string
+          company_id: string
+          created_at?: string
+          destination_element_id?: string | null
+          display_order?: number
+          geometry: Json
+          id?: string
+          name?: string
+          notes?: string
+          origin_element_id?: string | null
+          planned_length_m?: number
+          project_id: string
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          cable_reference?: string
+          color?: string
+          company_id?: string
+          created_at?: string
+          destination_element_id?: string | null
+          display_order?: number
+          geometry?: Json
+          id?: string
+          name?: string
+          notes?: string
+          origin_element_id?: string | null
+          planned_length_m?: number
+          project_id?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_design_segments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_design_segments_destination_element_id_fkey"
+            columns: ["destination_element_id"]
+            isOneToOne: false
+            referencedRelation: "project_design_elements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_design_segments_origin_element_id_fkey"
+            columns: ["origin_element_id"]
+            isOneToOne: false
+            referencedRelation: "project_design_elements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_design_segments_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_history: {
         Row: {
           company_id: string
@@ -5511,7 +5835,7 @@ export type Database = {
           deleted_at: string | null
           description: string
           dispatch_order: number | null
-          due_date: string
+          due_date: string | null
           estimated_duration: string
           execution_order: number | null
           id: string
@@ -5575,7 +5899,7 @@ export type Database = {
           deleted_at?: string | null
           description?: string
           dispatch_order?: number | null
-          due_date: string
+          due_date: string | null
           estimated_duration?: string
           execution_order?: number | null
           id?: string
@@ -5639,7 +5963,7 @@ export type Database = {
           deleted_at?: string | null
           description?: string
           dispatch_order?: number | null
-          due_date?: string
+          due_date?: string | null
           estimated_duration?: string
           execution_order?: number | null
           id?: string

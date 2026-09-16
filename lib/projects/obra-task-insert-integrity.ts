@@ -28,10 +28,9 @@ export type ObraTaskInsertIntegrityResult =
   | { ok: false; message: string }
 
 /**
- * Mirror of enforce_task_status_workflow INSERT rules after OBRAS OPS 2.0.
+ * Mirror of enforce_task_status_workflow INSERT rules after OTs de Obra V1.2.
  * Authoritative enforcement remains in DB:
- *   - planned Obra → borrador
- *   - active Obra → programada (universo Planificación)
+ *   - planned|active Obra → programada
  */
 export function validateObraTaskInsertIntegrity(input: {
   task: ObraTaskInsertCandidate
@@ -69,7 +68,7 @@ export function validateObraTaskInsertIntegrity(input: {
       }
     }
 
-    if (project.status === "active") {
+    if (project.status === "active" || project.status === "planned") {
       return { ok: true, status: "programada" }
     }
 
