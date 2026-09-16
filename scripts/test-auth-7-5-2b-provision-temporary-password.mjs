@@ -310,7 +310,8 @@ test("UI muestra el temporal one-shot y omite copy DNI como password", () => {
   assert.match(passwordDialog, /buildTemporaryPasswordDeliveryMessage/)
 })
 
-test("reset usa el helper de 7.5.2A", () => {
-  assert.match(resetService, /generateTemporaryPassword/)
+test("reset usa el DNI de RRHH, no el helper de 7.5.2A", () => {
+  assert.doesNotMatch(resetService, /generateTemporaryPassword/)
   assert.doesNotMatch(resetService, /password: normalizedDni/)
+  assert.match(resetService, /employee\.nationalId!\.trim\(\)/)
 })

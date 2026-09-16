@@ -3,7 +3,7 @@
  *
  * - Identificador de login (usuario): DNI (solo dígitos en Auth).
  * - Contraseña inicial en provisioning: generateTemporaryPassword() (Sprint 7.5.2B).
- * - Contraseña de reset: generateTemporaryPassword() (Sprint 7.5.2C).
+ * - Contraseña de reset: DNI del empleado (national_id de RRHH, recortado).
  * - Tras provisionar o restablecer: must_change_password = true.
  *
  * Portal web: PasswordChangeGuard obliga el cambio en el primer inicio.

@@ -81,7 +81,7 @@ test("9. helper no tiene side effects de DB/Auth/logging", () => {
   assert.doesNotMatch(helperSource, /NETWORK_/)
 })
 
-test("provisioning y reset usan el helper", () => {
+test("provisioning usa el helper; reset usa el DNI de RRHH", () => {
   const provision = readFileSync(
     resolve(root, "lib/auth/auth-provisioning-service.ts"),
     "utf8"
@@ -91,7 +91,8 @@ test("provisioning y reset usan el helper", () => {
     "utf8"
   )
   assert.match(provision, /generateTemporaryPassword/)
-  assert.match(reset, /generateTemporaryPassword/)
+  assert.doesNotMatch(reset, /generateTemporaryPassword/)
+  assert.match(reset, /employee\.nationalId!\.trim\(\)/)
   assert.doesNotMatch(provision, /password: input\.normalizedDni/)
   assert.doesNotMatch(reset, /password: normalizedDni/)
 })

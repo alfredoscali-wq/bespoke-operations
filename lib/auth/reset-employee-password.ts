@@ -6,7 +6,6 @@ import {
 } from "@/lib/auth/admin-employee-tenant"
 import { normalizeDni } from "@/lib/auth/auth-identity"
 import { resolveAuthUserById } from "@/lib/auth/auth-user-lookup"
-import { generateTemporaryPassword } from "@/lib/auth/temporary-password"
 import { createAdminClient } from "@/lib/supabase/admin"
 import {
   fetchEmployeeById,
@@ -49,8 +48,8 @@ function validateEmployeeForPasswordReset(
 }
 
 /**
- * Restablece la contraseña a un temporal CSPRNG y marca must_change_password.
- * El secreto se devuelve una sola vez; nunca se persiste ni se loguea.
+ * Restablece la contraseña al DNI de RRHH y marca must_change_password.
+ * El DNI se devuelve una sola vez como temporaryPassword; nunca se persiste ni se loguea.
  */
 export async function resetEmployeePassword(
   employeeId: string,
@@ -95,7 +94,7 @@ export async function resetEmployeePassword(
     }
   }
 
-  const temporaryPassword = generateTemporaryPassword()
+  const temporaryPassword = employee.nationalId!.trim()
 
   const { error: authError } = await admin.auth.admin.updateUserById(
     authUserId,

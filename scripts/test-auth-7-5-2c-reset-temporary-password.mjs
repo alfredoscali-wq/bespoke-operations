@@ -45,24 +45,27 @@ const resetAudit = sliceBetween(
   "export async function recordUserRoleChangeAudit"
 )
 
-test("1. same-tenant reset usa generateTemporaryPassword en updateUserById", () => {
-  assert.match(resetService, /from "@\/lib\/auth\/temporary-password"/)
-  assert.match(resetFn, /const temporaryPassword = generateTemporaryPassword\(\)/)
+test("1. same-tenant reset usa el DNI de RRHH en updateUserById", () => {
+  assert.doesNotMatch(resetService, /from "@\/lib\/auth\/temporary-password"/)
+  assert.match(
+    resetFn,
+    /const temporaryPassword = employee\.nationalId!\.trim\(\)/
+  )
   assert.match(
     resetFn,
     /updateUserById\(\s*authUserId,\s*\{\s*password: temporaryPassword/
   )
 })
 
-test("2. tenant gate ocurre antes de generate y de updateUserById", () => {
+test("2. tenant gate ocurre antes del DNI y de updateUserById", () => {
   const tenantIdx = resetFn.indexOf("resolveAdminEmployeeTenantAccess")
-  const generateIdx = resetFn.indexOf("generateTemporaryPassword")
+  const dniIdx = resetFn.indexOf("employee.nationalId!.trim()")
   const updateIdx = resetFn.indexOf("updateUserById")
   const resolveIdx = resetFn.indexOf("resolveAuthUserById")
   assert.ok(tenantIdx >= 0)
   assert.ok(tenantIdx < resolveIdx)
-  assert.ok(resolveIdx < generateIdx)
-  assert.ok(generateIdx < updateIdx)
+  assert.ok(resolveIdx < dniIdx)
+  assert.ok(dniIdx < updateIdx)
 })
 
 test("3. no session → 401", () => {
@@ -96,7 +99,7 @@ test("5. missing company → 403", () => {
   assert.match(companyBlock, /status: 403/)
 })
 
-test("6. cross-tenant → 404 sin generate ni Auth mutation", () => {
+test("6. cross-tenant → 404 sin DNI ni Auth mutation", () => {
   assert.match(resetFn, /resolveAdminEmployeeTenantAccess/)
   assert.match(resetFn, /ADMIN_EMPLOYEE_NOT_ACCESSIBLE_ERROR/)
   assert.match(resetRoute, /ADMIN_EMPLOYEE_NOT_ACCESSIBLE_STATUS/)
@@ -105,7 +108,7 @@ test("6. cross-tenant → 404 sin generate ni Auth mutation", () => {
     "if (!tenantAccess.ok || !employeeResult.data)",
     "validateEmployeeForPasswordReset"
   )
-  assert.doesNotMatch(deny, /generateTemporaryPassword/)
+  assert.doesNotMatch(deny, /nationalId!\.trim/)
   assert.doesNotMatch(deny, /updateUserById/)
 })
 
@@ -117,34 +120,34 @@ test("7. nonexistent → 404 sin mutation", () => {
   assert.match(resetRoute, /ADMIN_EMPLOYEE_NOT_ACCESSIBLE_STATUS/)
 })
 
-test("8. employee sin appUserId → 422 sin generate ni mutation", () => {
+test("8. employee sin appUserId → 422 sin DNI ni mutation", () => {
   const validateFn = sliceBetween(
     resetService,
     "function validateEmployeeForPasswordReset",
     "export async function resetEmployeePassword"
   )
   assert.match(validateFn, /if \(!employee\.appUserId\)/)
-  const generateIdx = resetFn.indexOf("generateTemporaryPassword")
+  const dniIdx = resetFn.indexOf("employee.nationalId!.trim()")
   const validateCallIdx = resetFn.indexOf("validateEmployeeForPasswordReset")
-  assert.ok(validateCallIdx < generateIdx)
+  assert.ok(validateCallIdx < dniIdx)
   assert.match(resetRoute, /: 422/)
 })
 
-test("9. Auth user inexistente → 422 sin generate ni mutation", () => {
+test("9. Auth user inexistente → 422 sin DNI ni mutation", () => {
   assert.match(resetFn, /resolveAuthUserById/)
   assert.match(resetFn, /reason === "lookup_error"/)
   assert.match(resetFn, /AUTH_NOT_FOUND_ERROR/)
   const authCheck = sliceBetween(
     resetFn,
     "const authUser = await resolveAuthUserById",
-    "generateTemporaryPassword"
+    "employee.nationalId!.trim()"
   )
   assert.match(authCheck, /if \(!authUser\.ok\)/)
   assert.match(authCheck, /success: false/)
   assert.doesNotMatch(authCheck, /updateUserById/)
 })
 
-test("10. Auth lookup error fail-closed → 422 sin generate ni mutation", () => {
+test("10. Auth lookup error fail-closed → 422 sin DNI ni mutation", () => {
   assert.match(resolveFn, /reason: "lookup_error"/)
   assert.match(resolveFn, /if \(error\)/)
   assert.doesNotMatch(
@@ -152,9 +155,9 @@ test("10. Auth lookup error fail-closed → 422 sin generate ni mutation", () =>
     /return \{ ok: true/
   )
   assert.match(resetFn, /AUTH_LOOKUP_ERROR/)
-  const generateIdx = resetFn.indexOf("generateTemporaryPassword")
+  const dniIdx = resetFn.indexOf("employee.nationalId!.trim()")
   const lookupReturnIdx = resetFn.indexOf("if (!authUser.ok)")
-  assert.ok(lookupReturnIdx < generateIdx)
+  assert.ok(lookupReturnIdx < dniIdx)
 })
 
 test("11. NO findAuthUserByDni fallback", () => {
@@ -166,10 +169,22 @@ test("12. NO createUser", () => {
   assert.doesNotMatch(resetRoute, /createUser/)
 })
 
-test("13. NO password normalizedDni en reset", () => {
+test("13. reset usa el DNI recortado de RRHH, no CSPRNG", () => {
+  assert.doesNotMatch(resetService, /generateTemporaryPassword/)
   assert.doesNotMatch(resetService, /password: normalizedDni/)
   assert.doesNotMatch(resetFn, /password: employee/)
+  assert.match(
+    resetFn,
+    /const temporaryPassword = employee\.nationalId!\.trim\(\)/
+  )
   assert.match(resetFn, /password: temporaryPassword/)
+  const validateFn = sliceBetween(
+    resetService,
+    "function validateEmployeeForPasswordReset",
+    "export async function resetEmployeePassword"
+  )
+  assert.match(validateFn, /nationalId\?\.trim\(\)/)
+  assert.match(validateFn, /normalizeDni\(nationalId\)/)
 })
 
 test("14. must_change_password=true", () => {
@@ -264,9 +279,10 @@ test("20. Contratistas no copy de password = DNI", () => {
   assert.match(policy, /resetPassword: "temporary"/)
 })
 
-test("21. Generator usado desde temporary-password.ts, sin duplicar", () => {
-  assert.match(resetService, /from "@\/lib\/auth\/temporary-password"/)
+test("21. reset no duplica el generador CSPRNG", () => {
+  assert.doesNotMatch(resetService, /from "@\/lib\/auth\/temporary-password"/)
   assert.doesNotMatch(resetService, /TEMPORARY_PASSWORD_ALPHABET/)
   assert.doesNotMatch(resetService, /randomBytes/)
+  assert.doesNotMatch(resetService, /generateTemporaryPassword/)
   assert.match(helper, /export function generateTemporaryPassword/)
 })
