@@ -19,7 +19,6 @@ import {
   resolvePresenceZoneState,
 } from "../lib/presence/presence-state.ts"
 import { calculatePresenceDistanceMeters } from "../lib/presence/geo.ts"
-import { TASK_START_MAX_DISTANCE_METERS } from "../lib/mobile/v1/tasks/geo-utils.ts"
 import { ACTIVITY_ACTIONS } from "../lib/activity-engine/activity-actions.ts"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -27,10 +26,6 @@ const root = join(__dirname, "..")
 
 test("Presence Engine: operational radius is centralized at 150m", () => {
   assert.equal(DEFAULT_OPERATIONAL_PRESENCE_RADIUS_METERS, 150)
-  assert.notEqual(
-    TASK_START_MAX_DISTANCE_METERS,
-    DEFAULT_OPERATIONAL_PRESENCE_RADIUS_METERS
-  )
   assert.ok(PRESENCE_EVENT_IDEMPOTENCY_WINDOW_MS < 10_000)
 })
 
@@ -226,6 +221,8 @@ test("Presence Engine: geo-utils documents separation from presence radius", () 
     "utf8"
   )
   assert.match(geo, /Presence Engine/)
-  assert.match(geo, /TASK_START_MAX_DISTANCE_METERS = 50/)
-  assert.doesNotMatch(geo, /= 150/)
+  assert.match(geo, /DEFAULT_OPERATIONAL_PRESENCE_RADIUS_METERS/)
+  assert.doesNotMatch(geo, /TASK_START_MAX_DISTANCE_METERS/)
+  assert.doesNotMatch(geo, /TASK_START_DISTANCE_ENFORCEMENT/)
+  assert.doesNotMatch(geo, /company_mobile_settings/)
 })

@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/card"
 import { canAccessIspBilling } from "@/lib/isp/permissions"
 import { canManageCompanyBranding } from "@/lib/company-branding/access"
+import { canManageCompanyGpsSettings } from "@/lib/company-gps-settings/access"
 import {
   canAccessSettingsConfigWebModule,
   canManageCompanyAreasWeb,
@@ -71,6 +72,7 @@ export function ConfigurationHubPanel() {
   const canAccessAreas = canManageCompanyAreasWeb(sessionUser)
   const canAccessBillingConfig = canAccessIspBilling(sessionUser)
   const canAccessCompanyBranding = canManageCompanyBranding(sessionUser)
+  const canAccessGpsSettings = canManageCompanyGpsSettings(sessionUser)
 
   const categories: ConfigCategory[] = [
     {
@@ -119,6 +121,16 @@ export function ConfigurationHubPanel() {
                 description:
                   "Tipos de actividad territorial (publicidad, visitas, relevamientos).",
                 href: "/configuracion/actividad-comercial",
+              },
+            ]
+          : []),
+        ...(canAccessGpsSettings
+          ? [
+              {
+                title: "Geolocalización",
+                description:
+                  "Validación GPS y radios permitidos al iniciar jornada y OT.",
+                href: "/configuracion/geolocalizacion",
               },
             ]
           : []),

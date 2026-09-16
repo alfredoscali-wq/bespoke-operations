@@ -25,7 +25,6 @@ import {
 import {
   calculateDistanceMeters,
   isWithinTaskStartRadius,
-  TASK_START_MAX_DISTANCE_METERS,
 } from "../lib/mobile/v1/tasks/geo-utils.ts"
 import { isFieldAgentAgendaTaskVisible } from "../lib/mobile/v1/agenda/agenda-task-visibility.ts"
 
@@ -309,19 +308,18 @@ test("17. Obra active histórica recibe GPS → tarea existente lo utiliza inmed
   assert.equal(after?.latitude, LAT)
 })
 
-test("18. operario dentro de 50 m → inicio permitido", () => {
-  assert.equal(TASK_START_MAX_DISTANCE_METERS, 50)
+test("18. operario dentro del radio explícito → inicio permitido", () => {
   assert.equal(
-    isWithinTaskStartRadius(LAT, LNG, LAT, LNG),
+    isWithinTaskStartRadius(LAT, LNG, LAT, LNG, 50),
     true
   )
 })
 
-test("19. operario fuera de 50 m → rechazo existente", () => {
+test("19. operario fuera del radio explícito → rechazo", () => {
   const farLat = LAT + 0.01
   const distance = calculateDistanceMeters(farLat, LNG, LAT, LNG)
   assert.ok(distance > 50)
-  assert.equal(isWithinTaskStartRadius(farLat, LNG, LAT, LNG), false)
+  assert.equal(isWithinTaskStartRadius(farLat, LNG, LAT, LNG, 50), false)
 })
 
 test("20. sin GPS de OT ni Obra → TASK_LOCATION_REQUIRED message", () => {

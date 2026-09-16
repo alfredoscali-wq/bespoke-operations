@@ -336,6 +336,6 @@ test("fuente de configuración y referencia; no usa OT ni presence", () => {
   assert.doesNotMatch(loader, /getOperationalPresenceRadiusMeters/)
   assert.doesNotMatch(taskStart, /company_mobile_settings/)
   assert.doesNotMatch(presenceRadius, /company_mobile_settings/)
-  assert.match(geoUtils, /TASK_START_MAX_DISTANCE_METERS = 50/)
-  assert.match(geoUtils, /TASK_START_DISTANCE_ENFORCEMENT_ENABLED = false/)
+  assert.doesNotMatch(geoUtils, /TASK_START_MAX_DISTANCE_METERS/)
+  assert.doesNotMatch(geoUtils, /TASK_START_DISTANCE_ENFORCEMENT/)
 })

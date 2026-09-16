@@ -15,7 +15,6 @@ import {
   readTrabajoRealizadoFromMetadata,
   validateTrabajoRealizado,
 } from "../lib/tasks/trabajo-realizado.ts"
-import { TASK_START_DISTANCE_ENFORCEMENT_ENABLED } from "../lib/mobile/v1/tasks/geo-utils.ts"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -87,16 +86,25 @@ test("trabajo realizado es obligatorio y se guarda en metadata", () => {
   assert.equal(readTrabajoRealizadoFromMetadata(metadata), "Se cambió acometida.")
 })
 
-test("GPS distance enforcement queda desactivado sin eliminar la lógica", () => {
-  assert.equal(TASK_START_DISTANCE_ENFORCEMENT_ENABLED, false)
-
+test("GPS de inicio de OT usa company_mobile_settings, no un kill-switch global", () => {
   const startService = readFileSync(
     join(__dirname, "../lib/mobile/v1/tasks/task-start-service.ts"),
+    "utf8"
+  )
+  const geoUtils = readFileSync(
+    join(__dirname, "../lib/mobile/v1/tasks/geo-utils.ts"),
     "utf8"
   )
   assert.match(startService, /evaluateTaskStartDistancePolicy/)
   assert.match(startService, /distancePolicy\.shouldBlock/)
   assert.match(startService, /TASK_LOCATION_OUT_OF_RANGE/)
+  assert.match(
+    startService,
+    /enforcementEnabled: settings\.taskLocationValidationEnabled/
+  )
+  assert.match(startService, /maxDistanceMeters: settings\.taskRadiusMeters/)
+  assert.doesNotMatch(geoUtils, /TASK_START_DISTANCE_ENFORCEMENT/)
+  assert.doesNotMatch(geoUtils, /TASK_START_MAX_DISTANCE_METERS/)
 })
 
 test("config de checklist y submit mobile usan tecnología / trabajo realizado", () => {

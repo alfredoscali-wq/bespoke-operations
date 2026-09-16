@@ -1,73 +1,9 @@
 /**
- * Max distance to allow starting an OT (address proximity).
- * Distinct from Presence Engine operational geofence radius —
- * see `DEFAULT_OPERATIONAL_PRESENCE_RADIUS_METERS` in `lib/presence`.
- * Do not reuse this constant for presence ENTER/EXIT validation.
- */
-export const TASK_START_MAX_DISTANCE_METERS = 50
-
-/**
- * Env kill-switch for GPS distance enforcement on mobile task start.
- * Default: disabled (allow start regardless of distance).
- * Re-enable later with: TASK_START_DISTANCE_ENFORCEMENT_ENABLED=true
- *
- * Location capture / distance logging remain active either way.
- */
-export const TASK_START_DISTANCE_ENFORCEMENT_ENV =
-  "TASK_START_DISTANCE_ENFORCEMENT_ENABLED"
-
-export function isTaskStartDistanceEnforcementEnabled(
-  env: NodeJS.ProcessEnv | Record<string, string | undefined> = process.env
-): boolean {
-  const raw = env[TASK_START_DISTANCE_ENFORCEMENT_ENV]
-  if (raw == null || String(raw).trim() === "") {
-    return false
-  }
-
-  const normalized = String(raw).trim().toLowerCase()
-  return normalized === "true" || normalized === "1" || normalized === "yes"
-}
-
-/**
- * @deprecated Prefer isTaskStartDistanceEnforcementEnabled().
- * Kept as a documented default for tests/docs; runtime gate uses the env helper.
- */
-export const TASK_START_DISTANCE_ENFORCEMENT_ENABLED = false
-
-/**
- * Safe runtime snapshot for ops diagnostics (no raw env contents / secrets).
- * Effective enforcement comes from process.env via dynamic key lookup — NOT from
- * the deprecated boolean constant above.
- */
-export type TaskStartDistanceEnforcementRuntimeSnapshot = {
-  envKey: typeof TASK_START_DISTANCE_ENFORCEMENT_ENV
-  /** True when the env key exists and is non-blank after trim. */
-  envPresent: boolean
-  /** True when the env value is one of: true | 1 | yes (case-insensitive). */
-  envTruthy: boolean
-  /** Documented compile-time default constant (not used by the gate). */
-  constantDefaultEnabled: boolean
-  /** Value actually used by evaluateTaskStartDistancePolicy(). */
-  effectiveEnabled: boolean
-}
-
-export function getTaskStartDistanceEnforcementRuntimeSnapshot(
-  env: NodeJS.ProcessEnv | Record<string, string | undefined> = process.env
-): TaskStartDistanceEnforcementRuntimeSnapshot {
-  const raw = env[TASK_START_DISTANCE_ENFORCEMENT_ENV]
-  const envPresent = !(raw == null || String(raw).trim() === "")
-  const envTruthy = isTaskStartDistanceEnforcementEnabled(env)
-
-  return {
-    envKey: TASK_START_DISTANCE_ENFORCEMENT_ENV,
-    envPresent,
-    envTruthy,
-    constantDefaultEnabled: TASK_START_DISTANCE_ENFORCEMENT_ENABLED,
-    effectiveEnabled: envTruthy,
-  }
-}
-/**
  * Great-circle distance between two WGS84 coordinates, in meters.
+ * OT start radius comes from the authenticated tenant (`taskRadiusMeters`).
+ * Never from a global constant or env. Distinct from Presence Engine
+ * operational geofence radius — see `DEFAULT_OPERATIONAL_PRESENCE_RADIUS_METERS`
+ * in `lib/presence`. Do not reuse this helper for presence ENTER/EXIT validation.
  */
 export function calculateDistanceMeters(
   fromLatitude: number,
@@ -100,7 +36,7 @@ export function isWithinTaskStartRadius(
   operatorLongitude: number,
   taskLatitude: number,
   taskLongitude: number,
-  maxDistanceMeters: number = TASK_START_MAX_DISTANCE_METERS
+  maxDistanceMeters: number
 ): boolean {
   return (
     calculateDistanceMeters(
@@ -123,21 +59,17 @@ export type TaskStartDistancePolicyResult = {
 /**
  * Evaluates GPS distance for task start without mutating state.
  * Always computes distance (for logging / task_execution_starts).
- * Only blocks when enforcement is enabled AND outside radius.
+ * Only blocks when tenant enforcement is enabled AND outside the tenant radius.
+ * Caller must pass tenant GPS settings — no env / global fallback.
  */
 export function evaluateTaskStartDistancePolicy(input: {
   operatorLatitude: number
   operatorLongitude: number
   targetLatitude: number
   targetLongitude: number
-  enforcementEnabled?: boolean
-  maxDistanceMeters?: number
+  enforcementEnabled: boolean
+  maxDistanceMeters: number
 }): TaskStartDistancePolicyResult {
-  const maxDistanceMeters =
-    input.maxDistanceMeters ?? TASK_START_MAX_DISTANCE_METERS
-  const enforcementEnabled =
-    input.enforcementEnabled ?? isTaskStartDistanceEnforcementEnabled()
-
   const distanceToClientMeters = calculateDistanceMeters(
     input.operatorLatitude,
     input.operatorLongitude,
@@ -145,13 +77,13 @@ export function evaluateTaskStartDistancePolicy(input: {
     input.targetLongitude
   )
 
-  const withinRadius = distanceToClientMeters <= maxDistanceMeters
-  const shouldBlock = enforcementEnabled && !withinRadius
+  const withinRadius = distanceToClientMeters <= input.maxDistanceMeters
+  const shouldBlock = input.enforcementEnabled && !withinRadius
 
   return {
     distanceToClientMeters,
     withinRadius,
-    enforcementEnabled,
+    enforcementEnabled: input.enforcementEnabled,
     shouldBlock,
     message: shouldBlock
       ? `Se encuentra a ${Math.round(distanceToClientMeters)} metros del domicilio del cliente.`

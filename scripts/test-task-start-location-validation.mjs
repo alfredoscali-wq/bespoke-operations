@@ -11,8 +11,6 @@ import { MobileApiError } from "../lib/mobile/v1/errors.ts"
 import {
   calculateDistanceMeters,
   evaluateTaskStartDistancePolicy,
-  TASK_START_DISTANCE_ENFORCEMENT_ENABLED,
-  TASK_START_MAX_DISTANCE_METERS,
 } from "../lib/mobile/v1/tasks/geo-utils.ts"
 import {
   DEFAULT_TASK_LOCATION_VALIDATION_ENABLED,
@@ -368,9 +366,9 @@ test("O. empresa con configuración explícita no usa el kill-switch global", ()
   assert.doesNotMatch(startService, /getTaskStartDistanceEnforcementRuntimeSnapshot/)
   assert.doesNotMatch(startService, /TASK_START_DISTANCE_ENFORCEMENT/)
   assert.doesNotMatch(startService, /TASK_START_MAX_DISTANCE_METERS/)
-  assert.equal(TASK_START_DISTANCE_ENFORCEMENT_ENABLED, false)
-  assert.equal(TASK_START_MAX_DISTANCE_METERS, 50)
-  assert.match(geoUtils, /TASK_START_MAX_DISTANCE_METERS = 50/)
+  assert.doesNotMatch(geoUtils, /TASK_START_MAX_DISTANCE_METERS/)
+  assert.doesNotMatch(geoUtils, /TASK_START_DISTANCE_ENFORCEMENT/)
+  assert.doesNotMatch(geoUtils, /process\.env/)
 })
 
 test("jornada, heartbeat y modelo de Obras no se tocan en este sprint", () => {

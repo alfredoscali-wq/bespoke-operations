@@ -87,6 +87,7 @@
     "test:companies-mobile-code": "npx tsx --test scripts/test-companies-mobile-code.mjs",
     "test:mobile-bootstrap": "npx tsx --test scripts/test-mobile-bootstrap.mjs",
     "test:company-mobile-settings": "npx tsx --test scripts/test-company-mobile-settings.mjs",
+    "test:company-gps-settings": "npx tsx --test scripts/test-company-gps-settings.mjs",
     "test:shift-start-location-validation": "npx tsx --test scripts/test-shift-start-location-validation.mjs",
     "test:auth-7-7-employees-authorization": "npx tsx --test scripts/test-auth-7-7-employees-authorization.mjs",
     "test:security-h1-permanent-delete": "npx tsx --test scripts/test-security-h1-permanent-delete.mjs",
