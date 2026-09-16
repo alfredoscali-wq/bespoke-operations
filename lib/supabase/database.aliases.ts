@@ -7,6 +7,12 @@ import type { Database } from "@/lib/supabase/database.types"
 export type CompanyRow = Database["public"]["Tables"]["companies"]["Row"]
 export type CompanyInsert = Database["public"]["Tables"]["companies"]["Insert"]
 export type CompanyUpdate = Database["public"]["Tables"]["companies"]["Update"]
+export type CompanyBrandingRow =
+  Database["public"]["Tables"]["company_branding"]["Row"]
+export type CompanyBrandingInsert =
+  Database["public"]["Tables"]["company_branding"]["Insert"]
+export type CompanyBrandingUpdate =
+  Database["public"]["Tables"]["company_branding"]["Update"]
 export type ContractorRow = Database["public"]["Tables"]["contractors"]["Row"]
 export type ContractorInsert =
   Database["public"]["Tables"]["contractors"]["Insert"]

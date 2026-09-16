@@ -427,6 +427,17 @@ export const settingsNavItem: NavItem = {
   moduleColor: "system",
 }
 
+export const companyBrandingNavItem: NavItem = {
+  title: "Identidad de empresa",
+  href: "/configuracion/identidad",
+  icon: Settings,
+  pageTitle: "Identidad de empresa",
+  description:
+    "Logo y colores del tenant para Operations autenticado y Bespoke Mobile.",
+  moduleColor: "system",
+  parentHref: "/configuracion",
+}
+
 export const workOrderTypesNavItem: NavItem = {
   title: "Tipos de OT",
   href: "/configuracion/tipos-ot",
@@ -530,6 +541,7 @@ export const analysisNavItems: NavItem[] = [
 
 export const systemNavItems: NavItem[] = [
   settingsNavItem,
+  companyBrandingNavItem,
   facturacionConfigNavItem,
   historyNavItem,
   usersNavItem,

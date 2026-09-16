@@ -193,6 +193,7 @@
     "test:project-design-ot-proposals": "npx tsx --test scripts/test-project-design-ot-proposals.mjs",
     "test:project-design-tendido": "npx tsx --test scripts/test-project-design-tendido.mjs",
     "test:project-design-trace-detail": "npx tsx --test scripts/test-project-design-trace-detail.mjs",
+    "test:company-branding": "npx tsx --test scripts/test-company-branding.mjs",
     "test:tesoreria-2-1-payment-method": "npx tsx --test scripts/test-tesoreria-2-1-payment-method.mjs",
     "test:tesoreria-2-2-payment-method-kpis": "npx tsx --test scripts/test-tesoreria-2-2-payment-method-kpis.mjs",
     "test:tesoreria-3-0-period-kpis": "npx tsx --test scripts/test-tesoreria-3-0-period-kpis.mjs",

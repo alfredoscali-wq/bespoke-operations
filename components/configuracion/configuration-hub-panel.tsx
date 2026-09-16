@@ -13,6 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { canAccessIspBilling } from "@/lib/isp/permissions"
+import { canManageCompanyBranding } from "@/lib/company-branding/access"
 import {
   canAccessSettingsConfigWebModule,
   canManageCompanyAreasWeb,
@@ -69,6 +70,7 @@ export function ConfigurationHubPanel() {
   const canAccessIncidentTypes = canAccessSettingsConfigWebModule(sessionUser)
   const canAccessAreas = canManageCompanyAreasWeb(sessionUser)
   const canAccessBillingConfig = canAccessIspBilling(sessionUser)
+  const canAccessCompanyBranding = canManageCompanyBranding(sessionUser)
 
   const categories: ConfigCategory[] = [
     {
@@ -127,6 +129,16 @@ export function ConfigurationHubPanel() {
       label: "Empresa",
       icon: Building2,
       items: [
+        ...(canAccessCompanyBranding
+          ? [
+              {
+                title: "Identidad de empresa",
+                description:
+                  "Logo y colores del tenant para Operations y Bespoke Mobile.",
+                href: "/configuracion/identidad",
+              },
+            ]
+          : []),
         ...(canAccessBillingConfig
           ? [
               {
@@ -147,12 +159,6 @@ export function ConfigurationHubPanel() {
               },
             ]
           : []),
-        {
-          title: "Datos de la Empresa",
-          description:
-            "Información corporativa, branding y parámetros generales de la organización.",
-          comingSoon: true,
-        },
       ],
     },
     {

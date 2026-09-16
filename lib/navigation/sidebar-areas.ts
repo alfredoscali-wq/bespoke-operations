@@ -120,6 +120,7 @@ const AREA_ITEM_HREFS: Record<SidebarAreaId, readonly string[]> = {
   rrhh: ["/rrhh", "/novedades", "/operations/availability"],
   system: [
     "/configuracion",
+    "/configuracion/identidad",
     "/configuracion/facturacion",
     "/usuarios",
     "/dispositivos",
@@ -154,6 +155,7 @@ const PATH_AREA_PREFIXES: Array<{ prefix: string; area: SidebarAreaId }> = [
   { prefix: "/evidencias", area: "field" },
   { prefix: "/reportes", area: "analysis" },
   { prefix: "/tesoreria", area: "administration" },
+  { prefix: "/configuracion/identidad", area: "system" },
   { prefix: "/configuracion/facturacion", area: "system" },
   { prefix: "/facturacion/configuracion", area: "system" },
   { prefix: "/facturacion", area: "administration" },

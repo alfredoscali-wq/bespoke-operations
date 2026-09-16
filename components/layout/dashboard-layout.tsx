@@ -1,5 +1,6 @@
 "use client"
 
+import type { CSSProperties } from "react"
 import { usePathname } from "next/navigation"
 
 import { ModuleAccessGuard } from "@/components/auth/module-access-guard"
@@ -17,10 +18,12 @@ function DashboardLayoutContent({
   children,
   logoSrc,
   logoAlt,
+  brandingStyle,
 }: {
   children: React.ReactNode
   logoSrc?: string
   logoAlt?: string
+  brandingStyle?: CSSProperties
 }) {
   const pathname = usePathname()
   const { profile } = useOperationalProfile()
@@ -32,12 +35,12 @@ function DashboardLayoutContent({
   )
 
   return (
-    <>
+    <div style={brandingStyle}>
       <ProfileHomeRedirect />
       <AppShell title={title} subtitle={subtitle} logoSrc={logoSrc} logoAlt={logoAlt}>
         <ModuleAccessGuard>{children}</ModuleAccessGuard>
       </AppShell>
-    </>
+    </div>
   )
 }
 
@@ -45,15 +48,21 @@ export function DashboardLayout({
   children,
   logoSrc,
   logoAlt,
+  brandingStyle,
 }: {
   children: React.ReactNode
   logoSrc?: string
   logoAlt?: string
+  brandingStyle?: CSSProperties
 }) {
   return (
     <OperationalProfileProvider>
       <AnalysisQueryProvider>
-        <DashboardLayoutContent logoSrc={logoSrc} logoAlt={logoAlt}>
+        <DashboardLayoutContent
+          logoSrc={logoSrc}
+          logoAlt={logoAlt}
+          brandingStyle={brandingStyle}
+        >
           {children}
         </DashboardLayoutContent>
       </AnalysisQueryProvider>

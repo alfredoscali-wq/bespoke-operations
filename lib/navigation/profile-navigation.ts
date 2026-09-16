@@ -39,6 +39,7 @@ import {
   rrhhDashboardNavItem,
   rrhhNavItems,
   settingsNavItem,
+  companyBrandingNavItem,
   usersNavItem,
   workOrderTypesNavItem,
   workOrdersNavItem,
@@ -87,6 +88,7 @@ const PROFILE_NAV_BUILDERS: Record<
       label: "Sistema",
       items: [
         settingsNavItem,
+        companyBrandingNavItem,
         facturacionConfigNavItem,
         historyNavItem,
         usersNavItem,

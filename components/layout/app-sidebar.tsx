@@ -309,6 +309,9 @@ export function AppSidebar({
           "relative flex shrink-0 items-center px-3",
           compact ? "h-[4.75rem] justify-center py-2" : "gap-2 py-3"
         )}
+        style={{
+          borderBottom: "2px solid var(--tenant-accent, transparent)",
+        }}
       >
         <SidebarBrand
           compact={compact}
