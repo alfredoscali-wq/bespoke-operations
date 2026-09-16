@@ -21,7 +21,7 @@ export async function bootstrapMobileCompany(
   const admin = createAdminClient()
   const { data, error } = await admin
     .from("companies")
-    .select("id, name")
+    .select("id, name, display_name")
     .eq("mobile_code", companyCode)
     .is("deleted_at", null)
     .maybeSingle()
@@ -72,9 +72,12 @@ export async function bootstrapMobileCompany(
     )
   }
 
+  const companyName =
+    data.display_name?.trim() || data.name?.trim() || "Bespoke"
+
   return mapMobileBootstrapResponse({
     companyId: data.id,
-    companyName: data.name,
+    companyName,
     branding: branding ?? null,
     operations: operations ?? null,
   })
