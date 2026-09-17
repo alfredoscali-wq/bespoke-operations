@@ -232,9 +232,11 @@ Public. Resolves a company **before** login from `companies.mobile_code` only.
 }
 ```
 
+`companyName` uses the trimmed `companies.display_name` when configured. If it is null or blank, it falls back to the trimmed internal `companies.name`, and finally to `"Bespoke"` when both are blank.
+
 `branding` is always present. Unconfigured companies return `null` for `logoUrl`, `primaryColor`, and `secondaryColor`. Bootstrap does not invent host/env or billing defaults. The app may fall back to generic Bespoke chrome.
 
-`operations` is always present. If `company_mobile_settings` has no row, bootstrap returns the sprint defaults in memory and does **not** insert a row. These values are configuration for Mobile; they do not yet govern jornada or OT GPS runtime.
+`operations` is always present. If `company_mobile_settings` has no row, bootstrap returns the sprint defaults in memory and does **not** insert a row. `shift*` and `task*` govern jornada/OT GPS start validation when enabled. `gpsHeartbeatEnabled` (default `true`) and `gpsHeartbeatIntervalSeconds` (default `60`, allowed range **30–120**) govern GPS Live heartbeats during an ACTIVE shift. Mobile must honor the interval; the backend also rejects excessively frequent pings. See `POST /api/mobile/v1/gps/heartbeat`.
 
 Lookup uses `companies.mobile_code` only, then `company_branding` and `company_mobile_settings` for that `company_id`. Soft-deleted companies (`deleted_at` set) return 404 and never expose branding or operations.
 
@@ -445,6 +447,81 @@ If Auth accepts the password but the employee row cannot be updated, the API ret
 
 ---
 
+## GPS Live heartbeat
+
+`POST /api/mobile/v1/gps/heartbeat`
+
+Protected. Bearer session required.
+
+Stores **only the last GPS position of the crew** bound to the device. One row per `company_id + work_team_id` (`UPSERT`). No history. No employee tracking. Not Presence.
+
+### Request
+
+```json
+{
+  "deviceId": "android-device-id",
+  "latitude": -31.4201,
+  "longitude": -64.1888,
+  "accuracyMeters": 12.5,
+  "timestamp": "2026-09-16T22:15:30.000Z"
+}
+```
+
+| Field | Required | Notes |
+|-------|----------|-------|
+| `deviceId` | Yes | Must match an `ACTIVE` `mobile_devices` row for the session company |
+| `latitude` | Yes | Finite number, −90 to 90 |
+| `longitude` | Yes | Finite number, −180 to 180 |
+| `accuracyMeters` | No | If present: finite number, 0 to 10000 |
+| `timestamp` | Yes | ISO-8601 device GPS time. Rejected if more than 2 minutes in the future or 24 hours in the past |
+
+`companyId` and `workTeamId` in the body are **ignored**. The backend derives:
+
+1. Authenticated user → `company_id`
+2. `deviceId` → `mobile_devices` row in that company
+3. Device → bound `work_team_id` (crew)
+4. Crew → ACTIVE `work_team_shifts` row
+
+### Success — `200`
+
+```json
+{
+  "success": true,
+  "apiVersion": "v1",
+  "requestId": "550e8400-e29b-41d4-a716-446655440000",
+  "serverTime": "2026-09-16T22:15:31Z",
+  "data": {
+    "accepted": true,
+    "workTeamId": "crew-uuid",
+    "latitude": -31.4201,
+    "longitude": -64.1888,
+    "accuracyMeters": 12.5,
+    "capturedAt": "2026-09-16T22:15:30.000Z",
+    "receivedAt": "2026-09-16T22:15:31.000Z"
+  }
+}
+```
+
+`receivedAt` is server time.
+
+### Errors
+
+| Status | Code | When |
+|--------|------|------|
+| 400 | `INVALID_REQUEST` | Invalid JSON, coords, accuracy, or timestamp |
+| 401 | `UNAUTHORIZED` | Missing/invalid session |
+| 403 | `DEVICE_BLOCKED` | Device not `ACTIVE` |
+| 404 | `DEVICE_NOT_FOUND` | Unknown device for this company |
+| 409 | `WORK_TEAM_NOT_ASSIGNED` | Device is not bound to a crew |
+| 409 | `SHIFT_NOT_ACTIVE` | No ACTIVE shift for that crew — position is **not** updated |
+| 409 | `GPS_HEARTBEAT_DISABLED` | `gps_heartbeat_enabled` is false — position is **not** updated |
+| 429 | `GPS_HEARTBEAT_TOO_FREQUENT` | Ping faster than the 20 s server floor (30 s tenant intervals still succeed) |
+| 405 | `INVALID_REQUEST` | Method not allowed |
+
+Mobile is responsible for sending at `gpsHeartbeatIntervalSeconds`. The backend does not schedule heartbeats and does not use cron.
+
+---
+
 ## Planned endpoints
 
 | Area | Path prefix | Sprint |
@@ -453,7 +530,7 @@ If Auth accepts the password but the employee row cannot be updated, the API ret
 | Device registration | `/api/mobile/v1/device/` | TBD |
 | Workday download | `/api/mobile/v1/workday/` | TBD |
 | Tasks | `/api/mobile/v1/tasks/` | TBD |
-| GPS batches | `/api/mobile/v1/gps/` | TBD |
+| GPS history batches | `/api/mobile/v1/gps/` (except `/gps/heartbeat`) | TBD |
 | Evidence | `/api/mobile/v1/evidence/` | TBD |
 
 ---

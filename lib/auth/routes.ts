@@ -112,7 +112,9 @@ export function isDemoRestrictedAdminPath(pathname: string): boolean {
 export function isPlanificacionOperativaPath(pathname: string): boolean {
   return (
     pathname === "/operations/planificacion" ||
-    pathname.startsWith("/operations/planificacion/")
+    pathname.startsWith("/operations/planificacion/") ||
+    pathname === "/operations/mapa" ||
+    pathname.startsWith("/operations/mapa/")
   )
 }
 

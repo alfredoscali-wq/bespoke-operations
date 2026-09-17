@@ -1070,6 +1070,70 @@ export type Database = {
           },
         ]
       }
+      company_work_team_locations: {
+        Row: {
+          accuracy_meters: number | null
+          captured_at: string
+          company_id: string
+          created_at: string
+          device_id: string
+          id: string
+          latitude: number
+          longitude: number
+          received_at: string
+          updated_at: string
+          work_team_id: string
+        }
+        Insert: {
+          accuracy_meters?: number | null
+          captured_at: string
+          company_id: string
+          created_at?: string
+          device_id: string
+          id?: string
+          latitude: number
+          longitude: number
+          received_at?: string
+          updated_at?: string
+          work_team_id: string
+        }
+        Update: {
+          accuracy_meters?: number | null
+          captured_at?: string
+          company_id?: string
+          created_at?: string
+          device_id?: string
+          id?: string
+          latitude?: number
+          longitude?: number
+          received_at?: string
+          updated_at?: string
+          work_team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_work_team_locations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_work_team_locations_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "mobile_devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_work_team_locations_work_team_id_fkey"
+            columns: ["work_team_id"]
+            isOneToOne: false
+            referencedRelation: "crews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contractors: {
         Row: {
           company_id: string

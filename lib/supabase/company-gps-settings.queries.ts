@@ -9,7 +9,7 @@ import type { Database } from "@/lib/supabase/database.types"
 type GpsSettingsClient = SupabaseClient<Database>
 
 const GPS_SETTINGS_SELECT =
-  "shift_location_validation_enabled, shift_radius_meters, task_location_validation_enabled, task_radius_meters"
+  "shift_location_validation_enabled, shift_radius_meters, task_location_validation_enabled, task_radius_meters, gps_heartbeat_enabled, gps_heartbeat_interval_seconds"
 
 export async function fetchCompanyGpsSettings(
   client: GpsSettingsClient,
@@ -42,6 +42,8 @@ export async function upsertCompanyGpsSettings(
         shift_radius_meters: settings.shiftRadiusMeters,
         task_location_validation_enabled: settings.taskLocationValidationEnabled,
         task_radius_meters: settings.taskRadiusMeters,
+        gps_heartbeat_enabled: settings.gpsHeartbeatEnabled,
+        gps_heartbeat_interval_seconds: settings.gpsHeartbeatIntervalSeconds,
       },
       { onConflict: "company_id" }
     )

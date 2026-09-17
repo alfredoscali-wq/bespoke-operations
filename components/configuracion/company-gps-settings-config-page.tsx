@@ -287,6 +287,64 @@ export function CompanyGpsSettingsConfigPage() {
             </CardContent>
           </Card>
 
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">GPS en vivo</CardTitle>
+              <CardDescription>
+                Frecuencia con la que Mobile envía la última posición de la
+                cuadrilla durante una jornada activa. Intervalo permitido: 30 a
+                120 segundos.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <Label htmlFor="gps-heartbeat-toggle">
+                  Enviar ubicación periódica
+                </Label>
+                <GpsToggle
+                  id="gps-heartbeat-toggle"
+                  checked={settings.gpsHeartbeatEnabled}
+                  onCheckedChange={(value) =>
+                    setSettings((current) => ({
+                      ...current,
+                      gpsHeartbeatEnabled: value,
+                    }))
+                  }
+                  label="Enviar ubicación periódica"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="gps-heartbeat-interval">
+                  Intervalo de actualización
+                </Label>
+                <div className="flex max-w-xs items-center gap-2">
+                  <Input
+                    id="gps-heartbeat-interval"
+                    type="number"
+                    min={30}
+                    max={120}
+                    step={1}
+                    disabled={!settings.gpsHeartbeatEnabled}
+                    value={settings.gpsHeartbeatIntervalSeconds}
+                    onChange={(event) => {
+                      const next = Number.parseInt(event.target.value, 10)
+                      setSettings((current) => ({
+                        ...current,
+                        gpsHeartbeatIntervalSeconds: Number.isFinite(next)
+                          ? next
+                          : current.gpsHeartbeatIntervalSeconds,
+                      }))
+                    }}
+                  />
+                  <span className="text-sm text-muted-foreground">s</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {settings.gpsHeartbeatIntervalSeconds} s
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
           <div>
             <Button type="submit" disabled={isSaving}>
               {isSaving ? "Guardando…" : "Guardar"}

@@ -69,6 +69,17 @@ export const planificacionNavItem: NavItem = {
   moduleColor: "ops",
 }
 
+export const liveMapNavItem: NavItem = {
+  title: "Mapa Operativo",
+  href: "/operations/mapa",
+  icon: Radar,
+  pageTitle: "Mapa Operativo",
+  description:
+    "Última posición GPS de cuadrillas con jornada activa.",
+  moduleColor: "ops",
+  parentHref: "/operations/planificacion",
+}
+
 export const calendarNavItem: NavItem = {
   title: "Calendario Operativo",
   href: "/operations/calendar",
@@ -510,6 +521,7 @@ export const newsNavItem: NavItem = {
 export const coreOperationsNavItems: NavItem[] = [
   calendarNavItem,
   planificacionNavItem,
+  liveMapNavItem,
   projectsNavItem,
   workOrdersNavItem,
   archivoOtNavItem,

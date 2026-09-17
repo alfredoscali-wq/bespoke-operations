@@ -50,12 +50,25 @@ const gpsIngestReadme = read("app/api/mobile/v1/gps/README.md")
 const COMPANY_A = "co-abnet"
 const COMPANY_B = "co-other"
 
+function gpsPut(overrides = {}) {
+  return {
+    shiftLocationValidationEnabled: false,
+    shiftRadiusMeters: 150,
+    taskLocationValidationEnabled: false,
+    taskRadiusMeters: 150,
+    gpsHeartbeatEnabled: true,
+    gpsHeartbeatIntervalSeconds: 60,
+    ...overrides,
+  }
+}
+
 function getSettings(store, sessionCompanyId) {
   return store.get(sessionCompanyId) ?? { ...DEFAULT_COMPANY_GPS_SETTINGS }
 }
 
 function putSettings(store, sessionCompanyId, body) {
-  const parsed = parseCompanyGpsSettingsPut(body)
+  const current = getSettings(store, sessionCompanyId)
+  const parsed = parseCompanyGpsSettingsPut(body, current)
   if (!parsed.ok) {
     return { ok: false, message: parsed.message, status: 400 }
   }
@@ -92,16 +105,13 @@ test("solo administrador puede modificar GPS; GET exige empresa de sesión", () 
 
 test("GET sin fila devuelve defaults jornada/OT OFF 150 m", () => {
   const store = new Map()
-  assert.deepEqual(getSettings(store, COMPANY_A), {
-    shiftLocationValidationEnabled: false,
-    shiftRadiusMeters: 150,
-    taskLocationValidationEnabled: false,
-    taskRadiusMeters: 150,
-  })
+  assert.deepEqual(getSettings(store, COMPANY_A), DEFAULT_COMPANY_GPS_SETTINGS)
   assert.equal(DEFAULT_SHIFT_RADIUS_METERS, 150)
   assert.equal(DEFAULT_TASK_RADIUS_METERS, 150)
   assert.equal(DEFAULT_COMPANY_GPS_SETTINGS.shiftLocationValidationEnabled, false)
   assert.equal(DEFAULT_COMPANY_GPS_SETTINGS.taskLocationValidationEnabled, false)
+  assert.equal(DEFAULT_COMPANY_GPS_SETTINGS.gpsHeartbeatEnabled, true)
+  assert.equal(DEFAULT_COMPANY_GPS_SETTINGS.gpsHeartbeatIntervalSeconds, 60)
   assert.doesNotMatch(queries, /\.insert\(/)
   assert.match(queries, /mapCompanyGpsSettings\(data \?\? null\)/)
 })
@@ -121,23 +131,22 @@ test("PUT crea/actualiza la fila del tenant de sesión e ignora companyId del bo
     shiftRadiusMeters: 200,
     taskLocationValidationEnabled: true,
     taskRadiusMeters: 80,
+    gpsHeartbeatEnabled: true,
+    gpsHeartbeatIntervalSeconds: 60,
   })
   assert.deepEqual(getSettings(store, COMPANY_B), DEFAULT_COMPANY_GPS_SETTINGS)
   assert.match(queries, /upsert\(/)
   assert.match(queries, /company_id: companyId/)
   assert.match(queries, /onConflict: "company_id"/)
-  assert.doesNotMatch(queries, /gps_heartbeat/)
+  assert.match(queries, /gps_heartbeat_enabled/)
+  assert.match(queries, /gps_heartbeat_interval_seconds/)
   assert.match(route, /createAdminClient/)
+  assert.match(route, /fetchCompanyGpsSettings\(admin, companyId\)/)
   assert.match(route, /upsertCompanyGpsSettings\(admin, companyId/)
 })
 
 test("radios inválidos se rechazan; enteros 1–10000 se aceptan", () => {
-  const valid = {
-    shiftLocationValidationEnabled: false,
-    shiftRadiusMeters: 150,
-    taskLocationValidationEnabled: false,
-    taskRadiusMeters: 150,
-  }
+  const valid = gpsPut()
   assert.equal(parseCompanyGpsSettingsPut(valid).ok, true)
   assert.equal(
     parseCompanyGpsSettingsPut({ ...valid, shiftRadiusMeters: 1 }).ok,
@@ -174,14 +183,65 @@ test("radios inválidos se rechazan; enteros 1–10000 se aceptan", () => {
   )
 })
 
+test("heartbeat es opcional en PUT: si no viene se conserva; si viene se valida", () => {
+  const store = new Map()
+  putSettings(store, COMPANY_A, gpsPut({
+    gpsHeartbeatEnabled: false,
+    gpsHeartbeatIntervalSeconds: 45,
+  }))
+  putSettings(store, COMPANY_A, {
+    shiftLocationValidationEnabled: true,
+    shiftRadiusMeters: 200,
+    taskLocationValidationEnabled: false,
+    taskRadiusMeters: 150,
+  })
+  const preserved = getSettings(store, COMPANY_A)
+  assert.equal(preserved.shiftLocationValidationEnabled, true)
+  assert.equal(preserved.shiftRadiusMeters, 200)
+  assert.equal(preserved.gpsHeartbeatEnabled, false)
+  assert.equal(preserved.gpsHeartbeatIntervalSeconds, 45)
+
+  const updated = putSettings(store, COMPANY_A, {
+    shiftLocationValidationEnabled: true,
+    shiftRadiusMeters: 200,
+    taskLocationValidationEnabled: false,
+    taskRadiusMeters: 150,
+    gpsHeartbeatEnabled: true,
+    gpsHeartbeatIntervalSeconds: 90,
+  })
+  assert.equal(updated.ok, true)
+  assert.equal(updated.settings.gpsHeartbeatEnabled, true)
+  assert.equal(updated.settings.gpsHeartbeatIntervalSeconds, 90)
+  assert.equal(
+    parseCompanyGpsSettingsPut({
+      shiftLocationValidationEnabled: false,
+      shiftRadiusMeters: 150,
+      taskLocationValidationEnabled: false,
+      taskRadiusMeters: 150,
+      gpsHeartbeatIntervalSeconds: 29,
+    }).ok,
+    false
+  )
+  assert.equal(
+    parseCompanyGpsSettingsPut({
+      shiftLocationValidationEnabled: false,
+      shiftRadiusMeters: 150,
+      taskLocationValidationEnabled: false,
+      taskRadiusMeters: 150,
+      gpsHeartbeatEnabled: "true",
+    }).ok,
+    false
+  )
+})
+
 test("jornada y OT ON/OFF se persisten de forma independiente", () => {
   const store = new Map()
-  putSettings(store, COMPANY_A, {
+  putSettings(store, COMPANY_A, gpsPut({
     shiftLocationValidationEnabled: true,
     shiftRadiusMeters: 120,
     taskLocationValidationEnabled: false,
     taskRadiusMeters: 300,
-  })
+  }))
   const saved = getSettings(store, COMPANY_A)
   assert.equal(saved.shiftLocationValidationEnabled, true)
   assert.equal(saved.taskLocationValidationEnabled, false)
@@ -191,18 +251,18 @@ test("jornada y OT ON/OFF se persisten de forma independiente", () => {
 
 test("cambiar ABNet no afecta a otra empresa", () => {
   const store = new Map()
-  putSettings(store, COMPANY_A, {
+  putSettings(store, COMPANY_A, gpsPut({
     shiftLocationValidationEnabled: true,
     shiftRadiusMeters: 200,
     taskLocationValidationEnabled: true,
     taskRadiusMeters: 80,
-  })
-  putSettings(store, COMPANY_B, {
+  }))
+  putSettings(store, COMPANY_B, gpsPut({
     shiftLocationValidationEnabled: false,
     shiftRadiusMeters: 999,
     taskLocationValidationEnabled: false,
     taskRadiusMeters: 10,
-  })
+  }))
   assert.equal(getSettings(store, COMPANY_A).shiftRadiusMeters, 200)
   assert.equal(getSettings(store, COMPANY_B).shiftRadiusMeters, 999)
   assert.notEqual(
@@ -347,6 +407,8 @@ test("Configuración → Operación → Geolocalización existe y es admin-only"
   assert.match(page, /disabled=\{!settings\.taskLocationValidationEnabled\}/)
   assert.match(page, /\{settings\.shiftRadiusMeters\} m/)
   assert.match(page, /\{settings\.taskRadiusMeters\} m/)
+  assert.match(page, /GPS en vivo/)
+  assert.match(page, /disabled=\{!settings\.gpsHeartbeatEnabled\}/)
   assert.doesNotMatch(page, /KPI/)
   assert.doesNotMatch(page, /google\.com\/maps/)
 })

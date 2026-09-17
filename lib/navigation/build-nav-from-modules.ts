@@ -16,6 +16,7 @@ import {
   facturacionConfigNavItem,
   facturacionComprobantesNavItem,
   facturacionMensualNavItem,
+  liveMapNavItem,
   networkAgentsNavItem,
   networkSitesNavItem,
   networkDevicesNavItem,
@@ -114,6 +115,10 @@ export function buildNavGroupsFromModuleVisibility(
     if (existing) {
       existing.items.push(definition.navItem)
 
+      if (definition.key === "planificacion") {
+        existing.items.push(liveMapNavItem)
+      }
+
       if (definition.key === "work_orders") {
         existing.items.push(archivoOtNavItem)
       }
@@ -141,6 +146,10 @@ export function buildNavGroupsFromModuleVisibility(
     }
 
     const items = [definition.navItem]
+
+    if (definition.key === "planificacion") {
+      items.push(liveMapNavItem)
+    }
 
     if (definition.key === "work_orders") {
       items.push(archivoOtNavItem)

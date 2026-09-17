@@ -75,8 +75,11 @@ export async function PUT(request: Request) {
     )
   }
 
+  const admin = createAdminClient()
+  const current = await fetchCompanyGpsSettings(admin, companyId)
   const parsed = parseCompanyGpsSettingsPut(
-    body && typeof body === "object" ? (body as Record<string, unknown>) : {}
+    body && typeof body === "object" ? (body as Record<string, unknown>) : {},
+    current
   )
   if (!parsed.ok) {
     return NextResponse.json(
@@ -85,7 +88,6 @@ export async function PUT(request: Request) {
     )
   }
 
-  const admin = createAdminClient()
   const result = await upsertCompanyGpsSettings(admin, companyId, parsed.settings)
   if (result.error || !result.data) {
     return NextResponse.json(

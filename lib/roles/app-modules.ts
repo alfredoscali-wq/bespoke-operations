@@ -102,7 +102,7 @@ export const APP_MODULE_DEFINITIONS: AppModuleDefinition[] = [
     label: "Planificación Operativa",
     navItem: planificacionNavItem,
     groupId: "operations",
-    pathPrefixes: ["/operations/planificacion"],
+    pathPrefixes: ["/operations/planificacion", "/operations/mapa"],
   },
   {
     key: "customers",

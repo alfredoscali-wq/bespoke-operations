@@ -34,6 +34,7 @@ import {
   facturacionNavItem,
   tesoreriaNavItem,
   planificacionNavItem,
+  liveMapNavItem,
   projectsNavItem,
   reportsNavItem,
   rrhhDashboardNavItem,
@@ -59,6 +60,7 @@ const PROFILE_NAV_BUILDERS: Record<
         dashboardNavItem,
         calendarNavItem,
         planificacionNavItem,
+        liveMapNavItem,
         projectsNavItem,
         workOrdersNavItem,
         archivoOtNavItem,
@@ -108,6 +110,7 @@ const PROFILE_NAV_BUILDERS: Record<
       items: [
         calendarNavItem,
         planificacionNavItem,
+        liveMapNavItem,
         projectsNavItem,
         workOrdersNavItem,
         archivoOtNavItem,
@@ -310,6 +313,7 @@ export function getPageMetaForProfile(
 /** Ítems de navegación por perfil (referencia para permisos futuros). */
 export const PROFILE_NAV_ITEM_KEYS = {
   planificacionNavItem,
+  liveMapNavItem,
   calendarNavItem,
   workOrdersNavItem,
   archivoOtNavItem,
