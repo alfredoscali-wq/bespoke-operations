@@ -68,6 +68,8 @@ type TasksFiltersProps = {
   crewOptions?: CrewFilterOption[]
   operationalMode?: boolean
   showWorkOrderTypeFilter?: boolean
+  hideStatusFilter?: boolean
+  searchPlaceholder?: string
 }
 
 const sortOptions: { value: TaskSortField; label: string }[] = [
@@ -112,12 +114,19 @@ export function TasksFiltersBar({
   crewOptions = [],
   operationalMode = false,
   showWorkOrderTypeFilter = false,
+  hideStatusFilter = false,
+  searchPlaceholder,
 }: TasksFiltersProps) {
-  const visibleSortOptions = operationalMode ? operationalSortOptions : sortOptions
+  const visibleSortOptions = operationalMode
+    ? operationalSortOptions
+    : hideStatusFilter
+      ? sortOptions.filter((option) => option.value !== "status")
+      : sortOptions
+  const showStatusFilter = !operationalMode && !hideStatusFilter
 
   const hasActiveFilters =
     filters.search !== "" ||
-    (!operationalMode && filters.status !== "all") ||
+    (showStatusFilter && filters.status !== "all") ||
     filters.type !== "all" ||
     (showWorkOrderTypeFilter && filters.workOrderType !== "all") ||
     filters.priority !== "all" ||
@@ -136,7 +145,9 @@ export function TasksFiltersBar({
             value={filters.search}
             onChange={(event) => update("search", event.target.value)}
             placeholder={
-              operationalMode
+              searchPlaceholder
+                ? searchPlaceholder
+                : operationalMode
                 ? "Buscar por código, cliente o dirección..."
                 : "Buscar por código, orden de trabajo u obra..."
             }
@@ -149,11 +160,13 @@ export function TasksFiltersBar({
             operationalMode
               ? "grid grid-cols-2 gap-2 sm:grid-cols-3 xl:w-auto xl:min-w-[480px]"
               : showWorkOrderTypeFilter
-                ? "grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5 xl:w-auto xl:min-w-[800px]"
+                ? showStatusFilter
+                  ? "grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5 xl:w-auto xl:min-w-[800px]"
+                  : "grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:w-auto xl:min-w-[720px]"
                 : "grid grid-cols-2 gap-2 sm:grid-cols-4 xl:w-auto xl:min-w-[640px]"
           }
         >
-          {!operationalMode && (
+          {showStatusFilter && (
             <Select
               value={filters.status}
               onValueChange={(value) =>

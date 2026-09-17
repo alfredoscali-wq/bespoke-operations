@@ -8,7 +8,7 @@ import {
   mapUpdatePayloadToUpdate,
 } from "@/lib/supabase/tasks.mapper"
 import { fetchTaskDailyAllocationsByCompany } from "@/lib/supabase/task-daily-allocations.queries"
-import type { Task } from "@/lib/types/tasks"
+import type { Task, TaskPriority, TaskStatus } from "@/lib/types/tasks"
 import type {
   CreateTaskPayload,
   InsertTaskResult,
@@ -18,6 +18,23 @@ import type {
 } from "@/lib/types/supabase/tasks"
 import { TASK_DELETE_USER_MESSAGE, logOperationError } from "@/lib/operations/user-messages"
 import { ACTIVE_TASK_STATUSES } from "@/lib/tasks/status-groups"
+import {
+  ARCHIVE_WORK_ORDER_LIST_STATUS,
+  ACTIVE_WORK_ORDER_LIST_STATUSES,
+} from "@/lib/tasks/task-list-scope"
+import {
+  ARCHIVE_WORK_ORDER_LIST_PAGE_SIZE,
+  buildArchivedWorkOrderSearchOrFilter,
+  isArchivedWorkOrderPrioritySort,
+  resolveArchivedWorkOrderListRange,
+  resolveArchivedWorkOrderListSortColumn,
+  resolveArchivedWorkOrderPriorityBucketSlices,
+  resolveArchivedWorkOrderPrioritySequence,
+  resolveArchivedWorkOrderTypeFilter,
+  shouldShortCircuitArchivedWorkOrderObraFilter,
+  type ArchivedWorkOrderListPage,
+  type ArchivedWorkOrderListQuery,
+} from "@/lib/tasks/archived-work-order-list"
 import { validateObraTaskInsertIntegrity } from "@/lib/projects/obra-task-insert-integrity"
 import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
 import {
@@ -29,7 +46,6 @@ import {
   canSoftDeleteWorkOrder,
   WORK_ORDER_SOFT_DELETE_BLOCKED_MESSAGE,
 } from "@/lib/tasks/work-order-deletion-policy"
-import type { TaskStatus } from "@/lib/types/tasks"
 import {
   buildExecutionOrderPersistPlan,
   type ExecutionOrderUpdate,
@@ -204,6 +220,15 @@ export function mapInsertTaskError(error: {
   return mapped
 }
 
+async function mapFetchedTaskRows(
+  client: SupabaseTasksClient,
+  companyId: string,
+  data: unknown
+): Promise<Task[]> {
+  const tasks = ((data ?? []) as TaskRow[]).map(mapTaskRowToTask)
+  return attachDailyAllocations(client, companyId, tasks)
+}
+
 export async function fetchTasks(
   client: SupabaseTasksClient,
   companyId: string
@@ -219,11 +244,232 @@ export async function fetchTasks(
     return { data: null, error: mapSupabaseTaskError(error) }
   }
 
-  const tasks = (data ?? []).map(mapTaskRowToTask)
   return {
-    data: await attachDailyAllocations(client, companyId, tasks),
+    data: await mapFetchedTaskRows(client, companyId, data),
     error: null,
   }
+}
+
+/**
+ * Órdenes de Trabajo (listado activo). Narrower than fetchTasks so PostgREST
+ * max_rows=1000 cannot drop recent operational OTs behind historical finalizadas.
+ * Do not reuse for Archivo, Planificación, Obras, Mobile, or Dashboard.
+ */
+export async function fetchActiveWorkOrderListTasks(
+  client: SupabaseTasksClient,
+  companyId: string
+): Promise<TasksRepositoryResult<Task[]>> {
+  const { data, error } = await client
+    .from("tasks")
+    .select("*")
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .is("project_id", null)
+    .in("status", [...ACTIVE_WORK_ORDER_LIST_STATUSES])
+    .order("due_date", { ascending: true })
+
+  if (error) {
+    return { data: null, error: mapSupabaseTaskError(error) }
+  }
+
+  return {
+    data: await mapFetchedTaskRows(client, companyId, data),
+    error: null,
+  }
+}
+
+/**
+ * Archivo de OT (`/operations/archivo-ot`). Paginated; never fetches more than
+ * ARCHIVE_WORK_ORDER_LIST_PAGE_SIZE rows. Do not reuse for Planificación,
+ * Obras, Dashboard, Mobile, or Órdenes de Trabajo activas.
+ */
+export async function fetchArchivedWorkOrderListTasks(
+  client: SupabaseTasksClient,
+  companyId: string,
+  input: ArchivedWorkOrderListQuery = {}
+): Promise<TasksRepositoryResult<ArchivedWorkOrderListPage<Task>>> {
+  const range = resolveArchivedWorkOrderListRange(
+    input.page,
+    input.pageSize ?? ARCHIVE_WORK_ORDER_LIST_PAGE_SIZE
+  )
+
+  if (shouldShortCircuitArchivedWorkOrderObraFilter(input.workOrderType)) {
+    return {
+      data: {
+        items: [],
+        total: 0,
+        page: range.page,
+        pageSize: range.pageSize,
+      },
+      error: null,
+    }
+  }
+
+  if (isArchivedWorkOrderPrioritySort(input.sortField)) {
+    return fetchArchivedWorkOrderListTasksByPriorityRank(
+      client,
+      companyId,
+      input,
+      range.page,
+      range.pageSize
+    )
+  }
+
+  let query = applyArchivedWorkOrderListFilters(
+    client.from("tasks").select("*", { count: "exact" }),
+    companyId,
+    input
+  )
+
+  const sortColumn = resolveArchivedWorkOrderListSortColumn(input.sortField)
+  const ascending = (input.sortDirection ?? "asc") === "asc"
+  query = query.order(sortColumn, { ascending })
+  if (sortColumn !== "code") {
+    query = query.order("code", { ascending: true })
+  }
+
+  const { data, error, count } = await query.range(range.from, range.to)
+
+  if (error) {
+    return { data: null, error: mapSupabaseTaskError(error) }
+  }
+
+  return {
+    data: {
+      items: await mapFetchedTaskRows(client, companyId, data),
+      total: count ?? 0,
+      page: range.page,
+      pageSize: range.pageSize,
+    },
+    error: null,
+  }
+}
+
+function applyArchivedWorkOrderListFilters<
+  T extends {
+    eq: (column: string, value: string) => T
+    is: (column: string, value: null) => T
+    or: (filters: string) => T
+  },
+>(query: T, companyId: string, input: ArchivedWorkOrderListQuery): T {
+  let next = query
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .is("project_id", null)
+    .eq("status", ARCHIVE_WORK_ORDER_LIST_STATUS)
+
+  const searchOr = buildArchivedWorkOrderSearchOrFilter(input.search ?? "")
+  if (searchOr) {
+    next = next.or(searchOr)
+  }
+
+  if (input.type && input.type !== "all") {
+    next = next.eq("type", input.type)
+  }
+
+  const workOrderTypeFilter = resolveArchivedWorkOrderTypeFilter(
+    input.workOrderType
+  )
+  if (workOrderTypeFilter) {
+    next = next.eq(workOrderTypeFilter.column, workOrderTypeFilter.value)
+  }
+
+  if (input.priority && input.priority !== "all") {
+    next = next.eq("priority", input.priority)
+  }
+
+  if (input.crewId && input.crewId !== "all") {
+    const crewName = input.crewName?.trim()
+    if (crewName) {
+      next = next.or(
+        `crew_id.eq.${input.crewId},and(crew_id.is.null,crew.eq.${quotePostgrestFilterValue(crewName)})`
+      )
+    } else {
+      next = next.eq("crew_id", input.crewId)
+    }
+  }
+
+  return next
+}
+
+async function fetchArchivedWorkOrderListTasksByPriorityRank(
+  client: SupabaseTasksClient,
+  companyId: string,
+  input: ArchivedWorkOrderListQuery,
+  page: number,
+  pageSize: number
+): Promise<TasksRepositoryResult<ArchivedWorkOrderListPage<Task>>> {
+  const sequence = resolveArchivedWorkOrderPrioritySequence(input.sortDirection)
+  const countResults = await Promise.all(
+    sequence.map(async (priority) => {
+      const { error, count } = await applyArchivedWorkOrderListFilters(
+        client.from("tasks").select("id", { count: "exact", head: true }),
+        companyId,
+        input
+      ).eq("priority", priority)
+
+      return { priority, count: count ?? 0, error }
+    })
+  )
+
+  const countError = countResults.find((result) => result.error)?.error
+  if (countError) {
+    return { data: null, error: mapSupabaseTaskError(countError) }
+  }
+
+  const counts = {
+    alta: 0,
+    media: 0,
+    baja: 0,
+  } satisfies Record<TaskPriority, number>
+
+  for (const result of countResults) {
+    counts[result.priority] = result.count
+  }
+
+  const total = counts.alta + counts.media + counts.baja
+  const slices = resolveArchivedWorkOrderPriorityBucketSlices(
+    page,
+    pageSize,
+    counts,
+    input.sortDirection ?? "asc"
+  )
+
+  const pages = await Promise.all(
+    slices.map(async (slice) => {
+      const { data, error } = await applyArchivedWorkOrderListFilters(
+        client.from("tasks").select("*"),
+        companyId,
+        input
+      )
+        .eq("priority", slice.priority)
+        .order("code", { ascending: true })
+        .range(slice.from, slice.to)
+
+      return { data, error, slice }
+    })
+  )
+
+  const pageError = pages.find((result) => result.error)?.error
+  if (pageError) {
+    return { data: null, error: mapSupabaseTaskError(pageError) }
+  }
+
+  const rows = pages.flatMap((result) => result.data ?? [])
+
+  return {
+    data: {
+      items: await mapFetchedTaskRows(client, companyId, rows),
+      total,
+      page,
+      pageSize,
+    },
+    error: null,
+  }
+}
+
+function quotePostgrestFilterValue(value: string): string {
+  return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`
 }
 
 export async function fetchWorkOrdersByCustomerId(

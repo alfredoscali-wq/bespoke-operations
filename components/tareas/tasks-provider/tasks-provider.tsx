@@ -10,12 +10,21 @@ import { useTasksCreate } from "./hooks/use-tasks-create"
 import { useTasksDeletion } from "./hooks/use-tasks-deletion"
 import { useTasksDetail } from "./hooks/use-tasks-detail"
 import { useTasksIncidents } from "./hooks/use-tasks-incidents"
-import { useTasksLoad } from "./hooks/use-tasks-load"
+import {
+  useTasksLoad,
+  type TasksListScope,
+} from "./hooks/use-tasks-load"
 import { useTasksPlanning } from "./hooks/use-tasks-planning"
 import { useTasksUpdate } from "./hooks/use-tasks-update"
 import { useTasksWorkflow } from "./hooks/use-tasks-workflow"
 
-export function TasksProvider({ children }: { children: React.ReactNode }) {
+export function TasksProvider({
+  children,
+  listScope = "all",
+}: {
+  children: React.ReactNode
+  listScope?: TasksListScope
+}) {
   const { isReadOnly, openRestrictedDialog } = useDemoMode()
   const { companyId, isAuthReady } = useTenantCompanyId()
 
@@ -28,7 +37,8 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     detailVersion,
     setDetailVersion,
     refreshTasksFromServer,
-  } = useTasksLoad({ companyId, isAuthReady })
+    archiveList,
+  } = useTasksLoad({ companyId, isAuthReady, listScope })
 
   const {
     persistTaskUpdate,
@@ -123,6 +133,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       isTasksReady,
       usesSupabase,
       detailVersion,
+      archiveList,
       getTask,
       getDetail,
       addTask,
@@ -162,6 +173,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       isTasksReady,
       usesSupabase,
       detailVersion,
+      archiveList,
       getTask,
       getDetail,
       addTask,

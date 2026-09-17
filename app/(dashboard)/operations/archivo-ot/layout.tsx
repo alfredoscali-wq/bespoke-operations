@@ -7,5 +7,5 @@ export default function ArchivoOtLayout({
 }: {
   children: React.ReactNode
 }) {
-  return <TasksModuleProviders>{children}</TasksModuleProviders>
+  return <TasksModuleProviders listScope="archiveWorkOrders">{children}</TasksModuleProviders>
 }

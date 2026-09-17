@@ -7,5 +7,5 @@ export default function TareasLayout({
 }: {
   children: React.ReactNode
 }) {
-  return <TasksModuleProviders>{children}</TasksModuleProviders>
+  return <TasksModuleProviders listScope="activeWorkOrders">{children}</TasksModuleProviders>
 }

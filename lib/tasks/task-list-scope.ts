@@ -10,6 +10,10 @@ export const ARCHIVE_WORK_ORDER_STATUSES: TaskStatus[] = [
 /** @deprecated Prefer ARCHIVE_WORK_ORDER_STATUSES — kept for finalizada-only checks. */
 export const ARCHIVE_WORK_ORDER_STATUS = "finalizada" as const satisfies TaskStatus
 
+/** Estado único del listado Archivo (`/operations/archivo-ot`). */
+export const ARCHIVE_WORK_ORDER_LIST_STATUS =
+  "finalizada" as const satisfies TaskStatus
+
 export type ArchiveOtStatusFilter =
   | "all"
   | "finalizada"
@@ -41,8 +45,69 @@ export function isActiveWorkOrderListStatus(status: TaskStatus): boolean {
   return ACTIVE_WORK_ORDER_LIST_STATUSES.includes(status)
 }
 
+type ActiveWorkOrderListRow = {
+  status: TaskStatus
+  projectId?: string | null
+  deletedAt?: string | null
+  dueDate: string
+  code?: string
+}
+
+/**
+ * Server-side predicate for the Órdenes de Trabajo active list query.
+ * Matches fetchActiveWorkOrderListTasks filters (not fetchTasks).
+ */
+export function matchesActiveWorkOrderListQuery(
+  task: Pick<ActiveWorkOrderListRow, "status" | "projectId" | "deletedAt">
+): boolean {
+  if (task.deletedAt) {
+    return false
+  }
+
+  return (
+    isTareasModuleWorkOrder(task) && isActiveWorkOrderListStatus(task.status)
+  )
+}
+
+/**
+ * Applies the active OT list query semantics, then the PostgREST max_rows cap.
+ * Used to prove recent operational OTs are not displaced by historical rows.
+ */
+export function selectActiveWorkOrderListRows<T extends ActiveWorkOrderListRow>(
+  rows: T[],
+  maxRows = 1000
+): T[] {
+  return rows
+    .filter(matchesActiveWorkOrderListQuery)
+    .sort(
+      (left, right) =>
+        left.dueDate.localeCompare(right.dueDate) ||
+        (left.code ?? "").localeCompare(right.code ?? "")
+    )
+    .slice(0, maxRows)
+}
+
 export function isArchiveWorkOrderStatus(status: TaskStatus): boolean {
   return ARCHIVE_WORK_ORDER_STATUSES.includes(status)
+}
+
+/**
+ * Server-side predicate for Archivo. Matches fetchArchivedWorkOrderListTasks:
+ * finalizada, without project, not soft-deleted.
+ */
+export function matchesArchivedWorkOrderListQuery(task: {
+  status: TaskStatus
+  projectId?: string | null
+  deletedAt?: string | null
+}): boolean {
+  if (task.deletedAt) {
+    return false
+  }
+
+  return (
+    isTareasModuleWorkOrder(task) &&
+    task.status === ARCHIVE_WORK_ORDER_LIST_STATUS
+  )
 }
 
 /** OT de Obra viven en Obras + Planificación, no en el módulo Órdenes de Trabajo. */
@@ -62,24 +127,11 @@ export function filterActiveWorkOrders<
 }
 
 export function filterArchivedWorkOrders<
-  T extends { status: TaskStatus; projectId?: string | null },
->(tasks: T[], statusFilter: ArchiveOtStatusFilter = "all"): T[] {
-  const inArchive = tasks.filter(
-    (task) =>
-      isTareasModuleWorkOrder(task) && isArchiveWorkOrderStatus(task.status)
-  )
-
-  switch (statusFilter) {
-    case "finalizada":
-      return inArchive.filter((task) => task.status === "finalizada")
-    case "cancelada":
-      return inArchive.filter((task) => task.status === "cancelada")
-    case "pendiente-cierre":
-      return inArchive.filter((task) => task.status === "pendiente-cierre")
-    case "archivadas":
-      return inArchive.filter((task) => task.status === "finalizada")
-    case "all":
-    default:
-      return inArchive
-  }
+  T extends {
+    status: TaskStatus
+    projectId?: string | null
+    deletedAt?: string | null
+  },
+>(tasks: T[], _statusFilter: ArchiveOtStatusFilter = "all"): T[] {
+  return tasks.filter(matchesArchivedWorkOrderListQuery)
 }

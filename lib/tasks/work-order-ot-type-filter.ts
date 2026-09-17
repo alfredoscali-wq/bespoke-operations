@@ -23,6 +23,14 @@ export const ARCHIVE_OT_TYPE_FILTER_OPTIONS: Array<{
     value: WORK_ORDER_OT_TYPE_FILTER_MAINTENANCE,
     label: "Mantenimiento",
   },
+]
+
+/** @deprecated Archivo excludes Obras; kept for callers that still mention the value. */
+export const ARCHIVE_OT_TYPE_FILTER_OPTIONS_WITH_OBRA: Array<{
+  value: WorkOrderOtTypeFilterValue
+  label: string
+}> = [
+  ...ARCHIVE_OT_TYPE_FILTER_OPTIONS,
   { value: WORK_ORDER_OT_TYPE_FILTER_OBRA, label: "Obra" },
 ]
 

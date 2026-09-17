@@ -3,6 +3,7 @@ import type { CreateTaskPayload, UpdateTaskPayload } from "@/lib/types/supabase/
 import type { Task, TaskDetail, TaskStatus } from "@/lib/types/tasks"
 import type { TaskRescheduleInput } from "@/lib/tasks/reschedule"
 import type { ProjectTaskIncidentResolveInput } from "@/lib/projects/project-task-incident-resolve"
+import type { ArchivedWorkOrderListQuery } from "@/lib/tasks/archived-work-order-list"
 
 export type TaskMutationResult = {
   success: boolean
@@ -19,11 +20,23 @@ export type TaskMutationOptions = {
   observation?: string
 }
 
+export type ArchivedWorkOrderListControls = {
+  total: number
+  page: number
+  pageSize: number
+  isLoading: boolean
+  setPage: (page: number) => void
+  setFilters: (
+    filters: Omit<ArchivedWorkOrderListQuery, "page" | "pageSize">
+  ) => void
+}
+
 export type TasksContextValue = {
   tasks: Task[]
   isTasksReady: boolean
   usesSupabase: boolean
   detailVersion: number
+  archiveList: ArchivedWorkOrderListControls | null
   getTask: (id: string) => Task | undefined
   getDetail: (id: string) => TaskDetail | undefined
   addTask: (input: CreateTaskPayload) => Promise<Task>

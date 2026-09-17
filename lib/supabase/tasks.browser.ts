@@ -3,11 +3,17 @@ import {
   fetchOccupiedTaskCodesByPrefix,
   fetchTaskById,
   fetchTasks,
+  fetchActiveWorkOrderListTasks,
+  fetchArchivedWorkOrderListTasks,
   insertTask,
   patchTask,
   softDeleteTask,
   type SupabaseTasksClient,
 } from "@/lib/supabase/tasks.queries"
+import type {
+  ArchivedWorkOrderListPage,
+  ArchivedWorkOrderListQuery,
+} from "@/lib/tasks/archived-work-order-list"
 import { applyVencidaSyncFromApi } from "@/lib/tasks/vencida-sync.client"
 import type { Task } from "@/lib/types/tasks"
 import type {
@@ -37,6 +43,32 @@ export async function listTasks(
     data: syncedTasks,
     error: null,
   }
+}
+
+export async function listActiveWorkOrderTasks(
+  companyId: string,
+  client: SupabaseTasksClient = createBrowserTasksClient()
+): Promise<TasksRepositoryResult<Task[]>> {
+  const result = await fetchActiveWorkOrderListTasks(client, companyId)
+
+  if (result.error || !result.data) {
+    return result
+  }
+
+  const syncedTasks = await applyVencidaSyncFromApi(result.data)
+
+  return {
+    data: syncedTasks,
+    error: null,
+  }
+}
+
+export async function listArchivedWorkOrderTasks(
+  companyId: string,
+  input: ArchivedWorkOrderListQuery = {},
+  client: SupabaseTasksClient = createBrowserTasksClient()
+): Promise<TasksRepositoryResult<ArchivedWorkOrderListPage<Task>>> {
+  return fetchArchivedWorkOrderListTasks(client, companyId, input)
 }
 
 export async function getTaskById(

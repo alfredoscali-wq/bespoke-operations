@@ -19,12 +19,12 @@ import {
 } from "@/components/tareas/tasks-filters"
 import type { CreateTaskPayload } from "@/lib/types/supabase/tasks"
 import { parseTaskStatusQuery, parsePlanningReturnedQuery, parseVencidasQuery } from "@/lib/navigation/query-filters"
+import { filterActiveWorkOrders } from "@/lib/tasks/task-list-scope"
 import {
-  ARCHIVE_OT_STATUS_FILTER_OPTIONS,
-  filterActiveWorkOrders,
-  filterArchivedWorkOrders,
-  type ArchiveOtStatusFilter,
-} from "@/lib/tasks/task-list-scope"
+  ARCHIVE_WORK_ORDER_LIST_PAGE_SIZE,
+  buildArchivePaginationItems,
+  formatArchivedWorkOrderRangeLabel,
+} from "@/lib/tasks/archived-work-order-list"
 import { filterPlanningReturnedTasks, excludePlanningReturnedTasks } from "@/lib/tasks/planning-return"
 import { listVencidaTasks } from "@/lib/tasks/vencida-status"
 import { TasksPlanningReturnedKpi } from "@/components/tareas/tasks-planning-returned-kpi"
@@ -53,12 +53,10 @@ type TasksModuleProps = {
 export function TasksModule({ mode = "active" }: TasksModuleProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { tasks, addTask } = useTasks()
+  const { tasks, addTask, archiveList } = useTasks()
   const { crews } = useCrews()
   const isArchiveView = mode === "archive"
   const [filters, setFilters] = useState(defaultTaskFilters)
-  const [archiveStatusFilter, setArchiveStatusFilter] =
-    useState<ArchiveOtStatusFilter>("all")
   const [currentPage, setCurrentPage] = useState(1)
   const [workOrderOpen, setWorkOrderOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
@@ -174,28 +172,70 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [filters, mode, archiveStatusFilter, planningReturnedFilterActive, vencidasFilterActive])
+  }, [filters, mode, planningReturnedFilterActive, vencidasFilterActive])
+
+  const setArchiveFilters = archiveList?.setFilters
+
+  useEffect(() => {
+    if (!isArchiveView || !setArchiveFilters) {
+      return
+    }
+
+    const selectedCrew =
+      filters.crew === "all"
+        ? null
+        : crews.find((crew) => crew.id === filters.crew)
+
+    const timeoutId = window.setTimeout(() => {
+      setArchiveFilters({
+        search: filters.search,
+        type: filters.type,
+        workOrderType: filters.workOrderType,
+        priority: filters.priority,
+        crewId: filters.crew,
+        crewName: selectedCrew?.name ?? null,
+        sortField: filters.sortField,
+        sortDirection: filters.sortDirection,
+      })
+    }, 300)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [
+    crews,
+    filters.crew,
+    filters.priority,
+    filters.search,
+    filters.sortDirection,
+    filters.sortField,
+    filters.type,
+    filters.workOrderType,
+    isArchiveView,
+    setArchiveFilters,
+  ])
 
   const scopedTasks = useMemo(() => {
     if (isArchiveView) {
-      return filterArchivedWorkOrders(tasks, archiveStatusFilter)
+      return tasks
     }
 
     return filterActiveWorkOrders(tasks)
-  }, [tasks, isArchiveView, archiveStatusFilter])
+  }, [tasks, isArchiveView])
 
   const displayedTasks = useMemo(() => {
+    if (isArchiveView) {
+      return scopedTasks
+    }
+
     const filtered = filterAndSortTasks(scopedTasks, filters, crews)
-    if (!isArchiveView && planningReturnedFilterActive) {
+    if (planningReturnedFilterActive) {
       return filterPlanningReturnedTasks(filtered)
     }
-    if (!isArchiveView && vencidasFilterActive) {
+    if (vencidasFilterActive) {
       return listVencidaTasks(filtered)
     }
-    if (!isArchiveView) {
-      return excludePlanningReturnedTasks(filtered)
-    }
-    return filtered
+    return excludePlanningReturnedTasks(filtered)
   }, [
     scopedTasks,
     filters,
@@ -205,15 +245,32 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
     vencidasFilterActive,
   ])
 
+  const archiveTotal = archiveList?.total ?? displayedTasks.length
+  const archivePage = archiveList?.page ?? 1
+  const archivePageSize =
+    archiveList?.pageSize ?? ARCHIVE_WORK_ORDER_LIST_PAGE_SIZE
+  const archiveTotalPages = Math.max(
+    1,
+    Math.ceil(archiveTotal / archivePageSize)
+  )
+  const archivePageItems = buildArchivePaginationItems(
+    archivePage,
+    archiveTotalPages
+  )
+
   const totalPages = Math.max(
     1,
     Math.ceil(displayedTasks.length / TASKS_PAGE_SIZE)
   )
   const safeCurrentPage = Math.min(currentPage, totalPages)
   const paginatedTasks = useMemo(() => {
+    if (isArchiveView) {
+      return displayedTasks
+    }
+
     const start = (safeCurrentPage - 1) * TASKS_PAGE_SIZE
     return displayedTasks.slice(start, start + TASKS_PAGE_SIZE)
-  }, [displayedTasks, safeCurrentPage])
+  }, [displayedTasks, isArchiveView, safeCurrentPage])
 
   const crewOptions = useMemo(
     () => crews.map((crew) => ({ id: crew.id, name: crew.name })),
@@ -341,27 +398,9 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
     <div className="space-y-4">
       {isArchiveView ? (
         <p className="text-sm text-muted-foreground">
-          Historial operativo de OT finalizadas, canceladas y pendientes de
-          cierre. Las canceladas permanecen visibles; no se eliminan.
+          Historial operativo de OT finalizadas. Las canceladas y pendientes de
+          cierre no se muestran aquí.
         </p>
-      ) : null}
-
-      {isArchiveView ? (
-        <div className="flex flex-wrap gap-2">
-          {ARCHIVE_OT_STATUS_FILTER_OPTIONS.map((option) => (
-            <Button
-              key={option.value}
-              type="button"
-              size="sm"
-              variant={
-                archiveStatusFilter === option.value ? "default" : "outline"
-              }
-              onClick={() => setArchiveStatusFilter(option.value)}
-            >
-              {option.label}
-            </Button>
-          ))}
-        </div>
       ) : null}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -415,11 +454,17 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
       <TasksFiltersBar
         filters={filters}
         onChange={setFilters}
-        resultCount={displayedTasks.length}
+        resultCount={isArchiveView ? archiveTotal : displayedTasks.length}
         crewOptions={crewOptions}
         operationalMode={false}
         showWorkOrderTypeFilter={isArchiveView}
+        hideStatusFilter={isArchiveView}
         showSort
+        searchPlaceholder={
+          isArchiveView
+            ? "Buscar por código, cliente, cuadrilla o dirección..."
+            : undefined
+        }
       />
 
       <TasksAdminListTable
@@ -432,7 +477,73 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
         }
       />
 
-      {displayedTasks.length > TASKS_PAGE_SIZE ? (
+      {isArchiveView ? (
+        archiveTotal > 0 ? (
+          <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-muted-foreground">
+              {formatArchivedWorkOrderRangeLabel(
+                archivePage,
+                archivePageSize,
+                archiveTotal
+              )}
+              {archiveTotalPages > 1
+                ? ` · Página ${archivePage} de ${archiveTotalPages}`
+                : null}
+            </p>
+            {archiveTotalPages > 1 ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  disabled={archivePage <= 1 || Boolean(archiveList?.isLoading)}
+                  onClick={() => archiveList?.setPage(archivePage - 1)}
+                >
+                  <ChevronLeft className="size-4" />
+                  Anterior
+                </Button>
+                {archivePageItems.map((item, index) =>
+                  item === "ellipsis" ? (
+                    <span
+                      key={`ellipsis-${index}`}
+                      className="px-1 text-xs text-muted-foreground"
+                    >
+                      …
+                    </span>
+                  ) : (
+                    <Button
+                      key={item}
+                      type="button"
+                      variant={item === archivePage ? "default" : "outline"}
+                      size="sm"
+                      className="min-w-8"
+                      disabled={Boolean(archiveList?.isLoading)}
+                      onClick={() => archiveList?.setPage(item)}
+                    >
+                      {item}
+                    </Button>
+                  )
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  disabled={
+                    archivePage >= archiveTotalPages ||
+                    Boolean(archiveList?.isLoading)
+                  }
+                  onClick={() => archiveList?.setPage(archivePage + 1)}
+                >
+                  Siguiente
+                  <ChevronRight className="size-4" />
+                </Button>
+              </div>
+            ) : null}
+          </div>
+        ) : null
+      ) : displayedTasks.length > TASKS_PAGE_SIZE ? (
         <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-muted-foreground">
             Página {safeCurrentPage} de {totalPages} · {displayedTasks.length}{" "}
