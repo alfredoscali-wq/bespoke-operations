@@ -1,3 +1,19 @@
 "use client"
 
-export { CuadrillasModuleProviders as PlanificacionModuleProviders } from "@/components/providers/cuadrillas-module-providers"
+import { CrewsProvider } from "@/components/cuadrillas/crews-provider"
+import { EmployeesProvider } from "@/components/rrhh/employees-provider"
+import { TasksProvider } from "@/components/tareas/tasks-provider"
+
+export function PlanificacionModuleProviders({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <EmployeesProvider>
+      <TasksProvider listScope="planningWorkOrders">
+        <CrewsProvider>{children}</CrewsProvider>
+      </TasksProvider>
+    </EmployeesProvider>
+  )
+}

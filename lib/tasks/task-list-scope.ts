@@ -45,6 +45,17 @@ export function isActiveWorkOrderListStatus(status: TaskStatus): boolean {
   return ACTIVE_WORK_ORDER_LIST_STATUSES.includes(status)
 }
 
+/** OT que el read model de Planificación espera en sourceTasks. */
+export const PLANNING_WORK_ORDER_LIST_STATUSES: TaskStatus[] = [
+  "programada",
+  "asignada",
+  "en-curso",
+  "vencida",
+  "incidencia",
+  "pendiente-cierre",
+  "en-aprobacion",
+]
+
 type ActiveWorkOrderListRow = {
   status: TaskStatus
   projectId?: string | null
@@ -79,6 +90,56 @@ export function selectActiveWorkOrderListRows<T extends ActiveWorkOrderListRow>(
 ): T[] {
   return rows
     .filter(matchesActiveWorkOrderListQuery)
+    .sort(
+      (left, right) =>
+        left.dueDate.localeCompare(right.dueDate) ||
+        (left.code ?? "").localeCompare(right.code ?? "")
+    )
+    .slice(0, maxRows)
+}
+
+export function isPlanningWorkOrderListStatus(status: TaskStatus): boolean {
+  return PLANNING_WORK_ORDER_LIST_STATUSES.includes(status)
+}
+
+type PlanningWorkOrderListRow = {
+  status: TaskStatus
+  deletedAt?: string | null
+  companyId?: string | null
+  dueDate: string
+  code?: string
+  projectId?: string | null
+}
+
+/**
+ * Server-side predicate for Planificación. Matches fetchPlanningWorkOrderListTasks:
+ * operational statuses only, not soft-deleted. Includes Obras (project_id set)
+ * because buildPlanningReadModel still needs them for the Obras lane and
+ * pendiente-cierre sheet.
+ */
+export function matchesPlanningWorkOrderListQuery(
+  task: Pick<
+    PlanningWorkOrderListRow,
+    "status" | "deletedAt" | "companyId"
+  >,
+  companyId?: string
+): boolean {
+  if (task.deletedAt) {
+    return false
+  }
+
+  if (companyId && task.companyId && task.companyId !== companyId) {
+    return false
+  }
+
+  return isPlanningWorkOrderListStatus(task.status)
+}
+
+export function selectPlanningWorkOrderListRows<
+  T extends PlanningWorkOrderListRow,
+>(rows: T[], companyId?: string, maxRows = 1000): T[] {
+  return rows
+    .filter((task) => matchesPlanningWorkOrderListQuery(task, companyId))
     .sort(
       (left, right) =>
         left.dueDate.localeCompare(right.dueDate) ||

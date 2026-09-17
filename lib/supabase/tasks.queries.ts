@@ -21,6 +21,7 @@ import { ACTIVE_TASK_STATUSES } from "@/lib/tasks/status-groups"
 import {
   ARCHIVE_WORK_ORDER_LIST_STATUS,
   ACTIVE_WORK_ORDER_LIST_STATUSES,
+  PLANNING_WORK_ORDER_LIST_STATUSES,
 } from "@/lib/tasks/task-list-scope"
 import {
   ARCHIVE_WORK_ORDER_LIST_PAGE_SIZE,
@@ -266,6 +267,34 @@ export async function fetchActiveWorkOrderListTasks(
     .is("deleted_at", null)
     .is("project_id", null)
     .in("status", [...ACTIVE_WORK_ORDER_LIST_STATUSES])
+    .order("due_date", { ascending: true })
+
+  if (error) {
+    return { data: null, error: mapSupabaseTaskError(error) }
+  }
+
+  return {
+    data: await mapFetchedTaskRows(client, companyId, data),
+    error: null,
+  }
+}
+
+/**
+ * Planificación operativa (`/operations/planificacion`). Narrower than
+ * fetchTasks so PostgREST max_rows=1000 cannot drop today's OTs behind
+ * historical finalizadas. Includes Obras (project_id set) for the Obras lane
+ * and pendiente-cierre sheet. Do not reuse for /tareas, Archivo, Mobile, or Dashboard.
+ */
+export async function fetchPlanningWorkOrderListTasks(
+  client: SupabaseTasksClient,
+  companyId: string
+): Promise<TasksRepositoryResult<Task[]>> {
+  const { data, error } = await client
+    .from("tasks")
+    .select("*")
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .in("status", [...PLANNING_WORK_ORDER_LIST_STATUSES])
     .order("due_date", { ascending: true })
 
   if (error) {

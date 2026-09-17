@@ -177,6 +177,7 @@
     "test:ot-1-5-idempotency": "npx tsx --test scripts/test-ot-1-5-idempotency.mjs",
     "test:active-work-order-list": "npx tsx --test scripts/test-active-work-order-list.mjs",
     "test:archive-work-order-list": "npx tsx --test scripts/test-archive-work-order-list.mjs",
+    "test:planning-work-order-list": "npx tsx --test scripts/test-planning-work-order-list.mjs",
     "test:task-reference-photo-delete": "npx tsx --test scripts/test-task-reference-photo-delete.mjs",
     "test:customer-retenciones-sprint-6-0": "npx tsx --test scripts/test-customer-retenciones-sprint-6-0.mjs",
     "test:obras-ops-1-0-dispatch": "npx tsx --test scripts/test-obras-ops-1-0-dispatch.mjs",

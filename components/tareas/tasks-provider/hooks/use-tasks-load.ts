@@ -6,6 +6,7 @@ import {
   createBrowserTasksClient,
   listActiveWorkOrderTasks,
   listArchivedWorkOrderTasks,
+  listPlanningWorkOrderTasks,
   listTasks,
 } from "@/lib/supabase/tasks.browser"
 import {
@@ -21,7 +22,11 @@ import type { Task } from "@/lib/types/tasks"
 import { clearDetailCache } from "../detail-cache"
 import type { ArchivedWorkOrderListControls, TaskMutationResult } from "../types"
 
-export type TasksListScope = "all" | "activeWorkOrders" | "archiveWorkOrders"
+export type TasksListScope =
+  | "all"
+  | "activeWorkOrders"
+  | "archiveWorkOrders"
+  | "planningWorkOrders"
 
 type UseTasksLoadParams = {
   companyId: string
@@ -61,6 +66,10 @@ async function loadTasksForScope(
 ) {
   if (listScope === "activeWorkOrders") {
     return listActiveWorkOrderTasks(companyId, client)
+  }
+
+  if (listScope === "planningWorkOrders") {
+    return listPlanningWorkOrderTasks(companyId, client)
   }
 
   return listTasks(companyId, client)

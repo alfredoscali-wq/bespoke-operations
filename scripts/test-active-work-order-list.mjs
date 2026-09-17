@@ -165,7 +165,7 @@ test("fetchTasks stays unscoped; active query is dedicated", () => {
 
   const activeBlock = queries.slice(
     queries.indexOf("export async function fetchActiveWorkOrderListTasks("),
-    queries.indexOf("export async function fetchWorkOrdersByCustomerId(")
+    queries.indexOf("export async function fetchPlanningWorkOrderListTasks(")
   )
   assert.match(activeBlock, /\.in\("status", \[\.\.\.ACTIVE_WORK_ORDER_LIST_STATUSES\]\)/)
   assert.match(activeBlock, /\.is\("project_id", null\)/)
