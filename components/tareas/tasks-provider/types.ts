@@ -152,6 +152,7 @@ export type TasksContextValue = {
   refreshTasksFromServer: (options?: {
     silent?: boolean
   }) => Promise<TaskMutationResult>
+  mergeFetchedTask: (task: Task) => void
   dashboardFinalizadaCount: number | null
   dashboardProjectMetricTasks: Task[]
 }

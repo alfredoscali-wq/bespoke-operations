@@ -8,9 +8,11 @@ import {
   listArchivedWorkOrderTasks,
   listCalendarWorkOrderTasks,
   listDashboardWorkOrderTasks,
+  listOperarioTodayWorkOrderTasks,
   listPlanningWorkOrderTasks,
   listTasks,
 } from "@/lib/supabase/tasks.browser"
+import type { OperarioWebCrewRef } from "@/lib/tasks/task-list-scope"
 import {
   ARCHIVE_WORK_ORDER_LIST_PAGE_SIZE,
   type ArchivedWorkOrderListQuery,
@@ -31,11 +33,14 @@ export type TasksListScope =
   | "planningWorkOrders"
   | "calendarWorkOrders"
   | "dashboardWorkOrders"
+  | "operarioToday"
 
 type UseTasksLoadParams = {
   companyId: string
   isAuthReady: boolean
   listScope?: TasksListScope
+  operarioCrew?: OperarioWebCrewRef
+  isOperarioCrewReady?: boolean
 }
 
 const DEFAULT_ARCHIVE_QUERY: ArchivedWorkOrderListQuery = {
@@ -67,17 +72,22 @@ function isPlainTaskListScope(
   listScope: TasksListScope
 ): listScope is Exclude<
   TasksListScope,
-  "dashboardWorkOrders" | "archiveWorkOrders"
+  "dashboardWorkOrders" | "archiveWorkOrders" | "operarioToday"
 > {
   return (
-    listScope !== "dashboardWorkOrders" && listScope !== "archiveWorkOrders"
+    listScope !== "dashboardWorkOrders" &&
+    listScope !== "archiveWorkOrders" &&
+    listScope !== "operarioToday"
   )
 }
 
 async function loadTasksForScope(
   companyId: string,
   client: ReturnType<typeof createBrowserTasksClient>,
-  listScope: Exclude<TasksListScope, "dashboardWorkOrders" | "archiveWorkOrders">
+  listScope: Exclude<
+    TasksListScope,
+    "dashboardWorkOrders" | "archiveWorkOrders" | "operarioToday"
+  >
 ) {
   if (listScope === "activeWorkOrders") {
     return listActiveWorkOrderTasks(companyId, client)
@@ -98,6 +108,8 @@ export function useTasksLoad({
   companyId,
   isAuthReady,
   listScope = "all",
+  operarioCrew,
+  isOperarioCrewReady = false,
 }: UseTasksLoadParams) {
   const [tasks, setTasks] = useState<Task[]>([])
   const [isTasksReady, setIsTasksReady] = useState(false)
@@ -142,8 +154,28 @@ export function useTasksLoad({
     setDashboardProjectMetricTasks([])
   }, [])
 
+  const mergeFetchedTask = useCallback((task: Task) => {
+    setTasks((current) => {
+      const index = current.findIndex((item) => item.id === task.id)
+      if (index === -1) {
+        return [...current, task]
+      }
+
+      const next = [...current]
+      next[index] = task
+      return next
+    })
+  }, [])
+
+  const operarioCrewId = operarioCrew?.id ?? ""
+  const operarioCrewName = operarioCrew?.name ?? ""
+
   useEffect(() => {
     if (!isAuthReady || listScope === "archiveWorkOrders") {
+      return
+    }
+
+    if (listScope === "operarioToday" && !isOperarioCrewReady) {
       return
     }
 
@@ -152,6 +184,29 @@ export function useTasksLoad({
     async function loadTasksFromSupabase() {
       try {
         const client = createBrowserTasksClient()
+
+        if (listScope === "operarioToday") {
+          const result = await listOperarioTodayWorkOrderTasks(
+            companyId,
+            { id: operarioCrewId || undefined, name: operarioCrewName },
+            client
+          )
+
+          if (cancelled) return
+
+          if (result.error || result.data === null) {
+            console.error("[TASKS LOAD]", result.error)
+            setTasks([])
+            clearDashboardExtras()
+            setUsesSupabase(false)
+            return
+          }
+
+          setTasks(result.data)
+          clearDashboardExtras()
+          setUsesSupabase(true)
+          return
+        }
 
         if (listScope === "dashboardWorkOrders") {
           const result = await listDashboardWorkOrderTasks(companyId, client)
@@ -211,7 +266,15 @@ export function useTasksLoad({
     return () => {
       cancelled = true
     }
-  }, [clearDashboardExtras, companyId, isAuthReady, listScope])
+  }, [
+    clearDashboardExtras,
+    companyId,
+    isAuthReady,
+    isOperarioCrewReady,
+    listScope,
+    operarioCrewId,
+    operarioCrewName,
+  ])
 
   const serializedArchiveQuery = archiveQueryKey(archiveQuery)
 
@@ -307,6 +370,24 @@ export function useTasksLoad({
         setTasks(result.data.tasks)
         setDashboardFinalizadaCount(result.data.finalizadaCount)
         setDashboardProjectMetricTasks(result.data.projectMetricTasks)
+      } else if (listScope === "operarioToday") {
+        const result = await listOperarioTodayWorkOrderTasks(
+          companyId,
+          { id: operarioCrewId || undefined, name: operarioCrewName },
+          client
+        )
+
+        if (result.error || result.data === null) {
+          return {
+            success: false,
+            message:
+              result.error?.message ??
+              "No se pudieron actualizar las órdenes de trabajo.",
+          }
+        }
+
+        setTasks(result.data)
+        clearDashboardExtras()
       } else if (isPlainTaskListScope(listScope)) {
         const result = await loadTasksForScope(companyId, client, listScope)
 
@@ -336,7 +417,13 @@ export function useTasksLoad({
         message: "No se pudieron actualizar las órdenes de trabajo.",
       }
     }
-  }, [clearDashboardExtras, companyId, listScope])
+  }, [
+    clearDashboardExtras,
+    companyId,
+    listScope,
+    operarioCrewId,
+    operarioCrewName,
+  ])
 
   const setArchivePage = useCallback((page: number) => {
     setArchiveQuery((current) => {
@@ -413,6 +500,7 @@ export function useTasksLoad({
     detailVersion,
     setDetailVersion,
     refreshTasksFromServer,
+    mergeFetchedTask,
     archiveList,
     dashboardFinalizadaCount,
     dashboardProjectMetricTasks,

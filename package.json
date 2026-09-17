@@ -180,6 +180,7 @@
     "test:planning-work-order-list": "npx tsx --test scripts/test-planning-work-order-list.mjs",
     "test:calendar-work-order-list": "npx tsx --test scripts/test-calendar-work-order-list.mjs",
     "test:dashboard-work-orders": "npx tsx --test scripts/test-dashboard-work-orders.mjs",
+    "test:operario-today-work-orders": "npx tsx --test scripts/test-operario-today-work-orders.mjs",
     "test:sync-vencida-1000": "npx tsx --test scripts/test-sync-vencida-1000.mjs",
     "test:task-reference-photo-delete": "npx tsx --test scripts/test-task-reference-photo-delete.mjs",
     "test:customer-retenciones-sprint-6-0": "npx tsx --test scripts/test-customer-retenciones-sprint-6-0.mjs",

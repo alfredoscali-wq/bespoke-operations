@@ -504,3 +504,136 @@ export function filterArchivedWorkOrders<
 >(tasks: T[], _statusFilter: ArchiveOtStatusFilter = "all"): T[] {
   return tasks.filter(matchesArchivedWorkOrderListQuery)
 }
+
+/**
+ * OT del portal Operario Web Hoy (`/operario`). Independent of Mobile agenda.
+ * Date rules stay in lib/data/operario.ts (asignada: dueDate <= today local).
+ */
+export const OPERARIO_TODAY_WORK_ORDER_LIST_STATUSES: TaskStatus[] = [
+  "asignada",
+  "en-curso",
+  "vencida",
+  "incidencia",
+  "pendiente-cierre",
+  "en-aprobacion",
+]
+
+export type OperarioWebCrewRef = {
+  id?: string | null
+  name: string
+}
+
+export function isOperarioTodayWorkOrderListStatus(status: TaskStatus): boolean {
+  return OPERARIO_TODAY_WORK_ORDER_LIST_STATUSES.includes(status)
+}
+
+export function hasOperarioWebCrew(crew: OperarioWebCrewRef): boolean {
+  return Boolean(crew.id?.trim() || crew.name.trim())
+}
+
+/**
+ * Same crew matching as getWorkerTasks / taskMatchesCrewId for Operario Web.
+ */
+export function matchesOperarioWebCrew(
+  task: {
+    crewId?: string | null
+    crew?: string | null
+  },
+  crew: OperarioWebCrewRef
+): boolean {
+  if (!hasOperarioWebCrew(crew)) {
+    return false
+  }
+
+  if (!task.crewId && !task.crew?.trim()) {
+    return false
+  }
+
+  if (crew.id?.trim()) {
+    if (task.crewId) {
+      return task.crewId === crew.id
+    }
+
+    const workerName = crew.name.trim().toLocaleLowerCase("es")
+    const taskCrew = task.crew?.trim().toLocaleLowerCase("es")
+    return Boolean(taskCrew && taskCrew === workerName)
+  }
+
+  const workerName = crew.name.trim().toLocaleLowerCase("es")
+  const taskCrew = task.crew?.trim().toLocaleLowerCase("es")
+  return Boolean(taskCrew && taskCrew === workerName)
+}
+
+type OperarioTodayWorkOrderListRow = {
+  id?: string
+  status: TaskStatus
+  deletedAt?: string | null
+  companyId?: string | null
+  dueDate: string
+  code?: string
+  projectId?: string | null
+  crewId?: string | null
+  crew?: string | null
+}
+
+export function matchesOperarioTodayWorkOrderListQuery(
+  task: Pick<
+    OperarioTodayWorkOrderListRow,
+    "status" | "deletedAt" | "companyId" | "crewId" | "crew"
+  >,
+  companyId: string | undefined,
+  crew: OperarioWebCrewRef
+): boolean {
+  if (task.deletedAt) {
+    return false
+  }
+
+  if (companyId && task.companyId && task.companyId !== companyId) {
+    return false
+  }
+
+  if (!isOperarioTodayWorkOrderListStatus(task.status)) {
+    return false
+  }
+
+  return matchesOperarioWebCrew(task, crew)
+}
+
+export function selectOperarioTodayWorkOrderListRows<
+  T extends OperarioTodayWorkOrderListRow,
+>(
+  rows: T[],
+  companyId: string | undefined,
+  crew: OperarioWebCrewRef,
+  maxRows = 1000
+): T[] {
+  return rows
+    .filter((task) =>
+      matchesOperarioTodayWorkOrderListQuery(task, companyId, crew)
+    )
+    .slice(0, maxRows)
+}
+
+export function matchesOperarioWebWorkOrderByIdQuery(
+  task: Pick<
+    OperarioTodayWorkOrderListRow,
+    "id" | "deletedAt" | "companyId" | "crewId" | "crew"
+  >,
+  companyId: string,
+  taskId: string,
+  crew: OperarioWebCrewRef
+): boolean {
+  if (task.deletedAt) {
+    return false
+  }
+
+  if (task.companyId && task.companyId !== companyId) {
+    return false
+  }
+
+  if (task.id !== taskId) {
+    return false
+  }
+
+  return matchesOperarioWebCrew(task, crew)
+}

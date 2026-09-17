@@ -4,6 +4,7 @@ import { useMemo } from "react"
 
 import { useDemoMode } from "@/components/demo/demo-mode-provider"
 import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
+import type { OperarioWebCrewRef } from "@/lib/tasks/task-list-scope"
 
 import { TasksContext } from "./context"
 import { useTasksCreate } from "./hooks/use-tasks-create"
@@ -21,9 +22,13 @@ import { useTasksWorkflow } from "./hooks/use-tasks-workflow"
 export function TasksProvider({
   children,
   listScope = "all",
+  operarioCrew,
+  isOperarioCrewReady,
 }: {
   children: React.ReactNode
   listScope?: TasksListScope
+  operarioCrew?: OperarioWebCrewRef
+  isOperarioCrewReady?: boolean
 }) {
   const { isReadOnly, openRestrictedDialog } = useDemoMode()
   const { companyId, isAuthReady } = useTenantCompanyId()
@@ -37,10 +42,17 @@ export function TasksProvider({
     detailVersion,
     setDetailVersion,
     refreshTasksFromServer,
+    mergeFetchedTask,
     archiveList,
     dashboardFinalizadaCount,
     dashboardProjectMetricTasks,
-  } = useTasksLoad({ companyId, isAuthReady, listScope })
+  } = useTasksLoad({
+    companyId,
+    isAuthReady,
+    listScope,
+    operarioCrew,
+    isOperarioCrewReady,
+  })
 
   const {
     persistTaskUpdate,
@@ -169,6 +181,7 @@ export function TasksProvider({
       addComment,
       addEvidence,
       refreshTasksFromServer,
+      mergeFetchedTask,
       dashboardFinalizadaCount,
       dashboardProjectMetricTasks,
     }),
@@ -211,6 +224,7 @@ export function TasksProvider({
       addComment,
       addEvidence,
       refreshTasksFromServer,
+      mergeFetchedTask,
       dashboardFinalizadaCount,
       dashboardProjectMetricTasks,
     ]

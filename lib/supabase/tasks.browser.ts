@@ -7,6 +7,8 @@ import {
   fetchArchivedWorkOrderListTasks,
   fetchCalendarWorkOrderListTasks,
   fetchDashboardWorkOrderListTasks,
+  fetchOperarioTodayWorkOrderListTasks,
+  fetchOperarioWebWorkOrderById,
   fetchPlanningWorkOrderListTasks,
   insertTask,
   patchTask,
@@ -19,6 +21,7 @@ import type {
   ArchivedWorkOrderListPage,
   ArchivedWorkOrderListQuery,
 } from "@/lib/tasks/archived-work-order-list"
+import type { OperarioWebCrewRef } from "@/lib/tasks/task-list-scope"
 import { applyVencidaSyncFromApi } from "@/lib/tasks/vencida-sync.client"
 import type { Task } from "@/lib/types/tasks"
 import type {
@@ -104,6 +107,38 @@ export async function listCalendarWorkOrderTasks(
     data: syncedTasks,
     error: null,
   }
+}
+
+export async function listOperarioTodayWorkOrderTasks(
+  companyId: string,
+  crew: OperarioWebCrewRef,
+  client: SupabaseTasksClient = createBrowserTasksClient()
+): Promise<TasksRepositoryResult<Task[]>> {
+  const result = await fetchOperarioTodayWorkOrderListTasks(
+    client,
+    companyId,
+    crew
+  )
+
+  if (result.error || !result.data) {
+    return result
+  }
+
+  const syncedTasks = await applyVencidaSyncFromApi(result.data)
+
+  return {
+    data: syncedTasks,
+    error: null,
+  }
+}
+
+export async function getOperarioWebWorkOrderById(
+  companyId: string,
+  taskId: string,
+  crew: OperarioWebCrewRef,
+  client: SupabaseTasksClient = createBrowserTasksClient()
+): Promise<TasksRepositoryResult<Task>> {
+  return fetchOperarioWebWorkOrderById(client, companyId, taskId, crew)
 }
 
 export async function listDashboardWorkOrderTasks(

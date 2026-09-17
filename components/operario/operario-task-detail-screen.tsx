@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { AlertTriangle, ArrowLeft, CheckCircle2 } from "lucide-react"
@@ -43,6 +43,8 @@ import { cn } from "@/lib/utils"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
+import { getOperarioWebWorkOrderById } from "@/lib/supabase/tasks.browser"
 
 type OperarioTaskDetailScreenProps = {
   id: string
@@ -55,11 +57,85 @@ export function OperarioTaskDetailScreen({ id }: OperarioTaskDetailScreenProps) 
     assignedCrewNames,
     isCrewReady,
   } = useOperario()
-  const { getTask } = useTasks()
+  const { getTask, mergeFetchedTask, usesSupabase } = useTasks()
+  const { companyId } = useTenantCompanyId()
   const { isReadOnly } = useDemoMode()
   const [actionMessage, setActionMessage] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [stepsRefreshKey, setStepsRefreshKey] = useState(0)
+  const [fetchedTask, setFetchedTask] = useState<Task | null>(null)
+  const [isFetchingTask, setIsFetchingTask] = useState(false)
+  const [didRemoteLookup, setDidRemoteLookup] = useState(false)
+  const listedTask = getTask(id)
+  const crewId = workerCrewRef.id ?? ""
+  const crewName = workerCrewRef.name
+
+  useEffect(() => {
+    if (!isCrewReady || crewStatus === "loading") {
+      return
+    }
+
+    if (crewStatus === "unassigned") {
+      setDidRemoteLookup(true)
+      setIsFetchingTask(false)
+      setFetchedTask(null)
+      return
+    }
+
+    if (listedTask) {
+      setDidRemoteLookup(true)
+      setIsFetchingTask(false)
+      setFetchedTask(null)
+      return
+    }
+
+    if (!usesSupabase || !companyId) {
+      setDidRemoteLookup(true)
+      setIsFetchingTask(false)
+      setFetchedTask(null)
+      return
+    }
+
+    let cancelled = false
+    setIsFetchingTask(true)
+    setDidRemoteLookup(false)
+    setFetchedTask(null)
+
+    void (async () => {
+      const result = await getOperarioWebWorkOrderById(companyId, id, {
+        id: crewId || undefined,
+        name: crewName,
+      })
+
+      if (cancelled) {
+        return
+      }
+
+      if (result.data) {
+        mergeFetchedTask(result.data)
+        setFetchedTask(result.data)
+      } else {
+        setFetchedTask(null)
+      }
+
+      setIsFetchingTask(false)
+      setDidRemoteLookup(true)
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [
+    companyId,
+    crewId,
+    crewName,
+    crewStatus,
+    id,
+    isCrewReady,
+    listedTask,
+    mergeFetchedTask,
+    usesSupabase,
+  ])
 
   if (!isCrewReady || crewStatus === "loading") {
     return (
@@ -100,7 +176,26 @@ export function OperarioTaskDetailScreen({ id }: OperarioTaskDetailScreenProps) 
     )
   }
 
-  const task = getTask(id)
+  const task = listedTask ?? fetchedTask
+
+  if ((isFetchingTask || !didRemoteLookup) && !task) {
+    return (
+      <div className="space-y-3 px-4 pt-3 pb-6">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="-ml-2 h-9 gap-2 text-muted-foreground"
+          asChild
+        >
+          <Link href="/operario/tareas">
+            <ArrowLeft className="size-4" />
+            Volver
+          </Link>
+        </Button>
+        <OperarioCrewEmptyState crewStatus="loading" />
+      </div>
+    )
+  }
 
   if (!task) {
     notFound()

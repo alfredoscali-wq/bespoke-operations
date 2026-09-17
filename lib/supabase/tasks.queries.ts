@@ -29,7 +29,10 @@ import {
   DASHBOARD_PROJECT_METRIC_PAGE_SIZE,
   DASHBOARD_RECENT_ACTIVITY_LIMIT,
   DASHBOARD_RECENT_ACTIVITY_WORK_ORDER_LIST_STATUSES,
+  OPERARIO_TODAY_WORK_ORDER_LIST_STATUSES,
   PLANNING_WORK_ORDER_LIST_STATUSES,
+  type OperarioWebCrewRef,
+  hasOperarioWebCrew,
 } from "@/lib/tasks/task-list-scope"
 import {
   ARCHIVE_WORK_ORDER_LIST_PAGE_SIZE,
@@ -770,6 +773,112 @@ export async function fetchTasksByIdsForVencidaSync(
     data: rows.map(mapTaskRowToTask),
     error: null,
   }
+}
+
+function applyOperarioWebCrewFilter<
+  T extends {
+    or: (filter: string) => T
+    eq: (column: string, value: string) => T
+    maybeSingle?: () => PromiseLike<{ data: unknown; error: unknown }>
+  },
+>(query: T, crew: OperarioWebCrewRef): T {
+  const crewId = crew.id?.trim() ?? ""
+  const crewName = crew.name.trim()
+
+  if (crewId && crewName) {
+    return query.or(
+      `crew_id.eq.${crewId},and(crew_id.is.null,crew.eq.${quotePostgrestFilterValue(crewName)})`
+    )
+  }
+
+  if (crewId) {
+    return query.eq("crew_id", crewId)
+  }
+
+  return query.eq("crew", crewName)
+}
+
+/**
+ * Operario Web Hoy (`/operario`). Crew-scoped operational statuses so
+ * PostgREST max_rows=1000 cannot hide today's OT behind historical
+ * finalizadas. Date visibility stays in lib/data/operario.ts.
+ * Do not reuse for Mobile, /tareas, Dashboard, or Historial.
+ */
+export async function fetchOperarioTodayWorkOrderListTasks(
+  client: SupabaseTasksClient,
+  companyId: string,
+  crew: OperarioWebCrewRef
+): Promise<TasksRepositoryResult<Task[]>> {
+  if (!hasOperarioWebCrew(crew)) {
+    return { data: [], error: null }
+  }
+
+  const { data, error } = await applyOperarioWebCrewFilter(
+    client
+      .from("tasks")
+      .select("*")
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .in("status", [...OPERARIO_TODAY_WORK_ORDER_LIST_STATUSES]),
+    crew
+  )
+
+  if (error) {
+    return { data: null, error: mapSupabaseTaskError(error) }
+  }
+
+  return {
+    data: (data ?? []).map(mapTaskRowToTask),
+    error: null,
+  }
+}
+
+/**
+ * Operario Web detail (`/operario/tarea/[id]`). Tenant + id + crew lookup;
+ * does not call fetchTasks. Caller must still apply
+ * isOperarioWorkerTaskAccessible (today vs history).
+ */
+export async function fetchOperarioWebWorkOrderById(
+  client: SupabaseTasksClient,
+  companyId: string,
+  taskId: string,
+  crew: OperarioWebCrewRef
+): Promise<TasksRepositoryResult<Task>> {
+  if (!hasOperarioWebCrew(crew)) {
+    return {
+      data: null,
+      error: {
+        code: "NOT_FOUND",
+        message: "Orden de trabajo no encontrada.",
+      },
+    }
+  }
+
+  const { data, error } = await applyOperarioWebCrewFilter(
+    client
+      .from("tasks")
+      .select("*")
+      .eq("company_id", companyId)
+      .eq("id", taskId)
+      .is("deleted_at", null),
+    crew
+  ).maybeSingle()
+
+  if (error) {
+    return { data: null, error: mapSupabaseTaskError(error) }
+  }
+
+  if (!data) {
+    return {
+      data: null,
+      error: {
+        code: "NOT_FOUND",
+        message: "Orden de trabajo no encontrada.",
+      },
+    }
+  }
+
+  return { data: mapTaskRowToTask(data), error: null }
 }
 
 export async function fetchTaskById(
