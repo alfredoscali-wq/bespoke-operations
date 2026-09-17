@@ -209,6 +209,253 @@ export function selectCalendarWorkOrderListRows<
     .slice(0, maxRows)
 }
 
+/**
+ * OT operativas del Dashboard (`/`). Independent of planning/calendar scopes.
+ * Includes `borrador` because buildExecutiveSummary Pendientes uses
+ * ACTIVE_TASK_STATUSES, which counts drafts.
+ */
+export const DASHBOARD_OPERATIONAL_WORK_ORDER_LIST_STATUSES: TaskStatus[] = [
+  "borrador",
+  "programada",
+  "asignada",
+  "en-curso",
+  "vencida",
+  "incidencia",
+  "pendiente-cierre",
+  "en-aprobacion",
+]
+
+/**
+ * Statuses counted as "finalizadas hoy" by buildDayOperations / isTaskCompletedToday:
+ * dueDate === today. Independent of the all-time "Finalizadas" KPI.
+ */
+export const DASHBOARD_COMPLETED_TODAY_WORK_ORDER_LIST_STATUSES: TaskStatus[] = [
+  "finalizada",
+  "cerrada",
+]
+
+/**
+ * KPI "Finalizadas" (Estado de OT): COUNT of status === "finalizada" with no
+ * date filter. Same predicate as getTasksSummary.finalizada. Never loads rows.
+ */
+export const DASHBOARD_FINALIZADA_COUNT_STATUS =
+  "finalizada" as const satisfies TaskStatus
+
+/**
+ * Recent-activity feed candidates. Same set as FINAL_TASK_STATUSES used by
+ * buildRecentOperationalActivity. Ordered by created_at, limited in SQL.
+ */
+export const DASHBOARD_RECENT_ACTIVITY_WORK_ORDER_LIST_STATUSES: TaskStatus[] = [
+  "finalizada",
+  "cancelada",
+]
+
+/** Matches buildRecentOperationalActivity default `limit ?? 10`. */
+export const DASHBOARD_RECENT_ACTIVITY_LIMIT = 10
+
+/**
+ * Historical completed OT of Obras. Needed by buildProjectOperationalMetricsMap
+ * (isTaskArchivedStatus = finalizada | cerrada). Operational obra tasks already
+ * come from the live operational query.
+ */
+export const DASHBOARD_PROJECT_METRIC_COMPLETED_STATUSES: TaskStatus[] = [
+  "finalizada",
+  "cerrada",
+]
+
+/** PostgREST max_rows page size for the project-metrics completed query. */
+export const DASHBOARD_PROJECT_METRIC_PAGE_SIZE = 1000
+
+export function isDashboardOperationalWorkOrderListStatus(
+  status: TaskStatus
+): boolean {
+  return DASHBOARD_OPERATIONAL_WORK_ORDER_LIST_STATUSES.includes(status)
+}
+
+export function isDashboardCompletedTodayWorkOrderListStatus(
+  status: TaskStatus
+): boolean {
+  return DASHBOARD_COMPLETED_TODAY_WORK_ORDER_LIST_STATUSES.includes(status)
+}
+
+type DashboardWorkOrderListRow = {
+  id?: string
+  status: TaskStatus
+  deletedAt?: string | null
+  companyId?: string | null
+  dueDate: string
+  code?: string
+  projectId?: string | null
+  createdAt?: string | null
+}
+
+function isDashboardTenantRow(
+  task: Pick<DashboardWorkOrderListRow, "deletedAt" | "companyId">,
+  companyId?: string
+): boolean {
+  if (task.deletedAt) {
+    return false
+  }
+
+  if (companyId && task.companyId && task.companyId !== companyId) {
+    return false
+  }
+
+  return true
+}
+
+/**
+ * Server-side predicate for Dashboard. Matches fetchDashboardWorkOrderListTasks:
+ * all live operational statuses (including borrador), plus finalizada/cerrada
+ * only when due_date is the dashboard "today" string (same field as
+ * isTaskCompletedToday). Includes Obras (project_id set) for overdue-obra
+ * alerts. Historical finalizada/cancelada are NOT in this payload.
+ */
+export function matchesDashboardWorkOrderListQuery(
+  task: Pick<
+    DashboardWorkOrderListRow,
+    "status" | "deletedAt" | "companyId" | "dueDate"
+  >,
+  companyId: string | undefined,
+  today: string
+): boolean {
+  if (!isDashboardTenantRow(task, companyId)) {
+    return false
+  }
+
+  if (isDashboardOperationalWorkOrderListStatus(task.status)) {
+    return true
+  }
+
+  return (
+    isDashboardCompletedTodayWorkOrderListStatus(task.status) &&
+    task.dueDate === today
+  )
+}
+
+export function selectDashboardWorkOrderListRows<
+  T extends DashboardWorkOrderListRow,
+>(rows: T[], companyId: string | undefined, today: string, maxRows = 1000): T[] {
+  return rows
+    .filter((task) => matchesDashboardWorkOrderListQuery(task, companyId, today))
+    .sort(
+      (left, right) =>
+        left.dueDate.localeCompare(right.dueDate) ||
+        (left.code ?? "").localeCompare(right.code ?? "")
+    )
+    .slice(0, maxRows)
+}
+
+/**
+ * COUNT predicate for KPI "Finalizadas": status === "finalizada", no date
+ * filter. Matches getTasksSummary.finalizada. Does not apply max_rows.
+ */
+export function matchesDashboardFinalizadaCountQuery(
+  task: Pick<DashboardWorkOrderListRow, "status" | "deletedAt" | "companyId">,
+  companyId?: string
+): boolean {
+  return (
+    isDashboardTenantRow(task, companyId) &&
+    task.status === DASHBOARD_FINALIZADA_COUNT_STATUS
+  )
+}
+
+export function countDashboardFinalizadaRows<
+  T extends Pick<DashboardWorkOrderListRow, "status" | "deletedAt" | "companyId">,
+>(rows: T[], companyId?: string): number {
+  return rows.filter((task) =>
+    matchesDashboardFinalizadaCountQuery(task, companyId)
+  ).length
+}
+
+export function isDashboardRecentActivityWorkOrderListStatus(
+  status: TaskStatus
+): boolean {
+  return DASHBOARD_RECENT_ACTIVITY_WORK_ORDER_LIST_STATUSES.includes(status)
+}
+
+export function matchesDashboardRecentActivityQuery(
+  task: Pick<DashboardWorkOrderListRow, "status" | "deletedAt" | "companyId">,
+  companyId?: string
+): boolean {
+  return (
+    isDashboardTenantRow(task, companyId) &&
+    isDashboardRecentActivityWorkOrderListStatus(task.status)
+  )
+}
+
+function dashboardRecentActivityTimestamp(task: {
+  createdAt?: string | null
+  dueDate: string
+}): number {
+  const timestamp = task.createdAt ?? `${task.dueDate}T18:00:00`
+  return new Date(timestamp).getTime()
+}
+
+/**
+ * Same candidate set and sort as buildRecentOperationalActivity task events,
+ * limited in SQL to the feed size so historical finals are not loaded.
+ */
+export function selectDashboardRecentActivityRows<
+  T extends DashboardWorkOrderListRow,
+>(
+  rows: T[],
+  companyId: string | undefined,
+  limit = DASHBOARD_RECENT_ACTIVITY_LIMIT
+): T[] {
+  return rows
+    .filter((task) => matchesDashboardRecentActivityQuery(task, companyId))
+    .sort(
+      (left, right) =>
+        dashboardRecentActivityTimestamp(right) -
+        dashboardRecentActivityTimestamp(left)
+    )
+    .slice(0, limit)
+}
+
+export function isDashboardProjectMetricCompletedStatus(
+  status: TaskStatus
+): boolean {
+  return DASHBOARD_PROJECT_METRIC_COMPLETED_STATUSES.includes(status)
+}
+
+export function matchesDashboardProjectMetricCompletedQuery(
+  task: Pick<
+    DashboardWorkOrderListRow,
+    "status" | "deletedAt" | "companyId" | "projectId"
+  >,
+  companyId?: string
+): boolean {
+  if (!isDashboardTenantRow(task, companyId)) {
+    return false
+  }
+
+  if (!task.projectId) {
+    return false
+  }
+
+  return isDashboardProjectMetricCompletedStatus(task.status)
+}
+
+export function selectDashboardProjectMetricCompletedRows<
+  T extends DashboardWorkOrderListRow,
+>(rows: T[], companyId?: string, pageSize = DASHBOARD_PROJECT_METRIC_PAGE_SIZE): T[] {
+  const matched = rows
+    .filter((task) =>
+      matchesDashboardProjectMetricCompletedQuery(task, companyId)
+    )
+    .sort(
+      (left, right) =>
+        (left.id ?? left.code ?? "").localeCompare(right.id ?? right.code ?? "")
+    )
+
+  const pages: T[] = []
+  for (let from = 0; from < matched.length; from += pageSize) {
+    pages.push(...matched.slice(from, from + pageSize))
+  }
+  return pages
+}
+
 export function isArchiveWorkOrderStatus(status: TaskStatus): boolean {
   return ARCHIVE_WORK_ORDER_STATUSES.includes(status)
 }

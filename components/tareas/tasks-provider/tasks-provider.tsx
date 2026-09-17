@@ -38,6 +38,8 @@ export function TasksProvider({
     setDetailVersion,
     refreshTasksFromServer,
     archiveList,
+    dashboardFinalizadaCount,
+    dashboardProjectMetricTasks,
   } = useTasksLoad({ companyId, isAuthReady, listScope })
 
   const {
@@ -167,6 +169,8 @@ export function TasksProvider({
       addComment,
       addEvidence,
       refreshTasksFromServer,
+      dashboardFinalizadaCount,
+      dashboardProjectMetricTasks,
     }),
     [
       tasks,
@@ -207,6 +211,8 @@ export function TasksProvider({
       addComment,
       addEvidence,
       refreshTasksFromServer,
+      dashboardFinalizadaCount,
+      dashboardProjectMetricTasks,
     ]
   )
 

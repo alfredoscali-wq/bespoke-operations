@@ -201,7 +201,7 @@ test("query de Calendario filtra company, deleted_at, status y due_date; no proj
   const queries = read("lib/supabase/tasks.queries.ts")
   const calendarBlock = queries.slice(
     queries.indexOf("export async function fetchCalendarWorkOrderListTasks("),
-    queries.indexOf("export async function fetchArchivedWorkOrderListTasks(")
+    queries.indexOf("export async function fetchDashboardWorkOrderListTasks(")
   )
 
   assert.match(calendarBlock, /\.eq\("company_id", companyId\)/)

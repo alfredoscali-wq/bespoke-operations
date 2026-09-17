@@ -6,12 +6,15 @@ import {
   fetchActiveWorkOrderListTasks,
   fetchArchivedWorkOrderListTasks,
   fetchCalendarWorkOrderListTasks,
+  fetchDashboardWorkOrderListTasks,
   fetchPlanningWorkOrderListTasks,
   insertTask,
   patchTask,
   softDeleteTask,
+  type DashboardWorkOrderListData,
   type SupabaseTasksClient,
 } from "@/lib/supabase/tasks.queries"
+import { toDateOnly } from "@/lib/availability/utils"
 import type {
   ArchivedWorkOrderListPage,
   ArchivedWorkOrderListQuery,
@@ -24,6 +27,8 @@ import type {
   TasksRepositoryResult,
   UpdateTaskPayload,
 } from "@/lib/types/supabase/tasks"
+
+export type { DashboardWorkOrderListData }
 
 export function createBrowserTasksClient(): SupabaseTasksClient {
   return createClient()
@@ -97,6 +102,28 @@ export async function listCalendarWorkOrderTasks(
 
   return {
     data: syncedTasks,
+    error: null,
+  }
+}
+
+export async function listDashboardWorkOrderTasks(
+  companyId: string,
+  client: SupabaseTasksClient = createBrowserTasksClient(),
+  today: string = toDateOnly()
+): Promise<TasksRepositoryResult<DashboardWorkOrderListData>> {
+  const result = await fetchDashboardWorkOrderListTasks(client, companyId, today)
+
+  if (result.error || !result.data) {
+    return result
+  }
+
+  const syncedTasks = await applyVencidaSyncFromApi(result.data.tasks)
+
+  return {
+    data: {
+      ...result.data,
+      tasks: syncedTasks,
+    },
     error: null,
   }
 }

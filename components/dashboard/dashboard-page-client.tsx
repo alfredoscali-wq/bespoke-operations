@@ -90,7 +90,8 @@ export function DashboardPageClient() {
   const [isHydrating, setIsHydrating] = useState(true)
   const { profile } = useOperationalProfile()
   const { projects } = useProjects()
-  const { tasks } = useTasks()
+  const { tasks, dashboardFinalizadaCount, dashboardProjectMetricTasks } =
+    useTasks()
   const { evidence } = useEvidence()
   const { crews } = useCrews()
   const { records: availabilityRecords } = useAvailability()
@@ -108,15 +109,28 @@ export function DashboardPageClient() {
     [availabilityRecords, getEmployee]
   )
 
+  const tasksForProjectHealth = useMemo(() => {
+    const byId = new Map<string, (typeof tasks)[number]>()
+    for (const task of tasks) {
+      byId.set(task.id, task)
+    }
+    for (const task of dashboardProjectMetricTasks) {
+      if (!byId.has(task.id)) {
+        byId.set(task.id, task)
+      }
+    }
+    return [...byId.values()]
+  }, [dashboardProjectMetricTasks, tasks])
+
   const alerts = useMemo(
     () =>
       buildOperationalAlerts({
         projects,
-        tasks,
+        tasks: tasksForProjectHealth,
         crews,
         crewAvailabilityContext,
       }),
-    [projects, tasks, crews, crewAvailabilityContext]
+    [projects, tasksForProjectHealth, crews, crewAvailabilityContext]
   )
 
   const incidentsCount = useMemo(
@@ -146,10 +160,18 @@ export function DashboardPageClient() {
     [projects]
   )
 
-  const tasksStatus = useMemo(
-    () => buildTasksStatusKpis(tasks),
-    [tasks]
-  )
+  const tasksStatus = useMemo(() => {
+    const kpis = buildTasksStatusKpis(tasks)
+    if (dashboardFinalizadaCount == null) {
+      return kpis
+    }
+
+    return kpis.map((kpi) =>
+      kpi.id === "finalizada"
+        ? { ...kpi, value: dashboardFinalizadaCount }
+        : kpi
+    )
+  }, [dashboardFinalizadaCount, tasks])
 
   const crewsStatus = useMemo(
     () =>

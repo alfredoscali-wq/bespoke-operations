@@ -22,6 +22,13 @@ import {
   ARCHIVE_WORK_ORDER_LIST_STATUS,
   ACTIVE_WORK_ORDER_LIST_STATUSES,
   CALENDAR_WORK_ORDER_LIST_STATUSES,
+  DASHBOARD_COMPLETED_TODAY_WORK_ORDER_LIST_STATUSES,
+  DASHBOARD_FINALIZADA_COUNT_STATUS,
+  DASHBOARD_OPERATIONAL_WORK_ORDER_LIST_STATUSES,
+  DASHBOARD_PROJECT_METRIC_COMPLETED_STATUSES,
+  DASHBOARD_PROJECT_METRIC_PAGE_SIZE,
+  DASHBOARD_RECENT_ACTIVITY_LIMIT,
+  DASHBOARD_RECENT_ACTIVITY_WORK_ORDER_LIST_STATUSES,
   PLANNING_WORK_ORDER_LIST_STATUSES,
 } from "@/lib/tasks/task-list-scope"
 import {
@@ -333,6 +340,149 @@ export async function fetchCalendarWorkOrderListTasks(
 
   return {
     data: await mapFetchedTaskRows(client, companyId, data),
+    error: null,
+  }
+}
+
+export type DashboardWorkOrderListData = {
+  tasks: Task[]
+  finalizadaCount: number
+  projectMetricTasks: Task[]
+}
+
+/**
+ * Dashboard operativo (`/`). Specialized queries so PostgREST max_rows=1000
+ * cannot hide today's OTs behind historical finalizadas, without changing
+ * KPI semantics:
+ * 1) live operational statuses including borrador (Pendientes / cycle KPIs)
+ * 2) finalizada/cerrada with due_date = today (KPI "Finalizadas hoy")
+ * 3) COUNT of status = finalizada with no date filter (KPI "Finalizadas")
+ * 4) finalizada/cancelada ORDER BY created_at DESC LIMIT 10 (actividad reciente)
+ * 5) paginated finalizada/cerrada with project_id (progreso de Obras)
+ *
+ * `today` must be the same YYYY-MM-DD string Dashboard builders use
+ * (`toDateOnly()` = UTC date-only). Do not reuse for /tareas, Archivo,
+ * Planificación, Calendario, Mobile, or Obras.
+ */
+export async function fetchDashboardWorkOrderListTasks(
+  client: SupabaseTasksClient,
+  companyId: string,
+  today: string
+): Promise<TasksRepositoryResult<DashboardWorkOrderListData>> {
+  const [operational, completedToday, finalizadaCountResult, recentActivity] =
+    await Promise.all([
+      client
+        .from("tasks")
+        .select("*")
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .in("status", [...DASHBOARD_OPERATIONAL_WORK_ORDER_LIST_STATUSES])
+        .order("due_date", { ascending: true }),
+      client
+        .from("tasks")
+        .select("*")
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .in("status", [...DASHBOARD_COMPLETED_TODAY_WORK_ORDER_LIST_STATUSES])
+        .eq("due_date", today)
+        .order("due_date", { ascending: true }),
+      client
+        .from("tasks")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .eq("status", DASHBOARD_FINALIZADA_COUNT_STATUS),
+      client
+        .from("tasks")
+        .select("*")
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .in("status", [...DASHBOARD_RECENT_ACTIVITY_WORK_ORDER_LIST_STATUSES])
+        .order("created_at", { ascending: false })
+        .limit(DASHBOARD_RECENT_ACTIVITY_LIMIT),
+    ])
+
+  if (operational.error) {
+    return { data: null, error: mapSupabaseTaskError(operational.error) }
+  }
+
+  if (completedToday.error) {
+    return { data: null, error: mapSupabaseTaskError(completedToday.error) }
+  }
+
+  if (finalizadaCountResult.error) {
+    return {
+      data: null,
+      error: mapSupabaseTaskError(finalizadaCountResult.error),
+    }
+  }
+
+  if (recentActivity.error) {
+    return { data: null, error: mapSupabaseTaskError(recentActivity.error) }
+  }
+
+  const projectMetricRows: NonNullable<typeof operational.data> = []
+  let projectMetricFrom = 0
+
+  for (;;) {
+    const projectMetricPage = await client
+      .from("tasks")
+      .select("*")
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .not("project_id", "is", null)
+      .in("status", [...DASHBOARD_PROJECT_METRIC_COMPLETED_STATUSES])
+      .order("id", { ascending: true })
+      .range(
+        projectMetricFrom,
+        projectMetricFrom + DASHBOARD_PROJECT_METRIC_PAGE_SIZE - 1
+      )
+
+    if (projectMetricPage.error) {
+      return {
+        data: null,
+        error: mapSupabaseTaskError(projectMetricPage.error),
+      }
+    }
+
+    const pageRows = projectMetricPage.data ?? []
+    projectMetricRows.push(...pageRows)
+
+    if (pageRows.length < DASHBOARD_PROJECT_METRIC_PAGE_SIZE) {
+      break
+    }
+
+    projectMetricFrom += DASHBOARD_PROJECT_METRIC_PAGE_SIZE
+  }
+
+  const dashboardTaskRows = new Map<string, (typeof operational.data)[number]>()
+  for (const row of operational.data ?? []) {
+    dashboardTaskRows.set(row.id, row)
+  }
+  for (const row of completedToday.data ?? []) {
+    dashboardTaskRows.set(row.id, row)
+  }
+  for (const row of recentActivity.data ?? []) {
+    dashboardTaskRows.set(row.id, row)
+  }
+
+  const projectMetricIds = new Set(projectMetricRows.map((row) => row.id))
+  const allRowsById = new Map(dashboardTaskRows)
+  for (const row of projectMetricRows) {
+    allRowsById.set(row.id, row)
+  }
+
+  const mapped = await mapFetchedTaskRows(client, companyId, [
+    ...allRowsById.values(),
+  ])
+  const dashboardTaskIds = new Set(dashboardTaskRows.keys())
+
+  return {
+    data: {
+      tasks: mapped.filter((task) => dashboardTaskIds.has(task.id)),
+      finalizadaCount: finalizadaCountResult.count ?? 0,
+      projectMetricTasks: mapped.filter((task) => projectMetricIds.has(task.id)),
+    },
     error: null,
   }
 }

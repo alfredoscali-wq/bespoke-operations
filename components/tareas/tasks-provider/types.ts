@@ -152,4 +152,6 @@ export type TasksContextValue = {
   refreshTasksFromServer: (options?: {
     silent?: boolean
   }) => Promise<TaskMutationResult>
+  dashboardFinalizadaCount: number | null
+  dashboardProjectMetricTasks: Task[]
 }

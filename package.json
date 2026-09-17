@@ -179,6 +179,7 @@
     "test:archive-work-order-list": "npx tsx --test scripts/test-archive-work-order-list.mjs",
     "test:planning-work-order-list": "npx tsx --test scripts/test-planning-work-order-list.mjs",
     "test:calendar-work-order-list": "npx tsx --test scripts/test-calendar-work-order-list.mjs",
+    "test:dashboard-work-orders": "npx tsx --test scripts/test-dashboard-work-orders.mjs",
     "test:task-reference-photo-delete": "npx tsx --test scripts/test-task-reference-photo-delete.mjs",
     "test:customer-retenciones-sprint-6-0": "npx tsx --test scripts/test-customer-retenciones-sprint-6-0.mjs",
     "test:obras-ops-1-0-dispatch": "npx tsx --test scripts/test-obras-ops-1-0-dispatch.mjs",

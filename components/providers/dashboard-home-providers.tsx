@@ -14,7 +14,7 @@ export function DashboardHomeProviders({
 }) {
   return (
     <ProjectsProvider>
-      <TasksProvider>
+      <TasksProvider listScope="dashboardWorkOrders">
         <EmployeesProvider>
           <AvailabilityProvider>
             <CrewsProvider>
