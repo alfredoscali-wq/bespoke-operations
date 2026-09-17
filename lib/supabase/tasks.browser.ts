@@ -5,6 +5,7 @@ import {
   fetchTasks,
   fetchActiveWorkOrderListTasks,
   fetchArchivedWorkOrderListTasks,
+  fetchCalendarWorkOrderListTasks,
   fetchPlanningWorkOrderListTasks,
   insertTask,
   patchTask,
@@ -69,6 +70,24 @@ export async function listPlanningWorkOrderTasks(
   client: SupabaseTasksClient = createBrowserTasksClient()
 ): Promise<TasksRepositoryResult<Task[]>> {
   const result = await fetchPlanningWorkOrderListTasks(client, companyId)
+
+  if (result.error || !result.data) {
+    return result
+  }
+
+  const syncedTasks = await applyVencidaSyncFromApi(result.data)
+
+  return {
+    data: syncedTasks,
+    error: null,
+  }
+}
+
+export async function listCalendarWorkOrderTasks(
+  companyId: string,
+  client: SupabaseTasksClient = createBrowserTasksClient()
+): Promise<TasksRepositoryResult<Task[]>> {
+  const result = await fetchCalendarWorkOrderListTasks(client, companyId)
 
   if (result.error || !result.data) {
     return result

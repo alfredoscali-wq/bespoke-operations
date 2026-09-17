@@ -3,16 +3,22 @@ import { readFileSync } from "node:fs"
 import { resolve } from "node:path"
 import test from "node:test"
 
+import { isDateWithinRange } from "../lib/availability/utils.ts"
+import { getWeekStart } from "../lib/calendar/calendar-utils.ts"
+import { getCalendarViewFilters } from "../lib/calendar/calendar-ui-utils.ts"
+import { isCalendarOperationalTask } from "../lib/tasks/status-groups.ts"
 import {
   matchesActiveWorkOrderListQuery,
   matchesArchivedWorkOrderListQuery,
+  matchesCalendarWorkOrderListQuery,
   matchesPlanningWorkOrderListQuery,
-  selectPlanningWorkOrderListRows,
+  selectCalendarWorkOrderListRows,
 } from "../lib/tasks/task-list-scope.ts"
 
 const root = resolve(import.meta.dirname, "..")
 const COMPANY = "00000000-0000-4000-8000-000000000002"
 const OTHER_COMPANY = "00000000-0000-4000-8000-000000000001"
+const DATE = "2026-09-18"
 
 const SEP18_CODES = [
   "TSK-OT-827",
@@ -45,48 +51,67 @@ function row(overrides = {}) {
     projectId: overrides.projectId ?? null,
     deletedAt: overrides.deletedAt ?? null,
     companyId: overrides.companyId ?? COMPANY,
-    dueDate: overrides.dueDate ?? "2026-09-18",
+    dueDate: overrides.dueDate ?? DATE,
+    startDate: overrides.startDate ?? DATE,
   }
+}
+
+function isEligibleForDefaultCalendarDay(task, date) {
+  const weekStart = getWeekStart(date)
+  const weekEnd = (() => {
+    const next = new Date(`${weekStart}T12:00:00`)
+    next.setDate(next.getDate() + 6)
+    return next.toISOString().slice(0, 10)
+  })()
+  const view = getCalendarViewFilters("all")
+
+  return (
+    view.showTasks &&
+    isCalendarOperationalTask(task.status) &&
+    task.startDate <= weekEnd &&
+    task.dueDate >= weekStart &&
+    isDateWithinRange(date, task.startDate, task.dueDate)
+  )
 }
 
 test("programada → incluida", () => {
   assert.equal(
-    matchesPlanningWorkOrderListQuery(row({ status: "programada" }), COMPANY),
+    matchesCalendarWorkOrderListQuery(row({ status: "programada" }), COMPANY),
     true
   )
 })
 
 test("asignada → incluida", () => {
   assert.equal(
-    matchesPlanningWorkOrderListQuery(row({ status: "asignada" }), COMPANY),
+    matchesCalendarWorkOrderListQuery(row({ status: "asignada" }), COMPANY),
     true
   )
 })
 
 test("en-curso → incluida", () => {
   assert.equal(
-    matchesPlanningWorkOrderListQuery(row({ status: "en-curso" }), COMPANY),
+    matchesCalendarWorkOrderListQuery(row({ status: "en-curso" }), COMPANY),
     true
   )
 })
 
 test("vencida → incluida", () => {
   assert.equal(
-    matchesPlanningWorkOrderListQuery(row({ status: "vencida" }), COMPANY),
+    matchesCalendarWorkOrderListQuery(row({ status: "vencida" }), COMPANY),
     true
   )
 })
 
 test("incidencia → incluida", () => {
   assert.equal(
-    matchesPlanningWorkOrderListQuery(row({ status: "incidencia" }), COMPANY),
+    matchesCalendarWorkOrderListQuery(row({ status: "incidencia" }), COMPANY),
     true
   )
 })
 
 test("pendiente-cierre → incluida", () => {
   assert.equal(
-    matchesPlanningWorkOrderListQuery(
+    matchesCalendarWorkOrderListQuery(
       row({ status: "pendiente-cierre" }),
       COMPANY
     ),
@@ -96,7 +121,7 @@ test("pendiente-cierre → incluida", () => {
 
 test("en-aprobacion → incluida", () => {
   assert.equal(
-    matchesPlanningWorkOrderListQuery(
+    matchesCalendarWorkOrderListQuery(
       row({ status: "en-aprobacion" }),
       COMPANY
     ),
@@ -106,35 +131,35 @@ test("en-aprobacion → incluida", () => {
 
 test("finalizada → excluida", () => {
   assert.equal(
-    matchesPlanningWorkOrderListQuery(row({ status: "finalizada" }), COMPANY),
+    matchesCalendarWorkOrderListQuery(row({ status: "finalizada" }), COMPANY),
     false
   )
 })
 
 test("cancelada → excluida", () => {
   assert.equal(
-    matchesPlanningWorkOrderListQuery(row({ status: "cancelada" }), COMPANY),
+    matchesCalendarWorkOrderListQuery(row({ status: "cancelada" }), COMPANY),
     false
   )
 })
 
 test("borrador → excluida", () => {
   assert.equal(
-    matchesPlanningWorkOrderListQuery(row({ status: "borrador" }), COMPANY),
+    matchesCalendarWorkOrderListQuery(row({ status: "borrador" }), COMPANY),
     false
   )
 })
 
 test("cerrada → excluida", () => {
   assert.equal(
-    matchesPlanningWorkOrderListQuery(row({ status: "cerrada" }), COMPANY),
+    matchesCalendarWorkOrderListQuery(row({ status: "cerrada" }), COMPANY),
     false
   )
 })
 
 test("deleted_at != null → excluida", () => {
   assert.equal(
-    matchesPlanningWorkOrderListQuery(
+    matchesCalendarWorkOrderListQuery(
       row({ status: "programada", deletedAt: "2026-09-16T20:00:00Z" }),
       COMPANY
     ),
@@ -144,7 +169,7 @@ test("deleted_at != null → excluida", () => {
 
 test("company_id de otro tenant → excluida", () => {
   assert.equal(
-    matchesPlanningWorkOrderListQuery(
+    matchesCalendarWorkOrderListQuery(
       row({ status: "programada", companyId: OTHER_COMPANY }),
       COMPANY
     ),
@@ -152,49 +177,63 @@ test("company_id de otro tenant → excluida", () => {
   )
 })
 
-test("OT de Obra con project_id sigue incluida (carril Obras / pendiente-cierre)", () => {
+test("project_id con valor → puede entrar", () => {
   assert.equal(
-    matchesPlanningWorkOrderListQuery(
-      row({
-        status: "programada",
-        projectId: "project-1",
-        code: "TSK-OBRA-1",
-      }),
+    matchesCalendarWorkOrderListQuery(
+      row({ status: "programada", projectId: "project-1" }),
       COMPANY
     ),
     true
   )
 })
 
-test("query de Planificación filtra company, deleted_at, status y due_date", () => {
-  const queries = read("lib/supabase/tasks.queries.ts")
-  const planningBlock = queries.slice(
-    queries.indexOf("export async function fetchPlanningWorkOrderListTasks("),
-    queries.indexOf("export async function fetchCalendarWorkOrderListTasks(")
+test("project_id null → puede entrar", () => {
+  assert.equal(
+    matchesCalendarWorkOrderListQuery(
+      row({ status: "programada", projectId: null }),
+      COMPANY
+    ),
+    true
   )
-
-  assert.match(planningBlock, /\.eq\("company_id", companyId\)/)
-  assert.match(planningBlock, /\.is\("deleted_at", null\)/)
-  assert.match(
-    planningBlock,
-    /\.in\("status", \[\.\.\.PLANNING_WORK_ORDER_LIST_STATUSES\]\)/
-  )
-  assert.match(planningBlock, /\.order\("due_date", \{ ascending: true \}\)/)
-  assert.equal(planningBlock.includes('.is("project_id", null)'), false)
-  assert.equal(planningBlock.includes("fetchTasks("), false)
 })
 
-test("OT del 18/09 no quedan fuera por max_rows=1000 con históricas", () => {
+test("query de Calendario filtra company, deleted_at, status y due_date; no project_id", () => {
+  const queries = read("lib/supabase/tasks.queries.ts")
+  const calendarBlock = queries.slice(
+    queries.indexOf("export async function fetchCalendarWorkOrderListTasks("),
+    queries.indexOf("export async function fetchArchivedWorkOrderListTasks(")
+  )
+
+  assert.match(calendarBlock, /\.eq\("company_id", companyId\)/)
+  assert.match(calendarBlock, /\.is\("deleted_at", null\)/)
+  assert.match(
+    calendarBlock,
+    /\.in\("status", \[\.\.\.CALENDAR_WORK_ORDER_LIST_STATUSES\]\)/
+  )
+  assert.match(calendarBlock, /\.order\("due_date", \{ ascending: true \}\)/)
+  assert.equal(calendarBlock.includes('.is("project_id", null)'), false)
+  assert.equal(calendarBlock.includes("fetchTasks("), false)
+  assert.equal(calendarBlock.includes("PLANNING_WORK_ORDER_LIST"), false)
+})
+
+test("OT del 18/09 no quedan fuera por max_rows=1000 y son elegibles en filtros default", () => {
   const historical = Array.from({ length: 1100 }, (_, index) =>
     row({
       id: `old-${index}`,
       code: `TSK-OLD-${String(index).padStart(4, "0")}`,
       status: "finalizada",
       dueDate: "2026-01-01",
+      startDate: "2026-01-01",
     })
   )
   const recent = SEP18_CODES.map((code) =>
-    row({ id: code, code, status: "programada", dueDate: "2026-09-18" })
+    row({
+      id: code,
+      code,
+      status: "programada",
+      dueDate: DATE,
+      startDate: DATE,
+    })
   )
   const all = [...historical, ...recent]
 
@@ -210,19 +249,29 @@ test("OT del 18/09 no quedan fuera por max_rows=1000 con históricas", () => {
     )
   }
 
-  const selected = selectPlanningWorkOrderListRows(all, COMPANY, 1000)
+  const selected = selectCalendarWorkOrderListRows(all, COMPANY, 1000)
   const selectedCodes = selected.map((task) => task.code)
   for (const code of SEP18_CODES) {
-    assert.ok(selectedCodes.includes(code), `${code} must survive planning query`)
+    assert.ok(selectedCodes.includes(code), `${code} must survive calendar query`)
   }
   assert.equal(
     selected.every((task) => task.status !== "finalizada"),
     true
   )
   assert.ok(selected.length <= 1000)
+
+  const eligible = selected.filter((task) =>
+    isEligibleForDefaultCalendarDay(task, DATE)
+  )
+  for (const code of SEP18_CODES) {
+    assert.ok(
+      eligible.some((task) => task.code === code),
+      `${code} must be eligible on ${DATE} with default calendar filters`
+    )
+  }
 })
 
-test("fetchTasks global no fue modificado; active y archive siguen dedicados", () => {
+test("fetchTasks global no fue modificado; active, archive y planning siguen dedicados", () => {
   const queries = read("lib/supabase/tasks.queries.ts")
   const fetchTasksBlock = queries.slice(
     queries.indexOf("export async function fetchTasks("),
@@ -230,6 +279,7 @@ test("fetchTasks global no fue modificado; active y archive siguen dedicados", (
   )
   assert.equal(fetchTasksBlock.includes('.in("status"'), false)
   assert.equal(fetchTasksBlock.includes('.is("project_id", null)'), false)
+  assert.equal(fetchTasksBlock.includes("CALENDAR_WORK_ORDER_LIST"), false)
   assert.equal(fetchTasksBlock.includes("PLANNING_WORK_ORDER_LIST"), false)
 
   assert.equal(
@@ -248,38 +298,48 @@ test("fetchTasks global no fue modificado; active y archive siguen dedicados", (
     matchesArchivedWorkOrderListQuery(row({ status: "programada" })),
     false
   )
+  assert.equal(
+    matchesPlanningWorkOrderListQuery(row({ status: "programada" }), COMPANY),
+    true
+  )
+  assert.equal(
+    matchesPlanningWorkOrderListQuery(row({ status: "finalizada" }), COMPANY),
+    false
+  )
 
   const tareasLayout = read("app/(dashboard)/tareas/layout.tsx")
   assert.match(tareasLayout, /listScope="activeWorkOrders"/)
-  assert.equal(tareasLayout.includes("planningWorkOrders"), false)
+  assert.equal(tareasLayout.includes("calendarWorkOrders"), false)
 
   const archivoLayout = read("app/(dashboard)/operations/archivo-ot/layout.tsx")
   assert.match(archivoLayout, /listScope="archiveWorkOrders"/)
-  assert.equal(archivoLayout.includes("planningWorkOrders"), false)
-
-  const planningLayout = read(
-    "app/(dashboard)/operations/planificacion/layout.tsx"
-  )
-  assert.match(planningLayout, /PlanificacionModuleProviders/)
+  assert.equal(archivoLayout.includes("calendarWorkOrders"), false)
 
   const planningProviders = read(
     "components/providers/planificacion-module-providers.tsx"
   )
   assert.match(planningProviders, /listScope="planningWorkOrders"/)
-  assert.equal(planningProviders.includes("activeWorkOrders"), false)
-  assert.equal(planningProviders.includes("archiveWorkOrders"), false)
+  assert.equal(planningProviders.includes("calendarWorkOrders"), false)
 
-  const cuadrillasProviders = read(
-    "components/providers/cuadrillas-module-providers.tsx"
+  const calendarLayout = read("app/(dashboard)/operations/calendar/layout.tsx")
+  assert.match(calendarLayout, /CalendarModuleProviders/)
+
+  const calendarProviders = read(
+    "components/providers/calendar-module-providers.tsx"
   )
-  assert.equal(cuadrillasProviders.includes("planningWorkOrders"), false)
+  assert.match(calendarProviders, /listScope="calendarWorkOrders"/)
+  assert.equal(calendarProviders.includes("planningWorkOrders"), false)
+  assert.equal(calendarProviders.includes("activeWorkOrders"), false)
+  assert.equal(calendarProviders.includes("archiveWorkOrders"), false)
 
   const operationalStacks = read(
     "components/providers/internal/operational-provider-stacks.tsx"
   )
+  assert.equal(operationalStacks.includes("calendarWorkOrders"), false)
   assert.equal(operationalStacks.includes("planningWorkOrders"), false)
 
   const load = read("components/tareas/tasks-provider/hooks/use-tasks-load.ts")
+  assert.match(load, /listCalendarWorkOrderTasks/)
   assert.match(load, /listPlanningWorkOrderTasks/)
   assert.match(load, /listActiveWorkOrderTasks/)
   assert.match(load, /listArchivedWorkOrderTasks/)

@@ -148,6 +148,67 @@ export function selectPlanningWorkOrderListRows<
     .slice(0, maxRows)
 }
 
+/** OT operativas del Calendario (`/operations/calendar`). Independent of planningWorkOrders. */
+export const CALENDAR_WORK_ORDER_LIST_STATUSES: TaskStatus[] = [
+  "programada",
+  "asignada",
+  "en-curso",
+  "vencida",
+  "incidencia",
+  "pendiente-cierre",
+  "en-aprobacion",
+]
+
+export function isCalendarWorkOrderListStatus(status: TaskStatus): boolean {
+  return CALENDAR_WORK_ORDER_LIST_STATUSES.includes(status)
+}
+
+type CalendarWorkOrderListRow = {
+  status: TaskStatus
+  deletedAt?: string | null
+  companyId?: string | null
+  dueDate: string
+  code?: string
+  projectId?: string | null
+}
+
+/**
+ * Server-side predicate for Calendario. Matches fetchCalendarWorkOrderListTasks:
+ * operational statuses only, not soft-deleted. Includes Obras (project_id set)
+ * because the Obras view, projectId filter, and Todos/Operaciones grid still
+ * need them.
+ */
+export function matchesCalendarWorkOrderListQuery(
+  task: Pick<
+    CalendarWorkOrderListRow,
+    "status" | "deletedAt" | "companyId"
+  >,
+  companyId?: string
+): boolean {
+  if (task.deletedAt) {
+    return false
+  }
+
+  if (companyId && task.companyId && task.companyId !== companyId) {
+    return false
+  }
+
+  return isCalendarWorkOrderListStatus(task.status)
+}
+
+export function selectCalendarWorkOrderListRows<
+  T extends CalendarWorkOrderListRow,
+>(rows: T[], companyId?: string, maxRows = 1000): T[] {
+  return rows
+    .filter((task) => matchesCalendarWorkOrderListQuery(task, companyId))
+    .sort(
+      (left, right) =>
+        left.dueDate.localeCompare(right.dueDate) ||
+        (left.code ?? "").localeCompare(right.code ?? "")
+    )
+    .slice(0, maxRows)
+}
+
 export function isArchiveWorkOrderStatus(status: TaskStatus): boolean {
   return ARCHIVE_WORK_ORDER_STATUSES.includes(status)
 }

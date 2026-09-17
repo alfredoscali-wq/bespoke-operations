@@ -6,6 +6,7 @@ import {
   createBrowserTasksClient,
   listActiveWorkOrderTasks,
   listArchivedWorkOrderTasks,
+  listCalendarWorkOrderTasks,
   listPlanningWorkOrderTasks,
   listTasks,
 } from "@/lib/supabase/tasks.browser"
@@ -27,6 +28,7 @@ export type TasksListScope =
   | "activeWorkOrders"
   | "archiveWorkOrders"
   | "planningWorkOrders"
+  | "calendarWorkOrders"
 
 type UseTasksLoadParams = {
   companyId: string
@@ -70,6 +72,10 @@ async function loadTasksForScope(
 
   if (listScope === "planningWorkOrders") {
     return listPlanningWorkOrderTasks(companyId, client)
+  }
+
+  if (listScope === "calendarWorkOrders") {
+    return listCalendarWorkOrderTasks(companyId, client)
   }
 
   return listTasks(companyId, client)
