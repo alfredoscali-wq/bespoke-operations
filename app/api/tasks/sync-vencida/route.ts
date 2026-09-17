@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 
 import { resolveTenantCompanyId } from "@/lib/operations/tenant-scope"
 import { syncVencidaTasksWithAudit } from "@/lib/supabase/tasks-vencida-sync.server"
-import { fetchTasks } from "@/lib/supabase/tasks.queries"
+import { fetchTasksByIdsForVencidaSync } from "@/lib/supabase/tasks.queries"
 import { requireWritablePlatformSession } from "@/lib/auth/require-writable-platform-session"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { shouldAutoTransitionToVencida } from "@/lib/tasks/vencida-status"
@@ -46,7 +46,11 @@ export async function POST(request: Request) {
   try {
     const admin = createAdminClient()
     const companyId = resolveTenantCompanyId(auth.sessionUser)
-    const tasksResult = await fetchTasks(admin, companyId)
+    const tasksResult = await fetchTasksByIdsForVencidaSync(
+      admin,
+      companyId,
+      taskIds
+    )
 
     if (tasksResult.error || !tasksResult.data) {
       return NextResponse.json(
@@ -60,10 +64,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const requestedIds = new Set(taskIds)
-    const tasksToSync = tasksResult.data.filter(
-      (task) => requestedIds.has(task.id) && shouldAutoTransitionToVencida(task)
-    )
+    const tasksToSync = tasksResult.data.filter(shouldAutoTransitionToVencida)
 
     const { updatedTaskIds } = await syncVencidaTasksWithAudit(admin, tasksToSync)
 

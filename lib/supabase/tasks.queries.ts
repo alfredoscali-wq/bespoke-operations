@@ -703,6 +703,75 @@ export async function fetchWorkOrdersByCustomerId(
   }
 }
 
+/** PostgREST max_rows page size for ID lookups in vencida sync. */
+export const VENCIDA_SYNC_TASK_ID_PAGE_SIZE = 1000
+
+/**
+ * Dedupes requested IDs and splits them so each PostgREST `.in("id")`
+ * stays within max_rows. Used only by POST /api/tasks/sync-vencida.
+ */
+export function chunkVencidaSyncTaskIds(
+  taskIds: readonly string[],
+  pageSize = VENCIDA_SYNC_TASK_ID_PAGE_SIZE
+): string[][] {
+  const unique: string[] = []
+  const seen = new Set<string>()
+
+  for (const raw of taskIds) {
+    const id = raw.trim()
+    if (!id || seen.has(id)) {
+      continue
+    }
+    seen.add(id)
+    unique.push(id)
+  }
+
+  const chunks: string[][] = []
+  for (let from = 0; from < unique.length; from += pageSize) {
+    chunks.push(unique.slice(from, from + pageSize))
+  }
+  return chunks
+}
+
+/**
+ * Loads the requested OT rows for auto-vencida sync.
+ * Tenant-scoped by company_id; never uses fetchTasks() / due_date ordering.
+ * Pages by ID so more than 1000 requested IDs are not truncated.
+ */
+export async function fetchTasksByIdsForVencidaSync(
+  client: SupabaseTasksClient,
+  companyId: string,
+  taskIds: readonly string[]
+): Promise<TasksRepositoryResult<Task[]>> {
+  const chunks = chunkVencidaSyncTaskIds(taskIds)
+
+  if (chunks.length === 0) {
+    return { data: [], error: null }
+  }
+
+  const rows: TaskRow[] = []
+
+  for (const chunk of chunks) {
+    const { data, error } = await client
+      .from("tasks")
+      .select("*")
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .in("id", chunk)
+
+    if (error) {
+      return { data: null, error: mapSupabaseTaskError(error) }
+    }
+
+    rows.push(...((data ?? []) as TaskRow[]))
+  }
+
+  return {
+    data: rows.map(mapTaskRowToTask),
+    error: null,
+  }
+}
+
 export async function fetchTaskById(
   client: SupabaseTasksClient,
   id: string
