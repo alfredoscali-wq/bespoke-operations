@@ -5,6 +5,10 @@ import { useMemo, useState } from "react"
 import { useEmployees } from "@/components/rrhh/employees-provider"
 import { useTreasury } from "@/components/tesoreria/treasury-provider"
 import {
+  buildTreasuryCashBalanceAdjustmentMetadata,
+  isTreasuryCashBalanceAdjustmentCategory,
+} from "@/lib/tesoreria/cash-balance-adjustment"
+import {
   listTreasuryCategoriesForType,
   TREASURY_MOVEMENT_TYPES,
   TREASURY_ORIGINS,
@@ -154,10 +158,17 @@ export function TreasuryMovementFormDialog({
 
     setIsSubmitting(true)
     try {
+      const isCashAdjustment = isTreasuryCashBalanceAdjustmentCategory(
+        form.category
+      )
       const result = await registerMovement(
         {
           movementType,
-          origin: isWithdrawal ? TREASURY_ORIGINS.MANUAL : form.origin,
+          origin: isWithdrawal
+            ? TREASURY_ORIGINS.MANUAL
+            : isCashAdjustment
+              ? TREASURY_ORIGINS.ADMINISTRATION
+              : form.origin,
           category: isWithdrawal ? "retiro" : form.category,
           amount,
           movementDate: form.movementDate,
@@ -166,7 +177,9 @@ export function TreasuryMovementFormDialog({
           notes: form.notes,
           metadata: isExpense
             ? { paymentMethod: form.paymentMethod }
-            : undefined,
+            : isCashAdjustment
+              ? buildTreasuryCashBalanceAdjustmentMetadata()
+              : undefined,
         },
         !isWithdrawal && form.hasReceipt === "yes" ? receiptFile : null
       )
