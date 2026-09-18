@@ -5,6 +5,10 @@
  */
 
 import { TREASURY_MOVEMENT_TYPES, TREASURY_STATUSES } from "@/lib/tesoreria/categories"
+import {
+  hasTreasuryCashOpening,
+  type TreasuryCashOpening,
+} from "@/lib/tesoreria/cash-opening"
 import { TREASURY_OT_RENDITION_STATUSES } from "@/lib/tesoreria/ot-rendition-status"
 import { isTreasuryDayKeyInRange } from "@/lib/tesoreria/summary"
 import type { TreasuryHistoryRange, TreasuryMovement } from "@/lib/types/tesoreria"
@@ -43,6 +47,54 @@ export const TREASURY_PAYMENT_METHOD_KPI_LABELS: Record<
 export const TREASURY_PAYMENT_METHOD_KPI_HINT =
   "Discriminación de los ingresos confirmados del período por medio. La suma coincide con Ingresos."
 
+/** Canonical stored values for manual income payment method. Maps onto KPI buckets. */
+export const TREASURY_INCOME_PAYMENT_METHODS = [
+  "efectivo",
+  "transferencia",
+  "mercadopago",
+  "tarjeta",
+  "cheque",
+  "otro",
+] as const
+
+export type TreasuryIncomePaymentMethod =
+  (typeof TREASURY_INCOME_PAYMENT_METHODS)[number]
+
+export const TREASURY_INCOME_PAYMENT_METHOD_OPTIONS: Array<{
+  value: TreasuryIncomePaymentMethod
+  label: string
+}> = [
+  { value: "efectivo", label: TREASURY_PAYMENT_METHOD_KPI_LABELS.efectivo },
+  {
+    value: "transferencia",
+    label: TREASURY_PAYMENT_METHOD_KPI_LABELS.transferencia,
+  },
+  {
+    value: "mercadopago",
+    label: TREASURY_PAYMENT_METHOD_KPI_LABELS.mercadopago,
+  },
+  { value: "tarjeta", label: TREASURY_PAYMENT_METHOD_KPI_LABELS.tarjetas },
+  { value: "cheque", label: TREASURY_PAYMENT_METHOD_KPI_LABELS.cheque },
+  { value: "otro", label: TREASURY_PAYMENT_METHOD_KPI_LABELS.otro },
+]
+
+export function isTreasuryIncomePaymentMethod(
+  value: string | null | undefined
+): value is TreasuryIncomePaymentMethod {
+  return TREASURY_INCOME_PAYMENT_METHODS.includes(
+    (value?.trim() ?? "") as TreasuryIncomePaymentMethod
+  )
+}
+
+export function buildTreasuryIncomePaymentMetadata(
+  method: TreasuryIncomePaymentMethod
+): Record<string, string> {
+  return {
+    paymentMethod: method,
+    paymentMethodReceived: method,
+  }
+}
+
 const RECEIVED_METHOD_METADATA_KEYS = [
   "paymentMethodReceived",
   "payment_method_received",
@@ -57,6 +109,13 @@ type RenditionPaymentSource = Pick<
 
 function toDayKey(isoDate: string): string {
   return isoDate.slice(0, 10)
+}
+
+function toLocalDayKey(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
 }
 
 function emptyTotals(): Record<TreasuryPaymentMethodKpiKey, number> {
@@ -236,6 +295,7 @@ export function isTreasuryPhysicalCashIncome(
   return isExplicitEfectivoPaymentMethod(movement)
 }
 
+/** Only expenses with medio de pago efectivo reduce physical cash. */
 export function isTreasuryPhysicalCashExpense(
   movement: Pick<TreasuryMovement, "movementType" | "metadata">
 ): boolean {
@@ -243,28 +303,37 @@ export function isTreasuryPhysicalCashExpense(
   return isExplicitEfectivoPaymentMethod(movement)
 }
 
+function isCashMovementInWindow(
+  dayKey: string,
+  reference: Date,
+  opening?: Pick<TreasuryCashOpening, "asOfDate"> | null
+): boolean {
+  if (hasTreasuryCashOpening(opening)) {
+    const asOf = opening!.asOfDate.trim()
+    const todayKey = toLocalDayKey(reference)
+    return dayKey >= asOf && dayKey <= todayKey
+  }
+
+  return isTreasuryDayKeyInRange(dayKey, "month", reference)
+}
+
 /**
- * Tesorería 3.2/3.3 — physical cash accumulated from the start of the current month.
- * Independent of Hoy/Semana/Mes/Todo. Only explicit efectivo incomes; unclassified
- * manuals stay in Otros and do not enter the cash box. Only expenses with medio
- * Efectivo reduce cash. Unspecified historical expenses do not. Withdrawals always
- * reduce cash (physical cash leaving the box).
+ * Physical cash in the box.
+ * Without an opening/base: month window (Tesorería 3.2).
+ * With treasury_cash_settings: opening_balance + physical movements from as_of_date.
+ * Only explicit efectivo incomes/expenses; unclassified manuals stay out.
+ * Withdrawals always reduce cash. Opening is not an income movement.
  */
 export function buildTreasuryCashInBoxMonth(
   movements: ReadonlyArray<CashMovementSource>,
-  reference = new Date()
+  reference = new Date(),
+  opening?: Pick<TreasuryCashOpening, "openingBalance" | "asOfDate"> | null
 ): number {
-  let cash = 0
+  let cash = hasTreasuryCashOpening(opening) ? opening!.openingBalance : 0
 
   for (const movement of movements) {
     if (movement.status !== TREASURY_STATUSES.CONFIRMED) continue
-    if (
-      !isTreasuryDayKeyInRange(
-        toDayKey(movement.movementDate),
-        "month",
-        reference
-      )
-    ) {
+    if (!isCashMovementInWindow(toDayKey(movement.movementDate), reference, opening)) {
       continue
     }
 

@@ -24,6 +24,7 @@ import { KpiCardGrid } from "@/components/ui/kpi-card-grid"
 export function TreasurySummaryCards() {
   const {
     movements,
+    cashOpening,
     isReady,
     historyRange,
     setHistoryRange,
@@ -36,8 +37,8 @@ export function TreasurySummaryCards() {
     [movements, now, historyRange]
   )
   const cashInBox = useMemo(
-    () => buildTreasuryCashInBoxMonth(movements, now),
-    [movements, now]
+    () => buildTreasuryCashInBoxMonth(movements, now, cashOpening),
+    [movements, now, cashOpening]
   )
 
   return (
@@ -95,7 +96,7 @@ export function TreasurySummaryCards() {
         <FilterableKpiCard
           label="Dinero en Caja"
           value={formatTreasuryAmount(cashInBox)}
-          hint="Efectivo acumulado del mes"
+          hint="Efectivo físico en caja"
           icon={Banknote}
           tone="blue"
           compact

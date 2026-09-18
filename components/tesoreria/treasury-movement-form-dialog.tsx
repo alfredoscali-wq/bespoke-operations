@@ -5,10 +5,6 @@ import { useMemo, useState } from "react"
 import { useEmployees } from "@/components/rrhh/employees-provider"
 import { useTreasury } from "@/components/tesoreria/treasury-provider"
 import {
-  buildTreasuryCashBalanceAdjustmentMetadata,
-  isTreasuryCashBalanceAdjustmentCategory,
-} from "@/lib/tesoreria/cash-balance-adjustment"
-import {
   listTreasuryCategoriesForType,
   TREASURY_MOVEMENT_TYPES,
   TREASURY_ORIGINS,
@@ -18,6 +14,11 @@ import {
   type TreasuryMovementType,
   type TreasuryOrigin,
 } from "@/lib/tesoreria/categories"
+import {
+  buildTreasuryIncomePaymentMetadata,
+  isTreasuryIncomePaymentMethod,
+  TREASURY_INCOME_PAYMENT_METHOD_OPTIONS,
+} from "@/lib/tesoreria/ot-rendition-payment-kpis"
 import {
   isTreasuryReceivedPaymentMethod,
   TREASURY_RECEIVED_PAYMENT_METHOD_OPTIONS,
@@ -104,6 +105,7 @@ export function TreasuryMovementFormDialog({
 
   const isWithdrawal = movementType === TREASURY_MOVEMENT_TYPES.WITHDRAWAL
   const isExpense = movementType === TREASURY_MOVEMENT_TYPES.EXPENSE
+  const isIncome = movementType === TREASURY_MOVEMENT_TYPES.INCOME
   const isDirty = isFormStateDirty(form, baseline) || Boolean(receiptFile)
   const {
     handleOpenChange,
@@ -155,20 +157,17 @@ export function TreasuryMovementFormDialog({
       setError("Seleccioná el medio de pago.")
       return
     }
+    if (isIncome && !isTreasuryIncomePaymentMethod(form.paymentMethod)) {
+      setError("Seleccioná el medio de pago.")
+      return
+    }
 
     setIsSubmitting(true)
     try {
-      const isCashAdjustment = isTreasuryCashBalanceAdjustmentCategory(
-        form.category
-      )
       const result = await registerMovement(
         {
           movementType,
-          origin: isWithdrawal
-            ? TREASURY_ORIGINS.MANUAL
-            : isCashAdjustment
-              ? TREASURY_ORIGINS.ADMINISTRATION
-              : form.origin,
+          origin: isWithdrawal ? TREASURY_ORIGINS.MANUAL : form.origin,
           category: isWithdrawal ? "retiro" : form.category,
           amount,
           movementDate: form.movementDate,
@@ -177,8 +176,8 @@ export function TreasuryMovementFormDialog({
           notes: form.notes,
           metadata: isExpense
             ? { paymentMethod: form.paymentMethod }
-            : isCashAdjustment
-              ? buildTreasuryCashBalanceAdjustmentMetadata()
+            : isIncome && isTreasuryIncomePaymentMethod(form.paymentMethod)
+              ? buildTreasuryIncomePaymentMetadata(form.paymentMethod)
               : undefined,
         },
         !isWithdrawal && form.hasReceipt === "yes" ? receiptFile : null
@@ -268,7 +267,7 @@ export function TreasuryMovementFormDialog({
                   </SelectContent>
                 </Select>
               </div>
-              {isExpense ? (
+              {isExpense || isIncome ? (
                 <div className="space-y-2">
                   <Label>Medio de pago *</Label>
                   <Select
@@ -284,13 +283,14 @@ export function TreasuryMovementFormDialog({
                       <SelectValue placeholder="Seleccionar" />
                     </SelectTrigger>
                     <SelectContent>
-                      {TREASURY_RECEIVED_PAYMENT_METHOD_OPTIONS.map(
-                        (method) => (
-                          <SelectItem key={method.value} value={method.value}>
-                            {method.label}
-                          </SelectItem>
-                        )
-                      )}
+                      {(isIncome
+                        ? TREASURY_INCOME_PAYMENT_METHOD_OPTIONS
+                        : TREASURY_RECEIVED_PAYMENT_METHOD_OPTIONS
+                      ).map((method) => (
+                        <SelectItem key={method.value} value={method.value}>
+                          {method.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

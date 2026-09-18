@@ -24,6 +24,7 @@ import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import {
   annulTreasuryMovement,
   createTreasuryMovement,
+  listTreasuryCashSettings,
   listTreasuryMovements,
   permanentlyDeleteTreasuryMovement,
   updateTreasuryMovement,
@@ -58,6 +59,7 @@ import type {
   ConfirmOtRenditionInput,
   TreasuryOtRendition,
 } from "@/lib/types/treasury-ot-renditions"
+import type { TreasuryCashOpening } from "@/lib/tesoreria/cash-opening"
 
 type MutationResult = {
   success: boolean
@@ -75,6 +77,7 @@ type RenditionMutationResult = {
 type TreasuryContextValue = {
   movements: TreasuryMovement[]
   otRenditions: TreasuryOtRendition[]
+  cashOpening: TreasuryCashOpening | null
   isReady: boolean
   canWrite: boolean
   canHardDelete: boolean
@@ -108,6 +111,9 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
   const { companyId, isAuthReady } = useTenantCompanyId()
   const [movements, setMovements] = useState<TreasuryMovement[]>([])
   const [otRenditions, setOtRenditions] = useState<TreasuryOtRendition[]>([])
+  const [cashOpening, setCashOpening] = useState<TreasuryCashOpening | null>(
+    null
+  )
   const [isReady, setIsReady] = useState(false)
   const [historyRange, setHistoryRange] =
     useState<TreasuryHistoryRange>("today")
@@ -129,13 +135,15 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
     if (!companyId) {
       setMovements([])
       setOtRenditions([])
+      setCashOpening(null)
       setIsReady(true)
       return
     }
 
-    const [movementsResult, renditionsResult] = await Promise.all([
+    const [movementsResult, renditionsResult, cashResult] = await Promise.all([
       listTreasuryMovements(companyId),
       listTreasuryOtRenditions(companyId),
+      listTreasuryCashSettings(companyId),
     ])
 
     if (movementsResult.data) {
@@ -150,6 +158,17 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
         renditionsResult.error.message
       )
       setOtRenditions([])
+    }
+    if (cashResult.data) {
+      setCashOpening(cashResult.data)
+    } else if (cashResult.error) {
+      console.warn(
+        "[Tesorería] No se pudo cargar la base de caja.",
+        cashResult.error.message
+      )
+      setCashOpening(null)
+    } else {
+      setCashOpening(null)
     }
     setIsReady(true)
   }, [companyId])
@@ -428,6 +447,7 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
     () => ({
       movements,
       otRenditions,
+      cashOpening,
       isReady,
       canWrite,
       canHardDelete,
@@ -447,6 +467,7 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
     [
       movements,
       otRenditions,
+      cashOpening,
       isReady,
       canWrite,
       canHardDelete,

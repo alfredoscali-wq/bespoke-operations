@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client"
+import { fetchTreasuryCashSettings } from "@/lib/supabase/treasury-cash-settings.queries"
 import {
   cancelTreasuryMovement,
   fetchTreasuryMovementById,
@@ -11,6 +12,7 @@ import {
   type TreasuryRepositoryResult,
 } from "@/lib/supabase/treasury.queries"
 import { TREASURY_RECEIPTS_BUCKET } from "@/lib/tesoreria/receipt-storage"
+import type { TreasuryCashOpening } from "@/lib/tesoreria/cash-opening"
 import type {
   CreateTreasuryMovementInput,
   TreasuryMovement,
@@ -26,6 +28,16 @@ export async function listTreasuryMovements(
   client: SupabaseTreasuryClient = createBrowserTreasuryClient()
 ): Promise<TreasuryRepositoryResult<TreasuryMovement[]>> {
   return fetchTreasuryMovements(client, companyId)
+}
+
+export async function listTreasuryCashSettings(
+  companyId: string,
+  client: SupabaseTreasuryClient = createBrowserTreasuryClient()
+): Promise<
+  | { data: TreasuryCashOpening | null; error: null }
+  | { data: null; error: { code: string; message: string } }
+> {
+  return fetchTreasuryCashSettings(client, companyId)
 }
 
 export async function getTreasuryMovementById(

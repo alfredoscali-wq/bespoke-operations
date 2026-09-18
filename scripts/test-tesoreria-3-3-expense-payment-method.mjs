@@ -271,7 +271,7 @@ test("N) Hoy/Semana/Mes/Todo do not change monthly Dinero en Caja", () => {
   assert.equal(buildTreasuryCashInBoxMonth(movements, reference), cash)
 
   const cards = read("components/tesoreria/treasury-summary-cards.tsx")
-  assert.match(cards, /buildTreasuryCashInBoxMonth\(movements, now\)/)
+  assert.match(cards, /buildTreasuryCashInBoxMonth\(movements, now, cashOpening\)/)
   assert.doesNotMatch(
     cards,
     /buildTreasuryCashInBoxMonth\(movements, now, historyRange\)/

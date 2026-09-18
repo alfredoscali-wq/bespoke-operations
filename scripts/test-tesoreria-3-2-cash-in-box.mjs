@@ -189,7 +189,7 @@ test("F) Hoy/Semana/Mes/Todo do not change Dinero en Caja month window", () => {
   assert.equal(buildTreasuryCashInBoxMonth(movements, reference), cash)
 
   const cards = read("components/tesoreria/treasury-summary-cards.tsx")
-  assert.match(cards, /buildTreasuryCashInBoxMonth\(movements, now\)/)
+  assert.match(cards, /buildTreasuryCashInBoxMonth\(movements, now, cashOpening\)/)
   assert.doesNotMatch(
     cards,
     /buildTreasuryCashInBoxMonth\(movements, now, historyRange\)/
@@ -282,7 +282,7 @@ test("UI shows Dinero en Caja beside Saldo del Período without changing period 
   const cards = read("components/tesoreria/treasury-summary-cards.tsx")
   assert.match(cards, /Saldo del Período/)
   assert.match(cards, /Dinero en Caja/)
-  assert.match(cards, /Efectivo acumulado del mes/)
+  assert.match(cards, /Efectivo físico en caja/)
   assert.match(cards, /tone="blue"/)
   assert.match(cards, /treasurySix/)
   assert.match(cards, /buildTreasuryDashboardSummary\(movements, now, historyRange\)/)

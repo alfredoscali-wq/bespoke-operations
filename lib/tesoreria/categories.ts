@@ -35,7 +35,6 @@ export const TREASURY_INCOME_CATEGORIES = [
   "cobranza",
   "pago_manual",
   "reintegro",
-  "ajuste_saldo",
   "otro",
 ] as const
 
@@ -70,7 +69,6 @@ export const TREASURY_INCOME_CATEGORY_LABELS: Record<
   cobranza: "Cobranza OT",
   pago_manual: "Pago Manual",
   reintegro: "Reintegro",
-  ajuste_saldo: "Ajuste de saldo",
   otro: "Otro",
 }
 

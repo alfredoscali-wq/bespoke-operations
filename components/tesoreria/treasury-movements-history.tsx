@@ -224,6 +224,13 @@ export function TreasuryMovementsHistory() {
                               readTreasuryIncomeReceivedPaymentMethod(movement)
                             )}
                           </span>
+                        ) : movement.movementType ===
+                          TREASURY_MOVEMENT_TYPES.INCOME ? (
+                          <span className="text-xs text-muted-foreground">
+                            {formatTreasuryPaymentMethodLabel(
+                              readTreasuryIncomeReceivedPaymentMethod(movement)
+                            )}
+                          </span>
                         ) : null}
                       </div>
                     </TableCell>
