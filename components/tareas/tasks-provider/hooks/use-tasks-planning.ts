@@ -3,7 +3,10 @@
 import { useCallback } from "react"
 
 import { useAuth } from "@/components/auth/auth-provider"
-import { buildPlanningConfirmDispatchUpdates } from "@/lib/planificacion/planning-incremental"
+import {
+  buildPlanningConfirmDispatchUpdates,
+  listPlanningConfirmDispatchOccupancyScopes,
+} from "@/lib/planificacion/planning-incremental"
 import {
   buildCompactExecutionOrderUpdates,
   collectExecutionOrderScopeClearUpdates,
@@ -28,6 +31,7 @@ import {
 } from "@/lib/tasks/planning-return"
 import { recordTaskPlanningReturnAudit } from "@/lib/audit/tasks-audit"
 import { recordTaskOperationalEvent } from "@/lib/supabase/operational-control.browser"
+import { listOccupiedDispatchOrdersForPlanningConfirm } from "@/lib/supabase/tasks.browser"
 import { canPerformTaskAction } from "@/lib/tasks/task-status-workflow"
 import type { Crew } from "@/lib/types/crews"
 import type { Task } from "@/lib/types/tasks"
@@ -179,10 +183,30 @@ export function useTasksPlanning({
 
       let workingTasks = preCompactResult.tasks
 
+      let occupiedDispatchOrdersByScope: Record<string, number[]> = {}
+      if (companyId) {
+        const occupancyResult = await listOccupiedDispatchOrdersForPlanningConfirm(
+          companyId,
+          listPlanningConfirmDispatchOccupancyScopes(workingTasks, ids, crews)
+        )
+
+        if (occupancyResult.error || occupancyResult.data === null) {
+          return {
+            success: false,
+            message:
+              occupancyResult.error?.message ??
+              "No fue posible calcular el orden operativo para todas las órdenes de trabajo.",
+          }
+        }
+
+        occupiedDispatchOrdersByScope = occupancyResult.data
+      }
+
       const dispatchUpdates = buildPlanningConfirmDispatchUpdates({
         tasks: workingTasks,
         confirmingTaskIds: ids,
         crews,
+        occupiedDispatchOrdersByScope,
       })
 
       if (dispatchUpdates.length !== ids.length) {

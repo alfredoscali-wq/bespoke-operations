@@ -178,6 +178,7 @@
     "test:active-work-order-list": "npx tsx --test scripts/test-active-work-order-list.mjs",
     "test:archive-work-order-list": "npx tsx --test scripts/test-archive-work-order-list.mjs",
     "test:planning-work-order-list": "npx tsx --test scripts/test-planning-work-order-list.mjs",
+    "test:planning-dispatch-occupancy": "npx tsx --test scripts/test-planning-dispatch-occupancy.mjs",
     "test:calendar-work-order-list": "npx tsx --test scripts/test-calendar-work-order-list.mjs",
     "test:dashboard-work-orders": "npx tsx --test scripts/test-dashboard-work-orders.mjs",
     "test:operario-today-work-orders": "npx tsx --test scripts/test-operario-today-work-orders.mjs",

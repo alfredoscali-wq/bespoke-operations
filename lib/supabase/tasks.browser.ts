@@ -7,6 +7,7 @@ import {
   fetchArchivedWorkOrderListTasks,
   fetchCalendarWorkOrderListTasks,
   fetchDashboardWorkOrderListTasks,
+  fetchOccupiedDispatchOrdersForPlanningConfirm,
   fetchOperarioTodayWorkOrderListTasks,
   fetchOperarioWebWorkOrderById,
   fetchPlanningWorkOrderListTasks,
@@ -14,6 +15,7 @@ import {
   patchTask,
   softDeleteTask,
   type DashboardWorkOrderListData,
+  type PlanningConfirmDispatchOccupancyScope,
   type SupabaseTasksClient,
 } from "@/lib/supabase/tasks.queries"
 import { toDateOnly } from "@/lib/availability/utils"
@@ -89,6 +91,18 @@ export async function listPlanningWorkOrderTasks(
     data: syncedTasks,
     error: null,
   }
+}
+
+export async function listOccupiedDispatchOrdersForPlanningConfirm(
+  companyId: string,
+  scopes: PlanningConfirmDispatchOccupancyScope[],
+  client: SupabaseTasksClient = createBrowserTasksClient()
+): Promise<TasksRepositoryResult<Record<string, number[]>>> {
+  return fetchOccupiedDispatchOrdersForPlanningConfirm(
+    client,
+    companyId,
+    scopes
+  )
 }
 
 export async function listCalendarWorkOrderTasks(

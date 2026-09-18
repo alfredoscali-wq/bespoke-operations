@@ -318,6 +318,77 @@ export async function fetchPlanningWorkOrderListTasks(
   }
 }
 
+export type PlanningConfirmDispatchOccupancyScope = {
+  dueDate: string
+  crewId: string
+}
+
+/**
+ * Occupied dispatch_order slots for Planificar confirm.
+ * Matches tasks_dispatch_order_crew_date_unique (no status filter).
+ * Scoped by company + due_date + crew_id. Do not call fetchTasks.
+ */
+export async function fetchOccupiedDispatchOrdersForPlanningConfirm(
+  client: SupabaseTasksClient,
+  companyId: string,
+  scopes: PlanningConfirmDispatchOccupancyScope[]
+): Promise<TasksRepositoryResult<Record<string, number[]>>> {
+  const uniqueScopes = new Map<string, PlanningConfirmDispatchOccupancyScope>()
+
+  for (const scope of scopes) {
+    const dueDate = scope.dueDate.trim()
+    const crewId = scope.crewId.trim()
+    if (!dueDate || !crewId) {
+      continue
+    }
+
+    uniqueScopes.set(`${dueDate}::${crewId}`, { dueDate, crewId })
+  }
+
+  const occupancy: Record<string, number[]> = {}
+
+  if (uniqueScopes.size === 0) {
+    return { data: occupancy, error: null }
+  }
+
+  const scopesByDate = new Map<string, string[]>()
+  for (const scope of uniqueScopes.values()) {
+    const crewIds = scopesByDate.get(scope.dueDate) ?? []
+    crewIds.push(scope.crewId)
+    scopesByDate.set(scope.dueDate, crewIds)
+  }
+
+  for (const [dueDate, crewIds] of scopesByDate) {
+    const { data, error } = await client
+      .from("tasks")
+      .select("due_date, crew_id, dispatch_order")
+      .eq("company_id", companyId)
+      .eq("due_date", dueDate)
+      .in("crew_id", crewIds)
+      .is("deleted_at", null)
+      .not("dispatch_order", "is", null)
+
+    if (error) {
+      return { data: null, error: mapSupabaseTaskError(error) }
+    }
+
+    for (const row of data ?? []) {
+      const crewId = row.crew_id?.trim() ?? ""
+      const order = row.dispatch_order
+      if (!crewId || order == null || order <= 0) {
+        continue
+      }
+
+      const key = `${dueDate}::${crewId}`
+      const current = occupancy[key] ?? []
+      current.push(Math.floor(order))
+      occupancy[key] = current
+    }
+  }
+
+  return { data: occupancy, error: null }
+}
+
 /**
  * Calendario operativo (`/operations/calendar`). Narrower than fetchTasks so
  * PostgREST max_rows=1000 cannot drop today's OTs behind historical

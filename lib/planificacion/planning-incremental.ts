@@ -3,6 +3,10 @@ import {
   isTaskReopenableForPlanning,
 } from "@/lib/planificacion/planning-dynamic"
 import {
+  mergeOccupiedDispatchOrders,
+  occupiedDispatchOrdersForScope,
+} from "@/lib/planificacion/planning-dispatch-occupancy"
+import {
   filterOperationalOrderScope,
   resolvePlanningExecutionOrder,
   sortOperationalOrderScope,
@@ -12,6 +16,18 @@ import type { Crew } from "@/lib/types/crews"
 import type { Task } from "@/lib/types/tasks"
 
 type CrewRef = Pick<Crew, "id" | "name">
+
+export type PlanningConfirmOccupiedDispatchOrdersByScope = Record<
+  string,
+  readonly number[]
+>
+
+type PlanningConfirmDispatchInput = {
+  tasks: Task[]
+  confirmingTaskIds: string[]
+  crews?: CrewRef[]
+  occupiedDispatchOrdersByScope?: PlanningConfirmOccupiedDispatchOrdersByScope
+}
 
 export type PlanningConfirmMode = "incremental" | "replan"
 
@@ -83,6 +99,31 @@ function groupConfirmingTasksByCrew(
   return [...groups.values()]
 }
 
+export function listPlanningConfirmDispatchOccupancyScopes(
+  tasks: Task[],
+  confirmingTaskIds: string[],
+  crews: CrewRef[] = []
+): Array<{ dueDate: string; crewId: string }> {
+  return groupConfirmingTasksByCrew(tasks, confirmingTaskIds, crews).map(
+    (group) => ({
+      dueDate: group.dueDate,
+      crewId: group.crewId,
+    })
+  )
+}
+
+function withIndexOccupancy(
+  occupied: Set<number>,
+  dueDate: string,
+  crewId: string,
+  occupancyByScope?: PlanningConfirmOccupiedDispatchOrdersByScope
+): Set<number> {
+  return mergeOccupiedDispatchOrders(
+    occupied,
+    occupiedDispatchOrdersForScope(occupancyByScope, dueDate, crewId)
+  )
+}
+
 function listConfirmingProgramadaTasks(
   tasks: Task[],
   taskIds: string[],
@@ -148,12 +189,15 @@ function assignNextAvailableDispatchOrders(
  * Planificar incremental: solo OT programadas nuevas; conserva dispatch existente
  * y asigna dispatch_order al final según el mayor valor vigente en la cuadrilla.
  */
-export function buildIncrementalPlanificarUpdates(input: {
-  tasks: Task[]
-  confirmingTaskIds: string[]
-  crews?: CrewRef[]
-}): PlanningConfirmDispatchUpdate[] {
-  const { tasks, confirmingTaskIds, crews = [] } = input
+export function buildIncrementalPlanificarUpdates(
+  input: PlanningConfirmDispatchInput
+): PlanningConfirmDispatchUpdate[] {
+  const {
+    tasks,
+    confirmingTaskIds,
+    crews = [],
+    occupiedDispatchOrdersByScope,
+  } = input
   const updates: PlanningConfirmDispatchUpdate[] = []
 
   for (const group of groupConfirmingTasksByCrew(
@@ -173,7 +217,12 @@ export function buildIncrementalPlanificarUpdates(input: {
       crews
     )
     const confirmingIds = new Set(group.taskIds)
-    const occupied = collectIncrementalOccupiedOrders(routeScope, confirmingIds)
+    const occupied = withIndexOccupancy(
+      collectIncrementalOccupiedOrders(routeScope, confirmingIds),
+      group.dueDate,
+      group.crewId,
+      occupiedDispatchOrdersByScope
+    )
 
     updates.push(...assignNextAvailableDispatchOrders(confirming, occupied))
   }
@@ -185,12 +234,15 @@ export function buildIncrementalPlanificarUpdates(input: {
  * Replanificar: regenera dispatch_order del conjunto reconstruido (programadas),
  * respetando execution_order y slots congelados por OT en curso.
  */
-export function buildReplanificarConfirmUpdates(input: {
-  tasks: Task[]
-  confirmingTaskIds: string[]
-  crews?: CrewRef[]
-}): PlanningConfirmDispatchUpdate[] {
-  const { tasks, confirmingTaskIds, crews = [] } = input
+export function buildReplanificarConfirmUpdates(
+  input: PlanningConfirmDispatchInput
+): PlanningConfirmDispatchUpdate[] {
+  const {
+    tasks,
+    confirmingTaskIds,
+    crews = [],
+    occupiedDispatchOrdersByScope,
+  } = input
   const updates: PlanningConfirmDispatchUpdate[] = []
 
   for (const group of groupConfirmingTasksByCrew(
@@ -210,9 +262,11 @@ export function buildReplanificarConfirmUpdates(input: {
       crews
     )
     const confirmingIds = new Set(group.taskIds)
-    const occupied = collectOccupiedDispatchOrdersForConfirm(
-      routeScope,
-      confirmingIds
+    const occupied = withIndexOccupancy(
+      collectOccupiedDispatchOrdersForConfirm(routeScope, confirmingIds),
+      group.dueDate,
+      group.crewId,
+      occupiedDispatchOrdersByScope
     )
     const slots = buildDispatchSlotsSkippingFrozen(occupied, confirming.length)
 
@@ -233,8 +287,16 @@ export function resolvePlanningConfirmModeForGroup(input: {
   crewId: string
   confirmingTaskIds: string[]
   crews?: CrewRef[]
+  occupiedDispatchOrdersByScope?: PlanningConfirmOccupiedDispatchOrdersByScope
 }): PlanningConfirmMode {
-  const { tasks, dueDate, crewId, confirmingTaskIds, crews = [] } = input
+  const {
+    tasks,
+    dueDate,
+    crewId,
+    confirmingTaskIds,
+    crews = [],
+    occupiedDispatchOrdersByScope,
+  } = input
   const idSet = new Set(confirmingTaskIds)
   const routeScope = filterOperationalOrderScope(
     tasks,
@@ -246,9 +308,11 @@ export function resolvePlanningConfirmModeForGroup(input: {
   const hasPlannedNotBeingConfirmed = routeScope.some(
     (task) => isTaskReopenableForPlanning(task) && !idSet.has(task.id)
   )
-  const occupiedDispatchOrders = collectOccupiedDispatchOrdersForConfirm(
-    routeScope,
-    idSet
+  const occupiedDispatchOrders = withIndexOccupancy(
+    collectOccupiedDispatchOrdersForConfirm(routeScope, idSet),
+    dueDate,
+    crewId,
+    occupiedDispatchOrdersByScope
   )
 
   if (hasPlannedNotBeingConfirmed || occupiedDispatchOrders.size > 0) {
@@ -267,12 +331,15 @@ export function resolvePlanningConfirmModeForGroup(input: {
   return "incremental"
 }
 
-export function buildPlanningConfirmDispatchUpdates(input: {
-  tasks: Task[]
-  confirmingTaskIds: string[]
-  crews?: CrewRef[]
-}): PlanningConfirmDispatchUpdate[] {
-  const { tasks, confirmingTaskIds, crews = [] } = input
+export function buildPlanningConfirmDispatchUpdates(
+  input: PlanningConfirmDispatchInput
+): PlanningConfirmDispatchUpdate[] {
+  const {
+    tasks,
+    confirmingTaskIds,
+    crews = [],
+    occupiedDispatchOrdersByScope,
+  } = input
   const updates: PlanningConfirmDispatchUpdate[] = []
 
   for (const group of groupConfirmingTasksByCrew(
@@ -286,6 +353,7 @@ export function buildPlanningConfirmDispatchUpdates(input: {
       crewId: group.crewId,
       confirmingTaskIds: group.taskIds,
       crews,
+      occupiedDispatchOrdersByScope,
     })
 
     const groupUpdates =
@@ -294,11 +362,13 @@ export function buildPlanningConfirmDispatchUpdates(input: {
             tasks,
             confirmingTaskIds: group.taskIds,
             crews,
+            occupiedDispatchOrdersByScope,
           })
         : buildIncrementalPlanificarUpdates({
             tasks,
             confirmingTaskIds: group.taskIds,
             crews,
+            occupiedDispatchOrdersByScope,
           })
 
     updates.push(...groupUpdates)
