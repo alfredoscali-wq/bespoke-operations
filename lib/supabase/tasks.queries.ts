@@ -31,6 +31,7 @@ import {
   DASHBOARD_RECENT_ACTIVITY_WORK_ORDER_LIST_STATUSES,
   OPERARIO_TODAY_WORK_ORDER_LIST_STATUSES,
   PLANNING_WORK_ORDER_LIST_STATUSES,
+  PROJECT_WORK_ORDER_LIST_PAGE_SIZE,
   type OperarioWebCrewRef,
   hasOperarioWebCrew,
 } from "@/lib/tasks/task-list-scope"
@@ -414,6 +415,52 @@ export async function fetchCalendarWorkOrderListTasks(
 
   return {
     data: await mapFetchedTaskRows(client, companyId, data),
+    error: null,
+  }
+}
+
+/**
+ * Obra → Órdenes de trabajo (`ProjectTasksTab`). Scoped by company + project
+ * so PostgREST max_rows=1000 cannot hide a project's OT behind the company-wide
+ * due_date window of the unscoped task list. Pages within the project.
+ * Includes borrador. Do not reuse for /tareas, Archivo, Planificación,
+ * Calendario, Mobile, or Dashboard.
+ */
+export async function fetchProjectWorkOrderListTasks(
+  client: SupabaseTasksClient,
+  companyId: string,
+  projectId: string
+): Promise<TasksRepositoryResult<Task[]>> {
+  const rows: TaskRow[] = []
+  let from = 0
+
+  for (;;) {
+    const page = await client
+      .from("tasks")
+      .select("*")
+      .eq("company_id", companyId)
+      .eq("project_id", projectId)
+      .is("deleted_at", null)
+      .order("due_date", { ascending: true })
+      .order("code", { ascending: true })
+      .range(from, from + PROJECT_WORK_ORDER_LIST_PAGE_SIZE - 1)
+
+    if (page.error) {
+      return { data: null, error: mapSupabaseTaskError(page.error) }
+    }
+
+    const pageRows = (page.data ?? []) as TaskRow[]
+    rows.push(...pageRows)
+
+    if (pageRows.length < PROJECT_WORK_ORDER_LIST_PAGE_SIZE) {
+      break
+    }
+
+    from += PROJECT_WORK_ORDER_LIST_PAGE_SIZE
+  }
+
+  return {
+    data: await mapFetchedTaskRows(client, companyId, rows),
     error: null,
   }
 }

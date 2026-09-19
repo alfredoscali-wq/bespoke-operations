@@ -66,7 +66,7 @@ import { resolveProjectTaskFieldDispatchBadge } from "@/lib/projects/project-tas
 import { canRescheduleProjectTaskFromSession } from "@/lib/projects/project-task-reschedule"
 import { resolveProjectTaskRowActions } from "@/lib/projects/project-task-row-actions"
 import { ProjectTaskClosureReviewSheet } from "@/components/obras/project-task-closure-review-sheet"
-import { getTasksForProject, generateTaskCode } from "@/lib/tasks/utils"
+import { generateTaskCode } from "@/lib/tasks/utils"
 import { resolveCrewSnapshotsForAssignment, isTaskCrewArchived } from "@/lib/tasks/crew-relation"
 import {
   mergeMaterialsNeededIntoMetadata,
@@ -86,6 +86,7 @@ import {
   updateProjectDesignOtProposal,
 } from "@/lib/supabase/project-design-ot.browser"
 import { listProjectDesign } from "@/lib/supabase/project-design.browser"
+import { listProjectWorkOrderTasks } from "@/lib/supabase/tasks.browser"
 import type {
   CreateProjectDesignOtProposalInput,
   ProjectDesignOtProposal,
@@ -126,7 +127,6 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
   const { sessionUser } = useAuth()
   const { companyId, isAuthReady } = useTenantCompanyId()
   const {
-    tasks,
     addTask,
     editTask,
     deleteTask,
@@ -134,9 +134,9 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
     rescheduleProjectTask,
     releaseProjectTaskToField,
     returnProjectTaskFromField,
-    refreshTasksFromServer,
   } = useTasks()
   const { getCrew } = useCrews()
+  const [projectTasks, setProjectTasks] = useState<Task[]>([])
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogMode, setDialogMode] = useState<DialogMode>("create")
   const [selectedTask, setSelectedTask] = useState<Task | undefined>()
@@ -175,13 +175,36 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
     sessionUser?.email?.trim() ||
     "Usuario"
 
-  const projectTasks = useMemo(
-    () =>
-      getTasksForProject(project, tasks).sort((a, b) =>
-        compareDateOnly(a.dueDate, b.dueDate)
-      ),
-    [project, tasks]
+  const loadProjectTasks = useCallback(
+    async (options?: { silent?: boolean }) => {
+      if (!isAuthReady || !companyId) {
+        setProjectTasks([])
+        return
+      }
+
+      const result = await listProjectWorkOrderTasks(companyId, project.id)
+      if (result.error || !result.data) {
+        if (!options?.silent) {
+          setFeedback({
+            type: "error",
+            message:
+              result.error?.message ??
+              "No se pudieron cargar las órdenes de trabajo de la obra.",
+          })
+        }
+        return
+      }
+
+      setProjectTasks(
+        [...result.data].sort((a, b) => compareDateOnly(a.dueDate, b.dueDate))
+      )
+    },
+    [companyId, isAuthReady, project.id]
   )
+
+  useEffect(() => {
+    void loadProjectTasks()
+  }, [loadProjectTasks])
 
   const archivedCrewTaskCount = useMemo(
     () => projectTasks.filter((task) => isTaskCrewArchived(task, getCrew)).length,
@@ -402,7 +425,7 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
       }
 
       const created = await addTask({
-        code: generateTaskCode(project.code, tasks),
+        code: generateTaskCode(project.code, projectTasks),
         title: built.payload.title,
         description: built.payload.description,
         observationsForCrew: built.payload.observationsForCrew,
@@ -448,7 +471,7 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
             "La OT se creó, pero no se pudo vincular la preliminar. Recargá la pestaña e intentá de nuevo.",
         })
         await loadProposals()
-        void refreshTasksFromServer({ silent: true })
+        void loadProjectTasks({ silent: true })
         return false
       }
 
@@ -457,7 +480,7 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
         taskId: created.id,
         allocations: [],
       })
-      void refreshTasksFromServer({ silent: true })
+      void loadProjectTasks({ silent: true })
       upsertProposal(linked.data)
       setFeedback({
         type: "success",
@@ -537,7 +560,7 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
     setTendidoBusy(true)
     try {
       const created = await addTask({
-        code: generateTaskCode(project.code, tasks),
+        code: generateTaskCode(project.code, projectTasks),
         title: payload.title,
         description: "",
         observationsForCrew: payload.observations,
@@ -572,7 +595,7 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
         taskId: created.id,
         allocations: [],
       })
-      void refreshTasksFromServer({ silent: true })
+      void loadProjectTasks({ silent: true })
       setFeedback({
         type: "success",
         message: `OT de Tendido creada: ${created.code}.`,
@@ -713,7 +736,7 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
         taskId: selectedTask.id,
         allocations: payload.dailyAllocations,
       })
-      void refreshTasksFromServer({ silent: true })
+      void loadProjectTasks({ silent: true })
 
       setFeedback({
         type: "success",
@@ -764,7 +787,7 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
       taskId: created.id,
       allocations: payload.dailyAllocations,
     })
-    void refreshTasksFromServer({ silent: true })
+    void loadProjectTasks({ silent: true })
 
     setFeedback({
       type: "success",
@@ -790,6 +813,9 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
     }
 
     setDeleteTarget(null)
+    setProjectTasks((current) =>
+      current.filter((task) => task.id !== deleteTarget.id)
+    )
     setFeedback({
       type: "success",
       message: "Orden de trabajo eliminada correctamente.",
@@ -834,6 +860,7 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
     }
 
     setRescheduleTarget(null)
+    void loadProjectTasks({ silent: true })
     setFeedback({
       type: "success",
       message: "OT reprogramada correctamente.",
@@ -864,6 +891,7 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
     }
 
     setFieldDispatchConfirm(null)
+    void loadProjectTasks({ silent: true })
     setFeedback({
       type: "success",
       message:
@@ -997,6 +1025,9 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
             presentation="menu-item"
             onSuccess={(message) => {
               removeTaskLocally(task.id)
+              setProjectTasks((current) =>
+                current.filter((item) => item.id !== task.id)
+              )
               setFeedback({ type: "success", message })
             }}
           />
@@ -1210,7 +1241,7 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
         mode={dialogMode}
         project={project}
         task={selectedTask}
-        existingTasks={tasks}
+        existingTasks={projectTasks}
         onSubmit={handleCreateOrEdit}
       />
 

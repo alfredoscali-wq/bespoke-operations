@@ -210,6 +210,68 @@ export function selectCalendarWorkOrderListRows<
 }
 
 /**
+ * Obra → Órdenes de trabajo. Server filter is company + project_id, not the
+ * global fetchTasks() due_date window. Includes borrador. Pages past
+ * PostgREST max_rows so one project is not truncated by company-wide volume.
+ */
+export const PROJECT_WORK_ORDER_LIST_PAGE_SIZE = 1000
+
+type ProjectWorkOrderListRow = {
+  id?: string
+  status?: TaskStatus
+  deletedAt?: string | null
+  companyId?: string | null
+  dueDate?: string | null
+  code?: string
+  projectId?: string | null
+}
+
+export function matchesProjectWorkOrderListQuery(
+  task: Pick<
+    ProjectWorkOrderListRow,
+    "projectId" | "deletedAt" | "companyId"
+  >,
+  companyId: string,
+  projectId: string
+): boolean {
+  if (task.deletedAt) {
+    return false
+  }
+
+  if (task.companyId && task.companyId !== companyId) {
+    return false
+  }
+
+  return task.projectId === projectId
+}
+
+export function selectProjectWorkOrderListRows<
+  T extends ProjectWorkOrderListRow,
+>(
+  rows: T[],
+  companyId: string,
+  projectId: string,
+  pageSize = PROJECT_WORK_ORDER_LIST_PAGE_SIZE
+): T[] {
+  const matched = rows
+    .filter((task) =>
+      matchesProjectWorkOrderListQuery(task, companyId, projectId)
+    )
+    .sort(
+      (left, right) =>
+        (left.dueDate ?? "").localeCompare(right.dueDate ?? "") ||
+        (left.code ?? "").localeCompare(right.code ?? "") ||
+        (left.id ?? "").localeCompare(right.id ?? "")
+    )
+
+  const pages: T[] = []
+  for (let from = 0; from < matched.length; from += pageSize) {
+    pages.push(...matched.slice(from, from + pageSize))
+  }
+  return pages
+}
+
+/**
  * OT operativas del Dashboard (`/`). Independent of planning/calendar scopes.
  * Includes `borrador` because buildExecutiveSummary Pendientes uses
  * ACTIVE_TASK_STATUSES, which counts drafts.
