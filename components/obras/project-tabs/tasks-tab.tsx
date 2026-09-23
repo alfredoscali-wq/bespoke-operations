@@ -874,8 +874,8 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
     const { task, mode } = fieldDispatchConfirm
     const result =
       mode === "release"
-        ? await releaseProjectTaskToField(task.id, { actor: actorName })
-        : await returnProjectTaskFromField(task.id, { actor: actorName })
+        ? await releaseProjectTaskToField(task.id, { actor: actorName, task })
+        : await returnProjectTaskFromField(task.id, { actor: actorName, task })
     setIsFieldDispatching(false)
 
     if (!result.success) {

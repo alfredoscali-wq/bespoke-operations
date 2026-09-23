@@ -12,9 +12,10 @@ import {
   type ProjectTaskIncidentResolveInput,
 } from "@/lib/projects/project-task-incident-resolve"
 import {
-  releaseProjectTaskToField,
-  returnProjectTaskToPlanning,
+  prepareProjectTaskFieldRelease,
+  prepareProjectTaskFieldReturn,
 } from "@/lib/projects/project-task-field-release"
+import { getLiveTaskByCompanyAndId } from "@/lib/supabase/tasks.browser"
 import { resolveIncidentReasonLabel } from "@/lib/tasks/incidents"
 import {
   canPerformTaskAction,
@@ -66,6 +67,7 @@ type UseTasksIncidentsParams = {
     auditOptions?: {
       rescheduleInput?: TaskRescheduleInput
       suppressAudit?: boolean
+      existingTask?: Task
     }
   ) => Promise<TaskMutationResult>
   applyExecutionOrderUpdates: (
@@ -586,65 +588,53 @@ export function useTasksIncidents({
   const releaseProjectTaskToFieldAction = useCallback(
     async (
       id: string,
-      options?: { actor?: string }
+      options?: { actor?: string; task?: Task }
     ): Promise<TaskMutationResult> => {
-      const task = tasks.find((item) => item.id === id)
-      if (!task) {
-        return { success: false, message: "Orden de trabajo no encontrada." }
-      }
-
-      const release = releaseProjectTaskToField(task)
-      if (!release.ok) {
-        return { success: false, message: release.message }
-      }
-
-      const validation = canPerformTaskAction(task, "release-obra-to-field")
-      if (!validation.allowed) {
-        return { success: false, message: validation.message }
+      const prepared = await prepareProjectTaskFieldRelease(id, companyId, {
+        loadedTask: options?.task,
+        loadLiveTask: getLiveTaskByCompanyAndId,
+      })
+      if (!prepared.ok) {
+        return { success: false, message: prepared.message }
       }
 
       const actor = resolveActor(options?.actor)
       return updateTaskFields(
         id,
-        { status: release.status },
+        { status: prepared.status },
         "release-obra-to-field",
         "OT enviada a la cuadrilla (disponible en Field Agent según fecha).",
-        actor.fullName
+        actor.fullName,
+        { existingTask: prepared.task }
       )
     },
-    [tasks, updateTaskFields, resolveActor]
+    [companyId, updateTaskFields, resolveActor]
   )
 
   const returnProjectTaskFromFieldAction = useCallback(
     async (
       id: string,
-      options?: { actor?: string }
+      options?: { actor?: string; task?: Task }
     ): Promise<TaskMutationResult> => {
-      const task = tasks.find((item) => item.id === id)
-      if (!task) {
-        return { success: false, message: "Orden de trabajo no encontrada." }
-      }
-
-      const returned = returnProjectTaskToPlanning(task)
-      if (!returned.ok) {
-        return { success: false, message: returned.message }
-      }
-
-      const validation = canPerformTaskAction(task, "return-obra-from-field")
-      if (!validation.allowed) {
-        return { success: false, message: validation.message }
+      const prepared = await prepareProjectTaskFieldReturn(id, companyId, {
+        loadedTask: options?.task,
+        loadLiveTask: getLiveTaskByCompanyAndId,
+      })
+      if (!prepared.ok) {
+        return { success: false, message: prepared.message }
       }
 
       const actor = resolveActor(options?.actor)
       return updateTaskFields(
         id,
-        { status: returned.status },
+        { status: prepared.status },
         "return-obra-from-field",
         "OT retirada del campo (pendiente de envío en Obras).",
-        actor.fullName
+        actor.fullName,
+        { existingTask: prepared.task }
       )
     },
-    [tasks, updateTaskFields, resolveActor]
+    [companyId, updateTaskFields, resolveActor]
   )
 
   return {

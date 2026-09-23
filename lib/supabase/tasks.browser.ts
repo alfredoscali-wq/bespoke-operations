@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/client"
 import {
   fetchOccupiedTaskCodesByPrefix,
+  fetchLiveTaskByCompanyAndId,
   fetchTaskById,
   fetchTasks,
   fetchActiveWorkOrderListTasks,
@@ -214,6 +215,14 @@ export async function getTaskById(
   client: SupabaseTasksClient = createBrowserTasksClient()
 ): Promise<TasksRepositoryResult<Task>> {
   return fetchTaskById(client, id)
+}
+
+export async function getLiveTaskByCompanyAndId(
+  companyId: string,
+  id: string,
+  client: SupabaseTasksClient = createBrowserTasksClient()
+): Promise<TasksRepositoryResult<Task>> {
+  return fetchLiveTaskByCompanyAndId(client, companyId, id)
 }
 
 export async function listOccupiedTaskCodesByPrefix(

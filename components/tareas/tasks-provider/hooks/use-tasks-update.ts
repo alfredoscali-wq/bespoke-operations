@@ -191,13 +191,17 @@ export function useTasksUpdate({
       auditOptions?: {
         rescheduleInput?: TaskRescheduleInput
         suppressAudit?: boolean
+        existingTask?: Task
       }
     ): Promise<TaskMutationResult> => {
       if (blockDemoWrite(isReadOnly, openRestrictedDialog)) {
         return DEMO_WRITE_BLOCKED_TASK_RESULT
       }
 
-      const existing = tasks.find((item) => item.id === id)
+      const existing =
+        auditOptions?.existingTask?.id === id
+          ? auditOptions.existingTask
+          : tasks.find((item) => item.id === id)
       if (!existing) {
         return { success: false, message: "Orden de trabajo no encontrada." }
       }

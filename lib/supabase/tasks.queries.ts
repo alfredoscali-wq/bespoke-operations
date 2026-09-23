@@ -999,6 +999,40 @@ export async function fetchOperarioWebWorkOrderById(
   return { data: mapTaskRowToTask(data), error: null }
 }
 
+/**
+ * Single live OT by company + id. Used by Obra field dispatch so the action
+ * does not depend on the global task list (PostgREST first page).
+ */
+export async function fetchLiveTaskByCompanyAndId(
+  client: SupabaseTasksClient,
+  companyId: string,
+  id: string
+): Promise<TasksRepositoryResult<Task>> {
+  const { data, error } = await client
+    .from("tasks")
+    .select("*")
+    .eq("company_id", companyId)
+    .eq("id", id)
+    .is("deleted_at", null)
+    .maybeSingle()
+
+  if (error) {
+    return { data: null, error: mapSupabaseTaskError(error) }
+  }
+
+  if (!data) {
+    return {
+      data: null,
+      error: {
+        code: "NOT_FOUND",
+        message: "Orden de trabajo no encontrada.",
+      },
+    }
+  }
+
+  return { data: mapTaskRowToTask(data), error: null }
+}
+
 export async function fetchTaskById(
   client: SupabaseTasksClient,
   id: string

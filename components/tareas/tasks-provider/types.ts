@@ -122,11 +122,11 @@ export type TasksContextValue = {
   ) => Promise<TaskMutationResult>
   releaseProjectTaskToField: (
     id: string,
-    options?: { actor?: string }
+    options?: { actor?: string; task?: Task }
   ) => Promise<TaskMutationResult>
   returnProjectTaskFromField: (
     id: string,
-    options?: { actor?: string }
+    options?: { actor?: string; task?: Task }
   ) => Promise<TaskMutationResult>
   toggleChecklistItem: (taskId: string, itemId: string) => void
   syncOperationalStepsProgress: (

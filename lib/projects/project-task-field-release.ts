@@ -5,7 +5,127 @@
  * Never touches execution_order / dispatch_order.
  */
 
+import { canPerformTaskAction } from "@/lib/tasks/task-status-workflow"
 import type { Task, TaskStatus } from "@/lib/types/tasks"
+
+export const PROJECT_TASK_NOT_FOUND_MESSAGE = "Orden de trabajo no encontrada."
+
+export type LiveCompanyTaskLookup = (
+  companyId: string,
+  taskId: string
+) => Promise<{
+  data: Task | null
+  error: { code?: string; message: string } | null
+}>
+
+/**
+ * Resolve an Obra OT for Enviar a Cuadrilla / Devolver a Obras from the
+ * project tab payload or the already-loaded project task list.
+ * Does not consult the global TasksProvider array.
+ */
+export function resolveProjectFieldDispatchTask<T extends { id: string }>(
+  taskId: string,
+  options: {
+    loadedTask?: T | null
+    projectTasks?: readonly T[] | null
+  } = {}
+): T | undefined {
+  if (options.loadedTask?.id === taskId) {
+    return options.loadedTask
+  }
+
+  return options.projectTasks?.find((item) => item.id === taskId)
+}
+
+/**
+ * Prefer the OT already loaded for the Obra. If it is not in that context,
+ * load the live row by task id + company (deleted rows excluded).
+ */
+export async function loadProjectFieldDispatchTask(
+  taskId: string,
+  companyId: string,
+  options: {
+    loadedTask?: Task | null
+    projectTasks?: readonly Task[] | null
+    loadLiveTask: LiveCompanyTaskLookup
+  }
+): Promise<{ ok: true; task: Task } | { ok: false; message: string }> {
+  const fromObra = resolveProjectFieldDispatchTask(taskId, options)
+  if (fromObra) {
+    return { ok: true, task: fromObra }
+  }
+
+  const live = await options.loadLiveTask(companyId, taskId)
+  if (live.error || !live.data) {
+    return { ok: false, message: PROJECT_TASK_NOT_FOUND_MESSAGE }
+  }
+
+  return { ok: true, task: live.data }
+}
+
+export type PreparedProjectTaskFieldDispatch =
+  | { ok: true; task: Task; status: TaskStatus }
+  | { ok: false; message: string }
+
+async function prepareProjectTaskFieldDispatch(
+  taskId: string,
+  companyId: string,
+  options: {
+    loadedTask?: Task | null
+    projectTasks?: readonly Task[] | null
+    loadLiveTask: LiveCompanyTaskLookup
+  },
+  mode: "release" | "return"
+): Promise<PreparedProjectTaskFieldDispatch> {
+  const loaded = await loadProjectFieldDispatchTask(taskId, companyId, options)
+  if (!loaded.ok) {
+    return loaded
+  }
+
+  const transition =
+    mode === "release"
+      ? releaseProjectTaskToField(loaded.task)
+      : returnProjectTaskToPlanning(loaded.task)
+  if (!transition.ok) {
+    return { ok: false, message: transition.message }
+  }
+
+  const action =
+    mode === "release" ? "release-obra-to-field" : "return-obra-from-field"
+  const validation = canPerformTaskAction(loaded.task, action)
+  if (!validation.allowed) {
+    return {
+      ok: false,
+      message: validation.message ?? PROJECT_TASK_NOT_FOUND_MESSAGE,
+    }
+  }
+
+  return { ok: true, task: loaded.task, status: transition.status }
+}
+
+export function prepareProjectTaskFieldRelease(
+  taskId: string,
+  companyId: string,
+  options: {
+    loadedTask?: Task | null
+    projectTasks?: readonly Task[] | null
+    loadLiveTask: LiveCompanyTaskLookup
+  }
+): Promise<PreparedProjectTaskFieldDispatch> {
+  return prepareProjectTaskFieldDispatch(taskId, companyId, options, "release")
+}
+
+export function prepareProjectTaskFieldReturn(
+  taskId: string,
+  companyId: string,
+  options: {
+    loadedTask?: Task | null
+    projectTasks?: readonly Task[] | null
+    loadLiveTask: LiveCompanyTaskLookup
+  }
+): Promise<PreparedProjectTaskFieldDispatch> {
+  return prepareProjectTaskFieldDispatch(taskId, companyId, options, "return")
+}
 
 export type ProjectTaskFieldReleaseResult =
   | { ok: true; status: TaskStatus }
