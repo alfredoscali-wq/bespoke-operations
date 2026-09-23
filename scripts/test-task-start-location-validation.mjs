@@ -51,6 +51,61 @@ function settingsForCompany(rows, companyId) {
 }
 
 function tryStartTask(input) {
+  if (input.shiftActive === false) {
+    return {
+      started: false,
+      inserted: false,
+      code: "SHIFT_NOT_ACTIVE",
+      message: "No hay jornada activa.",
+      source: null,
+    }
+  }
+
+  if (input.crewMatches === false) {
+    return {
+      started: false,
+      inserted: false,
+      code: "TASK_NOT_FOUND",
+      message: "Orden de trabajo no encontrada.",
+      source: null,
+    }
+  }
+
+  if (input.dateRangeActive === false) {
+    return {
+      started: false,
+      inserted: false,
+      code: "TASK_NOT_FOUND",
+      message: "Orden de trabajo no encontrada.",
+      source: null,
+    }
+  }
+
+  if (input.taskStatus && input.taskStatus !== "asignada") {
+    return {
+      started: false,
+      inserted: false,
+      code: "TASK_INVALID_STATUS",
+      message: "La orden de trabajo no puede iniciarse en su estado actual.",
+      source: null,
+    }
+  }
+
+  const settings = settingsForCompany(input.settingsRows, input.authCompanyId)
+
+  if (!settings.taskLocationValidationEnabled) {
+    return {
+      started: true,
+      inserted: true,
+      code: null,
+      source: null,
+      policy: {
+        shouldBlock: false,
+        enforcementEnabled: false,
+      },
+    }
+  }
+
   const coords = resolveTaskStartCoordinatesFromSources({
     task: input.task,
     project: input.project ?? null,
@@ -65,7 +120,6 @@ function tryStartTask(input) {
     }
   }
 
-  const settings = settingsForCompany(input.settingsRows, input.authCompanyId)
   const policy = evaluateTaskStartDistancePolicy({
     operatorLatitude: input.device.latitude,
     operatorLongitude: input.device.longitude,
@@ -379,4 +433,171 @@ test("jornada, heartbeat y modelo de Obras no se tocan en este sprint", () => {
   assert.doesNotMatch(startService, /presence_engine_settings/)
   assert.match(loader, /from\("company_mobile_settings"\)/)
   assert.doesNotMatch(loader, /from\("projects"\)/)
+})
+
+const DOROTEA_OT = {
+  projectId: "9d66e4ed-6625-4a76-9854-471074232ddf",
+  latitude: null,
+  longitude: null,
+}
+
+const DOROTEA_PROJECT = { latitude: null, longitude: null }
+
+test("1. GPS OFF + OT sin GPS + Obra sin GPS → START permitido", () => {
+  const result = tryStartTask({
+    authCompanyId: COMPANY_A,
+    settingsRows: [SETTINGS_A_OFF],
+    device: FAR,
+    task: DOROTEA_OT,
+    project: DOROTEA_PROJECT,
+    taskStatus: "asignada",
+    shiftActive: true,
+    crewMatches: true,
+    dateRangeActive: true,
+  })
+  assert.equal(result.started, true)
+  assert.equal(result.inserted, true)
+  assert.equal(result.code, null)
+})
+
+test("2. GPS OFF + OT sin GPS + Obra con GPS → START permitido", () => {
+  const result = tryStartTask({
+    authCompanyId: COMPANY_A,
+    settingsRows: [SETTINGS_A_OFF],
+    device: FAR,
+    task: DOROTEA_OT,
+    project: { latitude: CLIENT.latitude, longitude: CLIENT.longitude },
+  })
+  assert.equal(result.started, true)
+  assert.equal(result.code, null)
+})
+
+test("3. GPS ON + OT sin GPS + Obra sin GPS → TASK_LOCATION_REQUIRED", () => {
+  const result = tryStartTask({
+    authCompanyId: COMPANY_A,
+    settingsRows: [SETTINGS_A_ON_150],
+    device: NEAR,
+    task: DOROTEA_OT,
+    project: DOROTEA_PROJECT,
+  })
+  assert.equal(result.started, false)
+  assert.equal(result.code, "TASK_LOCATION_REQUIRED")
+  assert.equal(
+    result.message,
+    "La OT y la Obra no tienen ubicación GPS registrada."
+  )
+  assert.match(startService, /TASK_LOCATION_REQUIRED/)
+  assert.match(startService, /buildTaskStartLocationRequiredMessage/)
+})
+
+test("4. GPS ON + OT con GPS + dispositivo dentro del radio → START permitido", () => {
+  const result = tryStartTask({
+    authCompanyId: COMPANY_A,
+    settingsRows: [SETTINGS_A_ON_150],
+    device: NEAR,
+    task: NORMAL_OT,
+  })
+  assert.equal(result.started, true)
+  assert.equal(result.source, "task")
+  assert.equal(result.policy.withinRadius, true)
+})
+
+test("5. GPS ON + OT/Obra con GPS + dispositivo fuera del radio → TASK_LOCATION_OUT_OF_RANGE", () => {
+  const result = tryStartTask({
+    authCompanyId: COMPANY_A,
+    settingsRows: [SETTINGS_A_ON_150],
+    device: FAR,
+    task: NORMAL_OT,
+  })
+  assert.equal(result.started, false)
+  assert.equal(result.code, "TASK_LOCATION_OUT_OF_RANGE")
+  assert.match(result.message ?? "", /Se encuentra a \d+ metros del domicilio/)
+})
+
+test("6. GPS OFF no saltea jornada, cuadrilla, fecha ni status", () => {
+  assert.equal(
+    tryStartTask({
+      authCompanyId: COMPANY_A,
+      settingsRows: [SETTINGS_A_OFF],
+      device: NEAR,
+      task: DOROTEA_OT,
+      project: DOROTEA_PROJECT,
+      shiftActive: false,
+    }).code,
+    "SHIFT_NOT_ACTIVE"
+  )
+  assert.equal(
+    tryStartTask({
+      authCompanyId: COMPANY_A,
+      settingsRows: [SETTINGS_A_OFF],
+      device: NEAR,
+      task: DOROTEA_OT,
+      crewMatches: false,
+    }).code,
+    "TASK_NOT_FOUND"
+  )
+  assert.equal(
+    tryStartTask({
+      authCompanyId: COMPANY_A,
+      settingsRows: [SETTINGS_A_OFF],
+      device: NEAR,
+      task: DOROTEA_OT,
+      dateRangeActive: false,
+    }).code,
+    "TASK_NOT_FOUND"
+  )
+  assert.equal(
+    tryStartTask({
+      authCompanyId: COMPANY_A,
+      settingsRows: [SETTINGS_A_OFF],
+      device: NEAR,
+      task: DOROTEA_OT,
+      taskStatus: "programada",
+    }).code,
+    "TASK_INVALID_STATUS"
+  )
+
+  const shiftAt = startService.indexOf("SHIFT_NOT_ACTIVE")
+  const statusAt = startService.indexOf("TASK_INVALID_STATUS")
+  const crewAt = startService.indexOf("taskMatchesCrewId")
+  const dateAt = startService.indexOf("isOperationalDateRangeActive")
+  const gpsAt = startService.indexOf("TASK_LOCATION_REQUIRED")
+  assert.ok(shiftAt > 0 && shiftAt < gpsAt)
+  assert.ok(statusAt > 0 && statusAt < gpsAt)
+  assert.ok(crewAt > 0 && crewAt < gpsAt)
+  assert.ok(dateAt > 0 && dateAt < gpsAt)
+})
+
+test("producción FO-DOR: ABNet GPS OFF + TSK-FODOR-002 sin coords → puede iniciar", () => {
+  const result = tryStartTask({
+    authCompanyId: COMPANY_A,
+    settingsRows: [
+      {
+        company_id: COMPANY_A,
+        task_location_validation_enabled: false,
+        task_radius_meters: 150,
+      },
+    ],
+    device: FAR,
+    task: {
+      projectId: "9d66e4ed-6625-4a76-9854-471074232ddf",
+      latitude: null,
+      longitude: null,
+    },
+    project: { latitude: null, longitude: null },
+    taskStatus: "asignada",
+    shiftActive: true,
+    crewMatches: true,
+    dateRangeActive: true,
+  })
+  assert.equal(result.started, true)
+  assert.equal(result.code, null)
+
+  const settingsLoadAt = startService.indexOf("loadCompanyTaskLocationSettings")
+  const requiredAt = startService.indexOf("TASK_LOCATION_REQUIRED")
+  assert.ok(settingsLoadAt > 0 && settingsLoadAt < requiredAt)
+  assert.match(
+    startService,
+    /if \(settings\.taskLocationValidationEnabled\)/
+  )
 })

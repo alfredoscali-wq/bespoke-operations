@@ -165,56 +165,60 @@ export async function startMobileTask(
       )
     }
 
-    perf.section("Resolve coordinates")
-    const startCoordinates = await resolveTaskStartCoordinates(
-      admin,
-      auth.companyId,
-      task,
-      perf
-    )
-    if (!startCoordinates) {
-      throw new MobileApiError(
-        "TASK_LOCATION_REQUIRED",
-        buildTaskStartLocationRequiredMessage(Boolean(task.projectId)),
-        409
-      )
-    }
-
     const settings = await perf.span("Task location settings", () =>
       loadCompanyTaskLocationSettings(admin, auth.companyId)
     )
 
-    perf.section("Distance policy")
-    const distancePolicy = perf.spanSync("calculo", () =>
-      evaluateTaskStartDistancePolicy({
-        operatorLatitude: request.latitude,
-        operatorLongitude: request.longitude,
-        targetLatitude: startCoordinates.latitude,
-        targetLongitude: startCoordinates.longitude,
-        enforcementEnabled: settings.taskLocationValidationEnabled,
-        maxDistanceMeters: settings.taskRadiusMeters,
-      })
-    )
-    const distanceToClientMeters = distancePolicy.distanceToClientMeters
-    console.warn("[Mobile API][task-start-distance]", {
-      taskId: task.id,
-      distanceMeters: Math.round(distanceToClientMeters),
-      withinRadius: distancePolicy.withinRadius,
-      shouldBlock: distancePolicy.shouldBlock,
-      policyEnforcementEnabled: distancePolicy.enforcementEnabled,
-      taskRadiusMeters: settings.taskRadiusMeters,
-      source: startCoordinates.source,
-    })
-    perf.spanSync("validacion", () => {
-      if (distancePolicy.shouldBlock) {
+    let distanceToClientMeters: number | null = null
+
+    if (settings.taskLocationValidationEnabled) {
+      perf.section("Resolve coordinates")
+      const startCoordinates = await resolveTaskStartCoordinates(
+        admin,
+        auth.companyId,
+        task,
+        perf
+      )
+      if (!startCoordinates) {
         throw new MobileApiError(
-          "TASK_LOCATION_OUT_OF_RANGE",
-          distancePolicy.message ??
-            `Se encuentra a ${Math.round(distanceToClientMeters)} metros del domicilio del cliente.`,
+          "TASK_LOCATION_REQUIRED",
+          buildTaskStartLocationRequiredMessage(Boolean(task.projectId)),
           409
         )
       }
-    })
+
+      perf.section("Distance policy")
+      const distancePolicy = perf.spanSync("calculo", () =>
+        evaluateTaskStartDistancePolicy({
+          operatorLatitude: request.latitude,
+          operatorLongitude: request.longitude,
+          targetLatitude: startCoordinates.latitude,
+          targetLongitude: startCoordinates.longitude,
+          enforcementEnabled: settings.taskLocationValidationEnabled,
+          maxDistanceMeters: settings.taskRadiusMeters,
+        })
+      )
+      distanceToClientMeters = distancePolicy.distanceToClientMeters
+      console.warn("[Mobile API][task-start-distance]", {
+        taskId: task.id,
+        distanceMeters: Math.round(distanceToClientMeters),
+        withinRadius: distancePolicy.withinRadius,
+        shouldBlock: distancePolicy.shouldBlock,
+        policyEnforcementEnabled: distancePolicy.enforcementEnabled,
+        taskRadiusMeters: settings.taskRadiusMeters,
+        source: startCoordinates.source,
+      })
+      perf.spanSync("validacion", () => {
+        if (distancePolicy.shouldBlock) {
+          throw new MobileApiError(
+            "TASK_LOCATION_OUT_OF_RANGE",
+            distancePolicy.message ??
+              `Se encuentra a ${Math.round(distanceToClientMeters ?? 0)} metros del domicilio del cliente.`,
+            409
+          )
+        }
+      })
+    }
 
     const startedAt = new Date().toISOString()
 

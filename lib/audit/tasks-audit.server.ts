@@ -44,7 +44,7 @@ export async function recordTaskMobileStartAudit(input: {
   latitude: number
   longitude: number
   accuracyMeters: number | null
-  distanceToClientMeters: number
+  distanceToClientMeters: number | null
   startedAt: string
   perf?: import("@/lib/performance").PerformanceTrace
 }) {

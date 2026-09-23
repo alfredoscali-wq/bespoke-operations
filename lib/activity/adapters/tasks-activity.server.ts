@@ -27,7 +27,7 @@ export async function recordTaskMobileStartActivity(input: {
   latitude: number
   longitude: number
   accuracyMeters: number | null
-  distanceToClientMeters: number
+  distanceToClientMeters: number | null
   perf?: import("@/lib/performance").PerformanceTrace
 }): Promise<void> {
   const perf = input.perf
