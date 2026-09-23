@@ -9,8 +9,16 @@ import { PlanningPendingClosureDetailPanel } from "@/components/planificacion/pl
 import { TaskClosureRejectDialog } from "@/components/tareas/task-closure-reject-dialog"
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { canAccessObrasModuleForStart } from "@/lib/projects/obra-task-insert-integrity"
+import { getTaskDetail } from "@/lib/data/tasks"
+import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import { PLANNING_PENDING_CLOSURE_DETAIL_LOAD_ERROR } from "@/lib/planificacion/planning-pending-closure-detail"
 import { resolveTaskCrewOperatorLabel } from "@/lib/planificacion/planning-pending-closure"
+import {
+  loadLiveCompanyTask,
+  TASK_IDENTITY_UNRESOLVED_MESSAGE,
+} from "@/lib/tasks/live-company-task"
+import { getLiveTaskByCompanyAndId } from "@/lib/supabase/tasks.browser"
+import type { Task } from "@/lib/types/tasks"
 import { Button } from "@/components/ui/button"
 import {
   Sheet,
@@ -26,6 +34,7 @@ type ProjectTaskClosureReviewSheetProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   taskId: string | null
+  task?: Task | null
   onReviewCompleted?: () => void
 }
 
@@ -33,12 +42,14 @@ export function ProjectTaskClosureReviewSheet({
   open,
   onOpenChange,
   taskId,
+  task: loadedTask,
   onReviewCompleted,
 }: ProjectTaskClosureReviewSheetProps) {
   const { sessionUser } = useAuth()
+  const { companyId } = useTenantCompanyId()
   const { crews } = useCrews()
-  const { getTask, getDetail, detailVersion, approveTask, rejectTask } =
-    useTasks()
+  const { detailVersion, approveTask, rejectTask } = useTasks()
+  const [resolvedTask, setResolvedTask] = useState<Task | null>(null)
   const [rejectOpen, setRejectOpen] = useState(false)
   const [isPending, setIsPending] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -47,24 +58,17 @@ export function ProjectTaskClosureReviewSheet({
 
   const canReview = canAccessObrasModuleForStart(sessionUser)
 
-  const task = useMemo(() => {
-    if (!taskId) {
-      return null
-    }
-
-    return getTask(taskId) ?? null
-  }, [taskId, getTask, detailVersion])
-
   const detail = useMemo(() => {
-    if (!taskId) {
+    if (!resolvedTask) {
       return null
     }
 
-    return getDetail(taskId) ?? null
-  }, [taskId, getDetail, detailVersion])
+    return getTaskDetail(resolvedTask)
+  }, [resolvedTask, detailVersion])
 
   useEffect(() => {
     if (!open) {
+      setResolvedTask(null)
       setDetailLoading(false)
       setDetailError(null)
       setActionError(null)
@@ -73,30 +77,39 @@ export function ProjectTaskClosureReviewSheet({
     }
 
     if (!taskId) {
+      setResolvedTask(null)
       setDetailLoading(false)
       setDetailError(null)
       return
     }
 
+    let cancelled = false
     setDetailLoading(true)
     setDetailError(null)
 
-    if (!task) {
-      setDetailError(
-        "No fue posible identificar la orden de trabajo. Actualice e intente nuevamente."
-      )
-      setDetailLoading(false)
-      return
-    }
+    void loadLiveCompanyTask(taskId, companyId, {
+      loadedTask: loadedTask,
+      loadLiveTask: getLiveTaskByCompanyAndId,
+    }).then((result) => {
+      if (cancelled) {
+        return
+      }
 
-    if (!detail) {
-      setDetailError(PLANNING_PENDING_CLOSURE_DETAIL_LOAD_ERROR)
-      setDetailLoading(false)
-      return
-    }
+      if (!result.ok) {
+        setResolvedTask(null)
+        setDetailError(TASK_IDENTITY_UNRESOLVED_MESSAGE)
+        setDetailLoading(false)
+        return
+      }
 
-    setDetailLoading(false)
-  }, [open, taskId, task, detail, detailVersion])
+      setResolvedTask(result.task)
+      setDetailLoading(false)
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [open, taskId, loadedTask, companyId])
 
   async function runAction(
     action: () => Promise<{ success: boolean; message?: string }>
@@ -123,25 +136,23 @@ export function ProjectTaskClosureReviewSheet({
     setDetailLoading(true)
     setDetailError(null)
 
-    const nextTask = getTask(taskId)
-    if (!nextTask) {
-      setDetailError(
-        "No fue posible identificar la orden de trabajo. Actualice e intente nuevamente."
-      )
-      setDetailLoading(false)
-      return
-    }
+    void loadLiveCompanyTask(taskId, companyId, {
+      loadedTask: loadedTask,
+      loadLiveTask: getLiveTaskByCompanyAndId,
+    }).then((result) => {
+      if (!result.ok) {
+        setResolvedTask(null)
+        setDetailError(TASK_IDENTITY_UNRESOLVED_MESSAGE)
+        setDetailLoading(false)
+        return
+      }
 
-    const nextDetail = getDetail(taskId)
-    if (!nextDetail) {
-      setDetailError(PLANNING_PENDING_CLOSURE_DETAIL_LOAD_ERROR)
+      setResolvedTask(result.task)
       setDetailLoading(false)
-      return
-    }
-
-    setDetailLoading(false)
+    })
   }
 
+  const task = resolvedTask
   const supervisorActionsDisabled =
     !canReview || isPending || detailLoading || Boolean(detailError) || !task
 
@@ -232,7 +243,7 @@ export function ProjectTaskClosureReviewSheet({
                   }
 
                   void runAction(async () => {
-                    const result = await approveTask(task.id)
+                    const result = await approveTask(task.id, { task })
                     if (result.success) {
                       onReviewCompleted?.()
                       onOpenChange(false)
@@ -270,7 +281,9 @@ export function ProjectTaskClosureReviewSheet({
             return
           }
 
-          const result = await runAction(() => rejectTask(task.id, reason))
+          const result = await runAction(() =>
+            rejectTask(task.id, reason, { task })
+          )
 
           if (result?.success) {
             setRejectOpen(false)

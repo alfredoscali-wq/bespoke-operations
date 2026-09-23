@@ -5,18 +5,17 @@
  * Never touches execution_order / dispatch_order.
  */
 
+import {
+  LIVE_COMPANY_TASK_NOT_FOUND_MESSAGE,
+  loadLiveCompanyTask,
+  type LiveCompanyTaskLookup,
+} from "@/lib/tasks/live-company-task"
 import { canPerformTaskAction } from "@/lib/tasks/task-status-workflow"
 import type { Task, TaskStatus } from "@/lib/types/tasks"
 
-export const PROJECT_TASK_NOT_FOUND_MESSAGE = "Orden de trabajo no encontrada."
+export const PROJECT_TASK_NOT_FOUND_MESSAGE = LIVE_COMPANY_TASK_NOT_FOUND_MESSAGE
 
-export type LiveCompanyTaskLookup = (
-  companyId: string,
-  taskId: string
-) => Promise<{
-  data: Task | null
-  error: { code?: string; message: string } | null
-}>
+export type { LiveCompanyTaskLookup }
 
 /**
  * Resolve an Obra OT for Enviar a Cuadrilla / Devolver a Obras from the
@@ -55,12 +54,9 @@ export async function loadProjectFieldDispatchTask(
     return { ok: true, task: fromObra }
   }
 
-  const live = await options.loadLiveTask(companyId, taskId)
-  if (live.error || !live.data) {
-    return { ok: false, message: PROJECT_TASK_NOT_FOUND_MESSAGE }
-  }
-
-  return { ok: true, task: live.data }
+  return loadLiveCompanyTask(taskId, companyId, {
+    loadLiveTask: options.loadLiveTask,
+  })
 }
 
 export type PreparedProjectTaskFieldDispatch =

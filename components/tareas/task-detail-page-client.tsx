@@ -7,7 +7,12 @@ import { TaskAdminDetailView } from "@/components/tareas/task-admin-detail-view"
 import { useTasks } from "@/components/tareas/tasks-provider"
 import { useAuth } from "@/components/auth/auth-provider"
 import { getTaskDetail } from "@/lib/data/tasks"
-import { getTaskById } from "@/lib/supabase/tasks.browser"
+import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
+import { getLiveTaskByCompanyAndId, getTaskById } from "@/lib/supabase/tasks.browser"
+import {
+  resolveTaskDetailPageAccess,
+  shouldFetchLiveTaskForDetailPage,
+} from "@/lib/tasks/task-direct-access"
 import { matchesArchivedWorkOrderListQuery } from "@/lib/tasks/task-list-scope"
 import { canShowAdminSoftDeleteInArchive } from "@/lib/tasks/work-order-deletion-policy"
 import type { Task } from "@/lib/types/tasks"
@@ -25,9 +30,14 @@ export function TaskDetailPageClient({
 }: TaskDetailPageClientProps) {
   const router = useRouter()
   const { sessionUser } = useAuth()
-  const { getTask, getDetail, detailVersion, removeTaskLocally } = useTasks()
+  const { companyId, isAuthReady } = useTenantCompanyId()
+  const { getTask, getDetail, detailVersion, removeTaskLocally, isTasksReady } =
+    useTasks()
   const [fetchedTask, setFetchedTask] = useState<Task | null>(null)
   const [archiveFetchState, setArchiveFetchState] = useState<
+    "idle" | "loading" | "missing"
+  >("idle")
+  const [directFetchState, setDirectFetchState] = useState<
     "idle" | "loading" | "missing"
   >("idle")
 
@@ -38,8 +48,10 @@ export function TaskDetailPageClient({
 
   useEffect(() => {
     if (!requireArchived || listedTask) {
-      setFetchedTask(null)
       setArchiveFetchState("idle")
+      if (requireArchived) {
+        setFetchedTask(null)
+      }
       return
     }
 
@@ -69,21 +81,87 @@ export function TaskDetailPageClient({
     }
   }, [id, listedTask, requireArchived])
 
-  const task = listedTask ?? fetchedTask ?? undefined
+  useEffect(() => {
+    if (
+      !shouldFetchLiveTaskForDetailPage({
+        listedTask,
+        requireArchived,
+        isListReady: isTasksReady,
+        isAuthReady,
+      })
+    ) {
+      if (listedTask || requireArchived) {
+        setDirectFetchState("idle")
+        if (!requireArchived) {
+          setFetchedTask(null)
+        }
+      }
+      return
+    }
+
+    if (!companyId) {
+      setFetchedTask(null)
+      setDirectFetchState("missing")
+      return
+    }
+
+    let cancelled = false
+    setDirectFetchState("loading")
+
+    void getLiveTaskByCompanyAndId(companyId, id).then((result) => {
+      if (cancelled) {
+        return
+      }
+
+      if (result.data) {
+        setFetchedTask(result.data)
+        setDirectFetchState("idle")
+        return
+      }
+
+      setFetchedTask(null)
+      setDirectFetchState("missing")
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [
+    companyId,
+    id,
+    isAuthReady,
+    isTasksReady,
+    listedTask,
+    requireArchived,
+  ])
+
+  const access = resolveTaskDetailPageAccess({
+    listedTask,
+    fetchedTask,
+    isListReady: isTasksReady,
+    isAuthReady,
+    isFetching:
+      directFetchState === "loading" ||
+      (directFetchState === "idle" && !listedTask && !fetchedTask),
+    requireArchived,
+    archiveFetchState,
+  })
+
+  const task = access.outcome === "show" ? access.task : undefined
   const detail = useMemo(() => {
+    if (!task) {
+      return undefined
+    }
+
     const cached = getDetail(id)
     if (cached) {
       return cached
     }
 
-    if (!task) {
-      return undefined
-    }
-
     return getTaskDetail(task)
   }, [getDetail, id, task, detailVersion])
 
-  if (requireArchived && archiveFetchState === "loading" && !task) {
+  if (access.outcome === "loading") {
     return (
       <p className="text-sm text-muted-foreground">
         Cargando orden de trabajo...
@@ -91,7 +169,7 @@ export function TaskDetailPageClient({
     )
   }
 
-  if (!task || !detail || archiveFetchState === "missing") {
+  if (access.outcome === "not-found" || !task || !detail) {
     notFound()
   }
 

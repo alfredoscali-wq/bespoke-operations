@@ -61,8 +61,15 @@ export type TasksContextValue = {
     id: string,
     options?: { trabajoRealizado?: string }
   ) => Promise<TaskMutationResult>
-  approveTask: (id: string) => Promise<TaskMutationResult>
-  rejectTask: (id: string, reason: string) => Promise<TaskMutationResult>
+  approveTask: (
+    id: string,
+    options?: { task?: Task }
+  ) => Promise<TaskMutationResult>
+  rejectTask: (
+    id: string,
+    reason: string,
+    options?: { task?: Task }
+  ) => Promise<TaskMutationResult>
   cancelTask: (
     id: string,
     options?: {

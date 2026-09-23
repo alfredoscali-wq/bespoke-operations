@@ -6,7 +6,6 @@ import { useAuth } from "@/components/auth/auth-provider"
 import { getTaskEvidencePhotoCount, getOperationalStepPhotoCounts } from "@/lib/supabase/task-photos.browser"
 import {
   canPerformTaskAction,
-  getTransitionForAction,
   getWorkflowActionForTargetStatus,
   resolveStatusAfterCrewAssignment,
   type TaskWorkflowAction,
@@ -31,11 +30,17 @@ import {
   buildTrabajoRealizadoOperationalEvent,
 } from "@/lib/tasks/operational-events"
 import { recordTaskOperationalEvent } from "@/lib/supabase/operational-control.browser"
+import { getLiveTaskByCompanyAndId } from "@/lib/supabase/tasks.browser"
 import { applyWorkOrderApprovalEffects } from "@/lib/tasks/work-order-approval-effects"
+import { prepareTaskWorkflowAction } from "@/lib/tasks/task-workflow-resolve"
 import type { UpdateTaskPayload } from "@/lib/types/supabase/tasks"
 import type { Task, TaskStatus } from "@/lib/types/tasks"
 
 import type { TaskMutationResult } from "../types"
+
+type WorkflowTaskOptions = {
+  task?: Task
+}
 
 type UseTasksWorkflowParams = {
   companyId: string
@@ -49,6 +54,7 @@ type UseTasksWorkflowParams = {
     auditOptions?: {
       rescheduleInput?: import("@/lib/tasks/reschedule").TaskRescheduleInput
       suppressAudit?: boolean
+      existingTask?: Task
     }
   ) => Promise<TaskMutationResult>
 }
@@ -74,23 +80,27 @@ export function useTasksWorkflow({
         stepPhotoCounts?: Record<string, number>
         historyNote?: string
         trabajoRealizado?: string
+        task?: Task
       }
     ): Promise<TaskMutationResult> => {
-      const task = tasks.find((item) => item.id === id)
-      if (!task) {
-        return { success: false, message: "Orden de trabajo no encontrada." }
+      const prepared = await prepareTaskWorkflowAction(
+        id,
+        companyId,
+        workflowAction,
+        {
+          loadedTask: options?.task,
+          listedTask: tasks.find((item) => item.id === id) ?? null,
+          loadLiveTask: getLiveTaskByCompanyAndId,
+          evidenceCount: options?.evidenceCount,
+          stepPhotoCounts: options?.stepPhotoCounts,
+        }
+      )
+      if (!prepared.ok) {
+        return { success: false, message: prepared.message }
       }
 
-      const validation = canPerformTaskAction(task, workflowAction, {
-        evidenceCount: options?.evidenceCount,
-        stepPhotoCounts: options?.stepPhotoCounts,
-      })
-      if (!validation.allowed) {
-        return { success: false, message: validation.message }
-      }
-
-      const { to } = getTransitionForAction(workflowAction)
-      const fields: UpdateTaskPayload = { status: to }
+      const task = prepared.task
+      const fields: UpdateTaskPayload = { status: prepared.to }
       const actor = resolveActor()
 
       if (
@@ -119,7 +129,8 @@ export function useTasksWorkflow({
         fields,
         workflowAction,
         options?.historyNote,
-        actor.fullName
+        actor.fullName,
+        { existingTask: task }
       )
 
       if (result.success && companyId) {
@@ -222,7 +233,10 @@ export function useTasksWorkflow({
   )
 
   const approveTask = useCallback(
-    async (id: string): Promise<TaskMutationResult> => {
+    async (
+      id: string,
+      options?: WorkflowTaskOptions
+    ): Promise<TaskMutationResult> => {
       try {
         const reservedLines = await fetchReservedTaskMaterialLinesClient(id)
         if (reservedLines.length > 0) {
@@ -235,7 +249,9 @@ export function useTasksWorkflow({
         // Sin acceso al módulo o sin líneas reservadas: el trigger SQL protege el cierre.
       }
 
-      const result = await applyWorkflowTransition(id, "approve")
+      const result = await applyWorkflowTransition(id, "approve", {
+        task: options?.task,
+      })
 
       if (result.success && result.task) {
         await applyWorkOrderApprovalEffects(result.task)
@@ -259,7 +275,7 @@ export function useTasksWorkflow({
   )
 
   const rejectTask = useCallback(
-    async (id: string, reason: string) => {
+    async (id: string, reason: string, options?: WorkflowTaskOptions) => {
       const trimmedReason = reason.trim()
       if (!trimmedReason) {
         return {
@@ -268,24 +284,24 @@ export function useTasksWorkflow({
         }
       }
 
-      const task = tasks.find((item) => item.id === id)
-      if (!task) {
-        return { success: false, message: "Orden de trabajo no encontrada." }
+      const prepared = await prepareTaskWorkflowAction(id, companyId, "reject", {
+        loadedTask: options?.task,
+        listedTask: tasks.find((item) => item.id === id) ?? null,
+        loadLiveTask: getLiveTaskByCompanyAndId,
+      })
+      if (!prepared.ok) {
+        return { success: false, message: prepared.message }
       }
 
-      const validation = canPerformTaskAction(task, "reject")
-      if (!validation.allowed) {
-        return { success: false, message: validation.message }
-      }
-
-      const { to } = getTransitionForAction("reject")
+      const task = prepared.task
       const actor = resolveActor()
       const result = await updateTaskFields(
         id,
-        { status: to, rejectionReason: trimmedReason },
+        { status: prepared.to, rejectionReason: trimmedReason },
         "reject",
         `Motivo: ${trimmedReason}`,
-        actor.fullName
+        actor.fullName,
+        { existingTask: task }
       )
 
       if (result.success && companyId) {

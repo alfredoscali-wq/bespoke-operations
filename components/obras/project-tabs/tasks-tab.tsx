@@ -149,6 +149,7 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
   const [closureReviewTaskId, setClosureReviewTaskId] = useState<string | null>(
     null
   )
+  const [closureReviewTask, setClosureReviewTask] = useState<Task | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [feedback, setFeedback] = useState<{
     type: "success" | "error"
@@ -914,7 +915,10 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
           <Button
             size="sm"
             className="h-8 gap-1 px-2.5 text-xs"
-            onClick={() => setClosureReviewTaskId(task.id)}
+            onClick={() => {
+              setClosureReviewTask(task)
+              setClosureReviewTaskId(task.id)
+            }}
           >
             <ClipboardCheck className="size-3.5" />
             Revisar cierre
@@ -1250,9 +1254,14 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
         onOpenChange={(open) => {
           if (!open) {
             setClosureReviewTaskId(null)
+            setClosureReviewTask(null)
           }
         }}
         taskId={closureReviewTaskId}
+        task={closureReviewTask}
+        onReviewCompleted={() => {
+          void loadProjectTasks({ silent: true })
+        }}
       />
 
       {rescheduleTarget ? (

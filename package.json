@@ -195,6 +195,7 @@
     "test:obras-ops-2-2-supervised-edit": "npx tsx --test scripts/test-obras-ops-2-2-supervised-edit.mjs",
     "test:obras-ops-2-4-incident-resolve": "npx tsx --test scripts/test-obras-ops-2-4-incident-resolve.mjs",
     "test:obras-ops-2-5-field-release": "npx tsx --test scripts/test-obras-ops-2-5-field-release.mjs",
+    "test:obras-ops-3-0-individual-access": "npx tsx --test scripts/test-obras-ops-3-0-individual-access.mjs",
     "test:obras-ops-2-6-daily-allocations": "npx tsx --test scripts/test-obras-ops-2-6-daily-allocations.mjs",
     "test:obras-hotfix-active-create": "npx tsx --test scripts/test-obras-hotfix-active-create.mjs",
     "test:obras-project-work-order-list": "npx tsx --test scripts/test-obras-project-work-order-list.mjs",

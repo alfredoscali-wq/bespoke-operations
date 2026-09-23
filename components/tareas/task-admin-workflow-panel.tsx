@@ -67,7 +67,7 @@ export function TaskAdminWorkflowPanel({ task }: TaskAdminWorkflowPanelProps) {
         rescheduledBy={actorName}
         canClose={canClose}
         isPending={isPending}
-        onClose={() => void runAction(() => approveTask(task.id))}
+        onClose={() => void runAction(() => approveTask(task.id, { task }))}
         onReject={() => setRejectOpen(true)}
         onResume={async () => {
           await runAction(() => resumeTaskFromIncident(task.id, actorName))
@@ -108,7 +108,9 @@ export function TaskAdminWorkflowPanel({ task }: TaskAdminWorkflowPanelProps) {
         onOpenChange={setRejectOpen}
         isSubmitting={isPending}
         onConfirm={async (reason) => {
-          const result = await runAction(() => rejectTask(task.id, reason))
+          const result = await runAction(() =>
+            rejectTask(task.id, reason, { task })
+          )
           if (result.success) {
             setRejectOpen(false)
           }

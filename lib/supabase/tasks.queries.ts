@@ -1000,8 +1000,9 @@ export async function fetchOperarioWebWorkOrderById(
 }
 
 /**
- * Single live OT by company + id. Used by Obra field dispatch so the action
- * does not depend on the global task list (PostgREST first page).
+ * Single live OT by company + id. Used by Obra individual actions
+ * (detalle, revisar cierre, envío a campo) so they do not depend on a
+ * capped global list.
  */
 export async function fetchLiveTaskByCompanyAndId(
   client: SupabaseTasksClient,
