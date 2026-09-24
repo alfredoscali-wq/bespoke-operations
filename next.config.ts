@@ -5,6 +5,14 @@ const supabaseHostname = process.env.NEXT_PUBLIC_SUPABASE_URL
   : undefined
 
 const nextConfig: NextConfig = {
+  serverExternalPackages: [
+    "puppeteer-core",
+    "@sparticuz/chromium",
+    "@tailwindcss/node",
+    "@tailwindcss/oxide",
+    "lightningcss",
+    "react-dom/server",
+  ],
   allowedDevOrigins: [
     "opened-deemed-yang-warren.trycloudflare.com",
     "*.trycloudflare.com",

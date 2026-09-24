@@ -4,6 +4,7 @@ import Link from "next/link"
 import {
   ArrowLeft,
   CalendarDays,
+  FileText,
   Map,
   MapPin,
   MoreHorizontal,
@@ -38,6 +39,7 @@ type ProjectDetailOperationalHeaderProps = {
   primaryActions: ProjectAction[]
   secondaryActions: ProjectAction[]
   onAction: (actionId: ProjectAction["id"]) => void
+  onExportReport: () => void
   onEditLocation: () => void
 }
 
@@ -60,6 +62,7 @@ export function ProjectDetailOperationalHeader({
   primaryActions,
   secondaryActions,
   onAction,
+  onExportReport,
   onEditLocation,
 }: ProjectDetailOperationalHeaderProps) {
   const kpis = buildProjectHeaderKpis(project, projectTasks)
@@ -145,6 +148,16 @@ export function ProjectDetailOperationalHeader({
             <CalendarDays className="size-4" />
             Planificación
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={onExportReport}
+            disabled={isBusy}
+          >
+            <FileText className="size-4" />
+            Informe
+          </Button>
 
           {primaryActions.map((action) => (
             <Button
@@ -200,13 +213,13 @@ export function ProjectDetailOperationalHeader({
             <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
               {item.label}
             </p>
-            <p className="mt-0.5 text-lg font-semibold tabular-nums text-foreground">
+            <div className="mt-0.5 text-lg font-semibold tabular-nums text-foreground">
               {showKpiPlaceholder ? (
                 <Skeleton className="mt-1 h-6 w-10" />
               ) : (
                 item.value
               )}
-            </p>
+            </div>
           </div>
         ))}
       </div>

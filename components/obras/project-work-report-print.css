@@ -1,0 +1,92 @@
+@page {
+  size: A4;
+  margin: 12mm;
+}
+
+.pwr-web-only {
+  display: revert;
+}
+
+.pwr-print-only {
+  display: none;
+}
+
+@media print {
+  .pwr-web-only {
+    display: none !important;
+  }
+
+  .pwr-print-only {
+    display: block !important;
+  }
+
+  .pwr-report {
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .pwr-report > * + * {
+    margin-top: 0 !important;
+  }
+
+  .pwr-cover {
+    break-after: page;
+    break-inside: avoid;
+    page-break-after: always;
+    page-break-inside: avoid;
+  }
+
+  .pwr-summary {
+    break-after: page;
+    break-inside: avoid;
+    page-break-after: always;
+    page-break-inside: avoid;
+  }
+
+  .pwr-orders-list {
+    display: block;
+  }
+
+  .pwr-orders-list > .pwr-work-order {
+    break-before: page;
+    break-inside: avoid;
+    page-break-before: always;
+    page-break-inside: avoid;
+  }
+
+  .pwr-orders-list > .pwr-work-order:first-child {
+    break-before: auto;
+    page-break-before: auto;
+  }
+
+  .pwr-orders-list.space-y-6 > .pwr-work-order + .pwr-work-order {
+    margin-top: 0 !important;
+  }
+
+  .pwr-cover-meta,
+  .pwr-kpis {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  .pwr-ot-meta {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .pwr-gallery {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 0.5rem !important;
+  }
+
+  .pwr-gallery img {
+    aspect-ratio: 4 / 3;
+    width: 100%;
+    height: auto;
+    max-height: 42mm;
+    object-fit: cover;
+  }
+
+  .pwr-work-order {
+    box-shadow: none !important;
+  }
+}

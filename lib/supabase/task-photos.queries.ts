@@ -157,6 +157,71 @@ export async function fetchAllTaskPhotos(
   return { data: photos, error: null }
 }
 
+const TASK_PHOTO_ID_CHUNK = 80
+const TASK_PHOTO_PAGE_SIZE = 1000
+
+/**
+ * Live photos for a known set of OT ids. Isolated by company_id + task_id
+ * + deleted_at IS NULL. Pages past PostgREST max_rows. Does not return
+ * photos of tasks outside `taskIds`.
+ */
+export async function fetchLiveTaskPhotosForTaskIds(
+  client: SupabaseTaskPhotosClient,
+  companyId: string,
+  taskIds: string[]
+): Promise<TaskPhotosRepositoryResult<TaskPhoto[]>> {
+  const uniqueIds = [...new Set(taskIds.filter((id) => id.trim().length > 0))]
+  if (uniqueIds.length === 0) {
+    return { data: [], error: null }
+  }
+
+  const allowed = new Set(uniqueIds)
+  const rows: TaskPhotoRow[] = []
+
+  for (let index = 0; index < uniqueIds.length; index += TASK_PHOTO_ID_CHUNK) {
+    const chunk = uniqueIds.slice(index, index + TASK_PHOTO_ID_CHUNK)
+    let from = 0
+
+    for (;;) {
+      const page = await client
+        .from("task_photos")
+        .select("*")
+        .eq("company_id", companyId)
+        .in("task_id", chunk)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, from + TASK_PHOTO_PAGE_SIZE - 1)
+
+      if (page.error) {
+        return { data: null, error: mapSupabaseError(page.error) }
+      }
+
+      const pageRows = ((page.data ?? []) as TaskPhotoRow[]).filter((row) =>
+        allowed.has(row.task_id)
+      )
+      rows.push(...pageRows)
+
+      if ((page.data ?? []).length < TASK_PHOTO_PAGE_SIZE) {
+        break
+      }
+
+      from += TASK_PHOTO_PAGE_SIZE
+    }
+  }
+
+  const photos: TaskPhoto[] = []
+  for (let index = 0; index < rows.length; index += TASK_PHOTO_ID_CHUNK) {
+    const mapped = await mapRowsWithSignedUrls(
+      client,
+      rows.slice(index, index + TASK_PHOTO_ID_CHUNK)
+    )
+    photos.push(...mapped.filter((photo) => allowed.has(photo.taskId)))
+  }
+
+  return { data: photos, error: null }
+}
+
 export async function uploadTaskPhoto(
   client: SupabaseTaskPhotosClient,
   input: UploadTaskReferencePhotoInput,

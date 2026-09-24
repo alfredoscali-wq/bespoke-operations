@@ -67,6 +67,14 @@ export function isAuthPublicPath(pathname: string): boolean {
     return true
   }
 
+  if (pathname === "/informe" || pathname.startsWith("/informe/")) {
+    return true
+  }
+
+  if (pathname.startsWith("/api/informe/")) {
+    return true
+  }
+
   return false
 }
 

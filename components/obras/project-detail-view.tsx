@@ -11,6 +11,7 @@ import { ProjectEditDialog } from "@/components/obras/project-edit-dialog"
 import { ProjectPauseDialog } from "@/components/obras/project-pause-dialog"
 import type { PauseProjectInput, Project, ProjectDetail } from "@/lib/types/projects"
 import { ProjectDetailOperationalHeader } from "@/components/obras/project-detail-operational-header"
+import { ProjectWorkReportExportDialog } from "@/components/obras/project-work-report-export-dialog"
 import { ForceDeleteAction } from "@/components/admin/force-delete-action"
 import { getProjectActions } from "@/lib/projects/utils"
 import {
@@ -82,6 +83,7 @@ export function ProjectDetailView({
   const [editOpen, setEditOpen] = useState(false)
   const [pauseOpen, setPauseOpen] = useState(false)
   const [archiveOpen, setArchiveOpen] = useState(false)
+  const [exportReportOpen, setExportReportOpen] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -279,6 +281,7 @@ export function ProjectDetailView({
         primaryActions={primaryActions}
         secondaryActions={secondaryActions}
         onAction={handleAction}
+        onExportReport={() => setExportReportOpen(true)}
         onEditLocation={() => setEditOpen(true)}
       />
 
@@ -372,6 +375,15 @@ export function ProjectDetailView({
           <ProjectCostsTab costs={initialDetail.costs} />
         </TabsContent>
       </Tabs>
+
+      <ProjectWorkReportExportDialog
+        open={exportReportOpen}
+        onOpenChange={setExportReportOpen}
+        projectId={project.id}
+        projectCode={project.code}
+        tasks={projectTasks}
+        tasksReady={projectTasksStatus === "ready"}
+      />
 
       <ProjectEditDialog
         project={project}
