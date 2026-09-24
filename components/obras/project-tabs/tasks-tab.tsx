@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react"
 import Link from "next/link"
 import {
   AlertTriangle,
@@ -44,7 +44,7 @@ import {
 import type { Project } from "@/lib/types/projects"
 import type { Task } from "@/lib/types/tasks"
 import { getTaskStatusSurfaceClass } from "@/lib/tasks/status-visual"
-import { compareDateOnly, toLocalDateOnly } from "@/lib/dates/date-only"
+import { toLocalDateOnly } from "@/lib/dates/date-only"
 import { hasCoordinates } from "@/lib/gps/coordinates"
 import {
   formatPlanningMultiDayBadge,
@@ -86,7 +86,6 @@ import {
   updateProjectDesignOtProposal,
 } from "@/lib/supabase/project-design-ot.browser"
 import { listProjectDesign } from "@/lib/supabase/project-design.browser"
-import { listProjectWorkOrderTasks } from "@/lib/supabase/tasks.browser"
 import type {
   CreateProjectDesignOtProposalInput,
   ProjectDesignOtProposal,
@@ -115,6 +114,9 @@ import {
 
 type ProjectTasksTabProps = {
   project: Project
+  projectTasks: Task[]
+  setProjectTasks: Dispatch<SetStateAction<Task[]>>
+  loadProjectTasks: (options?: { silent?: boolean }) => Promise<void>
 }
 
 type DialogMode = "create" | "edit"
@@ -123,7 +125,12 @@ type FieldDispatchConfirm = {
   mode: "release" | "return"
 }
 
-export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
+export function ProjectTasksTab({
+  project,
+  projectTasks,
+  setProjectTasks,
+  loadProjectTasks,
+}: ProjectTasksTabProps) {
   const { sessionUser } = useAuth()
   const { companyId, isAuthReady } = useTenantCompanyId()
   const {
@@ -136,7 +143,6 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
     returnProjectTaskFromField,
   } = useTasks()
   const { getCrew } = useCrews()
-  const [projectTasks, setProjectTasks] = useState<Task[]>([])
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogMode, setDialogMode] = useState<DialogMode>("create")
   const [selectedTask, setSelectedTask] = useState<Task | undefined>()
@@ -175,37 +181,6 @@ export function ProjectTasksTab({ project }: ProjectTasksTabProps) {
     sessionUser?.displayName?.trim() ||
     sessionUser?.email?.trim() ||
     "Usuario"
-
-  const loadProjectTasks = useCallback(
-    async (options?: { silent?: boolean }) => {
-      if (!isAuthReady || !companyId) {
-        setProjectTasks([])
-        return
-      }
-
-      const result = await listProjectWorkOrderTasks(companyId, project.id)
-      if (result.error || !result.data) {
-        if (!options?.silent) {
-          setFeedback({
-            type: "error",
-            message:
-              result.error?.message ??
-              "No se pudieron cargar las órdenes de trabajo de la obra.",
-          })
-        }
-        return
-      }
-
-      setProjectTasks(
-        [...result.data].sort((a, b) => compareDateOnly(a.dueDate, b.dueDate))
-      )
-    },
-    [companyId, isAuthReady, project.id]
-  )
-
-  useEffect(() => {
-    void loadProjectTasks()
-  }, [loadProjectTasks])
 
   const archivedCrewTaskCount = useMemo(
     () => projectTasks.filter((task) => isTaskCrewArchived(task, getCrew)).length,

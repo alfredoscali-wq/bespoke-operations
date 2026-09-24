@@ -194,7 +194,7 @@ test("fetchProjectWorkOrderListTasks is scoped and does not call fetchTasks", ()
 
 test("ProjectTasksTab loads by project_id instead of fetchTasks/provider scope all", () => {
   const tab = read("components/obras/project-tabs/tasks-tab.tsx")
-  assert.match(tab, /listProjectWorkOrderTasks\(companyId, project\.id\)/)
+  assert.match(tab, /loadProjectTasks/)
   assert.doesNotMatch(tab, /getTasksForProject\(/)
   assert.doesNotMatch(tab, /refreshTasksFromServer/)
   assert.doesNotMatch(tab, /fetchTasks\(/)
@@ -207,6 +207,16 @@ test("ProjectTasksTab loads by project_id instead of fetchTasks/provider scope a
   )
   assert.match(tendidoBlock, /loadProjectTasks\(\{ silent: true \}\)/)
   assert.doesNotMatch(tendidoBlock, /refreshTasksFromServer/)
+
+  const hook = read("components/obras/use-project-work-order-tasks.ts")
+  assert.match(hook, /listProjectWorkOrderTasks\(companyId, projectId\)/)
+  assert.doesNotMatch(hook, /fetchTasks\(/)
+  assert.doesNotMatch(hook, /listTasks\(/)
+
+  const detail = read("components/obras/project-detail-view.tsx")
+  assert.match(detail, /useProjectWorkOrderTasks\(project\.id\)/)
+  assert.match(detail, /projectTasks=\{projectTasks\}/)
+  assert.doesNotMatch(detail, /tasks=\{tasks\}/)
 
   const browser = read("lib/supabase/tasks.browser.ts")
   assert.match(browser, /export async function listProjectWorkOrderTasks/)

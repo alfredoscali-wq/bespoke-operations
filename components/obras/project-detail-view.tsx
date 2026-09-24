@@ -6,6 +6,7 @@ import { AlertTriangle } from "lucide-react"
 
 import { useProjects } from "@/components/obras/projects-provider"
 import { useTasks } from "@/components/tareas/tasks-provider"
+import { useProjectWorkOrderTasks } from "@/components/obras/use-project-work-order-tasks"
 import { ProjectEditDialog } from "@/components/obras/project-edit-dialog"
 import { ProjectPauseDialog } from "@/components/obras/project-pause-dialog"
 import type { PauseProjectInput, Project, ProjectDetail } from "@/lib/types/projects"
@@ -16,7 +17,6 @@ import {
   buildFinalizeProjectHistoryDescription,
   validateFinalizeProject,
 } from "@/lib/projects/project-finalize"
-import { getTasksForProject } from "@/lib/tasks/utils"
 import { PROJECT_STATUS_LABELS } from "@/lib/projects/constants"
 import { ProjectOverviewTab } from "@/components/obras/project-tabs/overview-tab"
 import { ProjectTasksTab } from "@/components/obras/project-tabs/tasks-tab"
@@ -67,7 +67,13 @@ export function ProjectDetailView({
 
   const project = getProject(initialProject.id) ?? initialProject
   const actions = getProjectActions(project.status)
-  const { tasks, refreshTasksFromServer, removeTaskLocally } = useTasks()
+  const { refreshTasksFromServer, removeTaskLocally } = useTasks()
+  const {
+    projectTasks,
+    setProjectTasks,
+    loadProjectTasks,
+    status: projectTasksStatus,
+  } = useProjectWorkOrderTasks(project.id)
 
   const [history, setHistory] = useState(initialDetail.history)
   const [feedback, setFeedback] = useState<string | null>(null)
@@ -198,7 +204,12 @@ export function ProjectDetailView({
         )
         break
       case "finalize": {
-        const projectTasks = getTasksForProject(project, tasks)
+        if (projectTasksStatus !== "ready") {
+          setError("Espere a que se carguen las órdenes de trabajo de la obra.")
+          setFeedback(null)
+          return
+        }
+
         const validation = validateFinalizeProject({
           projectStatus: project.status,
           projectId: project.id,
@@ -262,7 +273,8 @@ export function ProjectDetailView({
     <div className="space-y-5">
       <ProjectDetailOperationalHeader
         project={project}
-        tasks={tasks}
+        projectTasks={projectTasks}
+        tasksStatus={projectTasksStatus}
         isBusy={isBusy}
         primaryActions={primaryActions}
         secondaryActions={secondaryActions}
@@ -277,8 +289,8 @@ export function ProjectDetailView({
           entityLabel={project.code?.trim() || project.name?.trim() || project.id}
           disabled={isBusy}
           onSuccess={async (message) => {
-            const projectTasks = getTasksForProject(project, tasks)
-            for (const task of projectTasks) {
+            const scopedTasks = projectTasks
+            for (const task of scopedTasks) {
               removeTaskLocally(task.id)
             }
             removeProjectLocally(project.id)
@@ -321,7 +333,12 @@ export function ProjectDetailView({
           <ProjectOverviewTab project={project} />
         </TabsContent>
         <TabsContent value="tasks">
-          <ProjectTasksTab project={project} />
+          <ProjectTasksTab
+            project={project}
+            projectTasks={projectTasks}
+            setProjectTasks={setProjectTasks}
+            loadProjectTasks={loadProjectTasks}
+          />
         </TabsContent>
         <TabsContent value="crews">
           <ProjectCrewsTab project={project} />

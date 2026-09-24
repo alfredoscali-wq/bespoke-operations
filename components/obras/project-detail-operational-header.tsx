@@ -15,11 +15,11 @@ import { ProjectStatusBadge } from "@/components/obras/project-badges"
 import { formatDate } from "@/lib/projects/constants"
 import type { Project } from "@/lib/types/projects"
 import type { Task } from "@/lib/types/tasks"
-import { getProjectOperationalStats } from "@/lib/projects/utils"
-import { getTasksForProject } from "@/lib/tasks/utils"
-import { isPendingClosureStatus } from "@/lib/tasks/task-status-workflow"
+import type { ProjectWorkOrderTasksLoadStatus } from "@/components/obras/use-project-work-order-tasks"
+import { buildProjectHeaderKpis } from "@/lib/projects/project-header-kpis"
 import type { getProjectActions } from "@/lib/projects/utils"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,7 +32,8 @@ type ProjectAction = ReturnType<typeof getProjectActions>[number]
 
 type ProjectDetailOperationalHeaderProps = {
   project: Project
-  tasks: Task[]
+  projectTasks: Task[]
+  tasksStatus: ProjectWorkOrderTasksLoadStatus
   isBusy: boolean
   primaryActions: ProjectAction[]
   secondaryActions: ProjectAction[]
@@ -53,25 +54,23 @@ function formatGpsCoordinates(
 
 export function ProjectDetailOperationalHeader({
   project,
-  tasks,
+  projectTasks,
+  tasksStatus,
   isBusy,
   primaryActions,
   secondaryActions,
   onAction,
   onEditLocation,
 }: ProjectDetailOperationalHeaderProps) {
-  const projectTasks = getTasksForProject(project, tasks)
-  const stats = getProjectOperationalStats(project, tasks, [], [])
-  const pendingClosureCount = projectTasks.filter((task) =>
-    isPendingClosureStatus(task.status)
-  ).length
+  const kpis = buildProjectHeaderKpis(project, projectTasks)
   const gpsLabel = formatGpsCoordinates(project.latitude, project.longitude)
+  const showKpiPlaceholder = tasksStatus !== "ready"
 
   const summaryItems = [
-    { label: "Total OT", value: projectTasks.length },
-    { label: "Activas", value: stats.activeTasks },
-    { label: "Pend. cierre", value: pendingClosureCount },
-    { label: "Finalizadas", value: stats.completedTasks },
+    { label: "Total OT", value: kpis.total },
+    { label: "Activas", value: kpis.active },
+    { label: "Pend. cierre", value: kpis.pendingClosure },
+    { label: "Finalizadas", value: kpis.completed },
   ]
 
   return (
@@ -202,7 +201,11 @@ export function ProjectDetailOperationalHeader({
               {item.label}
             </p>
             <p className="mt-0.5 text-lg font-semibold tabular-nums text-foreground">
-              {item.value}
+              {showKpiPlaceholder ? (
+                <Skeleton className="mt-1 h-6 w-10" />
+              ) : (
+                item.value
+              )}
             </p>
           </div>
         ))}

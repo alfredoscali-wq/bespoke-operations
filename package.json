@@ -199,6 +199,7 @@
     "test:obras-ops-2-6-daily-allocations": "npx tsx --test scripts/test-obras-ops-2-6-daily-allocations.mjs",
     "test:obras-hotfix-active-create": "npx tsx --test scripts/test-obras-hotfix-active-create.mjs",
     "test:obras-project-work-order-list": "npx tsx --test scripts/test-obras-project-work-order-list.mjs",
+    "test:obras-project-header-kpis": "npx tsx --test scripts/test-obras-project-header-kpis.mjs",
     "test:project-design": "npx tsx --test scripts/test-project-design.mjs",
     "test:project-design-map-view": "npx tsx --test scripts/test-project-design-map-view.mjs",
     "test:project-design-export-pdf": "npx tsx --test scripts/test-project-design-export-pdf.mjs",
