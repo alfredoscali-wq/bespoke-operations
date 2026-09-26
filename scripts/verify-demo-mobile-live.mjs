@@ -143,7 +143,7 @@ test("live: bootstrap + login + jornada + agenda + heartbeat via Mobile API", as
   const demoPage = await fetch(`${origin}/demo`)
   assert.equal(demoPage.status, 200)
   const demoHtml = await demoPage.text()
-  assert.match(demoHtml, /Demo interactiva/)
+  assert.match(demoHtml, /Probá Bespoke/)
   assert.doesNotMatch(demoHtml, /abnet-7k5g|app-abnet|ABNet/)
 
   const bootstrapResponse = await fetch(`${origin}/api/mobile/v1/bootstrap`, {
@@ -181,7 +181,7 @@ test("live: bootstrap + login + jornada + agenda + heartbeat via Mobile API", as
     authorization: `Bearer ${token}`,
     "content-type": "application/json",
   }
-  const gps = { latitude: -34.572, longitude: -58.423 }
+  const gps = { latitude: -31.3712, longitude: -64.2258 }
 
   await fetch(`${origin}/api/mobile/v1/shifts/finish`, {
     method: "POST",

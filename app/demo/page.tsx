@@ -5,9 +5,9 @@ export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 export const metadata = {
-  title: "BESPOKE DEMO",
+  title: "Probá Bespoke",
   description:
-    "Probá Bespoke Operations y Bespoke Mobile con un entorno completamente ficticio.",
+    "Conocé cómo funciona la gestión de operaciones y el trabajo en campo desde una misma plataforma.",
 }
 
 export default function DemoPage() {
