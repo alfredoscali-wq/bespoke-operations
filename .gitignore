@@ -40,6 +40,11 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# Android binaries — hosted in Supabase Storage, never Git
+*.apk
+/public/downloads/
+/downloads/
+
 # Dump del sistema comercial (datos reales)
 data/
 

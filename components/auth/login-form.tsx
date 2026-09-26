@@ -31,7 +31,7 @@ function resolveSignInErrorMessage(error: unknown): string {
     const message = String(error.message).toLowerCase()
 
     if (message.includes("invalid login credentials")) {
-      return "DNI, correo o contraseña incorrectos."
+      return "Usuario, DNI, correo o contraseña incorrectos."
     }
 
     if (message.includes("email not confirmed")) {
@@ -65,7 +65,7 @@ function LoginFormInner({
     setError(null)
 
     if (!identifier.trim() || !password) {
-      setError("Ingrese DNI o correo y contraseña.")
+      setError("Ingrese usuario, DNI o correo y contraseña.")
       return
     }
 
@@ -100,13 +100,13 @@ function LoginFormInner({
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="login-identifier">DNI o correo electrónico</Label>
+            <Label htmlFor="login-identifier">Usuario, DNI o correo</Label>
             <Input
               id="login-identifier"
               name="identifier"
               type="text"
               autoComplete="username"
-              placeholder="Ej. 12345678 o demo@bespoke-app.com.ar"
+              placeholder="Ej. bes-demo o 12345678"
               value={identifier}
               onChange={(event) => setIdentifier(event.target.value)}
               disabled={!isAuthReady || isSubmitting}

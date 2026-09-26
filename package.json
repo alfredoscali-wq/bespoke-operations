@@ -258,6 +258,12 @@
     "prepare:clientes": "npx tsx scripts/prepare-commercial-migration.ts",
     "import:clientes": "npx tsx scripts/run-commercial-import.ts",
     "seed:demo": "npx tsx scripts/seed-demo-company.ts",
+    "seed:demo-mobile": "npx tsx scripts/seed-demo-mobile.ts",
+    "publish:demo-apk": "npx tsx scripts/publish-demo-mobile-apk.mjs",
+    "test:demo-mobile-1-0": "npx tsx --test scripts/test-demo-mobile-1-0.mjs",
+    "test:demo-mobile-live": "npx tsx --test scripts/verify-demo-mobile-live.mjs",
+    "test:demo-apk": "npx tsx --test scripts/test-demo-apk-distribution.mjs",
+    "test:demo-apk-distribution": "npx tsx --test scripts/test-demo-apk-distribution.mjs",
     "backfill:task-locations": "npx tsx scripts/backfill-task-locations.ts",
     "validate:clientes": "node scripts/validate-customers-import.mjs",
     "generate:pwa-icons": "node scripts/generate-pwa-icons.mjs"

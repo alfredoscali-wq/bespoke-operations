@@ -3,28 +3,26 @@ import type { User } from "@supabase/supabase-js"
 
 import {
   BESPOKE_DEMO_COMPANY_ID,
-  DEMO_ADMIN_EMAIL,
-  DEMO_ADMIN_EMPLOYEE_CODE,
+  DEMO_OPERARIO_EMAIL,
+  DEMO_OPERARIO_EMPLOYEE_CODE,
   DEMO_SEED_MARKER,
 } from "@/lib/demo/constants"
+import { DEMO_ADMIN_PASSWORD } from "@/lib/demo/ensure-demo-admin-account"
 import type { Database } from "@/lib/supabase/database.types"
-
-/** Contraseña inicial del administrador demo (fallback de seed). Preferí DEMO_WEB_PASSWORD. */
-export const DEMO_ADMIN_PASSWORD = "Demo2026!"
 
 type SupabaseAdmin = SupabaseClient<Database>
 
-export function resolveDemoWebPassword(): string {
-  return (
-    process.env.DEMO_WEB_PASSWORD?.trim() ||
-    process.env.DEMO_ADMIN_PASSWORD?.trim() ||
-    DEMO_ADMIN_PASSWORD
-  )
-}
-
-type DemoAdminEmployeeRow = {
+type DemoOperarioEmployeeRow = {
   id: string
   app_user_id: string | null
+}
+
+export function resolveDemoOperarioPassword(): string {
+  return (
+    process.env.DEMO_MOBILE_PASSWORD?.trim() ||
+    process.env.DEMO_OPERARIO_PASSWORD?.trim() ||
+    DEMO_ADMIN_PASSWORD
+  )
 }
 
 async function findAuthUserByEmail(
@@ -59,44 +57,44 @@ async function findAuthUserByEmail(
   return null
 }
 
-async function findDemoAdminEmployee(
+async function findDemoOperarioEmployee(
   supabase: SupabaseAdmin
-): Promise<DemoAdminEmployeeRow | null> {
+): Promise<DemoOperarioEmployeeRow | null> {
   const { data, error } = await supabase
     .from("employees")
     .select("id, app_user_id")
     .eq("company_id", BESPOKE_DEMO_COMPANY_ID)
-    .eq("employee_code", DEMO_ADMIN_EMPLOYEE_CODE)
+    .eq("employee_code", DEMO_OPERARIO_EMPLOYEE_CODE)
     .is("deleted_at", null)
     .maybeSingle()
 
   if (error) {
-    throw new Error(`Failed to load demo admin employee: ${error.message}`)
+    throw new Error(`Failed to load demo operario employee: ${error.message}`)
   }
 
   return data
 }
 
-async function upsertDemoAdminEmployee(
+async function upsertDemoOperarioEmployee(
   supabase: SupabaseAdmin,
   appUserId?: string | null
-): Promise<DemoAdminEmployeeRow> {
-  const existing = await findDemoAdminEmployee(supabase)
+): Promise<DemoOperarioEmployeeRow> {
+  const existing = await findDemoOperarioEmployee(supabase)
 
   const employeeFields = {
     company_id: BESPOKE_DEMO_COMPANY_ID,
-    employee_code: DEMO_ADMIN_EMPLOYEE_CODE,
-    first_name: "Administrador",
+    employee_code: DEMO_OPERARIO_EMPLOYEE_CODE,
+    first_name: "Operario",
     last_name: "Demo",
-    job_title: "Administrador Demo",
-    department: "Demostración",
-    employee_type: "administrativo" as const,
+    job_title: "Operario de campo",
+    department: "Operaciones",
+    employee_type: "operario" as const,
     employment_status: "active" as const,
-    email: DEMO_ADMIN_EMAIL,
-    system_role: "demo" as const,
+    email: DEMO_OPERARIO_EMAIL,
+    system_role: "operario" as const,
     system_access: true,
     must_change_password: false,
-    notes: `${DEMO_SEED_MARKER} demo platform admin account`,
+    notes: `${DEMO_SEED_MARKER} demo mobile field operator`,
     ...(appUserId ? { app_user_id: appUserId } : {}),
   }
 
@@ -105,12 +103,13 @@ async function upsertDemoAdminEmployee(
       .from("employees")
       .update(employeeFields)
       .eq("id", existing.id)
+      .eq("company_id", BESPOKE_DEMO_COMPANY_ID)
       .select("id, app_user_id")
       .single()
 
     if (error || !data) {
       throw new Error(
-        error?.message ?? "Failed to update demo admin employee record."
+        error?.message ?? "Failed to update demo operario employee record."
       )
     }
 
@@ -125,7 +124,7 @@ async function upsertDemoAdminEmployee(
 
   if (error || !data) {
     throw new Error(
-      error?.message ?? "Failed to create demo admin employee record."
+      error?.message ?? "Failed to create demo operario employee record."
     )
   }
 
@@ -142,7 +141,7 @@ async function linkEmployeeToAuthUser(
     .update({
       app_user_id: authUserId,
       system_access: true,
-      system_role: "demo",
+      system_role: "operario",
       employment_status: "active",
       must_change_password: false,
     })
@@ -150,7 +149,7 @@ async function linkEmployeeToAuthUser(
     .eq("company_id", BESPOKE_DEMO_COMPANY_ID)
 
   if (error) {
-    throw new Error(`Failed to link demo admin employee: ${error.message}`)
+    throw new Error(`Failed to link demo operario employee: ${error.message}`)
   }
 }
 
@@ -160,48 +159,49 @@ async function syncAuthUserMetadata(
   employeeId: string
 ): Promise<void> {
   const { error } = await supabase.auth.admin.updateUserById(authUserId, {
-    password: resolveDemoWebPassword(),
+    password: resolveDemoOperarioPassword(),
     email_confirm: true,
     user_metadata: {
       employee_id: employeeId,
-      system_role: "demo",
-      full_name: "Administrador Demo",
+      system_role: "operario",
+      full_name: "Operario Demo",
     },
   })
 
   if (error) {
-    throw new Error(`Failed to sync demo admin auth metadata: ${error.message}`)
+    throw new Error(
+      `Failed to sync demo operario auth metadata: ${error.message}`
+    )
   }
 }
 
 /**
- * Garantiza cuenta Auth + empleado demo vinculados para el tenant Bespoke Demo.
- * Idempotente: no duplica usuarios; repara vínculos si hace falta.
+ * Auth + employee for Bespoke Mobile demo. Tenant Demo only. Idempotent.
  */
-export async function ensureDemoAdminAccount(
+export async function ensureDemoOperarioAccount(
   supabase: SupabaseAdmin
 ): Promise<{ employeeId: string; authUserId: string; created: boolean }> {
-  let authUser = await findAuthUserByEmail(supabase, DEMO_ADMIN_EMAIL)
+  let authUser = await findAuthUserByEmail(supabase, DEMO_OPERARIO_EMAIL)
   let created = false
-  const password = resolveDemoWebPassword()
+  const password = resolveDemoOperarioPassword()
 
   if (!authUser) {
-    const employee = await upsertDemoAdminEmployee(supabase)
+    const employee = await upsertDemoOperarioEmployee(supabase)
 
     const { data, error } = await supabase.auth.admin.createUser({
-      email: DEMO_ADMIN_EMAIL,
+      email: DEMO_OPERARIO_EMAIL,
       password,
       email_confirm: true,
       user_metadata: {
         employee_id: employee.id,
-        system_role: "demo",
-        full_name: "Administrador Demo",
+        system_role: "operario",
+        full_name: "Operario Demo",
       },
     })
 
     if (error || !data.user) {
       throw new Error(
-        error?.message ?? "Failed to create demo admin auth user."
+        error?.message ?? "Failed to create demo operario auth user."
       )
     }
 
@@ -212,7 +212,7 @@ export async function ensureDemoAdminAccount(
     return { employeeId: employee.id, authUserId: authUser.id, created }
   }
 
-  const employee = await upsertDemoAdminEmployee(supabase, authUser.id)
+  const employee = await upsertDemoOperarioEmployee(supabase, authUser.id)
 
   if (employee.app_user_id !== authUser.id) {
     await linkEmployeeToAuthUser(supabase, employee.id, authUser.id)

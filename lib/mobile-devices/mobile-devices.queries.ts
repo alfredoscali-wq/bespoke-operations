@@ -226,6 +226,46 @@ export async function updateMobileDeviceStatus(
   return mapMobileDeviceRow(data as MobileDeviceRow)
 }
 
+export async function assignMobileDeviceWorkTeam(
+  client: SupabaseClient,
+  input: {
+    companyId: string
+    deviceRecordId: string
+    workTeamId: string
+  }
+): Promise<MobileDeviceRecord> {
+  const { data: crew, error: crewError } = await client
+    .from("crews")
+    .select("id, company_id")
+    .eq("id", input.workTeamId)
+    .eq("company_id", input.companyId)
+    .is("deleted_at", null)
+    .maybeSingle()
+
+  if (crewError) {
+    throw crewError
+  }
+
+  if (!crew) {
+    throw new Error("La cuadrilla no pertenece a esta empresa.")
+  }
+
+  const { data, error } = await client
+    .from("mobile_devices")
+    .update({ work_team_id: input.workTeamId })
+    .eq("id", input.deviceRecordId)
+    .eq("company_id", input.companyId)
+    .is("deleted_at", null)
+    .select("*")
+    .single()
+
+  if (error) {
+    throw error
+  }
+
+  return mapMobileDeviceRow(data as MobileDeviceRow)
+}
+
 export async function fetchMobileDeviceById(
   client: SupabaseClient,
   companyId: string,

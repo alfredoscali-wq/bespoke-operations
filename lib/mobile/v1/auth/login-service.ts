@@ -2,6 +2,7 @@ import "server-only"
 
 import type { User } from "@supabase/supabase-js"
 
+import { resolveDemoCommercialAuthEmail } from "@/lib/demo/login-alias"
 import { resolveSignInEmailCandidates } from "@/lib/auth/auth-identity"
 import { buildSessionUserFromAuthUser } from "@/lib/auth/resolve-session-user"
 import { assertEmployeeCanUseMobile } from "@/lib/mobile/v1/auth/assert-employee-mobile-access"
@@ -35,7 +36,10 @@ export async function authenticateMobileLogin(
   const perf = startPerformanceTrace("MOBILE LOGIN", { layer: "backend" })
   try {
     const authClient = createMobileAuthClient()
-    const emailCandidates = resolveSignInEmailCandidates(request.email)
+    const demoEmail = resolveDemoCommercialAuthEmail(request.email, "mobile")
+    const emailCandidates = demoEmail
+      ? [demoEmail]
+      : resolveSignInEmailCandidates(request.email)
 
     const authAttempt = await perf.span("Auth signIn", async () => {
       let nextSession: {

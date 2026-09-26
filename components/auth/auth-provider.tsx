@@ -11,6 +11,7 @@ import {
 import { useRouter } from "next/navigation"
 import type { User } from "@supabase/supabase-js"
 
+import { resolveDemoCommercialAuthEmail } from "@/lib/demo/login-alias"
 import { resolveSignInEmailCandidates } from "@/lib/auth/auth-identity"
 import { resolvePostLoginPathFromSessionUser } from "@/lib/auth/module-access"
 import { CHANGE_PASSWORD_PATH, sanitizeRedirectPath } from "@/lib/auth/routes"
@@ -146,7 +147,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const perf = startPerformanceTrace("WEB LOGIN", { layer: "frontend" })
       try {
         const supabase = createClient()
-        const emailCandidates = resolveSignInEmailCandidates(identifier)
+        const demoEmail = resolveDemoCommercialAuthEmail(identifier, "web")
+        const emailCandidates = demoEmail
+          ? [demoEmail]
+          : resolveSignInEmailCandidates(identifier)
 
         let lastError: unknown = null
 

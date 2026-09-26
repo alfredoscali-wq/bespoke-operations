@@ -10,6 +10,7 @@ import {
   DEMO_ADMIN_EMAIL,
   DEMO_SEED_MARKER,
 } from "@/lib/demo/constants"
+import { prepareDemoMobileTenant } from "@/lib/demo/prepare-demo-mobile-tenant"
 import {
   DEMO_ADMIN_PASSWORD,
   ensureDemoAdminAccount,
@@ -60,6 +61,15 @@ function loadEnv() {
     throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env.local")
   }
 
+  const webPassword = env.match(/^DEMO_WEB_PASSWORD=(.+)$/m)?.[1]?.trim()
+  const mobilePassword = env.match(/^DEMO_MOBILE_PASSWORD=(.+)$/m)?.[1]?.trim()
+  if (webPassword) {
+    process.env.DEMO_WEB_PASSWORD = webPassword
+  }
+  if (mobilePassword) {
+    process.env.DEMO_MOBILE_PASSWORD = mobilePassword
+  }
+
   return { url, key }
 }
 
@@ -102,7 +112,7 @@ async function resetDemoDataDirect(supabase: SupabaseAdmin) {
     .from("tasks")
     .select("id")
     .eq("company_id", companyId)
-    .like("code", "DEMO-%")
+    .like("code", "DEMO-OT-%")
 
   const demoTaskIds = (demoTasks ?? []).map((task) => task.id)
 
@@ -117,7 +127,17 @@ async function resetDemoDataDirect(supabase: SupabaseAdmin) {
     .eq("company_id", companyId)
     .like("file_name", "demo-seed-%")
 
-  await supabase.from("tasks").delete().eq("company_id", companyId).like("code", "DEMO-%")
+  await supabase
+    .from("tasks")
+    .delete()
+    .eq("company_id", companyId)
+    .like("code", "DEMO-OT-%")
+
+  await supabase
+    .from("tasks")
+    .update({ crew_id: null, crew: "" })
+    .eq("company_id", companyId)
+    .like("code", "DEMO-MOBILE-%")
 
   const { data: demoCrews } = await supabase
     .from("crews")
@@ -696,6 +716,9 @@ async function main() {
 
   console.log("Ensuring demo admin account…")
   const demoAdmin = await ensureDemoAdminAccount(supabase)
+
+  console.log("Preparing Demo Mobile overlay…")
+  await prepareDemoMobileTenant(supabase)
 
   console.log("\nDemo seed completed successfully.")
   console.log(`Company: ${BESPOKE_DEMO_COMPANY_NAME} (${BESPOKE_DEMO_COMPANY_ID})`)
