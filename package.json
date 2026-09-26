@@ -261,6 +261,7 @@
     "seed:demo-mobile": "npx tsx scripts/seed-demo-mobile.ts",
     "publish:demo-apk": "npx tsx scripts/publish-demo-mobile-apk.mjs",
     "test:demo-mobile-1-0": "npx tsx --test scripts/test-demo-mobile-1-0.mjs",
+    "test:demo-commercial-dataset": "npx tsx --test scripts/test-demo-commercial-dataset.mjs",
     "test:demo-mobile-live": "npx tsx --test scripts/verify-demo-mobile-live.mjs",
     "test:demo-apk": "npx tsx --test scripts/test-demo-apk-distribution.mjs",
     "test:demo-apk-distribution": "npx tsx --test scripts/test-demo-apk-distribution.mjs",

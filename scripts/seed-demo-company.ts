@@ -10,6 +10,11 @@ import {
   DEMO_ADMIN_EMAIL,
   DEMO_SEED_MARKER,
 } from "@/lib/demo/constants"
+import {
+  DEMO_CORDOBA_ZONES,
+  DEMO_CUSTOMERS,
+  DEMO_FIELD_TASKS,
+} from "@/lib/demo/commercial-dataset"
 import { prepareDemoMobileTenant } from "@/lib/demo/prepare-demo-mobile-tenant"
 import {
   DEMO_ADMIN_PASSWORD,
@@ -17,37 +22,11 @@ import {
 } from "@/lib/demo/ensure-demo-admin-account"
 import type { Database } from "@/lib/supabase/database.types"
 
-const CUSTOMER_COUNT = 250
-const EMPLOYEE_COUNT = 20
-const CREW_COUNT = 6
-const PROJECT_COUNT = 10
-const TASK_COUNT = 100
-const AUDIT_LOG_COUNT = 60
-const REPORT_HISTORY_COUNT = 12
-
-const LOCALITIES = [
-  "Ciudad Norte",
-  "Ciudad Sur",
-  "Centro",
-  "Zona Este",
-  "Zona Oeste",
-  "Parque Industrial",
-]
-
-const TASK_STATUSES = [
-  "programada",
-  "asignada",
-  "en-curso",
-  "pendiente-cierre",
-  "finalizada",
-  "cerrada",
-  "cancelada",
-  "incidencia",
-  "vencida",
-  "en-aprobacion",
-] as const
-
-const TASK_TYPES = ["maintenance", "inspection"] as const
+const EMPLOYEE_COUNT = 8
+const CREW_COUNT = 3
+const PROJECT_COUNT = 2
+const AUDIT_LOG_COUNT = 16
+const REPORT_HISTORY_COUNT = 4
 
 type SupabaseAdmin = ReturnType<typeof createClient<Database>>
 
@@ -141,7 +120,7 @@ async function resetDemoDataDirect(supabase: SupabaseAdmin) {
 
   const { data: demoCrews } = await supabase
     .from("crews")
-    .select("id")
+    .select("id, name")
     .eq("company_id", companyId)
     .like("name", "Cuadrilla Demo %")
 
@@ -151,7 +130,17 @@ async function resetDemoDataDirect(supabase: SupabaseAdmin) {
     await supabase.from("crew_members").delete().in("crew_id", demoCrewIds)
   }
 
-  await supabase.from("crews").delete().eq("company_id", companyId).like("name", "Cuadrilla Demo %")
+  const extraCrewIds = (demoCrews ?? [])
+    .filter((crew) => !["Cuadrilla Demo 1", "Cuadrilla Demo 2", "Cuadrilla Demo 3"].includes(crew.name))
+    .map((crew) => crew.id)
+
+  if (extraCrewIds.length > 0) {
+    await supabase
+      .from("crews")
+      .update({ status: "inactiva" })
+      .eq("company_id", companyId)
+      .in("id", extraCrewIds)
+  }
 
   const { data: demoProjects } = await supabase
     .from("projects")
@@ -188,6 +177,11 @@ async function resetDemoDataDirect(supabase: SupabaseAdmin) {
     .delete()
     .eq("company_id", companyId)
     .like("external_customer_code", `${DEMO_SEED_MARKER}-%`)
+
+  await supabase
+    .from("work_order_type_checklist_items")
+    .delete()
+    .eq("company_id", companyId)
 }
 
 async function ensureDemoCompany(supabase: SupabaseAdmin) {
@@ -206,37 +200,30 @@ async function ensureDemoCompany(supabase: SupabaseAdmin) {
 }
 
 async function seedCustomers(supabase: SupabaseAdmin) {
-  const rows = Array.from({ length: CUSTOMER_COUNT }, (_, index) => {
-    const number = index + 1
-    const locality = LOCALITIES[index % LOCALITIES.length]
+  const rows = DEMO_CUSTOMERS.map((customer) => ({
+    company_id: BESPOKE_DEMO_COMPANY_ID,
+    customer_number: customer.externalCode,
+    external_customer_code: customer.externalCode,
+    name: customer.name,
+    phone: customer.phone,
+    email: customer.email,
+    address: customer.address,
+    locality: customer.locality,
+    technology: "fiber",
+    status: "activo",
+    validation_status: "active",
+    latitude: customer.latitude,
+    longitude: customer.longitude,
+  }))
 
-    return {
-      company_id: BESPOKE_DEMO_COMPANY_ID,
-      customer_number: `${DEMO_SEED_MARKER}-${pad(number, 4)}`,
-      external_customer_code: `${DEMO_SEED_MARKER}-${pad(number, 4)}`,
-      name: `Cliente Demo ${pad(number, 3)}`,
-      phone: `+54 11 4000-${pad(number % 10000, 4)}`,
-      email: `cliente.demo.${number}@example.com`,
-      address: `Av. Comercial ${100 + number}`,
-      locality,
-      technology: "Servicio estándar",
-      status: number % 17 === 0 ? "inactivo" : "activo",
-      validation_status: "active",
-      latitude: -34.6 + (index % 10) * 0.01,
-      longitude: -58.4 + (index % 10) * 0.01,
-    }
-  })
-
-  for (const batch of chunk(rows, 50)) {
-    const { error } = await supabase.from("customers").insert(batch)
-    if (error) {
-      throw new Error(`Failed to seed customers: ${error.message}`)
-    }
+  const { error } = await supabase.from("customers").insert(rows)
+  if (error) {
+    throw new Error(`Failed to seed customers: ${error.message}`)
   }
 
   const { data, error: loadError } = await supabase
     .from("customers")
-    .select("id, name, phone, address, locality, external_customer_code")
+    .select("id, name, phone, address, locality, external_customer_code, latitude, longitude")
     .eq("company_id", BESPOKE_DEMO_COMPANY_ID)
     .like("external_customer_code", `${DEMO_SEED_MARKER}-%`)
     .order("external_customer_code", { ascending: true })
@@ -297,7 +284,7 @@ async function seedEmployees(supabase: SupabaseAdmin) {
 
   const rows = Array.from({ length: EMPLOYEE_COUNT }, (_, index) => {
     const number = index + 1
-    const isSupervisor = number <= 3
+      const isSupervisor = number <= 2
 
     return {
       company_id: BESPOKE_DEMO_COMPANY_ID,
@@ -335,33 +322,88 @@ async function seedCrews(
   const supervisors = employees.filter((employee) => employee.employee_type === "supervisor")
   const operarios = employees.filter((employee) => employee.employee_type === "operario")
 
+  const crewBases = [
+    {
+      name: "Base operativa Córdoba",
+      address: "Av. Rafael Núñez 4500, Cerro de las Rosas, Córdoba",
+      latitude: DEMO_CORDOBA_ZONES.cerro.latitude,
+      longitude: DEMO_CORDOBA_ZONES.cerro.longitude,
+    },
+    {
+      name: "Base Alberdi",
+      address: "Av. Colón 1900, Alberdi, Córdoba",
+      latitude: DEMO_CORDOBA_ZONES.alberdi.latitude,
+      longitude: DEMO_CORDOBA_ZONES.alberdi.longitude,
+    },
+    {
+      name: "Base General Paz",
+      address: "Av. 24 de Septiembre 700, General Paz, Córdoba",
+      latitude: DEMO_CORDOBA_ZONES.generalPaz.latitude,
+      longitude: DEMO_CORDOBA_ZONES.generalPaz.longitude,
+    },
+  ]
+
   const crewRows = Array.from({ length: CREW_COUNT }, (_, index) => {
     const supervisor = supervisors[index % supervisors.length]
     const supervisorName = `${supervisor.first_name} ${supervisor.last_name}`
+    const base = crewBases[index]
 
     return {
       company_id: BESPOKE_DEMO_COMPANY_ID,
       name: `Cuadrilla Demo ${index + 1}`,
-      description: "Cuadrilla de demostración comercial",
+      description: "Cuadrilla de demostración comercial en Córdoba",
       supervisor: supervisorName,
       supervisor_employee_id: supervisor.id,
-      status: index === CREW_COUNT - 1 ? "inactiva" : "activa",
+      status: "activa" as const,
       notes: DEMO_SEED_MARKER,
+      operational_base_name: base.name,
+      operational_base_address: base.address,
+      operational_base_latitude: base.latitude,
+      operational_base_longitude: base.longitude,
     }
   })
 
-  const { data: crews, error } = await supabase
-    .from("crews")
-    .insert(crewRows as Database["public"]["Tables"]["crews"]["Insert"][])
-    .select("id, name, supervisor, supervisor_employee_id")
+  const crews = []
+  for (const row of crewRows) {
+    const { data: existing, error: existingError } = await supabase
+      .from("crews")
+      .select("id, name")
+      .eq("company_id", BESPOKE_DEMO_COMPANY_ID)
+      .eq("name", row.name)
+      .maybeSingle()
 
-  if (error || !crews) {
-    throw new Error(error?.message ?? "Failed to seed crews")
+    if (existingError) {
+      throw new Error(`Failed to load ${row.name}: ${existingError.message}`)
+    }
+
+    if (existing) {
+      const { data, error } = await supabase
+        .from("crews")
+        .update(row)
+        .eq("id", existing.id)
+        .eq("company_id", BESPOKE_DEMO_COMPANY_ID)
+        .select("id, name, supervisor, supervisor_employee_id")
+        .single()
+      if (error || !data) {
+        throw new Error(error?.message ?? `Failed to update ${row.name}`)
+      }
+      crews.push(data)
+    } else {
+      const { data, error } = await supabase
+        .from("crews")
+        .insert(row as Database["public"]["Tables"]["crews"]["Insert"])
+        .select("id, name, supervisor, supervisor_employee_id")
+        .single()
+      if (error || !data) {
+        throw new Error(error?.message ?? `Failed to create ${row.name}`)
+      }
+      crews.push(data)
+    }
   }
 
   const memberRows = crews.flatMap((crew, crewIndex) => {
-    const sliceStart = crewIndex * 3
-    const members = operarios.slice(sliceStart, sliceStart + 3)
+    const sliceStart = crewIndex * 2
+    const members = operarios.slice(sliceStart, sliceStart + 2)
 
     return members.map((member) => ({
       crew_id: crew.id,
@@ -383,44 +425,44 @@ async function seedCrews(
 
 async function seedProjects(
   supabase: SupabaseAdmin,
-  customers: { name: string }[],
+  customers: { name: string; locality: string | null }[],
   supervisors: { first_name: string; last_name: string }[]
 ) {
-  const projectNames = [
-    "Obra Centro",
-    "Obra Norte",
-    "Obra Sur",
-    "Obra Parque",
-    "Obra Residencial A",
-    "Obra Residencial B",
-    "Obra Comercial A",
-    "Obra Comercial B",
-    "Obra Mantenimiento A",
-    "Obra Mantenimiento B",
-  ]
-
   const today = new Date()
-
-  const rows = projectNames.map((name, index) => {
-    const supervisor = supervisors[index % supervisors.length]
-    const status =
-      index < 6 ? "active" : index < 8 ? "planned" : index === 8 ? "paused" : "closed"
-
-    return {
+  const rows = [
+    {
       company_id: BESPOKE_DEMO_COMPANY_ID,
-      code: `DEMO-OB-${pad(index + 1, 2)}`,
-      name,
-      client: customers[index * 5]?.name ?? "Cliente Demo 001",
-      type: "maintenance",
-      status,
-      progress: [12, 28, 45, 60, 72, 85, 5, 10, 35, 100][index],
-      supervisor: `${supervisor.first_name} ${supervisor.last_name}`,
-      location: LOCALITIES[index % LOCALITIES.length],
-      description: "Obra de demostración para recorrido comercial.",
-      start_date: toDateOnly(addDays(today, -90 + index * 5)),
-      end_date: toDateOnly(addDays(today, 120 + index * 10)),
-    }
-  })
+      code: "DEMO-OB-01",
+      name: "Tendido FTTH Nueva Córdoba",
+      client: customers[0]?.name ?? "Familia Roldán",
+      type: "fiber" as const,
+      status: "active",
+      progress: 35,
+      supervisor: `${supervisors[0].first_name} ${supervisors[0].last_name}`,
+      location: DEMO_CORDOBA_ZONES.nuevaCordoba.name,
+      latitude: DEMO_CORDOBA_ZONES.nuevaCordoba.latitude,
+      longitude: DEMO_CORDOBA_ZONES.nuevaCordoba.longitude,
+      description: "Obra de demostración: tendido de fibra en Nueva Córdoba.",
+      start_date: toDateOnly(addDays(today, -30)),
+      end_date: toDateOnly(addDays(today, 60)),
+    },
+    {
+      company_id: BESPOKE_DEMO_COMPANY_ID,
+      code: "DEMO-OB-02",
+      name: "Mantenimiento red zona norte",
+      client: customers[5]?.name ?? "Residencia Villa Belgrano",
+      type: "maintenance" as const,
+      status: "planned",
+      progress: 10,
+      supervisor: `${supervisors[1]?.first_name ?? supervisors[0].first_name} ${supervisors[1]?.last_name ?? supervisors[0].last_name}`,
+      location: DEMO_CORDOBA_ZONES.cerro.name,
+      latitude: DEMO_CORDOBA_ZONES.cerro.latitude,
+      longitude: DEMO_CORDOBA_ZONES.cerro.longitude,
+      description: "Obra de demostración: mantenimiento de red en zona norte.",
+      start_date: toDateOnly(addDays(today, -10)),
+      end_date: toDateOnly(addDays(today, 90)),
+    },
+  ]
 
   const { data, error } = await supabase
     .from("projects")
@@ -467,64 +509,98 @@ async function seedTasks(
     phone: string | null
     address: string | null
     locality: string | null
+    external_customer_code: string | null
+    latitude?: number | null
+    longitude?: number | null
   }[],
-  projects: { id: string; code: string; name: string; supervisor: string }[],
   crews: { id: string; name: string }[]
 ) {
   const today = new Date()
-  const rows: Database["public"]["Tables"]["tasks"]["Insert"][] = Array.from(
-    { length: TASK_COUNT },
-    (_, index) => {
-    const number = index + 1
-    const customer = customers[index % customers.length]
-    const project = projects[index % projects.length]
-    const crew = crews[index % crews.length]
-    const status = TASK_STATUSES[index % TASK_STATUSES.length]
-    const scheduledOffset = (index % 21) - 10
+  const rows: Database["public"]["Tables"]["tasks"]["Insert"][] = DEMO_FIELD_TASKS.map(
+    (definition) => {
+      const customer = customers.find(
+        (item) => item.external_customer_code === definition.customerCode
+      )
+      const crew = definition.crewName
+        ? crews.find((item) => item.name === definition.crewName)
+        : null
+      const finished = definition.status === "finalizada"
 
-    return {
-      company_id: BESPOKE_DEMO_COMPANY_ID,
-      code: `DEMO-OT-${pad(number, 3)}`,
-      title: `Orden de servicio ${pad(number, 3)}`,
-      description: "Orden de trabajo demo para recorrido comercial.",
-      project_id: project.id,
-      project_code: project.code,
-      project_name: project.name,
-      customer_id: customer.id,
-      customer_name: customer.name,
-      customer_phone: customer.phone,
-      service_address: customer.address,
-      locality: customer.locality,
-      latitude: -34.6 + (index % 15) * 0.008,
-      longitude: -58.4 + (index % 15) * 0.008,
-      type: TASK_TYPES[index % TASK_TYPES.length],
-      status,
-      priority: index % 5 === 0 ? "alta" : index % 3 === 0 ? "baja" : "media",
-      supervisor: project.supervisor,
-      crew_id: ["cancelada", "programada"].includes(status) ? null : crew.id,
-      crew: ["cancelada", "programada"].includes(status) ? "" : crew.name,
-      start_date: toDateOnly(addDays(today, scheduledOffset - 2)),
-      due_date: toDateOnly(addDays(today, scheduledOffset + 3)),
-      scheduled_time: index % 4 === 0 ? "09:30:00" : index % 4 === 1 ? "14:00:00" : null,
-      estimated_duration: "4 horas",
-      checklist: [],
-      operational_steps: [],
-      progress: ["finalizada", "cerrada"].includes(status) ? 100 : index % 100,
-      service_type: "Servicio estándar",
-      amount_to_collect: index % 7 === 0 ? 15000 + index * 10 : null,
-      work_order_number: `WO-${pad(number, 4)}`,
-      completed_at: ["finalizada", "cerrada"].includes(status)
-        ? addDays(today, scheduledOffset).toISOString()
-        : null,
-      closed_at: status === "cerrada" ? addDays(today, scheduledOffset + 1).toISOString() : null,
+      return {
+        company_id: BESPOKE_DEMO_COMPANY_ID,
+        code: definition.code,
+        title: definition.title,
+        description: definition.description,
+        project_id: null,
+        project_code: "OT",
+        project_name: "Orden de trabajo",
+        customer_id: customer?.id ?? null,
+        customer_name: customer?.name ?? "Cliente Demo Córdoba",
+        customer_phone: customer?.phone ?? null,
+        service_address: customer?.address ?? null,
+        locality: customer?.locality ?? null,
+        latitude: customer?.latitude ?? null,
+        longitude: customer?.longitude ?? null,
+        type: definition.type,
+        status: "programada",
+        priority: definition.role === "overdue" ? "alta" : "media",
+        supervisor: "Ana Acosta",
+        crew_id: crew?.id ?? null,
+        crew: crew?.name ?? "",
+        start_date: toDateOnly(addDays(today, definition.startOffsetDays)),
+        due_date: toDateOnly(addDays(today, definition.dueOffsetDays)),
+        scheduled_time: definition.scheduledTime,
+        estimated_duration: "2 horas",
+        checklist: [],
+        operational_steps: [],
+        progress: finished ? 100 : definition.status === "en-curso" ? 45 : 0,
+        service_type: definition.serviceType,
+        work_order_number: definition.code,
+        completed_at: finished ? addDays(today, definition.dueOffsetDays).toISOString() : null,
+        closed_at: null,
+        task_metadata: {
+          demoSeed: DEMO_SEED_MARKER,
+          technology: "fiber",
+        },
+      }
     }
-  }
   )
 
-  for (const batch of chunk(rows, 25)) {
-    const { error } = await supabase.from("tasks").insert(batch)
-    if (error) {
-      throw new Error(`Failed to seed tasks: ${error.message}`)
+  const { error } = await supabase.from("tasks").insert(rows)
+  if (error) {
+    throw new Error(`Failed to seed tasks: ${error.message}`)
+  }
+
+  const statusPath: Record<string, string[]> = {
+    programada: [],
+    asignada: ["asignada"],
+    vencida: ["vencida"],
+    "en-curso": ["asignada", "en-curso"],
+    "pendiente-cierre": ["asignada", "en-curso", "pendiente-cierre"],
+    finalizada: ["asignada", "en-curso", "pendiente-cierre", "finalizada"],
+  }
+
+  for (const definition of DEMO_FIELD_TASKS) {
+    const path = statusPath[definition.status] ?? []
+    for (const status of path) {
+      const { error: statusError } = await supabase
+        .from("tasks")
+        .update({
+          status: status as Database["public"]["Tables"]["tasks"]["Update"]["status"],
+          progress: definition.status === "finalizada" ? 100 : definition.status === "en-curso" ? 45 : 0,
+          completed_at:
+            status === "finalizada"
+              ? addDays(today, definition.dueOffsetDays).toISOString()
+              : null,
+        })
+        .eq("company_id", BESPOKE_DEMO_COMPANY_ID)
+        .eq("code", definition.code)
+
+      if (statusError) {
+        throw new Error(
+          `Failed to transition ${definition.code} to ${status}: ${statusError.message}`
+        )
+      }
     }
   }
 
@@ -547,7 +623,7 @@ async function seedAvailability(
 ) {
   const today = new Date()
   const rows: Database["public"]["Tables"]["employee_availability"]["Insert"][] =
-    employees.slice(0, 8).map((employee, index) => ({
+    employees.slice(0, 2).map((employee, index) => ({
       company_id: BESPOKE_DEMO_COMPANY_ID,
       employee_id: employee.id,
       start_date: toDateOnly(addDays(today, index * 3)),
@@ -700,7 +776,7 @@ async function main() {
   const projects = await seedProjects(supabase, customers, supervisors)
 
   console.log("Seeding tasks…")
-  const tasks = await seedTasks(supabase, customers, projects, crews)
+  const tasks = await seedTasks(supabase, customers, crews)
 
   console.log("Seeding availability…")
   await seedAvailability(supabase, employees)
@@ -711,9 +787,6 @@ async function main() {
   console.log("Seeding automatic reports…")
   await seedAutomaticReports(supabase)
 
-  console.log("Seeding evidences…")
-  await seedEvidences(supabase, tasks)
-
   console.log("Ensuring demo admin account…")
   const demoAdmin = await ensureDemoAdminAccount(supabase)
 
@@ -723,7 +796,7 @@ async function main() {
   console.log("\nDemo seed completed successfully.")
   console.log(`Company: ${BESPOKE_DEMO_COMPANY_NAME} (${BESPOKE_DEMO_COMPANY_ID})`)
   console.log(
-    `Counts → customers: ${CUSTOMER_COUNT}, employees: ${EMPLOYEE_COUNT}, crews: ${CREW_COUNT}, projects: ${PROJECT_COUNT}, tasks: ${TASK_COUNT}`
+    `Counts → customers: ${DEMO_CUSTOMERS.length}, employees: ${EMPLOYEE_COUNT}, crews: ${CREW_COUNT}, projects: ${PROJECT_COUNT}, field OTs: ${DEMO_FIELD_TASKS.length}`
   )
   console.log(
     `\nDemo login → email: ${DEMO_ADMIN_EMAIL} | password: ${DEMO_ADMIN_PASSWORD}`

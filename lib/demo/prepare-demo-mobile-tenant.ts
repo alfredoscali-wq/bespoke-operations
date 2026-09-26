@@ -1,6 +1,15 @@
+import { readFileSync } from "node:fs"
+import { resolve } from "node:path"
+
 import type { SupabaseClient } from "@supabase/supabase-js"
 
+import { COMPANY_BRANDING_LOGO_BUCKET } from "@/lib/company-branding/constants"
 import { decideDemoMobileDeviceCrewBinding } from "@/lib/demo/bind-demo-mobile-device"
+import {
+  DEMO_BRANDING_COLORS,
+  DEMO_COMPANY_CHECKLISTS,
+  DEMO_LIVE_TASK_CODE,
+} from "@/lib/demo/commercial-dataset"
 import {
   BESPOKE_DEMO_COMPANY_ID,
   BESPOKE_DEMO_COMPANY_NAME,
@@ -15,8 +24,8 @@ import { ensureDemoOperarioAccount } from "@/lib/demo/ensure-demo-operario-accou
 import { toLocalDateOnly } from "@/lib/dates/date-only"
 import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
 import type { Database, Json } from "@/lib/supabase/database.types"
-import { OPERATIONAL_CHECKLIST_TEMPLATE_KEY } from "@/lib/tasks/operational-checklist-template"
 import { OPERATIONAL_CHECKLIST_RESPONSES_KEY } from "@/lib/tasks/operational-checklist-responses"
+import { OPERATIONAL_CHECKLIST_TEMPLATE_KEY } from "@/lib/tasks/operational-checklist-template"
 
 type SupabaseAdmin = SupabaseClient<Database>
 
@@ -295,45 +304,101 @@ async function prepareDemoDevice(supabase: SupabaseAdmin, crewId: string) {
   return existing.id
 }
 
+async function upsertDemoCompanyChecklists(supabase: SupabaseAdmin) {
+  const { error: deleteError } = await supabase
+    .from("work_order_type_checklist_items")
+    .delete()
+    .eq("company_id", BESPOKE_DEMO_COMPANY_ID)
+
+  if (deleteError) {
+    throw new Error(`Failed to reset Demo checklists: ${deleteError.message}`)
+  }
+
+  const rows = DEMO_COMPANY_CHECKLISTS.flatMap((template) =>
+    template.items.map((item) => ({
+      company_id: BESPOKE_DEMO_COMPANY_ID,
+      service_type: template.serviceType,
+      technology: "todas",
+      title: item.title,
+      field_type: item.fieldType,
+      required: item.required,
+      sort_order: item.sortOrder,
+    }))
+  )
+
+  const { error } = await supabase
+    .from("work_order_type_checklist_items")
+    .insert(rows)
+
+  if (error) {
+    throw new Error(`Failed to seed Demo checklists: ${error.message}`)
+  }
+}
+
+async function upsertDemoCompanyBranding(supabase: SupabaseAdmin) {
+  const logoPath = resolve(process.cwd(), "public/images/logo/LOGO_BESPOKE.png")
+  const bytes = readFileSync(logoPath)
+  const storagePath = `${BESPOKE_DEMO_COMPANY_ID}/logo.png`
+
+  const { error: uploadError } = await supabase.storage
+    .from(COMPANY_BRANDING_LOGO_BUCKET)
+    .upload(storagePath, bytes, {
+      contentType: "image/png",
+      upsert: true,
+    })
+
+  if (uploadError) {
+    throw new Error(`Failed to upload Demo logo: ${uploadError.message}`)
+  }
+
+  const { data } = supabase.storage
+    .from(COMPANY_BRANDING_LOGO_BUCKET)
+    .getPublicUrl(storagePath)
+
+  const { error } = await supabase.from("company_branding").upsert(
+    {
+      company_id: BESPOKE_DEMO_COMPANY_ID,
+      logo_url: `${data.publicUrl}?v=${Date.now()}`,
+      primary_color: DEMO_BRANDING_COLORS.primary,
+      secondary_color: DEMO_BRANDING_COLORS.secondary,
+    },
+    { onConflict: "company_id" }
+  )
+
+  if (error) {
+    throw new Error(`Failed to upsert Demo branding: ${error.message}`)
+  }
+}
+
 async function prepareDemoMobileTasks(supabase: SupabaseAdmin, crewId: string) {
-  const { data: project, error: projectError } = await supabase
-    .from("projects")
-    .select("id, code, name, client, supervisor")
-    .eq("company_id", BESPOKE_DEMO_COMPANY_ID)
-    .eq("code", "DEMO-OB-01")
-    .is("deleted_at", null)
-    .maybeSingle()
-
-  if (projectError || !project) {
-    throw new Error(projectError?.message ?? "DEMO-OB-01 was not found.")
-  }
-
-  const { data: customer, error: customerError } = await supabase
-    .from("customers")
-    .select("id, name, phone, address, locality")
-    .eq("company_id", BESPOKE_DEMO_COMPANY_ID)
-    .eq("name", project.client)
-    .is("deleted_at", null)
-    .maybeSingle()
-
-  if (customerError) {
-    throw new Error(`Failed to load Demo customer: ${customerError.message}`)
-  }
-
   const today = toLocalDateOnly()
   const taskCodes: string[] = []
 
   for (const definition of DEMO_MOBILE_TASK_DEFINITIONS) {
+    const { data: customer, error: customerError } = await supabase
+      .from("customers")
+      .select("id, name, phone, address, locality")
+      .eq("company_id", BESPOKE_DEMO_COMPANY_ID)
+      .eq("external_customer_code", definition.customerCode)
+      .is("deleted_at", null)
+      .maybeSingle()
+
+    if (customerError) {
+      throw new Error(`Failed to load Demo customer: ${customerError.message}`)
+    }
+
     const metadata = {
       [OPERATIONAL_CHECKLIST_TEMPLATE_KEY]: [...definition.checklist],
       [OPERATIONAL_CHECKLIST_RESPONSES_KEY]: {},
       demoMobile: true,
+      demoLive: definition.code === DEMO_LIVE_TASK_CODE,
       demoSeed: DEMO_SEED_MARKER,
+      technology: "fiber",
     } as unknown as Json
 
     const { data: existing, error: existingError } = await supabase
       .from("tasks")
-      .select("id")
+      .select("id, status")
       .eq("company_id", BESPOKE_DEMO_COMPANY_ID)
       .eq("code", definition.code)
       .is("deleted_at", null)
@@ -348,40 +413,44 @@ async function prepareDemoMobileTasks(supabase: SupabaseAdmin, crewId: string) {
       code: definition.code,
       title: definition.title,
       description: definition.description,
-      project_id: project.id,
-      project_code: project.code,
-      project_name: project.name,
+      project_id: null,
+      project_code: "OT",
+      project_name: "Orden de trabajo",
       customer_id: customer?.id ?? null,
-      customer_name: customer?.name ?? project.client,
+      customer_name: customer?.name ?? "Cliente Demo Córdoba",
       customer_phone: customer?.phone ?? null,
       service_address: definition.serviceAddress,
-      locality: customer?.locality ?? "Ciudad Norte",
+      locality: definition.locality,
       latitude: definition.latitude,
       longitude: definition.longitude,
-      type: "maintenance" as const,
-      status: "asignada" as const,
-      priority: "media" as const,
-      supervisor: project.supervisor,
+      type: "fiber" as const,
+      status: "programada" as const,
+      priority:
+        definition.code === DEMO_LIVE_TASK_CODE ? ("alta" as const) : ("media" as const),
+      supervisor: "Ana Acosta",
       crew_id: crewId,
       crew: DEMO_MOBILE_CREW_NAME,
       start_date: today,
       due_date: today,
-      scheduled_time: "09:00:00",
+      scheduled_time:
+        definition.code === DEMO_LIVE_TASK_CODE ? "09:00:00" : "11:00:00",
       estimated_duration: "2 horas",
       checklist: [],
       operational_steps: [],
       progress: 0,
-      service_type: "obra-task",
+      service_type: definition.serviceType,
       work_order_number: definition.code,
       completed_at: null,
       closed_at: null,
       task_metadata: metadata,
     }
 
+    const { status: _insertStatus, ...updatable } = payload
+
     if (existing) {
       const { error } = await supabase
         .from("tasks")
-        .update(payload)
+        .update(updatable)
         .eq("id", existing.id)
         .eq("company_id", BESPOKE_DEMO_COMPANY_ID)
 
@@ -405,9 +474,7 @@ async function prepareDemoMobileTasks(supabase: SupabaseAdmin, crewId: string) {
       .maybeSingle()
 
     if (currentError || !current) {
-      throw new Error(
-        currentError?.message ?? `Failed to reload ${definition.code}.`
-      )
+      throw new Error(currentError?.message ?? `Failed to reload ${definition.code}.`)
     }
 
     if (current.status === "programada") {
@@ -440,6 +507,8 @@ export async function prepareDemoMobileTenant(
   await assertDemoCompany(supabase)
   await assignUniqueDemoMobileCode(supabase)
   await upsertDemoMobileSettings(supabase)
+  await upsertDemoCompanyChecklists(supabase)
+  await upsertDemoCompanyBranding(supabase)
 
   const operario = await ensureDemoOperarioAccount(supabase)
   const crewId = await prepareDemoCrew(supabase, {

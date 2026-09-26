@@ -52,12 +52,12 @@ export const DEMO_MOBILE_TASK_CODES = [
 
 export type DemoMobileTaskCode = (typeof DEMO_MOBILE_TASK_CODES)[number]
 
-/** Fictional operational base — not copied from any other tenant. */
+/** Fictional operational base in Córdoba Capital — not copied from any other tenant. */
 export const DEMO_MOBILE_BASE_GPS = {
-  name: "Base operativa Demo",
-  address: "Av. Demo 100, Ciudad Norte",
-  latitude: -34.572,
-  longitude: -58.423,
+  name: "Base operativa Córdoba",
+  address: "Av. Rafael Núñez 4500, Cerro de las Rosas, Córdoba",
+  latitude: -31.3712,
+  longitude: -64.2258,
 } as const
 
 export const DEMO_MOBILE_APK_DOWNLOAD_PATH = "/api/demo/apk"
