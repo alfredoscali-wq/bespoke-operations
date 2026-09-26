@@ -68,7 +68,11 @@ test("source: frontend has no Supabase secrets", () => {
   assert.match(landing, /Android/)
   assert.match(landing, /versión/)
   assert.match(landing, /formatDemoApkApproximateSizeMb/)
-  assert.doesNotMatch(landing, /demo123/)
+  assert.match(landing, /PROBAR OPERATIONS/)
+  assert.match(landing, /Datos para Mobile/)
+  assert.match(credentials, /demo123/)
+  assert.doesNotMatch(landing, /Datos de acceso/)
+  assert.doesNotMatch(landing, /Configurá la variable de entorno correspondiente/)
 })
 
 test("source: only demo-downloads bucket is introduced", () => {
@@ -122,14 +126,18 @@ test("live: bucket, object, size and SHA-256", async () => {
 })
 
 test("live: /demo 200 and /api/demo/apk redirects to a real APK", async () => {
-  const { env } = loadEnv()
   const demoRes = await fetch(`${origin}/demo`, { redirect: "follow" })
   assert.equal(demoRes.status, 200)
   const html = await demoRes.text()
   assert.match(html, /Probá Bespoke/)
+  assert.match(html, /PROBAR OPERATIONS/)
   assert.match(html, /DESCARGAR BESPOKE MOBILE/)
   assert.match(html, /\/api\/demo\/apk/)
   assert.match(html, /bes-demo/)
+  assert.match(html, /demo123/)
+  assert.match(html, /DEMO-8F4K/)
+  assert.doesNotMatch(html, /Datos de acceso/)
+  assert.doesNotMatch(html, /Configurá la variable de entorno correspondiente/)
   assert.doesNotMatch(html, /demo\.operario@bespoke-app\.com\.ar/)
   assert.doesNotMatch(html, /demo@bespoke-app\.com\.ar/)
   assert.match(html, /versión/)
@@ -165,16 +173,4 @@ test("live: /demo 200 and /api/demo/apk redirects to a real APK", async () => {
     .digest("hex")
   assert.equal(sha, localSha)
   assert.equal(contentType.includes("text/html"), false)
-
-  const webPassword = env.match(/^DEMO_WEB_PASSWORD=(.+)$/m)?.[1]?.trim()
-  const mobilePassword = env.match(/^DEMO_MOBILE_PASSWORD=(.+)$/m)?.[1]?.trim()
-  if (webPassword) {
-    assert.match(html, new RegExp(webPassword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")))
-  }
-  if (mobilePassword) {
-    assert.match(
-      html,
-      new RegExp(mobilePassword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
-    )
-  }
 })

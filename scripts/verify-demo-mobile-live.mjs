@@ -144,6 +144,15 @@ test("live: bootstrap + login + jornada + agenda + heartbeat via Mobile API", as
   assert.equal(demoPage.status, 200)
   const demoHtml = await demoPage.text()
   assert.match(demoHtml, /Probá Bespoke/)
+  assert.match(demoHtml, /PROBAR OPERATIONS/)
+  assert.match(demoHtml, /DESCARGAR BESPOKE MOBILE/)
+  assert.match(demoHtml, /bes-demo/)
+  assert.match(demoHtml, /demo123/)
+  assert.match(demoHtml, /DEMO-8F4K/)
+  assert.doesNotMatch(demoHtml, /Datos de acceso/)
+  assert.doesNotMatch(demoHtml, /Configurá la variable de entorno correspondiente/)
+  assert.doesNotMatch(demoHtml, /demo\.operario@bespoke-app\.com\.ar/)
+  assert.doesNotMatch(demoHtml, /demo@bespoke-app\.com\.ar/)
   assert.doesNotMatch(demoHtml, /abnet-7k5g|app-abnet|ABNet/)
 
   const bootstrapResponse = await fetch(`${origin}/api/mobile/v1/bootstrap`, {

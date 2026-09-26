@@ -15,10 +15,6 @@ export function DemoLandingPage({
 }: {
   credentials: DemoPublicCredentials
 }) {
-  const passwordsMatch =
-    credentials.webPassword.length > 0 &&
-    credentials.webPassword === credentials.mobilePassword
-
   return (
     <div className="mx-auto max-w-6xl">
       <section className="max-w-3xl">
@@ -34,28 +30,7 @@ export function DemoLandingPage({
         </p>
       </section>
 
-      <section className="mt-10 rounded-3xl border border-white/80 bg-white/90 p-6 shadow-[0_18px_50px_rgba(18,50,77,0.08)] sm:p-8">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#FF6E3D]">
-          Datos de acceso
-        </p>
-        <div className="mt-5 grid gap-5 sm:grid-cols-2">
-          <DemoCopyField label="Usuario" value={credentials.webUsername} />
-          {passwordsMatch ? (
-            <DemoCopyField
-              label="Contraseña"
-              value={credentials.webPassword}
-            />
-          ) : null}
-        </div>
-        {!passwordsMatch ? (
-          <p className="mt-4 text-sm text-[#5A7188]">
-            Operations y Mobile usan la misma cuenta comercial, con contraseña
-            distinta en cada producto.
-          </p>
-        ) : null}
-      </section>
-
-      <div className="mt-8 grid gap-6 lg:grid-cols-2">
+      <div className="mt-10 grid gap-6 lg:grid-cols-2">
         <section className="flex flex-col rounded-3xl border border-[#E6EEF2] bg-white p-6 shadow-[0_12px_32px_rgba(18,50,77,0.06)] sm:p-8">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#05D6B3]">
             Operations
@@ -63,7 +38,7 @@ export function DemoLandingPage({
           <h2 className="mt-2 text-2xl font-semibold text-[#12324D]">
             Bespoke Operations
           </h2>
-          <p className="mt-3 flex-1 text-sm leading-relaxed text-[#3D5568]">
+          <p className="mt-3 text-sm leading-relaxed text-[#3D5568]">
             Gestioná clientes, obras, cuadrillas, órdenes de trabajo, evidencias
             y operación desde un único lugar.
           </p>
@@ -73,15 +48,13 @@ export function DemoLandingPage({
           <p className="mt-4 text-sm text-[#5A7188]">
             Acceso de demostración incluido
           </p>
-          {!passwordsMatch ? (
-            <dl className="mt-5 space-y-4 border-t border-[#E6EEF2] pt-5">
-              <DemoCopyField label="Usuario" value={credentials.webUsername} />
-              <DemoCopyField
-                label="Contraseña"
-                value={credentials.webPassword}
-              />
-            </dl>
-          ) : null}
+          <div className="mt-5 space-y-4 border-t border-[#E6EEF2] pt-5">
+            <DemoCopyField label="Usuario" value={credentials.webUsername} />
+            <DemoCopyField
+              label="Contraseña"
+              value={credentials.webPassword}
+            />
+          </div>
         </section>
 
         <section className="flex flex-col rounded-3xl border border-[#E6EEF2] bg-white p-6 shadow-[0_12px_32px_rgba(18,50,77,0.06)] sm:p-8">

@@ -5,11 +5,9 @@ import { useState } from "react"
 export function DemoCopyField({
   label,
   value,
-  emptyHint = "Configurá la variable de entorno correspondiente.",
 }: {
   label: string
   value: string
-  emptyHint?: string
 }) {
   const [copied, setCopied] = useState(false)
   const canCopy = value.length > 0
@@ -35,7 +33,7 @@ export function DemoCopyField({
           {label}
         </p>
         <p className="mt-1 truncate font-mono text-base font-semibold text-[#12324D]">
-          {canCopy ? value : emptyHint}
+          {value}
         </p>
       </div>
       <button

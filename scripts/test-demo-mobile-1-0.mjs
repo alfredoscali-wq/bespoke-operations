@@ -314,12 +314,24 @@ test("13. /demo is a public landing page", () => {
   assert.match(landing, /DESCARGAR BESPOKE MOBILE/)
   assert.match(landing, /Android/)
   assert.match(landing, /versión/)
-  assert.match(landing, /Datos de acceso/)
+  assert.match(landing, /Datos para Mobile/)
   assert.match(landing, /datos completamente ficticios/)
   assert.match(landing, /DemoCopyField/)
   assert.match(landing, /href=\{LOGIN_PATH\}/)
+  assert.match(landing, /Acceso de demostración incluido/)
+  assert.doesNotMatch(landing, /Datos de acceso/)
+  assert.doesNotMatch(
+    landing,
+    /Operations y Mobile usan la misma cuenta comercial/
+  )
+  assert.doesNotMatch(landing, /justify-between|flex-1|flex-grow|min-h-/)
   assert.match(layout, /DEMO · DATOS FICTICIOS/)
-  assert.match(read("components/demo/demo-copy-field.tsx"), /Copiar/)
+  const copyField = read("components/demo/demo-copy-field.tsx")
+  assert.match(copyField, /Copiar/)
+  assert.doesNotMatch(copyField, /Configurá la variable de entorno correspondiente/)
+  assert.match(credentials, /demo123/)
+  assert.match(credentials, /DEMO_WEB_PASSWORD/)
+  assert.match(credentials, /DEMO_MOBILE_PASSWORD/)
 })
 
 test("14. APK download URL stays on Bespoke", () => {
@@ -394,8 +406,8 @@ test("17. Commercial username bes-demo aliases distinct Auth emails", () => {
   assert.match(authProvider, /resolveDemoCommercialAuthEmail\(identifier, "web"\)/)
   assert.match(mobileLogin, /resolveDemoCommercialAuthEmail\(request\.email, "mobile"\)/)
   assert.doesNotMatch(constants, /demo123/)
-  assert.doesNotMatch(landing, /demo123/)
-  assert.doesNotMatch(credentials, /demo123/)
+  assert.match(credentials, /demo123/)
+  assert.doesNotMatch(landing, /Configurá la variable de entorno correspondiente/)
   assert.match(apkLib, /e1ef1deafcd47600988ce379fafbbff5461efb1cf056834bdcfbf72463241c37/)
 })
 
