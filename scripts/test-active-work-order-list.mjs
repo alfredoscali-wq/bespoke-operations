@@ -175,7 +175,11 @@ test("fetchTasks stays unscoped; active query is dedicated", () => {
 
 test("only /tareas uses the active work-order list scope", () => {
   const tareasLayout = read("app/(dashboard)/tareas/layout.tsx")
-  assert.match(tareasLayout, /listScope="activeWorkOrders"/)
+  const tareasScopeProviders = read(
+    "components/tareas/tareas-list-scope-providers.tsx"
+  )
+  assert.match(tareasLayout, /TareasListScopeProvidersBoundary/)
+  assert.match(tareasScopeProviders, /"activeWorkOrders"/)
 
   const archivoLayout = read("app/(dashboard)/operations/archivo-ot/layout.tsx")
   assert.equal(archivoLayout.includes("activeWorkOrders"), false)

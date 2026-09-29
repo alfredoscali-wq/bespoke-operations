@@ -11,6 +11,7 @@ import {
   patchTask,
   persistExecutionOrderUpdates,
   softDeleteWorkOrderFromAdmin,
+  persistTaskSoftDelete,
   type SupabaseTasksClient,
 } from "@/lib/supabase/tasks.queries"
 import {
@@ -24,11 +25,9 @@ import {
   WORK_ORDER_PLANNING_RETURN_EDIT_BLOCKED_MESSAGE,
 } from "@/lib/tasks/work-order-admin-mutation"
 import {
-  canAdminSoftDeleteWorkOrder,
-  validatePlanningReturnDeleteObservation,
+  authorizeWorkOrderSoftDelete,
 } from "@/lib/tasks/work-order-deletion-policy"
 import { hasActivePlanningReturn } from "@/lib/tasks/planning-return"
-import { isArchiveWorkOrderStatus } from "@/lib/tasks/task-list-scope"
 import type { Task } from "@/lib/types/tasks"
 import type { UpdateTaskPayload } from "@/lib/types/supabase/tasks"
 import type { SessionUser } from "@/lib/auth/session"
@@ -50,41 +49,6 @@ function assertAdminWorkOrderMutable(task: Task): void {
         ? WORK_ORDER_PLANNING_RETURN_EDIT_BLOCKED_MESSAGE
         : WORK_ORDER_ADMIN_MUTATION_BLOCKED_MESSAGE,
       409
-    )
-  }
-}
-
-function assertAdminWorkOrderSoftDeletable(
-  task: Task,
-  sessionUser: SessionUser,
-  observation?: string
-): void {
-  if (hasActivePlanningReturn(task)) {
-    const validation = validatePlanningReturnDeleteObservation(observation)
-    if (!validation.allowed) {
-      throw new WorkOrderAdminMutationError(
-        validation.message ??
-          "Indique una observación para eliminar la orden de trabajo.",
-        400
-      )
-    }
-    return
-  }
-
-  if (!canAdminSoftDeleteWorkOrder(task)) {
-    throw new WorkOrderAdminMutationError(
-      WORK_ORDER_ADMIN_MUTATION_BLOCKED_MESSAGE,
-      409
-    )
-  }
-
-  if (
-    isArchiveWorkOrderStatus(task.status) &&
-    sessionUser.systemRole !== "administrador"
-  ) {
-    throw new WorkOrderAdminMutationError(
-      "Solo un administrador del sistema puede eliminar definitivamente una orden del Archivo OT.",
-      403
     )
   }
 }
@@ -258,17 +222,49 @@ export async function deleteWorkOrderFromAdmin(
   sessionUser: SessionUser,
   observation?: string
 ): Promise<void> {
-  assertWritableAdminRole(sessionUser)
   const existing = await fetchTaskForAdminMutation(client, taskId)
-  assertAdminWorkOrderSoftDeletable(existing, sessionUser, observation)
+  const companyResult = await fetchTaskCompanyId(client, taskId)
+  const companyId = companyResult.data ?? null
+
+  const authorization = authorizeWorkOrderSoftDelete({
+    task: existing,
+    sessionUser,
+    observation,
+    taskCompanyId: companyId,
+  })
+
+  if (!authorization.allowed) {
+    throw new WorkOrderAdminMutationError(
+      authorization.message,
+      authorization.httpStatus
+    )
+  }
+
+  if (authorization.mode === "vencida-creator") {
+    const sessionCompanyId = sessionUser.companyId
+    if (!sessionCompanyId) {
+      throw new WorkOrderAdminMutationError(
+        "No tiene permiso para eliminar esta orden de trabajo.",
+        403
+      )
+    }
+
+    const result = await persistTaskSoftDelete(client, taskId, sessionCompanyId)
+
+    if (result.error) {
+      throw new WorkOrderAdminMutationError(
+        result.error.message ?? "No fue posible eliminar la orden de trabajo.",
+        result.error.code === "NOT_FOUND" ? 404 : 500
+      )
+    }
+
+    return
+  }
 
   const originCrewId = existing.crewId?.trim() || null
   const originDueDate = existing.dueDate?.trim() || null
   const shouldCompactOrigin =
     existing.status === "programada" && Boolean(originCrewId && originDueDate)
-
-  const companyResult = await fetchTaskCompanyId(client, taskId)
-  const companyId = companyResult.data
 
   const result = await softDeleteWorkOrderFromAdmin(client, taskId)
 

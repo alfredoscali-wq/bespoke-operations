@@ -181,6 +181,8 @@
     "test:planning-dispatch-occupancy": "npx tsx --test scripts/test-planning-dispatch-occupancy.mjs",
     "test:calendar-work-order-list": "npx tsx --test scripts/test-calendar-work-order-list.mjs",
     "test:dashboard-work-orders": "npx tsx --test scripts/test-dashboard-work-orders.mjs",
+    "test:dashboard-kpi-drilldown": "npx tsx --test scripts/test-dashboard-kpi-drilldown.mjs",
+    "test:work-order-vencida-delete": "npx tsx --test scripts/test-work-order-vencida-delete.mjs",
     "test:operario-today-work-orders": "npx tsx --test scripts/test-operario-today-work-orders.mjs",
     "test:sync-vencida-1000": "npx tsx --test scripts/test-sync-vencida-1000.mjs",
     "test:task-reference-photo-delete": "npx tsx --test scripts/test-task-reference-photo-delete.mjs",

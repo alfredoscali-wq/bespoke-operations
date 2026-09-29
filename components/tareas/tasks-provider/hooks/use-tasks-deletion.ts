@@ -15,6 +15,7 @@ import {
 } from "@/lib/supabase/tasks.browser"
 import { deleteWorkOrderThroughAdminApi } from "@/lib/supabase/tasks-admin-api.client"
 import { hasActivePlanningReturn } from "@/lib/tasks/planning-return"
+import { isVencidaStatus } from "@/lib/tasks/vencida-status"
 import {
   canDeletePlanningReturnedWorkOrder,
   canSoftDeleteWorkOrder,
@@ -107,6 +108,38 @@ export function useTasksDeletion({
           administration: true,
           observation: options.observation,
         })
+
+        return { success: true }
+      }
+
+      if (isVencidaStatus(existing.status)) {
+        if (hasActivePlanningReturn(existing)) {
+          return {
+            success: false,
+            message: WORK_ORDER_PLANNING_RETURN_DELETE_BLOCKED_MESSAGE,
+          }
+        }
+
+        if (!usesSupabase) {
+          return { success: false, message: TASK_DELETE_USER_MESSAGE }
+        }
+
+        try {
+          await deleteWorkOrderThroughAdminApi(id)
+        } catch (error) {
+          return {
+            success: false,
+            message:
+              error instanceof Error
+                ? error.message
+                : TASK_DELETE_USER_MESSAGE,
+          }
+        }
+
+        setTasks((current) => current.filter((item) => item.id !== id))
+        deleteCachedDetail(id)
+        setDetailVersion((version) => version + 1)
+        recordTaskDeleteAudit(existing)
 
         return { success: true }
       }

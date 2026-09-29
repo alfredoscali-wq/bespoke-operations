@@ -65,6 +65,11 @@ import { syncTaskDailyAllocations } from "@/lib/supabase/task-daily-allocations.
 import { resolveProjectTaskFieldDispatchBadge } from "@/lib/projects/project-task-field-release"
 import { canRescheduleProjectTaskFromSession } from "@/lib/projects/project-task-reschedule"
 import { resolveProjectTaskRowActions } from "@/lib/projects/project-task-row-actions"
+import { WorkOrderVencidaDeleteDialog } from "@/components/tareas/work-order-vencida-delete-dialog"
+import {
+  canSoftDeleteVencidaWorkOrder,
+} from "@/lib/tasks/work-order-deletion-policy"
+import { isVencidaStatus } from "@/lib/tasks/vencida-status"
 import { ProjectTaskClosureReviewSheet } from "@/components/obras/project-task-closure-review-sheet"
 import { generateTaskCode } from "@/lib/tasks/utils"
 import { resolveCrewSnapshotsForAssignment, isTaskCrewArchived } from "@/lib/tasks/crew-relation"
@@ -879,6 +884,8 @@ export function ProjectTasksTab({
 
   function renderActions(task: Task) {
     const actions = resolveProjectTaskRowActions(task)
+    const showDelete =
+      actions.showDelete || canSoftDeleteVencidaWorkOrder(task, sessionUser)
     const showReschedule = canRescheduleProjectTaskFromSession(
       sessionUser,
       task
@@ -988,13 +995,13 @@ export function ProjectTasksTab({
               Editar OT
             </DropdownMenuItem>
           )}
-          {actions.showDelete ? (
+          {showDelete ? (
             <DropdownMenuItem
               variant="destructive"
               onClick={() => setDeleteTarget(task)}
             >
               <Trash2 className="size-4" />
-              Eliminar
+              {isVencidaStatus(task.status) ? "Eliminar OT" : "Eliminar"}
             </DropdownMenuItem>
           ) : null}
           <ForceDeleteAction
@@ -1317,8 +1324,17 @@ export function ProjectTasksTab({
         </DialogContent>
       </Dialog>
 
+      <WorkOrderVencidaDeleteDialog
+        open={Boolean(deleteTarget && isVencidaStatus(deleteTarget.status))}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null)
+        }}
+        onConfirm={handleConfirmDelete}
+        isSubmitting={isDeleting}
+      />
+
       <Dialog
-        open={deleteTarget !== null}
+        open={Boolean(deleteTarget && !isVencidaStatus(deleteTarget.status))}
         onOpenChange={(open) => {
           if (!open) setDeleteTarget(null)
         }}

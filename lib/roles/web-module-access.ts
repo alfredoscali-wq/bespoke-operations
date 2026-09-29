@@ -77,6 +77,13 @@ export function canUseWorkOrdersWebOperationalActions(
   )
 }
 
+/** Same reusable gate that currently enables loading/creating OT on web. */
+export function canCreateWorkOrdersWeb(
+  sessionUser: SessionUser | null | undefined
+): boolean {
+  return canUseWorkOrdersWebOperationalActions(sessionUser)
+}
+
 export function canAccessSettingsConfigWebModule(
   sessionUser: SessionUser | null | undefined
 ): boolean {

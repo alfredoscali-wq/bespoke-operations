@@ -36,6 +36,11 @@ import {
   hasOperarioWebCrew,
 } from "@/lib/tasks/task-list-scope"
 import {
+  DASHBOARD_KPI_DRILLDOWN_PAGE_SIZE,
+  matchesDashboardKpiDrilldownQuery,
+  type DashboardKpiDrilldownSpec,
+} from "@/lib/tasks/dashboard-kpi-drilldown"
+import {
   ARCHIVE_WORK_ORDER_LIST_PAGE_SIZE,
   buildArchivedWorkOrderSearchOrFilter,
   isArchivedWorkOrderPrioritySort,
@@ -802,6 +807,79 @@ function quotePostgrestFilterValue(value: string): string {
   return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`
 }
 
+/**
+ * Dashboard KPI drill-down (`/tareas?source=dashboard`). Same logical universe
+ * as the clicked KPI: company_id, deleted_at IS NULL, KPI statuses, includes
+ * Obras (project_id set) unless the spec is field-service-only.
+ * Pages past PostgREST max_rows. Do not call fetchTasks() or the active
+ * /tareas list (project_id IS NULL).
+ */
+export async function fetchDashboardKpiDrilldownTasks(
+  client: SupabaseTasksClient,
+  companyId: string,
+  spec: DashboardKpiDrilldownSpec
+): Promise<TasksRepositoryResult<Task[]>> {
+  const rows: TaskRow[] = []
+  let from = 0
+
+  for (;;) {
+    let query = client
+      .from("tasks")
+      .select("*")
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .in("status", spec.statuses)
+      .order("due_date", { ascending: true })
+      .order("code", { ascending: true })
+      .range(from, from + DASHBOARD_KPI_DRILLDOWN_PAGE_SIZE - 1)
+
+    if (spec.dueDate) {
+      query = query.eq("due_date", spec.dueDate)
+    }
+
+    if (spec.fieldServiceOnly) {
+      query = query.is("project_id", null)
+    }
+
+    const page = await query
+
+    if (page.error) {
+      return { data: null, error: mapSupabaseTaskError(page.error) }
+    }
+
+    const pageRows = (page.data ?? []) as TaskRow[]
+    rows.push(...pageRows)
+
+    if (pageRows.length < DASHBOARD_KPI_DRILLDOWN_PAGE_SIZE) {
+      break
+    }
+
+    from += DASHBOARD_KPI_DRILLDOWN_PAGE_SIZE
+  }
+
+  const mapped = await mapFetchedTaskRows(client, companyId, rows)
+
+  return {
+    data: mapped.filter((task) =>
+      matchesDashboardKpiDrilldownQuery(
+        {
+          status: task.status,
+          deletedAt: null,
+          companyId,
+          dueDate: task.dueDate,
+          projectId: task.projectId ?? null,
+          taskMetadata: task.taskMetadata,
+          code: task.code,
+          id: task.id,
+        },
+        spec,
+        companyId
+      )
+    ),
+    error: null,
+  }
+}
+
 export async function fetchWorkOrdersByCustomerId(
   client: SupabaseTasksClient,
   customerId: string
@@ -1378,6 +1456,43 @@ export async function softDeleteWorkOrderFromAdmin(
       error: {
         code: "UNKNOWN",
         message: TASK_DELETE_USER_MESSAGE,
+      },
+    }
+  }
+
+  return { data: undefined, error: null }
+}
+
+export async function persistTaskSoftDelete(
+  client: SupabaseTasksClient,
+  id: string,
+  companyId: string
+): Promise<TasksRepositoryResult<void>> {
+  const { data, error } = await client
+    .from("tasks")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .select("id")
+    .maybeSingle()
+
+  if (error) {
+    return {
+      data: null,
+      error: {
+        code: "UNKNOWN",
+        message: TASK_DELETE_USER_MESSAGE,
+      },
+    }
+  }
+
+  if (!data) {
+    return {
+      data: null,
+      error: {
+        code: "NOT_FOUND",
+        message: "Orden de trabajo no encontrada.",
       },
     }
   }

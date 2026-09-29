@@ -11,6 +11,7 @@ import {
   canAccessPlanificacionFromAuthMetadata,
   canAccessPlanningWebModule,
   canAccessSettingsConfigWebModule,
+  canCreateWorkOrdersWeb,
   canManageCompanyAreasWeb,
   canUsePlanningWebOperationalActions,
   canUseWorkOrdersWebOperationalActions,
@@ -141,7 +142,9 @@ test("work_orders operativas respetan module_visibility", () => {
   })
 
   assert.equal(canUseWorkOrdersWebOperationalActions(withWorkOrders), true)
+  assert.equal(canCreateWorkOrdersWeb(withWorkOrders), true)
   assert.equal(canUseWorkOrdersWebOperationalActions(withPlanningOnly), true)
+  assert.equal(canCreateWorkOrdersWeb(withPlanningOnly), true)
   assert.equal(
     canUseWorkOrdersWebOperationalActions(
       buildSessionUser({

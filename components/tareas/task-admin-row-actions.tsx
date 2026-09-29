@@ -6,6 +6,7 @@ import { TaskWorkOrderDialog } from "@/components/tareas/task-work-order-dialog"
 import { TaskRescheduleDialog } from "@/components/tareas/task-reschedule-dialog"
 import { WorkOrderAdminSoftDeleteDialog } from "@/components/tareas/work-order-admin-soft-delete-dialog"
 import { WorkOrderPlanningReturnDeleteDialog } from "@/components/tareas/work-order-planning-return-delete-dialog"
+import { WorkOrderVencidaDeleteDialog } from "@/components/tareas/work-order-vencida-delete-dialog"
 import { ForceDeleteAction } from "@/components/admin/force-delete-action"
 import {
   canAdminModifyWorkOrderTask,
@@ -16,6 +17,7 @@ import {
 } from "@/lib/tasks/work-order-admin-mutation"
 import {
   canShowAdminSoftDeleteInArchive,
+  canSoftDeleteVencidaWorkOrder,
   canSoftDeleteWorkOrder,
   WORK_ORDER_SOFT_DELETE_BLOCKED_MESSAGE,
 } from "@/lib/tasks/work-order-deletion-policy"
@@ -214,6 +216,7 @@ export function TaskAdminRowActions({
     useTasks()
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [vencidaDeleteOpen, setVencidaDeleteOpen] = useState(false)
   const [planningReturnDeleteOpen, setPlanningReturnDeleteOpen] = useState(false)
   const [editBlockedOpen, setEditBlockedOpen] = useState(false)
   const [rescheduleOpen, setRescheduleOpen] = useState(false)
@@ -245,6 +248,7 @@ export function TaskAdminRowActions({
 
   const canModify = canAdminModifyWorkOrderTask(task)
   const canDelete = canSoftDeleteWorkOrder(task)
+  const canDeleteVencida = canSoftDeleteVencidaWorkOrder(task, sessionUser)
   const isRestrictedTray = showPlanningReturnReschedule || showVencidaReschedule
   const editBlockedTooltip = showPlanningReturnReschedule
     ? WORK_ORDER_PLANNING_RETURN_EDIT_BLOCKED_TOOLTIP
@@ -304,6 +308,26 @@ export function TaskAdminRowActions({
     }
 
     setDeleteOpen(false)
+    onFeedback({
+      variant: "success",
+      message: "Orden de trabajo eliminada correctamente.",
+    })
+  }
+
+  async function handleConfirmVencidaDelete() {
+    setIsDeleting(true)
+    const result = await deleteTask(task.id)
+    setIsDeleting(false)
+
+    if (!result.success) {
+      onFeedback({
+        variant: "error",
+        message: result.message ?? TASK_DELETE_USER_MESSAGE,
+      })
+      return
+    }
+
+    setVencidaDeleteOpen(false)
     onFeedback({
       variant: "success",
       message: "Orden de trabajo eliminada correctamente.",
@@ -411,6 +435,16 @@ export function TaskAdminRowActions({
           </AdminRowActionButton>
         ) : null}
 
+        {showVencidaReschedule && canDeleteVencida ? (
+          <AdminRowActionButton
+            label="Eliminar OT"
+            destructive
+            onClick={() => setVencidaDeleteOpen(true)}
+          >
+            <Trash2 className="size-4" />
+          </AdminRowActionButton>
+        ) : null}
+
         {!isRestrictedTray ? (
           <AdminRowActionButton
             label="Editar"
@@ -481,6 +515,13 @@ export function TaskAdminRowActions({
         onOpenChange={setVencidaRescheduleOpen}
         task={showVencidaReschedule ? task : null}
         onSuccess={handleVencidaRescheduleSuccess}
+      />
+
+      <WorkOrderVencidaDeleteDialog
+        open={vencidaDeleteOpen}
+        onOpenChange={setVencidaDeleteOpen}
+        onConfirm={handleConfirmVencidaDelete}
+        isSubmitting={isDeleting}
       />
 
       <Dialog open={editBlockedOpen} onOpenChange={setEditBlockedOpen}>

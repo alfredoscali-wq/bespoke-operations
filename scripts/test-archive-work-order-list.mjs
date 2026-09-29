@@ -330,7 +330,11 @@ test("D. activeWorkOrders sigue funcionando y fetchTasks no se modificó", () =>
   )
 
   const tareasLayout = read("app/(dashboard)/tareas/layout.tsx")
-  assert.match(tareasLayout, /listScope="activeWorkOrders"/)
+  const tareasScopeProviders = read(
+    "components/tareas/tareas-list-scope-providers.tsx"
+  )
+  assert.match(tareasLayout, /TareasListScopeProvidersBoundary/)
+  assert.match(tareasScopeProviders, /"activeWorkOrders"/)
 
   const archivoLayout = read("app/(dashboard)/operations/archivo-ot/layout.tsx")
   assert.match(archivoLayout, /listScope="archiveWorkOrders"/)

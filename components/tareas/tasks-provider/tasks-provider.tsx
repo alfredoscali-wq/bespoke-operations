@@ -18,17 +18,20 @@ import {
 import { useTasksPlanning } from "./hooks/use-tasks-planning"
 import { useTasksUpdate } from "./hooks/use-tasks-update"
 import { useTasksWorkflow } from "./hooks/use-tasks-workflow"
+import type { DashboardKpiDrilldownSpec } from "@/lib/tasks/dashboard-kpi-drilldown"
 
 export function TasksProvider({
   children,
   listScope = "all",
   operarioCrew,
   isOperarioCrewReady,
+  dashboardKpiSpec = null,
 }: {
   children: React.ReactNode
   listScope?: TasksListScope
   operarioCrew?: OperarioWebCrewRef
   isOperarioCrewReady?: boolean
+  dashboardKpiSpec?: DashboardKpiDrilldownSpec | null
 }) {
   const { isReadOnly, openRestrictedDialog } = useDemoMode()
   const { companyId, isAuthReady } = useTenantCompanyId()
@@ -52,6 +55,7 @@ export function TasksProvider({
     listScope,
     operarioCrew,
     isOperarioCrewReady,
+    dashboardKpiSpec,
   })
 
   const {

@@ -7,12 +7,14 @@ import {
   listActiveWorkOrderTasks,
   listArchivedWorkOrderTasks,
   listCalendarWorkOrderTasks,
+  listDashboardKpiDrilldownTasks,
   listDashboardWorkOrderTasks,
   listOperarioTodayWorkOrderTasks,
   listPlanningWorkOrderTasks,
   listTasks,
 } from "@/lib/supabase/tasks.browser"
 import type { OperarioWebCrewRef } from "@/lib/tasks/task-list-scope"
+import type { DashboardKpiDrilldownSpec } from "@/lib/tasks/dashboard-kpi-drilldown"
 import {
   ARCHIVE_WORK_ORDER_LIST_PAGE_SIZE,
   type ArchivedWorkOrderListQuery,
@@ -33,6 +35,7 @@ export type TasksListScope =
   | "planningWorkOrders"
   | "calendarWorkOrders"
   | "dashboardWorkOrders"
+  | "dashboardKpiWorkOrders"
   | "operarioToday"
 
 type UseTasksLoadParams = {
@@ -41,6 +44,7 @@ type UseTasksLoadParams = {
   listScope?: TasksListScope
   operarioCrew?: OperarioWebCrewRef
   isOperarioCrewReady?: boolean
+  dashboardKpiSpec?: DashboardKpiDrilldownSpec | null
 }
 
 const DEFAULT_ARCHIVE_QUERY: ArchivedWorkOrderListQuery = {
@@ -72,10 +76,14 @@ function isPlainTaskListScope(
   listScope: TasksListScope
 ): listScope is Exclude<
   TasksListScope,
-  "dashboardWorkOrders" | "archiveWorkOrders" | "operarioToday"
+  | "dashboardWorkOrders"
+  | "dashboardKpiWorkOrders"
+  | "archiveWorkOrders"
+  | "operarioToday"
 > {
   return (
     listScope !== "dashboardWorkOrders" &&
+    listScope !== "dashboardKpiWorkOrders" &&
     listScope !== "archiveWorkOrders" &&
     listScope !== "operarioToday"
   )
@@ -110,6 +118,7 @@ export function useTasksLoad({
   listScope = "all",
   operarioCrew,
   isOperarioCrewReady = false,
+  dashboardKpiSpec = null,
 }: UseTasksLoadParams) {
   const [tasks, setTasks] = useState<Task[]>([])
   const [isTasksReady, setIsTasksReady] = useState(false)
@@ -169,6 +178,9 @@ export function useTasksLoad({
 
   const operarioCrewId = operarioCrew?.id ?? ""
   const operarioCrewName = operarioCrew?.name ?? ""
+  const dashboardKpiSpecKey = dashboardKpiSpec
+    ? JSON.stringify(dashboardKpiSpec)
+    : ""
 
   useEffect(() => {
     if (!isAuthReady || listScope === "archiveWorkOrders") {
@@ -228,6 +240,36 @@ export function useTasksLoad({
           return
         }
 
+        if (listScope === "dashboardKpiWorkOrders") {
+          if (!dashboardKpiSpec) {
+            setTasks([])
+            clearDashboardExtras()
+            setUsesSupabase(true)
+            return
+          }
+
+          const result = await listDashboardKpiDrilldownTasks(
+            companyId,
+            dashboardKpiSpec,
+            client
+          )
+
+          if (cancelled) return
+
+          if (result.error || result.data === null) {
+            console.error("[TASKS LOAD]", result.error)
+            setTasks([])
+            clearDashboardExtras()
+            setUsesSupabase(false)
+            return
+          }
+
+          setTasks(result.data)
+          clearDashboardExtras()
+          setUsesSupabase(true)
+          return
+        }
+
         if (!isPlainTaskListScope(listScope)) {
           return
         }
@@ -269,6 +311,8 @@ export function useTasksLoad({
   }, [
     clearDashboardExtras,
     companyId,
+    dashboardKpiSpec,
+    dashboardKpiSpecKey,
     isAuthReady,
     isOperarioCrewReady,
     listScope,

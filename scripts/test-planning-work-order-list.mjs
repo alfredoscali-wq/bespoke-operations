@@ -250,8 +250,12 @@ test("fetchTasks global no fue modificado; active y archive siguen dedicados", (
   )
 
   const tareasLayout = read("app/(dashboard)/tareas/layout.tsx")
-  assert.match(tareasLayout, /listScope="activeWorkOrders"/)
-  assert.equal(tareasLayout.includes("planningWorkOrders"), false)
+  const tareasScopeProviders = read(
+    "components/tareas/tareas-list-scope-providers.tsx"
+  )
+  assert.match(tareasLayout, /TareasListScopeProvidersBoundary/)
+  assert.match(tareasScopeProviders, /"activeWorkOrders"/)
+  assert.equal(tareasScopeProviders.includes("planningWorkOrders"), false)
 
   const archivoLayout = read("app/(dashboard)/operations/archivo-ot/layout.tsx")
   assert.match(archivoLayout, /listScope="archiveWorkOrders"/)

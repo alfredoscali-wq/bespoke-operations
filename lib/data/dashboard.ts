@@ -11,6 +11,12 @@ import { isActiveEvidence } from "@/lib/evidence/utils"
 import {
   buildProjectOperationalMetricsMap,
 } from "@/lib/projects/project-operational-metrics"
+import {
+  dashboardKpiFieldServiceStatusHref,
+  dashboardKpiPendingClosureAlertHref,
+  dashboardKpiPendingHref,
+  dashboardKpiStatusHref,
+} from "@/lib/tasks/dashboard-kpi-drilldown"
 import { getTasksSummary } from "@/lib/data/tasks"
 import { moduleFilterUrls } from "@/lib/navigation/query-filters"
 import { isFieldServiceTask } from "@/lib/tasks/utils"
@@ -128,7 +134,7 @@ export function buildExecutiveSummary(input: {
       label: "Órdenes de Trabajo Pendientes",
       value: String(pendingAttention),
       hint: "Requieren atención",
-      href: "/tareas?status=pendiente",
+      href: dashboardKpiPendingHref(),
     },
     {
       id: "operational-crews",
@@ -240,7 +246,7 @@ export function buildOperationalAlerts(input: {
       id: "pending-closure",
       severity: "warning",
       message: `${pendingClosure} OT${pendingClosure === 1 ? "" : "s"} pendiente${pendingClosure === 1 ? "" : "s"} de cierre`,
-      href: "/tareas?status=pendiente-cierre",
+      href: dashboardKpiPendingClosureAlertHref(),
     })
   }
 
@@ -253,7 +259,7 @@ export function buildOperationalAlerts(input: {
       id: "incident-tasks",
       severity: "critical",
       message: `${incidentTasks} OT${incidentTasks === 1 ? "" : "s"} con incidencia`,
-      href: "/tareas?status=incidencia",
+      href: dashboardKpiStatusHref("incidencia"),
     })
   }
 
@@ -373,27 +379,27 @@ export function buildTasksStatusKpis(tasks: Task[]): DashboardStatusKpi[] {
     value: number
     href: string
   }[] = [
-    { id: "programada", label: "Programadas", value: summary.programada, href: "/tareas?status=programada" },
-    { id: "asignada", label: "Asignadas", value: summary.asignada, href: "/tareas?status=asignada" },
-    { id: "vencida", label: "Vencidas", value: summary.vencida, href: "/tareas?status=vencida" },
-    { id: "en-curso", label: "En curso", value: summary.enCurso, href: "/tareas?status=en-curso" },
+    { id: "programada", label: "Programadas", value: summary.programada, href: dashboardKpiStatusHref("programada") },
+    { id: "asignada", label: "Asignadas", value: summary.asignada, href: dashboardKpiStatusHref("asignada") },
+    { id: "vencida", label: "Vencidas", value: summary.vencida, href: dashboardKpiStatusHref("vencida") },
+    { id: "en-curso", label: "En curso", value: summary.enCurso, href: dashboardKpiStatusHref("en-curso") },
     {
       id: "incidencia",
       label: "OT con incidencias",
       value: otWithIncidents,
-      href: "/tareas?status=incidencia",
+      href: dashboardKpiFieldServiceStatusHref("incidencia"),
     },
     {
       id: "pendiente-cierre",
       label: "OT pendientes de cierre",
       value: otPendingClosure,
-      href: "/tareas?status=pendiente-cierre",
+      href: dashboardKpiFieldServiceStatusHref("pendiente-cierre"),
     },
     {
       id: "finalizada",
       label: "Finalizadas",
       value: summary.finalizada,
-      href: "/tareas?status=finalizada",
+      href: dashboardKpiStatusHref("finalizada"),
     },
   ]
 

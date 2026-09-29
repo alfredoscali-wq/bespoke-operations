@@ -20,6 +20,7 @@ import {
 import type { CreateTaskPayload } from "@/lib/types/supabase/tasks"
 import { parseTaskStatusQuery, parsePlanningReturnedQuery, parseVencidasQuery } from "@/lib/navigation/query-filters"
 import { filterActiveWorkOrders } from "@/lib/tasks/task-list-scope"
+import { isDashboardKpiSource } from "@/lib/tasks/dashboard-kpi-drilldown"
 import {
   ARCHIVE_WORK_ORDER_LIST_PAGE_SIZE,
   buildArchivePaginationItems,
@@ -56,6 +57,7 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
   const { tasks, addTask, archiveList } = useTasks()
   const { crews } = useCrews()
   const isArchiveView = mode === "archive"
+  const isDashboardKpi = isDashboardKpiSource(searchParams.get("source"))
   const [filters, setFilters] = useState(defaultTaskFilters)
   const [currentPage, setCurrentPage] = useState(1)
   const [workOrderOpen, setWorkOrderOpen] = useState(false)
@@ -160,7 +162,7 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
   }, [mode, router, searchParams])
 
   useEffect(() => {
-    if (mode !== "active") {
+    if (mode !== "active" || isDashboardKpi) {
       return
     }
 
@@ -168,7 +170,7 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
     if (category === "finalizadas" || category === "completadas") {
       router.replace("/operations/archivo-ot")
     }
-  }, [mode, router, searchParams])
+  }, [isDashboardKpi, mode, router, searchParams])
 
   useEffect(() => {
     setCurrentPage(1)
@@ -216,12 +218,12 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
   ])
 
   const scopedTasks = useMemo(() => {
-    if (isArchiveView) {
+    if (isArchiveView || isDashboardKpi) {
       return tasks
     }
 
     return filterActiveWorkOrders(tasks)
-  }, [tasks, isArchiveView])
+  }, [tasks, isArchiveView, isDashboardKpi])
 
   const displayedTasks = useMemo(() => {
     if (isArchiveView) {
@@ -229,6 +231,9 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
     }
 
     const filtered = filterAndSortTasks(scopedTasks, filters, crews)
+    if (isDashboardKpi) {
+      return filtered
+    }
     if (planningReturnedFilterActive) {
       return filterPlanningReturnedTasks(filtered)
     }
@@ -241,6 +246,7 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
     filters,
     crews,
     isArchiveView,
+    isDashboardKpi,
     planningReturnedFilterActive,
     vencidasFilterActive,
   ])
@@ -436,7 +442,7 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
         </div>
       </div>
 
-      {!isArchiveView ? (
+      {!isArchiveView && !isDashboardKpi ? (
         <div className="grid max-w-2xl gap-3 sm:grid-cols-2">
           <TasksVencidasKpi
             tasks={scopedTasks}
@@ -472,6 +478,7 @@ export function TasksModule({ mode = "active" }: TasksModuleProps) {
         hasActiveFilter={hasActiveFilter}
         readOnly={isArchiveView}
         showExtendedColumns={isArchiveView}
+        showDashboardKpiColumns={isDashboardKpi}
         detailBasePath={
           isArchiveView ? "/operations/archivo-ot" : "/tareas"
         }

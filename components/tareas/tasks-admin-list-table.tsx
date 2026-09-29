@@ -28,6 +28,7 @@ type TasksAdminListTableProps = {
   hasActiveFilter?: boolean
   readOnly?: boolean
   showExtendedColumns?: boolean
+  showDashboardKpiColumns?: boolean
   detailBasePath?: string
 }
 
@@ -57,6 +58,18 @@ function resolveTaskTypeLabel(task: Task): string {
   )
 }
 
+function resolveTaskObraLabel(task: Task): string {
+  if (isFieldServiceTask(task)) {
+    return "—"
+  }
+
+  return task.projectName?.trim() || task.projectCode?.trim() || "—"
+}
+
+function resolveTaskTitleLabel(task: Task): string {
+  return task.title?.trim() || "—"
+}
+
 function resolveTaskOperarioLabel(task: Task): string {
   return task.supervisor?.trim() || "—"
 }
@@ -66,6 +79,7 @@ export function TasksAdminListTable({
   hasActiveFilter = false,
   readOnly = false,
   showExtendedColumns = false,
+  showDashboardKpiColumns = false,
   detailBasePath = "/tareas",
 }: TasksAdminListTableProps) {
   const { getCrew } = useCrews()
@@ -101,14 +115,26 @@ export function TasksAdminListTable({
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead className="w-[90px]">Código</TableHead>
-              <TableHead>Cliente</TableHead>
-              <TableHead>Dirección</TableHead>
-              {showExtendedColumns ? <TableHead>Tipo</TableHead> : null}
-              {!showExtendedColumns ? <TableHead>Estado</TableHead> : null}
-              <TableHead>Cuadrilla</TableHead>
-              <TableHead>Fecha</TableHead>
-              {showExtendedColumns ? <TableHead>Operario</TableHead> : null}
-              {showExtendedColumns ? <TableHead>Estado</TableHead> : null}
+              {showDashboardKpiColumns ? (
+                <>
+                  <TableHead>Título</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead>Fecha</TableHead>
+                  <TableHead>Obra</TableHead>
+                  <TableHead>Cuadrilla</TableHead>
+                </>
+              ) : (
+                <>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>Dirección</TableHead>
+                  {showExtendedColumns ? <TableHead>Tipo</TableHead> : null}
+                  {!showExtendedColumns ? <TableHead>Estado</TableHead> : null}
+                  <TableHead>Cuadrilla</TableHead>
+                  <TableHead>Fecha</TableHead>
+                  {showExtendedColumns ? <TableHead>Operario</TableHead> : null}
+                  {showExtendedColumns ? <TableHead>Estado</TableHead> : null}
+                </>
+              )}
               <TableHead className="w-[148px] text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
@@ -126,38 +152,60 @@ export function TasksAdminListTable({
                     {formatTaskAdminDisplayCode(task.code)}
                   </Link>
                 </TableCell>
-                <TableCell className="max-w-[180px] truncate">
-                  {resolveTaskCustomerLabel(task)}
-                </TableCell>
-                <TableCell className="max-w-[240px] truncate text-muted-foreground">
-                  {resolveTaskAddressLabel(task)}
-                </TableCell>
-                {showExtendedColumns ? (
-                  <TableCell className="max-w-[160px] truncate text-muted-foreground">
-                    {resolveTaskTypeLabel(task)}
-                  </TableCell>
-                ) : null}
-                {!showExtendedColumns ? (
-                  <TableCell>
-                    <TaskStatusBadge status={task.status} task={task} />
-                  </TableCell>
-                ) : null}
-                <TableCell className="max-w-[140px] truncate text-muted-foreground">
-                  {resolveTaskCrewDisplayName(task, getCrew)}
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {formatTaskDate(task.dueDate)}
-                </TableCell>
-                {showExtendedColumns ? (
-                  <TableCell className="max-w-[120px] truncate text-muted-foreground">
-                    {resolveTaskOperarioLabel(task)}
-                  </TableCell>
-                ) : null}
-                {showExtendedColumns ? (
-                  <TableCell>
-                    <TaskStatusBadge status={task.status} task={task} />
-                  </TableCell>
-                ) : null}
+                {showDashboardKpiColumns ? (
+                  <>
+                    <TableCell className="max-w-[220px] truncate">
+                      {resolveTaskTitleLabel(task)}
+                    </TableCell>
+                    <TableCell>
+                      <TaskStatusBadge status={task.status} task={task} />
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {formatTaskDate(task.dueDate)}
+                    </TableCell>
+                    <TableCell className="max-w-[180px] truncate text-muted-foreground">
+                      {resolveTaskObraLabel(task)}
+                    </TableCell>
+                    <TableCell className="max-w-[140px] truncate text-muted-foreground">
+                      {resolveTaskCrewDisplayName(task, getCrew)}
+                    </TableCell>
+                  </>
+                ) : (
+                  <>
+                    <TableCell className="max-w-[180px] truncate">
+                      {resolveTaskCustomerLabel(task)}
+                    </TableCell>
+                    <TableCell className="max-w-[240px] truncate text-muted-foreground">
+                      {resolveTaskAddressLabel(task)}
+                    </TableCell>
+                    {showExtendedColumns ? (
+                      <TableCell className="max-w-[160px] truncate text-muted-foreground">
+                        {resolveTaskTypeLabel(task)}
+                      </TableCell>
+                    ) : null}
+                    {!showExtendedColumns ? (
+                      <TableCell>
+                        <TaskStatusBadge status={task.status} task={task} />
+                      </TableCell>
+                    ) : null}
+                    <TableCell className="max-w-[140px] truncate text-muted-foreground">
+                      {resolveTaskCrewDisplayName(task, getCrew)}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {formatTaskDate(task.dueDate)}
+                    </TableCell>
+                    {showExtendedColumns ? (
+                      <TableCell className="max-w-[120px] truncate text-muted-foreground">
+                        {resolveTaskOperarioLabel(task)}
+                      </TableCell>
+                    ) : null}
+                    {showExtendedColumns ? (
+                      <TableCell>
+                        <TaskStatusBadge status={task.status} task={task} />
+                      </TableCell>
+                    ) : null}
+                  </>
+                )}
                 <TableCell className="text-right">
                   <TaskAdminRowActions
                     task={task}

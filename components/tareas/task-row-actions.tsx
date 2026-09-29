@@ -24,12 +24,14 @@ import {
 import { TaskWorkOrderDialog } from "@/components/tareas/task-work-order-dialog"
 import { TaskIncidentCancelDialog } from "@/components/tareas/task-incident-cancel-dialog"
 import { WorkOrderAdminSoftDeleteDialog } from "@/components/tareas/work-order-admin-soft-delete-dialog"
+import { WorkOrderVencidaDeleteDialog } from "@/components/tareas/work-order-vencida-delete-dialog"
 import { ForceDeleteAction } from "@/components/admin/force-delete-action"
 import { TASK_DELETE_USER_MESSAGE } from "@/lib/operations/user-messages"
 import { useIsSystemAdministrator } from "@/lib/auth/use-is-system-administrator"
 import { canUseWorkOrdersWebOperationalActions } from "@/lib/roles/web-module-access"
 import { resolveCrewSnapshotsForAssignment } from "@/lib/tasks/crew-relation"
 import {
+  canSoftDeleteVencidaWorkOrder,
   canSoftDeleteWorkOrder,
   resolveWorkOrderRowMenuPolicy,
   WORK_ORDER_SOFT_DELETE_BLOCKED_MESSAGE,
@@ -92,6 +94,7 @@ export function TaskRowActions({
   const [statusOpen, setStatusOpen] = useState(false)
   const [crewOpen, setCrewOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [vencidaDeleteOpen, setVencidaDeleteOpen] = useState(false)
   const [adminSoftDeleteOpen, setAdminSoftDeleteOpen] = useState(false)
   const [cancelOpen, setCancelOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -107,6 +110,8 @@ export function TaskRowActions({
   const canSoftDelete = isWorkOrder
     ? menuPolicy?.showSoftDelete ?? false
     : canSoftDeleteWorkOrder(task)
+  const canDeleteVencida =
+    isWorkOrder && canSoftDeleteVencidaWorkOrder(task, sessionUser)
   const canAdminSoftDelete =
     isSystemAdministrator &&
     isWorkOrder &&
@@ -373,7 +378,18 @@ export function TaskRowActions({
             </DropdownMenuItem>
           ) : null}
 
-          {canSoftDelete && !canAdminSoftDelete ? (
+          {canDeleteVencida ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={() => setVencidaDeleteOpen(true)}
+              >
+                <Trash2 className="size-4" />
+                Eliminar OT
+              </DropdownMenuItem>
+            </>
+          ) : canSoftDelete && !canAdminSoftDelete ? (
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem
@@ -461,6 +477,31 @@ export function TaskRowActions({
           isSubmitting={isCancelling}
         />
       ) : null}
+
+      <WorkOrderVencidaDeleteDialog
+        open={vencidaDeleteOpen}
+        onOpenChange={setVencidaDeleteOpen}
+        onConfirm={async () => {
+          setIsDeleting(true)
+          const result = await deleteTask(task.id)
+          setIsDeleting(false)
+
+          if (!result.success) {
+            onFeedback({
+              variant: "error",
+              message: result.message ?? TASK_DELETE_USER_MESSAGE,
+            })
+            return
+          }
+
+          setVencidaDeleteOpen(false)
+          onFeedback({
+            variant: "success",
+            message: "Orden de trabajo eliminada correctamente.",
+          })
+        }}
+        isSubmitting={isDeleting}
+      />
 
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent className="sm:max-w-md">

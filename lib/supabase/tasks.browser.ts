@@ -7,6 +7,7 @@ import {
   fetchActiveWorkOrderListTasks,
   fetchArchivedWorkOrderListTasks,
   fetchCalendarWorkOrderListTasks,
+  fetchDashboardKpiDrilldownTasks,
   fetchDashboardWorkOrderListTasks,
   fetchOccupiedDispatchOrdersForPlanningConfirm,
   fetchOperarioTodayWorkOrderListTasks,
@@ -25,6 +26,7 @@ import type {
   ArchivedWorkOrderListPage,
   ArchivedWorkOrderListQuery,
 } from "@/lib/tasks/archived-work-order-list"
+import type { DashboardKpiDrilldownSpec } from "@/lib/tasks/dashboard-kpi-drilldown"
 import type { OperarioWebCrewRef } from "@/lib/tasks/task-list-scope"
 import { applyVencidaSyncFromApi } from "@/lib/tasks/vencida-sync.client"
 import type { Task } from "@/lib/types/tasks"
@@ -198,6 +200,25 @@ export async function listDashboardWorkOrderTasks(
       ...result.data,
       tasks: syncedTasks,
     },
+    error: null,
+  }
+}
+
+export async function listDashboardKpiDrilldownTasks(
+  companyId: string,
+  spec: DashboardKpiDrilldownSpec,
+  client: SupabaseTasksClient = createBrowserTasksClient()
+): Promise<TasksRepositoryResult<Task[]>> {
+  const result = await fetchDashboardKpiDrilldownTasks(client, companyId, spec)
+
+  if (result.error || !result.data) {
+    return result
+  }
+
+  const syncedTasks = await applyVencidaSyncFromApi(result.data)
+
+  return {
+    data: syncedTasks,
     error: null,
   }
 }

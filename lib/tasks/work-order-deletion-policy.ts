@@ -3,6 +3,10 @@ import { isPendingClosureStatus } from "@/lib/tasks/task-status-workflow"
 import { isCancellableTaskStatus } from "@/lib/tasks/status-groups"
 import { isArchiveWorkOrderStatus } from "@/lib/tasks/task-list-scope"
 import { hasActivePlanningReturn } from "@/lib/tasks/planning-return"
+import { isVencidaStatus } from "@/lib/tasks/vencida-status"
+import { canCreateWorkOrdersWeb } from "@/lib/roles/web-module-access"
+import { WORK_ORDER_ADMIN_MUTATION_BLOCKED_MESSAGE } from "@/lib/tasks/work-order-admin-mutation"
+import type { SessionUser } from "@/lib/auth/types"
 import type { Task, TaskStatus } from "@/lib/types/tasks"
 
 export const WORK_ORDER_SOFT_DELETE_BLOCKED_MESSAGE =
@@ -16,6 +20,9 @@ export const WORK_ORDER_PLANNING_RETURN_DELETE_OBSERVATION_REQUIRED_MESSAGE =
 
 export const WORK_ORDER_PERMANENT_DELETE_FORBIDDEN_MESSAGE =
   "Solo un administrador del sistema puede eliminar definitivamente una orden de trabajo."
+
+export const WORK_ORDER_VENCIDA_DELETE_FORBIDDEN_MESSAGE =
+  "No tiene permiso para eliminar esta orden de trabajo."
 
 /** Snapshot used by soft-delete gates (UI + repository). */
 export type SoftDeleteWorkOrderCandidate = Pick<Task, "status"> &
@@ -92,6 +99,107 @@ export function canSoftDeleteWorkOrder(
   }
 
   return canSoftDeleteUnstartedProjectAssignment(input)
+}
+
+export function canSoftDeleteVencidaWorkOrder(
+  task: SoftDeleteWorkOrderCandidate,
+  sessionUser: SessionUser | null | undefined
+): boolean {
+  if (hasActivePlanningReturn(task)) {
+    return false
+  }
+
+  if (!isVencidaStatus(task.status)) {
+    return false
+  }
+
+  return canCreateWorkOrdersWeb(sessionUser)
+}
+
+export type WorkOrderSoftDeleteAuthorization =
+  | { allowed: true; mode: "vencida-creator" | "admin" }
+  | { allowed: false; httpStatus: 400 | 403 | 404 | 409; message: string }
+
+export function authorizeWorkOrderSoftDelete(input: {
+  task: SoftDeleteWorkOrderCandidate
+  sessionUser: SessionUser
+  observation?: string
+  taskCompanyId?: string | null
+}): WorkOrderSoftDeleteAuthorization {
+  const { task, sessionUser, observation, taskCompanyId } = input
+
+  if (!sessionUser.companyId) {
+    return {
+      allowed: false,
+      httpStatus: 403,
+      message: WORK_ORDER_VENCIDA_DELETE_FORBIDDEN_MESSAGE,
+    }
+  }
+
+  if (taskCompanyId && taskCompanyId !== sessionUser.companyId) {
+    return {
+      allowed: false,
+      httpStatus: 404,
+      message: "Orden de trabajo no encontrada.",
+    }
+  }
+
+  if (isVencidaStatus(task.status) && !hasActivePlanningReturn(task)) {
+    if (canCreateWorkOrdersWeb(sessionUser)) {
+      return { allowed: true, mode: "vencida-creator" }
+    }
+
+    return {
+      allowed: false,
+      httpStatus: 403,
+      message: WORK_ORDER_VENCIDA_DELETE_FORBIDDEN_MESSAGE,
+    }
+  }
+
+  if (sessionUser.systemRole === "operario") {
+    return {
+      allowed: false,
+      httpStatus: 403,
+      message:
+        "Su perfil no puede modificar órdenes de trabajo desde administración.",
+    }
+  }
+
+  if (hasActivePlanningReturn(task)) {
+    const validation = validatePlanningReturnDeleteObservation(observation)
+    if (!validation.allowed) {
+      return {
+        allowed: false,
+        httpStatus: 400,
+        message:
+          validation.message ??
+          WORK_ORDER_PLANNING_RETURN_DELETE_OBSERVATION_REQUIRED_MESSAGE,
+      }
+    }
+    return { allowed: true, mode: "admin" }
+  }
+
+  if (!canAdminSoftDeleteWorkOrder(task)) {
+    return {
+      allowed: false,
+      httpStatus: 409,
+      message: WORK_ORDER_ADMIN_MUTATION_BLOCKED_MESSAGE,
+    }
+  }
+
+  if (
+    isArchiveWorkOrderStatus(task.status) &&
+    sessionUser.systemRole !== "administrador"
+  ) {
+    return {
+      allowed: false,
+      httpStatus: 403,
+      message:
+        "Solo un administrador del sistema puede eliminar definitivamente una orden del Archivo OT.",
+    }
+  }
+
+  return { allowed: true, mode: "admin" }
 }
 
 /**

@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation"
 import { Trash2 } from "lucide-react"
 
 import { ForceDeleteAction } from "@/components/admin/force-delete-action"
+import { useAuth } from "@/components/auth/auth-provider"
 import { useTasks } from "@/components/tareas/tasks-provider"
+import { WorkOrderVencidaDeleteDialog } from "@/components/tareas/work-order-vencida-delete-dialog"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -17,7 +19,10 @@ import {
 } from "@/components/ui/dialog"
 import { formatTaskAdminDisplayCode } from "@/lib/tasks/utils"
 import { hasActivePlanningReturn } from "@/lib/tasks/planning-return"
-import { canSoftDeleteWorkOrder } from "@/lib/tasks/work-order-deletion-policy"
+import {
+  canSoftDeleteVencidaWorkOrder,
+  canSoftDeleteWorkOrder,
+} from "@/lib/tasks/work-order-deletion-policy"
 import type { Task } from "@/lib/types/tasks"
 
 type TaskAdminSoftDeleteActionProps = {
@@ -29,11 +34,15 @@ export function TaskAdminSoftDeleteAction({
   task,
 }: TaskAdminSoftDeleteActionProps) {
   const router = useRouter()
+  const { sessionUser } = useAuth()
   const { deleteTask, removeTaskLocally } = useTasks()
   const [open, setOpen] = useState(false)
+  const [vencidaOpen, setVencidaOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const isPlanningReturnTray = hasActivePlanningReturn(task)
   const canDelete = !isPlanningReturnTray && canSoftDeleteWorkOrder(task)
+  const canDeleteVencida =
+    !isPlanningReturnTray && canSoftDeleteVencidaWorkOrder(task, sessionUser)
   const taskLabel =
     formatTaskAdminDisplayCode(task.code) || task.title?.trim() || task.id
 
@@ -47,6 +56,7 @@ export function TaskAdminSoftDeleteAction({
     }
 
     setOpen(false)
+    setVencidaOpen(false)
     removeTaskLocally(task.id)
     router.back()
   }
@@ -70,7 +80,17 @@ export function TaskAdminSoftDeleteAction({
           onSuccess={handleForceDeleteSuccess}
         />
 
-        {canDelete ? (
+        {canDeleteVencida ? (
+          <Button
+            type="button"
+            variant="destructive"
+            className="gap-1.5"
+            onClick={() => setVencidaOpen(true)}
+          >
+            <Trash2 className="size-4" />
+            Eliminar OT
+          </Button>
+        ) : canDelete ? (
           <Button
             type="button"
             variant="destructive"
@@ -82,6 +102,13 @@ export function TaskAdminSoftDeleteAction({
           </Button>
         ) : null}
       </div>
+
+      <WorkOrderVencidaDeleteDialog
+        open={vencidaOpen}
+        onOpenChange={setVencidaOpen}
+        onConfirm={handleConfirmDelete}
+        isSubmitting={isDeleting}
+      />
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">

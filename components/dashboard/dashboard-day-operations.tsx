@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { Camera, CheckCircle2, ClipboardList } from "lucide-react"
 
+import { dashboardKpiCompletedTodayHref } from "@/lib/tasks/dashboard-kpi-drilldown"
 import type { DashboardDayOperationMetric } from "@/lib/data/dashboard"
 import { cn } from "@/lib/utils"
 import {
@@ -19,7 +20,7 @@ const METRIC_ICONS = {
 
 const METRIC_HREFS = {
   "scheduled-today": "/operations/calendar",
-  "completed-today": "/tareas?status=finalizada",
+  "completed-today": dashboardKpiCompletedTodayHref(),
   "pending-evidence": "/evidencias",
 } as const
 

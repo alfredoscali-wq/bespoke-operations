@@ -557,7 +557,7 @@ test("una OT finalizada histórica de una Obra contribuye al progreso", () => {
 test("builders y fórmulas de KPI existentes no se modificaron", () => {
   const dashboard = read("lib/data/dashboard.ts")
   assert.match(dashboard, /value: summary.finalizada/)
-  assert.match(dashboard, /href: "\/tareas\?status=finalizada"/)
+  assert.match(dashboard, /dashboardKpiStatusHref\("finalizada"\)/)
   assert.match(dashboard, /label: "Finalizadas"/)
   assert.match(dashboard, /FINAL_TASK_STATUSES.includes\(task.status\)/)
   assert.match(dashboard, /input.limit \?\? 10/)
@@ -618,8 +618,12 @@ test("Dashboard no usa fetchTasks(); active/archive/planning/calendar siguen ded
   )
 
   const tareasLayout = read("app/(dashboard)/tareas/layout.tsx")
-  assert.match(tareasLayout, /listScope="activeWorkOrders"/)
-  assert.equal(tareasLayout.includes("dashboardWorkOrders"), false)
+  const tareasScopeProviders = read(
+    "components/tareas/tareas-list-scope-providers.tsx"
+  )
+  assert.match(tareasLayout, /TareasListScopeProvidersBoundary/)
+  assert.match(tareasScopeProviders, /listScope=\{isDashboardKpi \? "dashboardKpiWorkOrders" : "activeWorkOrders"\}/)
+  assert.equal(tareasScopeProviders.includes("dashboardWorkOrders"), false)
 
   const archivoLayout = read("app/(dashboard)/operations/archivo-ot/layout.tsx")
   assert.match(archivoLayout, /listScope="archiveWorkOrders"/)
