@@ -200,6 +200,7 @@
     "test:obras-ops-3-0-individual-access": "npx tsx --test scripts/test-obras-ops-3-0-individual-access.mjs",
     "test:obras-ops-2-6-daily-allocations": "npx tsx --test scripts/test-obras-ops-2-6-daily-allocations.mjs",
     "test:obras-hotfix-active-create": "npx tsx --test scripts/test-obras-hotfix-active-create.mjs",
+    "test:obra-task-reschedule": "npx tsx --test scripts/test-obra-task-reschedule.mjs",
     "test:obras-project-work-order-list": "npx tsx --test scripts/test-obras-project-work-order-list.mjs",
     "test:obras-project-header-kpis": "npx tsx --test scripts/test-obras-project-header-kpis.mjs",
     "test:obras-project-work-report": "npx tsx --test scripts/test-obras-project-work-report.mjs",

@@ -3,7 +3,11 @@
 import { useCallback } from "react"
 
 import { useAuth } from "@/components/auth/auth-provider"
-import { resolveProjectTaskRescheduleTargetStatus } from "@/lib/projects/project-task-reschedule"
+import {
+  assertProjectTaskReschedulePayloadSafe,
+  loadProjectTaskForReschedule,
+  resolveProjectTaskRescheduleTargetStatus,
+} from "@/lib/projects/project-task-reschedule"
 import {
   assertProjectTaskIncidentResolvePayloadSafe,
   buildProjectTaskIncidentResolvePayload,
@@ -299,12 +303,17 @@ export function useTasksIncidents({
         | "reschedule-planning-return"
         | "reschedule-obra"
       >,
-      input: TaskRescheduleInput & { actor?: string }
+      input: TaskRescheduleInput & { actor?: string; task?: Task }
     ): Promise<TaskMutationResult> => {
-      const task = tasks.find((item) => item.id === id)
-      if (!task) {
-        return { success: false, message: "Orden de trabajo no encontrada." }
+      const loaded = await loadProjectTaskForReschedule(id, companyId, {
+        loadedTask: input.task,
+        providerTasks: tasks,
+        loadLiveTask: getLiveTaskByCompanyAndId,
+      })
+      if (!loaded.ok) {
+        return { success: false, message: loaded.message }
       }
+      const task = loaded.task
 
       if (
         workflowAction === "reschedule-planning-return" &&
@@ -337,7 +346,8 @@ export function useTasksIncidents({
         }
       }
 
-      const rescheduledBy = input.rescheduledBy.trim() || input.actor?.trim() || ""
+      const rescheduledBy =
+        input.rescheduledBy.trim() || input.actor?.trim() || ""
       if (!rescheduledBy) {
         return {
           success: false,
@@ -369,7 +379,13 @@ export function useTasksIncidents({
               rescheduledBy,
             }
           : {
-              ...input,
+              dueDate: input.dueDate,
+              scheduledTime: input.scheduledTime,
+              reason: input.reason,
+              notes: input.notes,
+              crewId: input.crewId,
+              crew: input.crew,
+              supervisor: input.supervisor,
               rescheduledBy,
             }
       let updatePayload = buildTaskRescheduleUpdatePayload(
@@ -377,6 +393,17 @@ export function useTasksIncidents({
         rescheduleInput,
         targetStatus
       )
+
+      if (
+        workflowAction === "reschedule-obra" &&
+        !assertProjectTaskReschedulePayloadSafe(updatePayload)
+      ) {
+        return {
+          success: false,
+          message:
+            "La reprogramación de Obra no puede modificar proyecto, código, cuadrilla ni checklist.",
+        }
+      }
 
       // Vencida → programada: never reuse the historical order. Clear, then
       // take the first free slot on the new crew + date.
@@ -455,7 +482,7 @@ export function useTasksIncidents({
         workflowAction,
         historyNote,
         actor.fullName,
-        { rescheduleInput }
+        { rescheduleInput, existingTask: task }
       )
 
       if (result.success && companyId) {
@@ -490,7 +517,7 @@ export function useTasksIncidents({
   const rescheduleTaskFromIncident = useCallback(
     async (
       id: string,
-      input: TaskRescheduleInput & { actor?: string }
+      input: TaskRescheduleInput & { actor?: string; task?: Task }
     ): Promise<TaskMutationResult> => {
       return applyTaskReschedule(id, "reschedule-from-incident", input)
     },
@@ -500,7 +527,7 @@ export function useTasksIncidents({
   const rescheduleTaskFromOverdue = useCallback(
     async (
       id: string,
-      input: TaskRescheduleInput & { actor?: string }
+      input: TaskRescheduleInput & { actor?: string; task?: Task }
     ): Promise<TaskMutationResult> => {
       return applyTaskReschedule(id, "reschedule-from-overdue", input)
     },
@@ -510,7 +537,7 @@ export function useTasksIncidents({
   const reschedulePlanningReturnedTask = useCallback(
     async (
       id: string,
-      input: TaskRescheduleInput & { actor?: string }
+      input: TaskRescheduleInput & { actor?: string; task?: Task }
     ): Promise<TaskMutationResult> => {
       return applyTaskReschedule(id, "reschedule-planning-return", input)
     },
@@ -520,7 +547,7 @@ export function useTasksIncidents({
   const rescheduleProjectTask = useCallback(
     async (
       id: string,
-      input: TaskRescheduleInput & { actor?: string }
+      input: TaskRescheduleInput & { actor?: string; task?: Task }
     ): Promise<TaskMutationResult> => {
       return applyTaskReschedule(id, "reschedule-obra", input)
     },

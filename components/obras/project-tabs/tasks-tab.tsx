@@ -829,6 +829,7 @@ export function ProjectTasksTab({
     const result = await rescheduleProjectTask(rescheduleTarget.id, {
       ...input,
       actor: actorName,
+      task: rescheduleTarget,
     })
     setIsRescheduling(false)
 

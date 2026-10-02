@@ -42,7 +42,7 @@ export const TASK_RESCHEDULE_SAME_SCHEDULE_MESSAGE =
   "La nueva programación debe ser distinta de la programación actual."
 
 export const TASK_RESCHEDULE_PAST_SCHEDULE_MESSAGE =
-  "No puede reprogramar una Orden de Trabajo para una fecha u hora pasada."
+  "No puede reprogramar una Orden de Trabajo para una fecha pasada."
 
 export function resolveRescheduleReasonLabel(
   reason: string | null | undefined

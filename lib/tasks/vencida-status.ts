@@ -126,30 +126,25 @@ export function getTaskScheduledDateTime(
   return new Date(year, month - 1, day, hours ?? 0, minutes ?? 0, 0, 0)
 }
 
+/**
+ * Reschedule date gate aligned with auto-vencida: calendar date only.
+ * Scheduled time does not participate in overdue calculation.
+ */
 export function validateRescheduleFromVencida(input: {
   dueDate: string
   scheduledTime?: string | null
   referenceDate?: Date
 }): { allowed: boolean; message?: string } {
+  void input.scheduledTime
   const dueDate = input.dueDate.trim()
   if (!dueDate) {
     return { allowed: false, message: "Seleccione una nueva fecha." }
   }
 
-  const referenceDate = input.referenceDate ?? new Date()
-  const scheduledAt = getTaskScheduledDateTime(
-    {
-      dueDate,
-      scheduledTime: input.scheduledTime,
-    },
-    referenceDate
-  )
-
-  if (scheduledAt.getTime() < referenceDate.getTime()) {
+  if (isDueDateBeforeToday(dueDate, input.referenceDate ?? new Date())) {
     return {
       allowed: false,
-      message:
-        "No puede reprogramar una Orden de Trabajo para una fecha u hora pasada.",
+      message: "No puede reprogramar una Orden de Trabajo para una fecha pasada.",
     }
   }
 

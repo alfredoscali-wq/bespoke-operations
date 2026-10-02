@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react"
 
-import { toDateOnly } from "@/lib/availability/utils"
+import { toLocalDateOnly } from "@/lib/dates/date-only"
 import { formatTaskDate } from "@/lib/tasks/constants"
 import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
+import { resolveProjectTaskRescheduleInitialDueDate } from "@/lib/projects/project-task-reschedule"
 import {
   getTaskRescheduleFormDefaults,
   resolveRescheduleReasonLabel,
@@ -62,6 +63,11 @@ export function ProjectTaskRescheduleDialog({
 }: ProjectTaskRescheduleDialogProps) {
   const { companyId, isAuthReady } = useTenantCompanyId()
   const defaults = useMemo(() => getTaskRescheduleFormDefaults(task), [task])
+  const initialDueDate = useMemo(
+    () => resolveProjectTaskRescheduleInitialDueDate(task),
+    [task]
+  )
+  const minDueDate = toLocalDateOnly()
   const currentTimeLabel =
     formatScheduledTimeForInput(task.scheduledTime) || "—"
 
@@ -107,12 +113,12 @@ export function ProjectTaskRescheduleDialog({
     if (!open) return
 
     setStep("form")
-    setDueDate(defaults.dueDate)
+    setDueDate(initialDueDate)
     setScheduledTime(defaults.scheduledTime)
     setReason("")
     setNotes("")
     setError(null)
-  }, [open, defaults])
+  }, [open, defaults, initialDueDate])
 
   function handleContinueToConfirm() {
     const validation = validateTaskRescheduleInput(
@@ -192,7 +198,7 @@ export function ProjectTaskRescheduleDialog({
                   id="obra-task-reschedule-date"
                   type="date"
                   value={dueDate}
-                  min={toDateOnly()}
+                  min={minDueDate}
                   onChange={(event) => setDueDate(event.target.value)}
                 />
               </div>
