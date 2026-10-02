@@ -5,7 +5,10 @@ import { fileURLToPath } from "node:url"
 import { MONITORING_EXECUTABLE_JOB_TYPE } from "@/lib/network/monitoring/contract"
 import { DISCOVERY_EXECUTABLE_JOB_TYPE } from "@/lib/network/discovery/contract"
 import { claimJob, heartbeat, startJob, submitJobResult } from "./cloud-client"
-import { destroyActiveRouterOsSockets } from "./connectors/mikrotik/api-client"
+import {
+  destroyActiveRouterOsSockets,
+  isRouterOsApiTlsEnabled,
+} from "./connectors/mikrotik/api-client"
 import { executeDiscoveryJob, executeMonitoringJob } from "./discovery/run-job"
 
 const POLL_MS = Number(process.env.NETWORK_AGENT_POLL_MS ?? 5000)
@@ -28,8 +31,43 @@ const defaultDeps: AgentLoopDeps = {
   executeDiscoveryJob,
 }
 
+let processGuardsInstalled = false
+let shutdownRequested = false
+let shutdownWaiters: Array<() => void> = []
+
+export function isAgentShutdownRequested() {
+  return shutdownRequested
+}
+
+export function resetAgentShutdownForTests() {
+  shutdownRequested = false
+  shutdownWaiters = []
+}
+
+/**
+ * Finish the current loop iteration, then stop polling.
+ * Does not process.exit so an in-flight /result POST can complete.
+ */
+export function beginAgentShutdown(reason = "signal") {
+  if (shutdownRequested) return
+  shutdownRequested = true
+  console.info("[network-agent] shutdown requested", { reason })
+  for (const wake of shutdownWaiters) wake()
+  shutdownWaiters = []
+}
+
 function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
+  return new Promise<void>((resolve) => {
+    if (shutdownRequested) {
+      resolve()
+      return
+    }
+    const timer = setTimeout(resolve, ms)
+    shutdownWaiters.push(() => {
+      clearTimeout(timer)
+      resolve()
+    })
+  })
 }
 
 function describeFault(error: unknown) {
@@ -46,8 +84,6 @@ function describeFault(error: unknown) {
     stack: null,
   }
 }
-
-let processGuardsInstalled = false
 
 /**
  * Last-resort safety net only. Poll failures must reject as Promises and
@@ -66,6 +102,14 @@ export function installAgentProcessGuards() {
   process.on("unhandledRejection", (reason) => {
     console.error("[network-agent] unhandledRejection", describeFault(reason))
     destroyActiveRouterOsSockets()
+  })
+
+  process.on("SIGTERM", () => {
+    beginAgentShutdown("SIGTERM")
+  })
+
+  process.on("SIGINT", () => {
+    beginAgentShutdown("SIGINT")
   })
 }
 
@@ -88,9 +132,17 @@ export async function processOnce(deps: AgentLoopDeps = defaultDeps) {
 
   await deps.startJob(claimed.job.id)
 
+  const jobLog = {
+    jobId: claimed.job.id,
+    jobType: claimed.job.jobType,
+    host: claimed.execution.host,
+    port: claimed.execution.port,
+    tls: isRouterOsApiTlsEnabled(),
+  }
+
   if (claimed.job.jobType === MONITORING_EXECUTABLE_JOB_TYPE) {
     console.info("[network-agent] monitoring execution started", {
-      jobId: claimed.job.id,
+      ...jobLog,
       deviceId,
     })
     try {
@@ -101,7 +153,7 @@ export async function processOnce(deps: AgentLoopDeps = defaultDeps) {
         execution: claimed.execution,
       })
       console.info("[network-agent] monitoring execution finished", {
-        jobId: claimed.job.id,
+        ...jobLog,
         deviceId,
       })
       await deps.submitJobResult({
@@ -110,8 +162,7 @@ export async function processOnce(deps: AgentLoopDeps = defaultDeps) {
         snapshot,
       })
       console.info("[network-agent] monitoring completed", {
-        jobId: claimed.job.id,
-        host: claimed.execution.host,
+        ...jobLog,
         deviceId,
         cpuLoad: snapshot.cpuLoad,
       })
@@ -123,8 +174,7 @@ export async function processOnce(deps: AgentLoopDeps = defaultDeps) {
         error: message,
       })
       console.error("[network-agent] monitoring failed", {
-        jobId: claimed.job.id,
-        host: claimed.execution.host,
+        ...jobLog,
         deviceId,
         error: message,
       })
@@ -153,8 +203,7 @@ export async function processOnce(deps: AgentLoopDeps = defaultDeps) {
       snapshot,
     })
     console.info("[network-agent] discovery completed", {
-      jobId: claimed.job.id,
-      host: claimed.execution.host,
+      ...jobLog,
       devices: snapshot.devices.length,
     })
   } catch (error) {
@@ -165,8 +214,7 @@ export async function processOnce(deps: AgentLoopDeps = defaultDeps) {
       error: message,
     })
     console.error("[network-agent] discovery failed", {
-      jobId: claimed.job.id,
-      host: claimed.execution.host,
+      ...jobLog,
       error: message,
     })
   }
@@ -186,10 +234,13 @@ export async function runAgentLoopIteration(deps: AgentLoopDeps = defaultDeps) {
 export async function main() {
   installAgentProcessGuards()
   console.info("[network-agent] polling Cloud for authorized discovery and monitoring jobs")
-  while (true) {
+  while (!shutdownRequested) {
     await runAgentLoopIteration()
+    if (shutdownRequested) break
     await sleep(Number.isFinite(POLL_MS) && POLL_MS > 0 ? POLL_MS : 5000)
   }
+  destroyActiveRouterOsSockets()
+  console.info("[network-agent] shutdown complete")
 }
 
 function isExecutedAsScript() {

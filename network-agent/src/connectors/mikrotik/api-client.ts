@@ -1,4 +1,6 @@
+import fs from "node:fs"
 import net from "node:net"
+import tls from "node:tls"
 
 import { ConnectorError } from "../types"
 import {
@@ -49,11 +51,43 @@ function toConnectorError(error: unknown, fallback: string): ConnectorError {
   return new ConnectorError(message)
 }
 
+export function isRouterOsApiTlsEnabled(
+  env: NodeJS.ProcessEnv = process.env
+): boolean {
+  const raw = env.NETWORK_ROUTEROS_TLS?.trim().toLowerCase()
+  return raw === "1" || raw === "true" || raw === "yes"
+}
+
+export function readRouterOsApiCaFile(
+  env: NodeJS.ProcessEnv = process.env
+): Buffer {
+  const file = env.NETWORK_ROUTEROS_CA_FILE?.trim()
+  if (!file) {
+    throw new ConnectorError(
+      "NETWORK_ROUTEROS_CA_FILE es obligatorio cuando NETWORK_ROUTEROS_TLS=1."
+    )
+  }
+
+  try {
+    return fs.readFileSync(file)
+  } catch {
+    throw new ConnectorError(
+      "No se pudo leer NETWORK_ROUTEROS_CA_FILE para validar TLS de RouterOS API."
+    )
+  }
+}
+
+export type RouterOsApiConnectFns = {
+  connectPlain?: typeof net.connect
+  connectTls?: typeof tls.connect
+}
+
 export function bindRouterOsApiSocket(
   socket: RouterOsSocketLike,
   options?: {
     timeoutMs?: number
     decode?: RouterOsDecodeFn
+    readyEvent?: "connect" | "secureConnect"
   }
 ): {
   waitUntilConnected(): Promise<void>
@@ -62,6 +96,7 @@ export function bindRouterOsApiSocket(
 } {
   const timeoutMs = options?.timeoutMs ?? 12_000
   const decode = options?.decode ?? decodeSentences
+  const readyEvent = options?.readyEvent ?? "connect"
   socket.setTimeout(timeoutMs)
 
   let buffer: Buffer = Buffer.from([])
@@ -169,7 +204,7 @@ export function bindRouterOsApiSocket(
   )
 
   socket.once(
-    "connect",
+    readyEvent,
     safeHandle(() => {
       if (sessionFailed) return
       settleConnectResolve()
@@ -229,16 +264,52 @@ export function bindRouterOsApiSocket(
   return { waitUntilConnected, talk, close }
 }
 
-export async function connectRouterOsApi(input: {
-  host: string
-  port: number
-  username: string
-  password: string
-  timeoutMs?: number
-}): Promise<RouterOsClient> {
-  const socket = net.connect({ host: input.host, port: input.port })
-  const session = bindRouterOsApiSocket(socket as unknown as RouterOsSocketLike, {
+export async function connectRouterOsApi(
+  input: {
+    host: string
+    port: number
+    username: string
+    password: string
+    timeoutMs?: number
+  },
+  connectFns: RouterOsApiConnectFns = {}
+): Promise<RouterOsClient> {
+  const tlsEnabled = isRouterOsApiTlsEnabled()
+  console.info("[network-agent] RouterOS API connecting", {
+    host: input.host,
+    port: input.port,
+    tls: tlsEnabled,
+  })
+
+  let socket: RouterOsSocketLike
+  let readyEvent: "connect" | "secureConnect" = "connect"
+
+  if (tlsEnabled) {
+    const ca = readRouterOsApiCaFile()
+    const connectTls = connectFns.connectTls ?? tls.connect.bind(tls)
+    const tlsOptions: tls.ConnectionOptions = {
+      host: input.host,
+      port: input.port,
+      ca,
+      rejectUnauthorized: true,
+    }
+    // SNI must be a DNS name. IP identity is verified via `host` + SAN IP.
+    if (net.isIP(input.host) === 0) {
+      tlsOptions.servername = input.host
+    }
+    socket = connectTls(tlsOptions) as unknown as RouterOsSocketLike
+    readyEvent = "secureConnect"
+  } else {
+    const connectPlain = connectFns.connectPlain ?? net.connect.bind(net)
+    socket = connectPlain({
+      host: input.host,
+      port: input.port,
+    }) as unknown as RouterOsSocketLike
+  }
+
+  const session = bindRouterOsApiSocket(socket, {
     timeoutMs: input.timeoutMs,
+    readyEvent,
   })
   try {
     await session.waitUntilConnected()

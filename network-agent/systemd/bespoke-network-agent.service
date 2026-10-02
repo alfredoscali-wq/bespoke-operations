@@ -1,0 +1,29 @@
+[Unit]
+Description=Bespoke Network Agent
+Documentation=https://github.com/alfredoscali-wq/bespoke-operations
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=bespoke-agent
+Group=bespoke-agent
+WorkingDirectory=/opt/bespoke-operations
+EnvironmentFile=/etc/bespoke/network-agent/agent.env
+ExecStart=/opt/bespoke-operations/node_modules/.bin/tsx network-agent/src/index.ts
+Restart=always
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=30
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=bespoke-network-agent
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadOnlyPaths=/etc/bespoke
+# Outbound-only: Cloud HTTPS and MikroTik API-SSL. No inbound sockets.
+
+[Install]
+WantedBy=multi-user.target
