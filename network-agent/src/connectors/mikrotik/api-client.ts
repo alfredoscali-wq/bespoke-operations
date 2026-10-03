@@ -58,13 +58,35 @@ export function isRouterOsApiTlsEnabled(
   return raw === "1" || raw === "true" || raw === "yes"
 }
 
+/**
+ * RouterOS API transport is selected by protocol+port, not by the process-wide
+ * NETWORK_ROUTEROS_TLS flag.
+ *
+ * - protocol=api + 8728 → plaintext (`net.connect`)
+ * - protocol=api + 8729 → API-SSL (`tls.connect` + NETWORK_ROUTEROS_CA_FILE)
+ * - protocol=rest → never this API client
+ * - any other API port → NETWORK_ROUTEROS_TLS fallback (kept for tests / odd ports)
+ */
+export function resolveRouterOsApiTls(input: {
+  protocol?: string | null
+  port: number
+  env?: NodeJS.ProcessEnv
+}): boolean {
+  const protocol = (input.protocol ?? "api").trim().toLowerCase() || "api"
+  const port = Number(input.port)
+  if (protocol === "rest") return false
+  if (protocol === "api" && port === 8728) return false
+  if (protocol === "api" && port === 8729) return true
+  return isRouterOsApiTlsEnabled(input.env)
+}
+
 export function readRouterOsApiCaFile(
   env: NodeJS.ProcessEnv = process.env
 ): Buffer {
   const file = env.NETWORK_ROUTEROS_CA_FILE?.trim()
   if (!file) {
     throw new ConnectorError(
-      "NETWORK_ROUTEROS_CA_FILE es obligatorio cuando NETWORK_ROUTEROS_TLS=1."
+      "NETWORK_ROUTEROS_CA_FILE es obligatorio cuando la conexión API usa TLS."
     )
   }
 
@@ -268,16 +290,22 @@ export async function connectRouterOsApi(
   input: {
     host: string
     port: number
+    protocol?: string | null
     username: string
     password: string
     timeoutMs?: number
   },
   connectFns: RouterOsApiConnectFns = {}
 ): Promise<RouterOsClient> {
-  const tlsEnabled = isRouterOsApiTlsEnabled()
+  const tlsEnabled = resolveRouterOsApiTls({
+    protocol: input.protocol,
+    port: input.port,
+    env: process.env,
+  })
   console.info("[network-agent] RouterOS API connecting", {
     host: input.host,
     port: input.port,
+    protocol: input.protocol ?? "api",
     tls: tlsEnabled,
   })
 

@@ -226,7 +226,7 @@
     "test:network-1-1-discovery-observations": "npx tsx --test scripts/test-network-1-1-discovery-observations.mjs",
     "test:network-2-monitoring": "npx tsx --test scripts/test-network-2-monitoring.mjs",
     "test:network-2-2-agent-poll-robustness": "npx tsx --test scripts/test-network-2-2-agent-poll-robustness.mjs",
-    "test:network-2-8-agent-tls": "npx tsx --test scripts/test-network-2-8-agent-tls.mjs",
+    "test:network-2-8-agent-tls": "npx tsx --test --test-concurrency=1 scripts/test-network-2-8-agent-tls.mjs",
     "test:network-2-4-ui-refresh": "npx tsx --test scripts/test-network-2-4-ui-refresh.mjs",
     "test:network-2-5-job-recovery": "npx tsx --test scripts/test-network-2-5-job-recovery.mjs",
     "test:network-2-6-status-freshness": "npx tsx --test scripts/test-network-2-6-status-freshness.mjs",

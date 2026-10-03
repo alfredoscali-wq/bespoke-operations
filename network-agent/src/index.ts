@@ -8,7 +8,7 @@ import { DIAGNOSTIC_EXECUTABLE_JOB_TYPE } from "@/lib/network/management/vendor"
 import { claimJob, heartbeat, startJob, submitJobResult } from "./cloud-client"
 import {
   destroyActiveRouterOsSockets,
-  isRouterOsApiTlsEnabled,
+  resolveRouterOsApiTls,
 } from "./connectors/mikrotik/api-client"
 import {
   executeDiagnosticJob,
@@ -144,7 +144,10 @@ export async function processOnce(deps: AgentLoopDeps = defaultDeps) {
     jobType: claimed.job.jobType,
     host: claimed.execution.host,
     port: claimed.execution.port,
-    tls: isRouterOsApiTlsEnabled(),
+    tls: resolveRouterOsApiTls({
+      protocol: claimed.execution.protocol,
+      port: claimed.execution.port,
+    }),
   }
 
   if (claimed.job.jobType === MONITORING_EXECUTABLE_JOB_TYPE) {

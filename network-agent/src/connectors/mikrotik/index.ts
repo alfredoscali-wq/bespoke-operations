@@ -6,14 +6,19 @@ import { mapMikrotikFactsToSnapshot, type RouterOsFacts } from "./map-discovery"
 import { mapMikrotikFactsToMonitoring } from "./map-monitoring"
 import { fetchRouterOsMonitoring, fetchRouterOsRest } from "./rest-client"
 
-async function testViaApi(access: ConnectorAccess) {
-  const client = await connectRouterOsApi({
+function connectApi(access: ConnectorAccess) {
+  return connectRouterOsApi({
     host: access.host,
     port: access.port,
+    protocol: access.protocol,
     username: access.username,
     password: access.password,
     timeoutMs: access.timeoutMs,
   })
+}
+
+async function testViaApi(access: ConnectorAccess) {
+  const client = await connectApi(access)
   try {
     await printRecords(client, "/system/identity/print")
   } finally {
@@ -22,13 +27,7 @@ async function testViaApi(access: ConnectorAccess) {
 }
 
 async function discoverViaApi(access: ConnectorAccess, targetId: string, siteId: string | null) {
-  const client = await connectRouterOsApi({
-    host: access.host,
-    port: access.port,
-    username: access.username,
-    password: access.password,
-    timeoutMs: access.timeoutMs,
-  })
+  const client = await connectApi(access)
   try {
     const identity = (await printRecords(client, "/system/identity/print"))[0] ?? {}
     const resource = (await printRecords(client, "/system/resource/print"))[0] ?? {}
@@ -96,13 +95,7 @@ async function pollViaApi(
   targetId: string,
   deviceId: string
 ): Promise<MonitoringSnapshot> {
-  const client = await connectRouterOsApi({
-    host: access.host,
-    port: access.port,
-    username: access.username,
-    password: access.password,
-    timeoutMs: access.timeoutMs,
-  })
+  const client = await connectApi(access)
   try {
     const identity = (await printRecords(client, "/system/identity/print"))[0] ?? {}
     const resource = (await printRecords(client, "/system/resource/print"))[0] ?? {}
