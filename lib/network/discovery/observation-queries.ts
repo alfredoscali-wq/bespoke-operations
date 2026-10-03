@@ -4,21 +4,23 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type { Database } from "@/lib/supabase/database.types"
 import {
-  emptyNetworkDiscoveryObservationSummary,
-  summarizeNetworkDiscoveryObservations,
-  type NetworkDiscoveryObservationSummary,
+  buildNetworkDiscoveryObservationView,
+  emptyNetworkDiscoveryObservationView,
+  type NetworkDiscoveryObservationView,
 } from "@/lib/network/discovery/observations"
 
 type Client = SupabaseClient<Database>
 
-export async function getNetworkDiscoveryObservationSummary(
+export async function getNetworkDiscoveryObservations(
   client: Client,
   companyId: string
-): Promise<NetworkDiscoveryObservationSummary> {
+): Promise<NetworkDiscoveryObservationView> {
   const [devices, targets, links, interfaces] = await Promise.all([
     client
       .from("network_devices")
-      .select("id, company_id, agent_id, management_ip")
+      .select(
+        "id, company_id, agent_id, management_ip, hostname, mac_address, manufacturer, model, firmware_version, origin"
+      )
       .eq("company_id", companyId)
       .is("deleted_at", null),
     client
@@ -28,7 +30,9 @@ export async function getNetworkDiscoveryObservationSummary(
       .is("deleted_at", null),
     client
       .from("network_links")
-      .select("from_device_id, to_device_id, from_interface_id, to_interface_id")
+      .select(
+        "from_device_id, to_device_id, from_interface_id, to_interface_id, protocol"
+      )
       .eq("company_id", companyId)
       .is("deleted_at", null),
     client
@@ -44,15 +48,21 @@ export async function getNetworkDiscoveryObservationSummary(
   if (interfaces.error) throw new Error(interfaces.error.message)
 
   if ((devices.data ?? []).length === 0) {
-    return emptyNetworkDiscoveryObservationSummary()
+    return emptyNetworkDiscoveryObservationView()
   }
 
-  return summarizeNetworkDiscoveryObservations({
+  return buildNetworkDiscoveryObservationView({
     devices: (devices.data ?? []).map((row) => ({
       id: row.id,
       companyId: row.company_id,
       agentId: row.agent_id,
       managementIp: row.management_ip,
+      hostname: row.hostname,
+      macAddress: row.mac_address,
+      manufacturer: row.manufacturer,
+      model: row.model,
+      firmwareVersion: row.firmware_version,
+      origin: row.origin,
     })),
     targets: (targets.data ?? []).map((row) => ({
       companyId: row.company_id,
@@ -64,6 +74,7 @@ export async function getNetworkDiscoveryObservationSummary(
       toDeviceId: row.to_device_id,
       fromInterfaceId: row.from_interface_id,
       toInterfaceId: row.to_interface_id,
+      protocol: row.protocol,
     })),
     interfaces: (interfaces.data ?? []).map((row) => ({
       id: row.id,

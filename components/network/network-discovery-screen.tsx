@@ -30,6 +30,10 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import {
+  formatObservedInterfaceLabel,
+  networkObservationGroupLabel,
+} from "@/lib/network/discovery/observations"
+import {
   NETWORK_DISCOVERY_TRANSPORT_OPTIONS,
   NETWORK_JOB_STATUS_LABELS,
   NETWORK_JOB_STATUS_TONES,
@@ -41,7 +45,8 @@ import {
 import type {
   NetworkAgent,
   NetworkDiscoveryJobView,
-  NetworkDiscoveryObservationSummary,
+  NetworkDiscoveryObservationItem,
+  NetworkDiscoveryObservationView,
   NetworkDiscoveryTarget,
   NetworkSite,
 } from "@/lib/network/types"
@@ -52,7 +57,7 @@ export function NetworkDiscoveryScreen() {
   const [targets, setTargets] = useState<NetworkDiscoveryTarget[]>([])
   const [jobs, setJobs] = useState<NetworkDiscoveryJobView[]>([])
   const [observations, setObservations] =
-    useState<NetworkDiscoveryObservationSummary | null>(null)
+    useState<NetworkDiscoveryObservationView | null>(null)
   const [agents, setAgents] = useState<NetworkAgent[]>([])
   const [sites, setSites] = useState<NetworkSite[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -78,7 +83,20 @@ export function NetworkDiscoveryScreen() {
         if (!jobsBody.success) throw new Error(jobsBody.message)
         setTargets(targetsBody.targets ?? [])
         setJobs(jobsBody.jobs ?? [])
-        setObservations(jobsBody.observations ?? null)
+        setObservations(
+          jobsBody.observations
+            ? {
+                total: Number(jobsBody.observations.total) || 0,
+                core: Number(jobsBody.observations.core) || 0,
+                wan: Number(jobsBody.observations.wan) || 0,
+                lanVlan: Number(jobsBody.observations.lanVlan) || 0,
+                unknown: Number(jobsBody.observations.unknown) || 0,
+                items: Array.isArray(jobsBody.observations.items)
+                  ? jobsBody.observations.items
+                  : [],
+              }
+            : null
+        )
         setAgents(agentsBody.agents ?? [])
         setSites(sitesBody.sites ?? [])
         setError(null)
@@ -176,26 +194,6 @@ export function NetworkDiscoveryScreen() {
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-      {observations ? (
-        <div className="space-y-2">
-          <h2 className="text-lg font-medium">Observado por Discovery</h2>
-          <p className="text-sm text-muted-foreground">
-            Conserva vecinos WAN, LAN/VLAN y desconocidos. Solo el Core
-            administrado entra a Devices y a la topología operativa.
-          </p>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-            <ObservationStat
-              label="Total observado"
-              value={observations.total}
-            />
-            <ObservationStat label="Core" value={observations.core} />
-            <ObservationStat label="WAN" value={observations.wan} />
-            <ObservationStat label="LAN/VLAN" value={observations.lanVlan} />
-            <ObservationStat label="Unknown" value={observations.unknown} />
-          </div>
-        </div>
-      ) : null}
-
       <Table>
         <TableHeader>
           <TableRow>
@@ -290,6 +288,59 @@ export function NetworkDiscoveryScreen() {
           </TableBody>
         </Table>
       </div>
+
+      {observations ? (
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <h2 className="text-lg font-medium">Último discovery</h2>
+            <p className="text-sm text-muted-foreground">
+              Observaciones persistidas del Core. No se convierten en
+              Devices administrados.
+            </p>
+          </div>
+          <p className="text-sm">
+            Total observado:{" "}
+            <span className="font-medium">{observations.total}</span>
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <ObservationStat label="Core" value={observations.core} />
+            <ObservationStat label="WAN" value={observations.wan} />
+            <ObservationStat label="LAN/VLAN" value={observations.lanVlan} />
+            <ObservationStat label="Unknown" value={observations.unknown} />
+          </div>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nombre / Identity</TableHead>
+                  <TableHead>IP</TableHead>
+                  <TableHead>MAC</TableHead>
+                  <TableHead>Interfaz donde fue observado</TableHead>
+                  <TableHead>Scope</TableHead>
+                  <TableHead>Platform</TableHead>
+                  <TableHead>Board</TableHead>
+                  <TableHead>Version</TableHead>
+                  <TableHead>Discovered by</TableHead>
+                  <TableHead>Origin</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {observations.items.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={10} className="text-muted-foreground">
+                      Todavía no hay observaciones persistidas.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  observations.items.map((item) => (
+                    <ObservationRow key={item.id} item={item} />
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      ) : null}
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
@@ -393,4 +444,48 @@ function ObservationStat({ label, value }: { label: string; value: number }) {
       <p className="text-lg font-medium">{value}</p>
     </div>
   )
+}
+
+function ObservationRow({ item }: { item: NetworkDiscoveryObservationItem }) {
+  const group = networkObservationGroupLabel(item.scope)
+  return (
+    <TableRow>
+      <TableCell className="font-medium">
+        {dash(item.hostname)}
+      </TableCell>
+      <TableCell>{dash(item.managementIp)}</TableCell>
+      <TableCell className="font-mono text-xs">{dash(item.macAddress)}</TableCell>
+      <TableCell>
+        {dash(
+          formatObservedInterfaceLabel(
+            item.observedInterfaceName,
+            item.observedInterfaceDescription
+          )
+        )}
+      </TableCell>
+      <TableCell>
+        <StatusBadge className={cn(STATUS_TONE_STYLES[observationTone(item.scope)])}>
+          {group}
+        </StatusBadge>
+      </TableCell>
+      <TableCell>{dash(item.platform)}</TableCell>
+      <TableCell>{dash(item.board)}</TableCell>
+      <TableCell>{dash(item.version)}</TableCell>
+      <TableCell>{dash(item.discoveredBy)}</TableCell>
+      <TableCell>{dash(item.origin)}</TableCell>
+    </TableRow>
+  )
+}
+
+function dash(value: string | null | undefined): string {
+  return value?.trim() || "—"
+}
+
+function observationTone(
+  scope: NetworkDiscoveryObservationItem["scope"]
+): "blue" | "amber" | "green" | "gray" {
+  if (scope === "core") return "blue"
+  if (scope === "wan") return "amber"
+  if (scope === "lan" || scope === "vlan") return "green"
+  return "gray"
 }
