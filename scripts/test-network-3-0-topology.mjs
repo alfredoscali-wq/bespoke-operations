@@ -1982,6 +1982,243 @@ test("1.5: vecinos de infraestructura observados por un administrado aparecen co
   assert.doesNotMatch(queries, /AS5|AS6|AS7/)
 })
 
+test("1.6: etherN,bridgeN proyecta infraestructura local y no cuela WAN ni el Core", () => {
+  const parentId = "dev-access-managed"
+  const observedParentId = "dev-access-observed"
+  const radioId = "dev-radio-norte"
+  const nodoId = "dev-nodo-este"
+  const clienteId = "dev-cliente-sur"
+  const wanPeerId = "dev-uplink-isp"
+  const view = buildNetworkDiscoveryObservationView({
+    devices: [
+      {
+        id: parentId,
+        companyId: COMPANY,
+        agentId: AGENT,
+        managementIp: "10.100.101.4",
+        hostname: "Access Malagueño",
+        origin: "discovery",
+        model: "RB960PGS",
+        deviceType: "router",
+      },
+      {
+        id: observedParentId,
+        companyId: COMPANY,
+        agentId: AGENT,
+        managementIp: "10.100.101.4",
+        hostname: "Access Malagueño",
+        origin: "neighbor",
+        model: "RB960PGS",
+        deviceType: "router",
+      },
+      {
+        id: radioId,
+        companyId: COMPANY,
+        agentId: AGENT,
+        managementIp: "10.100.101.21",
+        hostname: "Radio Norte",
+        origin: "neighbor",
+        model: "CRS326-24G-2S+",
+        deviceType: "switch",
+      },
+      {
+        id: nodoId,
+        companyId: COMPANY,
+        agentId: AGENT,
+        managementIp: "10.100.101.22",
+        hostname: "Nodo Este",
+        origin: "neighbor",
+        model: "RB921GS-5HPacD",
+        deviceType: "router",
+      },
+      {
+        id: clienteId,
+        companyId: COMPANY,
+        agentId: AGENT,
+        managementIp: "10.100.101.40",
+        hostname: "Cliente Sur",
+        origin: "neighbor",
+        model: "hAP ac2",
+        deviceType: "cpe",
+      },
+      {
+        id: wanPeerId,
+        companyId: COMPANY,
+        agentId: AGENT,
+        managementIp: "10.20.0.1",
+        hostname: "Uplink ISP",
+        origin: "neighbor",
+        model: "CCR1009",
+        deviceType: "router",
+      },
+      {
+        id: MALAGUENO_CORE,
+        companyId: COMPANY,
+        agentId: AGENT,
+        managementIp: "177.53.120.11",
+        hostname: "RB3011 - Core Malagueño",
+        origin: "neighbor",
+        model: "RB3011UiAS",
+        deviceType: "core",
+      },
+    ],
+    targets: [{ companyId: COMPANY, agentId: AGENT, host: "10.100.101.4" }],
+    links: [
+      {
+        fromDeviceId: parentId,
+        toDeviceId: radioId,
+        fromInterfaceId: null,
+        fromInterfaceName: "ether2,bridge1",
+        toInterfaceId: null,
+        protocol: "mndp",
+      },
+      {
+        fromDeviceId: parentId,
+        toDeviceId: nodoId,
+        fromInterfaceId: null,
+        fromInterfaceName: "ether3,bridge1",
+        toInterfaceId: null,
+        protocol: "mndp",
+      },
+      {
+        fromDeviceId: parentId,
+        toDeviceId: clienteId,
+        fromInterfaceId: null,
+        fromInterfaceName: "ether2,bridge1",
+        toInterfaceId: null,
+        protocol: "mndp",
+      },
+      {
+        fromDeviceId: parentId,
+        toDeviceId: wanPeerId,
+        fromInterfaceId: null,
+        fromInterfaceName: "ether1,WAN",
+        toInterfaceId: null,
+        protocol: "mndp",
+      },
+      {
+        fromDeviceId: parentId,
+        toDeviceId: MALAGUENO_CORE,
+        fromInterfaceId: null,
+        fromInterfaceName: "ether1,bridge1",
+        toInterfaceId: null,
+        protocol: "mndp",
+      },
+    ],
+    interfaces: [
+      {
+        id: "if-e1",
+        deviceId: parentId,
+        name: "ether1",
+        description: "WAN",
+        interfaceType: "ether",
+      },
+      {
+        id: "if-e2",
+        deviceId: parentId,
+        name: "ether2",
+        description: null,
+        interfaceType: "ether",
+      },
+      {
+        id: "if-e3",
+        deviceId: parentId,
+        name: "ether3",
+        description: null,
+        interfaceType: "ether",
+      },
+      {
+        id: "if-br1",
+        deviceId: parentId,
+        name: "bridge1",
+        description: null,
+        interfaceType: "bridge",
+      },
+    ],
+  })
+  const byId = Object.fromEntries(view.items.map((item) => [item.id, item]))
+  assert.equal(byId[radioId].scope, "lan")
+  assert.equal(byId[nodoId].scope, "lan")
+  assert.equal(byId[clienteId].scope, "lan")
+  assert.equal(byId[wanPeerId].scope, "wan")
+  assert.equal(byId[MALAGUENO_CORE].scope, "wan")
+
+  const nested = buildLocalCoreTopologyView({
+    core: {
+      id: parentId,
+      hostname: "Access Malagueño",
+      managementIp: "10.100.101.4",
+      operationalStatus: null,
+      lastPollAt: null,
+    },
+    jobId: "job-access",
+    observations: view.items,
+    links: [
+      { fromDeviceId: parentId, toDeviceId: radioId, fromInterfaceName: "ether2,bridge1" },
+      { fromDeviceId: parentId, toDeviceId: nodoId, fromInterfaceName: "ether3,bridge1" },
+      { fromDeviceId: parentId, toDeviceId: clienteId, fromInterfaceName: "ether2,bridge1" },
+      { fromDeviceId: parentId, toDeviceId: wanPeerId, fromInterfaceName: "ether1,WAN" },
+      {
+        fromDeviceId: parentId,
+        toDeviceId: MALAGUENO_CORE,
+        fromInterfaceName: "ether1,bridge1",
+      },
+    ],
+    deviceMeta: new Map([
+      [radioId, { deviceType: "switch" }],
+      [nodoId, { deviceType: "router" }],
+      [clienteId, { deviceType: "cpe" }],
+    ]),
+    requireOutgoingLink: true,
+    excludeDeviceIds: new Set([MALAGUENO_CORE]),
+  })
+  const nestedIds = nested.interfaceGroups.flatMap((group) =>
+    group.devices.map((device) => device.id)
+  )
+  assert.equal(nestedIds.includes(radioId), true)
+  assert.equal(nestedIds.includes(nodoId), true)
+  assert.equal(nestedIds.includes(clienteId), false)
+  assert.equal(nestedIds.includes(wanPeerId), false)
+  assert.equal(nestedIds.includes(MALAGUENO_CORE), false)
+  const ether2 = nested.interfaceGroups.find(
+    (group) => group.interfaceName === "ether2,bridge1"
+  )
+  assert.equal(ether2.cpes.map((device) => device.id).includes(clienteId), true)
+  assert.equal(
+    resolveLocalManagedDeviceId({
+      deviceId: observedParentId,
+      managementIp: "10.100.101.4",
+      managedById: new Set([MALAGUENO_CORE, parentId]),
+      managedIdByHost: new Map([["10.100.101.4", parentId]]),
+    }),
+    parentId
+  )
+  assert.deepEqual(
+    selectTopologyRootIds(
+      [MALAGUENO_CORE, parentId],
+      [
+        {
+          deviceId: MALAGUENO_CORE,
+          completedAt: "2026-10-03T12:00:00.000Z",
+          lanVlanChildIds: expandTopologyChildIdsWithManagedAliases(
+            [observedParentId],
+            ["10.100.101.4"],
+            [
+              { id: MALAGUENO_CORE, managementIp: "177.53.120.11" },
+              { id: parentId, managementIp: "10.100.101.4" },
+            ]
+          ),
+        },
+      ]
+    ),
+    [MALAGUENO_CORE]
+  )
+  const classifier = read("lib/network/discovery/interface-scope.ts")
+  const observations = read("lib/network/discovery/observations.ts")
+  assert.doesNotMatch(classifier, /AS5|AS6|AS7/)
+  assert.doesNotMatch(observations, /AS5|AS6|AS7/)
+})
+
 test("1.3 G/H: probar conexión no lanza discovery; descubrir exige conexión verificada", () => {
   const dialog = read("components/network/network-topology-manage-dialog.tsx")
   assert.match(dialog, /Conexión verificada/)

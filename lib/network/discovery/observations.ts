@@ -2,6 +2,7 @@ import { isManagedNetworkDevice } from "@/lib/network/devices/managed"
 import {
   classifyNetworkInterfaceScope,
   pickNetworkObservationScope,
+  splitObservedInterfaceTokens,
   type NetworkObservationScope,
 } from "@/lib/network/discovery/interface-scope"
 
@@ -166,6 +167,7 @@ export function buildNetworkDiscoveryObservationView(input: {
         deviceId: device.id,
         managedIds,
         links: input.links,
+        interfaces: input.interfaces,
         interfacesById,
       })
       if (neighbor.scope === "lan" || neighbor.scope === "vlan") {
@@ -181,6 +183,7 @@ export function buildNetworkDiscoveryObservationView(input: {
       deviceId: device.id,
       managedIds,
       links: input.links,
+      interfaces: input.interfaces,
       interfacesById,
     })
     if (neighbor.scope === "wan") summary.wan += 1
@@ -253,10 +256,24 @@ function compareObservationItems(
   return leftLabel.localeCompare(rightLabel, "es")
 }
 
+function localInterfacesMatchingObservedName(
+  deviceId: string,
+  observedName: string | null,
+  interfaces: readonly NetworkObservationInterfaceRow[]
+): NetworkObservationInterfaceRow[] {
+  const tokens = new Set(splitObservedInterfaceTokens(observedName))
+  if (tokens.size === 0) return []
+  return interfaces.filter((iface) => {
+    if (iface.deviceId !== deviceId) return false
+    return tokens.has(iface.name.trim().toLowerCase())
+  })
+}
+
 function resolveObservedNeighborContext(input: {
   deviceId: string
   managedIds: Set<string>
   links: NetworkObservationLinkRow[]
+  interfaces: readonly NetworkObservationInterfaceRow[]
   interfacesById: Map<string, NetworkObservationInterfaceRow>
 }): {
   scope: NetworkObservationScope
@@ -289,11 +306,20 @@ function resolveObservedNeighborContext(input: {
     const interfaceId = fromParent ? link.fromInterfaceId : link.toInterfaceId
     const observedName = fromParent ? link.fromInterfaceName ?? null : null
     const iface = interfaceId ? input.interfacesById.get(interfaceId) : undefined
+    const parentDeviceId = fromParent ? link.fromDeviceId : null
+    const relatedInterfaces = parentDeviceId
+      ? localInterfacesMatchingObservedName(
+          parentDeviceId,
+          observedName ?? iface?.name ?? null,
+          input.interfaces
+        )
+      : []
     candidates.push({
       scope: classifyNetworkInterfaceScope({
         name: iface?.name ?? observedName,
         interfaceType: iface?.interfaceType,
         description: iface?.description,
+        relatedInterfaces,
       }),
       iface,
       observedName,

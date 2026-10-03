@@ -150,6 +150,33 @@ test("vlan101 y Bridge LAN - vlan101 son LAN/VLAN", () => {
   )
 })
 
+test("etherN,bridgeN es LAN; etherN solo no; WAN/uplink siguen WAN", () => {
+  assert.equal(classifyNetworkInterfaceScope({ name: "ether2,bridge1" }), "lan")
+  assert.equal(classifyNetworkInterfaceScope({ name: "ether3,bridge1" }), "lan")
+  assert.equal(classifyNetworkInterfaceScope({ name: "ether4,bridge1" }), "lan")
+  assert.equal(
+    classifyNetworkInterfaceScope({
+      name: "ether2",
+      interfaceType: "ether",
+      description: null,
+    }),
+    "unknown"
+  )
+  assert.equal(classifyNetworkInterfaceScope({ name: "ether1,WAN" }), "wan")
+  assert.equal(classifyNetworkInterfaceScope({ name: "uplink" }), "wan")
+  assert.equal(
+    classifyNetworkInterfaceScope({
+      name: "ether1,bridge1",
+      relatedInterfaces: [
+        { name: "ether1", interfaceType: "ether", description: "WAN" },
+      ],
+    }),
+    "wan"
+  )
+  const source = read("lib/network/discovery/interface-scope.ts")
+  assert.doesNotMatch(source, /AS5|AS6|AS7|AS 5/)
+})
+
 test("neighbor WAN se conserva observado y no se administra", () => {
   assert.equal(
     isManagedNetworkDevice(
