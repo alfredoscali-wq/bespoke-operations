@@ -15,6 +15,10 @@ import {
   resolveTrustedCompanyId,
   validateNetworkDiscoveryTargetDraft,
 } from "../lib/network/integrity.ts"
+import {
+  NETWORK_DISCOVERY_TRANSPORT_OPTIONS,
+  networkDiscoveryTransportPayload,
+} from "../lib/network/labels.ts"
 import { buildDeviceFingerprint, normalizeMacAddress } from "../lib/network/discovery/fingerprint.ts"
 import { parseDiscoverySnapshot } from "../lib/network/discovery/parse-snapshot.ts"
 import {
@@ -124,9 +128,66 @@ test("destino MikroTik exige credencial y no acepta otros vendors todavía", () 
   })
   assert.equal(ok.ok, true)
   if (ok.ok) {
+    assert.equal(ok.draft.protocol, "api")
     assert.equal(ok.draft.port, defaultNetworkTargetPort("api"))
+    assert.equal(ok.draft.port, 8728)
     assert.equal(ok.draft.password, "secret")
   }
+
+  const ssl = validateNetworkDiscoveryTargetDraft({
+    agentId: "agent-1",
+    name: "ABNet Core",
+    vendor: "mikrotik",
+    host: "177.53.120.11",
+    protocol: "api",
+    port: 8729,
+    username: "bespoke-api",
+    password: "secret",
+  })
+  assert.equal(ssl.ok, true)
+  if (ssl.ok) {
+    assert.equal(ssl.draft.protocol, "api")
+    assert.equal(ssl.draft.port, 8729)
+  }
+
+  const apiSslProtocol = validateNetworkDiscoveryTargetDraft({
+    agentId: "agent-1",
+    name: "ABNet Core",
+    vendor: "mikrotik",
+    host: "177.53.120.11",
+    protocol: "api-ssl",
+    port: 8729,
+    username: "bespoke-api",
+    password: "secret",
+  })
+  assert.equal(apiSslProtocol.ok, false)
+})
+
+test("el selector de Discovery mapea SSL 8729 a protocol api sin api-ssl", () => {
+  const plain = networkDiscoveryTransportPayload("api")
+  assert.deepEqual(plain, { protocol: "api", port: 8728 })
+
+  const ssl = networkDiscoveryTransportPayload("api-8729")
+  assert.deepEqual(ssl, { protocol: "api", port: 8729 })
+  assert.notEqual(ssl.protocol, "api-ssl")
+
+  const rest = networkDiscoveryTransportPayload("rest")
+  assert.deepEqual(rest, { protocol: "rest", port: 443 })
+
+  for (const option of NETWORK_DISCOVERY_TRANSPORT_OPTIONS) {
+    assert.notEqual(option.protocol, "api-ssl")
+    const payload = networkDiscoveryTransportPayload(option.value)
+    assert.notEqual(payload.protocol, "api-ssl")
+  }
+
+  const ui = read("components/network/network-discovery-screen.tsx")
+  const labels = read("lib/network/labels.ts")
+  assert.match(labels, /API RouterOS SSL \(8729\)/)
+  assert.match(ui, /NETWORK_DISCOVERY_TRANSPORT_OPTIONS/)
+  assert.match(ui, /networkDiscoveryTransportPayload/)
+  assert.match(ui, /protocol,\r?\n\s*port/)
+  assert.doesNotMatch(ui, /protocol:\s*["']api-ssl["']/)
+  assert.doesNotMatch(labels, /protocol:\s*["']api-ssl["']/)
 })
 
 test("las contraseñas se cifran y se strippean de resultados", () => {

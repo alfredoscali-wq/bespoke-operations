@@ -30,9 +30,13 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import {
+  NETWORK_DISCOVERY_TRANSPORT_OPTIONS,
   NETWORK_JOB_STATUS_LABELS,
   NETWORK_JOB_STATUS_TONES,
   formatNetworkLastSeen,
+  isNetworkDiscoveryTransport,
+  networkDiscoveryTransportPayload,
+  type NetworkDiscoveryTransport,
 } from "@/lib/network/labels"
 import type {
   NetworkAgent,
@@ -55,7 +59,7 @@ export function NetworkDiscoveryScreen() {
   const [host, setHost] = useState("")
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
-  const [protocol, setProtocol] = useState<"api" | "rest">("api")
+  const [transport, setTransport] = useState<NetworkDiscoveryTransport>("api")
   const [agentId, setAgentId] = useState("")
   const [siteId, setSiteId] = useState("none")
 
@@ -91,6 +95,7 @@ export function NetworkDiscoveryScreen() {
   async function handleCreateTarget() {
     setSaving(true)
     try {
+      const { protocol, port } = networkDiscoveryTransportPayload(transport)
       const response = await fetch("/api/network/targets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -100,6 +105,7 @@ export function NetworkDiscoveryScreen() {
           username,
           password,
           protocol,
+          port,
           vendor: "mikrotik",
           agentId,
           siteId: siteId === "none" ? null : siteId,
@@ -112,6 +118,7 @@ export function NetworkDiscoveryScreen() {
       setHost("")
       setUsername("")
       setPassword("")
+      setTransport("api")
       load()
     } catch (saveError: unknown) {
       setError(
@@ -318,15 +325,20 @@ export function NetworkDiscoveryScreen() {
               </SelectContent>
             </Select>
             <Select
-              value={protocol}
-              onValueChange={(value) => setProtocol(value as "api" | "rest")}
+              value={transport}
+              onValueChange={(value) => {
+                if (isNetworkDiscoveryTransport(value)) setTransport(value)
+              }}
             >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="api">API RouterOS (8728)</SelectItem>
-                <SelectItem value="rest">REST RouterOS 7 (443)</SelectItem>
+                {NETWORK_DISCOVERY_TRANSPORT_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

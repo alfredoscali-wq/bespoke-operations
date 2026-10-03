@@ -6,6 +6,7 @@ import type {
   NetworkJobStatus,
   NetworkJobType,
   NetworkSiteKind,
+  NetworkTargetProtocol,
 } from "@/lib/network/constants"
 
 export const NETWORK_SITE_KIND_LABELS: Record<NetworkSiteKind, string> = {
@@ -88,6 +89,47 @@ export const NETWORK_JOB_STATUS_TONES: Record<NetworkJobStatus, VisualTone> = {
   completed: "green",
   failed: "red",
   cancelled: "gray",
+}
+
+export const NETWORK_DISCOVERY_TRANSPORT_OPTIONS = [
+  {
+    value: "api",
+    label: "API RouterOS (8728)",
+    protocol: "api" as const satisfies NetworkTargetProtocol,
+    port: 8728,
+  },
+  {
+    value: "api-8729",
+    label: "API RouterOS SSL (8729)",
+    protocol: "api" as const satisfies NetworkTargetProtocol,
+    port: 8729,
+  },
+  {
+    value: "rest",
+    label: "REST RouterOS 7 (443)",
+    protocol: "rest" as const satisfies NetworkTargetProtocol,
+    port: 443,
+  },
+] as const
+
+export type NetworkDiscoveryTransport =
+  (typeof NETWORK_DISCOVERY_TRANSPORT_OPTIONS)[number]["value"]
+
+export function isNetworkDiscoveryTransport(
+  value: string
+): value is NetworkDiscoveryTransport {
+  return NETWORK_DISCOVERY_TRANSPORT_OPTIONS.some((option) => option.value === value)
+}
+
+export function networkDiscoveryTransportPayload(
+  transport: NetworkDiscoveryTransport
+): { protocol: NetworkTargetProtocol; port: number } {
+  const option = NETWORK_DISCOVERY_TRANSPORT_OPTIONS.find(
+    (item) => item.value === transport
+  )
+  return option
+    ? { protocol: option.protocol, port: option.port }
+    : { protocol: "api", port: 8728 }
 }
 
 export function formatNetworkLastSeen(value: string | null | undefined): string {
