@@ -1,5 +1,16 @@
 import type { NetworkDeviceType } from "@/lib/network/constants"
 import type { MonitoringOperationalStatus } from "@/lib/network/monitoring/contract"
+import type {
+  LocalCoreTopologyView,
+  LocalTopologyCoreOption,
+} from "@/lib/network/topology/local-view"
+
+export type {
+  LocalCoreTopologyView,
+  LocalTopologyCoreOption,
+  LocalTopologyInterfaceGroup,
+  LocalTopologyObservedDevice,
+} from "@/lib/network/topology/local-view"
 
 export type NetworkTopologyNodeKind = "managed" | "neighbor"
 
@@ -33,4 +44,10 @@ export type NetworkTopologyEdge = {
 export type NetworkTopologyGraph = {
   nodes: NetworkTopologyNode[]
   edges: NetworkTopologyEdge[]
+}
+
+export type NetworkTopologyPage = {
+  graph: NetworkTopologyGraph
+  cores: LocalTopologyCoreOption[]
+  local: LocalCoreTopologyView | null
 }

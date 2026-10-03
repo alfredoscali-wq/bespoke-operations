@@ -96,6 +96,24 @@ export function pickLatestCompletedDiscoveryJob(
   )
 }
 
+export function pickLatestCompletedDiscoveryJobForHost(
+  jobs: readonly DiscoveryJobLike[],
+  host: string | null | undefined
+): LatestDiscoveryJobRef | null {
+  const expected = asNonEmptyString(host)
+  if (!expected) return null
+  const matching = jobs.filter((job) => {
+    const payload = job.payload ?? {}
+    const result = job.result ?? {}
+    const jobHost =
+      asNonEmptyString(job.targetHost) ??
+      asNonEmptyString(payload.host) ??
+      asNonEmptyString(result.primaryManagementIp)
+    return jobHost === expected
+  })
+  return pickLatestCompletedDiscoveryJob(matching)
+}
+
 export function deviceWasSeenInDiscoveryJob(
   device: { agentId: string | null; lastSeenAt?: string | null },
   job: LatestDiscoveryJobRef

@@ -5,6 +5,12 @@ import test from "node:test"
 
 import { isManagedNetworkDevice } from "../lib/network/devices/managed.ts"
 import { NETWORK_MONITORING_STATUS_TTL_MS } from "../lib/network/constants.ts"
+import { buildNetworkDiscoveryObservationView } from "../lib/network/discovery/observations.ts"
+import {
+  filterDevicesSeenInDiscoveryJob,
+  pickLatestCompletedDiscoveryJob,
+  pickLatestCompletedDiscoveryJobForHost,
+} from "../lib/network/discovery/latest-run.ts"
 import { displayMonitoringStatus } from "../lib/network/monitoring/status.ts"
 import { NETWORK_UI_REFETCH_INTERVAL_MS } from "../lib/network/react-query/defaults.ts"
 import { networkQueryKeys } from "../lib/network/react-query/keys.ts"
@@ -20,6 +26,10 @@ import {
   topologyManagedDeviceHref,
   uniqueTopologyInterfaces,
 } from "../lib/network/topology/graph.ts"
+import {
+  buildLocalCoreTopologyView,
+  isLikelyCustomerCpe,
+} from "../lib/network/topology/local-view.ts"
 
 const root = resolve(import.meta.dirname, "..")
 
@@ -146,8 +156,9 @@ test("1: la ruta /network/topology existe", () => {
 })
 
 test("2: existe la API y query de topology", () => {
-  assert.match(read("app/api/network/topology/route.ts"), /getNetworkTopologyGraph/)
+  assert.match(read("app/api/network/topology/route.ts"), /getNetworkTopologyPage/)
   assert.match(read("lib/network/topology/queries.ts"), /export async function getNetworkTopologyGraph/)
+  assert.match(read("lib/network/topology/queries.ts"), /export async function getNetworkTopologyPage/)
 })
 
 test("3: el grafo devuelve nodes y edges", () => {
@@ -712,9 +723,9 @@ test("hotfix refresh: 15s, query key, endpoint y sin timers/Realtime", () => {
   assert.doesNotMatch(hook, /realtime|channel\(/i)
   const route = read("app/api/network/topology/route.ts")
   assert.match(route, /export async function GET/)
-  assert.match(route, /getNetworkTopologyGraph/)
+  assert.match(route, /getNetworkTopologyPage/)
   const screen = read("components/network/network-topology-screen.tsx")
-  assert.match(screen, /useNetworkTopologyQuery\(\)/)
+  assert.match(screen, /useNetworkTopologyQuery\(/)
   assert.doesNotMatch(screen, /fetch\(/)
   assert.doesNotMatch(screen, /setInterval/)
   assert.doesNotMatch(screen, /setTimeout/)
@@ -764,6 +775,423 @@ test("hotfix refresh: freshness 2.6 sigue en lectura y puede verse en el próxim
     displayMonitoringStatus("online", "2026-08-30T16:00:00.000Z", Date.parse("2026-08-30T16:05:00.000Z")),
     "unknown"
   )
+})
+
+const MALAGUENO_CORE = "dev-core-malagueno"
+const POWERBOX = "dev-powerbox"
+const AS5 = "dev-as5"
+const AS6 = "dev-as6"
+const AS7 = "dev-as7"
+const PILAR = "dev-pilar"
+const BORDER = "dev-border"
+const HAP_1 = "dev-hap-1"
+const HAP_2 = "dev-hap-2"
+const HISTORICAL = "dev-historical"
+
+function malaguenoObservationInput() {
+  const targets = [
+    { companyId: COMPANY, agentId: AGENT, host: "177.53.120.11" },
+  ]
+  const interfaces = [
+    {
+      id: "if-wan",
+      deviceId: MALAGUENO_CORE,
+      name: "ether1",
+      description: "WAN",
+      interfaceType: "ether",
+    },
+    {
+      id: "if-bridge",
+      deviceId: MALAGUENO_CORE,
+      name: "Bridge LAN - vlan101",
+      description: "LAN",
+      interfaceType: "bridge",
+    },
+    {
+      id: "if-ether4",
+      deviceId: MALAGUENO_CORE,
+      name: "ether4",
+      description: "LAN",
+      interfaceType: "ether",
+    },
+  ]
+  const devices = [
+    {
+      id: MALAGUENO_CORE,
+      companyId: COMPANY,
+      agentId: AGENT,
+      managementIp: "177.53.120.11",
+      hostname: "RB3011 - Core Malagueño",
+      origin: "discovery",
+      lastSeenAt: "2026-10-03T12:00:10.000Z",
+    },
+    {
+      id: POWERBOX,
+      companyId: COMPANY,
+      agentId: AGENT,
+      managementIp: "10.100.101.4",
+      hostname: "PowerBox Malagueño",
+      macAddress: "aa:aa:aa:aa:aa:04",
+      manufacturer: "MikroTik",
+      model: "RB960PGS",
+      origin: "neighbor",
+      lastSeenAt: "2026-10-03T12:00:10.000Z",
+    },
+    {
+      id: AS5,
+      companyId: COMPANY,
+      agentId: AGENT,
+      managementIp: "10.100.101.11",
+      hostname: "AS5",
+      macAddress: "aa:aa:aa:aa:aa:05",
+      model: "RBwAPG-5HacT2HnD",
+      origin: "neighbor",
+      lastSeenAt: "2026-10-03T12:00:10.000Z",
+    },
+    {
+      id: AS6,
+      companyId: COMPANY,
+      agentId: AGENT,
+      managementIp: "10.100.101.14",
+      hostname: "AS6",
+      origin: "neighbor",
+      lastSeenAt: "2026-10-03T12:00:10.000Z",
+    },
+    {
+      id: AS7,
+      companyId: COMPANY,
+      agentId: AGENT,
+      managementIp: "10.100.101.13",
+      hostname: "AS7",
+      origin: "neighbor",
+      lastSeenAt: "2026-10-03T12:00:10.000Z",
+    },
+    {
+      id: PILAR,
+      companyId: COMPANY,
+      agentId: AGENT,
+      managementIp: "10.20.0.1",
+      hostname: "ALS - Pilar",
+      origin: "neighbor",
+      lastSeenAt: "2026-10-03T12:00:10.000Z",
+    },
+    {
+      id: BORDER,
+      companyId: COMPANY,
+      agentId: AGENT,
+      managementIp: "10.30.0.1",
+      hostname: "Border Rio Segundo",
+      origin: "neighbor",
+      lastSeenAt: "2026-10-03T12:00:10.000Z",
+    },
+    {
+      id: HAP_1,
+      companyId: COMPANY,
+      agentId: AGENT,
+      managementIp: "10.168.1.10",
+      hostname: "Humberto lara",
+      model: "hAP ac2",
+      deviceType: "router",
+      origin: "neighbor",
+      lastSeenAt: "2026-10-03T12:00:10.000Z",
+    },
+    {
+      id: HAP_2,
+      companyId: COMPANY,
+      agentId: AGENT,
+      managementIp: "10.168.1.11",
+      hostname: "CPE Casa 2",
+      model: "hAP lite",
+      deviceType: "cpe",
+      origin: "neighbor",
+      lastSeenAt: "2026-10-03T12:00:10.000Z",
+    },
+  ]
+  const links = [
+    {
+      fromDeviceId: MALAGUENO_CORE,
+      toDeviceId: PILAR,
+      fromInterfaceId: "if-wan",
+      fromInterfaceName: "ether1",
+      toInterfaceId: null,
+      protocol: "mndp",
+    },
+    {
+      fromDeviceId: MALAGUENO_CORE,
+      toDeviceId: BORDER,
+      fromInterfaceId: "if-wan",
+      fromInterfaceName: "ether1",
+      toInterfaceId: null,
+      protocol: "mndp",
+    },
+    {
+      fromDeviceId: MALAGUENO_CORE,
+      toDeviceId: POWERBOX,
+      fromInterfaceId: "if-bridge",
+      fromInterfaceName: "ether3",
+      toInterfaceId: null,
+      protocol: "mndp",
+    },
+    {
+      fromDeviceId: MALAGUENO_CORE,
+      toDeviceId: AS5,
+      fromInterfaceId: "if-bridge",
+      fromInterfaceName: "ether3",
+      toInterfaceId: null,
+      protocol: "mndp",
+    },
+    {
+      fromDeviceId: MALAGUENO_CORE,
+      toDeviceId: AS6,
+      fromInterfaceId: "if-bridge",
+      fromInterfaceName: "ether3",
+      toInterfaceId: null,
+      protocol: "mndp",
+    },
+    {
+      fromDeviceId: MALAGUENO_CORE,
+      toDeviceId: AS7,
+      fromInterfaceId: "if-bridge",
+      fromInterfaceName: "ether3",
+      toInterfaceId: null,
+      protocol: "mndp",
+    },
+    {
+      fromDeviceId: MALAGUENO_CORE,
+      toDeviceId: HAP_1,
+      fromInterfaceId: "if-bridge",
+      fromInterfaceName: "ether3",
+      toInterfaceId: null,
+      protocol: "mndp",
+    },
+    {
+      fromDeviceId: MALAGUENO_CORE,
+      toDeviceId: HAP_2,
+      fromInterfaceId: "if-ether4",
+      fromInterfaceName: "ether4",
+      toInterfaceId: null,
+      protocol: "mndp",
+    },
+  ]
+  return { devices, targets, links, interfaces }
+}
+
+function buildMalaguenoLocalView(extraDevices = []) {
+  const input = malaguenoObservationInput()
+  const observations = buildNetworkDiscoveryObservationView({
+    ...input,
+    devices: [...input.devices, ...extraDevices],
+  })
+  const deviceMeta = new Map(
+    [...input.devices, ...extraDevices].map((device) => [
+      device.id,
+      {
+        deviceType: device.deviceType ?? null,
+        lastSeenAt: device.lastSeenAt ?? null,
+      },
+    ])
+  )
+  return buildLocalCoreTopologyView({
+    core: {
+      id: MALAGUENO_CORE,
+      hostname: "RB3011 - Core Malagueño",
+      managementIp: "177.53.120.11",
+      operationalStatus: "online",
+      lastPollAt: "2026-10-03T12:05:00.000Z",
+    },
+    jobId: "job-malagueno",
+    observations: observations.items,
+    links: input.links,
+    deviceMeta,
+  })
+}
+
+test("1.0 A: el Core aparece en la vista local", () => {
+  const local = buildMalaguenoLocalView()
+  assert.equal(local.core.id, MALAGUENO_CORE)
+  assert.equal(local.core.hostname, "RB3011 - Core Malagueño")
+  assert.equal(local.core.managementIp, "177.53.120.11")
+  const screen = read("components/network/network-topology-screen.tsx")
+  assert.match(screen, /LocalCoreTree/)
+  assert.match(screen, /LAN \/ VLAN/)
+})
+
+test("1.0 B: observaciones WAN no aparecen en la topología local", () => {
+  const local = buildMalaguenoLocalView()
+  const ids = local.interfaceGroups.flatMap((group) =>
+    group.devices.map((device) => device.id)
+  )
+  assert.equal(ids.includes(PILAR), false)
+  assert.equal(ids.includes(BORDER), false)
+  assert.equal(local.wanObservedCount, 2)
+  const screen = read("components/network/network-topology-screen.tsx")
+  assert.match(screen, /WAN observado/)
+  assert.doesNotMatch(
+    read("lib/network/topology/local-view.ts"),
+    /classifyNetworkInterfaceScope/
+  )
+})
+
+test("1.0 C: observaciones LAN/VLAN sí aparecen", () => {
+  const local = buildMalaguenoLocalView()
+  const ether3 = local.interfaceGroups.find((group) => group.interfaceName === "ether3")
+  assert.ok(ether3)
+  const ids = ether3.devices.map((device) => device.id)
+  assert.equal(ids.includes(POWERBOX), true)
+  assert.equal(ids.includes(AS5), true)
+  assert.equal(ids.includes(AS6), true)
+  assert.equal(ids.includes(AS7), true)
+})
+
+test("1.0 D: from_interface_name se conserva y se muestra", () => {
+  const local = buildMalaguenoLocalView()
+  const ether3 = local.interfaceGroups.find((group) => group.interfaceName === "ether3")
+  assert.equal(ether3.interfaceName, "ether3")
+  for (const device of ether3.devices) {
+    assert.equal(device.observedInterfaceName, "ether3")
+  }
+  assert.equal(
+    local.interfaceGroups.some((group) => group.interfaceName === "Bridge LAN - vlan101"),
+    false
+  )
+  const screen = read("components/network/network-topology-screen.tsx")
+  assert.match(screen, /observedInterfaceName/)
+})
+
+test("1.0 E: CPE no se dibuja como nodo principal y puede contabilizarse", () => {
+  assert.equal(
+    isLikelyCustomerCpe({ hostname: "Humberto lara", board: "hAP ac2" }),
+    true
+  )
+  const local = buildMalaguenoLocalView()
+  const ids = local.interfaceGroups.flatMap((group) =>
+    group.devices.map((device) => device.id)
+  )
+  assert.equal(ids.includes(HAP_1), false)
+  assert.equal(ids.includes(HAP_2), false)
+  assert.equal(local.cpeObservedCount, 2)
+  const ether3 = local.interfaceGroups.find((group) => group.interfaceName === "ether3")
+  const ether4 = local.interfaceGroups.find((group) => group.interfaceName === "ether4")
+  assert.equal(ether3.cpeCount, 1)
+  assert.equal(ether4.cpeCount, 1)
+  const screen = read("components/network/network-topology-screen.tsx")
+  assert.match(screen, /CPE observados/)
+})
+
+test("1.0 F: no se inventa jerarquía PowerBox → AS5/AS6/AS7", () => {
+  const local = buildMalaguenoLocalView()
+  const ether3 = local.interfaceGroups.find((group) => group.interfaceName === "ether3")
+  const siblingIds = ether3.devices.map((device) => device.id).sort()
+  assert.deepEqual(siblingIds, [AS5, AS6, AS7, POWERBOX].sort())
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(ether3.devices[0], "children"),
+    false
+  )
+  const localView = read("lib/network/topology/local-view.ts")
+  assert.doesNotMatch(localView, /parentDeviceId/)
+  assert.doesNotMatch(localView, /powerbox.*as5/i)
+})
+
+test("1.0 G: topology no inventa estado si no hay network_device_status", () => {
+  const local = buildMalaguenoLocalView()
+  const as5 = local.interfaceGroups
+    .flatMap((group) => group.devices)
+    .find((device) => device.id === AS5)
+  assert.equal(as5.operationalStatus, null)
+  assert.equal(as5.lastPollAt, null)
+  const queries = read("lib/network/topology/queries.ts")
+  assert.match(queries, /statusByDeviceId/)
+  assert.doesNotMatch(queries, /operationalStatus: "online"/)
+})
+
+test("1.0 H: usa el último discovery del host y no mezcla históricos", () => {
+  const latestJob = pickLatestCompletedDiscoveryJobForHost(
+    [
+      {
+        id: "job-other",
+        status: "completed",
+        agentId: AGENT,
+        startedAt: "2026-10-03T11:00:00.000Z",
+        completedAt: "2026-10-03T11:01:00.000Z",
+        targetHost: "10.0.0.1",
+        payload: { host: "10.0.0.1" },
+      },
+      {
+        id: "job-malagueno",
+        status: "completed",
+        agentId: AGENT,
+        startedAt: "2026-10-03T12:00:00.000Z",
+        completedAt: "2026-10-03T12:00:20.000Z",
+        targetHost: "177.53.120.11",
+        payload: { host: "177.53.120.11" },
+      },
+    ],
+    "177.53.120.11"
+  )
+  assert.equal(latestJob.id, "job-malagueno")
+  const companyLatest = pickLatestCompletedDiscoveryJob([
+    {
+      id: "job-other-later",
+      status: "completed",
+      agentId: AGENT,
+      startedAt: "2026-10-03T13:00:00.000Z",
+      completedAt: "2026-10-03T13:01:00.000Z",
+      targetHost: "10.0.0.1",
+      payload: { host: "10.0.0.1" },
+    },
+    {
+      id: "job-malagueno",
+      status: "completed",
+      agentId: AGENT,
+      startedAt: "2026-10-03T12:00:00.000Z",
+      completedAt: "2026-10-03T12:00:20.000Z",
+      targetHost: "177.53.120.11",
+      payload: { host: "177.53.120.11" },
+    },
+  ])
+  assert.equal(companyLatest.id, "job-other-later")
+  const seen = filterDevicesSeenInDiscoveryJob(
+    [
+      { id: AS5, agentId: AGENT, lastSeenAt: "2026-10-03T12:00:10.000Z" },
+      { id: HISTORICAL, agentId: AGENT, lastSeenAt: "2026-10-03T11:00:30.000Z" },
+    ],
+    latestJob
+  )
+  assert.deepEqual(
+    seen.map((device) => device.id),
+    [AS5]
+  )
+  const queries = read("lib/network/topology/queries.ts")
+  assert.match(queries, /getLatestNetworkDiscoveryObservationsForHost/)
+  assert.match(
+    read("lib/network/discovery/observation-queries.ts"),
+    /pickLatestCompletedDiscoveryJobForHost/
+  )
+  const local = buildMalaguenoLocalView([
+    {
+      id: HISTORICAL,
+      companyId: COMPANY,
+      agentId: AGENT,
+      managementIp: "10.9.9.9",
+      hostname: "Viejo histórico",
+      origin: "neighbor",
+      lastSeenAt: "2026-10-03T11:00:30.000Z",
+    },
+  ])
+  const ids = local.interfaceGroups.flatMap((group) =>
+    group.devices.map((device) => device.id)
+  )
+  assert.equal(ids.includes(HISTORICAL), false)
+})
+
+test("1.0 UI: selector de Core y drawer de observados", () => {
+  const screen = read("components/network/network-topology-screen.tsx")
+  assert.match(screen, /selectedCoreId/)
+  assert.match(screen, /SelectedObservedPanel/)
+  assert.match(screen, /Interfaz observada/)
+  assert.match(screen, /Discovered-by/)
+  assert.match(screen, /Último seen/)
+  assert.match(read("app/api/network/topology/route.ts"), /deviceId/)
 })
 
 

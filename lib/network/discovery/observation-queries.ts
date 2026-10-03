@@ -6,6 +6,7 @@ import type { Database } from "@/lib/supabase/database.types"
 import {
   emptyNetworkDiscoveryLatestObservationView,
   pickLatestCompletedDiscoveryJob,
+  pickLatestCompletedDiscoveryJobForHost,
   withLatestDiscoveryJobMeta,
   type NetworkDiscoveryLatestObservationView,
 } from "@/lib/network/discovery/latest-run"
@@ -23,7 +24,7 @@ import type { NetworkDiscoveryJobView } from "@/lib/network/types"
 type Client = SupabaseClient<Database>
 
 const DEVICE_COLUMNS =
-  "id, company_id, agent_id, management_ip, hostname, mac_address, manufacturer, model, firmware_version, origin, last_seen_at"
+  "id, company_id, agent_id, management_ip, hostname, mac_address, manufacturer, model, firmware_version, origin, last_seen_at, device_type"
 
 type ObservationSource = {
   devices: NetworkObservationDeviceRow[]
@@ -50,6 +51,7 @@ function mapDeviceRows(
     firmware_version: string | null
     origin: string
     last_seen_at: string
+    device_type?: string | null
   }[]
 ): NetworkObservationDeviceRow[] {
   return rows.map((row) => ({
@@ -64,6 +66,7 @@ function mapDeviceRows(
     firmwareVersion: row.firmware_version,
     origin: row.origin,
     lastSeenAt: row.last_seen_at,
+    deviceType: row.device_type ?? null,
   }))
 }
 
@@ -181,5 +184,49 @@ export async function getNetworkDiscoveryObservationSets(
       buildView(source, mapDeviceRows(latestRows.data ?? [])),
       latestJob
     ),
+  }
+}
+
+export type LatestHostDiscoveryObservations = {
+  latestObservations: NetworkDiscoveryLatestObservationView
+  devices: NetworkObservationDeviceRow[]
+  links: NetworkObservationLinkRow[]
+}
+
+export async function getLatestNetworkDiscoveryObservationsForHost(
+  client: Client,
+  companyId: string,
+  jobs: readonly NetworkDiscoveryJobView[],
+  host: string | null | undefined
+): Promise<LatestHostDiscoveryObservations> {
+  const source = await loadObservationSource(client, companyId)
+  const latestJob = pickLatestCompletedDiscoveryJobForHost(jobs, host)
+  if (!latestJob) {
+    return {
+      latestObservations: emptyNetworkDiscoveryLatestObservationView(),
+      devices: [],
+      links: source.links,
+    }
+  }
+
+  const latestRows = await client
+    .from("network_devices")
+    .select(DEVICE_COLUMNS)
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .eq("agent_id", latestJob.agentId)
+    .gte("last_seen_at", latestJob.startedAt)
+    .lte("last_seen_at", latestJob.completedAt)
+
+  if (latestRows.error) throw new Error(latestRows.error.message)
+
+  const devices = mapDeviceRows(latestRows.data ?? [])
+  return {
+    latestObservations: withLatestDiscoveryJobMeta(
+      buildView(source, devices),
+      latestJob
+    ),
+    devices,
+    links: source.links,
   }
 }

@@ -5,15 +5,23 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import type { Database } from "@/lib/supabase/database.types"
 import { isManagedNetworkDevice } from "@/lib/network/devices/managed"
 import { NETWORK_DEVICE_TYPES, type NetworkDeviceType } from "@/lib/network/constants"
+import { listNetworkDiscoveryJobs } from "@/lib/network/jobs/queries"
+import { getLatestNetworkDiscoveryObservationsForHost } from "@/lib/network/discovery/observation-queries"
 import { listNetworkDeviceOperationalStatuses } from "@/lib/network/monitoring/queries"
+import type { MonitoringOperationalStatus } from "@/lib/network/monitoring/contract"
 import {
   buildCanonicalTopologyGraph,
   uniqueTopologyInterfaces,
   type TopologyGraphDeviceInput,
 } from "@/lib/network/topology/graph"
+import {
+  buildLocalCoreTopologyView,
+  emptyLocalCoreTopologyView,
+} from "@/lib/network/topology/local-view"
 import type {
   NetworkTopologyGraph,
   NetworkTopologyInterface,
+  NetworkTopologyPage,
 } from "@/lib/network/topology/types"
 
 type Client = SupabaseClient<Database>
@@ -22,6 +30,18 @@ function asDeviceType(value: string): NetworkDeviceType {
   return (NETWORK_DEVICE_TYPES as readonly string[]).includes(value)
     ? (value as NetworkDeviceType)
     : "other"
+}
+
+function asOperationalStatus(value: string | null | undefined): MonitoringOperationalStatus | null {
+  if (
+    value === "online" ||
+    value === "offline" ||
+    value === "degraded" ||
+    value === "unknown"
+  ) {
+    return value
+  }
+  return null
 }
 
 export async function getNetworkTopologyGraph(
@@ -132,4 +152,86 @@ export async function getNetworkTopologyGraph(
   })
 
   return buildCanonicalTopologyGraph(devices, rawLinks)
+}
+
+export async function getNetworkTopologyPage(
+  client: Client,
+  companyId: string,
+  deviceId?: string | null
+): Promise<NetworkTopologyPage> {
+  const graph = await getNetworkTopologyGraph(client, companyId)
+  const cores = graph.nodes
+    .filter((node) => node.kind === "managed")
+    .map((node) => ({
+      id: node.id,
+      hostname: node.hostname,
+      managementIp: node.managementIp,
+      operationalStatus: node.operationalStatus,
+    }))
+
+  const selected =
+    (deviceId ? cores.find((core) => core.id === deviceId) : null) ?? cores[0] ?? null
+  if (!selected) {
+    return { graph, cores, local: null }
+  }
+
+  const coreNode = graph.nodes.find((node) => node.id === selected.id) ?? null
+  const core = {
+    id: selected.id,
+    hostname: selected.hostname,
+    managementIp: selected.managementIp,
+    operationalStatus: coreNode?.operationalStatus ?? selected.operationalStatus,
+    lastPollAt: coreNode?.lastPollAt ?? null,
+  }
+
+  const jobs = await listNetworkDiscoveryJobs(client, companyId)
+  const latest = await getLatestNetworkDiscoveryObservationsForHost(
+    client,
+    companyId,
+    jobs,
+    selected.managementIp
+  )
+  const statuses = await listNetworkDeviceOperationalStatuses(client, companyId)
+  const deviceMeta = new Map(
+    latest.devices.map((device) => [
+      device.id,
+      {
+        deviceType: device.deviceType ?? null,
+        lastSeenAt: device.lastSeenAt ?? null,
+      },
+    ])
+  )
+  const statusByDeviceId = new Map<
+    string,
+    { status: MonitoringOperationalStatus | null; lastPollAt: string | null }
+  >(
+    [...statuses.entries()].map(([id, row]) => [
+      id,
+      {
+        status: asOperationalStatus(row.status),
+        lastPollAt: row.lastPollAt,
+      },
+    ])
+  )
+
+  if (!latest.latestObservations.jobId) {
+    return {
+      graph,
+      cores,
+      local: emptyLocalCoreTopologyView(core),
+    }
+  }
+
+  return {
+    graph,
+    cores,
+    local: buildLocalCoreTopologyView({
+      core,
+      jobId: latest.latestObservations.jobId,
+      observations: latest.latestObservations.items,
+      links: latest.links,
+      deviceMeta,
+      statusByDeviceId,
+    }),
+  }
 }
