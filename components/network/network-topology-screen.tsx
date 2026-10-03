@@ -22,6 +22,7 @@ import {
 } from "@/lib/network/topology/graph"
 import type {
   LocalCoreTopologyView,
+  LocalTopologyInterfaceGroup,
   LocalTopologyObservedDevice,
   NetworkTopologyEdge,
   NetworkTopologyNode,
@@ -73,11 +74,24 @@ function statusDotClass(status: string | null | undefined): string {
   return "bg-slate-400"
 }
 
+function monitoringLabel(status: string | null | undefined): string {
+  if (
+    status === "online" ||
+    status === "offline" ||
+    status === "degraded" ||
+    status === "unknown"
+  ) {
+    return NETWORK_DEVICE_STATUS_LABELS[status]
+  }
+  return "Sin monitoreo"
+}
+
 export function NetworkTopologyScreen() {
   const [selectedCoreId, setSelectedCoreId] = useState<string | null>(null)
   const { data, error, isPending } = useNetworkTopologyQuery(selectedCoreId)
   const [selection, setSelection] = useState<TopologySelection | null>(null)
   const [observedId, setObservedId] = useState<string | null>(null)
+  const [cpeGroupKey, setCpeGroupKey] = useState<string | null>(null)
   const graph = data?.graph ?? { nodes: [], edges: [] }
   const cores = data?.cores ?? []
   const local = data?.local ?? null
@@ -96,18 +110,25 @@ export function NetworkTopologyScreen() {
     const map = new Map<string, LocalTopologyObservedDevice>()
     for (const group of local?.interfaceGroups ?? []) {
       for (const device of group.devices) map.set(device.id, device)
+      for (const device of group.cpes) map.set(device.id, device)
     }
     return map
   }, [local])
+  const selectedCpeGroup =
+    cpeGroupKey != null
+      ? (local?.interfaceGroups.find(
+          (group) => (group.interfaceName ?? "") === cpeGroupKey
+        ) ?? null)
+      : null
   const selectedObserved = observedId ? (observedById.get(observedId) ?? null) : null
   const selectedNode =
-    !selectedObserved && activeSelection?.kind === "node"
+    !selectedObserved && !selectedCpeGroup && activeSelection?.kind === "node"
       ? (byId.get(activeSelection.id) ??
           graph.nodes.find((node) => node.id === activeSelection.id) ??
           null)
       : null
   const selectedEdge =
-    !selectedObserved && activeSelection?.kind === "edge"
+    !selectedObserved && !selectedCpeGroup && activeSelection?.kind === "edge"
       ? (graph.edges.find((edge) => edge.id === activeSelection.id) ?? null)
       : null
   const relatedEdges = useMemo(
@@ -129,14 +150,26 @@ export function NetworkTopologyScreen() {
         ? "No se pudo cargar la topología."
         : null
 
-  function selectCoreNode(coreId: string) {
+  function clearLocalSelection() {
     setObservedId(null)
+    setCpeGroupKey(null)
+  }
+
+  function selectCoreNode(coreId: string) {
+    clearLocalSelection()
     setSelection({ kind: "node", id: coreId })
   }
 
   function selectObserved(deviceId: string) {
     setSelection(null)
+    setCpeGroupKey(null)
     setObservedId(deviceId)
+  }
+
+  function selectCpeGroup(interfaceName: string | null) {
+    setSelection(null)
+    setObservedId(null)
+    setCpeGroupKey(interfaceName ?? "")
   }
 
   return (
@@ -144,49 +177,29 @@ export function NetworkTopologyScreen() {
       <div className="space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight">Topología</h1>
         <p className="text-sm text-muted-foreground">
-          Vista local del Core seleccionado: observaciones LAN/VLAN del último
-          discovery, agrupadas por interfaz.
+          Infraestructura local del Core seleccionado, agrupada por interfaz.
         </p>
         <NetworkSubnav current="topology" />
       </div>
 
       {cores.length > 0 ? (
-        <div className="flex flex-wrap items-end gap-3">
-          <label className="space-y-1 text-sm">
-            <span className="text-muted-foreground">Core</span>
-            <select
-              className="block h-9 min-w-64 rounded-md border bg-background px-3"
-              value={activeCoreId ?? ""}
-              onChange={(event) => {
-                setSelectedCoreId(event.target.value)
-                setObservedId(null)
-                setSelection({ kind: "node", id: event.target.value })
-              }}
-            >
-              {cores.map((core) => (
-                <option key={core.id} value={core.id}>
-                  {core.hostname || core.managementIp || core.id}
-                </option>
-              ))}
-            </select>
-          </label>
-          {local?.core ? (
-            <div className="flex items-center gap-2 pb-1 text-sm">
-              <span
-                className={cn(
-                  "inline-block size-2.5 rounded-full",
-                  statusDotClass(local.core.operationalStatus)
-                )}
-              />
-              <span>
-                Estado:{" "}
-                {local.core.operationalStatus
-                  ? NETWORK_DEVICE_STATUS_LABELS[local.core.operationalStatus]
-                  : "Sin monitoring"}
-              </span>
-            </div>
-          ) : null}
-        </div>
+        <label className="block w-fit space-y-1 text-sm">
+          <span className="text-muted-foreground">Core</span>
+          <select
+            className="block h-9 min-w-64 rounded-md border bg-background px-3"
+            value={activeCoreId ?? ""}
+            onChange={(event) => {
+              setSelectedCoreId(event.target.value)
+              selectCoreNode(event.target.value)
+            }}
+          >
+            {cores.map((core) => (
+              <option key={core.id} value={core.id}>
+                {core.hostname || core.managementIp || core.id}
+              </option>
+            ))}
+          </select>
+        </label>
       ) : null}
 
       {loadError && !data ? (
@@ -201,11 +214,17 @@ export function NetworkTopologyScreen() {
             <LocalCoreTree
               local={local}
               selectedCoreId={
-                selectedObserved ? null : (activeSelection?.kind === "node" ? activeSelection.id : null)
+                selectedObserved || selectedCpeGroup
+                  ? null
+                  : activeSelection?.kind === "node"
+                    ? activeSelection.id
+                    : null
               }
               selectedObservedId={observedId}
+              selectedCpeGroupKey={cpeGroupKey}
               onSelectCore={() => selectCoreNode(local.core.id)}
               onSelectObserved={selectObserved}
+              onSelectCpeGroup={selectCpeGroup}
             />
           ) : graph.nodes.length === 0 ? (
             <p className="p-6 text-sm text-muted-foreground">
@@ -224,7 +243,7 @@ export function NetworkTopologyScreen() {
                 height={CANVAS_HEIGHT}
                 fill="transparent"
                 onClick={() => {
-                  setObservedId(null)
+                  clearLocalSelection()
                   setSelection(null)
                 }}
               />
@@ -242,7 +261,7 @@ export function NetworkTopologyScreen() {
                     className="cursor-pointer"
                     onClick={(event) => {
                       event.stopPropagation()
-                      setObservedId(null)
+                      clearLocalSelection()
                       setSelection({ kind: "edge", id: edge.id })
                     }}
                   >
@@ -332,6 +351,12 @@ export function NetworkTopologyScreen() {
               device={selectedObserved}
               onClose={() => setObservedId(null)}
             />
+          ) : selectedCpeGroup ? (
+            <SelectedCpeGroupPanel
+              group={selectedCpeGroup}
+              onClose={() => setCpeGroupKey(null)}
+              onSelectObserved={selectObserved}
+            />
           ) : selectedNode ? (
             <SelectedNodePanel
               node={selectedNode}
@@ -339,7 +364,7 @@ export function NetworkTopologyScreen() {
               nodesById={byId}
               onClose={() => setSelection(null)}
               onSelectEdge={(edgeId) => {
-                setObservedId(null)
+                clearLocalSelection()
                 setSelection({ kind: "edge", id: edgeId })
               }}
             />
@@ -364,113 +389,190 @@ function LocalCoreTree({
   local,
   selectedCoreId,
   selectedObservedId,
+  selectedCpeGroupKey,
   onSelectCore,
   onSelectObserved,
+  onSelectCpeGroup,
 }: {
   local: LocalCoreTopologyView
   selectedCoreId: string | null
   selectedObservedId: string | null
+  selectedCpeGroupKey: string | null
   onSelectCore: () => void
   onSelectObserved: (deviceId: string) => void
+  onSelectCpeGroup: (interfaceName: string | null) => void
 }) {
   const coreSelected = selectedCoreId === local.core.id
   return (
-    <div className="space-y-4 p-6 font-mono text-sm">
-      <button
-        type="button"
-        className={cn(
-          "w-full rounded-md border px-3 py-2 text-left",
-          coreSelected ? "border-foreground" : "border-transparent hover:border-border"
-        )}
-        onClick={onSelectCore}
-      >
-        <p className="text-xs font-sans font-medium uppercase tracking-wide text-muted-foreground">
-          {local.core.hostname || "Core"}
-        </p>
-        <p className="flex items-center gap-2 font-sans text-base font-semibold">
-          <span
-            className={cn(
-              "inline-block size-2.5 rounded-full",
-              statusDotClass(local.core.operationalStatus)
-            )}
-          />
-          {local.core.hostname || local.core.managementIp || "Core"}
-        </p>
-        {local.core.managementIp ? (
-          <p className="font-sans text-muted-foreground">{local.core.managementIp}</p>
-        ) : null}
-      </button>
+    <div className="min-w-max p-6">
+      <div className="flex flex-col items-center">
+        <button
+          type="button"
+          className={cn(
+            "w-[280px] rounded-xl border bg-background px-5 py-4 text-left shadow-sm",
+            coreSelected ? "border-foreground ring-2 ring-foreground/20" : "hover:border-foreground/40"
+          )}
+          onClick={onSelectCore}
+        >
+          <p className="text-[11px] font-semibold tracking-[0.18em] text-muted-foreground">
+            CORE
+          </p>
+          <p className="mt-2 text-base font-semibold leading-tight">
+            {local.core.hostname || local.core.managementIp || "Core"}
+          </p>
+          {local.core.managementIp ? (
+            <p className="mt-1 text-sm text-muted-foreground">{local.core.managementIp}</p>
+          ) : null}
+          <p className="mt-3 flex items-center gap-2 text-sm">
+            <span
+              className={cn(
+                "inline-block size-2.5 rounded-full",
+                statusDotClass(local.core.operationalStatus)
+              )}
+            />
+            {monitoringLabel(local.core.operationalStatus)}
+          </p>
+        </button>
 
-      <div>
-        <p className="mb-2 font-sans text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          LAN / VLAN
-        </p>
         {local.interfaceGroups.length === 0 ? (
-          <p className="font-sans text-muted-foreground">
-            No hay observaciones LAN/VLAN en el último discovery de este Core.
+          <p className="mt-8 max-w-sm text-center text-sm text-muted-foreground">
+            No hay infraestructura LAN/VLAN en el último discovery de este Core.
           </p>
         ) : (
-          <ul className="space-y-3">
-            {local.interfaceGroups.map((group) => (
-              <li key={group.interfaceName ?? "sin-interfaz"}>
-                <p className="font-semibold">
-                  {group.interfaceName || "Sin interfaz observada"}
-                </p>
-                <ul className="ml-4 border-l pl-4">
-                  {group.devices.map((device) => {
-                    const selected = selectedObservedId === device.id
-                    return (
-                      <li key={device.id}>
-                        <button
-                          type="button"
-                          className={cn(
-                            "w-full rounded px-1 py-1 text-left",
-                            selected ? "bg-muted" : "hover:bg-muted/60"
-                          )}
-                          onClick={() => onSelectObserved(device.id)}
-                        >
-                          <span className="flex items-center gap-2">
-                            <span
-                              className={cn(
-                                "inline-block size-2 rounded-full",
-                                statusDotClass(device.operationalStatus)
-                              )}
-                            />
-                            <span>
-                              {device.hostname || device.managementIp || device.id}
-                            </span>
-                          </span>
-                          {device.managementIp ? (
-                            <span className="block pl-4 text-xs text-muted-foreground">
-                              {device.managementIp}
-                            </span>
-                          ) : null}
-                        </button>
-                      </li>
-                    )
-                  })}
-                  {group.cpeCount > 0 ? (
-                    <li className="py-1 text-muted-foreground">
-                      CPE observados: {group.cpeCount}
-                    </li>
-                  ) : null}
-                </ul>
-              </li>
-            ))}
-          </ul>
+          <>
+            <div className="h-8 w-px bg-border" />
+            <div className="flex items-start gap-5">
+              {local.interfaceGroups.map((group) => (
+                <InterfaceBranch
+                  key={group.interfaceName ?? "sin-interfaz"}
+                  group={group}
+                  selectedObservedId={selectedObservedId}
+                  cpeSelected={selectedCpeGroupKey === (group.interfaceName ?? "")}
+                  onSelectObserved={onSelectObserved}
+                  onSelectCpeGroup={() => onSelectCpeGroup(group.interfaceName)}
+                />
+              ))}
+            </div>
+          </>
         )}
       </div>
+    </div>
+  )
+}
 
-      {local.cpeObservedCount > 0 ? (
-        <p className="font-sans text-sm text-muted-foreground">
-          CPE observados: {local.cpeObservedCount}
+function InterfaceBranch({
+  group,
+  selectedObservedId,
+  cpeSelected,
+  onSelectObserved,
+  onSelectCpeGroup,
+}: {
+  group: LocalTopologyInterfaceGroup
+  selectedObservedId: string | null
+  cpeSelected: boolean
+  onSelectObserved: (deviceId: string) => void
+  onSelectCpeGroup: () => void
+}) {
+  return (
+    <div className="flex w-[200px] flex-col items-center">
+      <div className="h-6 w-px bg-border" />
+      <div className="rounded-full border bg-muted/60 px-3 py-1 text-center text-xs font-medium">
+        {group.interfaceLabel}
+      </div>
+      <div className="h-4 w-px bg-border" />
+      <div className="flex w-full flex-col gap-2">
+        {group.devices.map((device) => (
+          <button
+            key={device.id}
+            type="button"
+            className={cn(
+              "w-full rounded-lg border bg-background px-3 py-2 text-left shadow-sm",
+              selectedObservedId === device.id
+                ? "border-foreground ring-2 ring-foreground/20"
+                : "hover:border-foreground/40"
+            )}
+            onClick={() => onSelectObserved(device.id)}
+          >
+            <p className="truncate text-sm font-medium">
+              {device.hostname || device.managementIp || device.id}
+            </p>
+            {device.managementIp ? (
+              <p className="truncate text-xs text-muted-foreground">{device.managementIp}</p>
+            ) : null}
+            <p className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <span
+                className={cn(
+                  "inline-block size-1.5 rounded-full",
+                  statusDotClass(device.operationalStatus)
+                )}
+              />
+              {monitoringLabel(device.operationalStatus)}
+            </p>
+          </button>
+        ))}
+        {group.cpeCount > 0 ? (
+          <button
+            type="button"
+            className={cn(
+              "w-full rounded-lg border border-dashed bg-muted/40 px-3 py-2 text-left",
+              cpeSelected ? "border-foreground ring-2 ring-foreground/20" : "hover:border-foreground/40"
+            )}
+            onClick={onSelectCpeGroup}
+          >
+            <p className="text-sm font-medium">CPE</p>
+            <p className="text-xs text-muted-foreground">
+              {group.cpeCount} observados
+            </p>
+          </button>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+function SelectedCpeGroupPanel({
+  group,
+  onClose,
+  onSelectObserved,
+}: {
+  group: LocalTopologyInterfaceGroup
+  onClose: () => void
+  onSelectObserved: (deviceId: string) => void
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          CPE observados
         </p>
-      ) : null}
-      {local.wanObservedCount > 0 ? (
-        <p className="font-sans text-sm text-muted-foreground">
-          WAN observado: {local.wanObservedCount}
+        <PanelCloseButton onClose={onClose} />
+      </div>
+      <div>
+        <p className="text-base font-medium">{group.interfaceLabel}</p>
+        <p className="text-muted-foreground">
+          {group.cpeCount} dispositivos
         </p>
-      ) : null}
+      </div>
+      <ul className="max-h-[28rem] space-y-1 overflow-auto">
+        {group.cpes.map((device) => (
+          <li key={device.id}>
+            <button
+              type="button"
+              className="w-full rounded-md px-2 py-1.5 text-left hover:bg-muted"
+              onClick={() => onSelectObserved(device.id)}
+            >
+              <span className="block truncate font-medium">
+                {device.hostname || device.managementIp || device.id}
+              </span>
+              {device.managementIp ? (
+                <span className="block truncate text-xs text-muted-foreground">
+                  {device.managementIp}
+                </span>
+              ) : null}
+            </button>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }
@@ -515,7 +617,7 @@ function SelectedObservedPanel({
           }}
         />
       ) : (
-        <p className="text-muted-foreground">No monitoreado</p>
+        <p className="text-muted-foreground">Sin monitoreo</p>
       )}
     </div>
   )
@@ -541,7 +643,7 @@ function OperationalStatusBlock({
   if (node.kind !== "managed") {
     return (
       <div className="space-y-1">
-        <p className="text-muted-foreground">No monitoreado</p>
+        <p className="text-muted-foreground">Sin monitoreo</p>
         <p className="text-muted-foreground">Última observación: —</p>
       </div>
     )
@@ -557,7 +659,7 @@ function OperationalStatusBlock({
           {NETWORK_DEVICE_STATUS_LABELS[node.operationalStatus]}
         </StatusBadge>
       ) : (
-        <p className="text-muted-foreground">Sin estado operativo de monitoring.</p>
+        <p className="text-muted-foreground">Sin monitoreo</p>
       )}
       <p className="text-muted-foreground">
         Última observación: {formatNetworkTimestamp(node.lastPollAt)}

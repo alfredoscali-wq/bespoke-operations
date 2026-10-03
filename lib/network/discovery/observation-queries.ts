@@ -191,6 +191,7 @@ export type LatestHostDiscoveryObservations = {
   latestObservations: NetworkDiscoveryLatestObservationView
   devices: NetworkObservationDeviceRow[]
   links: NetworkObservationLinkRow[]
+  interfaces: NetworkObservationInterfaceRow[]
 }
 
 export async function getLatestNetworkDiscoveryObservationsForHost(
@@ -206,6 +207,7 @@ export async function getLatestNetworkDiscoveryObservationsForHost(
       latestObservations: emptyNetworkDiscoveryLatestObservationView(),
       devices: [],
       links: source.links,
+      interfaces: source.interfaces,
     }
   }
 
@@ -228,5 +230,6 @@ export async function getLatestNetworkDiscoveryObservationsForHost(
     ),
     devices,
     links: source.links,
+    interfaces: source.interfaces,
   }
 }

@@ -230,6 +230,7 @@ export async function getNetworkTopologyPage(
       jobId: latest.latestObservations.jobId,
       observations: latest.latestObservations.items,
       links: latest.links,
+      coreInterfaces: latest.interfaces.filter((iface) => iface.deviceId === selected.id),
       deviceMeta,
       statusByDeviceId,
     }),

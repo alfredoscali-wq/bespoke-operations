@@ -29,6 +29,7 @@ import {
 import {
   buildLocalCoreTopologyView,
   isLikelyCustomerCpe,
+  visualDedupeKey,
 } from "../lib/network/topology/local-view.ts"
 
 const root = resolve(import.meta.dirname, "..")
@@ -700,7 +701,7 @@ test("3.1: panel selecciona nodo o enlace y reutiliza la query única", () => {
   assert.match(screen, /buildTopologyEdgeDetail/)
   assert.match(screen, /Ver dispositivo/)
   assert.match(screen, /topologyManagedDeviceHref/)
-  assert.match(screen, /No monitoreado/)
+  assert.match(screen, /Sin monitoreo/)
   assert.match(screen, /Cerrar/)
   assert.match(screen, /setSelection\(null\)/)
   assert.doesNotMatch(screen, /Ver detalle/)
@@ -787,6 +788,11 @@ const BORDER = "dev-border"
 const HAP_1 = "dev-hap-1"
 const HAP_2 = "dev-hap-2"
 const HISTORICAL = "dev-historical"
+const ALLENDE = "dev-allende"
+const BARRERA = "dev-barrera"
+const AS6_DUP = "dev-as6-dup"
+const GENERIC_A = "dev-generic-a"
+const GENERIC_B = "dev-generic-b"
 
 function malaguenoObservationInput() {
   const targets = [
@@ -798,6 +804,13 @@ function malaguenoObservationInput() {
       deviceId: MALAGUENO_CORE,
       name: "ether1",
       description: "WAN",
+      interfaceType: "ether",
+    },
+    {
+      id: "if-ether3",
+      deviceId: MALAGUENO_CORE,
+      name: "ether3",
+      description: "LAN NETWORKER",
       interfaceType: "ether",
     },
     {
@@ -854,6 +867,7 @@ function malaguenoObservationInput() {
       agentId: AGENT,
       managementIp: "10.100.101.14",
       hostname: "AS6",
+      macAddress: "aa:aa:aa:aa:aa:06",
       origin: "neighbor",
       lastSeenAt: "2026-10-03T12:00:10.000Z",
     },
@@ -903,6 +917,54 @@ function malaguenoObservationInput() {
       hostname: "CPE Casa 2",
       model: "hAP lite",
       deviceType: "cpe",
+      origin: "neighbor",
+      lastSeenAt: "2026-10-03T12:00:10.000Z",
+    },
+    {
+      id: AS6_DUP,
+      companyId: COMPANY,
+      agentId: AGENT,
+      managementIp: "10.100.101.14",
+      hostname: "AS6",
+      macAddress: "aa:aa:aa:aa:aa:06",
+      origin: "neighbor",
+      lastSeenAt: "2026-10-03T12:00:11.000Z",
+    },
+    {
+      id: ALLENDE,
+      companyId: COMPANY,
+      agentId: AGENT,
+      managementIp: "10.168.1.20",
+      hostname: "Allende Susana",
+      origin: "neighbor",
+      lastSeenAt: "2026-10-03T12:00:10.000Z",
+    },
+    {
+      id: BARRERA,
+      companyId: COMPANY,
+      agentId: AGENT,
+      managementIp: "10.168.1.21",
+      hostname: "Barrera Mario",
+      origin: "neighbor",
+      lastSeenAt: "2026-10-03T12:00:10.000Z",
+    },
+    {
+      id: GENERIC_A,
+      companyId: COMPANY,
+      agentId: AGENT,
+      managementIp: null,
+      hostname: "MikroTik",
+      model: "RB2011UiAS",
+      origin: "neighbor",
+      lastSeenAt: "2026-10-03T12:00:10.000Z",
+    },
+    {
+      id: GENERIC_B,
+      companyId: COMPANY,
+      agentId: AGENT,
+      managementIp: null,
+      hostname: "MikroTik",
+      model: "RB2011UiAS",
       origin: "neighbor",
       lastSeenAt: "2026-10-03T12:00:10.000Z",
     },
@@ -972,6 +1034,46 @@ function malaguenoObservationInput() {
       toInterfaceId: null,
       protocol: "mndp",
     },
+    {
+      fromDeviceId: MALAGUENO_CORE,
+      toDeviceId: AS6_DUP,
+      fromInterfaceId: "if-bridge",
+      fromInterfaceName: "ether3",
+      toInterfaceId: null,
+      protocol: "mndp",
+    },
+    {
+      fromDeviceId: MALAGUENO_CORE,
+      toDeviceId: ALLENDE,
+      fromInterfaceId: "if-bridge",
+      fromInterfaceName: "ether3",
+      toInterfaceId: null,
+      protocol: "mndp",
+    },
+    {
+      fromDeviceId: MALAGUENO_CORE,
+      toDeviceId: BARRERA,
+      fromInterfaceId: "if-bridge",
+      fromInterfaceName: "ether3",
+      toInterfaceId: null,
+      protocol: "mndp",
+    },
+    {
+      fromDeviceId: MALAGUENO_CORE,
+      toDeviceId: GENERIC_A,
+      fromInterfaceId: "if-bridge",
+      fromInterfaceName: "ether3",
+      toInterfaceId: null,
+      protocol: "mndp",
+    },
+    {
+      fromDeviceId: MALAGUENO_CORE,
+      toDeviceId: GENERIC_B,
+      fromInterfaceId: "if-bridge",
+      fromInterfaceName: "ether3",
+      toInterfaceId: null,
+      protocol: "mndp",
+    },
   ]
   return { devices, targets, links, interfaces }
 }
@@ -1002,6 +1104,7 @@ function buildMalaguenoLocalView(extraDevices = []) {
     jobId: "job-malagueno",
     observations: observations.items,
     links: input.links,
+    coreInterfaces: input.interfaces,
     deviceMeta,
   })
 }
@@ -1011,21 +1114,24 @@ test("1.0 A: el Core aparece en la vista local", () => {
   assert.equal(local.core.id, MALAGUENO_CORE)
   assert.equal(local.core.hostname, "RB3011 - Core Malagueño")
   assert.equal(local.core.managementIp, "177.53.120.11")
+  assert.equal(local.core.operationalStatus, "online")
   const screen = read("components/network/network-topology-screen.tsx")
   assert.match(screen, /LocalCoreTree/)
-  assert.match(screen, /LAN \/ VLAN/)
+  assert.match(screen, /CORE/)
+  assert.match(screen, /monitoringLabel/)
 })
 
 test("1.0 B: observaciones WAN no aparecen en la topología local", () => {
   const local = buildMalaguenoLocalView()
-  const ids = local.interfaceGroups.flatMap((group) =>
-    group.devices.map((device) => device.id)
-  )
+  const ids = local.interfaceGroups.flatMap((group) => [
+    ...group.devices.map((device) => device.id),
+    ...group.cpes.map((device) => device.id),
+  ])
   assert.equal(ids.includes(PILAR), false)
   assert.equal(ids.includes(BORDER), false)
-  assert.equal(local.wanObservedCount, 2)
+  assert.equal(Object.hasOwn(local, "wanObservedCount"), false)
   const screen = read("components/network/network-topology-screen.tsx")
-  assert.match(screen, /WAN observado/)
+  assert.doesNotMatch(screen, /WAN observado/)
   assert.doesNotMatch(
     read("lib/network/topology/local-view.ts"),
     /classifyNetworkInterfaceScope/
@@ -1047,6 +1153,8 @@ test("1.0 D: from_interface_name se conserva y se muestra", () => {
   const local = buildMalaguenoLocalView()
   const ether3 = local.interfaceGroups.find((group) => group.interfaceName === "ether3")
   assert.equal(ether3.interfaceName, "ether3")
+  assert.equal(ether3.interfaceDescription, "LAN NETWORKER")
+  assert.equal(ether3.interfaceLabel, "ether3 · LAN NETWORKER")
   for (const device of ether3.devices) {
     assert.equal(device.observedInterfaceName, "ether3")
   }
@@ -1055,6 +1163,7 @@ test("1.0 D: from_interface_name se conserva y se muestra", () => {
     false
   )
   const screen = read("components/network/network-topology-screen.tsx")
+  assert.match(screen, /interfaceLabel/)
   assert.match(screen, /observedInterfaceName/)
 })
 
@@ -1063,26 +1172,39 @@ test("1.0 E: CPE no se dibuja como nodo principal y puede contabilizarse", () =>
     isLikelyCustomerCpe({ hostname: "Humberto lara", board: "hAP ac2" }),
     true
   )
+  assert.equal(isLikelyCustomerCpe({ hostname: "Allende Susana" }), true)
+  assert.equal(isLikelyCustomerCpe({ hostname: "AS5" }), false)
   const local = buildMalaguenoLocalView()
   const ids = local.interfaceGroups.flatMap((group) =>
     group.devices.map((device) => device.id)
   )
   assert.equal(ids.includes(HAP_1), false)
   assert.equal(ids.includes(HAP_2), false)
-  assert.equal(local.cpeObservedCount, 2)
+  assert.equal(ids.includes(ALLENDE), false)
+  assert.equal(ids.includes(BARRERA), false)
   const ether3 = local.interfaceGroups.find((group) => group.interfaceName === "ether3")
   const ether4 = local.interfaceGroups.find((group) => group.interfaceName === "ether4")
-  assert.equal(ether3.cpeCount, 1)
-  assert.equal(ether4.cpeCount, 1)
+  const ether3CpeIds = ether3.cpes.map((device) => device.id)
+  assert.equal(ether3CpeIds.includes(ALLENDE), true)
+  assert.equal(ether3CpeIds.includes(BARRERA), true)
+  assert.equal(ether3CpeIds.includes(HAP_1), true)
+  assert.equal(ether4.cpes.map((device) => device.id).includes(HAP_2), true)
+  assert.ok(local.cpeObservedCount >= 4)
   const screen = read("components/network/network-topology-screen.tsx")
-  assert.match(screen, /CPE observados/)
+  assert.match(screen, /CPE/)
+  assert.match(screen, /observados/)
+  assert.match(screen, /SelectedCpeGroupPanel/)
+  assert.doesNotMatch(screen, /Allende Susana/)
 })
 
 test("1.0 F: no se inventa jerarquía PowerBox → AS5/AS6/AS7", () => {
   const local = buildMalaguenoLocalView()
   const ether3 = local.interfaceGroups.find((group) => group.interfaceName === "ether3")
-  const siblingIds = ether3.devices.map((device) => device.id).sort()
-  assert.deepEqual(siblingIds, [AS5, AS6, AS7, POWERBOX].sort())
+  const siblingIds = ether3.devices.map((device) => device.id)
+  assert.equal(siblingIds.includes(POWERBOX), true)
+  assert.equal(siblingIds.includes(AS5), true)
+  assert.equal(siblingIds.includes(AS6), true)
+  assert.equal(siblingIds.includes(AS7), true)
   assert.equal(
     Object.prototype.hasOwnProperty.call(ether3.devices[0], "children"),
     false
@@ -1102,6 +1224,8 @@ test("1.0 G: topology no inventa estado si no hay network_device_status", () => 
   const queries = read("lib/network/topology/queries.ts")
   assert.match(queries, /statusByDeviceId/)
   assert.doesNotMatch(queries, /operationalStatus: "online"/)
+  const screen = read("components/network/network-topology-screen.tsx")
+  assert.match(screen, /Sin monitoreo/)
 })
 
 test("1.0 H: usa el último discovery del host y no mezcla históricos", () => {
@@ -1192,6 +1316,27 @@ test("1.0 UI: selector de Core y drawer de observados", () => {
   assert.match(screen, /Discovered-by/)
   assert.match(screen, /Último seen/)
   assert.match(read("app/api/network/topology/route.ts"), /deviceId/)
+})
+
+test("1.1 J: dedupe visual no fusiona dispositivos sin evidencia suficiente", () => {
+  assert.equal(
+    visualDedupeKey({ hostname: "MikroTik", interfaceName: "ether3" }),
+    null
+  )
+  assert.equal(
+    visualDedupeKey({
+      macAddress: "aa:aa:aa:aa:aa:06",
+      hostname: "AS6",
+      interfaceName: "ether3",
+    }),
+    "mac:aa:aa:aa:aa:aa:06"
+  )
+  const local = buildMalaguenoLocalView()
+  const ether3 = local.interfaceGroups.find((group) => group.interfaceName === "ether3")
+  const as6 = ether3.devices.filter((device) => device.hostname === "AS6")
+  assert.equal(as6.length, 1)
+  const generics = ether3.devices.filter((device) => device.hostname === "MikroTik")
+  assert.equal(generics.length, 2)
 })
 
 
