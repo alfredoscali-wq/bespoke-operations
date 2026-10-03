@@ -153,7 +153,6 @@ export function buildNetworkDiscoveryObservationView(input: {
   }
 
   const managedIds = collectManagedDeviceIds(input.devices, input.targets)
-  summary.core = managedIds.size
 
   const interfacesById = new Map(
     input.interfaces.map((iface) => [iface.id, iface] as const)
@@ -163,6 +162,17 @@ export function buildNetworkDiscoveryObservationView(input: {
 
   for (const device of input.devices) {
     if (managedIds.has(device.id)) {
+      const neighbor = resolveObservedNeighborContext({
+        deviceId: device.id,
+        managedIds,
+        links: input.links,
+        interfacesById,
+      })
+      if (neighbor.scope === "lan" || neighbor.scope === "vlan") {
+        summary.lanVlan += 1
+        items.push(toObservationItem(device, neighbor))
+        continue
+      }
       items.push(toObservationItem(device, { scope: "core" }))
       continue
     }
@@ -180,6 +190,7 @@ export function buildNetworkDiscoveryObservationView(input: {
     items.push(toObservationItem(device, neighbor))
   }
 
+  summary.core = items.filter((item) => item.scope === "core").length
   items.sort(compareObservationItems)
   return { ...summary, items }
 }
@@ -265,10 +276,18 @@ function resolveObservedNeighborContext(input: {
     const toManaged = input.managedIds.has(link.toDeviceId)
     const touches =
       link.fromDeviceId === input.deviceId || link.toDeviceId === input.deviceId
-    if (!touches || fromManaged === toManaged) continue
+    if (!touches) continue
+    const parentOutgoing =
+      fromManaged &&
+      link.fromDeviceId !== input.deviceId &&
+      link.toDeviceId === input.deviceId
+    const unmanagedNeighbor =
+      fromManaged !== toManaged && !input.managedIds.has(input.deviceId)
+    if (!parentOutgoing && !unmanagedNeighbor) continue
 
-    const interfaceId = fromManaged ? link.fromInterfaceId : link.toInterfaceId
-    const observedName = fromManaged ? link.fromInterfaceName ?? null : null
+    const fromParent = parentOutgoing || (unmanagedNeighbor && fromManaged)
+    const interfaceId = fromParent ? link.fromInterfaceId : link.toInterfaceId
+    const observedName = fromParent ? link.fromInterfaceName ?? null : null
     const iface = interfaceId ? input.interfacesById.get(interfaceId) : undefined
     candidates.push({
       scope: classifyNetworkInterfaceScope({

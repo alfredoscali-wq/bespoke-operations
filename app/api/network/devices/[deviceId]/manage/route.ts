@@ -23,10 +23,17 @@ export async function POST(request: Request, context: RouteContext) {
   }
 
   const record = body && typeof body === "object" ? (body as Record<string, unknown>) : {}
-  const intent = record.intent === "test" ? "test" : record.intent === "discover" ? "discover" : null
+  const intent =
+    record.intent === "test"
+      ? "test"
+      : record.intent === "discover"
+        ? "discover"
+        : record.intent === "replace"
+          ? "replace"
+          : null
   if (!intent) {
     return NextResponse.json(
-      { success: false, message: "La acción debe ser test o discover." },
+      { success: false, message: "La acción debe ser test, discover o replace." },
       { status: 400 }
     )
   }

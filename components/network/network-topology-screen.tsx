@@ -7,7 +7,6 @@ import { useQueryClient } from "@tanstack/react-query"
 import { NetworkSubnav } from "@/components/network/network-subnav"
 import { NetworkTopologyManageDialog } from "@/components/network/network-topology-manage-dialog"
 import { StatusBadge } from "@/components/ui/status-badge"
-import { isNetworkDiscoveryJobInflight } from "@/lib/network/discovery/job-poll"
 import {
   NETWORK_DEVICE_STATUS_LABELS,
   NETWORK_DEVICE_STATUS_TONES,
@@ -29,12 +28,15 @@ import {
   topologyManagedDeviceHref,
   type TopologySelection,
 } from "@/lib/network/topology/graph"
+import { buildObservedDeviceManagementState } from "@/lib/network/topology/management-state"
+import { postNetworkDeviceManage } from "@/lib/network/topology/manage-request"
 import type {
   LocalCoreTopologyView,
   LocalTopologyInterfaceGroup,
   LocalTopologyObservedDevice,
   NetworkTopologyEdge,
   NetworkTopologyManagementJob,
+  NetworkTopologyManagementTarget,
   NetworkTopologyNode,
 } from "@/lib/network/topology/types"
 import { STATUS_TONE_STYLES } from "@/lib/ui/visual-tokens"
@@ -112,18 +114,19 @@ function collectObservedDevices(
   return map
 }
 
-function managementJobForDevice(
+function managementStateForDevice(
   jobs: readonly NetworkTopologyManagementJob[],
+  targets: readonly NetworkTopologyManagementTarget[],
   device: LocalTopologyObservedDevice
-): NetworkTopologyManagementJob | null {
-  return (
-    jobs.find((job) => job.deviceId === device.id) ??
-    jobs.find(
-      (job) =>
-        device.managementIp != null && job.targetHost === device.managementIp
-    ) ??
-    null
-  )
+) {
+  return buildObservedDeviceManagementState({
+    managed: device.managed,
+    agentId: device.agentId,
+    deviceId: device.id,
+    managementIp: device.managementIp,
+    jobs,
+    targets,
+  })
 }
 
 export function NetworkTopologyScreen() {
@@ -134,11 +137,20 @@ export function NetworkTopologyScreen() {
   const [observedId, setObservedId] = useState<string | null>(null)
   const [cpeGroupKey, setCpeGroupKey] = useState<string | null>(null)
   const [manageOpen, setManageOpen] = useState(false)
+  const [manageMode, setManageMode] = useState<"administer" | "replace">(
+    "administer"
+  )
+  const [manageBusy, setManageBusy] = useState<"test" | "discover" | null>(null)
+  const [manageError, setManageError] = useState<string | null>(null)
   const graph = data?.graph ?? { nodes: [], edges: [] }
   const cores = data?.cores ?? []
   const local = data?.local ?? null
   const discoveryJobs = data?.discoveryJobs ?? []
-  const activeCoreId = selectedCoreId ?? cores[0]?.id ?? null
+  const managementTargets = data?.managementTargets ?? []
+  const activeCoreId =
+    selectedCoreId && cores.some((core) => core.id === selectedCoreId)
+      ? selectedCoreId
+      : (cores[0]?.id ?? null)
   const activeSelection = resolveTopologySelection(
     selection,
     graph.nodes,
@@ -209,6 +221,34 @@ export function NetworkTopologyScreen() {
     setSelection(null)
     setObservedId(null)
     setCpeGroupKey(interfaceName ?? "")
+  }
+
+  async function postManagedAction(intent: "test" | "discover") {
+    if (!selectedObserved) return
+    setManageBusy(intent)
+    setManageError(null)
+    try {
+      const result = await postNetworkDeviceManage({
+        deviceId: selectedObserved.id,
+        intent,
+        agentId: selectedObserved.agentId,
+        password: "",
+      })
+      if (!result.job) {
+        throw new Error("No se pudo administrar el dispositivo.")
+      }
+      void queryClient.invalidateQueries({
+        queryKey: networkQueryKeys.topology(),
+      })
+    } catch (actionError) {
+      setManageError(
+        actionError instanceof Error
+          ? actionError.message
+          : "No se pudo administrar el dispositivo."
+      )
+    } finally {
+      setManageBusy(null)
+    }
   }
 
   return (
@@ -388,9 +428,24 @@ export function NetworkTopologyScreen() {
           {selectedObserved ? (
             <SelectedObservedPanel
               device={selectedObserved}
-              job={managementJobForDevice(discoveryJobs, selectedObserved)}
+              state={managementStateForDevice(
+                discoveryJobs,
+                managementTargets,
+                selectedObserved
+              )}
+              busy={manageBusy}
+              actionError={manageError}
               onClose={() => setObservedId(null)}
-              onAdminister={() => setManageOpen(true)}
+              onAdminister={() => {
+                setManageMode("administer")
+                setManageOpen(true)
+              }}
+              onReplace={() => {
+                setManageMode("replace")
+                setManageOpen(true)
+              }}
+              onTest={() => void postManagedAction("test")}
+              onDiscover={() => void postManagedAction("discover")}
             />
           ) : selectedCpeGroup ? (
             <SelectedCpeGroupPanel
@@ -426,8 +481,14 @@ export function NetworkTopologyScreen() {
         open={manageOpen}
         device={selectedObserved}
         agentId={selectedObserved?.agentId ?? null}
+        mode={manageMode}
         onOpenChange={setManageOpen}
         onStarted={() => {
+          void queryClient.invalidateQueries({
+            queryKey: networkQueryKeys.topology(),
+          })
+        }}
+        onReplaced={() => {
           void queryClient.invalidateQueries({
             queryKey: networkQueryKeys.topology(),
           })
@@ -553,6 +614,9 @@ function InterfaceBranch({
                   {device.managementIp}
                 </p>
               ) : null}
+              <p className="mt-1 text-[11px] font-medium">
+                {device.managed ? "🟢 Administrado" : "⚪ No administrado"}
+              </p>
               <p className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
                 <span
                   className={cn(
@@ -560,13 +624,10 @@ function InterfaceBranch({
                     statusDotClass(device.operationalStatus)
                   )}
                 />
-                {monitoringLabel(device.operationalStatus)}
+                {device.operationalStatus
+                  ? monitoringLabel(device.operationalStatus)
+                  : "⚪ Sin monitoreo"}
               </p>
-              {device.managed ? (
-                <p className="mt-1 text-[11px] font-medium text-foreground">
-                  Administrado
-                </p>
-              ) : null}
             </button>
             {device.downstream.length > 0 ? (
               <div className="flex items-start gap-3">
@@ -653,26 +714,32 @@ function SelectedCpeGroupPanel({
 
 function SelectedObservedPanel({
   device,
-  job,
+  state,
+  busy,
+  actionError,
   onClose,
   onAdminister,
+  onReplace,
+  onTest,
+  onDiscover,
 }: {
   device: LocalTopologyObservedDevice
-  job: NetworkTopologyManagementJob | null
+  state: ReturnType<typeof managementStateForDevice>
+  busy: "test" | "discover" | null
+  actionError: string | null
   onClose: () => void
   onAdminister: () => void
+  onReplace: () => void
+  onTest: () => void
+  onDiscover: () => void
 }) {
   const vendor = resolveNetworkManagementVendor({
     manufacturer: device.platform,
     platform: device.platform,
     board: device.board,
   })
-  const jobInflight = job ? isNetworkDiscoveryJobInflight(job.status) : false
-  const jobLabel = job
-    ? NETWORK_JOB_STATUS_LABELS[
-        job.status as keyof typeof NETWORK_JOB_STATUS_LABELS
-      ] ?? job.status
-    : null
+  const discoveryInflight = state.discovery === "in_progress"
+  const connectionInflight = state.connection === "in_progress"
 
   return (
     <div className="space-y-3">
@@ -692,24 +759,90 @@ function SelectedObservedPanel({
       <p>Modelo: {device.board || "—"}</p>
       <p>IP: {device.managementIp || "—"}</p>
       <p>MAC: {device.macAddress || "—"}</p>
-      <p>
-        Estado de administración:{" "}
-        {device.managed ? "Administrado" : "No administrado"}
-      </p>
-      {jobInflight ? (
-        <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm">
-          <p className="font-medium">Administrando...</p>
-          <p className="text-muted-foreground">{jobLabel}</p>
-        </div>
-      ) : job ? (
+      <div className="space-y-1 rounded-md border bg-muted/30 px-3 py-2">
         <p>
-          Discovery: {jobLabel}
-          {job.status === "failed" && job.errorMessage
-            ? ` — ${job.errorMessage}`
-            : ""}
+          Administración:{" "}
+          {device.managed ? "🟢 Administrado" : "⚪ No administrado"}
         </p>
+        {device.managed ? (
+          <p>
+            Credencial:{" "}
+            {state.credential === "unavailable"
+              ? "🔴 No disponible"
+              : "🟢 Disponible"}
+          </p>
+        ) : null}
+        {device.managed && state.decryptError ? (
+          <p className="text-destructive">
+            No se pudo descifrar la credencial del destino.
+          </p>
+        ) : null}
+        <p>
+          Conexión:{" "}
+          {state.connection === "verified"
+            ? "🟢 Verificada"
+            : state.connection === "error"
+              ? "🔴 Error de conexión"
+              : state.connection === "in_progress"
+                ? "🟡 En curso"
+                : "⚪ Sin verificar"}
+        </p>
+        {state.connection === "error" && state.diagnosticJob?.errorMessage ? (
+          <p className="text-destructive">{state.diagnosticJob.errorMessage}</p>
+        ) : null}
+        <p>
+          Discovery:{" "}
+          {state.discovery === "completed"
+            ? "🟢 Completado"
+            : state.discovery === "failed"
+              ? "🔴 Fallido"
+              : state.discovery === "in_progress"
+                ? "🟡 En curso"
+                : "⚪ Pendiente"}
+        </p>
+        {state.discovery === "failed" && state.discoveryJob?.errorMessage ? (
+          <p className="text-destructive">{state.discoveryJob.errorMessage}</p>
+        ) : null}
+        <p>
+          Monitoreo:{" "}
+          {device.operationalStatus
+            ? `${
+                device.operationalStatus === "online"
+                  ? "🟢"
+                  : device.operationalStatus === "offline"
+                    ? "🔴"
+                    : device.operationalStatus === "degraded"
+                      ? "🟡"
+                      : "⚪"
+              } ${monitoringLabel(device.operationalStatus)}`
+            : "⚪ Sin monitoreo"}
+        </p>
+      </div>
+      {connectionInflight || discoveryInflight ? (
+        <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm">
+          <p className="font-medium">
+            {connectionInflight ? "Probando conexión..." : "Descubriendo..."}
+          </p>
+          <p className="text-muted-foreground">
+            Administrando
+            {(() => {
+              const inflightJob = connectionInflight
+                ? state.diagnosticJob
+                : state.discoveryJob
+              const label = inflightJob
+                ? NETWORK_JOB_STATUS_LABELS[
+                    inflightJob.status as keyof typeof NETWORK_JOB_STATUS_LABELS
+                  ]
+                : null
+              return label ? ` · ${label}` : ""
+            })()}
+          </p>
+        </div>
       ) : null}
-      {!device.managed ? (
+      {actionError ? (
+        <p className="text-sm text-destructive">{actionError}</p>
+      ) : null}
+      {state.canAdminister ? (
         <button
           type="button"
           className="rounded-md border bg-background px-3 py-2 text-sm font-medium hover:border-foreground/40"
@@ -717,6 +850,39 @@ function SelectedObservedPanel({
         >
           Administrar dispositivo
         </button>
+      ) : null}
+      {device.managed ? (
+        <div className="flex flex-col gap-2">
+          {state.canTest ? (
+            <button
+              type="button"
+              className="rounded-md border bg-background px-3 py-2 text-sm font-medium hover:border-foreground/40 disabled:opacity-50"
+              disabled={busy != null || connectionInflight}
+              onClick={onTest}
+            >
+              {busy === "test" ? "Probando…" : "Probar conexión"}
+            </button>
+          ) : null}
+          {state.canDiscover ? (
+            <button
+              type="button"
+              className="rounded-md border bg-background px-3 py-2 text-sm font-medium hover:border-foreground/40 disabled:opacity-50"
+              disabled={busy != null || discoveryInflight}
+              onClick={onDiscover}
+            >
+              {busy === "discover" ? "Descubriendo…" : "Descubrir ahora"}
+            </button>
+          ) : null}
+          {state.canReplace ? (
+            <button
+              type="button"
+              className="rounded-md border bg-background px-3 py-2 text-sm font-medium hover:border-foreground/40"
+              onClick={onReplace}
+            >
+              Reemplazar credenciales
+            </button>
+          ) : null}
+        </div>
       ) : null}
       <p>Interfaz observada: {device.observedInterfaceName || "—"}</p>
       <p>Platform: {device.platform || "—"}</p>

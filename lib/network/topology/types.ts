@@ -58,6 +58,15 @@ export type NetworkTopologyManagementJob = {
   targetHost: string | null
   deviceId: string | null
   errorMessage: string | null
+  createdAt: string
+  completedAt: string | null
+}
+
+export type NetworkTopologyManagementTarget = {
+  agentId: string
+  host: string
+  updatedAt: string
+  hasSecret: boolean
 }
 
 export type NetworkTopologyPage = {
@@ -65,4 +74,5 @@ export type NetworkTopologyPage = {
   cores: LocalTopologyCoreOption[]
   local: LocalCoreTopologyView | null
   discoveryJobs: NetworkTopologyManagementJob[]
+  managementTargets: NetworkTopologyManagementTarget[]
 }

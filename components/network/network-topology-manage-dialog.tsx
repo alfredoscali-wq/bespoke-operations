@@ -13,12 +13,14 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { NETWORK_DISCOVERY_JOB_POLL_MS } from "@/lib/network/discovery/job-poll"
+import { isNetworkTargetDecryptError } from "@/lib/network/management/errors"
 import {
   getNetworkManagementProfile,
   networkManagementVendorLabel,
   resolveNetworkManagementVendor,
 } from "@/lib/network/management/vendor"
 import type { NetworkAgent, NetworkAgentJob } from "@/lib/network/types"
+import { postNetworkDeviceManage } from "@/lib/network/topology/manage-request"
 import type { LocalTopologyObservedDevice } from "@/lib/network/topology/types"
 
 async function waitForTopologyManagementJob(jobId: string) {
@@ -28,6 +30,7 @@ async function waitForTopologyManagementJob(jobId: string) {
       success?: boolean
       discoveryJobs?: Array<{
         id: string
+        jobType?: string
         status: string
         errorMessage: string | null
       }>
@@ -50,24 +53,30 @@ export function NetworkTopologyManageDialog({
   open,
   device,
   agentId,
+  mode,
   onOpenChange,
   onStarted,
+  onReplaced,
 }: {
   open: boolean
   device: LocalTopologyObservedDevice | null
   agentId: string | null
+  mode: "administer" | "replace"
   onOpenChange: (open: boolean) => void
   onStarted: (job: NetworkAgentJob) => void
+  onReplaced: () => void
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {open ? (
         <ManageDialogBody
-          key={device?.id ?? "none"}
+          key={`${device?.id ?? "none"}-${mode}`}
           device={device}
           agentId={agentId}
+          mode={mode}
           onOpenChange={onOpenChange}
           onStarted={onStarted}
+          onReplaced={onReplaced}
         />
       ) : null}
     </Dialog>
@@ -77,13 +86,17 @@ export function NetworkTopologyManageDialog({
 function ManageDialogBody({
   device,
   agentId,
+  mode,
   onOpenChange,
   onStarted,
+  onReplaced,
 }: {
   device: LocalTopologyObservedDevice | null
   agentId: string | null
+  mode: "administer" | "replace"
   onOpenChange: (open: boolean) => void
   onStarted: (job: NetworkAgentJob) => void
+  onReplaced: () => void
 }) {
   const vendor = resolveNetworkManagementVendor({
     manufacturer: device?.platform,
@@ -92,6 +105,7 @@ function ManageDialogBody({
   })
   const profile = getNetworkManagementProfile(vendor)
   const options = profile?.accessOptions ?? []
+  const lockAgent = Boolean(device?.managed || mode === "replace")
   const [accessId, setAccessId] = useState(options[0]?.id ?? "")
   const [port, setPort] = useState(String(options[0]?.port ?? 8728))
   const [selectedAgentId, setSelectedAgentId] = useState(agentId ?? "")
@@ -99,8 +113,11 @@ function ManageDialogBody({
   const [password, setPassword] = useState("")
   const [agents, setAgents] = useState<NetworkAgent[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
-  const [busy, setBusy] = useState<"test" | "discover" | null>(null)
+  const [connection, setConnection] = useState<"untested" | "verified" | "failed">(
+    "untested"
+  )
+  const [credentialUnavailable, setCredentialUnavailable] = useState(false)
+  const [busy, setBusy] = useState<"test" | "discover" | "replace" | null>(null)
   const access = options.find((option) => option.id === accessId) ?? options[0] ?? null
 
   useEffect(() => {
@@ -118,13 +135,20 @@ function ManageDialogBody({
     }
   }, [])
 
+  function resetConnection() {
+    setConnection("untested")
+    setCredentialUnavailable(false)
+    setError(null)
+  }
+
   function changeAccess(nextId: string) {
     setAccessId(nextId)
     const next = options.find((option) => option.id === nextId)
     if (next) setPort(String(next.port))
+    resetConnection()
   }
 
-  const canSubmit =
+  const canSubmitCredentials =
     profile?.implemented === true &&
     access != null &&
     selectedAgentId.trim() !== "" &&
@@ -132,47 +156,65 @@ function ManageDialogBody({
     password.trim() !== "" &&
     busy == null
 
-  async function submit(intent: "test" | "discover") {
+  const canTest = canSubmitCredentials
+  const canReplace = mode === "replace" && canSubmitCredentials
+  const canDiscover =
+    mode === "administer" &&
+    profile?.implemented === true &&
+    access != null &&
+    connection === "verified" &&
+    busy == null
+
+  async function submit(intent: "test" | "discover" | "replace") {
     if (!device || !access) return
+    if (intent === "discover" && connection !== "verified") return
     setBusy(intent)
     setError(null)
-    setSuccess(null)
+    setCredentialUnavailable(false)
     try {
       const parsedPort = Number(port)
-      const response = await fetch(`/api/network/devices/${device.id}/manage`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          intent,
-          agentId: selectedAgentId,
-          protocol: access.protocol,
-          port: Number.isInteger(parsedPort) ? parsedPort : access.port,
-          username,
-          password,
-        }),
+      const result = await postNetworkDeviceManage({
+        deviceId: device.id,
+        intent,
+        agentId: selectedAgentId,
+        protocol: access.protocol,
+        port: Number.isInteger(parsedPort) ? parsedPort : access.port,
+        username,
+        password: intent === "discover" ? "" : password,
       })
-      const body = (await response.json()) as {
-        success?: boolean
-        message?: string
-        job?: NetworkAgentJob
-      }
-      if (!body.success || !body.job) {
-        throw new Error(body.message ?? "No se pudo administrar el dispositivo.")
-      }
-      setPassword("")
-      onStarted(body.job)
-      if (intent === "discover") {
+      if (intent === "replace") {
+        setPassword("")
+        onReplaced()
         onOpenChange(false)
         return
       }
-      await waitForTopologyManagementJob(body.job.id)
-      setSuccess("Conexión correcta.")
+      if (!result.job) {
+        throw new Error("No se pudo administrar el dispositivo.")
+      }
+      if (intent === "discover") {
+        onStarted(result.job)
+        onOpenChange(false)
+        return
+      }
+      if (result.job.jobType === "discovery") {
+        throw new Error("La prueba de conexión no debe lanzar discovery.")
+      }
+      await waitForTopologyManagementJob(result.job.id)
+      setPassword("")
+      setConnection("verified")
+      onStarted(result.job)
     } catch (submitError) {
-      setError(
+      const message =
         submitError instanceof Error
           ? submitError.message
           : "No se pudo administrar el dispositivo."
-      )
+      if (intent === "test" && isNetworkTargetDecryptError(message)) {
+        setCredentialUnavailable(true)
+        setConnection("untested")
+      } else if (intent === "test") {
+        setConnection("failed")
+      }
+      setError(message)
     } finally {
       setBusy(null)
     }
@@ -182,10 +224,13 @@ function ManageDialogBody({
     <DialogContent className="max-w-md">
       <DialogHeader>
         <DialogTitle>
-          Administrar {device?.hostname || device?.managementIp || "dispositivo"}
+          {mode === "replace" ? "Reemplazar credenciales" : "Administrar"}{" "}
+          {device?.hostname || device?.managementIp || "dispositivo"}
         </DialogTitle>
         <DialogDescription>
-          Las credenciales se guardan cifradas. El Agent ejecuta la conexión.
+          {mode === "replace"
+            ? "Se actualiza el secret cifrado del destino existente. No se crea un target duplicado."
+            : "Las credenciales se guardan cifradas. El Agent ejecuta la conexión."}
         </DialogDescription>
       </DialogHeader>
 
@@ -229,16 +274,23 @@ function ManageDialogBody({
             <span className="text-muted-foreground">Puerto</span>
             <Input
               value={port}
-              onChange={(event) => setPort(event.target.value)}
+              onChange={(event) => {
+                setPort(event.target.value)
+                resetConnection()
+              }}
               inputMode="numeric"
             />
           </label>
           <label className="block space-y-1">
             <span className="text-muted-foreground">Agente</span>
             <select
-              className="h-9 w-full rounded-md border bg-background px-3"
+              className="h-9 w-full rounded-md border bg-background px-3 disabled:opacity-70"
               value={selectedAgentId}
-              onChange={(event) => setSelectedAgentId(event.target.value)}
+              disabled={lockAgent}
+              onChange={(event) => {
+                setSelectedAgentId(event.target.value)
+                resetConnection()
+              }}
             >
               {agents.map((agent) => (
                 <option key={agent.id} value={agent.id}>
@@ -251,7 +303,10 @@ function ManageDialogBody({
             <span className="text-muted-foreground">Usuario</span>
             <Input
               value={username}
-              onChange={(event) => setUsername(event.target.value)}
+              onChange={(event) => {
+                setUsername(event.target.value)
+                resetConnection()
+              }}
               autoComplete="off"
             />
           </label>
@@ -260,31 +315,78 @@ function ManageDialogBody({
             <Input
               type="password"
               value={password}
-              onChange={(event) => setPassword(event.target.value)}
+              onChange={(event) => {
+                setPassword(event.target.value)
+                if (connection !== "untested" || credentialUnavailable) {
+                  resetConnection()
+                }
+              }}
               autoComplete="new-password"
             />
           </label>
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
-          {success ? <p className="text-sm text-emerald-700">{success}</p> : null}
+          {credentialUnavailable ? (
+            <div className="space-y-1 text-destructive">
+              <p className="font-medium">🔴 Credencial no disponible</p>
+              {error ? <p>{error}</p> : null}
+            </div>
+          ) : null}
+          {connection === "untested" && !credentialUnavailable ? (
+            <p className="text-muted-foreground">⚪ Sin probar</p>
+          ) : null}
+          {connection === "verified" ? (
+            <div className="space-y-1 rounded-md border bg-emerald-50 px-3 py-2 text-emerald-800">
+              <p className="font-medium">🟢 Conexión verificada</p>
+              <p>
+                {device?.platform || networkManagementVendorLabel(vendor)}{" "}
+                {device?.board ?? ""}
+              </p>
+              <p>
+                {access?.label} · {port}
+              </p>
+            </div>
+          ) : null}
+          {connection === "failed" ? (
+            <div className="space-y-1 text-destructive">
+              <p className="font-medium">🔴 No se pudo conectar</p>
+              {error ? <p>{error}</p> : null}
+            </div>
+          ) : error && !credentialUnavailable ? (
+            <p className="text-sm text-destructive">{error}</p>
+          ) : null}
         </div>
       )}
 
       <DialogFooter>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={!canSubmit}
-          onClick={() => void submit("test")}
-        >
-          {busy === "test" ? "Probando…" : "Probar conexión"}
+        <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          Cerrar
         </Button>
-        <Button
-          type="button"
-          disabled={!canSubmit}
-          onClick={() => void submit("discover")}
-        >
-          {busy === "discover" ? "Administrando…" : "Administrar y descubrir"}
-        </Button>
+        {mode === "replace" ? (
+          <Button
+            type="button"
+            disabled={!canReplace}
+            onClick={() => void submit("replace")}
+          >
+            {busy === "replace" ? "Guardando…" : "Reemplazar credenciales"}
+          </Button>
+        ) : (
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!canTest}
+              onClick={() => void submit("test")}
+            >
+              {busy === "test" ? "Probando…" : "Probar conexión"}
+            </Button>
+            <Button
+              type="button"
+              disabled={!canDiscover}
+              onClick={() => void submit("discover")}
+            >
+              {busy === "discover" ? "Administrando…" : "Administrar y descubrir"}
+            </Button>
+          </>
+        )}
       </DialogFooter>
     </DialogContent>
   )

@@ -14,10 +14,15 @@ import {
   selectManagementAccessOption,
 } from "@/lib/network/management/vendor"
 import { stripNetworkSecrets } from "@/lib/network/secrets"
-import { upsertNetworkDiscoveryTarget } from "@/lib/network/targets/queries"
+import {
+  findNetworkDiscoveryTargetByAgentHost,
+  upsertNetworkDiscoveryTarget,
+} from "@/lib/network/targets/queries"
 import type { NetworkAgentJob, NetworkDiscoveryTarget } from "@/lib/network/types"
 
 type Client = SupabaseClient<Database>
+
+export type AdministerObservedDeviceIntent = "test" | "discover" | "replace"
 
 export type AdministerObservedDeviceInput = {
   deviceId: string
@@ -26,12 +31,12 @@ export type AdministerObservedDeviceInput = {
   port?: unknown
   username?: unknown
   password?: unknown
-  intent: "test" | "discover"
+  intent: AdministerObservedDeviceIntent
 }
 
 export type AdministerObservedDeviceResult = {
   target: NetworkDiscoveryTarget
-  job: NetworkAgentJob
+  job: NetworkAgentJob | null
   managed: true
 }
 
@@ -40,6 +45,32 @@ function mapAgentUnavailable(status: string | null | undefined): string | null {
     return "El Agent no está disponible."
   }
   return null
+}
+
+async function enqueueTargetJob(
+  client: Client,
+  input: {
+    companyId: string
+    agentId: string
+    deviceId: string
+    target: NetworkDiscoveryTarget
+    jobType: typeof DIAGNOSTIC_EXECUTABLE_JOB_TYPE | typeof DISCOVERY_EXECUTABLE_JOB_TYPE
+  }
+): Promise<NetworkAgentJob> {
+  return createPendingNetworkAgentJob(client, {
+    companyId: input.companyId,
+    agentId: input.agentId,
+    siteId: input.target.siteId,
+    jobType: input.jobType,
+    payload: {
+      targetId: input.target.id,
+      vendor: input.target.vendor,
+      host: input.target.host,
+      siteId: input.target.siteId,
+      targetName: input.target.name,
+      deviceId: input.deviceId,
+    },
+  })
 }
 
 export async function administerObservedNetworkDevice(
@@ -92,8 +123,8 @@ export async function administerObservedNetworkDevice(
     return { ok: false, status: 400, message: connector.error }
   }
 
-  const agentId = (input.agentId?.trim() || device.agent_id || "").trim()
-  if (!agentId) {
+  const requestedAgentId = (input.agentId?.trim() || device.agent_id || "").trim()
+  if (!requestedAgentId) {
     return {
       ok: false,
       status: 400,
@@ -101,7 +132,29 @@ export async function administerObservedNetworkDevice(
     }
   }
 
-  const agent = await getNetworkAgent(client, companyId, agentId)
+  const existingByDeviceAgent = device.agent_id
+    ? await findNetworkDiscoveryTargetByAgentHost(
+        client,
+        companyId,
+        device.agent_id,
+        host
+      )
+    : null
+  const existingTarget =
+    existingByDeviceAgent ??
+    (await findNetworkDiscoveryTargetByAgentHost(
+      client,
+      companyId,
+      requestedAgentId,
+      host
+    ))
+
+  const lockedAgentId =
+    input.intent === "replace" || existingTarget
+      ? existingTarget?.agentId ?? device.agent_id ?? requestedAgentId
+      : requestedAgentId
+
+  const agent = await getNetworkAgent(client, companyId, lockedAgentId)
   if (!agent) {
     return { ok: false, status: 404, message: "Agent no encontrado." }
   }
@@ -110,8 +163,53 @@ export async function administerObservedNetworkDevice(
     return { ok: false, status: 409, message: agentMessage }
   }
 
+  const password =
+    typeof input.password === "string" ? input.password : ""
+
+  if (
+    (input.intent === "test" || input.intent === "discover") &&
+    !password.trim()
+  ) {
+    if (!existingTarget?.hasSecret) {
+      return {
+        ok: false,
+        status: 400,
+        message:
+          input.intent === "discover"
+            ? "Probá la conexión antes de descubrir."
+            : "Reemplazá las credenciales antes de probar.",
+      }
+    }
+    const job = await enqueueTargetJob(client, {
+      companyId,
+      agentId: existingTarget.agentId,
+      deviceId: device.id,
+      target: existingTarget,
+      jobType:
+        input.intent === "test"
+          ? DIAGNOSTIC_EXECUTABLE_JOB_TYPE
+          : DISCOVERY_EXECUTABLE_JOB_TYPE,
+    })
+    return {
+      ok: true,
+      result: {
+        target: stripNetworkSecrets(existingTarget) as NetworkDiscoveryTarget,
+        job: stripNetworkSecrets(job) as NetworkAgentJob,
+        managed: true,
+      },
+    }
+  }
+
+  if (input.intent === "replace" && !existingTarget) {
+    return {
+      ok: false,
+      status: 400,
+      message: "El dispositivo no está administrado.",
+    }
+  }
+
   const parsed = validateNetworkDiscoveryTargetDraft({
-    agentId: agent.id,
+    agentId: lockedAgentId,
     siteId: device.site_id,
     name: device.hostname?.trim() || host,
     vendor,
@@ -140,28 +238,34 @@ export async function administerObservedNetworkDevice(
 
   const target = await upsertNetworkDiscoveryTarget(client, companyId, {
     ...parsed.draft,
+    agentId: lockedAgentId,
+    host,
     protocol: access.protocol,
     port: access.port,
   })
+
+  if (input.intent === "replace") {
+    return {
+      ok: true,
+      result: {
+        target: stripNetworkSecrets(target) as NetworkDiscoveryTarget,
+        job: null,
+        managed: true,
+      },
+    }
+  }
 
   const jobType =
     input.intent === "test"
       ? DIAGNOSTIC_EXECUTABLE_JOB_TYPE
       : DISCOVERY_EXECUTABLE_JOB_TYPE
 
-  const job = await createPendingNetworkAgentJob(client, {
+  const job = await enqueueTargetJob(client, {
     companyId,
-    agentId: agent.id,
-    siteId: target.siteId,
+    agentId: lockedAgentId,
+    deviceId: device.id,
+    target,
     jobType,
-    payload: {
-      targetId: target.id,
-      vendor: target.vendor,
-      host: target.host,
-      siteId: target.siteId,
-      targetName: target.name,
-      deviceId: device.id,
-    },
   })
 
   return {

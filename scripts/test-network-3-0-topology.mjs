@@ -30,8 +30,11 @@ import {
   attachNestedLocalTopology,
   buildLocalCoreTopologyView,
   isLikelyCustomerCpe,
+  selectTopologyRootIds,
   visualDedupeKey,
 } from "../lib/network/topology/local-view.ts"
+import { buildObservedDeviceManagementState } from "../lib/network/topology/management-state.ts"
+import { NETWORK_TARGET_DECRYPT_ERROR } from "../lib/network/management/errors.ts"
 import {
   getNetworkManagementProfile,
   resolveNetworkManagementVendor,
@@ -1615,6 +1618,407 @@ test("1.2 N/O: Topology no está acoplada a MikroTik y Ubiquiti puede agregarse 
     read("network-agent/src/connectors/registry.ts"),
     /ubiquiti/
   )
+})
+
+test("1.3 A: un único managed sin parent es Root", () => {
+  assert.deepEqual(selectTopologyRootIds([MALAGUENO_CORE], []), [MALAGUENO_CORE])
+})
+
+test("1.3 B/C: PowerBox managed sigue siendo hijo LAN/VLAN y no Root", () => {
+  const input = malaguenoObservationInput()
+  const view = buildNetworkDiscoveryObservationView({
+    ...input,
+    targets: [
+      { companyId: COMPANY, agentId: AGENT, host: "177.53.120.11" },
+      { companyId: COMPANY, agentId: AGENT, host: "10.100.101.4" },
+    ],
+  })
+  const powerboxObs = view.items.find((item) => item.id === POWERBOX)
+  assert.ok(powerboxObs)
+  assert.notEqual(powerboxObs.scope, "core")
+  assert.equal(powerboxObs.scope === "lan" || powerboxObs.scope === "vlan", true)
+  const coreObs = view.items.find((item) => item.id === MALAGUENO_CORE)
+  assert.equal(coreObs.scope, "core")
+  assert.equal(view.core, 1)
+
+  const local = buildLocalCoreTopologyView({
+    core: {
+      id: MALAGUENO_CORE,
+      hostname: "RB3011 - Core Malagueño",
+      managementIp: "177.53.120.11",
+      operationalStatus: "online",
+      lastPollAt: "2026-10-03T12:05:00.000Z",
+    },
+    jobId: "job-malagueno",
+    observations: view.items,
+    links: input.links,
+    coreInterfaces: input.interfaces,
+    deviceMeta: new Map(
+      input.devices.map((device) => [
+        device.id,
+        {
+          deviceType: device.deviceType ?? null,
+          lastSeenAt: device.lastSeenAt ?? null,
+        },
+      ])
+    ),
+  })
+  const ether3 = local.interfaceGroups.find((group) => group.interfaceName === "ether3")
+  const ids = ether3.devices.map((device) => device.id)
+  assert.equal(ids.includes(POWERBOX), true)
+  assert.deepEqual(
+    selectTopologyRootIds(
+      [MALAGUENO_CORE, POWERBOX],
+      [
+        {
+          deviceId: MALAGUENO_CORE,
+          completedAt: "2026-10-03T12:00:00.000Z",
+          lanVlanChildIds: ether3.devices.map((device) => device.id),
+        },
+      ]
+    ),
+    [MALAGUENO_CORE]
+  )
+  const queries = read("lib/network/topology/queries.ts")
+  assert.match(queries, /selectTopologyRootIds/)
+  assert.match(queries, /rootIds.has/)
+})
+
+test("1.3 D: AS5/AS6/AS7 administrados tampoco se convierten en Roots", () => {
+  assert.deepEqual(
+    selectTopologyRootIds(
+      [MALAGUENO_CORE, POWERBOX, AS5, AS6, AS7],
+      [
+        {
+          deviceId: MALAGUENO_CORE,
+          completedAt: "2026-10-03T12:00:00.000Z",
+          lanVlanChildIds: [POWERBOX, AS5, AS6, AS7],
+        },
+      ]
+    ),
+    [MALAGUENO_CORE]
+  )
+})
+
+test("1.3 E/F: discovery propio del PowerBox enriquece sin inventar hijos", () => {
+  const observations = buildNetworkDiscoveryObservationView(
+    malaguenoObservationInput()
+  )
+  const deviceMeta = new Map(
+    malaguenoObservationInput().devices.map((device) => [
+      device.id,
+      {
+        deviceType: device.deviceType ?? null,
+        lastSeenAt: device.lastSeenAt ?? null,
+      },
+    ])
+  )
+  const withoutEvidence = buildLocalCoreTopologyView({
+    core: {
+      id: POWERBOX,
+      hostname: "PowerBox Malagueño",
+      managementIp: "10.100.101.4",
+      operationalStatus: null,
+      lastPollAt: null,
+    },
+    jobId: "job-pb",
+    observations: observations.items,
+    links: malaguenoObservationInput().links,
+    deviceMeta,
+    requireOutgoingLink: true,
+  })
+  assert.equal(
+    withoutEvidence.interfaceGroups.flatMap((group) => group.devices).length,
+    0
+  )
+
+  const withEvidence = buildLocalCoreTopologyView({
+    core: {
+      id: POWERBOX,
+      hostname: "PowerBox Malagueño",
+      managementIp: "10.100.101.4",
+      operationalStatus: null,
+      lastPollAt: null,
+    },
+    jobId: "job-pb",
+    observations: observations.items,
+    links: [
+      { fromDeviceId: POWERBOX, toDeviceId: AS5, fromInterfaceName: "ether2" },
+      { fromDeviceId: POWERBOX, toDeviceId: AS6, fromInterfaceName: "ether3" },
+      { fromDeviceId: POWERBOX, toDeviceId: AS7, fromInterfaceName: "ether4" },
+    ],
+    deviceMeta,
+    requireOutgoingLink: true,
+  })
+  const attached = attachNestedLocalTopology(
+    buildMalaguenoLocalView(),
+    new Map([[POWERBOX, withEvidence.interfaceGroups]]),
+    new Set([MALAGUENO_CORE, POWERBOX])
+  )
+  const powerbox = attached.interfaceGroups
+    .find((group) => group.interfaceName === "ether3")
+    .devices.find((device) => device.id === POWERBOX)
+  assert.equal(powerbox.managed, true)
+  assert.equal(
+    powerbox.downstream.some((group) =>
+      group.devices.some((device) => device.id === AS5)
+    ),
+    true
+  )
+})
+
+test("1.3 G/H: probar conexión no lanza discovery; descubrir exige conexión verificada", () => {
+  const dialog = read("components/network/network-topology-manage-dialog.tsx")
+  assert.match(dialog, /Conexión verificada/)
+  assert.match(dialog, /No se pudo conectar/)
+  assert.match(dialog, /Sin probar/)
+  assert.match(dialog, /connection === "verified"/)
+  assert.match(dialog, /intent === "discover" && connection !== "verified"/)
+  assert.match(dialog, /jobType === "discovery"/)
+  assert.match(dialog, /Cerrar/)
+  const service = read("lib/network/management/service.ts")
+  assert.match(service, /input\.intent === "test" \|\| input\.intent === "discover"/)
+  assert.match(service, /!password\.trim\(\)/)
+  assert.match(service, /DISCOVERY_EXECUTABLE_JOB_TYPE/)
+  assert.match(service, /DIAGNOSTIC_EXECUTABLE_JOB_TYPE/)
+})
+
+test("1.3 I/J: administrar y descubrir permanece en Topology y no cambia el Root", () => {
+  const screen = read("components/network/network-topology-screen.tsx")
+  const dialog = read("components/network/network-topology-manage-dialog.tsx")
+  assert.doesNotMatch(dialog, /["']\/network\/discovery["']/)
+  assert.match(screen, /selectedCoreId && cores.some/)
+  assert.match(screen, /invalidateQueries/)
+  assert.match(
+    read("lib/network/topology/queries.ts"),
+    /deviceId \? cores.find/
+  )
+})
+
+function topologyJob(input) {
+  return {
+    id: "job-1",
+    jobType: "diagnostic",
+    status: "failed",
+    targetId: "target-1",
+    targetHost: "10.100.101.4",
+    deviceId: POWERBOX,
+    errorMessage: null,
+    createdAt: "2026-10-03T19:14:41.000Z",
+    completedAt: "2026-10-03T19:14:51.000Z",
+    ...input,
+  }
+}
+
+function powerboxManagementInput(input) {
+  return {
+    managed: true,
+    agentId: AGENT,
+    deviceId: POWERBOX,
+    managementIp: "10.100.101.4",
+    jobs: [],
+    targets: [
+      {
+        agentId: AGENT,
+        host: "10.100.101.4",
+        updatedAt: "2026-10-03T19:14:40.000Z",
+        hasSecret: true,
+      },
+    ],
+    ...input,
+  }
+}
+
+test("1.4 A: un dispositivo administrado sigue mostrando acciones", () => {
+  const screen = read("components/network/network-topology-screen.tsx")
+  assert.match(screen, /Reemplazar credenciales/)
+  assert.match(screen, /Probar conexión/)
+  assert.match(screen, /Descubrir ahora/)
+  assert.match(screen, /canAdminister/)
+  assert.match(screen, /canReplace/)
+})
+
+test("1.4 B: managed + secret no disponible permite reemplazar credenciales", () => {
+  const state = buildObservedDeviceManagementState(
+    powerboxManagementInput({
+      jobs: [
+        topologyJob({
+          errorMessage: NETWORK_TARGET_DECRYPT_ERROR,
+        }),
+      ],
+    })
+  )
+  assert.equal(state.managed, true)
+  assert.equal(state.credential, "unavailable")
+  assert.equal(state.decryptError, true)
+  assert.equal(state.canReplace, true)
+  assert.equal(state.canDiscover, false)
+  const screen = read("components/network/network-topology-screen.tsx")
+  assert.match(screen, /Credencial/)
+  assert.match(screen, /No disponible/)
+  assert.match(screen, /Reemplazar credenciales/)
+})
+
+test("1.4 C: diagnostic exitoso muestra conexión verificada y no es discovery", () => {
+  const state = buildObservedDeviceManagementState(
+    powerboxManagementInput({
+      jobs: [
+        topologyJob({
+          status: "completed",
+          errorMessage: null,
+        }),
+      ],
+    })
+  )
+  assert.equal(state.connection, "verified")
+  assert.equal(state.discovery, "pending")
+  assert.equal(state.credential, "available")
+  const service = read("lib/network/management/service.ts")
+  assert.match(service, /DIAGNOSTIC_EXECUTABLE_JOB_TYPE/)
+  assert.match(service, /input\.intent === "test"/)
+  const dialog = read("components/network/network-topology-manage-dialog.tsx")
+  assert.match(dialog, /jobType === "discovery"/)
+})
+
+test("1.4 D: diagnostic fallido es error de conexión, no Discovery fallido", () => {
+  const state = buildObservedDeviceManagementState(
+    powerboxManagementInput({
+      jobs: [
+        topologyJob({
+          errorMessage: "authentication failed",
+        }),
+      ],
+    })
+  )
+  assert.equal(state.connection, "error")
+  assert.equal(state.discovery, "pending")
+  assert.equal(state.credential, "available")
+  const screen = read("components/network/network-topology-screen.tsx")
+  assert.match(screen, /Error de conexión/)
+  assert.doesNotMatch(screen, /Discovery: \{jobLabel/)
+})
+
+test("1.4 E: decrypt error muestra credencial no disponible", () => {
+  const state = buildObservedDeviceManagementState(
+    powerboxManagementInput({
+      jobs: [
+        topologyJob({
+          errorMessage: NETWORK_TARGET_DECRYPT_ERROR,
+        }),
+      ],
+    })
+  )
+  assert.equal(state.credential, "unavailable")
+  assert.equal(state.connection, "untested")
+  assert.equal(state.discovery, "pending")
+  assert.equal(state.decryptError, true)
+  const screen = read("components/network/network-topology-screen.tsx")
+  assert.match(screen, /No se pudo descifrar la credencial del destino/)
+  assert.match(
+    read("lib/network/jobs/agent-execution.ts"),
+    /NETWORK_TARGET_DECRYPT_ERROR/
+  )
+})
+
+test("1.4 F: discovery pendiente si nunca existió job discovery", () => {
+  const state = buildObservedDeviceManagementState(
+    powerboxManagementInput({
+      jobs: [
+        topologyJob({
+          errorMessage: NETWORK_TARGET_DECRYPT_ERROR,
+        }),
+      ],
+    })
+  )
+  assert.equal(state.discovery, "pending")
+  assert.equal(state.discoveryJob, null)
+})
+
+test("1.4 G: discovery exitoso muestra Discovery completado", () => {
+  const state = buildObservedDeviceManagementState(
+    powerboxManagementInput({
+      jobs: [
+        topologyJob({
+          id: "job-discovery",
+          jobType: "discovery",
+          status: "completed",
+          errorMessage: null,
+        }),
+      ],
+    })
+  )
+  assert.equal(state.discovery, "completed")
+  assert.equal(state.connection, "untested")
+})
+
+test("1.4 H: Descubrir ahora reutiliza target y no pide password", () => {
+  const service = read("lib/network/management/service.ts")
+  assert.match(service, /input\.intent === "test" \|\| input\.intent === "discover"/)
+  assert.match(service, /existingTarget\?\.hasSecret/)
+  assert.match(service, /DISCOVERY_EXECUTABLE_JOB_TYPE/)
+  const screen = read("components/network/network-topology-screen.tsx")
+  assert.match(screen, /Descubrir ahora/)
+  assert.match(screen, /postNetworkDeviceManage/)
+  assert.match(screen, /password: ""/)
+  const request = read("lib/network/topology/manage-request.ts")
+  assert.match(request, /password: input\.password \?\? ""/)
+  assert.match(request, /intent: input\.intent/)
+})
+
+test("1.4 I: reemplazar credenciales actualiza el target y no duplica", () => {
+  const service = read("lib/network/management/service.ts")
+  assert.match(service, /intent === "replace"/)
+  assert.match(service, /upsertNetworkDiscoveryTarget/)
+  assert.match(service, /findNetworkDiscoveryTargetByAgentHost/)
+  assert.match(service, /job: null/)
+  assert.match(service, /lockedAgentId/)
+  const targets = read("lib/network/targets/queries.ts")
+  assert.match(targets, /if \(existing\)/)
+  assert.match(targets, /updateNetworkDiscoveryTarget/)
+  const dialog = read("components/network/network-topology-manage-dialog.tsx")
+  assert.match(dialog, /mode === "replace"/)
+  assert.match(dialog, /No se crea un target duplicado/)
+  const afterReplace = buildObservedDeviceManagementState(
+    powerboxManagementInput({
+      jobs: [
+        topologyJob({
+          errorMessage: NETWORK_TARGET_DECRYPT_ERROR,
+          completedAt: "2026-10-03T19:14:51.000Z",
+        }),
+      ],
+      targets: [
+        {
+          agentId: AGENT,
+          host: "10.100.101.4",
+          updatedAt: "2026-10-03T19:30:00.000Z",
+          hasSecret: true,
+        },
+      ],
+    })
+  )
+  assert.equal(afterReplace.credential, "available")
+  assert.equal(afterReplace.decryptError, false)
+  assert.equal(afterReplace.canDiscover, true)
+})
+
+test("1.4 J: Root/Managed de Topology 1.3 se conserva", () => {
+  assert.deepEqual(
+    selectTopologyRootIds(
+      [MALAGUENO_CORE, POWERBOX],
+      [
+        {
+          deviceId: MALAGUENO_CORE,
+          completedAt: "2026-10-03T12:00:00.000Z",
+          lanVlanChildIds: [POWERBOX],
+        },
+      ]
+    ),
+    [MALAGUENO_CORE]
+  )
+  const queries = read("lib/network/topology/queries.ts")
+  assert.match(queries, /selectTopologyRootIds/)
+  const screen = read("components/network/network-topology-screen.tsx")
+  assert.match(screen, /selectedCoreId && cores.some/)
 })
 
 

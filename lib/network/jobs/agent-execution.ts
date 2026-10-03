@@ -21,6 +21,7 @@ import {
   markNetworkAgentJobRunning,
   recoverStaleNetworkAgentJobs,
 } from "@/lib/network/jobs/queries"
+import { NETWORK_TARGET_DECRYPT_ERROR } from "@/lib/network/management/errors"
 import {
   compactDiagnosticResult,
   compactDiscoveryResult,
@@ -87,7 +88,7 @@ async function loadJobExecution(
       tag: target.secret_tag,
     })
   } catch {
-    return { error: "No se pudo descifrar la credencial del destino." }
+    return { error: NETWORK_TARGET_DECRYPT_ERROR }
   }
 
   return {

@@ -289,6 +289,29 @@ export function attachNestedLocalTopology(
   }
 }
 
+export type TopologyRootViewpoint = {
+  deviceId: string
+  completedAt: string
+  lanVlanChildIds: readonly string[]
+}
+
+export function selectTopologyRootIds(
+  managedIds: readonly string[],
+  viewpoints: readonly TopologyRootViewpoint[]
+): string[] {
+  const children = new Set<string>()
+  const ordered = [...viewpoints].sort(
+    (left, right) => Date.parse(left.completedAt) - Date.parse(right.completedAt)
+  )
+  for (const viewpoint of ordered) {
+    if (children.has(viewpoint.deviceId)) continue
+    for (const childId of viewpoint.lanVlanChildIds) {
+      if (childId !== viewpoint.deviceId) children.add(childId)
+    }
+  }
+  return managedIds.filter((id) => !children.has(id))
+}
+
 export function buildLocalCoreTopologyView(input: {
   core: LocalCoreTopologyView["core"]
   jobId: string | null

@@ -24,6 +24,7 @@ async function fetchNetworkTopology(
     cores?: NetworkTopologyPage["cores"]
     local?: NetworkTopologyPage["local"]
     discoveryJobs?: NetworkTopologyPage["discoveryJobs"]
+    managementTargets?: NetworkTopologyPage["managementTargets"]
     message?: string
   }
   if (!body.success) {
@@ -34,6 +35,7 @@ async function fetchNetworkTopology(
     cores: body.cores ?? [],
     local: body.local ?? null,
     discoveryJobs: body.discoveryJobs ?? [],
+    managementTargets: body.managementTargets ?? [],
   }
 }
 

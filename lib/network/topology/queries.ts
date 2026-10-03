@@ -14,16 +14,20 @@ import {
   uniqueTopologyInterfaces,
   type TopologyGraphDeviceInput,
 } from "@/lib/network/topology/graph"
+import { pickLatestCompletedDiscoveryJobForHost } from "@/lib/network/discovery/latest-run"
 import {
   attachNestedLocalTopology,
   buildLocalCoreTopologyView,
   emptyLocalCoreTopologyView,
+  selectTopologyRootIds,
 } from "@/lib/network/topology/local-view"
+import { listNetworkDiscoveryTargets } from "@/lib/network/targets/queries"
 import type {
   LocalTopologyInterfaceGroup,
   NetworkTopologyGraph,
   NetworkTopologyInterface,
   NetworkTopologyManagementJob,
+  NetworkTopologyManagementTarget,
   NetworkTopologyPage,
 } from "@/lib/network/topology/types"
 
@@ -163,8 +167,47 @@ export async function getNetworkTopologyPage(
   deviceId?: string | null
 ): Promise<NetworkTopologyPage> {
   const graph = await getNetworkTopologyGraph(client, companyId)
-  const cores = graph.nodes
-    .filter((node) => node.kind === "managed")
+  const [managementJobs, listedTargets] = await Promise.all([
+    listNetworkManagementJobs(client, companyId),
+    listNetworkDiscoveryTargets(client, companyId),
+  ])
+  const discoveryJobs = compactTopologyManagementJobs(managementJobs)
+  const managementTargets = compactTopologyManagementTargets(listedTargets)
+  const managedNodes = graph.nodes.filter((node) => node.kind === "managed")
+  const managedIds = new Set(managedNodes.map((node) => node.id))
+  const jobs = await listNetworkDiscoveryJobs(client, companyId)
+  const managedHosts = managedNodes.map((node) => node.managementIp)
+  const byHost = await getLatestNetworkDiscoveryObservationsByHosts(
+    client,
+    companyId,
+    jobs,
+    managedHosts
+  )
+  const viewpoints = managedNodes.flatMap((node) => {
+    const host = node.managementIp?.trim()
+    if (!host) return []
+    const latestForHost = byHost.get(host)
+    if (!latestForHost?.latestObservations.jobId) return []
+    const job = pickLatestCompletedDiscoveryJobForHost(jobs, host)
+    if (!job) return []
+    return [
+      {
+        deviceId: node.id,
+        completedAt: job.completedAt,
+        lanVlanChildIds: latestForHost.latestObservations.items
+          .filter((item) => item.scope === "lan" || item.scope === "vlan")
+          .map((item) => item.id),
+      },
+    ]
+  })
+  const rootIds = new Set(
+    selectTopologyRootIds(
+      managedNodes.map((node) => node.id),
+      viewpoints
+    )
+  )
+  const cores = managedNodes
+    .filter((node) => rootIds.has(node.id))
     .map((node) => ({
       id: node.id,
       hostname: node.hostname,
@@ -174,11 +217,8 @@ export async function getNetworkTopologyPage(
 
   const selected =
     (deviceId ? cores.find((core) => core.id === deviceId) : null) ?? cores[0] ?? null
-  const discoveryJobs = compactTopologyManagementJobs(
-    await listNetworkManagementJobs(client, companyId)
-  )
   if (!selected) {
-    return { graph, cores, local: null, discoveryJobs }
+    return { graph, cores, local: null, discoveryJobs, managementTargets }
   }
 
   const coreNode = graph.nodes.find((node) => node.id === selected.id) ?? null
@@ -189,20 +229,6 @@ export async function getNetworkTopologyPage(
     operationalStatus: coreNode?.operationalStatus ?? selected.operationalStatus,
     lastPollAt: coreNode?.lastPollAt ?? null,
   }
-
-  const jobs = await listNetworkDiscoveryJobs(client, companyId)
-  const managedIds = new Set(
-    graph.nodes.filter((node) => node.kind === "managed").map((node) => node.id)
-  )
-  const managedHosts = graph.nodes
-    .filter((node) => node.kind === "managed")
-    .map((node) => node.managementIp)
-  const byHost = await getLatestNetworkDiscoveryObservationsByHosts(
-    client,
-    companyId,
-    jobs,
-    [selected.managementIp, ...managedHosts]
-  )
   const latest = selected.managementIp
     ? byHost.get(selected.managementIp)
     : undefined
@@ -226,6 +252,7 @@ export async function getNetworkTopologyPage(
       cores,
       local: emptyLocalCoreTopologyView(core),
       discoveryJobs,
+      managementTargets,
     }
   }
 
@@ -297,6 +324,7 @@ export async function getNetworkTopologyPage(
     cores,
     local: attachNestedLocalTopology(local, nestedByDeviceId, managedIds),
     discoveryJobs,
+    managementTargets,
   }
 }
 
@@ -313,5 +341,18 @@ function compactTopologyManagementJobs(
     deviceId:
       typeof job.payload.deviceId === "string" ? job.payload.deviceId : null,
     errorMessage: job.errorMessage,
+    createdAt: job.createdAt,
+    completedAt: job.completedAt ?? null,
+  }))
+}
+
+function compactTopologyManagementTargets(
+  targets: Awaited<ReturnType<typeof listNetworkDiscoveryTargets>>
+): NetworkTopologyManagementTarget[] {
+  return targets.map((target) => ({
+    agentId: target.agentId,
+    host: target.host,
+    updatedAt: target.updatedAt,
+    hasSecret: target.hasSecret,
   }))
 }
