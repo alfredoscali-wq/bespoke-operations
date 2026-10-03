@@ -69,6 +69,38 @@ export async function listNetworkDiscoveryJobs(
   })
 }
 
+export async function listNetworkManagementJobs(
+  client: Client,
+  companyId: string
+): Promise<NetworkDiscoveryJobView[]> {
+  const { data, error } = await client
+    .from("network_agent_jobs")
+    .select("*, network_agents ( name )")
+    .eq("company_id", companyId)
+    .in("job_type", ["discovery", "diagnostic"])
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false })
+    .limit(100)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return (data ?? []).map((row) => {
+    const agent = row.network_agents as { name: string } | null
+    const job = mapNetworkJobRow(row, agent?.name ?? null)
+    const targetName =
+      typeof job.payload.targetName === "string" ? job.payload.targetName : null
+    const targetHost =
+      typeof job.payload.host === "string" ? job.payload.host : null
+    return {
+      ...job,
+      targetName,
+      targetHost,
+    }
+  })
+}
+
 export async function createPendingNetworkAgentJob(
   client: Client,
   input: {
@@ -188,7 +220,7 @@ export async function claimNextPendingNetworkAgentJob(
     .select("*")
     .eq("company_id", input.companyId)
     .eq("agent_id", input.agentId)
-    .in("job_type", ["discovery", "monitoring"])
+    .in("job_type", ["discovery", "monitoring", "diagnostic"])
     .eq("status", "pending")
     .is("deleted_at", null)
     .order("created_at", { ascending: true })

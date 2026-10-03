@@ -1,6 +1,7 @@
 import "server-only"
 
 import { DISCOVERY_EXECUTABLE_JOB_TYPE } from "@/lib/network/discovery/contract"
+import { DIAGNOSTIC_EXECUTABLE_JOB_TYPE } from "@/lib/network/management/vendor"
 import type { DiscoveryJobExecution } from "@/lib/network/discovery/contract"
 import { persistDiscoverySnapshot } from "@/lib/network/devices/queries"
 import { parseDiscoverySnapshot } from "@/lib/network/discovery/parse-snapshot"
@@ -21,6 +22,7 @@ import {
   recoverStaleNetworkAgentJobs,
 } from "@/lib/network/jobs/queries"
 import {
+  compactDiagnosticResult,
   compactDiscoveryResult,
   compactMonitoringResult,
   decryptNetworkDeviceSecret,
@@ -149,7 +151,10 @@ export async function claimAuthorizedNetworkAgentJob(auth: NetworkAgentAuth) {
   const payload = (job.payload ?? {}) as Record<string, unknown>
   const targetId = typeof payload.targetId === "string" ? payload.targetId : ""
 
-  if (job.job_type === DISCOVERY_EXECUTABLE_JOB_TYPE) {
+  if (
+    job.job_type === DISCOVERY_EXECUTABLE_JOB_TYPE ||
+    job.job_type === DIAGNOSTIC_EXECUTABLE_JOB_TYPE
+  ) {
     if (!targetId) {
       return failClaimedJob(admin, auth, job.id, "El job de discovery no tiene un destino autorizado.")
     }
@@ -270,7 +275,82 @@ export async function submitNetworkAgentJobResult(input: {
     return submitNetworkMonitoringJobResult(input)
   }
 
+  if (job.job_type === DIAGNOSTIC_EXECUTABLE_JOB_TYPE) {
+    return submitNetworkDiagnosticJobResult(input)
+  }
+
   return submitNetworkDiscoveryJobResult(input)
+}
+
+export async function submitNetworkDiagnosticJobResult(input: {
+  auth: NetworkAgentAuth
+  jobId: string
+  body: unknown
+  claimedCompanyId?: unknown
+}) {
+  const companyId = resolveTrustedCompanyId(
+    input.auth.companyId,
+    input.claimedCompanyId
+  )
+  const admin = createAdminClient()
+  const job = await getNetworkAgentJob(admin, companyId, input.jobId)
+
+  if (!job || job.agent_id !== input.auth.agentId) {
+    throw new NetworkApiError(
+      "JOB_NOT_FOUND",
+      NETWORK_API_ERROR_MESSAGES.JOB_NOT_FOUND,
+      404
+    )
+  }
+
+  if (job.job_type !== DIAGNOSTIC_EXECUTABLE_JOB_TYPE) {
+    throw new NetworkApiError(
+      "JOB_NOT_EXECUTABLE",
+      NETWORK_API_ERROR_MESSAGES.JOB_NOT_EXECUTABLE,
+      409
+    )
+  }
+
+  if (["completed", "failed", "cancelled"].includes(job.status)) {
+    throw new NetworkApiError(
+      "JOB_NOT_EXECUTABLE",
+      "El job ya fue finalizado.",
+      409
+    )
+  }
+
+  const record =
+    input.body && typeof input.body === "object" && !Array.isArray(input.body)
+      ? (input.body as Record<string, unknown>)
+      : {}
+  const payload = (job.payload ?? {}) as Record<string, unknown>
+  const targetId = typeof payload.targetId === "string" ? payload.targetId : "unknown"
+  const host = typeof payload.host === "string" ? payload.host : ""
+  const vendor = typeof payload.vendor === "string" ? payload.vendor : "mikrotik"
+
+  const ok = record.ok !== false
+  const errorMessage =
+    typeof record.error === "string" && record.error.trim()
+      ? record.error.trim()
+      : ok
+        ? null
+        : "No fue posible conectar con el dispositivo."
+
+  const completed = await completeNetworkAgentJob(admin, {
+    companyId,
+    agentId: input.auth.agentId,
+    jobId: input.jobId,
+    status: ok ? "completed" : "failed",
+    result: compactDiagnosticResult({
+      vendor,
+      targetId,
+      host,
+      ok,
+    }),
+    errorMessage,
+  })
+
+  return { status: completed.status, result: completed.result }
 }
 
 export async function submitNetworkDiscoveryJobResult(input: {

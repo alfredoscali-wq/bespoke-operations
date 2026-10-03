@@ -1,4 +1,8 @@
-import type { NetworkDeviceType } from "@/lib/network/constants"
+import type {
+  NetworkDeviceType,
+  NetworkJobStatus,
+  NetworkJobType,
+} from "@/lib/network/constants"
 import type { MonitoringOperationalStatus } from "@/lib/network/monitoring/contract"
 import type {
   LocalCoreTopologyView,
@@ -46,8 +50,19 @@ export type NetworkTopologyGraph = {
   edges: NetworkTopologyEdge[]
 }
 
+export type NetworkTopologyManagementJob = {
+  id: string
+  jobType: NetworkJobType
+  status: NetworkJobStatus
+  targetId: string | null
+  targetHost: string | null
+  deviceId: string | null
+  errorMessage: string | null
+}
+
 export type NetworkTopologyPage = {
   graph: NetworkTopologyGraph
   cores: LocalTopologyCoreOption[]
   local: LocalCoreTopologyView | null
+  discoveryJobs: NetworkTopologyManagementJob[]
 }

@@ -1,5 +1,5 @@
 import type { DiscoveryJobExecution } from "@/lib/network/discovery/contract"
-import { runDiscoveryJob, runMonitoringJob } from "../connectors/registry"
+import { runDiagnosticJob, runDiscoveryJob, runMonitoringJob } from "../connectors/registry"
 import type { ConnectorAccess } from "../connectors/types"
 
 function toAccess(execution: DiscoveryJobExecution): ConnectorAccess {
@@ -10,6 +10,19 @@ function toAccess(execution: DiscoveryJobExecution): ConnectorAccess {
     username: execution.username,
     password: execution.password,
   }
+}
+
+export async function executeDiagnosticJob(input: {
+  targetId: string
+  siteId: string | null
+  execution: DiscoveryJobExecution
+}) {
+  return runDiagnosticJob({
+    vendor: input.execution.vendor,
+    targetId: input.targetId,
+    siteId: input.siteId,
+    access: toAccess(input.execution),
+  })
 }
 
 export async function executeDiscoveryJob(input: {

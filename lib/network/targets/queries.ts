@@ -103,6 +103,88 @@ export async function insertNetworkDiscoveryTarget(
   return mapNetworkTargetRow(data)
 }
 
+export async function findNetworkDiscoveryTargetByAgentHost(
+  client: Client,
+  companyId: string,
+  agentId: string,
+  host: string
+): Promise<NetworkDiscoveryTarget | null> {
+  const { data, error } = await client
+    .from("network_discovery_targets")
+    .select(
+      `${TARGET_PUBLIC_COLUMNS}, network_agents ( name ), network_sites ( name )`
+    )
+    .eq("company_id", companyId)
+    .eq("agent_id", agentId)
+    .eq("host", host.trim())
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) throw new Error(error.message)
+  if (!data) return null
+
+  const agent = data.network_agents as { name: string } | null
+  const site = data.network_sites as { name: string } | null
+  return mapNetworkTargetRow(data, {
+    agentName: agent?.name ?? null,
+    siteName: site?.name ?? null,
+  })
+}
+
+export async function updateNetworkDiscoveryTarget(
+  client: Client,
+  companyId: string,
+  targetId: string,
+  draft: NetworkDiscoveryTargetDraft
+): Promise<NetworkDiscoveryTarget> {
+  const secret = encryptNetworkDeviceSecret(draft.password)
+  const { data, error } = await client
+    .from("network_discovery_targets")
+    .update({
+      agent_id: draft.agentId,
+      site_id: draft.siteId,
+      name: draft.name,
+      vendor: draft.vendor,
+      host: draft.host,
+      port: draft.port ?? (draft.protocol === "rest" ? 443 : 8728),
+      protocol: draft.protocol,
+      username: draft.username,
+      secret_ciphertext: secret.ciphertext,
+      secret_iv: secret.iv,
+      secret_tag: secret.tag,
+    })
+    .eq("company_id", companyId)
+    .eq("id", targetId)
+    .is("deleted_at", null)
+    .select(TARGET_PUBLIC_COLUMNS)
+    .single()
+
+  if (error || !data) {
+    throw new Error(error?.message ?? "No se pudo actualizar el destino.")
+  }
+
+  return mapNetworkTargetRow(data)
+}
+
+export async function upsertNetworkDiscoveryTarget(
+  client: Client,
+  companyId: string,
+  draft: NetworkDiscoveryTargetDraft
+): Promise<NetworkDiscoveryTarget> {
+  const existing = await findNetworkDiscoveryTargetByAgentHost(
+    client,
+    companyId,
+    draft.agentId,
+    draft.host
+  )
+  if (existing) {
+    return updateNetworkDiscoveryTarget(client, companyId, existing.id, draft)
+  }
+  return insertNetworkDiscoveryTarget(client, companyId, draft)
+}
+
 export async function getNetworkDiscoveryTargetSecretRow(
   client: Client,
   companyId: string,

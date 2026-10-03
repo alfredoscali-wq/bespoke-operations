@@ -20,6 +20,9 @@ export type LocalTopologyObservedDevice = {
   deviceType: NetworkDeviceType | null
   operationalStatus: MonitoringOperationalStatus | null
   lastPollAt: string | null
+  managed: boolean
+  downstream: LocalTopologyInterfaceGroup[]
+  agentId: string | null
 }
 
 export type LocalTopologyInterfaceGroup = {
@@ -209,6 +212,7 @@ function toObservedDevice(
     | {
         deviceType?: string | null
         lastSeenAt?: string | null
+        agentId?: string | null
       }
     | undefined,
   status:
@@ -233,6 +237,9 @@ function toObservedDevice(
     deviceType: (meta?.deviceType as NetworkDeviceType | null) ?? null,
     operationalStatus: status?.status ?? null,
     lastPollAt: status?.lastPollAt ?? null,
+    managed: false,
+    downstream: [],
+    agentId: meta?.agentId ?? null,
   }
 }
 
@@ -247,6 +254,41 @@ export function emptyLocalCoreTopologyView(
   }
 }
 
+export function attachNestedLocalTopology(
+  view: LocalCoreTopologyView,
+  nestedByDeviceId: ReadonlyMap<string, LocalTopologyInterfaceGroup[]>,
+  managedIds: ReadonlySet<string>
+): LocalCoreTopologyView {
+  const claimed = new Set<string>()
+  for (const groups of nestedByDeviceId.values()) {
+    for (const group of groups) {
+      for (const device of group.devices) claimed.add(device.id)
+    }
+  }
+
+  const interfaceGroups = view.interfaceGroups.map((group) => {
+    const devices = group.devices
+      .filter((device) => !claimed.has(device.id) || nestedByDeviceId.has(device.id))
+      .map((device) => ({
+        ...device,
+        managed: managedIds.has(device.id),
+        downstream: nestedByDeviceId.get(device.id) ?? [],
+      }))
+    const cpes = group.cpes.map((device) => ({
+      ...device,
+      managed: managedIds.has(device.id),
+      downstream: [],
+    }))
+    return { ...group, devices, cpes, cpeCount: cpes.length }
+  })
+
+  return {
+    ...view,
+    interfaceGroups,
+    cpeObservedCount: interfaceGroups.reduce((sum, group) => sum + group.cpeCount, 0),
+  }
+}
+
 export function buildLocalCoreTopologyView(input: {
   core: LocalCoreTopologyView["core"]
   jobId: string | null
@@ -258,6 +300,7 @@ export function buildLocalCoreTopologyView(input: {
     {
       deviceType?: string | null
       lastSeenAt?: string | null
+      agentId?: string | null
     }
   >
   statusByDeviceId?: ReadonlyMap<
@@ -267,6 +310,7 @@ export function buildLocalCoreTopologyView(input: {
       lastPollAt: string | null
     }
   >
+  requireOutgoingLink?: boolean
 }): LocalCoreTopologyView {
   const lanVlan: NetworkDiscoveryObservationItem[] = []
 
@@ -306,8 +350,9 @@ export function buildLocalCoreTopologyView(input: {
       coreId: input.core.id,
       deviceId: item.id,
       links: input.links ?? [],
-      fallback: item.observedInterfaceName,
+      fallback: input.requireOutgoingLink ? null : item.observedInterfaceName,
     })
+    if (input.requireOutgoingLink && !interfaceName) continue
     const device = toObservedDevice(
       item,
       interfaceName,

@@ -2,15 +2,24 @@
 
 import { useMemo, useState } from "react"
 import Link from "next/link"
+import { useQueryClient } from "@tanstack/react-query"
 
 import { NetworkSubnav } from "@/components/network/network-subnav"
+import { NetworkTopologyManageDialog } from "@/components/network/network-topology-manage-dialog"
 import { StatusBadge } from "@/components/ui/status-badge"
+import { isNetworkDiscoveryJobInflight } from "@/lib/network/discovery/job-poll"
 import {
   NETWORK_DEVICE_STATUS_LABELS,
   NETWORK_DEVICE_STATUS_TONES,
   NETWORK_DEVICE_TYPE_LABELS,
+  NETWORK_JOB_STATUS_LABELS,
   formatNetworkTimestamp,
 } from "@/lib/network/labels"
+import {
+  networkManagementVendorLabel,
+  resolveNetworkManagementVendor,
+} from "@/lib/network/management/vendor"
+import { networkQueryKeys } from "@/lib/network/react-query/keys"
 import { useNetworkTopologyQuery } from "@/lib/network/react-query/use-network-topology-query"
 import {
   buildTopologyEdgeDetail,
@@ -25,6 +34,7 @@ import type {
   LocalTopologyInterfaceGroup,
   LocalTopologyObservedDevice,
   NetworkTopologyEdge,
+  NetworkTopologyManagementJob,
   NetworkTopologyNode,
 } from "@/lib/network/topology/types"
 import { STATUS_TONE_STYLES } from "@/lib/ui/visual-tokens"
@@ -86,15 +96,48 @@ function monitoringLabel(status: string | null | undefined): string {
   return "Sin monitoreo"
 }
 
+function collectObservedDevices(
+  groups: readonly LocalTopologyInterfaceGroup[]
+): Map<string, LocalTopologyObservedDevice> {
+  const map = new Map<string, LocalTopologyObservedDevice>()
+  function walk(items: readonly LocalTopologyInterfaceGroup[]) {
+    for (const group of items) {
+      for (const device of [...group.devices, ...group.cpes]) {
+        map.set(device.id, device)
+        if (device.downstream.length > 0) walk(device.downstream)
+      }
+    }
+  }
+  walk(groups)
+  return map
+}
+
+function managementJobForDevice(
+  jobs: readonly NetworkTopologyManagementJob[],
+  device: LocalTopologyObservedDevice
+): NetworkTopologyManagementJob | null {
+  return (
+    jobs.find((job) => job.deviceId === device.id) ??
+    jobs.find(
+      (job) =>
+        device.managementIp != null && job.targetHost === device.managementIp
+    ) ??
+    null
+  )
+}
+
 export function NetworkTopologyScreen() {
+  const queryClient = useQueryClient()
   const [selectedCoreId, setSelectedCoreId] = useState<string | null>(null)
   const { data, error, isPending } = useNetworkTopologyQuery(selectedCoreId)
   const [selection, setSelection] = useState<TopologySelection | null>(null)
   const [observedId, setObservedId] = useState<string | null>(null)
   const [cpeGroupKey, setCpeGroupKey] = useState<string | null>(null)
+  const [manageOpen, setManageOpen] = useState(false)
   const graph = data?.graph ?? { nodes: [], edges: [] }
   const cores = data?.cores ?? []
   const local = data?.local ?? null
+  const discoveryJobs = data?.discoveryJobs ?? []
   const activeCoreId = selectedCoreId ?? cores[0]?.id ?? null
   const activeSelection = resolveTopologySelection(
     selection,
@@ -106,14 +149,10 @@ export function NetworkTopologyScreen() {
     () => new Map(positioned.map((node) => [node.id, node])),
     [positioned]
   )
-  const observedById = useMemo(() => {
-    const map = new Map<string, LocalTopologyObservedDevice>()
-    for (const group of local?.interfaceGroups ?? []) {
-      for (const device of group.devices) map.set(device.id, device)
-      for (const device of group.cpes) map.set(device.id, device)
-    }
-    return map
-  }, [local])
+  const observedById = useMemo(
+    () => collectObservedDevices(local?.interfaceGroups ?? []),
+    [local]
+  )
   const selectedCpeGroup =
     cpeGroupKey != null
       ? (local?.interfaceGroups.find(
@@ -349,7 +388,9 @@ export function NetworkTopologyScreen() {
           {selectedObserved ? (
             <SelectedObservedPanel
               device={selectedObserved}
+              job={managementJobForDevice(discoveryJobs, selectedObserved)}
               onClose={() => setObservedId(null)}
+              onAdminister={() => setManageOpen(true)}
             />
           ) : selectedCpeGroup ? (
             <SelectedCpeGroupPanel
@@ -381,6 +422,17 @@ export function NetworkTopologyScreen() {
           )}
         </aside>
       </div>
+      <NetworkTopologyManageDialog
+        open={manageOpen}
+        device={selectedObserved}
+        agentId={selectedObserved?.agentId ?? null}
+        onOpenChange={setManageOpen}
+        onStarted={() => {
+          void queryClient.invalidateQueries({
+            queryKey: networkQueryKeys.topology(),
+          })
+        }}
+      />
     </div>
   )
 }
@@ -474,7 +526,7 @@ function InterfaceBranch({
   onSelectCpeGroup: () => void
 }) {
   return (
-    <div className="flex w-[200px] flex-col items-center">
+    <div className="flex min-w-[200px] flex-col items-center">
       <div className="h-6 w-px bg-border" />
       <div className="rounded-full border bg-muted/60 px-3 py-1 text-center text-xs font-medium">
         {group.interfaceLabel}
@@ -482,33 +534,55 @@ function InterfaceBranch({
       <div className="h-4 w-px bg-border" />
       <div className="flex w-full flex-col gap-2">
         {group.devices.map((device) => (
-          <button
-            key={device.id}
-            type="button"
-            className={cn(
-              "w-full rounded-lg border bg-background px-3 py-2 text-left shadow-sm",
-              selectedObservedId === device.id
-                ? "border-foreground ring-2 ring-foreground/20"
-                : "hover:border-foreground/40"
-            )}
-            onClick={() => onSelectObserved(device.id)}
-          >
-            <p className="truncate text-sm font-medium">
-              {device.hostname || device.managementIp || device.id}
-            </p>
-            {device.managementIp ? (
-              <p className="truncate text-xs text-muted-foreground">{device.managementIp}</p>
+          <div key={device.id} className="flex flex-col items-center gap-2">
+            <button
+              type="button"
+              className={cn(
+                "w-full rounded-lg border bg-background px-3 py-2 text-left shadow-sm",
+                selectedObservedId === device.id
+                  ? "border-foreground ring-2 ring-foreground/20"
+                  : "hover:border-foreground/40"
+              )}
+              onClick={() => onSelectObserved(device.id)}
+            >
+              <p className="truncate text-sm font-medium">
+                {device.hostname || device.managementIp || device.id}
+              </p>
+              {device.managementIp ? (
+                <p className="truncate text-xs text-muted-foreground">
+                  {device.managementIp}
+                </p>
+              ) : null}
+              <p className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <span
+                  className={cn(
+                    "inline-block size-1.5 rounded-full",
+                    statusDotClass(device.operationalStatus)
+                  )}
+                />
+                {monitoringLabel(device.operationalStatus)}
+              </p>
+              {device.managed ? (
+                <p className="mt-1 text-[11px] font-medium text-foreground">
+                  Administrado
+                </p>
+              ) : null}
+            </button>
+            {device.downstream.length > 0 ? (
+              <div className="flex items-start gap-3">
+                {device.downstream.map((nested) => (
+                  <InterfaceBranch
+                    key={`${device.id}-${nested.interfaceName ?? "sin-interfaz"}`}
+                    group={nested}
+                    selectedObservedId={selectedObservedId}
+                    cpeSelected={false}
+                    onSelectObserved={onSelectObserved}
+                    onSelectCpeGroup={onSelectCpeGroup}
+                  />
+                ))}
+              </div>
             ) : null}
-            <p className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-              <span
-                className={cn(
-                  "inline-block size-1.5 rounded-full",
-                  statusDotClass(device.operationalStatus)
-                )}
-              />
-              {monitoringLabel(device.operationalStatus)}
-            </p>
-          </button>
+          </div>
         ))}
         {group.cpeCount > 0 ? (
           <button
@@ -579,16 +653,32 @@ function SelectedCpeGroupPanel({
 
 function SelectedObservedPanel({
   device,
+  job,
   onClose,
+  onAdminister,
 }: {
   device: LocalTopologyObservedDevice
+  job: NetworkTopologyManagementJob | null
   onClose: () => void
+  onAdminister: () => void
 }) {
+  const vendor = resolveNetworkManagementVendor({
+    manufacturer: device.platform,
+    platform: device.platform,
+    board: device.board,
+  })
+  const jobInflight = job ? isNetworkDiscoveryJobInflight(job.status) : false
+  const jobLabel = job
+    ? NETWORK_JOB_STATUS_LABELS[
+        job.status as keyof typeof NETWORK_JOB_STATUS_LABELS
+      ] ?? job.status
+    : null
+
   return (
     <div className="space-y-3">
       <div className="flex items-start justify-between gap-2">
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Observado
+          {device.managed ? "Administrado" : "Observado"}
         </p>
         <PanelCloseButton onClose={onClose} />
       </div>
@@ -598,7 +688,36 @@ function SelectedObservedPanel({
         </p>
         <p className="text-muted-foreground">{device.managementIp || "Sin IP"}</p>
       </div>
+      <p>Fabricante: {device.platform || networkManagementVendorLabel(vendor)}</p>
+      <p>Modelo: {device.board || "—"}</p>
+      <p>IP: {device.managementIp || "—"}</p>
       <p>MAC: {device.macAddress || "—"}</p>
+      <p>
+        Estado de administración:{" "}
+        {device.managed ? "Administrado" : "No administrado"}
+      </p>
+      {jobInflight ? (
+        <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm">
+          <p className="font-medium">Administrando...</p>
+          <p className="text-muted-foreground">{jobLabel}</p>
+        </div>
+      ) : job ? (
+        <p>
+          Discovery: {jobLabel}
+          {job.status === "failed" && job.errorMessage
+            ? ` — ${job.errorMessage}`
+            : ""}
+        </p>
+      ) : null}
+      {!device.managed ? (
+        <button
+          type="button"
+          className="rounded-md border bg-background px-3 py-2 text-sm font-medium hover:border-foreground/40"
+          onClick={onAdminister}
+        >
+          Administrar dispositivo
+        </button>
+      ) : null}
       <p>Interfaz observada: {device.observedInterfaceName || "—"}</p>
       <p>Platform: {device.platform || "—"}</p>
       <p>Board: {device.board || "—"}</p>

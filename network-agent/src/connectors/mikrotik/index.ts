@@ -6,6 +6,21 @@ import { mapMikrotikFactsToSnapshot, type RouterOsFacts } from "./map-discovery"
 import { mapMikrotikFactsToMonitoring } from "./map-monitoring"
 import { fetchRouterOsMonitoring, fetchRouterOsRest } from "./rest-client"
 
+async function testViaApi(access: ConnectorAccess) {
+  const client = await connectRouterOsApi({
+    host: access.host,
+    port: access.port,
+    username: access.username,
+    password: access.password,
+    timeoutMs: access.timeoutMs,
+  })
+  try {
+    await printRecords(client, "/system/identity/print")
+  } finally {
+    client.close()
+  }
+}
+
 async function discoverViaApi(access: ConnectorAccess, targetId: string, siteId: string | null) {
   const client = await connectRouterOsApi({
     host: access.host,
@@ -132,12 +147,60 @@ async function pollViaRest(
   })
 }
 
+function mapTestConnectionError(
+  error: unknown,
+  access: ConnectorAccess
+): ConnectorError {
+  const raw = error instanceof Error ? error.message : ""
+  const lower = raw.toLowerCase()
+  if (
+    /invalid user|cannot log in|login failure|incorrect password|bad name/.test(
+      lower
+    )
+  ) {
+    return new ConnectorError("Credenciales rechazadas")
+  }
+  if (
+    /econnrefused|etimedout|timeout|enotfound|ehostunreach|socket closed|network unreachable/.test(
+      lower
+    )
+  ) {
+    return new ConnectorError(
+      `No fue posible conectar con ${access.host}:${access.port}`
+    )
+  }
+  if (/api/.test(lower) && /not respond|unavailable|refused/.test(lower)) {
+    return new ConnectorError("El servicio API no responde")
+  }
+  if (error instanceof ConnectorError) return error
+  return new ConnectorError(
+    raw || `No fue posible conectar con ${access.host}:${access.port}`
+  )
+}
+
 export function createMikrotikConnector(input: {
   targetId: string
   siteId: string | null
 }): NetworkConnector {
   return {
     vendor: "mikrotik",
+    async testConnection(access: ConnectorAccess): Promise<void> {
+      try {
+        if (access.protocol === "rest") {
+          await fetchRouterOsRest({
+            host: access.host,
+            port: access.port,
+            username: access.username,
+            password: access.password,
+            timeoutMs: access.timeoutMs,
+          })
+          return
+        }
+        await testViaApi(access)
+      } catch (error) {
+        throw mapTestConnectionError(error, access)
+      }
+    },
     async discover(access: ConnectorAccess): Promise<DiscoverySnapshot> {
       if (access.protocol === "rest") {
         return discoverViaRest(access, input.targetId, input.siteId)

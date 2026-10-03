@@ -27,10 +27,16 @@ import {
   uniqueTopologyInterfaces,
 } from "../lib/network/topology/graph.ts"
 import {
+  attachNestedLocalTopology,
   buildLocalCoreTopologyView,
   isLikelyCustomerCpe,
   visualDedupeKey,
 } from "../lib/network/topology/local-view.ts"
+import {
+  getNetworkManagementProfile,
+  resolveNetworkManagementVendor,
+  selectManagementAccessOption,
+} from "../lib/network/management/vendor.ts"
 
 const root = resolve(import.meta.dirname, "..")
 
@@ -1286,7 +1292,7 @@ test("1.0 H: usa el último discovery del host y no mezcla históricos", () => {
     [AS5]
   )
   const queries = read("lib/network/topology/queries.ts")
-  assert.match(queries, /getLatestNetworkDiscoveryObservationsForHost/)
+  assert.match(queries, /getLatestNetworkDiscoveryObservationsByHosts/)
   assert.match(
     read("lib/network/discovery/observation-queries.ts"),
     /pickLatestCompletedDiscoveryJobForHost/
@@ -1337,6 +1343,278 @@ test("1.1 J: dedupe visual no fusiona dispositivos sin evidencia suficiente", ()
   assert.equal(as6.length, 1)
   const generics = ether3.devices.filter((device) => device.hostname === "MikroTik")
   assert.equal(generics.length, 2)
+})
+
+test("1.2 A: un dispositivo observado puede iniciar administración desde Topology", () => {
+  const local = buildMalaguenoLocalView()
+  const ether3 = local.interfaceGroups.find((group) => group.interfaceName === "ether3")
+  const powerbox = ether3.devices.find((device) => device.id === POWERBOX)
+  assert.equal(powerbox.managed, false)
+  const screen = read("components/network/network-topology-screen.tsx")
+  assert.match(screen, /Administrar dispositivo/)
+  assert.match(screen, /NetworkTopologyManageDialog/)
+  assert.match(
+    read("app/api/network/devices/[deviceId]/manage/route.ts"),
+    /administerObservedNetworkDevice/
+  )
+})
+
+test("1.2 B: fabricante y modelo seleccionan el conector", () => {
+  assert.equal(
+    resolveNetworkManagementVendor({
+      manufacturer: "MikroTik",
+      board: "RB960PGS",
+    }),
+    "mikrotik"
+  )
+  assert.equal(
+    resolveNetworkManagementVendor({
+      manufacturer: "Ubiquiti",
+      platform: "UBNT",
+    }),
+    "ubiquiti"
+  )
+  const service = read("lib/network/management/service.ts")
+  assert.match(service, /resolveNetworkManagementVendor/)
+  assert.match(service, /getNetworkManagementConnector/)
+  assert.doesNotMatch(
+    read("components/network/network-topology-manage-dialog.tsx"),
+    /Qué fabricante es/
+  )
+})
+
+test("1.2 C: MikroTik reutiliza el conector existente del Agent", () => {
+  const registry = read("network-agent/src/connectors/registry.ts")
+  assert.match(registry, /createMikrotikConnector/)
+  assert.match(registry, /runDiagnosticJob/)
+  assert.match(registry, /connector\.testConnection/)
+  assert.match(
+    read("network-agent/src/connectors/mikrotik/index.ts"),
+    /connectRouterOsApi/
+  )
+  assert.match(
+    read("lib/network/management/service.ts"),
+    /upsertNetworkDiscoveryTarget/
+  )
+  assert.doesNotMatch(
+    read("lib/network/jobs/agent-execution.ts"),
+    /connectRouterOsApi|8728|RouterOS/
+  )
+})
+
+test("1.2 D/E/F: API 8728 y API-SSL 8729 usan protocol=api; no existe api-ssl", () => {
+  const profile = getNetworkManagementProfile("mikrotik")
+  assert.equal(profile.implemented, true)
+  assert.deepEqual(
+    profile.accessOptions.map((option) => ({
+      protocol: option.protocol,
+      port: option.port,
+    })),
+    [
+      { protocol: "api", port: 8728 },
+      { protocol: "api", port: 8729 },
+    ]
+  )
+  assert.equal(
+    selectManagementAccessOption(profile, "api", 8728).protocol,
+    "api"
+  )
+  assert.equal(
+    selectManagementAccessOption(profile, "api", 8729).protocol,
+    "api"
+  )
+  const vendor = read("lib/network/management/vendor.ts")
+  const dialog = read("components/network/network-topology-manage-dialog.tsx")
+  const service = read("lib/network/management/service.ts")
+  assert.doesNotMatch(vendor, /api-ssl/)
+  assert.doesNotMatch(dialog, /api-ssl/)
+  assert.doesNotMatch(service, /api-ssl/)
+  assert.doesNotMatch(vendor, /protocol:\s*["']rest["']/)
+})
+
+test("1.2 G/H: credenciales cifradas y la contraseña no vuelve en GET", () => {
+  const targets = read("lib/network/targets/queries.ts")
+  assert.match(targets, /encryptNetworkDeviceSecret/)
+  assert.match(targets, /upsertNetworkDiscoveryTarget/)
+  assert.match(targets, /findNetworkDiscoveryTargetByAgentHost/)
+  assert.doesNotMatch(targets, /password:/)
+  const mapper = read("lib/network/mapper.ts")
+  const mappedTarget = mapper.slice(
+    mapper.indexOf("export function mapNetworkTargetRow")
+  )
+  assert.doesNotMatch(mappedTarget, /password:/)
+  assert.match(mappedTarget, /hasSecret/)
+  assert.match(
+    read("lib/network/management/service.ts"),
+    /stripNetworkSecrets/
+  )
+})
+
+test("1.2 I/J: administrar y descubrir no redirige a Discovery y crea el job", () => {
+  const dialog = read("components/network/network-topology-manage-dialog.tsx")
+  const screen = read("components/network/network-topology-screen.tsx")
+  assert.match(dialog, /Administrar y descubrir/)
+  assert.doesNotMatch(dialog, /["']\/network\/discovery["']/)
+  assert.doesNotMatch(dialog, /router\.push/)
+  assert.doesNotMatch(screen, /router\.push/)
+  const service = read("lib/network/management/service.ts")
+  assert.match(service, /input\.intent === "test"/)
+  assert.match(service, /DISCOVERY_EXECUTABLE_JOB_TYPE/)
+  assert.match(service, /createPendingNetworkAgentJob/)
+  assert.match(service, /DIAGNOSTIC_EXECUTABLE_JOB_TYPE/)
+  assert.match(read("lib/network/jobs/queries.ts"), /"diagnostic"/)
+})
+
+test("1.2 K: Topology se actualiza al completar el job", () => {
+  const query = read("lib/network/react-query/use-network-topology-query.ts")
+  assert.match(query, /discoveryJobs/)
+  assert.match(query, /isNetworkDiscoveryJobInflight/)
+  assert.match(query, /2_000/)
+  const screen = read("components/network/network-topology-screen.tsx")
+  assert.match(screen, /invalidateQueries/)
+  assert.match(screen, /Administrando/)
+  assert.match(screen, /NETWORK_JOB_STATUS_LABELS/)
+  assert.match(read("lib/network/topology/queries.ts"), /listNetworkManagementJobs/)
+})
+
+test("1.2 L: observado no se convierte en administrado hasta una administración válida", () => {
+  const local = buildMalaguenoLocalView()
+  const ether3 = local.interfaceGroups.find((group) => group.interfaceName === "ether3")
+  for (const device of ether3.devices) {
+    assert.equal(device.managed, false)
+  }
+  const service = read("lib/network/management/service.ts")
+  const validateAt = service.indexOf("validateNetworkDiscoveryTargetDraft")
+  const upsertAt = service.indexOf("upsertNetworkDiscoveryTarget")
+  assert.ok(validateAt !== -1 && upsertAt !== -1 && validateAt < upsertAt)
+  assert.equal(
+    isManagedNetworkDevice(
+      {
+        companyId: COMPANY,
+        agentId: AGENT,
+        managementIp: "10.100.101.4",
+      },
+      { companyId: COMPANY, agentId: AGENT, host: "10.100.101.4" }
+    ),
+    true
+  )
+  assert.equal(
+    isManagedNetworkDevice(
+      {
+        companyId: COMPANY,
+        agentId: AGENT,
+        managementIp: "10.100.101.4",
+      },
+      { companyId: COMPANY, agentId: AGENT, host: "177.53.120.11" }
+    ),
+    false
+  )
+})
+
+test("1.2 M: no inventa PowerBox → AP sin evidencia saliente", () => {
+  const observations = buildNetworkDiscoveryObservationView(
+    malaguenoObservationInput()
+  )
+  const deviceMeta = new Map(
+    malaguenoObservationInput().devices.map((device) => [
+      device.id,
+      {
+        deviceType: device.deviceType ?? null,
+        lastSeenAt: device.lastSeenAt ?? null,
+      },
+    ])
+  )
+  const withoutEvidence = buildLocalCoreTopologyView({
+    core: {
+      id: POWERBOX,
+      hostname: "PowerBox Malagueño",
+      managementIp: "10.100.101.4",
+      operationalStatus: null,
+      lastPollAt: null,
+    },
+    jobId: "job-pb",
+    observations: observations.items,
+    links: malaguenoObservationInput().links,
+    deviceMeta,
+    requireOutgoingLink: true,
+  })
+  const nestedIds = withoutEvidence.interfaceGroups.flatMap((group) =>
+    group.devices.map((device) => device.id)
+  )
+  assert.equal(nestedIds.includes(AS5), false)
+  assert.equal(nestedIds.includes(AS6), false)
+  assert.equal(nestedIds.includes(AS7), false)
+
+  const withEvidence = buildLocalCoreTopologyView({
+    core: {
+      id: POWERBOX,
+      hostname: "PowerBox Malagueño",
+      managementIp: "10.100.101.4",
+      operationalStatus: null,
+      lastPollAt: null,
+    },
+    jobId: "job-pb",
+    observations: observations.items,
+    links: [
+      { fromDeviceId: POWERBOX, toDeviceId: AS5, fromInterfaceName: "ether2" },
+      { fromDeviceId: POWERBOX, toDeviceId: AS6, fromInterfaceName: "ether3" },
+      { fromDeviceId: POWERBOX, toDeviceId: AS7, fromInterfaceName: "ether4" },
+    ],
+    deviceMeta,
+    requireOutgoingLink: true,
+  })
+  const byIface = Object.fromEntries(
+    withEvidence.interfaceGroups.map((group) => [
+      group.interfaceName,
+      group.devices.map((device) => device.id),
+    ])
+  )
+  assert.deepEqual(byIface.ether2, [AS5])
+  assert.deepEqual(byIface.ether3, [AS6])
+  assert.deepEqual(byIface.ether4, [AS7])
+
+  const attached = attachNestedLocalTopology(
+    buildMalaguenoLocalView(),
+    new Map([[POWERBOX, withEvidence.interfaceGroups]]),
+    new Set([MALAGUENO_CORE, POWERBOX])
+  )
+  const ether3 = attached.interfaceGroups.find(
+    (group) => group.interfaceName === "ether3"
+  )
+  const siblingIds = ether3.devices.map((device) => device.id)
+  assert.equal(siblingIds.includes(POWERBOX), true)
+  assert.equal(siblingIds.includes(AS5), false)
+  const powerbox = ether3.devices.find((device) => device.id === POWERBOX)
+  assert.equal(powerbox.managed, true)
+  assert.equal(
+    powerbox.downstream
+      .flatMap((group) => group.devices)
+      .some((device) => device.id === AS5 && device.managed === false),
+    true
+  )
+})
+
+test("1.2 N/O: Topology no está acoplada a MikroTik y Ubiquiti puede agregarse después", () => {
+  const screen = read("components/network/network-topology-screen.tsx")
+  const dialog = read("components/network/network-topology-manage-dialog.tsx")
+  assert.doesNotMatch(screen, /connectRouterOsApi|createMikrotikConnector/)
+  assert.doesNotMatch(dialog, /createMikrotikConnector|connectRouterOsApi/)
+  assert.match(dialog, /resolveNetworkManagementVendor/)
+  assert.match(dialog, /getNetworkManagementProfile/)
+  const ubiquiti = getNetworkManagementProfile("ubiquiti")
+  assert.equal(ubiquiti.implemented, false)
+  assert.equal(ubiquiti.accessOptions.length, 0)
+  const connector = read("lib/network/management/connector.ts")
+  assert.match(connector, /NetworkManagementConnector/)
+  assert.match(connector, /todavía no está implementado/)
+  assert.match(
+    read("network-agent/src/connectors/registry.ts"),
+    /FUTURE_VENDORS/
+  )
+  assert.match(
+    read("network-agent/src/connectors/registry.ts"),
+    /ubiquiti/
+  )
 })
 
 

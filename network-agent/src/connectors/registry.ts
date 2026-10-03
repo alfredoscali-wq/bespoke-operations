@@ -26,6 +26,20 @@ export function getNetworkConnector(input: {
   throw new ConnectorError(`Vendor de discovery no soportado: ${input.vendor}`)
 }
 
+export function runDiagnosticJob(input: {
+  vendor: string
+  targetId: string
+  siteId: string | null
+  access: ConnectorAccess
+}) {
+  const connector = getNetworkConnector({
+    vendor: input.vendor,
+    targetId: input.targetId,
+    siteId: input.siteId,
+  })
+  return connector.testConnection(input.access)
+}
+
 export function runDiscoveryJob(input: {
   vendor: string
   targetId: string

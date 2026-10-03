@@ -49,7 +49,7 @@ test("Cloud no habla RouterOS; el poll vive en el Agent", () => {
 
 test("claim admite discovery y monitoring; auto-poll 60s; 3 fallos", () => {
   const claim = read("lib/network/jobs/queries.ts")
-  assert.match(claim, /\.in\("job_type", \["discovery", "monitoring"\]\)/)
+  assert.match(claim, /\.in\("job_type", \["discovery", "monitoring", "diagnostic"\]\)/)
   assert.equal(MONITORING_POLL_INTERVAL_MS, 60_000)
   assert.equal(MONITORING_OFFLINE_FAILURE_THRESHOLD, 3)
   const execution = read("lib/network/jobs/agent-execution.ts")

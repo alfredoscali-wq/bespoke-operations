@@ -4,12 +4,17 @@ import { fileURLToPath } from "node:url"
 
 import { MONITORING_EXECUTABLE_JOB_TYPE } from "@/lib/network/monitoring/contract"
 import { DISCOVERY_EXECUTABLE_JOB_TYPE } from "@/lib/network/discovery/contract"
+import { DIAGNOSTIC_EXECUTABLE_JOB_TYPE } from "@/lib/network/management/vendor"
 import { claimJob, heartbeat, startJob, submitJobResult } from "./cloud-client"
 import {
   destroyActiveRouterOsSockets,
   isRouterOsApiTlsEnabled,
 } from "./connectors/mikrotik/api-client"
-import { executeDiscoveryJob, executeMonitoringJob } from "./discovery/run-job"
+import {
+  executeDiagnosticJob,
+  executeDiscoveryJob,
+  executeMonitoringJob,
+} from "./discovery/run-job"
 
 const POLL_MS = Number(process.env.NETWORK_AGENT_POLL_MS ?? 5000)
 
@@ -20,6 +25,7 @@ export type AgentLoopDeps = {
   submitJobResult: typeof submitJobResult
   executeMonitoringJob: typeof executeMonitoringJob
   executeDiscoveryJob: typeof executeDiscoveryJob
+  executeDiagnosticJob: typeof executeDiagnosticJob
 }
 
 const defaultDeps: AgentLoopDeps = {
@@ -29,6 +35,7 @@ const defaultDeps: AgentLoopDeps = {
   submitJobResult,
   executeMonitoringJob,
   executeDiscoveryJob,
+  executeDiagnosticJob,
 }
 
 let processGuardsInstalled = false
@@ -176,6 +183,34 @@ export async function processOnce(deps: AgentLoopDeps = defaultDeps) {
       console.error("[network-agent] monitoring failed", {
         ...jobLog,
         deviceId,
+        error: message,
+      })
+    }
+    return
+  }
+
+  if (claimed.job.jobType === DIAGNOSTIC_EXECUTABLE_JOB_TYPE) {
+    console.info("[network-agent] diagnostic execution started", jobLog)
+    try {
+      await deps.executeDiagnosticJob({
+        targetId,
+        siteId,
+        execution: claimed.execution,
+      })
+      await deps.submitJobResult({
+        jobId: claimed.job.id,
+        ok: true,
+      })
+      console.info("[network-agent] diagnostic completed", jobLog)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Diagnóstico falló."
+      await deps.submitJobResult({
+        jobId: claimed.job.id,
+        ok: false,
+        error: message,
+      })
+      console.error("[network-agent] diagnostic failed", {
+        ...jobLog,
         error: message,
       })
     }

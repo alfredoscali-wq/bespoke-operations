@@ -129,3 +129,17 @@ export function compactDiscoveryResult(input: {
     primaryManagementIp: input.primaryManagementIp,
   }
 }
+
+export function compactDiagnosticResult(input: {
+  vendor: string
+  targetId: string
+  host: string
+  ok: boolean
+}): Record<string, unknown> {
+  return {
+    vendor: input.vendor,
+    targetId: input.targetId,
+    host: input.host,
+    ok: input.ok,
+  }
+}

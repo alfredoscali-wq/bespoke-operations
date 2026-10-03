@@ -5,6 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import type { Database } from "@/lib/supabase/database.types"
 import {
   emptyNetworkDiscoveryLatestObservationView,
+  filterDevicesSeenInDiscoveryJob,
   pickLatestCompletedDiscoveryJob,
   pickLatestCompletedDiscoveryJobForHost,
   withLatestDiscoveryJobMeta,
@@ -232,4 +233,46 @@ export async function getLatestNetworkDiscoveryObservationsForHost(
     links: source.links,
     interfaces: source.interfaces,
   }
+}
+
+export async function getLatestNetworkDiscoveryObservationsByHosts(
+  client: Client,
+  companyId: string,
+  jobs: readonly NetworkDiscoveryJobView[],
+  hosts: readonly (string | null | undefined)[]
+): Promise<Map<string, LatestHostDiscoveryObservations>> {
+  const source = await loadObservationSource(client, companyId)
+  const result = new Map<string, LatestHostDiscoveryObservations>()
+  const uniqueHosts = [
+    ...new Set(
+      hosts
+        .map((host) => host?.trim() ?? "")
+        .filter((host) => host.length > 0)
+    ),
+  ]
+
+  for (const host of uniqueHosts) {
+    const latestJob = pickLatestCompletedDiscoveryJobForHost(jobs, host)
+    if (!latestJob) {
+      result.set(host, {
+        latestObservations: emptyNetworkDiscoveryLatestObservationView(),
+        devices: [],
+        links: source.links,
+        interfaces: source.interfaces,
+      })
+      continue
+    }
+    const devices = filterDevicesSeenInDiscoveryJob(source.devices, latestJob)
+    result.set(host, {
+      latestObservations: withLatestDiscoveryJobMeta(
+        buildView(source, devices),
+        latestJob
+      ),
+      devices,
+      links: source.links,
+      interfaces: source.interfaces,
+    })
+  }
+
+  return result
 }

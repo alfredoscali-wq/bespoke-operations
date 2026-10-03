@@ -2,7 +2,11 @@
 
 import { useQuery } from "@tanstack/react-query"
 
-import { NETWORK_QUERY_OPTIONS } from "@/lib/network/react-query/defaults"
+import { isNetworkDiscoveryJobInflight } from "@/lib/network/discovery/job-poll"
+import {
+  NETWORK_QUERY_OPTIONS,
+  NETWORK_UI_REFETCH_INTERVAL_MS,
+} from "@/lib/network/react-query/defaults"
 import { networkQueryKeys } from "@/lib/network/react-query/keys"
 import type { NetworkTopologyPage } from "@/lib/network/topology/types"
 
@@ -19,6 +23,7 @@ async function fetchNetworkTopology(
     graph?: NetworkTopologyPage["graph"]
     cores?: NetworkTopologyPage["cores"]
     local?: NetworkTopologyPage["local"]
+    discoveryJobs?: NetworkTopologyPage["discoveryJobs"]
     message?: string
   }
   if (!body.success) {
@@ -28,6 +33,7 @@ async function fetchNetworkTopology(
     graph: body.graph ?? { nodes: [], edges: [] },
     cores: body.cores ?? [],
     local: body.local ?? null,
+    discoveryJobs: body.discoveryJobs ?? [],
   }
 }
 
@@ -38,5 +44,12 @@ export function useNetworkTopologyQuery(deviceId?: string | null) {
       : networkQueryKeys.topology(),
     queryFn: () => fetchNetworkTopology(deviceId),
     ...NETWORK_QUERY_OPTIONS,
+    refetchInterval: (query) => {
+      const jobs = query.state.data?.discoveryJobs ?? []
+      if (jobs.some((job) => isNetworkDiscoveryJobInflight(job.status))) {
+        return 2_000
+      }
+      return NETWORK_UI_REFETCH_INTERVAL_MS
+    },
   })
 }

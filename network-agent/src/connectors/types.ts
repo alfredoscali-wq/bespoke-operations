@@ -18,6 +18,7 @@ export type NetworkConnector = {
     access: ConnectorAccess,
     meta: { deviceId: string }
   ): Promise<MonitoringSnapshot>
+  testConnection(access: ConnectorAccess): Promise<void>
 }
 
 export class ConnectorError extends Error {

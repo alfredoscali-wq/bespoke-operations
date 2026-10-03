@@ -5,8 +5,8 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import type { Database } from "@/lib/supabase/database.types"
 import { isManagedNetworkDevice } from "@/lib/network/devices/managed"
 import { NETWORK_DEVICE_TYPES, type NetworkDeviceType } from "@/lib/network/constants"
-import { listNetworkDiscoveryJobs } from "@/lib/network/jobs/queries"
-import { getLatestNetworkDiscoveryObservationsForHost } from "@/lib/network/discovery/observation-queries"
+import { listNetworkDiscoveryJobs, listNetworkManagementJobs } from "@/lib/network/jobs/queries"
+import { getLatestNetworkDiscoveryObservationsByHosts } from "@/lib/network/discovery/observation-queries"
 import { listNetworkDeviceOperationalStatuses } from "@/lib/network/monitoring/queries"
 import type { MonitoringOperationalStatus } from "@/lib/network/monitoring/contract"
 import {
@@ -15,12 +15,15 @@ import {
   type TopologyGraphDeviceInput,
 } from "@/lib/network/topology/graph"
 import {
+  attachNestedLocalTopology,
   buildLocalCoreTopologyView,
   emptyLocalCoreTopologyView,
 } from "@/lib/network/topology/local-view"
 import type {
+  LocalTopologyInterfaceGroup,
   NetworkTopologyGraph,
   NetworkTopologyInterface,
+  NetworkTopologyManagementJob,
   NetworkTopologyPage,
 } from "@/lib/network/topology/types"
 
@@ -171,8 +174,11 @@ export async function getNetworkTopologyPage(
 
   const selected =
     (deviceId ? cores.find((core) => core.id === deviceId) : null) ?? cores[0] ?? null
+  const discoveryJobs = compactTopologyManagementJobs(
+    await listNetworkManagementJobs(client, companyId)
+  )
   if (!selected) {
-    return { graph, cores, local: null }
+    return { graph, cores, local: null, discoveryJobs }
   }
 
   const coreNode = graph.nodes.find((node) => node.id === selected.id) ?? null
@@ -185,22 +191,22 @@ export async function getNetworkTopologyPage(
   }
 
   const jobs = await listNetworkDiscoveryJobs(client, companyId)
-  const latest = await getLatestNetworkDiscoveryObservationsForHost(
+  const managedIds = new Set(
+    graph.nodes.filter((node) => node.kind === "managed").map((node) => node.id)
+  )
+  const managedHosts = graph.nodes
+    .filter((node) => node.kind === "managed")
+    .map((node) => node.managementIp)
+  const byHost = await getLatestNetworkDiscoveryObservationsByHosts(
     client,
     companyId,
     jobs,
-    selected.managementIp
+    [selected.managementIp, ...managedHosts]
   )
+  const latest = selected.managementIp
+    ? byHost.get(selected.managementIp)
+    : undefined
   const statuses = await listNetworkDeviceOperationalStatuses(client, companyId)
-  const deviceMeta = new Map(
-    latest.devices.map((device) => [
-      device.id,
-      {
-        deviceType: device.deviceType ?? null,
-        lastSeenAt: device.lastSeenAt ?? null,
-      },
-    ])
-  )
   const statusByDeviceId = new Map<
     string,
     { status: MonitoringOperationalStatus | null; lastPollAt: string | null }
@@ -214,25 +220,98 @@ export async function getNetworkTopologyPage(
     ])
   )
 
-  if (!latest.latestObservations.jobId) {
+  if (!latest?.latestObservations.jobId) {
     return {
       graph,
       cores,
       local: emptyLocalCoreTopologyView(core),
+      discoveryJobs,
+    }
+  }
+
+  const deviceMeta = new Map(
+    latest.devices.map((device) => [
+      device.id,
+      {
+        deviceType: device.deviceType ?? null,
+        lastSeenAt: device.lastSeenAt ?? null,
+        agentId: device.agentId ?? null,
+      },
+    ])
+  )
+
+  const local = buildLocalCoreTopologyView({
+    core,
+    jobId: latest.latestObservations.jobId,
+    observations: latest.latestObservations.items,
+    links: latest.links,
+    coreInterfaces: latest.interfaces.filter((iface) => iface.deviceId === selected.id),
+    deviceMeta,
+    statusByDeviceId,
+  })
+
+  const nestedByDeviceId = new Map<string, LocalTopologyInterfaceGroup[]>()
+  for (const group of local.interfaceGroups) {
+    for (const device of group.devices) {
+      if (!managedIds.has(device.id) || device.id === selected.id) continue
+      const host = device.managementIp?.trim()
+      if (!host) continue
+      const nestedLatest = byHost.get(host)
+      if (!nestedLatest?.latestObservations.jobId) continue
+      const nestedMeta = new Map(
+        nestedLatest.devices.map((row) => [
+          row.id,
+          {
+            deviceType: row.deviceType ?? null,
+            lastSeenAt: row.lastSeenAt ?? null,
+            agentId: row.agentId ?? null,
+          },
+        ])
+      )
+      const nestedView = buildLocalCoreTopologyView({
+        core: {
+          id: device.id,
+          hostname: device.hostname,
+          managementIp: device.managementIp,
+          operationalStatus: device.operationalStatus,
+          lastPollAt: device.lastPollAt,
+        },
+        jobId: nestedLatest.latestObservations.jobId,
+        observations: nestedLatest.latestObservations.items,
+        links: nestedLatest.links,
+        coreInterfaces: nestedLatest.interfaces.filter(
+          (iface) => iface.deviceId === device.id
+        ),
+        deviceMeta: nestedMeta,
+        statusByDeviceId,
+        requireOutgoingLink: true,
+      })
+      if (nestedView.interfaceGroups.some((item) => item.devices.length > 0)) {
+        nestedByDeviceId.set(device.id, nestedView.interfaceGroups)
+      }
     }
   }
 
   return {
     graph,
     cores,
-    local: buildLocalCoreTopologyView({
-      core,
-      jobId: latest.latestObservations.jobId,
-      observations: latest.latestObservations.items,
-      links: latest.links,
-      coreInterfaces: latest.interfaces.filter((iface) => iface.deviceId === selected.id),
-      deviceMeta,
-      statusByDeviceId,
-    }),
+    local: attachNestedLocalTopology(local, nestedByDeviceId, managedIds),
+    discoveryJobs,
   }
+}
+
+function compactTopologyManagementJobs(
+  jobs: Awaited<ReturnType<typeof listNetworkManagementJobs>>
+): NetworkTopologyManagementJob[] {
+  return jobs.map((job) => ({
+    id: job.id,
+    jobType: job.jobType,
+    status: job.status,
+    targetId:
+      typeof job.payload.targetId === "string" ? job.payload.targetId : null,
+    targetHost: job.targetHost,
+    deviceId:
+      typeof job.payload.deviceId === "string" ? job.payload.deviceId : null,
+    errorMessage: job.errorMessage,
+  }))
 }
