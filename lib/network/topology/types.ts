@@ -30,6 +30,8 @@ export type NetworkTopologyNode = {
   managementIp: string | null
   deviceType: NetworkDeviceType
   kind: NetworkTopologyNodeKind
+  origin: string | null
+  agentId: string | null
   operationalStatus: MonitoringOperationalStatus | null
   lastPollAt: string | null
   interfaces: NetworkTopologyInterface[]

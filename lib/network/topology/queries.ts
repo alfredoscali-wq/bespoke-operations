@@ -22,6 +22,7 @@ import {
   expandTopologyChildIdsWithManagedAliases,
   resolveLocalManagedDeviceId,
   selectTopologyRootIds,
+  type LocalManagedIdentityRef,
 } from "@/lib/network/topology/local-view"
 import { listNetworkDiscoveryTargets } from "@/lib/network/targets/queries"
 import type {
@@ -274,10 +275,28 @@ export async function getNetworkTopologyPage(
     ])
   )
 
+  const managedDevices: LocalManagedIdentityRef[] = managedNodes.map((node) => ({
+    id: node.id,
+    managementIp: node.managementIp,
+    agentId: node.agentId,
+    origin: node.origin,
+  }))
   const managedIdByHost = new Map<string, string>()
   for (const node of managedNodes) {
     const host = node.managementIp?.trim()
-    if (host && !managedIdByHost.has(host)) managedIdByHost.set(host, node.id)
+    if (!host) continue
+    const existingId = managedIdByHost.get(host)
+    if (!existingId) {
+      managedIdByHost.set(host, node.id)
+      continue
+    }
+    const existing = managedDevices.find((item) => item.id === existingId)
+    const existingIsDiscovery =
+      (existing?.origin ?? "").trim().toLowerCase() === "discovery"
+    const nodeIsDiscovery = (node.origin ?? "").trim().toLowerCase() === "discovery"
+    if (!existingIsDiscovery && nodeIsDiscovery) {
+      managedIdByHost.set(host, node.id)
+    }
   }
   const excludedFromNested = new Set<string>([selected.id, ...rootIds])
 
@@ -294,11 +313,15 @@ export async function getNetworkTopologyPage(
   const nestedByDeviceId = new Map<string, LocalTopologyInterfaceGroup[]>()
   for (const group of local.interfaceGroups) {
     for (const device of group.devices) {
+      const catalogRow = managedDevices.find((row) => row.id === device.id)
       const managedId = resolveLocalManagedDeviceId({
         deviceId: device.id,
         managementIp: device.managementIp,
+        agentId: device.agentId ?? catalogRow?.agentId,
+        origin: device.origin ?? catalogRow?.origin,
         managedById: managedIds,
         managedIdByHost,
+        managedDevices,
       })
       if (!managedId || managedId === selected.id) continue
       const host = device.managementIp?.trim()
@@ -351,7 +374,8 @@ export async function getNetworkTopologyPage(
       local,
       nestedByDeviceId,
       managedIds,
-      managedIdByHost
+      managedIdByHost,
+      managedDevices
     ),
     discoveryJobs,
     managementTargets,

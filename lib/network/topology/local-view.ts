@@ -132,15 +132,79 @@ export function localObservedInterfaceName(input: {
   return fallback ? fallback : null
 }
 
+export type LocalManagedIdentityRef = {
+  id: string
+  managementIp?: string | null
+  agentId?: string | null
+  origin?: string | null
+}
+
+function trimmedOrEmpty(value: string | null | undefined): string {
+  return value?.trim() ?? ""
+}
+
+function localManagedOrigin(origin: string | null | undefined): string {
+  return trimmedOrEmpty(origin).toLowerCase()
+}
+
+/**
+ * Safe alias of an observed (neighbor) row onto the administered discovery
+ * identity. Match is management_ip + agent_id only — never hostname.
+ * If more than one discovery row shares that key, do not guess.
+ */
+export function pickCanonicalManagedDeviceId(input: {
+  managementIp?: string | null
+  agentId?: string | null
+  managedDevices: readonly LocalManagedIdentityRef[]
+}): string | null {
+  const host = trimmedOrEmpty(input.managementIp)
+  const agentId = trimmedOrEmpty(input.agentId)
+  if (!host || !agentId) return null
+
+  const matches = input.managedDevices.filter(
+    (device) =>
+      trimmedOrEmpty(device.managementIp) === host &&
+      trimmedOrEmpty(device.agentId) === agentId
+  )
+  const discovered = matches.filter(
+    (device) => localManagedOrigin(device.origin) === "discovery"
+  )
+  if (discovered.length === 1) return discovered[0].id
+  return null
+}
+
+/**
+ * Identity used for nested discovery/links. The tree node can stay on the
+ * observed id; callers should use this value only as the administered core.
+ */
 export function resolveLocalManagedDeviceId(input: {
   deviceId: string
   managementIp?: string | null
+  agentId?: string | null
+  origin?: string | null
   managedById: ReadonlySet<string>
   managedIdByHost: ReadonlyMap<string, string>
+  managedDevices?: readonly LocalManagedIdentityRef[]
 }): string | null {
+  const catalog = input.managedDevices ?? []
+  const canonical =
+    catalog.length > 0
+      ? pickCanonicalManagedDeviceId({
+          managementIp: input.managementIp,
+          agentId: input.agentId,
+          managedDevices: catalog,
+        })
+      : null
+
+  if (canonical) {
+    if (input.deviceId === canonical) return canonical
+    if (localManagedOrigin(input.origin) === "neighbor") return canonical
+  }
+
   if (input.managedById.has(input.deviceId)) return input.deviceId
-  const host = input.managementIp?.trim() ?? ""
+  const host = trimmedOrEmpty(input.managementIp)
   if (!host) return null
+  if (trimmedOrEmpty(input.agentId) && catalog.length > 0) return null
   return input.managedIdByHost.get(host) ?? null
 }
 
@@ -298,7 +362,8 @@ export function attachNestedLocalTopology(
   view: LocalCoreTopologyView,
   nestedByDeviceId: ReadonlyMap<string, LocalTopologyInterfaceGroup[]>,
   managedIds: ReadonlySet<string>,
-  managedIdByHost: ReadonlyMap<string, string> = new Map()
+  managedIdByHost: ReadonlyMap<string, string> = new Map(),
+  managedDevices: readonly LocalManagedIdentityRef[] = []
 ): LocalCoreTopologyView {
   const claimed = new Set<string>()
   for (const groups of nestedByDeviceId.values()) {
@@ -316,8 +381,11 @@ export function attachNestedLocalTopology(
           resolveLocalManagedDeviceId({
             deviceId: device.id,
             managementIp: device.managementIp,
+            agentId: device.agentId,
+            origin: device.origin,
             managedById: managedIds,
             managedIdByHost,
+            managedDevices,
           }) != null,
         downstream: nestedByDeviceId.get(device.id) ?? [],
       }))
@@ -327,8 +395,11 @@ export function attachNestedLocalTopology(
         resolveLocalManagedDeviceId({
           deviceId: device.id,
           managementIp: device.managementIp,
+          agentId: device.agentId,
+          origin: device.origin,
           managedById: managedIds,
           managedIdByHost,
+          managedDevices,
         }) != null,
       downstream: [],
     }))

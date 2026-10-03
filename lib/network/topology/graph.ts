@@ -415,6 +415,8 @@ function toTopologyNode(device: TopologyGraphDeviceInput): NetworkTopologyNode {
     managementIp: device.managementIp,
     deviceType: device.deviceType,
     kind: device.kind,
+    origin: device.origin,
+    agentId: device.agentId,
     operationalStatus: device.operationalStatus,
     lastPollAt: device.lastPollAt ?? null,
     interfaces: device.interfaces,
