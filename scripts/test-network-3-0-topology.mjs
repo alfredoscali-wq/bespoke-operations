@@ -29,7 +29,9 @@ import {
 import {
   attachNestedLocalTopology,
   buildLocalCoreTopologyView,
+  expandTopologyChildIdsWithManagedAliases,
   isLikelyCustomerCpe,
+  resolveLocalManagedDeviceId,
   selectTopologyRootIds,
   visualDedupeKey,
 } from "../lib/network/topology/local-view.ts"
@@ -1765,6 +1767,219 @@ test("1.3 E/F: discovery propio del PowerBox enriquece sin inventar hijos", () =
     ),
     true
   )
+})
+
+test("1.5: vecinos de infraestructura observados por un administrado aparecen como hijos", () => {
+  const managedPowerbox = "dev-powerbox-managed"
+  const nested = buildLocalCoreTopologyView({
+    core: {
+      id: managedPowerbox,
+      hostname: "PowerBox Malagueño",
+      managementIp: "10.100.101.4",
+      operationalStatus: "online",
+      lastPollAt: "2026-10-03T13:00:00.000Z",
+    },
+    jobId: "job-pb",
+    observations: [
+      {
+        id: managedPowerbox,
+        hostname: "PowerBox Malagueño",
+        managementIp: "10.100.101.4",
+        macAddress: null,
+        observedInterfaceName: null,
+        observedInterfaceDescription: null,
+        scope: "core",
+        platform: "MikroTik",
+        board: "RB960PGS",
+        version: null,
+        discoveredBy: null,
+        origin: "discovery",
+      },
+      {
+        id: AS5,
+        hostname: "AS5",
+        managementIp: "10.100.101.11",
+        macAddress: "aa:aa:aa:aa:aa:05",
+        observedInterfaceName: "ether2",
+        observedInterfaceDescription: null,
+        scope: "lan",
+        platform: "MikroTik",
+        board: "RBwAPG-5HacT2HnD",
+        version: null,
+        discoveredBy: "mndp",
+        origin: "neighbor",
+      },
+      {
+        id: AS6,
+        hostname: "AS6",
+        managementIp: "10.100.101.14",
+        macAddress: "aa:aa:aa:aa:aa:06",
+        observedInterfaceName: "ether3",
+        observedInterfaceDescription: null,
+        scope: "vlan",
+        platform: "MikroTik",
+        board: "RBwAPG-5HacT2HnD",
+        version: null,
+        discoveredBy: "mndp",
+        origin: "neighbor",
+      },
+      {
+        id: AS7,
+        hostname: "AS7",
+        managementIp: "10.100.101.17",
+        macAddress: "aa:aa:aa:aa:aa:07",
+        observedInterfaceName: "ether4",
+        observedInterfaceDescription: null,
+        scope: "lan",
+        platform: "MikroTik",
+        board: "RBwAPG-5HacT2HnD",
+        version: null,
+        discoveredBy: "mndp",
+        origin: "neighbor",
+      },
+      {
+        id: HAP_1,
+        hostname: "Humberto lara",
+        managementIp: "10.100.101.40",
+        macAddress: null,
+        observedInterfaceName: "ether5",
+        observedInterfaceDescription: null,
+        scope: "lan",
+        platform: "MikroTik",
+        board: "hAP ac2",
+        version: null,
+        discoveredBy: "mndp",
+        origin: "neighbor",
+      },
+      {
+        id: PILAR,
+        hostname: "Pilar",
+        managementIp: "10.200.0.1",
+        macAddress: null,
+        observedInterfaceName: "ether1",
+        observedInterfaceDescription: "WAN",
+        scope: "wan",
+        platform: null,
+        board: null,
+        version: null,
+        discoveredBy: "mndp",
+        origin: "neighbor",
+      },
+      {
+        id: MALAGUENO_CORE,
+        hostname: "RB3011 - Core Malagueño",
+        managementIp: "177.53.120.11",
+        macAddress: null,
+        observedInterfaceName: "ether1",
+        observedInterfaceDescription: null,
+        scope: "lan",
+        platform: "MikroTik",
+        board: "RB3011UiAS",
+        version: null,
+        discoveredBy: "mndp",
+        origin: "neighbor",
+      },
+    ],
+    links: [
+      { fromDeviceId: managedPowerbox, toDeviceId: AS5, fromInterfaceName: "ether2" },
+      { fromDeviceId: managedPowerbox, toDeviceId: AS6, fromInterfaceName: null },
+      { fromDeviceId: managedPowerbox, toDeviceId: AS7, fromInterfaceName: "ether4" },
+      { fromDeviceId: managedPowerbox, toDeviceId: HAP_1, fromInterfaceName: "ether5" },
+      {
+        fromDeviceId: managedPowerbox,
+        toDeviceId: MALAGUENO_CORE,
+        fromInterfaceName: "ether1",
+      },
+    ],
+    deviceMeta: new Map([
+      [AS5, { deviceType: "ap" }],
+      [AS6, { deviceType: "ap" }],
+      [AS7, { deviceType: "ap" }],
+      [HAP_1, { deviceType: "cpe" }],
+      [MALAGUENO_CORE, { deviceType: "core" }],
+    ]),
+    requireOutgoingLink: true,
+    excludeDeviceIds: new Set([MALAGUENO_CORE]),
+  })
+  const nestedIds = nested.interfaceGroups.flatMap((group) =>
+    group.devices.map((device) => device.id)
+  )
+  assert.equal(nestedIds.includes(AS5), true)
+  assert.equal(nestedIds.includes(AS6), true)
+  assert.equal(nestedIds.includes(AS7), true)
+  assert.equal(nestedIds.includes(HAP_1), false)
+  assert.equal(nestedIds.includes(PILAR), false)
+  assert.equal(nestedIds.includes(MALAGUENO_CORE), false)
+  const ether5 = nested.interfaceGroups.find((group) => group.interfaceName === "ether5")
+  assert.equal(ether5.cpes.map((device) => device.id).includes(HAP_1), true)
+  const ether3 = nested.interfaceGroups.find((group) => group.interfaceName === "ether3")
+  assert.equal(ether3.devices.map((device) => device.id).includes(AS6), true)
+
+  assert.equal(
+    resolveLocalManagedDeviceId({
+      deviceId: POWERBOX,
+      managementIp: "10.100.101.4",
+      managedById: new Set([MALAGUENO_CORE, managedPowerbox]),
+      managedIdByHost: new Map([["10.100.101.4", managedPowerbox]]),
+    }),
+    managedPowerbox
+  )
+  assert.deepEqual(
+    selectTopologyRootIds(
+      [MALAGUENO_CORE, managedPowerbox],
+      [
+        {
+          deviceId: MALAGUENO_CORE,
+          completedAt: "2026-10-03T12:00:00.000Z",
+          lanVlanChildIds: expandTopologyChildIdsWithManagedAliases(
+            [POWERBOX],
+            ["10.100.101.4"],
+            [
+              { id: MALAGUENO_CORE, managementIp: "177.53.120.11" },
+              { id: managedPowerbox, managementIp: "10.100.101.4" },
+            ]
+          ),
+        },
+      ]
+    ),
+    [MALAGUENO_CORE]
+  )
+
+  const attached = attachNestedLocalTopology(
+    buildMalaguenoLocalView(),
+    new Map([[POWERBOX, nested.interfaceGroups]]),
+    new Set([MALAGUENO_CORE, managedPowerbox]),
+    new Map([["10.100.101.4", managedPowerbox]])
+  )
+  const powerbox = attached.interfaceGroups
+    .flatMap((group) => group.devices)
+    .find((device) => device.id === POWERBOX)
+  assert.equal(powerbox.managed, true)
+  const nestedInfra = powerbox.downstream.flatMap((group) => group.devices)
+  assert.equal(
+    nestedInfra.some((device) => device.id === AS5 && device.managed === false),
+    true
+  )
+  assert.equal(
+    nestedInfra.some((device) => device.id === AS6 && device.origin === "neighbor"),
+    true
+  )
+  assert.equal(
+    nestedInfra.some((device) => device.id === AS7 && device.managed === false),
+    true
+  )
+  const siblingIds = attached.interfaceGroups
+    .flatMap((group) => group.devices)
+    .map((device) => device.id)
+  assert.equal(siblingIds.includes(AS5), false)
+  assert.equal(siblingIds.includes(POWERBOX), true)
+
+  const queries = read("lib/network/topology/queries.ts")
+  assert.match(queries, /resolveLocalManagedDeviceId/)
+  assert.match(queries, /expandTopologyChildIdsWithManagedAliases/)
+  assert.match(queries, /requireOutgoingLink:\s*true/)
+  assert.match(queries, /excludeDeviceIds/)
+  assert.doesNotMatch(queries, /AS5|AS6|AS7/)
 })
 
 test("1.3 G/H: probar conexión no lanza discovery; descubrir exige conexión verificada", () => {

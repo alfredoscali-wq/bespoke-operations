@@ -103,6 +103,18 @@ export function isLikelyCustomerCpe(input: {
   return !isLocalTopologyInfrastructure(input)
 }
 
+export function hasOutgoingLocalTopologyLink(input: {
+  fromDeviceId: string
+  toDeviceId: string
+  links: readonly LocalTopologyLinkRow[]
+}): boolean {
+  return input.links.some(
+    (link) =>
+      link.fromDeviceId === input.fromDeviceId &&
+      link.toDeviceId === input.toDeviceId
+  )
+}
+
 export function localObservedInterfaceName(input: {
   coreId: string
   deviceId: string
@@ -118,6 +130,34 @@ export function localObservedInterfaceName(input: {
   }
   const fallback = input.fallback?.trim()
   return fallback ? fallback : null
+}
+
+export function resolveLocalManagedDeviceId(input: {
+  deviceId: string
+  managementIp?: string | null
+  managedById: ReadonlySet<string>
+  managedIdByHost: ReadonlyMap<string, string>
+}): string | null {
+  if (input.managedById.has(input.deviceId)) return input.deviceId
+  const host = input.managementIp?.trim() ?? ""
+  if (!host) return null
+  return input.managedIdByHost.get(host) ?? null
+}
+
+export function expandTopologyChildIdsWithManagedAliases(
+  childIds: readonly string[],
+  childHosts: readonly (string | null | undefined)[],
+  managedNodes: readonly { id: string; managementIp: string | null }[]
+): string[] {
+  const ids = new Set(childIds)
+  const hosts = new Set(
+    childHosts.map((host) => host?.trim() ?? "").filter((host) => host.length > 0)
+  )
+  for (const node of managedNodes) {
+    const host = node.managementIp?.trim() ?? ""
+    if (host && hosts.has(host)) ids.add(node.id)
+  }
+  return [...ids]
 }
 
 export function visualDedupeKey(input: {
@@ -257,7 +297,8 @@ export function emptyLocalCoreTopologyView(
 export function attachNestedLocalTopology(
   view: LocalCoreTopologyView,
   nestedByDeviceId: ReadonlyMap<string, LocalTopologyInterfaceGroup[]>,
-  managedIds: ReadonlySet<string>
+  managedIds: ReadonlySet<string>,
+  managedIdByHost: ReadonlyMap<string, string> = new Map()
 ): LocalCoreTopologyView {
   const claimed = new Set<string>()
   for (const groups of nestedByDeviceId.values()) {
@@ -271,12 +312,24 @@ export function attachNestedLocalTopology(
       .filter((device) => !claimed.has(device.id) || nestedByDeviceId.has(device.id))
       .map((device) => ({
         ...device,
-        managed: managedIds.has(device.id),
+        managed:
+          resolveLocalManagedDeviceId({
+            deviceId: device.id,
+            managementIp: device.managementIp,
+            managedById: managedIds,
+            managedIdByHost,
+          }) != null,
         downstream: nestedByDeviceId.get(device.id) ?? [],
       }))
     const cpes = group.cpes.map((device) => ({
       ...device,
-      managed: managedIds.has(device.id),
+      managed:
+        resolveLocalManagedDeviceId({
+          deviceId: device.id,
+          managementIp: device.managementIp,
+          managedById: managedIds,
+          managedIdByHost,
+        }) != null,
       downstream: [],
     }))
     return { ...group, devices, cpes, cpeCount: cpes.length }
@@ -334,11 +387,13 @@ export function buildLocalCoreTopologyView(input: {
     }
   >
   requireOutgoingLink?: boolean
+  excludeDeviceIds?: ReadonlySet<string>
 }): LocalCoreTopologyView {
   const lanVlan: NetworkDiscoveryObservationItem[] = []
 
   for (const item of input.observations) {
     if (item.id === input.core.id || item.scope === "core") continue
+    if (input.excludeDeviceIds?.has(item.id)) continue
     if (item.scope === "wan") continue
     if (item.scope === "lan" || item.scope === "vlan") {
       lanVlan.push(item)
@@ -369,13 +424,23 @@ export function buildLocalCoreTopologyView(input: {
 
   for (const item of lanVlan) {
     const meta = input.deviceMeta?.get(item.id)
+    const links = input.links ?? []
+    if (
+      input.requireOutgoingLink &&
+      !hasOutgoingLocalTopologyLink({
+        fromDeviceId: input.core.id,
+        toDeviceId: item.id,
+        links,
+      })
+    ) {
+      continue
+    }
     const interfaceName = localObservedInterfaceName({
       coreId: input.core.id,
       deviceId: item.id,
-      links: input.links ?? [],
-      fallback: input.requireOutgoingLink ? null : item.observedInterfaceName,
+      links,
+      fallback: item.observedInterfaceName,
     })
-    if (input.requireOutgoingLink && !interfaceName) continue
     const device = toObservedDevice(
       item,
       interfaceName,

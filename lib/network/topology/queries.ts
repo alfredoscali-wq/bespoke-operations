@@ -19,6 +19,8 @@ import {
   attachNestedLocalTopology,
   buildLocalCoreTopologyView,
   emptyLocalCoreTopologyView,
+  expandTopologyChildIdsWithManagedAliases,
+  resolveLocalManagedDeviceId,
   selectTopologyRootIds,
 } from "@/lib/network/topology/local-view"
 import { listNetworkDiscoveryTargets } from "@/lib/network/targets/queries"
@@ -190,13 +192,18 @@ export async function getNetworkTopologyPage(
     if (!latestForHost?.latestObservations.jobId) return []
     const job = pickLatestCompletedDiscoveryJobForHost(jobs, host)
     if (!job) return []
+    const lanVlanItems = latestForHost.latestObservations.items.filter(
+      (item) => item.scope === "lan" || item.scope === "vlan"
+    )
     return [
       {
         deviceId: node.id,
         completedAt: job.completedAt,
-        lanVlanChildIds: latestForHost.latestObservations.items
-          .filter((item) => item.scope === "lan" || item.scope === "vlan")
-          .map((item) => item.id),
+        lanVlanChildIds: expandTopologyChildIdsWithManagedAliases(
+          lanVlanItems.map((item) => item.id),
+          lanVlanItems.map((item) => item.managementIp),
+          managedNodes
+        ),
       },
     ]
   })
@@ -267,11 +274,18 @@ export async function getNetworkTopologyPage(
     ])
   )
 
+  const managedIdByHost = new Map<string, string>()
+  for (const node of managedNodes) {
+    const host = node.managementIp?.trim()
+    if (host && !managedIdByHost.has(host)) managedIdByHost.set(host, node.id)
+  }
+  const excludedFromNested = new Set<string>([selected.id, ...rootIds])
+
   const local = buildLocalCoreTopologyView({
     core,
     jobId: latest.latestObservations.jobId,
     observations: latest.latestObservations.items,
-    links: latest.links,
+    links: toLocalTopologyLinks(latest.links, latest.interfaces),
     coreInterfaces: latest.interfaces.filter((iface) => iface.deviceId === selected.id),
     deviceMeta,
     statusByDeviceId,
@@ -280,7 +294,13 @@ export async function getNetworkTopologyPage(
   const nestedByDeviceId = new Map<string, LocalTopologyInterfaceGroup[]>()
   for (const group of local.interfaceGroups) {
     for (const device of group.devices) {
-      if (!managedIds.has(device.id) || device.id === selected.id) continue
+      const managedId = resolveLocalManagedDeviceId({
+        deviceId: device.id,
+        managementIp: device.managementIp,
+        managedById: managedIds,
+        managedIdByHost,
+      })
+      if (!managedId || managedId === selected.id) continue
       const host = device.managementIp?.trim()
       if (!host) continue
       const nestedLatest = byHost.get(host)
@@ -295,9 +315,13 @@ export async function getNetworkTopologyPage(
           },
         ])
       )
+      const nestedLinks = toLocalTopologyLinks(
+        nestedLatest.links,
+        nestedLatest.interfaces
+      )
       const nestedView = buildLocalCoreTopologyView({
         core: {
-          id: device.id,
+          id: managedId,
           hostname: device.hostname,
           managementIp: device.managementIp,
           operationalStatus: device.operationalStatus,
@@ -305,13 +329,14 @@ export async function getNetworkTopologyPage(
         },
         jobId: nestedLatest.latestObservations.jobId,
         observations: nestedLatest.latestObservations.items,
-        links: nestedLatest.links,
+        links: nestedLinks,
         coreInterfaces: nestedLatest.interfaces.filter(
-          (iface) => iface.deviceId === device.id
+          (iface) => iface.deviceId === managedId
         ),
         deviceMeta: nestedMeta,
         statusByDeviceId,
         requireOutgoingLink: true,
+        excludeDeviceIds: excludedFromNested,
       })
       if (nestedView.interfaceGroups.some((item) => item.devices.length > 0)) {
         nestedByDeviceId.set(device.id, nestedView.interfaceGroups)
@@ -322,10 +347,38 @@ export async function getNetworkTopologyPage(
   return {
     graph,
     cores,
-    local: attachNestedLocalTopology(local, nestedByDeviceId, managedIds),
+    local: attachNestedLocalTopology(
+      local,
+      nestedByDeviceId,
+      managedIds,
+      managedIdByHost
+    ),
     discoveryJobs,
     managementTargets,
   }
+}
+
+function toLocalTopologyLinks(
+  links: Array<{
+    fromDeviceId: string
+    toDeviceId: string
+    fromInterfaceId?: string | null
+    fromInterfaceName?: string | null
+  }>,
+  interfaces: Array<{ id: string; name: string }>
+): Array<{
+  fromDeviceId: string
+  toDeviceId: string
+  fromInterfaceName: string | null
+}> {
+  const nameById = new Map(interfaces.map((iface) => [iface.id, iface.name]))
+  return links.map((link) => ({
+    fromDeviceId: link.fromDeviceId,
+    toDeviceId: link.toDeviceId,
+    fromInterfaceName:
+      link.fromInterfaceName?.trim() ||
+      (link.fromInterfaceId ? nameById.get(link.fromInterfaceId) ?? null : null),
+  }))
 }
 
 function compactTopologyManagementJobs(
