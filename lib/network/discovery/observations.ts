@@ -45,6 +45,7 @@ export type NetworkObservationDeviceRow = {
   model?: string | null
   firmwareVersion?: string | null
   origin?: string | null
+  lastSeenAt?: string | null
 }
 
 export type NetworkObservationTargetRow = {

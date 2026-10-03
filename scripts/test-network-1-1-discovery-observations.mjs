@@ -17,6 +17,12 @@ import {
   formatObservedInterfaceLabel,
   summarizeNetworkDiscoveryObservations,
 } from "../lib/network/discovery/observations.ts"
+import {
+  filterDevicesSeenInDiscoveryJob,
+  nextDiscoveryObservationState,
+  pickLatestCompletedDiscoveryJob,
+  withLatestDiscoveryJobMeta,
+} from "../lib/network/discovery/latest-run.ts"
 import { buildCanonicalTopologyGraph } from "../lib/network/topology/graph.ts"
 
 const root = resolve(import.meta.dirname, "..")
@@ -298,7 +304,7 @@ test("no se toca el Agent, TLS ni el connector MikroTik", () => {
   )
   assert.match(
     read("lib/network/discovery/observation-queries.ts"),
-    /hostname, mac_address, manufacturer, model, firmware_version, origin/
+    /hostname, mac_address, manufacturer, model, firmware_version, origin, last_seen_at/
   )
   assert.match(
     read("lib/network/discovery/observation-queries.ts"),
@@ -307,6 +313,14 @@ test("no se toca el Agent, TLS ni el connector MikroTik", () => {
   assert.doesNotMatch(
     read("lib/network/discovery/observation-queries.ts"),
     /\.delete\(/
+  )
+  assert.match(
+    read("lib/network/discovery/observation-queries.ts"),
+    /\.gte\("last_seen_at"/
+  )
+  assert.match(
+    read("lib/network/discovery/observation-queries.ts"),
+    /\.lte\("last_seen_at"/
   )
 })
 
@@ -433,13 +447,19 @@ test("la bandeja lista las observaciones clasificadas sin promover Devices", () 
 test("GET /api/network/jobs y Discovery leen observaciones persistidas", () => {
   const jobsRoute = read("app/api/network/jobs/route.ts")
   const ui = read("components/network/network-discovery-screen.tsx")
-  assert.match(jobsRoute, /getNetworkDiscoveryObservations/)
-  assert.match(jobsRoute, /success: true, jobs, observations/)
+  assert.match(jobsRoute, /getNetworkDiscoveryObservationSets/)
+  assert.match(jobsRoute, /latestObservations/)
+  assert.match(jobsRoute, /historicalObservations/)
+  assert.match(jobsRoute, /observations: historicalObservations/)
   assert.match(ui, /Último discovery/)
-  assert.match(ui, /Total observado/)
+  assert.match(ui, /observados en esta corrida/)
+  assert.match(ui, /Observaciones históricas/)
+  assert.match(ui, /en inventario/)
   assert.match(ui, /Nombre \/ Identity/)
   assert.match(ui, /Interfaz donde fue observado/)
-  assert.match(ui, /observations\.items/)
+  assert.match(ui, /latestObservations\.items/)
+  assert.match(ui, /nextDiscoveryObservationState/)
+  assert.doesNotMatch(ui, /Total observado/)
   assert.doesNotMatch(ui, /Aceptar|Rechazar|Agregar manualmente/)
   assert.doesNotMatch(ui, /\/api\/network\/devices/)
 })
@@ -573,3 +593,206 @@ test("observation con interface_id null usa el nombre observado para UI y scope"
   assert.match(ui, /formatObservedInterfaceLabel/)
   assert.match(ui, /item\.observedInterfaceName/)
 })
+
+const JOB_STARTED = "2026-10-03T17:00:00.000Z"
+const JOB_COMPLETED = "2026-10-03T17:01:00.000Z"
+const JOB_SEEN = "2026-10-03T17:00:30.000Z"
+const OLD_SEEN = "2026-10-02T12:00:00.000Z"
+
+function malaguenoJob(overrides = {}) {
+  return {
+    id: "4141dfc7-0000-4000-8000-000000000001",
+    status: "completed",
+    agentId: AGENT,
+    startedAt: JOB_STARTED,
+    completedAt: JOB_COMPLETED,
+    payload: {
+      targetId: "target-malagueno",
+      targetName: "Core Malagueño",
+      host: "177.53.120.11",
+    },
+    result: { deviceCount: 59, targetId: "target-malagueno" },
+    targetName: "Core Malagueño",
+    targetHost: "177.53.120.11",
+    ...overrides,
+  }
+}
+
+function inventory62() {
+  const latest = Array.from({ length: 59 }, (_, index) => ({
+    id: index === 0 ? CORE : `dev-run-${index}`,
+    companyId: COMPANY,
+    agentId: AGENT,
+    managementIp: index === 0 ? "177.53.120.11" : `10.200.0.${index}`,
+    hostname: index === 0 ? "RB3011 - Core Malagueño" : `Neighbor ${index}`,
+    lastSeenAt: JOB_SEEN,
+    origin: index === 0 ? "discovery" : "neighbor",
+  }))
+  const historicalOnly = [
+    {
+      id: "hist-as-old-1",
+      companyId: COMPANY,
+      agentId: AGENT,
+      managementIp: "10.9.9.1",
+      hostname: "Histórico 1",
+      lastSeenAt: OLD_SEEN,
+      origin: "neighbor",
+    },
+    {
+      id: "hist-as-old-2",
+      companyId: COMPANY,
+      agentId: AGENT,
+      managementIp: "10.9.9.2",
+      hostname: "Histórico 2",
+      lastSeenAt: OLD_SEEN,
+      origin: "neighbor",
+    },
+    {
+      id: "hist-as-old-3",
+      companyId: COMPANY,
+      agentId: AGENT,
+      managementIp: "10.9.9.3",
+      hostname: "Histórico 3",
+      lastSeenAt: OLD_SEEN,
+      origin: "neighbor",
+    },
+  ]
+  return { latest, historicalOnly, all: [...latest, ...historicalOnly] }
+}
+
+test("último job de 59 devices no mezcla 3 observaciones históricas", () => {
+  const job = pickLatestCompletedDiscoveryJob([malaguenoJob()])
+  assert.ok(job)
+  assert.equal(job.id, "4141dfc7-0000-4000-8000-000000000001")
+  const { latest, historicalOnly, all } = inventory62()
+  const latestDevices = filterDevicesSeenInDiscoveryJob(all, job)
+  const latestView = withLatestDiscoveryJobMeta(
+    buildNetworkDiscoveryObservationView({
+      devices: latestDevices,
+      targets,
+      links: [],
+      interfaces: [],
+    }),
+    job
+  )
+  const historicalView = buildNetworkDiscoveryObservationView({
+    devices: all,
+    targets,
+    links: [],
+    interfaces: [],
+  })
+
+  assert.equal(latestDevices.length, 59)
+  assert.equal(latestView.total, 59)
+  assert.equal(historicalView.total, 62)
+  assert.equal(latestView.targetName, "Core Malagueño")
+  for (const device of historicalOnly) {
+    assert.equal(latestDevices.some((item) => item.id === device.id), false)
+    assert.equal(historicalView.items.some((item) => item.id === device.id), true)
+  }
+  assert.equal(
+    latestView.items.some((item) => item.id === "hist-as-old-1"),
+    false
+  )
+})
+
+test("un discovery posterior reemplaza latestObservations", () => {
+  const first = malaguenoJob()
+  const later = malaguenoJob({
+    id: "bbbbbbbb-0000-4000-8000-000000000002",
+    startedAt: "2026-10-03T18:00:00.000Z",
+    completedAt: "2026-10-03T18:01:00.000Z",
+    result: { deviceCount: 4, targetId: "target-malagueno" },
+  })
+  const picked = pickLatestCompletedDiscoveryJob([first, later])
+  assert.equal(picked?.id, later.id)
+
+  const laterDevices = [
+    {
+      id: CORE,
+      companyId: COMPANY,
+      agentId: AGENT,
+      managementIp: "177.53.120.11",
+      lastSeenAt: "2026-10-03T18:00:20.000Z",
+    },
+    {
+      id: "dev-new-2",
+      companyId: COMPANY,
+      agentId: AGENT,
+      managementIp: "10.1.1.2",
+      lastSeenAt: "2026-10-03T18:00:20.000Z",
+    },
+    {
+      id: "dev-new-3",
+      companyId: COMPANY,
+      agentId: AGENT,
+      managementIp: "10.1.1.3",
+      lastSeenAt: "2026-10-03T18:00:20.000Z",
+    },
+    {
+      id: "dev-new-4",
+      companyId: COMPANY,
+      agentId: AGENT,
+      managementIp: "10.1.1.4",
+      lastSeenAt: "2026-10-03T18:00:20.000Z",
+    },
+  ]
+  const staleFromFirstRun = inventory62().all.map((device) =>
+    device.id === CORE ? laterDevices[0] : device
+  )
+  const combined = [
+    ...laterDevices,
+    ...staleFromFirstRun.filter(
+      (device) => !laterDevices.some((item) => item.id === device.id)
+    ),
+  ]
+  const latestDevices = filterDevicesSeenInDiscoveryJob(combined, picked)
+  assert.equal(latestDevices.length, 4)
+  assert.equal(
+    latestDevices.every((device) => device.lastSeenAt?.startsWith("2026-10-03T18:")),
+    true
+  )
+})
+
+test("el polling reemplaza latestObservations al completar y conserva estado si faltan", () => {
+  const previous = {
+    latest: withLatestDiscoveryJobMeta(
+      { total: 62, core: 1, wan: 10, lanVlan: 51, unknown: 0, items: [{ id: "old" }] },
+      malaguenoJob()
+    ),
+    historical: { total: 62, core: 1, wan: 10, lanVlan: 51, unknown: 0, items: [] },
+  }
+  const completedLatest = withLatestDiscoveryJobMeta(
+    { total: 59, core: 1, wan: 10, lanVlan: 48, unknown: 0, items: [{ id: "new" }] },
+    malaguenoJob()
+  )
+  const replaced = nextDiscoveryObservationState(previous, {
+    latestObservations: completedLatest,
+    historicalObservations: {
+      total: 62,
+      core: 1,
+      wan: 10,
+      lanVlan: 51,
+      unknown: 0,
+      items: [],
+    },
+  })
+  assert.equal(replaced.latest?.total, 59)
+  assert.equal(replaced.latest?.items[0]?.id, "new")
+  assert.equal(replaced.historical?.total, 62)
+
+  const transient = nextDiscoveryObservationState(replaced, {})
+  assert.equal(transient.latest?.total, 59)
+  assert.equal(transient.historical?.total, 62)
+
+  const persist = read("lib/network/devices/queries.ts")
+  const persistFn = persist.slice(
+    persist.indexOf("export async function persistDiscoverySnapshot"),
+    persist.indexOf("async function upsertNetworkDevice")
+  )
+  const managed = read("lib/network/devices/managed.ts")
+  assert.doesNotMatch(persistFn, /\.delete\(/)
+  assert.match(persistFn, /upsertNetworkDevice/)
+  assert.match(managed, /managementIp\.trim\(\) === target\.host\.trim\(\)/)
+})
+

@@ -248,3 +248,7 @@ export type {
   NetworkDiscoveryObservationSummary,
   NetworkDiscoveryObservationView,
 } from "@/lib/network/discovery/observations"
+
+export type {
+  NetworkDiscoveryLatestObservationView,
+} from "@/lib/network/discovery/latest-run"

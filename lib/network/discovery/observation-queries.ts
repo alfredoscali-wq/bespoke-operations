@@ -4,23 +4,77 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type { Database } from "@/lib/supabase/database.types"
 import {
+  emptyNetworkDiscoveryLatestObservationView,
+  pickLatestCompletedDiscoveryJob,
+  withLatestDiscoveryJobMeta,
+  type NetworkDiscoveryLatestObservationView,
+} from "@/lib/network/discovery/latest-run"
+import {
   buildNetworkDiscoveryObservationView,
   emptyNetworkDiscoveryObservationView,
   type NetworkDiscoveryObservationView,
+  type NetworkObservationDeviceRow,
+  type NetworkObservationInterfaceRow,
+  type NetworkObservationLinkRow,
+  type NetworkObservationTargetRow,
 } from "@/lib/network/discovery/observations"
+import type { NetworkDiscoveryJobView } from "@/lib/network/types"
 
 type Client = SupabaseClient<Database>
 
-export async function getNetworkDiscoveryObservations(
+const DEVICE_COLUMNS =
+  "id, company_id, agent_id, management_ip, hostname, mac_address, manufacturer, model, firmware_version, origin, last_seen_at"
+
+type ObservationSource = {
+  devices: NetworkObservationDeviceRow[]
+  targets: NetworkObservationTargetRow[]
+  links: NetworkObservationLinkRow[]
+  interfaces: NetworkObservationInterfaceRow[]
+}
+
+export type NetworkDiscoveryObservationSets = {
+  historicalObservations: NetworkDiscoveryObservationView
+  latestObservations: NetworkDiscoveryLatestObservationView
+}
+
+function mapDeviceRows(
+  rows: {
+    id: string
+    company_id: string
+    agent_id: string | null
+    management_ip: string | null
+    hostname: string | null
+    mac_address: string | null
+    manufacturer: string | null
+    model: string | null
+    firmware_version: string | null
+    origin: string
+    last_seen_at: string
+  }[]
+): NetworkObservationDeviceRow[] {
+  return rows.map((row) => ({
+    id: row.id,
+    companyId: row.company_id,
+    agentId: row.agent_id,
+    managementIp: row.management_ip,
+    hostname: row.hostname,
+    macAddress: row.mac_address,
+    manufacturer: row.manufacturer,
+    model: row.model,
+    firmwareVersion: row.firmware_version,
+    origin: row.origin,
+    lastSeenAt: row.last_seen_at,
+  }))
+}
+
+async function loadObservationSource(
   client: Client,
   companyId: string
-): Promise<NetworkDiscoveryObservationView> {
+): Promise<ObservationSource> {
   const [devices, targets, links, interfaces] = await Promise.all([
     client
       .from("network_devices")
-      .select(
-        "id, company_id, agent_id, management_ip, hostname, mac_address, manufacturer, model, firmware_version, origin"
-      )
+      .select(DEVICE_COLUMNS)
       .eq("company_id", companyId)
       .is("deleted_at", null),
     client
@@ -47,23 +101,8 @@ export async function getNetworkDiscoveryObservations(
   if (links.error) throw new Error(links.error.message)
   if (interfaces.error) throw new Error(interfaces.error.message)
 
-  if ((devices.data ?? []).length === 0) {
-    return emptyNetworkDiscoveryObservationView()
-  }
-
-  return buildNetworkDiscoveryObservationView({
-    devices: (devices.data ?? []).map((row) => ({
-      id: row.id,
-      companyId: row.company_id,
-      agentId: row.agent_id,
-      managementIp: row.management_ip,
-      hostname: row.hostname,
-      macAddress: row.mac_address,
-      manufacturer: row.manufacturer,
-      model: row.model,
-      firmwareVersion: row.firmware_version,
-      origin: row.origin,
-    })),
+  return {
+    devices: mapDeviceRows(devices.data ?? []),
     targets: (targets.data ?? []).map((row) => ({
       companyId: row.company_id,
       agentId: row.agent_id,
@@ -84,5 +123,63 @@ export async function getNetworkDiscoveryObservations(
       description: row.description,
       interfaceType: row.interface_type,
     })),
+  }
+}
+
+function buildView(
+  source: ObservationSource,
+  devices: NetworkObservationDeviceRow[]
+) {
+  if (devices.length === 0) {
+    return emptyNetworkDiscoveryObservationView()
+  }
+  return buildNetworkDiscoveryObservationView({
+    devices,
+    targets: source.targets,
+    links: source.links,
+    interfaces: source.interfaces,
   })
+}
+
+export async function getNetworkDiscoveryObservations(
+  client: Client,
+  companyId: string
+): Promise<NetworkDiscoveryObservationView> {
+  const source = await loadObservationSource(client, companyId)
+  return buildView(source, source.devices)
+}
+
+export async function getNetworkDiscoveryObservationSets(
+  client: Client,
+  companyId: string,
+  jobs: readonly NetworkDiscoveryJobView[]
+): Promise<NetworkDiscoveryObservationSets> {
+  const source = await loadObservationSource(client, companyId)
+  const historicalObservations = buildView(source, source.devices)
+  const latestJob = pickLatestCompletedDiscoveryJob(jobs)
+  if (!latestJob) {
+    return {
+      historicalObservations,
+      latestObservations: emptyNetworkDiscoveryLatestObservationView(),
+    }
+  }
+
+  const latestRows = await client
+    .from("network_devices")
+    .select(DEVICE_COLUMNS)
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .eq("agent_id", latestJob.agentId)
+    .gte("last_seen_at", latestJob.startedAt)
+    .lte("last_seen_at", latestJob.completedAt)
+
+  if (latestRows.error) throw new Error(latestRows.error.message)
+
+  return {
+    historicalObservations,
+    latestObservations: withLatestDiscoveryJobMeta(
+      buildView(source, mapDeviceRows(latestRows.data ?? [])),
+      latestJob
+    ),
+  }
 }

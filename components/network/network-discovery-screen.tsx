@@ -39,6 +39,10 @@ import {
   networkObservationGroupLabel,
 } from "@/lib/network/discovery/observations"
 import {
+  nextDiscoveryObservationState,
+  type NetworkDiscoveryLatestObservationView,
+} from "@/lib/network/discovery/latest-run"
+import {
   NETWORK_DISCOVERY_TRANSPORT_OPTIONS,
   NETWORK_JOB_STATUS_LABELS,
   NETWORK_JOB_STATUS_TONES,
@@ -61,7 +65,9 @@ import { cn } from "@/lib/utils"
 export function NetworkDiscoveryScreen() {
   const [targets, setTargets] = useState<NetworkDiscoveryTarget[]>([])
   const [jobs, setJobs] = useState<NetworkDiscoveryJobView[]>([])
-  const [observations, setObservations] =
+  const [latestObservations, setLatestObservations] =
+    useState<NetworkDiscoveryLatestObservationView | null>(null)
+  const [historicalObservations, setHistoricalObservations] =
     useState<NetworkDiscoveryObservationView | null>(null)
   const [agents, setAgents] = useState<NetworkAgent[]>([])
   const [sites, setSites] = useState<NetworkSite[]>([])
@@ -77,30 +83,24 @@ export function NetworkDiscoveryScreen() {
   const [siteId, setSiteId] = useState("none")
 
   const jobsRequestInFlight = useRef(false)
+  const observationStateRef = useRef({
+    latest: null as NetworkDiscoveryLatestObservationView | null,
+    historical: null as NetworkDiscoveryObservationView | null,
+  })
 
   const applyJobsBody = useCallback((jobsBody: {
     jobs?: NetworkDiscoveryJobView[]
-    observations?: {
-      total?: number
-      core?: number
-      wan?: number
-      lanVlan?: number
-      unknown?: number
-      items?: NetworkDiscoveryObservationView["items"]
-    } | null
+    latestObservations?: NetworkDiscoveryLatestObservationView | null
+    historicalObservations?: NetworkDiscoveryObservationView | null
   }) => {
     setJobs(jobsBody.jobs ?? [])
-    if (!jobsBody.observations) return
-    setObservations({
-      total: Number(jobsBody.observations.total) || 0,
-      core: Number(jobsBody.observations.core) || 0,
-      wan: Number(jobsBody.observations.wan) || 0,
-      lanVlan: Number(jobsBody.observations.lanVlan) || 0,
-      unknown: Number(jobsBody.observations.unknown) || 0,
-      items: Array.isArray(jobsBody.observations.items)
-        ? jobsBody.observations.items
-        : [],
+    const next = nextDiscoveryObservationState(observationStateRef.current, {
+      latestObservations: jobsBody.latestObservations,
+      historicalObservations: jobsBody.historicalObservations,
     })
+    observationStateRef.current = next
+    setLatestObservations(next.latest)
+    setHistoricalObservations(next.historical)
   }, [])
 
   const refreshJobs = useCallback(async () => {
@@ -112,6 +112,8 @@ export function NetworkDiscoveryScreen() {
         success: boolean
         message?: string
         jobs?: NetworkDiscoveryJobView[]
+        latestObservations?: NetworkDiscoveryLatestObservationView | null
+        historicalObservations?: NetworkDiscoveryObservationView | null
         observations?: NetworkDiscoveryObservationView | null
       }
       if (!jobsBody.success) throw new Error(jobsBody.message)
@@ -227,6 +229,11 @@ export function NetworkDiscoveryScreen() {
       setSaving(false)
     }
   }
+
+  const latestDiscoveryLabel =
+    latestObservations?.targetName?.trim() ||
+    latestObservations?.targetHost?.trim() ||
+    null
 
   return (
     <div className="space-y-6">
@@ -345,56 +352,52 @@ export function NetworkDiscoveryScreen() {
         </Table>
       </div>
 
-      {observations ? (
+      {latestObservations ? (
         <div className="space-y-3">
           <div className="space-y-1">
-            <h2 className="text-lg font-medium">Último discovery</h2>
+            <h2 className="text-lg font-medium">
+              Último discovery
+              {latestDiscoveryLabel ? ` · ${latestDiscoveryLabel}` : ""}
+            </h2>
             <p className="text-sm text-muted-foreground">
-              Observaciones persistidas del Core. No se convierten en
-              Devices administrados.
+              Observaciones de la última corrida completada. No se convierten
+              en Devices administrados.
             </p>
           </div>
           <p className="text-sm">
-            Total observado:{" "}
-            <span className="font-medium">{observations.total}</span>
+            <span className="font-medium">{latestObservations.total}</span>
+            {" "}observados en esta corrida
           </p>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            <ObservationStat label="Core" value={observations.core} />
-            <ObservationStat label="WAN" value={observations.wan} />
-            <ObservationStat label="LAN/VLAN" value={observations.lanVlan} />
-            <ObservationStat label="Unknown" value={observations.unknown} />
+            <ObservationStat label="Core" value={latestObservations.core} />
+            <ObservationStat label="WAN" value={latestObservations.wan} />
+            <ObservationStat label="LAN/VLAN" value={latestObservations.lanVlan} />
+            <ObservationStat label="Unknown" value={latestObservations.unknown} />
           </div>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nombre / Identity</TableHead>
-                  <TableHead>IP</TableHead>
-                  <TableHead>MAC</TableHead>
-                  <TableHead>Interfaz donde fue observado</TableHead>
-                  <TableHead>Scope</TableHead>
-                  <TableHead>Platform</TableHead>
-                  <TableHead>Board</TableHead>
-                  <TableHead>Version</TableHead>
-                  <TableHead>Discovered by</TableHead>
-                  <TableHead>Origin</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {observations.items.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={10} className="text-muted-foreground">
-                      Todavía no hay observaciones persistidas.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  observations.items.map((item) => (
-                    <ObservationRow key={item.id} item={item} />
-                  ))
-                )}
-              </TableBody>
-            </Table>
+          <ObservationTable
+            items={latestObservations.items}
+            emptyLabel="Todavía no hay observaciones de una corrida completada."
+          />
+        </div>
+      ) : null}
+
+      {historicalObservations ? (
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <h2 className="text-lg font-medium">Observaciones históricas</h2>
+            <p className="text-sm text-muted-foreground">
+              Inventario acumulado. No se borra si un neighbor deja de
+              aparecer en el último discovery.
+            </p>
           </div>
+          <p className="text-sm">
+            <span className="font-medium">{historicalObservations.total}</span>
+            {" "}en inventario
+          </p>
+          <ObservationTable
+            items={historicalObservations.items}
+            emptyLabel="Todavía no hay observaciones persistidas."
+          />
         </div>
       ) : null}
 
@@ -489,6 +492,46 @@ export function NetworkDiscoveryScreen() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  )
+}
+
+function ObservationTable({
+  items,
+  emptyLabel,
+}: {
+  items: NetworkDiscoveryObservationItem[]
+  emptyLabel: string
+}) {
+  return (
+    <div className="overflow-x-auto">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Nombre / Identity</TableHead>
+            <TableHead>IP</TableHead>
+            <TableHead>MAC</TableHead>
+            <TableHead>Interfaz donde fue observado</TableHead>
+            <TableHead>Scope</TableHead>
+            <TableHead>Platform</TableHead>
+            <TableHead>Board</TableHead>
+            <TableHead>Version</TableHead>
+            <TableHead>Discovered by</TableHead>
+            <TableHead>Origin</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {items.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={10} className="text-muted-foreground">
+                {emptyLabel}
+              </TableCell>
+            </TableRow>
+          ) : (
+            items.map((item) => <ObservationRow key={item.id} item={item} />)
+          )}
+        </TableBody>
+      </Table>
     </div>
   )
 }
