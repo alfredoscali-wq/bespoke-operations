@@ -505,7 +505,7 @@ test("enlaces bidireccionales equivalentes se fusionan a CORE↔NORTE y NORTE↔
   )
 })
 
-test("no se fusionan enlaces físicos distintos; vecino sin equivalente permanece", () => {
+test("no se fusionan enlaces físicos distintos; vecino observado no entra al grafo operativo", () => {
   const distinct = buildCanonicalTopologyGraph(labDevices(), [
     ...labLinks(),
     {
@@ -532,10 +532,11 @@ test("no se fusionan enlaces físicos distintos; vecino sin equivalente permanec
     kind: "neighbor",
   })
   const withOrphan = buildCanonicalTopologyGraph([...labDevices(), orphan], labLinks())
-  assert.equal(withOrphan.nodes.length, 4)
-  const leftover = withOrphan.nodes.find((node) => node.id === "dev-switch")
-  assert.equal(leftover?.kind, "neighbor")
-  assert.equal(leftover?.managementIp, "10.10.9.9")
+  assert.equal(withOrphan.nodes.length, 3)
+  assert.equal(
+    withOrphan.nodes.some((node) => node.id === "dev-switch"),
+    false
+  )
 
   const otherSite = labDevice({
     id: "dev-norte-other-site",
@@ -546,10 +547,10 @@ test("no se fusionan enlaces físicos distintos; vecino sin equivalente permanec
     siteId: "site-other",
   })
   const scoped = buildCanonicalTopologyGraph([...labDevices(), otherSite], labLinks())
-  assert.equal(scoped.nodes.length, 4)
+  assert.equal(scoped.nodes.length, 3)
   assert.equal(
     scoped.nodes.some((node) => node.id === "dev-norte-other-site"),
-    true
+    false
   )
 })
 
@@ -609,7 +610,7 @@ test("3.1: detalle de enlace A/B conserva interfaces, protocolos e identidad", (
   )
 })
 
-test("3.1: administrado muestra estado y href; vecino no inventa estado ni navega", () => {
+test("3.1: administrado muestra estado y href; vecinos observados no entran al grafo operativo", () => {
   const orphan = labDevice({
     id: "dev-switch",
     hostname: "SWITCH-FOO",
@@ -631,27 +632,31 @@ test("3.1: administrado muestra estado y href; vecino no inventa estado ni naveg
       },
     ]
   )
-  assert.equal(graph.nodes.length, 4)
-  const nodesById = new Map(graph.nodes.map((node) => [node.id, node]))
+  assert.equal(graph.nodes.length, 3)
+  assert.equal(
+    graph.nodes.every((node) => node.kind === "managed"),
+    true
+  )
+  assert.equal(
+    graph.nodes.some((node) => node.id === "dev-switch"),
+    false
+  )
   const mixed = graph.edges.find((edge) => {
     const pair = [edge.sourceDeviceId, edge.targetDeviceId].sort().join("::")
     return pair === `${CORE_M}::dev-switch`
   })
-  assert.ok(mixed)
-  const detail = buildTopologyEdgeDetail(mixed, nodesById)
-  assert.equal(detail.localInterfaceName, "ether1")
-  assert.equal(detail.remoteInterfaceName, "ether8")
-  assert.equal(detail.protocolsLabel, "CDP · LLDP · MNDP")
-  assert.equal(detail.endpointA.identity, "CORE-LAB · 192.168.56.2")
-  assert.equal(detail.endpointB.identity, "SWITCH-FOO · 10.10.9.9")
+  assert.equal(mixed, undefined)
+
+  const nodesById = new Map(graph.nodes.map((node) => [node.id, node]))
+  const coreNorte = graph.edges.find((edge) => {
+    const pair = [edge.sourceDeviceId, edge.targetDeviceId].sort().join("::")
+    return pair === `${CORE_M}::${NORTE_M}`
+  })
+  assert.ok(coreNorte)
+  const detail = buildTopologyEdgeDetail(coreNorte, nodesById)
   assert.equal(detail.endpointA.monitored, true)
   assert.equal(detail.endpointA.operationalStatus, "online")
-  assert.equal(detail.endpointA.lastPollAt, "2026-08-30T16:00:00.000Z")
   assert.equal(detail.endpointA.deviceHref, `/network/devices/${CORE_M}`)
-  assert.equal(detail.endpointB.monitored, false)
-  assert.equal(detail.endpointB.operationalStatus, null)
-  assert.equal(detail.endpointB.lastPollAt, null)
-  assert.equal(detail.endpointB.deviceHref, null)
   assert.equal(topologyManagedDeviceHref(orphan), null)
   assert.equal(
     topologyManagedDeviceHref({ id: CORE_M, kind: "managed" }),

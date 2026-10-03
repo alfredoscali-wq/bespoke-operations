@@ -41,6 +41,7 @@ import {
 import type {
   NetworkAgent,
   NetworkDiscoveryJobView,
+  NetworkDiscoveryObservationSummary,
   NetworkDiscoveryTarget,
   NetworkSite,
 } from "@/lib/network/types"
@@ -50,6 +51,8 @@ import { cn } from "@/lib/utils"
 export function NetworkDiscoveryScreen() {
   const [targets, setTargets] = useState<NetworkDiscoveryTarget[]>([])
   const [jobs, setJobs] = useState<NetworkDiscoveryJobView[]>([])
+  const [observations, setObservations] =
+    useState<NetworkDiscoveryObservationSummary | null>(null)
   const [agents, setAgents] = useState<NetworkAgent[]>([])
   const [sites, setSites] = useState<NetworkSite[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -75,6 +78,7 @@ export function NetworkDiscoveryScreen() {
         if (!jobsBody.success) throw new Error(jobsBody.message)
         setTargets(targetsBody.targets ?? [])
         setJobs(jobsBody.jobs ?? [])
+        setObservations(jobsBody.observations ?? null)
         setAgents(agentsBody.agents ?? [])
         setSites(sitesBody.sites ?? [])
         setError(null)
@@ -159,8 +163,9 @@ export function NetworkDiscoveryScreen() {
         <div className="space-y-2">
           <h1 className="text-2xl font-semibold tracking-tight">Discovery</h1>
           <p className="text-sm text-muted-foreground">
-            Destinos MikroTik autorizados. La contraseña no se vuelve a mostrar.
-            El Agent ejecuta el connector; Cloud solo persiste el resultado.
+            Destinos MikroTik autorizados. Discovery observa lo que el Core
+            ve; no convierte vecinos en infraestructura administrada.
+            La contraseña no se vuelve a mostrar.
           </p>
           <NetworkSubnav current="discovery" />
         </div>
@@ -170,6 +175,26 @@ export function NetworkDiscoveryScreen() {
       </div>
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
+
+      {observations ? (
+        <div className="space-y-2">
+          <h2 className="text-lg font-medium">Observado por Discovery</h2>
+          <p className="text-sm text-muted-foreground">
+            Conserva vecinos WAN, LAN/VLAN y desconocidos. Solo el Core
+            administrado entra a Devices y a la topología operativa.
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+            <ObservationStat
+              label="Total observado"
+              value={observations.total}
+            />
+            <ObservationStat label="Core" value={observations.core} />
+            <ObservationStat label="WAN" value={observations.wan} />
+            <ObservationStat label="LAN/VLAN" value={observations.lanVlan} />
+            <ObservationStat label="Unknown" value={observations.unknown} />
+          </div>
+        </div>
+      ) : null}
 
       <Table>
         <TableHeader>
@@ -357,6 +382,15 @@ export function NetworkDiscoveryScreen() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  )
+}
+
+function ObservationStat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-lg border px-3 py-2">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="text-lg font-medium">{value}</p>
     </div>
   )
 }

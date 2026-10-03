@@ -242,3 +242,5 @@ export type NetworkDiscoveryJobView = NetworkAgentJob & {
   targetName: string | null
   targetHost: string | null
 }
+
+export type { NetworkDiscoveryObservationSummary } from "@/lib/network/discovery/observations"

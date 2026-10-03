@@ -1,4 +1,5 @@
 import type { NetworkDeviceType } from "@/lib/network/constants"
+import { isOperationalTopologyDevice } from "@/lib/network/discovery/observations"
 import type { MonitoringOperationalStatus } from "@/lib/network/monitoring/contract"
 import type {
   NetworkTopologyEdge,
@@ -427,7 +428,9 @@ export function buildCanonicalTopologyGraph(
   const aliases = resolveTopologyDeviceAliases(devices)
   const nodes = devices
     .filter((device) => aliases.get(device.id) === device.id)
+    .filter((device) => isOperationalTopologyDevice(device))
     .map(toTopologyNode)
+  const nodeIds = new Set(nodes.map((node) => node.id))
 
   const remapped = links.map((link) => ({
     ...link,
@@ -437,6 +440,9 @@ export function buildCanonicalTopologyGraph(
 
   return {
     nodes,
-    edges: mergeTopologyEdges(remapped),
+    edges: mergeTopologyEdges(remapped).filter(
+      (edge) =>
+        nodeIds.has(edge.sourceDeviceId) && nodeIds.has(edge.targetDeviceId)
+    ),
   }
 }

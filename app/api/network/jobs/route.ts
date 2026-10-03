@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { getNetworkAgent } from "@/lib/network/agents/queries"
+import { getNetworkDiscoveryObservationSummary } from "@/lib/network/discovery/observation-queries"
 import { createPendingNetworkAgentJob, listNetworkDiscoveryJobs } from "@/lib/network/jobs/queries"
 import {
   findInflightMonitoringJobForDevice,
@@ -19,8 +20,11 @@ export async function GET() {
 
   try {
     const client = await createClient()
-    const jobs = await listNetworkDiscoveryJobs(client, auth.companyId)
-    return NextResponse.json({ success: true, jobs })
+    const [jobs, observations] = await Promise.all([
+      listNetworkDiscoveryJobs(client, auth.companyId),
+      getNetworkDiscoveryObservationSummary(client, auth.companyId),
+    ])
+    return NextResponse.json({ success: true, jobs, observations })
   } catch (error) {
     return NextResponse.json(
       {
