@@ -5,6 +5,13 @@ import {
 } from "@/lib/network/discovery/observations"
 import type { MonitoringOperationalStatus } from "@/lib/network/monitoring/contract"
 
+export type LocalTopologyObservationAlias = {
+  id: string
+  macAddress: string | null
+  managementIp: string | null
+  origin: string | null
+}
+
 export type LocalTopologyObservedDevice = {
   id: string
   hostname: string | null
@@ -23,6 +30,7 @@ export type LocalTopologyObservedDevice = {
   managed: boolean
   downstream: LocalTopologyInterfaceGroup[]
   agentId: string | null
+  observations: LocalTopologyObservationAlias[]
 }
 
 export type LocalTopologyInterfaceGroup = {
@@ -64,6 +72,7 @@ export type LocalTopologyInterfaceRow = {
   deviceId: string
   name: string
   description: string | null
+  macAddress?: string | null
 }
 
 const CPE_TYPE = new Set(["cpe", "onu"])
@@ -230,7 +239,7 @@ export function visualDedupeKey(input: {
   hostname?: string | null
   interfaceName?: string | null
 }): string | null {
-  const mac = exactMac(input.macAddress)
+  const mac = normalizeLocalTopologyMac(input.macAddress)
   if (mac) return `mac:${mac}`
   const ip = input.managementIp?.trim().toLowerCase()
   if (ip) return `ip:${ip}`
@@ -240,9 +249,66 @@ export function visualDedupeKey(input: {
   return `host:${hostname.toLowerCase()}@${iface}`
 }
 
-function exactMac(value: string | null | undefined): string | null {
+export function normalizeLocalTopologyMac(
+  value: string | null | undefined
+): string | null {
   const normalized = value?.trim().toLowerCase().replace(/-/g, ":")
   return normalized ? normalized : null
+}
+
+export function macsFromObservedIdentity(input: {
+  macAddress?: string | null
+  fingerprint?: string | null
+}): string[] {
+  const macs = new Set<string>()
+  const mac = normalizeLocalTopologyMac(input.macAddress)
+  if (mac) macs.add(mac)
+  const fingerprint = input.fingerprint?.trim().toLowerCase() ?? ""
+  if (fingerprint.startsWith("mac:")) {
+    const fromFingerprint = normalizeLocalTopologyMac(fingerprint.slice(4))
+    if (fromFingerprint) macs.add(fromFingerprint)
+  }
+  return [...macs]
+}
+
+export function collectLocalTopologyMacs(
+  interfaces: readonly { deviceId?: string; macAddress?: string | null }[],
+  deviceId?: string
+): Set<string> {
+  const macs = new Set<string>()
+  for (const iface of interfaces) {
+    if (deviceId && iface.deviceId !== deviceId) continue
+    const mac = normalizeLocalTopologyMac(iface.macAddress)
+    if (mac) macs.add(mac)
+  }
+  return macs
+}
+
+export function observationMatchesExcludedMacs(
+  item: { macAddress?: string | null; fingerprint?: string | null },
+  excludedMacs: ReadonlySet<string>
+): boolean {
+  if (excludedMacs.size === 0) return false
+  return macsFromObservedIdentity(item).some((mac) => excludedMacs.has(mac))
+}
+
+/**
+ * Visual-only grouping for infrastructure neighbors on the same parent port.
+ * Never groups by hostname alone; board and parent interface are required.
+ */
+export function infraVisualGroupKey(input: {
+  hostname?: string | null
+  board?: string | null
+  origin?: string | null
+  interfaceName?: string | null
+}): string | null {
+  if ((input.origin ?? "").trim().toLowerCase() !== "neighbor") return null
+  const hostname = input.hostname?.trim().toLowerCase() ?? ""
+  const board = input.board?.trim().toLowerCase() ?? ""
+  const iface = input.interfaceName?.trim().toLowerCase() ?? ""
+  if (!hostname || !board || !iface) return null
+  if (GENERIC_HOSTNAME.test(hostname)) return null
+  return `infra:${hostname}|${iface}|${board}`
 }
 
 function naturalInterfaceKey(name: string | null): string {
@@ -273,6 +339,20 @@ function richness(device: LocalTopologyObservedDevice): number {
   )
 }
 
+function observationAlias(
+  device: Pick<
+    LocalTopologyObservedDevice,
+    "id" | "macAddress" | "managementIp" | "origin"
+  >
+): LocalTopologyObservationAlias {
+  return {
+    id: device.id,
+    macAddress: device.macAddress,
+    managementIp: device.managementIp,
+    origin: device.origin,
+  }
+}
+
 function mergeVisualDuplicates(
   devices: readonly LocalTopologyObservedDevice[],
   interfaceName: string | null
@@ -296,16 +376,62 @@ function mergeVisualDuplicates(
     buckets.set(key, bucket)
   }
 
-  const merged = [...buckets.values()].map((bucket) => {
-    const ranked = [...bucket].sort((left, right) => richness(right) - richness(left))
-    return ranked[0]
-  })
+  const merged = [...buckets.values()].map((bucket) => collapseObservedBucket(bucket))
 
-  return [...unmatched, ...merged].sort((left, right) =>
-    (left.hostname ?? left.managementIp ?? "").localeCompare(
-      right.hostname ?? right.managementIp ?? "",
-      "es"
-    )
+  return [...unmatched, ...merged].sort(compareObservedDevices)
+}
+
+function mergeInfrastructureDevices(
+  devices: readonly LocalTopologyObservedDevice[],
+  interfaceName: string | null
+): LocalTopologyObservedDevice[] {
+  const buckets = new Map<string, LocalTopologyObservedDevice[]>()
+  const rest: LocalTopologyObservedDevice[] = []
+
+  for (const device of devices) {
+    const key = infraVisualGroupKey({
+      hostname: device.hostname,
+      board: device.board,
+      origin: device.origin,
+      interfaceName,
+    })
+    if (!key) {
+      rest.push(device)
+      continue
+    }
+    const bucket = buckets.get(key) ?? []
+    bucket.push(device)
+    buckets.set(key, bucket)
+  }
+
+  const grouped = [...buckets.values()].map((bucket) => collapseObservedBucket(bucket))
+  return [...grouped, ...mergeVisualDuplicates(rest, interfaceName)].sort(
+    compareObservedDevices
+  )
+}
+
+function collapseObservedBucket(
+  bucket: readonly LocalTopologyObservedDevice[]
+): LocalTopologyObservedDevice {
+  const ranked = [...bucket].sort((left, right) => richness(right) - richness(left))
+  const representative = ranked[0]
+  return {
+    ...representative,
+    observations: ranked.flatMap((device) =>
+      device.observations.length > 0
+        ? device.observations
+        : [observationAlias(device)]
+    ),
+  }
+}
+
+function compareObservedDevices(
+  left: LocalTopologyObservedDevice,
+  right: LocalTopologyObservedDevice
+): number {
+  return (left.hostname ?? left.managementIp ?? "").localeCompare(
+    right.hostname ?? right.managementIp ?? "",
+    "es"
   )
 }
 
@@ -344,6 +470,14 @@ function toObservedDevice(
     managed: false,
     downstream: [],
     agentId: meta?.agentId ?? null,
+    observations: [
+      {
+        id: item.id,
+        macAddress: item.macAddress,
+        managementIp: item.managementIp,
+        origin: item.origin,
+      },
+    ],
   }
 }
 
@@ -459,12 +593,18 @@ export function buildLocalCoreTopologyView(input: {
   >
   requireOutgoingLink?: boolean
   excludeDeviceIds?: ReadonlySet<string>
+  excludeMacs?: ReadonlySet<string>
 }): LocalCoreTopologyView {
   const lanVlan: NetworkDiscoveryObservationItem[] = []
 
   for (const item of input.observations) {
     if (item.id === input.core.id || item.scope === "core") continue
     if (input.excludeDeviceIds?.has(item.id)) continue
+    if (
+      observationMatchesExcludedMacs(item, input.excludeMacs ?? new Set())
+    ) {
+      continue
+    }
     if (item.scope === "wan") continue
     if (item.scope === "lan" || item.scope === "vlan") {
       lanVlan.push(item)
@@ -539,7 +679,7 @@ export function buildLocalCoreTopologyView(input: {
         group.interfaceName,
         input.coreInterfaces ?? []
       )
-      const devices = mergeVisualDuplicates(group.devices, group.interfaceName)
+      const devices = mergeInfrastructureDevices(group.devices, group.interfaceName)
       const cpes = mergeVisualDuplicates(group.cpes, group.interfaceName)
       return {
         interfaceName: group.interfaceName,

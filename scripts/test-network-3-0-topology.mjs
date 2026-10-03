@@ -35,6 +35,9 @@ import {
   resolveLocalManagedDeviceId,
   selectTopologyRootIds,
   visualDedupeKey,
+  infraVisualGroupKey,
+  collectLocalTopologyMacs,
+  observationMatchesExcludedMacs,
 } from "../lib/network/topology/local-view.ts"
 import { buildObservedDeviceManagementState } from "../lib/network/topology/management-state.ts"
 import { NETWORK_TARGET_DECRYPT_ERROR } from "../lib/network/management/errors.ts"
@@ -2480,10 +2483,16 @@ test("1.7: neighbor administrado aliasa al discovery canónico por IP+agent, no 
   )
   assert.equal(nestedIds.includes(radioId), true)
   assert.equal(nestedIds.includes(nodoId), true)
-  assert.equal(nestedIds.includes(extraMacId), true)
+  assert.equal(nestedIds.includes(extraMacId), false)
   assert.equal(nestedIds.includes(clienteId), false)
   assert.equal(nestedIds.includes(wanPeerId), false)
   assert.equal(nestedIds.includes(MALAGUENO_CORE), false)
+  const ether3 = nested.interfaceGroups.find(
+    (group) => group.interfaceName === "ether3,bridge1"
+  )
+  const nodo = ether3.devices.find((device) => device.hostname === "Nodo Este")
+  assert.deepEqual(nodo.observations.map((item) => item.id).sort(), [extraMacId, nodoId].sort())
+  assert.equal(nodo.managementIp, "10.100.101.22")
   const ether2 = nested.interfaceGroups.find(
     (group) => group.interfaceName === "ether2,bridge1"
   )
@@ -2542,7 +2551,7 @@ test("1.7: neighbor administrado aliasa al discovery canónico por IP+agent, no 
   )
   assert.equal(downstreamIds.includes(radioId), true)
   assert.equal(downstreamIds.includes(nodoId), true)
-  assert.equal(downstreamIds.includes(extraMacId), true)
+  assert.equal(downstreamIds.includes(extraMacId), false)
   assert.equal(downstreamIds.includes(clienteId), false)
   assert.equal(downstreamIds.includes(wanPeerId), false)
   assert.equal(downstreamIds.includes(MALAGUENO_CORE), false)
@@ -2579,6 +2588,423 @@ test("1.7: neighbor administrado aliasa al discovery canónico por IP+agent, no 
   assert.match(queries, /managedDevices/)
   assert.match(queries, /origin: device\.origin/)
   assert.doesNotMatch(queries, /AS5|AS6|AS7/)
+})
+
+test("1.8: el Core seleccionado no reaparece como downstream por MAC de otra interfaz", () => {
+  const accessId = "dev-access-canonical"
+  const coreAliasLan = "dev-core-alias-lan"
+  const coreAliasNet = "dev-core-alias-net"
+  const sameNameOtherMac = "dev-same-name-other-mac"
+  const sameIpForeignMac = "dev-same-ip-foreign-mac"
+  const radioId = "dev-radio-norte"
+  const asFive = "dev-radio-cinco"
+  const asSix = "dev-radio-seis"
+  const asSeven = "dev-radio-siete"
+  const coreIfaces = [
+    {
+      deviceId: MALAGUENO_CORE,
+      name: "ether1 - WAN",
+      description: null,
+      macAddress: "CC:2D:E0:5A:E6:F6",
+    },
+    {
+      deviceId: MALAGUENO_CORE,
+      name: "ether2",
+      description: "Enlace",
+      macAddress: "CC:2D:E0:5A:E6:F7",
+    },
+    {
+      deviceId: MALAGUENO_CORE,
+      name: "ether3",
+      description: "LAN NETPOWER",
+      macAddress: "CC:2D:E0:5A:E6:F8",
+    },
+  ]
+  const excludedMacs = collectLocalTopologyMacs(coreIfaces, MALAGUENO_CORE)
+  assert.equal(excludedMacs.has("cc:2d:e0:5a:e6:f7"), true)
+  assert.equal(
+    observationMatchesExcludedMacs(
+      { fingerprint: "mac:cc:2d:e0:5a:e6:f8" },
+      excludedMacs
+    ),
+    true
+  )
+
+  const nested = buildLocalCoreTopologyView({
+    core: {
+      id: accessId,
+      hostname: "Access Malagueño",
+      managementIp: "10.100.101.4",
+      operationalStatus: null,
+      lastPollAt: null,
+    },
+    jobId: "job-access",
+    observations: [
+      {
+        id: MALAGUENO_CORE,
+        hostname: "RB3011 - Core Malagueño",
+        managementIp: "177.53.120.11",
+        macAddress: "CC:2D:E0:5A:E6:F6",
+        observedInterfaceName: "ether1,bridge1",
+        observedInterfaceDescription: null,
+        scope: "lan",
+        platform: "MikroTik",
+        board: "RB3011UiAS",
+        version: null,
+        discoveredBy: "mndp",
+        origin: "discovery",
+      },
+      {
+        id: coreAliasLan,
+        hostname: "RB3011 - Core Malagueño",
+        managementIp: "10.100.101.1",
+        macAddress: "CC:2D:E0:5A:E6:F7",
+        observedInterfaceName: "ether1,bridge1",
+        observedInterfaceDescription: null,
+        scope: "lan",
+        platform: "MikroTik",
+        board: "RB3011UiAS",
+        version: null,
+        discoveredBy: "mndp",
+        origin: "neighbor",
+      },
+      {
+        id: coreAliasNet,
+        hostname: "RB3011 - Core Malagueño",
+        managementIp: "10.168.1.1",
+        macAddress: "CC:2D:E0:5A:E6:F8",
+        observedInterfaceName: "ether1,bridge1",
+        observedInterfaceDescription: null,
+        scope: "lan",
+        platform: "MikroTik",
+        board: "RB3011UiAS",
+        version: null,
+        discoveredBy: "mndp",
+        origin: "neighbor",
+      },
+      {
+        id: sameNameOtherMac,
+        hostname: "RB3011 - Core Malagueño",
+        managementIp: "10.9.9.9",
+        macAddress: "AA:BB:CC:DD:EE:FF",
+        observedInterfaceName: "ether1,bridge1",
+        observedInterfaceDescription: null,
+        scope: "lan",
+        platform: "MikroTik",
+        board: "RB3011UiAS",
+        version: null,
+        discoveredBy: "mndp",
+        origin: "neighbor",
+      },
+      {
+        id: sameIpForeignMac,
+        hostname: "Otro Nodo",
+        managementIp: "177.53.120.11",
+        macAddress: "11:22:33:44:55:66",
+        observedInterfaceName: "ether2,bridge1",
+        observedInterfaceDescription: null,
+        scope: "lan",
+        platform: "MikroTik",
+        board: "CRS326-24G-2S+",
+        version: null,
+        discoveredBy: "mndp",
+        origin: "neighbor",
+      },
+      {
+        id: radioId,
+        hostname: "Radio Norte",
+        managementIp: "10.100.101.21",
+        macAddress: "22:22:22:22:22:21",
+        observedInterfaceName: "ether2,bridge1",
+        observedInterfaceDescription: null,
+        scope: "lan",
+        platform: "MikroTik",
+        board: "CRS326-24G-2S+",
+        version: null,
+        discoveredBy: "mndp",
+        origin: "neighbor",
+      },
+      {
+        id: asFive,
+        hostname: "Radio Cinco",
+        managementIp: "10.100.101.11",
+        macAddress: "22:22:22:22:22:05",
+        observedInterfaceName: "ether2,bridge1",
+        observedInterfaceDescription: null,
+        scope: "lan",
+        platform: "MikroTik",
+        board: "RB921GS-5HPacD",
+        version: null,
+        discoveredBy: "mndp",
+        origin: "neighbor",
+      },
+      {
+        id: asSix,
+        hostname: "Radio Seis",
+        managementIp: "10.100.101.14",
+        macAddress: "22:22:22:22:22:06",
+        observedInterfaceName: "ether3,bridge1",
+        observedInterfaceDescription: null,
+        scope: "lan",
+        platform: "MikroTik",
+        board: "RB921GS-5HPacD r2",
+        version: null,
+        discoveredBy: "mndp",
+        origin: "neighbor",
+      },
+      {
+        id: asSeven,
+        hostname: "Radio Siete",
+        managementIp: "10.100.101.13",
+        macAddress: "22:22:22:22:22:07",
+        observedInterfaceName: "ether4,bridge1",
+        observedInterfaceDescription: null,
+        scope: "lan",
+        platform: "MikroTik",
+        board: "RB911G-5HPacD",
+        version: null,
+        discoveredBy: "mndp",
+        origin: "neighbor",
+      },
+    ],
+    links: [
+      { fromDeviceId: accessId, toDeviceId: MALAGUENO_CORE, fromInterfaceName: "ether1,bridge1" },
+      { fromDeviceId: accessId, toDeviceId: coreAliasLan, fromInterfaceName: "ether1,bridge1" },
+      { fromDeviceId: accessId, toDeviceId: coreAliasNet, fromInterfaceName: "ether1,bridge1" },
+      { fromDeviceId: accessId, toDeviceId: sameNameOtherMac, fromInterfaceName: "ether1,bridge1" },
+      { fromDeviceId: accessId, toDeviceId: sameIpForeignMac, fromInterfaceName: "ether2,bridge1" },
+      { fromDeviceId: accessId, toDeviceId: radioId, fromInterfaceName: "ether2,bridge1" },
+      { fromDeviceId: accessId, toDeviceId: asFive, fromInterfaceName: "ether2,bridge1" },
+      { fromDeviceId: accessId, toDeviceId: asSix, fromInterfaceName: "ether3,bridge1" },
+      { fromDeviceId: accessId, toDeviceId: asSeven, fromInterfaceName: "ether4,bridge1" },
+    ],
+    deviceMeta: new Map([
+      [MALAGUENO_CORE, { deviceType: "core" }],
+      [coreAliasLan, { deviceType: "router" }],
+      [coreAliasNet, { deviceType: "router" }],
+      [sameNameOtherMac, { deviceType: "router" }],
+      [sameIpForeignMac, { deviceType: "switch" }],
+      [radioId, { deviceType: "switch" }],
+      [asFive, { deviceType: "router" }],
+      [asSix, { deviceType: "router" }],
+      [asSeven, { deviceType: "router" }],
+    ]),
+    requireOutgoingLink: true,
+    excludeDeviceIds: new Set([MALAGUENO_CORE]),
+    excludeMacs: excludedMacs,
+    coreInterfaces: coreIfaces,
+  })
+  const nestedIds = nested.interfaceGroups.flatMap((group) =>
+    group.devices.map((device) => device.id)
+  )
+  assert.equal(nestedIds.includes(MALAGUENO_CORE), false)
+  assert.equal(nestedIds.includes(coreAliasLan), false)
+  assert.equal(nestedIds.includes(coreAliasNet), false)
+  assert.equal(nestedIds.includes(sameNameOtherMac), true)
+  assert.equal(nestedIds.includes(sameIpForeignMac), true)
+  assert.equal(nestedIds.includes(radioId), true)
+  assert.equal(nestedIds.includes(asFive), true)
+  assert.equal(nestedIds.includes(asSix), true)
+  assert.equal(nestedIds.includes(asSeven), true)
+  assert.deepEqual(
+    selectTopologyRootIds(
+      [MALAGUENO_CORE, accessId],
+      [
+        {
+          deviceId: MALAGUENO_CORE,
+          completedAt: "2026-10-03T12:00:00.000Z",
+          lanVlanChildIds: expandTopologyChildIdsWithManagedAliases(
+            [accessId],
+            ["10.100.101.4"],
+            [
+              { id: MALAGUENO_CORE, managementIp: "177.53.120.11" },
+              { id: accessId, managementIp: "10.100.101.4" },
+            ]
+          ),
+        },
+      ]
+    ),
+    [MALAGUENO_CORE]
+  )
+  const localView = read("lib/network/topology/local-view.ts")
+  const queries = read("lib/network/topology/queries.ts")
+  assert.match(queries, /excludeMacs/)
+  assert.match(queries, /collectLocalTopologyMacs/)
+  assert.match(read("lib/network/discovery/observation-queries.ts"), /mac_address/)
+  assert.doesNotMatch(localView, /177\.53\.120\.11/)
+  assert.doesNotMatch(localView, /AS 6/)
+})
+
+test("1.9: infraestructura en el mismo puerto y board se agrupa visualmente sin fusionar filas", () => {
+  const parentId = "dev-access-canonical"
+  const first = "dev-radio-a"
+  const second = "dev-radio-b"
+  const otherIface = "dev-radio-other-port"
+  const otherBoard = "dev-radio-other-board"
+  const clienteA = "dev-cliente-a"
+  const clienteB = "dev-cliente-b"
+  assert.equal(
+    infraVisualGroupKey({
+      hostname: "Radio Norte",
+      board: "RB921GS-5HPacD r2",
+      origin: "neighbor",
+      interfaceName: "ether3,bridge1",
+    }),
+    infraVisualGroupKey({
+      hostname: "Radio Norte",
+      board: "RB921GS-5HPacD r2",
+      origin: "neighbor",
+      interfaceName: "ether3,bridge1",
+    })
+  )
+  assert.equal(
+    infraVisualGroupKey({
+      hostname: "Radio Norte",
+      board: "RB921GS-5HPacD r2",
+      origin: "neighbor",
+    }),
+    null
+  )
+  const nested = buildLocalCoreTopologyView({
+    core: {
+      id: parentId,
+      hostname: "Access Malagueño",
+      managementIp: "10.100.101.4",
+      operationalStatus: null,
+      lastPollAt: null,
+    },
+    jobId: "job-access",
+    observations: [
+      {
+        id: first,
+        hostname: "Radio Norte",
+        managementIp: null,
+        macAddress: "CC:2D:E0:5B:80:08",
+        observedInterfaceName: "ether3,bridge1",
+        observedInterfaceDescription: null,
+        scope: "lan",
+        platform: "MikroTik",
+        board: "RB921GS-5HPacD r2",
+        version: null,
+        discoveredBy: "mndp",
+        origin: "neighbor",
+      },
+      {
+        id: second,
+        hostname: "Radio Norte",
+        managementIp: "10.100.101.14",
+        macAddress: "CC:2D:E0:5B:80:0A",
+        observedInterfaceName: "ether3,bridge1",
+        observedInterfaceDescription: null,
+        scope: "lan",
+        platform: "MikroTik",
+        board: "RB921GS-5HPacD r2",
+        version: null,
+        discoveredBy: "mndp",
+        origin: "neighbor",
+      },
+      {
+        id: otherIface,
+        hostname: "Radio Norte",
+        managementIp: "10.100.101.15",
+        macAddress: "CC:2D:E0:5B:80:0C",
+        observedInterfaceName: "ether4,bridge1",
+        observedInterfaceDescription: null,
+        scope: "lan",
+        platform: "MikroTik",
+        board: "RB921GS-5HPacD r2",
+        version: null,
+        discoveredBy: "mndp",
+        origin: "neighbor",
+      },
+      {
+        id: otherBoard,
+        hostname: "Radio Norte",
+        managementIp: "10.100.101.16",
+        macAddress: "CC:2D:E0:5B:80:0E",
+        observedInterfaceName: "ether3,bridge1",
+        observedInterfaceDescription: null,
+        scope: "lan",
+        platform: "MikroTik",
+        board: "CRS326-24G-2S+",
+        version: null,
+        discoveredBy: "mndp",
+        origin: "neighbor",
+      },
+      {
+        id: clienteA,
+        hostname: "Cliente Sur",
+        managementIp: "10.100.101.40",
+        macAddress: "aa:aa:aa:aa:aa:01",
+        observedInterfaceName: "ether2,bridge1",
+        observedInterfaceDescription: null,
+        scope: "lan",
+        platform: "MikroTik",
+        board: "hAP ac2",
+        version: null,
+        discoveredBy: "mndp",
+        origin: "neighbor",
+      },
+      {
+        id: clienteB,
+        hostname: "Cliente Sur",
+        managementIp: "10.100.101.41",
+        macAddress: "aa:aa:aa:aa:aa:02",
+        observedInterfaceName: "ether2,bridge1",
+        observedInterfaceDescription: null,
+        scope: "lan",
+        platform: "MikroTik",
+        board: "hAP ac2",
+        version: null,
+        discoveredBy: "mndp",
+        origin: "neighbor",
+      },
+    ],
+    links: [
+      { fromDeviceId: parentId, toDeviceId: first, fromInterfaceName: "ether3,bridge1" },
+      { fromDeviceId: parentId, toDeviceId: second, fromInterfaceName: "ether3,bridge1" },
+      { fromDeviceId: parentId, toDeviceId: otherIface, fromInterfaceName: "ether4,bridge1" },
+      { fromDeviceId: parentId, toDeviceId: otherBoard, fromInterfaceName: "ether3,bridge1" },
+      { fromDeviceId: parentId, toDeviceId: clienteA, fromInterfaceName: "ether2,bridge1" },
+      { fromDeviceId: parentId, toDeviceId: clienteB, fromInterfaceName: "ether2,bridge1" },
+    ],
+    deviceMeta: new Map([
+      [first, { deviceType: "router" }],
+      [second, { deviceType: "router" }],
+      [otherIface, { deviceType: "router" }],
+      [otherBoard, { deviceType: "switch" }],
+      [clienteA, { deviceType: "cpe" }],
+      [clienteB, { deviceType: "cpe" }],
+    ]),
+    requireOutgoingLink: true,
+  })
+  const ether3 = nested.interfaceGroups.find(
+    (group) => group.interfaceName === "ether3,bridge1"
+  )
+  const ether4 = nested.interfaceGroups.find(
+    (group) => group.interfaceName === "ether4,bridge1"
+  )
+  const ether2 = nested.interfaceGroups.find(
+    (group) => group.interfaceName === "ether2,bridge1"
+  )
+  const grouped = ether3.devices.filter((device) => device.hostname === "Radio Norte")
+  assert.equal(grouped.length, 2)
+  const collapsed = grouped.find((device) => device.managementIp === "10.100.101.14")
+  assert.equal(collapsed.observations.length, 2)
+  assert.deepEqual(
+    collapsed.observations.map((item) => item.id).sort(),
+    [first, second].sort()
+  )
+  assert.equal(
+    grouped.some((device) => device.id === otherBoard),
+    true
+  )
+  assert.equal(ether4.devices.map((device) => device.id).includes(otherIface), true)
+  assert.equal(ether2.devices.length, 0)
+  assert.equal(ether2.cpes.length, 2)
+  assert.equal(ether2.cpes.map((device) => device.id).includes(clienteA), true)
+  assert.equal(ether2.cpes.map((device) => device.id).includes(clienteB), true)
+  assert.doesNotMatch(read("lib/network/topology/local-view.ts"), /AS 6/)
 })
 
 test("1.3 G/H: probar conexión no lanza discovery; descubrir exige conexión verificada", () => {

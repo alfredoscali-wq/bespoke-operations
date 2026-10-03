@@ -71,6 +71,7 @@ export type NetworkObservationInterfaceRow = {
   name: string
   description: string | null
   interfaceType: string | null
+  macAddress?: string | null
 }
 
 const OBSERVATION_SCOPE_RANK: Record<NetworkDiscoveryObservationScopeKind, number> = {

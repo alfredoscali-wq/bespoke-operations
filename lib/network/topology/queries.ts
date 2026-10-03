@@ -18,8 +18,10 @@ import { pickLatestCompletedDiscoveryJobForHost } from "@/lib/network/discovery/
 import {
   attachNestedLocalTopology,
   buildLocalCoreTopologyView,
+  collectLocalTopologyMacs,
   emptyLocalCoreTopologyView,
   expandTopologyChildIdsWithManagedAliases,
+  normalizeLocalTopologyMac,
   resolveLocalManagedDeviceId,
   selectTopologyRootIds,
   type LocalManagedIdentityRef,
@@ -299,6 +301,11 @@ export async function getNetworkTopologyPage(
     }
   }
   const excludedFromNested = new Set<string>([selected.id, ...rootIds])
+  const excludedMacs = collectLocalTopologyMacs(latest.interfaces, selected.id)
+  const selectedMac = normalizeLocalTopologyMac(
+    latest.devices.find((device) => device.id === selected.id)?.macAddress
+  )
+  if (selectedMac) excludedMacs.add(selectedMac)
 
   const local = buildLocalCoreTopologyView({
     core,
@@ -360,6 +367,7 @@ export async function getNetworkTopologyPage(
         statusByDeviceId,
         requireOutgoingLink: true,
         excludeDeviceIds: excludedFromNested,
+        excludeMacs: excludedMacs,
       })
       if (nestedView.interfaceGroups.some((item) => item.devices.length > 0)) {
         nestedByDeviceId.set(device.id, nestedView.interfaceGroups)

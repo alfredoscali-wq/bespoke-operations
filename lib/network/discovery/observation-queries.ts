@@ -95,7 +95,7 @@ async function loadObservationSource(
       .is("deleted_at", null),
     client
       .from("network_interfaces")
-      .select("id, device_id, name, description, interface_type")
+      .select("id, device_id, name, description, interface_type, mac_address")
       .eq("company_id", companyId)
       .is("deleted_at", null),
   ])
@@ -126,6 +126,7 @@ async function loadObservationSource(
       name: row.name,
       description: row.description,
       interfaceType: row.interface_type,
+      macAddress: row.mac_address,
     })),
   }
 }
