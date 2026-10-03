@@ -5,6 +5,10 @@ import type {
   DiscoveryLink,
   DiscoverySnapshot,
 } from "@/lib/network/discovery/contract"
+import {
+  buildArpIpByMac,
+  resolveObservedManagementIp,
+} from "@/lib/network/discovery/arp-enrichment"
 import { buildDeviceFingerprint } from "@/lib/network/discovery/fingerprint"
 import type { NetworkDeviceType } from "@/lib/network/constants"
 
@@ -18,6 +22,7 @@ export type RouterOsFacts = {
   interfaces: Record<string, string>[]
   addresses: Record<string, string>[]
   neighbors: Record<string, string>[]
+  arp?: Record<string, string>[]
 }
 
 function pick(record: Record<string, string>, ...keys: string[]): string | null {
@@ -152,6 +157,14 @@ export function mapMikrotikFactsToSnapshot(facts: RouterOsFacts): DiscoverySnaps
   const devices: DiscoveryDevice[] = [target]
   const links: DiscoveryLink[] = []
   const seenNeighbors = new Set<string>()
+  const arpIpByMac = buildArpIpByMac(
+    (facts.arp ?? []).map((row) => ({
+      macAddress: pick(row, "mac-address", "mac_address"),
+      address: pick(row, "address"),
+      complete: pick(row, "complete"),
+      disabled: pick(row, "disabled"),
+    }))
+  )
 
   for (const neighbor of facts.neighbors) {
     const identity = pick(neighbor, "identity")
@@ -169,6 +182,11 @@ export function mapMikrotikFactsToSnapshot(facts: RouterOsFacts): DiscoverySnaps
       ? "MikroTik"
       : platform
     const remoteType = inferDeviceType(pick(neighbor, "board"), platform)
+    const resolvedIp = resolveObservedManagementIp({
+      neighborIp: address,
+      neighborMac: mac,
+      arpIpByMac,
+    })
 
     devices.push({
       localKey,
@@ -179,7 +197,8 @@ export function mapMikrotikFactsToSnapshot(facts: RouterOsFacts): DiscoverySnaps
       deviceType: remoteType === "router" && !platform?.toLowerCase().includes("mikro")
         ? "other"
         : remoteType,
-      managementIp: address,
+      managementIp: resolvedIp.managementIp,
+      managementIpSource: resolvedIp.source,
       macAddress: mac,
       firmwareVersion: pick(neighbor, "version"),
       status: "unknown",

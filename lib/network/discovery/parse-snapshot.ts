@@ -110,6 +110,10 @@ export function parseDiscoverySnapshot(
     if (!isDeviceType(device.deviceType)) {
       return { ok: false, message: `Tipo de dispositivo inválido (${localKey}).` }
     }
+    const managementIpSource =
+      device.managementIpSource === "neighbor" || device.managementIpSource === "arp"
+        ? device.managementIpSource
+        : null
     devices.push({
       localKey,
       hostname: trimToNull(device.hostname),
@@ -118,6 +122,7 @@ export function parseDiscoverySnapshot(
       serialNumber: trimToNull(device.serialNumber),
       deviceType: device.deviceType,
       managementIp: trimToNull(device.managementIp),
+      managementIpSource,
       macAddress: trimToNull(device.macAddress),
       firmwareVersion: trimToNull(device.firmwareVersion),
       status: isDeviceStatus(device.status) ? device.status : "unknown",

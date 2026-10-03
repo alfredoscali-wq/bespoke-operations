@@ -126,6 +126,7 @@ export async function fetchRouterOsRest(input: {
   interfaces: Record<string, string>[]
   addresses: Record<string, string>[]
   neighbors: Record<string, string>[]
+  arp: Record<string, string>[]
 }> {
   const timeoutMs = input.timeoutMs ?? 12_000
   const protocol = input.port === 80 ? "http" : "https"
@@ -140,7 +141,7 @@ export async function fetchRouterOsRest(input: {
       timeoutMs,
     })
 
-  const [identity, resource, routerboard, interfaces, addresses, neighbors] =
+  const [identity, resource, routerboard, interfaces, addresses, neighbors, arp] =
     await Promise.all([
       get("/rest/system/identity"),
       get("/rest/system/resource"),
@@ -148,6 +149,7 @@ export async function fetchRouterOsRest(input: {
       get("/rest/interface"),
       get("/rest/ip/address"),
       get("/rest/ip/neighbor").catch(() => []),
+      get("/rest/ip/arp").catch(() => []),
     ])
 
   return {
@@ -157,6 +159,7 @@ export async function fetchRouterOsRest(input: {
     interfaces: asRecords(interfaces),
     addresses: asRecords(addresses),
     neighbors: asRecords(neighbors),
+    arp: asRecords(arp),
   }
 }
 

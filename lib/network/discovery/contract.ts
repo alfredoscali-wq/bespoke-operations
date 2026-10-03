@@ -31,6 +31,8 @@ export type DiscoveryDevice = {
   serialNumber: string | null
   deviceType: NetworkDeviceType
   managementIp: string | null
+  /** Snapshot-only. Not persisted. Neighbor address wins over ARP. */
+  managementIpSource?: "neighbor" | "arp" | null
   macAddress: string | null
   firmwareVersion: string | null
   status: NetworkDeviceStatus

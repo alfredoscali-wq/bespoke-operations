@@ -31,6 +31,12 @@ async function discoverViaApi(access: ConnectorAccess, targetId: string, siteId:
     } catch {
       neighbors = []
     }
+    let arp: Record<string, string>[] = []
+    try {
+      arp = await printRecords(client, "/ip/arp/print")
+    } catch {
+      arp = []
+    }
 
     const facts: RouterOsFacts = {
       host: access.host,
@@ -42,6 +48,7 @@ async function discoverViaApi(access: ConnectorAccess, targetId: string, siteId:
       interfaces,
       addresses,
       neighbors,
+      arp,
     }
     return mapMikrotikFactsToSnapshot(facts)
   } finally {

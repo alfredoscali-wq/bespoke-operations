@@ -19,6 +19,11 @@ import {
   NETWORK_DISCOVERY_TRANSPORT_OPTIONS,
   networkDiscoveryTransportPayload,
 } from "../lib/network/labels.ts"
+import {
+  buildArpIpByMac,
+  canonicalMacAddress,
+  resolveObservedManagementIp,
+} from "../lib/network/discovery/arp-enrichment.ts"
 import { buildDeviceFingerprint, normalizeMacAddress } from "../lib/network/discovery/fingerprint.ts"
 import {
   NETWORK_DISCOVERY_JOB_POLL_MS,
@@ -331,6 +336,166 @@ test("el mapper MikroTik arma device, interfaces, IPs y vecinos", () => {
   assert.equal(snapshot.devices[1].origin, "neighbor")
   assert.equal(snapshot.links.length, 1)
   assert.equal(snapshot.links[0].fromInterfaceName, "ether1")
+})
+
+test("ARP enriquece IP de neighbors sin address y no crea devices extra", () => {
+  const snapshot = mapMikrotikFactsToSnapshot({
+    host: "177.53.120.11",
+    targetId: "target-malagueno",
+    siteId: null,
+    identity: { name: "RB3011 - Core Malagueno" },
+    resource: { version: "6.48.6", "board-name": "RB3011UiAS", platform: "MikroTik" },
+    routerboard: { model: "RB3011UiAS", "serial-number": "CORE1" },
+    interfaces: [
+      {
+        name: "ether3",
+        type: "ether",
+        "mac-address": "48:8F:5A:00:00:03",
+        running: "true",
+        disabled: "false",
+        comment: "LAN NETPOWER",
+      },
+    ],
+    addresses: [
+      { address: "177.53.120.11/24", interface: "ether1 - WAN", disabled: "false" },
+    ],
+    neighbors: [
+      {
+        identity: "Humberto lara",
+        address: "10.168.1.32",
+        "mac-address": "AA:BB:CC:11:22:32",
+        interface: "vlan211",
+      },
+      {
+        identity: "AS 5",
+        "mac-address": "2C:C8:1B:CE:DF:DE",
+        interface: "ether3",
+      },
+      {
+        identity: "AS 7",
+        "mac-address": "CC:2D:E0:0A:23:E0",
+        interface: "ether3",
+      },
+      {
+        identity: "Sin ARP",
+        "mac-address": "00:11:22:33:44:55",
+        interface: "ether3",
+      },
+      {
+        identity: "ARP ambiguo",
+        "mac-address": "AA:AA:AA:AA:AA:01",
+        interface: "ether3",
+      },
+    ],
+    arp: [
+      {
+        address: "10.100.101.11",
+        "mac-address": "2c:c8:1b:ce:df:de",
+        complete: "true",
+      },
+      {
+        address: "10.100.101.13",
+        "mac-address": "CC-2D-E0-0A-23-E0",
+        complete: "true",
+      },
+      {
+        address: "10.9.9.9",
+        "mac-address": "DE:AD:BE:EF:00:01",
+        complete: "true",
+      },
+      {
+        address: "10.1.1.1",
+        "mac-address": "AA:AA:AA:AA:AA:01",
+        complete: "true",
+      },
+      {
+        address: "10.1.1.2",
+        "mac-address": "AA:AA:AA:AA:AA:01",
+        complete: "true",
+      },
+    ],
+  })
+
+  const byName = Object.fromEntries(
+    snapshot.devices.map((device) => [device.hostname, device])
+  )
+  assert.equal(snapshot.devices.length, 6)
+  assert.equal(byName["Humberto lara"].managementIp, "10.168.1.32")
+  assert.equal(byName["Humberto lara"].managementIpSource, "neighbor")
+  assert.equal(byName["AS 5"].managementIp, "10.100.101.11")
+  assert.equal(byName["AS 5"].managementIpSource, "arp")
+  assert.equal(byName["AS 5"].macAddress, "2C:C8:1B:CE:DF:DE")
+  assert.equal(byName["AS 7"].managementIp, "10.100.101.13")
+  assert.equal(byName["AS 7"].managementIpSource, "arp")
+  assert.equal(byName["Sin ARP"].managementIp, null)
+  assert.equal(byName["Sin ARP"].managementIpSource, null)
+  assert.equal(byName["ARP ambiguo"].managementIp, null)
+  assert.equal(byName["ARP ambiguo"].managementIpSource, null)
+  assert.equal(
+    snapshot.devices.some((device) => device.managementIp === "10.9.9.9"),
+    false
+  )
+  assert.equal(
+    snapshot.devices.some((device) => device.macAddress === "DE:AD:BE:EF:00:01"),
+    false
+  )
+  assert.equal(
+    snapshot.links.find((link) => link.toLocalKey.includes("2c:c8:1b:ce:df:de"))
+      ?.fromInterfaceName,
+    "ether3"
+  )
+
+  const connector = read("network-agent/src/connectors/mikrotik/index.ts")
+  const rest = read("network-agent/src/connectors/mikrotik/rest-client.ts")
+  const mapper = read("network-agent/src/connectors/mikrotik/map-discovery.ts")
+  const persist = read("lib/network/devices/queries.ts")
+  assert.match(connector, /\/ip\/arp\/print/)
+  assert.match(rest, /\/rest\/ip\/arp/)
+  assert.match(mapper, /buildArpIpByMac/)
+  assert.match(persist, /management_ip: input\.device\.managementIp/)
+  assert.doesNotMatch(persist, /from\("network_arp"\)/)
+  assert.doesNotMatch(read("lib/network/discovery/interface-scope.ts"), /buildArpIpByMac/)
+  assert.doesNotMatch(read("lib/network/discovery/observations.ts"), /buildArpIpByMac/)
+  assert.doesNotMatch(read("lib/network/discovery/interface-match.ts"), /buildArpIpByMac/)
+})
+
+test("ARP ambiguo para la misma MAC no elige IP arbitraria", () => {
+  assert.equal(
+    canonicalMacAddress("2C:C8:1B:CE:DF:DE"),
+    canonicalMacAddress("2c-c8-1b-ce-df-de")
+  )
+  const arpIpByMac = buildArpIpByMac([
+    { macAddress: "AA:AA:AA:AA:AA:01", address: "10.1.1.1", complete: "true" },
+    { macAddress: "aa:aa:aa:aa:aa:01", address: "10.1.1.2", complete: "true" },
+    { macAddress: "BB:BB:BB:BB:BB:02", address: "10.2.2.2", complete: "true" },
+    { macAddress: "BB:BB:BB:BB:BB:02", address: "10.2.2.2", complete: "true" },
+  ])
+  assert.equal(arpIpByMac.has("aa:aa:aa:aa:aa:01"), false)
+  assert.equal(arpIpByMac.get("bb:bb:bb:bb:bb:02"), "10.2.2.2")
+
+  const neighborWins = resolveObservedManagementIp({
+    neighborIp: "10.168.1.32",
+    neighborMac: "AA:BB:CC:11:22:32",
+    arpIpByMac: new Map([["aa:bb:cc:11:22:32", "10.9.9.9"]]),
+  })
+  assert.equal(neighborWins.managementIp, "10.168.1.32")
+  assert.equal(neighborWins.source, "neighbor")
+
+  const fromArp = resolveObservedManagementIp({
+    neighborIp: null,
+    neighborMac: "2C:C8:1B:CE:DF:DE",
+    arpIpByMac: new Map([["2c:c8:1b:ce:df:de", "10.100.101.11"]]),
+  })
+  assert.equal(fromArp.managementIp, "10.100.101.11")
+  assert.equal(fromArp.source, "arp")
+
+  const missing = resolveObservedManagementIp({
+    neighborIp: null,
+    neighborMac: "00:11:22:33:44:55",
+    arpIpByMac,
+  })
+  assert.equal(missing.managementIp, null)
+  assert.equal(missing.source, null)
 })
 
 test("protocolo RouterOS encode/decode roundtrip", () => {
