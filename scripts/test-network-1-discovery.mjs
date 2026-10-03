@@ -20,6 +20,12 @@ import {
   networkDiscoveryTransportPayload,
 } from "../lib/network/labels.ts"
 import { buildDeviceFingerprint, normalizeMacAddress } from "../lib/network/discovery/fingerprint.ts"
+import {
+  NETWORK_DISCOVERY_JOB_POLL_MS,
+  hasNetworkDiscoveryJobInflight,
+  isNetworkDiscoveryJobInflight,
+  targetHasNetworkDiscoveryJobInflight,
+} from "../lib/network/discovery/job-poll.ts"
 import { parseDiscoverySnapshot } from "../lib/network/discovery/parse-snapshot.ts"
 import {
   compactDiscoveryResult,
@@ -362,4 +368,44 @@ test("el payload persistido del job no guarda password", () => {
   assert.match(jobsRoute, /host: target.host/)
   assert.doesNotMatch(jobsRoute, /password/)
   assert.doesNotMatch(jobsRoute, /username/)
+})
+
+test("Discovery hace polling GET mientras hay jobs pending/running y se detiene al terminar", () => {
+  assert.equal(NETWORK_DISCOVERY_JOB_POLL_MS, 2_000)
+  assert.equal(hasNetworkDiscoveryJobInflight([]), false)
+  assert.equal(hasNetworkDiscoveryJobInflight([{ status: "completed" }]), false)
+  assert.equal(hasNetworkDiscoveryJobInflight([{ status: "failed" }]), false)
+  assert.equal(hasNetworkDiscoveryJobInflight([{ status: "cancelled" }]), false)
+  assert.equal(hasNetworkDiscoveryJobInflight([{ status: "pending" }]), true)
+  assert.equal(hasNetworkDiscoveryJobInflight([{ status: "running" }]), true)
+  assert.equal(hasNetworkDiscoveryJobInflight([{ status: "dispatched" }]), true)
+  assert.equal(isNetworkDiscoveryJobInflight("completed"), false)
+  assert.equal(isNetworkDiscoveryJobInflight("failed"), false)
+
+  const jobs = [
+    { status: "pending", payload: { targetId: "t-1" } },
+    { status: "completed", payload: { targetId: "t-2" } },
+  ]
+  assert.equal(targetHasNetworkDiscoveryJobInflight(jobs, "t-1"), true)
+  assert.equal(targetHasNetworkDiscoveryJobInflight(jobs, "t-2"), false)
+
+  const ui = read("components/network/network-discovery-screen.tsx")
+  assert.match(ui, /NETWORK_DISCOVERY_JOB_POLL_MS/)
+  assert.match(ui, /hasNetworkDiscoveryJobInflight/)
+  assert.match(ui, /setInterval/)
+  assert.match(ui, /clearInterval/)
+  assert.match(ui, /jobsRequestInFlight/)
+  assert.match(ui, /void refreshJobs\(\)/)
+
+  const refreshJobs = ui.slice(
+    ui.indexOf("const refreshJobs"),
+    ui.indexOf("const load")
+  )
+  assert.match(refreshJobs, /fetch\("\/api\/network\/jobs"\)/)
+  assert.doesNotMatch(refreshJobs, /method:\s*["']POST["']/)
+  assert.doesNotMatch(refreshJobs, /JSON\.stringify\(\{\s*targetId/)
+  assert.match(ui, /targetHasNetworkDiscoveryJobInflight\(jobs, target\.id\)/)
+  assert.match(ui, /if \(!shouldPollJobs\) return undefined/)
+  assert.equal((ui.match(/setInterval/g) ?? []).length, 1)
+  assert.equal((ui.match(/clearInterval/g) ?? []).length, 1)
 })

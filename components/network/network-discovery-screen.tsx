@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 import { NetworkSubnav } from "@/components/network/network-subnav"
 import { Button } from "@/components/ui/button"
@@ -29,6 +29,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import {
+  NETWORK_DISCOVERY_JOB_POLL_MS,
+  hasNetworkDiscoveryJobInflight,
+  targetHasNetworkDiscoveryJobInflight,
+} from "@/lib/network/discovery/job-poll"
 import {
   formatObservedInterfaceLabel,
   networkObservationGroupLabel,
@@ -71,6 +76,58 @@ export function NetworkDiscoveryScreen() {
   const [agentId, setAgentId] = useState("")
   const [siteId, setSiteId] = useState("none")
 
+  const jobsRequestInFlight = useRef(false)
+
+  const applyJobsBody = useCallback((jobsBody: {
+    jobs?: NetworkDiscoveryJobView[]
+    observations?: {
+      total?: number
+      core?: number
+      wan?: number
+      lanVlan?: number
+      unknown?: number
+      items?: NetworkDiscoveryObservationView["items"]
+    } | null
+  }) => {
+    setJobs(jobsBody.jobs ?? [])
+    if (!jobsBody.observations) return
+    setObservations({
+      total: Number(jobsBody.observations.total) || 0,
+      core: Number(jobsBody.observations.core) || 0,
+      wan: Number(jobsBody.observations.wan) || 0,
+      lanVlan: Number(jobsBody.observations.lanVlan) || 0,
+      unknown: Number(jobsBody.observations.unknown) || 0,
+      items: Array.isArray(jobsBody.observations.items)
+        ? jobsBody.observations.items
+        : [],
+    })
+  }, [])
+
+  const refreshJobs = useCallback(async () => {
+    if (jobsRequestInFlight.current) return
+    jobsRequestInFlight.current = true
+    try {
+      const response = await fetch("/api/network/jobs")
+      const jobsBody = (await response.json()) as {
+        success: boolean
+        message?: string
+        jobs?: NetworkDiscoveryJobView[]
+        observations?: NetworkDiscoveryObservationView | null
+      }
+      if (!jobsBody.success) throw new Error(jobsBody.message)
+      applyJobsBody(jobsBody)
+      setError(null)
+    } catch (loadError: unknown) {
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "No se pudieron actualizar los jobs."
+      )
+    } finally {
+      jobsRequestInFlight.current = false
+    }
+  }, [applyJobsBody])
+
   const load = useCallback(() => {
     Promise.all([
       fetch("/api/network/targets").then((response) => response.json()),
@@ -82,21 +139,7 @@ export function NetworkDiscoveryScreen() {
         if (!targetsBody.success) throw new Error(targetsBody.message)
         if (!jobsBody.success) throw new Error(jobsBody.message)
         setTargets(targetsBody.targets ?? [])
-        setJobs(jobsBody.jobs ?? [])
-        setObservations(
-          jobsBody.observations
-            ? {
-                total: Number(jobsBody.observations.total) || 0,
-                core: Number(jobsBody.observations.core) || 0,
-                wan: Number(jobsBody.observations.wan) || 0,
-                lanVlan: Number(jobsBody.observations.lanVlan) || 0,
-                unknown: Number(jobsBody.observations.unknown) || 0,
-                items: Array.isArray(jobsBody.observations.items)
-                  ? jobsBody.observations.items
-                  : [],
-              }
-            : null
-        )
+        applyJobsBody(jobsBody)
         setAgents(agentsBody.agents ?? [])
         setSites(sitesBody.sites ?? [])
         setError(null)
@@ -108,11 +151,21 @@ export function NetworkDiscoveryScreen() {
             : "No se pudo cargar Discovery."
         )
       })
-  }, [])
+  }, [applyJobsBody])
 
   useEffect(() => {
     load()
   }, [load])
+
+  const shouldPollJobs = hasNetworkDiscoveryJobInflight(jobs)
+
+  useEffect(() => {
+    if (!shouldPollJobs) return undefined
+    const timer = window.setInterval(() => {
+      void refreshJobs()
+    }, NETWORK_DISCOVERY_JOB_POLL_MS)
+    return () => window.clearInterval(timer)
+  }, [shouldPollJobs, refreshJobs])
 
   async function handleCreateTarget() {
     setSaving(true)
@@ -163,7 +216,7 @@ export function NetworkDiscoveryScreen() {
       })
       const body = (await response.json()) as { success: boolean; message?: string }
       if (!body.success) throw new Error(body.message)
-      load()
+      await refreshJobs()
     } catch (saveError: unknown) {
       setError(
         saveError instanceof Error
@@ -224,7 +277,10 @@ export function NetworkDiscoveryScreen() {
                   <Button
                     size="sm"
                     variant="outline"
-                    disabled={saving}
+                    disabled={
+                      saving ||
+                      targetHasNetworkDiscoveryJobInflight(jobs, target.id)
+                    }
                     onClick={() => void runDiscovery(target.id)}
                   >
                     Ejecutar discovery
