@@ -57,6 +57,7 @@ export type NetworkObservationLinkRow = {
   fromDeviceId: string
   toDeviceId: string
   fromInterfaceId: string | null
+  fromInterfaceName?: string | null
   toInterfaceId: string | null
   protocol?: string | null
 }
@@ -253,6 +254,7 @@ function resolveObservedNeighborContext(input: {
   const candidates: {
     scope: NetworkObservationScope
     iface: NetworkObservationInterfaceRow | undefined
+    observedName: string | null
     protocol: string | null
   }[] = []
 
@@ -264,14 +266,16 @@ function resolveObservedNeighborContext(input: {
     if (!touches || fromManaged === toManaged) continue
 
     const interfaceId = fromManaged ? link.fromInterfaceId : link.toInterfaceId
+    const observedName = fromManaged ? link.fromInterfaceName ?? null : null
     const iface = interfaceId ? input.interfacesById.get(interfaceId) : undefined
     candidates.push({
       scope: classifyNetworkInterfaceScope({
-        name: iface?.name,
+        name: iface?.name ?? observedName,
         interfaceType: iface?.interfaceType,
         description: iface?.description,
       }),
       iface,
+      observedName,
       protocol: link.protocol ?? null,
     })
   }
@@ -289,7 +293,7 @@ function resolveObservedNeighborContext(input: {
   const winner = candidates.find((item) => item.scope === scope) ?? candidates[0]
   return {
     scope,
-    observedInterfaceName: winner.iface?.name ?? null,
+    observedInterfaceName: winner.iface?.name ?? winner.observedName ?? null,
     observedInterfaceDescription: winner.iface?.description ?? null,
     discoveredBy: winner.protocol,
   }

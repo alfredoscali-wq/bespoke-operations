@@ -3,8 +3,10 @@ import "server-only"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type { Database, Json } from "@/lib/supabase/database.types"
-import { buildDeviceFingerprint } from "@/lib/network/discovery/fingerprint"
+import { buildManagedNetworkDeviceOrFilter } from "@/lib/network/devices/managed"
 import type { DiscoverySnapshot } from "@/lib/network/discovery/contract"
+import { buildDeviceFingerprint } from "@/lib/network/discovery/fingerprint"
+import { findMatchingNetworkInterfaceId } from "@/lib/network/discovery/interface-match"
 import {
   mapNetworkDeviceRow,
   mapNetworkInterfaceRow,
@@ -14,7 +16,6 @@ import {
   getNetworkDeviceMonitoring,
   listNetworkDeviceOperationalStatuses,
 } from "@/lib/network/monitoring/queries"
-import { buildManagedNetworkDeviceOrFilter } from "@/lib/network/devices/managed"
 import type {
   NetworkDevice,
   NetworkDeviceDetail,
@@ -229,11 +230,12 @@ export async function persistDiscoverySnapshot(
     const toDeviceId = deviceIds.get(link.toLocalKey)
     if (!fromDeviceId || !toDeviceId) continue
 
-    const fromInterfaceId = findInterfaceId(
+    const fromInterfaceName = link.fromInterfaceName?.trim() || null
+    const fromInterfaceId = findMatchingNetworkInterfaceId(
       interfacesByDevice.get(fromDeviceId) ?? [],
-      link.fromInterfaceName
+      fromInterfaceName
     )
-    const toInterfaceId = findInterfaceId(
+    const toInterfaceId = findMatchingNetworkInterfaceId(
       interfacesByDevice.get(toDeviceId) ?? [],
       link.toInterfaceName
     )
@@ -242,6 +244,7 @@ export async function persistDiscoverySnapshot(
       companyId: input.companyId,
       fromDeviceId,
       fromInterfaceId,
+      fromInterfaceName,
       toDeviceId,
       toInterfaceId,
       protocol: link.protocol,
@@ -404,12 +407,73 @@ async function upsertNetworkLink(
     companyId: string
     fromDeviceId: string
     fromInterfaceId: string | null
+    fromInterfaceName: string | null
     toDeviceId: string
     toInterfaceId: string | null
     protocol: string | null
     seenAt: string
   }
 ): Promise<void> {
+  const existing = await findExistingNetworkLink(client, input)
+  if (existing) {
+    const { error } = await client
+      .from("network_links")
+      .update({
+        from_interface_id: input.fromInterfaceId,
+        from_interface_name: input.fromInterfaceName,
+        protocol: input.protocol,
+        last_seen_at: input.seenAt,
+      })
+      .eq("id", existing.id)
+      .eq("company_id", input.companyId)
+    if (error) throw new Error(error.message)
+    return
+  }
+
+  const { error } = await client.from("network_links").insert({
+    company_id: input.companyId,
+    from_device_id: input.fromDeviceId,
+    from_interface_id: input.fromInterfaceId,
+    from_interface_name: input.fromInterfaceName,
+    to_device_id: input.toDeviceId,
+    to_interface_id: input.toInterfaceId,
+    protocol: input.protocol,
+    last_seen_at: input.seenAt,
+  })
+  if (error) {
+    throw new Error(error.message)
+  }
+}
+
+async function findExistingNetworkLink(
+  client: Client,
+  input: {
+    companyId: string
+    fromDeviceId: string
+    fromInterfaceId: string | null
+    toDeviceId: string
+    toInterfaceId: string | null
+  }
+): Promise<{ id: string } | null> {
+  const exact = await lookupNetworkLink(client, input)
+  if (exact) return exact
+  if (!input.fromInterfaceId) return null
+  return lookupNetworkLink(client, {
+    ...input,
+    fromInterfaceId: null,
+  })
+}
+
+async function lookupNetworkLink(
+  client: Client,
+  input: {
+    companyId: string
+    fromDeviceId: string
+    fromInterfaceId: string | null
+    toDeviceId: string
+    toInterfaceId: string | null
+  }
+): Promise<{ id: string } | null> {
   let query = client
     .from("network_links")
     .select("id")
@@ -425,45 +489,9 @@ async function upsertNetworkLink(
     ? query.eq("to_interface_id", input.toInterfaceId)
     : query.is("to_interface_id", null)
 
-  const { data: existing, error: findError } = await query.maybeSingle()
-  if (findError) {
-    throw new Error(findError.message)
-  }
-
-  if (existing) {
-    const { error } = await client
-      .from("network_links")
-      .update({
-        protocol: input.protocol,
-        last_seen_at: input.seenAt,
-      })
-      .eq("id", existing.id)
-      .eq("company_id", input.companyId)
-    if (error) throw new Error(error.message)
-    return
-  }
-
-  const { error } = await client.from("network_links").insert({
-    company_id: input.companyId,
-    from_device_id: input.fromDeviceId,
-    from_interface_id: input.fromInterfaceId,
-    to_device_id: input.toDeviceId,
-    to_interface_id: input.toInterfaceId,
-    protocol: input.protocol,
-    last_seen_at: input.seenAt,
-  })
+  const { data, error } = await query.maybeSingle()
   if (error) {
     throw new Error(error.message)
   }
-}
-
-function findInterfaceId(
-  interfaces: InterfaceRow[],
-  name: string | null
-): string | null {
-  if (!name) return null
-  const match = interfaces.find(
-    (item) => item.name.trim().toLowerCase() === name.trim().toLowerCase()
-  )
-  return match?.id ?? null
+  return data
 }

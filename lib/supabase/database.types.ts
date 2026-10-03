@@ -4432,6 +4432,7 @@ export type Database = {
           deleted_at: string | null
           from_device_id: string
           from_interface_id: string | null
+          from_interface_name: string | null
           id: string
           last_seen_at: string
           protocol: string | null
@@ -4445,6 +4446,7 @@ export type Database = {
           deleted_at?: string | null
           from_device_id: string
           from_interface_id?: string | null
+          from_interface_name?: string | null
           id?: string
           last_seen_at?: string
           protocol?: string | null
@@ -4458,6 +4460,7 @@ export type Database = {
           deleted_at?: string | null
           from_device_id?: string
           from_interface_id?: string | null
+          from_interface_name?: string | null
           id?: string
           last_seen_at?: string
           protocol?: string | null

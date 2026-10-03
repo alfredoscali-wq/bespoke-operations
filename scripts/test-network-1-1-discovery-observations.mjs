@@ -8,6 +8,7 @@ import test from "node:test"
 
 import { isManagedNetworkDevice } from "../lib/network/devices/managed.ts"
 import { classifyNetworkInterfaceScope } from "../lib/network/discovery/interface-scope.ts"
+import { findMatchingNetworkInterfaceId } from "../lib/network/discovery/interface-match.ts"
 import {
   buildNetworkDiscoveryObservationView,
   isOperationalTopologyDevice,
@@ -299,6 +300,10 @@ test("no se toca el Agent, TLS ni el connector MikroTik", () => {
     read("lib/network/discovery/observation-queries.ts"),
     /hostname, mac_address, manufacturer, model, firmware_version, origin/
   )
+  assert.match(
+    read("lib/network/discovery/observation-queries.ts"),
+    /from_interface_id, from_interface_name, to_interface_id/
+  )
   assert.doesNotMatch(
     read("lib/network/discovery/observation-queries.ts"),
     /\.delete\(/
@@ -437,4 +442,134 @@ test("GET /api/network/jobs y Discovery leen observaciones persistidas", () => {
   assert.match(ui, /observations\.items/)
   assert.doesNotMatch(ui, /Aceptar|Rechazar|Agregar manualmente/)
   assert.doesNotMatch(ui, /\/api\/network\/devices/)
+})
+
+const malaguenoIfaces = [
+  { id: "if-wan", name: "ether1 - WAN" },
+  { id: "if-vlan101", name: "Bridge LAN - vlan101" },
+  { id: "if-vlan200", name: "Bridge LAN - vlan200 - Public" },
+  { id: "if-vlan211", name: "Bridge LAN - vlan211 - Gestion CPE" },
+  { id: "if-bridge", name: "Bridge - LAN" },
+  { id: "if-ether2", name: "ether2" },
+]
+
+test("ether1 coincide de forma segura con ether1 - WAN", () => {
+  assert.equal(
+    findMatchingNetworkInterfaceId(malaguenoIfaces, "ether1"),
+    "if-wan"
+  )
+  assert.equal(
+    findMatchingNetworkInterfaceId(malaguenoIfaces, "ether1 - WAN"),
+    "if-wan"
+  )
+})
+
+test("vlan101 coincide de forma segura con Bridge LAN - vlan101", () => {
+  assert.equal(
+    findMatchingNetworkInterfaceId(malaguenoIfaces, "vlan101"),
+    "if-vlan101"
+  )
+})
+
+test("vlan211 coincide de forma segura con Bridge LAN - vlan211 - Gestion CPE", () => {
+  assert.equal(
+    findMatchingNetworkInterfaceId(malaguenoIfaces, "vlan211"),
+    "if-vlan211"
+  )
+})
+
+test("si hay varias candidatas el match queda null", () => {
+  assert.equal(
+    findMatchingNetworkInterfaceId(
+      [
+        { id: "if-a", name: "ether1 - WAN" },
+        { id: "if-b", name: "ether1 - backup" },
+      ],
+      "ether1"
+    ),
+    null
+  )
+  assert.equal(findMatchingNetworkInterfaceId(malaguenoIfaces, "LAN"), null)
+  assert.equal(findMatchingNetworkInterfaceId(malaguenoIfaces, "ether1foo"), null)
+})
+
+test("sin match conserva from_interface_name y no inventa interfaz", () => {
+  const persist = read("lib/network/devices/queries.ts")
+  const migration = read(
+    "supabase/migrations/20261231000100_network_links_from_interface_name.sql"
+  )
+  assert.equal(findMatchingNetworkInterfaceId(malaguenoIfaces, "wlan3"), null)
+  assert.match(persist, /from_interface_name: input.fromInterfaceName/)
+  assert.match(persist, /findMatchingNetworkInterfaceId/)
+  const linkLoop = persist.slice(
+    persist.indexOf("for (const link of input.snapshot.links)"),
+    persist.indexOf("async function upsertNetworkDevice")
+  )
+  assert.doesNotMatch(linkLoop, /upsertNetworkInterface/)
+  assert.match(migration, /ADD COLUMN IF NOT EXISTS from_interface_name text/)
+})
+
+test("observation con interface_id null usa el nombre observado para UI y scope", () => {
+  const view = buildNetworkDiscoveryObservationView({
+    devices: [
+      {
+        id: CORE,
+        companyId: COMPANY,
+        agentId: AGENT,
+        managementIp: "177.53.120.11",
+        hostname: "RB3011 - Core Malagueño",
+        origin: "discovery",
+      },
+      {
+        id: "dev-humberto",
+        companyId: COMPANY,
+        agentId: AGENT,
+        managementIp: "10.168.1.32",
+        hostname: "Humberto lara",
+        origin: "neighbor",
+      },
+    ],
+    targets,
+    links: [
+      {
+        fromDeviceId: CORE,
+        toDeviceId: "dev-humberto",
+        fromInterfaceId: null,
+        fromInterfaceName: "vlan211",
+        toInterfaceId: null,
+        protocol: "mndp",
+      },
+    ],
+    interfaces: [
+      {
+        id: "if-vlan211",
+        deviceId: CORE,
+        name: "Bridge LAN - vlan211 - Gestion CPE",
+        description: null,
+        interfaceType: "vlan",
+      },
+    ],
+  })
+
+  assert.equal(view.total, 2)
+  assert.equal(view.core, 1)
+  assert.equal(view.lanVlan, 1)
+  assert.equal(view.unknown, 0)
+  const humberto = view.items.find((item) => item.id === "dev-humberto")
+  assert.ok(humberto)
+  assert.equal(humberto.scope, "vlan")
+  assert.equal(humberto.observedInterfaceName, "vlan211")
+  assert.equal(networkObservationGroupLabel(humberto.scope), "LAN/VLAN")
+  assert.equal(
+    formatObservedInterfaceLabel(
+      humberto.observedInterfaceName,
+      humberto.observedInterfaceDescription
+    ),
+    "vlan211"
+  )
+  assert.equal(classifyNetworkInterfaceScope({ name: "vlan211" }), "vlan")
+
+  const ui = read("components/network/network-discovery-screen.tsx")
+  assert.match(ui, /formatObservedInterfaceLabel/)
+  assert.match(ui, /item\.observedInterfaceName/)
 })

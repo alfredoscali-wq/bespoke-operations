@@ -31,7 +31,7 @@ export async function getNetworkDiscoveryObservations(
     client
       .from("network_links")
       .select(
-        "from_device_id, to_device_id, from_interface_id, to_interface_id, protocol"
+        "from_device_id, to_device_id, from_interface_id, from_interface_name, to_interface_id, protocol"
       )
       .eq("company_id", companyId)
       .is("deleted_at", null),
@@ -73,6 +73,7 @@ export async function getNetworkDiscoveryObservations(
       fromDeviceId: row.from_device_id,
       toDeviceId: row.to_device_id,
       fromInterfaceId: row.from_interface_id,
+      fromInterfaceName: row.from_interface_name,
       toInterfaceId: row.to_interface_id,
       protocol: row.protocol,
     })),
