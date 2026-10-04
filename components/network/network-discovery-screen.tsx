@@ -40,7 +40,10 @@ import {
   networkObservationGroupLabel,
 } from "@/lib/network/discovery/observations"
 import {
+  discoveryJobsForTargetNewestFirst,
+  initialDiscoveryTargetId,
   nextDiscoveryObservationState,
+  pickLatestCompletedDiscoveryJobForTarget,
   type NetworkDiscoveryLatestObservationView,
 } from "@/lib/network/discovery/latest-run"
 import {
@@ -82,9 +85,12 @@ export function NetworkDiscoveryScreen() {
   const [transport, setTransport] = useState<NetworkDiscoveryTransport>("api")
   const [agentId, setAgentId] = useState("")
   const [siteId, setSiteId] = useState("none")
+  const [selectedTargetId, setSelectedTargetId] = useState("")
   const [historicalOpen, setHistoricalOpen] = useState(false)
+  const [executionsOpen, setExecutionsOpen] = useState(false)
 
   const jobsRequestInFlight = useRef(false)
+  const selectedTargetIdRef = useRef("")
   const observationStateRef = useRef({
     latest: null as NetworkDiscoveryLatestObservationView | null,
     historical: null as NetworkDiscoveryObservationView | null,
@@ -109,7 +115,11 @@ export function NetworkDiscoveryScreen() {
     if (jobsRequestInFlight.current) return
     jobsRequestInFlight.current = true
     try {
-      const response = await fetch("/api/network/jobs")
+      const targetId = selectedTargetIdRef.current
+      const query = targetId
+        ? `?targetId=${encodeURIComponent(targetId)}`
+        : ""
+      const response = await fetch(`/api/network/jobs${query}`)
       const jobsBody = (await response.json()) as {
         success: boolean
         message?: string
@@ -132,21 +142,37 @@ export function NetworkDiscoveryScreen() {
     }
   }, [applyJobsBody])
 
+  const selectTarget = useCallback(
+    (targetId: string, options?: { refresh?: boolean }) => {
+      selectedTargetIdRef.current = targetId
+      setSelectedTargetId(targetId)
+      if (options?.refresh !== false) {
+        void refreshJobs()
+      }
+    },
+    [refreshJobs]
+  )
+
   const load = useCallback(() => {
     Promise.all([
       fetch("/api/network/targets").then((response) => response.json()),
-      fetch("/api/network/jobs").then((response) => response.json()),
       fetch("/api/network/agents").then((response) => response.json()),
       fetch("/api/network/sites").then((response) => response.json()),
     ])
-      .then(([targetsBody, jobsBody, agentsBody, sitesBody]) => {
+      .then(([targetsBody, agentsBody, sitesBody]) => {
         if (!targetsBody.success) throw new Error(targetsBody.message)
-        if (!jobsBody.success) throw new Error(jobsBody.message)
-        setTargets(targetsBody.targets ?? [])
-        applyJobsBody(jobsBody)
+        const nextTargets = (targetsBody.targets ?? []) as NetworkDiscoveryTarget[]
+        setTargets(nextTargets)
+        const nextSelectedId = initialDiscoveryTargetId(
+          nextTargets,
+          selectedTargetIdRef.current
+        )
+        selectedTargetIdRef.current = nextSelectedId
+        setSelectedTargetId(nextSelectedId)
         setAgents(agentsBody.agents ?? [])
         setSites(sitesBody.sites ?? [])
         setError(null)
+        void refreshJobs()
       })
       .catch((loadError: unknown) => {
         setError(
@@ -155,7 +181,7 @@ export function NetworkDiscoveryScreen() {
             : "No se pudo cargar Discovery."
         )
       })
-  }, [applyJobsBody])
+  }, [refreshJobs])
 
   useEffect(() => {
     load()
@@ -232,10 +258,36 @@ export function NetworkDiscoveryScreen() {
     }
   }
 
+  const selectedTarget =
+    targets.find((target) => target.id === selectedTargetId) ?? null
+  const jobsForSelectedTarget = discoveryJobsForTargetNewestFirst(
+    jobs,
+    selectedTargetId
+  )
+  const latestJobForTarget = pickLatestCompletedDiscoveryJobForTarget(
+    jobs,
+    selectedTargetId
+  )
+  const latestObservationsForTarget =
+    latestObservations != null &&
+    latestObservations.targetId === selectedTargetId &&
+    latestObservations.jobId === latestJobForTarget?.id
+      ? latestObservations
+      : null
   const latestDiscoveryLabel =
-    latestObservations?.targetName?.trim() ||
-    latestObservations?.targetHost?.trim() ||
+    selectedTarget?.name.trim() ||
+    latestObservationsForTarget?.targetName?.trim() ||
+    latestJobForTarget?.targetName?.trim() ||
     null
+  const latestDiscoveryHost =
+    selectedTarget
+      ? `${selectedTarget.host}:${selectedTarget.port}`
+      : latestJobForTarget?.targetHost?.trim() ||
+        latestObservationsForTarget?.targetHost?.trim() ||
+        null
+  const latestCompletedJob = jobsForSelectedTarget.find(
+    (job) => job.id === latestJobForTarget?.id
+  )
 
   return (
     <div className="space-y-6">
@@ -256,132 +308,189 @@ export function NetworkDiscoveryScreen() {
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Destino</TableHead>
-            <TableHead>Host</TableHead>
-            <TableHead>Agent</TableHead>
-            <TableHead>Sitio</TableHead>
-            <TableHead>Protocolo</TableHead>
-            <TableHead />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {targets.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={6} className="text-muted-foreground">
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div className="min-w-[16rem] space-y-1">
+            <p className="text-sm font-medium">Destino</p>
+            {targets.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
                 Configurá un MikroTik alcanzable desde un Agent.
-              </TableCell>
-            </TableRow>
-          ) : (
-            targets.map((target) => (
-              <TableRow key={target.id}>
-                <TableCell className="font-medium">{target.name}</TableCell>
-                <TableCell>{target.host}:{target.port}</TableCell>
-                <TableCell>{target.agentName || "—"}</TableCell>
-                <TableCell>{target.siteName || "Sin sitio"}</TableCell>
-                <TableCell>{target.protocol}</TableCell>
-                <TableCell>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={
-                      saving ||
-                      targetHasNetworkDiscoveryJobInflight(jobs, target.id)
-                    }
-                    onClick={() => void runDiscovery(target.id)}
-                  >
-                    Ejecutar discovery
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
-
-      <div className="space-y-2">
-        <h2 className="text-lg font-medium">Jobs</h2>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Job</TableHead>
-              <TableHead>Agent</TableHead>
-              <TableHead>Destino</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead>Fecha</TableHead>
-              <TableHead>Resultado</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {jobs.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="text-muted-foreground">
-                  Todavía no hay jobs de discovery.
-                </TableCell>
-              </TableRow>
+              </p>
             ) : (
-              jobs.map((job) => (
-                <TableRow key={job.id}>
-                  <TableCell className="font-mono text-xs">{job.id.slice(0, 8)}</TableCell>
-                  <TableCell>{job.agentName || "—"}</TableCell>
-                  <TableCell>
-                    {job.targetName || "—"}
-                    {job.targetHost ? ` (${job.targetHost})` : ""}
-                  </TableCell>
-                  <TableCell>
-                    <StatusBadge
-                      className={cn(
-                        STATUS_TONE_STYLES[NETWORK_JOB_STATUS_TONES[job.status]]
-                      )}
-                    >
-                      {NETWORK_JOB_STATUS_LABELS[job.status]}
-                    </StatusBadge>
-                  </TableCell>
-                  <TableCell>{formatNetworkLastSeen(job.createdAt)}</TableCell>
-                  <TableCell className="max-w-xs text-sm">
-                    {job.errorMessage
-                      ? job.errorMessage
-                      : job.result
-                        ? `${String(job.result.deviceCount ?? 0)} devices`
-                        : "—"}
-                  </TableCell>
-                </TableRow>
-              ))
+              <Select
+                value={selectedTargetId}
+                onValueChange={(value) => selectTarget(value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Destino" />
+                </SelectTrigger>
+                <SelectContent>
+                  {targets.map((target) => (
+                    <SelectItem key={target.id} value={target.id}>
+                      {target.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
-          </TableBody>
-        </Table>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={
+              saving ||
+              !selectedTarget ||
+              targetHasNetworkDiscoveryJobInflight(jobs, selectedTarget.id)
+            }
+            onClick={() => {
+              if (selectedTarget) void runDiscovery(selectedTarget.id)
+            }}
+          >
+            Ejecutar discovery
+          </Button>
+        </div>
+        {selectedTarget ? (
+          <p className="text-sm text-muted-foreground">
+            {selectedTarget.host}:{selectedTarget.port}
+            {selectedTarget.agentName ? ` · ${selectedTarget.agentName}` : ""}
+            {selectedTarget.siteName ? ` · ${selectedTarget.siteName}` : ""}
+          </p>
+        ) : null}
       </div>
 
-      {latestObservations ? (
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <h2 className="text-lg font-medium">
-              Último discovery
-              {latestDiscoveryLabel ? ` · ${latestDiscoveryLabel}` : ""}
-            </h2>
+      <div className="space-y-3 border-t pt-6">
+        <div className="space-y-1">
+          <h2 className="text-lg font-medium">
+            Último discovery
+            {latestDiscoveryLabel ? ` · ${latestDiscoveryLabel}` : ""}
+          </h2>
+          {latestDiscoveryHost ? (
+            <p className="text-sm text-muted-foreground">{latestDiscoveryHost}</p>
+          ) : (
             <p className="text-sm text-muted-foreground">
-              Observaciones de la última corrida completada. No se convierten
-              en Devices administrados.
+              Observaciones de la última corrida completada de este destino.
+              No se convierten en Devices administrados.
+            </p>
+          )}
+        </div>
+        {latestCompletedJob ? (
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+            <span>
+              Estado:{" "}
+              <StatusBadge
+                className={cn(
+                  STATUS_TONE_STYLES[NETWORK_JOB_STATUS_TONES[latestCompletedJob.status]]
+                )}
+              >
+                {NETWORK_JOB_STATUS_LABELS[latestCompletedJob.status]}
+              </StatusBadge>
+            </span>
+            <span>
+              Fecha: {formatNetworkLastSeen(latestCompletedJob.completedAt ?? latestCompletedJob.createdAt)}
+            </span>
+            <span>
+              Resultado:{" "}
+              {latestCompletedJob.errorMessage
+                ? latestCompletedJob.errorMessage
+                : latestCompletedJob.result
+                  ? `${String(latestCompletedJob.result.deviceCount ?? 0)} devices`
+                  : "—"}
+            </span>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Todavía no hay un discovery completado para este destino.
+          </p>
+        )}
+        {latestObservationsForTarget ? (
+          <>
+            <p className="text-sm">
+              <span className="font-medium">{latestObservationsForTarget.total}</span>
+              {" "}observados en esta corrida
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              <ObservationStat label="Core" value={latestObservationsForTarget.core} />
+              <ObservationStat label="WAN" value={latestObservationsForTarget.wan} />
+              <ObservationStat label="LAN/VLAN" value={latestObservationsForTarget.lanVlan} />
+              <ObservationStat label="Unknown" value={latestObservationsForTarget.unknown} />
+            </div>
+            <ObservationTable
+              items={latestObservationsForTarget.items}
+              emptyLabel="Todavía no hay observaciones de una corrida completada."
+            />
+          </>
+        ) : null}
+      </div>
+
+      <div className="space-y-3 border-t pt-6">
+        <button
+          type="button"
+          className="flex w-full items-start justify-between gap-3 text-left"
+          onClick={() => setExecutionsOpen((open) => !open)}
+          aria-expanded={executionsOpen}
+        >
+          <div className="space-y-1">
+            <h2 className="text-lg font-medium">Historial de ejecuciones</h2>
+            <p className="text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">
+                {jobsForSelectedTarget.length}
+              </span>
+              {" "}jobs de este destino
             </p>
           </div>
-          <p className="text-sm">
-            <span className="font-medium">{latestObservations.total}</span>
-            {" "}observados en esta corrida
-          </p>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            <ObservationStat label="Core" value={latestObservations.core} />
-            <ObservationStat label="WAN" value={latestObservations.wan} />
-            <ObservationStat label="LAN/VLAN" value={latestObservations.lanVlan} />
-            <ObservationStat label="Unknown" value={latestObservations.unknown} />
-          </div>
-          <ObservationTable
-            items={latestObservations.items}
-            emptyLabel="Todavía no hay observaciones de una corrida completada."
+          <ChevronRight
+            className={cn(
+              "mt-1 size-4 shrink-0 text-muted-foreground transition-transform",
+              executionsOpen && "rotate-90"
+            )}
+            aria-hidden
           />
-        </div>
-      ) : null}
+        </button>
+        {executionsOpen ? (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Fecha</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead>Resultado</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {jobsForSelectedTarget.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-muted-foreground">
+                    Todavía no hay jobs de discovery para este destino.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                jobsForSelectedTarget.map((job) => (
+                  <TableRow key={job.id}>
+                    <TableCell>
+                      {formatNetworkLastSeen(job.completedAt ?? job.createdAt)}
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge
+                        className={cn(
+                          STATUS_TONE_STYLES[NETWORK_JOB_STATUS_TONES[job.status]]
+                        )}
+                      >
+                        {NETWORK_JOB_STATUS_LABELS[job.status]}
+                      </StatusBadge>
+                    </TableCell>
+                    <TableCell className="max-w-xs text-sm">
+                      {job.errorMessage
+                        ? job.errorMessage
+                        : job.result
+                          ? `${String(job.result.deviceCount ?? 0)} devices`
+                          : "—"}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        ) : null}
+      </div>
 
       {historicalObservations ? (
         <div className="space-y-3 border-t pt-6">

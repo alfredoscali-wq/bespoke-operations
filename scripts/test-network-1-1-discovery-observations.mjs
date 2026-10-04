@@ -18,9 +18,14 @@ import {
   summarizeNetworkDiscoveryObservations,
 } from "../lib/network/discovery/observations.ts"
 import {
+  discoveryJobTargetId,
+  discoveryJobsForTargetNewestFirst,
   filterDevicesSeenInDiscoveryJob,
+  filterDiscoveryJobsForTarget,
+  initialDiscoveryTargetId,
   nextDiscoveryObservationState,
   pickLatestCompletedDiscoveryJob,
+  pickLatestCompletedDiscoveryJobForTarget,
   withLatestDiscoveryJobMeta,
 } from "../lib/network/discovery/latest-run.ts"
 import { buildCanonicalTopologyGraph } from "../lib/network/topology/graph.ts"
@@ -478,13 +483,16 @@ test("GET /api/network/jobs y Discovery leen observaciones persistidas", () => {
   assert.match(jobsRoute, /latestObservations/)
   assert.match(jobsRoute, /historicalObservations/)
   assert.match(jobsRoute, /observations: historicalObservations/)
+  assert.match(jobsRoute, /searchParams\.get\("targetId"\)/)
+  assert.match(jobsRoute, /getNetworkDiscoveryObservationSets\(/)
+  assert.match(jobsRoute, /targetId/)
   assert.match(ui, /Último discovery/)
   assert.match(ui, /observados en esta corrida/)
   assert.match(ui, /Historial de observaciones/)
   assert.match(ui, /observaciones acumuladas/)
   assert.match(ui, /Nombre \/ Identity/)
   assert.match(ui, /Interfaz donde fue observado/)
-  assert.match(ui, /latestObservations\.items/)
+  assert.match(ui, /latestObservationsForTarget\.items/)
   assert.match(ui, /nextDiscoveryObservationState/)
   assert.doesNotMatch(ui, /Total observado/)
   assert.doesNotMatch(ui, /Aceptar|Rechazar|Agregar manualmente/)
@@ -838,5 +846,146 @@ test("el polling reemplaza latestObservations al completar y conserva estado si 
   assert.doesNotMatch(persistFn, /\.delete\(/)
   assert.match(persistFn, /upsertNetworkDevice/)
   assert.match(managed, /managementIp\.trim\(\) === target\.host\.trim\(\)/)
+})
+
+function powerBoxJob(overrides = {}) {
+  return malaguenoJob({
+    id: "aaaaaaaa-0000-4000-8000-000000000099",
+    startedAt: "2026-10-03T12:00:00.000Z",
+    completedAt: "2026-10-03T12:01:00.000Z",
+    payload: {
+      targetId: "target-powerbox",
+      targetName: "PowerBox Malagueño",
+      host: "10.100.101.4",
+    },
+    result: { deviceCount: 12, targetId: "target-powerbox" },
+    targetName: "PowerBox Malagueño",
+    targetHost: "10.100.101.4",
+    ...overrides,
+  })
+}
+
+test("la pantalla de Discovery arranca en el primer destino o conserva el seleccionado", () => {
+  const targets = [{ id: "target-malagueno" }, { id: "target-powerbox" }]
+  assert.equal(initialDiscoveryTargetId(targets, ""), "target-malagueno")
+  assert.equal(initialDiscoveryTargetId(targets, null), "target-malagueno")
+  assert.equal(initialDiscoveryTargetId(targets, "target-powerbox"), "target-powerbox")
+  assert.equal(initialDiscoveryTargetId(targets, "gone"), "target-malagueno")
+  assert.equal(initialDiscoveryTargetId([], "target-malagueno"), "")
+
+  const ui = read("components/network/network-discovery-screen.tsx")
+  assert.match(ui, /initialDiscoveryTargetId/)
+  assert.match(ui, /selectedTargetIdRef\.current = nextSelectedId/)
+  assert.match(ui, /setSelectedTargetId\(nextSelectedId\)/)
+  assert.match(ui, /const \[selectedTargetId, setSelectedTargetId\] = useState\(""\)/)
+  assert.match(ui, /const \[executionsOpen, setExecutionsOpen\] = useState\(false\)/)
+  assert.match(ui, /const \[historicalOpen, setHistoricalOpen\] = useState\(false\)/)
+  assert.match(ui, /placeholder="Destino"/)
+  assert.match(ui, /onValueChange=\{\(value\) => selectTarget\(value\)\}/)
+  assert.match(ui, /Historial de ejecuciones/)
+  assert.match(ui, /aria-expanded=\{executionsOpen\}/)
+  assert.doesNotMatch(ui, />Jobs</)
+  assert.doesNotMatch(ui, /jobs\.map\(/)
+})
+
+test("el último job completado y el historial se filtran por destino", () => {
+  const coreOld = malaguenoJob({
+    id: "core-old",
+    startedAt: "2026-10-03T11:05:00.000Z",
+    completedAt: "2026-10-03T11:06:00.000Z",
+    result: { deviceCount: 59, targetId: "target-malagueno" },
+  })
+  const coreNew = malaguenoJob({
+    id: "core-new",
+    startedAt: "2026-10-03T11:34:00.000Z",
+    completedAt: "2026-10-03T11:34:55.000Z",
+    result: { deviceCount: 60, targetId: "target-malagueno" },
+  })
+  const power = powerBoxJob({
+    completedAt: "2026-10-03T14:00:00.000Z",
+    startedAt: "2026-10-03T13:59:00.000Z",
+  })
+  const mixed = [power, coreOld, coreNew]
+
+  assert.equal(pickLatestCompletedDiscoveryJob(mixed)?.id, power.id)
+  assert.equal(
+    pickLatestCompletedDiscoveryJobForTarget(mixed, "target-malagueno")?.id,
+    "core-new"
+  )
+  assert.equal(
+    pickLatestCompletedDiscoveryJobForTarget(mixed, "target-powerbox")?.id,
+    power.id
+  )
+  assert.equal(
+    pickLatestCompletedDiscoveryJobForTarget(mixed, "target-missing"),
+    null
+  )
+
+  const coreHistory = discoveryJobsForTargetNewestFirst(mixed, "target-malagueno")
+  assert.deepEqual(
+    coreHistory.map((job) => job.id),
+    ["core-new", "core-old"]
+  )
+  assert.equal(
+    coreHistory.every((job) => discoveryJobTargetId(job) === "target-malagueno"),
+    true
+  )
+  assert.equal(coreHistory.some((job) => job.id === power.id), false)
+
+  const powerHistory = discoveryJobsForTargetNewestFirst(mixed, "target-powerbox")
+  assert.deepEqual(
+    powerHistory.map((job) => job.id),
+    [power.id]
+  )
+  assert.equal(
+    filterDiscoveryJobsForTarget(mixed, "target-malagueno").some(
+      (job) => discoveryJobTargetId(job) === "target-powerbox"
+    ),
+    false
+  )
+})
+
+test("las observaciones visibles son las del último job del destino seleccionado", () => {
+  const coreJob = malaguenoJob({
+    id: "core-latest",
+    startedAt: "2026-10-03T11:34:00.000Z",
+    completedAt: "2026-10-03T11:34:55.000Z",
+    result: { deviceCount: 60, targetId: "target-malagueno" },
+  })
+  const powerJob = powerBoxJob()
+  const latestCore = pickLatestCompletedDiscoveryJobForTarget(
+    [powerJob, coreJob],
+    "target-malagueno"
+  )
+  assert.equal(latestCore?.id, "core-latest")
+  assert.equal(latestCore?.targetId, "target-malagueno")
+
+  const coreView = withLatestDiscoveryJobMeta(
+    { total: 60, core: 1, wan: 10, lanVlan: 49, unknown: 0, items: [{ id: "core-obs" }] },
+    latestCore
+  )
+  const powerView = withLatestDiscoveryJobMeta(
+    { total: 12, core: 1, wan: 0, lanVlan: 11, unknown: 0, items: [{ id: "power-obs" }] },
+    pickLatestCompletedDiscoveryJobForTarget([powerJob, coreJob], "target-powerbox")
+  )
+
+  assert.equal(coreView.jobId, "core-latest")
+  assert.equal(coreView.targetId, "target-malagueno")
+  assert.equal(coreView.total, 60)
+  assert.equal(powerView.jobId, powerJob.id)
+  assert.equal(powerView.targetId, "target-powerbox")
+  assert.notEqual(coreView.jobId, powerView.jobId)
+  assert.equal(coreView.items.some((item) => item.id === "power-obs"), false)
+
+  const ui = read("components/network/network-discovery-screen.tsx")
+  const queries = read("lib/network/discovery/observation-queries.ts")
+  assert.match(ui, /latestObservations != null/)
+  assert.match(ui, /latestObservations\.targetId === selectedTargetId/)
+  assert.match(ui, /latestObservations\.jobId === latestJobForTarget\?\.id/)
+  assert.match(ui, /pickLatestCompletedDiscoveryJobForTarget/)
+  assert.match(ui, /discoveryJobsForTargetNewestFirst/)
+  assert.match(ui, /selectTarget\(value\)/)
+  assert.match(queries, /pickLatestCompletedDiscoveryJobForTarget\(jobs, targetId\)/)
+  assert.match(queries, /pickLatestCompletedDiscoveryJob\(jobs\)/)
 })
 

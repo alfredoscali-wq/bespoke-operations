@@ -14,15 +14,22 @@ import {
 } from "@/lib/network/route-context"
 import { createClient } from "@/lib/supabase/server"
 
-export async function GET() {
+export async function GET(request: Request) {
   const auth = await requireNetworkReadContext()
   if (!auth.ok) return auth.response
 
   try {
     const client = await createClient()
     const jobs = await listNetworkDiscoveryJobs(client, auth.companyId)
+    const targetId =
+      new URL(request.url).searchParams.get("targetId")?.trim() || null
     const { latestObservations, historicalObservations } =
-      await getNetworkDiscoveryObservationSets(client, auth.companyId, jobs)
+      await getNetworkDiscoveryObservationSets(
+        client,
+        auth.companyId,
+        jobs,
+        targetId
+      )
     return NextResponse.json({
       success: true,
       jobs,

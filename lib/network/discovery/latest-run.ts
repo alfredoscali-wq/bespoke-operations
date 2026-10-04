@@ -25,6 +25,7 @@ type DiscoveryJobLike = {
   id: string
   status: string
   agentId: string
+  createdAt?: string | null
   startedAt?: string | null
   completedAt?: string | null
   payload?: Record<string, unknown> | null
@@ -112,6 +113,69 @@ export function pickLatestCompletedDiscoveryJobForHost(
     return jobHost === expected
   })
   return pickLatestCompletedDiscoveryJob(matching)
+}
+
+export function discoveryJobTargetId(
+  job: DiscoveryJobLike
+): string | null {
+  const payload = job.payload ?? {}
+  const result = job.result ?? {}
+  return asNonEmptyString(payload.targetId) ?? asNonEmptyString(result.targetId)
+}
+
+function discoveryJobTimelineMs(job: DiscoveryJobLike): number {
+  const stamp =
+    asNonEmptyString(job.completedAt) ??
+    asNonEmptyString(job.startedAt) ??
+    asNonEmptyString(job.createdAt)
+  const parsed = stamp ? Date.parse(stamp) : Number.NaN
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+export function sortDiscoveryJobsNewestFirst<T extends DiscoveryJobLike>(
+  jobs: readonly T[]
+): T[] {
+  return [...jobs].sort(
+    (left, right) => discoveryJobTimelineMs(right) - discoveryJobTimelineMs(left)
+  )
+}
+
+export function filterDiscoveryJobsForTarget<T extends DiscoveryJobLike>(
+  jobs: readonly T[],
+  targetId: string | null | undefined
+): T[] {
+  const expected = asNonEmptyString(targetId)
+  if (!expected) return []
+  return jobs.filter((job) => discoveryJobTargetId(job) === expected)
+}
+
+export function discoveryJobsForTargetNewestFirst<T extends DiscoveryJobLike>(
+  jobs: readonly T[],
+  targetId: string | null | undefined
+): T[] {
+  return sortDiscoveryJobsNewestFirst(
+    filterDiscoveryJobsForTarget(jobs, targetId)
+  )
+}
+
+export function pickLatestCompletedDiscoveryJobForTarget(
+  jobs: readonly DiscoveryJobLike[],
+  targetId: string | null | undefined
+): LatestDiscoveryJobRef | null {
+  return pickLatestCompletedDiscoveryJob(
+    filterDiscoveryJobsForTarget(jobs, targetId)
+  )
+}
+
+export function initialDiscoveryTargetId(
+  targets: readonly { id: string }[],
+  currentId: string | null | undefined
+): string {
+  const current = asNonEmptyString(currentId)
+  if (current && targets.some((target) => target.id === current)) {
+    return current
+  }
+  return asNonEmptyString(targets[0]?.id) ?? ""
 }
 
 export function deviceWasSeenInDiscoveryJob(

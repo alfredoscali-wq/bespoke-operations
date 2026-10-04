@@ -8,6 +8,7 @@ import {
   filterDevicesSeenInDiscoveryJob,
   pickLatestCompletedDiscoveryJob,
   pickLatestCompletedDiscoveryJobForHost,
+  pickLatestCompletedDiscoveryJobForTarget,
   withLatestDiscoveryJobMeta,
   type NetworkDiscoveryLatestObservationView,
 } from "@/lib/network/discovery/latest-run"
@@ -157,11 +158,14 @@ export async function getNetworkDiscoveryObservations(
 export async function getNetworkDiscoveryObservationSets(
   client: Client,
   companyId: string,
-  jobs: readonly NetworkDiscoveryJobView[]
+  jobs: readonly NetworkDiscoveryJobView[],
+  targetId?: string | null
 ): Promise<NetworkDiscoveryObservationSets> {
   const source = await loadObservationSource(client, companyId)
   const historicalObservations = buildView(source, source.devices)
-  const latestJob = pickLatestCompletedDiscoveryJob(jobs)
+  const latestJob = targetId
+    ? pickLatestCompletedDiscoveryJobForTarget(jobs, targetId)
+    : pickLatestCompletedDiscoveryJob(jobs)
   if (!latestJob) {
     return {
       historicalObservations,
