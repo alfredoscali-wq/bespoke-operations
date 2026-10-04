@@ -71,10 +71,24 @@ export type NetworkTopologyManagementTarget = {
   hasSecret: boolean
 }
 
+export type CuratedTopologyNode = {
+  deviceId: string
+  label: string
+  hostname: string | null
+  ipAddress: string | null
+  status: MonitoringOperationalStatus | null
+  children: CuratedTopologyNode[]
+}
+
+export type CuratedTopologyForest = {
+  roots: CuratedTopologyNode[]
+}
+
 export type NetworkTopologyPage = {
   graph: NetworkTopologyGraph
   cores: LocalTopologyCoreOption[]
   local: LocalCoreTopologyView | null
+  curated: CuratedTopologyForest | null
   discoveryJobs: NetworkTopologyManagementJob[]
   managementTargets: NetworkTopologyManagementTarget[]
 }

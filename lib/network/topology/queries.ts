@@ -24,6 +24,7 @@ import {
   selectTopologyRootIds,
   type LocalManagedIdentityRef,
 } from "@/lib/network/topology/local-view"
+import { getCuratedTopologyForest } from "@/lib/network/topology/curated-view"
 import type { TopologyManagedDirectedLink } from "@/lib/network/topology/managed-parents"
 import { listNetworkDiscoveryTargets } from "@/lib/network/targets/queries"
 import type {
@@ -187,11 +188,13 @@ export async function getNetworkTopologyPage(
   companyId: string,
   deviceId?: string | null
 ): Promise<NetworkTopologyPage> {
-  const { graph, directedLinks } = await loadNetworkTopologySource(client, companyId)
-  const [managementJobs, listedTargets] = await Promise.all([
-    listNetworkManagementJobs(client, companyId),
-    listNetworkDiscoveryTargets(client, companyId),
-  ])
+  const [{ graph, directedLinks }, curated, managementJobs, listedTargets] =
+    await Promise.all([
+      loadNetworkTopologySource(client, companyId),
+      getCuratedTopologyForest(client, companyId),
+      listNetworkManagementJobs(client, companyId),
+      listNetworkDiscoveryTargets(client, companyId),
+    ])
   const discoveryJobs = compactTopologyManagementJobs(managementJobs)
   const managementTargets = compactTopologyManagementTargets(listedTargets)
   const managedNodes = graph.nodes.filter((node) => node.kind === "managed")
@@ -218,7 +221,7 @@ export async function getNetworkTopologyPage(
   const selected =
     (deviceId ? cores.find((core) => core.id === deviceId) : null) ?? cores[0] ?? null
   if (!selected) {
-    return { graph, cores, local: null, discoveryJobs, managementTargets }
+    return { graph, cores, local: null, curated, discoveryJobs, managementTargets }
   }
 
   const coreNode = graph.nodes.find((node) => node.id === selected.id) ?? null
@@ -251,6 +254,7 @@ export async function getNetworkTopologyPage(
       graph,
       cores,
       local: emptyLocalCoreTopologyView(core),
+      curated,
       discoveryJobs,
       managementTargets,
     }
@@ -375,6 +379,7 @@ export async function getNetworkTopologyPage(
       managedIdByHost,
       managedDevices
     ),
+    curated,
     discoveryJobs,
     managementTargets,
   }

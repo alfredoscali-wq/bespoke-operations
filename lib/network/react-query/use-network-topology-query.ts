@@ -23,6 +23,7 @@ async function fetchNetworkTopology(
     graph?: NetworkTopologyPage["graph"]
     cores?: NetworkTopologyPage["cores"]
     local?: NetworkTopologyPage["local"]
+    curated?: NetworkTopologyPage["curated"]
     discoveryJobs?: NetworkTopologyPage["discoveryJobs"]
     managementTargets?: NetworkTopologyPage["managementTargets"]
     message?: string
@@ -34,6 +35,7 @@ async function fetchNetworkTopology(
     graph: body.graph ?? { nodes: [], edges: [] },
     cores: body.cores ?? [],
     local: body.local ?? null,
+    curated: body.curated ?? null,
     discoveryJobs: body.discoveryJobs ?? [],
     managementTargets: body.managementTargets ?? [],
   }
