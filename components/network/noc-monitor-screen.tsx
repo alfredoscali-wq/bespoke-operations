@@ -67,7 +67,7 @@ export function NetworkNocMonitorScreen() {
   const lastUpdated = data?.lastUpdatedAt ?? (dataUpdatedAt ? new Date(dataUpdatedAt).toISOString() : null)
 
   return (
-    <div className="flex min-h-[calc(100vh-6rem)] flex-col gap-4">
+    <div className="flex min-h-[calc(100vh-6rem)] flex-col gap-4 overflow-x-hidden">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">

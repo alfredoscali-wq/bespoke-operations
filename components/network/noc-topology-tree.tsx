@@ -54,6 +54,14 @@ function NocNodeCard({ node }: { node: NocTopologyNode }) {
   )
 }
 
+function EmpresaAnchor() {
+  return (
+    <div className="min-w-44 rounded-lg border-2 border-foreground/25 bg-muted/50 px-6 py-3 text-center shadow-sm">
+      <p className="text-sm font-semibold tracking-wide">RED / EMPRESA</p>
+    </div>
+  )
+}
+
 function ChildConnector({
   index,
   count,
@@ -80,33 +88,49 @@ function ChildConnector({
   )
 }
 
+function NocChildrenRow({
+  nodes,
+  lane,
+}: {
+  nodes: readonly NocTopologyNode[]
+  lane?: boolean
+}) {
+  const count = nodes.length
+  if (count === 0) return null
+  if (count === 1) {
+    return (
+      <>
+        <span aria-hidden className="h-8 w-px bg-border" />
+        <NocTopologyBranch node={nodes[0]} />
+      </>
+    )
+  }
+  return (
+    <>
+      <span aria-hidden className="h-5 w-px bg-border" />
+      <div className="flex items-start">
+        {nodes.map((child, index) => (
+          <div
+            key={child.deviceId}
+            className={cn(
+              "relative flex flex-col items-center",
+              lane ? "px-10" : "px-4"
+            )}
+          >
+            <ChildConnector index={index} count={count} />
+            <NocTopologyBranch node={child} />
+          </div>
+        ))}
+      </div>
+    </>
+  )
+}
+
 function NocTopologyBranch({ node }: { node: NocTopologyNode }) {
-  const childCount = node.children.length
   return (
     <div className="flex flex-col items-center">
       <NocNodeCard node={node} />
-      {childCount === 1 ? (
-        <>
-          <span aria-hidden className="h-8 w-px bg-border" />
-          <NocTopologyBranch node={node.children[0]} />
-        </>
-      ) : null}
-      {childCount > 1 ? (
-        <>
-          <span aria-hidden className="h-5 w-px bg-border" />
-          <div className="flex items-start">
-            {node.children.map((child, index) => (
-              <div
-                key={child.deviceId}
-                className="relative flex flex-col items-center px-4"
-              >
-                <ChildConnector index={index} count={childCount} />
-                <NocTopologyBranch node={child} />
-              </div>
-            ))}
-          </div>
-        </>
-      ) : null}
+      <NocChildrenRow nodes={node.children} />
     </div>
   )
 }
@@ -120,14 +144,13 @@ export function NocTopologyTree({ forest }: { forest: NocTopologyForest }) {
     )
   }
   return (
-    <div className="flex min-w-full justify-center overflow-x-auto py-8 pl-8 pr-8">
+    <div className="flex min-h-full min-w-full justify-center px-8 py-8">
       <div
-        className="flex min-w-max items-start justify-center gap-16"
-        aria-label="Topología NOC"
+        className="flex min-w-max flex-col items-center"
+        aria-label="Topología global NOC"
       >
-        {forest.roots.map((root) => (
-          <NocTopologyBranch key={root.deviceId} node={root} />
-        ))}
+        <EmpresaAnchor />
+        <NocChildrenRow nodes={forest.roots} lane />
       </div>
     </div>
   )
