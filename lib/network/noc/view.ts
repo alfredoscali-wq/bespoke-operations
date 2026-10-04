@@ -2,11 +2,9 @@ import "server-only"
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 
-import { listActiveNetworkAlarms } from "@/lib/network/alarms/queries"
 import { listNetworkDeviceOperationalStatuses } from "@/lib/network/monitoring/queries"
 import { nocHealthFromMonitoring } from "@/lib/network/noc/types"
 import type {
-  NocAlarmView,
   NocMonitorPage,
   NocMonitorSummary,
   NocTopologyForest,
@@ -110,26 +108,6 @@ async function loadCompanyName(
   return data?.display_name?.trim() || data?.name?.trim() || "Empresa"
 }
 
-async function loadNocAlarms(
-  client: Client,
-  companyId: string
-): Promise<NocAlarmView[]> {
-  try {
-    const alarms = await listActiveNetworkAlarms(client, companyId)
-    return alarms.map((alarm) => ({
-      id: alarm.id,
-      deviceId: alarm.deviceId,
-      severity: alarm.severity,
-      status: alarm.status,
-      title: alarm.title,
-      message: alarm.message,
-      createdAt: alarm.createdAt,
-    }))
-  } catch {
-    return []
-  }
-}
-
 export function overlayNocHealth(
   forest: { roots: CuratedTopologyNode[] },
   statuses: ReadonlyMap<string, StatusRow>
@@ -143,18 +121,17 @@ export async function getNocMonitorPage(
   client: Client,
   companyId: string
 ): Promise<NocMonitorPage> {
-  const [curated, statuses, companyName, alarms] = await Promise.all([
+  const [curated, statuses, companyName] = await Promise.all([
     getCuratedTopologyForest(client, companyId),
     listNetworkDeviceOperationalStatuses(client, companyId),
     loadCompanyName(client, companyId),
-    loadNocAlarms(client, companyId),
   ])
   const topology = overlayNocHealth(curated, statuses)
   return {
     companyName,
-    summary: buildSummary(topology, alarms.length),
+    summary: buildSummary(topology, 0),
     topology,
-    alarms,
+    alarms: [],
     lastUpdatedAt: pickLastUpdatedAt(statuses, collectDeviceIds(topology.roots)),
   }
 }
