@@ -332,7 +332,7 @@ test("API GET /history reutiliza auth Network y no toca persistencia", () => {
   assert.doesNotMatch(agent, /listNetworkDeviceStatusHistory/)
   const topology = read("lib/network/topology/queries.ts")
   assert.doesNotMatch(topology, /listNetworkDeviceStatusHistory/)
-  const discovery = read("lib/network/devices/queries.ts")
+  const discovery = read("lib/network/discovery/persist-snapshot.ts")
   assert.doesNotMatch(
     discovery.slice(discovery.indexOf("export async function persistDiscoverySnapshot")),
     /listNetworkDeviceStatusHistory/

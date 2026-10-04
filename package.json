@@ -224,6 +224,7 @@
     "test:network-0-foundation": "npx tsx --test scripts/test-network-0-foundation.mjs",
     "test:network-1-discovery": "npx tsx --test scripts/test-network-1-discovery.mjs",
     "test:network-1-1-discovery-observations": "npx tsx --test scripts/test-network-1-1-discovery-observations.mjs",
+    "test:network-1-2-canonical-devices": "npx tsx --test scripts/test-network-1-2-canonical-devices.mjs",
     "test:network-2-monitoring": "npx tsx --test scripts/test-network-2-monitoring.mjs",
     "test:network-2-2-agent-poll-robustness": "npx tsx --test scripts/test-network-2-2-agent-poll-robustness.mjs",
     "test:network-2-8-agent-tls": "npx tsx --test --test-concurrency=1 scripts/test-network-2-8-agent-tls.mjs",

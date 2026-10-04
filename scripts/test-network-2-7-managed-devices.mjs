@@ -170,7 +170,7 @@ test("10: Discovery no fue modificado; vecinos no se eliminan", () => {
     "getNetworkDeviceDetail"
   )
   const persist = functionSource(
-    read("lib/network/devices/queries.ts"),
+    read("lib/network/discovery/persist-snapshot.ts"),
     "persistDiscoverySnapshot"
   )
 

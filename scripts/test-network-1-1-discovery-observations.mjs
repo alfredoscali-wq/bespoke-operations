@@ -541,7 +541,7 @@ test("si hay varias candidatas el match queda null", () => {
 })
 
 test("sin match conserva from_interface_name y no inventa interfaz", () => {
-  const persist = read("lib/network/devices/queries.ts")
+  const persist = read("lib/network/discovery/persist-snapshot.ts")
   const migration = read(
     "supabase/migrations/20261231000100_network_links_from_interface_name.sql"
   )
@@ -812,7 +812,7 @@ test("el polling reemplaza latestObservations al completar y conserva estado si 
   assert.equal(transient.latest?.total, 59)
   assert.equal(transient.historical?.total, 62)
 
-  const persist = read("lib/network/devices/queries.ts")
+  const persist = read("lib/network/discovery/persist-snapshot.ts")
   const persistFn = persist.slice(
     persist.indexOf("export async function persistDiscoverySnapshot"),
     persist.indexOf("async function upsertNetworkDevice")
