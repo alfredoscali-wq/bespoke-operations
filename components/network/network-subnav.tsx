@@ -8,6 +8,7 @@ const ITEMS = [
   { id: "sites", href: "/network/sites", label: "Sitios" },
   { id: "devices", href: "/network/devices", label: "Devices" },
   { id: "topology", href: "/network/topology", label: "Topología" },
+  { id: "noc", href: "/network/noc", label: "NOC" },
   { id: "discovery", href: "/network/discovery", label: "Discovery" },
 ] as const
 
