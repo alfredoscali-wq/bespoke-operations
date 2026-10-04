@@ -4506,6 +4506,81 @@ export type Database = {
           },
         ]
       }
+      network_topology_placements: {
+        Row: {
+          child_interface_id: string | null
+          company_id: string
+          created_at: string
+          deleted_at: string | null
+          device_id: string
+          id: string
+          parent_device_id: string | null
+          parent_interface_id: string | null
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          child_interface_id?: string | null
+          company_id: string
+          created_at?: string
+          deleted_at?: string | null
+          device_id: string
+          id?: string
+          parent_device_id?: string | null
+          parent_interface_id?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          child_interface_id?: string | null
+          company_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          device_id?: string
+          id?: string
+          parent_device_id?: string | null
+          parent_interface_id?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "network_topology_placements_child_interface_id_fkey"
+            columns: ["child_interface_id"]
+            isOneToOne: false
+            referencedRelation: "network_interfaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "network_topology_placements_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "network_topology_placements_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "network_devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "network_topology_placements_parent_device_id_fkey"
+            columns: ["parent_device_id"]
+            isOneToOne: false
+            referencedRelation: "network_devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "network_topology_placements_parent_interface_id_fkey"
+            columns: ["parent_interface_id"]
+            isOneToOne: false
+            referencedRelation: "network_interfaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       network_device_status: {
         Row: {
           company_id: string
