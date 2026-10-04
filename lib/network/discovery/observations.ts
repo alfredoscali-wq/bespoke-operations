@@ -63,6 +63,7 @@ export type NetworkObservationLinkRow = {
   fromInterfaceName?: string | null
   toInterfaceId: string | null
   protocol?: string | null
+  lastSeenAt?: string | null
 }
 
 export type NetworkObservationInterfaceRow = {

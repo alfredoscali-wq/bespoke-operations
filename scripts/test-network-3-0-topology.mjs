@@ -1294,7 +1294,19 @@ test("1.0 H: usa el último discovery del host y no mezcla históricos", () => {
       { id: AS5, agentId: AGENT, lastSeenAt: "2026-10-03T12:00:10.000Z" },
       { id: HISTORICAL, agentId: AGENT, lastSeenAt: "2026-10-03T11:00:30.000Z" },
     ],
-    latestJob
+    latestJob,
+    [
+      {
+        fromDeviceId: MALAGUENO_CORE,
+        toDeviceId: AS5,
+        lastSeenAt: "2026-10-03T12:00:10.000Z",
+      },
+      {
+        fromDeviceId: MALAGUENO_CORE,
+        toDeviceId: HISTORICAL,
+        lastSeenAt: "2026-10-03T11:00:30.000Z",
+      },
+    ]
   )
   assert.deepEqual(
     seen.map((device) => device.id),
@@ -3279,6 +3291,136 @@ test("root: soft-delete del duplicado no rompe Core → PowerBox canónico", () 
     ).includes(PROD_POWERBOX),
     true
   )
+})
+
+test("1.0: last_seen_at de Monitoring no vacía el árbol del Discovery histórico", () => {
+  const job = {
+    id: "8d53b4a0-9bc5-4668-adae-b77353c31561",
+    status: "completed",
+    agentId: AGENT,
+    startedAt: "2026-10-04T02:34:55.000Z",
+    completedAt: "2026-10-04T02:35:35.000Z",
+    targetHost: "177.53.120.11",
+    payload: { host: "177.53.120.11" },
+  }
+  const input = malaguenoObservationInput()
+  const devices = input.devices.map((device) => ({
+    ...device,
+    lastSeenAt: "2026-10-04T04:25:00.000Z",
+  }))
+  const links = input.links.map((link) => ({
+    ...link,
+    lastSeenAt: "2026-10-04T02:35:10.000Z",
+  }))
+  const seen = filterDevicesSeenInDiscoveryJob(devices, job, links)
+  assert.equal(seen.some((device) => device.id === POWERBOX), true)
+  assert.equal(seen.some((device) => device.id === AS5), true)
+  assert.equal(seen.some((device) => device.id === AS6), true)
+  assert.equal(seen.some((device) => device.id === AS7), true)
+
+  const observations = buildNetworkDiscoveryObservationView({
+    ...input,
+    devices: seen,
+    links,
+  })
+  const local = buildLocalCoreTopologyView({
+    core: {
+      id: MALAGUENO_CORE,
+      hostname: "RB3011 - Core Malagueño",
+      managementIp: "177.53.120.11",
+      operationalStatus: "online",
+      lastPollAt: "2026-10-03T12:05:00.000Z",
+    },
+    jobId: job.id,
+    observations: observations.items,
+    links: input.links,
+    coreInterfaces: input.interfaces,
+  })
+  const ether3 = local.interfaceGroups.find(
+    (group) => group.interfaceName === "ether3"
+  )
+  const lanIds = ether3.devices.map((device) => device.id)
+  assert.equal(lanIds.includes(POWERBOX), true)
+  assert.equal(lanIds.includes(AS5), true)
+  assert.equal(lanIds.includes(AS6), true)
+  assert.equal(lanIds.includes(AS7), true)
+  const visibleIds = local.interfaceGroups.flatMap((group) => [
+    ...group.devices.map((device) => device.id),
+    ...group.cpes.map((device) => device.id),
+  ])
+  assert.equal(visibleIds.includes(PILAR), false)
+  assert.deepEqual(
+    selectTopologyRootIds(
+      [MALAGUENO_CORE, POWERBOX, AS5, AS6, AS7],
+      [{ fromDeviceId: MALAGUENO_CORE, toDeviceId: POWERBOX }]
+    ),
+    [MALAGUENO_CORE, AS5, AS6, AS7]
+  )
+})
+
+test("1.0: device en ventana sin link histórico no entra al Discovery", () => {
+  const job = {
+    id: "job-malagueno",
+    status: "completed",
+    agentId: AGENT,
+    startedAt: "2026-10-04T02:34:55.000Z",
+    completedAt: "2026-10-04T02:35:35.000Z",
+  }
+  const seen = filterDevicesSeenInDiscoveryJob(
+    [
+      { id: MALAGUENO_CORE, lastSeenAt: "2026-10-04T02:35:10.000Z" },
+      { id: HISTORICAL, lastSeenAt: "2026-10-04T02:35:10.000Z" },
+    ],
+    job,
+    [
+      {
+        fromDeviceId: MALAGUENO_CORE,
+        toDeviceId: POWERBOX,
+        lastSeenAt: "2026-10-04T02:35:10.000Z",
+      },
+    ]
+  )
+  assert.deepEqual(
+    seen.map((device) => device.id),
+    [MALAGUENO_CORE]
+  )
+})
+
+test("1.0: link fuera de la ventana no pertenece al Discovery", () => {
+  const job = {
+    id: "job-malagueno",
+    status: "completed",
+    agentId: AGENT,
+    startedAt: "2026-10-04T02:34:55.000Z",
+    completedAt: "2026-10-04T02:35:35.000Z",
+  }
+  const seen = filterDevicesSeenInDiscoveryJob(
+    [
+      { id: MALAGUENO_CORE, lastSeenAt: "2026-10-04T02:35:10.000Z" },
+      { id: POWERBOX, lastSeenAt: "2026-10-04T02:35:10.000Z" },
+    ],
+    job,
+    [
+      {
+        fromDeviceId: MALAGUENO_CORE,
+        toDeviceId: POWERBOX,
+        lastSeenAt: "2026-10-04T04:25:00.000Z",
+      },
+    ]
+  )
+  assert.deepEqual(seen.map((device) => device.id), [])
+})
+
+test("1.0: el árbol local no usa last_seen_at de network_devices para la membresía", () => {
+  const queries = read("lib/network/discovery/observation-queries.ts")
+  const latestRun = read("lib/network/discovery/latest-run.ts")
+  assert.doesNotMatch(queries, /\.gte\("last_seen_at"/)
+  assert.doesNotMatch(queries, /\.lte\("last_seen_at"/)
+  assert.match(queries, /protocol, last_seen_at/)
+  assert.match(queries, /filterDevicesSeenInDiscoveryJob\(/)
+  assert.match(latestRun, /deviceIdsSeenInDiscoveryJob/)
+  assert.doesNotMatch(latestRun, /device\.lastSeenAt/)
+  assert.doesNotMatch(latestRun, /deviceWasSeenInDiscoveryJob/)
 })
 
 

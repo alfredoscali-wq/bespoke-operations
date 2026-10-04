@@ -178,14 +178,19 @@ export function initialDiscoveryTargetId(
   return asNonEmptyString(targets[0]?.id) ?? ""
 }
 
-export function deviceWasSeenInDiscoveryJob(
-  device: { agentId: string | null; lastSeenAt?: string | null },
+export type DiscoveryJobLinkRef = {
+  fromDeviceId: string
+  toDeviceId: string
+  lastSeenAt?: string | null
+}
+
+export function timestampBelongsToDiscoveryJob(
+  seenAt: string | null | undefined,
   job: LatestDiscoveryJobRef
 ): boolean {
-  if (!device.agentId || device.agentId !== job.agentId) return false
-  const seenAt = asNonEmptyString(device.lastSeenAt)
-  if (!seenAt) return false
-  const seen = Date.parse(seenAt)
+  const stamp = asNonEmptyString(seenAt)
+  if (!stamp) return false
+  const seen = Date.parse(stamp)
   const started = Date.parse(job.startedAt)
   const completed = Date.parse(job.completedAt)
   if (!Number.isFinite(seen) || !Number.isFinite(started) || !Number.isFinite(completed)) {
@@ -194,10 +199,26 @@ export function deviceWasSeenInDiscoveryJob(
   return seen >= started && seen <= completed
 }
 
-export function filterDevicesSeenInDiscoveryJob<
-  T extends { agentId: string | null; lastSeenAt?: string | null },
->(devices: readonly T[], job: LatestDiscoveryJobRef): T[] {
-  return devices.filter((device) => deviceWasSeenInDiscoveryJob(device, job))
+export function deviceIdsSeenInDiscoveryJob(
+  links: readonly DiscoveryJobLinkRef[],
+  job: LatestDiscoveryJobRef
+): Set<string> {
+  const ids = new Set<string>()
+  for (const link of links) {
+    if (!timestampBelongsToDiscoveryJob(link.lastSeenAt, job)) continue
+    if (link.fromDeviceId) ids.add(link.fromDeviceId)
+    if (link.toDeviceId) ids.add(link.toDeviceId)
+  }
+  return ids
+}
+
+export function filterDevicesSeenInDiscoveryJob<T extends { id: string }>(
+  devices: readonly T[],
+  job: LatestDiscoveryJobRef,
+  links: readonly DiscoveryJobLinkRef[]
+): T[] {
+  const ids = deviceIdsSeenInDiscoveryJob(links, job)
+  return devices.filter((device) => ids.has(device.id))
 }
 
 export function nextDiscoveryObservationState(

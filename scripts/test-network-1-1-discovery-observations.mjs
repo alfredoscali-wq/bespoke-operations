@@ -340,19 +340,23 @@ test("no se toca el Agent, TLS ni el connector MikroTik", () => {
   )
   assert.match(
     read("lib/network/discovery/observation-queries.ts"),
-    /from_interface_id, from_interface_name, to_interface_id/
+    /from_interface_id, from_interface_name, to_interface_id, protocol, last_seen_at/
   )
   assert.doesNotMatch(
     read("lib/network/discovery/observation-queries.ts"),
     /\.delete\(/
   )
-  assert.match(
+  assert.doesNotMatch(
     read("lib/network/discovery/observation-queries.ts"),
     /\.gte\("last_seen_at"/
   )
-  assert.match(
+  assert.doesNotMatch(
     read("lib/network/discovery/observation-queries.ts"),
     /\.lte\("last_seen_at"/
+  )
+  assert.match(
+    read("lib/network/discovery/observation-queries.ts"),
+    /filterDevicesSeenInDiscoveryJob\(/
   )
 })
 
@@ -712,12 +716,28 @@ function inventory62() {
   return { latest, historicalOnly, all: [...latest, ...historicalOnly] }
 }
 
+function inventory62Links() {
+  const { latest, historicalOnly } = inventory62()
+  return [
+    ...latest.slice(1).map((device) => ({
+      fromDeviceId: CORE,
+      toDeviceId: device.id,
+      lastSeenAt: JOB_SEEN,
+    })),
+    ...historicalOnly.map((device) => ({
+      fromDeviceId: CORE,
+      toDeviceId: device.id,
+      lastSeenAt: OLD_SEEN,
+    })),
+  ]
+}
+
 test("último job de 59 devices no mezcla 3 observaciones históricas", () => {
   const job = pickLatestCompletedDiscoveryJob([malaguenoJob()])
   assert.ok(job)
   assert.equal(job.id, "4141dfc7-0000-4000-8000-000000000001")
   const { latest, historicalOnly, all } = inventory62()
-  const latestDevices = filterDevicesSeenInDiscoveryJob(all, job)
+  const latestDevices = filterDevicesSeenInDiscoveryJob(all, job, inventory62Links())
   const latestView = withLatestDiscoveryJobMeta(
     buildNetworkDiscoveryObservationView({
       devices: latestDevices,
@@ -798,7 +818,16 @@ test("un discovery posterior reemplaza latestObservations", () => {
       (device) => !laterDevices.some((item) => item.id === device.id)
     ),
   ]
-  const latestDevices = filterDevicesSeenInDiscoveryJob(combined, picked)
+  const laterSeen = "2026-10-03T18:00:20.000Z"
+  const laterLinks = laterDevices.slice(1).map((device) => ({
+    fromDeviceId: CORE,
+    toDeviceId: device.id,
+    lastSeenAt: laterSeen,
+  }))
+  const latestDevices = filterDevicesSeenInDiscoveryJob(combined, picked, [
+    ...inventory62Links(),
+    ...laterLinks,
+  ])
   assert.equal(latestDevices.length, 4)
   assert.equal(
     latestDevices.every((device) => device.lastSeenAt?.startsWith("2026-10-03T18:")),
@@ -987,5 +1016,75 @@ test("las observaciones visibles son las del último job del destino seleccionad
   assert.match(ui, /selectTarget\(value\)/)
   assert.match(queries, /pickLatestCompletedDiscoveryJobForTarget\(jobs, targetId\)/)
   assert.match(queries, /pickLatestCompletedDiscoveryJob\(jobs\)/)
+})
+
+test("membership: device last_seen_at posterior al job sigue si el link es histórico", () => {
+  const job = malaguenoJob({
+    id: "8d53b4a0-9bc5-4668-adae-b77353c31561",
+    startedAt: "2026-10-04T02:34:55.000Z",
+    completedAt: "2026-10-04T02:35:35.000Z",
+  })
+  const devices = [
+    {
+      id: CORE,
+      lastSeenAt: "2026-10-04T04:25:00.000Z",
+    },
+    {
+      id: PILAR,
+      lastSeenAt: "2026-10-04T04:25:00.000Z",
+    },
+  ]
+  const seen = filterDevicesSeenInDiscoveryJob(devices, job, [
+    {
+      fromDeviceId: CORE,
+      toDeviceId: PILAR,
+      lastSeenAt: "2026-10-04T02:35:10.000Z",
+    },
+  ])
+  assert.deepEqual(
+    seen.map((device) => device.id),
+    [CORE, PILAR]
+  )
+})
+
+test("membership: device last_seen_at en la ventana sin link histórico no entra", () => {
+  const job = malaguenoJob()
+  const seen = filterDevicesSeenInDiscoveryJob(
+    [
+      { id: CORE, lastSeenAt: JOB_SEEN },
+      { id: "orphan-in-window", lastSeenAt: JOB_SEEN },
+    ],
+    job,
+    [
+      {
+        fromDeviceId: CORE,
+        toDeviceId: PILAR,
+        lastSeenAt: JOB_SEEN,
+      },
+    ]
+  )
+  assert.deepEqual(
+    seen.map((device) => device.id),
+    [CORE]
+  )
+})
+
+test("membership: link fuera de la ventana no pertenece al Discovery", () => {
+  const job = malaguenoJob()
+  const seen = filterDevicesSeenInDiscoveryJob(
+    [
+      { id: CORE, lastSeenAt: JOB_SEEN },
+      { id: PILAR, lastSeenAt: JOB_SEEN },
+    ],
+    job,
+    [
+      {
+        fromDeviceId: CORE,
+        toDeviceId: PILAR,
+        lastSeenAt: OLD_SEEN,
+      },
+    ]
+  )
+  assert.deepEqual(seen.map((device) => device.id), [])
 })
 

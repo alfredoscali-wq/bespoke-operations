@@ -90,7 +90,7 @@ async function loadObservationSource(
     client
       .from("network_links")
       .select(
-        "from_device_id, to_device_id, from_interface_id, from_interface_name, to_interface_id, protocol"
+        "from_device_id, to_device_id, from_interface_id, from_interface_name, to_interface_id, protocol, last_seen_at"
       )
       .eq("company_id", companyId)
       .is("deleted_at", null),
@@ -120,6 +120,7 @@ async function loadObservationSource(
       fromInterfaceName: row.from_interface_name,
       toInterfaceId: row.to_interface_id,
       protocol: row.protocol,
+      lastSeenAt: row.last_seen_at,
     })),
     interfaces: (interfaces.data ?? []).map((row) => ({
       id: row.id,
@@ -173,21 +174,16 @@ export async function getNetworkDiscoveryObservationSets(
     }
   }
 
-  const latestRows = await client
-    .from("network_devices")
-    .select(DEVICE_COLUMNS)
-    .eq("company_id", companyId)
-    .is("deleted_at", null)
-    .eq("agent_id", latestJob.agentId)
-    .gte("last_seen_at", latestJob.startedAt)
-    .lte("last_seen_at", latestJob.completedAt)
-
-  if (latestRows.error) throw new Error(latestRows.error.message)
+  const devices = filterDevicesSeenInDiscoveryJob(
+    source.devices,
+    latestJob,
+    source.links
+  )
 
   return {
     historicalObservations,
     latestObservations: withLatestDiscoveryJobMeta(
-      buildView(source, mapDeviceRows(latestRows.data ?? [])),
+      buildView(source, devices),
       latestJob
     ),
   }
@@ -217,18 +213,11 @@ export async function getLatestNetworkDiscoveryObservationsForHost(
     }
   }
 
-  const latestRows = await client
-    .from("network_devices")
-    .select(DEVICE_COLUMNS)
-    .eq("company_id", companyId)
-    .is("deleted_at", null)
-    .eq("agent_id", latestJob.agentId)
-    .gte("last_seen_at", latestJob.startedAt)
-    .lte("last_seen_at", latestJob.completedAt)
-
-  if (latestRows.error) throw new Error(latestRows.error.message)
-
-  const devices = mapDeviceRows(latestRows.data ?? [])
+  const devices = filterDevicesSeenInDiscoveryJob(
+    source.devices,
+    latestJob,
+    source.links
+  )
   return {
     latestObservations: withLatestDiscoveryJobMeta(
       buildView(source, devices),
@@ -267,7 +256,11 @@ export async function getLatestNetworkDiscoveryObservationsByHosts(
       })
       continue
     }
-    const devices = filterDevicesSeenInDiscoveryJob(source.devices, latestJob)
+    const devices = filterDevicesSeenInDiscoveryJob(
+      source.devices,
+      latestJob,
+      source.links
+    )
     result.set(host, {
       latestObservations: withLatestDiscoveryJobMeta(
         buildView(source, devices),
