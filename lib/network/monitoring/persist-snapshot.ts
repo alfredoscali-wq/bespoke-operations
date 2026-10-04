@@ -1,12 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
-import type { Database } from "@/lib/supabase/database.types"
+import { syncNetworkAlarmsAfterMonitoringTransition } from "@/lib/network/alarms/sync"
 import { isManagedNetworkDevice } from "@/lib/network/devices/managed"
 import type { MonitoringSnapshot } from "@/lib/network/monitoring/contract"
 import {
   isMonitoringOperationalStatus,
   nextMonitoringOperationalState,
 } from "@/lib/network/monitoring/status"
+import type { Database } from "@/lib/supabase/database.types"
 
 type Client = SupabaseClient<Database>
 type DeviceStatusRow = Database["public"]["Tables"]["network_device_status"]["Row"]
@@ -236,6 +237,13 @@ export async function persistMonitoringSnapshot(
         message: input.success ? null : patch.error_message,
       })
     }
+    await syncNetworkAlarmsAfterMonitoringTransition(client, {
+      companyId: input.companyId,
+      deviceId: input.deviceId,
+      previousStatus,
+      nextStatus: next.status,
+      occurredAt: now,
+    })
   }
 
   if (input.success && input.snapshot) {

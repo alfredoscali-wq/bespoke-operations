@@ -4189,6 +4189,91 @@ export type Database = {
           },
         ]
       }
+      network_alarms: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          company_id: string
+          created_at: string
+          deleted_at: string | null
+          device_id: string
+          id: string
+          is_root: boolean
+          message: string
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          root_alarm_id: string | null
+          seen_at: string | null
+          severity: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          company_id: string
+          created_at?: string
+          deleted_at?: string | null
+          device_id: string
+          id?: string
+          is_root?: boolean
+          message: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          root_alarm_id?: string | null
+          seen_at?: string | null
+          severity: string
+          status: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          company_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          device_id?: string
+          id?: string
+          is_root?: boolean
+          message?: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          root_alarm_id?: string | null
+          seen_at?: string | null
+          severity?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "network_alarms_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "network_alarms_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "network_devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "network_alarms_root_alarm_id_fkey"
+            columns: ["root_alarm_id"]
+            isOneToOne: false
+            referencedRelation: "network_alarms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       network_devices: {
         Row: {
           agent_id: string | null
