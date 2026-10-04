@@ -1,9 +1,10 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, type ReactNode } from "react"
 import Link from "next/link"
 import { useQueryClient } from "@tanstack/react-query"
 
+import { CuratedTopologyEditor } from "@/components/network/curated-topology-editor"
 import { NetworkSubnav } from "@/components/network/network-subnav"
 import { NetworkTopologyManageDialog } from "@/components/network/network-topology-manage-dialog"
 import { StatusBadge } from "@/components/ui/status-badge"
@@ -19,6 +20,7 @@ import {
   resolveNetworkManagementVendor,
 } from "@/lib/network/management/vendor"
 import { networkQueryKeys } from "@/lib/network/react-query/keys"
+import { useNetworkDevicesQuery } from "@/lib/network/react-query/use-network-devices-query"
 import { useNetworkTopologyQuery } from "@/lib/network/react-query/use-network-topology-query"
 import {
   buildTopologyEdgeDetail,
@@ -31,6 +33,8 @@ import {
 import { buildObservedDeviceManagementState } from "@/lib/network/topology/management-state"
 import { postNetworkDeviceManage } from "@/lib/network/topology/manage-request"
 import type {
+  CuratedTopologyForest,
+  CuratedTopologyNode,
   LocalCoreTopologyView,
   LocalTopologyInterfaceGroup,
   LocalTopologyObservedDevice,
@@ -39,6 +43,7 @@ import type {
   NetworkTopologyManagementTarget,
   NetworkTopologyNode,
 } from "@/lib/network/topology/types"
+import type { NetworkDevice } from "@/lib/network/types"
 import { STATUS_TONE_STYLES } from "@/lib/ui/visual-tokens"
 import { cn } from "@/lib/utils"
 
@@ -114,6 +119,60 @@ function collectObservedDevices(
   return map
 }
 
+function findCuratedNode(
+  forest: CuratedTopologyForest | null,
+  deviceId: string
+): CuratedTopologyNode | null {
+  if (!forest) return null
+  const stack = [...forest.roots]
+  while (stack.length > 0) {
+    const node = stack.pop()
+    if (!node) continue
+    if (node.deviceId === deviceId) return node
+    stack.push(...node.children)
+  }
+  return null
+}
+
+function toObservedDeviceFromInventory(input: {
+  deviceId: string
+  inventory: NetworkDevice | null
+  graphNode: NetworkTopologyNode | null
+  curatedNode: CuratedTopologyNode | null
+  managed: boolean
+}): LocalTopologyObservedDevice {
+  const { inventory, graphNode, curatedNode, managed, deviceId } = input
+  return {
+    id: deviceId,
+    hostname:
+      inventory?.hostname ?? graphNode?.hostname ?? curatedNode?.hostname ?? null,
+    managementIp:
+      inventory?.managementIp ??
+      graphNode?.managementIp ??
+      curatedNode?.ipAddress ??
+      null,
+    macAddress: inventory?.macAddress ?? null,
+    platform: inventory?.manufacturer ?? null,
+    board: inventory?.model ?? null,
+    version: inventory?.firmwareVersion ?? null,
+    discoveredBy: null,
+    origin: inventory?.origin ?? graphNode?.origin ?? null,
+    observedInterfaceName: null,
+    lastSeenAt: inventory?.lastSeenAt ?? null,
+    deviceType: inventory?.deviceType ?? graphNode?.deviceType ?? null,
+    operationalStatus:
+      inventory?.operationalStatus ??
+      graphNode?.operationalStatus ??
+      curatedNode?.status ??
+      null,
+    lastPollAt: inventory?.lastPollAt ?? graphNode?.lastPollAt ?? null,
+    managed,
+    downstream: [],
+    agentId: inventory?.agentId ?? graphNode?.agentId ?? null,
+    observations: [],
+  }
+}
+
 function managementStateForDevice(
   jobs: readonly NetworkTopologyManagementJob[],
   targets: readonly NetworkTopologyManagementTarget[],
@@ -133,9 +192,11 @@ export function NetworkTopologyScreen() {
   const queryClient = useQueryClient()
   const [selectedCoreId, setSelectedCoreId] = useState<string | null>(null)
   const { data, error, isPending } = useNetworkTopologyQuery(selectedCoreId)
+  const { data: inventoryDevices = [] } = useNetworkDevicesQuery()
   const [selection, setSelection] = useState<TopologySelection | null>(null)
   const [observedId, setObservedId] = useState<string | null>(null)
   const [cpeGroupKey, setCpeGroupKey] = useState<string | null>(null)
+  const [curatedDeviceId, setCuratedDeviceId] = useState<string | null>(null)
   const [manageOpen, setManageOpen] = useState(false)
   const [manageMode, setManageMode] = useState<"administer" | "replace">(
     "administer"
@@ -145,6 +206,7 @@ export function NetworkTopologyScreen() {
   const graph = data?.graph ?? { nodes: [], edges: [] }
   const cores = data?.cores ?? []
   const local = data?.local ?? null
+  const curated = data?.curated ?? null
   const discoveryJobs = data?.discoveryJobs ?? []
   const managementTargets = data?.managementTargets ?? []
   const activeCoreId =
@@ -172,14 +234,46 @@ export function NetworkTopologyScreen() {
         ) ?? null)
       : null
   const selectedObserved = observedId ? (observedById.get(observedId) ?? null) : null
+  const selectedCuratedDevice = useMemo(() => {
+    if (!curatedDeviceId) return null
+    const inventory =
+      inventoryDevices.find((device) => device.id === curatedDeviceId) ?? null
+    const graphNode =
+      graph.nodes.find((node) => node.id === curatedDeviceId) ?? null
+    const curatedNode = findCuratedNode(curated, curatedDeviceId)
+    if (!inventory && !graphNode && !curatedNode) return null
+    const host = (inventory?.managementIp ?? graphNode?.managementIp ?? "").trim()
+    const agentId = (inventory?.agentId ?? graphNode?.agentId ?? "").trim()
+    const managed =
+      graphNode?.kind === "managed" ||
+      (host !== "" &&
+        agentId !== "" &&
+        managementTargets.some(
+          (target) => target.agentId === agentId && target.host.trim() === host
+        ))
+    return toObservedDeviceFromInventory({
+      deviceId: curatedDeviceId,
+      inventory,
+      graphNode,
+      curatedNode,
+      managed,
+    })
+  }, [
+    curatedDeviceId,
+    inventoryDevices,
+    graph.nodes,
+    curated,
+    managementTargets,
+  ])
+  const selectedDetailDevice = selectedCuratedDevice ?? selectedObserved
   const selectedNode =
-    !selectedObserved && !selectedCpeGroup && activeSelection?.kind === "node"
+    !selectedDetailDevice && !selectedCpeGroup && activeSelection?.kind === "node"
       ? (byId.get(activeSelection.id) ??
           graph.nodes.find((node) => node.id === activeSelection.id) ??
           null)
       : null
   const selectedEdge =
-    !selectedObserved && !selectedCpeGroup && activeSelection?.kind === "edge"
+    !selectedDetailDevice && !selectedCpeGroup && activeSelection?.kind === "edge"
       ? (graph.edges.find((edge) => edge.id === activeSelection.id) ?? null)
       : null
   const relatedEdges = useMemo(
@@ -204,6 +298,14 @@ export function NetworkTopologyScreen() {
   function clearLocalSelection() {
     setObservedId(null)
     setCpeGroupKey(null)
+    setCuratedDeviceId(null)
+  }
+
+  function selectCuratedDevice(deviceId: string) {
+    setObservedId(null)
+    setCpeGroupKey(null)
+    setSelection(null)
+    setCuratedDeviceId(deviceId)
   }
 
   function selectCoreNode(coreId: string) {
@@ -214,24 +316,26 @@ export function NetworkTopologyScreen() {
   function selectObserved(deviceId: string) {
     setSelection(null)
     setCpeGroupKey(null)
+    setCuratedDeviceId(null)
     setObservedId(deviceId)
   }
 
   function selectCpeGroup(interfaceName: string | null) {
     setSelection(null)
     setObservedId(null)
+    setCuratedDeviceId(null)
     setCpeGroupKey(interfaceName ?? "")
   }
 
   async function postManagedAction(intent: "test" | "discover") {
-    if (!selectedObserved) return
+    if (!selectedDetailDevice || manageBusy) return
     setManageBusy(intent)
     setManageError(null)
     try {
       const result = await postNetworkDeviceManage({
-        deviceId: selectedObserved.id,
+        deviceId: selectedDetailDevice.id,
         intent,
-        agentId: selectedObserved.agentId,
+        agentId: selectedDetailDevice.agentId,
         password: "",
       })
       if (!result.job) {
@@ -286,31 +390,17 @@ export function NetworkTopologyScreen() {
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="overflow-auto rounded-lg border bg-card">
+        <div className="min-h-[32rem] overflow-auto rounded-lg border bg-card">
           {isPending && graph.nodes.length === 0 ? (
             <p className="p-6 text-sm text-muted-foreground">Cargando topología…</p>
-          ) : local ? (
-            <LocalCoreTree
-              local={local}
-              selectedCoreId={
-                selectedObserved || selectedCpeGroup
-                  ? null
-                  : activeSelection?.kind === "node"
-                    ? activeSelection.id
-                    : null
-              }
-              selectedObservedId={observedId}
-              selectedCpeGroupKey={cpeGroupKey}
-              onSelectCore={() => selectCoreNode(local.core.id)}
-              onSelectObserved={selectObserved}
-              onSelectCpeGroup={selectCpeGroup}
-            />
-          ) : graph.nodes.length === 0 ? (
-            <p className="p-6 text-sm text-muted-foreground">
-              Todavía no hay dispositivos descubiertos. Ejecutá un discovery desde un
-              Agent.
-            </p>
           ) : (
+            <CuratedTopologyEditor
+              forest={curated ?? { roots: [] }}
+              selectedDeviceId={curatedDeviceId}
+              onSelectDevice={selectCuratedDevice}
+            />
+          )}
+          {false ? (
             <svg
               viewBox={`0 0 ${CANVAS_WIDTH} ${CANVAS_HEIGHT}`}
               className="h-[520px] w-full"
@@ -421,21 +511,30 @@ export function NetworkTopologyScreen() {
                 </g>
               ))}
             </svg>
-          )}
+          ) : null}
         </div>
 
-        <aside className="rounded-lg border bg-card p-4 text-sm">
-          {selectedObserved ? (
+        <aside className="max-h-[32rem] overflow-y-auto rounded-lg border bg-card p-4 text-sm">
+          {selectedDetailDevice ? (
             <SelectedObservedPanel
-              device={selectedObserved}
+              key={selectedDetailDevice.id}
+              device={selectedDetailDevice}
+              agentName={
+                inventoryDevices.find(
+                  (item) => item.id === selectedDetailDevice.id
+                )?.agentName ?? null
+              }
               state={managementStateForDevice(
                 discoveryJobs,
                 managementTargets,
-                selectedObserved
+                selectedDetailDevice
               )}
               busy={manageBusy}
               actionError={manageError}
-              onClose={() => setObservedId(null)}
+              onClose={() => {
+                setObservedId(null)
+                setCuratedDeviceId(null)
+              }}
               onAdminister={() => {
                 setManageMode("administer")
                 setManageOpen(true)
@@ -472,15 +571,15 @@ export function NetworkTopologyScreen() {
             />
           ) : (
             <p className="text-muted-foreground">
-              Seleccioná un dispositivo o un enlace.
+              Seleccioná un dispositivo
             </p>
           )}
         </aside>
       </div>
       <NetworkTopologyManageDialog
         open={manageOpen}
-        device={selectedObserved}
-        agentId={selectedObserved?.agentId ?? null}
+        device={selectedDetailDevice}
+        agentId={selectedDetailDevice?.agentId ?? null}
         mode={manageMode}
         onOpenChange={setManageOpen}
         onStarted={() => {
@@ -712,8 +811,86 @@ function SelectedCpeGroupPanel({
   )
 }
 
+function DetailSection({
+  title,
+  children,
+}: {
+  title: string
+  children: ReactNode
+}) {
+  return (
+    <section className="space-y-2 border-t border-border/70 pt-3">
+      <h2 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        {title}
+      </h2>
+      {children}
+    </section>
+  )
+}
+
+function StatusLine({
+  label,
+  dotClass,
+  value,
+}: {
+  label: string
+  dotClass: string
+  value: string
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="flex items-center gap-1.5 text-right">
+        <span className={cn("inline-block size-1.5 shrink-0 rounded-full", dotClass)} />
+        {value}
+      </span>
+    </div>
+  )
+}
+
+function connectionStatusCopy(
+  connection: ReturnType<typeof managementStateForDevice>["connection"]
+): {
+  label: string
+  summary: string
+  dotClass: string
+} {
+  if (connection === "verified") {
+    return {
+      label: "Verificada",
+      summary: "Conexión verificada",
+      dotClass: "bg-emerald-500",
+    }
+  }
+  if (connection === "error") {
+    return {
+      label: "Error de conexión",
+      summary: "Error de conexión",
+      dotClass: "bg-red-500",
+    }
+  }
+  if (connection === "in_progress") {
+    return {
+      label: "En curso",
+      summary: "Probando conexión...",
+      dotClass: "bg-amber-500",
+    }
+  }
+  return {
+    label: "Sin verificar",
+    summary: "Sin verificar",
+    dotClass: "bg-slate-400",
+  }
+}
+
+const DETAIL_ACTION_CLASS =
+  "w-full rounded-md border bg-background px-3 py-2 text-sm font-medium hover:border-foreground/40 disabled:opacity-50"
+const DETAIL_SECONDARY_ACTION_CLASS =
+  "w-full rounded-md border border-transparent px-3 py-1.5 text-xs font-medium text-muted-foreground hover:border-border hover:text-foreground disabled:opacity-50"
+
 function SelectedObservedPanel({
   device,
+  agentName,
   state,
   busy,
   actionError,
@@ -724,6 +901,7 @@ function SelectedObservedPanel({
   onDiscover,
 }: {
   device: LocalTopologyObservedDevice
+  agentName?: string | null
   state: ReturnType<typeof managementStateForDevice>
   busy: "test" | "discover" | null
   actionError: string | null
@@ -740,170 +918,216 @@ function SelectedObservedPanel({
   })
   const discoveryInflight = state.discovery === "in_progress"
   const connectionInflight = state.connection === "in_progress"
+  const title =
+    device.hostname?.trim() || device.managementIp?.trim() || "Sin nombre"
+  const ip = device.managementIp?.trim() || null
+  const showIp = Boolean(ip) && ip !== title
+  const vendorLabel = device.platform || networkManagementVendorLabel(vendor)
+  const hardwareParts = [vendorLabel !== "—" ? vendorLabel : null, device.board]
+    .filter((part): part is string => Boolean(part))
+    .filter((part, index, parts) => parts.indexOf(part) === index)
+  const connection = connectionStatusCopy(state.connection)
+  const showDiscoveryFields = Boolean(
+    device.observedInterfaceName || device.discoveredBy
+  )
+  const showDiscoverySection =
+    showDiscoveryFields || state.canDiscover || discoveryInflight
+  const diagnosticJobLabel = state.diagnosticJob
+    ? NETWORK_JOB_STATUS_LABELS[
+        state.diagnosticJob.status as keyof typeof NETWORK_JOB_STATUS_LABELS
+      ]
+    : null
+  const discoveryJobLabel = state.discoveryJob
+    ? NETWORK_JOB_STATUS_LABELS[
+        state.discoveryJob.status as keyof typeof NETWORK_JOB_STATUS_LABELS
+      ]
+    : null
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-1">
       <div className="flex items-start justify-between gap-2">
-        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          {device.managed ? "Administrado" : "Observado"}
+        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          Equipo
         </p>
         <PanelCloseButton onClose={onClose} />
       </div>
-      <div>
-        <p className="text-base font-medium">
-          {formatTopologyNodeIdentity(device.hostname, device.managementIp)}
-        </p>
-        <p className="text-muted-foreground">{device.managementIp || "Sin IP"}</p>
+      <div className="space-y-1 pb-1">
+        <p className="text-lg font-semibold leading-tight">{title}</p>
+        {showIp ? (
+          <p className="text-sm text-muted-foreground">{ip}</p>
+        ) : null}
+        {hardwareParts.length > 0 ? (
+          <p className="text-sm">{hardwareParts.join(" · ")}</p>
+        ) : null}
+        {device.macAddress ? (
+          <p className="text-xs text-muted-foreground">
+            MAC
+            <span className="mt-0.5 block font-mono text-foreground">
+              {device.macAddress}
+            </span>
+          </p>
+        ) : null}
+        {device.version ? (
+          <p className="text-xs text-muted-foreground">
+            Version: {device.version}
+          </p>
+        ) : null}
       </div>
-      <p>Fabricante: {device.platform || networkManagementVendorLabel(vendor)}</p>
-      <p>Modelo: {device.board || "—"}</p>
-      <p>IP: {device.managementIp || "—"}</p>
-      <p>MAC: {device.macAddress || "—"}</p>
-      <div className="space-y-1 rounded-md border bg-muted/30 px-3 py-2">
-        <p>
-          Administración:{" "}
-          {device.managed ? "🟢 Administrado" : "⚪ No administrado"}
+
+      <DetailSection title="Estado">
+        <p className="flex items-center gap-2 text-sm font-medium">
+          <span
+            className={cn(
+              "inline-block size-2 rounded-full",
+              statusDotClass(device.operationalStatus)
+            )}
+          />
+          {monitoringLabel(device.operationalStatus)}
         </p>
-        {device.managed ? (
-          <p>
-            Credencial:{" "}
-            {state.credential === "unavailable"
-              ? "🔴 No disponible"
-              : "🟢 Disponible"}
+        <div className="space-y-1 text-sm">
+          <StatusLine
+            label="Administración"
+            dotClass={device.managed ? "bg-emerald-500" : "bg-slate-400"}
+            value={device.managed ? "Administrado" : "No administrado"}
+          />
+          {device.managed ? (
+            <StatusLine
+              label="Credencial"
+              dotClass={
+                state.credential === "unavailable"
+                  ? "bg-red-500"
+                  : "bg-emerald-500"
+              }
+              value={
+                state.credential === "unavailable"
+                  ? "No disponible"
+                  : "Disponible"
+              }
+            />
+          ) : null}
+          <StatusLine
+            label="Conexión"
+            dotClass={connection.dotClass}
+            value={connection.label}
+          />
+          <StatusLine
+            label="Monitoreo"
+            dotClass={statusDotClass(device.operationalStatus)}
+            value={monitoringLabel(device.operationalStatus)}
+          />
+        </div>
+        {device.lastPollAt ? (
+          <p className="text-xs text-muted-foreground">
+            Última observación: {formatNetworkTimestamp(device.lastPollAt)}
           </p>
         ) : null}
         {device.managed && state.decryptError ? (
-          <p className="text-destructive">
+          <p className="text-xs text-destructive">
             No se pudo descifrar la credencial del destino.
           </p>
         ) : null}
-        <p>
-          Conexión:{" "}
-          {state.connection === "verified"
-            ? "🟢 Verificada"
-            : state.connection === "error"
-              ? "🔴 Error de conexión"
-              : state.connection === "in_progress"
-                ? "🟡 En curso"
-                : "⚪ Sin verificar"}
-        </p>
-        {state.connection === "error" && state.diagnosticJob?.errorMessage ? (
-          <p className="text-destructive">{state.diagnosticJob.errorMessage}</p>
+      </DetailSection>
+
+      <DetailSection title="Administración">
+        {agentName ? (
+          <div className="flex items-center justify-between gap-3 text-sm">
+            <span className="text-muted-foreground">Agent</span>
+            <span className="text-right">{agentName}</span>
+          </div>
         ) : null}
-        <p>
-          Discovery:{" "}
-          {state.discovery === "completed"
-            ? "🟢 Completado"
-            : state.discovery === "failed"
-              ? "🔴 Fallido"
-              : state.discovery === "in_progress"
-                ? "🟡 En curso"
-                : "⚪ Pendiente"}
-        </p>
-        {state.discovery === "failed" && state.discoveryJob?.errorMessage ? (
-          <p className="text-destructive">{state.discoveryJob.errorMessage}</p>
-        ) : null}
-        <p>
-          Monitoreo:{" "}
-          {device.operationalStatus
-            ? `${
-                device.operationalStatus === "online"
-                  ? "🟢"
-                  : device.operationalStatus === "offline"
-                    ? "🔴"
-                    : device.operationalStatus === "degraded"
-                      ? "🟡"
-                      : "⚪"
-              } ${monitoringLabel(device.operationalStatus)}`
-            : "⚪ Sin monitoreo"}
-        </p>
-      </div>
-      {connectionInflight || discoveryInflight ? (
-        <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm">
-          <p className="font-medium">
-            {connectionInflight ? "Probando conexión..." : "Descubriendo..."}
+        {device.managed ? (
+          <StatusLine
+            label="Credencial"
+            dotClass={
+              state.credential === "unavailable" ? "bg-red-500" : "bg-emerald-500"
+            }
+            value={
+              state.credential === "unavailable" ? "No disponible" : "Disponible"
+            }
+          />
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Este equipo todavía no está administrado.
           </p>
-          <p className="text-muted-foreground">
+        )}
+        {state.canAdminister ? (
+          <button type="button" className={DETAIL_ACTION_CLASS} onClick={onAdminister}>
+            Administrar dispositivo
+          </button>
+        ) : null}
+        {state.canReplace ? (
+          <button type="button" className={DETAIL_ACTION_CLASS} onClick={onReplace}>
+            Reemplazar credenciales
+          </button>
+        ) : null}
+      </DetailSection>
+
+      <DetailSection title="Conexión">
+        <p className="flex items-center gap-2 text-sm font-medium">
+          <span
+            className={cn("inline-block size-1.5 rounded-full", connection.dotClass)}
+          />
+          {connection.summary}
+        </p>
+        {connectionInflight ? (
+          <p className="text-xs text-muted-foreground">
             Administrando
-            {(() => {
-              const inflightJob = connectionInflight
-                ? state.diagnosticJob
-                : state.discoveryJob
-              const label = inflightJob
-                ? NETWORK_JOB_STATUS_LABELS[
-                    inflightJob.status as keyof typeof NETWORK_JOB_STATUS_LABELS
-                  ]
-                : null
-              return label ? ` · ${label}` : ""
-            })()}
+            {diagnosticJobLabel ? ` · ${diagnosticJobLabel}` : ""}
           </p>
-        </div>
-      ) : null}
-      {actionError ? (
-        <p className="text-sm text-destructive">{actionError}</p>
-      ) : null}
-      {state.canAdminister ? (
-        <button
-          type="button"
-          className="rounded-md border bg-background px-3 py-2 text-sm font-medium hover:border-foreground/40"
-          onClick={onAdminister}
-        >
-          Administrar dispositivo
-        </button>
-      ) : null}
-      {device.managed ? (
-        <div className="flex flex-col gap-2">
-          {state.canTest ? (
-            <button
-              type="button"
-              className="rounded-md border bg-background px-3 py-2 text-sm font-medium hover:border-foreground/40 disabled:opacity-50"
-              disabled={busy != null || connectionInflight}
-              onClick={onTest}
-            >
-              {busy === "test" ? "Probando…" : "Probar conexión"}
-            </button>
+        ) : null}
+        {state.connection === "error" && state.diagnosticJob?.errorMessage ? (
+          <p className="text-xs text-destructive">
+            {state.diagnosticJob.errorMessage}
+          </p>
+        ) : null}
+        {actionError ? (
+          <p className="text-sm text-destructive">{actionError}</p>
+        ) : null}
+        {state.canTest ? (
+          <button
+            type="button"
+            className={DETAIL_ACTION_CLASS}
+            disabled={busy != null || connectionInflight}
+            onClick={onTest}
+          >
+            {busy === "test" ? "Probando…" : "Probar conexión"}
+          </button>
+        ) : null}
+      </DetailSection>
+
+      {showDiscoverySection ? (
+        <DetailSection title="Discovery">
+          {showDiscoveryFields ? (
+            <div className="space-y-1 text-xs text-muted-foreground">
+              <p>Interfaz observada: {device.observedInterfaceName || "—"}</p>
+              <p>Discovered-by: {device.discoveredBy || "—"}</p>
+              {device.origin ? <p>Origen: {device.origin}</p> : null}
+              <p>Último seen: {formatNetworkTimestamp(device.lastSeenAt)}</p>
+            </div>
+          ) : null}
+          {discoveryInflight ? (
+            <p className="text-xs text-muted-foreground">
+              Descubriendo...
+              {discoveryJobLabel ? ` · ${discoveryJobLabel}` : ""}
+            </p>
+          ) : null}
+          {state.discovery === "failed" && state.discoveryJob?.errorMessage ? (
+            <p className="text-xs text-destructive">
+              {state.discoveryJob.errorMessage}
+            </p>
           ) : null}
           {state.canDiscover ? (
             <button
               type="button"
-              className="rounded-md border bg-background px-3 py-2 text-sm font-medium hover:border-foreground/40 disabled:opacity-50"
+              className={DETAIL_SECONDARY_ACTION_CLASS}
               disabled={busy != null || discoveryInflight}
               onClick={onDiscover}
             >
               {busy === "discover" ? "Descubriendo…" : "Descubrir ahora"}
             </button>
           ) : null}
-          {state.canReplace ? (
-            <button
-              type="button"
-              className="rounded-md border bg-background px-3 py-2 text-sm font-medium hover:border-foreground/40"
-              onClick={onReplace}
-            >
-              Reemplazar credenciales
-            </button>
-          ) : null}
-        </div>
+        </DetailSection>
       ) : null}
-      <p>Interfaz observada: {device.observedInterfaceName || "—"}</p>
-      <p>Platform: {device.platform || "—"}</p>
-      <p>Board: {device.board || "—"}</p>
-      <p>Version: {device.version || "—"}</p>
-      <p>Discovered-by: {device.discoveredBy || "—"}</p>
-      <p>Origen: {device.origin || "—"}</p>
-      <p>
-        Último seen: {formatNetworkTimestamp(device.lastSeenAt)}
-      </p>
-      {device.operationalStatus ? (
-        <OperationalStatusBlock
-          node={{
-            kind: "managed",
-            operationalStatus: device.operationalStatus,
-            lastPollAt: device.lastPollAt,
-          }}
-        />
-      ) : (
-        <p className="text-muted-foreground">Sin monitoreo</p>
-      )}
     </div>
   )
 }
