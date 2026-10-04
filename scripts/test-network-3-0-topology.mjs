@@ -1675,34 +1675,22 @@ test("1.3 B/C: PowerBox managed sigue siendo hijo LAN/VLAN y no Root", () => {
   assert.deepEqual(
     selectTopologyRootIds(
       [MALAGUENO_CORE, POWERBOX],
-      [
-        {
-          deviceId: MALAGUENO_CORE,
-          completedAt: "2026-10-03T12:00:00.000Z",
-          lanVlanChildIds: ether3.devices.map((device) => device.id),
-        },
-      ]
+      [{ fromDeviceId: MALAGUENO_CORE, toDeviceId: POWERBOX }]
     ),
     [MALAGUENO_CORE]
   )
   const queries = read("lib/network/topology/queries.ts")
-  assert.match(queries, /selectTopologyRootIds/)
+  assert.match(queries, /selectTopologyRootIds\(managedIdList, directedLinks\)/)
   assert.match(queries, /rootIds.has/)
 })
 
-test("1.3 D: AS5/AS6/AS7 administrados tampoco se convierten en Roots", () => {
+test("1.3 D: AS5/AS6/AS7 administrados sin padre managed siguen siendo roots", () => {
   assert.deepEqual(
     selectTopologyRootIds(
       [MALAGUENO_CORE, POWERBOX, AS5, AS6, AS7],
-      [
-        {
-          deviceId: MALAGUENO_CORE,
-          completedAt: "2026-10-03T12:00:00.000Z",
-          lanVlanChildIds: [POWERBOX, AS5, AS6, AS7],
-        },
-      ]
+      [{ fromDeviceId: MALAGUENO_CORE, toDeviceId: POWERBOX }]
     ),
-    [MALAGUENO_CORE]
+    [MALAGUENO_CORE, AS5, AS6, AS7]
   )
 })
 
@@ -1931,20 +1919,7 @@ test("1.5: vecinos de infraestructura observados por un administrado aparecen co
   assert.deepEqual(
     selectTopologyRootIds(
       [MALAGUENO_CORE, managedPowerbox],
-      [
-        {
-          deviceId: MALAGUENO_CORE,
-          completedAt: "2026-10-03T12:00:00.000Z",
-          lanVlanChildIds: expandTopologyChildIdsWithManagedAliases(
-            [POWERBOX],
-            ["10.100.101.4"],
-            [
-              { id: MALAGUENO_CORE, managementIp: "177.53.120.11" },
-              { id: managedPowerbox, managementIp: "10.100.101.4" },
-            ]
-          ),
-        },
-      ]
+      [{ fromDeviceId: MALAGUENO_CORE, toDeviceId: managedPowerbox }]
     ),
     [MALAGUENO_CORE]
   )
@@ -1980,7 +1955,7 @@ test("1.5: vecinos de infraestructura observados por un administrado aparecen co
 
   const queries = read("lib/network/topology/queries.ts")
   assert.match(queries, /resolveLocalManagedDeviceId/)
-  assert.match(queries, /expandTopologyChildIdsWithManagedAliases/)
+  assert.match(queries, /selectTopologyRootIds\(managedIdList, directedLinks\)/)
   assert.match(queries, /requireOutgoingLink:\s*true/)
   assert.match(queries, /excludeDeviceIds/)
   assert.doesNotMatch(queries, /AS5|AS6|AS7/)
@@ -2200,20 +2175,7 @@ test("1.6: etherN,bridgeN proyecta infraestructura local y no cuela WAN ni el Co
   assert.deepEqual(
     selectTopologyRootIds(
       [MALAGUENO_CORE, parentId],
-      [
-        {
-          deviceId: MALAGUENO_CORE,
-          completedAt: "2026-10-03T12:00:00.000Z",
-          lanVlanChildIds: expandTopologyChildIdsWithManagedAliases(
-            [observedParentId],
-            ["10.100.101.4"],
-            [
-              { id: MALAGUENO_CORE, managementIp: "177.53.120.11" },
-              { id: parentId, managementIp: "10.100.101.4" },
-            ]
-          ),
-        },
-      ]
+      [{ fromDeviceId: MALAGUENO_CORE, toDeviceId: parentId }]
     ),
     [MALAGUENO_CORE]
   )
@@ -2559,19 +2521,8 @@ test("1.7: neighbor administrado aliasa al discovery canónico por IP+agent, no 
     selectTopologyRootIds(
       [MALAGUENO_CORE, canonicalId, observedId],
       [
-        {
-          deviceId: MALAGUENO_CORE,
-          completedAt: "2026-10-03T12:00:00.000Z",
-          lanVlanChildIds: expandTopologyChildIdsWithManagedAliases(
-            [observedId],
-            ["10.100.101.4"],
-            [
-              { id: MALAGUENO_CORE, managementIp: "177.53.120.11" },
-              { id: canonicalId, managementIp: "10.100.101.4" },
-              { id: observedId, managementIp: "10.100.101.4" },
-            ]
-          ),
-        },
+        { fromDeviceId: MALAGUENO_CORE, toDeviceId: canonicalId },
+        { fromDeviceId: MALAGUENO_CORE, toDeviceId: observedId },
       ]
     ),
     [MALAGUENO_CORE]
@@ -2809,20 +2760,7 @@ test("1.8: el Core seleccionado no reaparece como downstream por MAC de otra int
   assert.deepEqual(
     selectTopologyRootIds(
       [MALAGUENO_CORE, accessId],
-      [
-        {
-          deviceId: MALAGUENO_CORE,
-          completedAt: "2026-10-03T12:00:00.000Z",
-          lanVlanChildIds: expandTopologyChildIdsWithManagedAliases(
-            [accessId],
-            ["10.100.101.4"],
-            [
-              { id: MALAGUENO_CORE, managementIp: "177.53.120.11" },
-              { id: accessId, managementIp: "10.100.101.4" },
-            ]
-          ),
-        },
-      ]
+      [{ fromDeviceId: MALAGUENO_CORE, toDeviceId: accessId }]
     ),
     [MALAGUENO_CORE]
   )
@@ -3245,20 +3183,102 @@ test("1.4 J: Root/Managed de Topology 1.3 se conserva", () => {
   assert.deepEqual(
     selectTopologyRootIds(
       [MALAGUENO_CORE, POWERBOX],
-      [
-        {
-          deviceId: MALAGUENO_CORE,
-          completedAt: "2026-10-03T12:00:00.000Z",
-          lanVlanChildIds: [POWERBOX],
-        },
-      ]
+      [{ fromDeviceId: MALAGUENO_CORE, toDeviceId: POWERBOX }]
     ),
     [MALAGUENO_CORE]
   )
   const queries = read("lib/network/topology/queries.ts")
-  assert.match(queries, /selectTopologyRootIds/)
+  assert.match(queries, /selectTopologyRootIds\(managedIdList, directedLinks\)/)
   const screen = read("components/network/network-topology-screen.tsx")
   assert.match(screen, /selectedCoreId && cores.some/)
+})
+
+const PROD_CORE = "834ca12a-90f2-4b98-87cf-257fe9970c58"
+const PROD_POWERBOX = "e03ef5fe-97c9-489d-9806-1cf136a438db"
+const PROD_DUP = "c0ea013c-0276-4cd9-ac9a-976204629c38"
+
+test("root: managed sin padre aparece como Core", () => {
+  assert.deepEqual(selectTopologyRootIds([PROD_CORE], []), [PROD_CORE])
+})
+
+test("root: managed con padre managed no aparece como Core", () => {
+  assert.deepEqual(
+    selectTopologyRootIds(
+      [PROD_CORE, PROD_POWERBOX],
+      [{ fromDeviceId: PROD_CORE, toDeviceId: PROD_POWERBOX }]
+    ),
+    [PROD_CORE]
+  )
+})
+
+test("root: Core + PowerBox, selector solamente Core", () => {
+  const reverseAndForward = [
+    { fromDeviceId: PROD_CORE, toDeviceId: PROD_POWERBOX },
+    { fromDeviceId: PROD_POWERBOX, toDeviceId: PROD_CORE },
+  ]
+  assert.deepEqual(
+    selectTopologyRootIds([PROD_CORE, PROD_POWERBOX], reverseAndForward),
+    [PROD_CORE]
+  )
+})
+
+test("root: segundo destino managed con padre no se convierte en Core", () => {
+  const otherChild = "aaaaaaaa-0000-4000-8000-000000000010"
+  assert.deepEqual(
+    selectTopologyRootIds(
+      [PROD_CORE, PROD_POWERBOX, otherChild],
+      [
+        { fromDeviceId: PROD_CORE, toDeviceId: PROD_POWERBOX },
+        { fromDeviceId: PROD_CORE, toDeviceId: otherChild },
+      ]
+    ),
+    [PROD_CORE]
+  )
+})
+
+test("root: no usa hostname, origin ni device_type", () => {
+  const localView = read("lib/network/topology/local-view.ts")
+  const rootSrc = localView.slice(
+    localView.indexOf("export function selectTopologyRootIds"),
+    localView.indexOf("export function buildLocalCoreTopologyView")
+  )
+  assert.match(rootSrc, /listManagedParentIds/)
+  assert.doesNotMatch(rootSrc, /hostname/)
+  assert.doesNotMatch(rootSrc, /origin/)
+  assert.doesNotMatch(rootSrc, /deviceType|device_type/)
+  assert.doesNotMatch(rootSrc, /PowerBox|10\.100\.101\.4|177\.53/)
+  assert.doesNotMatch(localView, /lib\/network\/alarms/)
+  const parents = read("lib/network/topology/managed-parents.ts")
+  assert.match(parents, /export function listManagedParentIds/)
+  assert.match(parents, /countOutgoing/)
+  const queries = read("lib/network/topology/queries.ts")
+  assert.match(queries, /selectTopologyRootIds\(managedIdList, directedLinks\)/)
+  assert.doesNotMatch(queries, /from_interface_name/)
+  assert.doesNotMatch(queries, /lib\/network\/alarms/)
+})
+
+test("root: soft-delete del duplicado no rompe Core → PowerBox canónico", () => {
+  assert.deepEqual(
+    selectTopologyRootIds(
+      [PROD_CORE, PROD_POWERBOX],
+      [{ fromDeviceId: PROD_CORE, toDeviceId: PROD_POWERBOX }]
+    ),
+    [PROD_CORE]
+  )
+  assert.equal(
+    selectTopologyRootIds(
+      [PROD_CORE, PROD_POWERBOX, PROD_DUP],
+      [{ fromDeviceId: PROD_CORE, toDeviceId: PROD_POWERBOX }]
+    ).includes(PROD_POWERBOX),
+    false
+  )
+  assert.equal(
+    selectTopologyRootIds(
+      [PROD_CORE, PROD_POWERBOX],
+      [{ fromDeviceId: PROD_CORE, toDeviceId: PROD_DUP }]
+    ).includes(PROD_POWERBOX),
+    true
+  )
 })
 
 

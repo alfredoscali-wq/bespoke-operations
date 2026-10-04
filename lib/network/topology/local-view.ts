@@ -1,5 +1,9 @@
 import type { NetworkDeviceType } from "@/lib/network/constants"
 import {
+  listManagedParentIds,
+  type TopologyManagedDirectedLink,
+} from "@/lib/network/topology/managed-parents"
+import {
   formatObservedInterfaceLabel,
   type NetworkDiscoveryObservationItem,
 } from "@/lib/network/discovery/observations"
@@ -547,27 +551,19 @@ export function attachNestedLocalTopology(
   }
 }
 
-export type TopologyRootViewpoint = {
-  deviceId: string
-  completedAt: string
-  lanVlanChildIds: readonly string[]
-}
-
+/**
+ * Topology roots are managed devices with no managed parent.
+ * Parent = directed managed→managed observer/upstream (`from_device_id`).
+ * Reverse MNDP pairs are resolved by `listManagedParentIds`.
+ */
 export function selectTopologyRootIds(
   managedIds: readonly string[],
-  viewpoints: readonly TopologyRootViewpoint[]
+  links: readonly TopologyManagedDirectedLink[]
 ): string[] {
-  const children = new Set<string>()
-  const ordered = [...viewpoints].sort(
-    (left, right) => Date.parse(left.completedAt) - Date.parse(right.completedAt)
+  const managed = new Set(managedIds)
+  return managedIds.filter(
+    (id) => listManagedParentIds(id, managed, links).length === 0
   )
-  for (const viewpoint of ordered) {
-    if (children.has(viewpoint.deviceId)) continue
-    for (const childId of viewpoint.lanVlanChildIds) {
-      if (childId !== viewpoint.deviceId) children.add(childId)
-    }
-  }
-  return managedIds.filter((id) => !children.has(id))
 }
 
 export function buildLocalCoreTopologyView(input: {

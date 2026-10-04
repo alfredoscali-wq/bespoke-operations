@@ -14,18 +14,17 @@ import {
   uniqueTopologyInterfaces,
   type TopologyGraphDeviceInput,
 } from "@/lib/network/topology/graph"
-import { pickLatestCompletedDiscoveryJobForHost } from "@/lib/network/discovery/latest-run"
 import {
   attachNestedLocalTopology,
   buildLocalCoreTopologyView,
   collectLocalTopologyMacs,
   emptyLocalCoreTopologyView,
-  expandTopologyChildIdsWithManagedAliases,
   normalizeLocalTopologyMac,
   resolveLocalManagedDeviceId,
   selectTopologyRootIds,
   type LocalManagedIdentityRef,
 } from "@/lib/network/topology/local-view"
+import type { TopologyManagedDirectedLink } from "@/lib/network/topology/managed-parents"
 import { listNetworkDiscoveryTargets } from "@/lib/network/targets/queries"
 import type {
   LocalTopologyInterfaceGroup,
@@ -56,10 +55,13 @@ function asOperationalStatus(value: string | null | undefined): MonitoringOperat
   return null
 }
 
-export async function getNetworkTopologyGraph(
+async function loadNetworkTopologySource(
   client: Client,
   companyId: string
-): Promise<NetworkTopologyGraph> {
+): Promise<{
+  graph: NetworkTopologyGraph
+  directedLinks: TopologyManagedDirectedLink[]
+}> {
   const [devicesResult, targetsResult, linksResult, interfacesResult, statuses] =
     await Promise.all([
       client
@@ -163,7 +165,21 @@ export async function getNetworkTopologyGraph(
     ]
   })
 
-  return buildCanonicalTopologyGraph(devices, rawLinks)
+  return {
+    graph: buildCanonicalTopologyGraph(devices, rawLinks),
+    directedLinks: rawLinks.map((link) => ({
+      fromDeviceId: link.fromDeviceId,
+      toDeviceId: link.toDeviceId,
+    })),
+  }
+}
+
+export async function getNetworkTopologyGraph(
+  client: Client,
+  companyId: string
+): Promise<NetworkTopologyGraph> {
+  const source = await loadNetworkTopologySource(client, companyId)
+  return source.graph
 }
 
 export async function getNetworkTopologyPage(
@@ -171,7 +187,7 @@ export async function getNetworkTopologyPage(
   companyId: string,
   deviceId?: string | null
 ): Promise<NetworkTopologyPage> {
-  const graph = await getNetworkTopologyGraph(client, companyId)
+  const { graph, directedLinks } = await loadNetworkTopologySource(client, companyId)
   const [managementJobs, listedTargets] = await Promise.all([
     listNetworkManagementJobs(client, companyId),
     listNetworkDiscoveryTargets(client, companyId),
@@ -188,34 +204,8 @@ export async function getNetworkTopologyPage(
     jobs,
     managedHosts
   )
-  const viewpoints = managedNodes.flatMap((node) => {
-    const host = node.managementIp?.trim()
-    if (!host) return []
-    const latestForHost = byHost.get(host)
-    if (!latestForHost?.latestObservations.jobId) return []
-    const job = pickLatestCompletedDiscoveryJobForHost(jobs, host)
-    if (!job) return []
-    const lanVlanItems = latestForHost.latestObservations.items.filter(
-      (item) => item.scope === "lan" || item.scope === "vlan"
-    )
-    return [
-      {
-        deviceId: node.id,
-        completedAt: job.completedAt,
-        lanVlanChildIds: expandTopologyChildIdsWithManagedAliases(
-          lanVlanItems.map((item) => item.id),
-          lanVlanItems.map((item) => item.managementIp),
-          managedNodes
-        ),
-      },
-    ]
-  })
-  const rootIds = new Set(
-    selectTopologyRootIds(
-      managedNodes.map((node) => node.id),
-      viewpoints
-    )
-  )
+  const managedIdList = managedNodes.map((node) => node.id)
+  const rootIds = new Set(selectTopologyRootIds(managedIdList, directedLinks))
   const cores = managedNodes
     .filter((node) => rootIds.has(node.id))
     .map((node) => ({
