@@ -39,6 +39,22 @@ export function encodeSentence(words: string[]): Buffer {
   return Buffer.concat([...parts, encodeLength(0)])
 }
 
+const utf8StrictDecoder = new TextDecoder("utf-8", { fatal: true })
+const windows1252Decoder = new TextDecoder("windows-1252")
+
+/**
+ * RouterOS API words are raw bytes with no declared charset.
+ * Prefer valid UTF-8; otherwise decode Winbox/legacy Western bytes as Windows-1252.
+ * Never use UTF-8 replacement (U+FFFD).
+ */
+export function decodeRouterOsWord(bytes: Uint8Array): string {
+  try {
+    return utf8StrictDecoder.decode(bytes)
+  } catch {
+    return windows1252Decoder.decode(bytes)
+  }
+}
+
 export function decodeLength(buffer: Buffer, offset: number): {
   length: number
   size: number
@@ -138,7 +154,9 @@ export function decodeSentences(buffer: Buffer): {
       }
       continue
     }
-    words.push(buffer.subarray(offset, offset + decoded.length).toString("utf8"))
+    words.push(
+      decodeRouterOsWord(buffer.subarray(offset, offset + decoded.length))
+    )
     offset += decoded.length
   }
 

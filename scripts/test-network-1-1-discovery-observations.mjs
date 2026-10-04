@@ -480,8 +480,8 @@ test("GET /api/network/jobs y Discovery leen observaciones persistidas", () => {
   assert.match(jobsRoute, /observations: historicalObservations/)
   assert.match(ui, /Último discovery/)
   assert.match(ui, /observados en esta corrida/)
-  assert.match(ui, /Observaciones históricas/)
-  assert.match(ui, /en inventario/)
+  assert.match(ui, /Historial de observaciones/)
+  assert.match(ui, /observaciones acumuladas/)
   assert.match(ui, /Nombre \/ Identity/)
   assert.match(ui, /Interfaz donde fue observado/)
   assert.match(ui, /latestObservations\.items/)
@@ -489,6 +489,23 @@ test("GET /api/network/jobs y Discovery leen observaciones persistidas", () => {
   assert.doesNotMatch(ui, /Total observado/)
   assert.doesNotMatch(ui, /Aceptar|Rechazar|Agregar manualmente/)
   assert.doesNotMatch(ui, /\/api\/network\/devices/)
+})
+
+test("el historial de observaciones está colapsado por defecto", () => {
+  const ui = read("components/network/network-discovery-screen.tsx")
+  const historicalState = ui.slice(
+    ui.indexOf("const [historicalOpen"),
+    ui.indexOf("const jobsRequestInFlight")
+  )
+  assert.match(historicalState, /useState\(false\)/)
+  assert.match(ui, /Historial de observaciones/)
+  assert.match(ui, /observaciones acumuladas/)
+  assert.match(ui, /aria-expanded=\{historicalOpen\}/)
+  assert.match(ui, /setHistoricalOpen\(\(open\) => !open\)/)
+  assert.match(ui, /historicalOpen \?/)
+  assert.match(ui, /historicalObservations\.items/)
+  assert.match(ui, /Inventario acumulado/)
+  assert.doesNotMatch(ui, /Observaciones históricas/)
 })
 
 const malaguenoIfaces = [

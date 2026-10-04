@@ -38,7 +38,11 @@ import {
   decryptNetworkDeviceSecret,
   stripNetworkSecrets,
 } from "../lib/network/secrets.ts"
-import { encodeSentence, decodeSentences } from "../network-agent/src/connectors/mikrotik/protocol.ts"
+import {
+  decodeRouterOsWord,
+  decodeSentences,
+  encodeSentence,
+} from "../network-agent/src/connectors/mikrotik/protocol.ts"
 import { mapMikrotikFactsToSnapshot } from "../network-agent/src/connectors/mikrotik/map-discovery.ts"
 import { getNetworkConnector } from "../network-agent/src/connectors/registry.ts"
 import { ConnectorError } from "../network-agent/src/connectors/types.ts"
@@ -504,6 +508,103 @@ test("protocolo RouterOS encode/decode roundtrip", () => {
   assert.equal(decoded.sentences.length, 1)
   assert.equal(decoded.sentences[0].attributes.name, "admin")
   assert.equal(decoded.sentences[0].attributes.password, "secret")
+})
+
+function encodeRawRouterOsWord(bytes) {
+  const payload = Buffer.from(bytes)
+  if (payload.length >= 0x80) {
+    throw new Error("test word too long for one-byte length")
+  }
+  return Buffer.concat([Buffer.from([payload.length]), payload])
+}
+
+function decodeRouterOsAttributeSentence(attributeBytes) {
+  const encoded = Buffer.concat([
+    encodeRawRouterOsWord(Buffer.from("!re")),
+    encodeRawRouterOsWord(attributeBytes),
+    Buffer.from([0]),
+  ])
+  const decoded = decodeSentences(encoded)
+  assert.equal(decoded.sentences.length, 1)
+  return decoded.sentences[0]
+}
+
+test("RouterOS 0xF1 Winbox se decodifica como ñ, no U+FFFD", () => {
+  const payload = Buffer.from([
+    0x4d, 0x61, 0x6c, 0x61, 0x67, 0x75, 0x65, 0xf1, 0x6f,
+  ])
+  assert.equal(decodeRouterOsWord(payload), "Malagueño")
+  assert.equal(decodeRouterOsWord(payload).includes("\uFFFD"), false)
+
+  const sentence = decodeRouterOsAttributeSentence(
+    Buffer.concat([Buffer.from("=name="), payload])
+  )
+  assert.equal(sentence.attributes.name, "Malagueño")
+  assert.equal(sentence.attributes.name.includes("\uFFFD"), false)
+})
+
+test("RouterOS UTF-8 real c3 b1 se decodifica como ñ", () => {
+  const payload = Buffer.from([
+    0x4d, 0x61, 0x6c, 0x61, 0x67, 0x75, 0x65, 0xc3, 0xb1, 0x6f,
+  ])
+  assert.equal(decodeRouterOsWord(payload), "Malagueño")
+  assert.notEqual(decodeRouterOsWord(payload), "MalagueÃ±o")
+
+  const sentence = decodeRouterOsAttributeSentence(
+    Buffer.concat([Buffer.from("=identity="), payload])
+  )
+  assert.equal(sentence.attributes.identity, "Malagueño")
+})
+
+test("RouterOS Windows-1252 decodifica á é í ó ú ü ¿ ¡ €", () => {
+  const payload = Buffer.from([0xe1, 0xe9, 0xed, 0xf3, 0xfa, 0xfc, 0xbf, 0xa1, 0x80])
+  assert.equal(decodeRouterOsWord(payload), "áéíóúü¿¡€")
+  assert.equal(decodeRouterOsWord(payload).includes("\uFFFD"), false)
+})
+
+test("RouterOS ASCII existente no cambia", () => {
+  const encoded = encodeSentence(["/login", "=name=admin", "=password=secret"])
+  const decoded = decodeSentences(encoded)
+  assert.equal(decoded.sentences[0].type, "/login")
+  assert.equal(decoded.sentences[0].attributes.name, "admin")
+  assert.equal(decoded.sentences[0].attributes.password, "secret")
+  assert.equal(decodeRouterOsWord(Buffer.from("RB3011UiAS")), "RB3011UiAS")
+})
+
+test("UTF-8 no ASCII no se interpreta como Windows-1252", () => {
+  const cafeUtf8 = Buffer.from("café", "utf8")
+  assert.equal(decodeRouterOsWord(cafeUtf8), "café")
+  assert.notEqual(decodeRouterOsWord(cafeUtf8), "cafÃ©")
+
+  const euroUtf8 = Buffer.from("€", "utf8")
+  assert.equal(decodeRouterOsWord(euroUtf8), "€")
+  assert.notEqual(euroUtf8.equals(Buffer.from([0x80])), true)
+})
+
+test("UTF-8 inválido no usa reemplazo; cae a Windows-1252", () => {
+  const protocol = read("network-agent/src/connectors/mikrotik/protocol.ts")
+  assert.match(protocol, /fatal:\s*true/)
+  assert.match(protocol, /windows-1252/)
+  assert.doesNotMatch(protocol, /\.toString\(["']utf8["']\)/)
+  assert.doesNotMatch(protocol, /errors:\s*["']replace["']/)
+
+  const decoded = decodeRouterOsWord(Buffer.from([0xf1]))
+  assert.equal(decoded, "ñ")
+  assert.equal(decoded.includes("\uFFFD"), false)
+})
+
+test("identity y neighbor print usan el mismo decoder del codec", () => {
+  const protocol = read("network-agent/src/connectors/mikrotik/protocol.ts")
+  const apiClient = read("network-agent/src/connectors/mikrotik/api-client.ts")
+  const connector = read("network-agent/src/connectors/mikrotik/index.ts")
+
+  assert.match(protocol, /decodeRouterOsWord\(buffer\.subarray/)
+  assert.match(apiClient, /decodeSentences/)
+  assert.match(apiClient, /printRecords/)
+  assert.match(connector, /printRecords\(client, "\/system\/identity\/print"\)/)
+  assert.match(connector, /printRecords\(client, "\/ip\/neighbor\/print"\)/)
+  assert.doesNotMatch(connector, /toString\(["']utf8["']\)/)
+  assert.doesNotMatch(apiClient, /toString\(["']utf8["']\)/)
 })
 
 test("registry deja conectores futuros sin cambiar el runner", () => {

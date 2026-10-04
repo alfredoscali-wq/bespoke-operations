@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
+import { ChevronRight } from "lucide-react"
 
 import { NetworkSubnav } from "@/components/network/network-subnav"
 import { Button } from "@/components/ui/button"
@@ -81,6 +82,7 @@ export function NetworkDiscoveryScreen() {
   const [transport, setTransport] = useState<NetworkDiscoveryTransport>("api")
   const [agentId, setAgentId] = useState("")
   const [siteId, setSiteId] = useState("none")
+  const [historicalOpen, setHistoricalOpen] = useState(false)
 
   const jobsRequestInFlight = useRef(false)
   const observationStateRef = useRef({
@@ -382,22 +384,42 @@ export function NetworkDiscoveryScreen() {
       ) : null}
 
       {historicalObservations ? (
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <h2 className="text-lg font-medium">Observaciones históricas</h2>
-            <p className="text-sm text-muted-foreground">
-              Inventario acumulado. No se borra si un neighbor deja de
-              aparecer en el último discovery.
-            </p>
-          </div>
-          <p className="text-sm">
-            <span className="font-medium">{historicalObservations.total}</span>
-            {" "}en inventario
-          </p>
-          <ObservationTable
-            items={historicalObservations.items}
-            emptyLabel="Todavía no hay observaciones persistidas."
-          />
+        <div className="space-y-3 border-t pt-6">
+          <button
+            type="button"
+            className="flex w-full items-start justify-between gap-3 text-left"
+            onClick={() => setHistoricalOpen((open) => !open)}
+            aria-expanded={historicalOpen}
+          >
+            <div className="space-y-1">
+              <h2 className="text-lg font-medium">Historial de observaciones</h2>
+              <p className="text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">
+                  {historicalObservations.total}
+                </span>
+                {" "}observaciones acumuladas
+              </p>
+            </div>
+            <ChevronRight
+              className={cn(
+                "mt-1 size-4 shrink-0 text-muted-foreground transition-transform",
+                historicalOpen && "rotate-90"
+              )}
+              aria-hidden
+            />
+          </button>
+          {historicalOpen ? (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Inventario acumulado. No se borra si un neighbor deja de
+                aparecer en el último discovery.
+              </p>
+              <ObservationTable
+                items={historicalObservations.items}
+                emptyLabel="Todavía no hay observaciones persistidas."
+              />
+            </div>
+          ) : null}
         </div>
       ) : null}
 
