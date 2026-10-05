@@ -33,7 +33,7 @@ export type NotifyNetworkAlarmOpenedDeps = {
   resolveMessenger?: () => AlarmPushMessenger | null
 }
 
-function createFirebaseAlarmMessenger(): AlarmPushMessenger | null {
+export function createFirebasePushMessenger(): AlarmPushMessenger | null {
   const admin = getFirebaseAdminApp()
   if (admin.status !== "ready") {
     return null
@@ -111,7 +111,7 @@ export async function notifyNetworkAlarmOpened(
       return emptyResult("no_recipients")
     }
 
-    const resolveMessenger = deps.resolveMessenger ?? createFirebaseAlarmMessenger
+    const resolveMessenger = deps.resolveMessenger ?? createFirebasePushMessenger
     const messenger = resolveMessenger()
     if (!messenger) {
       const result: NetworkAlarmPushSendResult = {

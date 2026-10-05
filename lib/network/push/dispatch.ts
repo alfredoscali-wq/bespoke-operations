@@ -37,9 +37,17 @@ export function isUnequivocalInvalidFcmToken(errorCode: string | null | undefine
   return Boolean(errorCode && UNEQUIVOCAL_INVALID_FCM_TOKEN_CODES.has(errorCode))
 }
 
-export async function dispatchNetworkAlarmPush(
+export type NetworkPushDispatchContent = {
+  data: Record<string, string>
+  notification: {
+    title: string
+    body: string
+  }
+}
+
+export async function dispatchNetworkPush(
   recipients: readonly NetworkAlarmPushRecipient[],
-  payload: NetworkAlarmPushDataPayload,
+  content: NetworkPushDispatchContent,
   messenger: AlarmPushMessenger
 ): Promise<NetworkAlarmPushDispatchResult> {
   const recipientCount = recipients.length
@@ -49,18 +57,8 @@ export async function dispatchNetworkAlarmPush(
 
   const messages: AlarmPushDispatchMessage[] = recipients.map((recipient) => ({
     token: recipient.pushToken,
-    data: {
-      type: payload.type,
-      alarmId: payload.alarmId,
-      companyId: payload.companyId,
-      severity: payload.severity,
-      title: payload.title,
-      message: payload.message,
-    },
-    notification: {
-      title: payload.title,
-      body: payload.message,
-    },
+    data: content.data,
+    notification: content.notification,
   }))
 
   const batch = await messenger.sendEach(messages)
@@ -81,4 +79,29 @@ export async function dispatchNetworkAlarmPush(
   }
 
   return { recipientCount, sent, failed, invalidTokens }
+}
+
+export async function dispatchNetworkAlarmPush(
+  recipients: readonly NetworkAlarmPushRecipient[],
+  payload: NetworkAlarmPushDataPayload,
+  messenger: AlarmPushMessenger
+): Promise<NetworkAlarmPushDispatchResult> {
+  return dispatchNetworkPush(
+    recipients,
+    {
+      data: {
+        type: payload.type,
+        alarmId: payload.alarmId,
+        companyId: payload.companyId,
+        severity: payload.severity,
+        title: payload.title,
+        message: payload.message,
+      },
+      notification: {
+        title: payload.title,
+        body: payload.message,
+      },
+    },
+    messenger
+  )
 }
