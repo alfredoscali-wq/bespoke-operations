@@ -397,6 +397,56 @@ Allowed while `mustChangePassword` is true so the client can read the flag after
 
 ---
 
+### POST `/api/mobile/v1/push-tokens`
+
+Protected. Registers or updates the FCM token for the authenticated Mobile device.
+
+Identity comes only from the Bearer session:
+
+- `company_id` ← session company
+- `user_id` ← `employees.id` of the authenticated employee
+
+The client must not send `userId` or `companyId`. Extra identity fields are ignored.
+
+The device must already be provisioned and `ACTIVE` for that company.
+
+The response never includes `pushToken`.
+
+#### Request
+
+```json
+{
+  "deviceId": "mobile-device-uuid",
+  "pushToken": "<opaque-fcm-token>",
+  "platform": "android"
+}
+```
+
+#### Success — `200`
+
+```json
+{
+  "success": true,
+  "apiVersion": "v1",
+  "requestId": "550e8400-e29b-41d4-a716-446655440000",
+  "serverTime": "2026-10-04T22:15:30Z",
+  "data": {
+    "registered": true
+  }
+}
+```
+
+| Status | Code | Message |
+|--------|------|---------|
+| 400 | `INVALID_REQUEST` | JSON inválido, `deviceId`/`pushToken` ausente, o `platform` distinta de `android` |
+| 401 | `UNAUTHORIZED` | Bearer inválido o ausente |
+| 403 | `DEVICE_BLOCKED` | Dispositivo bloqueado |
+| 404 | `DEVICE_NOT_FOUND` | Dispositivo no provisionado para la empresa |
+| 405 | `INVALID_REQUEST` | Método no permitido |
+| 500 | `INTERNAL_ERROR` | Error interno |
+
+---
+
 ### POST `/api/mobile/v1/auth/change-password`
 
 Protected. Allowed even when `employees.must_change_password` is true. Changes the **authenticated** user's Auth password, then sets that employee's `must_change_password` to `false`.
