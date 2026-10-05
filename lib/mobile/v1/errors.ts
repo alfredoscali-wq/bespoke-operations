@@ -5,6 +5,7 @@ export type MobileApiErrorCode =
   | "SESSION_EXPIRED"
   | "PASSWORD_CHANGE_REQUIRED"
   | "USER_DISABLED"
+  | "FORBIDDEN"
   | "EMPLOYEE_NOT_FOUND"
   | "COMPANY_NOT_FOUND"
   | "INTERNAL_ERROR"
@@ -48,6 +49,7 @@ export const MOBILE_API_ERROR_MESSAGES = {
   INVALID_CREDENTIALS: "Credenciales inválidas",
   PASSWORD_CHANGE_REQUIRED: "Debe cambiar su contraseña antes de continuar.",
   USER_DISABLED: "Usuario deshabilitado",
+  FORBIDDEN: "No autorizado para este recurso.",
   EMPLOYEE_NOT_FOUND: "Empleado inexistente",
   COMPANY_NOT_FOUND: "Empresa no encontrada.",
   INTERNAL_ERROR: "Error interno",

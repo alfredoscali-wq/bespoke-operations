@@ -86,6 +86,7 @@
     "test:hotfix-mobile-legacy-field-agent-password-gate": "npx tsx --test scripts/test-hotfix-mobile-legacy-field-agent-password-gate.mjs",
     "test:companies-mobile-code": "npx tsx --test scripts/test-companies-mobile-code.mjs",
     "test:mobile-bootstrap": "npx tsx --test scripts/test-mobile-bootstrap.mjs",
+    "test:mobile-alarms-1-0": "npx tsx --test scripts/test-mobile-alarms-1-0.mjs",
     "test:company-mobile-settings": "npx tsx --test scripts/test-company-mobile-settings.mjs",
     "test:company-gps-settings": "npx tsx --test scripts/test-company-gps-settings.mjs",
     "test:gps-live-1-0": "npx tsx --test scripts/test-gps-live-1-0.mjs",
