@@ -11,6 +11,7 @@ import {
 } from "@/lib/network/alarms/contract"
 import type { NetworkAlarmAction } from "@/lib/network/alarms/evaluate"
 import { networkAlarmMttaMs, networkAlarmMttrMs } from "@/lib/network/alarms/metrics"
+import { notifyNetworkAlarmOpened } from "@/lib/network/push/send-alarm"
 import type { Database } from "@/lib/supabase/database.types"
 
 type Client = SupabaseClient<Database>
@@ -120,7 +121,11 @@ export async function listActiveNetworkAlarms(
 
 export async function applyNetworkAlarmActions(
   client: Client,
-  actions: readonly NetworkAlarmAction[]
+  actions: readonly NetworkAlarmAction[],
+  notifyOpened: (
+    nextClient: Client,
+    alarm: NetworkAlarmRecord
+  ) => Promise<unknown> = notifyNetworkAlarmOpened
 ): Promise<void> {
   for (const action of actions) {
     if (action.type === "open") {
@@ -144,6 +149,15 @@ export async function applyNetworkAlarmActions(
       })
       if (isUniqueViolation(error)) continue
       if (error) throw new Error(error.message)
+      try {
+        await notifyOpened(client, action.alarm)
+      } catch {
+        console.error("[network-push] Failed to notify opened alarm.", {
+          alarmId: action.alarm.id,
+          companyId: action.alarm.companyId,
+          severity: action.alarm.severity,
+        })
+      }
       continue
     }
 
