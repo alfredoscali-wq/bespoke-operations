@@ -14,6 +14,7 @@ import {
 } from "@/lib/network/constants"
 import type {
   NetworkDiscoveryTargetDraft,
+  NetworkDiscoveryTargetUpdate,
   NetworkHeartbeatReport,
   NetworkSiteDraft,
 } from "@/lib/network/types"
@@ -115,7 +116,7 @@ export function validateNetworkAgentDraft(input: {
   return { ok: true, name, siteId }
 }
 
-export function validateNetworkDiscoveryTargetDraft(input: {
+function parseNetworkDiscoveryTargetFields(input: {
   agentId?: unknown
   siteId?: unknown
   name?: unknown
@@ -124,13 +125,16 @@ export function validateNetworkDiscoveryTargetDraft(input: {
   port?: unknown
   protocol?: unknown
   username?: unknown
-  password?: unknown
-}): { ok: true; draft: NetworkDiscoveryTargetDraft } | { ok: false; message: string } {
+}):
+  | {
+      ok: true
+      fields: Omit<NetworkDiscoveryTargetDraft, "password">
+    }
+  | { ok: false; message: string } {
   const agentId = trimToNull(input.agentId)
   const name = trimToNull(input.name)
   const host = trimToNull(input.host)
   const username = trimToNull(input.username)
-  const password = typeof input.password === "string" ? input.password : ""
 
   if (!agentId) {
     return { ok: false, message: "El destino debe asociarse a un Network Agent." }
@@ -156,9 +160,6 @@ export function validateNetworkDiscoveryTargetDraft(input: {
   if (!username) {
     return { ok: false, message: "El usuario del equipo es obligatorio." }
   }
-  if (!password.trim()) {
-    return { ok: false, message: "La contraseña del equipo es obligatoria." }
-  }
 
   let port = defaultNetworkTargetPort(input.protocol)
   if (input.port != null && input.port !== "") {
@@ -171,7 +172,7 @@ export function validateNetworkDiscoveryTargetDraft(input: {
 
   return {
     ok: true,
-    draft: {
+    fields: {
       agentId,
       siteId: trimToNull(input.siteId),
       name,
@@ -180,8 +181,60 @@ export function validateNetworkDiscoveryTargetDraft(input: {
       port,
       protocol: input.protocol,
       username,
+    },
+  }
+}
+
+export function validateNetworkDiscoveryTargetDraft(input: {
+  agentId?: unknown
+  siteId?: unknown
+  name?: unknown
+  vendor?: unknown
+  host?: unknown
+  port?: unknown
+  protocol?: unknown
+  username?: unknown
+  password?: unknown
+}): { ok: true; draft: NetworkDiscoveryTargetDraft } | { ok: false; message: string } {
+  const parsed = parseNetworkDiscoveryTargetFields(input)
+  if (!parsed.ok) return parsed
+  const password = typeof input.password === "string" ? input.password : ""
+  if (!password.trim()) {
+    return { ok: false, message: "La contraseña del equipo es obligatoria." }
+  }
+  return {
+    ok: true,
+    draft: {
+      ...parsed.fields,
       password,
     },
+  }
+}
+
+export function validateNetworkDiscoveryTargetUpdate(input: {
+  agentId?: unknown
+  siteId?: unknown
+  name?: unknown
+  vendor?: unknown
+  host?: unknown
+  port?: unknown
+  protocol?: unknown
+  username?: unknown
+  password?: unknown
+}):
+  | { ok: true; draft: NetworkDiscoveryTargetUpdate }
+  | { ok: false; message: string } {
+  const parsed = parseNetworkDiscoveryTargetFields(input)
+  if (!parsed.ok) return parsed
+  const nextPassword =
+    typeof input.password === "string" && input.password.trim()
+      ? input.password
+      : undefined
+  return {
+    ok: true,
+    draft: nextPassword
+      ? { ...parsed.fields, password: nextPassword }
+      : parsed.fields,
   }
 }
 

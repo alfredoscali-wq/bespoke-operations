@@ -4,17 +4,20 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type { Database } from "@/lib/supabase/database.types"
 import { mapNetworkTargetRow } from "@/lib/network/mapper"
+import { listNetworkManagementJobs } from "@/lib/network/jobs/queries"
 import { encryptNetworkDeviceSecret } from "@/lib/network/secrets"
+import { attachNetworkDiscoveryTargetConnection } from "@/lib/network/targets/connection"
 import type {
   NetworkDiscoveryTarget,
   NetworkDiscoveryTargetDraft,
+  NetworkDiscoveryTargetUpdate,
 } from "@/lib/network/types"
 
 type Client = SupabaseClient<Database>
 type TargetRow = Database["public"]["Tables"]["network_discovery_targets"]["Row"]
 
 const TARGET_PUBLIC_COLUMNS =
-  "id, company_id, agent_id, site_id, name, vendor, host, port, protocol, created_at, updated_at, deleted_at, secret_ciphertext" as const
+  "id, company_id, agent_id, site_id, name, vendor, host, port, protocol, username, created_at, updated_at, deleted_at, secret_ciphertext" as const
 
 export async function listNetworkDiscoveryTargets(
   client: Client,
@@ -137,12 +140,10 @@ export async function updateNetworkDiscoveryTarget(
   client: Client,
   companyId: string,
   targetId: string,
-  draft: NetworkDiscoveryTargetDraft
+  draft: NetworkDiscoveryTargetUpdate
 ): Promise<NetworkDiscoveryTarget> {
-  const secret = encryptNetworkDeviceSecret(draft.password)
-  const { data, error } = await client
-    .from("network_discovery_targets")
-    .update({
+  const patch: Database["public"]["Tables"]["network_discovery_targets"]["Update"] =
+    {
       agent_id: draft.agentId,
       site_id: draft.siteId,
       name: draft.name,
@@ -151,10 +152,20 @@ export async function updateNetworkDiscoveryTarget(
       port: draft.port ?? (draft.protocol === "rest" ? 443 : 8728),
       protocol: draft.protocol,
       username: draft.username,
-      secret_ciphertext: secret.ciphertext,
-      secret_iv: secret.iv,
-      secret_tag: secret.tag,
-    })
+    }
+  const nextSecret =
+    typeof draft.password === "string" && draft.password.trim()
+      ? encryptNetworkDeviceSecret(draft.password)
+      : null
+  if (nextSecret) {
+    patch.secret_ciphertext = nextSecret.ciphertext
+    patch.secret_iv = nextSecret.iv
+    patch.secret_tag = nextSecret.tag
+  }
+
+  const { data, error } = await client
+    .from("network_discovery_targets")
+    .update(patch)
     .eq("company_id", companyId)
     .eq("id", targetId)
     .is("deleted_at", null)
@@ -166,6 +177,27 @@ export async function updateNetworkDiscoveryTarget(
   }
 
   return mapNetworkTargetRow(data)
+}
+
+export async function softDeleteNetworkDiscoveryTarget(
+  client: Client,
+  companyId: string,
+  targetId: string
+): Promise<boolean> {
+  const { data, error } = await client
+    .from("network_discovery_targets")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("company_id", companyId)
+    .eq("id", targetId)
+    .is("deleted_at", null)
+    .select("id")
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return Boolean(data)
 }
 
 export async function upsertNetworkDiscoveryTarget(
@@ -203,4 +235,14 @@ export async function getNetworkDiscoveryTargetSecretRow(
   }
 
   return data
+}
+
+export async function hydrateNetworkDiscoveryTargets(
+  client: Client,
+  companyId: string,
+  targets: NetworkDiscoveryTarget[]
+): Promise<NetworkDiscoveryTarget[]> {
+  if (targets.length === 0) return targets
+  const jobs = await listNetworkManagementJobs(client, companyId)
+  return attachNetworkDiscoveryTargetConnection(targets, jobs)
 }

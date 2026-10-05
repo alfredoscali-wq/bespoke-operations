@@ -132,6 +132,27 @@ export function networkDiscoveryTransportPayload(
     : { protocol: "api", port: 8728 }
 }
 
+export function networkDiscoveryTransportFromPayload(
+  protocol: NetworkTargetProtocol,
+  port: number
+): NetworkDiscoveryTransport {
+  const option = NETWORK_DISCOVERY_TRANSPORT_OPTIONS.find(
+    (item) => item.protocol === protocol && item.port === port
+  )
+  if (option) return option.value
+  return protocol === "rest" ? "rest" : "api"
+}
+
+export function networkDiscoveryTransportLabel(
+  protocol: NetworkTargetProtocol,
+  port: number
+): string {
+  const option = NETWORK_DISCOVERY_TRANSPORT_OPTIONS.find(
+    (item) => item.protocol === protocol && item.port === port
+  )
+  return option?.label ?? `${protocol.toUpperCase()} (${port})`
+}
+
 export function formatNetworkLastSeen(value: string | null | undefined): string {
   if (!value) return "Sin heartbeat"
   const date = new Date(value)

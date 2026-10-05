@@ -3,7 +3,9 @@ import { NextResponse } from "next/server"
 import { getNetworkAgent } from "@/lib/network/agents/queries"
 import { getNetworkSite } from "@/lib/network/sites/queries"
 import { validateNetworkDiscoveryTargetDraft } from "@/lib/network/integrity"
+import { stripNetworkSecrets } from "@/lib/network/secrets"
 import {
+  hydrateNetworkDiscoveryTargets,
   insertNetworkDiscoveryTarget,
   listNetworkDiscoveryTargets,
 } from "@/lib/network/targets/queries"
@@ -20,7 +22,15 @@ export async function GET() {
   try {
     const client = await createClient()
     const targets = await listNetworkDiscoveryTargets(client, auth.companyId)
-    return NextResponse.json({ success: true, targets })
+    const hydrated = await hydrateNetworkDiscoveryTargets(
+      client,
+      auth.companyId,
+      targets
+    )
+    return NextResponse.json({
+      success: true,
+      targets: stripNetworkSecrets(hydrated),
+    })
   } catch (error) {
     return NextResponse.json(
       {
@@ -84,7 +94,13 @@ export async function POST(request: Request) {
       auth.companyId,
       parsed.draft
     )
-    return NextResponse.json({ success: true, target }, { status: 201 })
+    const [hydrated] = await hydrateNetworkDiscoveryTargets(client, auth.companyId, [
+      target,
+    ])
+    return NextResponse.json(
+      { success: true, target: stripNetworkSecrets(hydrated ?? target) },
+      { status: 201 }
+    )
   } catch (error) {
     return NextResponse.json(
       {

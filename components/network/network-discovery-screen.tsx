@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { ChevronRight } from "lucide-react"
 
 import { NetworkSubnav } from "@/components/network/network-subnav"
+import { NetworkDiscoveryTargetsPanel } from "@/components/network/network-discovery-targets-panel"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -216,7 +217,11 @@ export function NetworkDiscoveryScreen() {
           siteId: siteId === "none" ? null : siteId,
         }),
       })
-      const body = (await response.json()) as { success: boolean; message?: string }
+      const body = (await response.json()) as {
+        success: boolean
+        message?: string
+        target?: NetworkDiscoveryTarget
+      }
       if (!body.success) throw new Error(body.message)
       setCreateOpen(false)
       setName("")
@@ -224,6 +229,9 @@ export function NetworkDiscoveryScreen() {
       setUsername("")
       setPassword("")
       setTransport("api")
+      if (body.target?.id) {
+        selectedTargetIdRef.current = body.target.id
+      }
       load()
     } catch (saveError: unknown) {
       setError(
@@ -307,6 +315,21 @@ export function NetworkDiscoveryScreen() {
       </div>
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
+
+      <NetworkDiscoveryTargetsPanel
+        targets={targets}
+        agents={agents}
+        sites={sites}
+        selectedTargetId={selectedTargetId}
+        busy={saving}
+        onSelectTarget={(targetId) => selectTarget(targetId)}
+        onTargetsChanged={(options) => {
+          if (options?.selectId) {
+            selectedTargetIdRef.current = options.selectId
+          }
+          load()
+        }}
+      />
 
       <div className="space-y-3">
         <div className="flex flex-wrap items-end justify-between gap-3">

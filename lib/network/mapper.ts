@@ -223,10 +223,17 @@ export function mapNetworkTargetRow(
     | "host"
     | "port"
     | "protocol"
+    | "username"
     | "created_at"
     | "updated_at"
   > & { secret_ciphertext?: string | null },
-  extras?: { agentName?: string | null; siteName?: string | null }
+  extras?: {
+    agentName?: string | null
+    siteName?: string | null
+    connectionStatus?: NetworkDiscoveryTarget["connectionStatus"]
+    connectionMessage?: string | null
+    lastDiscoveryAt?: string | null
+  }
 ): NetworkDiscoveryTarget {
   return {
     id: row.id,
@@ -240,8 +247,12 @@ export function mapNetworkTargetRow(
     host: row.host,
     port: row.port,
     protocol: isNetworkTargetProtocol(row.protocol) ? row.protocol : "api",
+    username: row.username,
     hasSecret: Boolean(row.secret_ciphertext),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    connectionStatus: extras?.connectionStatus ?? "unknown",
+    connectionMessage: extras?.connectionMessage ?? null,
+    lastDiscoveryAt: extras?.lastDiscoveryAt ?? null,
   }
 }

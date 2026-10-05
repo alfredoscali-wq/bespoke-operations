@@ -221,9 +221,13 @@ export type NetworkDiscoveryTarget = {
   host: string
   port: number
   protocol: NetworkTargetProtocol
+  username: string
   hasSecret: boolean
   createdAt: string
   updatedAt: string
+  connectionStatus: "unknown" | "pending" | "ok" | "auth_error" | "error"
+  connectionMessage: string | null
+  lastDiscoveryAt: string | null
 }
 
 export type NetworkDiscoveryTargetDraft = {
@@ -236,6 +240,13 @@ export type NetworkDiscoveryTargetDraft = {
   protocol: NetworkTargetProtocol
   username: string
   password: string
+}
+
+export type NetworkDiscoveryTargetUpdate = Omit<
+  NetworkDiscoveryTargetDraft,
+  "password"
+> & {
+  password?: string
 }
 
 export type NetworkDiscoveryJobView = NetworkAgentJob & {
