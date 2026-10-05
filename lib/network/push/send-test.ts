@@ -7,6 +7,7 @@ import {
   type AlarmPushMessenger,
   type NetworkAlarmPushDispatchResult,
 } from "@/lib/network/push/dispatch"
+import { getFirebaseAdminApp } from "@/lib/firebase/admin"
 import { fetchNetworkAlarmPushCandidates } from "@/lib/network/push/fetch-recipients"
 import {
   selectNetworkAlarmPushRecipients,
@@ -14,6 +15,16 @@ import {
 } from "@/lib/network/push/recipients"
 import { createFirebasePushMessenger } from "@/lib/network/push/send-alarm"
 import { isAdministradorSessionUser } from "@/lib/roles/web-module-access"
+
+export const SAFE_FIREBASE_ADMIN_REASONS = [
+  "missing",
+  "invalid_json",
+  "invalid_fields",
+  "project_mismatch",
+  "initialize_failed",
+] as const
+
+export type SafeFirebaseAdminReason = (typeof SAFE_FIREBASE_ADMIN_REASONS)[number]
 
 /** Temporary production FCM check. Not part of the alarm product flow. */
 export const NETWORK_PUSH_TEST_TYPE = "network_push_test"
@@ -33,6 +44,7 @@ export type NetworkPushTestSendResult = NetworkAlarmPushDispatchResult & {
     | "firebase_unconfigured"
     | "firebase_unavailable"
     | "error"
+  reason?: SafeFirebaseAdminReason
 }
 
 export type SendNetworkPushTestDeps = {
@@ -94,12 +106,32 @@ export function buildNetworkPushTestContent() {
   }
 }
 
+function safeFirebaseAdminReason(
+  value: string | undefined
+): SafeFirebaseAdminReason | undefined {
+  if (
+    value &&
+    (SAFE_FIREBASE_ADMIN_REASONS as readonly string[]).includes(value)
+  ) {
+    return value as SafeFirebaseAdminReason
+  }
+  return undefined
+}
+
+function firebaseAdminUnavailableReason(): SafeFirebaseAdminReason | undefined {
+  const admin = getFirebaseAdminApp()
+  if (admin.status !== "unavailable") return undefined
+  return safeFirebaseAdminReason(admin.reason)
+}
+
 export function toNetworkPushTestResponse(result: NetworkPushTestSendResult) {
   return {
     data: {
       sent: result.sent,
       failed: result.failed,
       recipientCount: result.recipientCount,
+      outcome: result.outcome,
+      ...(result.reason ? { reason: result.reason } : {}),
     },
   }
 }
@@ -139,9 +171,12 @@ export async function sendNetworkPushTest(
     const resolveMessenger = deps.resolveMessenger ?? createFirebasePushMessenger
     const messenger = resolveMessenger()
     if (!messenger) {
+      const reason = firebaseAdminUnavailableReason()
       console.error("[network-push-test] Firebase Admin is not configured.", {
         companyId: sessionCompanyId,
         recipients: recipients.length,
+        outcome: "firebase_unconfigured",
+        ...(reason ? { reason } : {}),
       })
       return {
         attempted: false,
@@ -150,6 +185,7 @@ export async function sendNetworkPushTest(
         sent: 0,
         failed: 0,
         invalidTokens: 0,
+        ...(reason ? { reason } : {}),
       }
     }
 

@@ -11,6 +11,7 @@ import { createEmptyModuleVisibility } from "../lib/roles/app-modules.ts"
 import {
   authorizeNetworkPushTest,
   buildNetworkPushTestContent,
+  SAFE_FIREBASE_ADMIN_REASONS,
   sendNetworkPushTest,
   toNetworkPushTestResponse,
 } from "../lib/network/push/send-test.ts"
@@ -242,5 +243,29 @@ test("respuesta segura no incluye tokens", async () => {
   assert.equal(body.data.sent, 1)
   assert.equal(body.data.failed, 0)
   assert.equal(body.data.recipientCount, 1)
+  assert.equal(body.data.outcome, "sent")
   assert.doesNotMatch(json, /tok-a-device-1|pushToken|push_token/)
+})
+
+test("respuesta incluye outcome y nunca secretos", async () => {
+  const result = await sendNetworkPushTest({}, COMPANY_A, {
+    loadCandidates: async () => [candidate()],
+    resolveMessenger: () => null,
+  })
+  const body = toNetworkPushTestResponse(result)
+  const json = JSON.stringify(body)
+  assert.equal(body.data.recipientCount, 1)
+  assert.equal(body.data.sent, 0)
+  assert.equal(body.data.failed, 0)
+  assert.equal(body.data.outcome, "firebase_unconfigured")
+  if (body.data.reason) {
+    assert.equal(SAFE_FIREBASE_ADMIN_REASONS.includes(body.data.reason), true)
+  }
+  assert.doesNotMatch(
+    json,
+    /private_key|client_email|BEGIN PRIVATE KEY|access_token|refresh_token|pushToken|FIREBASE_SERVICE_ACCOUNT_JSON/i
+  )
+  const service = read("lib/network/push/send-test.ts")
+  assert.match(service, /outcome: result\.outcome/)
+  assert.doesNotMatch(service, /private_key|client_email|pushToken/)
 })
