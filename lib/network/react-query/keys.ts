@@ -7,4 +7,5 @@ export const networkQueryKeys = {
   summary: () => ["network", "summary"] as const,
   topology: () => ["network", "topology"] as const,
   noc: () => ["network", "noc"] as const,
+  alarms: () => ["network", "alarms"] as const,
 }

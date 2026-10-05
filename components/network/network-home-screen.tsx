@@ -1,5 +1,6 @@
 "use client"
 
+import { useMemo } from "react"
 import Link from "next/link"
 
 import { NetworkSubnav } from "@/components/network/network-subnav"
@@ -10,12 +11,15 @@ import {
   CardTitle,
   CardContent,
 } from "@/components/ui/card"
+import { isActiveNetworkAlarmStatus } from "@/lib/network/alarms/contract"
 import { NETWORK_AGENT_STATUS_LABELS } from "@/lib/network/labels"
 import { NETWORK_AGENT_STATUSES } from "@/lib/network/constants"
+import { useNetworkAlarmsQuery } from "@/lib/network/react-query/use-network-alarms-query"
 import { useNetworkSummaryQuery } from "@/lib/network/react-query/use-network-summary-query"
 
 export function NetworkHomeScreen() {
   const { data, error } = useNetworkSummaryQuery()
+  const alarmsQuery = useNetworkAlarmsQuery()
   const summary = data?.summary ?? null
   const sites = data?.sites ?? []
   const loadError =
@@ -24,6 +28,16 @@ export function NetworkHomeScreen() {
       : error
         ? "No se pudo cargar Network."
         : null
+  const alarmCounts = useMemo(() => {
+    const active = (alarmsQuery.data ?? []).filter((alarm) =>
+      isActiveNetworkAlarmStatus(alarm.status)
+    )
+    return {
+      total: active.length,
+      critical: active.filter((alarm) => alarm.severity === "critical").length,
+      warning: active.filter((alarm) => alarm.severity === "warning").length,
+    }
+  }, [alarmsQuery.data])
 
   return (
     <div className="space-y-6">
@@ -39,7 +53,13 @@ export function NetworkHomeScreen() {
         <p className="text-sm text-destructive">{loadError}</p>
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <AlarmsSummaryCard
+          loaded={alarmsQuery.data != null}
+          total={alarmCounts.total}
+          critical={alarmCounts.critical}
+          warning={alarmCounts.warning}
+        />
         <SummaryCard title="Agents" value={summary?.agentCount ?? "—"} />
         <SummaryCard title="Devices" value={summary?.deviceCount ?? "—"} />
         <SummaryCard title="Sitios" value={summary?.siteCount ?? "—"} />
@@ -132,6 +152,35 @@ export function NetworkHomeScreen() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+function AlarmsSummaryCard({
+  loaded,
+  total,
+  critical,
+  warning,
+}: {
+  loaded: boolean
+  total: number
+  critical: number
+  warning: number
+}) {
+  return (
+    <Link
+      href="/network/alarms"
+      className="block rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <Card className="h-full transition-colors hover:bg-muted/40">
+        <CardHeader className="pb-2">
+          <CardDescription>Alarmas activas</CardDescription>
+          <CardTitle className="text-2xl">{loaded ? total : "—"}</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0 text-xs text-muted-foreground">
+          {loaded ? `${critical} críticas · ${warning} warnings` : "—"}
+        </CardContent>
+      </Card>
+    </Link>
   )
 }
 

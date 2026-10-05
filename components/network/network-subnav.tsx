@@ -9,6 +9,7 @@ const ITEMS = [
   { id: "devices", href: "/network/devices", label: "Devices" },
   { id: "topology", href: "/network/topology", label: "Topología" },
   { id: "noc", href: "/network/noc", label: "NOC" },
+  { id: "alarms", href: "/network/alarms", label: "Alarmas" },
   { id: "discovery", href: "/network/discovery", label: "Discovery" },
 ] as const
 
