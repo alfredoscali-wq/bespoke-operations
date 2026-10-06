@@ -72,6 +72,10 @@ import {
   workOrderVisualTone,
 } from "@/lib/isp/detail-presentation"
 import { ISP_CONNECTION_TYPE_LABELS } from "@/lib/isp/labels"
+import {
+  formatIspCustomerCodeValue,
+  formatIspCustomerReference,
+} from "@/lib/isp/subscriber-list-presentation"
 import { ISP_ACTIVITY_SUMMARY_LIMIT } from "@/lib/isp/subscriber-service-integrity"
 import type { IspCustomerDetail, IspServiceWithConnection } from "@/lib/isp/types"
 
@@ -159,9 +163,7 @@ export function IspCustomerDetailScreen({ customerId }: { customerId: string }) 
   const currentServices = liveServices(services)
   const documentLine = [
     formatIspDocumentLine(customer.dni),
-    customer.externalCustomerCode
-      ? `Abonado #${customer.externalCustomerCode}`
-      : null,
+    formatIspCustomerReference(customer.externalCustomerCode),
   ]
     .filter(Boolean)
     .join(" · ")
@@ -667,15 +669,13 @@ function CustomerIdentity({
         toneClassName="bg-muted text-muted-foreground"
       />
     ) : null,
-    customer.externalCustomerCode ? (
-      <IspInfoRow
-        key="code"
-        icon={Hash}
-        label="Número de cliente"
-        value={customer.externalCustomerCode}
-        toneClassName="bg-muted text-muted-foreground"
-      />
-    ) : null,
+    <IspInfoRow
+      key="code"
+      icon={Hash}
+      label={customer.externalCustomerCode?.trim() ? "Número de cliente" : "Origen"}
+      value={formatIspCustomerCodeValue(customer.externalCustomerCode)}
+      toneClassName="bg-muted text-muted-foreground"
+    />,
   ].filter(Boolean)
 
   if (contact.length === 0 && address.length === 0 && identity.length === 0) {

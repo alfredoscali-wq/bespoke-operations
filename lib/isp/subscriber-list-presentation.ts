@@ -36,11 +36,26 @@ export function formatIspConnectionCountLabel(count: number): string {
   return `${count} ${count === 1 ? "conexión" : "conexiones"}`
 }
 
+export const ISP_BESPOKE_ALTA_PENDING_ABNET_LABEL =
+  "Alta Bespoke pendiente de ABNet"
+
 export function formatIspAbonadoCode(
   code: string | null | undefined
 ): string | null {
   const value = code?.trim()
   return value ? `Abonado #${value}` : null
+}
+
+export function formatIspCustomerCodeValue(
+  code: string | null | undefined
+): string {
+  return code?.trim() || ISP_BESPOKE_ALTA_PENDING_ABNET_LABEL
+}
+
+export function formatIspCustomerReference(
+  code: string | null | undefined
+): string {
+  return formatIspAbonadoCode(code) ?? ISP_BESPOKE_ALTA_PENDING_ABNET_LABEL
 }
 
 export function toggleVisibleSubscriberSelection(

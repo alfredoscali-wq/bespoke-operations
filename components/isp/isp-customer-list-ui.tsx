@@ -60,7 +60,7 @@ import {
   ispSubscriberRemovalLead,
 } from "@/lib/isp/subscriber-removal"
 import {
-  formatIspAbonadoCode,
+  formatIspCustomerReference,
   formatIspConnectionCountLabel,
   formatIspServiceCountLabel,
   ispSubscriberListStatusView,
@@ -341,7 +341,6 @@ export function CustomerTableSkeleton() {
 }
 
 function CustomerIdentity({ item }: { item: IspCustomerListItem }) {
-  const code = formatIspAbonadoCode(item.externalCustomerCode)
   return (
     <div className="min-w-0">
       <Link
@@ -350,9 +349,9 @@ function CustomerIdentity({ item }: { item: IspCustomerListItem }) {
       >
         {item.name}
       </Link>
-      {code ? (
-        <p className="text-xs text-muted-foreground">{code}</p>
-      ) : null}
+      <p className="text-xs text-muted-foreground">
+        {formatIspCustomerReference(item.externalCustomerCode)}
+      </p>
     </div>
   )
 }

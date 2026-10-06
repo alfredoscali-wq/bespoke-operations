@@ -133,6 +133,34 @@ function chunkIds(ids: string[], size = ISP_CUSTOMER_ID_CHUNK): string[][] {
   return chunks
 }
 
+async function listActiveSubscriberCustomerIds(
+  client: IspQueriesClient,
+  companyId: string
+): Promise<string[]> {
+  const ids: string[] = []
+  const pageSize = 1000
+
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await client
+      .from("isp_subscribers")
+      .select("customer_id")
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .order("customer_id", { ascending: true })
+      .range(from, from + pageSize - 1)
+
+    if (error) throw new Error(error.message)
+
+    const rows = data ?? []
+    for (const row of rows) {
+      if (row.customer_id) ids.push(row.customer_id)
+    }
+    if (rows.length < pageSize) break
+  }
+
+  return [...new Set(ids)]
+}
+
 export async function listIspCustomers(
   client: IspQueriesClient,
   companyId: string,
@@ -144,17 +172,7 @@ export async function listIspCustomers(
     minConnections?: number
   }
 ): Promise<{ customers: IspCustomerListItem[]; localities: string[] }> {
-  const { data: members, error: memberError } = await client
-    .from("isp_subscribers")
-    .select("customer_id")
-    .eq("company_id", companyId)
-    .is("deleted_at", null)
-
-  if (memberError) throw new Error(memberError.message)
-
-  const memberIds = [
-    ...new Set((members ?? []).map((row) => row.customer_id).filter(Boolean)),
-  ]
+  const memberIds = await listActiveSubscriberCustomerIds(client, companyId)
   if (memberIds.length === 0) {
     return { customers: [], localities: [] }
   }
