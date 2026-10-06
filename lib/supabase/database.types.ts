@@ -4274,6 +4274,51 @@ export type Database = {
           },
         ]
       }
+      network_alarm_events: {
+        Row: {
+          alarm_id: string
+          company_id: string
+          created_at: string
+          event_type: string
+          id: string
+          note: string | null
+          user_id: string | null
+        }
+        Insert: {
+          alarm_id: string
+          company_id: string
+          created_at?: string
+          event_type: string
+          id?: string
+          note?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          alarm_id?: string
+          company_id?: string
+          created_at?: string
+          event_type?: string
+          id?: string
+          note?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "network_alarm_events_alarm_id_fkey"
+            columns: ["alarm_id"]
+            isOneToOne: false
+            referencedRelation: "network_alarms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "network_alarm_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       network_devices: {
         Row: {
           agent_id: string | null
