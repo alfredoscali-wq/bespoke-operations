@@ -1,4 +1,7 @@
-import type { ContractedPlan } from "@/lib/tasks/commercial-plan"
+import {
+  isInternetTvBasicaPlanCode,
+  type ContractedPlan,
+} from "@/lib/tasks/commercial-plan"
 import type { WorkOrderFormInput, WorkOrderTechnology } from "@/lib/tasks/work-order"
 import type { OperationalStep, Task } from "@/lib/types/tasks"
 
@@ -93,13 +96,16 @@ export function resolveFtthInstallationFromTask(task: Task): FtthInstallationVal
     return steps.find((step) => step.stepKey === stepKey)?.observation.trim() ?? ""
   }
 
+  const contractedPlan = task.contractedPlan?.trim() ?? ""
+
   return {
     contractedPlan:
-      task.contractedPlan === "50Mb" ||
-      task.contractedPlan === "100Mb" ||
-      task.contractedPlan === "300Mb" ||
-      task.contractedPlan === "20Mb"
-        ? task.contractedPlan
+      contractedPlan === "50Mb" ||
+      contractedPlan === "100Mb" ||
+      contractedPlan === "300Mb" ||
+      contractedPlan === "20Mb" ||
+      isInternetTvBasicaPlanCode(contractedPlan)
+        ? (contractedPlan as ContractedPlan)
         : "",
     napBox: readString(metadata.napBox) || observationForStepKey("nap_box"),
     napPort: readString(metadata.napPort) || observationForStepKey("nap_port"),

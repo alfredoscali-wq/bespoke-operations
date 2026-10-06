@@ -33,6 +33,35 @@ export const CONTRACTED_PLAN_LABELS: Record<ContractedPlan, string> = {
   "20Mb": "20 Mb",
 }
 
+/** Catalog codes stored on new installation OTs. Not the historical 20Mb/50Mb/100Mb/300Mb codes. */
+export const INTERNET_TV_BASICA_PLAN_CODES = [
+  "WIRELESS-20-TV-BASICO",
+  "FTTH-50-TV-BASICO",
+  "FTTH-100-TV-BASICO",
+  "FTTH-300-TV-BASICO",
+] as const
+
+export type InternetTvBasicaPlanCode =
+  (typeof INTERNET_TV_BASICA_PLAN_CODES)[number]
+
+export const INTERNET_TV_BASICA_PLAN_LABELS: Record<
+  InternetTvBasicaPlanCode,
+  string
+> = {
+  "WIRELESS-20-TV-BASICO": "20 Megas + TV Básica",
+  "FTTH-50-TV-BASICO": "50 Megas + TV Básica",
+  "FTTH-100-TV-BASICO": "100 Megas + TV Básica",
+  "FTTH-300-TV-BASICO": "300 Megas + TV Básica",
+}
+
+export function isInternetTvBasicaPlanCode(
+  value: string | null | undefined
+): value is InternetTvBasicaPlanCode {
+  return (INTERNET_TV_BASICA_PLAN_CODES as readonly string[]).includes(
+    value?.trim() ?? ""
+  )
+}
+
 export function isNewInstallationTask(
   task: Pick<Task, "serviceType">
 ): boolean {
@@ -54,9 +83,13 @@ export function formatContractedPlanLabel(
   plan: string | null | undefined
 ): string | null {
   if (!plan?.trim()) return null
+  const code = plan.trim()
+  if (isInternetTvBasicaPlanCode(code)) {
+    return INTERNET_TV_BASICA_PLAN_LABELS[code]
+  }
   return (
-    CONTRACTED_PLAN_LABELS[plan as ContractedPlan] ??
-    plan.replace(/Mb$/i, " Mb")
+    CONTRACTED_PLAN_LABELS[code as ContractedPlan] ??
+    code.replace(/Mb$/i, " Mb")
   )
 }
 
