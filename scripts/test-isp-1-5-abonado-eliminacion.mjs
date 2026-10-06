@@ -130,7 +130,7 @@ test("7. El abonado eliminado no aparece en Clientes 360°", () => {
     }),
     false
   )
-  assert.match(listFn, /from\("isp_subscribers"\)/)
+  assert.match(listFn, /getClients360CommercialUniverse/)
   assert.match(listFn, /\.is\("deleted_at", null\)/)
   assert.match(detailFn, /from\("isp_subscribers"\)/)
   assert.match(detailFn, /\.is\("deleted_at", null\)/)

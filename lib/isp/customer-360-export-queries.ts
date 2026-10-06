@@ -1,4 +1,6 @@
+import { getClients360CommercialUniverse } from "@/lib/isp/clients-360-universe"
 import type { IspQueriesClient } from "@/lib/isp/queries"
+import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
 import { resolveEffectiveCommercialStatus } from "@/lib/isp/subscriber-service-integrity"
 import {
   buildIspCustomer360ExportRows,
@@ -38,24 +40,28 @@ export async function listActiveIspCustomersForExcelExport(
   client: IspQueriesClient,
   companyId: string
 ): Promise<IspCustomer360ExportRow[]> {
-  const members = await fetchAllRows(async (from, to) => {
-    const { data, error } = await client
-      .from("isp_subscribers")
-      .select("customer_id, deleted_at")
-      .eq("company_id", companyId)
-      .is("deleted_at", null)
-      .order("id", { ascending: true })
-      .range(from, to)
-    if (error) throw new Error(error.message)
-    return data ?? []
-  })
-
   const subscriberDeletedAtByCustomerId = new Map<string, string | null>()
-  const memberIds: string[] = []
-  for (const row of members) {
-    if (!row.customer_id) continue
-    memberIds.push(row.customer_id)
-    subscriberDeletedAtByCustomerId.set(row.customer_id, row.deleted_at)
+  let memberIds: string[]
+  if (companyId === BESPOKE_PRODUCTION_COMPANY_ID) {
+    memberIds = [...getClients360CommercialUniverse()]
+  } else {
+    const members = await fetchAllRows(async (from, to) => {
+      const { data, error } = await client
+        .from("isp_subscribers")
+        .select("customer_id, deleted_at")
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .order("id", { ascending: true })
+        .range(from, to)
+      if (error) throw new Error(error.message)
+      return data ?? []
+    })
+    memberIds = []
+    for (const row of members) {
+      if (!row.customer_id) continue
+      memberIds.push(row.customer_id)
+      subscriberDeletedAtByCustomerId.set(row.customer_id, row.deleted_at)
+    }
   }
 
   const customers: IspCustomer360ExportCustomer[] = []

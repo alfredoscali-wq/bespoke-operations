@@ -2,6 +2,11 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 
 import { escapeCustomerSearchPattern } from "@/lib/customers/customer-list"
 import {
+  getClients360CommercialUniverse,
+  isCustomerInClients360Universe,
+} from "@/lib/isp/clients-360-universe"
+import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
+import {
   findCatalogItemForWorkOrder,
   isIspCatalogCategory,
 } from "@/lib/isp/catalog-integrity"
@@ -172,7 +177,10 @@ export async function listIspCustomers(
     minConnections?: number
   }
 ): Promise<{ customers: IspCustomerListItem[]; localities: string[] }> {
-  const memberIds = await listActiveSubscriberCustomerIds(client, companyId)
+  const memberIds =
+    companyId === BESPOKE_PRODUCTION_COMPANY_ID
+      ? [...getClients360CommercialUniverse()]
+      : await listActiveSubscriberCustomerIds(client, companyId)
   if (memberIds.length === 0) {
     return { customers: [], localities: [] }
   }
@@ -343,7 +351,10 @@ export async function getIspCustomerDetail(
     .maybeSingle()
 
   if (memberError) throw new Error(memberError.message)
-  if (!member) return null
+  const inCommercialUniverse =
+    companyId === BESPOKE_PRODUCTION_COMPANY_ID &&
+    isCustomerInClients360Universe(customerId)
+  if (!member && !inCommercialUniverse) return null
 
   const customerResult = await getCustomerById(client, customerId)
   if (customerResult.error || !customerResult.data) return null
