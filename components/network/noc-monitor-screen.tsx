@@ -1,11 +1,21 @@
 "use client"
 
+import { useEffect, useMemo, useRef, useState } from "react"
+import Link from "next/link"
+
 import { NetworkSubnav } from "@/components/network/network-subnav"
 import { NocTopologyTree } from "@/components/network/noc-topology-tree"
 import { formatNetworkTimestamp } from "@/lib/network/labels"
+import {
+  buildNocAlarmOverlayByDeviceId,
+  collectNocForestDeviceIds,
+  countNocAlarmKpis,
+  nocActiveAlarmsForDevice,
+} from "@/lib/network/noc/alarm-visual"
+import type { NocTopologyForest, NocTopologyNode } from "@/lib/network/noc/types"
 import { NETWORK_UI_REFETCH_INTERVAL_MS } from "@/lib/network/react-query/defaults"
+import { useNetworkAlarmsQuery } from "@/lib/network/react-query/use-network-alarms-query"
 import { useNetworkNocQuery } from "@/lib/network/react-query/use-network-noc-query"
-import type { NocAlarmView } from "@/lib/network/noc/types"
 import { cn } from "@/lib/utils"
 
 function SummaryStat({
@@ -15,20 +25,29 @@ function SummaryStat({
 }: {
   label: string
   value: number | string
-  tone?: "online" | "attention" | "offline" | "alarm"
+  tone?: "online" | "attention" | "offline" | "critical" | "warning"
 }) {
+  const active =
+    (tone === "critical" || tone === "warning") && Number(value) > 0
   return (
-    <div className="rounded-lg border bg-card px-4 py-3">
+    <div
+      className={cn(
+        "rounded-lg border bg-card px-3 py-2",
+        active && tone === "critical" && "border-red-600/70 bg-red-600/10",
+        active && tone === "warning" && "border-amber-500/70 bg-amber-400/10"
+      )}
+    >
       <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </p>
       <p
         className={cn(
-          "mt-1 text-2xl font-semibold tabular-nums",
+          "mt-1 text-xl font-semibold tabular-nums",
           tone === "online" && "text-emerald-600",
           tone === "attention" && "text-amber-600",
           tone === "offline" && "text-red-600",
-          tone === "alarm" && "text-red-600"
+          tone === "critical" && Number(value) > 0 && "text-red-700",
+          tone === "warning" && Number(value) > 0 && "text-amber-700"
         )}
       >
         {value}
@@ -37,37 +56,129 @@ function SummaryStat({
   )
 }
 
-function AlarmList({ alarms }: { alarms: readonly NocAlarmView[] }) {
-  if (alarms.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground">No hay alarmas activas.</p>
-    )
+function walkNodes(nodes: readonly NocTopologyNode[], visit: (node: NocTopologyNode) => void) {
+  for (const node of nodes) {
+    visit(node)
+    walkNodes(node.children, visit)
   }
-  return (
-    <ul className="max-h-40 space-y-2 overflow-y-auto text-sm">
-      {alarms.map((alarm) => (
-        <li key={alarm.id} className="rounded-md border px-3 py-2">
-          <p className="font-medium">{alarm.title}</p>
-          <p className="text-xs text-muted-foreground">{alarm.message}</p>
-        </li>
-      ))}
-    </ul>
-  )
+}
+
+function findNocNode(
+  forest: NocTopologyForest,
+  deviceId: string
+): NocTopologyNode | null {
+  let found: NocTopologyNode | null = null
+  walkNodes(forest.roots, (node) => {
+    if (node.deviceId === deviceId) found = node
+  })
+  return found
+}
+
+function healthLabel(health: NocTopologyNode["health"]): string {
+  if (health === "online") return "Online"
+  if (health === "attention") return "Atención"
+  if (health === "offline") return "Offline"
+  return "Sin estado"
 }
 
 export function NetworkNocMonitorScreen() {
-  const { data, error, isFetching, dataUpdatedAt } = useNetworkNocQuery()
+  const nocQuery = useNetworkNocQuery()
+  const alarmsQuery = useNetworkAlarmsQuery()
+  const knownIds = useRef<Set<string> | null>(null)
+  const [newCriticalIds, setNewCriticalIds] = useState<Set<string>>(() => new Set())
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null)
+
+  const { data, error, isFetching, dataUpdatedAt } = nocQuery
   const loadError =
     error instanceof Error
       ? error.message
       : error
         ? "No se pudo cargar el monitor NOC."
         : null
+  const lastUpdatedMs = Math.max(dataUpdatedAt || 0, alarmsQuery.dataUpdatedAt || 0)
+  const lastUpdated =
+    data?.lastUpdatedAt ?? (lastUpdatedMs ? new Date(lastUpdatedMs).toISOString() : null)
+  const liveFetching = isFetching || alarmsQuery.isFetching
+
+  const topology: NocTopologyForest = data?.topology ?? { roots: [] }
   const summary = data?.summary
-  const lastUpdated = data?.lastUpdatedAt ?? (dataUpdatedAt ? new Date(dataUpdatedAt).toISOString() : null)
+  const forestDeviceIds = useMemo(
+    () => collectNocForestDeviceIds(topology),
+    [topology]
+  )
+  const alarmKpis = useMemo(
+    () => countNocAlarmKpis(alarmsQuery.data ?? []),
+    [alarmsQuery.data]
+  )
+
+  useEffect(() => {
+    const alarms = alarmsQuery.data ?? []
+    if (!alarmsQuery.data) return
+    if (knownIds.current == null) {
+      knownIds.current = new Set(alarms.map((alarm) => alarm.id))
+      return
+    }
+    const incoming = new Set<string>()
+    for (const alarm of alarms) {
+      if (
+        !knownIds.current.has(alarm.id) &&
+        alarm.severity === "critical" &&
+        alarm.status === "open"
+      ) {
+        incoming.add(alarm.id)
+      }
+      knownIds.current.add(alarm.id)
+    }
+    if (incoming.size === 0) return
+    setNewCriticalIds((current) => {
+      const next = new Set(current)
+      for (const id of incoming) next.add(id)
+      return next
+    })
+  }, [alarmsQuery.data])
+
+  const alarmByDeviceId = useMemo(
+    () =>
+      buildNocAlarmOverlayByDeviceId(
+        topology,
+        alarmsQuery.data ?? [],
+        newCriticalIds
+      ),
+    [topology, alarmsQuery.data, newCriticalIds]
+  )
+
+  const selectedNode = selectedDeviceId
+    ? findNocNode(topology, selectedDeviceId)
+    : null
+  const selectedAlarms = selectedDeviceId
+    ? nocActiveAlarmsForDevice(alarmsQuery.data ?? [], selectedDeviceId)
+    : []
+
+  useEffect(() => {
+    if (!selectedDeviceId) return
+    if (!forestDeviceIds.has(selectedDeviceId)) {
+      setSelectedDeviceId(null)
+    }
+  }, [forestDeviceIds, selectedDeviceId])
 
   return (
-    <div className="flex min-h-[calc(100vh-6rem)] flex-col gap-4 overflow-x-hidden">
+    <div className="flex min-h-[calc(100vh-6rem)] flex-col gap-3 overflow-x-hidden">
+      <style>{`
+        @keyframes noc-alarm-pulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgb(220 38 38 / 0.55); }
+          50% { box-shadow: 0 0 0 10px rgb(220 38 38 / 0); }
+        }
+        @keyframes noc-nueva-fade {
+          0%, 65% { opacity: 1; }
+          100% { opacity: 0; }
+        }
+        .noc-alarm-pulse {
+          animation: noc-alarm-pulse 0.85s ease-out 2;
+        }
+        .noc-nueva-badge {
+          animation: noc-nueva-fade 4s ease-out forwards;
+        }
+      `}</style>
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
@@ -83,10 +194,10 @@ export function NetworkNocMonitorScreen() {
             <span
               className={cn(
                 "inline-block size-2 rounded-full",
-                isFetching ? "bg-amber-500" : "bg-emerald-500"
+                liveFetching ? "bg-amber-500" : "bg-emerald-500"
               )}
             />
-            {isFetching ? "Actualizando…" : "En vivo"}
+            {liveFetching ? "Actualizando…" : "En vivo"}
           </p>
           <p className="text-xs text-muted-foreground">
             Última actualización: {formatNetworkTimestamp(lastUpdated)}
@@ -101,7 +212,7 @@ export function NetworkNocMonitorScreen() {
         <p className="text-sm text-destructive">{loadError}</p>
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-2 sm:grid-cols-3 xl:grid-cols-6">
         <SummaryStat label="Equipos" value={summary?.deviceCount ?? "—"} />
         <SummaryStat
           label="Online"
@@ -119,23 +230,67 @@ export function NetworkNocMonitorScreen() {
           tone="offline"
         />
         <SummaryStat
-          label="Alarmas activas"
-          value={summary?.activeAlarmCount ?? "—"}
-          tone="alarm"
+          label="🔴 Crítica"
+          value={alarmsQuery.isPending && !alarmsQuery.data ? "—" : alarmKpis.critical}
+          tone="critical"
+        />
+        <SummaryStat
+          label="🟡 Advertencias"
+          value={alarmsQuery.isPending && !alarmsQuery.data ? "—" : alarmKpis.warning}
+          tone="warning"
         />
       </div>
 
-      {data && data.alarms.length > 0 ? (
-        <section className="rounded-lg border bg-card p-4">
-          <h2 className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-            Alarmas activas
-          </h2>
-          <AlarmList alarms={data.alarms} />
-        </section>
+      {selectedNode ? (
+        <div className="flex flex-wrap items-start justify-between gap-3 rounded-lg border bg-card px-3 py-2">
+          <div className="min-w-0 space-y-0.5">
+            <p className="text-sm font-semibold">{selectedNode.label}</p>
+            {selectedNode.ipAddress ? (
+              <p className="text-xs text-muted-foreground">{selectedNode.ipAddress}</p>
+            ) : null}
+            <p className="text-xs text-muted-foreground">
+              {healthLabel(selectedNode.health)}
+            </p>
+            {selectedAlarms[0] ? (
+              <p
+                className={cn(
+                  "text-xs font-medium",
+                  selectedAlarms[0].severity === "critical"
+                    ? "text-red-700"
+                    : "text-amber-700"
+                )}
+              >
+                {selectedAlarms[0].severity === "critical"
+                  ? "ALARMA CRÍTICA"
+                  : "ADVERTENCIA"}
+                {" · "}
+                {selectedAlarms[0].title}
+                {selectedAlarms[0].message
+                  ? ` — ${selectedAlarms[0].message}`
+                  : ""}
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">Sin alarma activa</p>
+            )}
+          </div>
+          {selectedAlarms.length > 0 ? (
+            <Link
+              href="/network/alarms"
+              className="text-xs font-medium underline-offset-4 hover:underline"
+            >
+              Ver en Alarmas
+            </Link>
+          ) : null}
+        </div>
       ) : null}
 
       <section className="min-h-0 flex-1 overflow-auto rounded-lg border bg-card">
-        <NocTopologyTree forest={data?.topology ?? { roots: [] }} />
+        <NocTopologyTree
+          forest={topology}
+          alarmByDeviceId={alarmByDeviceId}
+          selectedDeviceId={selectedDeviceId}
+          onSelectDevice={setSelectedDeviceId}
+        />
       </section>
     </div>
   )

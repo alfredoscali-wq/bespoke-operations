@@ -1,13 +1,26 @@
 "use client"
 
+import type { NocAlarmOverlay } from "@/lib/network/noc/alarm-visual"
 import type { NocHealthState, NocTopologyForest, NocTopologyNode } from "@/lib/network/noc/types"
 import { cn } from "@/lib/utils"
+
+export type { NocAlarmOverlay }
 
 function healthClass(health: NocHealthState | null): string {
   if (health === "online") return "border-emerald-500/70 bg-emerald-500/10"
   if (health === "attention") return "border-amber-500/70 bg-amber-500/10"
   if (health === "offline") return "border-red-500/70 bg-red-500/10"
   return "border-border bg-background"
+}
+
+function overlayClass(overlay: NocAlarmOverlay | undefined): string | null {
+  if (overlay?.severity === "critical") {
+    return "border-red-600 bg-red-600/20 ring-2 ring-red-600/80"
+  }
+  if (overlay?.severity === "warning") {
+    return "border-amber-500 bg-amber-400/20 ring-2 ring-amber-500/70"
+  }
+  return null
 }
 
 function healthDotClass(health: NocHealthState | null): string {
@@ -24,13 +37,29 @@ function healthLabel(health: NocHealthState | null): string {
   return "Sin estado"
 }
 
-function NocNodeCard({ node }: { node: NocTopologyNode }) {
+function NocNodeCard({
+  node,
+  overlay,
+  selected,
+  onSelect,
+}: {
+  node: NocTopologyNode
+  overlay?: NocAlarmOverlay
+  selected?: boolean
+  onSelect?: (deviceId: string) => void
+}) {
   const showIp = Boolean(node.ipAddress) && node.ipAddress !== node.label
+  const visual = overlayClass(overlay) ?? healthClass(node.health)
   return (
-    <div
+    <button
+      type="button"
+      aria-pressed={selected}
+      onClick={() => onSelect?.(node.deviceId)}
       className={cn(
         "w-44 rounded-lg border px-3 py-3 text-center shadow-sm",
-        healthClass(node.health)
+        visual,
+        overlay?.isNew && overlay.severity === "critical" && "noc-alarm-pulse",
+        selected && "ring-offset-2 ring-offset-background"
       )}
     >
       <p className="whitespace-normal break-words text-sm font-semibold leading-snug">
@@ -50,7 +79,22 @@ function NocNodeCard({ node }: { node: NocTopologyNode }) {
         />
         {healthLabel(node.health)}
       </p>
-    </div>
+      {overlay ? (
+        <p
+          className={cn(
+            "mt-1.5 text-[10px] font-semibold uppercase tracking-wide",
+            overlay.severity === "critical" ? "text-red-700" : "text-amber-700"
+          )}
+        >
+          {overlay.severity === "critical" ? "ALARMA CRÍTICA" : "ADVERTENCIA"}
+          {overlay.isNew ? (
+            <span className="noc-nueva-badge ml-1 rounded bg-red-600 px-1 py-px text-[9px] text-white">
+              NUEVA
+            </span>
+          ) : null}
+        </p>
+      ) : null}
+    </button>
   )
 }
 
@@ -91,9 +135,15 @@ function ChildConnector({
 function NocChildrenRow({
   nodes,
   lane,
+  alarmByDeviceId,
+  selectedDeviceId,
+  onSelectDevice,
 }: {
   nodes: readonly NocTopologyNode[]
   lane?: boolean
+  alarmByDeviceId?: ReadonlyMap<string, NocAlarmOverlay>
+  selectedDeviceId?: string | null
+  onSelectDevice?: (deviceId: string) => void
 }) {
   const count = nodes.length
   if (count === 0) return null
@@ -101,7 +151,12 @@ function NocChildrenRow({
     return (
       <>
         <span aria-hidden className="h-8 w-px bg-border" />
-        <NocTopologyBranch node={nodes[0]} />
+        <NocTopologyBranch
+          node={nodes[0]}
+          alarmByDeviceId={alarmByDeviceId}
+          selectedDeviceId={selectedDeviceId}
+          onSelectDevice={onSelectDevice}
+        />
       </>
     )
   }
@@ -118,7 +173,12 @@ function NocChildrenRow({
             )}
           >
             <ChildConnector index={index} count={count} />
-            <NocTopologyBranch node={child} />
+            <NocTopologyBranch
+              node={child}
+              alarmByDeviceId={alarmByDeviceId}
+              selectedDeviceId={selectedDeviceId}
+              onSelectDevice={onSelectDevice}
+            />
           </div>
         ))}
       </div>
@@ -126,16 +186,46 @@ function NocChildrenRow({
   )
 }
 
-function NocTopologyBranch({ node }: { node: NocTopologyNode }) {
+function NocTopologyBranch({
+  node,
+  alarmByDeviceId,
+  selectedDeviceId,
+  onSelectDevice,
+}: {
+  node: NocTopologyNode
+  alarmByDeviceId?: ReadonlyMap<string, NocAlarmOverlay>
+  selectedDeviceId?: string | null
+  onSelectDevice?: (deviceId: string) => void
+}) {
   return (
     <div className="flex flex-col items-center">
-      <NocNodeCard node={node} />
-      <NocChildrenRow nodes={node.children} />
+      <NocNodeCard
+        node={node}
+        overlay={alarmByDeviceId?.get(node.deviceId)}
+        selected={selectedDeviceId === node.deviceId}
+        onSelect={onSelectDevice}
+      />
+      <NocChildrenRow
+        nodes={node.children}
+        alarmByDeviceId={alarmByDeviceId}
+        selectedDeviceId={selectedDeviceId}
+        onSelectDevice={onSelectDevice}
+      />
     </div>
   )
 }
 
-export function NocTopologyTree({ forest }: { forest: NocTopologyForest }) {
+export function NocTopologyTree({
+  forest,
+  alarmByDeviceId,
+  selectedDeviceId,
+  onSelectDevice,
+}: {
+  forest: NocTopologyForest
+  alarmByDeviceId?: ReadonlyMap<string, NocAlarmOverlay>
+  selectedDeviceId?: string | null
+  onSelectDevice?: (deviceId: string) => void
+}) {
   if (forest.roots.length === 0) {
     return (
       <p className="p-8 text-center text-sm text-muted-foreground">
@@ -150,7 +240,13 @@ export function NocTopologyTree({ forest }: { forest: NocTopologyForest }) {
         aria-label="Topología global NOC"
       >
         <EmpresaAnchor />
-        <NocChildrenRow nodes={forest.roots} lane />
+        <NocChildrenRow
+          nodes={forest.roots}
+          lane
+          alarmByDeviceId={alarmByDeviceId}
+          selectedDeviceId={selectedDeviceId}
+          onSelectDevice={onSelectDevice}
+        />
       </div>
     </div>
   )
