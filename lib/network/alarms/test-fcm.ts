@@ -53,6 +53,7 @@ function emptyPushResult(): NetworkAlarmPushSendResult {
     sent: 0,
     failed: 0,
     invalidTokens: 0,
+    results: [],
   }
 }
 

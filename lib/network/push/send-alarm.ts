@@ -10,6 +10,7 @@ import {
   type NetworkAlarmPushDispatchResult,
 } from "@/lib/network/push/dispatch"
 import { fetchNetworkAlarmPushCandidates } from "@/lib/network/push/fetch-recipients"
+import { persistNetworkAlarmNotificationSends } from "@/lib/network/push/persist-notifications"
 import { buildNetworkAlarmPushPayload } from "@/lib/network/push/payload"
 import {
   selectNetworkAlarmPushRecipients,
@@ -63,6 +64,7 @@ function emptyResult(
     sent: 0,
     failed: 0,
     invalidTokens: 0,
+    results: [],
   }
 }
 
@@ -90,6 +92,37 @@ function logPushOutcome(
   console.info("[network-push]", line)
 }
 
+function logPersistFailure(
+  alarm: Pick<NetworkAlarmRecord, "id" | "companyId">,
+  error: unknown
+) {
+  console.error("[network-push] Failed to persist alarm notifications.", {
+    alarmId: alarm.id,
+    companyId: alarm.companyId,
+    message: error instanceof Error ? error.message : "unknown",
+  })
+}
+
+async function persistNotificationAudit(
+  client: SupabaseClient,
+  alarm: Pick<NetworkAlarmRecord, "id" | "companyId">,
+  input: {
+    results: Array<{ employeeId: string; success: boolean; errorCode: string | null }>
+    mode: "dispatched" | "not_attempted"
+  }
+) {
+  try {
+    await persistNetworkAlarmNotificationSends(client, {
+      companyId: alarm.companyId,
+      alarmId: alarm.id,
+      results: input.results,
+      mode: input.mode,
+    })
+  } catch (error) {
+    logPersistFailure(alarm, error)
+  }
+}
+
 export async function notifyNetworkAlarmOpened(
   client: SupabaseClient,
   alarm: Pick<
@@ -114,6 +147,14 @@ export async function notifyNetworkAlarmOpened(
     const resolveMessenger = deps.resolveMessenger ?? createFirebasePushMessenger
     const messenger = resolveMessenger()
     if (!messenger) {
+      await persistNotificationAudit(client, alarm, {
+        mode: "not_attempted",
+        results: recipients.map((recipient) => ({
+          employeeId: recipient.userId,
+          success: false,
+          errorCode: null,
+        })),
+      })
       const result: NetworkAlarmPushSendResult = {
         attempted: false,
         outcome: "firebase_unconfigured",
@@ -121,6 +162,7 @@ export async function notifyNetworkAlarmOpened(
         sent: 0,
         failed: 0,
         invalidTokens: 0,
+        results: [],
       }
       console.error(
         "[network-push]",
@@ -141,6 +183,14 @@ export async function notifyNetworkAlarmOpened(
         buildNetworkAlarmPushPayload(alarm),
         messenger
       )
+      await persistNotificationAudit(client, alarm, {
+        mode: "dispatched",
+        results: dispatched.results.map((item) => ({
+          employeeId: item.userId,
+          success: item.success,
+          errorCode: item.errorCode,
+        })),
+      })
       const result: NetworkAlarmPushSendResult = {
         ...dispatched,
         attempted: true,
@@ -149,6 +199,14 @@ export async function notifyNetworkAlarmOpened(
       logPushOutcome(alarm, result)
       return result
     } catch {
+      await persistNotificationAudit(client, alarm, {
+        mode: "dispatched",
+        results: recipients.map((recipient) => ({
+          employeeId: recipient.userId,
+          success: false,
+          errorCode: "firebase_unavailable",
+        })),
+      })
       const result: NetworkAlarmPushSendResult = {
         attempted: true,
         outcome: "firebase_unavailable",
@@ -156,6 +214,7 @@ export async function notifyNetworkAlarmOpened(
         sent: 0,
         failed: recipients.length,
         invalidTokens: 0,
+        results: [],
       }
       console.error("[network-push] FCM send failed.", {
         alarmId: alarm.id,

@@ -31,6 +31,13 @@ export type NetworkAlarmPushDispatchResult = {
   sent: number
   failed: number
   invalidTokens: number
+  results: AlarmPushRecipientResult[]
+}
+
+export type AlarmPushRecipientResult = {
+  userId: string
+  success: boolean
+  errorCode: string | null
 }
 
 export function isUnequivocalInvalidFcmToken(errorCode: string | null | undefined): boolean {
@@ -52,7 +59,7 @@ export async function dispatchNetworkPush(
 ): Promise<NetworkAlarmPushDispatchResult> {
   const recipientCount = recipients.length
   if (recipientCount === 0) {
-    return { recipientCount: 0, sent: 0, failed: 0, invalidTokens: 0 }
+    return { recipientCount: 0, sent: 0, failed: 0, invalidTokens: 0, results: [] }
   }
 
   const messages: AlarmPushDispatchMessage[] = recipients.map((recipient) => ({
@@ -78,7 +85,13 @@ export async function dispatchNetworkPush(
     }
   }
 
-  return { recipientCount, sent, failed, invalidTokens }
+  const results: AlarmPushRecipientResult[] = recipients.map((recipient, index) => ({
+    userId: recipient.userId,
+    success: Boolean(batch.responses[index]?.success),
+    errorCode: batch.responses[index]?.errorCode ?? null,
+  }))
+
+  return { recipientCount, sent, failed, invalidTokens, results }
 }
 
 export async function dispatchNetworkAlarmPush(

@@ -4319,6 +4319,73 @@ export type Database = {
           },
         ]
       }
+      network_alarm_notifications: {
+        Row: {
+          alarm_id: string
+          attempted_at: string | null
+          company_id: string
+          created_at: string
+          device_id: string | null
+          employee_id: string
+          error_code: string | null
+          id: string
+          opened_at: string | null
+          send_outcome: string
+          sent_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          alarm_id: string
+          attempted_at?: string | null
+          company_id: string
+          created_at?: string
+          device_id?: string | null
+          employee_id: string
+          error_code?: string | null
+          id?: string
+          opened_at?: string | null
+          send_outcome: string
+          sent_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          alarm_id?: string
+          attempted_at?: string | null
+          company_id?: string
+          created_at?: string
+          device_id?: string | null
+          employee_id?: string
+          error_code?: string | null
+          id?: string
+          opened_at?: string | null
+          send_outcome?: string
+          sent_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "network_alarm_notifications_alarm_id_fkey"
+            columns: ["alarm_id"]
+            isOneToOne: false
+            referencedRelation: "network_alarms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "network_alarm_notifications_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "network_alarm_notifications_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       network_devices: {
         Row: {
           agent_id: string | null

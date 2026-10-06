@@ -237,6 +237,7 @@
     "test:network-3-0-topology": "npx tsx --test scripts/test-network-3-0-topology.mjs",
     "test:network-push-alarms": "npx tsx --test scripts/test-network-push-alarms.mjs",
     "test:network-alarms-test-fcm": "npx tsx --test scripts/test-network-alarms-test-fcm.mjs",
+    "test:network-alarm-notifications": "npx tsx --test scripts/test-network-alarm-notifications.mjs",
     "network-agent": "tsx network-agent/src/index.ts",
     "test:isp-1-0-clientes-360": "npx tsx --test scripts/test-isp-1-0-clientes-360.mjs",
     "test:export-clientes-abnet-debug": "npx tsx --test scripts/test-export-clientes-abnet-debug.mjs",
