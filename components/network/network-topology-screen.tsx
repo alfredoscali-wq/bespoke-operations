@@ -30,10 +30,14 @@ import {
   topologyManagedDeviceHref,
   type TopologySelection,
 } from "@/lib/network/topology/graph"
+import {
+  collectCuratedDeviceIds,
+  findCuratedNodeByDeviceId,
+  selectCuratedForestForCore,
+} from "@/lib/network/topology/curated-select"
 import { buildObservedDeviceManagementState } from "@/lib/network/topology/management-state"
 import { postNetworkDeviceManage } from "@/lib/network/topology/manage-request"
 import type {
-  CuratedTopologyForest,
   CuratedTopologyNode,
   LocalCoreTopologyView,
   LocalTopologyInterfaceGroup,
@@ -119,21 +123,6 @@ function collectObservedDevices(
   return map
 }
 
-function findCuratedNode(
-  forest: CuratedTopologyForest | null,
-  deviceId: string
-): CuratedTopologyNode | null {
-  if (!forest) return null
-  const stack = [...forest.roots]
-  while (stack.length > 0) {
-    const node = stack.pop()
-    if (!node) continue
-    if (node.deviceId === deviceId) return node
-    stack.push(...node.children)
-  }
-  return null
-}
-
 function toObservedDeviceFromInventory(input: {
   deviceId: string
   inventory: NetworkDevice | null
@@ -213,6 +202,17 @@ export function NetworkTopologyScreen() {
     selectedCoreId && cores.some((core) => core.id === selectedCoreId)
       ? selectedCoreId
       : (cores[0]?.id ?? null)
+  const visibleCurated = useMemo(
+    () => selectCuratedForestForCore(curated, activeCoreId),
+    [curated, activeCoreId]
+  )
+  const occupiedDeviceIds = useMemo(
+    () => collectCuratedDeviceIds(curated),
+    [curated]
+  )
+  const curatedEmptyMessage = activeCoreId
+    ? "Todavía no hay una topología curada para este Core."
+    : "Todavía no hay una topología curada"
   const activeSelection = resolveTopologySelection(
     selection,
     graph.nodes,
@@ -240,8 +240,11 @@ export function NetworkTopologyScreen() {
       inventoryDevices.find((device) => device.id === curatedDeviceId) ?? null
     const graphNode =
       graph.nodes.find((node) => node.id === curatedDeviceId) ?? null
-    const curatedNode = findCuratedNode(curated, curatedDeviceId)
-    if (!inventory && !graphNode && !curatedNode) return null
+    const curatedNode = findCuratedNodeByDeviceId(
+      visibleCurated,
+      curatedDeviceId
+    )
+    if (!curatedNode) return null
     const host = (inventory?.managementIp ?? graphNode?.managementIp ?? "").trim()
     const agentId = (inventory?.agentId ?? graphNode?.agentId ?? "").trim()
     const managed =
@@ -262,7 +265,7 @@ export function NetworkTopologyScreen() {
     curatedDeviceId,
     inventoryDevices,
     graph.nodes,
-    curated,
+    visibleCurated,
     managementTargets,
   ])
   const selectedDetailDevice = selectedCuratedDevice ?? selectedObserved
@@ -395,9 +398,11 @@ export function NetworkTopologyScreen() {
             <p className="p-6 text-sm text-muted-foreground">Cargando topología…</p>
           ) : (
             <CuratedTopologyEditor
-              forest={curated ?? { roots: [] }}
+              forest={visibleCurated}
               selectedDeviceId={curatedDeviceId}
               onSelectDevice={selectCuratedDevice}
+              emptyMessage={curatedEmptyMessage}
+              placedDeviceIds={occupiedDeviceIds}
             />
           )}
           {false ? (

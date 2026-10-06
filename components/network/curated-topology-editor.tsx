@@ -146,10 +146,14 @@ export function CuratedTopologyEditor({
   forest,
   selectedDeviceId,
   onSelectDevice,
+  emptyMessage = "Todavía no hay una topología curada",
+  placedDeviceIds,
 }: {
   forest: CuratedTopologyForest
   selectedDeviceId?: string | null
   onSelectDevice?: (deviceId: string) => void
+  emptyMessage?: string
+  placedDeviceIds?: ReadonlySet<string>
 }) {
   const queryClient = useQueryClient()
   const devicesQuery = useNetworkDevicesQuery()
@@ -165,10 +169,11 @@ export function CuratedTopologyEditor({
   const [removeNode, setRemoveNode] = useState<CuratedTopologyNode | null>(null)
 
   const placedIds = useMemo(() => {
+    if (placedDeviceIds) return placedDeviceIds
     const ids = new Set<string>()
     walkNodes(forest.roots, (node) => ids.add(node.deviceId))
     return ids
-  }, [forest])
+  }, [forest, placedDeviceIds])
 
   const placedNodes = useMemo(() => flattenForest(forest), [forest])
   const availableDevices = useMemo(
@@ -279,9 +284,7 @@ export function CuratedTopologyEditor({
           )}
         />
       ) : (
-        <p className="p-6 text-sm text-muted-foreground">
-          Todavía no hay una topología curada
-        </p>
+        <p className="p-6 text-sm text-muted-foreground">{emptyMessage}</p>
       )}
 
       <div className="border-t px-6 py-4">

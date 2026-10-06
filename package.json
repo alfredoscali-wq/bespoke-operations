@@ -235,6 +235,7 @@
     "test:network-2-6-status-freshness": "npx tsx --test scripts/test-network-2-6-status-freshness.mjs",
     "test:network-2-7-managed-devices": "npx tsx --test scripts/test-network-2-7-managed-devices.mjs",
     "test:network-3-0-topology": "npx tsx --test scripts/test-network-3-0-topology.mjs",
+    "test:network-topology-curated-core": "npx tsx --test scripts/test-network-topology-curated-core.mjs",
     "test:network-noc-alarm-visual": "npx tsx --test scripts/test-network-noc-alarm-visual.mjs",
     "test:network-push-alarms": "npx tsx --test scripts/test-network-push-alarms.mjs",
     "test:network-alarms-test-fcm": "npx tsx --test scripts/test-network-alarms-test-fcm.mjs",
