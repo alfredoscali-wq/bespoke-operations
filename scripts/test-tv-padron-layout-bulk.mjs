@@ -22,7 +22,6 @@ function read(relPath) {
 }
 
 const ui = read("components/subscriptions/subscriptions-module.tsx")
-const cards = read("components/subscriptions/subscriptions-summary-cards.tsx")
 const overview = read("components/subscriptions/subscriptions-tv-overview.tsx")
 const provider = read("components/subscriptions/subscriptions-provider.tsx")
 const bulk = ui.slice(
@@ -41,22 +40,25 @@ const sameNumber = [
 ]
 
 test("la cabecera deja solo el resumen general", () => {
-  assert.match(overview, /Padrón ABNet/)
-  assert.match(overview, /Total filas de TV/)
-  assert.match(overview, /Clientes únicos/)
-  assert.doesNotMatch(overview, /FilterableKpiCard/)
-  assert.doesNotMatch(overview, /TV Básica/)
+  assert.doesNotMatch(overview, /Padrón ABNet/)
+  assert.doesNotMatch(overview, /Total filas de TV/)
+  assert.doesNotMatch(overview, /Clientes únicos/)
+  assert.doesNotMatch(overview, /TV del padrón/)
+  assert.doesNotMatch(overview, /TV = 4\.500/)
+  assert.match(overview, /TV Básica/)
+  assert.match(overview, /TV Básica \+ Pack Fútbol/)
+  assert.match(overview, /TV Full/)
+  assert.match(overview, /Clientes con TV/)
+  assert.match(overview, /basicaCustomers/)
+  assert.match(overview, /basicaPackCustomers/)
+  assert.match(overview, /fullCustomers/)
+  assert.match(overview, /tvPlanCustomers/)
   assert.doesNotMatch(overview, /Jubilados/)
   assert.doesNotMatch(overview, /Morosa/)
-  assert.match(cards, /TV del padrón/)
-  assert.match(cards, /TV = 4\.500/)
-  assert.doesNotMatch(cards, /FilterableKpiCard/)
-  assert.doesNotMatch(cards, /KpiCard/)
-  assert.doesNotMatch(cards, /Jubilados/)
-  assert.doesNotMatch(cards, /Activa/)
-  assert.doesNotMatch(cards, /Morosa/)
-  assert.doesNotMatch(cards, /Pendiente/)
-  assert.doesNotMatch(cards, /Inactiva/)
+  assert.doesNotMatch(overview, /Activa/)
+  assert.doesNotMatch(overview, /Pendiente/)
+  assert.doesNotMatch(overview, /Inactiva/)
+  assert.doesNotMatch(ui, /SubscriptionsSummaryCards/)
 })
 
 test("la tabla no muestra importes y conserva las columnas operativas", () => {

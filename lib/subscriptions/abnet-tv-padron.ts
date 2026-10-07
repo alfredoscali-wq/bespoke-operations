@@ -50,6 +50,10 @@ export type AbnetTvPadronSummary = {
   fullAmount: number
   basicaPackRows: number
   basicaPackAmount: number
+  basicaCustomers: number
+  basicaPackCustomers: number
+  fullCustomers: number
+  tvPlanCustomers: number
   jubiladoRows: number
   jubiladoAmount: number
   jubiladoRowsAt2250: number
@@ -141,6 +145,9 @@ export function summarizeAbnetTvPadron(
 ): AbnetTvPadronSummary {
   const statusRows: Record<string, number> = {}
   const numbers = new Set<string>()
+  const basicaCustomers = new Set<string>()
+  const basicaPackCustomers = new Set<string>()
+  const fullCustomers = new Set<string>()
   let basicaRows = 0
   let basicaAmount = 0
   let fullRows = 0
@@ -157,14 +164,17 @@ export function summarizeAbnetTvPadron(
     if (row.tvKind === "basica") {
       basicaRows += 1
       basicaAmount += tvAmount
+      basicaCustomers.add(row.abnetCustomerNumber)
     }
     if (row.tvKind === "full") {
       fullRows += 1
       fullAmount += tvAmount
+      fullCustomers.add(row.abnetCustomerNumber)
     }
     if (row.tvKind === "pack") {
       basicaPackRows += 1
       basicaPackAmount += tvAmount
+      basicaPackCustomers.add(row.abnetCustomerNumber)
     }
     if (row.jubilado) {
       jubiladoRows += 1
@@ -184,6 +194,14 @@ export function summarizeAbnetTvPadron(
     fullAmount,
     basicaPackRows,
     basicaPackAmount,
+    basicaCustomers: basicaCustomers.size,
+    basicaPackCustomers: basicaPackCustomers.size,
+    fullCustomers: fullCustomers.size,
+    tvPlanCustomers: new Set([
+      ...basicaCustomers,
+      ...basicaPackCustomers,
+      ...fullCustomers,
+    ]).size,
     jubiladoRows,
     jubiladoAmount,
     jubiladoRowsAt2250,

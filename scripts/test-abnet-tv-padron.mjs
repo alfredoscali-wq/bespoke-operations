@@ -98,6 +98,58 @@ test("TV Básica y TV Full salen solo del importe de la columna TV", () => {
   assert.equal(classifyAbnetPadronTv(7500).kind, "pack")
 })
 
+test("los KPI de planes cuentan N° Cliente distintos", () => {
+  const summary = summarizeAbnetTvPadron([
+    {
+      abnetCustomerNumber: "10",
+      tvKind: "basica",
+      jubilado: false,
+      status: "Activa",
+      tvAmount: 4500,
+    },
+    {
+      abnetCustomerNumber: "10",
+      tvKind: "basica",
+      jubilado: false,
+      status: "Activa",
+      tvAmount: 4500,
+    },
+    {
+      abnetCustomerNumber: "11",
+      tvKind: "pack",
+      jubilado: false,
+      status: "Activa",
+      tvAmount: 7500,
+    },
+    {
+      abnetCustomerNumber: "12",
+      tvKind: "full",
+      jubilado: false,
+      status: "Activa",
+      tvAmount: 9900,
+    },
+    {
+      abnetCustomerNumber: "12",
+      tvKind: "basica",
+      jubilado: false,
+      status: "Activa",
+      tvAmount: 4500,
+    },
+    {
+      abnetCustomerNumber: "13",
+      tvKind: "other",
+      jubilado: true,
+      status: "Activa",
+      tvAmount: 2250,
+    },
+  ])
+  assert.equal(summary.basicaCustomers, 2)
+  assert.equal(summary.basicaPackCustomers, 1)
+  assert.equal(summary.fullCustomers, 1)
+  assert.equal(summary.tvPlanCustomers, 3)
+  assert.equal(summary.basicaRows, 3)
+})
+
 test("un N° con varias filas no se fusiona y el resumen ignora Bespoke", () => {
   const rows = withAbnetPadronDuplicates([
     sourceRow({ sourceRow: 3, planName: "Internet" }),
@@ -241,22 +293,21 @@ test("la matriz no descarta una segunda fila del mismo N°", () => {
 test("la pantalla y la API no reconstruyen el padrón con servicios ni conexiones", () => {
   const ui = read("components/subscriptions/subscriptions-module.tsx")
   const provider = read("components/subscriptions/subscriptions-provider.tsx")
-  const cards = read("components/subscriptions/subscriptions-summary-cards.tsx")
   const overview = read("components/subscriptions/subscriptions-tv-overview.tsx")
   const offer = read("components/subscriptions/abnet-tv-offer.tsx")
   const route = read("app/api/subscriptions/abnet-padron/route.ts")
   const loader = read("scripts/import-abnet-tv-padron.mjs")
   const padron = read("lib/subscriptions/abnet-tv-padron.ts")
 
-  for (const source of [ui, provider, cards, overview, offer, padron]) {
+  for (const source of [ui, provider, overview, offer, padron]) {
     assert.doesNotMatch(source, /isp_connections/)
     assert.doesNotMatch(source, /isp_services/)
     assert.doesNotMatch(source, /listTvCommercialDesk/)
   }
   assert.match(provider, /\/api\/subscriptions\/abnet-padron/)
   assert.match(provider, /summarizeAbnetTvPadron/)
-  assert.match(cards, /TV = 4\.500/)
-  assert.match(cards, /TV = 9\.900/)
+  assert.match(padron, /ABNET_TV_BASICA_AMOUNT = 4500/)
+  assert.match(padron, /ABNET_TV_FULL_AMOUNT = 9900/)
   assert.doesNotMatch(ui, /Ofrecer TV Full/)
   assert.doesNotMatch(ui, /Ofrecer Pack Fútbol/)
   assert.doesNotMatch(ui, /function AbnetPadronContact/)
@@ -265,10 +316,8 @@ test("la pantalla y la API no reconstruyen el padrón con servicios ni conexione
   assert.doesNotMatch(ui, />CLI</)
   assert.doesNotMatch(ui, />Plan</)
   assert.doesNotMatch(ui, /monthly_fee/)
-  assert.doesNotMatch(cards, /monthly_fee/)
   assert.doesNotMatch(padron, /monthly_fee/)
   assert.match(ui, /formatAbnetPadronMoney/)
-  assert.doesNotMatch(cards, /FilterableKpiCard/)
   assert.doesNotMatch(offer, /fetch\(/)
   assert.doesNotMatch(offer, /assignComponent/)
   assert.doesNotMatch(route, /isp_connections/)

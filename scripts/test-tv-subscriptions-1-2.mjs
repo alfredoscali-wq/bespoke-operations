@@ -34,7 +34,7 @@ function read(relPath) {
 
 const queries = read("lib/supabase/subscriptions.queries.ts")
 const ui = read("components/subscriptions/subscriptions-module.tsx")
-const cards = read("components/subscriptions/subscriptions-summary-cards.tsx")
+const cards = read("components/subscriptions/subscriptions-tv-overview.tsx")
 const overview = read(
   "components/subscriptions/subscriptions-tv-overview.tsx"
 )
@@ -93,16 +93,16 @@ test("4-7. cantidad, ingreso TV, total solo TV, Internet no se incluye", () => {
   assert.equal(summary.totalActiveCustomers, 3250)
   assert.equal(summary.totalMonthlyRevenue, 16_785_000)
   assert.notEqual(summary.totalMonthlyRevenue, 3250 * 35000)
-  assert.match(overview, /Total filas de TV/)
-  assert.match(overview, /Clientes únicos/)
+  assert.match(overview, /Clientes con TV/)
+  assert.match(overview, /TV Full/)
 })
 
 test("8-10. click KPI filtra en /subscriptions y la tabla no abre Clientes 360", () => {
   assert.doesNotMatch(cards, /href=.*clientes-360/)
   assert.doesNotMatch(overview, /href=.*clientes-360/)
-  assert.doesNotMatch(cards, /FilterableKpiCard/)
-  assert.doesNotMatch(cards, /showPadronView\("basica"\)/)
-  assert.doesNotMatch(cards, /showPadronView\("full"\)/)
+  assert.match(cards, /FilterableKpiCard/)
+  assert.match(cards, /showPadronView\("basica"\)/)
+  assert.match(cards, /showPadronView\("full"\)/)
   assert.match(filters, /TV Básica/)
   assert.match(filters, /TV Full/)
   assert.match(overview, /showPadronView\("all"\)/)
@@ -339,10 +339,10 @@ test("empty state y contador del listado", () => {
 test("jerarquía: catálogo, resumen y clientes separados", () => {
   assert.match(ui, /TvPlansCatalogSection/)
   assert.match(ui, /SubscriptionsTvOverview/)
-  assert.match(ui, /SubscriptionsSummaryCards/)
+  assert.doesNotMatch(ui, /SubscriptionsSummaryCards/)
   assert.match(ui, /TvSubscribersFilters/)
   assert.match(ui, /Padrón de TV de ABNet/)
   assert.match(catalogUi, /Planes de TV/)
-  assert.match(overview, /Padrón ABNet/)
+  assert.doesNotMatch(overview, /Padrón ABNet/)
   assert.match(ui, /Padrón de TV/)
 })

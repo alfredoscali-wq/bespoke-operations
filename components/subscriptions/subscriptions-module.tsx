@@ -5,7 +5,6 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 
 import { LatamTvRowDialog } from "@/components/subscriptions/latam-tv-row-dialog"
 import { SubscriptionsProvider, useSubscriptions } from "@/components/subscriptions/subscriptions-provider"
-import { SubscriptionsSummaryCards } from "@/components/subscriptions/subscriptions-summary-cards"
 import { SubscriptionsTvOverview } from "@/components/subscriptions/subscriptions-tv-overview"
 import { TvPlansCatalogSection } from "@/components/subscriptions/tv-plans-catalog-section"
 import { TvSubscribersFilters } from "@/components/subscriptions/tv-subscribers-filters"
@@ -174,8 +173,6 @@ function SubscriptionsModuleContent() {
       />
 
       <SubscriptionsTvOverview />
-
-      <SubscriptionsSummaryCards />
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 

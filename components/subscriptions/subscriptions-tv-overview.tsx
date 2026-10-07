@@ -1,45 +1,80 @@
 "use client"
 
+import { Tv, Users } from "lucide-react"
+
 import { useSubscriptions } from "@/components/subscriptions/subscriptions-provider"
+import { FilterableKpiCard } from "@/components/ui/filterable-kpi-card"
+import { KpiCardGrid } from "@/components/ui/kpi-card-grid"
+
+function formatCount(ready: boolean, value: number | undefined): number | string {
+  if (!ready) return "—"
+  return (value ?? 0).toLocaleString("es-AR")
+}
 
 export function SubscriptionsTvOverview() {
-  const { summary, isSummaryReady, showPadronView } = useSubscriptions()
-  const rows = isSummaryReady
-    ? (summary?.rows ?? 0).toLocaleString("es-AR")
-    : "—"
-  const uniqueCustomers = isSummaryReady
-    ? (summary?.uniqueCustomers ?? 0).toLocaleString("es-AR")
-    : "—"
+  const {
+    summary,
+    isSummaryReady,
+    showPadronView,
+    tvKind,
+    jubiladoOnly,
+    statusFilter,
+  } = useSubscriptions()
+  const totalPlansActive =
+    tvKind === "all" && !jubiladoOnly && statusFilter === "all"
 
   return (
-    <section className="space-y-2">
-      <div>
-        <h2 className="text-base font-semibold">Padrón ABNet</h2>
-        <p className="text-sm text-muted-foreground">
-          Filas de Conex. Internet + TV. Un N° Cliente con varias filas se
-          muestra varias veces.
-        </p>
-      </div>
-      <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 text-sm">
-        <button
-          type="button"
-          className="cursor-pointer text-left"
+    <section>
+      <KpiCardGrid layout="standard">
+        <FilterableKpiCard
+          label="TV Básica"
+          value={formatCount(isSummaryReady, summary?.basicaCustomers)}
+          hint="N° Cliente con este plan"
+          icon={Tv}
+          tone="blue"
+          compact
+          isLoading={!isSummaryReady}
+          isActive={tvKind === "basica"}
+          onClick={() => showPadronView("basica")}
+          ariaLabel="Ver clientes con TV Básica"
+        />
+        <FilterableKpiCard
+          label="TV Básica + Pack Fútbol"
+          value={formatCount(isSummaryReady, summary?.basicaPackCustomers)}
+          hint="N° Cliente con este plan"
+          icon={Tv}
+          tone="green"
+          compact
+          isLoading={!isSummaryReady}
+          isActive={tvKind === "pack"}
+          onClick={() => showPadronView("pack")}
+          ariaLabel="Ver clientes con TV Básica y Pack Fútbol"
+        />
+        <FilterableKpiCard
+          label="TV Full"
+          value={formatCount(isSummaryReady, summary?.fullCustomers)}
+          hint="N° Cliente con este plan"
+          icon={Tv}
+          tone="violet"
+          compact
+          isLoading={!isSummaryReady}
+          isActive={tvKind === "full"}
+          onClick={() => showPadronView("full")}
+          ariaLabel="Ver clientes con TV Full"
+        />
+        <FilterableKpiCard
+          label="Clientes con TV"
+          value={formatCount(isSummaryReady, summary?.tvPlanCustomers)}
+          hint="N° Cliente con Básica, Pack o Full"
+          icon={Users}
+          tone="blue"
+          compact
+          isLoading={!isSummaryReady}
+          isActive={totalPlansActive}
           onClick={() => showPadronView("all")}
-          aria-label="Ver todas las filas del padrón"
-        >
-          <span className="text-muted-foreground">Total filas de TV</span>{" "}
-          <span className="font-semibold tabular-nums">{rows}</span>
-        </button>
-        <button
-          type="button"
-          className="cursor-pointer text-left"
-          onClick={() => showPadronView("all")}
-          aria-label="Ver clientes únicos del padrón"
-        >
-          <span className="text-muted-foreground">Clientes únicos</span>{" "}
-          <span className="font-semibold tabular-nums">{uniqueCustomers}</span>
-        </button>
-      </div>
+          ariaLabel="Ver clientes cargados con planes de TV"
+        />
+      </KpiCardGrid>
     </section>
   )
 }

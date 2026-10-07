@@ -33,7 +33,7 @@ function read(relPath) {
 
 const queries = read("lib/supabase/subscriptions.queries.ts")
 const ui = read("components/subscriptions/subscriptions-module.tsx")
-const cards = read("components/subscriptions/subscriptions-summary-cards.tsx")
+const cards = read("components/subscriptions/subscriptions-tv-overview.tsx")
 const catalogUi = read("components/subscriptions/tv-plans-catalog-section.tsx")
 const form = read("components/isp/isp-catalog-form-screen.tsx")
 const customer360 = read("components/isp/isp-customer-detail-screen.tsx")
@@ -53,9 +53,8 @@ test("los planes TV se obtienen dinámicamente del catálogo, no de una lista fi
   assert.doesNotMatch(queries, /isTvPlanCode\(row\.code\)/)
   assert.doesNotMatch(cards, /TV_PLAN_CODES/)
   assert.doesNotMatch(cards, /TV_PLAN_NAMES/)
-  assert.match(cards, /TV del padrón/)
-  assert.doesNotMatch(cards, /FilterableKpiCard/)
-  assert.doesNotMatch(cards, /showPadronView\("full"\)/)
+  assert.match(cards, /TV Básica/)
+  assert.match(cards, /showPadronView\("full"\)/)
   assert.doesNotMatch(ui, /TV_PLAN_NAMES\[/)
 
   const premium = summarizeTvPlans([
@@ -196,9 +195,8 @@ test("el click del KPI permanece en /subscriptions y filtra el plan", () => {
   assert.doesNotMatch(cards, /href=.*clientes-360/)
   assert.doesNotMatch(overview, /href=.*clientes-360/)
   assert.match(overview, /showPadronView\("all"\)/)
-  assert.doesNotMatch(cards, /showPadronView\("basica"\)/)
-  assert.doesNotMatch(cards, /showPadronView\("full"\)/)
-  assert.doesNotMatch(cards, /FilterableKpiCard/)
+  assert.match(cards, /showPadronView\("basica"\)/)
+  assert.match(cards, /showPadronView\("full"\)/)
   assert.match(read("components/subscriptions/tv-subscribers-filters.tsx"), /value="basica"/)
   assert.match(read("components/subscriptions/tv-subscribers-filters.tsx"), /value="full"/)
   assert.equal(
