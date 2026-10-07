@@ -97,14 +97,14 @@ test("4-7. cantidad, ingreso TV, total solo TV, Internet no se incluye", () => {
   assert.match(overview, /Clientes únicos/)
 })
 
-test("8-10. click KPI filtra en /subscriptions; Ver Cliente 360 navega por fila", () => {
+test("8-10. click KPI filtra en /subscriptions y la tabla no abre Clientes 360", () => {
   assert.doesNotMatch(cards, /href=.*clientes-360/)
   assert.doesNotMatch(overview, /href=.*clientes-360/)
   assert.match(cards, /showPadronView\("basica"\)/)
   assert.match(cards, /showPadronView\("full"\)/)
   assert.match(overview, /showPadronView\("all"\)/)
-  assert.match(ui, /Ver Cliente 360/)
-  assert.match(ui, /\/clientes-360\/\$\{row\.bespokeCustomerId\}/)
+  assert.doesNotMatch(ui, /Ver Cliente 360/)
+  assert.doesNotMatch(ui, /\/clientes-360\/\$\{row\.bespokeCustomerId\}/)
   assert.doesNotMatch(ui, /Upgrade/)
   assert.doesNotMatch(ui, /Downgrade/)
   assert.match(ui, /Cambiar plan de TV/)

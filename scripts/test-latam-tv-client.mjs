@@ -169,13 +169,13 @@ test("9. un error de red no incluye el token ni la URL", async () => {
   )
 })
 
-test("10. el cliente solo consulta get-clients", () => {
+test("10. la consulta sigue en get-clients y el script manual no da de alta", () => {
   const source = read("lib/integrations/latam-tv/client.ts")
   const route = read(
     "app/api/integrations/latam-tv/customers/[customerId]/route.ts"
   )
   const script = read("scripts/latam-tv-get-client.mjs")
-  for (const file of [source, route, script]) {
+  for (const file of [route, script]) {
     assert.doesNotMatch(file, /register-client/)
     assert.doesNotMatch(file, /delete-client/)
     assert.doesNotMatch(file, /disable-client/)
@@ -185,6 +185,13 @@ test("10. el cliente solo consulta get-clients", () => {
     assert.doesNotMatch(file, /NEXT_PUBLIC_LATAM/)
   }
   assert.match(source, /\/api\/get-clients/)
+  assert.match(source, /\/api\/register-client/)
+  assert.doesNotMatch(source, /\/api\/delete-client/)
+  assert.doesNotMatch(source, /\/api\/disable-client/)
+  assert.doesNotMatch(source, /\/api\/enable-client/)
+  assert.doesNotMatch(source, /\/api\/modify-client/)
+  assert.doesNotMatch(source, /\/api\/modify-password/)
+  assert.doesNotMatch(source, /NEXT_PUBLIC_LATAM/)
   assert.match(source, /method: "POST"/)
   assert.match(route, /auth\.companyId/)
   assert.match(route, /requireSubscriptionsReadContext/)

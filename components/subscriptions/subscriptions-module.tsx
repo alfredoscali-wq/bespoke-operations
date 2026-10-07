@@ -1,10 +1,9 @@
 "use client"
 
-import { ArrowLeftRight, ChevronLeft, ChevronRight, Eye, Trash2 } from "lucide-react"
-import Link from "next/link"
-import { useEffect, useState, type ReactNode } from "react"
+import { ArrowLeftRight, ChevronLeft, ChevronRight, Trash2, Tv } from "lucide-react"
+import { useCallback, useEffect, useState, type ReactNode } from "react"
 
-import { AbnetTvOffer } from "@/components/subscriptions/abnet-tv-offer"
+import { LatamTvRowDialog } from "@/components/subscriptions/latam-tv-row-dialog"
 import { SubscriptionsProvider, useSubscriptions } from "@/components/subscriptions/subscriptions-provider"
 import { SubscriptionsSummaryCards } from "@/components/subscriptions/subscriptions-summary-cards"
 import { SubscriptionsTvOverview } from "@/components/subscriptions/subscriptions-tv-overview"
@@ -115,9 +114,17 @@ function SubscriptionsModuleContent() {
   const emptyMessage = hasFilters
     ? "Ninguna fila del padrón coincide con los filtros."
     : "El padrón de TV no tiene filas."
-  const [selectedRow, setSelectedRow] = useState<AbnetTvPadronRow | null>(null)
+  const [latamRow, setLatamRow] = useState<AbnetTvPadronRow | null>(null)
+  const [latamStatusByCustomer, setLatamStatusByCustomer] = useState<
+    Record<string, string>
+  >({})
   const [rowToChange, setRowToChange] = useState<AbnetTvPadronRow | null>(null)
   const [rowToRemove, setRowToRemove] = useState<AbnetTvPadronRow | null>(null)
+  const rememberLatamStatus = useCallback((customerId: string, label: string) => {
+    setLatamStatusByCustomer((current) =>
+      current[customerId] === label ? current : { ...current, [customerId]: label }
+    )
+  }, [])
 
   return (
     <div className="space-y-6">
@@ -247,7 +254,13 @@ function SubscriptionsModuleContent() {
                       <TableCell className="h-6 px-0.5 py-0 text-right">
                         <PadronRowActions
                           canWrite={canWrite}
-                          onDetail={() => setSelectedRow(row)}
+                          latamLabel={
+                            row.bespokeCustomerId
+                              ? latamStatusByCustomer[row.bespokeCustomerId] ??
+                                "LATAM TV"
+                              : "LATAM TV"
+                          }
+                          onLatam={() => setLatamRow(row)}
                           onChangePlan={() => setRowToChange(row)}
                           onRemove={() => setRowToRemove(row)}
                         />
@@ -290,9 +303,11 @@ function SubscriptionsModuleContent() {
             </div>
           </>
         )}
-        <AbnetPadronContact
-          row={selectedRow}
-          onClose={() => setSelectedRow(null)}
+        <LatamTvRowDialog
+          row={latamRow}
+          canWrite={canWrite}
+          onClose={() => setLatamRow(null)}
+          onStatus={rememberLatamStatus}
         />
         <ChangePadronDialog
           row={rowToChange}
@@ -330,12 +345,14 @@ function PadronTvMark({ row }: { row: AbnetTvPadronRow }) {
 
 function PadronRowActions({
   canWrite,
-  onDetail,
+  latamLabel,
+  onLatam,
   onChangePlan,
   onRemove,
 }: {
   canWrite: boolean
-  onDetail: () => void
+  latamLabel: string
+  onLatam: () => void
   onChangePlan: () => void
   onRemove: () => void
 }) {
@@ -343,11 +360,11 @@ function PadronRowActions({
     <TooltipProvider>
       <div className="flex items-center justify-end gap-0.5">
         <PadronIconButton
-          label="Ver detalle"
-          className="text-muted-foreground"
-          onClick={onDetail}
+          label={latamLabel}
+          className="text-sky-700 hover:text-sky-800 dark:text-sky-300"
+          onClick={onLatam}
         >
-          <Eye className="size-3.5" />
+          <Tv className="size-3.5" />
         </PadronIconButton>
         <PadronIconButton
           label="Cambiar plan de TV"
@@ -400,74 +417,6 @@ function PadronIconButton({
       </TooltipTrigger>
       <TooltipContent>{label}</TooltipContent>
     </Tooltip>
-  )
-}
-
-function AbnetPadronContact({
-  row,
-  onClose,
-}: {
-  row: AbnetTvPadronRow | null
-  onClose: () => void
-}) {
-  const tvLabel = row ? abnetPadronTvRowLabel(row) : ""
-
-  return (
-    <Dialog open={row != null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>
-            {row?.customerName} · N° {row?.abnetCustomerNumber}
-          </DialogTitle>
-        </DialogHeader>
-        {row ? (
-          <div className="space-y-3 text-sm">
-            <p>N° Cliente: {row.abnetCustomerNumber}</p>
-            <p>Cliente: {row.customerName}</p>
-            <p>Tipo: {row.serviceType || "—"}</p>
-            <p>Nodo: {row.node || "—"}</p>
-            <p>Estado: {row.status || "—"}</p>
-            <p>TV: {tvLabel}</p>
-            <p>
-              2% IMP. TV:{" "}
-              {row.tvTaxAmount == null ? "—" : formatTvMoney(row.tvTaxAmount)}
-            </p>
-            <p>
-              FINAL:{" "}
-              {row.finalAmount == null ? "—" : formatTvMoney(row.finalAmount)}
-            </p>
-            <p>
-              CLI: {row.bespokeCustomerNumber || "Sin ficha en Bespoke"}
-            </p>
-            <p>Ficha: {row.bespokeCustomerName || "—"}</p>
-            <p>
-              Pack Fútbol: {row.packFutbolActive ? "Activo" : "Sin Pack Fútbol"}
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {row.tvKind === "basica" ? (
-                <AbnetTvOffer
-                  title="Ofrecer TV Full"
-                  detail={`${row.customerName} · N° ${row.abnetCustomerNumber} · TV actual ${tvLabel}. Esta acción no cambia el plan de ABNet.`}
-                />
-              ) : null}
-              {row.packFutbolActive ? null : (
-                <AbnetTvOffer
-                  title="Ofrecer Pack Fútbol"
-                  detail={`${row.customerName} · N° ${row.abnetCustomerNumber}. Esta acción no contrata Pack Fútbol ni modifica el padrón.`}
-                />
-              )}
-              {row.bespokeCustomerId ? (
-                <Button asChild size="sm" variant="outline">
-                  <Link href={`/clientes-360/${row.bespokeCustomerId}`}>
-                    Ver Cliente 360
-                  </Link>
-                </Button>
-              ) : null}
-            </div>
-          </div>
-        ) : null}
-      </DialogContent>
-    </Dialog>
   )
 }
 

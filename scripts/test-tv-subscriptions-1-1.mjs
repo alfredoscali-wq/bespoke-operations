@@ -211,7 +211,8 @@ test("el click del KPI permanece en /subscriptions y filtra el plan", () => {
     }),
     false
   )
-  assert.match(ui, /Ver Cliente 360/)
+  assert.doesNotMatch(ui, /Ver Cliente 360/)
+  assert.doesNotMatch(ui, /Ver detalle/)
   assert.match(ui, /N° Cliente/)
   assert.doesNotMatch(ui, /planName/)
   assert.match(queries, /count: "exact"/)

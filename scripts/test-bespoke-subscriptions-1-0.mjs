@@ -251,7 +251,8 @@ test("la ruta /subscriptions y el módulo subscriptions se mantienen", () => {
   assert.match(page, /SubscriptionsModule/)
 
   const ui = read("components/subscriptions/subscriptions-module.tsx")
-  assert.match(ui, /\/clientes-360\//)
+  assert.match(ui, /TV & Suscripciones/)
+  assert.doesNotMatch(ui, /\/clientes-360\//)
   assert.doesNotMatch(ui, /Pre-Alta/)
   assert.doesNotMatch(ui, /Comisiones/)
   assert.doesNotMatch(ui, /prorrate/)

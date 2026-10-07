@@ -1,5 +1,9 @@
 import { abnetNumberFromExternalCode } from "@/lib/isp/abnet-master-universe"
 import { LatamTvRequestError } from "@/lib/integrations/latam-tv/errors"
+import {
+  latamRegisterRejectionMessage,
+  type LatamRegisterBody,
+} from "@/lib/integrations/latam-tv/signup"
 import type {
   LatamTvAccountStatus,
   LatamTvClient,
@@ -9,7 +13,10 @@ import type {
 } from "@/lib/integrations/latam-tv/types"
 
 const GET_CLIENTS_PATH = "/api/get-clients"
+const REGISTER_CLIENT_PATH = "/api/register-client"
 const REQUEST_TIMEOUT_MS = 12_000
+
+const signupTails = new Map<string, Promise<unknown>>()
 
 export type LatamTvClientDeps = {
   baseUrl: string
@@ -116,26 +123,22 @@ function selectClient(
   return null
 }
 
-/**
- * Read-only lookup. The only LATAM call is POST /api/get-clients.
- */
-export async function getLatamTvClientByIdentifier(
-  identificador: string,
+async function postLatam(
+  path: string,
+  body: unknown,
   deps: LatamTvClientDeps
-): Promise<LatamTvLookup> {
-  const identifier = abnetNumberFromExternalCode(identificador)
-  if (!identifier) throw new LatamTvRequestError("invalid_identifier")
+): Promise<Record<string, unknown>> {
   const token = deps.token.trim()
   const baseUrl = deps.baseUrl.trim()
   if (!token || !baseUrl) throw new LatamTvRequestError("not_configured")
 
   let endpoint: URL
   try {
-    endpoint = new URL(GET_CLIENTS_PATH, baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`)
+    endpoint = new URL(path, baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`)
   } catch {
     throw new LatamTvRequestError("not_configured")
   }
-  if (endpoint.protocol !== "https:" || endpoint.pathname !== GET_CLIENTS_PATH) {
+  if (endpoint.protocol !== "https:" || endpoint.pathname !== path) {
     throw new LatamTvRequestError("not_configured")
   }
   endpoint.searchParams.set("token", token)
@@ -147,7 +150,7 @@ export async function getLatamTvClientByIdentifier(
     response = await fetchImpl(endpoint.toString(), {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ identificador: [identifier] }),
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(timeoutMs),
       cache: "no-store",
     })
@@ -165,7 +168,17 @@ export async function getLatamTvClientByIdentifier(
   }
   const record = asRecord(payload)
   if (!record) throw new LatamTvRequestError("unavailable")
+  return record
+}
 
+/** Lookup. POST /api/get-clients only. */
+export async function getLatamTvClientByIdentifier(
+  identificador: string,
+  deps: LatamTvClientDeps
+): Promise<LatamTvLookup> {
+  const identifier = abnetNumberFromExternalCode(identificador)
+  if (!identifier) throw new LatamTvRequestError("invalid_identifier")
+  const record = await postLatam(GET_CLIENTS_PATH, { identificador: [identifier] }, deps)
   const code = responseCode(record)
   if (code === 3) return { found: false }
   if (code !== 1) throw new LatamTvRequestError("unavailable")
@@ -173,4 +186,43 @@ export async function getLatamTvClientByIdentifier(
   const client = selectClient(clientRecords(record), identifier)
   if (!client) return { found: false }
   return { found: true, client }
+}
+
+export type LatamTvSignupCallResult =
+  | { outcome: "created" }
+  | { outcome: "already_exists"; status: LatamTvAccountStatus | null }
+  | { outcome: "rejected"; code: number; message: string }
+
+function enqueueSignup<T>(identifier: string, run: () => Promise<T>): Promise<T> {
+  const previous = signupTails.get(identifier) ?? Promise.resolve()
+  const current = previous.then(run, run)
+  signupTails.set(identifier, current)
+  return current.finally(() => {
+    if (signupTails.get(identifier) === current) signupTails.delete(identifier)
+  })
+}
+
+/**
+ * Alta. Vuelve a consultar get-clients y solo entonces llama a register-client.
+ * Dos altas del mismo identificador quedan en serie para no crearlo dos veces.
+ */
+export function signUpLatamTvClient(
+  body: LatamRegisterBody,
+  deps: LatamTvClientDeps
+): Promise<LatamTvSignupCallResult> {
+  return enqueueSignup(body.identificador, async () => {
+    const lookup = await getLatamTvClientByIdentifier(body.identificador, deps)
+    if (lookup.found) {
+      return { outcome: "already_exists", status: lookup.client.status }
+    }
+    const record = await postLatam(REGISTER_CLIENT_PATH, body, deps)
+    const code = responseCode(record)
+    if (code === 1) return { outcome: "created" }
+    if (code === 3) return { outcome: "already_exists", status: null }
+    return {
+      outcome: "rejected",
+      code: code ?? 2,
+      message: latamRegisterRejectionMessage(code ?? 2),
+    }
+  })
 }
