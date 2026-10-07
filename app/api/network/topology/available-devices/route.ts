@@ -8,13 +8,16 @@ export async function GET(request: Request) {
   const auth = await requireNetworkReadContext()
   if (!auth.ok) return auth.response
 
-  const parentDeviceId = new URL(request.url).searchParams.get("parentDeviceId")
+  const url = new URL(request.url)
+  const coreDeviceId = url.searchParams.get("coreDeviceId")
+  const parentDeviceId = url.searchParams.get("parentDeviceId")
 
   try {
     const client = await createClient()
     const devices = await listAvailableCuratedTopologyDevices(
       client,
       auth.companyId,
+      coreDeviceId,
       parentDeviceId
     )
     return NextResponse.json({ success: true, devices })

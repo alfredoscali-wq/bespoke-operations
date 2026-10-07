@@ -13,9 +13,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import {
-  NETWORK_DEVICE_STATUS_LABELS,
-} from "@/lib/network/labels"
 import { networkQueryKeys } from "@/lib/network/react-query/keys"
 import {
   curatedTopologyDeviceLabel,
@@ -25,8 +22,6 @@ import type {
   CuratedTopologyForest,
   CuratedTopologyNode,
 } from "@/lib/network/topology/types"
-import { cn } from "@/lib/utils"
-
 type BusyAction = "add" | "move" | "remove" | null
 type AddMode = "root" | "child"
 type MoveMode = "root" | "child"
@@ -57,23 +52,17 @@ function deviceLabel(device: Pick<AvailableCuratedTopologyDevice, "id" | "hostna
   return curatedTopologyDeviceLabel(device)
 }
 
-function monitoringLabel(status: string | null | undefined): string {
-  if (
-    status === "online" ||
-    status === "offline" ||
-    status === "degraded" ||
-    status === "unknown"
-  ) {
-    return NETWORK_DEVICE_STATUS_LABELS[status]
-  }
-  return "Sin monitoreo"
-}
-
-function statusDotClass(status: string | null | undefined): string {
-  if (status === "online") return "bg-emerald-500"
-  if (status === "offline") return "bg-red-500"
-  if (status === "degraded") return "bg-amber-500"
-  return "bg-slate-400"
+function optionLabel(
+  device: AvailableCuratedTopologyDevice,
+  duplicated: boolean
+): string {
+  const name = deviceLabel(device)
+  const ip = device.managementIp?.trim()
+  const parts = [name]
+  if (ip && ip !== name) parts.push(ip)
+  parts.push(device.typeLabel)
+  if (duplicated) parts.push(device.id)
+  return parts.join(" · ")
 }
 
 async function parsePlacementResponse(response: Response): Promise<void> {
@@ -131,14 +120,8 @@ function DeviceOption({ device }: { device: AvailableCuratedTopologyDevice }) {
           {device.managementIp}
         </span>
       ) : null}
-      <span className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-        <span
-          className={cn(
-            "inline-block size-1.5 rounded-full",
-            statusDotClass(device.status)
-          )}
-        />
-        {monitoringLabel(device.status)}
+      <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+        {device.typeLabel}
       </span>
     </span>
   )
@@ -146,12 +129,14 @@ function DeviceOption({ device }: { device: AvailableCuratedTopologyDevice }) {
 
 export function CuratedTopologyEditor({
   forest,
+  coreDeviceId = null,
   selectedDeviceId,
   onSelectDevice,
   emptyMessage = "Todavía no hay una topología curada",
   placedDeviceIds,
 }: {
   forest: CuratedTopologyForest
+  coreDeviceId?: string | null
   selectedDeviceId?: string | null
   onSelectDevice?: (deviceId: string) => void
   emptyMessage?: string
@@ -174,11 +159,13 @@ export function CuratedTopologyEditor({
     queryKey: [
       ...networkQueryKeys.topology(),
       "available-devices",
+      coreDeviceId ?? "",
       availabilityParentId ?? "",
     ],
-    enabled: addOpen,
+    enabled: addOpen && Boolean(coreDeviceId),
     queryFn: async (): Promise<AvailableCuratedTopologyDevice[]> => {
       const params = new URLSearchParams()
+      if (coreDeviceId) params.set("coreDeviceId", coreDeviceId)
       if (availabilityParentId) params.set("parentDeviceId", availabilityParentId)
       const response = await fetch(
         `/api/network/topology/available-devices?${params.toString()}`
@@ -207,11 +194,20 @@ export function CuratedTopologyEditor({
     () =>
       (devicesQuery.data ?? []).filter((device) => {
         if (placedIds.has(device.id)) return false
+        if (coreDeviceId && device.id === coreDeviceId) return false
         if (availabilityParentId && device.id === availabilityParentId) return false
         return true
       }),
-    [availabilityParentId, devicesQuery.data, placedIds]
+    [availabilityParentId, coreDeviceId, devicesQuery.data, placedIds]
   )
+  const duplicatedOptionLabels = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const device of availableDevices) {
+      const label = optionLabel(device, false)
+      counts.set(label, (counts.get(label) ?? 0) + 1)
+    }
+    return counts
+  }, [availableDevices])
 
   const moveTargets = useMemo(() => {
     if (!moveNode) return []
@@ -340,7 +336,7 @@ export function CuratedTopologyEditor({
               dispositivo nuevo en el inventario.
             </DialogDescription>
           </DialogHeader>
-          {devicesQuery.isPending ? (
+          {devicesQuery.isLoading ? (
             <p className="text-sm text-muted-foreground">Cargando dispositivos…</p>
           ) : devicesQuery.isError ? (
             <p className="text-sm text-destructive">
@@ -363,9 +359,10 @@ export function CuratedTopologyEditor({
                 >
                   {availableDevices.map((device) => (
                     <option key={device.id} value={device.id}>
-                      {deviceLabel(device)}
-                      {device.managementIp ? ` · ${device.managementIp}` : ""}
-                      {` · ${monitoringLabel(device.status)}`}
+                      {optionLabel(
+                        device,
+                        (duplicatedOptionLabels.get(optionLabel(device, false)) ?? 0) > 1
+                      )}
                     </option>
                   ))}
                 </select>

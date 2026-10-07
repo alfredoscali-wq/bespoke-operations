@@ -399,6 +399,7 @@ export function NetworkTopologyScreen() {
           ) : (
             <CuratedTopologyEditor
               forest={visibleCurated}
+              coreDeviceId={activeCoreId}
               selectedDeviceId={curatedDeviceId}
               onSelectDevice={selectCuratedDevice}
               emptyMessage={curatedEmptyMessage}

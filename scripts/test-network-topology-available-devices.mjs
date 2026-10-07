@@ -7,7 +7,11 @@ import { readFileSync } from "node:fs"
 import { resolve } from "node:path"
 import test from "node:test"
 
-import { selectAvailableCuratedTopologyDevices } from "../lib/network/topology/available-devices.ts"
+import {
+  collectDiscoveryJobDeviceIds,
+  curatedTopologyDeviceTypeLabel,
+  selectAvailableCuratedTopologyDevices,
+} from "../lib/network/topology/available-devices.ts"
 
 const root = resolve(import.meta.dirname, "..")
 
@@ -60,8 +64,18 @@ function ids(result) {
   return result.map((item) => item.id)
 }
 
+function select(input) {
+  return selectAvailableCuratedTopologyDevices({
+    companyId: COMPANY,
+    coreDeviceId: CORE,
+    discoveredDeviceIds: [CORE, POWERBOX, AS5, AS6, AS7, "bare", "ip-only", "named"],
+    placements: [],
+    ...input,
+  })
+}
+
 test("1. descubiertos sin placement aparecen bajo el Core", () => {
-  const available = selectAvailableCuratedTopologyDevices({
+  const available = select({
     companyId: COMPANY,
     parentDeviceId: CORE,
     devices,
@@ -73,7 +87,7 @@ test("1. descubiertos sin placement aparecen bajo el Core", () => {
 })
 
 test("2. un hijo ya colocado deja de estar disponible", () => {
-  const available = selectAvailableCuratedTopologyDevices({
+  const available = select({
     companyId: COMPANY,
     parentDeviceId: CORE,
     devices,
@@ -83,7 +97,7 @@ test("2. un hijo ya colocado deja de estar disponible", () => {
 })
 
 test("3. los nietos colocados no aparecen al agregar hijos de PowerBox", () => {
-  const available = selectAvailableCuratedTopologyDevices({
+  const available = select({
     companyId: COMPANY,
     parentDeviceId: POWERBOX,
     devices,
@@ -99,7 +113,7 @@ test("3. los nietos colocados no aparecen al agregar hijos de PowerBox", () => {
 
 test("4. un network_link no es requisito ni filtro", () => {
   const linked = device(AS5, { hostname: "AS5", hasNetworkLink: true })
-  const available = selectAvailableCuratedTopologyDevices({
+  const available = select({
     companyId: COMPANY,
     parentDeviceId: CORE,
     devices: [device(CORE), linked],
@@ -109,7 +123,7 @@ test("4. un network_link no es requisito ni filtro", () => {
 })
 
 test("5. un dispositivo sin network_link sigue disponible", () => {
-  const available = selectAvailableCuratedTopologyDevices({
+  const available = select({
     companyId: COMPANY,
     parentDeviceId: CORE,
     devices: [device(CORE), device(AS5, { hasNetworkLink: false })],
@@ -119,7 +133,7 @@ test("5. un dispositivo sin network_link sigue disponible", () => {
 })
 
 test("6. un placement eliminado vuelve a dejar el dispositivo disponible", () => {
-  const available = selectAvailableCuratedTopologyDevices({
+  const available = select({
     companyId: COMPANY,
     parentDeviceId: CORE,
     devices,
@@ -132,7 +146,7 @@ test("6. un placement eliminado vuelve a dejar el dispositivo disponible", () =>
 })
 
 test("7. un dispositivo de otra empresa no aparece", () => {
-  const available = selectAvailableCuratedTopologyDevices({
+  const available = select({
     companyId: COMPANY,
     parentDeviceId: CORE,
     devices,
@@ -143,7 +157,7 @@ test("7. un dispositivo de otra empresa no aparece", () => {
 })
 
 test("8. el padre seleccionado no puede ser hijo de sí mismo", () => {
-  const available = selectAvailableCuratedTopologyDevices({
+  const available = select({
     companyId: COMPANY,
     parentDeviceId: CORE,
     devices: [device(CORE), device(AS5)],
@@ -153,7 +167,7 @@ test("8. el padre seleccionado no puede ser hijo de sí mismo", () => {
 })
 
 test("el label usa hostname, luego IP y luego id", () => {
-  const available = selectAvailableCuratedTopologyDevices({
+  const available = select({
     companyId: COMPANY,
     devices: [
       device("bare", { hostname: "  ", managementIp: "  " }),
@@ -168,7 +182,125 @@ test("el label usa hostname, luego IP y luego id", () => {
   )
 })
 
-test("la consulta parte de network_devices y no de los links ni del inventario administrado", () => {
+const MALAGUENO = "core-malagueno"
+const RIO = "core-rio"
+const JOB = {
+  id: "job-malagueno",
+  agentId: "agent-1",
+  startedAt: "2026-03-01T10:00:00.000Z",
+  completedAt: "2026-03-01T10:05:00.000Z",
+  targetId: "target-malagueno",
+  targetName: "Malagueño",
+  targetHost: "10.1.0.1",
+}
+
+test("1b. Malagueño no incluye lo descubierto solo por Río Segundo", () => {
+  const available = select({
+    coreDeviceId: MALAGUENO,
+    parentDeviceId: MALAGUENO,
+    discoveredDeviceIds: [MALAGUENO, POWERBOX, AS5, AS6, AS7],
+    devices: [
+      device(MALAGUENO, { hostname: "Core Malagueño" }),
+      device(POWERBOX),
+      device(AS5),
+      device(AS6),
+      device(AS7),
+      device(RIO, { hostname: "Core Río Segundo" }),
+      device("switch-rio", { hostname: "Switch Río" }),
+    ],
+    placements: [placement(MALAGUENO)],
+  })
+  assert.deepEqual(ids(available), [AS5, AS6, AS7, POWERBOX])
+})
+
+test("2b. Río Segundo no incluye lo exclusivo de Malagueño", () => {
+  const available = select({
+    coreDeviceId: RIO,
+    parentDeviceId: RIO,
+    discoveredDeviceIds: [RIO, "switch-rio"],
+    devices: [
+      device(MALAGUENO, { hostname: "Core Malagueño" }),
+      device(POWERBOX),
+      device(RIO, { hostname: "Core Río Segundo" }),
+      device("switch-rio", { hostname: "Switch Río" }),
+    ],
+    placements: [placement(RIO)],
+  })
+  assert.deepEqual(ids(available), ["switch-rio"])
+})
+
+test("3b. el Discovery encuentra un dispositivo aunque no tenga network_link", () => {
+  const found = collectDiscoveryJobDeviceIds({
+    job: JOB,
+    devices: [
+      { id: AS5, lastSeenAt: "2026-03-01T10:02:00.000Z" },
+      { id: "later", lastSeenAt: "2026-03-01T11:00:00.000Z" },
+    ],
+    links: [],
+  })
+  assert.equal(found.has(AS5), true)
+  assert.equal(found.has("later"), false)
+})
+
+test("4b. un dispositivo con link dentro del Discovery también entra", () => {
+  const found = collectDiscoveryJobDeviceIds({
+    job: JOB,
+    devices: [{ id: AS5, lastSeenAt: "2026-04-01T00:00:00.000Z" }],
+    links: [
+      {
+        fromDeviceId: MALAGUENO,
+        toDeviceId: AS5,
+        lastSeenAt: "2026-03-01T10:01:00.000Z",
+      },
+    ],
+  })
+  assert.equal(found.has(AS5), true)
+  assert.equal(found.has(MALAGUENO), true)
+})
+
+test("8. el tipo sale de modelo, fabricante o tipo de catálogo, no del estado", () => {
+  assert.equal(
+    curatedTopologyDeviceTypeLabel({
+      model: "PowerBox",
+      manufacturer: "MikroTik",
+      deviceType: "other",
+    }),
+    "PowerBox"
+  )
+  assert.equal(
+    curatedTopologyDeviceTypeLabel({
+      model: "",
+      manufacturer: "MikroTik",
+      deviceType: "unknown",
+    }),
+    "MikroTik"
+  )
+  assert.equal(
+    curatedTopologyDeviceTypeLabel({ deviceType: "cpe", status: "unknown" }),
+    "CPE"
+  )
+  assert.equal(
+    curatedTopologyDeviceTypeLabel({ deviceType: "switch" }),
+    "Switch"
+  )
+  assert.notEqual(
+    curatedTopologyDeviceTypeLabel({ model: "PowerBox", deviceType: "other" }),
+    "Desconocido"
+  )
+})
+
+test("9. sin tipo en Discovery ni en el dispositivo queda Desconocido", () => {
+  assert.equal(
+    curatedTopologyDeviceTypeLabel({
+      deviceType: "other",
+      manufacturer: " ",
+      model: null,
+    }),
+    "Desconocido"
+  )
+})
+
+test("la consulta usa el último Discovery del Core y no el inventario completo", () => {
   const queries = read("lib/network/topology/queries.ts")
   const listFn = queries.slice(
     queries.indexOf("export async function listAvailableCuratedTopologyDevices"),
@@ -176,17 +308,20 @@ test("la consulta parte de network_devices y no de los links ni del inventario a
   )
   const editor = read("components/network/curated-topology-editor.tsx")
   const route = read("app/api/network/topology/available-devices/route.ts")
-  assert.match(listFn, /from\("network_devices"\)/)
+  const screen = read("components/network/network-topology-screen.tsx")
+  assert.match(listFn, /pickLatestCompletedDiscoveryJobForTarget/)
+  assert.match(listFn, /pickLatestCompletedDiscoveryJobForHost/)
+  assert.match(listFn, /network_discovery_targets/)
+  assert.match(listFn, /\.gte\("last_seen_at", job\.startedAt\)/)
+  assert.match(listFn, /\.lte\("last_seen_at", job\.completedAt\)/)
   assert.match(listFn, /from\("network_topology_placements"\)/)
   assert.match(listFn, /\.eq\("company_id", companyId\)/)
-  assert.match(listFn, /\.is\("deleted_at", null\)/)
-  assert.doesNotMatch(listFn, /network_links/)
-  assert.doesNotMatch(listFn, /last_seen_at/)
-  assert.doesNotMatch(listFn, /network_discovery_jobs/)
   assert.doesNotMatch(listFn, /buildManagedNetworkDeviceOrFilter/)
+  assert.match(route, /coreDeviceId/)
   assert.match(route, /auth\.companyId/)
-  assert.match(route, /listAvailableCuratedTopologyDevices/)
-  assert.match(editor, /\/api\/network\/topology\/available-devices/)
+  assert.match(editor, /coreDeviceId/)
+  assert.match(editor, /typeLabel/)
+  assert.match(screen, /coreDeviceId=\{activeCoreId\}/)
   assert.match(editor, /No hay dispositivos disponibles para agregar\./)
   assert.doesNotMatch(editor, /useNetworkDevicesQuery/)
   assert.match(read("lib/network/devices/queries.ts"), /buildManagedNetworkDeviceOrFilter/)
