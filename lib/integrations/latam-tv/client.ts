@@ -1,7 +1,17 @@
 import { abnetNumberFromExternalCode } from "@/lib/isp/abnet-master-universe"
 import { LatamTvRequestError } from "@/lib/integrations/latam-tv/errors"
 import { validateLatamTvPassword } from "@/lib/integrations/latam-tv/password"
-import { readLatamTvPlansPayload, type LatamTvCatalogPlan } from "@/lib/integrations/latam-tv/plans"
+import {
+  latamChangePlanTarget,
+  latamCommercialPlanOptions,
+  latamPlanNameKey,
+  LATAM_FULL_PLAN_UNAVAILABLE,
+  matchLatamTvPlans,
+  readLatamTvPlansPayload,
+  type LatamCommercialPlanOption,
+  type LatamTvBespokePlanKind,
+  type LatamTvCatalogPlan,
+} from "@/lib/integrations/latam-tv/plans"
 import {
   latamRegisterRejectionMessage,
   type LatamRegisterBody,
@@ -18,6 +28,7 @@ const GET_CLIENTS_PATH = "/api/get-clients"
 const GET_PLANS_PATH = "/api/get-plans"
 const REGISTER_CLIENT_PATH = "/api/register-client"
 const MODIFY_PASSWORD_PATH = "/api/modify-password"
+const MODIFY_CLIENT_PATH = "/api/modify-client"
 const DISABLE_CLIENT_PATH = "/api/disable-client"
 const ENABLE_CLIENT_PATH = "/api/enable-client"
 const REQUEST_TIMEOUT_MS = 12_000
@@ -382,5 +393,199 @@ async function toggleLatamClient(
     return { outcome: "updated", status: confirmed.client.status }
   } finally {
     statusInflight.delete(identifier)
+  }
+}
+
+export type LatamPlanChangeKind = LatamTvBespokePlanKind
+
+export type LatamPlanPreview = {
+  outcome: "preview"
+  status: LatamTvAccountStatus | null
+  currentPlanName: string | null
+  currentPlanId: string | null
+  options: LatamCommercialPlanOption[]
+}
+
+export type LatamPlanChangeResult =
+  | {
+      outcome: "updated"
+      status: LatamTvAccountStatus | null
+      planName: string | null
+      planId: string | null
+      previousPlanName: string | null
+      requestedPlanName: string
+    }
+  | {
+      outcome: "unverified"
+      status: LatamTvAccountStatus | null
+      planName: string | null
+      planId: string | null
+      previousPlanName: string | null
+      requestedPlanName: string
+      message: string
+    }
+  | { outcome: "not_found"; message: string; previousPlanName?: string | null; requestedPlanName?: string | null }
+  | { outcome: "same_plan"; message: string; previousPlanName: string | null; requestedPlanName: string }
+  | { outcome: "plan_missing"; message: string; previousPlanName?: string | null; requestedPlanName?: string | null }
+  | { outcome: "rejected"; message: string; previousPlanName?: string | null; requestedPlanName?: string | null }
+  | { outcome: "busy"; message: string }
+
+const PLAN_NOT_FOUND = "El cliente no existe en LATAM TV. No se puede cambiar el plan."
+const PLAN_NOT_FOUND_AFTER = "El cliente no existe en LATAM TV. No se realizó ningún cambio."
+const PLAN_MISSING = "El plan seleccionado no existe en LATAM TV."
+const PLAN_SAME = "El cliente ya tiene este plan en LATAM TV."
+const PLAN_UNVERIFIED =
+  "LATAM informó que el cambio fue realizado, pero no pudimos verificar el nuevo plan."
+const PLAN_CURRENT_UNKNOWN = "No fue posible consultar el plan actual en LATAM TV."
+const PLAN_BUSY = "El cambio de plan ya se está procesando."
+
+const PLAN_CODE_MESSAGE: Record<number, string> = {
+  2: "LATAM TV no pudo completar el cambio de plan.",
+  5: "El plan seleccionado no existe en LATAM TV.",
+  6: "LATAM TV no pudo asignar el plan seleccionado.",
+}
+
+const planInflight = new Set<string>()
+
+function sameLatamPlan(
+  currentId: string | null,
+  currentName: string | null,
+  targetId: string,
+  targetName: string
+): boolean {
+  if (currentId && currentId === targetId) return true
+  if (currentName && latamPlanNameKey(currentName) === latamPlanNameKey(targetName)) return true
+  return false
+}
+
+function confirmedPlan(
+  client: LatamTvClient,
+  targetId: string,
+  targetName: string
+): boolean {
+  return sameLatamPlan(client.plan?.id ?? null, client.plan?.name ?? null, targetId, targetName)
+}
+
+/**
+ * Consulta el cliente y el catálogo. No llama a modify-client.
+ */
+export async function previewLatamPlanChange(
+  identificador: string,
+  deps: LatamTvClientDeps
+): Promise<LatamPlanPreview | { outcome: "not_found"; message: string } | { outcome: "plan_missing"; message: string }> {
+  const identifier = abnetNumberFromExternalCode(identificador)
+  if (!identifier) throw new LatamTvRequestError("invalid_identifier")
+  const lookup = await getLatamTvClientByIdentifier(identifier, deps)
+  if (!lookup.found) return { outcome: "not_found", message: PLAN_NOT_FOUND }
+  if (!lookup.client.plan?.id && !lookup.client.plan?.name) {
+    return { outcome: "plan_missing", message: PLAN_CURRENT_UNKNOWN }
+  }
+  const options = latamCommercialPlanOptions(matchLatamTvPlans(await getLatamTvPlans(deps)))
+  return {
+    outcome: "preview",
+    status: lookup.client.status,
+    currentPlanName: lookup.client.plan?.name ?? null,
+    currentPlanId: lookup.client.plan?.id ?? null,
+    options,
+  }
+}
+
+/**
+ * Cambia solo el plan. No envía estado, dispositivos ni macs, y no reactiva.
+ * Después de code 1 vuelve a consultar get-clients.
+ */
+export async function changeLatamClientPlan(
+  identificador: string,
+  kind: LatamPlanChangeKind,
+  deps: LatamTvClientDeps
+): Promise<LatamPlanChangeResult> {
+  const identifier = abnetNumberFromExternalCode(identificador)
+  if (!identifier) throw new LatamTvRequestError("invalid_identifier")
+  if (planInflight.has(identifier)) return { outcome: "busy", message: PLAN_BUSY }
+
+  planInflight.add(identifier)
+  try {
+    const lookup = await getLatamTvClientByIdentifier(identifier, deps)
+    if (!lookup.found) return { outcome: "not_found", message: PLAN_NOT_FOUND }
+    const current = lookup.client.plan
+    if (!current?.id && !current?.name) {
+      return { outcome: "plan_missing", message: PLAN_CURRENT_UNKNOWN }
+    }
+
+    const diagnosis = matchLatamTvPlans(await getLatamTvPlans(deps))
+    const target = latamChangePlanTarget(kind, diagnosis)
+    if (!target) {
+      return {
+        outcome: "plan_missing",
+        message: kind === "full" ? LATAM_FULL_PLAN_UNAVAILABLE : PLAN_MISSING,
+        previousPlanName: current?.name ?? null,
+        requestedPlanName: kind === "full" ? "Plan Full" : null,
+      }
+    }
+    if (sameLatamPlan(current?.id ?? null, current?.name ?? null, target.planId, target.latamName)) {
+      return {
+        outcome: "same_plan",
+        message: PLAN_SAME,
+        previousPlanName: current?.name ?? null,
+        requestedPlanName: target.latamName,
+      }
+    }
+
+    const record = await postLatam(
+      MODIFY_CLIENT_PATH,
+      { identificador: identifier, id_plan: target.planId },
+      deps
+    )
+    const code = responseCode(record)
+    if (code === 3) {
+      return {
+        outcome: "not_found",
+        message: PLAN_NOT_FOUND_AFTER,
+        previousPlanName: current?.name ?? null,
+        requestedPlanName: target.latamName,
+      }
+    }
+    if (code === 5) {
+      return {
+        outcome: "plan_missing",
+        message: PLAN_CODE_MESSAGE[5],
+        previousPlanName: current?.name ?? null,
+        requestedPlanName: target.latamName,
+      }
+    }
+    if (code === 6 || code === 2 || code !== 1) {
+      return {
+        outcome: "rejected",
+        message: PLAN_CODE_MESSAGE[code ?? 2] ?? PLAN_CODE_MESSAGE[2],
+        previousPlanName: current?.name ?? null,
+        requestedPlanName: target.latamName,
+      }
+    }
+
+    const confirmed = await getLatamTvClientByIdentifier(identifier, deps)
+    if (!confirmed.found) return { outcome: "not_found", message: PLAN_NOT_FOUND_AFTER }
+    const planName = confirmed.client.plan?.name ?? null
+    const planId = confirmed.client.plan?.id ?? null
+    if (!confirmedPlan(confirmed.client, target.planId, target.latamName)) {
+      return {
+      outcome: "unverified",
+      status: confirmed.client.status,
+      planName,
+      planId,
+      previousPlanName: current?.name ?? null,
+      requestedPlanName: target.latamName,
+      message: PLAN_UNVERIFIED,
+    }
+  }
+  return {
+    outcome: "updated",
+    status: confirmed.client.status,
+    planName,
+    planId,
+    previousPlanName: current?.name ?? null,
+    requestedPlanName: target.latamName,
+  }
+  } finally {
+    planInflight.delete(identifier)
   }
 }

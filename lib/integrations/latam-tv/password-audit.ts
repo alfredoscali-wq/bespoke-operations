@@ -94,3 +94,47 @@ export async function recordLatamClientStatusAudit(input: {
     },
   })
 }
+
+export type LatamPlanAuditResult =
+  | "updated"
+  | "unverified"
+  | "not_found"
+  | "same_plan"
+  | "plan_missing"
+  | "rejected"
+  | "unavailable"
+
+export async function recordLatamPlanChangeAudit(input: {
+  sessionUser: SessionUser
+  companyId: string
+  customerId: string
+  identifier: string
+  previousPlan: string | null
+  requestedPlan: string | null
+  result: LatamPlanAuditResult
+}): Promise<void> {
+  await recordAuditEventServer({
+    module: AUDIT_MODULES.CLIENTES,
+    action: AUDIT_ACTIONS.CUSTOMER_UPDATE,
+    entityType: AUDIT_ENTITY_TYPES.CUSTOMER,
+    entityId: input.customerId,
+    entityLabel: input.identifier,
+    description:
+      input.result === "updated"
+        ? "Se cambió el plan de LATAM TV."
+        : input.result === "unverified"
+          ? "LATAM informó el cambio de plan, pero no se pudo verificar."
+          : "No se cambió el plan de LATAM TV.",
+    severity: AUDIT_SEVERITIES.WARNING,
+    performedBy: { kind: "user", sessionUser: input.sessionUser },
+    companyId: input.companyId,
+    metadata: {
+      operation: "change_plan",
+      customerId: input.customerId,
+      identifier: input.identifier,
+      previousPlan: input.previousPlan,
+      requestedPlan: input.requestedPlan,
+      result: input.result,
+    },
+  })
+}

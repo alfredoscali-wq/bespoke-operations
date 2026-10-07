@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { latamPlanNameKey } from "@/lib/integrations/latam-tv/plans"
 import { validateLatamTvPassword } from "@/lib/integrations/latam-tv/password"
 import type { AbnetTvPadronRow } from "@/lib/subscriptions/abnet-tv-padron"
 
@@ -31,6 +32,16 @@ type LatamPhase =
   | "password_confirm"
   | "password_done"
   | "status_confirm"
+  | "plan_loading"
+  | "plan_select"
+  | "plan_confirm"
+
+type LatamPlanOption = {
+  kind: "basica" | "pack" | "full"
+  label: string
+  latamName: string
+  available: boolean
+}
 
 type AccountPhase = "active" | "suspended"
 
@@ -52,6 +63,19 @@ function statusLabel(phase: LatamPhase): string | null {
   }
   if (phase === "unavailable") return "LATAM: No disponible"
   return null
+}
+
+function latamPresenceLabel(
+  phase: "active" | "suspended" | "unavailable" | "created",
+  planName: string | null
+): string {
+  const state =
+    phase === "suspended"
+      ? "LATAM: Suspendido"
+      : phase === "unavailable"
+        ? "LATAM: No disponible"
+        : "LATAM: Activo"
+  return planName ? `${state} · Plan: ${planName}` : state
 }
 
 function registeredPhase(status: unknown): "active" | "suspended" | "unavailable" {
@@ -83,6 +107,9 @@ export function LatamTvRowDialog({
   const [confirmPassword, setConfirmPassword] = useState("")
   const [statusAction, setStatusAction] = useState<"disable" | "enable" | null>(null)
   const [statusNotice, setStatusNotice] = useState<string | null>(null)
+  const [latamPlanName, setLatamPlanName] = useState<string | null>(null)
+  const [planOptions, setPlanOptions] = useState<LatamPlanOption[]>([])
+  const [selectedPlan, setSelectedPlan] = useState<LatamPlanOption | null>(null)
   const busy = useRef(false)
 
   useEffect(() => {
@@ -97,6 +124,9 @@ export function LatamTvRowDialog({
     setConfirmPassword("")
     setStatusAction(null)
     setStatusNotice(null)
+    setLatamPlanName(null)
+    setPlanOptions([])
+    setSelectedPlan(null)
     busy.current = false
     if (!row) {
       setPhase("idle")
@@ -115,7 +145,11 @@ export function LatamTvRowDialog({
         const payload = (await response.json().catch(() => null)) as {
           success?: boolean
           found?: boolean
-          client?: { status?: string | null; username?: string | null }
+          client?: {
+            status?: string | null
+            username?: string | null
+            plan?: { name?: string | null } | null
+          }
         } | null
         if (cancelled) return
         if (!response.ok || !payload?.success) {
@@ -129,17 +163,12 @@ export function LatamTvRowDialog({
           return
         }
         const next = registeredPhase(payload.client?.status)
+        const planName = payload.client?.plan?.name ?? null
         setUsername(payload.client?.username ?? null)
+        setLatamPlanName(planName)
         if (next === "active" || next === "suspended") setAccountPhase(next)
         setPhase(next)
-        onStatus(
-          customerId,
-          next === "active"
-            ? "LATAM: Activo"
-            : next === "suspended"
-              ? "LATAM: Suspendido"
-              : "LATAM: No disponible"
-        )
+        onStatus(customerId, latamPresenceLabel(next, planName))
       })
       .catch(() => {
         if (cancelled) return
@@ -299,17 +328,13 @@ export function LatamTvRowDialog({
     }
   }
 
-  function applyConfirmedStatus(status: "enabled" | "disabled") {
+  function applyConfirmedStatus(status: "enabled" | "disabled", planName = latamPlanName) {
     if (!row?.bespokeCustomerId) return
-    if (status === "disabled") {
-      setAccountPhase("suspended")
-      setPhase("suspended")
-      onStatus(row.bespokeCustomerId, "LATAM: Suspendido")
-      return
-    }
-    setAccountPhase("active")
-    setPhase("active")
-    onStatus(row.bespokeCustomerId, "LATAM: Activo")
+    const next = status === "disabled" ? "suspended" : "active"
+    setAccountPhase(next)
+    setPhase(next)
+    if (planName !== latamPlanName) setLatamPlanName(planName)
+    onStatus(row.bespokeCustomerId, latamPresenceLabel(next, planName))
   }
 
   async function submitStatus() {
@@ -363,6 +388,110 @@ export function LatamTvRowDialog({
     }
   }
 
+  async function openPlanChange() {
+    if (!row?.bespokeCustomerId || busy.current) return
+    busy.current = true
+    setPending(true)
+    setActionError(null)
+    setStatusNotice(null)
+    setSelectedPlan(null)
+    setPhase("plan_loading")
+    try {
+      const response = await fetch(
+        `/api/integrations/latam-tv/customers/${row.bespokeCustomerId}/plan`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ preview: true }),
+        }
+      )
+      const payload = (await response.json().catch(() => null)) as {
+        outcome?: string
+        message?: string
+        status?: string | null
+        currentPlanName?: string | null
+        options?: LatamPlanOption[]
+      } | null
+      if (payload?.outcome !== "preview" || !payload.options) {
+        setActionError(payload?.message ?? "No fue posible consultar LATAM TV.")
+        setPhase(accountPhase ?? "active")
+        return
+      }
+      setLatamPlanName(payload.currentPlanName ?? null)
+      setPlanOptions(payload.options)
+      if (payload.status === "disabled") setAccountPhase("suspended")
+      if (payload.status === "enabled") setAccountPhase("active")
+      setPhase("plan_select")
+    } catch {
+      setActionError("No fue posible consultar LATAM TV.")
+      setPhase(accountPhase ?? "active")
+    } finally {
+      busy.current = false
+      setPending(false)
+    }
+  }
+
+  function choosePlan(option: LatamPlanOption) {
+    if (!option.available || busy.current) return
+    if (
+      latamPlanName &&
+      latamPlanNameKey(latamPlanName) === latamPlanNameKey(option.latamName)
+    ) {
+      setActionError("El cliente ya tiene este plan en LATAM TV.")
+      return
+    }
+    setActionError(null)
+    setSelectedPlan(option)
+    setPhase("plan_confirm")
+  }
+
+  async function submitPlan() {
+    if (!row?.bespokeCustomerId || !selectedPlan || busy.current) return
+    busy.current = true
+    setPending(true)
+    setActionError(null)
+    try {
+      const response = await fetch(
+        `/api/integrations/latam-tv/customers/${row.bespokeCustomerId}/plan`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tvKind: selectedPlan.kind }),
+        }
+      )
+      const payload = (await response.json().catch(() => null)) as {
+        outcome?: string
+        status?: string | null
+        planName?: string | null
+        message?: string | null
+      } | null
+      const confirmed = payload?.status === "enabled" || payload?.status === "disabled" ? payload.status : null
+      if (payload?.outcome === "updated" && confirmed) {
+        applyConfirmedStatus(confirmed, payload.planName ?? null)
+        setStatusNotice("✅ Plan actualizado correctamente en LATAM TV.")
+        setSelectedPlan(null)
+        return
+      }
+      if (confirmed) {
+        applyConfirmedStatus(confirmed, payload?.planName ?? null)
+      } else {
+        setPhase(accountPhase ?? "active")
+      }
+      setSelectedPlan(null)
+      setActionError(
+        payload?.message ??
+          "No fue posible comunicarse con LATAM TV. No se realizaron cambios en Bespoke."
+      )
+    } catch {
+      setActionError(
+        "No fue posible comunicarse con LATAM TV. No se realizaron cambios en Bespoke."
+      )
+    } finally {
+      busy.current = false
+      setPending(false)
+    }
+  }
+
   const label = statusLabel(phase)
   const passwordStep =
     phase === "password" || phase === "password_confirm" || phase === "password_done"
@@ -370,6 +499,8 @@ export function LatamTvRowDialog({
     canWrite && (phase === "active" || phase === "suspended" || phase === "created")
   const canSuspend = canWrite && (phase === "active" || phase === "created")
   const canActivate = canWrite && phase === "suspended"
+  const canChangeLatamPlan = canWrite && (phase === "active" || phase === "suspended" || phase === "created")
+  const planStep = phase === "plan_loading" || phase === "plan_select" || phase === "plan_confirm"
   const exists =
     phase === "active" || phase === "suspended" || phase === "created" || phase === "exists"
   const showAlta = phase === "unregistered" || phase === "missing"
@@ -387,7 +518,9 @@ export function LatamTvRowDialog({
                   ? "Suspender cliente en LATAM TV"
                   : phase === "status_confirm" && statusAction === "enable"
                     ? "Activar cliente en LATAM TV"
-                    : "LATAM TV"}
+                    : phase === "plan_confirm"
+                      ? "Cambiar plan en LATAM TV"
+                      : "LATAM TV"}
           </DialogTitle>
           <DialogDescription>
             {row ? `${row.customerName} · N° ${row.abnetCustomerNumber}` : "LATAM TV"}
@@ -405,6 +538,49 @@ export function LatamTvRowDialog({
             {phase === "unavailable" ? <p>No fue posible consultar LATAM TV.</p> : null}
             {phase === "unregistered" ? <p>El cliente no existe en LATAM TV.</p> : null}
             {statusNotice ? <p>{statusNotice}</p> : null}
+            {latamPlanName && !planStep && !passwordStep && phase !== "status_confirm" ? (
+              <p>Plan: {latamPlanName}</p>
+            ) : null}
+            {phase === "plan_loading" ? <p>Consultando el plan en LATAM TV…</p> : null}
+            {phase === "plan_select" ? (
+              <div className="space-y-2">
+                <p>Plan actual: {latamPlanName ?? "—"}</p>
+                <p>Planes disponibles</p>
+                {planOptions.map((option) =>
+                  option.available ? (
+                    <Button
+                      key={option.kind}
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={pending}
+                      onClick={() => choosePlan(option)}
+                    >
+                      {option.label}
+                    </Button>
+                  ) : (
+                    <p key={option.kind}>
+                      {option.kind === "full"
+                        ? "TV Full — No disponible actualmente en LATAM"
+                        : `${option.label} — No disponible`}
+                    </p>
+                  )
+                )}
+              </div>
+            ) : null}
+            {phase === "plan_confirm" && selectedPlan ? (
+              <div className="space-y-1">
+                <p>Cliente: {row.customerName}</p>
+                <p>Plan actual: {latamPlanName ?? "—"}</p>
+                <p>Nuevo plan: {selectedPlan.latamName}</p>
+                <p>El cambio se realizará únicamente en LATAM TV.</p>
+                <p>El estado del cliente no se modificará.</p>
+                {accountPhase === "suspended" ? (
+                  <p>El cliente continuará suspendido después del cambio.</p>
+                ) : null}
+                {pending ? <p>Cambiando el plan…</p> : null}
+              </div>
+            ) : null}
             {phase === "status_confirm" && row ? (
               <div className="space-y-2">
                 <p>Cliente: {row.customerName}</p>
@@ -499,6 +675,7 @@ export function LatamTvRowDialog({
             phase === "loading" ||
             phase === "no_bespoke" ||
             phase === "status_confirm" ||
+            planStep ||
             passwordStep ? null : (
               <div className="flex flex-wrap gap-2">
                 {showAlta ? (
@@ -584,9 +761,21 @@ export function LatamTvRowDialog({
                       type="button"
                       size="sm"
                       variant="outline"
-                      disabled
-                      title="Pendiente de implementación"
+                      disabled={!canChangeLatamPlan || pending}
+                      title={
+                        canChangeLatamPlan
+                          ? "Cambiar plan"
+                          : phase === "unavailable"
+                            ? "No fue posible consultar LATAM TV."
+                            : phase === "unregistered" || phase === "missing"
+                              ? "El cliente no existe en LATAM TV. No se puede cambiar el plan."
+                              : "Pendiente de implementación"
+                      }
                       aria-label="Cambiar plan LATAM"
+                      onClick={() => {
+                        if (!canChangeLatamPlan || busy.current) return
+                        void openPlanChange()
+                      }}
                     >
                       Cambiar plan
                     </Button>
@@ -612,7 +801,40 @@ export function LatamTvRowDialog({
           </div>
         ) : null}
         <DialogFooter>
-          {phase === "status_confirm" ? (
+          {phase === "plan_select" ? (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={pending}
+              onClick={() => setPhase(accountPhase ?? "active")}
+            >
+              Cancelar
+            </Button>
+          ) : phase === "plan_confirm" ? (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={pending}
+                onClick={() => {
+                  setSelectedPlan(null)
+                  setActionError(null)
+                  setPhase("plan_select")
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                disabled={pending}
+                onClick={() => {
+                  void submitPlan()
+                }}
+              >
+                {pending ? "Cambiando el plan…" : "Cambiar plan"}
+              </Button>
+            </>
+          ) : phase === "status_confirm" ? (
             <>
               <Button
                 type="button"

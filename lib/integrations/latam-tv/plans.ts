@@ -2,9 +2,9 @@ import { LatamTvRequestError } from "@/lib/integrations/latam-tv/errors"
 
 /**
  * Único punto de verdad de la equivalencia comercial.
- * Los nombres de LATAM no se traducen. Los pl_id salen de get-plans
- * y se asocian por nombre exacto. TV Full no existe en el catálogo
- * actual: queda sin pl_id y no se usa para altas ni cambios.
+ * Los pl_id salen de get-plans y se asocian por nombre normalizado.
+ * TV Full solo queda operativo si el catálogo trae "Plan Full".
+ * El alta de un cliente Full sigue bloqueada en el flujo de registro.
  */
 export const LATAM_TV_PLAN_LINKS = [
   {
@@ -23,7 +23,7 @@ export const LATAM_TV_PLAN_LINKS = [
     bespokeKind: "full",
     bespokeLabel: "TV Full",
     latamName: "Plan Full",
-    operational: false,
+    operational: true,
   },
 ] as const
 
@@ -53,9 +53,14 @@ export type LatamTvPlanDiagnosis = {
   otherPlans: LatamTvCatalogPlan[]
 }
 
-/** Trim and collapse whitespace. Case and wording stay exact. */
+/** Trim and collapse whitespace. The visible name keeps its original case. */
 export function normalizeLatamPlanName(name: string): string {
   return name.trim().replace(/\s+/g, " ")
+}
+
+/** Exact match: collapsed spaces, case-insensitive. Accents and wording stay. */
+export function latamPlanNameKey(name: string): string {
+  return normalizeLatamPlanName(name).toLowerCase()
 }
 
 function text(value: unknown): string | null {
@@ -114,18 +119,18 @@ export function readLatamTvPlansPayload(payload: Record<string, unknown>): Latam
 export function matchLatamTvPlans(plans: readonly LatamTvCatalogPlan[]): LatamTvPlanDiagnosis {
   const groups = new Map<string, LatamTvCatalogPlan[]>()
   for (const plan of plans) {
-    const key = normalizeLatamPlanName(plan.name)
+    const key = latamPlanNameKey(plan.name)
     const current = groups.get(key) ?? []
     current.push(plan)
     groups.set(key, current)
   }
 
   const linkedNames = new Set(
-    LATAM_TV_PLAN_LINKS.map((link) => normalizeLatamPlanName(link.latamName))
+    LATAM_TV_PLAN_LINKS.map((link) => latamPlanNameKey(link.latamName))
   )
   const correspondence = LATAM_TV_PLAN_LINKS.map((link) => {
-    const matches = groups.get(normalizeLatamPlanName(link.latamName)) ?? []
-    if (matches.length !== 1 || !link.operational) {
+    const matches = groups.get(latamPlanNameKey(link.latamName)) ?? []
+    if (matches.length !== 1 || !matches[0]?.id) {
       return {
         bespokeKind: link.bespokeKind,
         bespokeLabel: link.bespokeLabel,
@@ -157,7 +162,7 @@ export function matchLatamTvPlans(plans: readonly LatamTvCatalogPlan[]): LatamTv
     plans: [...plans],
     correspondence,
     otherPlans: plans.filter(
-      (plan) => !linkedNames.has(normalizeLatamPlanName(plan.name))
+      (plan) => !linkedNames.has(latamPlanNameKey(plan.name))
     ),
   }
 }
@@ -203,4 +208,37 @@ export function latamOperationalPlanIds(
   if (basica?.status !== "ok" || !basica.planId) return null
   if (pack?.status !== "ok" || !pack.planId) return null
   return { basica: basica.planId, pack: pack.planId }
+}
+
+export const LATAM_FULL_PLAN_UNAVAILABLE =
+  "TV Full todavía no está disponible en LATAM TV."
+
+export type LatamCommercialPlanOption = {
+  kind: LatamTvBespokePlanKind
+  label: string
+  latamName: string
+  available: boolean
+  planId: string | null
+}
+
+/** Opciones comerciales. PlanTienda y el resto del catálogo no entran. */
+export function latamCommercialPlanOptions(
+  diagnosis: LatamTvPlanDiagnosis
+): LatamCommercialPlanOption[] {
+  return diagnosis.correspondence.map((row) => ({
+    kind: row.bespokeKind,
+    label: row.bespokeLabel,
+    latamName: row.latamName,
+    available: row.status === "ok" && Boolean(row.planId),
+    planId: row.status === "ok" ? row.planId : null,
+  }))
+}
+
+export function latamChangePlanTarget(
+  kind: LatamTvBespokePlanKind,
+  diagnosis: LatamTvPlanDiagnosis
+): { planId: string; latamName: string } | null {
+  const option = latamCommercialPlanOptions(diagnosis).find((item) => item.kind === kind)
+  if (!option?.available || !option.planId) return null
+  return { planId: option.planId, latamName: option.latamName }
 }

@@ -312,7 +312,12 @@ test("16-17 y 19-21. el tenant, el plan y el resto de operaciones quedan fuera",
   const route = read("app/api/integrations/latam-tv/customers/[customerId]/status/route.ts")
   const dialog = read("components/subscriptions/latam-tv-row-dialog.tsx")
   const audit = read("lib/integrations/latam-tv/password-audit.ts")
-  assert.doesNotMatch(client, /id_plan/)
+  const toggle = client.slice(
+    client.indexOf("function toggleLatamClient"),
+    client.indexOf("export type LatamPlanChangeKind")
+  )
+  assert.doesNotMatch(toggle, /id_plan/)
+  assert.doesNotMatch(toggle, /modify-client/)
   assert.doesNotMatch(client, /console\./)
   assert.match(route, /requireSubscriptionsWriteContext/)
   assert.match(route, /\.eq\("company_id", auth\.companyId\)/)

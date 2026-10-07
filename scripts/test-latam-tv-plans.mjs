@@ -232,6 +232,7 @@ test("15-16. el token no sale y get-plans no escribe", () => {
     "/api/enable-client",
     "/api/get-clients",
     "/api/get-plans",
+    "/api/modify-client",
     "/api/modify-password",
     "/api/register-client",
   ])
@@ -240,7 +241,6 @@ test("15-16. el token no sale y get-plans no escribe", () => {
     "/api/update-plan",
     "/api/delete-plan",
     "/api/modify-plan",
-    "/api/modify-client",
     "/api/delete-client",
   ]) {
     assert.equal(client.includes(path), false)
@@ -253,6 +253,8 @@ test("15-16. el token no sale y get-plans no escribe", () => {
   assert.equal(script.includes("/api/enable-client"), false)
   assert.equal(plans.includes("/api/disable-client"), false)
   assert.equal(plans.includes("/api/enable-client"), false)
+  assert.equal(script.includes("/api/modify-client"), false)
+  assert.equal(plans.includes("/api/modify-client"), false)
   assert.match(plans, /payload\.error !== false/)
   assert.match(plans, /payload\.planes/)
   assert.doesNotMatch(plans, /payload\.code/)
