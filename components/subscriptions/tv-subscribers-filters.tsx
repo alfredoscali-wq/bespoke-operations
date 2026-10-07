@@ -17,51 +17,43 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { ISP_COMMERCIAL_STATUSES } from "@/lib/isp/constants"
-import { ISP_COMMERCIAL_STATUS_LABELS } from "@/lib/isp/labels"
 import {
-  commercialOptionsForPlan,
-  hasTvDeskListFilters,
-  type TvListStatusFilter,
-  type TvSelectedCommercialFilter,
-  type TvSelectedPlanFilter,
-} from "@/lib/subscriptions/tv-plans"
+  ABNET_TV_PADRON_STATUSES,
+  type AbnetTvKind,
+} from "@/lib/subscriptions/abnet-tv-padron"
 import { FILTER_CLEAR_BUTTON_CLASS, FILTER_SELECT_TRIGGER_CLASS } from "@/lib/ui/visual-tokens"
 
 export function TvSubscribersFilters() {
   const {
-    plans,
-    commercialOptions,
-    selectedPlan,
-    selectedCommercialId,
+    tvKind,
+    jubiladoOnly,
     statusFilter,
+    duplicatesOnly,
     search,
-    setSelectedPlanFilter,
-    setSelectedCommercialId,
+    setTvKind,
+    setJubiladoOnly,
     setStatusFilter,
+    setDuplicatesOnly,
     setSearch,
     clearFilters,
   } = useSubscriptions()
 
-  const visibleCommercial = commercialOptionsForPlan(
-    commercialOptions,
-    selectedPlan
-  )
-  const selectedPlanName =
-    selectedPlan === "all"
-      ? null
-      : plans.find((plan) => plan.id === selectedPlan)?.name ?? null
-  const selectedCommercialName =
-    selectedCommercialId === "all"
-      ? null
-      : visibleCommercial.find((option) => option.id === selectedCommercialId)
-          ?.name ?? null
-  const hasFilters = hasTvDeskListFilters({
-    selectedPlan,
-    selectedCommercialId,
-    status: statusFilter,
-    search,
-  })
+  const hasFilters =
+    tvKind !== "all" ||
+    jubiladoOnly ||
+    statusFilter !== "all" ||
+    duplicatesOnly ||
+    search.trim() !== ""
+  const tvLabel =
+    tvKind === "basica"
+      ? "TV Básica"
+      : tvKind === "full"
+        ? "TV Full"
+        : tvKind === "pack"
+          ? "TV Básica + Pack Fútbol"
+          : tvKind === "other"
+            ? "Otro TV"
+            : null
 
   return (
     <div className="space-y-3">
@@ -70,113 +62,99 @@ export function TvSubscribersFilters() {
         <Input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          placeholder="Buscar por nombre, DNI, teléfono o N° de abonado"
+          placeholder="Buscar por N° Cliente, nombre, CLI, plan o nodo"
           className="pl-8"
         />
       </div>
-
       <QuickFilterBar>
-        <QuickFilterField label="Plan TV">
+        <QuickFilterField label="TV">
           <Select
-            value={selectedPlan}
-            onValueChange={(value) =>
-              setSelectedPlanFilter(value as TvSelectedPlanFilter)
-            }
+            value={tvKind}
+            onValueChange={(value) => setTvKind(value as "all" | AbnetTvKind)}
           >
             <SelectTrigger className={FILTER_SELECT_TRIGGER_CLASS}>
-              <SelectValue placeholder="Todos" />
+              <SelectValue placeholder="Todas" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              {plans.map((plan) => (
-                <SelectItem key={plan.id} value={plan.id}>
-                  {plan.name}
-                </SelectItem>
-              ))}
+              <SelectItem value="all">Todas</SelectItem>
+              <SelectItem value="basica">TV Básica</SelectItem>
+              <SelectItem value="full">TV Full</SelectItem>
+              <SelectItem value="pack">TV Básica + Pack Fútbol</SelectItem>
+              <SelectItem value="other">Otro valor</SelectItem>
             </SelectContent>
           </Select>
         </QuickFilterField>
         <QuickFilterField label="Estado">
-          <Select
-            value={statusFilter}
-            onValueChange={(value) =>
-              setStatusFilter(value as TvListStatusFilter)
-            }
-          >
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className={FILTER_SELECT_TRIGGER_CLASS}>
               <SelectValue placeholder="Estado" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos</SelectItem>
-              {ISP_COMMERCIAL_STATUSES.map((status) => (
+              {ABNET_TV_PADRON_STATUSES.map((status) => (
                 <SelectItem key={status} value={status}>
-                  {ISP_COMMERCIAL_STATUS_LABELS[status]}
+                  {status}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </QuickFilterField>
-        {visibleCommercial.length > 0 ? (
-          <QuickFilterField label="Abono / Servicio">
-            <Select
-              value={selectedCommercialId}
-              onValueChange={(value) =>
-                setSelectedCommercialId(value as TvSelectedCommercialFilter)
-              }
-            >
-              <SelectTrigger className={FILTER_SELECT_TRIGGER_CLASS}>
-                <SelectValue placeholder="Todos" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                {visibleCommercial.map((option) => (
-                  <SelectItem key={option.id} value={option.id}>
-                    {option.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </QuickFilterField>
-        ) : null}
+        <QuickFilterField label="Condición">
+          <Select
+            value={jubiladoOnly ? "jubilado" : "all"}
+            onValueChange={(value) => setJubiladoOnly(value === "jubilado")}
+          >
+            <SelectTrigger className={FILTER_SELECT_TRIGGER_CLASS}>
+              <SelectValue placeholder="Todas" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas</SelectItem>
+              <SelectItem value="jubilado">Jubilados</SelectItem>
+            </SelectContent>
+          </Select>
+        </QuickFilterField>
+        <QuickFilterField label="Filas">
+          <Select
+            value={duplicatesOnly ? "duplicates" : "all"}
+            onValueChange={(value) => setDuplicatesOnly(value === "duplicates")}
+          >
+            <SelectTrigger className={FILTER_SELECT_TRIGGER_CLASS}>
+              <SelectValue placeholder="Todas" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas</SelectItem>
+              <SelectItem value="duplicates">N° con varias filas</SelectItem>
+            </SelectContent>
+          </Select>
+        </QuickFilterField>
         {hasFilters ? (
           <div className="flex items-end pb-1">
-            <button
-              type="button"
-              className={FILTER_CLEAR_BUTTON_CLASS}
-              onClick={clearFilters}
-            >
+            <button type="button" className={FILTER_CLEAR_BUTTON_CLASS} onClick={clearFilters}>
               Limpiar filtros
             </button>
           </div>
         ) : null}
       </QuickFilterBar>
-
       {hasFilters ? (
         <div className="flex flex-wrap items-center gap-2">
           <p className="text-xs text-muted-foreground">Filtro activo:</p>
-          {selectedPlanName ? (
-            <FilterChip
-              label={selectedPlanName}
-              onRemove={() => setSelectedPlanFilter("all")}
-            />
+          {tvLabel ? (
+            <FilterChip label={tvLabel} onRemove={() => setTvKind("all")} />
+          ) : null}
+          {jubiladoOnly ? (
+            <FilterChip label="Jubilados" onRemove={() => setJubiladoOnly(false)} />
           ) : null}
           {statusFilter !== "all" ? (
-            <FilterChip
-              label={ISP_COMMERCIAL_STATUS_LABELS[statusFilter]}
-              onRemove={() => setStatusFilter("all")}
-            />
+            <FilterChip label={statusFilter} onRemove={() => setStatusFilter("all")} />
           ) : null}
-          {selectedCommercialName ? (
+          {duplicatesOnly ? (
             <FilterChip
-              label={selectedCommercialName}
-              onRemove={() => setSelectedCommercialId("all")}
+              label="Varias filas"
+              onRemove={() => setDuplicatesOnly(false)}
             />
           ) : null}
           {search.trim() ? (
-            <FilterChip
-              label={search.trim()}
-              onRemove={() => setSearch("")}
-            />
+            <FilterChip label={search.trim()} onRemove={() => setSearch("")} />
           ) : null}
         </div>
       ) : null}

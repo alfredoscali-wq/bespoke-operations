@@ -14,26 +14,23 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { formatTvMoney, type TvPlanKpi } from "@/lib/subscriptions/tv-plans"
+import { formatTvMoney } from "@/lib/subscriptions/tv-plans"
 import type { TvPlanWriteDraft } from "@/lib/subscriptions/tv-catalog"
 import type { TvCatalogPlan } from "@/lib/types/subscriptions"
 
 export function TvPlansCatalogSection({
   plans,
-  kpis,
   canWrite,
   onCreate,
   onUpdate,
   onToggleActive,
 }: {
   plans: TvCatalogPlan[]
-  kpis: readonly TvPlanKpi[]
   canWrite: boolean
   onCreate: (draft: TvPlanWriteDraft) => Promise<string | null>
   onUpdate: (id: string, draft: TvPlanWriteDraft) => Promise<string | null>
   onToggleActive: (plan: TvCatalogPlan) => Promise<string | null>
 }) {
-  const kpiById = new Map(kpis.map((plan) => [plan.catalogId, plan]))
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<TvCatalogPlan | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -61,8 +58,8 @@ export function TvPlansCatalogSection({
         <div>
           <h2 className="text-sm font-semibold">Planes de TV</h2>
           <p className="text-xs text-muted-foreground">
-            Catálogo de planes TV de la empresa. Servicios los usa como
-            componente interno; el abono comercial sigue siendo uno solo.
+            Catálogo administrativo de planes de TV. No cuenta las
+            suscripciones actuales.
           </p>
         </div>
         {canWrite ? (
@@ -83,8 +80,6 @@ export function TvPlansCatalogSection({
             <TableRow className="hover:bg-transparent">
               <TableHead>Nombre</TableHead>
               <TableHead>Precio mensual</TableHead>
-              <TableHead>Clientes</TableHead>
-              <TableHead>Ingreso mensual TV</TableHead>
               <TableHead>Estado</TableHead>
               {canWrite ? (
                 <TableHead className="text-right">Acciones</TableHead>
@@ -95,7 +90,7 @@ export function TvPlansCatalogSection({
             {plans.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={canWrite ? 6 : 5}
+                  colSpan={canWrite ? 4 : 3}
                   className="text-muted-foreground"
                 >
                   Todavía no hay planes TV para esta empresa.
@@ -103,20 +98,11 @@ export function TvPlansCatalogSection({
               </TableRow>
             ) : (
               plans.map((plan) => {
-                const kpi = kpiById.get(plan.id)
-                const clients = kpi?.activeCount ?? 0
-                const revenue = kpi?.monthlyRevenue ?? 0
                 return (
                 <TableRow key={plan.id}>
                   <TableCell className="font-medium">{plan.name}</TableCell>
                   <TableCell className="tabular-nums">
                     {formatTvMoney(plan.monthlyPrice)}
-                  </TableCell>
-                  <TableCell className="tabular-nums">
-                    {clients} {clients === 1 ? "cliente" : "clientes"}
-                  </TableCell>
-                  <TableCell className="tabular-nums">
-                    {formatTvMoney(revenue)} / mes
                   </TableCell>
                   <TableCell>
                     <Badge variant={plan.isActive ? "secondary" : "outline"}>

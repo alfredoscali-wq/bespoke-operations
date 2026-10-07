@@ -11,56 +11,69 @@ import {
 
 import { useAuth } from "@/components/auth/auth-provider"
 import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
+import {
+  matchesAbnetPadronFilters,
+  summarizeAbnetTvPadron,
+  type AbnetTvKind,
+  type AbnetTvPadronRow,
+  type AbnetTvPadronSummary,
+} from "@/lib/subscriptions/abnet-tv-padron"
 import { canWriteSubscriptions } from "@/lib/subscriptions/permissions"
 import type { TvPlanWriteDraft } from "@/lib/subscriptions/tv-catalog"
+import { DEFAULT_TV_LIST_PAGE_SIZE } from "@/lib/subscriptions/tv-plans"
 import {
   createTvPlan,
   listTvCatalogPlans,
-  listTvCommercialServiceOptions,
-  listTvDeskSummary,
-  listTvSubscribers,
   setTvPlanActive,
   updateTvPlan,
 } from "@/lib/supabase/subscriptions.browser"
-import {
-  DEFAULT_TV_LIST_PAGE_SIZE,
-  EMPTY_TV_DESK_FILTERS,
-  TV_KPI_ACTIVE_STATUS,
-  type TvCommercialServiceOption,
-  type TvDeskSummary,
-  type TvListStatusFilter,
-  type TvSelectedCommercialFilter,
-  type TvSelectedPlanFilter,
-} from "@/lib/subscriptions/tv-plans"
-import type {
-  TvCatalogPlan,
-  TvSubscriberListPage,
-} from "@/lib/types/subscriptions"
+import type { TvCatalogPlan } from "@/lib/types/subscriptions"
+
+type PadronList = {
+  items: AbnetTvPadronRow[]
+  total: number
+  uniqueCustomers: number
+  page: number
+  pageSize: number
+}
 
 type SubscriptionsContextValue = {
   plans: TvCatalogPlan[]
-  summary: TvDeskSummary | null
-  commercialOptions: TvCommercialServiceOption[]
-  list: TvSubscriberListPage | null
-  selectedPlan: TvSelectedPlanFilter
-  selectedCommercialId: TvSelectedCommercialFilter
-  statusFilter: TvListStatusFilter
+  summary: AbnetTvPadronSummary | null
+  list: PadronList | null
+  tvKind: "all" | AbnetTvKind
+  jubiladoOnly: boolean
+  statusFilter: string
+  duplicatesOnly: boolean
   search: string
   page: number
   isSummaryReady: boolean
   isListLoading: boolean
   canWrite: boolean
   error: string | null
-  setSelectedPlan: (plan: TvSelectedPlanFilter) => void
-  setSelectedPlanFilter: (plan: TvSelectedPlanFilter) => void
-  setSelectedCommercialId: (id: TvSelectedCommercialFilter) => void
-  setStatusFilter: (status: TvListStatusFilter) => void
+  showPadronView: (
+    view:
+      | "all"
+      | "basica"
+      | "full"
+      | "pack"
+      | "jubilado"
+      | "Activa"
+      | "Morosa"
+      | "Pendiente"
+      | "Inactiva"
+  ) => void
+  setTvKind: (kind: "all" | AbnetTvKind) => void
+  setJubiladoOnly: (value: boolean) => void
+  setStatusFilter: (status: string) => void
+  setDuplicatesOnly: (value: boolean) => void
   setSearch: (value: string) => void
   setPage: (page: number) => void
   clearFilters: () => void
   createPlan: (draft: TvPlanWriteDraft) => Promise<string | null>
   updatePlan: (id: string, draft: TvPlanWriteDraft) => Promise<string | null>
   togglePlanActive: (plan: TvCatalogPlan) => Promise<string | null>
+  refreshDesk: () => void
 }
 
 const SubscriptionsContext = createContext<SubscriptionsContextValue | null>(
@@ -76,22 +89,15 @@ export function SubscriptionsProvider({
   const { companyId, isAuthReady } = useTenantCompanyId()
   const canWrite = canWriteSubscriptions(sessionUser?.systemRole)
   const [plans, setPlans] = useState<TvCatalogPlan[]>([])
-  const [summary, setSummary] = useState<TvDeskSummary | null>(null)
-  const [commercialOptions, setCommercialOptions] = useState<
-    TvCommercialServiceOption[]
-  >([])
-  const [list, setList] = useState<TvSubscriberListPage | null>(null)
-  const [selectedPlan, setSelectedPlanState] =
-    useState<TvSelectedPlanFilter>("all")
-  const [selectedCommercialId, setSelectedCommercialState] =
-    useState<TvSelectedCommercialFilter>("all")
-  const [statusFilter, setStatusFilterState] =
-    useState<TvListStatusFilter>(TV_KPI_ACTIVE_STATUS)
+  const [padronRows, setPadronRows] = useState<AbnetTvPadronRow[]>([])
+  const [tvKind, setTvKindState] = useState<"all" | AbnetTvKind>("all")
+  const [jubiladoOnly, setJubiladoOnlyState] = useState(false)
+  const [statusFilter, setStatusFilterState] = useState("all")
+  const [duplicatesOnly, setDuplicatesOnlyState] = useState(false)
   const [searchInput, setSearch] = useState("")
   const [debouncedSearch, setDebouncedSearch] = useState("")
   const [page, setPageState] = useState(1)
   const [isSummaryReady, setIsSummaryReady] = useState(false)
-  const [catalogLoaded, setCatalogLoaded] = useState(false)
   const [isListLoading, setIsListLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [deskEpoch, setDeskEpoch] = useState(0)
@@ -103,42 +109,65 @@ export function SubscriptionsProvider({
     return () => window.clearTimeout(timeout)
   }, [searchInput])
 
-  const setSelectedPlan = useCallback((plan: TvSelectedPlanFilter) => {
-    setSelectedPlanState(plan)
-    setSelectedCommercialState("all")
-    setStatusFilterState(TV_KPI_ACTIVE_STATUS)
-    setPageState(1)
-  }, [])
-
-  const setSelectedPlanFilter = useCallback((plan: TvSelectedPlanFilter) => {
-    setSelectedPlanState(plan)
-    setSelectedCommercialState("all")
-    setPageState(1)
-  }, [])
-
-  const setSelectedCommercialId = useCallback(
-    (id: TvSelectedCommercialFilter) => {
-      setSelectedCommercialState(id)
+  const showPadronView = useCallback(
+    (
+      view:
+        | "all"
+        | "basica"
+        | "full"
+        | "pack"
+        | "jubilado"
+        | "Activa"
+        | "Morosa"
+        | "Pendiente"
+        | "Inactiva"
+    ) => {
+      setTvKindState(
+        view === "basica" || view === "full" || view === "pack" ? view : "all"
+      )
+      setJubiladoOnlyState(view === "jubilado")
+      setStatusFilterState(
+        view === "Activa" ||
+          view === "Morosa" ||
+          view === "Pendiente" ||
+          view === "Inactiva"
+          ? view
+          : "all"
+      )
+      setDuplicatesOnlyState(false)
+      setSearch("")
+      setDebouncedSearch("")
       setPageState(1)
     },
     []
   )
 
-  const setStatusFilter = useCallback((status: TvListStatusFilter) => {
+  const setTvKind = useCallback((kind: "all" | AbnetTvKind) => {
+    setTvKindState(kind)
+    setPageState(1)
+  }, [])
+  const setJubiladoOnly = useCallback((value: boolean) => {
+    setJubiladoOnlyState(value)
+    setPageState(1)
+  }, [])
+  const setStatusFilter = useCallback((status: string) => {
     setStatusFilterState(status)
     setPageState(1)
   }, [])
-
+  const setDuplicatesOnly = useCallback((value: boolean) => {
+    setDuplicatesOnlyState(value)
+    setPageState(1)
+  }, [])
   const setPage = useCallback((next: number) => {
     setPageState(Math.max(1, next))
   }, [])
-
   const clearFilters = useCallback(() => {
-    setSelectedPlanState(EMPTY_TV_DESK_FILTERS.selectedPlan)
-    setSelectedCommercialState(EMPTY_TV_DESK_FILTERS.selectedCommercialId)
-    setStatusFilterState(EMPTY_TV_DESK_FILTERS.status)
-    setSearch(EMPTY_TV_DESK_FILTERS.search)
-    setDebouncedSearch(EMPTY_TV_DESK_FILTERS.search)
+    setTvKindState("all")
+    setJubiladoOnlyState(false)
+    setStatusFilterState("all")
+    setDuplicatesOnlyState(false)
+    setSearch("")
+    setDebouncedSearch("")
     setPageState(1)
   }, [])
 
@@ -154,21 +183,19 @@ export function SubscriptionsProvider({
     if (!isAuthReady) return
     if (!companyId) {
       setPlans([])
-      setSummary(null)
-      setCommercialOptions([])
+      setPadronRows([])
       setIsSummaryReady(true)
-      setCatalogLoaded(true)
+      setIsListLoading(false)
       return
     }
 
     let cancelled = false
     setIsSummaryReady(false)
-    setCatalogLoaded(false)
+    setIsListLoading(true)
     void (async () => {
-      const [catalogResult, summaryResult, commercialResult] = await Promise.all([
+      const [catalogResult, padronResponse] = await Promise.all([
         listTvCatalogPlans(companyId),
-        listTvDeskSummary(companyId),
-        listTvCommercialServiceOptions(companyId),
+        fetch("/api/subscriptions/abnet-padron"),
       ])
       if (cancelled) return
       if (catalogResult.error) {
@@ -177,20 +204,20 @@ export function SubscriptionsProvider({
       } else {
         setPlans(catalogResult.data ?? [])
       }
-      if (summaryResult.error) {
-        setError(summaryResult.error.message)
-        setSummary(null)
+      const body = (await padronResponse.json()) as {
+        success?: boolean
+        message?: string
+        rows?: AbnetTvPadronRow[]
+      }
+      if (!padronResponse.ok || !body.success) {
+        setError(body.message ?? "No se pudo leer el padrón de TV.")
+        setPadronRows([])
       } else {
-        setSummary(summaryResult.data)
+        setPadronRows(body.rows ?? [])
         if (!catalogResult.error) setError(null)
       }
-      if (commercialResult.error) {
-        setCommercialOptions([])
-      } else {
-        setCommercialOptions(commercialResult.data ?? [])
-      }
       setIsSummaryReady(true)
-      setCatalogLoaded(true)
+      setIsListLoading(false)
     })()
 
     return () => {
@@ -198,49 +225,37 @@ export function SubscriptionsProvider({
     }
   }, [companyId, isAuthReady, deskEpoch])
 
-  useEffect(() => {
-    if (!isAuthReady || !companyId || !catalogLoaded) {
-      setList(null)
-      return
-    }
+  const summary = useMemo(
+    () => (isSummaryReady ? summarizeAbnetTvPadron(padronRows) : null),
+    [padronRows, isSummaryReady]
+  )
 
-    let cancelled = false
-    setIsListLoading(true)
-    void (async () => {
-      const result = await listTvSubscribers({
-        companyId,
-        plans,
-        selectedPlan,
-        selectedCommercialId,
-        status: statusFilter,
-        search: debouncedSearch,
-        page,
-        pageSize: DEFAULT_TV_LIST_PAGE_SIZE,
-      })
-      if (cancelled) return
-      if (result.error) {
-        setError(result.error.message)
-        setList(null)
-      } else {
-        setList(result.data)
-      }
-      setIsListLoading(false)
-    })()
+  const filteredRows = useMemo(
+    () =>
+      padronRows.filter((row) =>
+        matchesAbnetPadronFilters(row, {
+          tvKind,
+          jubilado: jubiladoOnly,
+          status: statusFilter,
+          duplicatesOnly,
+          search: debouncedSearch,
+        })
+      ),
+    [padronRows, tvKind, jubiladoOnly, statusFilter, duplicatesOnly, debouncedSearch]
+  )
 
-    return () => {
-      cancelled = true
+  const list = useMemo<PadronList | null>(() => {
+    if (!isSummaryReady) return null
+    const from = (page - 1) * DEFAULT_TV_LIST_PAGE_SIZE
+    const numbers = new Set(filteredRows.map((row) => row.abnetCustomerNumber))
+    return {
+      items: filteredRows.slice(from, from + DEFAULT_TV_LIST_PAGE_SIZE),
+      total: filteredRows.length,
+      uniqueCustomers: numbers.size,
+      page,
+      pageSize: DEFAULT_TV_LIST_PAGE_SIZE,
     }
-  }, [
-    companyId,
-    isAuthReady,
-    plans,
-    selectedPlan,
-    selectedCommercialId,
-    statusFilter,
-    debouncedSearch,
-    page,
-    catalogLoaded,
-  ])
+  }, [filteredRows, isSummaryReady, page])
 
   const createPlan = useCallback(
     async (draft: TvPlanWriteDraft) => {
@@ -251,7 +266,6 @@ export function SubscriptionsProvider({
     },
     [reloadDesk]
   )
-
   const updatePlan = useCallback(
     async (id: string, draft: TvPlanWriteDraft) => {
       const result = await updateTvPlan(id, draft)
@@ -261,7 +275,6 @@ export function SubscriptionsProvider({
     },
     [reloadDesk]
   )
-
   const togglePlanActive = useCallback(
     async (plan: TvCatalogPlan) => {
       const result = await setTvPlanActive(plan.id, !plan.isActive)
@@ -276,51 +289,55 @@ export function SubscriptionsProvider({
     () => ({
       plans,
       summary,
-      commercialOptions,
       list,
-      selectedPlan,
-      selectedCommercialId,
+      tvKind,
+      jubiladoOnly,
       statusFilter,
+      duplicatesOnly,
       search: searchInput,
       page,
       isSummaryReady,
       isListLoading,
       canWrite,
       error,
-      setSelectedPlan,
-      setSelectedPlanFilter,
-      setSelectedCommercialId,
+      showPadronView,
+      setTvKind,
+      setJubiladoOnly,
       setStatusFilter,
+      setDuplicatesOnly,
       setSearch,
       setPage,
       clearFilters,
       createPlan,
       updatePlan,
       togglePlanActive,
+      refreshDesk: reloadDesk,
     }),
     [
       plans,
       summary,
-      commercialOptions,
       list,
-      selectedPlan,
-      selectedCommercialId,
+      tvKind,
+      jubiladoOnly,
       statusFilter,
+      duplicatesOnly,
       searchInput,
       page,
       isSummaryReady,
       isListLoading,
       canWrite,
       error,
-      setSelectedPlan,
-      setSelectedPlanFilter,
-      setSelectedCommercialId,
+      showPadronView,
+      setTvKind,
+      setJubiladoOnly,
       setStatusFilter,
+      setDuplicatesOnly,
       setPage,
       clearFilters,
       createPlan,
       updatePlan,
       togglePlanActive,
+      reloadDesk,
     ]
   )
 

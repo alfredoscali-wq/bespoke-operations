@@ -64,9 +64,11 @@ test("1-3. KPIs dinámicos, plan nuevo y plan con 0 clientes", () => {
   assert.equal(premium.plans[0].activeCount, 0)
   assert.equal(premium.plans[0].monthlyRevenue, 0)
   assert.equal(premium.plans[1].activeCount, 400)
-  assert.match(cards, /plans\.map/)
+  assert.match(cards, /TV Básica/)
+  assert.match(cards, /TV Full/)
+  assert.match(ui, /Pack Fútbol/)
   assert.doesNotMatch(cards, /TV_PLAN_NAMES/)
-  assert.match(catalogUi, /0 clientes|clientes/)
+  assert.match(catalogUi, /Catálogo administrativo/)
 })
 
 test("4-7. cantidad, ingreso TV, total solo TV, Internet no se incluye", () => {
@@ -91,17 +93,18 @@ test("4-7. cantidad, ingreso TV, total solo TV, Internet no se incluye", () => {
   assert.equal(summary.totalActiveCustomers, 3250)
   assert.equal(summary.totalMonthlyRevenue, 16_785_000)
   assert.notEqual(summary.totalMonthlyRevenue, 3250 * 35000)
-  assert.match(overview, /Ingreso mensual TV/)
-  assert.match(overview, /No incluye Internet/)
+  assert.match(overview, /Total filas de TV/)
+  assert.match(overview, /Clientes únicos/)
 })
 
 test("8-10. click KPI filtra en /subscriptions; Ver Cliente 360 navega por fila", () => {
   assert.doesNotMatch(cards, /href=.*clientes-360/)
   assert.doesNotMatch(overview, /href=.*clientes-360/)
-  assert.match(cards, /setSelectedPlan\(plan\.catalogId\)/)
-  assert.match(overview, /setSelectedPlan\("all"\)/)
+  assert.match(cards, /showPadronView\("basica"\)/)
+  assert.match(cards, /showPadronView\("full"\)/)
+  assert.match(overview, /showPadronView\("all"\)/)
   assert.match(ui, /Ver Cliente 360/)
-  assert.match(ui, /\/clientes-360\/\$\{row\.customerId\}/)
+  assert.match(ui, /\/clientes-360\/\$\{row\.bespokeCustomerId\}/)
   assert.doesNotMatch(ui, /Upgrade/)
   assert.doesNotMatch(ui, /Downgrade/)
   assert.doesNotMatch(ui, /Cambiar plan/)
@@ -124,8 +127,9 @@ test("11-16. búsqueda, filtros combinables, limpiar y paginación", () => {
   assert.match(queries, /resolveTvListCommercialIds/)
   assert.match(queries, /selectedCommercialId/)
   assert.match(queries, /commercial_status/)
-  assert.match(filters, /Plan TV/)
-  assert.match(filters, /Abono \/ Servicio/)
+  assert.match(filters, /TV Básica/)
+  assert.match(filters, /Jubilados/)
+  assert.match(filters, /N° con varias filas/)
   assert.match(filters, /Limpiar filtros/)
   assert.match(filters, /Filtro activo/)
   assert.match(provider, /clearFilters/)
@@ -156,7 +160,9 @@ test("11-16. búsqueda, filtros combinables, limpiar y paginación", () => {
   )
   assert.equal(
     hasTvDeskListFilters({
-      selectedPlan: "all",
+      tvTier: "all",
+      pack: "all",
+      condition: "all",
       selectedCommercialId: "all",
       status: "all",
       search: "",
@@ -165,14 +171,16 @@ test("11-16. búsqueda, filtros combinables, limpiar y paginación", () => {
   )
   assert.equal(
     hasTvDeskListFilters({
-      selectedPlan: "tv-full",
+      tvTier: "full",
+      pack: "all",
+      condition: "all",
       selectedCommercialId: "all",
       status: "active",
       search: "",
     }),
     true
   )
-  assert.equal(EMPTY_TV_DESK_FILTERS.selectedPlan, "all")
+  assert.equal(EMPTY_TV_DESK_FILTERS.tvTier, "all")
   assert.equal(EMPTY_TV_DESK_FILTERS.status, "all")
   assert.equal(
     matchesTvListSearch(
@@ -218,12 +226,15 @@ test("18-21. sin TV no aparece; nombre comercial; importe TV del catálogo", () 
     }),
     false
   )
-  assert.match(ui, /commercialPlanName/)
-  assert.match(ui, /Servicio \/ Abono/)
-  assert.match(ui, /Importe TV/)
-  assert.match(queries, /tvPlan\.monthlyPrice/)
+  assert.match(ui, /N° Cliente/)
+  assert.match(ui, /serviceType/)
+  assert.match(ui, /FINAL/)
+  assert.doesNotMatch(ui, /planName/)
+  assert.doesNotMatch(ui, />CLI</)
+  assert.doesNotMatch(ui, />Plan</)
+  assert.match(ui, /formatTvMoney/)
+  assert.match(queries, /tv_plan_catalog_id/)
   assert.doesNotMatch(queries, /row\.monthly_fee/)
-  assert.match(catalogUi, /Ingreso mensual TV/)
 })
 
 test("22-23. planes inactivos no se ofrecen a nuevos servicios y no rompen existentes", () => {
@@ -293,12 +304,16 @@ test("filtro de abono solo muestra servicios con componente TV", () => {
   assert.match(queries, /not\("tv_plan_catalog_id", "is", null\)/)
 })
 
-test("estados del filtro son los de isp_services", () => {
+test("estados del filtro son los del padrón ABNet", () => {
   for (const status of ISP_COMMERCIAL_STATUSES) {
     assert.ok(ISP_COMMERCIAL_STATUS_LABELS[status])
   }
-  assert.match(filters, /ISP_COMMERCIAL_STATUSES/)
-  assert.match(filters, /Pendiente de alta|ISP_COMMERCIAL_STATUS_LABELS/)
+  assert.match(filters, /ABNET_TV_PADRON_STATUSES/)
+  assert.doesNotMatch(filters, /ISP_COMMERCIAL_STATUSES/)
+  assert.match(read("lib/subscriptions/abnet-tv-padron.ts"), /"Activa"/)
+  assert.match(read("lib/subscriptions/abnet-tv-padron.ts"), /"Morosa"/)
+  assert.match(read("lib/subscriptions/abnet-tv-padron.ts"), /"Pendiente"/)
+  assert.match(read("lib/subscriptions/abnet-tv-padron.ts"), /"Inactiva"/)
 })
 
 test("empty state y contador del listado", () => {
@@ -311,8 +326,8 @@ test("empty state y contador del listado", () => {
   )
   assert.equal(formatTvListCount(400), "Mostrando 400 clientes")
   assert.equal(formatTvListCount(1), "Mostrando 1 cliente")
-  assert.match(ui, /tvDeskEmptyListMessage/)
-  assert.match(ui, /formatTvListCount/)
+  assert.match(ui, /Ninguna fila del padrón coincide/)
+  assert.match(ui, /filas/)
 })
 
 test("jerarquía: catálogo, resumen y clientes separados", () => {
@@ -320,8 +335,8 @@ test("jerarquía: catálogo, resumen y clientes separados", () => {
   assert.match(ui, /SubscriptionsTvOverview/)
   assert.match(ui, /SubscriptionsSummaryCards/)
   assert.match(ui, /TvSubscribersFilters/)
-  assert.match(ui, /Administración y seguimiento de los servicios de TV/)
+  assert.match(ui, /Padrón de TV de ABNet/)
   assert.match(catalogUi, /Planes de TV/)
-  assert.match(overview, /Resumen TV/)
-  assert.match(ui, /Clientes con TV/)
+  assert.match(overview, /Padrón ABNet/)
+  assert.match(ui, /Padrón de TV/)
 })

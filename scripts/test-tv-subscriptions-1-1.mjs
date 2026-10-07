@@ -53,8 +53,8 @@ test("los planes TV se obtienen dinámicamente del catálogo, no de una lista fi
   assert.doesNotMatch(queries, /isTvPlanCode\(row\.code\)/)
   assert.doesNotMatch(cards, /TV_PLAN_CODES/)
   assert.doesNotMatch(cards, /TV_PLAN_NAMES/)
-  assert.match(cards, /plans\.map/)
-  assert.match(cards, /setSelectedPlan\(plan\.catalogId\)/)
+  assert.match(cards, /TV Básica/)
+  assert.match(cards, /showPadronView\("full"\)/)
   assert.doesNotMatch(ui, /TV_PLAN_NAMES\[/)
 
   const premium = summarizeTvPlans([
@@ -194,8 +194,9 @@ test("el click del KPI permanece en /subscriptions y filtra el plan", () => {
   )
   assert.doesNotMatch(cards, /href=.*clientes-360/)
   assert.doesNotMatch(overview, /href=.*clientes-360/)
-  assert.match(overview, /onClick=\{\(\) => setSelectedPlan\("all"\)\}/)
-  assert.match(cards, /setSelectedPlan\(plan\.catalogId\)/)
+  assert.match(overview, /showPadronView\("all"\)/)
+  assert.match(cards, /showPadronView\("basica"\)/)
+  assert.match(cards, /showPadronView\("full"\)/)
   assert.equal(
     serviceMatchesSelectedPlan({
       tvPlanCatalogId: "tv-full",
@@ -211,7 +212,8 @@ test("el click del KPI permanece en /subscriptions y filtra el plan", () => {
     false
   )
   assert.match(ui, /Ver Cliente 360/)
-  assert.match(ui, /commercialPlanName/)
+  assert.match(ui, /N° Cliente/)
+  assert.doesNotMatch(ui, /planName/)
   assert.match(queries, /count: "exact"/)
   assert.match(queries, /\.range\(/)
 })
