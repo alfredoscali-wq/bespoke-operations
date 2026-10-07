@@ -1,8 +1,7 @@
-import { existsSync } from "node:fs"
 import { NextResponse } from "next/server"
 
 import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
-import { ABNET_TV_PADRON_XLSX_PATH, readAbnetTvPadronWorkbook } from "@/lib/subscriptions/abnet-tv-padron-file"
+import { readAbnetTvPadronStatic } from "@/lib/subscriptions/abnet-tv-padron-static"
 import {
   abnetPadronCustomerNumber,
   abnetPadronMoney,
@@ -220,14 +219,10 @@ export async function GET() {
     }
 
     let sourceRows = stored.rows
-    let origin: "table" | "excel" = "table"
-    if (
-      sourceRows.length === 0 &&
-      auth.companyId === BESPOKE_PRODUCTION_COMPANY_ID &&
-      existsSync(ABNET_TV_PADRON_XLSX_PATH)
-    ) {
-      sourceRows = readAbnetTvPadronWorkbook()
-      origin = "excel"
+    let origin: "table" | "static" = "table"
+    if (sourceRows.length === 0 && auth.companyId === BESPOKE_PRODUCTION_COMPANY_ID) {
+      sourceRows = readAbnetTvPadronStatic()
+      origin = "static"
     }
 
     const presented = withAbnetPadronDuplicates(sourceRows).map(presentAbnetPadronRow)

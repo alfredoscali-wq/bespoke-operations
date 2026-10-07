@@ -173,6 +173,43 @@ test("el Excel conserva filas, N° distintos, TV, jubilados y estados", () => {
   )
 })
 
+test("la fuente estática de producción coincide con el Excel", () => {
+  const excel = readAbnetTvPadronWorkbook(ABNET_TV_PADRON_XLSX_PATH)
+  const staticRows = JSON.parse(
+    read("lib/subscriptions/abnet-tv-padron.static.json")
+  )
+  assert.equal(staticRows.length, 4764)
+  assert.equal(excel.length, staticRows.length)
+  for (let index = 0; index < excel.length; index += 1) {
+    assert.deepEqual(staticRows[index], excel[index])
+  }
+  const presented = withAbnetPadronDuplicates(staticRows).map(presentAbnetPadronRow)
+  const summary = summarizeAbnetTvPadron(presented)
+  assert.equal(summary.rows, 4764)
+  assert.equal(summary.uniqueCustomers, 4377)
+  assert.equal(summary.basicaRows, 4249)
+  assert.equal(summary.fullRows, 139)
+  assert.equal(summary.jubiladoRows, 16)
+  assert.equal(summary.jubiladoRowsAt2250, 12)
+  assert.equal(summary.jubiladoRowsAt4500, 4)
+  assert.equal(summary.statusRows.Activa, 4435)
+  assert.equal(summary.statusRows.Morosa, 189)
+  assert.equal(summary.statusRows.Pendiente, 136)
+  assert.equal(summary.statusRows.Inactiva, 4)
+  assert.equal(new Set(staticRows.map((row) => row.abnetCustomerNumber)).size, 4377)
+
+  const route = read("app/api/subscriptions/abnet-padron/route.ts")
+  assert.match(route, /readAbnetTvPadronStatic/)
+  assert.doesNotMatch(route, /Downloads/)
+  assert.doesNotMatch(route, /C:\\Users/)
+  assert.doesNotMatch(route, /readAbnetTvPadronWorkbook/)
+  assert.match(read("scripts/import-abnet-tv-padron.mjs"), /--write-static/)
+  assert.match(
+    read("scripts/import-abnet-tv-padron.mjs"),
+    /Sin --apply no se escribe en Supabase/
+  )
+})
+
 test("la matriz no descarta una segunda fila del mismo N°", () => {
   const rows = readAbnetTvPadronMatrix([
     ["SIRO"],

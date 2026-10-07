@@ -1,10 +1,15 @@
 /**
- * Carga el padrón ABNet de Conex. Internet + TV.xlsx en abnet_tv_padron_rows.
+ * Lee el padrón ABNet de Conex. Internet + TV.xlsx.
  *
- * Sin --apply solo lee el Excel e imprime cantidades.
- * Con --apply reemplaza las filas de esa fuente. No toca customers,
+ * Sin flags solo imprime cantidades.
+ * Con --write-static genera lib/subscriptions/abnet-tv-padron.static.json
+ * y no escribe en Supabase.
+ * Con --apply reemplaza abnet_tv_padron_rows. No toca customers,
  * isp_services, isp_connections, catálogo ni Pack Fútbol.
  */
+import { writeFileSync } from "node:fs"
+import { resolve } from "node:path"
+
 import { createClient } from "@supabase/supabase-js"
 
 import { BESPOKE_PRODUCTION_COMPANY_ID } from "../lib/supabase/company.constants.ts"
@@ -21,13 +26,23 @@ import {
 import { loadEnv } from "./abnet-residential-sources.mjs"
 
 const apply = process.argv.includes("--apply")
+const writeStatic = process.argv.includes("--write-static")
 const sourceRows = readAbnetTvPadronWorkbook(ABNET_TV_PADRON_XLSX_PATH)
 const presented = withAbnetPadronDuplicates(sourceRows).map(presentAbnetPadronRow)
 const summary = summarizeAbnetTvPadron(presented)
-console.log(JSON.stringify({ apply, ...summary }, null, 2))
+console.log(JSON.stringify({ apply, writeStatic, ...summary }, null, 2))
+
+if (writeStatic) {
+  const destination = resolve(
+    import.meta.dirname,
+    "../lib/subscriptions/abnet-tv-padron.static.json"
+  )
+  writeFileSync(destination, `${JSON.stringify(sourceRows)}\n`)
+  console.log(`Fuente estática: ${sourceRows.length} filas, sin escribir en Supabase.`)
+}
 
 if (!apply) {
-  console.log("Sin --apply no se escribe nada.")
+  console.log("Sin --apply no se escribe en Supabase.")
   process.exit(0)
 }
 
