@@ -6,7 +6,7 @@
 import { getLatamTvPlans } from "../lib/integrations/latam-tv/client.ts"
 import { LatamTvRequestError } from "../lib/integrations/latam-tv/errors.ts"
 import {
-  formatLatamPlanDiagnosis,
+  formatLatamPlanCatalog,
   matchLatamTvPlans,
 } from "../lib/integrations/latam-tv/plans.ts"
 
@@ -24,21 +24,8 @@ try {
   if (plans.length === 0) {
     console.log("LATAM TV no devolvió planes.")
   }
-  for (const plan of plans) {
-    console.log(`pl_id: ${plan.id}`)
-    console.log(`nombre: ${plan.name}`)
-    console.log(`categorias: ${plan.categories.join(", ") || "—"}`)
-    console.log("")
-  }
-  for (const line of formatLatamPlanDiagnosis(diagnosis)) {
+  for (const line of formatLatamPlanCatalog(diagnosis)) {
     console.log(line)
-  }
-  if (diagnosis.otherPlans.length > 0) {
-    console.log("")
-    console.log("Otros planes, sin correspondencia:")
-    for (const plan of diagnosis.otherPlans) {
-      console.log(`pl_id ${plan.id} → ${plan.name}`)
-    }
   }
 } catch (error) {
   if (error instanceof LatamTvRequestError) {

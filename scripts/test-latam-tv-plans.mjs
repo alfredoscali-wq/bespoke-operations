@@ -10,10 +10,11 @@ import test from "node:test"
 import { getLatamTvPlans } from "../lib/integrations/latam-tv/client.ts"
 import { LatamTvRequestError } from "../lib/integrations/latam-tv/errors.ts"
 import {
-  formatLatamPlanDiagnosis,
+  formatLatamPlanCatalog,
   latamOperationalPlanIds,
   matchLatamTvPlans,
   normalizeLatamPlanName,
+  readLatamTvPlansPayload,
 } from "../lib/integrations/latam-tv/plans.ts"
 import {
   LATAM_FULL_SIGNUP_BLOCKED,
@@ -40,26 +41,32 @@ function plan(id, nombre, categorias) {
   return { pl_id: id, nombre, categorias, token: TOKEN, password: "no" }
 }
 
-function catalog() {
+function realCatalog(overrides = {}) {
   return {
-    code: 1,
-    plans: [
-      plan("9", "Plan Full", ["full", "premium"]),
-      plan(2, "Plan Basico + Pack Futbol", [{ nombre: "futbol" }]),
-      plan("1", "  Plan   Basico  ", "basico"),
-      plan("40", "Plan Eventos", ["eventos"]),
+    error: false,
+    planes: [
+      plan(1, "PlanTienda", [{ id: 351, nombre: "Tienda" }]),
+      plan(2, overrides.basicoName ?? "Plan Basico", [
+        { id: 1, nombre: "TV Abierta" },
+        { id: 8, nombre: "Deporte" },
+      ]),
+      plan(3, "Plan Basico + Pack Futbol", [
+        { id: 1, nombre: "TV Abierta" },
+        { id: 361, nombre: "Futbol Premium" },
+      ]),
+      plan(10, "Prueba CD-LATAM", [{ id: 366, nombre: "Prueba CD-LATAM" }]),
     ],
   }
 }
 
-test("1-4. tres planes se identifican por nombre y conservan pl_id y categorías", async () => {
+test("1-7. la respuesta real mapea Básica y Pack y deja el resto sin correspondencia", async () => {
   const calls = []
   const plans = await getLatamTvPlans({
     baseUrl: BASE,
     token: TOKEN,
     fetchImpl: async (url, init) => {
       calls.push({ url, init })
-      return jsonResponse(catalog())
+      return jsonResponse(realCatalog())
     },
   })
   const diagnosis = matchLatamTvPlans(plans)
@@ -69,34 +76,55 @@ test("1-4. tres planes se identifican por nombre y conservan pl_id y categorías
   assert.equal(url.searchParams.get("token"), TOKEN)
   assert.equal(calls[0].init.method, "POST")
   assert.equal(JSON.stringify(plans).includes(TOKEN), false)
-  assert.equal(JSON.stringify(plans).includes("password"), false)
+  assert.equal(JSON.stringify(diagnosis).includes(TOKEN), false)
 
-  assert.equal(normalizeLatamPlanName("  Plan   Basico  "), "Plan Basico")
   assert.deepEqual(
-    diagnosis.correspondence.map((row) => [row.bespokeLabel, row.latamName, row.planId, row.status]),
+    plans.map((item) => [item.id, item.name]),
     [
-      ["TV Básica", "Plan Basico", "1", "ok"],
-      ["TV Básica + Pack Fútbol", "Plan Basico + Pack Futbol", "2", "ok"],
-      ["TV Full", "Plan Full", "9", "not_operational"],
+      ["1", "PlanTienda"],
+      ["2", "Plan Basico"],
+      ["3", "Plan Basico + Pack Futbol"],
+      ["10", "Prueba CD-LATAM"],
     ]
   )
-  assert.deepEqual(diagnosis.correspondence[0].categories, ["basico"])
-  assert.deepEqual(diagnosis.correspondence[1].categories, ["futbol"])
-  assert.deepEqual(diagnosis.correspondence[2].categories, ["full", "premium"])
-  assert.equal(latamPlanIdForTvKind("basica", diagnosis), "1")
-  assert.equal(latamPlanIdForTvKind("pack", diagnosis), "2")
+  assert.deepEqual(plans[0].categories, ["Tienda (351)"])
+  assert.deepEqual(plans[1].categories, ["TV Abierta (1)", "Deporte (8)"])
+  assert.deepEqual(
+    diagnosis.correspondence.map((row) => [row.bespokeKind, row.planId, row.status]),
+    [
+      ["basica", "2", "ok"],
+      ["pack", "3", "ok"],
+      ["full", null, "unmapped"],
+    ]
+  )
+  assert.equal(latamPlanIdForTvKind("basica", diagnosis), "2")
+  assert.equal(latamPlanIdForTvKind("pack", diagnosis), "3")
   assert.equal(latamPlanIdForTvKind("full", diagnosis), null)
   assert.equal(latamSignupPlanGap("full", diagnosis), LATAM_FULL_SIGNUP_BLOCKED)
-  assert.deepEqual(latamOperationalPlanIds(diagnosis), { basica: "1", pack: "2" })
-  assert.deepEqual(formatLatamPlanDiagnosis(diagnosis), [
-    "TV Básica → Plan Basico → pl_id 1 → OK",
-    "TV Básica + Pack Fútbol → Plan Basico + Pack Futbol → pl_id 2 → OK",
-    "TV Full → Plan Full → pl_id 9 → NO OPERATIVO",
-  ])
+  assert.deepEqual(latamOperationalPlanIds(diagnosis), { basica: "2", pack: "3" })
   assert.deepEqual(
-    diagnosis.otherPlans.map((item) => item.id),
-    ["40"]
+    diagnosis.otherPlans.map((item) => item.name),
+    ["PlanTienda", "Prueba CD-LATAM"]
   )
+  assert.deepEqual(formatLatamPlanCatalog(diagnosis), [
+    "1 | PlanTienda | Tienda (351) | Sin correspondencia",
+    "2 | Plan Basico | TV Abierta (1), Deporte (8) | TV Básica",
+    "3 | Plan Basico + Pack Futbol | TV Abierta (1), Futbol Premium (361) | TV Básica + Pack Fútbol",
+    "10 | Prueba CD-LATAM | Prueba CD-LATAM (366) | Sin correspondencia",
+    "TV Full | no disponible",
+  ])
+})
+
+test("8. espacios redundantes no cambian el nombre", async () => {
+  const plans = await getLatamTvPlans({
+    baseUrl: BASE,
+    token: TOKEN,
+    fetchImpl: async () => jsonResponse(realCatalog({ basicoName: "  Plan   Basico  " })),
+  })
+  assert.equal(normalizeLatamPlanName("  Plan   Basico  "), "Plan Basico")
+  const diagnosis = matchLatamTvPlans(plans)
+  assert.equal(latamPlanIdForTvKind("basica", diagnosis), "2")
+  assert.equal(diagnosis.correspondence.find((row) => row.bespokeKind === "basica").status, "ok")
 })
 
 test("5-7. plan inexistente, nombre inesperado y nombres duplicados quedan unmapped", () => {
@@ -131,19 +159,43 @@ test("5-7. plan inexistente, nombre inesperado y nombres duplicados quedan unmap
   assert.equal(latamPlanIdForTvKind("pack", duplicated), "2")
 })
 
-test("8-10. HTTP inválido, JSON inválido y error de API no exponen el token", async () => {
+test("9. un nombre distinto queda unmapped", () => {
+  const diagnosis = matchLatamTvPlans([
+    { id: "2", name: "Plan Básico", categories: [] },
+    { id: "3", name: "Plan Basico + Pack Futbol", categories: [] },
+  ])
+  const basica = diagnosis.correspondence.find((row) => row.bespokeKind === "basica")
+  assert.equal(basica.status, "unmapped")
+  assert.equal(basica.planId, null)
+  assert.equal(latamPlanIdForTvKind("basica", diagnosis), null)
+  assert.deepEqual(
+    diagnosis.otherPlans.map((item) => item.name),
+    ["Plan Básico"]
+  )
+})
+
+test("11-14. error true, planes ausente, JSON inválido y HTTP no OK", async () => {
   await assert.rejects(
     () =>
       getLatamTvPlans({
         baseUrl: BASE,
         token: TOKEN,
-        fetchImpl: async () => jsonResponse({ secret: TOKEN }, 500),
+        fetchImpl: async () => jsonResponse({ error: true, message: TOKEN }),
       }),
     (error) => {
       assert.ok(error instanceof LatamTvRequestError)
+      assert.equal(error.kind, "unavailable")
       assert.equal(error.message.includes(TOKEN), false)
       return true
     }
+  )
+  assert.throws(
+    () => readLatamTvPlansPayload({ error: false, token: TOKEN }),
+    (error) => error instanceof LatamTvRequestError
+  )
+  assert.throws(
+    () => readLatamTvPlansPayload({ error: false, plans: [], code: 1 }),
+    (error) => error instanceof LatamTvRequestError
   )
   await assert.rejects(
     () =>
@@ -159,7 +211,7 @@ test("8-10. HTTP inválido, JSON inválido y error de API no exponen el token", 
       getLatamTvPlans({
         baseUrl: BASE,
         token: TOKEN,
-        fetchImpl: async () => jsonResponse({ code: 2, message: TOKEN }),
+        fetchImpl: async () => jsonResponse({ secret: TOKEN }, 500),
       }),
     (error) => {
       assert.ok(error instanceof LatamTvRequestError)
@@ -169,7 +221,7 @@ test("8-10. HTTP inválido, JSON inválido y error de API no exponen el token", 
   )
 })
 
-test("11-12. el token no sale y get-plans no escribe", () => {
+test("15-16. el token no sale y get-plans no escribe", () => {
   const client = read("lib/integrations/latam-tv/client.ts")
   const plans = read("lib/integrations/latam-tv/plans.ts")
   const script = read("scripts/latam-tv-get-plans.mjs")
@@ -195,6 +247,10 @@ test("11-12. el token no sale y get-plans no escribe", () => {
     assert.equal(script.includes(path), false)
     assert.equal(plans.includes(path), false)
   }
+  assert.match(plans, /payload\.error !== false/)
+  assert.match(plans, /payload\.planes/)
+  assert.doesNotMatch(plans, /payload\.code/)
+  assert.doesNotMatch(plans, /payload\.plans\b/)
   assert.match(script, /getLatamTvPlans/)
   assert.doesNotMatch(script, /signUpLatamTvClient/)
   assert.doesNotMatch(script, /console\.(log|info|debug|warn|error)\([^)]*token/)

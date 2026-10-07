@@ -26,7 +26,7 @@ export const LATAM_SIGNUP_MISSING = {
 } as const
 
 export const LATAM_FULL_SIGNUP_BLOCKED =
-  "TV Full no está operativo para el alta en LATAM."
+  "TV Full no está disponible en LATAM."
 
 const PLAN_LABEL = {
   basica: "TV Básica",
@@ -42,8 +42,8 @@ export function isLatamSignupTvKind(value: unknown): value is LatamSignupTvKind 
 
 /**
  * Id operativo para el alta. Sin catálogo de get-plans devuelve null:
- * no se inventa un pl_id. TV Full queda identificado en el diagnóstico
- * y no se usa para altas ni para el cambio futuro.
+ * no se inventa un pl_id. TV Full no tiene pl_id y no se usa
+ * para altas ni para el cambio futuro.
  */
 export function latamPlanIdForTvKind(
   tvKind: LatamSignupTvKind,
@@ -60,9 +60,8 @@ export function latamSignupPlanGap(
   tvKind: LatamSignupTvKind,
   diagnosis?: LatamTvPlanDiagnosis | null
 ): string | null {
+  if (tvKind === "full") return LATAM_FULL_SIGNUP_BLOCKED
   if (latamPlanIdForTvKind(tvKind, diagnosis)) return null
-  const row = diagnosis?.correspondence.find((item) => item.bespokeKind === tvKind)
-  if (row?.status === "not_operational") return LATAM_FULL_SIGNUP_BLOCKED
   return LATAM_SIGNUP_MISSING.plan
 }
 

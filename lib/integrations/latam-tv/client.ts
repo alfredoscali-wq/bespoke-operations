@@ -173,7 +173,7 @@ async function postLatam(
   return record
 }
 
-/** Catálogo de solo lectura. POST /api/get-plans. */
+/** Catálogo de solo lectura. POST /api/get-plans. Éxito: error false y planes. */
 export async function getLatamTvPlans(deps: LatamTvClientDeps): Promise<LatamTvCatalogPlan[]> {
   const record = await postLatam(GET_PLANS_PATH, {}, deps)
   return readLatamTvPlansPayload(record)

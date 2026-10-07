@@ -20,6 +20,23 @@ export type LatamTvExternalClient = {
 
 export type LatamTvAccountStatus = "enabled" | "disabled"
 
+/** Respuesta real de POST /api/get-plans. No es el modelo interno. */
+export type LatamTvExternalPlanCategory = {
+  id?: unknown
+  nombre?: unknown
+}
+
+export type LatamTvExternalPlan = {
+  pl_id?: unknown
+  nombre?: unknown
+  categorias?: unknown
+}
+
+export type LatamTvPlansResponse = {
+  error?: unknown
+  planes?: unknown
+}
+
 export type LatamTvPlan = {
   id: string | null
   name: string | null

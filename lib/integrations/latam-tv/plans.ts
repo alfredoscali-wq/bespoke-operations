@@ -2,9 +2,9 @@ import { LatamTvRequestError } from "@/lib/integrations/latam-tv/errors"
 
 /**
  * Único punto de verdad de la equivalencia comercial.
- * Los nombres de LATAM no se traducen. Los `pl_id` no viven aquí:
- * salen de POST /api/get-plans y se asocian por nombre exacto.
- * TV Full se identifica, pero no es operativo para altas ni cambios.
+ * Los nombres de LATAM no se traducen. Los pl_id salen de get-plans
+ * y se asocian por nombre exacto. TV Full no existe en el catálogo
+ * actual: queda sin pl_id y no se usa para altas ni cambios.
  */
 export const LATAM_TV_PLAN_LINKS = [
   {
@@ -65,30 +65,25 @@ function text(value: unknown): string | null {
   return trimmed || null
 }
 
-function wholeNumber(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) return Math.trunc(value)
-  if (typeof value === "string" && value.trim()) {
-    const parsed = Number(value.trim())
-    return Number.isFinite(parsed) ? Math.trunc(parsed) : null
-  }
-  return null
+function categoryLabel(value: unknown): string | null {
+  if (typeof value === "string") return value.trim() || null
+  if (typeof value === "number" && Number.isFinite(value)) return String(value)
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null
+  const record = value as Record<string, unknown>
+  const name = text(record.nombre) ?? text(record.name) ?? text(record.categoria)
+  const id = text(record.id)
+  if (name && id) return `${name} (${id})`
+  return name
 }
 
 function categories(value: unknown): string[] {
-  if (typeof value === "string") {
-    const trimmed = value.trim()
-    return trimmed ? [trimmed] : []
+  if (!Array.isArray(value)) {
+    const single = categoryLabel(value)
+    return single ? [single] : []
   }
-  if (!Array.isArray(value)) return []
   return value.flatMap((item) => {
-    if (typeof item === "string" && item.trim()) return [item.trim()]
-    if (typeof item === "number" && Number.isFinite(item)) return [String(item)]
-    if (item && typeof item === "object" && !Array.isArray(item)) {
-      const record = item as Record<string, unknown>
-      const label = text(record.nombre) ?? text(record.name) ?? text(record.categoria)
-      return label ? [label] : []
-    }
-    return []
+    const label = categoryLabel(item)
+    return label ? [label] : []
   })
 }
 
@@ -101,25 +96,16 @@ function toCatalogPlan(value: unknown): LatamTvCatalogPlan | null {
   return { id, name, categories: categories(record.categorias) }
 }
 
-function planList(payload: Record<string, unknown>): unknown[] | null {
-  if (Array.isArray(payload.plans)) return payload.plans
-  if (Array.isArray(payload.plan)) return payload.plan
-  const data = payload.data
-  if (Array.isArray(data)) return data
-  if (data && typeof data === "object" && !Array.isArray(data)) {
-    const record = data as Record<string, unknown>
-    if (Array.isArray(record.plans)) return record.plans
-    if (Array.isArray(record.plan)) return record.plan
-  }
-  return null
-}
-
-/** Interpreta el JSON de get-plans. No copia el token ni otros campos. */
+/**
+ * get-plans responde `{ error: false, planes: [...] }`.
+ * `error: true` es un fallo de LATAM. Sin `planes` la respuesta es inválida,
+ * no un catálogo vacío. No se leen `code` ni `plans`.
+ */
 export function readLatamTvPlansPayload(payload: Record<string, unknown>): LatamTvCatalogPlan[] {
-  if (wholeNumber(payload.code) !== 1) throw new LatamTvRequestError("unavailable")
-  const listed = planList(payload)
-  if (!listed) throw new LatamTvRequestError("unavailable")
-  return listed.flatMap((item) => {
+  if (payload.error === true) throw new LatamTvRequestError("unavailable")
+  if (payload.error !== false) throw new LatamTvRequestError("unavailable")
+  if (!Array.isArray(payload.planes)) throw new LatamTvRequestError("unavailable")
+  return payload.planes.flatMap((item) => {
     const plan = toCatalogPlan(item)
     return plan ? [plan] : []
   })
@@ -139,7 +125,7 @@ export function matchLatamTvPlans(plans: readonly LatamTvCatalogPlan[]): LatamTv
   )
   const correspondence = LATAM_TV_PLAN_LINKS.map((link) => {
     const matches = groups.get(normalizeLatamPlanName(link.latamName)) ?? []
-    if (matches.length !== 1) {
+    if (matches.length !== 1 || !link.operational) {
       return {
         bespokeKind: link.bespokeKind,
         bespokeLabel: link.bespokeLabel,
@@ -147,7 +133,12 @@ export function matchLatamTvPlans(plans: readonly LatamTvCatalogPlan[]): LatamTv
         planId: null,
         categories: [],
         status: "unmapped" as const,
-        reason: matches.length > 1 ? ("duplicate" as const) : ("missing" as const),
+        reason:
+          matches.length > 1
+            ? ("duplicate" as const)
+            : matches.length === 0
+              ? ("missing" as const)
+              : null,
       }
     }
     const plan = matches[0]
@@ -157,7 +148,7 @@ export function matchLatamTvPlans(plans: readonly LatamTvCatalogPlan[]): LatamTv
       latamName: link.latamName,
       planId: plan.id,
       categories: plan.categories,
-      status: link.operational ? ("ok" as const) : ("not_operational" as const),
+      status: "ok" as const,
       reason: null,
     }
   })
@@ -169,6 +160,22 @@ export function matchLatamTvPlans(plans: readonly LatamTvCatalogPlan[]): LatamTv
       (plan) => !linkedNames.has(normalizeLatamPlanName(plan.name))
     ),
   }
+}
+
+export function formatLatamPlanCatalog(diagnosis: LatamTvPlanDiagnosis): string[] {
+  const lines = diagnosis.plans.map((plan) => {
+    const match = diagnosis.correspondence.find(
+      (row) => row.status === "ok" && row.planId === plan.id
+    )
+    const label = match?.bespokeLabel ?? "Sin correspondencia"
+    const listed = plan.categories.join(", ") || "—"
+    return `${plan.id} | ${plan.name} | ${listed} | ${label}`
+  })
+  const full = diagnosis.correspondence.find((row) => row.bespokeKind === "full")
+  if (!full || full.status !== "ok" || !full.planId) {
+    lines.push("TV Full | no disponible")
+  }
+  return lines
 }
 
 export function formatLatamPlanDiagnosis(diagnosis: LatamTvPlanDiagnosis): string[] {
