@@ -197,11 +197,8 @@ export function summarizeAbnetTvPadron(
     basicaCustomers: basicaCustomers.size,
     basicaPackCustomers: basicaPackCustomers.size,
     fullCustomers: fullCustomers.size,
-    tvPlanCustomers: new Set([
-      ...basicaCustomers,
-      ...basicaPackCustomers,
-      ...fullCustomers,
-    ]).size,
+    tvPlanCustomers:
+      basicaCustomers.size + basicaPackCustomers.size + fullCustomers.size,
     jubiladoRows,
     jubiladoAmount,
     jubiladoRowsAt2250,

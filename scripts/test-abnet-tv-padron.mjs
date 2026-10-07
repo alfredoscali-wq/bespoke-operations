@@ -146,7 +146,8 @@ test("los KPI de planes cuentan N° Cliente distintos", () => {
   assert.equal(summary.basicaCustomers, 2)
   assert.equal(summary.basicaPackCustomers, 1)
   assert.equal(summary.fullCustomers, 1)
-  assert.equal(summary.tvPlanCustomers, 3)
+  assert.equal(summary.basicaCustomers + summary.basicaPackCustomers + summary.fullCustomers, 4)
+  assert.equal(summary.tvPlanCustomers, 4)
   assert.equal(summary.basicaRows, 3)
 })
 

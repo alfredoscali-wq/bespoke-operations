@@ -65,7 +65,7 @@ export function SubscriptionsTvOverview() {
         <FilterableKpiCard
           label="Clientes con TV"
           value={formatCount(isSummaryReady, summary?.tvPlanCustomers)}
-          hint="N° Cliente con Básica, Pack o Full"
+          hint="Suma de Básica, Pack y Full"
           icon={Users}
           tone="blue"
           compact
