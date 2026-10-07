@@ -387,7 +387,7 @@ test("la pantalla pide confirmación y no agranda la tabla con CLI o Plan", () =
   const ui = read("components/subscriptions/subscriptions-module.tsx")
   assert.match(ui, /Eliminar de TV/)
   assert.match(ui, /¿Eliminar este registro del padrón de TV\?/)
-  assert.match(ui, /El cliente seguirá existiendo en Clientes 360/)
+  assert.match(ui, /El cliente continuará existiendo en Clientes 360/)
   assert.match(ui, /Cancelar/)
   assert.doesNotMatch(ui, />CLI</)
   assert.doesNotMatch(ui, />Plan</)

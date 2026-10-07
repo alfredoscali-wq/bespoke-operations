@@ -107,7 +107,9 @@ test("8-10. click KPI filtra en /subscriptions; Ver Cliente 360 navega por fila"
   assert.match(ui, /\/clientes-360\/\$\{row\.bespokeCustomerId\}/)
   assert.doesNotMatch(ui, /Upgrade/)
   assert.doesNotMatch(ui, /Downgrade/)
-  assert.doesNotMatch(ui, /Cambiar plan/)
+  assert.match(ui, /Cambiar plan de TV/)
+  assert.match(ui, /Este cambio todavía no se aplica en ABNet/)
+  assert.doesNotMatch(ui, /assignComponent\(/)
   assert.equal(
     serviceMatchesSelectedPlan({
       tvPlanCatalogId: "tv-full",

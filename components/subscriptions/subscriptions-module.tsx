@@ -1,8 +1,8 @@
 "use client"
 
-import { ChevronLeft, ChevronRight, Trash2 } from "lucide-react"
+import { ArrowLeftRight, ChevronLeft, ChevronRight, Eye, Trash2 } from "lucide-react"
 import Link from "next/link"
-import { useState } from "react"
+import { useEffect, useState, type ReactNode } from "react"
 
 import { AbnetTvOffer } from "@/components/subscriptions/abnet-tv-offer"
 import { SubscriptionsProvider, useSubscriptions } from "@/components/subscriptions/subscriptions-provider"
@@ -22,6 +22,12 @@ import {
 import { TableRowsSkeleton } from "@/components/ui/kpi-grid-skeleton"
 import { StatusBadge } from "@/components/ui/status-badge"
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import {
   TableBody,
   TableCell,
   TableHead,
@@ -30,9 +36,17 @@ import {
 } from "@/components/ui/table"
 import {
   abnetPadronTvRowLabel,
+  formatAbnetPadronMoney,
   type AbnetTvKind,
   type AbnetTvPadronRow,
 } from "@/lib/subscriptions/abnet-tv-padron"
+import {
+  ABNET_TV_PLAN_OPTIONS,
+  abnetTvJubiladoHalf,
+  abnetTvPlanSelectionNotice,
+  currentAbnetTvPlanOption,
+  type AbnetTvPlanOptionId,
+} from "@/lib/subscriptions/abnet-tv-plan-choice"
 import { formatTvMoney } from "@/lib/subscriptions/tv-plans"
 import { STATUS_TONE_STYLES } from "@/lib/ui/visual-tokens"
 import { cn } from "@/lib/utils"
@@ -102,6 +116,7 @@ function SubscriptionsModuleContent() {
     ? "Ninguna fila del padrón coincide con los filtros."
     : "El padrón de TV no tiene filas."
   const [selectedRow, setSelectedRow] = useState<AbnetTvPadronRow | null>(null)
+  const [rowToChange, setRowToChange] = useState<AbnetTvPadronRow | null>(null)
   const [rowToRemove, setRowToRemove] = useState<AbnetTvPadronRow | null>(null)
 
   return (
@@ -161,19 +176,19 @@ function SubscriptionsModuleContent() {
                     <TableHead className={`${PADRON_HEAD_CLASS} w-[8%]`}>
                       N° Cliente
                     </TableHead>
-                    <TableHead className={`${PADRON_HEAD_CLASS} w-[22%]`}>
+                    <TableHead className={`${PADRON_HEAD_CLASS} w-[20%]`}>
                       Cliente
                     </TableHead>
                     <TableHead className={`${PADRON_HEAD_CLASS} w-[12%]`}>
                       Tipo
                     </TableHead>
-                    <TableHead className={`${PADRON_HEAD_CLASS} w-[10%]`}>
+                    <TableHead className={`${PADRON_HEAD_CLASS} w-[8%]`}>
                       Nodo
                     </TableHead>
                     <TableHead className={`${PADRON_HEAD_CLASS} w-[9%]`}>
                       Estado
                     </TableHead>
-                    <TableHead className={`${PADRON_HEAD_CLASS} w-[19%]`}>
+                    <TableHead className={`${PADRON_HEAD_CLASS} w-[17%]`}>
                       TV
                     </TableHead>
                     <TableHead className={`${PADRON_HEAD_CLASS} w-[8%]`}>
@@ -182,8 +197,8 @@ function SubscriptionsModuleContent() {
                     <TableHead className={`${PADRON_HEAD_CLASS} w-[8%]`}>
                       FINAL
                     </TableHead>
-                    <TableHead className={`${PADRON_HEAD_CLASS} w-[4%]`}>
-                      <span className="sr-only">Acción</span>
+                    <TableHead className={`${PADRON_HEAD_CLASS} w-[10%]`}>
+                      Acciones
                     </TableHead>
                   </TableRow>
                 </TableHeader>
@@ -191,15 +206,8 @@ function SubscriptionsModuleContent() {
                   {list.items.map((row) => (
                     <TableRow
                       key={`${row.source}-${row.sourceRow}`}
-                      className="cursor-pointer"
-                      tabIndex={0}
-                      onClick={() => setSelectedRow(row)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault()
-                          setSelectedRow(row)
-                        }
-                      }}
+                      data-padron-row=""
+                      className="cursor-default"
                     >
                       <TableCell className={`${PADRON_CELL_CLASS} tabular-nums`}>
                         {row.abnetCustomerNumber}
@@ -236,23 +244,13 @@ function SubscriptionsModuleContent() {
                           ? "—"
                           : formatTvMoney(row.finalAmount)}
                       </TableCell>
-                      <TableCell className={`${PADRON_CELL_CLASS} text-right`}>
-                        {canWrite ? (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="size-6 text-muted-foreground"
-                            aria-label="Eliminar de TV"
-                            title="Eliminar de TV"
-                            onClick={(event) => {
-                              event.stopPropagation()
-                              setRowToRemove(row)
-                            }}
-                          >
-                            <Trash2 className="size-3.5" />
-                          </Button>
-                        ) : null}
+                      <TableCell className="h-6 px-0.5 py-0 text-right">
+                        <PadronRowActions
+                          canWrite={canWrite}
+                          onDetail={() => setSelectedRow(row)}
+                          onChangePlan={() => setRowToChange(row)}
+                          onRemove={() => setRowToRemove(row)}
+                        />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -296,6 +294,10 @@ function SubscriptionsModuleContent() {
           row={selectedRow}
           onClose={() => setSelectedRow(null)}
         />
+        <ChangePadronDialog
+          row={rowToChange}
+          onClose={() => setRowToChange(null)}
+        />
         <RemovePadronDialog
           row={rowToRemove}
           onClose={() => setRowToRemove(null)}
@@ -326,6 +328,81 @@ function PadronTvMark({ row }: { row: AbnetTvPadronRow }) {
   )
 }
 
+function PadronRowActions({
+  canWrite,
+  onDetail,
+  onChangePlan,
+  onRemove,
+}: {
+  canWrite: boolean
+  onDetail: () => void
+  onChangePlan: () => void
+  onRemove: () => void
+}) {
+  return (
+    <TooltipProvider>
+      <div className="flex items-center justify-end gap-0.5">
+        <PadronIconButton
+          label="Ver detalle"
+          className="text-muted-foreground"
+          onClick={onDetail}
+        >
+          <Eye className="size-3.5" />
+        </PadronIconButton>
+        <PadronIconButton
+          label="Cambiar plan de TV"
+          className="text-violet-700 hover:text-violet-800 dark:text-violet-300"
+          onClick={onChangePlan}
+        >
+          <ArrowLeftRight className="size-3.5" />
+        </PadronIconButton>
+        {canWrite ? (
+          <PadronIconButton
+            label="Eliminar de TV"
+            className="text-muted-foreground hover:text-destructive"
+            onClick={onRemove}
+          >
+            <Trash2 className="size-3.5" />
+          </PadronIconButton>
+        ) : null}
+      </div>
+    </TooltipProvider>
+  )
+}
+
+function PadronIconButton({
+  label,
+  className,
+  onClick,
+  children,
+}: {
+  label: string
+  className?: string
+  onClick: () => void
+  children: ReactNode
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className={cn("size-6 cursor-pointer", className)}
+          aria-label={label}
+          onClick={(event) => {
+            event.stopPropagation()
+            onClick()
+          }}
+        >
+          {children}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  )
+}
+
 function AbnetPadronContact({
   row,
   onClose,
@@ -345,7 +422,20 @@ function AbnetPadronContact({
         </DialogHeader>
         {row ? (
           <div className="space-y-3 text-sm">
+            <p>N° Cliente: {row.abnetCustomerNumber}</p>
+            <p>Cliente: {row.customerName}</p>
+            <p>Tipo: {row.serviceType || "—"}</p>
+            <p>Nodo: {row.node || "—"}</p>
+            <p>Estado: {row.status || "—"}</p>
             <p>TV: {tvLabel}</p>
+            <p>
+              2% IMP. TV:{" "}
+              {row.tvTaxAmount == null ? "—" : formatTvMoney(row.tvTaxAmount)}
+            </p>
+            <p>
+              FINAL:{" "}
+              {row.finalAmount == null ? "—" : formatTvMoney(row.finalAmount)}
+            </p>
             <p>
               CLI: {row.bespokeCustomerNumber || "Sin ficha en Bespoke"}
             </p>
@@ -381,6 +471,108 @@ function AbnetPadronContact({
   )
 }
 
+function ChangePadronDialog({
+  row,
+  onClose,
+}: {
+  row: AbnetTvPadronRow | null
+  onClose: () => void
+}) {
+  const [choice, setChoice] = useState<AbnetTvPlanOptionId | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const current = row ? currentAbnetTvPlanOption(row) : null
+  const tvLabel = row ? abnetPadronTvRowLabel(row) : ""
+
+  useEffect(() => {
+    setChoice(row ? currentAbnetTvPlanOption(row) : null)
+    setNotice(null)
+  }, [row])
+
+  return (
+    <Dialog
+      open={row != null}
+      onOpenChange={(open) => {
+        if (!open) onClose()
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Cambiar plan de TV</DialogTitle>
+          <DialogDescription>
+            La selección queda en pantalla. No modifica el padrón ni ABNet.
+          </DialogDescription>
+        </DialogHeader>
+        {row ? (
+          <div className="space-y-3 text-sm">
+            <p>N° Cliente: {row.abnetCustomerNumber}</p>
+            <p>Cliente: {row.customerName}</p>
+            <p>TV actual: {tvLabel}</p>
+            {notice ? (
+              <div className="space-y-1 rounded-lg border bg-muted/40 p-3">
+                <p className="font-medium">{notice}</p>
+                <p className="text-muted-foreground">
+                  Este cambio todavía no se aplica en ABNet.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="font-medium">Seleccionar nuevo plan</p>
+                {ABNET_TV_PLAN_OPTIONS.map((option) => {
+                  const selected = choice === option.id
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      className={cn(
+                        "flex w-full cursor-pointer flex-col rounded-lg border px-3 py-2 text-left",
+                        selected
+                          ? "border-violet-400 bg-violet-50 dark:bg-violet-950/40"
+                          : "border-border"
+                      )}
+                      onClick={() => setChoice(option.id)}
+                    >
+                      <span className="font-medium">
+                        {option.label}
+                        {current === option.id ? " · Vigente" : ""}
+                      </span>
+                      <span>{formatAbnetPadronMoney(option.amount)}</span>
+                      {row.jubilado ? (
+                        <span className="text-muted-foreground">
+                          Jubilado 50% →{" "}
+                          {formatAbnetPadronMoney(abnetTvJubiladoHalf(option.amount))}
+                        </span>
+                      ) : null}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        ) : null}
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose}>
+            {notice ? "Cerrar" : "Cancelar"}
+          </Button>
+          {notice ? null : (
+            <Button
+              type="button"
+              disabled={choice == null}
+              onClick={() => {
+                if (!choice) return
+                setNotice(abnetTvPlanSelectionNotice(choice).headline)
+              }}
+            >
+              Seleccionar plan
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 function RemovePadronDialog({
   row,
   onClose,
@@ -410,7 +602,7 @@ function RemovePadronDialog({
           <DialogTitle>¿Eliminar este registro del padrón de TV?</DialogTitle>
           <DialogDescription>
             El registro dejará de aparecer en el padrón de TV y en sus totales.
-            El cliente seguirá existiendo en Clientes 360 y sus servicios de
+            El cliente continuará existiendo en Clientes 360 y sus servicios de
             Internet no serán modificados.
           </DialogDescription>
         </DialogHeader>
