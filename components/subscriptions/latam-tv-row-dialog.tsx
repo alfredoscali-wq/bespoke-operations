@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
   Dialog,
   DialogContent,
@@ -11,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { validateLatamTvPassword } from "@/lib/integrations/latam-tv/password"
 import type { AbnetTvPadronRow } from "@/lib/subscriptions/abnet-tv-padron"
 
 type LatamPhase =
@@ -25,6 +27,11 @@ type LatamPhase =
   | "confirm"
   | "created"
   | "exists"
+  | "password"
+  | "password_confirm"
+  | "password_done"
+
+type AccountPhase = "active" | "suspended"
 
 type LatamPreview = {
   customerName: string
@@ -69,6 +76,10 @@ export function LatamTvRowDialog({
   const [created, setCreated] = useState<LatamCreated | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
+  const [username, setUsername] = useState<string | null>(null)
+  const [accountPhase, setAccountPhase] = useState<AccountPhase | null>(null)
+  const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
   const busy = useRef(false)
 
   useEffect(() => {
@@ -77,6 +88,10 @@ export function LatamTvRowDialog({
     setCreated(null)
     setActionError(null)
     setPending(false)
+    setUsername(null)
+    setAccountPhase(null)
+    setPassword("")
+    setConfirmPassword("")
     busy.current = false
     if (!row) {
       setPhase("idle")
@@ -95,7 +110,7 @@ export function LatamTvRowDialog({
         const payload = (await response.json().catch(() => null)) as {
           success?: boolean
           found?: boolean
-          client?: { status?: string | null }
+          client?: { status?: string | null; username?: string | null }
         } | null
         if (cancelled) return
         if (!response.ok || !payload?.success) {
@@ -109,6 +124,8 @@ export function LatamTvRowDialog({
           return
         }
         const next = registeredPhase(payload.client?.status)
+        setUsername(payload.client?.username ?? null)
+        if (next === "active" || next === "suspended") setAccountPhase(next)
         setPhase(next)
         onStatus(
           customerId,
@@ -172,6 +189,8 @@ export function LatamTvRowDialog({
           initialPassword: payload.initialPassword ?? "",
           planLabel: payload.planLabel ?? "",
         })
+        setUsername(payload.username)
+        setAccountPhase("active")
         setPhase("created")
         onStatus(row.bespokeCustomerId, "LATAM: Activo")
         return
@@ -180,9 +199,11 @@ export function LatamTvRowDialog({
         const next = registeredPhase(payload.status)
         setActionError(payload.message ?? "El cliente ya existe en LATAM TV.")
         if (next === "suspended") {
+          setAccountPhase("suspended")
           setPhase("suspended")
           onStatus(row.bespokeCustomerId, "LATAM: Suspendido")
         } else if (next === "active") {
+          setAccountPhase("active")
           setPhase("active")
           onStatus(row.bespokeCustomerId, "LATAM: Activo")
         } else {
@@ -200,7 +221,84 @@ export function LatamTvRowDialog({
     }
   }
 
+  function cancelPassword() {
+    setPassword("")
+    setConfirmPassword("")
+    setActionError(null)
+    setPhase(accountPhase ?? "active")
+  }
+
+  function reviewPassword() {
+    if (busy.current) return
+    if (password !== confirmPassword) {
+      setActionError("Las contraseñas no coinciden.")
+      return
+    }
+    const invalid = validateLatamTvPassword(password)
+    if (invalid) {
+      setActionError(invalid)
+      return
+    }
+    setActionError(null)
+    setPhase("password_confirm")
+  }
+
+  async function submitPassword() {
+    if (!row?.bespokeCustomerId || busy.current) return
+    if (password !== confirmPassword) {
+      setActionError("Las contraseñas no coinciden.")
+      setPhase("password")
+      return
+    }
+    const invalid = validateLatamTvPassword(password)
+    if (invalid) {
+      setActionError(invalid)
+      setPhase("password")
+      return
+    }
+    busy.current = true
+    setPending(true)
+    setActionError(null)
+    try {
+      const response = await fetch(
+        `/api/integrations/latam-tv/customers/${row.bespokeCustomerId}/password`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password, confirmPassword }),
+        }
+      )
+      const payload = (await response.json().catch(() => null)) as {
+        outcome?: string
+        message?: string
+      } | null
+      if (payload?.outcome === "changed") {
+        setPassword("")
+        setConfirmPassword("")
+        setPhase("password_done")
+        return
+      }
+      setActionError(
+        payload?.message ??
+          "No fue posible comunicarse con LATAM TV. No se realizaron cambios en Bespoke."
+      )
+      setPhase("password")
+    } catch {
+      setActionError(
+        "No fue posible comunicarse con LATAM TV. No se realizaron cambios en Bespoke."
+      )
+      setPhase("password")
+    } finally {
+      busy.current = false
+      setPending(false)
+    }
+  }
+
   const label = statusLabel(phase)
+  const passwordStep =
+    phase === "password" || phase === "password_confirm" || phase === "password_done"
+  const canChangePassword =
+    canWrite && (phase === "active" || phase === "suspended" || phase === "created")
   const exists =
     phase === "active" || phase === "suspended" || phase === "created" || phase === "exists"
   const showAlta = phase === "unregistered" || phase === "missing"
@@ -210,7 +308,11 @@ export function LatamTvRowDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            {phase === "confirm" ? "Dar de alta en LATAM TV" : "LATAM TV"}
+            {phase === "confirm"
+              ? "Dar de alta en LATAM TV"
+              : passwordStep
+                ? "Cambiar clave LATAM"
+                : "LATAM TV"}
           </DialogTitle>
           <DialogDescription>
             {row ? `${row.customerName} · N° ${row.abnetCustomerNumber}` : "LATAM TV"}
@@ -222,7 +324,45 @@ export function LatamTvRowDialog({
             {phase === "no_bespoke" ? (
               <p>Este registro no tiene ficha en Bespoke.</p>
             ) : null}
-            {label ? <p className="font-medium">{label}</p> : null}
+            {label && !passwordStep ? <p className="font-medium">{label}</p> : null}
+            {phase === "password" || phase === "password_confirm" ? (
+              <div className="space-y-2">
+                <p>Cliente: {row.customerName}</p>
+                <p>Usuario: {username ?? "—"}</p>
+                {phase === "password" ? (
+                  <>
+                    <label className="block space-y-1">
+                      <span>Nueva contraseña</span>
+                      <Input
+                        type="password"
+                        autoComplete="new-password"
+                        value={password}
+                        disabled={pending}
+                        onChange={(event) => setPassword(event.target.value)}
+                      />
+                    </label>
+                    <label className="block space-y-1">
+                      <span>Repetir contraseña</span>
+                      <Input
+                        type="password"
+                        autoComplete="new-password"
+                        value={confirmPassword}
+                        disabled={pending}
+                        onChange={(event) => setConfirmPassword(event.target.value)}
+                      />
+                    </label>
+                  </>
+                ) : (
+                  <p>
+                    Se cambiará la contraseña del usuario de LATAM TV. Esta acción modifica únicamente la contraseña de LATAM TV.
+                  </p>
+                )}
+                {pending ? <p>Cambiando la contraseña…</p> : null}
+              </div>
+            ) : null}
+            {phase === "password_done" ? (
+              <p>✅ Contraseña modificada correctamente en LATAM TV.</p>
+            ) : null}
             {phase === "confirm" && preview ? (
               <div className="space-y-1">
                 <p>Cliente: {preview.customerName}</p>
@@ -255,7 +395,10 @@ export function LatamTvRowDialog({
               </div>
             ) : null}
             {actionError ? <p className="text-destructive">{actionError}</p> : null}
-            {phase === "confirm" || phase === "loading" || phase === "no_bespoke" ? null : (
+            {phase === "confirm" ||
+            phase === "loading" ||
+            phase === "no_bespoke" ||
+            passwordStep ? null : (
               <div className="flex flex-wrap gap-2">
                 {showAlta ? (
                   <Button
@@ -270,15 +413,30 @@ export function LatamTvRowDialog({
                     Alta LATAM
                   </Button>
                 ) : null}
-                {exists || showAlta ? (
+                {exists || showAlta || phase === "unavailable" ? (
                   <>
                     <Button
                       type="button"
                       size="sm"
                       variant="outline"
-                      disabled
-                      title="Pendiente de implementación"
+                      disabled={!canChangePassword || pending}
+                      title={
+                        canChangePassword
+                          ? "Cambiar clave"
+                          : phase === "unavailable"
+                            ? "LATAM: No disponible"
+                            : phase === "unregistered" || phase === "missing"
+                              ? "LATAM: No registrado"
+                              : "Pendiente de implementación"
+                      }
                       aria-label="Cambiar clave"
+                      onClick={() => {
+                        if (!canChangePassword || busy.current) return
+                        setPassword("")
+                        setConfirmPassword("")
+                        setActionError(null)
+                        setPhase("password")
+                      }}
                     >
                       Cambiar clave
                     </Button>
@@ -324,7 +482,43 @@ export function LatamTvRowDialog({
           </div>
         ) : null}
         <DialogFooter>
-          {phase === "confirm" ? (
+          {phase === "password" ? (
+            <>
+              <Button type="button" variant="outline" disabled={pending} onClick={cancelPassword}>
+                Cancelar
+              </Button>
+              <Button type="button" disabled={pending} onClick={reviewPassword}>
+                Cambiar clave
+              </Button>
+            </>
+          ) : phase === "password_confirm" ? (
+            <>
+              <Button type="button" variant="outline" disabled={pending} onClick={cancelPassword}>
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                disabled={pending}
+                onClick={() => {
+                  void submitPassword()
+                }}
+              >
+                {pending ? "Cambiando la contraseña…" : "Confirmar cambio"}
+              </Button>
+            </>
+          ) : phase === "password_done" ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setPassword("")
+                setConfirmPassword("")
+                onClose()
+              }}
+            >
+              Cerrar
+            </Button>
+          ) : phase === "confirm" ? (
             <>
               <Button
                 type="button"

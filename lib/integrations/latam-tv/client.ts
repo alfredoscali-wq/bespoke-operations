@@ -1,5 +1,6 @@
 import { abnetNumberFromExternalCode } from "@/lib/isp/abnet-master-universe"
 import { LatamTvRequestError } from "@/lib/integrations/latam-tv/errors"
+import { validateLatamTvPassword } from "@/lib/integrations/latam-tv/password"
 import { readLatamTvPlansPayload, type LatamTvCatalogPlan } from "@/lib/integrations/latam-tv/plans"
 import {
   latamRegisterRejectionMessage,
@@ -16,6 +17,7 @@ import type {
 const GET_CLIENTS_PATH = "/api/get-clients"
 const GET_PLANS_PATH = "/api/get-plans"
 const REGISTER_CLIENT_PATH = "/api/register-client"
+const MODIFY_PASSWORD_PATH = "/api/modify-password"
 const REQUEST_TIMEOUT_MS = 12_000
 
 const signupTails = new Map<string, Promise<unknown>>()
@@ -233,4 +235,59 @@ export function signUpLatamTvClient(
       message: latamRegisterRejectionMessage(code ?? 2),
     }
   })
+}
+
+export type LatamPasswordChangeResult =
+  | { outcome: "changed" }
+  | { outcome: "not_found"; message: string }
+  | { outcome: "rejected"; message: string }
+  | { outcome: "invalid"; message: string }
+  | { outcome: "busy"; message: string }
+
+const PASSWORD_NOT_FOUND_NOW =
+  "El cliente ya no existe en LATAM TV. No se modificó la contraseña."
+const PASSWORD_NOT_FOUND =
+  "El cliente no existe en LATAM TV. No se modificó la contraseña."
+const PASSWORD_REJECTED =
+  "LATAM TV no pudo modificar la contraseña. No se realizaron cambios en Bespoke."
+const PASSWORD_BUSY = "El cambio de contraseña ya se está procesando."
+
+const passwordInflight = new Set<string>()
+
+/**
+ * Cambia la contraseña de un cliente que ya existe.
+ * Vuelve a consultar get-clients y solo entonces llama a modify-password.
+ * Un cliente suspendido se modifica igual, sin reactivarlo.
+ */
+export async function modifyClientPassword(
+  identificador: string,
+  password: string,
+  deps: LatamTvClientDeps
+): Promise<LatamPasswordChangeResult> {
+  const identifier = abnetNumberFromExternalCode(identificador)
+  if (!identifier) throw new LatamTvRequestError("invalid_identifier")
+  const invalid = validateLatamTvPassword(password)
+  if (invalid) return { outcome: "invalid", message: invalid }
+  if (passwordInflight.has(identifier)) {
+    return { outcome: "busy", message: PASSWORD_BUSY }
+  }
+
+  passwordInflight.add(identifier)
+  try {
+    const lookup = await getLatamTvClientByIdentifier(identifier, deps)
+    if (!lookup.found) {
+      return { outcome: "not_found", message: PASSWORD_NOT_FOUND_NOW }
+    }
+    const record = await postLatam(
+      MODIFY_PASSWORD_PATH,
+      { identificador: identifier, password },
+      deps
+    )
+    const code = responseCode(record)
+    if (code === 1) return { outcome: "changed" }
+    if (code === 3) return { outcome: "not_found", message: PASSWORD_NOT_FOUND }
+    return { outcome: "rejected", message: PASSWORD_REJECTED }
+  } finally {
+    passwordInflight.delete(identifier)
+  }
 }

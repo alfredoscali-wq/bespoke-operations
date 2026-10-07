@@ -229,7 +229,7 @@ test("17-20. el token no sale al frontend ni a los logs, y solo se registra", ()
   )
   const dialog = read("components/subscriptions/latam-tv-row-dialog.tsx")
   const moduleUi = read("components/subscriptions/subscriptions-module.tsx")
-  const paths = ["/api/delete-client", "/api/disable-client", "/api/enable-client", "/api/modify-client", "/api/modify-password"]
+  const paths = ["/api/delete-client", "/api/disable-client", "/api/enable-client", "/api/modify-client"]
 
   assert.match(signup, /usuario de LATAM es el email/)
   assert.match(signup, /contraseña inicial es el DNI/)
@@ -238,6 +238,10 @@ test("17-20. el token no sale al frontend ni a los logs, y solo se registra", ()
   for (const file of [client, route, dialog, moduleUi, lookup]) {
     for (const path of paths) assert.equal(file.includes(path), false)
     assert.equal(file.includes(TOKEN), false)
+  }
+  assert.equal(client.includes("/api/modify-password"), true)
+  for (const file of [route, dialog, moduleUi, lookup]) {
+    assert.equal(file.includes("/api/modify-password"), false)
   }
   assert.match(client, /\/api\/get-clients/)
   assert.match(client, /\/api\/get-plans/)

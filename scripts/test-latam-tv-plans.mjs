@@ -230,6 +230,7 @@ test("15-16. el token no sale y get-plans no escribe", () => {
   assert.deepEqual([...new Set(paths)].sort(), [
     "/api/get-clients",
     "/api/get-plans",
+    "/api/modify-password",
     "/api/register-client",
   ])
   for (const path of [
@@ -241,12 +242,13 @@ test("15-16. el token no sale y get-plans no escribe", () => {
     "/api/delete-client",
     "/api/disable-client",
     "/api/enable-client",
-    "/api/modify-password",
   ]) {
     assert.equal(client.includes(path), false)
     assert.equal(script.includes(path), false)
     assert.equal(plans.includes(path), false)
   }
+  assert.equal(script.includes("/api/modify-password"), false)
+  assert.equal(plans.includes("/api/modify-password"), false)
   assert.match(plans, /payload\.error !== false/)
   assert.match(plans, /payload\.planes/)
   assert.doesNotMatch(plans, /payload\.code/)
