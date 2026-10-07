@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { useQueryClient } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 
 import { CuratedTopologyTree } from "@/components/network/curated-topology-tree"
 import { Button } from "@/components/ui/button"
@@ -17,8 +17,10 @@ import {
   NETWORK_DEVICE_STATUS_LABELS,
 } from "@/lib/network/labels"
 import { networkQueryKeys } from "@/lib/network/react-query/keys"
-import { useNetworkDevicesQuery } from "@/lib/network/react-query/use-network-devices-query"
-import type { NetworkDevice } from "@/lib/network/types"
+import {
+  curatedTopologyDeviceLabel,
+  type AvailableCuratedTopologyDevice,
+} from "@/lib/network/topology/available-devices"
 import type {
   CuratedTopologyForest,
   CuratedTopologyNode,
@@ -51,8 +53,8 @@ function descendantIds(node: CuratedTopologyNode): Set<string> {
   return ids
 }
 
-function deviceLabel(device: Pick<NetworkDevice, "id" | "hostname" | "managementIp">) {
-  return device.hostname?.trim() || device.managementIp?.trim() || device.id
+function deviceLabel(device: Pick<AvailableCuratedTopologyDevice, "id" | "hostname" | "managementIp">) {
+  return curatedTopologyDeviceLabel(device)
 }
 
 function monitoringLabel(status: string | null | undefined): string {
@@ -120,7 +122,7 @@ async function deletePlacement(deviceId: string) {
   await parsePlacementResponse(response)
 }
 
-function DeviceOption({ device }: { device: NetworkDevice }) {
+function DeviceOption({ device }: { device: AvailableCuratedTopologyDevice }) {
   return (
     <span className="block min-w-0">
       <span className="block truncate font-medium">{deviceLabel(device)}</span>
@@ -133,10 +135,10 @@ function DeviceOption({ device }: { device: NetworkDevice }) {
         <span
           className={cn(
             "inline-block size-1.5 rounded-full",
-            statusDotClass(device.operationalStatus)
+            statusDotClass(device.status)
           )}
         />
-        {monitoringLabel(device.operationalStatus)}
+        {monitoringLabel(device.status)}
       </span>
     </span>
   )
@@ -156,7 +158,6 @@ export function CuratedTopologyEditor({
   placedDeviceIds?: ReadonlySet<string>
 }) {
   const queryClient = useQueryClient()
-  const devicesQuery = useNetworkDevicesQuery()
   const [busy, setBusy] = useState<BusyAction>(null)
   const [error, setError] = useState<string | null>(null)
   const [addOpen, setAddOpen] = useState(false)
@@ -167,6 +168,32 @@ export function CuratedTopologyEditor({
   const [moveMode, setMoveMode] = useState<MoveMode>("root")
   const [moveParentId, setMoveParentId] = useState("")
   const [removeNode, setRemoveNode] = useState<CuratedTopologyNode | null>(null)
+  const availabilityParentId =
+    addOpen && addMode === "child" && addParentId ? addParentId : null
+  const devicesQuery = useQuery({
+    queryKey: [
+      ...networkQueryKeys.topology(),
+      "available-devices",
+      availabilityParentId ?? "",
+    ],
+    enabled: addOpen,
+    queryFn: async (): Promise<AvailableCuratedTopologyDevice[]> => {
+      const params = new URLSearchParams()
+      if (availabilityParentId) params.set("parentDeviceId", availabilityParentId)
+      const response = await fetch(
+        `/api/network/topology/available-devices?${params.toString()}`
+      )
+      const body = (await response.json()) as {
+        success?: boolean
+        devices?: AvailableCuratedTopologyDevice[]
+        message?: string
+      }
+      if (!response.ok || body.success === false) {
+        throw new Error(body.message ?? "No se pudieron cargar los dispositivos.")
+      }
+      return body.devices ?? []
+    },
+  })
 
   const placedIds = useMemo(() => {
     if (placedDeviceIds) return placedDeviceIds
@@ -178,12 +205,12 @@ export function CuratedTopologyEditor({
   const placedNodes = useMemo(() => flattenForest(forest), [forest])
   const availableDevices = useMemo(
     () =>
-      (devicesQuery.data ?? [])
-        .filter((device) => !placedIds.has(device.id))
-        .sort((left, right) =>
-          deviceLabel(left).localeCompare(deviceLabel(right), "es")
-        ),
-    [devicesQuery.data, placedIds]
+      (devicesQuery.data ?? []).filter((device) => {
+        if (placedIds.has(device.id)) return false
+        if (availabilityParentId && device.id === availabilityParentId) return false
+        return true
+      }),
+    [availabilityParentId, devicesQuery.data, placedIds]
   )
 
   const moveTargets = useMemo(() => {
@@ -315,15 +342,20 @@ export function CuratedTopologyEditor({
           </DialogHeader>
           {devicesQuery.isPending ? (
             <p className="text-sm text-muted-foreground">Cargando dispositivos…</p>
+          ) : devicesQuery.isError ? (
+            <p className="text-sm text-destructive">
+              {devicesQuery.error instanceof Error
+                ? devicesQuery.error.message
+                : "No se pudieron cargar los dispositivos."}
+            </p>
           ) : availableDevices.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No hay dispositivos disponibles para agregar. Los que ya están en
-              la topología no se listan.
+              No hay dispositivos disponibles para agregar.
             </p>
           ) : (
             <div className="space-y-4">
               <label className="block space-y-1 text-sm">
-                <span className="text-muted-foreground">Dispositivo</span>
+                <span className="text-muted-foreground">Dispositivos disponibles</span>
                 <select
                   className="block h-auto min-h-9 w-full rounded-md border bg-background px-3 py-2"
                   value={addDeviceId}
@@ -333,7 +365,7 @@ export function CuratedTopologyEditor({
                     <option key={device.id} value={device.id}>
                       {deviceLabel(device)}
                       {device.managementIp ? ` · ${device.managementIp}` : ""}
-                      {` · ${monitoringLabel(device.operationalStatus)}`}
+                      {` · ${monitoringLabel(device.status)}`}
                     </option>
                   ))}
                 </select>

@@ -24,6 +24,7 @@ import {
   selectTopologyRootIds,
   type LocalManagedIdentityRef,
 } from "@/lib/network/topology/local-view"
+import { selectAvailableCuratedTopologyDevices } from "@/lib/network/topology/available-devices"
 import { getCuratedTopologyForest } from "@/lib/network/topology/curated-view"
 import type { TopologyManagedDirectedLink } from "@/lib/network/topology/managed-parents"
 import { listNetworkDiscoveryTargets } from "@/lib/network/targets/queries"
@@ -173,6 +174,72 @@ async function loadNetworkTopologySource(
       toDeviceId: link.toDeviceId,
     })),
   }
+}
+
+const AVAILABLE_DEVICE_PAGE = 1000
+
+async function readCompanyPages<T>(
+  read: (from: number, to: number) => PromiseLike<{
+    data: T[] | null
+    error: { message: string } | null
+  }>
+): Promise<T[]> {
+  const rows: T[] = []
+  for (let from = 0; ; from += AVAILABLE_DEVICE_PAGE) {
+    const { data, error } = await read(from, from + AVAILABLE_DEVICE_PAGE - 1)
+    if (error) throw new Error(error.message)
+    const batch = data ?? []
+    rows.push(...batch)
+    if (batch.length < AVAILABLE_DEVICE_PAGE) break
+  }
+  return rows
+}
+
+export async function listAvailableCuratedTopologyDevices(
+  client: Client,
+  companyId: string,
+  parentDeviceId?: string | null
+) {
+  const [devices, placements] = await Promise.all([
+    readCompanyPages((from, to) =>
+      client
+        .from("network_devices")
+        .select("id, company_id, hostname, management_ip, device_type, model, status, deleted_at")
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .order("id", { ascending: true })
+        .range(from, to)
+    ),
+    readCompanyPages((from, to) =>
+      client
+        .from("network_topology_placements")
+        .select("company_id, device_id, deleted_at")
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .order("id", { ascending: true })
+        .range(from, to)
+    ),
+  ])
+
+  return selectAvailableCuratedTopologyDevices({
+    companyId,
+    parentDeviceId,
+    devices: devices.map((row) => ({
+      id: row.id,
+      companyId: row.company_id,
+      hostname: row.hostname,
+      managementIp: row.management_ip,
+      deviceType: row.device_type,
+      model: row.model,
+      status: row.status,
+      deletedAt: row.deleted_at,
+    })),
+    placements: placements.map((row) => ({
+      companyId: row.company_id,
+      deviceId: row.device_id,
+      deletedAt: row.deleted_at,
+    })),
+  })
 }
 
 export async function getNetworkTopologyGraph(
