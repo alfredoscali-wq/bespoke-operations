@@ -1,5 +1,5 @@
 /**
- * Consulta de solo lectura: POST /api/get-clients.
+ * Consulta de solo lectura: GET /api/get-clients.
  * Uso: npx tsx scripts/latam-tv-get-client.mjs <identificador>
  * No imprime el token ni llama a ningún endpoint de escritura.
  */

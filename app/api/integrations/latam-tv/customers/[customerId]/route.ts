@@ -69,6 +69,11 @@ export async function GET(_request: Request, context: RouteContext) {
     }
 
     const lookup = await getLatamTvClientByIdentifier(resolved.identifier, config)
+    console.info(
+      "LATAM TV lookup method=GET path=/api/get-clients identificador=%s result=%s",
+      resolved.identifier,
+      lookup.found ? (lookup.client.status ?? "unreadable") : "not_registered"
+    )
     return NextResponse.json({ success: true, ...lookup })
   } catch (error) {
     if (error instanceof LatamTvRequestError) {

@@ -82,7 +82,7 @@ test("1. identificador válido devuelve el cliente sin secretos", async () => {
   assert.equal(url.origin, BASE)
   assert.equal(url.pathname, "/api/get-clients")
   assert.equal(url.searchParams.get("token"), TOKEN)
-  assert.equal(calls[0].init.method, "POST")
+  assert.equal(calls[0].init.method, "GET")
   assert.deepEqual(JSON.parse(calls[0].init.body), { identificador: ["2205"] })
 })
 
@@ -194,7 +194,7 @@ test("10. la consulta sigue en get-clients y el script manual no da de alta", ()
   assert.doesNotMatch(script, /get-plans/)
   assert.doesNotMatch(source, /\/api\/delete-client/)
   assert.doesNotMatch(source, /NEXT_PUBLIC_LATAM/)
-  assert.match(source, /method: "POST"/)
+  assert.match(source, /method === "GET" \? "GET" : "POST"/)
   assert.match(route, /auth\.companyId/)
   assert.match(route, /requireSubscriptionsReadContext/)
   assert.doesNotMatch(route, /searchParams\.get\("token"\)/)
@@ -226,6 +226,138 @@ test("un cliente de otra empresa no se consulta", () => {
       "company-a"
     ).status,
     "ready"
+  )
+})
+
+test("estado 1 queda activo y estado 0 queda suspendido", async () => {
+  const active = await lookup({
+    error: false,
+    code: 1,
+    clients: [
+      clientRecord({
+        status: undefined,
+        estado: 1,
+        plan_name: undefined,
+        plan_nombre: "Plan Basico",
+      }),
+    ],
+  })
+  assert.equal(active.result.found, true)
+  if (active.result.found) {
+    assert.equal(active.result.client.status, "enabled")
+    assert.equal(active.result.client.plan?.name, "Plan Basico")
+  }
+
+  const suspended = await lookup({
+    error: false,
+    code: 1,
+    clients: [clientRecord({ status: undefined, estado: 0 })],
+  })
+  assert.equal(suspended.result.found, true)
+  if (suspended.result.found) assert.equal(suspended.result.client.status, "disabled")
+})
+
+test("code 3 y HTTP 404 con noregistrados son no registrado", async () => {
+  const missing = await lookup(
+    { error: true, code: 3, message: "Clientes no registrados", noregistrados: ["2205"] },
+    { status: 404 }
+  )
+  assert.deepEqual(missing.result, { found: false })
+})
+
+test("timeout, 401, 403 y JSON sin clientes son no disponible", async () => {
+  await assert.rejects(
+    () =>
+      getLatamTvClientByIdentifier("6798", {
+        baseUrl: BASE,
+        token: TOKEN,
+        timeoutMs: 20,
+        fetchImpl: (_url, init) =>
+          new Promise((_resolve, reject) => {
+            const signal = init?.signal
+            if (!signal) {
+              reject(new Error("missing signal"))
+              return
+            }
+            if (signal.aborted) reject(signal.reason)
+            else signal.addEventListener("abort", () => reject(signal.reason))
+          }),
+      }),
+    (error) => error instanceof LatamTvRequestError && error.kind === "unavailable"
+  )
+  await assert.rejects(
+    () => lookup({ message: "denied" }, { status: 401 }),
+    (error) => error instanceof LatamTvRequestError && error.kind === "unavailable"
+  )
+  await assert.rejects(
+    () => lookup({ message: "denied" }, { status: 403 }),
+    (error) => error instanceof LatamTvRequestError && error.kind === "unavailable"
+  )
+  await assert.rejects(
+    () => lookup({ error: false, code: 1 }),
+    (error) => error instanceof LatamTvRequestError && error.kind === "unavailable"
+  )
+})
+
+test("sin configuración no llama a LATAM", async () => {
+  let called = false
+  await assert.rejects(
+    () =>
+      getLatamTvClientByIdentifier("6798", {
+        baseUrl: "",
+        token: "",
+        fetchImpl: async () => {
+          called = true
+          return jsonResponse({ code: 1, clients: [] })
+        },
+      }),
+    (error) => error instanceof LatamTvRequestError && error.kind === "not_configured"
+  )
+  assert.equal(called, false)
+})
+
+test("el identificador LATAM es el N° ABNet y no el UUID", async () => {
+  let called = false
+  await assert.rejects(
+    () =>
+      getLatamTvClientByIdentifier("3f0622ef-7920-4056-91fe-409dcabb78d3", {
+        baseUrl: BASE,
+        token: TOKEN,
+        fetchImpl: async () => {
+          called = true
+          return jsonResponse({ code: 1, clients: [] })
+        },
+      }),
+    (error) => error instanceof LatamTvRequestError && error.kind === "invalid_identifier"
+  )
+  assert.equal(called, false)
+
+  const { calls } = await lookup(
+    { code: 1, clients: [clientRecord({ id_crm: "6798", identificador: "6798" })] },
+    { identifier: "6798" }
+  )
+  assert.equal(calls.length, 1)
+  assert.equal(calls[0].init.method, "GET")
+  assert.equal(new URL(calls[0].url).pathname, "/api/get-clients")
+  assert.deepEqual(JSON.parse(calls[0].init.body), { identificador: ["6798"] })
+  assert.equal(JSON.stringify(calls[0].init.body).includes("3f0622ef"), false)
+  assert.doesNotMatch(calls[0].init.body, /register-client|modify-client|enable-client|disable-client|modify-password/)
+})
+
+test("sin N° ABNet no se inventa un identificador", () => {
+  assert.deepEqual(
+    latamIdentifierFromCustomer(
+      { companyId: "company-a", externalCustomerCode: "   " },
+      "company-a"
+    ),
+    { status: "missing_identifier" }
+  )
+  assert.deepEqual(
+    latamIdentifierFromCustomer(
+      { companyId: "company-a", externalCustomerCode: null },
+      "company-a"
+    ),
+    { status: "missing_identifier" }
   )
 })
 

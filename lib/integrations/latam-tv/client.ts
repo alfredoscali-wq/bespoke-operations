@@ -1,3 +1,5 @@
+import { request as httpsRequest } from "node:https"
+
 import { abnetNumberFromExternalCode } from "@/lib/isp/abnet-master-universe"
 import { LatamTvRequestError } from "@/lib/integrations/latam-tv/errors"
 import { validateLatamTvPassword } from "@/lib/integrations/latam-tv/password"
@@ -76,9 +78,18 @@ function macs(value: unknown): string[] {
 
 function plan(record: Record<string, unknown>): LatamTvPlan | null {
   const id = text(record.plan_id)
-  const name = text(record.plan_name)
+  const name = text(record.plan_name ?? record.plan_nombre)
   if (!id && !name) return null
   return { id, name }
+}
+
+function lastName(record: Record<string, unknown>): string | null {
+  const combined = text(record.apellido)
+  if (combined) return combined
+  const parts = [text(record.appaterno), text(record.apmaterno)].filter(
+    (part): part is string => part != null
+  )
+  return parts.length > 0 ? parts.join(" ") : null
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -91,7 +102,11 @@ function responseCode(payload: Record<string, unknown>): number | null {
 }
 
 function clientRecords(payload: Record<string, unknown>): Record<string, unknown>[] {
-  const listed = payload.clients
+  const listed = Array.isArray(payload.clients)
+    ? payload.clients
+    : Array.isArray(payload.clientes)
+      ? payload.clientes
+      : null
   if (Array.isArray(listed)) {
     return listed.flatMap((item) => {
       const record = asRecord(item)
@@ -115,9 +130,9 @@ function toClient(record: Record<string, unknown>, identifier: string): LatamTvC
     iptvId: text(record.id_iptv),
     username: text(record.usuario),
     nationalId: text(record.dni),
-    status: accountStatus(record.status),
-    firstName: text(record.nombre),
-    lastName: text(record.apellido),
+    status: accountStatus(record.status ?? record.estado),
+    firstName: text(record.nombre ?? record.nombres),
+    lastName: lastName(record),
     address: text(record.direccion),
     phone: text(record.telefono),
     deviceCount: wholeNumber(record.cantidad_dispositivos),
@@ -140,10 +155,64 @@ function selectClient(
   return null
 }
 
+type LatamRequestOptions = {
+  method?: "GET" | "POST"
+}
+
+/**
+ * get-clients is GET-only. POST returns 405.
+ * Node fetch refuses a GET body, and LATAM reads that JSON body, so the
+ * real call uses https. Tests pass fetchImpl and never open the network.
+ */
+function sendGetWithJsonBody(
+  endpoint: URL,
+  body: string,
+  timeoutMs: number
+): Promise<Response> {
+  return new Promise((resolve, reject) => {
+    const req = httpsRequest(
+      endpoint,
+      {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(body),
+        },
+        timeout: timeoutMs,
+      },
+      (incoming) => {
+        const chunks: Buffer[] = []
+        incoming.on("data", (chunk: Buffer | string) => {
+          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
+        })
+        incoming.on("end", () => {
+          const payload = Buffer.concat(chunks)
+          const contentType = incoming.headers["content-type"]
+          resolve(
+            new Response(payload, {
+              status: incoming.statusCode ?? 502,
+              headers: contentType ? { "Content-Type": contentType } : undefined,
+            })
+          )
+        })
+      }
+    )
+    req.on("timeout", () => {
+      req.destroy()
+      reject(new Error("timeout"))
+    })
+    req.on("error", reject)
+    req.write(body)
+    req.end()
+  })
+}
+
 async function postLatam(
   path: string,
   body: unknown,
-  deps: LatamTvClientDeps
+  deps: LatamTvClientDeps,
+  options: LatamRequestOptions = {}
 ): Promise<Record<string, unknown>> {
   const token = deps.token.trim()
   const baseUrl = deps.baseUrl.trim()
@@ -160,30 +229,51 @@ async function postLatam(
   }
   endpoint.searchParams.set("token", token)
 
-  const fetchImpl = deps.fetchImpl ?? fetch
+  const method = options.method ?? "POST"
   const timeoutMs = deps.timeoutMs ?? REQUEST_TIMEOUT_MS
+  const payload = JSON.stringify(body)
   let response: Response
   try {
-    response = await fetchImpl(endpoint.toString(), {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(timeoutMs),
-      cache: "no-store",
-    })
+    if (method === "GET" && !deps.fetchImpl) {
+      response = await sendGetWithJsonBody(endpoint, payload, timeoutMs)
+    } else {
+      const fetchImpl = deps.fetchImpl ?? fetch
+      response = await fetchImpl(endpoint.toString(), {
+        method: method === "GET" ? "GET" : "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: payload,
+        signal: AbortSignal.timeout(timeoutMs),
+        cache: "no-store",
+      })
+    }
   } catch {
     throw new LatamTvRequestError("unavailable")
   }
 
-  if (!response.ok) throw new LatamTvRequestError("unavailable")
+  if (!response.ok) {
+    if (path === GET_CLIENTS_PATH && response.status === 404) {
+      try {
+        const missing = asRecord(await response.json())
+        if (
+          missing &&
+          (responseCode(missing) === 3 || Array.isArray(missing.noregistrados))
+        ) {
+          return missing
+        }
+      } catch {
+        throw new LatamTvRequestError("unavailable")
+      }
+    }
+    throw new LatamTvRequestError("unavailable")
+  }
 
-  let payload: unknown
+  let parsed: unknown
   try {
-    payload = await response.json()
+    parsed = await response.json()
   } catch {
     throw new LatamTvRequestError("unavailable")
   }
-  const record = asRecord(payload)
+  const record = asRecord(parsed)
   if (!record) throw new LatamTvRequestError("unavailable")
   return record
 }
@@ -194,21 +284,45 @@ export async function getLatamTvPlans(deps: LatamTvClientDeps): Promise<LatamTvC
   return readLatamTvPlansPayload(record)
 }
 
-/** Lookup. POST /api/get-clients. */
+function hasClientList(record: Record<string, unknown>): boolean {
+  return (
+    Array.isArray(record.clients) ||
+    Array.isArray(record.clientes) ||
+    asRecord(record.client) != null
+  )
+}
+
+function interpretGetClients(
+  record: Record<string, unknown>,
+  identifier: string
+): LatamTvLookup {
+  const code = responseCode(record)
+  if (code === 3) return { found: false }
+  if (code !== 1) {
+    if (Array.isArray(record.noregistrados)) return { found: false }
+    throw new LatamTvRequestError("unavailable")
+  }
+  if (!hasClientList(record)) throw new LatamTvRequestError("unavailable")
+  const client = selectClient(clientRecords(record), identifier)
+  if (!client) return { found: false }
+  if (!client.status) throw new LatamTvRequestError("unavailable")
+  return { found: true, client }
+}
+
+/** Lookup. GET /api/get-clients with JSON body { identificador: [n° ABNet] }. */
 export async function getLatamTvClientByIdentifier(
   identificador: string,
   deps: LatamTvClientDeps
 ): Promise<LatamTvLookup> {
   const identifier = abnetNumberFromExternalCode(identificador)
   if (!identifier) throw new LatamTvRequestError("invalid_identifier")
-  const record = await postLatam(GET_CLIENTS_PATH, { identificador: [identifier] }, deps)
-  const code = responseCode(record)
-  if (code === 3) return { found: false }
-  if (code !== 1) throw new LatamTvRequestError("unavailable")
-
-  const client = selectClient(clientRecords(record), identifier)
-  if (!client) return { found: false }
-  return { found: true, client }
+  const record = await postLatam(
+    GET_CLIENTS_PATH,
+    { identificador: [identifier] },
+    deps,
+    { method: "GET" }
+  )
+  return interpretGetClients(record, identifier)
 }
 
 export type LatamTvSignupCallResult =

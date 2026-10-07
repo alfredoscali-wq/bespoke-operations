@@ -1,4 +1,4 @@
-/** Fields read from POST /api/get-clients. Unknown LATAM keys are ignored. */
+/** Fields read from GET /api/get-clients. Unknown LATAM keys are ignored. */
 export type LatamTvExternalClient = {
   id_iptv?: unknown
   id_crm?: unknown
