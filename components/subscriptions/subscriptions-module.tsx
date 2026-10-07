@@ -1,7 +1,7 @@
 "use client"
 
 import { ArrowLeftRight, ChevronLeft, ChevronRight, Trash2, Tv } from "lucide-react"
-import { useCallback, useEffect, useState, type ReactNode } from "react"
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
 
 import { LatamTvRowDialog } from "@/components/subscriptions/latam-tv-row-dialog"
 import { SubscriptionsProvider, useSubscriptions } from "@/components/subscriptions/subscriptions-provider"
@@ -10,6 +10,7 @@ import { SubscriptionsTvOverview } from "@/components/subscriptions/subscription
 import { TvPlansCatalogSection } from "@/components/subscriptions/tv-plans-catalog-section"
 import { TvSubscribersFilters } from "@/components/subscriptions/tv-subscribers-filters"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
@@ -46,14 +47,21 @@ import {
   currentAbnetTvPlanOption,
   type AbnetTvPlanOptionId,
 } from "@/lib/subscriptions/abnet-tv-plan-choice"
-import { formatTvMoney } from "@/lib/subscriptions/tv-plans"
+import {
+  padronRowSelectionKey,
+  retainVisiblePadronSelection,
+  selectVisiblePadronRows,
+  summarizePadronBulkRemoval,
+  togglePadronRowSelection,
+  visiblePadronSelectionState,
+} from "@/lib/subscriptions/abnet-tv-padron-selection"
 import { STATUS_TONE_STYLES } from "@/lib/ui/visual-tokens"
 import { cn } from "@/lib/utils"
 
-const PADRON_HEAD_CLASS = "h-6 px-1.5 py-0 text-[11px] font-medium"
-const PADRON_CELL_CLASS = "h-6 max-w-0 px-1.5 py-0 text-xs leading-4"
+const PADRON_HEAD_CLASS = "h-10 px-2 text-xs font-medium"
+const PADRON_CELL_CLASS = "max-w-0 px-2 py-2.5 text-sm leading-5"
 const PADRON_CHIP_CLASS =
-  "inline-flex items-center rounded border px-1 py-0 text-[10px] leading-4 font-medium"
+  "inline-flex items-center rounded border px-1.5 py-0.5 text-xs leading-4 font-medium"
 
 const TV_KIND_CLASS: Record<AbnetTvKind, string> = {
   basica: STATUS_TONE_STYLES.blue,
@@ -120,6 +128,26 @@ function SubscriptionsModuleContent() {
   >({})
   const [rowToChange, setRowToChange] = useState<AbnetTvPadronRow | null>(null)
   const [rowToRemove, setRowToRemove] = useState<AbnetTvPadronRow | null>(null)
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(() => new Set())
+  const [bulkOpen, setBulkOpen] = useState(false)
+  const [bulkNotice, setBulkNotice] = useState<string | null>(null)
+  const visibleRows = list?.items ?? []
+  const visibleKeys = useMemo(
+    () => visibleRows.map((row) => padronRowSelectionKey(row)),
+    [visibleRows]
+  )
+  const selectedVisibleRows = visibleRows.filter((row) =>
+    selectedKeys.has(padronRowSelectionKey(row))
+  )
+  const selectionState = visiblePadronSelectionState(selectedKeys, visibleKeys)
+
+  useEffect(() => {
+    setSelectedKeys((current) => {
+      const next = retainVisiblePadronSelection(current, visibleKeys)
+      if (next.size === current.size) return current
+      return next
+    })
+  }, [visibleKeys])
   const rememberLatamStatus = useCallback((customerId: string, label: string) => {
     setLatamStatusByCustomer((current) =>
       current[customerId] === label ? current : { ...current, [customerId]: label }
@@ -127,7 +155,7 @@ function SubscriptionsModuleContent() {
   }, [])
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">
           TV & Suscripciones
@@ -151,7 +179,7 @@ function SubscriptionsModuleContent() {
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-      <div className="space-y-4 rounded-xl border bg-card p-4 shadow-sm">
+      <div className="space-y-3 rounded-xl border bg-card p-4 shadow-sm">
         <div>
           <h2 className="text-sm font-semibold">{listTitle}</h2>
           <p className="text-xs text-muted-foreground">
@@ -162,8 +190,36 @@ function SubscriptionsModuleContent() {
 
         <TvSubscribersFilters />
 
+        {canWrite && selectedVisibleRows.length > 0 ? (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-sm">
+            <p className="font-medium">
+              {selectedVisibleRows.length === 1
+                ? "1 fila seleccionada"
+                : `${selectedVisibleRows.length} filas seleccionadas`}
+            </p>
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => {
+                setBulkNotice(null)
+                setBulkOpen(true)
+              }}
+            >
+              <Trash2 className="size-4" />
+              Eliminar seleccionadas
+            </Button>
+          </div>
+        ) : null}
+        {bulkNotice ? (
+          <p className="text-sm text-destructive" role="alert">
+            {bulkNotice}
+          </p>
+        ) : null}
+
         {!isSummaryReady || isListLoading ? (
-          <TableRowsSkeleton rows={8} columns={9} />
+          <TableRowsSkeleton rows={8} columns={8} />
         ) : !list || list.items.length === 0 ? (
           <div className="rounded-xl border border-dashed bg-muted/20 px-6 py-14 text-center">
             <p className="text-sm font-medium text-foreground">
@@ -177,61 +233,105 @@ function SubscriptionsModuleContent() {
         ) : (
           <>
             <div className="w-full overflow-x-hidden">
-              <table className="w-full table-fixed text-xs">
+              <table className="w-full table-fixed text-sm">
+                <colgroup>
+                  {canWrite ? <col className="w-10" /> : null}
+                  <col className="w-[12%]" />
+                  <col className="w-[30%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[16%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[7.5rem]" />
+                </colgroup>
                 <TableHeader>
                   <TableRow className="bg-slate-100/70 hover:bg-slate-100/70">
-                    <TableHead className={`${PADRON_HEAD_CLASS} w-[8%]`}>
+                    {canWrite ? (
+                      <TableHead className={`${PADRON_HEAD_CLASS} w-10 px-2`}>
+                        <Checkbox
+                          checked={
+                            selectionState === "all"
+                              ? true
+                              : selectionState === "some"
+                                ? "indeterminate"
+                                : false
+                          }
+                          onCheckedChange={(checked) => {
+                            setBulkNotice(null)
+                            setSelectedKeys((current) =>
+                              selectVisiblePadronRows(
+                                current,
+                                visibleKeys,
+                                checked === true
+                              )
+                            )
+                          }}
+                          aria-label="Seleccionar filas visibles"
+                        />
+                      </TableHead>
+                    ) : null}
+                    <TableHead className={`${PADRON_HEAD_CLASS} w-[12%]`}>
                       N° Cliente
                     </TableHead>
-                    <TableHead className={`${PADRON_HEAD_CLASS} w-[20%]`}>
+                    <TableHead className={`${PADRON_HEAD_CLASS} w-[30%]`}>
                       Cliente
                     </TableHead>
-                    <TableHead className={`${PADRON_HEAD_CLASS} w-[12%]`}>
+                    <TableHead className={`${PADRON_HEAD_CLASS} w-[14%]`}>
                       Tipo
                     </TableHead>
-                    <TableHead className={`${PADRON_HEAD_CLASS} w-[8%]`}>
+                    <TableHead className={`${PADRON_HEAD_CLASS} w-[16%]`}>
                       Nodo
                     </TableHead>
-                    <TableHead className={`${PADRON_HEAD_CLASS} w-[9%]`}>
+                    <TableHead className={`${PADRON_HEAD_CLASS} w-[10%]`}>
                       Estado
                     </TableHead>
-                    <TableHead className={`${PADRON_HEAD_CLASS} w-[17%]`}>
+                    <TableHead className={`${PADRON_HEAD_CLASS} w-[14%]`}>
                       TV
                     </TableHead>
-                    <TableHead className={`${PADRON_HEAD_CLASS} w-[8%]`}>
-                      2% IMP. TV
-                    </TableHead>
-                    <TableHead className={`${PADRON_HEAD_CLASS} w-[8%]`}>
-                      FINAL
-                    </TableHead>
-                    <TableHead className={`${PADRON_HEAD_CLASS} w-[10%]`}>
+                    <TableHead className={`${PADRON_HEAD_CLASS} w-[7.5rem]`}>
                       Acciones
                     </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {list.items.map((row) => (
+                  {list.items.map((row) => {
+                    const selectionKey = padronRowSelectionKey(row)
+                    return (
                     <TableRow
                       key={`${row.source}-${row.sourceRow}`}
                       data-padron-row=""
                       className="cursor-default"
                     >
+                      {canWrite ? (
+                        <TableCell className="w-10 px-2 py-2.5">
+                          <Checkbox
+                            checked={selectedKeys.has(selectionKey)}
+                            onCheckedChange={() => {
+                              setBulkNotice(null)
+                              setSelectedKeys((current) =>
+                                togglePadronRowSelection(current, selectionKey)
+                              )
+                            }}
+                            aria-label={`Seleccionar fila ${row.sourceRow}`}
+                          />
+                        </TableCell>
+                      ) : null}
                       <TableCell className={`${PADRON_CELL_CLASS} tabular-nums`}>
                         {row.abnetCustomerNumber}
                       </TableCell>
                       <TableCell className={`${PADRON_CELL_CLASS} truncate font-medium`}>
                         {row.customerName}
                       </TableCell>
-                      <TableCell className={`${PADRON_CELL_CLASS} truncate`}>
+                      <TableCell className={`${PADRON_CELL_CLASS} truncate text-muted-foreground`}>
                         {row.serviceType || "—"}
                       </TableCell>
-                      <TableCell className={`${PADRON_CELL_CLASS} truncate`}>
+                      <TableCell className={`${PADRON_CELL_CLASS} truncate text-muted-foreground`}>
                         {row.node || "—"}
                       </TableCell>
                       <TableCell className={PADRON_CELL_CLASS}>
                         <StatusBadge
                           className={cn(
-                            "px-1.5 py-0 text-[10px]",
+                            "px-1.5 py-0.5 text-xs",
                             STATUS_CLASS[row.status] ?? STATUS_TONE_STYLES.gray
                           )}
                         >
@@ -241,17 +341,7 @@ function SubscriptionsModuleContent() {
                       <TableCell className={`${PADRON_CELL_CLASS} whitespace-nowrap`}>
                         <PadronTvMark row={row} />
                       </TableCell>
-                      <TableCell className={`${PADRON_CELL_CLASS} whitespace-nowrap tabular-nums`}>
-                        {row.tvTaxAmount == null
-                          ? "—"
-                          : formatTvMoney(row.tvTaxAmount)}
-                      </TableCell>
-                      <TableCell className={`${PADRON_CELL_CLASS} whitespace-nowrap tabular-nums`}>
-                        {row.finalAmount == null
-                          ? "—"
-                          : formatTvMoney(row.finalAmount)}
-                      </TableCell>
-                      <TableCell className="h-6 px-0.5 py-0 text-right">
+                      <TableCell className="px-1 py-2 text-right">
                         <PadronRowActions
                           canWrite={canWrite}
                           latamLabel={
@@ -266,7 +356,8 @@ function SubscriptionsModuleContent() {
                         />
                       </TableCell>
                     </TableRow>
-                  ))}
+                    )
+                  })}
                 </TableBody>
               </table>
             </div>
@@ -318,6 +409,22 @@ function SubscriptionsModuleContent() {
           onClose={() => setRowToRemove(null)}
           onConfirm={removePadronRow}
         />
+        <RemovePadronRowsDialog
+          open={bulkOpen}
+          rows={selectedVisibleRows}
+          onClose={() => setBulkOpen(false)}
+          onConfirm={removePadronRow}
+          onFinished={(summary) => {
+            setSelectedKeys((current) => {
+              const next = new Set(current)
+              for (const key of summary.removedKeys) next.delete(key)
+              return next
+            })
+            setBulkNotice(summary.message)
+            if (summary.removed > 0 && summary.failed === 0) setBulkOpen(false)
+            if (summary.removed > 0 && summary.failed > 0) setBulkOpen(false)
+          }}
+        />
       </div>
     </div>
   )
@@ -364,14 +471,14 @@ function PadronRowActions({
           className="text-sky-700 hover:text-sky-800 dark:text-sky-300"
           onClick={onLatam}
         >
-          <Tv className="size-3.5" />
+          <Tv className="size-4" />
         </PadronIconButton>
         <PadronIconButton
           label="Cambiar plan de TV"
           className="text-violet-700 hover:text-violet-800 dark:text-violet-300"
           onClick={onChangePlan}
         >
-          <ArrowLeftRight className="size-3.5" />
+          <ArrowLeftRight className="size-4" />
         </PadronIconButton>
         {canWrite ? (
           <PadronIconButton
@@ -379,7 +486,7 @@ function PadronRowActions({
             className="text-muted-foreground hover:text-destructive"
             onClick={onRemove}
           >
-            <Trash2 className="size-3.5" />
+            <Trash2 className="size-4" />
           </PadronIconButton>
         ) : null}
       </div>
@@ -405,7 +512,7 @@ function PadronIconButton({
           type="button"
           variant="ghost"
           size="icon"
-          className={cn("size-6 cursor-pointer", className)}
+          className={cn("size-8 cursor-pointer", className)}
           aria-label={label}
           onClick={(event) => {
             event.stopPropagation()
@@ -595,6 +702,114 @@ function RemovePadronDialog({
             }}
           >
             Eliminar de TV
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function RemovePadronRowsDialog({
+  open,
+  rows,
+  onClose,
+  onConfirm,
+  onFinished,
+}: {
+  open: boolean
+  rows: AbnetTvPadronRow[]
+  onClose: () => void
+  onConfirm: (row: AbnetTvPadronRow) => Promise<string | null>
+  onFinished: (summary: {
+    removed: number
+    failed: number
+    removedKeys: string[]
+    message: string | null
+  }) => void
+}) {
+  const [error, setError] = useState<string | null>(null)
+  const [pending, setPending] = useState(false)
+  const count = rows.length
+
+  return (
+    <Dialog
+      open={open && count > 0}
+      onOpenChange={(nextOpen) => {
+        if (pending) return
+        if (!nextOpen) {
+          setError(null)
+          onClose()
+        }
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Eliminar filas del padrón</DialogTitle>
+          <DialogDescription>
+            Vas a quitar{" "}
+            <strong>
+              {count} {count === 1 ? "fila" : "filas"}
+            </strong>{" "}
+            del padrón TV. Esta acción no elimina clientes, servicios, conexiones ni OTs.
+          </DialogDescription>
+        </DialogHeader>
+        {error ? (
+          <p className="text-sm text-destructive" role="alert">
+            {error}
+          </p>
+        ) : null}
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={pending}
+            onClick={() => {
+              setError(null)
+              onClose()
+            }}
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            disabled={pending || count === 0}
+            onClick={() => {
+              const targets = rows.slice()
+              setPending(true)
+              setError(null)
+              void (async () => {
+                const results: { key: string; error: string | null }[] = []
+                for (const row of targets) {
+                  const message = await onConfirm(row)
+                  results.push({
+                    key: padronRowSelectionKey(row),
+                    error: message,
+                  })
+                }
+                const summary = summarizePadronBulkRemoval(results)
+                setPending(false)
+                if (summary.removed === 0) {
+                  setError(
+                    summary.message ??
+                      "No se pudieron eliminar las filas seleccionadas."
+                  )
+                  return
+                }
+                const failed = new Set(summary.failedKeys)
+                onFinished({
+                  removed: summary.removed,
+                  failed: summary.failed,
+                  removedKeys: results
+                    .filter((item) => !failed.has(item.key))
+                    .map((item) => item.key),
+                  message: summary.message,
+                })
+                setError(null)
+              })()
+            }}
+          >
+            Eliminar {count} {count === 1 ? "fila" : "filas"}
           </Button>
         </DialogFooter>
       </DialogContent>

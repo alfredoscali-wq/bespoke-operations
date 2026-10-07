@@ -1,55 +1,45 @@
 "use client"
 
-import { FileSpreadsheet, Users } from "lucide-react"
-
 import { useSubscriptions } from "@/components/subscriptions/subscriptions-provider"
-import { KpiCard } from "@/components/ui/kpi-card"
-import { KpiCardGrid } from "@/components/ui/kpi-card-grid"
 
 export function SubscriptionsTvOverview() {
   const { summary, isSummaryReady, showPadronView } = useSubscriptions()
+  const rows = isSummaryReady
+    ? (summary?.rows ?? 0).toLocaleString("es-AR")
+    : "—"
+  const uniqueCustomers = isSummaryReady
+    ? (summary?.uniqueCustomers ?? 0).toLocaleString("es-AR")
+    : "—"
 
   return (
-    <section className="space-y-3">
+    <section className="space-y-2">
       <div>
-        <h2 className="text-sm font-semibold">Padrón ABNet</h2>
-        <p className="text-xs text-muted-foreground">
+        <h2 className="text-base font-semibold">Padrón ABNet</h2>
+        <p className="text-sm text-muted-foreground">
           Filas de Conex. Internet + TV. Un N° Cliente con varias filas se
           muestra varias veces.
         </p>
       </div>
-      <KpiCardGrid layout="standard">
+      <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 text-sm">
         <button
           type="button"
-          className="rounded-xl text-left"
+          className="cursor-pointer text-left"
           onClick={() => showPadronView("all")}
           aria-label="Ver todas las filas del padrón"
         >
-          <KpiCard
-            label="Total filas de TV"
-            value={isSummaryReady ? (summary?.rows ?? 0) : "—"}
-            icon={FileSpreadsheet}
-            tone="green"
-            compact
-            hint="Filas del Excel, sin fusionar"
-          />
+          <span className="text-muted-foreground">Total filas de TV</span>{" "}
+          <span className="font-semibold tabular-nums">{rows}</span>
         </button>
         <button
           type="button"
-          className="rounded-xl text-left"
+          className="cursor-pointer text-left"
           onClick={() => showPadronView("all")}
           aria-label="Ver clientes únicos del padrón"
         >
-          <KpiCard
-            label="Clientes únicos"
-            value={isSummaryReady ? (summary?.uniqueCustomers ?? 0) : "—"}
-            icon={Users}
-            tone="blue"
-            compact
-            hint="N° Cliente distintos"
-          />
+          <span className="text-muted-foreground">Clientes únicos</span>{" "}
+          <span className="font-semibold tabular-nums">{uniqueCustomers}</span>
         </button>
-      </KpiCardGrid>
+      </div>
     </section>
   )
 }
