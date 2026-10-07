@@ -157,10 +157,22 @@ const CUSTOMER_LIST_SELECT =
 const CUSTOMER_DUPLICATE_INDEX_SELECT =
   "id, name, external_customer_code, dni"
 
+const CUSTOMER_MISSING_ABNET_NUMBER_FILTER =
+  "external_customer_code.is.null,external_customer_code.eq."
+
+function applyMissingAbnetCustomerNumberFilter<
+  T extends {
+    or: (filters: string) => T
+  },
+>(query: T): T {
+  return query.or(CUSTOMER_MISSING_ABNET_NUMBER_FILTER)
+}
+
 function applyCustomerQuickFilter<
   T extends {
     eq: (column: string, value: string) => T
     neq: (column: string, value: string) => T
+    or: (filters: string) => T
   },
 >(query: T, quickFilter: CustomerListQuery["quickFilter"]): T {
   if (quickFilter === "activos") {
@@ -170,7 +182,7 @@ function applyCustomerQuickFilter<
   }
 
   if (quickFilter === "pendientes-activacion") {
-    return query.eq("status", CUSTOMER_STATUS_PENDING_ACTIVATION)
+    return applyMissingAbnetCustomerNumberFilter(query)
   }
 
   if (quickFilter === "revisar") {
@@ -227,8 +239,13 @@ function applyCustomerLocalityFilter<
 function applyCustomerStatusFilter<
   T extends {
     eq: (column: string, value: string) => T
+    or: (filters: string) => T
   },
 >(query: T, statusFilter: CustomerListQuery["statusFilter"]): T {
+  if (statusFilter === "pendiente-activacion") {
+    return applyMissingAbnetCustomerNumberFilter(query)
+  }
+
   const status = resolveCustomerStatusFilterValue(statusFilter ?? "all")
   if (!status) {
     return query
@@ -341,7 +358,7 @@ export async function getCustomerOperationalSummaryCounts(
       base()
         .eq("validation_status", "active")
         .neq("status", CUSTOMER_STATUS_PENDING_ACTIVATION),
-      base().eq("status", CUSTOMER_STATUS_PENDING_ACTIVATION),
+      applyMissingAbnetCustomerNumberFilter(base()),
       base().eq("validation_status", "review"),
     ])
 

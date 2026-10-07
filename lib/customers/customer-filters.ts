@@ -1,12 +1,10 @@
 import {
+  isCustomerPendingAbnetActivation,
   matchCustomerSearchQuery,
   matchesCustomerQuickFilter,
   type CustomerQuickFilter,
 } from "@/lib/customers/customer-operational"
-import {
-  CUSTOMER_STATUS_PENDING_ACTIVATION,
-  isCustomerStatusPendingActivation,
-} from "@/lib/customers/format"
+import { CUSTOMER_STATUS_PENDING_ACTIVATION } from "@/lib/customers/format"
 import type { Customer } from "@/lib/types/customers"
 
 export type CustomerStatusFilter =
@@ -97,7 +95,7 @@ function matchesCustomerStatusFilter(
     return customer.status.trim().toLowerCase() === "inactivo"
   }
 
-  return isCustomerStatusPendingActivation(customer.status)
+  return isCustomerPendingAbnetActivation(customer)
 }
 
 function matchesCustomerLocalityFilter(
