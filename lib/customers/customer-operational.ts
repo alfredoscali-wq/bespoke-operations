@@ -48,18 +48,6 @@ export type CustomerOperationalSummary = {
   revisar: number
 }
 
-export function hasAssignedAbnetCustomerNumber(
-  externalCustomerCode: string | null | undefined
-): boolean {
-  return Boolean(externalCustomerCode?.trim())
-}
-
-export function isCustomerPendingAbnetActivation(customer: {
-  externalCustomerCode?: string | null
-}): boolean {
-  return !hasAssignedAbnetCustomerNumber(customer.externalCustomerCode)
-}
-
 export function isCommerciallyActiveCustomer(customer: Customer): boolean {
   return (
     customer.validationStatus === "active" &&
@@ -75,8 +63,9 @@ export function countCustomerOperationalSummary(
   return {
     operativos: operational.length,
     activos: operational.filter(isCommerciallyActiveCustomer).length,
-    "pendientes-activacion": operational.filter(isCustomerPendingAbnetActivation)
-      .length,
+    "pendientes-activacion": operational.filter((customer) =>
+      isCustomerStatusPendingActivation(customer.status)
+    ).length,
     revisar: operational.filter((customer) => customer.validationStatus === "review")
       .length,
   }
@@ -102,7 +91,7 @@ export function matchesCustomerQuickFilter(
   }
 
   if (filter === "pendientes-activacion") {
-    return isCustomerPendingAbnetActivation(customer)
+    return isCustomerStatusPendingActivation(customer.status)
   }
 
   return customer.validationStatus === "review"
