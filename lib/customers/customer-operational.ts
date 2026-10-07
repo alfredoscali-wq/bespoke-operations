@@ -48,6 +48,19 @@ export type CustomerOperationalSummary = {
   revisar: number
 }
 
+function hasCustomerListNumber(
+  externalCustomerCode: string | null | undefined
+): boolean {
+  return Boolean(externalCustomerCode?.trim())
+}
+
+export function isPendingActivationListCustomer(customer: Customer): boolean {
+  return (
+    isCustomerStatusPendingActivation(customer.status) &&
+    !hasCustomerListNumber(customer.externalCustomerCode)
+  )
+}
+
 export function isCommerciallyActiveCustomer(customer: Customer): boolean {
   return (
     customer.validationStatus === "active" &&
@@ -63,9 +76,8 @@ export function countCustomerOperationalSummary(
   return {
     operativos: operational.length,
     activos: operational.filter(isCommerciallyActiveCustomer).length,
-    "pendientes-activacion": operational.filter((customer) =>
-      isCustomerStatusPendingActivation(customer.status)
-    ).length,
+    "pendientes-activacion": operational.filter(isPendingActivationListCustomer)
+      .length,
     revisar: operational.filter((customer) => customer.validationStatus === "review")
       .length,
   }
@@ -91,7 +103,7 @@ export function matchesCustomerQuickFilter(
   }
 
   if (filter === "pendientes-activacion") {
-    return isCustomerStatusPendingActivation(customer.status)
+    return isPendingActivationListCustomer(customer)
   }
 
   return customer.validationStatus === "review"
