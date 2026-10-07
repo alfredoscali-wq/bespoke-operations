@@ -199,10 +199,16 @@ test("la fuente estática de producción coincide con el Excel", () => {
   assert.equal(new Set(staticRows.map((row) => row.abnetCustomerNumber)).size, 4377)
 
   const route = read("app/api/subscriptions/abnet-padron/route.ts")
-  assert.match(route, /readAbnetTvPadronStatic/)
+  const source = read("lib/subscriptions/abnet-tv-padron-source.ts")
+  assert.match(source, /readAbnetTvPadronStatic/)
+  assert.match(source, /BESPOKE_PRODUCTION_COMPANY_ID/)
+  assert.match(route, /loadAbnetTvPadronSourceRows/)
   assert.doesNotMatch(route, /Downloads/)
+  assert.doesNotMatch(source, /Downloads/)
   assert.doesNotMatch(route, /C:\\Users/)
+  assert.doesNotMatch(source, /C:\\Users/)
   assert.doesNotMatch(route, /readAbnetTvPadronWorkbook/)
+  assert.doesNotMatch(source, /readAbnetTvPadronWorkbook/)
   assert.match(read("scripts/import-abnet-tv-padron.mjs"), /--write-static/)
   assert.match(
     read("scripts/import-abnet-tv-padron.mjs"),
@@ -270,5 +276,9 @@ test("la pantalla y la API no reconstruyen el padrón con servicios ni conexione
   assert.doesNotMatch(loader, /\.from\("isp_connections"\)/)
   assert.match(loader, /abnet_tv_padron_rows/)
   assert.match(route, /summarizeAbnetTvPadron\(presented\)/)
-  assert.match(route, /BESPOKE_PRODUCTION_COMPANY_ID/)
+  assert.match(route, /excludeAbnetPadronRows/)
+  assert.match(
+    read("lib/subscriptions/abnet-tv-padron-source.ts"),
+    /BESPOKE_PRODUCTION_COMPANY_ID/
+  )
 })

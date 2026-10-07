@@ -11,6 +11,7 @@ import {
 
 import { useAuth } from "@/components/auth/auth-provider"
 import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
+import { clampAbnetPadronPage } from "@/lib/subscriptions/abnet-tv-padron-exclusions"
 import {
   matchesAbnetPadronFilters,
   summarizeAbnetTvPadron,
@@ -73,6 +74,7 @@ type SubscriptionsContextValue = {
   createPlan: (draft: TvPlanWriteDraft) => Promise<string | null>
   updatePlan: (id: string, draft: TvPlanWriteDraft) => Promise<string | null>
   togglePlanActive: (plan: TvCatalogPlan) => Promise<string | null>
+  removePadronRow: (row: AbnetTvPadronRow) => Promise<string | null>
   refreshDesk: () => void
 }
 
@@ -246,16 +248,26 @@ export function SubscriptionsProvider({
 
   const list = useMemo<PadronList | null>(() => {
     if (!isSummaryReady) return null
-    const from = (page - 1) * DEFAULT_TV_LIST_PAGE_SIZE
+    const safePage = clampAbnetPadronPage(
+      page,
+      filteredRows.length,
+      DEFAULT_TV_LIST_PAGE_SIZE
+    )
+    const from = (safePage - 1) * DEFAULT_TV_LIST_PAGE_SIZE
     const numbers = new Set(filteredRows.map((row) => row.abnetCustomerNumber))
     return {
       items: filteredRows.slice(from, from + DEFAULT_TV_LIST_PAGE_SIZE),
       total: filteredRows.length,
       uniqueCustomers: numbers.size,
-      page,
+      page: safePage,
       pageSize: DEFAULT_TV_LIST_PAGE_SIZE,
     }
   }, [filteredRows, isSummaryReady, page])
+
+  useEffect(() => {
+    if (!list || list.page === page) return
+    setPageState(list.page)
+  }, [list, page])
 
   const createPlan = useCallback(
     async (draft: TvPlanWriteDraft) => {
@@ -284,6 +296,42 @@ export function SubscriptionsProvider({
     },
     [reloadDesk]
   )
+  const removePadronRow = useCallback(async (row: AbnetTvPadronRow) => {
+    const response = await fetch(
+      `/api/subscriptions/tv-padron/${row.sourceRow}`,
+      {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source: row.source,
+          abnetCustomerNumber: row.abnetCustomerNumber,
+        }),
+      }
+    )
+    const body = (await response.json().catch(() => null)) as {
+      success?: boolean
+      message?: string
+    } | null
+    if (!response.ok || !body?.success) {
+      return body?.message ?? "No se pudo eliminar la fila del padrón de TV."
+    }
+    const refreshed = await fetch("/api/subscriptions/abnet-padron")
+    const refreshedBody = (await refreshed.json().catch(() => null)) as {
+      success?: boolean
+      rows?: AbnetTvPadronRow[]
+    } | null
+    if (refreshed.ok && refreshedBody?.success) {
+      setPadronRows(refreshedBody.rows ?? [])
+    } else {
+      setPadronRows((current) =>
+        current.filter(
+          (item) =>
+            item.source !== row.source || item.sourceRow !== row.sourceRow
+        )
+      )
+    }
+    return null
+  }, [])
 
   const value = useMemo<SubscriptionsContextValue>(
     () => ({
@@ -311,6 +359,7 @@ export function SubscriptionsProvider({
       createPlan,
       updatePlan,
       togglePlanActive,
+      removePadronRow,
       refreshDesk: reloadDesk,
     }),
     [
@@ -337,6 +386,7 @@ export function SubscriptionsProvider({
       createPlan,
       updatePlan,
       togglePlanActive,
+      removePadronRow,
       reloadDesk,
     ]
   )

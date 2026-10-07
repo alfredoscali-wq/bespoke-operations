@@ -1,16 +1,16 @@
 import { NextResponse } from "next/server"
 
-import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
-import { readAbnetTvPadronStatic } from "@/lib/subscriptions/abnet-tv-padron-static"
+import { excludeAbnetPadronRows } from "@/lib/subscriptions/abnet-tv-padron-exclusions"
+import {
+  loadAbnetTvPadronSourceRows,
+  loadActiveAbnetTvPadronExclusions,
+} from "@/lib/subscriptions/abnet-tv-padron-source"
 import {
   abnetPadronCustomerNumber,
-  abnetPadronMoney,
-  ABNET_TV_PADRON_SOURCE,
   presentAbnetPadronRow,
   summarizeAbnetTvPadron,
   withAbnetPadronDuplicates,
   type AbnetTvPadronRow,
-  type AbnetTvPadronSourceRow,
 } from "@/lib/subscriptions/abnet-tv-padron"
 import { PACK_FUTBOL_CODE } from "@/lib/subscriptions/pack-futbol"
 import { requireSubscriptionsReadContext } from "@/lib/subscriptions/route-context"
@@ -59,53 +59,6 @@ async function readPages(
     if (batch.length < PAGE) break
   }
   return { rows, error: null }
-}
-
-function tableMissing(error: { code?: string; message: string } | null) {
-  const message = error?.message ?? ""
-  return (
-    error?.code === "PGRST205" ||
-    error?.code === "42P01" ||
-    message.includes("abnet_tv_padron_rows")
-  )
-}
-
-async function readStoredPadron(client: unknown, companyId: string) {
-  const page = await readPages((from, to) =>
-    looseDb(client)
-      .from("abnet_tv_padron_rows")
-      .select(
-        "abnet_customer_number, customer_name, service_type, node, plan_name, status, tv_amount, tv_tax_amount, final_amount, source, source_row"
-      )
-      .eq("company_id", companyId)
-      .eq("source", ABNET_TV_PADRON_SOURCE)
-      .order("source_row")
-      .range(from, to)
-  )
-  if (page.error) {
-    return {
-      rows: [] as AbnetTvPadronSourceRow[],
-      missing: tableMissing(page.error),
-      error: page.error,
-    }
-  }
-  return {
-    rows: (page.rows ?? []).map((row) => ({
-      source: text(row.source) || ABNET_TV_PADRON_SOURCE,
-      sourceRow: Number(row.source_row),
-      abnetCustomerNumber: text(row.abnet_customer_number),
-      customerName: text(row.customer_name),
-      serviceType: text(row.service_type),
-      node: text(row.node),
-      planName: text(row.plan_name),
-      status: text(row.status),
-      tvAmount: abnetPadronMoney(row.tv_amount),
-      tvTaxAmount: abnetPadronMoney(row.tv_tax_amount),
-      finalAmount: abnetPadronMoney(row.final_amount),
-    })),
-    missing: false,
-    error: null,
-  }
 }
 
 async function readCustomerMatches(client: Awaited<ReturnType<typeof createClient>>, companyId: string) {
@@ -210,20 +163,29 @@ export async function GET() {
 
   try {
     const client = await createClient()
-    const stored = await readStoredPadron(client, auth.companyId)
-    if (stored.error && !stored.missing) {
+    const [stored, exclusions] = await Promise.all([
+      loadAbnetTvPadronSourceRows(client, auth.companyId),
+      loadActiveAbnetTvPadronExclusions(client, auth.companyId),
+    ])
+    if (stored.error) {
       return NextResponse.json(
         { success: false, message: stored.error.message },
         { status: 400 }
       )
     }
-
-    let sourceRows = stored.rows
-    let origin: "table" | "static" = "table"
-    if (sourceRows.length === 0 && auth.companyId === BESPOKE_PRODUCTION_COMPANY_ID) {
-      sourceRows = readAbnetTvPadronStatic()
-      origin = "static"
+    if (exclusions.error && !exclusions.missing) {
+      return NextResponse.json(
+        { success: false, message: exclusions.error.message },
+        { status: 400 }
+      )
     }
+
+    const sourceRows = excludeAbnetPadronRows(
+      stored.rows,
+      exclusions.exclusions,
+      auth.companyId
+    )
+    const origin = stored.origin
 
     const presented = withAbnetPadronDuplicates(sourceRows).map(presentAbnetPadronRow)
     const summary = summarizeAbnetTvPadron(presented)

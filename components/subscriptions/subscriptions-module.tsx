@@ -1,6 +1,6 @@
 "use client"
 
-import { ChevronLeft, ChevronRight } from "lucide-react"
+import { ChevronLeft, ChevronRight, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
 
@@ -14,6 +14,8 @@ import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -71,6 +73,7 @@ function SubscriptionsModuleContent() {
     createPlan,
     updatePlan,
     togglePlanActive,
+    removePadronRow,
   } = useSubscriptions()
 
   const listTitle =
@@ -99,6 +102,7 @@ function SubscriptionsModuleContent() {
     ? "Ninguna fila del padrón coincide con los filtros."
     : "El padrón de TV no tiene filas."
   const [selectedRow, setSelectedRow] = useState<AbnetTvPadronRow | null>(null)
+  const [rowToRemove, setRowToRemove] = useState<AbnetTvPadronRow | null>(null)
 
   return (
     <div className="space-y-6">
@@ -137,7 +141,7 @@ function SubscriptionsModuleContent() {
         <TvSubscribersFilters />
 
         {!isSummaryReady || isListLoading ? (
-          <TableRowsSkeleton rows={8} columns={8} />
+          <TableRowsSkeleton rows={8} columns={9} />
         ) : !list || list.items.length === 0 ? (
           <div className="rounded-xl border border-dashed bg-muted/20 px-6 py-14 text-center">
             <p className="text-sm font-medium text-foreground">
@@ -157,7 +161,7 @@ function SubscriptionsModuleContent() {
                     <TableHead className={`${PADRON_HEAD_CLASS} w-[8%]`}>
                       N° Cliente
                     </TableHead>
-                    <TableHead className={`${PADRON_HEAD_CLASS} w-[24%]`}>
+                    <TableHead className={`${PADRON_HEAD_CLASS} w-[22%]`}>
                       Cliente
                     </TableHead>
                     <TableHead className={`${PADRON_HEAD_CLASS} w-[12%]`}>
@@ -169,7 +173,7 @@ function SubscriptionsModuleContent() {
                     <TableHead className={`${PADRON_HEAD_CLASS} w-[9%]`}>
                       Estado
                     </TableHead>
-                    <TableHead className={`${PADRON_HEAD_CLASS} w-[21%]`}>
+                    <TableHead className={`${PADRON_HEAD_CLASS} w-[19%]`}>
                       TV
                     </TableHead>
                     <TableHead className={`${PADRON_HEAD_CLASS} w-[8%]`}>
@@ -177,6 +181,9 @@ function SubscriptionsModuleContent() {
                     </TableHead>
                     <TableHead className={`${PADRON_HEAD_CLASS} w-[8%]`}>
                       FINAL
+                    </TableHead>
+                    <TableHead className={`${PADRON_HEAD_CLASS} w-[4%]`}>
+                      <span className="sr-only">Acción</span>
                     </TableHead>
                   </TableRow>
                 </TableHeader>
@@ -229,16 +236,29 @@ function SubscriptionsModuleContent() {
                           ? "—"
                           : formatTvMoney(row.finalAmount)}
                       </TableCell>
+                      <TableCell className={`${PADRON_CELL_CLASS} text-right`}>
+                        {canWrite ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="size-6 text-muted-foreground"
+                            aria-label="Eliminar de TV"
+                            title="Eliminar de TV"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              setRowToRemove(row)
+                            }}
+                          >
+                            <Trash2 className="size-3.5" />
+                          </Button>
+                        ) : null}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </table>
             </div>
-            <AbnetPadronContact
-              row={selectedRow}
-              onClose={() => setSelectedRow(null)}
-            />
-
             <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs text-muted-foreground">
                 Página {currentPage} de {totalPages} · {serviceTotal} filas
@@ -272,6 +292,15 @@ function SubscriptionsModuleContent() {
             </div>
           </>
         )}
+        <AbnetPadronContact
+          row={selectedRow}
+          onClose={() => setSelectedRow(null)}
+        />
+        <RemovePadronDialog
+          row={rowToRemove}
+          onClose={() => setRowToRemove(null)}
+          onConfirm={removePadronRow}
+        />
       </div>
     </div>
   )
@@ -347,6 +376,86 @@ function AbnetPadronContact({
             </div>
           </div>
         ) : null}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function RemovePadronDialog({
+  row,
+  onClose,
+  onConfirm,
+}: {
+  row: AbnetTvPadronRow | null
+  onClose: () => void
+  onConfirm: (row: AbnetTvPadronRow) => Promise<string | null>
+}) {
+  const [error, setError] = useState<string | null>(null)
+  const [pending, setPending] = useState(false)
+  const tvLabel = row ? abnetPadronTvRowLabel(row) : ""
+
+  return (
+    <Dialog
+      open={row != null}
+      onOpenChange={(open) => {
+        if (pending) return
+        if (!open) {
+          setError(null)
+          onClose()
+        }
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>¿Eliminar este registro del padrón de TV?</DialogTitle>
+          <DialogDescription>
+            El registro dejará de aparecer en el padrón de TV y en sus totales.
+            El cliente seguirá existiendo en Clientes 360 y sus servicios de
+            Internet no serán modificados.
+          </DialogDescription>
+        </DialogHeader>
+        {row ? (
+          <div className="space-y-1 text-sm">
+            <p>N° Cliente: {row.abnetCustomerNumber}</p>
+            <p>Cliente: {row.customerName}</p>
+            <p>TV actual: {tvLabel}</p>
+            {error ? <p className="text-destructive">{error}</p> : null}
+          </div>
+        ) : null}
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={pending}
+            onClick={() => {
+              setError(null)
+              onClose()
+            }}
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            disabled={pending || row == null}
+            onClick={() => {
+              if (!row) return
+              setPending(true)
+              setError(null)
+              void onConfirm(row).then((message) => {
+                setPending(false)
+                if (message) {
+                  setError(message)
+                  return
+                }
+                setError(null)
+                onClose()
+              })
+            }}
+          >
+            Eliminar de TV
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )
