@@ -18,6 +18,8 @@ const GET_CLIENTS_PATH = "/api/get-clients"
 const GET_PLANS_PATH = "/api/get-plans"
 const REGISTER_CLIENT_PATH = "/api/register-client"
 const MODIFY_PASSWORD_PATH = "/api/modify-password"
+const DISABLE_CLIENT_PATH = "/api/disable-client"
+const ENABLE_CLIENT_PATH = "/api/enable-client"
 const REQUEST_TIMEOUT_MS = 12_000
 
 const signupTails = new Map<string, Promise<unknown>>()
@@ -289,5 +291,96 @@ export async function modifyClientPassword(
     return { outcome: "rejected", message: PASSWORD_REJECTED }
   } finally {
     passwordInflight.delete(identifier)
+  }
+}
+
+export type LatamAccountToggle = "disable" | "enable"
+
+export type LatamAccountToggleResult =
+  | { outcome: "updated"; status: "enabled" | "disabled" }
+  | { outcome: "not_found"; message: string }
+  | { outcome: "rejected"; message: string }
+  | { outcome: "mismatch"; status: LatamTvAccountStatus | null; message: string }
+  | { outcome: "unavailable"; message: string }
+  | { outcome: "busy"; message: string }
+
+const STATUS_NOT_FOUND_NOW = "El cliente no existe en LATAM TV."
+const STATUS_NOT_FOUND =
+  "El cliente no existe en LATAM TV. No se realizó ninguna modificación."
+const STATUS_REJECTED =
+  "LATAM TV no pudo completar la operación. No se realizaron cambios en Bespoke."
+const STATUS_UNAVAILABLE = "No fue posible consultar LATAM TV."
+const STATUS_BUSY = "La operación ya se está procesando."
+
+const statusInflight = new Set<string>()
+
+/**
+ * Suspende o activa el usuario. Vuelve a consultar get-clients antes y después.
+ * El cuerpo solo lleva el identificador: no cambia el plan.
+ * Suspender y activar el mismo identificador no corren a la vez.
+ */
+export function disableClient(
+  identificador: string,
+  deps: LatamTvClientDeps
+): Promise<LatamAccountToggleResult> {
+  return toggleLatamClient("disable", identificador, deps)
+}
+
+export function enableClient(
+  identificador: string,
+  deps: LatamTvClientDeps
+): Promise<LatamAccountToggleResult> {
+  return toggleLatamClient("enable", identificador, deps)
+}
+
+async function toggleLatamClient(
+  action: LatamAccountToggle,
+  identificador: string,
+  deps: LatamTvClientDeps
+): Promise<LatamAccountToggleResult> {
+  const identifier = abnetNumberFromExternalCode(identificador)
+  if (!identifier) throw new LatamTvRequestError("invalid_identifier")
+  if (statusInflight.has(identifier)) {
+    return { outcome: "busy", message: STATUS_BUSY }
+  }
+
+  statusInflight.add(identifier)
+  try {
+    const lookup = await getLatamTvClientByIdentifier(identifier, deps)
+    if (!lookup.found) {
+      return { outcome: "not_found", message: STATUS_NOT_FOUND_NOW }
+    }
+    const required = action === "disable" ? "enabled" : "disabled"
+    if (lookup.client.status !== required) {
+      const current = lookup.client.status
+      return {
+        outcome: "mismatch",
+        status: current,
+        message:
+          current === "disabled"
+            ? "El cliente ya está suspendido en LATAM TV."
+            : current === "enabled"
+              ? "El cliente ya está activo en LATAM TV."
+              : STATUS_UNAVAILABLE,
+      }
+    }
+
+    const record = await postLatam(
+      action === "disable" ? DISABLE_CLIENT_PATH : ENABLE_CLIENT_PATH,
+      { identificador: identifier },
+      deps
+    )
+    const code = responseCode(record)
+    if (code === 3) return { outcome: "not_found", message: STATUS_NOT_FOUND }
+    if (code !== 1) return { outcome: "rejected", message: STATUS_REJECTED }
+
+    const confirmed = await getLatamTvClientByIdentifier(identifier, deps)
+    if (!confirmed.found) return { outcome: "not_found", message: STATUS_NOT_FOUND }
+    if (confirmed.client.status !== "enabled" && confirmed.client.status !== "disabled") {
+      return { outcome: "unavailable", message: STATUS_UNAVAILABLE }
+    }
+    return { outcome: "updated", status: confirmed.client.status }
+  } finally {
+    statusInflight.delete(identifier)
   }
 }

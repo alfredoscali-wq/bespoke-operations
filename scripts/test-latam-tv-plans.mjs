@@ -228,6 +228,8 @@ test("15-16. el token no sale y get-plans no escribe", () => {
   const moduleUi = read("components/subscriptions/subscriptions-module.tsx")
   const paths = client.match(/\/api\/[a-z0-9-]+/g) ?? []
   assert.deepEqual([...new Set(paths)].sort(), [
+    "/api/disable-client",
+    "/api/enable-client",
     "/api/get-clients",
     "/api/get-plans",
     "/api/modify-password",
@@ -240,8 +242,6 @@ test("15-16. el token no sale y get-plans no escribe", () => {
     "/api/modify-plan",
     "/api/modify-client",
     "/api/delete-client",
-    "/api/disable-client",
-    "/api/enable-client",
   ]) {
     assert.equal(client.includes(path), false)
     assert.equal(script.includes(path), false)
@@ -249,6 +249,10 @@ test("15-16. el token no sale y get-plans no escribe", () => {
   }
   assert.equal(script.includes("/api/modify-password"), false)
   assert.equal(plans.includes("/api/modify-password"), false)
+  assert.equal(script.includes("/api/disable-client"), false)
+  assert.equal(script.includes("/api/enable-client"), false)
+  assert.equal(plans.includes("/api/disable-client"), false)
+  assert.equal(plans.includes("/api/enable-client"), false)
   assert.match(plans, /payload\.error !== false/)
   assert.match(plans, /payload\.planes/)
   assert.doesNotMatch(plans, /payload\.code/)

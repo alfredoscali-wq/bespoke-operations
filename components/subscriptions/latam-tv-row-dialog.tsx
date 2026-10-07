@@ -30,6 +30,7 @@ type LatamPhase =
   | "password"
   | "password_confirm"
   | "password_done"
+  | "status_confirm"
 
 type AccountPhase = "active" | "suspended"
 
@@ -80,6 +81,8 @@ export function LatamTvRowDialog({
   const [accountPhase, setAccountPhase] = useState<AccountPhase | null>(null)
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
+  const [statusAction, setStatusAction] = useState<"disable" | "enable" | null>(null)
+  const [statusNotice, setStatusNotice] = useState<string | null>(null)
   const busy = useRef(false)
 
   useEffect(() => {
@@ -92,6 +95,8 @@ export function LatamTvRowDialog({
     setAccountPhase(null)
     setPassword("")
     setConfirmPassword("")
+    setStatusAction(null)
+    setStatusNotice(null)
     busy.current = false
     if (!row) {
       setPhase("idle")
@@ -294,11 +299,77 @@ export function LatamTvRowDialog({
     }
   }
 
+  function applyConfirmedStatus(status: "enabled" | "disabled") {
+    if (!row?.bespokeCustomerId) return
+    if (status === "disabled") {
+      setAccountPhase("suspended")
+      setPhase("suspended")
+      onStatus(row.bespokeCustomerId, "LATAM: Suspendido")
+      return
+    }
+    setAccountPhase("active")
+    setPhase("active")
+    onStatus(row.bespokeCustomerId, "LATAM: Activo")
+  }
+
+  async function submitStatus() {
+    if (!row?.bespokeCustomerId || !statusAction || busy.current) return
+    busy.current = true
+    setPending(true)
+    setActionError(null)
+    const action = statusAction
+    try {
+      const response = await fetch(
+        `/api/integrations/latam-tv/customers/${row.bespokeCustomerId}/status`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action }),
+        }
+      )
+      const payload = (await response.json().catch(() => null)) as {
+        outcome?: string
+        status?: string | null
+        message?: string | null
+      } | null
+      const confirmed =
+        payload?.status === "enabled" || payload?.status === "disabled" ? payload.status : null
+      if (payload?.outcome === "updated" && payload.message && confirmed) {
+        applyConfirmedStatus(confirmed)
+        setStatusNotice(
+          confirmed === "disabled"
+            ? "✅ Cliente suspendido correctamente en LATAM TV."
+            : "✅ Cliente activado correctamente en LATAM TV."
+        )
+        setStatusAction(null)
+        return
+      }
+      if (confirmed && (payload?.outcome === "updated" || payload?.outcome === "mismatch")) {
+        applyConfirmedStatus(confirmed)
+        setStatusAction(null)
+        setStatusNotice(null)
+      }
+      setActionError(
+        payload?.message ??
+          "No fue posible comunicarse con LATAM TV. No se realizaron cambios en Bespoke."
+      )
+    } catch {
+      setActionError(
+        "No fue posible comunicarse con LATAM TV. No se realizaron cambios en Bespoke."
+      )
+    } finally {
+      busy.current = false
+      setPending(false)
+    }
+  }
+
   const label = statusLabel(phase)
   const passwordStep =
     phase === "password" || phase === "password_confirm" || phase === "password_done"
   const canChangePassword =
     canWrite && (phase === "active" || phase === "suspended" || phase === "created")
+  const canSuspend = canWrite && (phase === "active" || phase === "created")
+  const canActivate = canWrite && phase === "suspended"
   const exists =
     phase === "active" || phase === "suspended" || phase === "created" || phase === "exists"
   const showAlta = phase === "unregistered" || phase === "missing"
@@ -312,7 +383,11 @@ export function LatamTvRowDialog({
               ? "Dar de alta en LATAM TV"
               : passwordStep
                 ? "Cambiar clave LATAM"
-                : "LATAM TV"}
+                : phase === "status_confirm" && statusAction === "disable"
+                  ? "Suspender cliente en LATAM TV"
+                  : phase === "status_confirm" && statusAction === "enable"
+                    ? "Activar cliente en LATAM TV"
+                    : "LATAM TV"}
           </DialogTitle>
           <DialogDescription>
             {row ? `${row.customerName} · N° ${row.abnetCustomerNumber}` : "LATAM TV"}
@@ -324,7 +399,32 @@ export function LatamTvRowDialog({
             {phase === "no_bespoke" ? (
               <p>Este registro no tiene ficha en Bespoke.</p>
             ) : null}
-            {label && !passwordStep ? <p className="font-medium">{label}</p> : null}
+            {label && !passwordStep && phase !== "status_confirm" ? (
+              <p className="font-medium">{label}</p>
+            ) : null}
+            {phase === "unavailable" ? <p>No fue posible consultar LATAM TV.</p> : null}
+            {phase === "unregistered" ? <p>El cliente no existe en LATAM TV.</p> : null}
+            {statusNotice ? <p>{statusNotice}</p> : null}
+            {phase === "status_confirm" && row ? (
+              <div className="space-y-2">
+                <p>Cliente: {row.customerName}</p>
+                <p>Usuario: {username ?? "—"}</p>
+                {statusAction === "disable" ? (
+                  <>
+                    <p>El usuario quedará deshabilitado en LATAM TV.</p>
+                    <p>Esta acción no elimina al cliente ni modifica su plan.</p>
+                  </>
+                ) : (
+                  <>
+                    <p>El usuario volverá a quedar habilitado en LATAM TV.</p>
+                    <p>Su plan actual no será modificado.</p>
+                  </>
+                )}
+                {pending ? (
+                  <p>{statusAction === "disable" ? "Suspendiendo…" : "Activando…"}</p>
+                ) : null}
+              </div>
+            ) : null}
             {phase === "password" || phase === "password_confirm" ? (
               <div className="space-y-2">
                 <p>Cliente: {row.customerName}</p>
@@ -398,6 +498,7 @@ export function LatamTvRowDialog({
             {phase === "confirm" ||
             phase === "loading" ||
             phase === "no_bespoke" ||
+            phase === "status_confirm" ||
             passwordStep ? null : (
               <div className="flex flex-wrap gap-2">
                 {showAlta ? (
@@ -440,16 +541,45 @@ export function LatamTvRowDialog({
                     >
                       Cambiar clave
                     </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled
-                      title="Pendiente de implementación"
-                      aria-label={phase === "suspended" ? "Activar" : "Suspender"}
-                    >
-                      {phase === "suspended" ? "Activar" : "Suspender"}
-                    </Button>
+                    {phase === "active" || phase === "created" || phase === "suspended" ? (
+                      phase === "suspended" ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={!canActivate || pending}
+                        title={canActivate ? "Activar" : "No tiene permiso para activar en LATAM TV."}
+                        aria-label="Activar"
+                        onClick={() => {
+                          if (!canActivate || busy.current) return
+                          setActionError(null)
+                          setStatusNotice(null)
+                          setStatusAction("enable")
+                          setPhase("status_confirm")
+                        }}
+                      >
+                        Activar
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={!canSuspend || pending}
+                        title={canSuspend ? "Suspender" : "No tiene permiso para suspender en LATAM TV."}
+                        aria-label="Suspender"
+                        onClick={() => {
+                          if (!canSuspend || busy.current) return
+                          setActionError(null)
+                          setStatusNotice(null)
+                          setStatusAction("disable")
+                          setPhase("status_confirm")
+                        }}
+                      >
+                        Suspender
+                      </Button>
+                      )
+                    ) : null}
                     <Button
                       type="button"
                       size="sm"
@@ -482,7 +612,37 @@ export function LatamTvRowDialog({
           </div>
         ) : null}
         <DialogFooter>
-          {phase === "password" ? (
+          {phase === "status_confirm" ? (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={pending}
+                onClick={() => {
+                  setStatusAction(null)
+                  setActionError(null)
+                  setPhase(accountPhase ?? "active")
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                disabled={pending}
+                onClick={() => {
+                  void submitStatus()
+                }}
+              >
+                {pending
+                  ? statusAction === "disable"
+                    ? "Suspendiendo…"
+                    : "Activando…"
+                  : statusAction === "disable"
+                    ? "Suspender"
+                    : "Activar"}
+              </Button>
+            </>
+          ) : phase === "password" ? (
             <>
               <Button type="button" variant="outline" disabled={pending} onClick={cancelPassword}>
                 Cancelar
