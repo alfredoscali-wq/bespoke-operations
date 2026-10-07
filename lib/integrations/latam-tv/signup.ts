@@ -1,4 +1,5 @@
 import { abnetNumberFromExternalCode } from "@/lib/isp/abnet-master-universe"
+import type { LatamTvPlanDiagnosis } from "@/lib/integrations/latam-tv/plans"
 
 /**
  * Alta LATAM TV.
@@ -9,8 +10,9 @@ import { abnetNumberFromExternalCode } from "@/lib/isp/abnet-master-universe"
  * - No se genera una contraseña aleatoria, no se pide al operador
  *   y no se usa el email como contraseña.
  * - `identificador` es el N° ABNet ya cargado en Bespoke.
- * - `plan` es un id_plan de LATAM. Si no hay correspondencia configurada,
- *   no se inventa un id, no se envía el nombre del plan y no se crea el plan.
+ * - `plan` es el pl_id que get-plans asocia por nombre a TV Básica o
+ *   TV Básica + Pack Fútbol. TV Full no se usa en el alta.
+ *   Si no hay correspondencia, no se inventa un id.
  * - No se envían dispositivos ni fecha de nacimiento en este alta.
  */
 
@@ -22,6 +24,9 @@ export const LATAM_SIGNUP_MISSING = {
   plan: "Falta configurar la correspondencia del plan LATAM.",
   tvPlan: "Plan de TV",
 } as const
+
+export const LATAM_FULL_SIGNUP_BLOCKED =
+  "TV Full no está operativo para el alta en LATAM."
 
 const PLAN_LABEL = {
   basica: "TV Básica",
@@ -36,11 +41,29 @@ export function isLatamSignupTvKind(value: unknown): value is LatamSignupTvKind 
 }
 
 /**
- * No hay id_plan de LATAM definido para TV Básica, Pack Fútbol ni TV Full.
- * Devuelve null hasta que exista una correspondencia configurada.
+ * Id operativo para el alta. Sin catálogo de get-plans devuelve null:
+ * no se inventa un pl_id. TV Full queda identificado en el diagnóstico
+ * y no se usa para altas ni para el cambio futuro.
  */
-export function latamPlanIdForTvKind(_tvKind: LatamSignupTvKind): string | null {
-  return null
+export function latamPlanIdForTvKind(
+  tvKind: LatamSignupTvKind,
+  diagnosis?: LatamTvPlanDiagnosis | null
+): string | null {
+  if (!diagnosis) return null
+  if (tvKind !== "basica" && tvKind !== "pack") return null
+  const row = diagnosis.correspondence.find((item) => item.bespokeKind === tvKind)
+  if (!row || row.status !== "ok" || !row.planId) return null
+  return row.planId
+}
+
+export function latamSignupPlanGap(
+  tvKind: LatamSignupTvKind,
+  diagnosis?: LatamTvPlanDiagnosis | null
+): string | null {
+  if (latamPlanIdForTvKind(tvKind, diagnosis)) return null
+  const row = diagnosis?.correspondence.find((item) => item.bespokeKind === tvKind)
+  if (row?.status === "not_operational") return LATAM_FULL_SIGNUP_BLOCKED
+  return LATAM_SIGNUP_MISSING.plan
 }
 
 export type LatamRegisterBody = {
@@ -76,11 +99,11 @@ export type LatamSignupCustomer = {
   identifier: string | null
   tvKind: LatamSignupTvKind
   /**
-   * Id de plan LATAM ya conocido. La aplicación pasa `latamPlanIdForTvKind`,
-   * que hoy es null. Los tests pueden pasar un id explícito para verificar
-   * el cuerpo del alta sin inventar ids en la ruta.
+   * pl_id resuelto desde get-plans. Null si no hay correspondencia operativa.
+   * Los tests pueden pasar un id explícito para verificar el cuerpo del alta.
    */
   planId: string | null
+  planGap?: string | null
 }
 
 /** Contraseña inicial: dígitos del DNI. No es el email. */
@@ -137,6 +160,21 @@ function splitName(name: string): { firstName: string; lastName: string | null }
   return { firstName: parts[0], lastName: parts.slice(1).join(" ") }
 }
 
+export function latamSignupCustomerGaps(
+  input: Omit<LatamSignupCustomer, "planId" | "planGap">
+): string[] {
+  const { firstName } = splitName(input.name ?? "")
+  const missing: string[] = []
+  if (!abnetNumberFromExternalCode(input.identifier)) {
+    missing.push(LATAM_SIGNUP_MISSING.identifier)
+  }
+  if (!firstName) missing.push(LATAM_SIGNUP_MISSING.name)
+  if (!latamInitialPassword(input.dni)) missing.push(LATAM_SIGNUP_MISSING.nationalId)
+  if (!usableEmail(input.email)) missing.push(LATAM_SIGNUP_MISSING.email)
+  if (input.tvKind === "other") missing.push(LATAM_SIGNUP_MISSING.tvPlan)
+  return missing
+}
+
 export function assessLatamSignup(input: LatamSignupCustomer): LatamSignupAssessment {
   const { firstName, lastName } = splitName(input.name ?? "")
   const nationalId = latamInitialPassword(input.dni)
@@ -144,13 +182,8 @@ export function assessLatamSignup(input: LatamSignupCustomer): LatamSignupAssess
   const identifier = abnetNumberFromExternalCode(input.identifier)
   const planId = input.planId?.trim() || null
   const planLabel = input.tvKind === "other" ? null : PLAN_LABEL[input.tvKind]
-  const missing: string[] = []
-  if (!identifier) missing.push(LATAM_SIGNUP_MISSING.identifier)
-  if (!firstName) missing.push(LATAM_SIGNUP_MISSING.name)
-  if (!nationalId) missing.push(LATAM_SIGNUP_MISSING.nationalId)
-  if (!email) missing.push(LATAM_SIGNUP_MISSING.email)
-  if (!planLabel) missing.push(LATAM_SIGNUP_MISSING.tvPlan)
-  if (!planId) missing.push(LATAM_SIGNUP_MISSING.plan)
+  const missing = latamSignupCustomerGaps(input)
+  if (!planId) missing.push(input.planGap?.trim() || LATAM_SIGNUP_MISSING.plan)
   if (missing.length > 0 || !identifier || !firstName || !nationalId || !email || !planId || !planLabel) {
     return { ready: false, missing }
   }

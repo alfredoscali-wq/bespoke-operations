@@ -3,13 +3,16 @@ import "server-only"
 import { NextResponse } from "next/server"
 
 import { readLatamTvConfig } from "@/lib/integrations/latam-tv/config"
-import { signUpLatamTvClient } from "@/lib/integrations/latam-tv/client"
+import { getLatamTvPlans, signUpLatamTvClient } from "@/lib/integrations/latam-tv/client"
 import { LatamTvRequestError } from "@/lib/integrations/latam-tv/errors"
 import { latamIdentifierFromCustomer } from "@/lib/integrations/latam-tv/identifier"
+import { matchLatamTvPlans } from "@/lib/integrations/latam-tv/plans"
 import {
   assessLatamSignup,
   isLatamSignupTvKind,
   latamPlanIdForTvKind,
+  latamSignupCustomerGaps,
+  latamSignupPlanGap,
   type LatamSignupTvKind,
 } from "@/lib/integrations/latam-tv/signup"
 import { requireSubscriptionsWriteContext } from "@/lib/subscriptions/route-context"
@@ -78,7 +81,7 @@ export async function POST(request: Request, context: RouteContext) {
       return jsonError("Cliente no encontrado.", 404)
     }
 
-    const assessment = assessLatamSignup({
+    const customer = {
       name: data?.name ?? "",
       dni: data?.dni ?? null,
       email: data?.email ?? null,
@@ -86,7 +89,28 @@ export async function POST(request: Request, context: RouteContext) {
       address: data?.address ?? null,
       identifier: resolved.status === "ready" ? resolved.identifier : null,
       tvKind: input.tvKind,
-      planId: latamPlanIdForTvKind(input.tvKind),
+    }
+    const customerGaps = latamSignupCustomerGaps(customer)
+    if (customerGaps.length > 0) {
+      return NextResponse.json(
+        { success: false, outcome: "missing", missing: customerGaps },
+        { status: 422 }
+      )
+    }
+
+    const config = readLatamTvConfig()
+    if (!config) {
+      console.error(
+        "LATAM TV no está configurado (LATAM_TV_API_URL / LATAM_TV_API_TOKEN)."
+      )
+      throw new LatamTvRequestError("not_configured")
+    }
+
+    const diagnosis = matchLatamTvPlans(await getLatamTvPlans(config))
+    const assessment = assessLatamSignup({
+      ...customer,
+      planId: latamPlanIdForTvKind(input.tvKind, diagnosis),
+      planGap: latamSignupPlanGap(input.tvKind, diagnosis),
     })
     if (!assessment.ready) {
       return NextResponse.json(
@@ -100,14 +124,6 @@ export async function POST(request: Request, context: RouteContext) {
         outcome: "preview",
         preview: assessment.preview,
       })
-    }
-
-    const config = readLatamTvConfig()
-    if (!config) {
-      console.error(
-        "LATAM TV no está configurado (LATAM_TV_API_URL / LATAM_TV_API_TOKEN)."
-      )
-      throw new LatamTvRequestError("not_configured")
     }
 
     const result = await signUpLatamTvClient(assessment.body, config)

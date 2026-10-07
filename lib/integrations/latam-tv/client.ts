@@ -1,5 +1,6 @@
 import { abnetNumberFromExternalCode } from "@/lib/isp/abnet-master-universe"
 import { LatamTvRequestError } from "@/lib/integrations/latam-tv/errors"
+import { readLatamTvPlansPayload, type LatamTvCatalogPlan } from "@/lib/integrations/latam-tv/plans"
 import {
   latamRegisterRejectionMessage,
   type LatamRegisterBody,
@@ -13,6 +14,7 @@ import type {
 } from "@/lib/integrations/latam-tv/types"
 
 const GET_CLIENTS_PATH = "/api/get-clients"
+const GET_PLANS_PATH = "/api/get-plans"
 const REGISTER_CLIENT_PATH = "/api/register-client"
 const REQUEST_TIMEOUT_MS = 12_000
 
@@ -171,7 +173,13 @@ async function postLatam(
   return record
 }
 
-/** Lookup. POST /api/get-clients only. */
+/** Catálogo de solo lectura. POST /api/get-plans. */
+export async function getLatamTvPlans(deps: LatamTvClientDeps): Promise<LatamTvCatalogPlan[]> {
+  const record = await postLatam(GET_PLANS_PATH, {}, deps)
+  return readLatamTvPlansPayload(record)
+}
+
+/** Lookup. POST /api/get-clients. */
 export async function getLatamTvClientByIdentifier(
   identificador: string,
   deps: LatamTvClientDeps
