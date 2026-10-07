@@ -6,6 +6,20 @@ export const ISP_CUSTOMER_LIST_LOAD_ERROR =
 
 export const ISP_CUSTOMER_LIST_SEARCH_DEBOUNCE_MS = 300
 
+export const ISP_CUSTOMER_LIST_PAGE_SIZES = [25, 50, 100, 200] as const
+
+export const ISP_CUSTOMER_LIST_DEFAULT_PAGE_SIZE = 50
+
+export type IspCustomerListPageSize = (typeof ISP_CUSTOMER_LIST_PAGE_SIZES)[number]
+
+export function resolveIspCustomerListPageSize(
+  value: number | null | undefined
+): IspCustomerListPageSize {
+  return (ISP_CUSTOMER_LIST_PAGE_SIZES as readonly number[]).includes(value ?? -1)
+    ? (value as IspCustomerListPageSize)
+    : ISP_CUSTOMER_LIST_DEFAULT_PAGE_SIZE
+}
+
 function errorName(error: unknown): string {
   if (error && typeof error === "object" && "name" in error) {
     return String(error.name)

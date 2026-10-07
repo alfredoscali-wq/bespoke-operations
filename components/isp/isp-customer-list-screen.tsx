@@ -1,9 +1,9 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Download, Plus, Search, Upload } from "lucide-react"
+import { ChevronLeft, ChevronRight, Download, Plus, Search, Upload } from "lucide-react"
 
 import { AtencionFormDialog } from "@/components/atencion-cliente/atencion-form-dialog"
 import { useAuth } from "@/components/auth/auth-provider"
@@ -31,10 +31,13 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
+  ISP_CUSTOMER_LIST_DEFAULT_PAGE_SIZE,
   ISP_CUSTOMER_LIST_LOAD_ERROR,
+  ISP_CUSTOMER_LIST_PAGE_SIZES,
   ISP_CUSTOMER_LIST_SEARCH_DEBOUNCE_MS,
   customerListErrorMessage,
   isIgnorableListLoadAbort,
+  resolveIspCustomerListPageSize,
 } from "@/lib/isp/customer-list-load"
 import {
   canAccessIspMigration,
@@ -61,6 +64,29 @@ import type { IspCustomerHeader, IspCustomerListItem } from "@/lib/isp/types"
 import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import type { NewCustomerAtencionInput } from "@/lib/types/customer-atenciones"
 
+function customerListPageWindow(
+  page: number,
+  pageCount: number
+): Array<number | "ellipsis"> {
+  if (pageCount <= 7) {
+    return Array.from({ length: pageCount }, (_, index) => index + 1)
+  }
+  const visible = [1, pageCount, page - 1, page, page + 1].filter(
+    (value, index, values) =>
+      value >= 1 && value <= pageCount && values.indexOf(value) === index
+  )
+  visible.sort((left, right) => left - right)
+  const items: Array<number | "ellipsis"> = []
+  for (const value of visible) {
+    const previous = items.at(-1)
+    if (typeof previous === "number" && value - previous > 1) {
+      items.push("ellipsis")
+    }
+    items.push(value)
+  }
+  return items
+}
+
 export function IspCustomerListScreen() {
   const router = useRouter()
   const { sessionUser, isAuthReady } = useAuth()
@@ -81,6 +107,9 @@ export function IspCustomerListScreen() {
   const [minConnections, setMinConnections] = useState("")
   const [debouncedMinConnections, setDebouncedMinConnections] = useState("")
   const [items, setItems] = useState<IspCustomerListItem[]>([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(ISP_CUSTOMER_LIST_DEFAULT_PAGE_SIZE)
   const [localities, setLocalities] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -106,11 +135,19 @@ export function IspCustomerListScreen() {
   )
   const [exporting, setExporting] = useState(false)
 
+  const searchFilters = useRef({ search, minServices, minConnections })
   useEffect(() => {
     const timeout = window.setTimeout(() => {
+      const previous = searchFilters.current
+      const changed =
+        previous.search !== search ||
+        previous.minServices !== minServices ||
+        previous.minConnections !== minConnections
+      searchFilters.current = { search, minServices, minConnections }
       setDebouncedSearch(search)
       setDebouncedMinServices(minServices)
       setDebouncedMinConnections(minConnections)
+      if (changed) setPage(1)
     }, ISP_CUSTOMER_LIST_SEARCH_DEBOUNCE_MS)
     return () => window.clearTimeout(timeout)
   }, [minConnections, minServices, search])
@@ -123,6 +160,8 @@ export function IspCustomerListScreen() {
       search: debouncedSearch,
       status,
       locality,
+      page: String(page),
+      pageSize: String(pageSize),
     })
     if (debouncedMinServices.trim()) {
       params.set("minServices", debouncedMinServices.trim())
@@ -143,6 +182,8 @@ export function IspCustomerListScreen() {
           items?: IspCustomerListItem[]
           localities?: string[]
           total?: number
+          page?: number
+          pageSize?: number
           message?: string
         } | null
         if (cancelled) return
@@ -150,6 +191,10 @@ export function IspCustomerListScreen() {
           throw new Error(body?.message ?? ISP_CUSTOMER_LIST_LOAD_ERROR)
         }
         setItems(body.customers ?? body.items ?? [])
+        setTotal(body.total ?? 0)
+        if (typeof body.page === "number" && body.page !== page) {
+          setPage(body.page)
+        }
         setLocalities(body.localities ?? [])
         setError(null)
       })
@@ -170,14 +215,41 @@ export function IspCustomerListScreen() {
     debouncedSearch,
     isAuthReady,
     locality,
+    page,
+    pageSize,
     reloadKey,
     status,
   ])
 
   const subtitle = useMemo(() => {
-    if (!isAuthReady || loading) return "Cargando abonados..."
-    return `${items.length} abonado${items.length === 1 ? "" : "s"}`
-  }, [isAuthReady, items.length, loading])
+    const filtered =
+      debouncedSearch.trim().length > 0 ||
+      status !== "all" ||
+      locality !== "all" ||
+      debouncedMinServices.trim().length > 0 ||
+      debouncedMinConnections.trim().length > 0
+    if (!isAuthReady || (loading && items.length === 0)) return "Cargando abonados..."
+    const formatted = total.toLocaleString("es-AR")
+    if (total === 0) {
+      return filtered ? "0 abonados encontrados" : "0 abonados"
+    }
+    const from = (page - 1) * pageSize + 1
+    const to = Math.min(page * pageSize, total)
+    const range = `${from.toLocaleString("es-AR")}–${to.toLocaleString("es-AR")} de ${formatted} abonados`
+    return filtered ? `${range} · ${formatted} abonados encontrados` : range
+  }, [
+    debouncedMinConnections,
+    debouncedMinServices,
+    debouncedSearch,
+    isAuthReady,
+    items.length,
+    loading,
+    locality,
+    page,
+    pageSize,
+    status,
+    total,
+  ])
 
   const headerState = visibleSubscriberSelectionState(
     selectedIds,
@@ -362,7 +434,13 @@ export function IspCustomerListScreen() {
             className="pl-8"
           />
         </div>
-        <Select value={status} onValueChange={setStatus}>
+        <Select
+          value={status}
+          onValueChange={(value) => {
+            setStatus(value)
+            setPage(1)
+          }}
+        >
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Estado" />
           </SelectTrigger>
@@ -374,7 +452,13 @@ export function IspCustomerListScreen() {
             <SelectItem value="pendiente">Pendiente</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={locality} onValueChange={setLocality}>
+        <Select
+          value={locality}
+          onValueChange={(value) => {
+            setLocality(value)
+            setPage(1)
+          }}
+        >
           <SelectTrigger className="w-[200px]">
             <SelectValue placeholder="Localidad" />
           </SelectTrigger>
@@ -403,6 +487,24 @@ export function IspCustomerListScreen() {
           placeholder="Cantidad de conexiones"
           className="w-[200px]"
         />
+        <Select
+          value={String(pageSize)}
+          onValueChange={(value) => {
+            setPageSize(resolveIspCustomerListPageSize(Number(value)))
+            setPage(1)
+          }}
+        >
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="Por página" />
+          </SelectTrigger>
+          <SelectContent>
+            {ISP_CUSTOMER_LIST_PAGE_SIZES.map((size) => (
+              <SelectItem key={size} value={String(size)}>
+                {size} por página
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <EntityActionFeedback message={feedback} variant={feedbackVariant} />
@@ -420,7 +522,7 @@ export function IspCustomerListScreen() {
       ) : items.length === 0 ? (
         <CustomerEmptyState canImport={canImport} />
       ) : (
-        <div className="space-y-3">
+        <div className={loading ? "space-y-3 opacity-60" : "space-y-3"} aria-busy={loading}>
           <CustomerBulkActions
             count={selectedIds.size}
             canCreateAtencion={canCreateAtencion}
@@ -464,6 +566,65 @@ export function IspCustomerListScreen() {
               setRemoveTarget(item)
             }}
           />
+        </div>
+      )}
+
+      {error ? null : (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground">
+            {total === 0
+              ? "0 abonados"
+              : `Página ${page.toLocaleString("es-AR")} de ${Math.max(1, Math.ceil(total / pageSize)).toLocaleString("es-AR")}`}
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              disabled={loading || page <= 1}
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+            >
+              <ChevronLeft className="size-4" />
+              Anterior
+            </Button>
+            {customerListPageWindow(
+              page,
+              Math.max(1, Math.ceil(total / pageSize))
+            ).map((item, index) =>
+              item === "ellipsis" ? (
+                <span
+                  key={`ellipsis-${index}`}
+                  className="px-1 text-xs text-muted-foreground"
+                >
+                  …
+                </span>
+              ) : (
+                <Button
+                  key={item}
+                  type="button"
+                  variant={item === page ? "default" : "outline"}
+                  size="sm"
+                  className="min-w-8"
+                  disabled={loading}
+                  onClick={() => setPage(item)}
+                >
+                  {item}
+                </Button>
+              )
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              disabled={loading || page * pageSize >= total}
+              onClick={() => setPage((current) => current + 1)}
+            >
+              Siguiente
+              <ChevronRight className="size-4" />
+            </Button>
+          </div>
         </div>
       )}
 

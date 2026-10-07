@@ -24,6 +24,8 @@ export async function GET(request: Request) {
   const locality = url.searchParams.get("locality") ?? "all"
   const minServices = Number(url.searchParams.get("minServices") ?? "0")
   const minConnections = Number(url.searchParams.get("minConnections") ?? "0")
+  const page = Number(url.searchParams.get("page") ?? "1")
+  const pageSize = Number(url.searchParams.get("pageSize") ?? "50")
 
   const filters = {
     search,
@@ -31,19 +33,23 @@ export async function GET(request: Request) {
     locality,
     minServices: Number.isFinite(minServices) ? minServices : 0,
     minConnections: Number.isFinite(minConnections) ? minConnections : 0,
+    page: Number.isFinite(page) ? page : 1,
+    pageSize: Number.isFinite(pageSize) ? pageSize : 50,
   }
 
   try {
     const payload = await loadCustomerList(filters)
     if (!payload.ok) return payload.response
 
-    const { customers, localities } = payload.data
+    const { customers, localities, total, page, pageSize } = payload.data
     return NextResponse.json({
       success: true,
       customers,
       localities,
       items: customers,
-      total: customers.length,
+      total,
+      page,
+      pageSize,
     })
   } catch (error) {
     console.error("[isp/customers] list failed", error)
@@ -54,6 +60,8 @@ export async function GET(request: Request) {
         localities: [],
         items: [],
         total: 0,
+        page: 1,
+        pageSize: 50,
         message: isTransientCustomerListError(error)
           ? ISP_CUSTOMER_LIST_LOAD_ERROR
           : customerListErrorMessage(error),
@@ -69,6 +77,8 @@ async function loadCustomerList(filters: {
   locality: string
   minServices: number
   minConnections: number
+  page: number
+  pageSize: number
 }) {
   try {
     return await loadCustomerListOnce(filters)
@@ -85,6 +95,8 @@ async function loadCustomerListOnce(filters: {
   locality: string
   minServices: number
   minConnections: number
+  page: number
+  pageSize: number
 }) {
   const auth = await requireIspReadContext()
   if (!auth.ok) {

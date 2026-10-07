@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import { escapeCustomerSearchPattern } from "@/lib/customers/customer-list"
+import { resolveIspCustomerListPageSize } from "@/lib/isp/customer-list-load"
 import {
   getClients360CommercialUniverse,
   isCustomerInClients360Universe,
@@ -166,6 +167,198 @@ async function listActiveSubscriberCustomerIds(
   return [...new Set(ids)]
 }
 
+type IspCustomerListRow = {
+  id: string
+  name: string
+  dni: string | null
+  phone: string | null
+  whatsapp: string | null
+  email: string | null
+  address: string | null
+  locality: string | null
+  status: string
+  created_at: string
+  updated_at: string
+  external_customer_code: string | null
+}
+
+type ServiceListSnap = {
+  id: string
+  customerId: string
+  commercialStatus: string
+  updatedAt: string
+}
+
+type ConnectionListSnap = {
+  serviceId: string
+  technicalStatus: string
+  updatedAt: string
+}
+
+function compareIspCustomerListRows(
+  left: Pick<IspCustomerListRow, "name" | "id">,
+  right: Pick<IspCustomerListRow, "name" | "id">
+) {
+  const byName = left.name.localeCompare(right.name, "es")
+  if (byName !== 0) return byName
+  return left.id.localeCompare(right.id)
+}
+
+async function loadServiceSnaps(
+  client: IspQueriesClient,
+  companyId: string,
+  customerIds: ReadonlySet<string>
+) {
+  const snaps: ServiceListSnap[] = []
+  if (customerIds.size === 0) return snaps
+  if (customerIds.size <= 200) {
+    for (const part of chunkIds([...customerIds])) {
+      const { data, error } = await client
+        .from("isp_services")
+        .select("id, customer_id, commercial_status, updated_at")
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .in("customer_id", part)
+      if (error) throw new Error(error.message)
+      for (const row of data ?? []) {
+        snaps.push({
+          id: row.id,
+          customerId: row.customer_id,
+          commercialStatus: row.commercial_status,
+          updatedAt: row.updated_at,
+        })
+      }
+    }
+    return snaps
+  }
+
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await client
+      .from("isp_services")
+      .select("id, customer_id, commercial_status, updated_at")
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .order("id", { ascending: true })
+      .range(from, from + 999)
+    if (error) throw new Error(error.message)
+    const batch = data ?? []
+    for (const row of batch) {
+      if (!customerIds.has(row.customer_id)) continue
+      snaps.push({
+        id: row.id,
+        customerId: row.customer_id,
+        commercialStatus: row.commercial_status,
+        updatedAt: row.updated_at,
+      })
+    }
+    if (batch.length < 1000) break
+  }
+  return snaps
+}
+
+async function loadConnectionSnaps(
+  client: IspQueriesClient,
+  companyId: string,
+  serviceIds: ReadonlySet<string>
+) {
+  const snaps: ConnectionListSnap[] = []
+  if (serviceIds.size === 0) return snaps
+  if (serviceIds.size <= 200) {
+    for (const part of chunkIds([...serviceIds])) {
+      const { data, error } = await client
+        .from("isp_connections")
+        .select("service_id, technical_status, updated_at")
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .in("service_id", part)
+      if (error) throw new Error(error.message)
+      for (const row of data ?? []) {
+        snaps.push({
+          serviceId: row.service_id,
+          technicalStatus: row.technical_status,
+          updatedAt: row.updated_at,
+        })
+      }
+    }
+    return snaps
+  }
+
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await client
+      .from("isp_connections")
+      .select("service_id, technical_status, updated_at")
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .order("id", { ascending: true })
+      .range(from, from + 999)
+    if (error) throw new Error(error.message)
+    const batch = data ?? []
+    for (const row of batch) {
+      if (!serviceIds.has(row.service_id)) continue
+      snaps.push({
+        serviceId: row.service_id,
+        technicalStatus: row.technical_status,
+        updatedAt: row.updated_at,
+      })
+    }
+    if (batch.length < 1000) break
+  }
+  return snaps
+}
+
+function mapIspCustomerListRow(
+  row: IspCustomerListRow,
+  services: readonly ServiceListSnap[],
+  connections: readonly ConnectionListSnap[]
+): IspCustomerListItem {
+  const customerServices = services.filter((service) => service.customerId === row.id)
+  const serviceIds = new Set(customerServices.map((service) => service.id))
+  const customerConnections = connections.filter((connection) =>
+    serviceIds.has(connection.serviceId)
+  )
+  const lastActivityAt =
+    [
+      row.updated_at,
+      ...customerServices.map((service) => service.updatedAt),
+      ...customerConnections.map((connection) => connection.updatedAt),
+    ]
+      .filter(Boolean)
+      .sort()
+      .at(-1) ?? null
+
+  return {
+    id: row.id,
+    name: row.name,
+    dni: row.dni,
+    phone: row.phone,
+    whatsapp: row.whatsapp,
+    email: row.email,
+    address: row.address,
+    locality: row.locality,
+    status: row.status,
+    createdAt: row.created_at,
+    externalCustomerCode: row.external_customer_code,
+    serviceCount: customerServices.length,
+    connectionCount: customerConnections.length,
+    listStatus: deriveIspSubscriberListStatus({
+      customerStatus: row.status,
+      commercialStatuses: customerServices.map((service) => service.commercialStatus),
+    }),
+    serviceOverview: deriveCustomerServiceOverview({
+      serviceCount: customerServices.length,
+      connectionCount: customerConnections.length,
+      hasPendingProvision: customerConnections.some(
+        (connection) => connection.technicalStatus === "pending_provision"
+      ),
+      hasActiveCommercial: customerServices.some(
+        (service) => service.commercialStatus === "active"
+      ),
+    }),
+    accountSituation: null,
+    lastActivityAt,
+  }
+}
+
 export async function listIspCustomers(
   client: IspQueriesClient,
   companyId: string,
@@ -175,166 +368,142 @@ export async function listIspCustomers(
     locality?: string
     minServices?: number
     minConnections?: number
+    page?: number
+    pageSize?: number
   }
-): Promise<{ customers: IspCustomerListItem[]; localities: string[] }> {
+): Promise<{
+  customers: IspCustomerListItem[]
+  localities: string[]
+  total: number
+  page: number
+  pageSize: number
+}> {
+  function emptyIspCustomerList() {
+    return { customers: [], localities: [] }
+  }
+
+  async function loadCustomerListRows(
+    memberIds: ReadonlySet<string>,
+    pattern: string
+  ) {
+    const customerRows: IspCustomerListRow[] = []
+    for (let from = 0; ; from += 1000) {
+      let query = client
+        .from("customers")
+        .select(ISP_CUSTOMER_LIST_SELECT)
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .order("id", { ascending: true })
+        .range(from, from + 999)
+      if (pattern) {
+        query = query.or(
+          `name.ilike.${pattern},dni.ilike.${pattern},phone.ilike.${pattern},whatsapp.ilike.${pattern},email.ilike.${pattern},external_customer_code.ilike.${pattern},customer_number.ilike.${pattern}`
+        )
+      }
+      const { data, error } = await query
+      if (error) throw new Error(error.message)
+      const batch = data ?? []
+      for (const row of batch) {
+        if (memberIds.has(row.id)) customerRows.push(row)
+      }
+      if (batch.length < 1000) break
+    }
+    customerRows.sort(compareIspCustomerListRows)
+    return customerRows
+  }
+
+  const pageSize = resolveIspCustomerListPageSize(input.pageSize)
+  const requestedPage = Math.max(1, Math.floor(input.page ?? 1))
   const memberIds =
     companyId === BESPOKE_PRODUCTION_COMPANY_ID
       ? [...getClients360CommercialUniverse()]
       : await listActiveSubscriberCustomerIds(client, companyId)
   if (memberIds.length === 0) {
-    return { customers: [], localities: [] }
+    return { ...emptyIspCustomerList(), total: 0, page: 1, pageSize }
   }
 
   const search = input.search?.trim()
   const pattern = search ? escapeCustomerSearchPattern(search) : ""
-  const customerRows: Array<{
-    id: string
-    name: string
-    dni: string | null
-    phone: string | null
-    whatsapp: string | null
-    email: string | null
-    address: string | null
-    locality: string | null
-    status: string
-    created_at: string
-    updated_at: string
-    external_customer_code: string | null
-  }> = []
-
-  for (const part of chunkIds(memberIds)) {
-    let query = client
-      .from("customers")
-      .select(ISP_CUSTOMER_LIST_SELECT)
-      .eq("company_id", companyId)
-      .is("deleted_at", null)
-      .in("id", part)
-
-    if (pattern) {
-      query = query.or(
-        `name.ilike.${pattern},dni.ilike.${pattern},phone.ilike.${pattern},whatsapp.ilike.${pattern},email.ilike.${pattern},external_customer_code.ilike.${pattern}`
-      )
-    }
-
-    const { data, error } = await query
-    if (error) throw new Error(error.message)
-    customerRows.push(...(data ?? []))
-  }
-
-  const customers = customerRows
-    .sort((left, right) => left.name.localeCompare(right.name, "es"))
-    .slice(0, 400)
-
+  const customers = await loadCustomerListRows(new Set(memberIds), pattern)
   if (customers.length === 0) {
-    return { customers: [], localities: [] }
+    return { ...emptyIspCustomerList(), total: 0, page: 1, pageSize }
   }
-
-  // Company-scoped reads avoid PostgREST `.in(uuid…)` URLs that exceed
-  // proxy limits and surface as `TypeError: fetch failed`.
-  const [services, connectionRows] = await Promise.all([
-    client
-      .from("isp_services")
-      .select("*")
-      .eq("company_id", companyId)
-      .is("deleted_at", null),
-    client
-      .from("isp_connections")
-      .select("*")
-      .eq("company_id", companyId)
-      .is("deleted_at", null),
-  ])
-  if (services.error) throw new Error(services.error.message)
-  if (connectionRows.error) throw new Error(connectionRows.error.message)
-
-  const mappedServices = (services.data ?? []).map(mapIspServiceRow)
-  const customerByService = new Map(
-    mappedServices.map((service) => [service.id, service.customerId])
-  )
-  const connections = (connectionRows.data ?? []).map((row) =>
-    mapIspConnectionRow(row, customerByService.get(row.service_id) ?? "")
-  )
-
-  const mapped = customers.map((row) => {
-    const customerServices = mappedServices.filter(
-      (service) => service.customerId === row.id
-    )
-    const customerConnections = connections.filter((connection) =>
-      customerServices.some((service) => service.id === connection.serviceId)
-    )
-    const lastActivityAt = [
-      row.updated_at,
-      ...customerServices.map((service) => service.updatedAt),
-      ...customerConnections.map((connection) => connection.updatedAt),
-    ]
-      .filter(Boolean)
-      .sort()
-      .at(-1) ?? null
-
-    return {
-      id: row.id,
-      name: row.name,
-      dni: row.dni,
-      phone: row.phone,
-      whatsapp: row.whatsapp,
-      email: row.email,
-      address: row.address,
-      locality: row.locality,
-      status: row.status,
-      createdAt: row.created_at,
-      externalCustomerCode: row.external_customer_code,
-      serviceCount: customerServices.length,
-      connectionCount: customerConnections.length,
-      listStatus: deriveIspSubscriberListStatus({
-        customerStatus: row.status,
-        commercialStatuses: customerServices.map(
-          (service) => service.commercialStatus
-        ),
-      }),
-      serviceOverview: deriveCustomerServiceOverview({
-        serviceCount: customerServices.length,
-        connectionCount: customerConnections.length,
-        hasPendingProvision: customerConnections.some(
-          (connection) => connection.technicalStatus === "pending_provision"
-        ),
-        hasActiveCommercial: customerServices.some(
-          (service) => service.commercialStatus === "active"
-        ),
-      }),
-      accountSituation: null,
-      lastActivityAt,
-    } satisfies IspCustomerListItem
-  })
-
   const localities = [
     ...new Set(
-      mapped
-        .map((item) => item.locality?.trim())
+      customers
+        .map((row) => row.locality?.trim())
         .filter((value): value is string => Boolean(value))
     ),
   ].sort((left, right) => left.localeCompare(right, "es"))
 
   const localityFilter = input.locality?.trim().toLowerCase() ?? ""
+  const located =
+    localityFilter && localityFilter !== "all"
+      ? customers.filter(
+          (row) => (row.locality ?? "").trim().toLowerCase() === localityFilter
+        )
+      : customers
+
   const statusFilter = input.status?.trim().toLowerCase() ?? "all"
   const minServices = input.minServices ?? 0
   const minConnections = input.minConnections ?? 0
+  const needsServiceFilter =
+    (statusFilter !== "" && statusFilter !== "all") ||
+    minServices > 0 ||
+    minConnections > 0
 
-  const filtered = mapped.filter((item) => {
-    if (statusFilter && statusFilter !== "all" && item.listStatus !== statusFilter) {
-      return false
-    }
-    if (
-      localityFilter &&
-      localityFilter !== "all" &&
-      (item.locality ?? "").trim().toLowerCase() !== localityFilter
-    ) {
-      return false
-    }
-    if (item.serviceCount < minServices) return false
-    if (item.connectionCount < minConnections) return false
-    return true
-  })
+  let matched = located
+  let services: ServiceListSnap[] = []
+  let connections: ConnectionListSnap[] = []
+  if (needsServiceFilter) {
+    services = await loadServiceSnaps(
+      client,
+      companyId,
+      new Set(located.map((row) => row.id))
+    )
+    connections = await loadConnectionSnaps(
+      client,
+      companyId,
+      new Set(services.map((service) => service.id))
+    )
+    matched = located.filter((row) => {
+      const item = mapIspCustomerListRow(row, services, connections)
+      if (statusFilter && statusFilter !== "all" && item.listStatus !== statusFilter) {
+        return false
+      }
+      if (item.serviceCount < minServices) return false
+      if (item.connectionCount < minConnections) return false
+      return true
+    })
+  }
 
-  return { customers: filtered, localities }
+  const total = matched.length
+  const pageCount = Math.max(1, Math.ceil(total / pageSize))
+  const page = Math.min(requestedPage, pageCount)
+  const from = (page - 1) * pageSize
+  const pageRows = matched.slice(from, from + pageSize)
+  if (!needsServiceFilter && pageRows.length > 0) {
+    services = await loadServiceSnaps(
+      client,
+      companyId,
+      new Set(pageRows.map((row) => row.id))
+    )
+    connections = await loadConnectionSnaps(
+      client,
+      companyId,
+      new Set(services.map((service) => service.id))
+    )
+  }
+
+  return {
+    customers: pageRows.map((row) =>
+      mapIspCustomerListRow(row, services, connections)
+    ),
+    localities,
+    total,
+    page,
+    pageSize,
+  }
 }
 
 export async function getIspCustomerDetail(

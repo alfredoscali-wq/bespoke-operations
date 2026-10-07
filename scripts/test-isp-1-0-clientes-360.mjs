@@ -451,8 +451,10 @@ test("hotfix 1.2.2. listado espera sesión y no aborta el fetch", () => {
   assert.doesNotMatch(list, /AbortController/)
   assert.match(api, /success: true/)
   assert.match(api, /customers/)
-  assert.match(api, /total: customers\.length/)
+  assert.match(api, /total,/)
+  assert.match(api, /pageSize/)
   assert.match(api, /items: customers/)
+  assert.doesNotMatch(api, /total: customers\.length/)
 })
 
 test("hotfix 1.2.2. estado vacío y título no duplicado", () => {

@@ -265,7 +265,9 @@ test("exporta todos los activos y no usa la paginación de 400", () => {
   assert.match(queries, /listActiveIspCustomersForExcelExport/)
   assert.match(queries, /\.range\(from, to\)/)
   assert.doesNotMatch(queries, /slice\(0, 400\)/)
-  assert.match(listQueries, /slice\(0, 400\)/)
+  assert.doesNotMatch(listQueries, /slice\(0, 400\)/)
+  assert.match(listQueries, /pageSize/)
+  assert.match(queries, /getClients360CommercialUniverse/)
   assert.match(queries, /\.eq\("company_id", companyId\)/)
 
   const { catalogById, tvPlanById } = catalogs()

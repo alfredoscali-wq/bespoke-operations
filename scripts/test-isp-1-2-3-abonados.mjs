@@ -137,6 +137,31 @@ test("11. el detalle no permite un cliente que no pertenece al universo ISP", ()
   assert.equal(ISP_SUBSCRIBER_NOT_FOUND_MESSAGE, "Abonado no encontrado.")
 })
 
+test("13. el listado pagina en el servidor sin corte de 400", () => {
+  const listFn = queries.slice(
+    queries.indexOf("export async function listIspCustomers"),
+    queries.indexOf("export async function getIspCustomerDetail")
+  )
+  assert.doesNotMatch(listFn, /slice\(0,\s*400\)/)
+  assert.doesNotMatch(queries, /slice\(0,\s*400\)/)
+  assert.match(listFn, /pageSize/)
+  assert.match(listFn, /getClients360CommercialUniverse/)
+  assert.match(
+    read("lib/isp/customer-list-load.ts"),
+    /ISP_CUSTOMER_LIST_DEFAULT_PAGE_SIZE = 50/
+  )
+  assert.match(read("lib/isp/customer-list-load.ts"), /\[25, 50, 100, 200\]/)
+  assert.match(read("components/isp/isp-customer-list-screen.tsx"), /pageSize/)
+  assert.match(read("components/isp/isp-customer-list-screen.tsx"), /Anterior/)
+  assert.match(read("components/isp/isp-customer-list-screen.tsx"), /Siguiente/)
+  assert.match(read("app/api/isp/customers/route.ts"), /pageSize/)
+  assert.match(
+    read("lib/isp/customer-360-export-queries.ts"),
+    /getClients360CommercialUniverse/
+  )
+  assert.doesNotMatch(read("app/api/isp/customers/export/route.ts"), /pageSize/)
+})
+
 test("12. RLS y multi-tenant de isp_subscribers", () => {
   assert.match(sql, /customer_id uuid NOT NULL REFERENCES public\.customers/)
   assert.match(sql, /company_id uuid NOT NULL REFERENCES public\.companies/)
