@@ -531,12 +531,14 @@ export function CustomerRemoveSubscriberDialog({
   open,
   item,
   isSubmitting,
+  error = null,
   onCancel,
   onConfirm,
 }: {
   open: boolean
   item: IspCustomerListItem | null
   isSubmitting: boolean
+  error?: string | null
   onCancel: () => void
   onConfirm: () => void
 }) {
@@ -597,6 +599,11 @@ export function CustomerRemoveSubscriberDialog({
             disabled={isSubmitting}
           />
         </div>
+        {error ? (
+          <p className="text-sm text-destructive" role="alert">
+            {error}
+          </p>
+        ) : null}
         <DialogFooter>
           <Button
             type="button"

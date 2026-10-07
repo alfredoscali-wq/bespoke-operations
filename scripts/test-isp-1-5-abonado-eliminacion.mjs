@@ -6,11 +6,14 @@ import test from "node:test"
 import { belongsToIspUniverse } from "../lib/isp/integrity.ts"
 import { canRemoveIspSubscriber } from "../lib/isp/permissions.ts"
 import {
+  ISP_SUBSCRIBER_NOT_FOUND_REMOVAL_MESSAGE,
   ISP_SUBSCRIBER_REMOVED_MESSAGE,
   ISP_SUBSCRIBER_REMOVAL_CONFIRMATION,
   ISP_SUBSCRIBER_REMOVAL_ERROR_MESSAGE,
   ISP_SUBSCRIBER_REMOVAL_FORBIDDEN_MESSAGE,
   ISP_SUBSCRIBER_REMOVAL_HISTORY_NOTE,
+  excludeRemovedSubscriberIds,
+  formatIspSubscriberRemovalFailure,
   hasActiveIspSubscriberMembership,
   isIspSubscriberRemovalConfirmation,
   isIspSubscriberRemovalResolved,
@@ -27,6 +30,9 @@ function read(relativePath) {
 
 const sql = read(
   "supabase/migrations/20261138000100_isp_1_5_abonado_eliminacion_admin.sql"
+)
+const removalSql = read(
+  "supabase/migrations/20261231160000_isp_subscriber_removal_missing_membership.sql"
 )
 const sqlPrevious = read(
   "supabase/migrations/20261137000100_isp_1_4_1_fecha_alta_estado_comercial.sql"
@@ -130,10 +136,29 @@ test("7. El abonado eliminado no aparece en Clientes 360°", () => {
     }),
     false
   )
+  assert.deepEqual(
+    excludeRemovedSubscriberIds(["cust-a", "cust-b", "cust-c"], new Set(["cust-b"])),
+    ["cust-a", "cust-c"]
+  )
+  assert.deepEqual(
+    excludeRemovedSubscriberIds(["cust-a"], new Set(["otro-cliente"])),
+    ["cust-a"]
+  )
   assert.match(listFn, /getClients360CommercialUniverse/)
+  assert.match(listFn, /excludeRemovedSubscriberIds/)
+  assert.match(listFn, /listRemovedIspSubscriberCustomerIds/)
   assert.match(listFn, /\.is\("deleted_at", null\)/)
   assert.match(detailFn, /from\("isp_subscribers"\)/)
-  assert.match(detailFn, /\.is\("deleted_at", null\)/)
+  assert.match(detailFn, /if \(membership\?\.deleted_at\) return null/)
+  assert.match(detailFn, /if \(!member && !inCommercialUniverse\) return null/)
+  assert.match(
+    read("lib/isp/customer-360-export-queries.ts"),
+    /excludeRemovedSubscriberIds/
+  )
+  assert.doesNotMatch(
+    read("lib/isp/clients-360-universe.ts"),
+    /excludeRemovedSubscriberIds/
+  )
 })
 
 test("8. El abonado eliminado no aparece en búsquedas", () => {
@@ -236,7 +261,8 @@ test("15. Reintento\/estado ya eliminado se maneja correctamente", () => {
     isIspSubscriberRemovalResolved(200, { success: true, alreadyRemoved: true }),
     true
   )
-  assert.equal(isIspSubscriberRemovalResolved(404, { success: false }), true)
+  assert.equal(isIspSubscriberRemovalResolved(404, { success: false }), false)
+  assert.equal(isIspSubscriberRemovalResolved(500, { success: false }), false)
   assert.equal(
     isIspSubscriberRemovalResolved(403, { success: false }),
     false
@@ -244,6 +270,22 @@ test("15. Reintento\/estado ya eliminado se maneja correctamente", () => {
   assert.match(list, /isIspSubscriberRemovalResolved/)
   assert.match(list, /setReloadKey/)
   assert.match(list, /ISP_SUBSCRIBER_REMOVED_MESSAGE/)
+  assert.match(list, /setRemoveError\(formatIspSubscriberRemovalFailure/)
+  const screen = read("components/isp/isp-customer-list-screen.tsx")
+  const confirmStart = screen.indexOf("async function confirmRemoveSubscriber")
+  const confirmEnd = screen.indexOf("async function exportActiveCustomersExcel")
+  const confirmFn = screen.slice(confirmStart, confirmEnd)
+  const successBranch = confirmFn.slice(
+    confirmFn.indexOf("if (isIspSubscriberRemovalResolved"),
+    confirmFn.indexOf("setRemoveError(formatIspSubscriberRemovalFailure")
+  )
+  assert.match(successBranch, /setRemoveTarget\(null\)/)
+  assert.match(successBranch, /setReloadKey/)
+  assert.match(confirmFn, /\/api\/isp\/customers\/\$\{removeTarget\.id\}\/subscriber/)
+  assert.doesNotMatch(
+    confirmFn.slice(confirmFn.indexOf("setRemoveError(formatIspSubscriberRemovalFailure")),
+    /setRemoveTarget\(null\)/
+  )
 })
 
 test("acciones visibles por icono y confirmación", () => {
@@ -264,10 +306,26 @@ test("acciones visibles por icono y confirmación", () => {
     ISP_SUBSCRIBER_REMOVAL_HISTORY_NOTE,
     "Sus datos históricos no serán eliminados."
   )
-  assert.equal(ISP_SUBSCRIBER_REMOVED_MESSAGE, "Abonado eliminado")
+  assert.equal(ISP_SUBSCRIBER_REMOVED_MESSAGE, "Abonado eliminado correctamente.")
   assert.equal(
     ISP_SUBSCRIBER_REMOVAL_ERROR_MESSAGE,
-    "No se pudo eliminar el abonado. Intentá nuevamente."
+    "No se pudo eliminar el abonado."
+  )
+  assert.equal(
+    formatIspSubscriberRemovalFailure("El abonado no existe."),
+    "No se pudo eliminar el abonado. El abonado no existe."
+  )
+  assert.equal(
+    formatIspSubscriberRemovalFailure("PGRST116: column"),
+    ISP_SUBSCRIBER_REMOVAL_ERROR_MESSAGE
+  )
+  assert.equal(
+    ispSubscriberRemovalUserMessage(new Error("Abonado no encontrado.")).message,
+    ISP_SUBSCRIBER_NOT_FOUND_REMOVAL_MESSAGE
+  )
+  assert.equal(
+    ispSubscriberRemovalUserMessage(new Error("Abonado no encontrado.")).alreadyRemoved,
+    undefined
   )
   assert.equal(
     ISP_SUBSCRIBER_REMOVAL_FORBIDDEN_MESSAGE,
@@ -285,6 +343,26 @@ test("no expone errores técnicos ni borra historial", () => {
   assert.doesNotMatch(sql, /DELETE FROM public\.activity/)
   assert.doesNotMatch(sql, /DELETE FROM public\.customer_atenciones/)
   assert.doesNotMatch(api, /company_id: body/)
+})
+
+test("la baja sin membresía no borra otros registros ni el universo", () => {
+  assert.match(removalSql, /CREATE OR REPLACE FUNCTION public\.remove_isp_subscriber_membership/)
+  assert.match(removalSql, /INSERT INTO public\.isp_subscribers/)
+  assert.match(removalSql, /customer_id = p_customer_id/)
+  assert.match(removalSql, /company_id = v_company_id/)
+  assert.match(removalSql, /Abonado no encontrado/)
+  assert.doesNotMatch(removalSql, /DELETE FROM/)
+  assert.doesNotMatch(removalSql, /UPDATE public\.customers/)
+  assert.doesNotMatch(removalSql, /UPDATE public\.isp_services/)
+  assert.doesNotMatch(removalSql, /UPDATE public\.isp_connections/)
+  assert.doesNotMatch(removalSql, /ON DELETE CASCADE/)
+  assert.doesNotMatch(removalSql, /getClients360CommercialUniverse/)
+  assert.match(
+    read("lib/isp/subscriber-removal-queries.ts"),
+    /payload\.success === false/
+  )
+  assert.match(read("app/api/isp/customers/[id]/subscriber/route.ts"), /p_customer_id|removeIspSubscriberMembership\(client, id\)/)
+  assert.doesNotMatch(read("lib/isp/clients-360-universe.ts"), /deleted_at/)
 })
 
 test("no modifica migraciones anteriores ni \/clientes", () => {

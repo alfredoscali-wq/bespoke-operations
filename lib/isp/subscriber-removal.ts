@@ -1,9 +1,11 @@
 export const ISP_SUBSCRIBER_REMOVAL_CONFIRMATION = "ELIMINAR"
 
-export const ISP_SUBSCRIBER_REMOVED_MESSAGE = "Abonado eliminado"
+export const ISP_SUBSCRIBER_REMOVED_MESSAGE = "Abonado eliminado correctamente."
 
 export const ISP_SUBSCRIBER_REMOVAL_ERROR_MESSAGE =
-  "No se pudo eliminar el abonado. Intentá nuevamente."
+  "No se pudo eliminar el abonado."
+
+export const ISP_SUBSCRIBER_NOT_FOUND_REMOVAL_MESSAGE = "El abonado no existe."
 
 export const ISP_SUBSCRIBER_REMOVAL_FORBIDDEN_MESSAGE =
   "Solo un administrador puede eliminar un abonado ISP."
@@ -64,14 +66,35 @@ export function resolveIspSubscriberRemovalResult(input: {
   return { ok: true, alreadyRemoved: false }
 }
 
+export function excludeRemovedSubscriberIds(
+  memberIds: readonly string[],
+  removedIds: ReadonlySet<string>
+): string[] {
+  if (removedIds.size === 0) return [...memberIds]
+  return memberIds.filter((id) => !removedIds.has(id))
+}
+
 export function isIspSubscriberRemovalResolved(
-  status: number,
+  _status: number,
   body: { success?: boolean; alreadyRemoved?: boolean } | null
 ): boolean {
-  if (status === 404) return true
-  if (body?.success === true) return true
-  if (body?.alreadyRemoved === true) return true
-  return false
+  return body?.success === true
+}
+
+export function formatIspSubscriberRemovalFailure(
+  message?: string | null
+): string {
+  const reason = message?.trim() ?? ""
+  if (!reason || /PGRST|stack|postgres|TypeError/i.test(reason)) {
+    return ISP_SUBSCRIBER_REMOVAL_ERROR_MESSAGE
+  }
+  if (
+    reason === ISP_SUBSCRIBER_REMOVAL_ERROR_MESSAGE ||
+    reason.startsWith(`${ISP_SUBSCRIBER_REMOVAL_ERROR_MESSAGE} `)
+  ) {
+    return reason
+  }
+  return `${ISP_SUBSCRIBER_REMOVAL_ERROR_MESSAGE} ${reason}`
 }
 
 export function ispSubscriberRemovalUserMessage(error: unknown): {
@@ -93,8 +116,7 @@ export function ispSubscriberRemovalUserMessage(error: unknown): {
   if (/no encontrado/i.test(raw)) {
     return {
       status: 404,
-      message: ISP_SUBSCRIBER_REMOVED_MESSAGE,
-      alreadyRemoved: true,
+      message: ISP_SUBSCRIBER_NOT_FOUND_REMOVAL_MESSAGE,
     }
   }
 

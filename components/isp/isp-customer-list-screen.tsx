@@ -50,6 +50,7 @@ import {
   ISP_SUBSCRIBER_REMOVED_MESSAGE,
   ISP_SUBSCRIBER_REMOVAL_CONFIRMATION,
   ISP_SUBSCRIBER_REMOVAL_ERROR_MESSAGE,
+  formatIspSubscriberRemovalFailure,
   isIspSubscriberRemovalResolved,
 } from "@/lib/isp/subscriber-removal"
 import { submitIspCustomerAtencion } from "@/lib/isp/submit-consultation"
@@ -129,6 +130,7 @@ export function IspCustomerListScreen() {
     null
   )
   const [removing, setRemoving] = useState(false)
+  const [removeError, setRemoveError] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<string | null>(null)
   const [feedbackVariant, setFeedbackVariant] = useState<"success" | "error">(
     "success"
@@ -339,6 +341,7 @@ export function IspCustomerListScreen() {
       const body = (await response.json().catch(() => null)) as {
         success?: boolean
         alreadyRemoved?: boolean
+        message?: string
       } | null
 
       if (isIspSubscriberRemovalResolved(response.status, body)) {
@@ -346,15 +349,16 @@ export function IspCustomerListScreen() {
         const next = new Set(selectedIds)
         next.delete(removedId)
         updateSelection(next)
+        setRemoveError(null)
         setRemoveTarget(null)
         showFeedback(ISP_SUBSCRIBER_REMOVED_MESSAGE)
         setReloadKey((current) => current + 1)
         return
       }
 
-      showFeedback(ISP_SUBSCRIBER_REMOVAL_ERROR_MESSAGE, "error")
+      setRemoveError(formatIspSubscriberRemovalFailure(body?.message))
     } catch {
-      showFeedback(ISP_SUBSCRIBER_REMOVAL_ERROR_MESSAGE, "error")
+      setRemoveError(ISP_SUBSCRIBER_REMOVAL_ERROR_MESSAGE)
     } finally {
       setRemoving(false)
     }
@@ -563,6 +567,7 @@ export function IspCustomerListScreen() {
                 openRestrictedDialog()
                 return
               }
+              setRemoveError(null)
               setRemoveTarget(item)
             }}
           />
@@ -632,8 +637,10 @@ export function IspCustomerListScreen() {
         open={Boolean(removeTarget)}
         item={removeTarget}
         isSubmitting={removing}
+        error={removeError}
         onCancel={() => {
           if (removing) return
+          setRemoveError(null)
           setRemoveTarget(null)
         }}
         onConfirm={() => void confirmRemoveSubscriber()}

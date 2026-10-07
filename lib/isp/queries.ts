@@ -6,6 +6,8 @@ import {
   getClients360CommercialUniverse,
   isCustomerInClients360Universe,
 } from "@/lib/isp/clients-360-universe"
+import { excludeRemovedSubscriberIds } from "@/lib/isp/subscriber-removal"
+import { listRemovedIspSubscriberCustomerIds } from "@/lib/isp/subscriber-removal-queries"
 import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
 import {
   findCatalogItemForWorkOrder,
@@ -416,7 +418,10 @@ export async function listIspCustomers(
   const requestedPage = Math.max(1, Math.floor(input.page ?? 1))
   const memberIds =
     companyId === BESPOKE_PRODUCTION_COMPANY_ID
-      ? [...getClients360CommercialUniverse()]
+      ? excludeRemovedSubscriberIds(
+          getClients360CommercialUniverse(),
+          await listRemovedIspSubscriberCustomerIds(client, companyId)
+        )
       : await listActiveSubscriberCustomerIds(client, companyId)
   if (memberIds.length === 0) {
     return { ...emptyIspCustomerList(), total: 0, page: 1, pageSize }
@@ -511,15 +516,16 @@ export async function getIspCustomerDetail(
   companyId: string,
   customerId: string
 ): Promise<IspCustomerDetail | null> {
-  const { data: member, error: memberError } = await client
+  const { data: membership, error: memberError } = await client
     .from("isp_subscribers")
-    .select("id")
+    .select("deleted_at")
     .eq("company_id", companyId)
     .eq("customer_id", customerId)
-    .is("deleted_at", null)
     .maybeSingle()
 
   if (memberError) throw new Error(memberError.message)
+  if (membership?.deleted_at) return null
+  const member = membership != null && membership.deleted_at == null
   const inCommercialUniverse =
     companyId === BESPOKE_PRODUCTION_COMPANY_ID &&
     isCustomerInClients360Universe(customerId)

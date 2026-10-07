@@ -1,5 +1,7 @@
 import { getClients360CommercialUniverse } from "@/lib/isp/clients-360-universe"
 import type { IspQueriesClient } from "@/lib/isp/queries"
+import { excludeRemovedSubscriberIds } from "@/lib/isp/subscriber-removal"
+import { listRemovedIspSubscriberCustomerIds } from "@/lib/isp/subscriber-removal-queries"
 import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
 import { resolveEffectiveCommercialStatus } from "@/lib/isp/subscriber-service-integrity"
 import {
@@ -43,7 +45,10 @@ export async function listActiveIspCustomersForExcelExport(
   const subscriberDeletedAtByCustomerId = new Map<string, string | null>()
   let memberIds: string[]
   if (companyId === BESPOKE_PRODUCTION_COMPANY_ID) {
-    memberIds = [...getClients360CommercialUniverse()]
+    memberIds = excludeRemovedSubscriberIds(
+      getClients360CommercialUniverse(),
+      await listRemovedIspSubscriberCustomerIds(client, companyId)
+    )
   } else {
     const members = await fetchAllRows(async (from, to) => {
       const { data, error } = await client
