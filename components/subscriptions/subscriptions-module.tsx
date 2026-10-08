@@ -1,9 +1,14 @@
 "use client"
 
-import { ArrowLeftRight, ChevronLeft, ChevronRight, Trash2, Tv } from "lucide-react"
+import { ArrowLeftRight, ChevronLeft, ChevronRight, CirclePause, CirclePlay, KeyRound, Trash2, Tv } from "lucide-react"
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
 
-import { LatamTvRowDialog } from "@/components/subscriptions/latam-tv-row-dialog"
+import {
+  LatamTvRowDialog,
+  latamRowIsOperational,
+  type LatamDialogIntent,
+  type LatamRowPresence,
+} from "@/components/subscriptions/latam-tv-row-dialog"
 import { SubscriptionsProvider, useSubscriptions } from "@/components/subscriptions/subscriptions-provider"
 import { SubscriptionsTvOverview } from "@/components/subscriptions/subscriptions-tv-overview"
 import { TvPlansCatalogSection } from "@/components/subscriptions/tv-plans-catalog-section"
@@ -122,8 +127,9 @@ function SubscriptionsModuleContent() {
     ? "Ninguna fila del padrón coincide con los filtros."
     : "El padrón de TV no tiene filas."
   const [latamRow, setLatamRow] = useState<AbnetTvPadronRow | null>(null)
-  const [latamStatusByCustomer, setLatamStatusByCustomer] = useState<
-    Record<string, string>
+  const [latamIntent, setLatamIntent] = useState<LatamDialogIntent>("view")
+  const [latamByCustomer, setLatamByCustomer] = useState<
+    Record<string, LatamRowPresence>
   >({})
   const [rowToChange, setRowToChange] = useState<AbnetTvPadronRow | null>(null)
   const [rowToRemove, setRowToRemove] = useState<AbnetTvPadronRow | null>(null)
@@ -147,10 +153,18 @@ function SubscriptionsModuleContent() {
       return next
     })
   }, [visibleKeys])
-  const rememberLatamStatus = useCallback((customerId: string, label: string) => {
-    setLatamStatusByCustomer((current) =>
-      current[customerId] === label ? current : { ...current, [customerId]: label }
+  const rememberLatamStatus = useCallback((customerId: string, presence: LatamRowPresence) => {
+    setLatamByCustomer((current) =>
+      current[customerId]?.label === presence.label &&
+      current[customerId]?.phase === presence.phase &&
+      current[customerId]?.identifier === presence.identifier
+        ? current
+        : { ...current, [customerId]: presence }
     )
+  }, [])
+  const openLatam = useCallback((row: AbnetTvPadronRow, intent: LatamDialogIntent) => {
+    setLatamIntent(intent)
+    setLatamRow(row)
   }, [])
 
   return (
@@ -239,7 +253,7 @@ function SubscriptionsModuleContent() {
                   <col className="w-[16%]" />
                   <col className="w-[10%]" />
                   <col className="w-[14%]" />
-                  <col className="w-[7.5rem]" />
+                  <col className="w-[10.5rem]" />
                 </colgroup>
                 <TableHeader>
                   <TableRow className="bg-slate-100/70 hover:bg-slate-100/70">
@@ -285,7 +299,7 @@ function SubscriptionsModuleContent() {
                     <TableHead className={`${PADRON_HEAD_CLASS} w-[14%]`}>
                       TV
                     </TableHead>
-                    <TableHead className={`${PADRON_HEAD_CLASS} w-[7.5rem]`}>
+                    <TableHead className={`${PADRON_HEAD_CLASS} w-[10.5rem]`}>
                       Acciones
                     </TableHead>
                   </TableRow>
@@ -341,13 +355,21 @@ function SubscriptionsModuleContent() {
                       <TableCell className="px-1 py-2 text-right">
                         <PadronRowActions
                           canWrite={canWrite}
-                          latamLabel={
+                          operational={latamRowIsOperational(
                             row.bespokeCustomerId
-                              ? latamStatusByCustomer[row.bespokeCustomerId] ??
-                                "LATAM TV"
-                              : "LATAM TV"
+                              ? latamByCustomer[row.bespokeCustomerId]
+                              : undefined
+                          )}
+                          suspended={
+                            row.bespokeCustomerId
+                              ? latamByCustomer[row.bespokeCustomerId]?.phase === "suspended"
+                              : false
                           }
-                          onLatam={() => setLatamRow(row)}
+                          onView={() => openLatam(row, "view")}
+                          onPassword={() => openLatam(row, "password")}
+                          onSuspend={() => openLatam(row, "suspend")}
+                          onActivate={() => openLatam(row, "activate")}
+                          onLatamPlan={() => openLatam(row, "plan")}
                           onChangePlan={() => setRowToChange(row)}
                           onRemove={() => setRowToRemove(row)}
                         />
@@ -393,6 +415,7 @@ function SubscriptionsModuleContent() {
         )}
         <LatamTvRowDialog
           row={latamRow}
+          intent={latamIntent}
           canWrite={canWrite}
           onClose={() => setLatamRow(null)}
           onStatus={rememberLatamStatus}
@@ -449,41 +472,67 @@ function PadronTvMark({ row }: { row: AbnetTvPadronRow }) {
 
 function PadronRowActions({
   canWrite,
-  latamLabel,
-  onLatam,
+  operational,
+  suspended,
+  onView,
+  onPassword,
+  onSuspend,
+  onActivate,
+  onLatamPlan,
   onChangePlan,
   onRemove,
 }: {
   canWrite: boolean
-  latamLabel: string
-  onLatam: () => void
+  operational: boolean
+  suspended: boolean
+  onView: () => void
+  onPassword: () => void
+  onSuspend: () => void
+  onActivate: () => void
+  onLatamPlan: () => void
   onChangePlan: () => void
   onRemove: () => void
 }) {
   return (
     <TooltipProvider>
       <div className="flex items-center justify-end gap-0.5">
-        <PadronIconButton
-          label={latamLabel}
-          className="text-sky-700 hover:text-sky-800 dark:text-sky-300"
-          onClick={onLatam}
-        >
-          <Tv className="size-4" />
+        <PadronIconButton label="Ver LATAM" className="text-sky-700 hover:text-sky-800 dark:text-sky-300" onClick={onView}>
+          <Tv className="size-3.5" />
         </PadronIconButton>
-        <PadronIconButton
-          label="Cambiar plan de TV"
-          className="text-violet-700 hover:text-violet-800 dark:text-violet-300"
-          onClick={onChangePlan}
-        >
-          <ArrowLeftRight className="size-4" />
-        </PadronIconButton>
+        {operational && canWrite ? (
+          <>
+            <PadronIconButton label="Cambiar clave" onClick={onPassword}>
+              <KeyRound className="size-3.5" />
+            </PadronIconButton>
+            {suspended ? (
+              <PadronIconButton label="Activar" onClick={onActivate}>
+                <CirclePlay className="size-3.5" />
+              </PadronIconButton>
+            ) : (
+              <PadronIconButton label="Suspender" onClick={onSuspend}>
+                <CirclePause className="size-3.5" />
+              </PadronIconButton>
+            )}
+            <PadronIconButton label="Cambiar plan" onClick={onLatamPlan}>
+              <ArrowLeftRight className="size-3.5" />
+            </PadronIconButton>
+          </>
+        ) : (
+          <PadronIconButton
+            label="Cambiar plan de TV"
+            className="text-violet-700 hover:text-violet-800 dark:text-violet-300"
+            onClick={onChangePlan}
+          >
+            <ArrowLeftRight className="size-3.5" />
+          </PadronIconButton>
+        )}
         {canWrite ? (
           <PadronIconButton
             label="Eliminar de TV"
             className="text-muted-foreground hover:text-destructive"
             onClick={onRemove}
           >
-            <Trash2 className="size-4" />
+            <Trash2 className="size-3.5" />
           </PadronIconButton>
         ) : null}
       </div>
@@ -509,8 +558,9 @@ function PadronIconButton({
           type="button"
           variant="ghost"
           size="icon"
-          className={cn("size-8 cursor-pointer", className)}
+          className={cn("size-7 cursor-pointer", className)}
           aria-label={label}
+          title={label}
           onClick={(event) => {
             event.stopPropagation()
             onClick()

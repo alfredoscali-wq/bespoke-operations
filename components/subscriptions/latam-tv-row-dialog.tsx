@@ -12,6 +12,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  latamLookupUiState,
+  type LatamLookupUiPhase,
+} from "@/lib/integrations/latam-tv/lookup-state"
 import { latamPlanNameKey } from "@/lib/integrations/latam-tv/plans"
 import { validateLatamTvPassword } from "@/lib/integrations/latam-tv/password"
 import type { AbnetTvPadronRow } from "@/lib/subscriptions/abnet-tv-padron"
@@ -22,6 +26,8 @@ type LatamPhase =
   | "no_bespoke"
   | "unavailable"
   | "unregistered"
+  | "partial"
+  | "ambiguous"
   | "active"
   | "suspended"
   | "missing"
@@ -62,6 +68,8 @@ function statusLabel(phase: LatamPhase): string | null {
     return "LATAM: No registrado"
   }
   if (phase === "unavailable") return "LATAM: No disponible"
+  if (phase === "partial") return "LATAM: Requiere revisión"
+  if (phase === "ambiguous") return "LATAM: Coincidencia ambigua"
   return null
 }
 
@@ -84,16 +92,35 @@ function registeredPhase(status: unknown): "active" | "suspended" | "unavailable
   return "unavailable"
 }
 
+export type LatamDialogIntent = "view" | "password" | "suspend" | "activate" | "plan"
+
+export type LatamRowPresence = {
+  phase: LatamLookupUiPhase
+  label: string
+  planName: string | null
+  identifier: string | null
+  username: string | null
+}
+
+export function latamRowIsOperational(presence: LatamRowPresence | undefined): boolean {
+  return (
+    (presence?.phase === "active" || presence?.phase === "suspended") &&
+    Boolean(presence.identifier)
+  )
+}
+
 export function LatamTvRowDialog({
   row,
+  intent = "view",
   canWrite,
   onClose,
   onStatus,
 }: {
   row: AbnetTvPadronRow | null
+  intent?: LatamDialogIntent
   canWrite: boolean
   onClose: () => void
-  onStatus: (customerId: string, label: string) => void
+  onStatus: (customerId: string, presence: LatamRowPresence) => void
 }) {
   const [phase, setPhase] = useState<LatamPhase>("idle")
   const [missing, setMissing] = useState<string[]>([])
@@ -108,9 +135,12 @@ export function LatamTvRowDialog({
   const [statusAction, setStatusAction] = useState<"disable" | "enable" | null>(null)
   const [statusNotice, setStatusNotice] = useState<string | null>(null)
   const [latamPlanName, setLatamPlanName] = useState<string | null>(null)
+  const [latamIdentifier, setLatamIdentifier] = useState<string | null>(null)
+  const [identityNote, setIdentityNote] = useState<string | null>(null)
   const [planOptions, setPlanOptions] = useState<LatamPlanOption[]>([])
   const [selectedPlan, setSelectedPlan] = useState<LatamPlanOption | null>(null)
   const busy = useRef(false)
+  const planChangeRef = useRef<() => void>(() => {})
 
   useEffect(() => {
     setMissing([])
@@ -125,6 +155,8 @@ export function LatamTvRowDialog({
     setStatusAction(null)
     setStatusNotice(null)
     setLatamPlanName(null)
+    setLatamIdentifier(null)
+    setIdentityNote(null)
     setPlanOptions([])
     setSelectedPlan(null)
     busy.current = false
@@ -142,43 +174,58 @@ export function LatamTvRowDialog({
     setPhase("loading")
     void fetch(`/api/integrations/latam-tv/customers/${customerId}`)
       .then(async (response) => {
-        const payload = (await response.json().catch(() => null)) as {
-          success?: boolean
-          found?: boolean
-          client?: {
-            status?: string | null
-            username?: string | null
-            plan?: { name?: string | null } | null
-          }
-        } | null
+        const payload = await response.json().catch(() => null)
         if (cancelled) return
-        if (!response.ok || !payload?.success) {
-          setPhase("unavailable")
-          onStatus(customerId, "LATAM: No disponible")
-          return
+        const view = latamLookupUiState(response.ok, payload)
+        setUsername(view.username)
+        setLatamPlanName(view.planName)
+        setLatamIdentifier(view.identifier)
+        setIdentityNote(view.detail)
+        if (view.phase === "active" || view.phase === "suspended") {
+          setAccountPhase(view.phase)
         }
-        if (!payload.found) {
-          setPhase("unregistered")
-          onStatus(customerId, "LATAM: No registrado")
-          return
+        const linked = Boolean(view.identifier)
+        const operational =
+          linked && (view.phase === "active" || view.phase === "suspended")
+        onStatus(customerId, {
+          phase: view.phase,
+          label:
+            view.phase === "active" || view.phase === "suspended"
+              ? latamPresenceLabel(view.phase, view.planName)
+              : view.label,
+          planName: view.planName,
+          identifier: view.identifier,
+          username: view.username,
+        })
+        if (intent === "password" && operational) {
+          setPhase("password")
+        } else if (intent === "suspend" && view.phase === "active" && linked) {
+          setStatusAction("disable")
+          setPhase("status_confirm")
+        } else if (intent === "activate" && view.phase === "suspended" && linked) {
+          setStatusAction("enable")
+          setPhase("status_confirm")
+        } else if (intent === "plan" && operational) {
+          planChangeRef.current()
+        } else {
+          setPhase(view.phase)
         }
-        const next = registeredPhase(payload.client?.status)
-        const planName = payload.client?.plan?.name ?? null
-        setUsername(payload.client?.username ?? null)
-        setLatamPlanName(planName)
-        if (next === "active" || next === "suspended") setAccountPhase(next)
-        setPhase(next)
-        onStatus(customerId, latamPresenceLabel(next, planName))
       })
       .catch(() => {
         if (cancelled) return
         setPhase("unavailable")
-        onStatus(customerId, "LATAM: No disponible")
+        onStatus(customerId, {
+          phase: "unavailable",
+          label: "LATAM: No disponible",
+          planName: null,
+          identifier: null,
+          username: null,
+        })
       })
     return () => {
       cancelled = true
     }
-  }, [row, onStatus])
+  }, [row, intent, onStatus])
 
   async function postSignup(confirm: boolean) {
     if (!row?.bespokeCustomerId || busy.current) return
@@ -226,7 +273,13 @@ export function LatamTvRowDialog({
         setUsername(payload.username)
         setAccountPhase("active")
         setPhase("created")
-        onStatus(row.bespokeCustomerId, "LATAM: Activo")
+        onStatus(row.bespokeCustomerId, {
+          phase: "active",
+          label: latamPresenceLabel("active", payload.planLabel ?? null),
+          planName: payload.planLabel ?? null,
+          identifier: payload.identifier,
+          username: payload.username,
+        })
         return
       }
       if (payload?.outcome === "already_exists") {
@@ -235,11 +288,23 @@ export function LatamTvRowDialog({
         if (next === "suspended") {
           setAccountPhase("suspended")
           setPhase("suspended")
-          onStatus(row.bespokeCustomerId, "LATAM: Suspendido")
+          onStatus(row.bespokeCustomerId, {
+            phase: "suspended",
+            label: "LATAM: Suspendido",
+            planName: latamPlanName,
+            identifier: latamIdentifier,
+            username,
+          })
         } else if (next === "active") {
           setAccountPhase("active")
           setPhase("active")
-          onStatus(row.bespokeCustomerId, "LATAM: Activo")
+          onStatus(row.bespokeCustomerId, {
+            phase: "active",
+            label: "LATAM: Activo",
+            planName: latamPlanName,
+            identifier: latamIdentifier,
+            username,
+          })
         } else {
           setPhase("exists")
         }
@@ -334,7 +399,13 @@ export function LatamTvRowDialog({
     setAccountPhase(next)
     setPhase(next)
     if (planName !== latamPlanName) setLatamPlanName(planName)
-    onStatus(row.bespokeCustomerId, latamPresenceLabel(next, planName))
+    onStatus(row.bespokeCustomerId, {
+      phase: next,
+      label: latamPresenceLabel(next, planName),
+      planName,
+      identifier: latamIdentifier,
+      username,
+    })
   }
 
   async function submitStatus() {
@@ -431,6 +502,10 @@ export function LatamTvRowDialog({
     }
   }
 
+  planChangeRef.current = () => {
+    void openPlanChange()
+  }
+
   function choosePlan(option: LatamPlanOption) {
     if (!option.available || busy.current) return
     if (
@@ -495,14 +570,7 @@ export function LatamTvRowDialog({
   const label = statusLabel(phase)
   const passwordStep =
     phase === "password" || phase === "password_confirm" || phase === "password_done"
-  const canChangePassword =
-    canWrite && (phase === "active" || phase === "suspended" || phase === "created")
-  const canSuspend = canWrite && (phase === "active" || phase === "created")
-  const canActivate = canWrite && phase === "suspended"
-  const canChangeLatamPlan = canWrite && (phase === "active" || phase === "suspended" || phase === "created")
   const planStep = phase === "plan_loading" || phase === "plan_select" || phase === "plan_confirm"
-  const exists =
-    phase === "active" || phase === "suspended" || phase === "created" || phase === "exists"
   const showAlta = phase === "unregistered" || phase === "missing"
 
   return (
@@ -537,6 +605,10 @@ export function LatamTvRowDialog({
             ) : null}
             {phase === "unavailable" ? <p>No fue posible consultar LATAM TV.</p> : null}
             {phase === "unregistered" ? <p>El cliente no existe en LATAM TV.</p> : null}
+            {identityNote ? <p>{identityNote}</p> : null}
+            {latamIdentifier && (phase === "active" || phase === "suspended") ? (
+              <p>Identificador LATAM: {latamIdentifier}</p>
+            ) : null}
             {statusNotice ? <p>{statusNotice}</p> : null}
             {latamPlanName && !planStep && !passwordStep && phase !== "status_confirm" ? (
               <p>Plan: {latamPlanName}</p>
@@ -671,128 +743,21 @@ export function LatamTvRowDialog({
               </div>
             ) : null}
             {actionError ? <p className="text-destructive">{actionError}</p> : null}
-            {phase === "confirm" ||
-            phase === "loading" ||
-            phase === "no_bespoke" ||
-            phase === "status_confirm" ||
-            planStep ||
-            passwordStep ? null : (
+            {showAlta ? (
               <div className="flex flex-wrap gap-2">
-                {showAlta ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    disabled={!canWrite || pending || phase === "missing"}
-                    onClick={() => {
-                      if (!canWrite) return
-                      void postSignup(false)
-                    }}
-                  >
-                    Alta LATAM
-                  </Button>
-                ) : null}
-                {exists || showAlta || phase === "unavailable" ? (
-                  <>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={!canChangePassword || pending}
-                      title={
-                        canChangePassword
-                          ? "Cambiar clave"
-                          : phase === "unavailable"
-                            ? "LATAM: No disponible"
-                            : phase === "unregistered" || phase === "missing"
-                              ? "LATAM: No registrado"
-                              : "Pendiente de implementación"
-                      }
-                      aria-label="Cambiar clave"
-                      onClick={() => {
-                        if (!canChangePassword || busy.current) return
-                        setPassword("")
-                        setConfirmPassword("")
-                        setActionError(null)
-                        setPhase("password")
-                      }}
-                    >
-                      Cambiar clave
-                    </Button>
-                    {phase === "active" || phase === "created" || phase === "suspended" ? (
-                      phase === "suspended" ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        disabled={!canActivate || pending}
-                        title={canActivate ? "Activar" : "No tiene permiso para activar en LATAM TV."}
-                        aria-label="Activar"
-                        onClick={() => {
-                          if (!canActivate || busy.current) return
-                          setActionError(null)
-                          setStatusNotice(null)
-                          setStatusAction("enable")
-                          setPhase("status_confirm")
-                        }}
-                      >
-                        Activar
-                      </Button>
-                    ) : (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        disabled={!canSuspend || pending}
-                        title={canSuspend ? "Suspender" : "No tiene permiso para suspender en LATAM TV."}
-                        aria-label="Suspender"
-                        onClick={() => {
-                          if (!canSuspend || busy.current) return
-                          setActionError(null)
-                          setStatusNotice(null)
-                          setStatusAction("disable")
-                          setPhase("status_confirm")
-                        }}
-                      >
-                        Suspender
-                      </Button>
-                      )
-                    ) : null}
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={!canChangeLatamPlan || pending}
-                      title={
-                        canChangeLatamPlan
-                          ? "Cambiar plan"
-                          : phase === "unavailable"
-                            ? "No fue posible consultar LATAM TV."
-                            : phase === "unregistered" || phase === "missing"
-                              ? "El cliente no existe en LATAM TV. No se puede cambiar el plan."
-                              : "Pendiente de implementación"
-                      }
-                      aria-label="Cambiar plan LATAM"
-                      onClick={() => {
-                        if (!canChangeLatamPlan || busy.current) return
-                        void openPlanChange()
-                      }}
-                    >
-                      Cambiar plan
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled
-                      title="Pendiente de implementación"
-                      aria-label="Eliminar de LATAM"
-                    >
-                      Eliminar
-                    </Button>
-                  </>
-                ) : null}
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={!canWrite || pending || phase === "missing"}
+                  onClick={() => {
+                    if (!canWrite) return
+                    void postSignup(false)
+                  }}
+                >
+                  Alta LATAM
+                </Button>
               </div>
-            )}
+            ) : null}
             {showAlta && !canWrite ? (
               <p className="text-muted-foreground">
                 No tiene permiso para dar de alta en LATAM TV.
