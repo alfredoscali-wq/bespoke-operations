@@ -38,6 +38,8 @@ export type AbnetTvPadronRow = AbnetTvPadronSourceRow & {
   bespokeCustomerId: string | null
   bespokeCustomerNumber: string | null
   bespokeCustomerName: string | null
+  /** none: no hay ficha. one: una ficha. many: más de una ficha para el mismo N°. */
+  bespokeLink: "none" | "one" | "many"
   packFutbolActive: boolean
 }
 
@@ -352,6 +354,7 @@ export function presentAbnetPadronRow(
     bespokeCustomerId: null,
     bespokeCustomerNumber: null,
     bespokeCustomerName: null,
+    bespokeLink: "none",
     packFutbolActive: false,
   }
 }

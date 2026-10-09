@@ -183,9 +183,11 @@ function attachBespoke(
 ) {
   return rows.map((row) => {
     const match = matches.get(row.abnetCustomerNumber)
-    if (!match || match === "ambiguous") return row
+    if (match === "ambiguous") return { ...row, bespokeLink: "many" }
+    if (!match) return row
     return {
       ...row,
+      bespokeLink: "one",
       bespokeCustomerId: match.id,
       bespokeCustomerNumber: match.customerNumber || null,
       bespokeCustomerName: match.name || null,

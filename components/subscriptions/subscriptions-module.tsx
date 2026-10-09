@@ -6,7 +6,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import {
   LatamTvRowDialog,
   latamPresenceLabel,
-  latamRowIsOperational,
   type LatamDialogIntent,
   type LatamRowPresence,
 } from "@/components/subscriptions/latam-tv-row-dialog"
@@ -46,6 +45,10 @@ import {
   type AbnetTvKind,
   type AbnetTvPadronRow,
 } from "@/lib/subscriptions/abnet-tv-padron"
+import {
+  padronLatamMode,
+  type PadronLatamMode,
+} from "@/lib/subscriptions/padron-latam-mode"
 import {
   padronRowSelectionKey,
   retainVisiblePadronSelection,
@@ -98,38 +101,6 @@ function latamPresenceFor(
     iptvId: client.iptvId,
     username: client.username,
   }
-}
-
-function padronLatamMode(
-  row: AbnetTvPadronRow,
-  latamByNumber: Record<string, LatamBatchClient>
-):
-  | { kind: "pending"; reason: string }
-  | { kind: "active" }
-  | { kind: "suspended" }
-  | { kind: "signup" }
-  | { kind: "blocked"; reason: string } {
-  const number = abnetPadronCustomerNumber(row.abnetCustomerNumber)
-  const presence = latamPresenceFor(row, latamByNumber)
-  if (!number || !row.bespokeCustomerId) {
-    return { kind: "blocked", reason: "Cliente no vinculado con LATAM" }
-  }
-  if (presence == null) return { kind: "pending", reason: "Consultando LATAM" }
-  if (
-    presence.phase === "partial" ||
-    presence.phase === "ambiguous" ||
-    (presence.identifier != null && presence.identifier !== number)
-  ) {
-    return { kind: "blocked", reason: "No se puede operar por conflicto de identidad" }
-  }
-  if (presence.phase === "unavailable") {
-    return { kind: "blocked", reason: "LATAM no disponible" }
-  }
-  if (presence?.identifier === number && latamRowIsOperational(presence)) {
-    return presence.phase === "suspended" ? { kind: "suspended" } : { kind: "active" }
-  }
-  if (presence.phase === "unregistered") return { kind: "signup" }
-  return { kind: "blocked", reason: "LATAM no disponible" }
 }
 
 function SubscriptionsModuleContent() {
@@ -538,7 +509,7 @@ function PadronRowActions({
 }: {
   canWrite: boolean
   busy: boolean
-  mode: ReturnType<typeof padronLatamMode>
+  mode: PadronLatamMode
   onSignup: () => void
   onPassword: () => void
   onSuspend: () => void

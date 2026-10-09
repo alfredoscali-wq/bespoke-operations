@@ -19,6 +19,14 @@ import {
   commitAbnetPadronExclusion,
   excludeAbnetPadronRows,
 } from "../lib/subscriptions/abnet-tv-padron-exclusions.ts"
+import {
+  LATAM_IDENTITY_CONFLICT,
+  LATAM_LINKED_MANY_FICHAS,
+  LATAM_LINKED_MISSING_FICHA,
+  LATAM_NOT_LINKED,
+  LATAM_UNAVAILABLE,
+  padronLatamMode,
+} from "../lib/subscriptions/padron-latam-mode.ts"
 
 const root = resolve(import.meta.dirname, "..")
 const COMPANY = "company-a"
@@ -64,12 +72,14 @@ test("2. no hay ojo ni panel de detalle; LATAM se abre desde la fila", () => {
   assert.match(ui, /label="Cambiar plan"/)
   assert.doesNotMatch(ui, /Cambiar plan de TV/)
   assert.match(ui, /label="Activar"/)
-  assert.match(ui, /LATAM no disponible/)
-  assert.match(ui, /Cliente no vinculado con LATAM/)
-  assert.match(ui, /No se puede operar por conflicto de identidad/)
-  assert.match(ui, /presence\?\.identifier === number/)
+  assert.match(ui, /padronLatamMode\(row, latamByNumber\)/)
+  const mode = read("lib/subscriptions/padron-latam-mode.ts")
+  assert.match(mode, /LATAM no disponible/)
+  assert.match(mode, /Cliente no vinculado con LATAM/)
+  assert.match(mode, /No se puede operar por conflicto de identidad/)
+  assert.match(mode, /presence\.identifier === number/)
+  assert.match(mode, /presence\.phase === "active" \|\| presence\.phase === "suspended"/)
   assert.match(ui, /openLatam\(row, "signup"\)/)
-  assert.match(ui, /latamRowIsOperational/)
   assert.match(ui, /openLatam\(row, "password"\)/)
   assert.match(ui, /openLatam\(row, "suspend"\)/)
   assert.match(ui, /openLatam\(row, "activate"\)/)
@@ -253,4 +263,55 @@ test("8. el plan confirmado cambia solo la fila source_row", () => {
   const dialog = read("components/subscriptions/latam-tv-row-dialog.tsx")
   assert.match(dialog, /outcome === "same_plan"/)
   assert.match(dialog, /onPadronPlan\(row, selectedPlan\.kind\)/)
+})
+
+test("el vínculo LATAM no depende de una ficha única y no escribe", () => {
+  const linked = {
+    phase: "active",
+    identifier: "6798",
+    iptvId: "29",
+    username: null,
+    planName: "Plan Basico",
+  }
+  const suspended = { ...linked, phase: "suspended" }
+  const unregistered = { ...linked, phase: "unregistered", identifier: null, iptvId: null, planName: null }
+  const unavailable = { ...unregistered, phase: "unavailable" }
+  const conflict = { ...linked, identifier: "9999" }
+  const one = { abnetCustomerNumber: "6798", bespokeCustomerId: "ficha-1", bespokeLink: "one" }
+  const none = { abnetCustomerNumber: "6798", bespokeCustomerId: null, bespokeLink: "none" }
+  const many = { abnetCustomerNumber: "6798", bespokeCustomerId: null, bespokeLink: "many" }
+
+  assert.equal(padronLatamMode(one, { 6798: linked }).kind, "active")
+  assert.equal(padronLatamMode(one, { 6798: suspended }).kind, "suspended")
+  assert.deepEqual(padronLatamMode(none, { 6798: linked }), {
+    kind: "blocked",
+    reason: LATAM_LINKED_MISSING_FICHA,
+  })
+  assert.deepEqual(padronLatamMode(many, { 6798: linked }), {
+    kind: "blocked",
+    reason: LATAM_LINKED_MANY_FICHAS,
+  })
+  assert.equal(padronLatamMode(one, { 6798: unregistered }).kind, "signup")
+  assert.equal(padronLatamMode(none, { 6798: unregistered }).kind, "signup")
+  assert.deepEqual(padronLatamMode(one, { 6798: unavailable }), {
+    kind: "blocked",
+    reason: LATAM_UNAVAILABLE,
+  })
+  assert.deepEqual(padronLatamMode(one, { 6798: conflict }), {
+    kind: "blocked",
+    reason: LATAM_IDENTITY_CONFLICT,
+  })
+  assert.notEqual(padronLatamMode(none, { 6798: linked }).kind, "signup")
+  assert.notEqual(padronLatamMode(many, { 6798: linked }).kind, "signup")
+  assert.equal(LATAM_NOT_LINKED, "Cliente no vinculado con LATAM")
+
+  const mode = read("lib/subscriptions/padron-latam-mode.ts")
+  const actions = uiSlice("function PadronRowActions", "function PadronIconButton")
+  const dialog = read("components/subscriptions/latam-tv-row-dialog.tsx")
+  const route = read("app/api/subscriptions/abnet-padron/route.ts")
+  assert.doesNotMatch(mode, /fetch\(|sync-client|modify-client/)
+  assert.match(actions, /mode\.kind !== "signup"/)
+  assert.match(route, /bespokeLink: "many"/)
+  assert.match(route, /bespokeLink: "one"/)
+  assert.match(dialog, /if \(!row\?\.bespokeCustomerId \|\| busy\.current\) return/)
 })
