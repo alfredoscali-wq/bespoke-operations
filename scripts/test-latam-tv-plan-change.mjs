@@ -357,3 +357,38 @@ test("31-35. tenant, doble envío y ninguna otra operación", async () => {
   assert.match(audit, /previousPlan/)
   assert.match(audit, /requestedPlan/)
 })
+
+test("el cambio confirmado en LATAM y Bespoke cierra con éxito", () => {
+  const dialog = read("components/subscriptions/latam-tv-row-dialog.tsx")
+  const submitStart = dialog.indexOf("async function submitPlan()")
+  const submitEnd = dialog.indexOf("const label = statusLabel(phase)")
+  const submit = dialog.slice(submitStart, submitEnd)
+  const updated = submit.indexOf('payload?.outcome === "updated" && confirmed && selectedPlan')
+  const padron = submit.indexOf("onPadronPlan(row, selectedPlan.kind)")
+  const bespokeError = submit.indexOf("if (padronError)")
+  const success = submit.indexOf('setPhase("plan_done")')
+  const latamError = submit.indexOf("No fue posible comunicarse con LATAM TV. No se realizaron cambios en Bespoke.")
+  assert.ok(updated >= 0 && padron > updated && bespokeError > padron && success > bespokeError)
+  assert.ok(latamError > success)
+  assert.match(submit.slice(bespokeError, success), /setActionError\(padronError\)/)
+  assert.match(submit.slice(bespokeError, success), /return/)
+  assert.match(dialog, /planDoneRef\.current && row && intent === "plan"/)
+  assert.match(dialog, /Plan cambiado con éxito/)
+  assert.match(dialog, /El plan de TV se actualizó correctamente en LATAM y Bespoke\./)
+  const doneFooter = dialog.slice(
+    dialog.indexOf(') : phase === "plan_done" ? ('),
+    dialog.indexOf(') : phase === "plan_confirm" ? (')
+  )
+  assert.match(doneFooter, /onClick=\{onClose\}/)
+  assert.match(doneFooter, /Cerrar/)
+  assert.doesNotMatch(doneFooter, /Cancelar/)
+  assert.doesNotMatch(doneFooter, /Planes disponibles/)
+  assert.doesNotMatch(doneFooter, /Cambiar plan/)
+  const doneBody = dialog.slice(
+    dialog.indexOf('{phase === "plan_done" ? ('),
+    dialog.indexOf('{phase === "plan_confirm" && selectedPlan')
+  )
+  assert.match(doneBody, /El plan de TV se actualizó correctamente en LATAM y Bespoke\./)
+  assert.doesNotMatch(doneBody, /Planes disponibles/)
+  assert.doesNotMatch(doneBody, /Cancelar/)
+})

@@ -41,6 +41,7 @@ type LatamPhase =
   | "plan_loading"
   | "plan_select"
   | "plan_confirm"
+  | "plan_done"
 
 type LatamPlanOption = {
   kind: "basica" | "pack" | "full"
@@ -154,7 +155,9 @@ export function LatamTvRowDialog({
   const [identityNote, setIdentityNote] = useState<string | null>(null)
   const [planOptions, setPlanOptions] = useState<LatamPlanOption[]>([])
   const [selectedPlan, setSelectedPlan] = useState<LatamPlanOption | null>(null)
+  const [successPlanName, setSuccessPlanName] = useState<string | null>(null)
   const busy = useRef(false)
+  const planDoneRef = useRef(false)
   const planChangeRef = useRef<() => void>(() => {})
   const signupRef = useRef<() => void>(() => {})
   const knownKey =
@@ -165,6 +168,11 @@ export function LatamTvRowDialog({
         : `${known.phase}|${known.identifier ?? ""}|${known.planName ?? ""}|${known.username ?? ""}`
 
   useEffect(() => {
+    if (planDoneRef.current && row && intent === "plan") {
+      setPhase("plan_done")
+      return
+    }
+    if (!row) planDoneRef.current = false
     setMissing([])
     setPreview(null)
     setCreated(null)
@@ -181,6 +189,7 @@ export function LatamTvRowDialog({
     setIdentityNote(null)
     setPlanOptions([])
     setSelectedPlan(null)
+    setSuccessPlanName(null)
     busy.current = false
     if (!row) {
       setPhase("idle")
@@ -629,6 +638,7 @@ export function LatamTvRowDialog({
         return
       }
       if (payload?.outcome === "updated" && confirmed && selectedPlan) {
+        const completedPlanName = payload.planName ?? selectedPlan.latamName
         const padronError = await onPadronPlan(row, selectedPlan.kind)
         applyConfirmedStatus(confirmed, payload.planName ?? null)
         setSelectedPlan(null)
@@ -636,7 +646,9 @@ export function LatamTvRowDialog({
           setActionError(padronError)
           return
         }
-        setStatusNotice("Plan actualizado en LATAM TV y en esta fila del padrón.")
+        planDoneRef.current = true
+        setSuccessPlanName(completedPlanName)
+        setPhase("plan_done")
         return
       }
       if (confirmed) {
@@ -680,7 +692,9 @@ export function LatamTvRowDialog({
                     ? "Activar cliente en LATAM TV"
                     : phase === "plan_confirm"
                       ? "Cambiar plan"
-                      : "LATAM TV"}
+                      : phase === "plan_done"
+                        ? "Plan cambiado con éxito"
+                        : "LATAM TV"}
           </DialogTitle>
           <DialogDescription>
             {row ? `${row.customerName} · N° ${row.abnetCustomerNumber}` : "LATAM TV"}
@@ -702,7 +716,7 @@ export function LatamTvRowDialog({
               <p>Identificador LATAM: {latamIdentifier}</p>
             ) : null}
             {statusNotice ? <p>{statusNotice}</p> : null}
-            {latamPlanName && !planStep && !passwordStep && phase !== "status_confirm" ? (
+            {latamPlanName && !planStep && !passwordStep && phase !== "status_confirm" && phase !== "plan_done" ? (
               <p>Plan: {latamPlanName}</p>
             ) : null}
             {phase === "plan_loading" ? <p>Consultando el plan en LATAM TV…</p> : null}
@@ -730,6 +744,12 @@ export function LatamTvRowDialog({
                     </p>
                   )
                 )}
+              </div>
+            ) : null}
+            {phase === "plan_done" ? (
+              <div className="space-y-1">
+                <p>El plan de TV se actualizó correctamente en LATAM y Bespoke.</p>
+                {successPlanName ? <p>Nuevo plan: {successPlanName}</p> : null}
               </div>
             ) : null}
             {phase === "plan_confirm" && selectedPlan ? (
@@ -872,6 +892,10 @@ export function LatamTvRowDialog({
               onClick={() => setPhase(accountPhase ?? "active")}
             >
               Cancelar
+            </Button>
+          ) : phase === "plan_done" ? (
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cerrar
             </Button>
           ) : phase === "plan_confirm" ? (
             <>
