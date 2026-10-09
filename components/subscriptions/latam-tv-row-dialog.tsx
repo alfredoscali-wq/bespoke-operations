@@ -92,13 +92,20 @@ function registeredPhase(status: unknown): "active" | "suspended" | "unavailable
   return "unavailable"
 }
 
-export type LatamDialogIntent = "view" | "password" | "suspend" | "activate" | "plan"
+export type LatamDialogIntent =
+  | "view"
+  | "password"
+  | "suspend"
+  | "activate"
+  | "plan"
+  | "signup"
 
 export type LatamRowPresence = {
   phase: LatamLookupUiPhase
   label: string
   planName: string | null
   identifier: string | null
+  iptvId?: string | null
   username: string | null
 }
 
@@ -116,6 +123,7 @@ export function LatamTvRowDialog({
   canWrite,
   onClose,
   onStatus,
+  onPadronPlan,
 }: {
   row: AbnetTvPadronRow | null
   intent?: LatamDialogIntent
@@ -124,6 +132,10 @@ export function LatamTvRowDialog({
   canWrite: boolean
   onClose: () => void
   onStatus: (customerId: string, presence: LatamRowPresence) => void
+  onPadronPlan: (
+    row: AbnetTvPadronRow,
+    kind: "basica" | "pack" | "full"
+  ) => Promise<string | null>
 }) {
   const [phase, setPhase] = useState<LatamPhase>("idle")
   const [missing, setMissing] = useState<string[]>([])
@@ -144,6 +156,7 @@ export function LatamTvRowDialog({
   const [selectedPlan, setSelectedPlan] = useState<LatamPlanOption | null>(null)
   const busy = useRef(false)
   const planChangeRef = useRef<() => void>(() => {})
+  const signupRef = useRef<() => void>(() => {})
   const knownKey =
     known === undefined
       ? "none"
@@ -199,6 +212,8 @@ export function LatamTvRowDialog({
         setPhase("status_confirm")
       } else if (intent === "plan" && operational) {
         planChangeRef.current()
+      } else if (intent === "signup" && presence.phase === "unregistered" && row.bespokeCustomerId) {
+        signupRef.current()
       } else if (
         presence.phase === "active" ||
         presence.phase === "suspended" ||
@@ -256,6 +271,8 @@ export function LatamTvRowDialog({
           setPhase("status_confirm")
         } else if (intent === "plan" && operational) {
           planChangeRef.current()
+        } else if (intent === "signup" && view.phase === "unregistered") {
+          signupRef.current()
         } else {
           setPhase(view.phase)
         }
@@ -300,6 +317,7 @@ export function LatamTvRowDialog({
         identifier?: string
         planLabel?: string
         status?: string | null
+        iptvId?: string | null
       } | null
       if (payload?.outcome === "missing") {
         setMissing(payload.missing ?? [])
@@ -312,6 +330,12 @@ export function LatamTvRowDialog({
         return
       }
       if (payload?.outcome === "created" && payload.username && payload.identifier) {
+        const next = registeredPhase(payload.status)
+        if (next === "unavailable") {
+          setActionError("LATAM no confirmó el alta. Las acciones siguen deshabilitadas.")
+          setPhase("unregistered")
+          return
+        }
         setCreated({
           customerName: row.customerName,
           identifier: payload.identifier,
@@ -320,15 +344,21 @@ export function LatamTvRowDialog({
           planLabel: payload.planLabel ?? "",
         })
         setUsername(payload.username)
-        setAccountPhase("active")
+        setAccountPhase(next)
         setPhase("created")
         onStatus(row.bespokeCustomerId, {
-          phase: "active",
-          label: latamPresenceLabel("active", payload.planLabel ?? null),
+          phase: next,
+          label: latamPresenceLabel(next, payload.planLabel ?? null),
           planName: payload.planLabel ?? null,
           identifier: payload.identifier,
+          iptvId: payload.iptvId ?? null,
           username: payload.username,
         })
+        return
+      }
+      if (payload?.outcome === "unverified") {
+        setActionError(payload.message ?? "LATAM no confirmó el alta. Las acciones siguen deshabilitadas.")
+        setPhase("unregistered")
         return
       }
       if (payload?.outcome === "already_exists") {
@@ -554,6 +584,9 @@ export function LatamTvRowDialog({
   planChangeRef.current = () => {
     void openPlanChange()
   }
+  signupRef.current = () => {
+    void postSignup(false)
+  }
 
   function choosePlan(option: LatamPlanOption) {
     if (!option.available || busy.current) return
@@ -590,10 +623,20 @@ export function LatamTvRowDialog({
         message?: string | null
       } | null
       const confirmed = payload?.status === "enabled" || payload?.status === "disabled" ? payload.status : null
-      if (payload?.outcome === "updated" && confirmed) {
+      if (payload?.outcome === "same_plan") {
+        setActionError(payload.message ?? "El cliente ya tiene este plan en LATAM TV.")
+        setPhase("plan_select")
+        return
+      }
+      if (payload?.outcome === "updated" && confirmed && selectedPlan) {
+        const padronError = await onPadronPlan(row, selectedPlan.kind)
         applyConfirmedStatus(confirmed, payload.planName ?? null)
-        setStatusNotice("✅ Plan actualizado correctamente en LATAM TV.")
         setSelectedPlan(null)
+        if (padronError) {
+          setActionError(padronError)
+          return
+        }
+        setStatusNotice("Plan actualizado en LATAM TV y en esta fila del padrón.")
         return
       }
       if (confirmed) {
@@ -627,8 +670,8 @@ export function LatamTvRowDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            {phase === "confirm"
-              ? "Dar de alta en LATAM TV"
+            {phase === "confirm" || phase === "missing" || intent === "signup"
+              ? "Alta LATAM"
               : passwordStep
                 ? "Cambiar clave LATAM"
                 : phase === "status_confirm" && statusAction === "disable"
@@ -636,7 +679,7 @@ export function LatamTvRowDialog({
                   : phase === "status_confirm" && statusAction === "enable"
                     ? "Activar cliente en LATAM TV"
                     : phase === "plan_confirm"
-                      ? "Cambiar plan en LATAM TV"
+                      ? "Cambiar plan"
                       : "LATAM TV"}
           </DialogTitle>
           <DialogDescription>
@@ -694,7 +737,7 @@ export function LatamTvRowDialog({
                 <p>Cliente: {row.customerName}</p>
                 <p>Plan actual: {latamPlanName ?? "—"}</p>
                 <p>Nuevo plan: {selectedPlan.latamName}</p>
-                <p>El cambio se realizará únicamente en LATAM TV.</p>
+                <p>El cambio se aplicará en LATAM y luego se actualizará el padrón de Bespoke.</p>
                 <p>El estado del cliente no se modificará.</p>
                 {accountPhase === "suspended" ? (
                   <p>El cliente continuará suspendido después del cambio.</p>
@@ -786,7 +829,13 @@ export function LatamTvRowDialog({
                 <p>No se puede dar de alta en LATAM TV. Faltan datos:</p>
                 <ul className="list-disc pl-5">
                   {missing.map((item) => (
-                    <li key={item}>{item}</li>
+                    <li key={item}>
+                      {item === "DNI"
+                        ? "Falta DNI para dar de alta"
+                        : item === "Email"
+                          ? "Falta email para dar de alta"
+                          : item}
+                    </li>
                   ))}
                 </ul>
               </div>

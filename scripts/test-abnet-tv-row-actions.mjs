@@ -9,6 +9,7 @@ import test from "node:test"
 
 import {
   ABNET_TV_PLAN_OPTIONS,
+  abnetPadronRowWithTvPlan,
   abnetTvJubiladoHalf,
   abnetTvPlanSelectionNotice,
   currentAbnetTvPlanOption,
@@ -54,11 +55,20 @@ test("2. no hay ojo ni panel de detalle; LATAM se abre desde la fila", () => {
   assert.doesNotMatch(ui, /function AbnetPadronContact/)
   assert.doesNotMatch(ui, /setSelectedRow/)
   assert.doesNotMatch(ui, /fetch\(/)
-  assert.match(ui, /label="Ver LATAM"/)
-  assert.match(ui, /onView=\{\(\) => openLatam\(row, "view"\)\}/)
+  assert.doesNotMatch(ui, /Ver LATAM/)
+  assert.doesNotMatch(ui, /label="LATAM"/)
+  assert.doesNotMatch(ui, /onView/)
+  assert.match(ui, /label="Alta LATAM"/)
+  assert.match(ui, /label="Desactivar"/)
   assert.match(ui, /label="Cambiar clave"/)
-  assert.match(ui, /label="Suspender"/)
+  assert.match(ui, /label="Cambiar plan"/)
+  assert.doesNotMatch(ui, /Cambiar plan de TV/)
   assert.match(ui, /label="Activar"/)
+  assert.match(ui, /LATAM no disponible/)
+  assert.match(ui, /Cliente no vinculado con LATAM/)
+  assert.match(ui, /No se puede operar por conflicto de identidad/)
+  assert.match(ui, /presence\?\.identifier === number/)
+  assert.match(ui, /openLatam\(row, "signup"\)/)
   assert.match(ui, /latamRowIsOperational/)
   assert.match(ui, /openLatam\(row, "password"\)/)
   assert.match(ui, /openLatam\(row, "suspend"\)/)
@@ -108,19 +118,20 @@ test("3. cambiar plan muestra Básica, Pack y Full sin escribir datos", () => {
   assert.equal(notice.headline, "Plan seleccionado: TV Full — $9.900")
   assert.equal(notice.detail, "Este cambio todavía no se aplica en ABNet.")
 
-  const dialog = uiSlice("function ChangePadronDialog", "function RemovePadronDialog")
-  assert.match(dialog, /Cambiar plan de TV/)
-  assert.match(dialog, /Seleccionar nuevo plan/)
-  assert.match(dialog, /Seleccionar plan/)
-  assert.match(dialog, /ABNET_TV_PLAN_OPTIONS/)
-  assert.match(dialog, /Este cambio todavía no se aplica en ABNet/)
-  assert.doesNotMatch(dialog, /fetch\(/)
+  const ui = read("components/subscriptions/subscriptions-module.tsx")
+  const actions = uiSlice("function PadronRowActions", "function PadronIconButton")
+  assert.equal(actions.match(/label="Cambiar plan"/g)?.length, 1)
+  assert.doesNotMatch(actions, /Cambiar plan de TV/)
+  assert.match(actions, /disabled=\{Boolean\(locked \|\| busy \|\| !operational\)\}/)
+  assert.match(ui, /onPlan=\{\(\) => openLatam\(row, "plan"\)\}/)
+  assert.doesNotMatch(ui, /function ChangePadronDialog/)
+  assert.doesNotMatch(ui, /setRowToChange/)
+  const dialog = read("components/subscriptions/latam-tv-row-dialog.tsx")
+  assert.match(dialog, /El cambio se aplicará en LATAM y luego se actualizará el padrón de Bespoke\./)
+  assert.match(dialog, /payload\?\.outcome === "updated" && confirmed && selectedPlan/)
+  assert.match(dialog, /onPadronPlan\(row, selectedPlan\.kind\)/)
   assert.doesNotMatch(dialog, /isp_services/)
   assert.doesNotMatch(dialog, /isp_connections/)
-  assert.doesNotMatch(dialog, /abnet_tv_padron_rows/)
-  const ui = read("components/subscriptions/subscriptions-module.tsx")
-  assert.match(ui, /onChangePlan=\{\(\) => setRowToChange\(row\)\}/)
-  assert.doesNotMatch(ui, /onChangePlan=\{\(\) => setSelectedRow/)
 })
 
 test("4. jubilado muestra el 50% sin modificar el importe del padrón", () => {
@@ -138,9 +149,9 @@ test("4. jubilado muestra el 50% sin modificar el importe del padrón", () => {
   assert.equal(formatAbnetPadronMoney(abnetTvJubiladoHalf(9900)), "$4.950")
   assert.equal(formatAbnetPadronMoney(abnetTvJubiladoHalf(7500)), "$3.750")
   assert.equal(JSON.stringify(row), snapshot)
-  const dialog = uiSlice("function ChangePadronDialog", "function RemovePadronDialog")
-  assert.match(dialog, /Jubilado 50%/)
-  assert.match(dialog, /row\.jubilado/)
+  const mark = uiSlice("function PadronTvMark", "function PadronRowActions")
+  assert.match(mark, /Jubilado 50%/)
+  assert.match(mark, /row\.jubilado/)
 })
 
 test("5. la papelera abre la baja y no el cambio de plan", () => {
@@ -161,7 +172,8 @@ test("6. la página consulta LATAM agrupado y no por fila", () => {
   assert.doesNotMatch(ui, /fetch\(/)
   assert.match(ui, /latamByNumber/)
   assert.match(ui, /known=/)
-  assert.match(ui, /label="Cambiar plan de TV"/)
+  assert.match(ui, /label="Cambiar plan"/)
+  assert.doesNotMatch(ui, /Cambiar plan de TV/)
   assert.match(ui, /label="Eliminar de TV"/)
   assert.match(provider, /latam: missing\.join/)
   assert.match(provider, /\/api\/subscriptions\/abnet-padron\?/)
@@ -211,4 +223,34 @@ test("7. dos filas del mismo N° se eliminan por source_row", () => {
   assert.match(provider, /\/api\/subscriptions\/tv-padron\/\$\{row\.sourceRow\}/)
   const ui = read("components/subscriptions/subscriptions-module.tsx")
   assert.match(ui, /\$\{row\.source\}-\$\{row\.sourceRow\}/)
+})
+
+test("8. el plan confirmado cambia solo la fila source_row", () => {
+  const shared = {
+    tvAmount: 4500,
+    tvKind: "basica",
+    tvLabel: "TV Básica",
+  }
+  const fibra = { source: SOURCE, sourceRow: 40, ...shared }
+  const wireless = { source: SOURCE, sourceRow: 41, ...shared }
+  const updated = [fibra, wireless].map((row) =>
+    row.source === SOURCE && row.sourceRow === 40
+      ? abnetPadronRowWithTvPlan(row, "pack")
+      : row
+  )
+  assert.equal(updated[0].tvAmount, 7500)
+  assert.equal(updated[0].tvKind, "pack")
+  assert.equal(updated[1].tvAmount, 4500)
+  const route = read("app/api/subscriptions/tv-padron/[sourceRow]/route.ts")
+  assert.match(route, /export async function PATCH/)
+  assert.match(route, /\.eq\("source_row", sourceRow\)/)
+  assert.match(route, /tv_amount: option\.amount/)
+  assert.doesNotMatch(route, /\/api\/modify-client/)
+  assert.doesNotMatch(route, /\/api\/sync-client/)
+  assert.doesNotMatch(route, /isp_services/)
+  const provider = read("components/subscriptions/subscriptions-provider.tsx")
+  assert.match(provider, /item\.source === row\.source && item\.sourceRow === row\.sourceRow/)
+  const dialog = read("components/subscriptions/latam-tv-row-dialog.tsx")
+  assert.match(dialog, /outcome === "same_plan"/)
+  assert.match(dialog, /onPadronPlan\(row, selectedPlan\.kind\)/)
 })

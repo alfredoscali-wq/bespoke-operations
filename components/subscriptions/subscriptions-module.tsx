@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowLeftRight, ChevronLeft, ChevronRight, CirclePause, CirclePlay, KeyRound, Trash2, Tv } from "lucide-react"
+import { ArrowLeftRight, ChevronLeft, ChevronRight, CirclePause, CirclePlay, KeyRound, Trash2, UserPlus } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 
 import {
@@ -43,17 +43,9 @@ import type { LatamBatchClient } from "@/lib/integrations/latam-tv/lookup-state"
 import {
   abnetPadronCustomerNumber,
   abnetPadronTvRowLabel,
-  formatAbnetPadronMoney,
   type AbnetTvKind,
   type AbnetTvPadronRow,
 } from "@/lib/subscriptions/abnet-tv-padron"
-import {
-  ABNET_TV_PLAN_OPTIONS,
-  abnetTvJubiladoHalf,
-  abnetTvPlanSelectionNotice,
-  currentAbnetTvPlanOption,
-  type AbnetTvPlanOptionId,
-} from "@/lib/subscriptions/abnet-tv-plan-choice"
 import {
   padronRowSelectionKey,
   retainVisiblePadronSelection,
@@ -103,8 +95,41 @@ function latamPresenceFor(
     label,
     planName: client.planName,
     identifier: client.identifier,
+    iptvId: client.iptvId,
     username: client.username,
   }
+}
+
+function padronLatamMode(
+  row: AbnetTvPadronRow,
+  latamByNumber: Record<string, LatamBatchClient>
+):
+  | { kind: "pending"; reason: string }
+  | { kind: "active" }
+  | { kind: "suspended" }
+  | { kind: "signup" }
+  | { kind: "blocked"; reason: string } {
+  const number = abnetPadronCustomerNumber(row.abnetCustomerNumber)
+  const presence = latamPresenceFor(row, latamByNumber)
+  if (!number || !row.bespokeCustomerId) {
+    return { kind: "blocked", reason: "Cliente no vinculado con LATAM" }
+  }
+  if (presence == null) return { kind: "pending", reason: "Consultando LATAM" }
+  if (
+    presence.phase === "partial" ||
+    presence.phase === "ambiguous" ||
+    (presence.identifier != null && presence.identifier !== number)
+  ) {
+    return { kind: "blocked", reason: "No se puede operar por conflicto de identidad" }
+  }
+  if (presence.phase === "unavailable") {
+    return { kind: "blocked", reason: "LATAM no disponible" }
+  }
+  if (presence?.identifier === number && latamRowIsOperational(presence)) {
+    return presence.phase === "suspended" ? { kind: "suspended" } : { kind: "active" }
+  }
+  if (presence.phase === "unregistered") return { kind: "signup" }
+  return { kind: "blocked", reason: "LATAM no disponible" }
 }
 
 function SubscriptionsModuleContent() {
@@ -125,6 +150,7 @@ function SubscriptionsModuleContent() {
     updatePlan,
     togglePlanActive,
     removePadronRow,
+    updatePadronTvPlan,
     latamByNumber,
     rememberLatam,
   } = useSubscriptions()
@@ -158,7 +184,6 @@ function SubscriptionsModuleContent() {
   const [latamIntent, setLatamIntent] = useState<LatamDialogIntent>("view")
   const latamRowRef = useRef(latamRow)
   latamRowRef.current = latamRow
-  const [rowToChange, setRowToChange] = useState<AbnetTvPadronRow | null>(null)
   const [rowToRemove, setRowToRemove] = useState<AbnetTvPadronRow | null>(null)
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(() => new Set())
   const [bulkOpen, setBulkOpen] = useState(false)
@@ -193,6 +218,7 @@ function SubscriptionsModuleContent() {
             ? presence.phase
             : "unavailable",
         identifier: presence.identifier,
+        iptvId: presence.iptvId ?? null,
         username: presence.username,
         planName: presence.planName,
       })
@@ -290,7 +316,7 @@ function SubscriptionsModuleContent() {
                   <col className="w-[16%]" />
                   <col className="w-[10%]" />
                   <col className="w-[14%]" />
-                  <col className="w-[13rem]" />
+                  <col className="w-[16rem]" />
                 </colgroup>
                 <TableHeader>
                   <TableRow className="bg-slate-100/70 hover:bg-slate-100/70">
@@ -336,7 +362,7 @@ function SubscriptionsModuleContent() {
                     <TableHead className={`${PADRON_HEAD_CLASS} w-[14%]`}>
                       TV
                     </TableHead>
-                    <TableHead className={`${PADRON_HEAD_CLASS} w-[13rem]`}>
+                    <TableHead className={`${PADRON_HEAD_CLASS} w-[16rem]`}>
                       Acciones
                     </TableHead>
                   </TableRow>
@@ -392,17 +418,16 @@ function SubscriptionsModuleContent() {
                       <TableCell className="px-1 py-2 text-right">
                         <PadronRowActions
                           canWrite={canWrite}
-                          operational={
-                            Boolean(row.bespokeCustomerId) &&
-                            latamRowIsOperational(latamPresenceFor(row, latamByNumber) ?? undefined)
+                          busy={
+                            latamRow?.source === row.source &&
+                            latamRow.sourceRow === row.sourceRow
                           }
-                          suspended={latamPresenceFor(row, latamByNumber)?.phase === "suspended"}
-                          onView={() => openLatam(row, "view")}
+                          mode={padronLatamMode(row, latamByNumber)}
+                          onSignup={() => openLatam(row, "signup")}
                           onPassword={() => openLatam(row, "password")}
                           onSuspend={() => openLatam(row, "suspend")}
                           onActivate={() => openLatam(row, "activate")}
-                          onLatamPlan={() => openLatam(row, "plan")}
-                          onChangePlan={() => setRowToChange(row)}
+                          onPlan={() => openLatam(row, "plan")}
                           onRemove={() => setRowToRemove(row)}
                         />
                       </TableCell>
@@ -452,10 +477,7 @@ function SubscriptionsModuleContent() {
           canWrite={canWrite}
           onClose={() => setLatamRow(null)}
           onStatus={rememberLatamStatus}
-        />
-        <ChangePadronDialog
-          row={rowToChange}
-          onClose={() => setRowToChange(null)}
+          onPadronPlan={updatePadronTvPlan}
         />
         <RemovePadronDialog
           row={rowToRemove}
@@ -505,69 +527,111 @@ function PadronTvMark({ row }: { row: AbnetTvPadronRow }) {
 
 function PadronRowActions({
   canWrite,
-  operational,
-  suspended,
-  onView,
+  busy,
+  mode,
+  onSignup,
   onPassword,
   onSuspend,
   onActivate,
-  onLatamPlan,
-  onChangePlan,
+  onPlan,
   onRemove,
 }: {
   canWrite: boolean
-  operational: boolean
-  suspended: boolean
-  onView: () => void
+  busy: boolean
+  mode: ReturnType<typeof padronLatamMode>
+  onSignup: () => void
   onPassword: () => void
   onSuspend: () => void
   onActivate: () => void
-  onLatamPlan: () => void
-  onChangePlan: () => void
+  onPlan: () => void
   onRemove: () => void
 }) {
+  const locked = !canWrite ? "No tiene permiso para editar TV." : null
+  const blocked = mode.kind === "blocked" || mode.kind === "pending" ? mode.reason : null
+  const operational = mode.kind === "active" || mode.kind === "suspended"
   return (
     <TooltipProvider>
       <div className="flex items-center justify-end gap-0.5">
         <PadronIconButton
-          label="Cambiar plan de TV"
-          className="text-violet-700 hover:text-violet-800 dark:text-violet-300"
-          onClick={onChangePlan}
+          label="Alta LATAM"
+          loading={busy}
+          disabled={Boolean(locked || busy || mode.kind !== "signup")}
+          reason={
+            locked ??
+            (mode.kind === "signup"
+              ? null
+              : operational
+                ? "El cliente ya está en LATAM"
+                : blocked)
+          }
+          onClick={onSignup}
+        >
+          <UserPlus className="size-3.5" />
+        </PadronIconButton>
+        <PadronIconButton
+          label="Activar"
+          loading={busy}
+          disabled={Boolean(locked || busy || mode.kind !== "suspended")}
+          reason={
+            locked ??
+            (mode.kind === "suspended"
+              ? null
+              : mode.kind === "active"
+                ? "El cliente ya está activo"
+                : mode.kind === "signup"
+                  ? "Cliente no vinculado con LATAM"
+                  : blocked)
+          }
+          onClick={onActivate}
+        >
+          <CirclePlay className="size-3.5" />
+        </PadronIconButton>
+        <PadronIconButton
+          label="Desactivar"
+          loading={busy}
+          disabled={Boolean(locked || busy || mode.kind !== "active")}
+          reason={
+            locked ??
+            (mode.kind === "active"
+              ? null
+              : mode.kind === "suspended"
+                ? "El cliente ya está suspendido"
+                : mode.kind === "signup"
+                  ? "Cliente no vinculado con LATAM"
+                  : blocked)
+          }
+          onClick={onSuspend}
+        >
+          <CirclePause className="size-3.5" />
+        </PadronIconButton>
+        <PadronIconButton
+          label="Cambiar clave"
+          loading={busy}
+          disabled={Boolean(locked || busy || !operational)}
+          reason={locked ?? (operational ? null : blocked ?? "Cliente no vinculado con LATAM")}
+          onClick={onPassword}
+        >
+          <KeyRound className="size-3.5" />
+        </PadronIconButton>
+        <PadronIconButton
+          label="Cambiar plan"
+          loading={busy}
+          disabled={Boolean(locked || busy || !operational)}
+          reason={locked ?? (operational ? null : blocked ?? "Cliente no vinculado con LATAM")}
+          onClick={onPlan}
         >
           <ArrowLeftRight className="size-3.5" />
         </PadronIconButton>
-        {canWrite ? (
-          <PadronIconButton
-            label="Eliminar de TV"
-            className="text-muted-foreground hover:text-destructive"
-            onClick={onRemove}
-          >
-            <Trash2 className="size-3.5" />
-          </PadronIconButton>
-        ) : null}
-        <span className="mx-0.5 h-4 w-px shrink-0 bg-border" aria-hidden="true" />
-        <PadronIconButton label="Ver LATAM" className="text-sky-700 hover:text-sky-800 dark:text-sky-300" onClick={onView}>
-          <Tv className="size-3.5" />
+        <PadronIconButton
+          label="Eliminar de TV"
+          loading={busy}
+          disabled={Boolean(locked || busy)}
+          reason={locked}
+          className="text-muted-foreground hover:text-destructive"
+          onClick={onRemove}
+        >
+          <Trash2 className="size-3.5" />
         </PadronIconButton>
-        {operational && canWrite ? (
-          <>
-            <PadronIconButton label="Cambiar clave" onClick={onPassword}>
-              <KeyRound className="size-3.5" />
-            </PadronIconButton>
-            {suspended ? (
-              <PadronIconButton label="Activar" onClick={onActivate}>
-                <CirclePlay className="size-3.5" />
-              </PadronIconButton>
-            ) : (
-              <PadronIconButton label="Suspender" onClick={onSuspend}>
-                <CirclePause className="size-3.5" />
-              </PadronIconButton>
-            )}
-            <PadronIconButton label="Cambiar plan" onClick={onLatamPlan}>
-              <ArrowLeftRight className="size-3.5" />
-            </PadronIconButton>
-          </>
-        ) : null}
       </div>
     </TooltipProvider>
   )
@@ -575,137 +639,49 @@ function PadronRowActions({
 
 function PadronIconButton({
   label,
+  reason = null,
   className,
+  disabled = false,
+  loading = false,
   onClick,
   children,
 }: {
   label: string
+  reason?: string | null
   className?: string
+  disabled?: boolean
+  loading?: boolean
   onClick: () => void
   children: ReactNode
 }) {
+  const tip = disabled && reason ? reason : label
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className={cn("size-7 cursor-pointer", className)}
-          aria-label={label}
-          title={label}
-          onClick={(event) => {
-            event.stopPropagation()
-            onClick()
-          }}
-        >
-          {children}
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
-    </Tooltip>
-  )
-}
-
-function ChangePadronDialog({
-  row,
-  onClose,
-}: {
-  row: AbnetTvPadronRow | null
-  onClose: () => void
-}) {
-  const [choice, setChoice] = useState<AbnetTvPlanOptionId | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
-  const current = row ? currentAbnetTvPlanOption(row) : null
-  const tvLabel = row ? abnetPadronTvRowLabel(row) : ""
-
-  useEffect(() => {
-    setChoice(row ? currentAbnetTvPlanOption(row) : null)
-    setNotice(null)
-  }, [row])
-
-  return (
-    <Dialog
-      open={row != null}
-      onOpenChange={(open) => {
-        if (!open) onClose()
-      }}
-    >
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Cambiar plan de TV</DialogTitle>
-          <DialogDescription>
-            La selección queda en pantalla. No modifica el padrón ni ABNet.
-          </DialogDescription>
-        </DialogHeader>
-        {row ? (
-          <div className="space-y-3 text-sm">
-            <p>N° Cliente: {row.abnetCustomerNumber}</p>
-            <p>Cliente: {row.customerName}</p>
-            <p>TV actual: {tvLabel}</p>
-            {notice ? (
-              <div className="space-y-1 rounded-lg border bg-muted/40 p-3">
-                <p className="font-medium">{notice}</p>
-                <p className="text-muted-foreground">
-                  Este cambio todavía no se aplica en ABNet.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <p className="font-medium">Seleccionar nuevo plan</p>
-                {ABNET_TV_PLAN_OPTIONS.map((option) => {
-                  const selected = choice === option.id
-                  return (
-                    <button
-                      key={option.id}
-                      type="button"
-                      role="radio"
-                      aria-checked={selected}
-                      className={cn(
-                        "flex w-full cursor-pointer flex-col rounded-lg border px-3 py-2 text-left",
-                        selected
-                          ? "border-violet-400 bg-violet-50 dark:bg-violet-950/40"
-                          : "border-border"
-                      )}
-                      onClick={() => setChoice(option.id)}
-                    >
-                      <span className="font-medium">
-                        {option.label}
-                        {current === option.id ? " · Vigente" : ""}
-                      </span>
-                      <span>{formatAbnetPadronMoney(option.amount)}</span>
-                      {row.jubilado ? (
-                        <span className="text-muted-foreground">
-                          Jubilado 50% →{" "}
-                          {formatAbnetPadronMoney(abnetTvJubiladoHalf(option.amount))}
-                        </span>
-                      ) : null}
-                    </button>
-                  )
-                })}
-              </div>
+        <span className="inline-flex" onClick={(event) => event.stopPropagation()}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className={cn(
+              "size-7",
+              disabled ? "text-muted-foreground" : cn("cursor-pointer", className)
             )}
-          </div>
-        ) : null}
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose}>
-            {notice ? "Cerrar" : "Cancelar"}
+            aria-label={disabled && reason ? `${label}. ${reason}` : label}
+            aria-busy={loading || undefined}
+            title={tip}
+            disabled={disabled}
+            onClick={(event) => {
+              event.stopPropagation()
+              if (!disabled) onClick()
+            }}
+          >
+            {children}
           </Button>
-          {notice ? null : (
-            <Button
-              type="button"
-              disabled={choice == null}
-              onClick={() => {
-                if (!choice) return
-                setNotice(abnetTvPlanSelectionNotice(choice).headline)
-              }}
-            >
-              Seleccionar plan
-            </Button>
-          )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>{tip}</TooltipContent>
+    </Tooltip>
   )
 }
 

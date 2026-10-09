@@ -110,8 +110,8 @@ test("8-10. click KPI filtra en /subscriptions y la tabla no abre Clientes 360",
   assert.doesNotMatch(ui, /\/clientes-360\/\$\{row\.bespokeCustomerId\}/)
   assert.doesNotMatch(ui, /Upgrade/)
   assert.doesNotMatch(ui, /Downgrade/)
-  assert.match(ui, /Cambiar plan de TV/)
-  assert.match(ui, /Este cambio todavía no se aplica en ABNet/)
+  assert.match(ui, /label="Cambiar plan"/)
+  assert.doesNotMatch(ui, /Cambiar plan de TV/)
   assert.doesNotMatch(ui, /assignComponent\(/)
   assert.equal(
     serviceMatchesSelectedPlan({

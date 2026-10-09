@@ -125,8 +125,10 @@ test("la baja múltiple reutiliza la eliminación de cada fila", () => {
   assert.doesNotMatch(bulk, /isp_services/)
   assert.doesNotMatch(bulk, /isp_connections/)
   assert.match(rowActions, /label="Eliminar de TV"/)
-  assert.match(rowActions, /onView/)
-  assert.match(rowActions, /onChangePlan/)
+  assert.match(rowActions, /label="Desactivar"/)
+  assert.doesNotMatch(rowActions, /Ver LATAM/)
+  assert.match(rowActions, /label="Cambiar plan"/)
+  assert.doesNotMatch(rowActions, /Cambiar plan de TV/)
   assert.match(ui, /LatamTvRowDialog/)
 })
 
