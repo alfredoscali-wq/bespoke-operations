@@ -310,32 +310,89 @@ function interpretGetClients(
   return { found: true, client }
 }
 
+const LATAM_FALLBACK_CONCURRENCY = 4
+
+export type LatamIdentifierClassification =
+  | LatamBatchClient
+  | {
+      phase: "unresolved"
+      identifier: null
+      iptvId: null
+      username: null
+      planName: null
+    }
+
+function batchEntry(
+  phase: "unresolved",
+  identifier?: string | null,
+  username?: string | null,
+  planName?: string | null,
+  iptvId?: string | null
+): {
+  phase: "unresolved"
+  identifier: null
+  iptvId: null
+  username: null
+  planName: null
+}
 function batchEntry(
   phase: LatamBatchClient["phase"],
+  identifier?: string | null,
+  username?: string | null,
+  planName?: string | null,
+  iptvId?: string | null
+): LatamBatchClient
+function batchEntry(
+  phase: LatamBatchClient["phase"] | "unresolved",
   identifier: string | null = null,
   username: string | null = null,
   planName: string | null = null,
   iptvId: string | null = null
-): LatamBatchClient {
+): LatamIdentifierClassification {
+  if (phase === "unresolved") {
+    return { phase, identifier: null, iptvId: null, username: null, planName: null }
+  }
   return { phase, identifier, iptvId, username, planName }
+}
+
+function isResolvedLatamClient(
+  entry: LatamIdentifierClassification
+): entry is LatamBatchClient {
+  return entry.phase !== "unresolved"
+}
+
+function listedIdentifierSet(value: unknown): Set<string> {
+  if (!Array.isArray(value)) return new Set()
+  return new Set(
+    value.flatMap((item) => {
+      const number = abnetNumberFromExternalCode(text(item))
+      return number ? [number] : []
+    })
+  )
 }
 
 /**
  * Clasifica un GET /api/get-clients con varios identificadores.
  * La clave es id_crm o identificador. id_iptv no identifica la fila.
+ * code 3 no alcanza para marcar a todo el lote: solo noregistrados es no registrado.
+ * Un id ausente de clients y de noregistrados queda unresolved.
  */
 export function classifyLatamIdentifierBatch(
   requested: readonly string[],
   record: Record<string, unknown> | null
-): Record<string, LatamBatchClient> {
-  const ids = [...new Set(requested)]
+): Record<string, LatamIdentifierClassification> {
+  const ids = [
+    ...new Set(
+      requested.flatMap((value) => {
+        const number = abnetNumberFromExternalCode(value)
+        return number ? [number] : []
+      })
+    ),
+  ]
   const unavailable = Object.fromEntries(ids.map((id) => [id, batchEntry("unavailable")]))
   if (!record) return unavailable
   const code = responseCode(record)
-  if (code === 3) {
-    return Object.fromEntries(ids.map((id) => [id, batchEntry("unregistered")]))
-  }
-  if (code !== 1) return unavailable
+  if (code !== 1 && code !== 3) return unavailable
   const found = new Map<string, LatamBatchClient>()
   for (const row of clientRecords(record)) {
     const identifier = recordIdentifier(row)
@@ -352,9 +409,55 @@ export function classifyLatamIdentifierBatch(
       found.set(identifier, batchEntry("unavailable", null, null, null, iptvId))
     }
   }
+  const unregistered = listedIdentifierSet(record.noregistrados)
   return Object.fromEntries(
-    ids.map((id) => [id, found.get(id) ?? batchEntry("unregistered")])
+    ids.map((id) => {
+      const client = found.get(id)
+      if (client) return [id, client]
+      if (unregistered.has(id)) return [id, batchEntry("unregistered")]
+      return [id, batchEntry("unresolved")]
+    })
   )
+}
+
+async function fallbackLatamIdentifier(
+  id: string,
+  deps: LatamTvClientDeps
+): Promise<LatamBatchClient> {
+  try {
+    const record = await postLatam(
+      GET_CLIENTS_PATH,
+      { identificador: [id] },
+      deps,
+      { method: "GET" }
+    )
+    const entry = classifyLatamIdentifierBatch([id], record)[id]
+    if (entry && isResolvedLatamClient(entry)) return entry
+    if (responseCode(record) === 3) {
+      return { phase: "unregistered", identifier: null, iptvId: null, username: null, planName: null }
+    }
+    return { phase: "unavailable", identifier: null, iptvId: null, username: null, planName: null }
+  } catch {
+    return { phase: "unavailable", identifier: null, iptvId: null, username: null, planName: null }
+  }
+}
+
+async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  limit: number,
+  run: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results = new Array<R>(items.length)
+  let next = 0
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const index = next
+      next += 1
+      results[index] = await run(items[index])
+    }
+  })
+  await Promise.all(workers)
+  return results
 }
 
 /** Lectura agrupada. GET /api/get-clients con { identificador: [n, ...] }. No escribe. */
@@ -372,7 +475,29 @@ export async function readLatamClientsByIdentifiers(
   ]
   if (ids.length === 0) return {}
   const record = await postLatam(GET_CLIENTS_PATH, { identificador: ids }, deps, { method: "GET" })
-  return classifyLatamIdentifierBatch(ids, record)
+  const classified = classifyLatamIdentifierBatch(ids, record)
+  const pending = ids.filter((id) => classified[id]?.phase === "unresolved")
+  const resolved = new Map<string, LatamBatchClient>()
+  for (const id of ids) {
+    const entry = classified[id]
+    if (entry && isResolvedLatamClient(entry)) resolved.set(id, entry)
+  }
+  const fallbacks = await mapWithConcurrency(pending, LATAM_FALLBACK_CONCURRENCY, (id) =>
+    fallbackLatamIdentifier(id, deps)
+  )
+  pending.forEach((id, index) => resolved.set(id, fallbacks[index]))
+  return Object.fromEntries(
+    ids.map((id) => [
+      id,
+      resolved.get(id) ?? {
+        phase: "unavailable",
+        identifier: null,
+        iptvId: null,
+        username: null,
+        planName: null,
+      },
+    ])
+  )
 }
 
 /** Lookup. GET /api/get-clients with JSON body { identificador: [n° ABNet] }. */
