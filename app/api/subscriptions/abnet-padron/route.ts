@@ -39,7 +39,7 @@ function unavailableLatamBatch(ids: readonly string[]): Record<string, LatamBatc
   return Object.fromEntries(
     ids.map((id) => [
       id,
-      { phase: "unavailable", identifier: null, username: null, planName: null },
+      { phase: "unavailable", identifier: null, iptvId: null, username: null, planName: null },
     ])
   )
 }

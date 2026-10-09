@@ -12,6 +12,7 @@ export type LatamLookupUiPhase = keyof typeof LATAM_LOOKUP_LABEL
 export type LatamBatchClient = {
   phase: "active" | "suspended" | "unregistered" | "unavailable"
   identifier: string | null
+  iptvId: string | null
   username: string | null
   planName: string | null
 }
