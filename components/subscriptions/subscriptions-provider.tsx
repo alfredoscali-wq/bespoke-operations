@@ -24,6 +24,7 @@ import {
 import type { LatamBatchClient } from "@/lib/integrations/latam-tv/lookup-state"
 import { canWriteSubscriptions } from "@/lib/subscriptions/permissions"
 import type { TvPlanWriteDraft } from "@/lib/subscriptions/tv-catalog"
+import { abnetPadronRowWithTvPlan } from "@/lib/subscriptions/abnet-tv-plan-choice"
 import { DEFAULT_TV_LIST_PAGE_SIZE } from "@/lib/subscriptions/tv-plans"
 import {
   createTvPlan,
@@ -78,6 +79,10 @@ type SubscriptionsContextValue = {
   updatePlan: (id: string, draft: TvPlanWriteDraft) => Promise<string | null>
   togglePlanActive: (plan: TvCatalogPlan) => Promise<string | null>
   removePadronRow: (row: AbnetTvPadronRow) => Promise<string | null>
+  updatePadronTvPlan: (
+    row: AbnetTvPadronRow,
+    kind: "basica" | "pack" | "full"
+  ) => Promise<string | null>
   refreshDesk: () => void
   latamByNumber: Record<string, LatamBatchClient>
   rememberLatam: (number: string, client: LatamBatchClient) => void
@@ -302,6 +307,7 @@ export function SubscriptionsProvider({
             next[number] = clients?.[number] ?? {
               phase: "unavailable",
               identifier: null,
+              iptvId: null,
               username: null,
               planName: null,
             }
@@ -318,6 +324,7 @@ export function SubscriptionsProvider({
             next[number] = {
               phase: "unavailable",
               identifier: null,
+              iptvId: null,
               username: null,
               planName: null,
             }
@@ -402,11 +409,42 @@ export function SubscriptionsProvider({
     return null
   }, [])
 
+  const updatePadronTvPlan = useCallback(
+    async (row: AbnetTvPadronRow, kind: "basica" | "pack" | "full") => {
+      const response = await fetch(`/api/subscriptions/tv-padron/${row.sourceRow}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source: row.source,
+          abnetCustomerNumber: row.abnetCustomerNumber,
+          tvKind: kind,
+        }),
+      })
+      const body = (await response.json().catch(() => null)) as {
+        success?: boolean
+        message?: string
+      } | null
+      if (!response.ok || !body?.success) {
+        return body?.message ?? "LATAM confirmó el plan, pero no se pudo actualizar esta fila del padrón."
+      }
+      setPadronRows((current) =>
+        current.map((item) =>
+          item.source === row.source && item.sourceRow === row.sourceRow
+            ? abnetPadronRowWithTvPlan(item, kind)
+            : item
+        )
+      )
+      return null
+    },
+    []
+  )
+
   const rememberLatam = useCallback((number: string, client: LatamBatchClient) => {
     setLatamByNumber((current) =>
       current[number]?.phase === client.phase &&
       current[number]?.identifier === client.identifier &&
-      current[number]?.planName === client.planName
+      current[number]?.planName === client.planName &&
+      current[number]?.iptvId === client.iptvId
         ? current
         : { ...current, [number]: client }
     )
@@ -439,6 +477,7 @@ export function SubscriptionsProvider({
       updatePlan,
       togglePlanActive,
       removePadronRow,
+      updatePadronTvPlan,
       refreshDesk: reloadDesk,
       latamByNumber,
       rememberLatam,
@@ -468,6 +507,7 @@ export function SubscriptionsProvider({
       updatePlan,
       togglePlanActive,
       removePadronRow,
+      updatePadronTvPlan,
       reloadDesk,
       latamByNumber,
       rememberLatam,

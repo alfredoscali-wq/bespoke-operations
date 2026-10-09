@@ -314,9 +314,10 @@ function batchEntry(
   phase: LatamBatchClient["phase"],
   identifier: string | null = null,
   username: string | null = null,
-  planName: string | null = null
+  planName: string | null = null,
+  iptvId: string | null = null
 ): LatamBatchClient {
-  return { phase, identifier, username, planName }
+  return { phase, identifier, iptvId, username, planName }
 }
 
 /**
@@ -342,12 +343,13 @@ export function classifyLatamIdentifierBatch(
     const status = accountStatus(row.status ?? row.estado)
     const username = text(row.usuario)
     const planName = text(row.plan_name ?? row.plan_nombre)
+    const iptvId = text(row.id_iptv)
     if (status === "enabled") {
-      found.set(identifier, batchEntry("active", identifier, username, planName))
+      found.set(identifier, batchEntry("active", identifier, username, planName, iptvId))
     } else if (status === "disabled") {
-      found.set(identifier, batchEntry("suspended", identifier, username, planName))
+      found.set(identifier, batchEntry("suspended", identifier, username, planName, iptvId))
     } else {
-      found.set(identifier, batchEntry("unavailable"))
+      found.set(identifier, batchEntry("unavailable", null, null, null, iptvId))
     }
   }
   return Object.fromEntries(

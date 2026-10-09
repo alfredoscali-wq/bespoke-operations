@@ -2,6 +2,7 @@ import {
   ABNET_TV_BASICA_AMOUNT,
   ABNET_TV_BASICA_PACK_AMOUNT,
   ABNET_TV_FULL_AMOUNT,
+  classifyAbnetPadronTv,
   formatAbnetPadronMoney,
   type AbnetTvKind,
 } from "@/lib/subscriptions/abnet-tv-padron"
@@ -36,6 +37,15 @@ export function currentAbnetTvPlanOption(row: {
     ABNET_TV_PLAN_OPTIONS.find((option) => option.amount / 2 === row.tvAmount)?.id ??
     null
   )
+}
+
+export function abnetPadronRowWithTvPlan<
+  T extends { tvAmount: number | null; tvKind: AbnetTvKind; tvLabel: string },
+>(row: T, kind: AbnetTvPlanOptionId): T {
+  const option = ABNET_TV_PLAN_OPTIONS.find((item) => item.id === kind)
+  if (!option) return row
+  const tv = classifyAbnetPadronTv(option.amount)
+  return { ...row, tvAmount: option.amount, tvKind: tv.kind, tvLabel: tv.label }
 }
 
 export function abnetTvPlanSelectionNotice(optionId: AbnetTvPlanOptionId): {
