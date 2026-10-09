@@ -18,6 +18,7 @@ import {
   latamRegisterRejectionMessage,
   type LatamRegisterBody,
 } from "@/lib/integrations/latam-tv/signup"
+import type { LatamBatchClient } from "@/lib/integrations/latam-tv/lookup-state"
 import type {
   LatamTvAccountStatus,
   LatamTvClient,
@@ -307,6 +308,69 @@ function interpretGetClients(
   if (!client) return { found: false }
   if (!client.status) throw new LatamTvRequestError("unavailable")
   return { found: true, client }
+}
+
+function batchEntry(
+  phase: LatamBatchClient["phase"],
+  identifier: string | null = null,
+  username: string | null = null,
+  planName: string | null = null
+): LatamBatchClient {
+  return { phase, identifier, username, planName }
+}
+
+/**
+ * Clasifica un GET /api/get-clients con varios identificadores.
+ * La clave es id_crm o identificador. id_iptv no identifica la fila.
+ */
+export function classifyLatamIdentifierBatch(
+  requested: readonly string[],
+  record: Record<string, unknown> | null
+): Record<string, LatamBatchClient> {
+  const ids = [...new Set(requested)]
+  const unavailable = Object.fromEntries(ids.map((id) => [id, batchEntry("unavailable")]))
+  if (!record) return unavailable
+  const code = responseCode(record)
+  if (code === 3) {
+    return Object.fromEntries(ids.map((id) => [id, batchEntry("unregistered")]))
+  }
+  if (code !== 1) return unavailable
+  const found = new Map<string, LatamBatchClient>()
+  for (const row of clientRecords(record)) {
+    const identifier = recordIdentifier(row)
+    if (!identifier || !ids.includes(identifier)) continue
+    const status = accountStatus(row.status ?? row.estado)
+    const username = text(row.usuario)
+    const planName = text(row.plan_name ?? row.plan_nombre)
+    if (status === "enabled") {
+      found.set(identifier, batchEntry("active", identifier, username, planName))
+    } else if (status === "disabled") {
+      found.set(identifier, batchEntry("suspended", identifier, username, planName))
+    } else {
+      found.set(identifier, batchEntry("unavailable"))
+    }
+  }
+  return Object.fromEntries(
+    ids.map((id) => [id, found.get(id) ?? batchEntry("unregistered")])
+  )
+}
+
+/** Lectura agrupada. GET /api/get-clients con { identificador: [n, ...] }. No escribe. */
+export async function readLatamClientsByIdentifiers(
+  identificadores: readonly string[],
+  deps: LatamTvClientDeps
+): Promise<Record<string, LatamBatchClient>> {
+  const ids = [
+    ...new Set(
+      identificadores.flatMap((value) => {
+        const number = abnetNumberFromExternalCode(value)
+        return number ? [number] : []
+      })
+    ),
+  ]
+  if (ids.length === 0) return {}
+  const record = await postLatam(GET_CLIENTS_PATH, { identificador: ids }, deps, { method: "GET" })
+  return classifyLatamIdentifierBatch(ids, record)
 }
 
 /** Lookup. GET /api/get-clients with JSON body { identificador: [n° ABNet] }. */

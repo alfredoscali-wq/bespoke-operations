@@ -154,6 +154,28 @@ test("5. la papelera abre la baja y no el cambio de plan", () => {
   assert.doesNotMatch(removal, /setRowToChange/)
 })
 
+test("6. la página consulta LATAM agrupado y no por fila", () => {
+  const ui = read("components/subscriptions/subscriptions-module.tsx")
+  const provider = read("components/subscriptions/subscriptions-provider.tsx")
+  const route = read("app/api/subscriptions/abnet-padron/route.ts")
+  assert.doesNotMatch(ui, /fetch\(/)
+  assert.match(ui, /latamByNumber/)
+  assert.match(ui, /known=/)
+  assert.match(ui, /label="Cambiar plan de TV"/)
+  assert.match(ui, /label="Eliminar de TV"/)
+  assert.match(provider, /latam: missing\.join/)
+  assert.match(provider, /\/api\/subscriptions\/abnet-padron\?/)
+  assert.match(route, /readLatamClientsByIdentifiers/)
+  assert.match(route, /searchParams\.get\("latam"\)/)
+  assert.doesNotMatch(route, /getLatamTvClientByIdentifier/)
+  assert.doesNotMatch(route, /sync-client/)
+  assert.doesNotMatch(route, /enable-client/)
+  assert.doesNotMatch(route, /disable-client/)
+  assert.doesNotMatch(route, /modify-client/)
+  assert.doesNotMatch(route, /delete-client/)
+  assert.match(route, /loadAbnetTvPadronSourceRows/)
+})
+
 test("7. dos filas del mismo N° se eliminan por source_row", () => {
   const rows = [
     {

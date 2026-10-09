@@ -1,10 +1,11 @@
 "use client"
 
 import { ArrowLeftRight, ChevronLeft, ChevronRight, CirclePause, CirclePlay, KeyRound, Trash2, Tv } from "lucide-react"
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 
 import {
   LatamTvRowDialog,
+  latamPresenceLabel,
   latamRowIsOperational,
   type LatamDialogIntent,
   type LatamRowPresence,
@@ -38,7 +39,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import type { LatamBatchClient } from "@/lib/integrations/latam-tv/lookup-state"
 import {
+  abnetPadronCustomerNumber,
   abnetPadronTvRowLabel,
   formatAbnetPadronMoney,
   type AbnetTvKind,
@@ -81,6 +84,29 @@ const STATUS_CLASS: Record<string, string> = {
   Inactiva: STATUS_TONE_STYLES.gray,
 }
 
+function latamPresenceFor(
+  row: AbnetTvPadronRow,
+  latamByNumber: Record<string, LatamBatchClient>
+): LatamRowPresence | null | undefined {
+  const number = abnetPadronCustomerNumber(row.abnetCustomerNumber)
+  if (!number) return undefined
+  const client = latamByNumber[number]
+  if (!client) return null
+  const label =
+    client.phase === "unregistered"
+      ? "LATAM: No registrado"
+      : client.phase === "unavailable"
+        ? "LATAM: No disponible"
+        : latamPresenceLabel(client.phase, client.planName)
+  return {
+    phase: client.phase,
+    label,
+    planName: client.planName,
+    identifier: client.identifier,
+    username: client.username,
+  }
+}
+
 function SubscriptionsModuleContent() {
   const {
     plans,
@@ -99,6 +125,8 @@ function SubscriptionsModuleContent() {
     updatePlan,
     togglePlanActive,
     removePadronRow,
+    latamByNumber,
+    rememberLatam,
   } = useSubscriptions()
 
   const listTitle =
@@ -128,9 +156,8 @@ function SubscriptionsModuleContent() {
     : "El padrón de TV no tiene filas."
   const [latamRow, setLatamRow] = useState<AbnetTvPadronRow | null>(null)
   const [latamIntent, setLatamIntent] = useState<LatamDialogIntent>("view")
-  const [latamByCustomer, setLatamByCustomer] = useState<
-    Record<string, LatamRowPresence>
-  >({})
+  const latamRowRef = useRef(latamRow)
+  latamRowRef.current = latamRow
   const [rowToChange, setRowToChange] = useState<AbnetTvPadronRow | null>(null)
   const [rowToRemove, setRowToRemove] = useState<AbnetTvPadronRow | null>(null)
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(() => new Set())
@@ -153,15 +180,25 @@ function SubscriptionsModuleContent() {
       return next
     })
   }, [visibleKeys])
-  const rememberLatamStatus = useCallback((customerId: string, presence: LatamRowPresence) => {
-    setLatamByCustomer((current) =>
-      current[customerId]?.label === presence.label &&
-      current[customerId]?.phase === presence.phase &&
-      current[customerId]?.identifier === presence.identifier
-        ? current
-        : { ...current, [customerId]: presence }
-    )
-  }, [])
+  const rememberLatamStatus = useCallback(
+    (_customerId: string, presence: LatamRowPresence) => {
+      const number = abnetPadronCustomerNumber(latamRowRef.current?.abnetCustomerNumber)
+      if (!number) return
+      rememberLatam(number, {
+        phase:
+          presence.phase === "active" ||
+          presence.phase === "suspended" ||
+          presence.phase === "unregistered" ||
+          presence.phase === "unavailable"
+            ? presence.phase
+            : "unavailable",
+        identifier: presence.identifier,
+        username: presence.username,
+        planName: presence.planName,
+      })
+    },
+    [rememberLatam]
+  )
   const openLatam = useCallback((row: AbnetTvPadronRow, intent: LatamDialogIntent) => {
     setLatamIntent(intent)
     setLatamRow(row)
@@ -253,7 +290,7 @@ function SubscriptionsModuleContent() {
                   <col className="w-[16%]" />
                   <col className="w-[10%]" />
                   <col className="w-[14%]" />
-                  <col className="w-[10.5rem]" />
+                  <col className="w-[13rem]" />
                 </colgroup>
                 <TableHeader>
                   <TableRow className="bg-slate-100/70 hover:bg-slate-100/70">
@@ -299,7 +336,7 @@ function SubscriptionsModuleContent() {
                     <TableHead className={`${PADRON_HEAD_CLASS} w-[14%]`}>
                       TV
                     </TableHead>
-                    <TableHead className={`${PADRON_HEAD_CLASS} w-[10.5rem]`}>
+                    <TableHead className={`${PADRON_HEAD_CLASS} w-[13rem]`}>
                       Acciones
                     </TableHead>
                   </TableRow>
@@ -355,16 +392,11 @@ function SubscriptionsModuleContent() {
                       <TableCell className="px-1 py-2 text-right">
                         <PadronRowActions
                           canWrite={canWrite}
-                          operational={latamRowIsOperational(
-                            row.bespokeCustomerId
-                              ? latamByCustomer[row.bespokeCustomerId]
-                              : undefined
-                          )}
-                          suspended={
-                            row.bespokeCustomerId
-                              ? latamByCustomer[row.bespokeCustomerId]?.phase === "suspended"
-                              : false
+                          operational={
+                            Boolean(row.bespokeCustomerId) &&
+                            latamRowIsOperational(latamPresenceFor(row, latamByNumber) ?? undefined)
                           }
+                          suspended={latamPresenceFor(row, latamByNumber)?.phase === "suspended"}
                           onView={() => openLatam(row, "view")}
                           onPassword={() => openLatam(row, "password")}
                           onSuspend={() => openLatam(row, "suspend")}
@@ -416,6 +448,7 @@ function SubscriptionsModuleContent() {
         <LatamTvRowDialog
           row={latamRow}
           intent={latamIntent}
+          known={latamRow ? latamPresenceFor(latamRow, latamByNumber) : undefined}
           canWrite={canWrite}
           onClose={() => setLatamRow(null)}
           onStatus={rememberLatamStatus}
@@ -496,6 +529,23 @@ function PadronRowActions({
   return (
     <TooltipProvider>
       <div className="flex items-center justify-end gap-0.5">
+        <PadronIconButton
+          label="Cambiar plan de TV"
+          className="text-violet-700 hover:text-violet-800 dark:text-violet-300"
+          onClick={onChangePlan}
+        >
+          <ArrowLeftRight className="size-3.5" />
+        </PadronIconButton>
+        {canWrite ? (
+          <PadronIconButton
+            label="Eliminar de TV"
+            className="text-muted-foreground hover:text-destructive"
+            onClick={onRemove}
+          >
+            <Trash2 className="size-3.5" />
+          </PadronIconButton>
+        ) : null}
+        <span className="mx-0.5 h-4 w-px shrink-0 bg-border" aria-hidden="true" />
         <PadronIconButton label="Ver LATAM" className="text-sky-700 hover:text-sky-800 dark:text-sky-300" onClick={onView}>
           <Tv className="size-3.5" />
         </PadronIconButton>
@@ -517,23 +567,6 @@ function PadronRowActions({
               <ArrowLeftRight className="size-3.5" />
             </PadronIconButton>
           </>
-        ) : (
-          <PadronIconButton
-            label="Cambiar plan de TV"
-            className="text-violet-700 hover:text-violet-800 dark:text-violet-300"
-            onClick={onChangePlan}
-          >
-            <ArrowLeftRight className="size-3.5" />
-          </PadronIconButton>
-        )}
-        {canWrite ? (
-          <PadronIconButton
-            label="Eliminar de TV"
-            className="text-muted-foreground hover:text-destructive"
-            onClick={onRemove}
-          >
-            <Trash2 className="size-3.5" />
-          </PadronIconButton>
         ) : null}
       </div>
     </TooltipProvider>

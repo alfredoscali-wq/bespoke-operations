@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react"
 
@@ -13,12 +14,14 @@ import { useAuth } from "@/components/auth/auth-provider"
 import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
 import { clampAbnetPadronPage } from "@/lib/subscriptions/abnet-tv-padron-exclusions"
 import {
+  abnetPadronCustomerNumber,
   matchesAbnetPadronFilters,
   summarizeAbnetTvPadron,
   type AbnetTvKind,
   type AbnetTvPadronRow,
   type AbnetTvPadronSummary,
 } from "@/lib/subscriptions/abnet-tv-padron"
+import type { LatamBatchClient } from "@/lib/integrations/latam-tv/lookup-state"
 import { canWriteSubscriptions } from "@/lib/subscriptions/permissions"
 import type { TvPlanWriteDraft } from "@/lib/subscriptions/tv-catalog"
 import { DEFAULT_TV_LIST_PAGE_SIZE } from "@/lib/subscriptions/tv-plans"
@@ -76,6 +79,8 @@ type SubscriptionsContextValue = {
   togglePlanActive: (plan: TvCatalogPlan) => Promise<string | null>
   removePadronRow: (row: AbnetTvPadronRow) => Promise<string | null>
   refreshDesk: () => void
+  latamByNumber: Record<string, LatamBatchClient>
+  rememberLatam: (number: string, client: LatamBatchClient) => void
 }
 
 const SubscriptionsContext = createContext<SubscriptionsContextValue | null>(
@@ -103,6 +108,8 @@ export function SubscriptionsProvider({
   const [isListLoading, setIsListLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [deskEpoch, setDeskEpoch] = useState(0)
+  const [latamByNumber, setLatamByNumber] = useState<Record<string, LatamBatchClient>>({})
+  const latamRequested = useRef(new Set<string>())
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -264,6 +271,68 @@ export function SubscriptionsProvider({
     }
   }, [filteredRows, isSummaryReady, page])
 
+  const pageNumbers = useMemo(() => {
+    const numbers = new Set<string>()
+    for (const row of list?.items ?? []) {
+      const number = abnetPadronCustomerNumber(row.abnetCustomerNumber)
+      if (number) numbers.add(number)
+    }
+    return [...numbers]
+  }, [list])
+
+  useEffect(() => {
+    const missing = pageNumbers.filter((number) => !latamRequested.current.has(number))
+    if (missing.length === 0) return
+    for (const number of missing) latamRequested.current.add(number)
+    let cancelled = false
+    let applied = false
+    const params = new URLSearchParams({ latam: missing.join(",") })
+    void fetch(`/api/subscriptions/abnet-padron?${params}`)
+      .then(async (response) => {
+        const body = (await response.json().catch(() => null)) as {
+          success?: boolean
+          clients?: Record<string, LatamBatchClient>
+        } | null
+        if (cancelled) return
+        applied = true
+        const clients = response.ok && body?.success ? body.clients ?? {} : null
+        setLatamByNumber((current) => {
+          const next = { ...current }
+          for (const number of missing) {
+            next[number] = clients?.[number] ?? {
+              phase: "unavailable",
+              identifier: null,
+              username: null,
+              planName: null,
+            }
+          }
+          return next
+        })
+      })
+      .catch(() => {
+        if (cancelled) return
+        applied = true
+        setLatamByNumber((current) => {
+          const next = { ...current }
+          for (const number of missing) {
+            next[number] = {
+              phase: "unavailable",
+              identifier: null,
+              username: null,
+              planName: null,
+            }
+          }
+          return next
+        })
+      })
+    return () => {
+      cancelled = true
+      if (!applied) {
+        for (const number of missing) latamRequested.current.delete(number)
+      }
+    }
+  }, [pageNumbers])
+
   useEffect(() => {
     if (!list || list.page === page) return
     setPageState(list.page)
@@ -333,6 +402,16 @@ export function SubscriptionsProvider({
     return null
   }, [])
 
+  const rememberLatam = useCallback((number: string, client: LatamBatchClient) => {
+    setLatamByNumber((current) =>
+      current[number]?.phase === client.phase &&
+      current[number]?.identifier === client.identifier &&
+      current[number]?.planName === client.planName
+        ? current
+        : { ...current, [number]: client }
+    )
+  }, [])
+
   const value = useMemo<SubscriptionsContextValue>(
     () => ({
       plans,
@@ -361,6 +440,8 @@ export function SubscriptionsProvider({
       togglePlanActive,
       removePadronRow,
       refreshDesk: reloadDesk,
+      latamByNumber,
+      rememberLatam,
     }),
     [
       plans,
@@ -388,6 +469,8 @@ export function SubscriptionsProvider({
       togglePlanActive,
       removePadronRow,
       reloadDesk,
+      latamByNumber,
+      rememberLatam,
     ]
   )
 

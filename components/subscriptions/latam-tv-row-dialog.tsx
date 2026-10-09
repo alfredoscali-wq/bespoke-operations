@@ -73,7 +73,7 @@ function statusLabel(phase: LatamPhase): string | null {
   return null
 }
 
-function latamPresenceLabel(
+export function latamPresenceLabel(
   phase: "active" | "suspended" | "unavailable" | "created",
   planName: string | null
 ): string {
@@ -112,12 +112,15 @@ export function latamRowIsOperational(presence: LatamRowPresence | undefined): b
 export function LatamTvRowDialog({
   row,
   intent = "view",
+  known,
   canWrite,
   onClose,
   onStatus,
 }: {
   row: AbnetTvPadronRow | null
   intent?: LatamDialogIntent
+  /** Resultado de la consulta agrupada. null: todavía no llegó. undefined: la fila no tiene N° Cliente. */
+  known?: LatamRowPresence | null
   canWrite: boolean
   onClose: () => void
   onStatus: (customerId: string, presence: LatamRowPresence) => void
@@ -141,6 +144,12 @@ export function LatamTvRowDialog({
   const [selectedPlan, setSelectedPlan] = useState<LatamPlanOption | null>(null)
   const busy = useRef(false)
   const planChangeRef = useRef<() => void>(() => {})
+  const knownKey =
+    known === undefined
+      ? "none"
+      : known === null
+        ? "pending"
+        : `${known.phase}|${known.identifier ?? ""}|${known.planName ?? ""}|${known.username ?? ""}`
 
   useEffect(() => {
     setMissing([])
@@ -162,6 +171,46 @@ export function LatamTvRowDialog({
     busy.current = false
     if (!row) {
       setPhase("idle")
+      return
+    }
+    if (known === null) {
+      setPhase("loading")
+      return
+    }
+    if (known) {
+      const presence = known
+      setUsername(presence.username)
+      setLatamPlanName(presence.planName)
+      setLatamIdentifier(presence.identifier)
+      if (presence.phase === "active" || presence.phase === "suspended") {
+        setAccountPhase(presence.phase)
+      }
+      const linked = Boolean(presence.identifier)
+      const operational =
+        linked && (presence.phase === "active" || presence.phase === "suspended")
+      if (row.bespokeCustomerId) onStatus(row.bespokeCustomerId, presence)
+      if (intent === "password" && operational) {
+        setPhase("password")
+      } else if (intent === "suspend" && presence.phase === "active" && linked) {
+        setStatusAction("disable")
+        setPhase("status_confirm")
+      } else if (intent === "activate" && presence.phase === "suspended" && linked) {
+        setStatusAction("enable")
+        setPhase("status_confirm")
+      } else if (intent === "plan" && operational) {
+        planChangeRef.current()
+      } else if (
+        presence.phase === "active" ||
+        presence.phase === "suspended" ||
+        presence.phase === "unregistered" ||
+        presence.phase === "unavailable" ||
+        presence.phase === "partial" ||
+        presence.phase === "ambiguous"
+      ) {
+        setPhase(presence.phase)
+      } else {
+        setPhase("unavailable")
+      }
       return
     }
     if (!row.bespokeCustomerId) {
@@ -225,7 +274,7 @@ export function LatamTvRowDialog({
     return () => {
       cancelled = true
     }
-  }, [row, intent, onStatus])
+  }, [row, intent, onStatus, knownKey])
 
   async function postSignup(confirm: boolean) {
     if (!row?.bespokeCustomerId || busy.current) return

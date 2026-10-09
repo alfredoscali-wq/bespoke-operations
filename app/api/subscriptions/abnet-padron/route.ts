@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server"
 
+import { readLatamClientsByIdentifiers } from "@/lib/integrations/latam-tv/client"
+import { readLatamTvConfig } from "@/lib/integrations/latam-tv/config"
+import type { LatamBatchClient } from "@/lib/integrations/latam-tv/lookup-state"
 import { excludeAbnetPadronRows } from "@/lib/subscriptions/abnet-tv-padron-exclusions"
 import {
   loadAbnetTvPadronSourceRows,
@@ -19,6 +22,40 @@ import { createClient } from "@/lib/supabase/server"
 export const runtime = "nodejs"
 
 const PAGE = 1000
+const LATAM_BATCH_LIMIT = 50
+
+function latamBatchIds(raw: string): string[] {
+  return [
+    ...new Set(
+      raw.split(",").flatMap((value) => {
+        const number = abnetPadronCustomerNumber(value)
+        return number ? [number] : []
+      })
+    ),
+  ].slice(0, LATAM_BATCH_LIMIT)
+}
+
+function unavailableLatamBatch(ids: readonly string[]): Record<string, LatamBatchClient> {
+  return Object.fromEntries(
+    ids.map((id) => [
+      id,
+      { phase: "unavailable", identifier: null, username: null, planName: null },
+    ])
+  )
+}
+
+async function readLatamBatch(raw: string) {
+  const ids = latamBatchIds(raw)
+  if (ids.length === 0) return NextResponse.json({ success: true, clients: {} })
+  const config = readLatamTvConfig()
+  if (!config) return NextResponse.json({ success: true, clients: unavailableLatamBatch(ids) })
+  try {
+    const clients = await readLatamClientsByIdentifiers(ids, { ...config, timeoutMs: 20_000 })
+    return NextResponse.json({ success: true, clients })
+  } catch {
+    return NextResponse.json({ success: true, clients: unavailableLatamBatch(ids) })
+  }
+}
 
 type LooseFilter = {
   eq: (column: string, value: string) => LooseFilter
@@ -157,9 +194,11 @@ function attachBespoke(
   })
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const auth = await requireSubscriptionsReadContext()
   if (!auth.ok) return auth.response
+  const latam = new URL(request.url).searchParams.get("latam")
+  if (latam != null) return readLatamBatch(latam)
 
   try {
     const client = await createClient()
