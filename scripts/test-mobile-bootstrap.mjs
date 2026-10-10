@@ -24,6 +24,9 @@ const errors = read("lib/mobile/v1/errors.ts")
 const routing = read("lib/mobile/v1/routing.ts")
 const types = read("lib/supabase/database.types.ts")
 const migration = read("supabase/migrations/20261222000100_company_branding.sql")
+const displayNameMigration = read(
+  "supabase/migrations/20261226000100_companies_display_name.sql"
+)
 const docs = read("docs/mobile-api.md")
 
 function findActiveCompanyByMobileCode(companies, rawCode) {
@@ -54,6 +57,10 @@ function findSettingsForCompany(settingsRows, companyId) {
   return settingsRows.find((row) => row.company_id === companyId) ?? null
 }
 
+function resolveVisibleCompanyName(company) {
+  return company.display_name?.trim() || company.name?.trim() || "Bespoke"
+}
+
 function bootstrapForCode(companies, brandingRows, rawCode, settingsRows = []) {
   const company = findActiveCompanyByMobileCode(companies, rawCode)
   if (!company) {
@@ -61,7 +68,7 @@ function bootstrapForCode(companies, brandingRows, rawCode, settingsRows = []) {
   }
   return mapMobileBootstrapResponse({
     companyId: company.id,
-    companyName: company.name,
+    companyName: resolveVisibleCompanyName(company),
     branding: findBrandingForCompany(brandingRows, company.id),
     operations: findSettingsForCompany(settingsRows, company.id),
   })
@@ -69,7 +76,8 @@ function bootstrapForCode(companies, brandingRows, rawCode, settingsRows = []) {
 
 const ABNET = {
   id: "co-abnet",
-  name: "ABNet",
+  name: "Bespoke Operations",
+  display_name: "ABNet",
   mobile_code: "abnet",
   deleted_at: null,
 }
@@ -108,9 +116,50 @@ test("A. empresa válida devuelve companyId y companyName", () => {
   const data = bootstrapForCode([ABNET], [], "ABNET")
   assert.equal(data.companyId, "co-abnet")
   assert.equal(data.companyName, "ABNet")
-  assert.match(service, /\.select\("id, name"\)/)
+  assert.match(service, /\.select\("id, name, display_name"\)/)
   assert.match(service, /companyId: data\.id/)
-  assert.match(service, /companyName: data\.name/)
+  assert.match(service, /data\.display_name\?\.trim\(\)/)
+  assert.match(service, /data\.name\?\.trim\(\)/)
+  assert.match(service, /\|\| "Bespoke"/)
+  assert.match(service, /companyName,/)
+})
+
+test("A2. display_name nulo usa companies.name", () => {
+  const data = bootstrapForCode(
+    [{ ...ABNET, name: "Empresa Demo", display_name: null }],
+    [],
+    "ABNET"
+  )
+  assert.equal(data.companyName, "Empresa Demo")
+})
+
+test("A3. display_name vacío usa companies.name", () => {
+  const data = bootstrapForCode(
+    [{ ...ABNET, name: "Empresa Demo", display_name: "   " }],
+    [],
+    "ABNET"
+  )
+  assert.equal(data.companyName, "Empresa Demo")
+})
+
+test("A4. sin display_name ni name usa Bespoke", () => {
+  const data = bootstrapForCode(
+    [{ ...ABNET, name: "   ", display_name: null }],
+    [],
+    "ABNET"
+  )
+  assert.equal(data.companyName, "Bespoke")
+})
+
+test("migración agrega display_name y configura el tenant actual", () => {
+  assert.match(displayNameMigration, /ADD COLUMN IF NOT EXISTS display_name text/)
+  assert.match(
+    displayNameMigration,
+    /00000000-0000-4000-8000-000000000002/
+  )
+  assert.match(displayNameMigration, /SET display_name = 'ABNet'/)
+  assert.doesNotMatch(displayNameMigration, /SET\s+(name|slug|mobile_code)\s*=/)
+  assert.match(types, /display_name: string \| null/)
 })
 
 test("B. empresa con branding devuelve logoUrl, primaryColor y secondaryColor", () => {
