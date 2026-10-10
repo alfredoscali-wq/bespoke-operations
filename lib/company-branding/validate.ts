@@ -79,9 +79,28 @@ export function isAllowedCompanyBrandingLogoFile(input: {
 }
 
 export type CompanyBrandingPatch = {
+  displayName?: string | null
   logoUrl?: string | null
   primaryColor?: string | null
   secondaryColor?: string | null
+}
+
+function parseOptionalDisplayName(
+  value: unknown
+): { ok: true; value?: string | null } | { ok: false; message: string } {
+  if (value === undefined) {
+    return { ok: true }
+  }
+  if (value === null) {
+    return { ok: true, value: null }
+  }
+  if (typeof value !== "string") {
+    return {
+      ok: false,
+      message: "El nombre visible de la empresa no es válido.",
+    }
+  }
+  return { ok: true, value: value.trim() || null }
 }
 
 function parseOptionalLogoUrl(
@@ -127,10 +146,13 @@ function parseOptionalHex(
 }
 
 export function parseCompanyBrandingPatch(input: {
+  displayName?: unknown
   logoUrl?: unknown
   primaryColor?: unknown
   secondaryColor?: unknown
 } | Record<string, unknown>): { ok: true; patch: CompanyBrandingPatch } | { ok: false; message: string } {
+  const displayName = parseOptionalDisplayName(input.displayName)
+  if (!displayName.ok) return displayName
   const logoUrl = parseOptionalLogoUrl(input.logoUrl)
   if (!logoUrl.ok) return logoUrl
   const primaryColor = parseOptionalHex(
@@ -145,6 +167,9 @@ export function parseCompanyBrandingPatch(input: {
   if (!secondaryColor.ok) return secondaryColor
 
   const patch: CompanyBrandingPatch = {}
+  if ("value" in displayName) {
+    patch.displayName = displayName.value ?? null
+  }
   if ("value" in logoUrl) patch.logoUrl = logoUrl.value ?? null
   if ("value" in primaryColor) patch.primaryColor = primaryColor.value ?? null
   if ("value" in secondaryColor) {

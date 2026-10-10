@@ -24,6 +24,7 @@ export function CompanyBrandingConfigPage() {
   const { sessionUser, isAuthReady } = useAuth()
   const canManage = canManageCompanyBranding(sessionUser)
   const [branding, setBranding] = useState<CompanyBranding | null>(null)
+  const [displayName, setDisplayName] = useState("")
   const [primaryColor, setPrimaryColor] = useState("")
   const [secondaryColor, setSecondaryColor] = useState("")
   const [isLoading, setIsLoading] = useState(true)
@@ -40,6 +41,7 @@ export function CompanyBrandingConfigPage() {
       const body = (await response.json()) as {
         success?: boolean
         branding?: CompanyBranding | null
+        displayName?: string | null
         message?: string
       }
       if (!response.ok || !body.success) {
@@ -47,6 +49,7 @@ export function CompanyBrandingConfigPage() {
       }
       const current = body.branding ?? null
       setBranding(current)
+      setDisplayName(body.displayName ?? "")
       setPrimaryColor(current?.primaryColor ?? "")
       setSecondaryColor(current?.secondaryColor ?? "")
     } catch (loadError) {
@@ -77,6 +80,7 @@ export function CompanyBrandingConfigPage() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          displayName: displayName.trim() || null,
           primaryColor: primaryColor.trim() || null,
           secondaryColor: secondaryColor.trim() || null,
         }),
@@ -84,12 +88,14 @@ export function CompanyBrandingConfigPage() {
       const body = (await response.json()) as {
         success?: boolean
         branding?: CompanyBranding
+        displayName?: string | null
         message?: string
       }
       if (!response.ok || !body.success || !body.branding) {
         throw new Error(body.message ?? "No se pudo guardar.")
       }
       setBranding(body.branding)
+      setDisplayName(body.displayName ?? "")
       setPrimaryColor(body.branding.primaryColor ?? "")
       setSecondaryColor(body.branding.secondaryColor ?? "")
       setMessage("Identidad de empresa guardada.")
@@ -170,8 +176,8 @@ export function CompanyBrandingConfigPage() {
           Identidad de empresa
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Logo y colores del tenant. Operations autenticado y Mobile bootstrap
-          usan la misma fuente.
+          Nombre visible, logo y colores del tenant. Operations autenticado y
+          Mobile bootstrap usan la misma configuración.
         </p>
       </div>
 
@@ -191,10 +197,27 @@ export function CompanyBrandingConfigPage() {
           <CardHeader>
             <CardTitle className="text-base">Marca visual</CardTitle>
             <CardDescription>
-              No modifica el nombre interno de la empresa.
+              Personaliza la identidad sin modificar el nombre interno de la empresa.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="company-branding-display-name">
+                Nombre visible de la empresa
+              </Label>
+              <Input
+                id="company-branding-display-name"
+                value={displayName}
+                placeholder="Nombre comercial"
+                disabled={isLoading || uploading || isSaving}
+                onChange={(event) => setDisplayName(event.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Es el nombre que se mostrará a los usuarios en Bespoke Mobile y
+                otras interfaces personalizadas. Si se deja vacío, se utilizará
+                el nombre interno de la empresa.
+              </p>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="company-branding-logo">Logo</Label>
               <Input

@@ -12,7 +12,9 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import {
   fetchCompanyBranding,
+  fetchCompanyDisplayName,
   upsertCompanyBranding,
+  updateCompanyDisplayName,
 } from "@/lib/supabase/company-branding.queries"
 
 export async function GET() {
@@ -33,11 +35,15 @@ export async function GET() {
 
   const companyId = sessionUser.companyId!.trim()
   const client = await createClient()
-  const branding = await fetchCompanyBranding(client, companyId)
+  const [branding, displayName] = await Promise.all([
+    fetchCompanyBranding(client, companyId),
+    fetchCompanyDisplayName(client, companyId),
+  ])
 
   return NextResponse.json({
     success: true,
     branding,
+    displayName,
   })
 }
 
@@ -97,8 +103,30 @@ export async function PUT(request: Request) {
     )
   }
 
+  let displayName: string | null
+  if (parsed.patch.displayName !== undefined) {
+    const displayNameResult = await updateCompanyDisplayName(
+      admin,
+      companyId,
+      parsed.patch.displayName
+    )
+    if (displayNameResult.error) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: displayNameResult.error,
+        },
+        { status: 400 }
+      )
+    }
+    displayName = displayNameResult.displayName
+  } else {
+    displayName = await fetchCompanyDisplayName(admin, companyId)
+  }
+
   return NextResponse.json({
     success: true,
     branding: result.data,
+    displayName,
   })
 }

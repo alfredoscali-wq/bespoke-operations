@@ -31,6 +31,51 @@ export async function fetchCompanyBranding(
   return mapCompanyBrandingRow(data)
 }
 
+export async function fetchCompanyDisplayName(
+  client: BrandingClient,
+  companyId: string
+): Promise<string | null> {
+  const { data, error } = await client
+    .from("companies")
+    .select("display_name")
+    .eq("id", companyId)
+    .is("deleted_at", null)
+    .maybeSingle()
+
+  if (error || !data) {
+    return null
+  }
+
+  return data.display_name?.trim() || null
+}
+
+export async function updateCompanyDisplayName(
+  client: BrandingClient,
+  companyId: string,
+  displayName: string | null
+): Promise<{ displayName: string | null; error: string | null }> {
+  const normalized = displayName?.trim() || null
+  const { data, error } = await client
+    .from("companies")
+    .update({ display_name: normalized })
+    .eq("id", companyId)
+    .is("deleted_at", null)
+    .select("display_name")
+    .single()
+
+  if (error || !data) {
+    return {
+      displayName: null,
+      error: error?.message ?? "No se pudo guardar el nombre visible.",
+    }
+  }
+
+  return {
+    displayName: data.display_name?.trim() || null,
+    error: null,
+  }
+}
+
 export async function upsertCompanyBranding(
   client: BrandingClient,
   companyId: string,

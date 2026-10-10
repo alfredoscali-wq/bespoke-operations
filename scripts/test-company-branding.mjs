@@ -157,15 +157,22 @@ test("colores del tenant tocan primary/sidebar y no destructive", () => {
 test("patch rechaza hex inválido y acepta limpieza", () => {
   assert.equal(parseCompanyBrandingPatch({ primaryColor: "red" }).ok, false)
   const ok = parseCompanyBrandingPatch({
+    displayName: "  Empresa Visible  ",
     primaryColor: "#023166",
     secondaryColor: "",
     logoUrl: "https://cdn.example.com/a.png",
   })
   assert.equal(ok.ok, true)
   if (ok.ok) {
+    assert.equal(ok.patch.displayName, "Empresa Visible")
     assert.equal(ok.patch.primaryColor, "#023166")
     assert.equal(ok.patch.secondaryColor, null)
     assert.equal(ok.patch.logoUrl, "https://cdn.example.com/a.png")
+  }
+  const blankName = parseCompanyBrandingPatch({ displayName: "   " })
+  assert.equal(blankName.ok, true)
+  if (blankName.ok) {
+    assert.equal(blankName.patch.displayName, null)
   }
   assert.equal(
     isAllowedCompanyBrandingLogoFile({
@@ -183,6 +190,23 @@ test("patch rechaza hex inválido y acepta limpieza", () => {
     }),
     false
   )
+})
+
+test("pantalla existente edita display_name sin hardcodear tenants", () => {
+  const page = read(
+    "components/configuracion/company-branding-config-page.tsx"
+  )
+  const route = read("app/api/company-branding/route.ts")
+  const queries = read("lib/supabase/company-branding.queries.ts")
+
+  assert.match(page, /Nombre visible de la empresa/)
+  assert.match(page, /Si se deja vacío/)
+  assert.match(page, /displayName/)
+  assert.doesNotMatch(page, /ABNet|ABNET-7K5G/)
+  assert.match(route, /updateCompanyDisplayName/)
+  assert.match(queries, /\.from\("companies"\)/)
+  assert.match(queries, /\.update\(\{ display_name: normalized \}\)/)
+  assert.doesNotMatch(queries, /\.update\(\{ name:/)
 })
 
 test("migración de storage no altera RLS de company_branding", () => {
