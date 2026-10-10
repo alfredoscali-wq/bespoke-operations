@@ -21,6 +21,11 @@ import {
   PROJECT_ARCHIVE_BLOCKED_ACTIVE_TASKS_MESSAGE,
   PROJECT_DELETE_USER_MESSAGE,
 } from "@/lib/operations/user-messages"
+import { toLocalDateOnly } from "@/lib/dates/date-only"
+import {
+  buildAutoActivateHistoryDescription,
+  shouldAutoActivateProjectByStartDate,
+} from "@/lib/projects/project-auto-activate"
 
 export type SupabaseProjectsClient = SupabaseClient<Database>
 
@@ -38,10 +43,80 @@ export function mapSupabaseError(error: { code?: string; message: string }) {
   }
 }
 
+export async function activateDuePlannedProjects(
+  client: SupabaseProjectsClient,
+  options: { companyId: string; today?: string }
+): Promise<number> {
+  const companyId = options.companyId.trim()
+  if (!companyId) {
+    return 0
+  }
+
+  const today = options.today ?? toLocalDateOnly()
+  const query = client
+    .from("projects")
+    .select("id, company_id, status, start_date")
+    .eq("company_id", companyId)
+    .eq("status", "planned")
+    .is("deleted_at", null)
+    .not("start_date", "is", null)
+    .lte("start_date", today)
+
+  const { data, error } = await query
+  if (error || !data?.length) {
+    return 0
+  }
+
+  let activated = 0
+  for (const row of data) {
+    if (
+      !shouldAutoActivateProjectByStartDate({
+        status: row.status,
+        startDate: row.start_date,
+      }, today)
+    ) {
+      continue
+    }
+
+    const updated = await patchProject(client, row.id, { status: "active" })
+    if (updated.error || !updated.data) {
+      continue
+    }
+
+    await insertProjectHistoryEvent(
+      client,
+      row.id,
+      {
+        id: row.id,
+        eventType: "status_changed",
+        title: "Cambio de estado",
+        description: buildAutoActivateHistoryDescription("planned"),
+        user: "Sistema",
+        timestamp: new Date().toISOString(),
+        metadata: {
+          previousStatus: "planned",
+          nextStatus: "active",
+          reason: "start_date",
+        },
+      },
+      row.company_id
+    )
+    activated += 1
+  }
+
+  return activated
+}
+
 export async function fetchProjects(
   client: SupabaseProjectsClient,
   companyId: string
 ): Promise<ProjectsRepositoryResult<Project[]>> {
+  try {
+    await activateDuePlannedProjects(client, { companyId })
+  } catch {
+    // Activation must not block listing obras.
+  }
+
   const { data, error } = await client
     .from("projects")
     .select("*")
@@ -64,6 +139,14 @@ export async function fetchProjectById(
   id: string,
   companyId?: string
 ): Promise<ProjectsRepositoryResult<Project>> {
+  if (companyId?.trim()) {
+    try {
+      await activateDuePlannedProjects(client, { companyId })
+    } catch {
+      // Activation must not block reading the obra.
+    }
+  }
+
   let query = client
     .from("projects")
     .select("*")
