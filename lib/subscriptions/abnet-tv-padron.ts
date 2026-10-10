@@ -248,6 +248,10 @@ export function matchesAbnetPadronFilters(
   if (filters.duplicatesOnly && row.duplicateGroupSize < 2) return false
   const needle = filters.search.trim().toLowerCase()
   if (!needle) return true
+  const searchedNumber = abnetPadronCustomerNumber(filters.search)
+  if (searchedNumber) {
+    return abnetPadronCustomerNumber(row.abnetCustomerNumber) === searchedNumber
+  }
   return [
     row.abnetCustomerNumber,
     row.customerName,
