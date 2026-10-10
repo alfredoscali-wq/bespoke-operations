@@ -159,8 +159,16 @@ export type TvCommercialServiceOption = {
   tvPlanCatalogId: string
 }
 
+export type TvTierFilter = "all" | "basica" | "full"
+
+export type TvPackFilter = "all" | "with_pack" | "without_pack"
+
+export type TvConditionFilter = "all" | "jubilado"
+
 export const EMPTY_TV_DESK_FILTERS = {
-  selectedPlan: "all" as const,
+  tvTier: "all" as const,
+  pack: "all" as const,
+  condition: "all" as const,
   selectedCommercialId: "all" as const,
   status: "all" as const,
   search: "",
@@ -193,13 +201,17 @@ export function commercialOptionsForPlan(
 }
 
 export function hasTvDeskListFilters(input: {
-  selectedPlan: TvSelectedPlanFilter
+  tvTier: TvTierFilter
+  pack: TvPackFilter
+  condition: TvConditionFilter
   selectedCommercialId: TvSelectedCommercialFilter
   status: TvListStatusFilter
   search: string
 }): boolean {
   return (
-    input.selectedPlan !== "all" ||
+    input.tvTier !== "all" ||
+    input.pack !== "all" ||
+    input.condition !== "all" ||
     input.selectedCommercialId !== "all" ||
     input.status !== "all" ||
     input.search.trim() !== ""

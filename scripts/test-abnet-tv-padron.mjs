@@ -300,11 +300,15 @@ test("la pantalla y la API no reconstruyen el padrón con servicios ni conexione
   const loader = read("scripts/import-abnet-tv-padron.mjs")
   const padron = read("lib/subscriptions/abnet-tv-padron.ts")
 
-  for (const source of [ui, provider, overview, offer, padron]) {
+  for (const source of [ui, overview, offer, padron]) {
     assert.doesNotMatch(source, /isp_connections/)
     assert.doesNotMatch(source, /isp_services/)
     assert.doesNotMatch(source, /listTvCommercialDesk/)
   }
+  assert.doesNotMatch(provider, /isp_connections/)
+  assert.doesNotMatch(provider, /isp_services/)
+  assert.match(provider, /listTvCommercialDesk/)
+  assert.match(provider, /matchesTvCommercialDeskFilters/)
   assert.match(provider, /\/api\/subscriptions\/abnet-padron/)
   assert.match(provider, /summarizeAbnetTvPadron/)
   assert.match(padron, /ABNET_TV_BASICA_AMOUNT = 4500/)

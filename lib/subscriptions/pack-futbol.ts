@@ -36,3 +36,52 @@ export function canOfferPackFutbol(input: {
   if (input.tier !== "basica" && input.tier !== "full") return false
   return input.packPrice != null && input.packPrice >= 0
 }
+
+export type PackFutbolResponseOutcome =
+  | { type: "error"; message: string; refresh: false }
+  | { type: "already_active"; refresh: true }
+  | { type: "assigned"; refresh: true }
+  | { type: "available"; refresh: false }
+
+export function interpretPackFutbolResponse(input: {
+  ok: boolean
+  success?: boolean
+  status?: string | null
+  message?: string | null
+  fallback: string
+}): PackFutbolResponseOutcome {
+  if (!input.ok || input.success !== true) {
+    const message = input.message?.trim() || input.fallback
+    return { type: "error", message, refresh: false }
+  }
+  if (input.status === "already_active") {
+    return { type: "already_active", refresh: true }
+  }
+  if (input.status === "assigned") {
+    return { type: "assigned", refresh: true }
+  }
+  if (input.status === "available") {
+    return { type: "available", refresh: false }
+  }
+  return { type: "error", message: input.fallback, refresh: false }
+}
+
+export function canConfirmPackFutbol(status: string | null | undefined): boolean {
+  return status === "available"
+}
+
+export function packFutbolQuotedFees(quote: {
+  currentMonthlyFee: number
+  packPrice: number
+  nextMonthlyFee: number
+}): {
+  currentMonthlyFee: number
+  packMonthlyPrice: number
+  nextMonthlyFee: number
+} {
+  return {
+    currentMonthlyFee: quote.currentMonthlyFee,
+    packMonthlyPrice: quote.packPrice,
+    nextMonthlyFee: quote.nextMonthlyFee,
+  }
+}

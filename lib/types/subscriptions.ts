@@ -1,4 +1,5 @@
 import type { IspCommercialStatus } from "@/lib/isp/constants"
+import type { CommercialTvTier } from "@/lib/subscriptions/pack-futbol"
 
 export type TvCatalogPlan = {
   id: string
@@ -30,6 +31,15 @@ export type TvSubscriberRow = {
   monthlyPrice: number
   commercialStatus: IspCommercialStatus
   activationDate: string | null
+  tvTier: CommercialTvTier
+  packFutbolActive: boolean
+  packFutbolMonthlyPrice: number | null
+  packFutbolEligible: boolean
+  externalCustomerNumber: string | null
+  commercialMonthlyFee: number | null
+  conditionCode: string | null
+  conditionName: string | null
+  jubilado: boolean
 }
 
 export type TvSubscriberListPage = {

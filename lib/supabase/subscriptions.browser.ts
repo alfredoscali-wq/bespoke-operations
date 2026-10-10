@@ -1,10 +1,12 @@
 import { createClient } from "@/lib/supabase/client"
 import {
   fetchTvCatalogPlans,
+  fetchTvCommercialDeskRows,
   fetchTvCommercialServiceOptions,
   fetchTvDeskSummary,
   fetchTvSubscriberPage,
   type SupabaseTvClient,
+  type TvCommercialDeskSummary,
   type TvRepositoryResult,
 } from "@/lib/supabase/subscriptions.queries"
 import type {
@@ -12,12 +14,12 @@ import type {
   TvListStatusFilter,
   TvSelectedCommercialFilter,
   TvSelectedPlanFilter,
-  TvDeskSummary,
 } from "@/lib/subscriptions/tv-plans"
 import type { TvPlanWriteDraft } from "@/lib/subscriptions/tv-catalog"
 import type {
   TvCatalogPlan,
   TvSubscriberListPage,
+  TvSubscriberRow,
 } from "@/lib/types/subscriptions"
 
 export function createBrowserTvClient(): SupabaseTvClient {
@@ -34,7 +36,7 @@ export async function listTvCatalogPlans(
 export async function listTvDeskSummary(
   companyId: string,
   client: SupabaseTvClient = createBrowserTvClient()
-): Promise<TvRepositoryResult<TvDeskSummary>> {
+): Promise<TvRepositoryResult<TvCommercialDeskSummary>> {
   return fetchTvDeskSummary(client, companyId)
 }
 
@@ -43,6 +45,13 @@ export async function listTvCommercialServiceOptions(
   client: SupabaseTvClient = createBrowserTvClient()
 ): Promise<TvRepositoryResult<TvCommercialServiceOption[]>> {
   return fetchTvCommercialServiceOptions(client, companyId)
+}
+
+export async function listTvCommercialDesk(
+  companyId: string,
+  client: SupabaseTvClient = createBrowserTvClient()
+): Promise<TvRepositoryResult<TvSubscriberRow[]>> {
+  return fetchTvCommercialDeskRows(client, companyId)
 }
 
 export async function listTvSubscribers(

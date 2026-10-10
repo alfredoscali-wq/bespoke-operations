@@ -1,4 +1,5 @@
 import {
+  calculateCommercialPrice,
   commercialComponentAssignmentError,
   type IspCommercialAssignmentStatus,
   type IspCommercialCatalogContext,
@@ -106,6 +107,18 @@ export type AvailableCommercialComponent = {
   isRecurring: boolean
   exclusiveGroup: string | null
   tvPlanCatalogId: string | null
+}
+
+export type IspCommercialComponentQuote = {
+  status: "available" | "already_active"
+  serviceId: string
+  componentId: string
+  componentCode: string
+  packPrice: number
+  current: IspCommercialPrice
+  next: IspCommercialPrice
+  conditionCode: string | null
+  discountPercent: number | null
 }
 
 export type IspCommercialAssignmentGateway = {
@@ -302,6 +315,78 @@ export function createIspCommercialAssignmentService(
         catalogId: snapshot.catalogId,
         components: [...snapshot.activeComponents],
         price: await gateway.readPrice(companyId, serviceId),
+      }
+    },
+
+    async quoteComponentAssignment(
+      companyId: string,
+      input: { serviceId: string; componentCode: string }
+    ): Promise<IspCommercialComponentQuote> {
+      const snapshot = await requireSnapshot(gateway, companyId, input.serviceId)
+      const requested = input.componentCode.trim().toLowerCase()
+      const component = snapshot.components.find(
+        (item) => item.code.trim().toLowerCase() === requested
+      )
+      if (!component) throw new Error(ISP_COMMERCIAL_COMPONENT_NOT_FOUND)
+
+      const listPrice = resolveCommercialListPrice(
+        snapshot.listPrice,
+        snapshot.base?.monthlyPrice ?? null
+      )
+      const currentComponents = snapshot.activeComponents.map((item) => ({
+        unitPrice: item.unitPrice,
+        isRecurring: item.isRecurring,
+        status: item.status,
+      }))
+      const discountPercent = snapshot.activeCondition?.discountPercent ?? null
+      const current = calculateCommercialPrice({
+        listPrice,
+        components: currentComponents,
+        discountPercent,
+      })
+      const active = snapshot.activeComponents.find(
+        (item) => item.componentId === component.id
+      )
+      if (active) {
+        return {
+          status: "already_active",
+          serviceId: snapshot.serviceId,
+          componentId: component.id,
+          componentCode: component.code,
+          packPrice: active.unitPrice,
+          current,
+          next: current,
+          conditionCode: snapshot.activeCondition?.code ?? null,
+          discountPercent,
+        }
+      }
+
+      throwIf(commercialComponentSelectionError(snapshot, component.id))
+      if (component.monthlyPrice == null) {
+        throw new Error(ISP_COMMERCIAL_COMPONENT_NOT_FOUND)
+      }
+      const next = calculateCommercialPrice({
+        listPrice,
+        components: [
+          ...currentComponents,
+          {
+            unitPrice: component.monthlyPrice,
+            isRecurring: component.isRecurring,
+            status: "active",
+          },
+        ],
+        discountPercent,
+      })
+      return {
+        status: "available",
+        serviceId: snapshot.serviceId,
+        componentId: component.id,
+        componentCode: component.code,
+        packPrice: component.monthlyPrice,
+        current,
+        next,
+        conditionCode: snapshot.activeCondition?.code ?? null,
+        discountPercent,
       }
     },
 

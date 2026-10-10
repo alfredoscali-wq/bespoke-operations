@@ -25,17 +25,37 @@ import type { LatamBatchClient } from "@/lib/integrations/latam-tv/lookup-state"
 import { canWriteSubscriptions } from "@/lib/subscriptions/permissions"
 import type { TvPlanWriteDraft } from "@/lib/subscriptions/tv-catalog"
 import { abnetPadronRowWithTvPlan } from "@/lib/subscriptions/abnet-tv-plan-choice"
-import { DEFAULT_TV_LIST_PAGE_SIZE } from "@/lib/subscriptions/tv-plans"
+import {
+  matchesTvCommercialDeskFilters,
+  summarizeTvCommercialDesk,
+  uniqueCustomerCount,
+  type TvCommercialDeskSummary,
+} from "@/lib/subscriptions/tv-commercial-desk"
+import {
+  DEFAULT_TV_LIST_PAGE_SIZE,
+  type TvConditionFilter,
+  type TvPackFilter,
+  type TvTierFilter,
+} from "@/lib/subscriptions/tv-plans"
 import {
   createTvPlan,
   listTvCatalogPlans,
+  listTvCommercialDesk,
   setTvPlanActive,
   updateTvPlan,
 } from "@/lib/supabase/subscriptions.browser"
-import type { TvCatalogPlan } from "@/lib/types/subscriptions"
+import type { TvCatalogPlan, TvSubscriberRow } from "@/lib/types/subscriptions"
 
 type PadronList = {
   items: AbnetTvPadronRow[]
+  total: number
+  uniqueCustomers: number
+  page: number
+  pageSize: number
+}
+
+type CommercialDeskList = {
+  items: TvSubscriberRow[]
   total: number
   uniqueCustomers: number
   page: number
@@ -84,6 +104,20 @@ type SubscriptionsContextValue = {
     kind: "basica" | "pack" | "full"
   ) => Promise<string | null>
   refreshDesk: () => void
+  deskList: CommercialDeskList | null
+  deskSummary: TvCommercialDeskSummary | null
+  deskTvTier: TvTierFilter
+  deskPack: TvPackFilter
+  deskCondition: TvConditionFilter
+  deskSearch: string
+  isDeskReady: boolean
+  deskError: string | null
+  setDeskTvTier: (tier: TvTierFilter) => void
+  setDeskPack: (pack: TvPackFilter) => void
+  setDeskCondition: (condition: TvConditionFilter) => void
+  setDeskSearch: (value: string) => void
+  setDeskPage: (page: number) => void
+  clearDeskFilters: () => void
   latamByNumber: Record<string, LatamBatchClient>
   rememberLatam: (number: string, client: LatamBatchClient) => void
 }
@@ -112,6 +146,15 @@ export function SubscriptionsProvider({
   const [isSummaryReady, setIsSummaryReady] = useState(false)
   const [isListLoading, setIsListLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [deskRows, setDeskRows] = useState<TvSubscriberRow[]>([])
+  const [deskTvTier, setDeskTvTierState] = useState<TvTierFilter>("all")
+  const [deskPack, setDeskPackState] = useState<TvPackFilter>("all")
+  const [deskCondition, setDeskConditionState] = useState<TvConditionFilter>("all")
+  const [deskSearchInput, setDeskSearch] = useState("")
+  const [debouncedDeskSearch, setDebouncedDeskSearch] = useState("")
+  const [deskPage, setDeskPageState] = useState(1)
+  const [isDeskReady, setIsDeskReady] = useState(false)
+  const [deskError, setDeskError] = useState<string | null>(null)
   const [deskEpoch, setDeskEpoch] = useState(0)
   const [latamByNumber, setLatamByNumber] = useState<Record<string, LatamBatchClient>>({})
   const latamRequested = useRef(new Set<string>())
@@ -122,6 +165,13 @@ export function SubscriptionsProvider({
     }, 300)
     return () => window.clearTimeout(timeout)
   }, [searchInput])
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setDebouncedDeskSearch(deskSearchInput)
+    }, 300)
+    return () => window.clearTimeout(timeout)
+  }, [deskSearchInput])
 
   const showPadronView = useCallback(
     (
@@ -175,6 +225,29 @@ export function SubscriptionsProvider({
   const setPage = useCallback((next: number) => {
     setPageState(Math.max(1, next))
   }, [])
+  const setDeskTvTier = useCallback((tier: TvTierFilter) => {
+    setDeskTvTierState(tier)
+    setDeskPageState(1)
+  }, [])
+  const setDeskPack = useCallback((pack: TvPackFilter) => {
+    setDeskPackState(pack)
+    setDeskPageState(1)
+  }, [])
+  const setDeskCondition = useCallback((condition: TvConditionFilter) => {
+    setDeskConditionState(condition)
+    setDeskPageState(1)
+  }, [])
+  const setDeskPage = useCallback((next: number) => {
+    setDeskPageState(Math.max(1, next))
+  }, [])
+  const clearDeskFilters = useCallback(() => {
+    setDeskTvTierState("all")
+    setDeskPackState("all")
+    setDeskConditionState("all")
+    setDeskSearch("")
+    setDebouncedDeskSearch("")
+    setDeskPageState(1)
+  }, [])
   const clearFilters = useCallback(() => {
     setTvKindState("all")
     setJubiladoOnlyState(false)
@@ -189,6 +262,10 @@ export function SubscriptionsProvider({
     setPageState(1)
   }, [debouncedSearch])
 
+  useEffect(() => {
+    setDeskPageState(1)
+  }, [debouncedDeskSearch])
+
   const reloadDesk = useCallback(() => {
     setDeskEpoch((current) => current + 1)
   }, [])
@@ -198,20 +275,39 @@ export function SubscriptionsProvider({
     if (!companyId) {
       setPlans([])
       setPadronRows([])
+      setDeskRows([])
+      setDeskError(null)
       setIsSummaryReady(true)
+      setIsDeskReady(true)
       setIsListLoading(false)
       return
     }
 
     let cancelled = false
     setIsSummaryReady(false)
+    setIsDeskReady(false)
     setIsListLoading(true)
     void (async () => {
-      const [catalogResult, padronResponse] = await Promise.all([
+      const [catalogResult, padronResponse, deskResult] = await Promise.all([
         listTvCatalogPlans(companyId),
         fetch("/api/subscriptions/abnet-padron"),
+        listTvCommercialDesk(companyId).catch(() => ({
+          data: null,
+          error: {
+            code: "UNKNOWN",
+            message: "No se pudo leer los abonos con TV.",
+          },
+        })),
       ])
       if (cancelled) return
+      if (deskResult.error) {
+        setDeskError(deskResult.error.message)
+        setDeskRows([])
+      } else {
+        setDeskRows(deskResult.data ?? [])
+        setDeskError(null)
+      }
+      setIsDeskReady(true)
       if (catalogResult.error) {
         setError(catalogResult.error.message)
         setPlans([])
@@ -247,7 +343,10 @@ export function SubscriptionsProvider({
       if (cancelled) return
       setError("No se pudo leer el padrón de TV.")
       setPadronRows([])
+      setDeskRows([])
+      setDeskError("No se pudo leer los abonos con TV.")
       setIsSummaryReady(true)
+      setIsDeskReady(true)
       setIsListLoading(false)
     })
 
@@ -274,6 +373,43 @@ export function SubscriptionsProvider({
       ),
     [padronRows, tvKind, jubiladoOnly, statusFilter, duplicatesOnly, debouncedSearch]
   )
+
+  const filteredDeskRows = useMemo(
+    () =>
+      deskRows.filter((row) =>
+        matchesTvCommercialDeskFilters(row, {
+          tvTier: deskTvTier,
+          pack: deskPack,
+          condition: deskCondition,
+          selectedCommercialId: "all",
+          status: "all",
+          search: debouncedDeskSearch,
+        })
+      ),
+    [deskRows, deskTvTier, deskPack, deskCondition, debouncedDeskSearch]
+  )
+
+  const deskSummary = useMemo(
+    () => (isDeskReady ? summarizeTvCommercialDesk(deskRows) : null),
+    [deskRows, isDeskReady]
+  )
+
+  const deskList = useMemo<CommercialDeskList | null>(() => {
+    if (!isDeskReady) return null
+    const safePage = clampAbnetPadronPage(
+      deskPage,
+      filteredDeskRows.length,
+      DEFAULT_TV_LIST_PAGE_SIZE
+    )
+    const from = (safePage - 1) * DEFAULT_TV_LIST_PAGE_SIZE
+    return {
+      items: filteredDeskRows.slice(from, from + DEFAULT_TV_LIST_PAGE_SIZE),
+      total: filteredDeskRows.length,
+      uniqueCustomers: uniqueCustomerCount(filteredDeskRows),
+      page: safePage,
+      pageSize: DEFAULT_TV_LIST_PAGE_SIZE,
+    }
+  }, [filteredDeskRows, isDeskReady, deskPage])
 
   const list = useMemo<PadronList | null>(() => {
     if (!isSummaryReady) return null
@@ -361,6 +497,11 @@ export function SubscriptionsProvider({
     if (!list || list.page === page) return
     setPageState(list.page)
   }, [list, page])
+
+  useEffect(() => {
+    if (!deskList || deskList.page === deskPage) return
+    setDeskPageState(deskList.page)
+  }, [deskList, deskPage])
 
   const createPlan = useCallback(
     async (draft: TvPlanWriteDraft) => {
@@ -496,6 +637,20 @@ export function SubscriptionsProvider({
       removePadronRow,
       updatePadronTvPlan,
       refreshDesk: reloadDesk,
+      deskList,
+      deskSummary,
+      deskTvTier,
+      deskPack,
+      deskCondition,
+      deskSearch: deskSearchInput,
+      isDeskReady,
+      deskError,
+      setDeskTvTier,
+      setDeskPack,
+      setDeskCondition,
+      setDeskSearch,
+      setDeskPage,
+      clearDeskFilters,
       latamByNumber,
       rememberLatam,
     }),
@@ -526,6 +681,19 @@ export function SubscriptionsProvider({
       removePadronRow,
       updatePadronTvPlan,
       reloadDesk,
+      deskList,
+      deskSummary,
+      deskTvTier,
+      deskPack,
+      deskCondition,
+      deskSearchInput,
+      isDeskReady,
+      deskError,
+      setDeskTvTier,
+      setDeskPack,
+      setDeskCondition,
+      setDeskPage,
+      clearDeskFilters,
       latamByNumber,
       rememberLatam,
     ]

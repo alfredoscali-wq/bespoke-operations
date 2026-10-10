@@ -487,3 +487,118 @@ test("la consulta no reescribe el catálogo ni el precio a mano", () => {
     0
   )
 })
+
+test("TV Básica cotiza y asigna PACK-FUTBOL a $3000, y la segunda vez queda already_active", async () => {
+  const { gateway, service } = serviceFor({
+    includedTvCode: "TV-BASICO",
+    listPrice: 39300,
+  })
+  const quote = await service.quoteComponentAssignment(COMPANY, {
+    serviceId: SERVICE,
+    componentCode: "PACK-FUTBOL",
+  })
+  assert.equal(quote.status, "available")
+  assert.equal(quote.componentCode, "PACK-FUTBOL")
+  assert.equal(quote.componentId, packFutbol.id)
+  assert.equal(quote.packPrice, packFutbol.monthlyPrice)
+  assert.equal(quote.packPrice, 3000)
+  assert.equal(quote.current.monthlyFee, 39300)
+  assert.equal(quote.next.priceSubtotal, 42300)
+  assert.equal(quote.next.monthlyFee, 42300)
+  assert.equal(gateway.state.componentInserts, 0)
+
+  const assigned = await service.assignComponent(COMPANY, {
+    serviceId: SERVICE,
+    componentId: quote.componentId,
+  })
+  assert.equal(assigned.monthlyFee, quote.next.monthlyFee)
+  assert.equal(gateway.state.componentInserts, 1)
+  assert.equal(gateway.state.assignments[0].unitPrice, packFutbol.monthlyPrice)
+
+  const again = await service.quoteComponentAssignment(COMPANY, {
+    serviceId: SERVICE,
+    componentCode: "PACK-FUTBOL",
+  })
+  assert.equal(again.status, "already_active")
+  assert.equal(again.packPrice, 3000)
+  assert.equal(again.next.monthlyFee, 42300)
+  assert.equal(gateway.state.componentInserts, 1)
+  await assert.rejects(
+    service.assignComponent(COMPANY, {
+      serviceId: SERVICE,
+      componentId: quote.componentId,
+    }),
+    { message: ISP_COMMERCIAL_COMPONENT_ALREADY_ASSIGNED }
+  )
+  assert.equal(gateway.state.componentInserts, 1)
+})
+
+test("TV Full usa el mismo PACK-FUTBOL de $3000", async () => {
+  const upgraded = serviceFor({ includedTvCode: "TV-BASICO", listPrice: 39300 })
+  await upgraded.service.assignComponent(COMPANY, {
+    serviceId: SERVICE,
+    componentId: "c-tv",
+  })
+  const withUpgrade = await upgraded.service.quoteComponentAssignment(COMPANY, {
+    serviceId: SERVICE,
+    componentCode: "PACK-FUTBOL",
+  })
+  assert.equal(withUpgrade.status, "available")
+  assert.equal(withUpgrade.componentCode, "PACK-FUTBOL")
+  assert.equal(withUpgrade.packPrice, 3000)
+  assert.equal(withUpgrade.current.monthlyFee, 44700)
+  assert.equal(withUpgrade.next.monthlyFee, 47700)
+
+  const included = serviceFor({ includedTvCode: "TV-FULL", listPrice: 39300 })
+  const withIncluded = await included.service.quoteComponentAssignment(COMPANY, {
+    serviceId: SERVICE,
+    componentCode: "PACK-FUTBOL",
+  })
+  assert.equal(withIncluded.packPrice, 3000)
+  assert.equal(withIncluded.next.monthlyFee, 42300)
+})
+
+test("JUBILADO sigue al 50% y Pack Fútbol entra por el cálculo comercial", async () => {
+  const { gateway, service } = serviceFor({ listPrice: 39300 })
+  await service.assignCondition(COMPANY, {
+    serviceId: SERVICE,
+    conditionId: "k-jubilado",
+  })
+  const quote = await service.quoteComponentAssignment(COMPANY, {
+    serviceId: SERVICE,
+    componentCode: "PACK-FUTBOL",
+  })
+  assert.equal(quote.conditionCode, "JUBILADO")
+  assert.equal(quote.discountPercent, 50)
+  assert.equal(quote.current.priceSubtotal, 39300)
+  assert.equal(quote.current.discountAmount, 19650)
+  assert.equal(quote.current.monthlyFee, 19650)
+  assert.equal(quote.next.priceSubtotal, 42300)
+  assert.equal(quote.next.discountAmount, 21150)
+  assert.equal(quote.next.monthlyFee, 21150)
+  assert.notEqual(quote.next.monthlyFee, quote.current.monthlyFee + 3000)
+
+  const assigned = await service.assignComponent(COMPANY, {
+    serviceId: SERVICE,
+    componentId: quote.componentId,
+  })
+  assert.equal(assigned.monthlyFee, 21150)
+  assert.equal(assigned.discountAmount, 21150)
+  assert.equal(gateway.state.conditionInserts, 1)
+  const condition = await service.getActiveCondition(COMPANY, SERVICE)
+  assert.equal(condition.condition.code, "JUBILADO")
+  assert.equal(condition.condition.discountPercent, 50)
+})
+
+test("sin TV no se cotiza Pack Fútbol y no hace falta una conexión", async () => {
+  const { gateway, service } = serviceFor({ includedTvCode: null })
+  await assert.rejects(
+    service.quoteComponentAssignment(COMPANY, {
+      serviceId: SERVICE,
+      componentCode: "PACK-FUTBOL",
+    }),
+    { message: ISP_COMMERCIAL_COMPONENT_INCOMPATIBLE }
+  )
+  assert.equal(gateway.state.componentInserts, 0)
+  assert.equal("connection" in gateway.state, false)
+})
