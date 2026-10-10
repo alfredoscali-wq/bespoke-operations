@@ -6,9 +6,12 @@ import test from "node:test"
 import {
   canConfirmPackFutbol,
   canOfferPackFutbol,
+  canSubmitPackFutbolAssignment,
   commercialTvTier,
   commercialTvTierLabel,
   interpretPackFutbolResponse,
+  isPackFutbolAssignmentEnabled,
+  PACK_FUTBOL_ASSIGNMENT_DISABLED_MESSAGE,
   PACK_FUTBOL_CODE,
   packFutbolQuotedFees,
 } from "../lib/subscriptions/pack-futbol.ts"
@@ -93,6 +96,71 @@ test("TV Básica y TV Full son elegibles; sin TV o con pack activo no", () => {
   )
 })
 
+test("agregar Pack Fútbol está deshabilitado salvo configuración explícita del servidor", () => {
+  assert.equal(isPackFutbolAssignmentEnabled({}), false)
+  assert.equal(
+    isPackFutbolAssignmentEnabled({ PACK_FUTBOL_ASSIGNMENT_ENABLED: "" }),
+    false
+  )
+  assert.equal(
+    isPackFutbolAssignmentEnabled({ PACK_FUTBOL_ASSIGNMENT_ENABLED: "false" }),
+    false
+  )
+  assert.equal(
+    isPackFutbolAssignmentEnabled({ PACK_FUTBOL_ASSIGNMENT_ENABLED: "1" }),
+    false
+  )
+  assert.equal(
+    isPackFutbolAssignmentEnabled({ PACK_FUTBOL_ASSIGNMENT_ENABLED: "true" }),
+    true
+  )
+  assert.equal(
+    canSubmitPackFutbolAssignment({
+      assignmentEnabled: false,
+      status: "available",
+    }),
+    false
+  )
+  assert.equal(
+    canSubmitPackFutbolAssignment({
+      assignmentEnabled: true,
+      status: "available",
+    }),
+    true
+  )
+  assert.equal(
+    canSubmitPackFutbolAssignment({
+      assignmentEnabled: true,
+      status: "already_active",
+    }),
+    false
+  )
+
+  const route = read("app/api/subscriptions/services/[serviceId]/pack-futbol/route.ts")
+  const action = read("components/subscriptions/pack-futbol-action.tsx")
+  const postStart = route.indexOf("export async function POST")
+  const postBody = route.slice(postStart)
+  const getBody = route.slice(route.indexOf("export async function GET"), postStart)
+  const guard = postBody.indexOf("isPackFutbolAssignmentEnabled")
+  assert.ok(guard >= 0)
+  assert.ok(guard < postBody.indexOf("createClient"))
+  assert.ok(guard < postBody.indexOf("assignComponent"))
+  assert.ok(guard < postBody.indexOf("quoteComponentAssignment"))
+  assert.match(route, /status: 403/)
+  assert.match(route, /PACK_FUTBOL_ASSIGNMENT_DISABLED_MESSAGE/)
+  assert.match(postBody, /disabledAssignmentResponse/)
+  assert.match(getBody, /quoteComponentAssignment/)
+  assert.doesNotMatch(getBody, /assignComponent/)
+  assert.doesNotMatch(route, /NEXT_PUBLIC_PACK_FUTBOL/)
+  assert.doesNotMatch(action, /PACK_FUTBOL_ASSIGNMENT_ENABLED/)
+  assert.match(action, /assignmentEnabled === true/)
+  assert.match(action, /PACK_FUTBOL_ASSIGNMENT_DISABLED_MESSAGE/)
+  assert.equal(
+    PACK_FUTBOL_ASSIGNMENT_DISABLED_MESSAGE.includes("deshabilitado"),
+    true
+  )
+})
+
 test("la cotización usa los importes del servidor y no los suma en el cliente", () => {
   const quoted = packFutbolQuotedFees({
     currentMonthlyFee: 39300,
@@ -169,7 +237,7 @@ test("la acción se ofrece en el abono, confirma por POST y refresca después", 
   assert.match(action, /Precio mensual de Pack Fútbol:/)
   assert.match(action, /Nuevo total mensual:/)
   assert.match(action, /packFutbolQuotedFees/)
-  assert.match(action, /canConfirmPackFutbol/)
+  assert.match(action, /canSubmitPackFutbolAssignment/)
   assert.match(action, /interpretPackFutbolResponse/)
   assert.match(action, /method: "POST"/)
   assert.match(action, /submittingRef/)
@@ -187,7 +255,7 @@ test("la acción se ofrece en el abono, confirma por POST y refresca después", 
   const confirmBody = action.slice(confirmStart, action.indexOf("if (!canWrite"))
   assert.ok(confirmStart > 0)
   assert.ok(
-    confirmBody.indexOf("canConfirmPackFutbol") <
+    confirmBody.indexOf("canSubmitPackFutbolAssignment") <
       confirmBody.indexOf('method: "POST"')
   )
   assert.ok(

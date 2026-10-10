@@ -1,4 +1,14 @@
 export const PACK_FUTBOL_CODE = "PACK-FUTBOL"
+
+export const PACK_FUTBOL_ASSIGNMENT_DISABLED_MESSAGE =
+  "Agregar Pack Fútbol está deshabilitado hasta validar el recálculo del abono."
+
+export function isPackFutbolAssignmentEnabled(source?: {
+  PACK_FUTBOL_ASSIGNMENT_ENABLED?: string
+}): boolean {
+  const value = (source ?? process.env).PACK_FUTBOL_ASSIGNMENT_ENABLED
+  return value?.trim().toLowerCase() === "true"
+}
 export const TV_FULL_UPGRADE_CODE = "TV-FULL-UPGRADE"
 
 export type CommercialTvTier = "basica" | "full" | "none"
@@ -68,6 +78,13 @@ export function interpretPackFutbolResponse(input: {
 
 export function canConfirmPackFutbol(status: string | null | undefined): boolean {
   return status === "available"
+}
+
+export function canSubmitPackFutbolAssignment(input: {
+  assignmentEnabled: boolean
+  status: string | null | undefined
+}): boolean {
+  return input.assignmentEnabled === true && canConfirmPackFutbol(input.status)
 }
 
 export function packFutbolQuotedFees(quote: {

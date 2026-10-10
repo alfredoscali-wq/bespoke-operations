@@ -12,8 +12,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import {
-  canConfirmPackFutbol,
+  canSubmitPackFutbolAssignment,
   interpretPackFutbolResponse,
+  PACK_FUTBOL_ASSIGNMENT_DISABLED_MESSAGE,
   packFutbolQuotedFees,
 } from "@/lib/subscriptions/pack-futbol"
 import { formatTvMoney } from "@/lib/subscriptions/tv-plans"
@@ -26,6 +27,7 @@ type PackFutbolQuote = {
   nextMonthlyFee: number
   conditionCode: string | null
   discountPercent: number | null
+  assignmentEnabled?: boolean
 }
 
 const QUOTE_ERROR = "No se pudo calcular el Pack Fútbol."
@@ -82,7 +84,10 @@ export function PackFutbolAction({ row }: { row: TvSubscriberRow }) {
     if (
       submittingRef.current ||
       !quote ||
-      !canConfirmPackFutbol(quote.status)
+      !canSubmitPackFutbolAssignment({
+        assignmentEnabled: quote.assignmentEnabled === true,
+        status: quote.status,
+      })
     ) {
       return
     }
@@ -122,7 +127,16 @@ export function PackFutbolAction({ row }: { row: TvSubscriberRow }) {
   if (!canWrite || (!row.packFutbolEligible && !open)) return null
 
   const fees = quote ? packFutbolQuotedFees(quote) : null
-  const finished = quote?.status === "assigned" || quote?.status === "already_active"
+  const assignmentEnabled = quote?.assignmentEnabled === true
+  const canSubmit = quote
+    ? canSubmitPackFutbolAssignment({
+        assignmentEnabled,
+        status: quote.status,
+      })
+    : false
+  const finished =
+    quote?.status === "assigned" || quote?.status === "already_active"
+  const assignmentBlocked = quote != null && !assignmentEnabled
 
   return (
     <>
@@ -179,23 +193,23 @@ export function PackFutbolAction({ row }: { row: TvSubscriberRow }) {
                   Este servicio ya tiene Pack Fútbol.
                 </p>
               ) : null}
+              {assignmentBlocked ? (
+                <p className="pt-2 text-sm">
+                  {PACK_FUTBOL_ASSIGNMENT_DISABLED_MESSAGE}
+                </p>
+              ) : null}
             </div>
           ) : null}
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
           <DialogFooter>
-            {finished ? (
+            {finished || assignmentBlocked ? (
               <Button type="button" onClick={() => onOpenChange(false)}>
                 Cerrar
               </Button>
             ) : (
               <Button
                 type="button"
-                disabled={
-                  loadingQuote ||
-                  submitting ||
-                  !quote ||
-                  !canConfirmPackFutbol(quote.status)
-                }
+                disabled={loadingQuote || submitting || !canSubmit}
                 onClick={() => void confirm()}
               >
                 {submitting ? "Agregando…" : "Confirmar"}

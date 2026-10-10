@@ -12,7 +12,11 @@ import {
   ISP_COMMERCIAL_COMPONENT_INACTIVE,
   ISP_COMMERCIAL_COMPONENT_INCOMPATIBLE,
 } from "@/lib/isp/commercial-pricing"
-import { PACK_FUTBOL_CODE } from "@/lib/subscriptions/pack-futbol"
+import {
+  isPackFutbolAssignmentEnabled,
+  PACK_FUTBOL_ASSIGNMENT_DISABLED_MESSAGE,
+  PACK_FUTBOL_CODE,
+} from "@/lib/subscriptions/pack-futbol"
 import {
   requireSubscriptionsReadContext,
   requireSubscriptionsWriteContext,
@@ -53,7 +57,19 @@ function quotePayload(
     nextMonthlyFee,
     conditionCode: quote.conditionCode,
     discountPercent: quote.discountPercent,
+    assignmentEnabled: isPackFutbolAssignmentEnabled(),
   }
+}
+
+function disabledAssignmentResponse() {
+  return NextResponse.json(
+    {
+      success: false,
+      assignmentEnabled: false,
+      message: PACK_FUTBOL_ASSIGNMENT_DISABLED_MESSAGE,
+    },
+    { status: 403 }
+  )
 }
 
 async function readServiceId(context: RouteContext) {
@@ -97,6 +113,8 @@ export async function POST(_request: Request, context: RouteContext) {
       { status: 400 }
     )
   }
+
+  if (!isPackFutbolAssignmentEnabled()) return disabledAssignmentResponse()
 
   try {
     const client = await createClient()
