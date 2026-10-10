@@ -218,21 +218,38 @@ export function SubscriptionsProvider({
       } else {
         setPlans(catalogResult.data ?? [])
       }
-      const body = (await padronResponse.json()) as {
-        success?: boolean
-        message?: string
-        rows?: AbnetTvPadronRow[]
-      }
-      if (!padronResponse.ok || !body.success) {
-        setError(body.message ?? "No se pudo leer el padrón de TV.")
+      const contentType = padronResponse.headers.get("content-type") ?? ""
+      if (!contentType.toLowerCase().includes("application/json")) {
+        setError("No se pudo leer el padrón de TV.")
         setPadronRows([])
       } else {
-        setPadronRows(body.rows ?? [])
-        if (!catalogResult.error) setError(null)
+        try {
+          const body = (await padronResponse.json()) as {
+            success?: boolean
+            message?: string
+            rows?: AbnetTvPadronRow[]
+          }
+          if (!padronResponse.ok || !body.success) {
+            setError(body.message ?? "No se pudo leer el padrón de TV.")
+            setPadronRows([])
+          } else {
+            setPadronRows(body.rows ?? [])
+            if (!catalogResult.error) setError(null)
+          }
+        } catch {
+          setError("No se pudo leer el padrón de TV.")
+          setPadronRows([])
+        }
       }
       setIsSummaryReady(true)
       setIsListLoading(false)
-    })()
+    })().catch(() => {
+      if (cancelled) return
+      setError("No se pudo leer el padrón de TV.")
+      setPadronRows([])
+      setIsSummaryReady(true)
+      setIsListLoading(false)
+    })
 
     return () => {
       cancelled = true
