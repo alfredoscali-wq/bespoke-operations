@@ -11,7 +11,6 @@ import {
 } from "@/components/subscriptions/latam-tv-row-dialog"
 import { SubscriptionsProvider, useSubscriptions } from "@/components/subscriptions/subscriptions-provider"
 import { SubscriptionsTvOverview } from "@/components/subscriptions/subscriptions-tv-overview"
-import { TvCommercialDeskSection } from "@/components/subscriptions/tv-commercial-desk-section"
 import { TvPlansCatalogSection } from "@/components/subscriptions/tv-plans-catalog-section"
 import { TvSubscribersFilters } from "@/components/subscriptions/tv-subscribers-filters"
 import { Button } from "@/components/ui/button"
@@ -220,8 +219,6 @@ function SubscriptionsModuleContent() {
         onUpdate={updatePlan}
         onToggleActive={togglePlanActive}
       />
-
-      <TvCommercialDeskSection />
 
       <SubscriptionsTvOverview />
 
