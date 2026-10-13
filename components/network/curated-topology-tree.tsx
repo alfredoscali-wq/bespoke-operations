@@ -1,6 +1,6 @@
 "use client"
 
-import type { ReactNode } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 
 import {
   NETWORK_DEVICE_STATUS_LABELS,
@@ -45,7 +45,7 @@ function CuratedTopologyNodeCard({
   const showIp =
     Boolean(node.ipAddress) && node.ipAddress !== node.label
   const className = cn(
-    "w-44 rounded-lg border px-3 py-2.5 text-center align-top shadow-sm transition-colors",
+    "w-full min-w-0 max-w-44 rounded-lg border px-3 py-2.5 text-center align-top shadow-sm transition-colors",
     isRoot ? "border-foreground/30 bg-background" : "border-border bg-background",
     selected
       ? "border-foreground bg-muted/50 shadow-md ring-1 ring-foreground/15"
@@ -91,6 +91,19 @@ function CuratedTopologyNodeCard({
   return <div className={className}>{inner}</div>
 }
 
+const SIBLING_SLOT_PX = 196
+
+function chunkSiblings(
+  nodes: readonly CuratedTopologyNode[],
+  size: number
+): CuratedTopologyNode[][] {
+  const rows: CuratedTopologyNode[][] = []
+  for (let index = 0; index < nodes.length; index += size) {
+    rows.push(nodes.slice(index, index + size))
+  }
+  return rows
+}
+
 function ChildConnector({
   index,
   count,
@@ -98,22 +111,80 @@ function ChildConnector({
   index: number
   count: number
 }) {
-  if (count <= 1) return null
   const isFirst = index === 0
   const isLast = index === count - 1
   return (
     <>
-      <span
-        aria-hidden
-        className={cn(
-          "absolute top-0 h-px bg-border",
-          isFirst && "right-0 left-1/2",
-          isLast && "left-0 right-1/2",
-          !isFirst && !isLast && "inset-x-0"
-        )}
-      />
+      {count > 1 ? (
+        <span
+          aria-hidden
+          className={cn(
+            "absolute top-0 h-px bg-border",
+            isFirst && "right-0 left-1/2",
+            isLast && "left-0 right-1/2",
+            !isFirst && !isLast && "inset-x-0"
+          )}
+        />
+      ) : null}
       <span aria-hidden className="h-5 w-px bg-border" />
     </>
+  )
+}
+
+function SiblingRows({
+  nodes,
+  actions,
+  selectedDeviceId,
+  onSelectDevice,
+}: {
+  nodes: readonly CuratedTopologyNode[]
+  actions?: (node: CuratedTopologyNode) => ReactNode
+  selectedDeviceId?: string | null
+  onSelectDevice?: (deviceId: string) => void
+}) {
+  const measureRef = useRef<HTMLDivElement>(null)
+  const [perRow, setPerRow] = useState(4)
+
+  useEffect(() => {
+    const element = measureRef.current
+    if (!element) return
+    const measure = () => {
+      const next = Math.max(1, Math.floor(element.clientWidth / SIBLING_SLOT_PX))
+      setPerRow((current) => (current === next ? current : next))
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+
+  const rows = chunkSiblings(nodes, perRow)
+
+  return (
+    <div ref={measureRef} className="flex w-full min-w-0 flex-col items-center">
+      <span aria-hidden className="h-5 w-px bg-border" />
+      {rows.map((row, rowIndex) => (
+        <div key={row[0].deviceId} className="flex flex-col items-center">
+          {rowIndex > 0 ? <span aria-hidden className="h-8 w-px bg-border" /> : null}
+          <div className="flex items-start justify-center">
+            {row.map((child, index) => (
+              <div
+                key={child.deviceId}
+                className="relative flex w-44 shrink-0 flex-col items-center px-1.5"
+              >
+                <ChildConnector index={index} count={row.length} />
+                <CuratedTopologyBranch
+                  node={child}
+                  actions={actions}
+                  selectedDeviceId={selectedDeviceId}
+                  onSelectDevice={onSelectDevice}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
   )
 }
 
@@ -134,8 +205,8 @@ function CuratedTopologyBranch({
   const childCount = node.children.length
 
   return (
-    <div className="flex flex-col items-center">
-      <div className="relative">
+    <div className="flex w-full min-w-0 flex-col items-center">
+      <div className="relative w-full max-w-44">
         {selected && actions ? (
           <div className="absolute left-full top-0 z-10 ml-2">
             {actions(node)}
@@ -160,25 +231,12 @@ function CuratedTopologyBranch({
         </>
       ) : null}
       {childCount > 1 ? (
-        <>
-          <span aria-hidden className="h-5 w-px bg-border" />
-          <div className="flex items-start">
-            {node.children.map((child, index) => (
-              <div
-                key={child.deviceId}
-                className="relative flex flex-col items-center px-4"
-              >
-                <ChildConnector index={index} count={childCount} />
-                <CuratedTopologyBranch
-                  node={child}
-                  actions={actions}
-                  selectedDeviceId={selectedDeviceId}
-                  onSelectDevice={onSelectDevice}
-                />
-              </div>
-            ))}
-          </div>
-        </>
+        <SiblingRows
+          nodes={node.children}
+          actions={actions}
+          selectedDeviceId={selectedDeviceId}
+          onSelectDevice={onSelectDevice}
+        />
       ) : null}
     </div>
   )
@@ -196,20 +254,21 @@ export function CuratedTopologyTree({
   onSelectDevice?: (deviceId: string) => void
 }) {
   return (
-    <div className="flex min-h-[28rem] min-w-full justify-center overflow-x-auto py-8 pl-8 pr-56">
+    <div className="flex min-h-[28rem] w-full min-w-0 justify-center py-8 pl-4 pr-4">
       <div
-        className="flex min-w-max items-start justify-center gap-16"
+        className="flex w-full min-w-0 items-start justify-center"
         aria-label="Topología curada"
       >
         {forest.roots.map((root) => (
-          <CuratedTopologyBranch
-            key={root.deviceId}
-            node={root}
-            isRoot
-            actions={actions}
-            selectedDeviceId={selectedDeviceId}
-            onSelectDevice={onSelectDevice}
-          />
+          <div key={root.deviceId} className="flex min-w-0 flex-1 justify-center">
+            <CuratedTopologyBranch
+              node={root}
+              isRoot
+              actions={actions}
+              selectedDeviceId={selectedDeviceId}
+              onSelectDevice={onSelectDevice}
+            />
+          </div>
         ))}
       </div>
     </div>
