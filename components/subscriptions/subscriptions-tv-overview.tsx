@@ -1,10 +1,13 @@
 "use client"
 
-import { Tv, Users } from "lucide-react"
+import { useEffect, useState } from "react"
+import { MonitorPlay, Tv, Users } from "lucide-react"
 
 import { useSubscriptions } from "@/components/subscriptions/subscriptions-provider"
 import { FilterableKpiCard } from "@/components/ui/filterable-kpi-card"
 import { KpiCardGrid } from "@/components/ui/kpi-card-grid"
+import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
+import { getSharedInboxKpiSummary } from "@/lib/supabase/customer-atenciones.browser"
 
 function formatCount(ready: boolean, value: number | undefined): number | string {
   if (!ready) return "—"
@@ -20,12 +23,36 @@ export function SubscriptionsTvOverview() {
     jubiladoOnly,
     statusFilter,
   } = useSubscriptions()
+  const { companyId, isAuthReady } = useTenantCompanyId()
+  const [consultaTvCount, setConsultaTvCount] = useState<number | null>(null)
+  const [consultaTvReady, setConsultaTvReady] = useState(false)
   const totalPlansActive =
     tvKind === "all" && !jubiladoOnly && statusFilter === "all"
 
+  useEffect(() => {
+    if (!isAuthReady) return
+    if (!companyId) {
+      setConsultaTvCount(null)
+      setConsultaTvReady(true)
+      return
+    }
+
+    let cancelled = false
+    setConsultaTvReady(false)
+    void getSharedInboxKpiSummary(companyId).then((result) => {
+      if (cancelled) return
+      setConsultaTvCount(result.error ? null : (result.data?.consulta_tv ?? 0))
+      setConsultaTvReady(true)
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [companyId, isAuthReady])
+
   return (
     <section>
-      <KpiCardGrid layout="standard">
+      <KpiCardGrid layout="standard" className="xl:grid-cols-5">
         <FilterableKpiCard
           label="TV Básica"
           value={formatCount(isSummaryReady, summary?.basicaCustomers)}
@@ -73,6 +100,20 @@ export function SubscriptionsTvOverview() {
           isActive={totalPlansActive}
           onClick={() => showPadronView("all")}
           ariaLabel="Ver clientes cargados con planes de TV"
+        />
+        <FilterableKpiCard
+          label="Consulta sobre TV"
+          value={
+            consultaTvReady && consultaTvCount != null
+              ? consultaTvCount.toLocaleString("es-AR")
+              : "—"
+          }
+          hint="Consultas pendientes"
+          icon={MonitorPlay}
+          tone="violet"
+          compact
+          isLoading={!consultaTvReady}
+          ariaLabel="Consultas sobre TV pendientes"
         />
       </KpiCardGrid>
     </section>

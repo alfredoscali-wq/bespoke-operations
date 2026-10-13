@@ -8,7 +8,6 @@ import {
   Clock3,
   Inbox,
   LayoutList,
-  MonitorPlay,
   PhoneCall,
   Store,
   TrendingUp,
@@ -108,7 +107,7 @@ const PENDING_WORK_BY_AREA_TONES: Record<PendingWorkByAreaKey, VisualTone> = {
 }
 
 type MotivoWorkCard = {
-  key: "consulta_comercial" | "consulta_tv"
+  key: "consulta_comercial"
   label: string
   icon: LucideIcon
   tone: VisualTone
@@ -123,13 +122,6 @@ const MOTIVO_WORK_CARDS: MotivoWorkCard[] = [
     icon: Store,
     tone: "blue",
     motivo: "consulta_comercial",
-  },
-  {
-    key: "consulta_tv",
-    label: "Consulta sobre TV",
-    icon: MonitorPlay,
-    tone: "violet",
-    motivo: "consulta_tv",
   },
 ]
 
@@ -293,20 +285,13 @@ export function ConsultationKpiStrip({
       workTray: PENDING_WORK_BY_AREA_TRAY[key],
     }))
 
-    const motivos: WorkQueueItem[] = MOTIVO_WORK_CARDS.filter((card) => {
-      const value =
-        card.key === "consulta_comercial"
-          ? sharedInboxKpis.consulta_comercial
-          : sharedInboxKpis.consulta_tv
-      return value > 0
-    }).map((card) => ({
+    const motivos: WorkQueueItem[] = MOTIVO_WORK_CARDS.filter(
+      (card) => sharedInboxKpis.consulta_comercial > 0
+    ).map((card) => ({
       kind: "motivo" as const,
       key: card.key,
       label: card.label,
-      value:
-        card.key === "consulta_comercial"
-          ? sharedInboxKpis.consulta_comercial
-          : sharedInboxKpis.consulta_tv,
+      value: sharedInboxKpis.consulta_comercial,
       icon: card.icon,
       tone: card.tone,
       motivo: card.motivo,
