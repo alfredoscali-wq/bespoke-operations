@@ -1,13 +1,24 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { MonitorPlay, Tv, Users } from "lucide-react"
 
+import { ConsultationStatusBadge } from "@/components/atencion-cliente/consultation-status-badge"
 import { useSubscriptions } from "@/components/subscriptions/subscriptions-provider"
 import { FilterableKpiCard } from "@/components/ui/filterable-kpi-card"
 import { KpiCardGrid } from "@/components/ui/kpi-card-grid"
+import { formatConsultationInboxDateTime } from "@/lib/customer-atenciones/format"
+import {
+  isActiveConsultationStatus,
+  truncateConsultationDetail,
+} from "@/lib/customer-atenciones/shared-inbox"
 import { useTenantCompanyId } from "@/lib/operations/use-tenant-company-id"
-import { getSharedInboxKpiSummary } from "@/lib/supabase/customer-atenciones.browser"
+import {
+  getSharedInboxKpiSummary,
+  listSharedInboxConsultations,
+} from "@/lib/supabase/customer-atenciones.browser"
+import type { CustomerAtencionInboxRow } from "@/lib/types/customer-atenciones"
 
 function formatCount(ready: boolean, value: number | undefined): number | string {
   if (!ready) return "—"
@@ -26,6 +37,10 @@ export function SubscriptionsTvOverview() {
   const { companyId, isAuthReady } = useTenantCompanyId()
   const [consultaTvCount, setConsultaTvCount] = useState<number | null>(null)
   const [consultaTvReady, setConsultaTvReady] = useState(false)
+  const [consultasOpen, setConsultasOpen] = useState(false)
+  const [consultas, setConsultas] = useState<CustomerAtencionInboxRow[] | null>(null)
+  const [consultasLoading, setConsultasLoading] = useState(false)
+  const [consultasError, setConsultasError] = useState<string | null>(null)
   const totalPlansActive =
     tvKind === "all" && !jubiladoOnly && statusFilter === "all"
 
@@ -49,6 +64,38 @@ export function SubscriptionsTvOverview() {
       cancelled = true
     }
   }, [companyId, isAuthReady])
+
+  useEffect(() => {
+    if (!consultasOpen || !companyId) return
+
+    let cancelled = false
+    setConsultasLoading(true)
+    setConsultasError(null)
+    void listSharedInboxConsultations(companyId, {
+      statusFilter: "all",
+      motivo: "consulta_tv",
+      channel: "all",
+      operationalCategory: null,
+      workTray: null,
+      createdDate: null,
+      search: "",
+    }).then((result) => {
+      if (cancelled) return
+      if (result.error || !result.data) {
+        setConsultas(null)
+        setConsultasError("No se pudieron cargar las consultas.")
+      } else {
+        setConsultas(
+          result.data.rows.filter((row) => isActiveConsultationStatus(row.status))
+        )
+      }
+      setConsultasLoading(false)
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [companyId, consultasOpen])
 
   return (
     <section>
@@ -113,9 +160,54 @@ export function SubscriptionsTvOverview() {
           tone="violet"
           compact
           isLoading={!consultaTvReady}
-          ariaLabel="Consultas sobre TV pendientes"
+          isActive={consultasOpen}
+          onClick={() => setConsultasOpen((open) => !open)}
+          ariaLabel="Ver consultas sobre TV pendientes"
         />
       </KpiCardGrid>
+      {consultasOpen ? (
+        <div className="mt-3 overflow-hidden rounded-xl border bg-card">
+          <div className="border-b px-4 py-3">
+            <h2 className="text-sm font-semibold">Consultas sobre TV</h2>
+          </div>
+          {consultasLoading ? (
+            <p className="px-4 py-3 text-sm text-muted-foreground">
+              Cargando consultas…
+            </p>
+          ) : null}
+          {consultasError ? (
+            <p className="px-4 py-3 text-sm text-destructive">{consultasError}</p>
+          ) : null}
+          {!consultasLoading && !consultasError && consultas?.length === 0 ? (
+            <p className="px-4 py-3 text-sm text-muted-foreground">
+              No hay consultas pendientes sobre TV.
+            </p>
+          ) : null}
+          {!consultasLoading && !consultasError && consultas && consultas.length > 0 ? (
+            <ul className="max-h-80 divide-y overflow-y-auto">
+              {consultas.map((row) => (
+                <li key={row.id}>
+                  <Link
+                    href={`/atencion-cliente/${row.id}`}
+                    className="flex flex-col gap-1 px-4 py-3 hover:bg-muted/40 sm:flex-row sm:items-center sm:gap-3"
+                  >
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                      {row.customerName}
+                    </span>
+                    <ConsultationStatusBadge status={row.status} />
+                    <span className="min-w-0 flex-[1.4] truncate text-sm text-muted-foreground">
+                      {truncateConsultationDetail(row.detail)}
+                    </span>
+                    <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                      {formatConsultationInboxDateTime(row.createdAt)}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
     </section>
   )
 }
