@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, type ReactNode } from "react"
 import Link from "next/link"
-import { MonitorPlay, Tv, Users } from "lucide-react"
+import { MonitorPlay, Tv, UserPlus, Users } from "lucide-react"
 
 import { ConsultationStatusBadge } from "@/components/atencion-cliente/consultation-status-badge"
 import { useSubscriptions } from "@/components/subscriptions/subscriptions-provider"
@@ -20,12 +20,26 @@ import {
 } from "@/lib/supabase/customer-atenciones.browser"
 import type { CustomerAtencionInboxRow } from "@/lib/types/customer-atenciones"
 
+type SubscriptionsTvOverviewProps = {
+  pendingSignupCount: number | null
+  pendingSignupsLoading: boolean
+  pendingSignupsOpen: boolean
+  onTogglePendingSignups: () => void
+  children?: ReactNode
+}
+
 function formatCount(ready: boolean, value: number | undefined): number | string {
   if (!ready) return "—"
   return (value ?? 0).toLocaleString("es-AR")
 }
 
-export function SubscriptionsTvOverview() {
+export function SubscriptionsTvOverview({
+  pendingSignupCount,
+  pendingSignupsLoading,
+  pendingSignupsOpen,
+  onTogglePendingSignups,
+  children,
+}: SubscriptionsTvOverviewProps) {
   const {
     summary,
     isSummaryReady,
@@ -97,9 +111,26 @@ export function SubscriptionsTvOverview() {
     }
   }, [companyId, consultasOpen])
 
+  const showConsultas = consultaTvReady && (consultaTvCount ?? 0) > 0
+  const showPendingSignups = !pendingSignupsLoading && (pendingSignupCount ?? 0) > 0
+  const optionalKpis = Number(showConsultas) + Number(showPendingSignups)
+
+  useEffect(() => {
+    if (!showConsultas) setConsultasOpen(false)
+  }, [showConsultas])
+
   return (
     <section>
-      <KpiCardGrid layout="standard" className="xl:grid-cols-5">
+      <KpiCardGrid
+        layout="standard"
+        className={
+          optionalKpis === 2
+            ? "xl:grid-cols-6"
+            : optionalKpis === 1
+              ? "xl:grid-cols-5"
+              : undefined
+        }
+      >
         <FilterableKpiCard
           label="TV Básica"
           value={formatCount(isSummaryReady, summary?.basicaCustomers)}
@@ -148,24 +179,34 @@ export function SubscriptionsTvOverview() {
           onClick={() => showPadronView("all")}
           ariaLabel="Ver clientes cargados con planes de TV"
         />
-        <FilterableKpiCard
-          label="Consulta sobre TV"
-          value={
-            consultaTvReady && consultaTvCount != null
-              ? consultaTvCount.toLocaleString("es-AR")
-              : "—"
-          }
-          hint="Consultas pendientes"
-          icon={MonitorPlay}
-          tone="violet"
-          compact
-          isLoading={!consultaTvReady}
-          isActive={consultasOpen}
-          onClick={() => setConsultasOpen((open) => !open)}
-          ariaLabel="Ver consultas sobre TV pendientes"
-        />
+        {showConsultas ? (
+          <FilterableKpiCard
+            label="Consulta sobre TV"
+            value={(consultaTvCount ?? 0).toLocaleString("es-AR")}
+            hint="Consultas pendientes"
+            icon={MonitorPlay}
+            tone="violet"
+            compact
+            isActive={consultasOpen}
+            onClick={() => setConsultasOpen((open) => !open)}
+            ariaLabel="Ver consultas sobre TV pendientes"
+          />
+        ) : null}
+        {showPendingSignups ? (
+          <FilterableKpiCard
+            label="Altas pendientes en TV"
+            value={(pendingSignupCount ?? 0).toLocaleString("es-AR")}
+            hint="Requieren revisión"
+            icon={UserPlus}
+            tone="amber"
+            compact
+            isActive={pendingSignupsOpen}
+            onClick={onTogglePendingSignups}
+            ariaLabel="Ver altas pendientes en TV"
+          />
+        ) : null}
       </KpiCardGrid>
-      {consultasOpen ? (
+      {consultasOpen && showConsultas ? (
         <div className="mt-3 overflow-hidden rounded-xl border bg-card">
           <div className="border-b px-4 py-3">
             <h2 className="text-sm font-semibold">Consultas sobre TV</h2>
@@ -208,6 +249,7 @@ export function SubscriptionsTvOverview() {
           ) : null}
         </div>
       ) : null}
+      {children}
     </section>
   )
 }

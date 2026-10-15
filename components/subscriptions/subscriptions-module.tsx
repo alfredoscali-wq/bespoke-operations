@@ -11,6 +11,7 @@ import {
 } from "@/components/subscriptions/latam-tv-row-dialog"
 import { SubscriptionsProvider, useSubscriptions } from "@/components/subscriptions/subscriptions-provider"
 import { SubscriptionsTvOverview } from "@/components/subscriptions/subscriptions-tv-overview"
+import { TvOtSignupsPanel, useTvOtSignupList } from "@/components/subscriptions/tv-ot-signups-panel"
 import { TvPlansCatalogSection } from "@/components/subscriptions/tv-plans-catalog-section"
 import { TvSubscribersFilters } from "@/components/subscriptions/tv-subscribers-filters"
 import { Button } from "@/components/ui/button"
@@ -151,6 +152,11 @@ function SubscriptionsModuleContent() {
   const emptyMessage = hasFilters
     ? "Ninguna fila del padrón coincide con los filtros."
     : "El padrón de TV no tiene filas."
+  const signupFeed = useTvOtSignupList()
+  const [pendingSignupsOpen, setPendingSignupsOpen] = useState(false)
+  const pendingSignupCount =
+    signupFeed.loading || signupFeed.error ? null : signupFeed.attentionCount
+  const showPendingSignups = (pendingSignupCount ?? 0) > 0
   const [latamRow, setLatamRow] = useState<AbnetTvPadronRow | null>(null)
   const [latamIntent, setLatamIntent] = useState<LatamDialogIntent>("view")
   const latamRowRef = useRef(latamRow)
@@ -168,6 +174,10 @@ function SubscriptionsModuleContent() {
     selectedKeys.has(padronRowSelectionKey(row))
   )
   const selectionState = visiblePadronSelectionState(selectedKeys, visibleKeys)
+
+  useEffect(() => {
+    if (!signupFeed.loading && !showPendingSignups) setPendingSignupsOpen(false)
+  }, [showPendingSignups, signupFeed.loading])
 
   useEffect(() => {
     setSelectedKeys((current) => {
@@ -220,7 +230,18 @@ function SubscriptionsModuleContent() {
         onToggleActive={togglePlanActive}
       />
 
-      <SubscriptionsTvOverview />
+      <SubscriptionsTvOverview
+        pendingSignupCount={pendingSignupCount}
+        pendingSignupsLoading={signupFeed.loading}
+        pendingSignupsOpen={pendingSignupsOpen}
+        onTogglePendingSignups={() => setPendingSignupsOpen((open) => !open)}
+      >
+        {pendingSignupsOpen && showPendingSignups ? (
+          <div className="mt-3">
+            <TvOtSignupsPanel canWrite={canWrite} feed={signupFeed} />
+          </div>
+        ) : null}
+      </SubscriptionsTvOverview>
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 

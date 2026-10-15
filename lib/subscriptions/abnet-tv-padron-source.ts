@@ -8,6 +8,7 @@ import {
   ABNET_TV_PADRON_SOURCE,
   type AbnetTvPadronSourceRow,
 } from "@/lib/subscriptions/abnet-tv-padron"
+import { BESPOKE_OT_TV_PADRON_SOURCE } from "@/lib/subscriptions/tv-ot-signups"
 import type { AbnetPadronExclusion } from "@/lib/subscriptions/abnet-tv-padron-exclusions"
 
 const PAGE = 1000
@@ -70,22 +71,47 @@ export async function loadAbnetTvPadronSourceRows(
   origin: "table" | "static"
   error: { code?: string; message: string } | null
 }> {
-  const page = await readPages((from, to) =>
-    looseDb(client)
-      .from("abnet_tv_padron_rows")
-      .select(
-        "abnet_customer_number, customer_name, service_type, node, plan_name, status, tv_amount, tv_tax_amount, final_amount, source, source_row"
-      )
-      .eq("company_id", companyId)
-      .eq("source", ABNET_TV_PADRON_SOURCE)
-      .order("source_row")
-      .range(from, to)
-  )
+  const page = await readPadronSource(client, companyId, ABNET_TV_PADRON_SOURCE)
   if (page.error && !padronTableMissing(page.error)) {
     return { rows: [], origin: "table", error: page.error }
   }
-  let rows = (page.rows ?? []).map((row) => ({
-    source: text(row.source) || ABNET_TV_PADRON_SOURCE,
+  let rows = (page.rows ?? []).map((row) => mapPadronSourceRow(row, ABNET_TV_PADRON_SOURCE))
+  let origin: "table" | "static" = "table"
+  if (rows.length === 0 && companyId === BESPOKE_PRODUCTION_COMPANY_ID) {
+    rows = readAbnetTvPadronStatic()
+    origin = "static"
+  }
+  const otPage = await readPadronSource(client, companyId, BESPOKE_OT_TV_PADRON_SOURCE)
+  if (otPage.error && !padronTableMissing(otPage.error)) {
+    return { rows: [], origin: "table", error: otPage.error }
+  }
+  rows = rows.concat(
+    (otPage.rows ?? []).map((row) => mapPadronSourceRow(row, BESPOKE_OT_TV_PADRON_SOURCE))
+  )
+  return { rows, origin, error: null }
+}
+
+const PADRON_COLUMNS =
+  "abnet_customer_number, customer_name, service_type, node, plan_name, status, tv_amount, tv_tax_amount, final_amount, source, source_row"
+
+function readPadronSource(client: unknown, companyId: string, source: string) {
+  return readPages((from, to) =>
+    looseDb(client)
+      .from("abnet_tv_padron_rows")
+      .select(PADRON_COLUMNS)
+      .eq("company_id", companyId)
+      .eq("source", source)
+      .order("source_row")
+      .range(from, to)
+  )
+}
+
+function mapPadronSourceRow(
+  row: Record<string, unknown>,
+  fallbackSource: string
+): AbnetTvPadronSourceRow {
+  return {
+    source: text(row.source) || fallbackSource,
     sourceRow: Number(row.source_row),
     abnetCustomerNumber: text(row.abnet_customer_number),
     customerName: text(row.customer_name),
@@ -96,13 +122,7 @@ export async function loadAbnetTvPadronSourceRows(
     tvAmount: abnetPadronMoney(row.tv_amount),
     tvTaxAmount: abnetPadronMoney(row.tv_tax_amount),
     finalAmount: abnetPadronMoney(row.final_amount),
-  }))
-  let origin: "table" | "static" = "table"
-  if (rows.length === 0 && companyId === BESPOKE_PRODUCTION_COMPANY_ID) {
-    rows = readAbnetTvPadronStatic()
-    origin = "static"
   }
-  return { rows, origin, error: null }
 }
 
 export async function loadActiveAbnetTvPadronExclusions(
