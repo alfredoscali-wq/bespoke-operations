@@ -276,6 +276,10 @@ export async function incorporateTvOtSignup(
   if (confirmed.status !== "incorporated") {
     return failure(409, "No se confirmó la incorporación en el listado.")
   }
+  const item = await reloadItem(client, companyId, auditClient, taskId)
+  if (!item || item.category !== "incorporated") {
+    return failure(409, "No se confirmó la incorporación en el listado.")
+  }
   return {
     ok: true,
     message: "El cliente quedó incorporado al padrón de TV.",
