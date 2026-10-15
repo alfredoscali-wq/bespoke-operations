@@ -14,6 +14,7 @@ import {
   ABNET_TV_PADRON_SOURCE,
 } from "@/lib/subscriptions/abnet-tv-padron"
 import {
+  bespokeCliCustomerNumber,
   isTvOtPlanKind,
   isTvOtSignupWindow,
   matchPadronIdentity,
@@ -196,7 +197,9 @@ export async function loadTvOtSignupFeed(
   }
   const visible = excludeAbnetPadronRows(padron.rows, exclusions.exclusions, companyId)
   const matchRows: TvOtPadronMatchRow[] = visible.flatMap((row) => {
-    const number = abnetPadronCustomerNumber(row.abnetCustomerNumber)
+    const number =
+      abnetPadronCustomerNumber(row.abnetCustomerNumber) ??
+      bespokeCliCustomerNumber(row.abnetCustomerNumber)
     if (!number) return []
     return [
       {
@@ -244,6 +247,7 @@ export async function loadTvOtSignupFeed(
     const abnetNumber = verifiedAbnetNumber(text(customer.external_customer_code))
     const matched = matchPadronIdentity({
       abnetNumber,
+      customerNumber: text(customer.customer_number),
       customerName: text(customer.name),
       rows: matchRows,
     })
@@ -283,6 +287,84 @@ function missingProposalTable(error: { code?: string; message: string } | null):
     error?.code === "42P01" ||
     message.includes("tv_ot_signup_proposals")
   )
+}
+
+/** One OT, its customer and its proposal. Skips the full padrón scan so a plan edit can answer quickly. */
+export async function loadTvOtSignupCase(
+  client: unknown,
+  companyId: string,
+  taskId: string
+): Promise<
+  | { ok: true; fact: TvOtSignupFact; item: TvOtSignupItem }
+  | { ok: false; message: string }
+> {
+  const taskPage = await looseDb(client)
+    .from("tasks")
+    .select("id, code, customer_id, status, created_at, contracted_plan, service_type")
+    .eq("company_id", companyId)
+    .eq("id", taskId)
+    .is("deleted_at", null)
+    .range(0, 0)
+  if (taskPage.error) return { ok: false, message: taskPage.error.message }
+  const task = taskPage.data?.[0]
+  if (
+    !task ||
+    text(task.service_type) !== TV_OT_SIGNUP_SERVICE ||
+    !isTvOtSignupWindow(text(task.created_at))
+  ) {
+    return { ok: false, message: "Esa OT no está en las altas de octubre." }
+  }
+
+  const customerId = text(task.customer_id)
+  const customerPage = await looseDb(client)
+    .from("customers")
+    .select("id, customer_number, name, status, external_customer_code")
+    .eq("company_id", companyId)
+    .eq("id", customerId)
+    .range(0, 0)
+  if (customerPage.error) return { ok: false, message: customerPage.error.message }
+  const customer = customerPage.data?.[0]
+  if (!customer) return { ok: false, message: "Esa OT no está en las altas de octubre." }
+
+  const proposalPage = await looseDb(client)
+    .from("tv_ot_signup_proposals")
+    .select(
+      "customer_id, task_id, status, tv_kind, abnet_customer_number, padron_source, padron_source_row, incorporated_at, incorporated_by, excluded_at, excluded_by"
+    )
+    .eq("company_id", companyId)
+    .eq("task_id", taskId)
+    .range(0, 0)
+  if (proposalPage.error) {
+    return {
+      ok: false,
+      message: missingProposalTable(proposalPage.error)
+        ? "La cola de altas de TV todavía no está disponible."
+        : proposalPage.error.message,
+    }
+  }
+
+  const fact: TvOtSignupFact = {
+    taskId,
+    taskCode: text(task.code),
+    taskCreatedAt: text(task.created_at),
+    taskStatus: text(task.status),
+    contractedPlan: text(task.contracted_plan) || null,
+    customerId,
+    customerNumber: text(customer.customer_number),
+    customerName: text(customer.name),
+    customerStatus: text(customer.status) || null,
+    abnetNumber: verifiedAbnetNumber(text(customer.external_customer_code)),
+    activationPreviousStatus: null,
+    padronExact: null,
+    possibleMatchNumbers: [],
+    proposal: proposalPage.data?.[0] ? proposalFrom(proposalPage.data[0]) : null,
+  }
+  if (fact.proposal?.status === "excluded") {
+    return { ok: false, message: "Esta propuesta fue excluida de la lista." }
+  }
+  const item = presentTvOtSignup(fact)
+  if (!item) return { ok: false, message: "Esta propuesta fue excluida de la lista." }
+  return { ok: true, fact, item }
 }
 
 export function findTvOtSignupFact(

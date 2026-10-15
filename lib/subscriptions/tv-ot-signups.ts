@@ -202,6 +202,13 @@ export function verifiedAbnetNumber(code: string | null | undefined): string | n
   return abnetNumberFromExternalCode(code)
 }
 
+/** Bespoke customer code created with the client, for example CLI-005788. */
+export function bespokeCliCustomerNumber(value: string | null | undefined): string | null {
+  const match = /^CLI-(\d+)$/i.exec(value?.trim() ?? "")
+  if (!match || /^0+$/.test(match[1])) return null
+  return `CLI-${match[1]}`
+}
+
 export function formatTvOtSignupDate(value: string | null | undefined): string {
   if (!value) return "No disponible"
   const date = new Date(value)
@@ -233,14 +240,18 @@ export function padronPlanLabel(row: {
 
 export function matchPadronIdentity(input: {
   abnetNumber: string | null
+  customerNumber?: string | null
   customerName: string | null
   rows: readonly TvOtPadronMatchRow[]
 }): {
   exact: { source: string; sourceRow: number; planLabel: string } | null
   possibleMatchNumbers: string[]
 } {
-  const exactRows = input.abnetNumber
-    ? input.rows.filter((row) => row.number === input.abnetNumber)
+  const identity = [input.abnetNumber, bespokeCliCustomerNumber(input.customerNumber)].filter(
+    (value): value is string => Boolean(value)
+  )
+  const exactRows = identity.length
+    ? input.rows.filter((row) => identity.includes(row.number))
     : []
   const exact = exactRows[0]
     ? {
@@ -349,9 +360,8 @@ export function presentTvOtSignup(fact: TvOtSignupFact): TvOtSignupItem | null {
     incorporateBlock = "No hay un OK de activación verificable para esta OT."
   } else if (!selected) {
     incorporateBlock = "Seleccione y guarde un plan de TV antes de incorporar."
-  } else if (!fact.abnetNumber) {
-    incorporateBlock =
-      "El padrón exige un N° de abonado ABNet verificado. Esta alta sigue en la cola y no se inserta una fila."
+  } else if (!fact.abnetNumber && !bespokeCliCustomerNumber(fact.customerNumber)) {
+    incorporateBlock = "Este cliente no tiene un N° CLI. No se inserta una fila en el padrón."
   }
   const taskOpen = fact.taskStatus !== "finalizada" && fact.taskStatus !== "cancelada"
   return {
@@ -481,12 +491,12 @@ export function planTvOtSignupIncorporation(input: {
     }
   }
   const option = tvOtPlanOption(input.item.selectedTvKind)
-  if (!input.item.abnetNumber) {
+  const padronNumber = input.item.abnetNumber ?? bespokeCliCustomerNumber(input.item.customerNumber)
+  if (!padronNumber) {
     return {
       outcome: "missing_abnet",
       tvKind: input.item.selectedTvKind,
-      message:
-        "El padrón de TV exige un N° de abonado ABNet. No hay una asignación verificada para este cliente, así que no se insertó ninguna fila.",
+      message: "Este cliente no tiene un N° CLI. No se insertó una fila en el padrón.",
     }
   }
   const name = input.customerName.trim()
@@ -496,7 +506,7 @@ export function planTvOtSignupIncorporation(input: {
   return {
     outcome: "insert",
     tvKind: input.item.selectedTvKind,
-    abnetNumber: input.item.abnetNumber,
+    abnetNumber: padronNumber,
     customerName: name,
     planName: option.label,
     tvAmount: option.padronAmount,

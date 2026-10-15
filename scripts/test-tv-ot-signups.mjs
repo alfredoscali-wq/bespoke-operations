@@ -5,6 +5,7 @@ import test from "node:test"
 
 import {
   BESPOKE_OT_TV_PADRON_SOURCE,
+  bespokeCliCustomerNumber,
   contractedPlanIncludesTv,
   countPendingTvOtSignups,
   countTvOtSignups,
@@ -109,8 +110,9 @@ test("la exclusión oculta ese caso y no el de otra OT del mismo cliente", () =>
   assert.equal(planTvOtSignupExclusion({ proposalStatus: "incorporated", incorporated: true }).outcome, "rejected")
 })
 
-test("sin N° ABNet no hay inserción al padrón y un número ya presente no se duplica", () => {
+test("sin N° ABNet el padrón usa el CLI del cliente y un número ya presente no se duplica", () => {
   const saved = item({
+    customerNumber: "CLI-005788",
     proposal: {
       status: "pending_review",
       tvKind: "basica",
@@ -122,8 +124,30 @@ test("sin N° ABNet no hay inserción al padrón y un número ya presente no se 
       padronSourceRow: null,
     },
   })
-  const missing = planTvOtSignupIncorporation({
+  const byCli = planTvOtSignupIncorporation({
     item: saved,
+    customerName: "Cliente Ejemplo",
+    acknowledgePossibleMatch: false,
+  })
+  assert.equal(byCli.outcome, "insert")
+  assert.equal(byCli.abnetNumber, "CLI-005788")
+  assert.equal(bespokeCliCustomerNumber("CLI-005788"), "CLI-005788")
+  assert.equal(bespokeCliCustomerNumber("cli-0000"), null)
+
+  const missing = planTvOtSignupIncorporation({
+    item: item({
+      customerNumber: "",
+      proposal: {
+        status: "pending_review",
+        tvKind: "basica",
+        excludedAt: null,
+        excludedBy: null,
+        incorporatedAt: null,
+        incorporatedBy: null,
+        padronSource: null,
+        padronSourceRow: null,
+      },
+    }),
     customerName: "Cliente Ejemplo",
     acknowledgePossibleMatch: false,
   })
@@ -244,6 +268,10 @@ test("la coincidencia de nombre exige revisión y Latam queda fuera", () => {
   assert.match(migration, /tv_ot_signup_proposals_case_unique/)
   assert.match(migration, /status = 'excluded'/)
   assert.doesNotMatch(migration, /DROP NOT NULL|abnet_customer_number DROP/)
+  const cliMigration = read("supabase/migrations/20270115180000_tv_ot_signup_cli_customer_number.sql")
+  assert.match(cliMigration, /customer\.customer_number/)
+  assert.match(cliMigration, /CLI-\[0-9\]\+/)
+  assert.doesNotMatch(cliMigration, /DROP NOT NULL|DROP TABLE|DELETE FROM/)
   assert.equal(countTvOtSignups([row]).approved_with_tv, 1)
   assert.equal(countPendingTvOtSignups([row, { category: "incorporated" }]), 1)
   const overview = read("components/subscriptions/subscriptions-tv-overview.tsx")

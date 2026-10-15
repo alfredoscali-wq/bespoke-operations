@@ -10,12 +10,14 @@ import {
 } from "@/lib/subscriptions/tv-ot-signups"
 import {
   findTvOtSignupFact,
+  loadTvOtSignupCase,
   loadTvOtSignupFeed,
   type TvOtSignupFeed,
 } from "@/lib/subscriptions/tv-ot-signups-source"
 import {
   insertBespokeOtTvPadronRow,
   nextBespokeOtTvSourceRow,
+  readTvOtSignupProposal,
   saveTvOtSignupProposal,
   type TvOtProposalWrite,
 } from "@/lib/subscriptions/tv-ot-signups-store"
@@ -112,18 +114,24 @@ export async function readTvOtSignupList(
 export async function editTvOtSignupPlan(
   client: unknown,
   companyId: string,
-  auditClient: unknown,
+  _auditClient: unknown,
   taskId: string,
   tvKind: unknown
 ): Promise<ActionResult> {
-  const current = await requireCase(client, companyId, auditClient, taskId)
-  if (current.error || !current.found) return current.error ?? failure(404, "Esa OT no está en las altas de octubre.")
-  if (current.found.fact.proposal?.status === "excluded") {
-    return failure(409, "Esta propuesta fue excluida de la lista.")
+  const current = await loadTvOtSignupCase(client, companyId, taskId)
+  if (!current.ok) {
+    const status = current.message.includes("excluida")
+      ? 409
+      : current.message.includes("no está disponible")
+        ? 503
+        : current.message.includes("no está")
+          ? 404
+          : 400
+    return failure(status, current.message)
   }
-  const decision = planTvOtSignupPlanEdit({ item: current.found.item, tvKind })
+  const decision = planTvOtSignupPlanEdit({ item: current.item, tvKind })
   if (decision.outcome === "rejected") return failure(400, decision.message)
-  const proposal = current.found.fact.proposal
+  const proposal = current.fact.proposal
   const status =
     proposal?.status === "pending_required_data" || proposal?.status === "needs_review"
       ? proposal.status
@@ -131,17 +139,24 @@ export async function editTvOtSignupPlan(
   const error = await writeProposal(client, {
     exists: proposal != null && proposal.status !== "excluded",
     companyId,
-    customerId: current.found.fact.customerId,
+    customerId: current.fact.customerId,
     taskId,
     status,
     tvKind: decision.tvKind,
   })
   if (error) return failure(400, error)
-  const item = await reloadItem(client, companyId, auditClient, taskId)
-  if (!item || item.selectedTvKind !== decision.tvKind) {
+  const saved = await readTvOtSignupProposal(client, companyId, taskId)
+  const savedError = persistenceProblem(saved.error)
+  if (savedError) return failure(400, savedError)
+  if (saved.tvKind !== decision.tvKind) {
     return failure(409, "El plan no quedó guardado.")
   }
-  return { ok: true, message: "Plan de TV guardado.", item, incorporated: false }
+  return {
+    ok: true,
+    message: "El plan de TV se cambió con éxito.",
+    item: null,
+    incorporated: false,
+  }
 }
 
 export async function excludeTvOtSignup(
@@ -255,8 +270,10 @@ export async function incorporateTvOtSignup(
       "La fila del padrón se escribió, pero la cola no quedó actualizada. Recargue el listado antes de reintentar."
     )
   }
-  const item = await reloadItem(client, companyId, auditClient, taskId)
-  if (!item || item.category !== "incorporated") {
+  const confirmed = await readTvOtSignupProposal(client, companyId, taskId)
+  const confirmedError = persistenceProblem(confirmed.error)
+  if (confirmedError) return failure(400, confirmedError)
+  if (confirmed.status !== "incorporated") {
     return failure(409, "No se confirmó la incorporación en el listado.")
   }
   return {

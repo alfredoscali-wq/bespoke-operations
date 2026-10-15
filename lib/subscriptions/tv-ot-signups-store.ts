@@ -105,6 +105,41 @@ export async function insertBespokeOtTvPadronRow(
   return inserted.error
 }
 
+export async function readTvOtSignupProposal(
+  client: unknown,
+  companyId: string,
+  taskId: string
+): Promise<{ status: string | null; tvKind: string | null; error: WriteError }> {
+  const page = await (
+    client as {
+      from: (table: string) => {
+        select: (columns: string) => {
+          eq: (column: string, value: string) => {
+            eq: (column: string, value: string) => {
+              limit: (count: number) => Promise<{
+                data: { status?: string | null; tv_kind?: string | null }[] | null
+                error: WriteError
+              }>
+            }
+          }
+        }
+      }
+    }
+  )
+    .from("tv_ot_signup_proposals")
+    .select("status, tv_kind")
+    .eq("company_id", companyId)
+    .eq("task_id", taskId)
+    .limit(1)
+  if (page.error) return { status: null, tvKind: null, error: page.error }
+  const row = page.data?.[0]
+  return {
+    status: typeof row?.status === "string" ? row.status : null,
+    tvKind: typeof row?.tv_kind === "string" ? row.tv_kind : null,
+    error: null,
+  }
+}
+
 export async function nextBespokeOtTvSourceRow(
   client: unknown,
   companyId: string

@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
+  bespokeCliCustomerNumber,
   countPendingTvOtSignups,
   TV_OT_LATAM_STATUS,
   TV_OT_PLAN_OPTIONS,
@@ -168,7 +169,7 @@ export function TvOtSignupsPanel({
       })
       setNotice(message)
       setPlanItem(null)
-      await load()
+      void load()
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "No se pudo guardar el plan.")
     } finally {
@@ -188,7 +189,7 @@ export function TvOtSignupsPanel({
       )
       setNotice(message)
       setIncorporateItem(null)
-      await load()
+      void load()
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "No se pudo incorporar la alta.")
     } finally {
@@ -208,7 +209,7 @@ export function TvOtSignupsPanel({
       )
       setNotice(message)
       setExcludeItem(null)
-      await load()
+      void load()
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "No se pudo quitar la propuesta.")
     } finally {
@@ -254,7 +255,11 @@ export function TvOtSignupsPanel({
           {error}
         </p>
       ) : null}
-      {notice ? <p className="text-sm text-foreground">{notice}</p> : null}
+      {notice ? (
+        <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-950" role="status">
+          {notice}
+        </p>
+      ) : null}
 
       {loading ? (
         <p className="text-sm text-muted-foreground">Cargando altas de octubre…</p>
@@ -270,7 +275,7 @@ export function TvOtSignupsPanel({
                 <th className="px-2 py-2 font-medium">Activación</th>
                 <th className="px-2 py-2 font-medium">Plan contratado</th>
                 <th className="px-2 py-2 font-medium">Plan de TV</th>
-                <th className="px-2 py-2 font-medium">N° ABNet</th>
+                <th className="px-2 py-2 font-medium">N° Cliente</th>
                 <th className="px-2 py-2 font-medium">Padrón</th>
                 <th className="px-2 py-2 font-medium">Acciones</th>
               </tr>
@@ -300,7 +305,9 @@ export function TvOtSignupsPanel({
                     ) : null}
                     <p className="text-xs text-muted-foreground">{item.queueStatusLabel}</p>
                   </td>
-                  <td className="px-2 py-2">{item.abnetNumber ?? "No disponible"}</td>
+                  <td className="px-2 py-2">
+                    {item.abnetNumber ?? bespokeCliCustomerNumber(item.customerNumber) ?? "No disponible"}
+                  </td>
                   <td className="px-2 py-2">
                     <p>
                       {item.padronPresence === "exact"
@@ -394,12 +401,17 @@ export function TvOtSignupsPanel({
               Si la OT es solo de Internet, no hay un plan de TV propuesto hasta que lo elija.
             </p>
           )}
+          {error ? (
+            <p className="text-sm text-destructive" role="alert">
+              {error}
+            </p>
+          ) : null}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setPlanItem(null)}>
               Cancelar
             </Button>
             <Button type="button" disabled={saving || !planKind} onClick={() => void savePlan()}>
-              Guardar plan
+              {saving ? "Guardando…" : "Guardar plan"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -417,6 +429,14 @@ export function TvOtSignupsPanel({
           </DialogHeader>
           {incorporateItem?.incorporateBlock ? (
             <p className="text-sm">{incorporateItem.incorporateBlock}</p>
+          ) : incorporateItem ? (
+            <p className="text-sm">
+              El alta se incorpora al padrón con el N° de cliente{" "}
+              {incorporateItem.abnetNumber ??
+                bespokeCliCustomerNumber(incorporateItem.customerNumber) ??
+                "no disponible"}
+              .
+            </p>
           ) : null}
           {incorporateItem?.possibleMatch ? (
             <label className="flex items-start gap-2 text-sm">

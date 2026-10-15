@@ -14,7 +14,13 @@ import {
 } from "@/lib/subscriptions/abnet-tv-padron"
 import { ABNET_TV_PLAN_OPTIONS } from "@/lib/subscriptions/abnet-tv-plan-choice"
 import { requireSubscriptionsWriteContext } from "@/lib/subscriptions/route-context"
+import { bespokeCliCustomerNumber } from "@/lib/subscriptions/tv-ot-signups"
 import { createClient } from "@/lib/supabase/server"
+
+function rowCustomerNumber(value: unknown): string | null {
+  const raw = typeof value === "number" ? String(value) : typeof value === "string" ? value : ""
+  return abnetPadronCustomerNumber(raw) ?? bespokeCliCustomerNumber(raw)
+}
 
 export const runtime = "nodejs"
 
@@ -41,7 +47,7 @@ export async function DELETE(request: Request, context: RouteContext) {
     return jsonError("Cuerpo JSON inválido.", 400)
   }
 
-  const abnetCustomerNumber = abnetPadronCustomerNumber(body.abnetCustomerNumber)
+  const abnetCustomerNumber = rowCustomerNumber(body.abnetCustomerNumber)
   if (!abnetCustomerNumber) {
     return jsonError("Indique el N° Cliente de la fila.", 400)
   }
@@ -153,7 +159,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   } catch {
     return jsonError("Cuerpo JSON inválido.", 400)
   }
-  const abnetCustomerNumber = abnetPadronCustomerNumber(body.abnetCustomerNumber)
+  const abnetCustomerNumber = rowCustomerNumber(body.abnetCustomerNumber)
   const option = ABNET_TV_PLAN_OPTIONS.find((item) => item.id === body.tvKind)
   if (!abnetCustomerNumber || !option) {
     return jsonError("La fila o el plan no son válidos.", 400)
@@ -172,7 +178,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     )
     if (
       !stored ||
-      abnetPadronCustomerNumber(stored.abnetCustomerNumber) !== abnetCustomerNumber
+      rowCustomerNumber(stored.abnetCustomerNumber) !== abnetCustomerNumber
     ) {
       return jsonError(
         "La fila del padrón de TV no existe o no pertenece a esta empresa.",

@@ -1,4 +1,5 @@
 import { abnetPadronCustomerNumber } from "@/lib/subscriptions/abnet-tv-padron"
+import { bespokeCliCustomerNumber } from "@/lib/subscriptions/tv-ot-signups"
 
 export const ABNET_TV_PADRON_REMOVE_ACTION = "remove_from_tv_padron"
 
@@ -72,7 +73,9 @@ export function planAbnetTvPadronRemoval(input: {
   }[]
   exclusions: readonly AbnetPadronExclusion[]
 }): AbnetPadronRemovalPlan {
-  const requested = abnetPadronCustomerNumber(input.abnetCustomerNumber)
+  const requested =
+    abnetPadronCustomerNumber(input.abnetCustomerNumber) ??
+    bespokeCliCustomerNumber(input.abnetCustomerNumber)
   if (!requested || !Number.isInteger(input.sourceRow) || input.sourceRow <= 0) {
     return { outcome: "not_found" }
   }
