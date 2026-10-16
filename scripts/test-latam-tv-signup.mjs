@@ -415,9 +415,9 @@ function attemptStore(initial = null, code = null) {
         if (box.state == null || box.state === "rejected") {
           box.state = "register_sent"
           box.code = null
-          return { granted: true, state: "register_sent" }
+          return { granted: true, state: "register_sent", latamCode: null }
         }
-        return { granted: false, state: box.state }
+        return { granted: false, state: box.state, latamCode: box.code }
       }),
     read: () => exclusive(async () => box.state),
     finish: (state, latamCode = null) =>
@@ -712,11 +712,92 @@ test("una respuesta de red incierta no repite la creación", async () => {
   const second = await signUpLatamTvClient(assessment.body, deps)
   assert.equal(registers, 1)
   assert.equal(first.outcome, "pending_sync")
-  assert.equal(second.outcome, "pending_sync")
-  assert.equal(store.box.state, "pending_sync")
+  assert.equal(second.outcome, "failed")
+  assert.equal(second.message.includes("todavía no informó"), false)
+  assert.equal(store.box.state, "rejected")
+  assert.equal(store.box.code, null)
   assert.equal(JSON.stringify(first).includes(TOKEN), false)
   assert.equal(JSON.stringify(first).includes(assessment.body.password), false)
   assert.equal(JSON.stringify(second).includes(TOKEN), false)
+})
+
+test("una reserva que no informa el código no cierra pending_sync ni llama a register-client", async () => {
+  const assessment = martaAssessment()
+  const store = attemptStore("pending_sync", null)
+  const reserve = store.reserve
+  store.reserve = async () => {
+    const result = await reserve()
+    delete result.latamCode
+    return result
+  }
+  let registers = 0
+  const result = await signUpLatamTvClient(assessment.body, {
+    baseUrl: BASE,
+    token: TOKEN,
+    signupAttempt: store,
+    fetchImpl: async (url) => {
+      const path = new URL(url).pathname
+      if (path === "/api/register-client") registers += 1
+      return jsonResponse({ code: 1, clients: [hidalgoRow()] })
+    },
+  })
+  assert.equal(registers, 0)
+  assert.equal(result.outcome, "pending_sync")
+  assert.match(result.message, /todavía no informó/)
+  assert.equal(store.box.state, "pending_sync")
+})
+
+test("confirmar un pending_sync sin código y sin cliente en el padrón cierra el intento", async () => {
+  const assessment = martaAssessment()
+  const store = attemptStore("pending_sync", null)
+  let registers = 0
+  const deps = {
+    baseUrl: BASE,
+    token: TOKEN,
+    signupAttempt: store,
+    fetchImpl: async (url) => {
+      const path = new URL(url).pathname
+      if (path === "/api/register-client") registers += 1
+      return jsonResponse({ code: 1, clients: [hidalgoRow()] })
+    },
+  }
+  const result = await signUpLatamTvClient(assessment.body, deps)
+  assert.equal(registers, 0)
+  assert.equal(result.outcome, "failed")
+  assert.equal(result.message.includes("todavía no informó"), false)
+  assert.match(result.message, /iniciar un alta nuevo/)
+  assert.equal(store.box.state, "rejected")
+  assert.equal(store.box.code, null)
+  const again = await signUpLatamTvClient(assessment.body, deps)
+  assert.equal(registers, 1)
+  assert.equal(again.outcome, "pending_sync")
+  assert.equal(store.box.code, 1)
+})
+
+test("confirmar un intento rechazado sin código de LATAM no deja el mensaje pendiente", async () => {
+  const assessment = martaAssessment()
+  const store = attemptStore("rejected", null)
+  let registers = 0
+  const deps = {
+    baseUrl: BASE,
+    token: TOKEN,
+    signupAttempt: store,
+    fetchImpl: async (url) => {
+      const path = new URL(url).pathname
+      if (path === "/api/register-client") {
+        registers += 1
+        return jsonResponse({ clients: [hidalgoRow()] })
+      }
+      return jsonResponse({ code: 1, clients: [hidalgoRow()] })
+    },
+  }
+  const result = await signUpLatamTvClient(assessment.body, deps)
+  assert.equal(registers, 1)
+  assert.equal(result.outcome, "failed")
+  assert.equal(result.message.includes("todavía no informó"), false)
+  assert.equal(store.box.state, "rejected")
+  assert.equal(store.box.code, null)
+  assert.equal(JSON.stringify(result).includes(assessment.body.password), false)
 })
 
 test("dos altas concurrentes de la misma ficha crean un solo usuario", async () => {

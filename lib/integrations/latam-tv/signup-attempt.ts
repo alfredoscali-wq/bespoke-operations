@@ -15,6 +15,8 @@ export type LatamSignupAttemptState =
 export type LatamSignupReservation = {
   granted: boolean
   state: LatamSignupAttemptState
+  /** Ausente si la función instalada no informa el código guardado. */
+  latamCode?: number | null
 }
 
 export type LatamSignupAttemptStore = {
@@ -54,6 +56,18 @@ function asState(value: unknown): LatamSignupAttemptState | null {
     : null
 }
 
+function asLatamCode(record: Record<string, unknown> | null): number | null | undefined {
+  if (!record || !Object.prototype.hasOwnProperty.call(record, "latam_code")) return undefined
+  const value = record.latam_code
+  if (value == null) return null
+  if (typeof value === "number" && Number.isFinite(value)) return Math.trunc(value)
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value.trim())
+    return Number.isFinite(parsed) ? Math.trunc(parsed) : undefined
+  }
+  return undefined
+}
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (typeof value === "string") {
     try {
@@ -79,7 +93,7 @@ export function createLatamSignupAttemptStore(
       const record = asRecord(data)
       const state = asState(record?.state)
       if (!state) throw new Error("latam_signup_attempt_unavailable")
-      return { granted: record?.granted === true, state }
+      return { granted: record?.granted === true, state, latamCode: asLatamCode(record) }
     },
     async read() {
       const { data, error } = await supabase.rpc("read_latam_tv_signup_attempt", {

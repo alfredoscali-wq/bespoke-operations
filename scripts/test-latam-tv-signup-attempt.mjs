@@ -265,6 +265,15 @@ test("la migración no guarda datos personales y reserva con la clave única", (
   assert.doesNotMatch(release, /register_sent/)
   assert.doesNotMatch(release, /confirmed/)
   assert.doesNotMatch(releaseMigration, /\b(dni|email|password|correo)\b/i)
+  const reserveCodeMigration = readFileSync(
+    resolve(root, "supabase/migrations/20270115210000_latam_tv_signup_attempt_reserve_code.sql"),
+    "utf8"
+  )
+  assert.match(reserveCodeMigration, /'granted', false/)
+  assert.match(reserveCodeMigration, /'latam_code', v_row\.latam_code/)
+  assert.match(reserveCodeMigration, /WHERE latam_tv_signup_attempts\.state = 'rejected'/)
+  assert.doesNotMatch(reserveCodeMigration, /\b(dni|email|password|correo)\b/i)
+  assert.equal(reserveCodeMigration.match(/CREATE OR REPLACE FUNCTION/g).length, 1)
   const releaseBody = releaseMigration.slice(
     releaseMigration.indexOf("FUNCTION public.release_latam_tv_signup_attempt"),
     releaseMigration.indexOf("$$;", releaseMigration.indexOf("FUNCTION public.release_latam_tv_signup_attempt"))

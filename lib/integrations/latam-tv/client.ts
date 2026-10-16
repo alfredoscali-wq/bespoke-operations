@@ -939,6 +939,14 @@ async function signUpLatamClientByIdentity(
     throw new LatamTvRequestError("unavailable")
   }
   if (!reservation.granted) {
+    if (
+      opened.kind === "missing" &&
+      reservation.state === "pending_sync" &&
+      reservation.latamCode === null &&
+      (await catalogMissClosesAttempt(deps.signupAttempt))
+    ) {
+      return { outcome: "failed", message: SIGNUP_FAILED }
+    }
     return { outcome: "pending_sync", message: SIGNUP_PENDING }
   }
 
@@ -987,6 +995,13 @@ async function signUpLatamClientByIdentity(
     return fromResponseConfirmed
   }
   await rememberSignupAttempt(deps.signupAttempt, "pending_sync", code)
+  if (
+    code == null &&
+    fromCatalog?.kind === "missing" &&
+    (await catalogMissClosesAttempt(deps.signupAttempt))
+  ) {
+    return { outcome: "failed", message: SIGNUP_FAILED }
+  }
   if (code != null && code !== 1 && code !== 3) {
     return {
       outcome: "pending_sync",
