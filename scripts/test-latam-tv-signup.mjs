@@ -27,6 +27,8 @@ import {
   latamPlanIdForTvKind,
   latamRegisterRejectionMessage,
   latamStatusLabel,
+  splitLatamPersonName,
+  toLatamRegisterRequest,
 } from "../lib/integrations/latam-tv/signup.ts"
 
 const root = resolve(import.meta.dirname, "..")
@@ -95,8 +97,10 @@ test("5-9. alta usa email, DNI, identificador y el id de plan recibido", () => {
   assert.notEqual(assessment.body.password, assessment.body.correo)
   assert.equal(assessment.body.identificador, "6797")
   assert.equal(assessment.body.plan, "latam-plan-99")
-  assert.equal(assessment.body.nombres, "Ada")
-  assert.equal(assessment.body.apellido, "Lovelace")
+  assert.equal(assessment.body.nombres, "Lovelace")
+  assert.equal(assessment.body.appaterno, "Ada")
+  assert.equal("apellido" in assessment.body, false)
+  assert.equal("apmaterno" in assessment.body, false)
   assert.equal(assessment.body.dni, "30123456")
   assert.equal(assessment.preview.username, assessment.body.correo)
   assert.equal(assessment.preview.initialPassword, assessment.body.password)
@@ -198,14 +202,23 @@ test("13. dos altas simultáneas consultan de nuevo y crean una sola vez", async
     assert.equal(path, "/api/register-client")
     registers += 1
     const body = JSON.parse(init.body)
-    assert.equal(body.correo, "cliente@email.com")
-    assert.equal(body.password, "30123456")
-    assert.equal(body.identificador, "6802")
-    assert.equal(body.plan, "latam-plan-99")
+    assert.deepEqual(body, {
+      root: {
+        usuario: {
+          nombres: "Lovelace",
+          dni: "30123456",
+          password: "30123456",
+          correo: "cliente@email.com",
+          appaterno: "Ada",
+          identificador: "6802",
+          telefono: "3515551234",
+        },
+        carroCompra: { plan: { id: "latam-plan-99" } },
+      },
+    })
     assert.equal(new URL(url).searchParams.get("token"), TOKEN)
-    assert.equal(body.token, undefined)
     phase = "created"
-    return jsonResponse({ code: 1, token: TOKEN, password: body.password })
+    return jsonResponse({ error: false, code: 1, token: TOKEN, password: body.root.usuario.password })
   }
   const [first, second] = await Promise.all([
     signUpLatamTvClient(assessment.body, { baseUrl: BASE, token: TOKEN, fetchImpl }),
@@ -307,6 +320,13 @@ test("17-20. el token no sale al frontend ni a los logs, y solo se registra", ()
   assert.match(dialog, /pending_sync/)
   assert.match(dialog, /LATAM: Alta pendiente/)
   assert.match(dialog, /El alta anterior sigue pendiente/)
+  assert.match(dialog, /Consultando padrón…/)
+  assert.match(dialog, /Consulta realizada\. LATAM todavía no informa el identificador del alta/)
+  assert.match(
+    dialog,
+    /if \(retry\) \{\s*setActionError\(payload\?\.message \?\? "No se pudo consultar LATAM TV\."\)\s*setPhase\("pending_sync"\)/
+  )
+  assert.match(route, /input\.retry \? \{ timeoutMs: 20_000 \} : \{\}/)
   assert.match(dialog, /retry/)
   assert.match(route, /heldLatamSignup/)
   assert.match(dialog, /payload\?\.outcome === "failed"/)
@@ -394,7 +414,7 @@ test("el alta no habilita acciones si la reconsulta no confirma el id_crm", asyn
       const path = new URL(url).pathname
       if (path === "/api/get-clients") return jsonResponse({ code: 3 })
       registers += 1
-      return jsonResponse({ code: 1 })
+      return jsonResponse({ error: false, code: 1 })
     },
   })
   assert.equal(registers, 1)
@@ -520,13 +540,14 @@ test("alta nueva no envía CLI-005788 y recupera el identificador de Latam", asy
       }
       registers += 1
       const body = JSON.parse(init.body)
-      assert.equal("identificador" in body, false)
-      assert.equal(body.correo, "marta@example.com")
-      assert.equal(body.password, "30123456")
+      assert.equal("identificador" in body.root.usuario, false)
+      assert.equal(body.root.usuario.correo, "marta@example.com")
+      assert.equal(body.root.usuario.password, "30123456")
+      assert.equal(body.root.carroCompra.plan.id, "latam-plan-99")
       assert.equal(JSON.stringify(body).includes("5788"), false)
       assert.equal(JSON.stringify(body).includes("CLI-005788"), false)
       listed = true
-      return jsonResponse({ code: 1 })
+      return jsonResponse({ error: false, code: 1 })
     },
   })
   assert.equal(registers, 1)
@@ -579,6 +600,7 @@ test("la respuesta con identificador se vincula solo si DNI y email coinciden", 
       if (path === "/api/get-clients") return jsonResponse({ code: 1, clients: [hidalgoRow()] })
       registers += 1
       return jsonResponse({
+        error: false,
         code: 1,
         identificador: "4412",
         id_iptv: 29,
@@ -704,6 +726,152 @@ test("pending_sync no vuelve a llamar a register-client", async () => {
   assert.equal(refresh.outcome, "pending_sync")
   assert.equal(JSON.stringify(second).includes("30123456"), false)
   assert.equal(store.box.state, "pending_sync")
+})
+
+test("el padrón Nieto Marta manda el nombre al final y el apellido en appaterno", () => {
+  const assessment = assessLatamSignup(
+    readyCustomer({
+      name: "Nieto Marta",
+      identifier: null,
+      identitySignup: true,
+    })
+  )
+  assert.equal(assessment.ready, true)
+  if (!assessment.ready) return
+  assert.equal(assessment.body.nombres, "Marta")
+  assert.equal(assessment.body.appaterno, "Nieto")
+  assert.equal("apellido" in assessment.body, false)
+  assert.equal("apmaterno" in assessment.body, false)
+  assert.equal("identificador" in assessment.body, false)
+  assert.deepEqual(splitLatamPersonName("Fernandez de Maussion Sebastian"), {
+    nombres: "Sebastian",
+    appaterno: "Fernandez de Maussion",
+  })
+  assert.deepEqual(splitLatamPersonName("Paris Matias Alejandro"), {
+    nombres: "Alejandro",
+    appaterno: "Paris",
+    apmaterno: "Matias",
+  })
+})
+
+test("un HTTP 200 sin código numérico no da el alta por creada", async () => {
+  const assessment = assessLatamSignup(
+    readyCustomer({
+      name: "Nieto Marta",
+      identifier: null,
+      identitySignup: true,
+      dni: "30.123.456",
+      email: "marta@example.com",
+      phone: null,
+      address: "Pasaje 1",
+    })
+  )
+  assert.equal(assessment.ready, true)
+  if (!assessment.ready) return
+  const store = attemptStore()
+  let registers = 0
+  let sent = null
+  const result = await signUpLatamTvClient(assessment.body, {
+    baseUrl: BASE,
+    token: TOKEN,
+    signupAttempt: store,
+    fetchImpl: async (url, init) => {
+      const path = new URL(url).pathname
+      if (path === "/api/get-clients") {
+        return jsonResponse({ code: 1, clients: [hidalgoRow()] })
+      }
+      registers += 1
+      sent = JSON.parse(init.body)
+      return jsonResponse({ error: false, id_iptv: 29 })
+    },
+  })
+  const again = await signUpLatamTvClient(assessment.body, {
+    baseUrl: BASE,
+    token: TOKEN,
+    signupAttempt: store,
+    fetchImpl: async (url) => {
+      const path = new URL(url).pathname
+      if (path === "/api/register-client") registers += 1
+      return jsonResponse({ code: 1, clients: [hidalgoRow()] })
+    },
+  })
+  assert.equal(registers, 1)
+  assert.equal(result.outcome, "pending_sync")
+  assert.notEqual(result.outcome, "created")
+  assert.equal(store.box.state, "pending_sync")
+  assert.equal(store.box.code, null)
+  assert.equal(again.outcome, "pending_sync")
+  assert.deepEqual(sent, toLatamRegisterRequest(assessment.body))
+  assert.deepEqual(sent, {
+    root: {
+      usuario: {
+        nombres: "Marta",
+        dni: "30123456",
+        password: "30123456",
+        correo: "marta@example.com",
+        appaterno: "Nieto",
+      },
+      carroCompra: { plan: { id: "latam-plan-99" } },
+    },
+  })
+  assert.equal(JSON.stringify(sent).includes("direccion"), false)
+  assert.equal(JSON.stringify(sent).includes("macs"), false)
+  assert.equal(JSON.stringify(sent).includes("nacimiento"), false)
+  assert.equal(JSON.stringify(result).includes("30123456"), false)
+  assert.equal(JSON.stringify(sent).includes("5788"), false)
+  assert.equal(JSON.stringify(sent).includes("CLI-005788"), false)
+})
+
+test("code 1 con error false crea y code 2 o 3 no", async () => {
+  const assessment = assessLatamSignup(
+    readyCustomer({
+      name: "Nieto Marta",
+      identifier: null,
+      identitySignup: true,
+      dni: "30.123.456",
+      email: "marta@example.com",
+      phone: null,
+    })
+  )
+  assert.equal(assessment.ready, true)
+  if (!assessment.ready) return
+  const responses = [
+    [{ error: false, code: 1 }, "created", null],
+    [{ error: true, code: 1 }, "pending_sync", 1],
+    [{ code: 1 }, "pending_sync", 1],
+    [{ error: false, code: 2, message: "Campo dni requerido" }, "pending_sync", 2],
+    [{ error: true, code: 3, message: "Cliente identificador ya existe" }, "pending_sync", 3],
+  ]
+  for (const [payload, outcome, code] of responses) {
+    let registers = 0
+    let lookups = 0
+    const store = attemptStore()
+    const result = await signUpLatamTvClient(assessment.body, {
+      baseUrl: BASE,
+      token: TOKEN,
+      signupAttempt: store,
+      fetchImpl: async (url) => {
+        const path = new URL(url).pathname
+        if (path === "/api/get-clients") {
+          lookups += 1
+          const clients =
+            lookups > 1 && payload.code === 1 && payload.error === false
+              ? [hidalgoRow(), martaRow({ identificador: "4412" })]
+              : [hidalgoRow()]
+          return jsonResponse({ code: 1, clients })
+        }
+        registers += 1
+        return jsonResponse(payload)
+      },
+    })
+    assert.equal(registers, 1, JSON.stringify(payload))
+    assert.equal(result.outcome, outcome, JSON.stringify(payload))
+    assert.notEqual(result.outcome, payload.error === false && payload.code === 1 ? "pending_sync" : "created")
+    if (code == null) assert.equal(store.box.code, 1)
+    else assert.equal(store.box.code, code, JSON.stringify(payload))
+    assert.equal(JSON.stringify(result).includes("Campo dni"), false)
+    assert.equal(JSON.stringify(result).includes("30123456"), false)
+  }
 })
 
 test("una respuesta de red incierta no repite la creación", async () => {
@@ -941,7 +1109,11 @@ test("una consulta sin usuario y sin código deja el alta pendiente y no crea ot
   assert.equal(registers, 0)
   assert.equal(releases, 0)
   assert.equal(refresh.outcome, "pending_sync")
-  assert.match(refresh.message, /sigue pendiente/)
+  assert.equal(
+    refresh.message,
+    "Consulta realizada. LATAM todavía no informa el identificador del alta; el estado sigue pendiente. Podés volver a consultar más tarde."
+  )
+  assert.equal(refresh.message.includes("No se pudo consultar LATAM TV."), false)
   assert.equal(refresh.message.includes("iniciar un alta nuevo"), false)
   assert.equal(store.box.state, "pending_sync")
   assert.equal(store.box.code, null)
@@ -1336,12 +1508,20 @@ test("la consulta no crea usuarios en pending_sync, rejected, register_sent ni c
     assert.equal(refresh.outcome, outcome, String(state))
     assert.equal(store.box.state, after, String(state))
     if (state === "pending_sync") {
-      assert.match(refresh.message, /sigue pendiente/)
+      assert.equal(
+        refresh.message,
+        "Consulta realizada. LATAM todavía no informa el identificador del alta; el estado sigue pendiente. Podés volver a consultar más tarde."
+      )
+      assert.equal(refresh.message.includes("No se pudo consultar LATAM TV."), false)
       assert.equal(refresh.message.includes("iniciar un alta nuevo"), false)
     }
   }
   assert.equal(heldLatamSignup({ state: "pending_sync", latamCode: null })?.outcome, "pending_sync")
-  assert.match(heldLatamSignup({ state: "pending_sync" }).message, /sigue pendiente/)
+  assert.match(heldLatamSignup({ state: "pending_sync" }).message, /El alta anterior sigue pendiente/)
+  assert.equal(
+    heldLatamSignup({ state: "pending_sync", latamCode: null })?.message.includes("Consulta realizada"),
+    false
+  )
   assert.equal(heldLatamSignup({ state: "register_sent", latamCode: null })?.outcome, "pending_sync")
   assert.equal(heldLatamSignup({ state: "confirmed", latamCode: 1 })?.outcome, "pending_sync")
   assert.equal(heldLatamSignup({ state: "rejected", latamCode: null }), null)

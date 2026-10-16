@@ -387,7 +387,9 @@ export function LatamTvRowDialog({
       if (payload?.outcome === "pending_sync") {
         setActionError(
           payload.message ??
-            "El alta anterior sigue pendiente. LATAM todavía no informó el identificador del alta. Se puede reintentar la consulta sin crear otro usuario."
+            (retry
+              ? "Consulta realizada. LATAM todavía no informa el identificador del alta; el estado sigue pendiente. Podés volver a consultar más tarde."
+              : "El alta anterior sigue pendiente. LATAM todavía no informó el identificador del alta. Se puede reintentar la consulta sin crear otro usuario.")
         )
         setPhase("pending_sync")
         return
@@ -436,10 +438,20 @@ export function LatamTvRowDialog({
         }
         return
       }
+      if (retry) {
+        setActionError(payload?.message ?? "No se pudo consultar LATAM TV.")
+        setPhase("pending_sync")
+        return
+      }
       setActionError(payload?.message ?? "LATAM: No disponible")
       if (!response.ok && phase === "loading") setPhase("unavailable")
     } catch {
-      setActionError("LATAM: No disponible")
+      if (retry) {
+        setActionError("No se pudo consultar LATAM TV.")
+        setPhase("pending_sync")
+      } else {
+        setActionError("LATAM: No disponible")
+      }
     } finally {
       busy.current = false
       setPending(false)
@@ -932,7 +944,7 @@ export function LatamTvRowDialog({
                   void postSignup(true, true)
                 }}
               >
-                Reintentar consulta
+                {pending ? "Consultando padrón…" : "Reintentar consulta"}
               </Button>
             ) : null}
             {phase === "missing" ? (

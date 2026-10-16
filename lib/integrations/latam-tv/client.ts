@@ -20,6 +20,7 @@ import {
   LATAM_SIGNUP_MISSING_EMAIL,
   latamInitialPassword,
   latamRegisterRejectionMessage,
+  toLatamRegisterRequest,
   type LatamRegisterBody,
 } from "@/lib/integrations/latam-tv/signup"
 import {
@@ -118,6 +119,11 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 
 function responseCode(payload: Record<string, unknown>): number | null {
   return wholeNumber(payload.code)
+}
+
+/** Alta documentada: error false y code 1. Un HTTP 200 sin ese par no es éxito. */
+function documentedRegisterSuccess(record: Record<string, unknown>): boolean {
+  return record.error === false && responseCode(record) === 1
 }
 
 function clientRecords(payload: Record<string, unknown>): Record<string, unknown>[] {
@@ -712,6 +718,8 @@ const SIGNUP_PENDING =
   "LATAM todavía no informó el identificador del alta. Se puede reintentar la consulta sin crear otro usuario."
 const SIGNUP_STILL_PENDING =
   "El alta anterior sigue pendiente. LATAM todavía no informó el identificador del alta. Se puede reintentar la consulta sin crear otro usuario."
+const SIGNUP_QUERIED_STILL_PENDING =
+  "Consulta realizada. LATAM todavía no informa el identificador del alta; el estado sigue pendiente. Podés volver a consultar más tarde."
 const SIGNUP_FAILED =
   "LATAM no muestra este usuario. La consulta cerró el intento anterior y no creó otro. Se puede iniciar un alta nuevo."
 const SIGNUP_REVIEW =
@@ -746,9 +754,9 @@ export function signUpLatamTvClient(
     if (lookup.found) {
       return { outcome: "already_exists", status: lookup.client.status }
     }
-    const record = await postLatam(REGISTER_CLIENT_PATH, body, deps)
+    const record = await postLatam(REGISTER_CLIENT_PATH, toLatamRegisterRequest(body), deps)
     const code = responseCode(record)
-    if (code === 1) {
+    if (documentedRegisterSuccess(record)) {
       const expected = abnetNumberFromExternalCode(body.identificador)
       const confirmed = expected
         ? await getLatamTvClientByIdentifier(expected, deps)
@@ -968,7 +976,12 @@ export async function refreshLatamSignupIdentity(
   if (location.kind !== "review") {
     await syncReservedAttempt(deps.signupAttempt, "pending_sync", null)
   }
-  return identityResult(location) ?? pendingSignupResult(before)
+  const located = identityResult(location)
+  if (located) return located
+  if (location.kind === "missing" && before?.state === "pending_sync" && before.latamCode == null) {
+    return { outcome: "pending_sync", message: SIGNUP_QUERIED_STILL_PENDING }
+  }
+  return pendingSignupResult(before)
 }
 
 function confirmedIdentitySignup(
@@ -1033,7 +1046,7 @@ async function signUpLatamClientByIdentity(
   delete payload.identificador
   let record: Record<string, unknown>
   try {
-    record = await postLatam(REGISTER_CLIENT_PATH, payload, deps)
+    record = await postLatam(REGISTER_CLIENT_PATH, toLatamRegisterRequest(payload), deps)
   } catch (error) {
     await rememberSignupAttempt(deps.signupAttempt, "pending_sync", null)
     if (error instanceof LatamTvRequestError && error.kind === "not_configured") throw error
@@ -1041,6 +1054,7 @@ async function signUpLatamClientByIdentity(
   }
 
   const code = responseCode(record)
+  const accepted = documentedRegisterSuccess(record)
   let catalog: Awaited<ReturnType<typeof listLatamTvClients>> | null = null
   try {
     catalog = await listLatamTvClients(deps)
@@ -1058,32 +1072,37 @@ async function signUpLatamClientByIdentity(
     await rememberSignupAttempt(deps.signupAttempt, "pending_sync", code)
     return { outcome: "pending_sync", message: SIGNUP_REVIEW }
   }
-  const confirmationCode = code === 1 || code === 3 ? code : null
-  const fromCatalogConfirmed = confirmationCode != null && fromCatalog
-    ? confirmedIdentitySignup(fromCatalog, confirmationCode, hinted, body.correo)
+  const fromCatalogConfirmed = accepted && fromCatalog
+    ? confirmedIdentitySignup(fromCatalog, 1, hinted, body.correo)
     : null
-  if (fromCatalogConfirmed) {
+  const fromCatalogExisting = code === 3 && fromCatalog
+    ? confirmedIdentitySignup(fromCatalog, 3, hinted, body.correo)
+    : null
+  const locatedInCatalog = fromCatalogConfirmed ?? fromCatalogExisting
+  if (locatedInCatalog) {
     await rememberSignupAttempt(deps.signupAttempt, "confirmed", code)
-    return fromCatalogConfirmed
+    return locatedInCatalog
   }
-  const fromResponseConfirmed = confirmationCode != null && fromResponse
-    ? confirmedIdentitySignup(fromResponse, confirmationCode, hinted, body.correo)
+  const fromResponseConfirmed = accepted && fromResponse
+    ? confirmedIdentitySignup(fromResponse, 1, hinted, body.correo)
     : null
-  if (fromResponseConfirmed) {
+  const fromResponseExisting = code === 3 && fromResponse
+    ? confirmedIdentitySignup(fromResponse, 3, hinted, body.correo)
+    : null
+  const locatedInResponse = fromResponseConfirmed ?? fromResponseExisting
+  if (locatedInResponse) {
     await rememberSignupAttempt(deps.signupAttempt, "confirmed", code)
-    return fromResponseConfirmed
+    return locatedInResponse
   }
   await rememberSignupAttempt(deps.signupAttempt, "pending_sync", code)
+  if (accepted) return { outcome: "pending_sync", message: SIGNUP_PENDING }
   if (code == null) {
     return { outcome: "pending_sync", message: SIGNUP_STILL_PENDING }
   }
-  if (code != null && code !== 1 && code !== 3) {
-    return {
-      outcome: "pending_sync",
-      message: `${latamRegisterRejectionMessage(code)} La reserva sigue activa y no se creará otro usuario.`,
-    }
+  return {
+    outcome: "pending_sync",
+    message: `${latamRegisterRejectionMessage(code)} La reserva sigue activa y no se creará otro usuario.`,
   }
-  return { outcome: "pending_sync", message: SIGNUP_PENDING }
 }
 
 export type LatamPasswordChangeResult =

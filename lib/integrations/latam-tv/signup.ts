@@ -15,10 +15,12 @@ function signupIdentifier(value: string | null | undefined): string | null {
  *   y no se usa el email como contraseña.
  * - `identificador` se envía solo cuando ya es el abonado numérico de ABNet.
  *   Un alta nueva no envía el número CLI: Latam asigna el suyo.
- * - `plan` es el pl_id que get-plans asocia por nombre a TV Básica o
- *   TV Básica + Pack Fútbol. TV Full no se usa en el alta.
- *   Si no hay correspondencia, no se inventa un id.
- * - No se envían dispositivos ni fecha de nacimiento en este alta.
+ * - El pl_id de get-plans viaja en `root.carroCompra.plan.id`.
+ *   TV Full no se usa en el alta. Si no hay correspondencia, no se inventa un id.
+ * - El padrón guarda el apellido antes del nombre. `appaterno` y, si se
+ *   distinguen, `apmaterno` salen de esa cadena. No se envía `apellido`.
+ * - No se envían dispositivos, fecha de nacimiento ni el objeto dirección:
+ *   la documentación exige ids de país, región y comuna que este alta no tiene.
  */
 
 export const LATAM_SIGNUP_MISSING = {
@@ -86,9 +88,27 @@ export type LatamRegisterBody = {
   password: string
   correo: string
   plan: string
-  apellido?: string
+  appaterno?: string
+  apmaterno?: string
   telefono?: string
-  direccion?: string
+}
+
+export type LatamRegisterRequest = {
+  root: {
+    usuario: {
+      nombres: string
+      dni: string
+      password: string
+      correo: string
+      appaterno?: string
+      apmaterno?: string
+      identificador?: string
+      telefono?: string
+    }
+    carroCompra: {
+      plan: { id: string }
+    }
+  }
 }
 
 export type LatamSignupPreview = {
@@ -190,30 +210,79 @@ function optionalText(value: string | null | undefined): string | null {
   return trimmed || null
 }
 
-function splitName(name: string): { firstName: string; lastName: string | null } {
+const SURNAME_PARTICLES = new Set([
+  "de",
+  "del",
+  "la",
+  "las",
+  "los",
+  "da",
+  "do",
+  "dos",
+  "di",
+  "van",
+  "von",
+  "y",
+])
+
+/**
+ * El padrón escribe el apellido primero y el nombre al final.
+ * Un apellido compuesto con partícula queda entero en appaterno.
+ * Dos apellidos sueltos se separan en appaterno y apmaterno.
+ */
+export function splitLatamPersonName(name: string): {
+  nombres: string
+  appaterno?: string
+  apmaterno?: string
+} {
   const parts = name.trim().split(/\s+/).filter(Boolean)
-  if (parts.length === 0) return { firstName: "", lastName: null }
-  if (parts.length === 1) return { firstName: parts[0], lastName: null }
-  return { firstName: parts[0], lastName: parts.slice(1).join(" ") }
+  if (parts.length === 0) return { nombres: "" }
+  if (parts.length === 1) return { nombres: parts[0] }
+  const nombres = parts[parts.length - 1]
+  const surnames = parts.slice(0, -1)
+  const compound = surnames.some((part) => SURNAME_PARTICLES.has(part.toLowerCase()))
+  if (compound || surnames.length !== 2) {
+    return { nombres, appaterno: surnames.join(" ") }
+  }
+  return { nombres, appaterno: surnames[0], apmaterno: surnames[1] }
 }
 
 export function latamSignupCustomerGaps(
   input: Omit<LatamSignupCustomer, "planId" | "planGap">
 ): string[] {
-  const { firstName } = splitName(input.name ?? "")
+  const person = splitLatamPersonName(input.name ?? "")
   const missing: string[] = []
   if (!signupIdentifier(input.identifier) && !input.identitySignup) {
     missing.push(LATAM_SIGNUP_MISSING.identifier)
   }
-  if (!firstName) missing.push(LATAM_SIGNUP_MISSING.name)
+  if (!person.nombres) missing.push(LATAM_SIGNUP_MISSING.name)
   if (!latamInitialPassword(input.dni)) missing.push(LATAM_SIGNUP_MISSING.nationalId)
   if (!usableEmail(input.email)) missing.push(LATAM_SIGNUP_MISSING.email)
   if (input.tvKind === "other") missing.push(LATAM_SIGNUP_MISSING.tvPlan)
   return missing
 }
 
+export function toLatamRegisterRequest(body: LatamRegisterBody): LatamRegisterRequest {
+  const usuario: LatamRegisterRequest["root"]["usuario"] = {
+    nombres: body.nombres,
+    dni: body.dni,
+    password: body.password,
+    correo: body.correo,
+  }
+  if (body.appaterno) usuario.appaterno = body.appaterno
+  if (body.apmaterno) usuario.apmaterno = body.apmaterno
+  if (body.identificador) usuario.identificador = body.identificador
+  if (body.telefono) usuario.telefono = body.telefono
+  return {
+    root: {
+      usuario,
+      carroCompra: { plan: { id: body.plan } },
+    },
+  }
+}
+
 export function assessLatamSignup(input: LatamSignupCustomer): LatamSignupAssessment {
-  const { firstName, lastName } = splitName(input.name ?? "")
+  const person = splitLatamPersonName(input.name ?? "")
   const nationalId = latamInitialPassword(input.dni)
   const email = usableEmail(input.email)
   const identifier = signupIdentifier(input.identifier)
@@ -223,7 +292,7 @@ export function assessLatamSignup(input: LatamSignupCustomer): LatamSignupAssess
   if (!planId) missing.push(input.planGap?.trim() || LATAM_SIGNUP_MISSING.plan)
   if (
     missing.length > 0 ||
-    !firstName ||
+    !person.nombres ||
     !nationalId ||
     !email ||
     !planId ||
@@ -234,18 +303,17 @@ export function assessLatamSignup(input: LatamSignupCustomer): LatamSignupAssess
   }
 
   const phone = optionalText(input.phone)
-  const address = optionalText(input.address)
   const body: LatamRegisterBody = {
-    nombres: firstName,
+    nombres: person.nombres,
     dni: nationalId,
     password: nationalId,
     correo: email,
     plan: planId,
   }
+  if (person.appaterno) body.appaterno = person.appaterno
+  if (person.apmaterno) body.apmaterno = person.apmaterno
   if (identifier) body.identificador = identifier
-  if (lastName) body.apellido = lastName
   if (phone) body.telefono = phone
-  if (address) body.direccion = address
 
   return {
     ready: true,

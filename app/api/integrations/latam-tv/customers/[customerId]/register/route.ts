@@ -173,7 +173,11 @@ export async function POST(request: Request, context: RouteContext) {
     const signupAttempt = identitySignup
       ? createLatamSignupAttemptStore(supabase, customerId)
       : undefined
-    const latam = { ...config, signupAttempt }
+    const latam = {
+      ...config,
+      signupAttempt,
+      ...(input.retry ? { timeoutMs: 20_000 } : {}),
+    }
     const result = input.retry
       ? await refreshLatamSignupIdentity(assessment.body, latam)
       : await signUpLatamTvClient(assessment.body, latam)
