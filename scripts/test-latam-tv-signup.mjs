@@ -9,6 +9,7 @@ import test from "node:test"
 
 import {
   findConfirmedLatamIdentifier,
+  heldLatamSignup,
   refreshLatamSignupIdentity,
   signUpLatamTvClient,
 } from "../lib/integrations/latam-tv/client.ts"
@@ -267,7 +268,11 @@ test("17-20. el token no sale al frontend ni a los logs, y solo se registra", ()
 
   assert.match(signup, /usuario de LATAM es el email/)
   assert.match(signup, /contraseña inicial es el DNI/)
-  assert.doesNotMatch(client, /console\./)
+  assert.match(client, /console\.error\(\s*"LATAM register-client"/)
+  assert.doesNotMatch(client, /console\.(log|info|debug|warn)\(/)
+  assert.doesNotMatch(client, /console\.error\([^)]*password/)
+  assert.doesNotMatch(client, /console\.error\([^)]*token/)
+  assert.doesNotMatch(client, /console\.error\([^)]*\$\{/)
   assert.doesNotMatch(signup, /console\./)
   for (const file of [client, route, dialog, moduleUi, lookup]) {
     for (const path of paths) assert.equal(file.includes(path), false)
@@ -300,7 +305,10 @@ test("17-20. el token no sale al frontend ni a los logs, y solo se registra", ()
   assert.match(read("app/api/integrations/latam-tv/customers/[customerId]/status/route.ts"), /findConfirmedLatamIdentifier/)
   assert.match(read("app/api/integrations/latam-tv/customers/[customerId]/password/route.ts"), /findConfirmedLatamIdentifier/)
   assert.match(dialog, /pending_sync/)
+  assert.match(dialog, /LATAM: Alta pendiente/)
+  assert.match(dialog, /El alta anterior sigue pendiente/)
   assert.match(dialog, /retry/)
+  assert.match(route, /heldLatamSignup/)
   assert.match(dialog, /payload\?\.outcome === "failed"/)
   assert.match(dialog, /iniciar un alta nuevo/)
   assert.match(dialog, /void postSignup\(false\)/)
@@ -419,7 +427,10 @@ function attemptStore(initial = null, code = null) {
         }
         return { granted: false, state: box.state, latamCode: box.code }
       }),
-    read: () => exclusive(async () => box.state),
+    read: () =>
+      exclusive(async () =>
+        box.state == null ? null : { state: box.state, latamCode: box.code }
+      ),
     finish: (state, latamCode = null) =>
       exclusive(async () => {
         box.finishCalls += 1
@@ -712,9 +723,10 @@ test("una respuesta de red incierta no repite la creación", async () => {
   const second = await signUpLatamTvClient(assessment.body, deps)
   assert.equal(registers, 1)
   assert.equal(first.outcome, "pending_sync")
-  assert.equal(second.outcome, "failed")
-  assert.equal(second.message.includes("todavía no informó"), false)
-  assert.equal(store.box.state, "rejected")
+  assert.equal(second.outcome, "pending_sync")
+  assert.match(second.message, /sigue pendiente/)
+  assert.equal(second.message.includes("iniciar un alta nuevo"), false)
+  assert.equal(store.box.state, "pending_sync")
   assert.equal(store.box.code, null)
   assert.equal(JSON.stringify(first).includes(TOKEN), false)
   assert.equal(JSON.stringify(first).includes(assessment.body.password), false)
@@ -747,10 +759,16 @@ test("una reserva que no informa el código no cierra pending_sync ni llama a re
   assert.equal(store.box.state, "pending_sync")
 })
 
-test("confirmar un pending_sync sin código y sin cliente en el padrón cierra el intento", async () => {
+test("confirmar un pending_sync sin código no reserva de nuevo ni llama a register-client", async () => {
   const assessment = martaAssessment()
   const store = attemptStore("pending_sync", null)
   let registers = 0
+  let releases = 0
+  const release = store.release
+  store.release = () => {
+    releases += 1
+    return release()
+  }
   const deps = {
     baseUrl: BASE,
     token: TOKEN,
@@ -763,18 +781,19 @@ test("confirmar un pending_sync sin código y sin cliente en el padrón cierra e
   }
   const result = await signUpLatamTvClient(assessment.body, deps)
   assert.equal(registers, 0)
-  assert.equal(result.outcome, "failed")
-  assert.equal(result.message.includes("todavía no informó"), false)
-  assert.match(result.message, /iniciar un alta nuevo/)
-  assert.equal(store.box.state, "rejected")
+  assert.equal(releases, 0)
+  assert.equal(result.outcome, "pending_sync")
+  assert.match(result.message, /sigue pendiente/)
+  assert.equal(result.message.includes("iniciar un alta nuevo"), false)
+  assert.equal(store.box.state, "pending_sync")
   assert.equal(store.box.code, null)
   const again = await signUpLatamTvClient(assessment.body, deps)
-  assert.equal(registers, 1)
+  assert.equal(registers, 0)
   assert.equal(again.outcome, "pending_sync")
-  assert.equal(store.box.code, 1)
+  assert.equal(store.box.state, "pending_sync")
 })
 
-test("confirmar un intento rechazado sin código de LATAM no deja el mensaje pendiente", async () => {
+test("confirmar un intento rechazado sin código deja el alta pendiente y no reenvía", async () => {
   const assessment = martaAssessment()
   const store = attemptStore("rejected", null)
   let registers = 0
@@ -792,10 +811,13 @@ test("confirmar un intento rechazado sin código de LATAM no deja el mensaje pen
     },
   }
   const result = await signUpLatamTvClient(assessment.body, deps)
+  const again = await signUpLatamTvClient(assessment.body, deps)
   assert.equal(registers, 1)
-  assert.equal(result.outcome, "failed")
-  assert.equal(result.message.includes("todavía no informó"), false)
-  assert.equal(store.box.state, "rejected")
+  assert.equal(result.outcome, "pending_sync")
+  assert.match(result.message, /sigue pendiente/)
+  assert.equal(result.message.includes("iniciar un alta nuevo"), false)
+  assert.equal(again.outcome, "pending_sync")
+  assert.equal(store.box.state, "pending_sync")
   assert.equal(store.box.code, null)
   assert.equal(JSON.stringify(result).includes(assessment.body.password), false)
 })
@@ -895,10 +917,16 @@ test("un reinicio con código 1 solo consulta el padrón", async () => {
   assert.equal(store.box.code, 1)
 })
 
-test("una consulta sin usuario cierra el intento sin código y no crea otro", async () => {
+test("una consulta sin usuario y sin código deja el alta pendiente y no crea otro", async () => {
   const assessment = martaAssessment()
   const store = attemptStore("pending_sync", null)
   let registers = 0
+  let releases = 0
+  const release = store.release
+  store.release = () => {
+    releases += 1
+    return release()
+  }
   const deps = {
     baseUrl: BASE,
     token: TOKEN,
@@ -911,14 +939,18 @@ test("una consulta sin usuario cierra el intento sin código y no crea otro", as
   }
   const refresh = await refreshLatamSignupIdentity(assessment.body, deps)
   assert.equal(registers, 0)
-  assert.equal(refresh.outcome, "failed")
-  assert.equal(store.box.state, "rejected")
+  assert.equal(releases, 0)
+  assert.equal(refresh.outcome, "pending_sync")
+  assert.match(refresh.message, /sigue pendiente/)
+  assert.equal(refresh.message.includes("iniciar un alta nuevo"), false)
+  assert.equal(store.box.state, "pending_sync")
+  assert.equal(store.box.code, null)
   assert.equal(JSON.stringify(refresh).includes(assessment.body.password), false)
   assert.equal(JSON.stringify(refresh).includes("5788"), false)
   const again = await signUpLatamTvClient(assessment.body, deps)
-  assert.equal(registers, 1)
+  assert.equal(registers, 0)
   assert.equal(again.outcome, "pending_sync")
-  assert.equal(store.box.code, 1)
+  assert.equal(store.box.state, "pending_sync")
 })
 
 test("un código 5 se cierra al confirmar la ausencia y no se reenvía en la consulta", async () => {
@@ -1076,7 +1108,7 @@ test("una reconsulta de un intento ya rechazado informa el alta fallida sin crea
 
 test("si el cierre queda en rejected aunque la función no diga released, la reconsulta informa el alta fallida", async () => {
   const assessment = martaAssessment()
-  const store = attemptStore("pending_sync", null)
+  const store = attemptStore("pending_sync", 5)
   let registers = 0
   store.release = async () => {
     store.box.state = "rejected"
@@ -1096,7 +1128,7 @@ test("si el cierre queda en rejected aunque la función no diga released, la rec
   assert.equal(registers, 0)
   assert.equal(refresh.outcome, "failed")
   assert.equal(store.box.state, "rejected")
-  assert.equal(store.box.code, null)
+  assert.equal(store.box.code, 5)
 })
 
 test("si Supabase falla después del envío no se habilita otra alta", async () => {
@@ -1277,4 +1309,93 @@ test("la sincronización posterior confirma la reserva sin otro alta", async () 
   }
   assert.equal(store.box.state, "confirmed")
   assert.equal(store.box.code, 1)
+})
+
+test("la consulta no crea usuarios en pending_sync, rejected, register_sent ni confirmed", async () => {
+  const assessment = martaAssessment()
+  const cases = [
+    ["pending_sync", null, "pending_sync", "pending_sync"],
+    ["rejected", null, "failed", "rejected"],
+    ["register_sent", null, "pending_sync", "pending_sync"],
+    ["confirmed", 1, "pending_sync", "confirmed"],
+  ]
+  for (const [state, code, outcome, after] of cases) {
+    let registers = 0
+    const store = attemptStore(state, code)
+    const refresh = await refreshLatamSignupIdentity(assessment.body, {
+      baseUrl: BASE,
+      token: TOKEN,
+      signupAttempt: store,
+      fetchImpl: async (url) => {
+        const path = new URL(url).pathname
+        if (path === "/api/register-client") registers += 1
+        return jsonResponse({ code: 1, clients: [hidalgoRow()] })
+      },
+    })
+    assert.equal(registers, 0, String(state))
+    assert.equal(refresh.outcome, outcome, String(state))
+    assert.equal(store.box.state, after, String(state))
+    if (state === "pending_sync") {
+      assert.match(refresh.message, /sigue pendiente/)
+      assert.equal(refresh.message.includes("iniciar un alta nuevo"), false)
+    }
+  }
+  assert.equal(heldLatamSignup({ state: "pending_sync", latamCode: null })?.outcome, "pending_sync")
+  assert.match(heldLatamSignup({ state: "pending_sync" }).message, /sigue pendiente/)
+  assert.equal(heldLatamSignup({ state: "register_sent", latamCode: null })?.outcome, "pending_sync")
+  assert.equal(heldLatamSignup({ state: "confirmed", latamCode: 1 })?.outcome, "pending_sync")
+  assert.equal(heldLatamSignup({ state: "rejected", latamCode: null }), null)
+})
+
+test("register-client registra el HTTP y el código sin secretos", async () => {
+  const assessment = martaAssessment()
+  const logs = []
+  const original = console.error
+  console.error = (...args) => {
+    logs.push(args.map((item) => String(item)).join(" "))
+  }
+  try {
+    await signUpLatamTvClient(assessment.body, {
+      baseUrl: BASE,
+      token: TOKEN,
+      signupAttempt: attemptStore(),
+      fetchImpl: async (url) => {
+        const path = new URL(url).pathname
+        if (path === "/api/get-clients") return jsonResponse({ code: 1, clients: [hidalgoRow()] })
+        return jsonResponse({ code: 5, password: assessment.body.password, token: TOKEN })
+      },
+    })
+    await signUpLatamTvClient(assessment.body, {
+      baseUrl: BASE,
+      token: TOKEN,
+      signupAttempt: attemptStore(),
+      fetchImpl: async (url) => {
+        const path = new URL(url).pathname
+        if (path === "/api/get-clients") return jsonResponse({ code: 1, clients: [hidalgoRow()] })
+        return new Response(JSON.stringify({ code: 13, usuario: assessment.body.correo }), { status: 503 })
+      },
+    })
+    await signUpLatamTvClient(assessment.body, {
+      baseUrl: BASE,
+      token: TOKEN,
+      signupAttempt: attemptStore(),
+      fetchImpl: async (url) => {
+        const path = new URL(url).pathname
+        if (path === "/api/get-clients") return jsonResponse({ code: 1, clients: [hidalgoRow()] })
+        throw new Error(`network ${TOKEN} ${assessment.body.password} ${url}`)
+      },
+    })
+  } finally {
+    console.error = original
+  }
+  const text = logs.join("\n")
+  assert.match(text, /"httpStatus":200/)
+  assert.match(text, /"responseCode":5/)
+  assert.match(text, /"httpStatus":503/)
+  assert.match(text, /"responseCode":13/)
+  assert.match(text, /"error":"network"/)
+  assert.equal(text.includes(TOKEN), false)
+  assert.equal(text.includes(assessment.body.password), false)
+  assert.equal(text.includes(assessment.body.correo), false)
+  assert.equal(text.includes("abnetv"), false)
 })

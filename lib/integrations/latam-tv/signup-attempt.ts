@@ -2,8 +2,8 @@
  * Persistent guard for a new Latam TV signup.
  * The row is keyed by company and customers.id. Credentials stay out of this table.
  * A register-client call never releases the row by itself.
- * release closes pending_sync only when the stored code is not 1 or 3.
- * The caller must already have a complete catalog with no match.
+ * pending_sync with a null or unreported code stays pending and cannot be reserved again.
+ * release is only for a stored code other than 1 or 3, after a complete catalog miss.
  */
 
 export type LatamSignupAttemptState =
@@ -11,6 +11,12 @@ export type LatamSignupAttemptState =
   | "pending_sync"
   | "confirmed"
   | "rejected"
+
+export type LatamSignupAttemptSnapshot = {
+  state: LatamSignupAttemptState
+  /** Ausente si la función instalada no informa el código guardado. */
+  latamCode?: number | null
+}
 
 export type LatamSignupReservation = {
   granted: boolean
@@ -22,12 +28,12 @@ export type LatamSignupReservation = {
 export type LatamSignupAttemptStore = {
   reserve: () => Promise<LatamSignupReservation>
   /** Estado persistido. Null cuando esta ficha no tiene reserva. */
-  read: () => Promise<LatamSignupAttemptState | null>
+  read: () => Promise<LatamSignupAttemptSnapshot | null>
   finish: (
     state: "pending_sync" | "confirmed",
     latamCode: number | null
   ) => Promise<"saved" | "unavailable">
-  /** Cierra pending_sync salvo código 1 o 3. No inserta ni llama a register-client. */
+  /** Cierra pending_sync con un código distinto de 1 y 3. No inserta ni llama a register-client. */
   release: () => Promise<"released" | "blocked" | "unavailable">
 }
 
@@ -100,7 +106,10 @@ export function createLatamSignupAttemptStore(
         p_customer_id: customerId,
       })
       if (error) throw new Error("latam_signup_attempt_unavailable")
-      return asState(asRecord(data)?.state)
+      const record = asRecord(data)
+      const state = asState(record?.state)
+      if (!state) return null
+      return { state, latamCode: asLatamCode(record) }
     },
     async finish(state, latamCode) {
       try {

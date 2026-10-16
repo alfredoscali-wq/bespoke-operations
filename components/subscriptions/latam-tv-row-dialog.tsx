@@ -81,6 +81,7 @@ type LatamCreated = LatamPreview
 function statusLabel(phase: LatamPhase): string | null {
   if (phase === "active" || phase === "created") return "LATAM: Activo"
   if (phase === "suspended") return "LATAM: Suspendido"
+  if (phase === "pending_sync") return "LATAM: Alta pendiente"
   if (phase === "unregistered" || phase === "missing" || phase === "confirm") {
     return "LATAM: No registrado"
   }
@@ -386,7 +387,7 @@ export function LatamTvRowDialog({
       if (payload?.outcome === "pending_sync") {
         setActionError(
           payload.message ??
-            "LATAM todavía no informó el identificador del alta. Se puede reintentar la consulta sin crear otro usuario."
+            "El alta anterior sigue pendiente. LATAM todavía no informó el identificador del alta. Se puede reintentar la consulta sin crear otro usuario."
         )
         setPhase("pending_sync")
         return

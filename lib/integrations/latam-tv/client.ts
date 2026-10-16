@@ -23,7 +23,7 @@ import {
   type LatamRegisterBody,
 } from "@/lib/integrations/latam-tv/signup"
 import {
-  type LatamSignupAttemptState,
+  type LatamSignupAttemptSnapshot,
   type LatamSignupAttemptStore,
 } from "@/lib/integrations/latam-tv/signup-attempt"
 import { latamCatalogClient, readLatamClientCatalog, resolveLatamIdentity } from "@/lib/integrations/latam-tv/identity"
@@ -266,6 +266,9 @@ async function postLatam(
       })
     }
   } catch {
+    if (path === REGISTER_CLIENT_PATH) {
+      logRegisterClient({ httpStatus: null, responseCode: null, error: "network" })
+    }
     throw new LatamTvRequestError("unavailable")
   }
 
@@ -283,6 +286,13 @@ async function postLatam(
         throw new LatamTvRequestError("unavailable", response.status)
       }
     }
+    if (path === REGISTER_CLIENT_PATH) {
+      logRegisterClient({
+        httpStatus: response.status,
+        responseCode: await responseCodeOf(response),
+        error: "http",
+      })
+    }
     throw new LatamTvRequestError("unavailable", response.status)
   }
 
@@ -290,11 +300,59 @@ async function postLatam(
   try {
     parsed = await response.json()
   } catch {
+    if (path === REGISTER_CLIENT_PATH) {
+      logRegisterClient({
+        httpStatus: response.status,
+        responseCode: null,
+        error: "invalid_json",
+      })
+    }
     throw new LatamTvRequestError("unavailable")
   }
   const record = asRecord(parsed)
-  if (!record) throw new LatamTvRequestError("unavailable")
+  if (!record) {
+    if (path === REGISTER_CLIENT_PATH) {
+      logRegisterClient({
+        httpStatus: response.status,
+        responseCode: null,
+        error: "invalid_json",
+      })
+    }
+    throw new LatamTvRequestError("unavailable")
+  }
+  if (path === REGISTER_CLIENT_PATH) {
+    logRegisterClient({
+      httpStatus: response.status,
+      responseCode: responseCode(record),
+      error: null,
+    })
+  }
   return record
+}
+
+/** Diagnóstico de register-client. No incluye el cuerpo, el token ni la contraseña. */
+function logRegisterClient(detail: {
+  httpStatus: number | null
+  responseCode: number | null
+  error: "network" | "http" | "invalid_json" | null
+}) {
+  console.error(
+    "LATAM register-client",
+    JSON.stringify({
+      httpStatus: detail.httpStatus,
+      responseCode: detail.responseCode,
+      error: detail.error,
+    })
+  )
+}
+
+async function responseCodeOf(response: Response): Promise<number | null> {
+  try {
+    const record = asRecord(await response.clone().json())
+    return record ? responseCode(record) : null
+  } catch {
+    return null
+  }
 }
 
 /** Catálogo de solo lectura. POST /api/get-plans. Éxito: error false y planes. */
@@ -652,6 +710,8 @@ export type LatamTvSignupCallResult =
 
 const SIGNUP_PENDING =
   "LATAM todavía no informó el identificador del alta. Se puede reintentar la consulta sin crear otro usuario."
+const SIGNUP_STILL_PENDING =
+  "El alta anterior sigue pendiente. LATAM todavía no informó el identificador del alta. Se puede reintentar la consulta sin crear otro usuario."
 const SIGNUP_FAILED =
   "LATAM no muestra este usuario. La consulta cerró el intento anterior y no creó otro. Se puede iniciar un alta nuevo."
 const SIGNUP_REVIEW =
@@ -820,7 +880,7 @@ export async function findConfirmedLatamIdentifier(
 
 async function reservedAttempt(
   store: LatamSignupAttemptStore | undefined
-): Promise<LatamSignupAttemptState | null> {
+): Promise<LatamSignupAttemptSnapshot | null> {
   if (!store) return null
   try {
     return await store.read()
@@ -836,8 +896,8 @@ async function syncReservedAttempt(
   latamCode: number | null
 ): Promise<void> {
   const current = await reservedAttempt(store)
-  if (!current || current === "rejected") return
-  if (state === "pending_sync" && current !== "register_sent" && current !== "pending_sync") return
+  if (!current || current.state === "rejected") return
+  if (state === "pending_sync" && current.state !== "register_sent" && current.state !== "pending_sync") return
   await store?.finish(state, latamCode).catch(() => "unavailable" as const)
 }
 
@@ -850,18 +910,43 @@ function identityCredentialMessage(body: LatamRegisterBody): string | null {
   return null
 }
 
-/** Un padrón completo sin coincidencia cierra pending_sync.
- *  Si la fila ya está rejected, se informa el alta fallida sin escribir de nuevo. */
+/** Un código null o no informado deja el alta pendiente.
+ *  release solo corre con un código distinto de 1 y 3. */
+function storedRejectionCode(code: number | null | undefined): code is number {
+  return typeof code === "number" && code !== 1 && code !== 3
+}
+
+function pendingSignupResult(
+  attempt: LatamSignupAttemptSnapshot | null
+): { outcome: "pending_sync"; message: string } {
+  if (attempt?.state === "pending_sync" && attempt.latamCode == null) {
+    return { outcome: "pending_sync", message: SIGNUP_STILL_PENDING }
+  }
+  return { outcome: "pending_sync", message: SIGNUP_PENDING }
+}
+
+/** La vista previa no ofrece otro alta mientras la reserva sigue abierta. */
+export function heldLatamSignup(
+  attempt: LatamSignupAttemptSnapshot | null
+): { outcome: "pending_sync"; message: string } | null {
+  if (!attempt || attempt.state === "rejected") return null
+  return pendingSignupResult(attempt)
+}
+
+/** Un padrón completo sin coincidencia cierra un pending_sync con código distinto de 1 y 3.
+ *  Un código null no se cierra. Si la fila ya está rejected, se informa sin escribir de nuevo. */
 async function catalogMissClosesAttempt(
   store: LatamSignupAttemptStore | undefined
 ): Promise<boolean> {
   if (!store) return false
   const current = await reservedAttempt(store)
-  if (current === "rejected") return true
-  if (current !== "pending_sync") return false
+  if (!current) return false
+  if (current.state === "rejected") return true
+  if (current.state !== "pending_sync") return false
+  if (!storedRejectionCode(current.latamCode)) return false
   const released = await store.release().catch(() => "unavailable" as const)
   if (released === "released") return true
-  return (await reservedAttempt(store)) === "rejected"
+  return (await reservedAttempt(store))?.state === "rejected"
 }
 
 /** Reconsulta el padrón. No llama a register-client ni crea una reserva. */
@@ -869,10 +954,11 @@ export async function refreshLatamSignupIdentity(
   body: LatamRegisterBody,
   deps: LatamTvClientDeps
 ): Promise<LatamTvSignupCallResult> {
+  const before = await reservedAttempt(deps.signupAttempt)
   const location = locateSignupIdentity(await listLatamTvClients(deps), body)
   if (location.kind === "operational") {
     await syncReservedAttempt(deps.signupAttempt, "confirmed", null)
-    return identityResult(location) ?? { outcome: "pending_sync", message: SIGNUP_PENDING }
+    return identityResult(location) ?? pendingSignupResult(before)
   }
   if (location.kind === "missing") {
     if (await catalogMissClosesAttempt(deps.signupAttempt)) {
@@ -882,9 +968,7 @@ export async function refreshLatamSignupIdentity(
   if (location.kind !== "review") {
     await syncReservedAttempt(deps.signupAttempt, "pending_sync", null)
   }
-  return (
-    identityResult(location) ?? { outcome: "pending_sync", message: SIGNUP_PENDING }
-  )
+  return identityResult(location) ?? pendingSignupResult(before)
 }
 
 function confirmedIdentitySignup(
@@ -939,15 +1023,10 @@ async function signUpLatamClientByIdentity(
     throw new LatamTvRequestError("unavailable")
   }
   if (!reservation.granted) {
-    if (
-      opened.kind === "missing" &&
-      reservation.state === "pending_sync" &&
-      reservation.latamCode === null &&
-      (await catalogMissClosesAttempt(deps.signupAttempt))
-    ) {
-      return { outcome: "failed", message: SIGNUP_FAILED }
-    }
-    return { outcome: "pending_sync", message: SIGNUP_PENDING }
+    return pendingSignupResult({
+      state: reservation.state,
+      latamCode: reservation.latamCode,
+    })
   }
 
   const payload = { ...body }
@@ -958,7 +1037,7 @@ async function signUpLatamClientByIdentity(
   } catch (error) {
     await rememberSignupAttempt(deps.signupAttempt, "pending_sync", null)
     if (error instanceof LatamTvRequestError && error.kind === "not_configured") throw error
-    return { outcome: "pending_sync", message: SIGNUP_PENDING }
+    return { outcome: "pending_sync", message: SIGNUP_STILL_PENDING }
   }
 
   const code = responseCode(record)
@@ -995,12 +1074,8 @@ async function signUpLatamClientByIdentity(
     return fromResponseConfirmed
   }
   await rememberSignupAttempt(deps.signupAttempt, "pending_sync", code)
-  if (
-    code == null &&
-    fromCatalog?.kind === "missing" &&
-    (await catalogMissClosesAttempt(deps.signupAttempt))
-  ) {
-    return { outcome: "failed", message: SIGNUP_FAILED }
+  if (code == null) {
+    return { outcome: "pending_sync", message: SIGNUP_STILL_PENDING }
   }
   if (code != null && code !== 1 && code !== 3) {
     return {

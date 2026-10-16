@@ -3,7 +3,12 @@ import "server-only"
 import { NextResponse } from "next/server"
 
 import { readLatamTvConfig } from "@/lib/integrations/latam-tv/config"
-import { getLatamTvPlans, refreshLatamSignupIdentity, signUpLatamTvClient } from "@/lib/integrations/latam-tv/client"
+import {
+  getLatamTvPlans,
+  heldLatamSignup,
+  refreshLatamSignupIdentity,
+  signUpLatamTvClient,
+} from "@/lib/integrations/latam-tv/client"
 import { createLatamSignupAttemptStore } from "@/lib/integrations/latam-tv/signup-attempt"
 import { LatamTvRequestError } from "@/lib/integrations/latam-tv/errors"
 import { latamIdentifierFromCustomer } from "@/lib/integrations/latam-tv/identifier"
@@ -137,6 +142,22 @@ export async function POST(request: Request, context: RouteContext) {
       )
     }
     if (!input.confirm) {
+      if (identitySignup) {
+        let held: ReturnType<typeof heldLatamSignup> = null
+        try {
+          held = heldLatamSignup(
+            await createLatamSignupAttemptStore(supabase, customerId).read()
+          )
+        } catch {
+          return jsonError("No se pudo preparar el alta en LATAM TV.", 400)
+        }
+        if (held) {
+          return NextResponse.json(
+            { success: false, outcome: held.outcome, message: held.message },
+            { status: 409 }
+          )
+        }
+      }
       return NextResponse.json({
         success: true,
         outcome: "preview",
