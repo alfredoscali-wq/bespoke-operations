@@ -115,6 +115,21 @@ test("el N° se cruza con TV, estado y condición", () => {
   assert.equal(full.every((item) => item.abnetCustomerNumber === "284"), true)
 })
 
+test("CLI-005788 no aparece al buscar el abonado 5788", () => {
+  const rows = [
+    row("5788", { customerName: "Hidalgo Marisa" }),
+    row("CLI-005788", { customerName: "Nieto Marta", bespokeCustomerNumber: "CLI-005788" }),
+  ]
+  assert.deepEqual(
+    visible(rows, "5788").map((item) => item.customerName),
+    ["Hidalgo Marisa"]
+  )
+  assert.deepEqual(
+    visible(rows, "CLI-005788").map((item) => item.customerName),
+    ["Nieto Marta"]
+  )
+})
+
 test("un texto sigue buscando en los campos del padrón", () => {
   const byName = visible(padron, "maricel")
   assert.equal(byName.length, 1)

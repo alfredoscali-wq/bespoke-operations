@@ -15,7 +15,9 @@ import {
   withAbnetPadronDuplicates,
   type AbnetTvPadronRow,
 } from "@/lib/subscriptions/abnet-tv-padron"
+import { latamSignupCredentialGap } from "@/lib/integrations/latam-tv/signup"
 import { PACK_FUTBOL_CODE } from "@/lib/subscriptions/pack-futbol"
+import { bespokeCliCustomerNumber } from "@/lib/subscriptions/tv-ot-signups"
 import { requireSubscriptionsReadContext } from "@/lib/subscriptions/route-context"
 import { createClient } from "@/lib/supabase/server"
 
@@ -101,31 +103,41 @@ async function readPages(
 async function readCustomerMatches(client: Awaited<ReturnType<typeof createClient>>, companyId: string) {
   const matches = new Map<
     string,
-    { id: string; customerNumber: string; name: string } | "ambiguous"
+    | {
+        id: string
+        customerNumber: string
+        name: string
+        latamCredentialGap: "email" | "dni" | "both" | null
+      }
+    | "ambiguous"
   >()
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await client
       .from("customers")
-      .select("id, name, customer_number, external_customer_code")
+      .select("id, name, customer_number, external_customer_code, dni, email")
       .eq("company_id", companyId)
       .is("deleted_at", null)
-      .not("external_customer_code", "is", null)
       .order("id")
       .range(from, from + PAGE - 1)
     if (error) return { matches, error }
     const batch = data ?? []
     for (const row of batch) {
-      const number = abnetPadronCustomerNumber(row.external_customer_code)
-      if (!number) continue
-      const current = matches.get(number)
       const next = {
         id: row.id,
         customerNumber: row.customer_number?.trim() ?? "",
         name: row.name?.trim() ?? "",
+        latamCredentialGap: latamSignupCredentialGap(row.dni, row.email),
       }
-      if (!current) matches.set(number, next)
-      else if (current !== "ambiguous" && current.id !== next.id) {
-        matches.set(number, "ambiguous")
+      const keys = [
+        abnetPadronCustomerNumber(row.external_customer_code),
+        bespokeCliCustomerNumber(row.customer_number),
+      ].filter((key): key is string => Boolean(key))
+      for (const key of new Set(keys)) {
+        const current = matches.get(key)
+        if (!current) matches.set(key, next)
+        else if (current !== "ambiguous" && current.id !== next.id) {
+          matches.set(key, "ambiguous")
+        }
       }
     }
     if (batch.length < PAGE) break
@@ -178,19 +190,31 @@ async function readPackCustomerIds(client: unknown, companyId: string) {
 
 function attachBespoke(
   rows: AbnetTvPadronRow[],
-  matches: Map<string, { id: string; customerNumber: string; name: string } | "ambiguous">,
+  matches: Map<
+    string,
+    | {
+        id: string
+        customerNumber: string
+        name: string
+        latamCredentialGap: "email" | "dni" | "both" | null
+      }
+    | "ambiguous"
+  >,
   packCustomerIds: Set<string>
 ) {
   return rows.map((row) => {
     const match = matches.get(row.abnetCustomerNumber)
-    if (match === "ambiguous") return { ...row, bespokeLink: "many" }
+    if (match === "ambiguous") {
+      return { ...row, bespokeLink: "many" as const, latamCredentialGap: null }
+    }
     if (!match) return row
     return {
       ...row,
-      bespokeLink: "one",
+      bespokeLink: "one" as const,
       bespokeCustomerId: match.id,
       bespokeCustomerNumber: match.customerNumber || null,
       bespokeCustomerName: match.name || null,
+      latamCredentialGap: match.latamCredentialGap,
       packFutbolActive: packCustomerIds.has(match.id),
     }
   })

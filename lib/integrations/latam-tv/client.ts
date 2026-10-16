@@ -15,9 +15,20 @@ import {
   type LatamTvCatalogPlan,
 } from "@/lib/integrations/latam-tv/plans"
 import {
+  LATAM_SIGNUP_MISSING_BOTH,
+  LATAM_SIGNUP_MISSING_DNI,
+  LATAM_SIGNUP_MISSING_EMAIL,
+  latamInitialPassword,
   latamRegisterRejectionMessage,
   type LatamRegisterBody,
 } from "@/lib/integrations/latam-tv/signup"
+import {
+  type LatamSignupAttemptState,
+  type LatamSignupAttemptStore,
+} from "@/lib/integrations/latam-tv/signup-attempt"
+import { latamCatalogClient, readLatamClientCatalog, resolveLatamIdentity } from "@/lib/integrations/latam-tv/identity"
+import { readLatamOperationalIdentifier } from "@/lib/integrations/latam-tv/operational-identifier"
+import type { LatamCatalogClient } from "@/lib/integrations/latam-tv/identity"
 import type { LatamBatchClient } from "@/lib/integrations/latam-tv/lookup-state"
 import type {
   LatamTvAccountStatus,
@@ -34,15 +45,22 @@ const MODIFY_PASSWORD_PATH = "/api/modify-password"
 const MODIFY_CLIENT_PATH = "/api/modify-client"
 const DISABLE_CLIENT_PATH = "/api/disable-client"
 const ENABLE_CLIENT_PATH = "/api/enable-client"
+const SYNC_CLIENT_PATH = "/api/sync-client"
 const REQUEST_TIMEOUT_MS = 12_000
 
 const signupTails = new Map<string, Promise<unknown>>()
+
+function identitySignupKey(body: LatamRegisterBody): string {
+  return `identity:${body.dni.replace(/\D/g, "")}:${body.correo.trim().toLowerCase()}`
+}
 
 export type LatamTvClientDeps = {
   baseUrl: string
   token: string
   fetchImpl?: LatamTvFetch
   timeoutMs?: number
+  /** Reserva persistente del alta nueva. El alta histórico no la usa. */
+  signupAttempt?: LatamSignupAttemptStore
 }
 
 function text(value: unknown): string | null {
@@ -262,10 +280,10 @@ async function postLatam(
           return missing
         }
       } catch {
-        throw new LatamTvRequestError("unavailable")
+        throw new LatamTvRequestError("unavailable", response.status)
       }
     }
-    throw new LatamTvRequestError("unavailable")
+    throw new LatamTvRequestError("unavailable", response.status)
   }
 
   let parsed: unknown
@@ -283,6 +301,114 @@ async function postLatam(
 export async function getLatamTvPlans(deps: LatamTvClientDeps): Promise<LatamTvCatalogPlan[]> {
   const record = await postLatam(GET_PLANS_PATH, {}, deps)
   return readLatamTvPlansPayload(record)
+}
+
+/**
+ * Padrón de solo lectura. GET /api/get-clients sin identificador.
+ * LATAM no filtra por DNI ni por email.
+ */
+export async function listLatamTvClients(
+  deps: LatamTvClientDeps
+): Promise<LatamCatalogClient[]> {
+  const record = await postLatam(GET_CLIENTS_PATH, {}, deps, { method: "GET" })
+  return readLatamClientCatalog(record)
+}
+
+export type LatamTvIdentifierProbe = {
+  code: number | null
+  message: string | null
+  client: LatamCatalogClient | null
+}
+
+/** Lectura. GET /api/get-clients con { identificador: [n] }. No escribe. */
+export async function probeLatamTvIdentifier(
+  identificador: string,
+  deps: LatamTvClientDeps
+): Promise<LatamTvIdentifierProbe> {
+  const identifier = abnetNumberFromExternalCode(identificador)
+  if (!identifier) throw new LatamTvRequestError("invalid_identifier")
+  const record = await postLatam(
+    GET_CLIENTS_PATH,
+    { identificador: [identifier] },
+    deps,
+    { method: "GET" }
+  )
+  const rows = clientRecords(record)
+  return {
+    code: responseCode(record),
+    message: text(record.message),
+    client: rows[0] ? latamCatalogClient(rows[0]) : null,
+  }
+}
+
+export type LatamTvClientLink = {
+  code: number | null
+  iptvId: string | null
+  crmId: string | null
+}
+
+/** Lee el id_crm guardado en el cliente. No usa id_iptv como identificador. */
+export async function readLatamClientLink(
+  identificador: string,
+  deps: LatamTvClientDeps
+): Promise<LatamTvClientLink> {
+  const identifier = abnetNumberFromExternalCode(identificador)
+  if (!identifier) throw new LatamTvRequestError("invalid_identifier")
+  const record = await postLatam(
+    GET_CLIENTS_PATH,
+    { identificador: [identifier] },
+    deps,
+    { method: "GET" }
+  )
+  const rows = clientRecords(record)
+  const matched =
+    rows.find((row) => abnetNumberFromExternalCode(text(row.id_crm)) === identifier) ??
+    (rows.length === 1 ? rows[0] : null)
+  return {
+    code: responseCode(record),
+    iptvId: matched ? text(matched.id_iptv) : null,
+    crmId: matched ? abnetNumberFromExternalCode(text(matched.id_crm)) : null,
+  }
+}
+
+export type LatamTvSyncResult = {
+  outcome: "updated" | "iptv_not_found" | "crm_already_registered" | "update_failed" | "rejected"
+  code: number | null
+  error: number | null
+  message: string | null
+}
+
+/**
+ * Vincula id_iptv con id_crm. POST /api/sync-client, una sola vez.
+ * id_iptv y id_crm son campos distintos: no se copia uno en el otro.
+ * Una respuesta sin code 1, 3, 4 o 5 no se reintenta.
+ */
+export function latamSyncClientBody(input: {
+  idIptv: string
+  idCrm: string
+}): { id_iptv: string; id_crm: string } {
+  const idIptv = abnetNumberFromExternalCode(input.idIptv)
+  const idCrm = abnetNumberFromExternalCode(input.idCrm)
+  if (!idIptv || !idCrm || idIptv === idCrm) {
+    throw new LatamTvRequestError("invalid_identifier")
+  }
+  return { id_iptv: idIptv, id_crm: idCrm }
+}
+
+export async function syncLatamTvClient(
+  input: { idIptv: string; idCrm: string },
+  deps: LatamTvClientDeps
+): Promise<LatamTvSyncResult> {
+  const body = latamSyncClientBody(input)
+  const record = await postLatam(SYNC_CLIENT_PATH, body, deps)
+  const code = responseCode(record)
+  const error = wholeNumber(record.error)
+  const message = text(record.message)
+  if (code === 1) return { outcome: "updated", code: 1, error, message }
+  if (code === 3) return { outcome: "iptv_not_found", code: 3, error, message }
+  if (code === 4) return { outcome: "crm_already_registered", code: 4, error, message }
+  if (code === 5) return { outcome: "update_failed", code: 5, error, message }
+  return { outcome: "rejected", code, error, message }
 }
 
 function hasClientList(record: Record<string, unknown>): boolean {
@@ -322,26 +448,6 @@ export type LatamIdentifierClassification =
       planName: null
     }
 
-function batchEntry(
-  phase: "unresolved",
-  identifier?: string | null,
-  username?: string | null,
-  planName?: string | null,
-  iptvId?: string | null
-): {
-  phase: "unresolved"
-  identifier: null
-  iptvId: null
-  username: null
-  planName: null
-}
-function batchEntry(
-  phase: LatamBatchClient["phase"],
-  identifier?: string | null,
-  username?: string | null,
-  planName?: string | null,
-  iptvId?: string | null
-): LatamBatchClient
 function batchEntry(
   phase: LatamBatchClient["phase"] | "unresolved",
   identifier: string | null = null,
@@ -397,16 +503,31 @@ export function classifyLatamIdentifierBatch(
   for (const row of clientRecords(record)) {
     const identifier = recordIdentifier(row)
     if (!identifier || !ids.includes(identifier)) continue
-    const status = accountStatus(row.status ?? row.estado)
-    const username = text(row.usuario)
-    const planName = text(row.plan_name ?? row.plan_nombre)
-    const iptvId = text(row.id_iptv)
-    if (status === "enabled") {
-      found.set(identifier, batchEntry("active", identifier, username, planName, iptvId))
-    } else if (status === "disabled") {
-      found.set(identifier, batchEntry("suspended", identifier, username, planName, iptvId))
+    const client = latamCatalogClient(row)
+    if (client.status === "enabled") {
+      found.set(identifier, {
+        phase: "active",
+        identifier,
+        iptvId: client.iptvId,
+        username: client.email,
+        planName: client.planName,
+      })
+    } else if (client.status === "disabled") {
+      found.set(identifier, {
+        phase: "suspended",
+        identifier,
+        iptvId: client.iptvId,
+        username: client.email,
+        planName: client.planName,
+      })
     } else {
-      found.set(identifier, batchEntry("unavailable", null, null, null, iptvId))
+      found.set(identifier, {
+        phase: "unavailable",
+        identifier: null,
+        iptvId: client.iptvId,
+        username: null,
+        planName: null,
+      })
     }
   }
   const unregistered = listedIdentifierSet(record.noregistrados)
@@ -433,9 +554,7 @@ async function fallbackLatamIdentifier(
     )
     const entry = classifyLatamIdentifierBatch([id], record)[id]
     if (entry && isResolvedLatamClient(entry)) return entry
-    if (responseCode(record) === 3) {
-      return { phase: "unregistered", identifier: null, iptvId: null, username: null, planName: null }
-    }
+    if (responseCode(record) === 3) return { phase: "unregistered", identifier: null, iptvId: null, username: null, planName: null }
     return { phase: "unavailable", identifier: null, iptvId: null, username: null, planName: null }
   } catch {
     return { phase: "unavailable", identifier: null, iptvId: null, username: null, planName: null }
@@ -517,9 +636,26 @@ export async function getLatamTvClientByIdentifier(
 }
 
 export type LatamTvSignupCallResult =
-  | { outcome: "created" }
-  | { outcome: "already_exists"; status: LatamTvAccountStatus | null }
+  | {
+      outcome: "created"
+      status: "enabled" | "disabled"
+      identifier: string
+      iptvId: string | null
+      planName: string | null
+      username: string | null
+    }
+  | { outcome: "already_exists"; status: LatamTvAccountStatus | null; identifier?: string | null }
+  | { outcome: "pending_sync"; message: string }
+  | { outcome: "unverified"; message: string }
   | { outcome: "rejected"; code: number; message: string }
+
+const SIGNUP_PENDING =
+  "LATAM todavía no informó el identificador del alta. Se puede reintentar la consulta sin crear otro usuario."
+const SIGNUP_REVIEW =
+  "La identidad no quedó confirmada en Latam. El alta sigue pendiente de confirmación y no se enviará de nuevo automáticamente. Hay que reconsultar la identidad en Latam."
+
+const SIGNUP_UNVERIFIED =
+  "LATAM no confirmó el alta. Las acciones siguen deshabilitadas."
 
 function enqueueSignup<T>(identifier: string, run: () => Promise<T>): Promise<T> {
   const previous = signupTails.get(identifier) ?? Promise.resolve()
@@ -531,21 +667,55 @@ function enqueueSignup<T>(identifier: string, run: () => Promise<T>): Promise<T>
 }
 
 /**
- * Alta. Vuelve a consultar get-clients y solo entonces llama a register-client.
- * Dos altas del mismo identificador quedan en serie para no crearlo dos veces.
+ * Alta. Consulta get-clients y solo entonces llama a register-client.
+ * El alta nuevo reserva la ficha en Supabase antes de enviarla.
+ * Si esa reserva no se obtiene, no se envía otra alta.
  */
 export function signUpLatamTvClient(
   body: LatamRegisterBody,
   deps: LatamTvClientDeps
 ): Promise<LatamTvSignupCallResult> {
-  return enqueueSignup(body.identificador, async () => {
-    const lookup = await getLatamTvClientByIdentifier(body.identificador, deps)
+  const numeric = abnetNumberFromExternalCode(body.identificador)
+  const queueKey = numeric ?? identitySignupKey(body)
+  return enqueueSignup(queueKey, async () => {
+    if (!numeric) return signUpLatamClientByIdentity(body, deps)
+    const lookup = await getLatamTvClientByIdentifier(body.identificador ?? "", deps)
     if (lookup.found) {
       return { outcome: "already_exists", status: lookup.client.status }
     }
     const record = await postLatam(REGISTER_CLIENT_PATH, body, deps)
     const code = responseCode(record)
-    if (code === 1) return { outcome: "created" }
+    if (code === 1) {
+      const expected = abnetNumberFromExternalCode(body.identificador)
+      const confirmed = expected
+        ? await getLatamTvClientByIdentifier(expected, deps)
+        : { found: false as const }
+      if (
+        !expected ||
+        !confirmed.found ||
+        confirmed.client.identifier !== expected ||
+        (confirmed.client.status !== "enabled" && confirmed.client.status !== "disabled")
+      ) {
+        return { outcome: "unverified", message: SIGNUP_UNVERIFIED }
+      }
+      const linked = await readLatamClientsByIdentifiers([expected], deps)
+      const row = linked[expected]
+      const crmMatches =
+        row != null &&
+        row.phase !== "unregistered" &&
+        (row.identifier === expected || row.phase === "unavailable")
+      if (!crmMatches || !row) {
+        return { outcome: "unverified", message: SIGNUP_UNVERIFIED }
+      }
+      return {
+        outcome: "created",
+        status: confirmed.client.status,
+        identifier: expected,
+        iptvId: row.iptvId,
+        planName: row.planName ?? confirmed.client.plan?.name ?? null,
+        username: row.username ?? confirmed.client.username,
+      }
+    }
     if (code === 3) return { outcome: "already_exists", status: null }
     return {
       outcome: "rejected",
@@ -553,6 +723,255 @@ export function signUpLatamTvClient(
       message: latamRegisterRejectionMessage(code ?? 2),
     }
   })
+}
+
+type IdentityLocation =
+  | {
+      kind: "operational"
+      status: "enabled" | "disabled"
+      identifier: string
+      planName: string | null
+    }
+  | { kind: "linked" }
+  | { kind: "review" }
+  | { kind: "missing" }
+
+function locateSignupIdentity(
+  catalog: Awaited<ReturnType<typeof listLatamTvClients>>,
+  body: LatamRegisterBody
+): IdentityLocation {
+  const identity = resolveLatamIdentity(catalog, { nationalId: body.dni, email: body.correo })
+  if (identity.outcome === "ambiguous" || identity.outcome === "partial_match") {
+    return { kind: "review" }
+  }
+  if (identity.outcome !== "matched") return { kind: "missing" }
+  if (identity.status !== "enabled" && identity.status !== "disabled") return { kind: "linked" }
+  const nationalId = body.dni.replace(/\D/g, "")
+  const email = body.correo.trim().toLowerCase()
+  const row = catalog.find(
+    (client) =>
+      client.nationalId === nationalId &&
+      client.email === email &&
+      (identity.identifier == null || client.identifier === identity.identifier)
+  )
+  const operational = abnetNumberFromExternalCode(row?.operationalIdentifier)
+  const sent = abnetNumberFromExternalCode(body.identificador)
+  if (!operational || (sent != null && operational === sent)) return { kind: "linked" }
+  return {
+    kind: "operational",
+    status: identity.status,
+    identifier: operational,
+    planName: identity.planName,
+  }
+}
+
+function embeddedSignupClient(record: Record<string, unknown>): LatamCatalogClient | null {
+  const nested = asRecord(record.client) ?? asRecord(record.cliente)
+  const hasClientFields =
+    record.dni != null ||
+    record.usuario != null ||
+    record.correo != null ||
+    Object.prototype.hasOwnProperty.call(record, "identificador")
+  const source = nested ?? (hasClientFields ? record : null)
+  return source ? latamCatalogClient(source) : null
+}
+
+function responseOperationalId(record: Record<string, unknown>): string | null {
+  const reading = readLatamOperationalIdentifier(record)
+  const embedded = embeddedSignupClient(record)
+  return (
+    abnetNumberFromExternalCode(reading.case === "confirmed" ? reading.value : null) ??
+    abnetNumberFromExternalCode(embedded?.operationalIdentifier)
+  )
+}
+
+function identityResult(location: IdentityLocation): LatamTvSignupCallResult | null {
+  if (location.kind === "operational") {
+    return {
+      outcome: "already_exists",
+      status: location.status,
+      identifier: location.identifier,
+    }
+  }
+  if (location.kind === "linked") return { outcome: "pending_sync", message: SIGNUP_PENDING }
+  if (location.kind === "review") {
+    return { outcome: "rejected", code: 2, message: SIGNUP_REVIEW }
+  }
+  return null
+}
+
+/** Identificador confirmado de una coincidencia única. No crea usuarios. */
+export async function findConfirmedLatamIdentifier(
+  input: { dni: string; email: string },
+  deps: LatamTvClientDeps
+): Promise<string | null> {
+  const location = locateSignupIdentity(await listLatamTvClients(deps), {
+    nombres: "",
+    dni: input.dni,
+    correo: input.email,
+    password: input.dni,
+    plan: "",
+  })
+  return location.kind === "operational" ? location.identifier : null
+}
+
+async function reservedAttempt(
+  store: LatamSignupAttemptStore | undefined
+): Promise<LatamSignupAttemptState | null> {
+  if (!store) return null
+  try {
+    return await store.read()
+  } catch {
+    return null
+  }
+}
+
+/** Actualiza una reserva ya existente. No crea una fila. */
+async function syncReservedAttempt(
+  store: LatamSignupAttemptStore | undefined,
+  state: "pending_sync" | "confirmed",
+  latamCode: number | null
+): Promise<void> {
+  const current = await reservedAttempt(store)
+  if (!current || current === "rejected") return
+  if (state === "pending_sync" && current !== "register_sent" && current !== "pending_sync") return
+  await store?.finish(state, latamCode).catch(() => "unavailable" as const)
+}
+
+function identityCredentialMessage(body: LatamRegisterBody): string | null {
+  const dni = latamInitialPassword(body.dni)
+  const email = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.correo?.trim() ?? "")
+  if (!dni && !email) return LATAM_SIGNUP_MISSING_BOTH
+  if (!email) return LATAM_SIGNUP_MISSING_EMAIL
+  if (!dni) return LATAM_SIGNUP_MISSING_DNI
+  return null
+}
+
+/** Reconsulta el padrón. No llama a register-client ni crea una reserva. */
+export async function refreshLatamSignupIdentity(
+  body: LatamRegisterBody,
+  deps: LatamTvClientDeps
+): Promise<LatamTvSignupCallResult> {
+  const location = locateSignupIdentity(await listLatamTvClients(deps), body)
+  if (location.kind === "operational") {
+    await syncReservedAttempt(deps.signupAttempt, "confirmed", null)
+    return identityResult(location) ?? { outcome: "pending_sync", message: SIGNUP_PENDING }
+  }
+  if (location.kind !== "review") {
+    await syncReservedAttempt(deps.signupAttempt, "pending_sync", null)
+  }
+  return (
+    identityResult(location) ?? { outcome: "pending_sync", message: SIGNUP_PENDING }
+  )
+}
+
+function confirmedIdentitySignup(
+  location: IdentityLocation,
+  code: number,
+  hinted: string | null,
+  correo: string
+): LatamTvSignupCallResult | null {
+  if (location.kind !== "operational") return null
+  if (hinted && hinted !== location.identifier) return null
+  if (code === 3) {
+    return { outcome: "already_exists", status: location.status, identifier: location.identifier }
+  }
+  return {
+    outcome: "created",
+    status: location.status,
+    identifier: location.identifier,
+    iptvId: null,
+    planName: location.planName,
+    username: correo,
+  }
+}
+
+async function rememberSignupAttempt(
+  store: LatamSignupAttemptStore | undefined,
+  state: "pending_sync" | "confirmed",
+  latamCode: number | null
+): Promise<void> {
+  if (!store) return
+  await store.finish(state, latamCode).catch(() => "unavailable" as const)
+}
+
+async function signUpLatamClientByIdentity(
+  body: LatamRegisterBody,
+  deps: LatamTvClientDeps
+): Promise<LatamTvSignupCallResult> {
+  const credentialMessage = identityCredentialMessage(body)
+  if (credentialMessage) return { outcome: "rejected", code: 2, message: credentialMessage }
+  const opened = locateSignupIdentity(await listLatamTvClients(deps), body)
+  if (opened.kind === "operational") {
+    await syncReservedAttempt(deps.signupAttempt, "confirmed", null)
+    return identityResult(opened) ?? { outcome: "pending_sync", message: SIGNUP_PENDING }
+  }
+  const before = identityResult(opened)
+  if (before) return before
+  if (!deps.signupAttempt) throw new LatamTvRequestError("unavailable")
+
+  let reservation: Awaited<ReturnType<LatamSignupAttemptStore["reserve"]>>
+  try {
+    reservation = await deps.signupAttempt.reserve()
+  } catch {
+    throw new LatamTvRequestError("unavailable")
+  }
+  if (!reservation.granted) {
+    return { outcome: "pending_sync", message: SIGNUP_PENDING }
+  }
+
+  const payload = { ...body }
+  delete payload.identificador
+  let record: Record<string, unknown>
+  try {
+    record = await postLatam(REGISTER_CLIENT_PATH, payload, deps)
+  } catch (error) {
+    await rememberSignupAttempt(deps.signupAttempt, "pending_sync", null)
+    if (error instanceof LatamTvRequestError && error.kind === "not_configured") throw error
+    return { outcome: "pending_sync", message: SIGNUP_PENDING }
+  }
+
+  const code = responseCode(record)
+  let catalog: Awaited<ReturnType<typeof listLatamTvClients>> | null = null
+  try {
+    catalog = await listLatamTvClients(deps)
+  } catch {
+    catalog = null
+  }
+  const hinted = responseOperationalId(record)
+  const embedded = embeddedSignupClient(record)
+  const fromCatalog = catalog ? locateSignupIdentity(catalog, body) : null
+  const fromResponse = embedded ? locateSignupIdentity([embedded], body) : null
+  if (
+    fromCatalog?.kind === "review" ||
+    (fromCatalog?.kind !== "operational" && fromResponse?.kind === "review")
+  ) {
+    await rememberSignupAttempt(deps.signupAttempt, "pending_sync", code)
+    return { outcome: "pending_sync", message: SIGNUP_REVIEW }
+  }
+  const confirmationCode = code === 1 || code === 3 ? code : null
+  const fromCatalogConfirmed = confirmationCode != null && fromCatalog
+    ? confirmedIdentitySignup(fromCatalog, confirmationCode, hinted, body.correo)
+    : null
+  if (fromCatalogConfirmed) {
+    await rememberSignupAttempt(deps.signupAttempt, "confirmed", code)
+    return fromCatalogConfirmed
+  }
+  const fromResponseConfirmed = confirmationCode != null && fromResponse
+    ? confirmedIdentitySignup(fromResponse, confirmationCode, hinted, body.correo)
+    : null
+  if (fromResponseConfirmed) {
+    await rememberSignupAttempt(deps.signupAttempt, "confirmed", code)
+    return fromResponseConfirmed
+  }
+  await rememberSignupAttempt(deps.signupAttempt, "pending_sync", code)
+  if (code != null && code !== 1 && code !== 3) {
+    return {
+      outcome: "pending_sync",
+      message: `${latamRegisterRejectionMessage(code)} La reserva sigue activa y no se creará otro usuario.`,
+    }
+  }
+  return { outcome: "pending_sync", message: SIGNUP_PENDING }
 }
 
 export type LatamPasswordChangeResult =

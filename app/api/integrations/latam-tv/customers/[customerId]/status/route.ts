@@ -10,6 +10,7 @@ import {
   type LatamAccountToggleResult,
 } from "@/lib/integrations/latam-tv/client"
 import { LatamTvRequestError } from "@/lib/integrations/latam-tv/errors"
+import { findConfirmedLatamIdentifier } from "@/lib/integrations/latam-tv/client"
 import { latamIdentifierFromCustomer } from "@/lib/integrations/latam-tv/identifier"
 import {
   recordLatamClientStatusAudit,
@@ -82,7 +83,7 @@ export async function POST(request: Request, context: RouteContext) {
     const supabase = await createClient()
     const { data, error } = await supabase
       .from("customers")
-      .select("id, company_id, external_customer_code, deleted_at")
+      .select("id, company_id, external_customer_code, dni, email, deleted_at")
       .eq("id", customerId)
       .eq("company_id", auth.companyId)
       .is("deleted_at", null)
@@ -102,7 +103,7 @@ export async function POST(request: Request, context: RouteContext) {
     if (resolved.status === "not_found") {
       return jsonError("Cliente no encontrado.", 404)
     }
-    if (resolved.status !== "ready") {
+    if (resolved.status !== "ready" && resolved.status !== "missing_identifier") {
       return jsonError("El cliente no tiene N° ABNet.", 422)
     }
 
@@ -111,14 +112,27 @@ export async function POST(request: Request, context: RouteContext) {
       console.error("LATAM TV no está configurado (LATAM_TV_API_URL / LATAM_TV_API_TOKEN).")
       throw new LatamTvRequestError("not_configured")
     }
+    const operationId =
+      resolved.status === "ready"
+        ? resolved.identifier
+        : await findConfirmedLatamIdentifier(
+            { dni: data?.dni ?? "", email: data?.email ?? "" },
+            config
+          )
+    if (!operationId) {
+      return jsonError(
+        "LATAM todavía no informó el identificador operativo. La acción sigue deshabilitada.",
+        409
+      )
+    }
 
     const run = action === "disable" ? disableClient : enableClient
     let result: LatamAccountToggleResult
     try {
-      result = await run(resolved.identifier, config)
+      result = await run(operationId, config)
     } catch (error) {
       if (error instanceof LatamTvRequestError && error.kind === "unavailable") {
-        await auditStatus(auth, customerId, resolved.identifier, action, "unavailable")
+        await auditStatus(auth, customerId, operationId, action, "unavailable")
         return jsonError(NETWORK_MESSAGE, 502)
       }
       throw error
@@ -126,7 +140,7 @@ export async function POST(request: Request, context: RouteContext) {
 
     const auditResult = auditOutcome(result)
     if (auditResult) {
-      await auditStatus(auth, customerId, resolved.identifier, action, auditResult)
+      await auditStatus(auth, customerId, operationId, action, auditResult)
     }
 
     if (result.outcome === "updated") {

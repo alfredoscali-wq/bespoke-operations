@@ -1,0 +1,10 @@
+warning: in the working copy of 'components/configuracion/configuration-hub-panel.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/activity/legacy-audit-map.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/audit/action-badges.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/audit/audit-catalog.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/audit/audit-labels.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/audit/build-audit-description.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/audit/client-policy.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/audit/types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/navigation/sidebar-areas.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'package.json', LF will be replaced by CRLF the next time Git touches it

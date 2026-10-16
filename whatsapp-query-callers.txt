@@ -1,0 +1,630 @@
+﻿C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\(dashboard)\obras\[id]\informe\page.tsx:9: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\(dashboard)\obras\[id]\informe\page.tsx:43: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\activity\events\route.ts:25: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\activity\events\route.ts:76: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\activity\stats\route.ts:6: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\activity\stats\route.ts:19: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\admin\force-delete\route.ts:6: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\admin\force-delete\route.ts:55: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\admin\mobile-devices\route.ts:15: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\admin\mobile-devices\route.ts:35: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\admin\mobile-devices\route.ts:86: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\admin\permanent-delete\route.ts:11: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\admin\permanent-delete\route.ts:77: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\admin\system-audit\route.ts:7: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\admin\system-audit\route.ts:21: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\atencion-cliente\[atencionId]\commercial-opportunity\route.ts:13: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\atencion-cliente\[atencionId]\commercial-opportunity\route.ts:74: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\atencion-cliente\[atencionId]\interaction\route.ts:16: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\atencion-cliente\[atencionId]\interaction\route.ts:91: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\audit\events\route.ts:21: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\audit\events\route.ts:58: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\audit\events\route.ts:133: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\audit\events\export\route.ts:15: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\audit\events\export\route.ts:53: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\audit\events\summary\route.ts:6: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\audit\events\summary\route.ts:19: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\audit\events\timeline\route.ts:5: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\audit\events\timeline\route.ts:32: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\auth\provision\route.ts:18: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\auth\provision\route.ts:104: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\auth\reset-password\route.ts:15: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\auth\reset-password\route.ts:101: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\clientes\migracion\import\route.ts:15: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\clientes\migracion\import\route.ts:32: const supabase = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\company-branding\route.ts:11: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\company-branding\route.ts:12: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\company-branding\route.ts:37: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\company-branding\route.ts:94: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\company-branding\logo\route.ts:14: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\company-branding\logo\route.ts:93: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\company-gps-settings\route.ts:11: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\company-gps-settings\route.ts:12: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\company-gps-settings\route.ts:35: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\company-gps-settings\route.ts:78: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\cron\activate-projects\route.ts:3: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\cron\activate-projects\route.ts:32: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\gestion-comercial\search\route.ts:5: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\gestion-comercial\search\route.ts:25: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\gestion-comercial\territorial-activities\route.ts:7: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\gestion-comercial\territorial-activities\route.ts:18: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\gestion-comercial\territorial-activities\route.ts:47: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\gestion-comercial\territorial-activities\[activityId]\route.ts:7: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\gestion-comercial\territorial-activities\[activityId]\route.ts:22: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\gestion-comercial\territorial-activities\[activityId]\route.ts:44: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\gestion-comercial\territorial-activity-types\route.ts:4: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\gestion-comercial\territorial-activity-types\route.ts:11: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\informe\[token]\pdf\route.ts:17: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\informe\[token]\pdf\route.ts:53: client: createAdminClient(),
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\integrations\latam-tv\customers\[customerId]\route.ts:10: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\integrations\latam-tv\customers\[customerId]\route.ts:33: const supabase = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\integrations\latam-tv\customers\[customerId]\password\route.ts:19: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\integrations\latam-tv\customers\[customerId]\password\route.ts:69: const supabase = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\integrations\latam-tv\customers\[customerId]\plan\route.ts:22: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\integrations\latam-tv\customers\[customerId]\plan\route.ts:77: const supabase = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\integrations\latam-tv\customers\[customerId]\register\route.ts:19: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\integrations\latam-tv\customers\[customerId]\register\route.ts:58: const supabase = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\integrations\latam-tv\customers\[customerId]\status\route.ts:22: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\integrations\latam-tv\customers\[customerId]\status\route.ts:82: const supabase = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\documents\route.ts:14: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\documents\route.ts:22: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\documents\route.ts:64: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\documents\context\route.ts:5: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\documents\context\route.ts:12: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\documents\customers\route.ts:5: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\documents\customers\route.ts:13: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\documents\customers\[customerId]\services\route.ts:5: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\documents\customers\[customerId]\services\route.ts:15: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\documents\[id]\route.ts:15: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\documents\[id]\route.ts:25: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\documents\[id]\route.ts:56: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\documents\[id]\route.ts:88: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\documents\[id]\cancel\route.ts:6: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\documents\[id]\cancel\route.ts:16: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\documents\[id]\issue\route.ts:6: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\documents\[id]\issue\route.ts:16: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\documents\[id]\pdf\route.ts:11: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\documents\[id]\pdf\route.ts:21: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\logo\route.ts:12: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\logo\route.ts:13: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\logo\route.ts:71: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\logo\route.ts:87: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\point-of-sale\route.ts:14: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\point-of-sale\route.ts:21: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\point-of-sale\route.ts:71: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\runs\route.ts:13: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\runs\route.ts:20: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\runs\route.ts:52: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\runs\[id]\route.ts:5: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\runs\[id]\route.ts:15: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\runs\[id]\cancel\route.ts:8: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\runs\[id]\cancel\route.ts:18: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\runs\[id]\confirm\route.ts:8: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\runs\[id]\confirm\route.ts:18: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\runs\[id]\items\route.ts:5: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\runs\[id]\items\route.ts:20: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\settings\route.ts:14: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\settings\route.ts:21: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\settings\route.ts:81: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\status\route.ts:6: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\billing\status\route.ts:13: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\catalog\route.ts:12: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\catalog\route.ts:33: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\catalog\route.ts:65: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\catalog\ot-plans\route.ts:6: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\catalog\ot-plans\route.ts:29: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\catalog\technical-profiles\route.ts:8: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\catalog\technical-profiles\route.ts:22: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\catalog\technical-profiles\route.ts:56: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\catalog\technical-profiles\[id]\route.ts:8: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\catalog\technical-profiles\[id]\route.ts:24: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\catalog\technical-profiles\[id]\route.ts:63: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\catalog\[id]\route.ts:18: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\catalog\[id]\route.ts:29: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\catalog\[id]\route.ts:68: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\catalog\[id]\route.ts:107: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\connections\route.ts:15: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\connections\route.ts:24: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\connections\route.ts:75: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\connections\[id]\route.ts:18: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\connections\[id]\route.ts:29: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\connections\[id]\route.ts:68: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\connections\[id]\route.ts:119: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\customers\route.ts:10: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\customers\route.ts:106: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\customers\export\route.ts:7: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\customers\export\route.ts:16: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\customers\[id]\route.ts:13: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\customers\[id]\route.ts:24: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\customers\[id]\route.ts:84: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\customers\[id]\services\route.ts:10: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\customers\[id]\services\route.ts:55: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\customers\[id]\subscriber\route.ts:11: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\customers\[id]\subscriber\route.ts:46: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\customers\[id]\whatsapp-requests\route.ts:6: import { listWhatsappRequestsForCustomer } from "@/lib/supabase/whatsapp-commercial-requests.queries"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\customers\[id]\whatsapp-requests\route.ts:7: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\customers\[id]\whatsapp-requests\route.ts:17: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\customers\[id]\whatsapp-requests\route.ts:26: const history = await listWhatsappRequestsForCustomer(client, auth.companyId, id)
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\installation-orders\route.ts:5: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\installation-orders\route.ts:12: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\migration\runs\route.ts:8: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\migration\runs\route.ts:15: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\migration\runs\[id]\route.ts:6: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\migration\runs\[id]\route.ts:17: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\migration\runs\[id]\import\route.ts:8: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\migration\runs\[id]\import\route.ts:26: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\migration\runs\[id]\review\route.ts:21: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\migration\runs\[id]\review\route.ts:47: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\migration\runs\[id]\review\route.ts:113: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\migration\template\route.ts:11: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\migration\template\route.ts:19: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\migration\validate\route.ts:13: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\migration\validate\route.ts:48: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\onboarding\route.ts:7: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\onboarding\route.ts:37: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\services\route.ts:5: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\services\route.ts:22: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\services\[id]\route.ts:13: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\services\[id]\route.ts:23: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\services\[id]\route.ts:75: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\services\[id]\connection\route.ts:11: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\services\[id]\connection\route.ts:32: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\tasks\[taskId]\route.ts:5: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\isp\tasks\[taskId]\route.ts:18: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\materiales\catalog\route.ts:5: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\materiales\catalog\route.ts:13: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\materiales\context\route.ts:10: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\materiales\context\route.ts:18: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\materiales\inventory\route.ts:5: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\materiales\inventory\route.ts:11: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\materiales\materials\route.ts:8: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\materiales\materials\route.ts:39: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\materiales\materials\[id]\route.ts:15: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\materiales\materials\[id]\route.ts:30: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\materiales\materials\[id]\route.ts:111: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\materiales\materials\[id]\route.ts:142: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\materiales\movements\route.ts:5: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\materiales\movements\route.ts:29: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\materiales\summary\route.ts:5: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\materiales\summary\route.ts:11: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\materiales\warehouses\route.ts:11: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\materiales\warehouses\route.ts:18: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\materiales\warehouses\route.ts:56: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\materiales\warehouses\[id]\route.ts:5: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\materiales\warehouses\[id]\route.ts:28: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\mobile\v1\alarms\[alarmId]\notification-opened\route.ts:10: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\mobile\v1\alarms\[alarmId]\notification-opened\route.ts:36: const client = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\agents\route.ts:16: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\agents\route.ts:23: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\agents\route.ts:63: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\agents\[agentId]\jobs\route.ts:13: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\agents\[agentId]\jobs\route.ts:24: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\agents\[agentId]\jobs\route.ts:71: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\alarms\test-fcm\route.ts:9: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\alarms\test-fcm\route.ts:37: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\alarms\test-fcm\route.ts:68: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\devices\route.ts:5: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\devices\route.ts:12: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\devices\[deviceId]\route.ts:5: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\devices\[deviceId]\route.ts:16: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\devices\[deviceId]\history\route.ts:5: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\devices\[deviceId]\history\route.ts:16: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\devices\[deviceId]\manage\route.ts:5: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\devices\[deviceId]\manage\route.ts:42: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\jobs\route.ts:15: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\jobs\route.ts:22: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\jobs\route.ts:72: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\jobs\route.ts:166: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\noc\route.ts:5: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\noc\route.ts:12: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\sites\route.ts:12: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\sites\route.ts:19: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\sites\route.ts:59: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\summary\route.ts:6: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\summary\route.ts:13: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\targets\route.ts:16: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\targets\route.ts:23: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\targets\route.ts:73: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\targets\[id]\route.ts:17: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\targets\[id]\route.ts:22: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\targets\[id]\route.ts:90: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\targets\[id]\route.ts:162: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\targets\[id]\test\route.ts:12: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\targets\[id]\test\route.ts:23: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\topology\route.ts:5: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\topology\route.ts:13: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\topology\available-devices\route.ts:5: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\topology\available-devices\route.ts:16: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\topology\placements\route.ts:10: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\topology\placements\route.ts:92: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\topology\placements\route.ts:134: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\topology\placements\route.ts:162: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\v1\alarms\route.ts:9: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\v1\alarms\route.ts:38: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\v1\alarms\[alarmId]\route.ts:5: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\v1\alarms\[alarmId]\route.ts:16: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\v1\alarms\[alarmId]\acknowledge\route.ts:5: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\v1\alarms\[alarmId]\acknowledge\route.ts:16: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\v1\alarms\[alarmId]\events\route.ts:5: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\v1\alarms\[alarmId]\events\route.ts:16: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\v1\alarms\[alarmId]\resolve\route.ts:5: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\v1\alarms\[alarmId]\resolve\route.ts:39: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\v1\alarms\[alarmId]\seen\route.ts:5: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\network\v1\alarms\[alarmId]\seen\route.ts:16: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\planificacion\routes\recalculate\route.ts:5: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\planificacion\routes\recalculate\route.ts:62: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\projects\[projectId]\finalize\route.ts:7: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\projects\[projectId]\finalize\route.ts:44: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\projects\[projectId]\start\route.ts:7: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\projects\[projectId]\start\route.ts:24: // Demo read-only is authoritative here (RPC check is weak under service_role).
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\projects\[projectId]\start\route.ts:45: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\projects\[projectId]\work-report\route.ts:17: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\projects\[projectId]\work-report\route.ts:80: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\subscriptions\abnet-padron\route.ts:20: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\subscriptions\abnet-padron\route.ts:101: async function readCustomerMatches(client: Awaited<ReturnType<typeof createClient>>, companyId: string) {
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\subscriptions\abnet-padron\route.ts:163: const db = client as Awaited<ReturnType<typeof createClient>>
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\subscriptions\abnet-padron\route.ts:206: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\subscriptions\services\[serviceId]\pack-futbol\route.ts:24: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\subscriptions\services\[serviceId]\pack-futbol\route.ts:93: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\subscriptions\services\[serviceId]\pack-futbol\route.ts:120: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\subscriptions\tv-padron\[sourceRow]\route.ts:17: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\subscriptions\tv-padron\[sourceRow]\route.ts:56: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\subscriptions\tv-padron\[sourceRow]\route.ts:167: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\subscriptions\tv-plans\route.ts:12: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\subscriptions\tv-plans\route.ts:19: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\subscriptions\tv-plans\route.ts:57: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\subscriptions\tv-plans\[id]\route.ts:9: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\subscriptions\tv-plans\[id]\route.ts:29: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\subscriptions\whatsapp-requests\route.ts:8: import { listWhatsappCommercialRequests } from "@/lib/supabase/whatsapp-commercial-requests.queries"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\subscriptions\whatsapp-requests\route.ts:9: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\subscriptions\whatsapp-requests\route.ts:27: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\subscriptions\whatsapp-requests\route.ts:28: const result = await listWhatsappCommercialRequests(client, auth.companyId, status)
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\subscriptions\whatsapp-requests\[id]\route.ts:11: updateWhatsappCommercialRequest,
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\subscriptions\whatsapp-requests\[id]\route.ts:13: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\subscriptions\whatsapp-requests\[id]\route.ts:62: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\subscriptions\whatsapp-requests\[id]\route.ts:88: const saved = await updateWhatsappCommercialRequest(client, auth.companyId, next.request)
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\tasks\material-lines\batch\route.ts:5: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\tasks\material-lines\batch\route.ts:31: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\tasks\sync-vencida\route.ts:7: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\tasks\sync-vencida\route.ts:47: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\tasks\[taskId]\route.ts:9: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\tasks\[taskId]\route.ts:39: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\tasks\[taskId]\route.ts:87: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\tasks\[taskId]\material-consumption\route.ts:16: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\tasks\[taskId]\material-consumption\route.ts:27: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\tasks\[taskId]\material-consumption\route.ts:66: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\tasks\[taskId]\material-lines\route.ts:18: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\tasks\[taskId]\material-lines\route.ts:31: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\tasks\[taskId]\material-lines\route.ts:69: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\tasks\[taskId]\material-lines\[lineId]\route.ts:18: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\tasks\[taskId]\material-lines\[lineId]\route.ts:41: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\api\tasks\[taskId]\material-lines\[lineId]\route.ts:115: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\auth\callback\route.ts:4: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\auth\callback\route.ts:12: const supabase = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\informe\[token]\page.tsx:11: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\app\informe\[token]\page.tsx:57: client: createAdminClient(),
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\activity\activity-service.ts:12: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\activity\activity-service.ts:41: const row = await recordActivityEventWithClient(createAdminClient(), input, {
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\activity\activity-service.ts:61: createAdminClient() as unknown as CanonicalActivityWriteClient
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\activity\activity-service.ts:105: return await recordActivityEventWithClient(createAdminClient(), input, {
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\activity\query-service.ts:4: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\activity\query-service.ts:261: return (await createClient()) as unknown as ActivityQueryClient
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\activity-engine\activity-service.ts:11: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\activity-engine\activity-service.ts:22: * Server helper: persist with the admin (service_role) client.
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\activity-engine\activity-service.ts:26: client: SupabaseAdminClient = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\analysis\crew-production\load-sources.server.ts:7: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\analysis\crew-production\load-sources.server.ts:74: const client = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\analysis\crew-production\load-sources.server.ts:105: const client = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\analysis\crews\load-sources.server.ts:8: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\analysis\crews\load-sources.server.ts:108: const client = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\analysis\crews\load-sources.server.ts:144: const client = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\analysis\planning-timeline\load-sources.server.ts:7: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\analysis\planning-timeline\load-sources.server.ts:105: const client = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\analysis\planning-timeline\load-sources.server.ts:146: const client = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\analysis\queries\employees.ts:6: import { createClient } from "@/lib/supabase/client"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\analysis\queries\employees.ts:48: const client = createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\analysis\queries\reportes-operativos.ts:6: import { createClient } from "@/lib/supabase/client"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\analysis\queries\reportes-operativos.ts:145: const client = createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\analysis\queries\reportes-operativos.ts:174: const client = createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\analysis\queries\reportes-operativos.ts:204: const client = createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\analysis\queries\resolve-customer-names.ts:6: import { createClient } from "@/lib/supabase/client"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\analysis\queries\resolve-customer-names.ts:17: const client = createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\attachments\service.server.ts:11: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\attachments\service.server.ts:85: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\attachments\service.server.ts:118: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\attachments\service.server.ts:151: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\attachments\service.server.ts:226: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\attachments\service.server.ts:294: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\attachments\service.server.ts:347: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\attachments\service.server.ts:389: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\attachments\service.server.ts:425: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\audit\record-audit-event.server.ts:5: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\audit\record-audit-event.server.ts:10: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\auth\admin-employee-tenant.ts:6: * request-body company_id and never from possessing service_role.
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\auth\auth-provisioning-service.ts:19: import { createAdminClient, type SupabaseAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\auth\auth-provisioning-service.ts:330: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\auth\auth-user-request-cache.ts:93: const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\auth\change-password.server.ts:3: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\auth\change-password.server.ts:4: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\auth\change-password.server.ts:37: * employees.must_change_password on the session employee via service_role.
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\auth\change-password.server.ts:53: const supabase = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\auth\change-password.server.ts:66: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\auth\get-auth-user.server.ts:23: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\auth\get-auth-user.server.ts:73: const supabase = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\auth\initial-credentials-policy.ts:11: * baja must_change_password solo del empleado de la sesión (service_role).
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\auth\provision-employee.ts:18: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\auth\provision-employee.ts:45: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\auth\reset-employee-password.ts:9: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\auth\reset-employee-password.ts:67: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\auth\session.ts:27: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\auth\session.ts:45: const supabase = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\auth\soft-delete-employee-access.ts:7: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\auth\soft-delete-employee-access.ts:39: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\auth\sync-employee-auth-metadata.ts:7: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\auth\sync-employee-auth-metadata.ts:62: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\auth\sync-employee-auth-metadata.ts:135: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\auth\sync-employee-auth-metadata.ts:183: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\auth\performance\proxy-profiler.ts:14: createClientMs: number | null
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\auth\performance\proxy-profiler.ts:46: createClientMs: null,
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\auth\performance\proxy-profiler.ts:143: `${padLabel("Create Client")} ${formatMs(t.createClientMs)}`,
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\commercial\derive-from-customer-service.ts:5: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\commercial\derive-from-customer-service.ts:136: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\commercial\home-desk.ts:3: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\commercial\home-desk.ts:4: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\commercial\home-desk.ts:100: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\commercial\home-desk.ts:101: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\commercial\pipeline-data.ts:3: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\commercial\pipeline-data.ts:30: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\commercial\repositories.ts:3: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\commercial\repositories.ts:57: return createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\company-branding\load-authenticated-chrome.server.ts:9: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\company-branding\load-authenticated-chrome.server.ts:34: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\contractors\hard-delete-contractor.server.ts:10: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\contractors\hard-delete-contractor.server.ts:83: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\contractors\hard-delete-contractor.server.ts:112: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\customer-atenciones\action-auth.server.ts:37: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\customer-atenciones\action-auth.server.ts:80: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\customer-atenciones\consultation-management.server.ts:3: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\customer-atenciones\consultation-management.server.ts:84: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\customer-atenciones\consultation-management.server.ts:128: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\customer-atenciones\consultation-management.server.ts:308: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\customer-atenciones\consultation-management.server.ts:441: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\customer-atenciones\consultation-management.server.ts:509: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\customer-atenciones\consultation-management.server.ts:597: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\customer-atenciones\consultation-management.server.ts:658: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\customer-atenciones\emit-customer-activity.ts:34: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\customer-atenciones\emit-customer-activity.ts:50: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\customer-atenciones\emit-customer-activity.ts:74: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\customer-atenciones\emit-customer-activity.ts:321: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\demo\demo-apk-storage.ts:3: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\demo\demo-apk-storage.ts:24: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\demo\demo-apk-storage.ts:49: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\gps-live\live-map-service.server.ts:13: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\gps-live\live-map-service.server.ts:46: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\integrations\mikrotik\service.ts:34: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\integrations\mikrotik\service.ts:37: return createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\agenda\agenda-service.ts:28: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\agenda\agenda-service.ts:106: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\alarms\list-mobile-network-alarms.ts:14: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\alarms\list-mobile-network-alarms.ts:27: const client = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\auth\change-password-service.ts:6: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\auth\change-password-service.ts:37: * Does not use service_role and does not accept a target user id.
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\auth\change-password-service.ts:79: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\auth\create-mobile-auth-client.ts:3: import { createClient } from "@supabase/supabase-js"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\auth\create-mobile-auth-client.ts:15: return createClient<Database>(url, anonKey, {
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\auth\login-service.ts:17: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\auth\login-service.ts:95: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\auth\mobile-token-resolver.ts:15: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\auth\mobile-token-resolver.ts:60: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\auth\refresh-service.ts:11: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\auth\refresh-service.ts:52: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\bootstrap\bootstrap-service.ts:9: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\bootstrap\bootstrap-service.ts:21: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\commercial-territorial\territorial-activity-service.ts:5: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\commercial-territorial\territorial-activity-service.ts:77: const client = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\commercial-territorial\territorial-activity-service.ts:96: const client = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\commercial-territorial\territorial-activity-service.ts:116: const client = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\commercial-territorial\territorial-activity-service.ts:138: const client = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\devices\provision-service.ts:16: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\devices\provision-service.ts:19: admin: ReturnType<typeof createAdminClient>,
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\devices\provision-service.ts:60: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\gps\gps-heartbeat-service.ts:16: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\gps\gps-heartbeat-service.ts:23: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\incidents\incident-photo-service.ts:10: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\incidents\incident-photo-service.ts:22: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\incidents\incident-service.ts:13: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\incidents\incident-service.ts:131: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\presence\register-presence-event-service.ts:31: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\presence\register-presence-event-service.ts:43: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\push\register-push-token-service.ts:21: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\push\register-push-token-service.ts:27: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\shifts\shift-service.ts:22: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\shifts\shift-service.ts:59: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\shifts\shift-service.ts:80: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\shifts\shift-service.ts:180: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\tasks\task-execution-access.ts:8: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\tasks\task-execution-access.ts:54: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\tasks\task-incident-types-service.ts:10: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\tasks\task-incident-types-service.ts:19: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\tasks\task-service.ts:29: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\tasks\task-service.ts:61: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\tasks\task-start-service.ts:24: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\mobile\v1\tasks\task-start-service.ts:85: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\network\secrets.ts:20: const fallback = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\network\agents\enroll-service.ts:20: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\network\agents\enroll-service.ts:42: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\network\agents\heartbeat-service.ts:9: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\network\agents\heartbeat-service.ts:27: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\network\jobs\agent-execution.ts:43: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\network\jobs\agent-execution.ts:46: type AdminClient = ReturnType<typeof createAdminClient>
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\network\jobs\agent-execution.ts:141: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\network\jobs\agent-execution.ts:243: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\network\jobs\agent-execution.ts:276: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\network\jobs\agent-execution.ts:308: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\network\jobs\agent-execution.ts:379: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\network\jobs\agent-execution.ts:531: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\network\v1\agent-auth.ts:9: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\network\v1\agent-auth.ts:36: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\operations\incidents\supervisor-reschedule-active-task.server.ts:35: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\operations\incidents\supervisor-reschedule-active-task.server.ts:36: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\operations\incidents\supervisor-reschedule-active-task.server.ts:115: await writeAuditLog(createAdminClient(), {
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\operations\incidents\supervisor-reschedule-active-task.server.ts:158: const readClient = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\operations\incidents\supervisor-reschedule-active-task.server.ts:243: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\operations\incidents\supervisor-resolve-active-incident.server.ts:28: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\operations\incidents\supervisor-resolve-active-incident.server.ts:29: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\operations\incidents\supervisor-resolve-active-incident.server.ts:83: await writeAuditLog(createAdminClient(), {
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\operations\incidents\supervisor-resolve-active-incident.server.ts:140: const readClient = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\operations\incidents\supervisor-resolve-active-incident.server.ts:195: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\operations\incidents\task-incident-operations.server.ts:14: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\operations\incidents\task-incident-operations.server.ts:71: client: await createClient(),
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\operations\incidents\task-incident-operations.server.ts:79: client: await createClient(),
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\presence\operational-radius.server.ts:7: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\presence\operational-radius.server.ts:23: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\presence\operational-radius.server.ts:69: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\presence\repository.server.ts:9: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\presence\repository.server.ts:45: constructor(private readonly client: SupabaseClient = createAdminClient()) {}
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\presence\resolve-presence-target.server.ts:4: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\presence\resolve-presence-target.server.ts:28: client: SupabaseClient = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\projects\finalize-project.server.ts:3: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\projects\finalize-project.server.ts:43: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\projects\start-project-dispatch.server.ts:3: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\projects\start-project-dispatch.server.ts:47: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\projects\work-report\require-obra-session.ts:12: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\projects\work-report\require-obra-session.ts:72: const client = await createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\projects\work-report\share-crypto.ts:50: const serviceRole = env.SUPABASE_SERVICE_ROLE_KEY?.trim()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\projects\work-report\share.server.ts:6: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\projects\work-report\share.server.ts:113: client: SupabaseClient<Database> = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\projects\work-report\temp-storage.server.ts:4: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\projects\work-report\temp-storage.server.ts:11: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\reports\automatic\services\build-weekly-report.ts:22: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\reports\automatic\services\build-weekly-report.ts:47: const client = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\reports\automatic\services\build-weekly-report.ts:97: const client = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\reports\automatic\services\report-history.ts:9: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\reports\automatic\services\report-history.ts:45: const client = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\reports\automatic\services\report-history.ts:81: const client = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\reports\automatic\services\report-history.ts:106: const client = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\reports\automatic\services\report-history.ts:131: const client = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\reports\automatic\services\report-history.ts:150: const client = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\reports\automatic\services\report-history.ts:193: const client = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\reports\automatic\services\report-settings.ts:4: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\reports\automatic\services\report-settings.ts:37: const client = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\reports\automatic\services\report-settings.ts:74: const client = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\reports\automatic\services\report-storage.ts:7: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\reports\automatic\services\report-storage.ts:16: const client = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\reports\automatic\services\report-storage.ts:36: const client = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\reports\automatic\services\report-storage.ts:55: const client = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\subscriptions\whatsapp-commercial-register.ts:17: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\subscriptions\whatsapp-commercial-register.ts:20: insertWhatsappCommercialRequest,
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\subscriptions\whatsapp-commercial-register.ts:41: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\subscriptions\whatsapp-commercial-register.ts:88: const saved = await insertWhatsappCommercialRequest(
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\subscriptions\whatsapp-commercial-session.ts:42: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\subscriptions\whatsapp-commercial-session.ts:44: claimWhatsappInboundMessage,
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\subscriptions\whatsapp-commercial-session.ts:60: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\subscriptions\whatsapp-commercial-session.ts:90: const recorded = await claimWhatsappInboundMessage(admin, companyId, whatsappOptOutKey(phone))
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\subscriptions\whatsapp-commercial-session.ts:161: await claimWhatsappInboundMessage(admin, companyId, whatsappDoneKey(inboundId))
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\subscriptions\whatsapp-commercial-session.ts:172: admin: ReturnType<typeof createAdminClient>
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\subscriptions\whatsapp-commercial-session.ts:176: claim: (companyId, key) => claimWhatsappInboundMessage(admin, companyId, key),
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\admin.ts:3: import { createClient, type SupabaseClient } from "@supabase/supabase-js"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\admin.ts:11: const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\admin.ts:15: "Missing SUPABASE_SERVICE_ROLE_KEY. Add it to .env.local (server-only — do not use a NEXT_PUBLIC_ prefix)."
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\admin.ts:24: * @throws if NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\admin.ts:39: export function createAdminClient(): SupabaseAdminClient {
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\admin.ts:42: return createClient<Database>(url, serviceRoleKey, {
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\atencion-cliente-equipo.browser.ts:4: import { createClient } from "@/lib/supabase/client"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\atencion-cliente-equipo.browser.ts:19: client: SupabaseAtencionClienteEquipoClient = createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\client.ts:5: export function createClient() {
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\commercial-activities.browser.ts:7: import { createClient } from "@/lib/supabase/client"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\commercial-activities.browser.ts:30: return createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\commercial-commitments.browser.ts:1: import { createClient } from "@/lib/supabase/client"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\commercial-commitments.browser.ts:13: return createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\commercial-etiquetas.browser.ts:8: import { createClient } from "@/lib/supabase/client"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\commercial-etiquetas.browser.ts:22: return createClient() as CommercialEtiquetasClient
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\commercial-solicitud-types.browser.ts:8: import { createClient } from "@/lib/supabase/client"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\commercial-solicitud-types.browser.ts:23: return createClient() as CommercialSolicitudTypesClient
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\commercial-solicitudes.browser.ts:3: import { createClient } from "@/lib/supabase/client"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\commercial-solicitudes.browser.ts:30: return createClient() as CommercialSolicitudesClient
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\commercial-territorial-activities.browser.ts:3: import { createClient } from "@/lib/supabase/client"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\commercial-territorial-activities.browser.ts:15: return createClient() as CommercialTerritorialActivitiesClient
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\commercial-territorial-activity-types.browser.ts:8: import { createClient } from "@/lib/supabase/client"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\commercial-territorial-activity-types.browser.ts:22: return createClient() as CommercialTerritorialActivityTypesClient
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\commercial.browser.ts:1: import { createClient } from "@/lib/supabase/client"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\commercial.browser.ts:29: return createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\company-roles.browser.ts:1: import { createClient } from "@/lib/supabase/client"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\company-roles.browser.ts:15: return createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\contractors.browser.ts:1: import { createClient } from "@/lib/supabase/client"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\contractors.browser.ts:18: return createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\crews.browser.ts:1: import { createClient } from "@/lib/supabase/client"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\crews.browser.ts:23: return createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\crews.repository.ts:3: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\crews.repository.ts:26: return createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\customer-atencion-events.browser.ts:1: import { createClient } from "@/lib/supabase/client"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\customer-atencion-events.browser.ts:14: return createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\customer-atenciones.browser.ts:1: import { createClient } from "@/lib/supabase/client"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\customer-atenciones.browser.ts:38: return createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\customer-recuperaciones.browser.ts:1: import { createClient } from "@/lib/supabase/client"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\customer-recuperaciones.browser.ts:22: return createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\customer-retenciones.browser.ts:1: import { createClient } from "@/lib/supabase/client"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\customer-retenciones.browser.ts:31: return createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\customer-seguimientos.browser.ts:1: import { createClient } from "@/lib/supabase/client"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\customer-seguimientos.browser.ts:24: return createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\customers.browser.ts:1: import { createClient } from "@/lib/supabase/client"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\customers.browser.ts:30: return createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\database.types.ts:10: // Allows to automatically instantiate createClient with right options
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\database.types.ts:11: // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\employee-availability.browser.ts:1: import { createClient } from "@/lib/supabase/client"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\employee-availability.browser.ts:19: return createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\employee-individual-report.browser.ts:3: import { createClient } from "@/lib/supabase/client"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\employee-individual-report.browser.ts:33: createClient(),
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\employee-types.browser.ts:5: import { createClient } from "@/lib/supabase/client"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\employee-types.browser.ts:21: return createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\employees.browser.ts:1: import { createClient } from "@/lib/supabase/client"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\employees.browser.ts:27: return createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\employees.repository.ts:3: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\employees.repository.ts:22: return createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\evidences.browser.ts:1: import { createClient } from "@/lib/supabase/client"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\evidences.browser.ts:26: return createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\evidences.repository.ts:3: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\evidences.repository.ts:24: return createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\health-check.ts:3: import { createClient as createServerClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\incident-types.browser.ts:6: import { createClient } from "@/lib/supabase/client"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\incident-types.browser.ts:20: return createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\operational-control.browser.ts:6: import { createClient } from "@/lib/supabase/client"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\operational-control.browser.ts:23: return createClient() as unknown as OperationalControlClient
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\project-design-ot.browser.ts:1: import { createClient } from "@/lib/supabase/client"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\project-design-ot.browser.ts:17: return createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\project-design.browser.ts:1: import { createClient } from "@/lib/supabase/client"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\project-design.browser.ts:30: return createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\projects.browser.ts:1: import { createClient } from "@/lib/supabase/client"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\projects.browser.ts:20: return createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\projects.repository.ts:3: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\projects.repository.ts:20: return createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\server.ts:8: export async function createClient() {
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\subscriptions.browser.ts:1: import { createClient } from "@/lib/supabase/client"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\subscriptions.browser.ts:26: return createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\task-incidents.repository.ts:3: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\task-incidents.repository.ts:34: return createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\task-photos.browser.ts:1: import { createClient } from "@/lib/supabase/client"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\task-photos.browser.ts:22: return createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\tasks.browser.ts:1: import { createClient } from "@/lib/supabase/client"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\tasks.browser.ts:43: return createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\tasks.repository.ts:3: import { createClient } from "@/lib/supabase/server"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\tasks.repository.ts:22: return createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\treasury-ot-renditions.browser.ts:1: import { createClient } from "@/lib/supabase/client"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\treasury-ot-renditions.browser.ts:15: return createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\treasury.browser.ts:1: import { createClient } from "@/lib/supabase/client"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\treasury.browser.ts:23: return createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\whatsapp-commercial-requests.queries.ts:69: export async function listWhatsappCommercialRequests(
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\whatsapp-commercial-requests.queries.ts:151: export async function listWhatsappRequestsForCustomer(
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\whatsapp-commercial-requests.queries.ts:179: export async function insertWhatsappCommercialRequest(
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\whatsapp-commercial-requests.queries.ts:272: export async function claimWhatsappInboundMessage(
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\whatsapp-commercial-requests.queries.ts:347: export async function updateWhatsappCommercialRequest(
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\work-order-type-checklist.browser.ts:1: import { createClient } from "@/lib/supabase/client"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\supabase\work-order-type-checklist.browser.ts:24: return createClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\tasks\record-operational-event.server.ts:3: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\tasks\record-operational-event.server.ts:18: client?: ReturnType<typeof createAdminClient>
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\tasks\record-operational-event.server.ts:21: const admin = (client ?? createAdminClient()) as OperationalControlClient
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\tasks\record-operational-event.server.ts:49: client?: ReturnType<typeof createAdminClient>
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\tasks\record-operational-event.server.ts:52: const admin = input.client ?? createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\tasks\record-operational-event.server.ts:82: const admin = createAdminClient()
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\tasks\task-reference-photo-delete.server.ts:3: import { createAdminClient } from "@/lib/supabase/admin"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\tasks\task-reference-photo-delete.server.ts:88: const admin = createAdminClient()

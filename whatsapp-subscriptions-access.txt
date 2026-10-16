@@ -1,0 +1,5 @@
+﻿C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\subscriptions\permissions.ts:4: export function canWriteSubscriptions(
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\subscriptions\route-context.ts:10: import { canWriteSubscriptions } from "@/lib/subscriptions/permissions"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\subscriptions\route-context.ts:73: if (!canWriteSubscriptions(auth.sessionUser.systemRole)) {
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\subscriptions\whatsapp-commercial-requests.ts:7: import { canWriteSubscriptions } from "@/lib/subscriptions/permissions"
+C:\Users\alfre\OneDrive\Desktop\bespoke-operations\lib\subscriptions\whatsapp-commercial-requests.ts:75: return canWriteSubscriptions(role)

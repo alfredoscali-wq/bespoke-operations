@@ -10,12 +10,12 @@ import {
 const control = CLIENTS_360_UNIVERSE_CONTROL
 const universe = new Set(getClients360CommercialUniverse())
 
-test("el universo comercial auditado tiene 4.740 customers", () => {
-  assert.equal(universe.size, 4740)
-  assert.equal(control.counts.universe, 4740)
-  assert.equal(control.counts.maestro, 4707)
+test("el universo comercial auditado tiene 4.737 customers", () => {
+  assert.equal(universe.size, 4737)
+  assert.equal(control.counts.universe, 4737)
+  assert.equal(control.counts.maestro, 4704)
   assert.equal(control.counts.approvedAltas, 33)
-  assert.equal(control.counts.maestro + control.counts.approvedAltas, 4740)
+  assert.equal(control.counts.maestro + control.counts.approvedAltas, 4737)
 })
 
 test("las 4 inclusiones están y las 5 exclusiones y las 3 revisiones no", () => {
@@ -33,7 +33,7 @@ test("histórico, número fuera del maestro y reciente sin OT quedan fuera", () 
   assert.equal(isCustomerInClients360Universe(control.recentWithoutOt.id), false)
 })
 
-test("el listado más lo que queda fuera cubre los 5.835 customers", () => {
+test("el listado más lo que queda fuera cubre los 5.832 customers", () => {
   const outside =
     control.counts.historical +
     control.counts.outsideMaster +
@@ -42,7 +42,7 @@ test("el listado más lo que queda fuera cubre los 5.835 customers", () => {
     control.counts.review
   assert.equal(outside, 1095)
   assert.equal(control.counts.universe + outside, control.counts.physicalCustomers)
-  assert.equal(control.counts.physicalCustomers, 5835)
+  assert.equal(control.counts.physicalCustomers, 5832)
   assert.equal(control.counts.services, 3998)
   assert.equal(control.counts.connections, 3998)
   assert.equal(control.counts.tasks, 1427)

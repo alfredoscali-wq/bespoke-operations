@@ -5,6 +5,7 @@ import { NextResponse } from "next/server"
 import { readLatamTvConfig } from "@/lib/integrations/latam-tv/config"
 import {
   changeLatamClientPlan,
+  findConfirmedLatamIdentifier,
   previewLatamPlanChange,
   type LatamPlanChangeKind,
   type LatamPlanChangeResult,
@@ -20,6 +21,8 @@ import {
   type SubscriptionsRouteContext,
 } from "@/lib/subscriptions/route-context"
 import { createClient } from "@/lib/supabase/server"
+import { loadTvPlanCommercialServices } from "@/lib/subscriptions/tv-plan-coordination-read"
+import { presentTvPlanPreview } from "@/lib/subscriptions/tv-plan-coordination"
 
 export const runtime = "nodejs"
 
@@ -75,7 +78,7 @@ export async function POST(request: Request, context: RouteContext) {
     const supabase = await createClient()
     const { data, error } = await supabase
       .from("customers")
-      .select("id, company_id, external_customer_code, deleted_at")
+      .select("id, company_id, external_customer_code, dni, email, deleted_at")
       .eq("id", customerId)
       .eq("company_id", auth.companyId)
       .is("deleted_at", null)
@@ -93,42 +96,73 @@ export async function POST(request: Request, context: RouteContext) {
       auth.companyId
     )
     if (resolved.status === "not_found") return jsonError("Cliente no encontrado.", 404)
-    if (resolved.status !== "ready") return jsonError("El cliente no tiene N° ABNet.", 422)
 
     const config = readLatamTvConfig()
     if (!config) {
       console.error("LATAM TV no está configurado (LATAM_TV_API_URL / LATAM_TV_API_TOKEN).")
       throw new LatamTvRequestError("not_configured")
     }
+    const operationId =
+      resolved.status === "ready"
+        ? resolved.identifier
+        : await findConfirmedLatamIdentifier(
+            { dni: data?.dni ?? "", email: data?.email ?? "" },
+            config
+          )
+    if (!operationId) {
+      return jsonError(
+        "LATAM todavía no informó el identificador operativo. La acción sigue deshabilitada.",
+        409
+      )
+    }
 
     if ("preview" in input) {
-      const preview = await previewLatamPlanChange(resolved.identifier, config)
+      const preview = await previewLatamPlanChange(operationId, config)
       if (preview.outcome !== "preview") {
         return NextResponse.json(
           { success: false, outcome: preview.outcome, message: preview.message },
           { status: 422 }
         )
       }
-      return NextResponse.json({
-        success: true,
-        outcome: "preview",
-        status: preview.status,
-        currentPlanName: preview.currentPlanName,
+      let services = null
+      try {
+        services = await loadTvPlanCommercialServices(supabase, auth.companyId, customerId)
+      } catch {
+        services = null
+      }
+      const commercial = presentTvPlanPreview({
         options: preview.options.map((option) => ({
           kind: option.kind,
           label: option.label,
           latamName: option.latamName,
           available: option.available,
         })),
+        services,
+      })
+      return NextResponse.json({
+        success: true,
+        outcome: "preview",
+        status: preview.status,
+        currentPlanName: preview.currentPlanName,
+        commercial: {
+          status: commercial.status,
+          message: commercial.message,
+          currentMonthlyFee: commercial.currentMonthlyFee,
+          tierLabel: commercial.tierLabel,
+          componentLabels: commercial.componentLabels,
+          conditionCode: commercial.conditionCode,
+          discountPercent: commercial.discountPercent,
+        },
+        options: commercial.options,
       })
     }
 
     let result: LatamPlanChangeResult
     try {
-      result = await changeLatamClientPlan(resolved.identifier, input.kind, config)
+      result = await changeLatamClientPlan(operationId, input.kind, config)
     } catch (error) {
       if (error instanceof LatamTvRequestError && error.kind === "unavailable") {
-        await auditPlan(auth, customerId, resolved.identifier, null, null, "unavailable")
+        await auditPlan(auth, customerId, operationId, null, null, "unavailable")
         return jsonError(NETWORK_MESSAGE, 502)
       }
       throw error
@@ -139,7 +173,7 @@ export async function POST(request: Request, context: RouteContext) {
       await auditPlan(
         auth,
         customerId,
-        resolved.identifier,
+        operationId,
         "previousPlanName" in result ? result.previousPlanName ?? null : null,
         "requestedPlanName" in result ? result.requestedPlanName ?? null : null,
         auditResult

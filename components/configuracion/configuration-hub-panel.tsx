@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { ArrowRight, Building2, ListChecks, Shield, TriangleAlert } from "lucide-react"
+import { ArrowRight, Building2, ListChecks, Router, Shield, TriangleAlert } from "lucide-react"
 
 import { useAuth } from "@/components/auth/auth-provider"
 import { Badge } from "@/components/ui/badge"
@@ -73,6 +73,7 @@ export function ConfigurationHubPanel() {
   const canAccessBillingConfig = canAccessIspBilling(sessionUser)
   const canAccessCompanyBranding = canManageCompanyBranding(sessionUser)
   const canAccessGpsSettings = canManageCompanyGpsSettings(sessionUser)
+  const canAccessMikrotik = canAccessSettingsConfigWebModule(sessionUser)
 
   const categories: ConfigCategory[] = [
     {
@@ -174,6 +175,23 @@ export function ConfigurationHubPanel() {
       ],
     },
     {
+      id: "integrations",
+      label: "Integraciones",
+      icon: Router,
+      items: [
+        ...(canAccessMikrotik
+          ? [
+              {
+                title: "MikroTik",
+                description:
+                  "Routers RouterOS de la empresa: conexion segura, prueba y lectura basica.",
+                href: "/configuracion/integraciones/mikrotik",
+              },
+            ]
+          : []),
+      ],
+    },
+    {
       id: "security",
       label: "Seguridad",
       icon: Shield,
@@ -226,6 +244,9 @@ export function ConfigurationHubPanel() {
                   )}
                   {category.id === "company" && (
                     <>Identidad y datos institucionales de la organización.</>
+                  )}
+                  {category.id === "integrations" && (
+                    <>Conectores de red e ISP por empresa.</>
                   )}
                   {category.id === "security" && (
                     <>Accesos, áreas y políticas de la plataforma.</>

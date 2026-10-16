@@ -17,6 +17,10 @@ export async function POST(_request: Request, context: RouteContext) {
     const alarm = await markNetworkAlarmSeen(client, {
       companyId: auth.companyId,
       alarmId,
+      actor: {
+        employeeId: auth.sessionUser.employeeId,
+        authUserId: auth.sessionUser.authUserId,
+      },
     })
     if (!alarm) {
       return NextResponse.json(

@@ -106,6 +106,58 @@ export function mapAbnetResidentialCatalog(
   return null
 }
 
+/**
+ * Jubilado is a commercial condition, not a different catalog plan.
+ * The base plan is the same four Internet + TV Básica codes.
+ */
+export function catalogCodeForAbnetTvRepresentation(
+  tipo: string,
+  plan: string
+): AbnetResidentialCatalogCode | null {
+  const direct = mapAbnetResidentialCatalog(tipo, plan)
+  if (direct) return direct
+  const withoutCondition = plan.replace(/jubilados?/gi, " ")
+  if (fold(withoutCondition) === fold(plan)) return null
+  return mapAbnetResidentialCatalog(tipo, withoutCondition)
+}
+
+export type AbnetTvCommercialPlan =
+  | {
+      ok: true
+      catalogCode: AbnetResidentialCatalogCode
+      commercialStatus: "active" | "pending_activation"
+      activationDate: string | null
+      sourceStatuses: string[]
+    }
+  | { ok: false; reason: "sin_catalogo" | "plan_ambiguo" }
+
+/**
+ * One existing catalog abono is enough to represent TV.
+ * A pack row without an Internet + TV Básica plan does not invent a speed.
+ * Two different catalog plans stay unresolved.
+ * Morosa and Inactiva stay pending: they are not marked active, suspended or cancelled.
+ */
+export function resolveAbnetTvCommercialPlan(
+  rows: readonly { tipo: string; plan: string; estado: string }[]
+): AbnetTvCommercialPlan {
+  const matched = rows.flatMap((row) => {
+    const catalogCode = catalogCodeForAbnetTvRepresentation(row.tipo, row.plan)
+    return catalogCode ? [{ ...row, catalogCode }] : []
+  })
+  const codes = [...new Set(matched.map((row) => row.catalogCode))]
+  if (codes.length === 0) return { ok: false, reason: "sin_catalogo" }
+  if (codes.length > 1) return { ok: false, reason: "plan_ambiguo" }
+  const statuses = [...new Set(matched.map((row) => row.estado.trim()).filter(Boolean))]
+  const active = matched.some((row) => fold(row.estado) === "activa")
+  return {
+    ok: true,
+    catalogCode: codes[0],
+    commercialStatus: active ? "active" : "pending_activation",
+    activationDate: active ? ABNET_ACTIVA_OBSERVED_ON : null,
+    sourceStatuses: statuses,
+  }
+}
+
 export function isInternetAccessType(tipo: string): boolean {
   const type = fold(tipo)
   return type === "fibra" || type === "wireless"

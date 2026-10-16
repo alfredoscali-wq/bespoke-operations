@@ -12,6 +12,7 @@ import {
 import { SubscriptionsProvider, useSubscriptions } from "@/components/subscriptions/subscriptions-provider"
 import { SubscriptionsTvOverview } from "@/components/subscriptions/subscriptions-tv-overview"
 import { TvOtSignupsPanel, useTvOtSignupList } from "@/components/subscriptions/tv-ot-signups-panel"
+import { TvWhatsappInbox } from "@/components/subscriptions/tv-whatsapp-inbox"
 import { TvPlansCatalogSection } from "@/components/subscriptions/tv-plans-catalog-section"
 import { TvSubscribersFilters } from "@/components/subscriptions/tv-subscribers-filters"
 import { Button } from "@/components/ui/button"
@@ -242,6 +243,8 @@ function SubscriptionsModuleContent() {
           </div>
         ) : null}
       </SubscriptionsTvOverview>
+
+      <TvWhatsappInbox canWrite={canWrite} />
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 

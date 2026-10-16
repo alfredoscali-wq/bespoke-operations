@@ -3,7 +3,8 @@ import "server-only"
 import { NextResponse } from "next/server"
 
 import { readLatamTvConfig } from "@/lib/integrations/latam-tv/config"
-import { getLatamTvPlans, signUpLatamTvClient } from "@/lib/integrations/latam-tv/client"
+import { getLatamTvPlans, refreshLatamSignupIdentity, signUpLatamTvClient } from "@/lib/integrations/latam-tv/client"
+import { createLatamSignupAttemptStore } from "@/lib/integrations/latam-tv/signup-attempt"
 import { LatamTvRequestError } from "@/lib/integrations/latam-tv/errors"
 import { latamIdentifierFromCustomer } from "@/lib/integrations/latam-tv/identifier"
 import { matchLatamTvPlans } from "@/lib/integrations/latam-tv/plans"
@@ -11,6 +12,8 @@ import {
   assessLatamSignup,
   isLatamSignupTvKind,
   latamPlanIdForTvKind,
+  latamSignupCredentialGap,
+  latamSignupCredentialMessage,
   latamSignupCustomerGaps,
   latamSignupPlanGap,
   type LatamSignupTvKind,
@@ -29,11 +32,13 @@ function jsonError(message: string, status: number) {
   return NextResponse.json({ success: false, message }, { status })
 }
 
-function readRequest(value: unknown): { confirm: boolean; tvKind: LatamSignupTvKind } | null {
+function readRequest(
+  value: unknown
+): { confirm: boolean; retry: boolean; tvKind: LatamSignupTvKind } | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null
   const record = value as Record<string, unknown>
   if (!isLatamSignupTvKind(record.tvKind)) return null
-  return { confirm: record.confirm === true, tvKind: record.tvKind }
+  return { confirm: record.confirm === true, retry: record.retry === true, tvKind: record.tvKind }
 }
 
 export async function POST(request: Request, context: RouteContext) {
@@ -59,7 +64,7 @@ export async function POST(request: Request, context: RouteContext) {
     const { data, error } = await supabase
       .from("customers")
       .select(
-        "id, company_id, external_customer_code, deleted_at, name, dni, email, phone, address"
+        "id, company_id, external_customer_code, customer_number, deleted_at, name, dni, email, phone, address"
       )
       .eq("id", customerId)
       .eq("company_id", auth.companyId)
@@ -81,6 +86,7 @@ export async function POST(request: Request, context: RouteContext) {
       return jsonError("Cliente no encontrado.", 404)
     }
 
+    const identitySignup = resolved.status !== "ready"
     const customer = {
       name: data?.name ?? "",
       dni: data?.dni ?? null,
@@ -89,6 +95,18 @@ export async function POST(request: Request, context: RouteContext) {
       address: data?.address ?? null,
       identifier: resolved.status === "ready" ? resolved.identifier : null,
       tvKind: input.tvKind,
+      identitySignup,
+    }
+    const credentialGap = latamSignupCredentialGap(customer.dni, customer.email)
+    if (credentialGap) {
+      return NextResponse.json(
+        {
+          success: false,
+          outcome: "missing",
+          message: latamSignupCredentialMessage(credentialGap),
+        },
+        { status: 422 }
+      )
     }
     const customerGaps = latamSignupCustomerGaps(customer)
     if (customerGaps.length > 0) {
@@ -122,26 +140,51 @@ export async function POST(request: Request, context: RouteContext) {
       return NextResponse.json({
         success: true,
         outcome: "preview",
-        preview: assessment.preview,
+        preview: {
+          customerName: assessment.preview.customerName,
+          identifier: assessment.preview.identifier,
+          username: assessment.preview.username,
+          planLabel: assessment.preview.planLabel,
+        },
       })
     }
 
-    const result = await signUpLatamTvClient(assessment.body, config)
+    const signupAttempt = identitySignup
+      ? createLatamSignupAttemptStore(supabase, customerId)
+      : undefined
+    const latam = { ...config, signupAttempt }
+    const result = input.retry
+      ? await refreshLatamSignupIdentity(assessment.body, latam)
+      : await signUpLatamTvClient(assessment.body, latam)
+    if (result.outcome === "pending_sync") {
+      return NextResponse.json(
+        { success: false, outcome: "pending_sync", message: result.message },
+        { status: 409 }
+      )
+    }
     if (result.outcome === "created") {
       return NextResponse.json({
         success: true,
         outcome: "created",
-        username: assessment.preview.username,
-        initialPassword: assessment.preview.initialPassword,
-        identifier: assessment.preview.identifier,
-        planLabel: assessment.preview.planLabel,
+        username: result.username ?? assessment.preview.username,
+        identifier: result.identifier,
+        planLabel: result.planName ?? assessment.preview.planLabel,
+        status: result.status,
+        iptvId: result.iptvId,
       })
+    }
+    if (result.outcome === "unverified") {
+      return NextResponse.json(
+        { success: false, outcome: "unverified", message: result.message },
+        { status: 409 }
+      )
     }
     if (result.outcome === "already_exists") {
       return NextResponse.json({
         success: true,
         outcome: "already_exists",
         status: result.status,
+        identifier: result.identifier ?? null,
         message: "El cliente ya existe en LATAM TV.",
       })
     }

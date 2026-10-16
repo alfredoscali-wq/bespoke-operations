@@ -5,6 +5,7 @@ import { NextResponse } from "next/server"
 import { readLatamTvConfig } from "@/lib/integrations/latam-tv/config"
 import { modifyClientPassword } from "@/lib/integrations/latam-tv/client"
 import { LatamTvRequestError } from "@/lib/integrations/latam-tv/errors"
+import { findConfirmedLatamIdentifier } from "@/lib/integrations/latam-tv/client"
 import { latamIdentifierFromCustomer } from "@/lib/integrations/latam-tv/identifier"
 import { recordLatamPasswordChangeAudit } from "@/lib/integrations/latam-tv/password-audit"
 import {
@@ -69,7 +70,7 @@ export async function POST(request: Request, context: RouteContext) {
     const supabase = await createClient()
     const { data, error } = await supabase
       .from("customers")
-      .select("id, company_id, external_customer_code, deleted_at")
+      .select("id, company_id, external_customer_code, dni, email, deleted_at")
       .eq("id", customerId)
       .eq("company_id", auth.companyId)
       .is("deleted_at", null)
@@ -89,7 +90,7 @@ export async function POST(request: Request, context: RouteContext) {
     if (resolved.status === "not_found") {
       return jsonError("Cliente no encontrado.", 404)
     }
-    if (resolved.status !== "ready") {
+    if (resolved.status !== "ready" && resolved.status !== "missing_identifier") {
       return jsonError("El cliente no tiene N° ABNet.", 422)
     }
 
@@ -98,13 +99,26 @@ export async function POST(request: Request, context: RouteContext) {
       console.error("LATAM TV no está configurado (LATAM_TV_API_URL / LATAM_TV_API_TOKEN).")
       throw new LatamTvRequestError("not_configured")
     }
+    const operationId =
+      resolved.status === "ready"
+        ? resolved.identifier
+        : await findConfirmedLatamIdentifier(
+            { dni: data?.dni ?? "", email: data?.email ?? "" },
+            config
+          )
+    if (!operationId) {
+      return jsonError(
+        "LATAM todavía no informó el identificador operativo. La acción sigue deshabilitada.",
+        409
+      )
+    }
 
     let result: Awaited<ReturnType<typeof modifyClientPassword>>
     try {
-      result = await modifyClientPassword(resolved.identifier, input.password, config)
+      result = await modifyClientPassword(operationId, input.password, config)
     } catch (error) {
       if (error instanceof LatamTvRequestError && error.kind === "unavailable") {
-        await auditPassword(auth, customerId, resolved.identifier, "unavailable")
+        await auditPassword(auth, customerId, operationId, "unavailable")
         return jsonError(NETWORK_MESSAGE, 502)
       }
       throw error
@@ -119,7 +133,7 @@ export async function POST(request: Request, context: RouteContext) {
             ? "rejected"
             : null
     if (auditResult) {
-      await auditPassword(auth, customerId, resolved.identifier, auditResult)
+      await auditPassword(auth, customerId, operationId, auditResult)
     }
 
     if (result.outcome === "changed") {

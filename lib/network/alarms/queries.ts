@@ -10,6 +10,7 @@ import {
   type NetworkAlarmStatus,
 } from "@/lib/network/alarms/contract"
 import type { NetworkAlarmAction } from "@/lib/network/alarms/evaluate"
+import { writeNetworkAlarmEvent } from "@/lib/network/alarms/events"
 import { networkAlarmMttaMs, networkAlarmMttrMs } from "@/lib/network/alarms/metrics"
 import { notifyNetworkAlarmOpened } from "@/lib/network/push/send-alarm"
 import type { Database } from "@/lib/supabase/database.types"
@@ -149,6 +150,16 @@ export async function applyNetworkAlarmActions(
       })
       if (isUniqueViolation(error)) continue
       if (error) throw new Error(error.message)
+      const createdEvent = await writeNetworkAlarmEvent(client, {
+        companyId: action.alarm.companyId,
+        alarmId: action.alarm.id,
+        eventType: "created",
+        userId: null,
+        createdAt: action.alarm.createdAt,
+      })
+      if (!createdEvent) {
+        throw new Error("No se pudo registrar el evento de creación de alarma.")
+      }
       try {
         await notifyOpened(client, action.alarm)
       } catch {
@@ -162,7 +173,7 @@ export async function applyNetworkAlarmActions(
     }
 
     if (action.type === "resolve") {
-      const { error } = await client
+      const { data: resolved, error } = await client
         .from("network_alarms")
         .update({
           status: "resolved",
@@ -172,7 +183,20 @@ export async function applyNetworkAlarmActions(
         })
         .eq("id", action.alarmId)
         .is("deleted_at", null)
+        .neq("status", "resolved")
+        .select("id, company_id")
+        .maybeSingle()
       if (error) throw new Error(error.message)
+      if (resolved) {
+        await writeNetworkAlarmEvent(client, {
+          companyId: resolved.company_id,
+          alarmId: resolved.id,
+          eventType: "resolved",
+          userId: action.resolvedBy,
+          note: action.resolutionNote,
+          createdAt: action.resolvedAt,
+        })
+      }
       continue
     }
 
@@ -203,10 +227,24 @@ export async function applyNetworkAlarmActions(
 
 export async function markNetworkAlarmSeen(
   client: Client,
-  input: { companyId: string; alarmId: string; seenAt?: string }
+  input: {
+    companyId: string
+    alarmId: string
+    seenAt?: string
+    actor?: { employeeId: string | null; authUserId: string }
+  }
 ): Promise<NetworkAlarmDto | null> {
   const existing = await getNetworkAlarm(client, input.companyId, input.alarmId)
   if (!existing) return null
+
+  const userId = input.actor ? actorIdForSession(input.actor) : null
+  await writeNetworkAlarmEvent(client, {
+    companyId: input.companyId,
+    alarmId: input.alarmId,
+    eventType: "seen",
+    userId,
+  })
+
   if (existing.seenAt) return existing
 
   const seenAt = input.seenAt ?? new Date().toISOString()
@@ -265,7 +303,15 @@ export async function acknowledgeNetworkAlarm(
     if (latest.status === "resolved") return { ok: false, reason: "resolved" }
     return { ok: true, alarm: latest }
   }
-  return { ok: true, alarm: toNetworkAlarmDto(mapNetworkAlarmRow(data)) }
+  const alarm = toNetworkAlarmDto(mapNetworkAlarmRow(data))
+  await writeNetworkAlarmEvent(client, {
+    companyId: input.companyId,
+    alarmId: input.alarmId,
+    eventType: "acknowledged",
+    userId: acknowledgedBy,
+    createdAt: acknowledgedAt,
+  })
+  return { ok: true, alarm }
 }
 
 export async function resolveNetworkAlarm(
@@ -309,5 +355,14 @@ export async function resolveNetworkAlarm(
     if (latest.status === "resolved") return { ok: false, reason: "already_resolved" }
     return { ok: true, alarm: latest }
   }
-  return { ok: true, alarm: toNetworkAlarmDto(mapNetworkAlarmRow(data)) }
+  const alarm = toNetworkAlarmDto(mapNetworkAlarmRow(data))
+  await writeNetworkAlarmEvent(client, {
+    companyId: input.companyId,
+    alarmId: input.alarmId,
+    eventType: "resolved",
+    userId: resolvedBy,
+    note: resolutionNote,
+    createdAt: resolvedAt,
+  })
+  return { ok: true, alarm }
 }

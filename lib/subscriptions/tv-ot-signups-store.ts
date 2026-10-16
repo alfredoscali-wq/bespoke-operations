@@ -97,7 +97,7 @@ export async function insertBespokeOtTvPadronRow(
       customer_name: input.customerName,
       service_type: input.serviceType,
       plan_name: input.planName,
-      status: "Pendiente",
+      status: "Activa",
       tv_amount: input.tvAmount,
       source: BESPOKE_OT_TV_PADRON_SOURCE,
       source_row: input.sourceRow,

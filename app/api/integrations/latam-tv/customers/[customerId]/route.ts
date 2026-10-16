@@ -3,9 +3,9 @@ import "server-only"
 import { NextResponse } from "next/server"
 
 import { readLatamTvConfig } from "@/lib/integrations/latam-tv/config"
-import { getLatamTvClientByIdentifier } from "@/lib/integrations/latam-tv/client"
+import { listLatamTvClients } from "@/lib/integrations/latam-tv/client"
 import { LatamTvRequestError } from "@/lib/integrations/latam-tv/errors"
-import { latamIdentifierFromCustomer } from "@/lib/integrations/latam-tv/identifier"
+import { resolveLatamIdentity } from "@/lib/integrations/latam-tv/identity"
 import { requireSubscriptionsReadContext } from "@/lib/subscriptions/route-context"
 import { createClient } from "@/lib/supabase/server"
 
@@ -33,31 +33,14 @@ export async function GET(_request: Request, context: RouteContext) {
     const supabase = await createClient()
     const { data, error } = await supabase
       .from("customers")
-      .select("id, company_id, external_customer_code, deleted_at")
+      .select("id, company_id, dni, email, deleted_at")
       .eq("id", customerId)
       .eq("company_id", auth.companyId)
       .is("deleted_at", null)
       .maybeSingle()
     if (error) return jsonError("No se pudo consultar LATAM TV.", 400)
-
-    const resolved = latamIdentifierFromCustomer(
-      data
-        ? {
-            companyId: data.company_id,
-            externalCustomerCode: data.external_customer_code,
-            deletedAt: data.deleted_at,
-          }
-        : null,
-      auth.companyId
-    )
-    if (resolved.status === "not_found") {
+    if (!data || data.company_id !== auth.companyId || data.deleted_at) {
       return jsonError("Cliente no encontrado.", 404)
-    }
-    if (resolved.status === "missing_identifier") {
-      return jsonError(
-        "El cliente no tiene N° ABNet para consultar en LATAM TV.",
-        422
-      )
     }
 
     const config = readLatamTvConfig()
@@ -68,13 +51,24 @@ export async function GET(_request: Request, context: RouteContext) {
       throw new LatamTvRequestError("not_configured")
     }
 
-    const lookup = await getLatamTvClientByIdentifier(resolved.identifier, config)
-    console.info(
-      "LATAM TV lookup method=GET path=/api/get-clients identificador=%s result=%s",
-      resolved.identifier,
-      lookup.found ? (lookup.client.status ?? "unreadable") : "not_registered"
-    )
-    return NextResponse.json({ success: true, ...lookup })
+    const nationalId = data.dni?.replace(/\D/g, "") || null
+    const email = data.email?.trim() || null
+    if (!nationalId && !email?.includes("@")) {
+      return NextResponse.json({
+        success: true,
+        outcome: "not_found",
+        reason: "missing_identity",
+      })
+    }
+
+    const catalog = await listLatamTvClients({ ...config, timeoutMs: 20_000 })
+    const identity = resolveLatamIdentity(catalog, {
+      nationalId,
+      email,
+      linkedIdentifier: null,
+    })
+    console.info("LATAM TV identity outcome=%s", identity.outcome)
+    return NextResponse.json({ success: true, ...identity })
   } catch (error) {
     if (error instanceof LatamTvRequestError) {
       if (error.kind === "not_configured") {

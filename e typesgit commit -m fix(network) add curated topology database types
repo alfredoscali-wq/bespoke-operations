@@ -1,0 +1,86 @@
+[1mdiff --git a/lib/supabase/database.types.ts b/lib/supabase/database.types.ts[m
+[1mindex 4fa740f..4fd11ab 100644[m
+[1m--- a/lib/supabase/database.types.ts[m
+[1m+++ b/lib/supabase/database.types.ts[m
+[36m@@ -4506,6 +4506,81 @@[m [mexport type Database = {[m
+           },[m
+         ][m
+       }[m
+[32m+[m[32m      network_topology_placements: {[m
+[32m+[m[32m        Row: {[m
+[32m+[m[32m          child_interface_id: string | null[m
+[32m+[m[32m          company_id: string[m
+[32m+[m[32m          created_at: string[m
+[32m+[m[32m          deleted_at: string | null[m
+[32m+[m[32m          device_id: string[m
+[32m+[m[32m          id: string[m
+[32m+[m[32m          parent_device_id: string | null[m
+[32m+[m[32m          parent_interface_id: string | null[m
+[32m+[m[32m          sort_order: number[m
+[32m+[m[32m          updated_at: string[m
+[32m+[m[32m        }[m
+[32m+[m[32m        Insert: {[m
+[32m+[m[32m          child_interface_id?: string | null[m
+[32m+[m[32m          company_id: string[m
+[32m+[m[32m          created_at?: string[m
+[32m+[m[32m          deleted_at?: string | null[m
+[32m+[m[32m          device_id: string[m
+[32m+[m[32m          id?: string[m
+[32m+[m[32m          parent_device_id?: string | null[m
+[32m+[m[32m          parent_interface_id?: string | null[m
+[32m+[m[32m          sort_order?: number[m
+[32m+[m[32m          updated_at?: string[m
+[32m+[m[32m        }[m
+[32m+[m[32m        Update: {[m
+[32m+[m[32m          child_interface_id?: string | null[m
+[32m+[m[32m          company_id?: string[m
+[32m+[m[32m          created_at?: string[m
+[32m+[m[32m          deleted_at?: string | null[m
+[32m+[m[32m          device_id?: string[m
+[32m+[m[32m          id?: string[m
+[32m+[m[32m          parent_device_id?: string | null[m
+[32m+[m[32m          parent_interface_id?: string | null[m
+[32m+[m[32m          sort_order?: number[m
+[32m+[m[32m          updated_at?: string[m
+[32m+[m[32m        }[m
+[32m+[m[32m        Relationships: [[m
+[32m+[m[32m          {[m
+[32m+[m[32m            foreignKeyName: "network_topology_placements_child_interface_id_fkey"[m
+[32m+[m[32m            columns: ["child_interface_id"][m
+[32m+[m[32m            isOneToOne: false[m
+[32m+[m[32m            referencedRelation: "network_interfaces"[m
+[32m+[m[32m            referencedColumns: ["id"][m
+[32m+[m[32m          },[m
+[32m+[m[32m          {[m
+[32m+[m[32m            foreignKeyName: "network_topology_placements_company_id_fkey"[m
+[32m+[m[32m            columns: ["company_id"][m
+[32m+[m[32m            isOneToOne: false[m
+[32m+[m[32m            referencedRelation: "companies"[m
+[32m+[m[32m            referencedColumns: ["id"][m
+[32m+[m[32m          },[m
+[32m+[m[32m          {[m
+[32m+[m[32m            foreignKeyName: "network_topology_placements_device_id_fkey"[m
+[32m+[m[32m            columns: ["device_id"][m
+[32m+[m[32m            isOneToOne: false[m
+[32m+[m[32m            referencedRelation: "network_devices"[m
+[32m+[m[32m            referencedColumns: ["id"][m
+[32m+[m[32m          },[m
+[32m+[m[32m          {[m
+[32m+[m[32m            foreignKeyName: "network_topology_placements_parent_device_id_fkey"[m
+[32m+[m[32m            columns: ["parent_device_id"][m
+[32m+[m[32m            isOneToOne: false[m
+[32m+[m[32m            referencedRelation: "network_devices"[m
+[32m+[m[32m            referencedColumns: ["id"][m
+[32m+[m[32m          },[m
+[32m+[m[32m          {[m
+[32m+[m[32m            foreignKeyName: "network_topology_placements_parent_interface_id_fkey"[m
+[32m+[m[32m            columns: ["parent_interface_id"][m
+[32m+[m[32m            isOneToOne: false[m
+[32m+[m[32m            referencedRelation: "network_interfaces"[m
+[32m+[m[32m            referencedColumns: ["id"][m
+[32m+[m[32m          },[m
+[32m+[m[32m        ][m
+[32m+[m[32m      }[m
+       network_device_status: {[m
+         Row: {[m
+           company_id: string[m

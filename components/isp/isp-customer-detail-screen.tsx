@@ -38,6 +38,7 @@ import {
   IspTonedStatusBadge,
 } from "@/components/isp/isp-status-badges"
 import { IspSubscriberHistorySheet } from "@/components/isp/isp-subscriber-history-sheet"
+import { IspWhatsappRequestHistory } from "@/components/isp/isp-whatsapp-request-history"
 import {
   IspSubscriberServiceSheet,
   type SubscriberServiceSheetMode,
@@ -550,6 +551,7 @@ export function IspCustomerDetailScreen({ customerId }: { customerId: string }) 
         </TabsContent>
 
         <TabsContent value="historial" className="space-y-4">
+          <IspWhatsappRequestHistory customerId={customer.id} />
           <Card className="shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between pb-3">
               <CardTitle className="flex items-center gap-2 text-sm">

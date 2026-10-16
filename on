@@ -1,0 +1,22 @@
+warning: in the working copy of 'package.json', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/package.json b/package.json[m
+[1mindex 9999fa7..ed38808 100644[m
+[1m--- a/package.json[m
+[1m+++ b/package.json[m
+[36m@@ -88,6 +88,7 @@[m
+     "test:mobile-bootstrap": "npx tsx --test scripts/test-mobile-bootstrap.mjs",[m
+     "test:company-mobile-settings": "npx tsx --test scripts/test-company-mobile-settings.mjs",[m
+     "test:company-gps-settings": "npx tsx --test scripts/test-company-gps-settings.mjs",[m
+[32m+[m[32m    "test:mikrotik-integration-1-0": "npx tsx --test scripts/test-mikrotik-integration-1-0.mjs",[m
+     "test:gps-live-1-0": "npx tsx --test scripts/test-gps-live-1-0.mjs",[m
+     "test:shift-start-location-validation": "npx tsx --test scripts/test-shift-start-location-validation.mjs",[m
+     "test:auth-7-7-employees-authorization": "npx tsx --test scripts/test-auth-7-7-employees-authorization.mjs",[m
+[36m@@ -233,6 +234,8 @@[m
+     "test:network-2-6-status-freshness": "npx tsx --test scripts/test-network-2-6-status-freshness.mjs",[m
+     "test:network-2-7-managed-devices": "npx tsx --test scripts/test-network-2-7-managed-devices.mjs",[m
+     "test:network-3-0-topology": "npx tsx --test scripts/test-network-3-0-topology.mjs",[m
+[32m+[m[32m    "test:network-topology-placements": "npx tsx --test scripts/test-network-topology-placements.mjs",[m
+[32m+[m[32m    "test:network-4-0-alarms": "npx tsx --test scripts/test-network-4-0-alarms.mjs",[m
+     "network-agent": "tsx network-agent/src/index.ts",[m
+     "test:isp-1-0-clientes-360": "npx tsx --test scripts/test-isp-1-0-clientes-360.mjs",[m
+     "test:export-clientes-abnet-debug": "npx tsx --test scripts/test-export-clientes-abnet-debug.mjs",[m

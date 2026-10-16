@@ -171,6 +171,14 @@ export function buildAuditDescription(input: BuildAuditDescriptionInput): string
       return fallback || (label ? `Discovery de red fallido: ${label}.` : "Discovery de red fallido.")
     case AUDIT_ACTIONS.NETWORK_DEVICE_STATUS_CHANGED:
       return fallback || (label ? `Cambio de estado operativo: ${label}.` : "Cambio de estado operativo de red.")
+    case AUDIT_ACTIONS.MIKROTIK_INTEGRATION_CREATED:
+      return label ? `Integracion MikroTik creada: ${label}.` : "Integracion MikroTik creada."
+    case AUDIT_ACTIONS.MIKROTIK_INTEGRATION_UPDATED:
+      return label ? `Integracion MikroTik modificada: ${label}.` : "Integracion MikroTik modificada."
+    case AUDIT_ACTIONS.MIKROTIK_INTEGRATION_TOGGLED:
+      return label ? `Integracion MikroTik actualizada: ${label}.` : "Integracion MikroTik actualizada."
+    case AUDIT_ACTIONS.MIKROTIK_CONNECTION_TEST:
+      return fallback || (label ? `Prueba de conexion MikroTik: ${label}.` : "Prueba de conexion MikroTik.")
     default:
       return fallback || "Evento registrado en Historial del Sistema."
   }

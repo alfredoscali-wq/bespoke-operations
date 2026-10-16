@@ -22,4 +22,5 @@ export type MobileBootstrapResponse = {
   companyName: string
   branding: MobileBootstrapBranding
   operations: MobileBootstrapOperations
+  modules: string[]
 }

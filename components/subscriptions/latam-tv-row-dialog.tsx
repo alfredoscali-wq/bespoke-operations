@@ -19,6 +19,7 @@ import {
 import { latamPlanNameKey } from "@/lib/integrations/latam-tv/plans"
 import { validateLatamTvPassword } from "@/lib/integrations/latam-tv/password"
 import type { AbnetTvPadronRow } from "@/lib/subscriptions/abnet-tv-padron"
+import { formatTvMoney } from "@/lib/subscriptions/tv-plans"
 
 type LatamPhase =
   | "idle"
@@ -31,6 +32,7 @@ type LatamPhase =
   | "active"
   | "suspended"
   | "missing"
+  | "pending_sync"
   | "confirm"
   | "created"
   | "exists"
@@ -48,6 +50,20 @@ type LatamPlanOption = {
   label: string
   latamName: string
   available: boolean
+  selectable?: boolean
+  blockReason?: string | null
+  nextMonthlyFee?: number | null
+  changeNote?: string | null
+}
+
+type LatamCommercialPreview = {
+  status?: string
+  message?: string | null
+  currentMonthlyFee?: number | null
+  tierLabel?: string | null
+  componentLabels?: string[]
+  conditionCode?: string | null
+  discountPercent?: number | null
 }
 
 type AccountPhase = "active" | "suspended"
@@ -56,7 +72,6 @@ type LatamPreview = {
   customerName: string
   identifier: string
   username: string
-  initialPassword: string
   planLabel: string
 }
 
@@ -140,6 +155,7 @@ export function LatamTvRowDialog({
 }) {
   const [phase, setPhase] = useState<LatamPhase>("idle")
   const [missing, setMissing] = useState<string[]>([])
+  const [credentialMessage, setCredentialMessage] = useState<string | null>(null)
   const [preview, setPreview] = useState<LatamPreview | null>(null)
   const [created, setCreated] = useState<LatamCreated | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -154,6 +170,7 @@ export function LatamTvRowDialog({
   const [latamIdentifier, setLatamIdentifier] = useState<string | null>(null)
   const [identityNote, setIdentityNote] = useState<string | null>(null)
   const [planOptions, setPlanOptions] = useState<LatamPlanOption[]>([])
+  const [planCommercial, setPlanCommercial] = useState<LatamCommercialPreview | null>(null)
   const [selectedPlan, setSelectedPlan] = useState<LatamPlanOption | null>(null)
   const [successPlanName, setSuccessPlanName] = useState<string | null>(null)
   const busy = useRef(false)
@@ -188,6 +205,7 @@ export function LatamTvRowDialog({
     setLatamIdentifier(null)
     setIdentityNote(null)
     setPlanOptions([])
+    setPlanCommercial(null)
     setSelectedPlan(null)
     setSuccessPlanName(null)
     busy.current = false
@@ -302,7 +320,7 @@ export function LatamTvRowDialog({
     }
   }, [row, intent, onStatus, knownKey])
 
-  async function postSignup(confirm: boolean) {
+  async function postSignup(confirm: boolean, retry = false) {
     if (!row?.bespokeCustomerId || busy.current) return
     busy.current = true
     setPending(true)
@@ -313,7 +331,7 @@ export function LatamTvRowDialog({
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ confirm, tvKind: row.tvKind }),
+          body: JSON.stringify({ confirm, retry, tvKind: row.tvKind }),
         }
       )
       const payload = (await response.json().catch(() => null)) as {
@@ -322,7 +340,6 @@ export function LatamTvRowDialog({
         message?: string
         preview?: LatamPreview
         username?: string
-        initialPassword?: string
         identifier?: string
         planLabel?: string
         status?: string | null
@@ -330,6 +347,7 @@ export function LatamTvRowDialog({
       } | null
       if (payload?.outcome === "missing") {
         setMissing(payload.missing ?? [])
+        setCredentialMessage(payload.message ?? null)
         setPhase("missing")
         return
       }
@@ -349,7 +367,6 @@ export function LatamTvRowDialog({
           customerName: row.customerName,
           identifier: payload.identifier,
           username: payload.username,
-          initialPassword: payload.initialPassword ?? "",
           planLabel: payload.planLabel ?? "",
         })
         setUsername(payload.username)
@@ -365,6 +382,14 @@ export function LatamTvRowDialog({
         })
         return
       }
+      if (payload?.outcome === "pending_sync") {
+        setActionError(
+          payload.message ??
+            "LATAM todavía no informó el identificador del alta. Se puede reintentar la consulta sin crear otro usuario."
+        )
+        setPhase("pending_sync")
+        return
+      }
       if (payload?.outcome === "unverified") {
         setActionError(payload.message ?? "LATAM no confirmó el alta. Las acciones siguen deshabilitadas.")
         setPhase("unregistered")
@@ -372,25 +397,28 @@ export function LatamTvRowDialog({
       }
       if (payload?.outcome === "already_exists") {
         const next = registeredPhase(payload.status)
+        const identifier = payload.identifier ?? latamIdentifier
         setActionError(payload.message ?? "El cliente ya existe en LATAM TV.")
-        if (next === "suspended") {
+        if (next === "suspended" && identifier) {
           setAccountPhase("suspended")
+          setLatamIdentifier(identifier)
           setPhase("suspended")
           onStatus(row.bespokeCustomerId, {
             phase: "suspended",
             label: "LATAM: Suspendido",
             planName: latamPlanName,
-            identifier: latamIdentifier,
+            identifier,
             username,
           })
-        } else if (next === "active") {
+        } else if (next === "active" && identifier) {
           setAccountPhase("active")
+          setLatamIdentifier(identifier)
           setPhase("active")
           onStatus(row.bespokeCustomerId, {
             phase: "active",
             label: "LATAM: Activo",
             planName: latamPlanName,
-            identifier: latamIdentifier,
+            identifier,
             username,
           })
         } else {
@@ -554,6 +582,7 @@ export function LatamTvRowDialog({
     setActionError(null)
     setStatusNotice(null)
     setSelectedPlan(null)
+    setPlanCommercial(null)
     setPhase("plan_loading")
     try {
       const response = await fetch(
@@ -570,6 +599,7 @@ export function LatamTvRowDialog({
         status?: string | null
         currentPlanName?: string | null
         options?: LatamPlanOption[]
+        commercial?: LatamCommercialPreview
       } | null
       if (payload?.outcome !== "preview" || !payload.options) {
         setActionError(payload?.message ?? "No fue posible consultar LATAM TV.")
@@ -577,6 +607,7 @@ export function LatamTvRowDialog({
         return
       }
       setLatamPlanName(payload.currentPlanName ?? null)
+      setPlanCommercial(payload.commercial ?? null)
       setPlanOptions(payload.options)
       if (payload.status === "disabled") setAccountPhase("suspended")
       if (payload.status === "enabled") setAccountPhase("active")
@@ -598,7 +629,7 @@ export function LatamTvRowDialog({
   }
 
   function choosePlan(option: LatamPlanOption) {
-    if (!option.available || busy.current) return
+    if (!option.available || option.selectable === false || busy.current) return
     if (
       latamPlanName &&
       latamPlanNameKey(latamPlanName) === latamPlanNameKey(option.latamName)
@@ -723,9 +754,33 @@ export function LatamTvRowDialog({
             {phase === "plan_select" ? (
               <div className="space-y-2">
                 <p>Plan actual: {latamPlanName ?? "—"}</p>
+                <p>Nivel de TV: {planCommercial?.tierLabel ?? "—"}</p>
+                <p>
+                  Componentes:{" "}
+                  {planCommercial?.componentLabels?.length
+                    ? planCommercial.componentLabels.join(", ")
+                    : "—"}
+                </p>
+                <p>
+                  Condición comercial:{" "}
+                  {planCommercial?.conditionCode
+                    ? `${planCommercial.conditionCode}${
+                        planCommercial.discountPercent != null
+                          ? ` ${planCommercial.discountPercent}%`
+                          : ""
+                      }`
+                    : "Sin condición"}
+                </p>
+                <p>
+                  Abono actual:{" "}
+                  {planCommercial?.currentMonthlyFee != null
+                    ? formatTvMoney(planCommercial.currentMonthlyFee)
+                    : "—"}
+                </p>
+                {planCommercial?.message ? <p>{planCommercial.message}</p> : null}
                 <p>Planes disponibles</p>
                 {planOptions.map((option) =>
-                  option.available ? (
+                  option.available && option.selectable !== false ? (
                     <Button
                       key={option.kind}
                       type="button"
@@ -738,9 +793,11 @@ export function LatamTvRowDialog({
                     </Button>
                   ) : (
                     <p key={option.kind}>
-                      {option.kind === "full"
-                        ? "TV Full — No disponible actualmente en LATAM"
-                        : `${option.label} — No disponible`}
+                      {option.blockReason
+                        ? `${option.label} — ${option.blockReason}`
+                        : option.kind === "full"
+                          ? "TV Full — No disponible actualmente en LATAM"
+                          : `${option.label} — No disponible`}
                     </p>
                   )
                 )}
@@ -757,7 +814,15 @@ export function LatamTvRowDialog({
                 <p>Cliente: {row.customerName}</p>
                 <p>Plan actual: {latamPlanName ?? "—"}</p>
                 <p>Nuevo plan: {selectedPlan.latamName}</p>
+                <p>
+                  Abono mensual estimado:{" "}
+                  {selectedPlan.nextMonthlyFee != null
+                    ? formatTvMoney(selectedPlan.nextMonthlyFee)
+                    : "—"}
+                </p>
+                {selectedPlan.changeNote ? <p>{selectedPlan.changeNote}</p> : null}
                 <p>El cambio se aplicará en LATAM y luego se actualizará el padrón de Bespoke.</p>
+                <p>Esta confirmación no asigna ni quita componentes del servicio contratado.</p>
                 <p>El estado del cliente no se modificará.</p>
                 {accountPhase === "suspended" ? (
                   <p>El cliente continuará suspendido después del cambio.</p>
@@ -826,9 +891,12 @@ export function LatamTvRowDialog({
             {phase === "confirm" && preview ? (
               <div className="space-y-1">
                 <p>Cliente: {preview.customerName}</p>
-                <p>Identificador: {preview.identifier}</p>
+                <p>
+                  Identificador:{" "}
+                  {preview.identifier || "Latam lo asigna al crear el usuario."}
+                </p>
                 <p>Usuario: {preview.username}</p>
-                <p>Contraseña inicial: {preview.initialPassword}</p>
+                <p>La contraseña inicial es el DNI cargado en Clientes 360.</p>
                 <p>Plan: {preview.planLabel}</p>
                 <p>
                   Se creará este usuario en LATAM TV utilizando el email como usuario y el DNI como contraseña inicial.
@@ -839,26 +907,37 @@ export function LatamTvRowDialog({
               <div className="space-y-1">
                 <p>Cliente dado de alta correctamente en LATAM TV.</p>
                 <p>Usuario: {created.username}</p>
-                <p>Contraseña inicial: {created.initialPassword}</p>
+                <p>La contraseña inicial es el DNI cargado en Clientes 360.</p>
                 <p>Identificador: {created.identifier}</p>
                 <p>Plan: {created.planLabel}</p>
               </div>
             ) : null}
+            {phase === "pending_sync" ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={pending}
+                onClick={() => {
+                  void postSignup(true, true)
+                }}
+              >
+                Reintentar consulta
+              </Button>
+            ) : null}
             {phase === "missing" ? (
-              <div className="space-y-1">
-                <p>No se puede dar de alta en LATAM TV. Faltan datos:</p>
-                <ul className="list-disc pl-5">
-                  {missing.map((item) => (
-                    <li key={item}>
-                      {item === "DNI"
-                        ? "Falta DNI para dar de alta"
-                        : item === "Email"
-                          ? "Falta email para dar de alta"
-                          : item}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              credentialMessage ? (
+                <p>{credentialMessage}</p>
+              ) : (
+                <div className="space-y-1">
+                  <p>No se puede dar de alta en LATAM TV. Faltan datos:</p>
+                  <ul className="list-disc pl-5">
+                    {missing.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              )
             ) : null}
             {actionError ? <p className="text-destructive">{actionError}</p> : null}
             {showAlta ? (

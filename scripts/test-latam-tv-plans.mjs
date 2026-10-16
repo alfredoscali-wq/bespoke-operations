@@ -235,6 +235,7 @@ test("15-16. el token no sale y get-plans no escribe", () => {
     "/api/modify-client",
     "/api/modify-password",
     "/api/register-client",
+    "/api/sync-client",
   ])
   for (const path of [
     "/api/create-plan",
@@ -254,6 +255,7 @@ test("15-16. el token no sale y get-plans no escribe", () => {
   assert.equal(plans.includes("/api/disable-client"), false)
   assert.equal(plans.includes("/api/enable-client"), false)
   assert.equal(script.includes("/api/modify-client"), false)
+  assert.equal(script.includes("/api/sync-client"), false)
   assert.equal(plans.includes("/api/modify-client"), false)
   assert.match(plans, /payload\.error !== false/)
   assert.match(plans, /payload\.planes/)

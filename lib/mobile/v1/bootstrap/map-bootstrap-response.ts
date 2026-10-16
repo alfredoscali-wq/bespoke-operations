@@ -29,6 +29,10 @@ export const DEFAULT_MOBILE_BOOTSTRAP_OPERATIONS: MobileBootstrapOperations = {
   gpsHeartbeatIntervalSeconds: 60,
 }
 
+/** Local `next dev` only. Production bootstrap keeps an empty catalog. */
+const LOCAL_DEV_MOBILE_MODULES =
+  process.env.NODE_ENV === "development" ? ["field-agent"] : []
+
 export function mapMobileBootstrapBranding(
   row: MobileBootstrapBrandingRow | null
 ): MobileBootstrapBranding {
@@ -67,5 +71,6 @@ export function mapMobileBootstrapResponse(input: {
     companyName: input.companyName,
     branding: mapMobileBootstrapBranding(input.branding),
     operations: mapMobileBootstrapOperations(input.operations ?? null),
+    modules: LOCAL_DEV_MOBILE_MODULES,
   }
 }

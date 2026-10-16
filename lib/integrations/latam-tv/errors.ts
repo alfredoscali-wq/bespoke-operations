@@ -12,10 +12,12 @@ const PUBLIC_MESSAGE: Record<LatamTvErrorKind, string> = {
 /** Safe to send to the client. Never includes the token, URL, or LATAM body. */
 export class LatamTvRequestError extends Error {
   readonly kind: LatamTvErrorKind
+  readonly status: number | null
 
-  constructor(kind: LatamTvErrorKind) {
+  constructor(kind: LatamTvErrorKind, status: number | null = null) {
     super(PUBLIC_MESSAGE[kind])
     this.name = "LatamTvRequestError"
     this.kind = kind
+    this.status = status
   }
 }

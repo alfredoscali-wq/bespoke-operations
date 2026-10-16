@@ -89,6 +89,7 @@
     "test:mobile-alarms-1-0": "npx tsx --test scripts/test-mobile-alarms-1-0.mjs",
     "test:company-mobile-settings": "npx tsx --test scripts/test-company-mobile-settings.mjs",
     "test:company-gps-settings": "npx tsx --test scripts/test-company-gps-settings.mjs",
+    "test:mikrotik-integration-1-0": "npx tsx --test scripts/test-mikrotik-integration-1-0.mjs",
     "test:gps-live-1-0": "npx tsx --test scripts/test-gps-live-1-0.mjs",
     "test:shift-start-location-validation": "npx tsx --test scripts/test-shift-start-location-validation.mjs",
     "test:auth-7-7-employees-authorization": "npx tsx --test scripts/test-auth-7-7-employees-authorization.mjs",
@@ -235,8 +236,10 @@
     "test:network-2-6-status-freshness": "npx tsx --test scripts/test-network-2-6-status-freshness.mjs",
     "test:network-2-7-managed-devices": "npx tsx --test scripts/test-network-2-7-managed-devices.mjs",
     "test:network-3-0-topology": "npx tsx --test scripts/test-network-3-0-topology.mjs",
+    "test:network-topology-placements": "npx tsx --test scripts/test-network-topology-placements.mjs",
     "test:network-topology-curated-core": "npx tsx --test scripts/test-network-topology-curated-core.mjs",
     "test:network-noc-alarm-visual": "npx tsx --test scripts/test-network-noc-alarm-visual.mjs",
+    "test:network-4-0-alarms": "npx tsx --test scripts/test-network-4-0-alarms.mjs",
     "test:network-push-alarms": "npx tsx --test scripts/test-network-push-alarms.mjs",
     "test:network-alarms-test-fcm": "npx tsx --test scripts/test-network-alarms-test-fcm.mjs",
     "test:network-alarm-notifications": "npx tsx --test scripts/test-network-alarm-notifications.mjs",
@@ -308,6 +311,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.10",
     "@tailwindcss/postcss": "^4",
     "@types/leaflet": "^1.9.21",
     "@types/node": "^20",

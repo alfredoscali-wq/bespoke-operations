@@ -1026,6 +1026,72 @@ export type Database = {
           },
         ]
       }
+
+      company_mikrotik_integrations: {
+        Row: {
+          id: string
+          company_id: string
+          name: string
+          host: string
+          port: number
+          protocol: string
+          username: string
+          password_encrypted: string
+          enabled: boolean
+          last_connection_at: string | null
+          last_connection_status: string
+          last_connection_error: string | null
+          last_router_identity: Json | null
+          created_at: string
+          updated_at: string
+          deleted_at: string | null
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          name: string
+          host: string
+          port: number
+          protocol: string
+          username: string
+          password_encrypted: string
+          enabled?: boolean
+          last_connection_at?: string | null
+          last_connection_status?: string
+          last_connection_error?: string | null
+          last_router_identity?: Json | null
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          name?: string
+          host?: string
+          port?: number
+          protocol?: string
+          username?: string
+          password_encrypted?: string
+          enabled?: boolean
+          last_connection_at?: string | null
+          last_connection_status?: string
+          last_connection_error?: string | null
+          last_router_identity?: Json | null
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_mikrotik_integrations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_roles: {
         Row: {
           code: string
@@ -4386,6 +4452,63 @@ export type Database = {
           },
         ]
       }
+      network_push_tokens: {
+        Row: {
+          company_id: string
+          created_at: string
+          deleted_at: string | null
+          device_id: string
+          enabled: boolean
+          id: string
+          last_seen_at: string
+          platform: string
+          push_token: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          deleted_at?: string | null
+          device_id: string
+          enabled?: boolean
+          id?: string
+          last_seen_at?: string
+          platform: string
+          push_token: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          device_id?: string
+          enabled?: boolean
+          id?: string
+          last_seen_at?: string
+          platform?: string
+          push_token?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "network_push_tokens_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "network_push_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       network_devices: {
         Row: {
           agent_id: string | null
@@ -6421,6 +6544,116 @@ export type Database = {
           },
         ]
       }
+      tv_whatsapp_processed_messages: {
+        Row: {
+          company_id: string
+          created_at: string
+          external_message_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          external_message_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          external_message_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tv_whatsapp_processed_messages_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tv_whatsapp_commercial_requests: {
+        Row: {
+          company_id: string
+          created_at: string
+          current_plan_label: string | null
+          customer_accepted: boolean | null
+          customer_accepted_at: string | null
+          customer_id: string | null
+          destination_plan_label: string | null
+          external_message_id: string | null
+          id: string
+          identity_status: "unverified" | "verified"
+          offer: "basica" | "pack" | "full"
+          operator_notes: string | null
+          operator_result: string | null
+          origin_phone: string
+          quoted_components: Json
+          quoted_monthly_fee: number | null
+          resolved_at: string | null
+          resolved_by: string | null
+          status: "pending" | "in_review" | "approved" | "completed" | "rejected"
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          current_plan_label?: string | null
+          customer_accepted?: boolean | null
+          customer_accepted_at?: string | null
+          customer_id?: string | null
+          destination_plan_label?: string | null
+          external_message_id?: string | null
+          id?: string
+          identity_status: "unverified" | "verified"
+          offer: "basica" | "pack" | "full"
+          operator_notes?: string | null
+          operator_result?: string | null
+          origin_phone: string
+          quoted_components?: Json
+          quoted_monthly_fee?: number | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: "pending" | "in_review" | "approved" | "completed" | "rejected"
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          current_plan_label?: string | null
+          customer_accepted?: boolean | null
+          customer_accepted_at?: string | null
+          customer_id?: string | null
+          destination_plan_label?: string | null
+          external_message_id?: string | null
+          id?: string
+          identity_status?: "unverified" | "verified"
+          offer?: "basica" | "pack" | "full"
+          operator_notes?: string | null
+          operator_result?: string | null
+          origin_phone?: string
+          quoted_components?: Json
+          quoted_monthly_fee?: number | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: "pending" | "in_review" | "approved" | "completed" | "rejected"
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tv_whatsapp_commercial_requests_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tv_whatsapp_commercial_requests_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       treasury_movements: {
         Row: {
           amount: number
@@ -6847,6 +7080,22 @@ export type Database = {
       }
       create_work_order_idempotent: {
         Args: { p_payload: Json }
+        Returns: Json
+      }
+      reserve_latam_tv_signup_attempt: {
+        Args: { p_customer_id: string }
+        Returns: Json
+      }
+      read_latam_tv_signup_attempt: {
+        Args: { p_customer_id: string }
+        Returns: Json
+      }
+      finish_latam_tv_signup_attempt: {
+        Args: {
+          p_customer_id: string
+          p_latam_code?: number | null
+          p_state: string
+        }
         Returns: Json
       }
       issue_isp_billing_document: {

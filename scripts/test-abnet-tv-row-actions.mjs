@@ -14,7 +14,7 @@ import {
   abnetTvPlanSelectionNotice,
   currentAbnetTvPlanOption,
 } from "../lib/subscriptions/abnet-tv-plan-choice.ts"
-import { formatAbnetPadronMoney } from "../lib/subscriptions/abnet-tv-padron.ts"
+import { abnetPadronCustomerNumber, formatAbnetPadronMoney } from "../lib/subscriptions/abnet-tv-padron.ts"
 import {
   commitAbnetPadronExclusion,
   excludeAbnetPadronRows,
@@ -304,6 +304,44 @@ test("el vínculo LATAM no depende de una ficha única y no escribe", () => {
   assert.notEqual(padronLatamMode(none, { 6798: linked }).kind, "signup")
   assert.notEqual(padronLatamMode(many, { 6798: linked }).kind, "signup")
   assert.equal(LATAM_NOT_LINKED, "Cliente no vinculado con LATAM")
+  const cliReady = {
+    abnetCustomerNumber: "CLI-005788",
+    bespokeCustomerId: "ficha-marta",
+    bespokeLink: "one",
+    latamCredentialGap: null,
+  }
+  const cliNoFicha = { ...cliReady, bespokeCustomerId: null, bespokeLink: "none" }
+  const cliMany = { ...cliReady, bespokeCustomerId: null, bespokeLink: "many" }
+  assert.equal(padronLatamMode(cliReady, {}).kind, "signup")
+  assert.equal(
+    padronLatamMode({ ...cliReady, latamCredentialGap: "email" }, {}).reason,
+    "No se puede dar de alta al cliente en Latam porque falta el email en Clientes 360."
+  )
+  assert.equal(
+    padronLatamMode({ ...cliReady, latamCredentialGap: "dni" }, {}).reason,
+    "No se puede dar de alta al cliente en Latam porque falta el DNI en Clientes 360."
+  )
+  assert.equal(
+    padronLatamMode({ ...cliReady, latamCredentialGap: "both" }, {}).reason,
+    "No se puede dar de alta al cliente en Latam porque faltan el email y el DNI en Clientes 360."
+  )
+  assert.equal(
+    padronLatamMode(cliNoFicha, {}).reason,
+    "No se puede dar de alta al cliente en Latam porque no hay una ficha vinculada en Clientes 360."
+  )
+  assert.equal(
+    padronLatamMode(cliMany, {}).reason,
+    "No se puede dar de alta al cliente en Latam porque hay más de una ficha en Clientes 360."
+  )
+  assert.equal(padronLatamMode({ abnetCustomerNumber: "CLI-005788", bespokeCustomerId: null }, {}).kind, "blocked")
+  assert.equal(padronLatamMode(one, { 6798: unregistered }).kind, "signup")
+  assert.equal(
+    padronLatamMode({ ...one, latamCredentialGap: "email" }, { 6798: unregistered }).reason,
+    "No se puede dar de alta al cliente en Latam porque falta el email en Clientes 360."
+  )
+  assert.notEqual(abnetPadronCustomerNumber("CLI-005788"), "5788")
+  assert.equal(abnetPadronCustomerNumber("CLI-005788"), null)
+  assert.equal(abnetPadronCustomerNumber("00006634"), "6634")
 
   const mode = read("lib/subscriptions/padron-latam-mode.ts")
   const actions = uiSlice("function PadronRowActions", "function PadronIconButton")

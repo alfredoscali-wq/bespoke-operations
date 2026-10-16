@@ -4,8 +4,9 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type { Database } from "@/lib/supabase/database.types"
 import { MONITORING_POLL_INTERVAL_MS } from "@/lib/network/monitoring/contract"
-import { displayMonitoringStatus } from "@/lib/network/monitoring/status"
+import { isMonitoringDeviceDue, pickDueMonitoringDevice } from "@/lib/network/monitoring/due"
 import { persistMonitoringSnapshot } from "@/lib/network/monitoring/persist-snapshot"
+import { displayMonitoringStatus } from "@/lib/network/monitoring/status"
 import { tallyManagedMonitoringSummary } from "@/lib/network/monitoring/summary-tally"
 import type {
   NetworkDeviceMonitoring,
@@ -257,7 +258,7 @@ export async function findDueMonitoringDevice(
     lastPoll.set(row.device_id, row.last_poll_at)
   }
 
-  const dueBefore = Date.now() - MONITORING_POLL_INTERVAL_MS
+  const nowMs = Date.now()
   const candidates: Array<{
     deviceId: string
     targetId: string
@@ -273,19 +274,18 @@ export async function findDueMonitoringDevice(
     )
     if (!target) continue
     const pollAt = lastPoll.get(device.id)
+    if (!isMonitoringDeviceDue(pollAt, nowMs, MONITORING_POLL_INTERVAL_MS)) continue
     const lastPollMs = pollAt ? new Date(pollAt).getTime() : 0
-    if (pollAt && lastPollMs > dueBefore) continue
     candidates.push({
       deviceId: device.id,
       targetId: target.id,
       host: device.management_ip,
       siteId: device.site_id,
-      lastPollAt: lastPollMs,
+      lastPollAt: Number.isFinite(lastPollMs) ? lastPollMs : 0,
     })
   }
 
-  candidates.sort((left, right) => left.lastPollAt - right.lastPollAt)
-  const next = candidates[0]
+  const next = pickDueMonitoringDevice(candidates)
   if (!next) return null
   return {
     deviceId: next.deviceId,

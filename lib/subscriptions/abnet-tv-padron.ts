@@ -40,6 +40,8 @@ export type AbnetTvPadronRow = AbnetTvPadronSourceRow & {
   bespokeCustomerName: string | null
   /** none: no hay ficha. one: una ficha. many: más de una ficha para el mismo N°. */
   bespokeLink: "none" | "one" | "many"
+  /** Credencial ausente en la ficha. Null: email y DNI utilizables. No guarda esos valores. */
+  latamCredentialGap?: "email" | "dni" | "both" | null
   packFutbolActive: boolean
 }
 

@@ -17,6 +17,34 @@ export type NetworkAlarmActiveStatus = (typeof NETWORK_ALARM_ACTIVE_STATUSES)[nu
 export const NETWORK_ALARM_AUTO_RESOLVE_NOTE =
   "Recuperación automática de monitoring."
 
+export const NETWORK_ALARM_EVENT_TYPES = [
+  "created",
+  "seen",
+  "acknowledged",
+  "resolved",
+] as const
+
+export type NetworkAlarmEventType = (typeof NETWORK_ALARM_EVENT_TYPES)[number]
+
+export type NetworkAlarmEventRecord = {
+  id: string
+  companyId: string
+  alarmId: string
+  eventType: NetworkAlarmEventType
+  userId: string | null
+  createdAt: string
+  note: string | null
+}
+
+export function isNetworkAlarmEventType(
+  value: unknown
+): value is NetworkAlarmEventType {
+  return (
+    typeof value === "string" &&
+    (NETWORK_ALARM_EVENT_TYPES as readonly string[]).includes(value)
+  )
+}
+
 export type NetworkAlarmRecord = {
   id: string
   companyId: string

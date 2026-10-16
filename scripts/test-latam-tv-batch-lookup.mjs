@@ -42,6 +42,7 @@ test("tres identificadores producen una sola consulta y distinguen el estado", a
             plan_nombre: "Plan Basico",
           },
         ],
+        noregistrados: ["2205"],
       }),
       { status: 200, headers: { "Content-Type": "application/json" } }
     )
@@ -74,7 +75,154 @@ test("un cliente identificado solo por id_iptv no coincide con el N° CRM", () =
     code: 1,
     clients: [{ id_iptv: "6798", estado: 1, plan_nombre: "Plan Basico" }],
   })
+  assert.equal(result["6798"].phase, "unresolved")
+  assert.equal(result["6798"].identifier, null)
+})
+
+test("code 3 con noregistrados parciales no marca al resto como no registrado", () => {
+  const result = classifyLatamIdentifierBatch(["6796", "6794", "6798"], {
+    code: 3,
+    message: "Clientes no registrados",
+    noregistrados: ["6796", "6794"],
+  })
+  assert.equal(result["6796"].phase, "unregistered")
+  assert.equal(result["6794"].phase, "unregistered")
+  assert.equal(result["6798"].phase, "unresolved")
+  assert.equal(result["6798"].identifier, null)
+})
+
+test("el fallback individual confirma a Toranzo y no repite los ya informados", async () => {
+  const calls = []
+  const fetchImpl = async (url, init) => {
+    const body = JSON.parse(init.body)
+    calls.push(body.identificador)
+    if (body.identificador.length > 1) {
+      return new Response(
+        JSON.stringify({
+          code: 3,
+          message: "Clientes no registrados",
+          noregistrados: ["6796", "6794"],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      )
+    }
+    return new Response(
+      JSON.stringify({
+        code: 1,
+        clients: [
+          {
+            id_crm: "6798",
+            id_iptv: 29,
+            estado: 1,
+            plan_nombre: "Plan Basico",
+            usuario: "ggerardotoranzo@hotmail.com.ar",
+          },
+        ],
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    )
+  }
+  const result = await readLatamClientsByIdentifiers(["6796", "6794", "6798"], {
+    baseUrl: BASE,
+    token: TOKEN,
+    fetchImpl,
+  })
+  assert.deepEqual(calls, [["6796", "6794", "6798"], ["6798"]])
+  assert.equal(result["6796"].phase, "unregistered")
+  assert.equal(result["6794"].phase, "unregistered")
+  assert.equal(result["6798"].phase, "active")
+  assert.equal(result["6798"].identifier, "6798")
+  assert.equal(result["6798"].iptvId, "29")
+  assert.equal(result["6798"].planName, "Plan Basico")
+})
+
+test("el fallback individual con code 3 queda no registrado", async () => {
+  const calls = []
+  const result = await readLatamClientsByIdentifiers(["6796", "6798"], {
+    baseUrl: BASE,
+    token: TOKEN,
+    fetchImpl: async (_url, init) => {
+      const body = JSON.parse(init.body)
+      calls.push(body.identificador)
+      if (body.identificador.length > 1) {
+        return new Response(
+          JSON.stringify({ code: 3, noregistrados: ["6796"] }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        )
+      }
+      return new Response(
+        JSON.stringify({ code: 3, message: "Clientes no registrados" }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      )
+    },
+  })
+  assert.deepEqual(calls, [["6796", "6798"], ["6798"]])
+  assert.equal(result["6796"].phase, "unregistered")
   assert.equal(result["6798"].phase, "unregistered")
+})
+
+test("un error del fallback individual deja solo ese id no disponible", async () => {
+  const result = await readLatamClientsByIdentifiers(["6796", "6798"], {
+    baseUrl: BASE,
+    token: TOKEN,
+    fetchImpl: async (_url, init) => {
+      const body = JSON.parse(init.body)
+      if (body.identificador.length > 1) {
+        return new Response(
+          JSON.stringify({ code: 3, noregistrados: ["6796"] }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        )
+      }
+      throw new Error(`network ${TOKEN}`)
+    },
+  })
+  assert.equal(result["6796"].phase, "unregistered")
+  assert.equal(result["6798"].phase, "unavailable")
+  assert.equal(JSON.stringify(result).includes(TOKEN), false)
+})
+
+test("un lote con clientes no consulta de nuevo a esos ids", async () => {
+  const calls = []
+  const result = await readLatamClientsByIdentifiers(["6798", "3959"], {
+    baseUrl: BASE,
+    token: TOKEN,
+    fetchImpl: async (_url, init) => {
+      calls.push(JSON.parse(init.body).identificador)
+      return new Response(
+        JSON.stringify({
+          code: 1,
+          clients: [
+            { id_crm: "6798", id_iptv: 29, estado: 1, plan_nombre: "Plan Basico" },
+            { id_crm: "3959", id_iptv: 40, estado: 0, plan_nombre: "Plan Basico" },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      )
+    },
+  })
+  assert.deepEqual(calls, [["6798", "3959"]])
+  assert.equal(result["6798"].phase, "active")
+  assert.equal(result["3959"].phase, "suspended")
+})
+
+test("un fallback solo con id_iptv no queda operativo", async () => {
+  const calls = []
+  const result = await readLatamClientsByIdentifiers(["6798"], {
+    baseUrl: BASE,
+    token: TOKEN,
+    fetchImpl: async (_url, init) => {
+      calls.push(JSON.parse(init.body).identificador)
+      return new Response(
+        JSON.stringify({
+          code: 1,
+          clients: [{ id_iptv: 29, estado: 1, plan_nombre: "Plan Basico" }],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      )
+    },
+  })
+  assert.deepEqual(calls, [["6798"], ["6798"]])
+  assert.equal(result["6798"].phase, "unavailable")
   assert.equal(result["6798"].identifier, null)
 })
 

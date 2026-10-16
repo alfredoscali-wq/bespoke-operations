@@ -6,6 +6,7 @@ import type { DiscoveryJobExecution } from "@/lib/network/discovery/contract"
 import { persistDiscoverySnapshot } from "@/lib/network/devices/queries"
 import { parseDiscoverySnapshot } from "@/lib/network/discovery/parse-snapshot"
 import {
+  MONITORING_DECRYPT_ERROR_CODE,
   MONITORING_EXECUTABLE_JOB_TYPE,
 } from "@/lib/network/monitoring/contract"
 import { parseMonitoringSnapshot } from "@/lib/network/monitoring/parse-snapshot"
@@ -201,6 +202,17 @@ export async function claimAuthorizedNetworkAgentJob(auth: NetworkAgentAuth) {
 
     const execution = await loadJobExecution(admin, auth, { targetId, host })
     if ("error" in execution) {
+      if (execution.error === NETWORK_TARGET_DECRYPT_ERROR) {
+        await persistMonitoringSnapshot(admin, {
+          companyId: auth.companyId,
+          deviceId,
+          snapshot: null,
+          success: false,
+          jobId: job.id,
+          errorCode: MONITORING_DECRYPT_ERROR_CODE,
+          errorMessage: NETWORK_TARGET_DECRYPT_ERROR,
+        })
+      }
       return failClaimedJob(admin, auth, job.id, execution.error)
     }
 

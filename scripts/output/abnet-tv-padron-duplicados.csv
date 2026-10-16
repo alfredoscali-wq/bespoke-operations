@@ -1,0 +1,694 @@
+﻿N° Cliente,Filas,source,source_row,Cliente,Tipo,Nodo,Plan,Estado,TV
+1,2,conex-internet-tv.xlsx,1233,Gimenez Natalia,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+1,2,conex-internet-tv.xlsx,2906,Gimenez Natalia,Wireless,Nodo Malagueño,20 MB +TV BASICO,Activa,TV Básica
+51,2,conex-internet-tv.xlsx,2668,Leiva Andrea Vanesa,Fibra,Nodo Tirolesa FO,50MB+TV BASICO,Activa,TV Básica
+51,2,conex-internet-tv.xlsx,2670,Leiva Andrea Vanesa,Fibra,Nodo Rio Segundo,50MB+TV BASICO,Activa,TV Básica
+117,2,conex-internet-tv.xlsx,2944,Achad Luciana,Fibra,Nodo Tirolesa FO,50MB+TV BASICO,Activa,TV Básica
+117,2,conex-internet-tv.xlsx,2945,Achad Luciana,Fibra,Nodo Tirolesa FO,50MB+TV BASICO,Activa,TV Básica
+222,2,conex-internet-tv.xlsx,346,Herther Jose,TV Plan,Nodo Tirolesa FO,TV PACK FULL 2,Activa,TV Full
+222,2,conex-internet-tv.xlsx,2979,Herther Jose,Fibra,Nodo Tirolesa FO,50MB+TV BASICO,Activa,TV Básica
+284,5,conex-internet-tv.xlsx,887,Paris Matias Alejandro,Wireless,Nodo BoozNet Cordoba,20 MB +TV BASICO,Activa,TV Básica
+284,5,conex-internet-tv.xlsx,976,Paris Matias Alejandro,Wireless,Nodo BoozNet Cordoba,20 MB +TV BASICO,Activa,TV Básica
+284,5,conex-internet-tv.xlsx,978,Paris Matias Alejandro,Wireless,Nodo BoozNet Cordoba,20 MB +TV BASICO,Activa,TV Básica
+284,5,conex-internet-tv.xlsx,979,Paris Matias Alejandro,Wireless,Nodo BoozNet Cordoba,20 MB +TV BASICO,Activa,TV Básica
+284,5,conex-internet-tv.xlsx,1472,Paris Matias Alejandro,Wireless,Nodo Tirolesa Wireless,20 MB +TV BASICO,Activa,TV Básica
+293,2,conex-internet-tv.xlsx,1288,Regis Natalia,Fibra,Nodo Tirolesa FO,50MB+TV BASICO,Activa,TV Básica
+293,2,conex-internet-tv.xlsx,2996,Regis Natalia,Fibra,Nodo Tirolesa FO,50MB+TV BASICO,Activa,TV Básica
+330,2,conex-internet-tv.xlsx,3008,Vidoret Nicolas,Wireless,Nodo Tirolesa Wireless,20 MB +TV BASICO,Activa,TV Básica
+330,2,conex-internet-tv.xlsx,3009,Vidoret Nicolas,Wireless,Nodo Tirolesa Wireless,20 MB +TV BASICO,Activa,TV Básica
+336,2,conex-internet-tv.xlsx,3010,Zorcini Fernando,Wireless,Nodo Tirolesa Wireless,20 MB +TV BASICO,Activa,TV Básica
+336,2,conex-internet-tv.xlsx,3011,Zorcini Fernando,Fibra,Nodo Tirolesa FO,50MB+TV BASICO,Activa,TV Básica
+468,2,conex-internet-tv.xlsx,2832,Giorgetta Agustin,Wireless,Nodo Rio Segundo,20 MB +TV BASICO,Activa,TV Básica
+468,2,conex-internet-tv.xlsx,2833,Giorgetta Agustin,Wireless,Nodo Rio Segundo,20 MB +TV BASICO,Activa,TV Básica
+543,2,conex-internet-tv.xlsx,3060,Paez Dario Ezequiel,Fibra,Nodo Tirolesa FO,50MB+TV BASICO,Activa,TV Básica
+543,2,conex-internet-tv.xlsx,3061,Paez Dario Ezequiel,Fibra,Nodo Tirolesa FO,50MB+TV BASICO,Activa,TV Básica
+580,2,conex-internet-tv.xlsx,2139,Martinez Nadia,Wireless,Nodo BoozNet Cordoba,20 MB +TV BASICO,Activa,TV Básica
+580,2,conex-internet-tv.xlsx,2244,Martinez Nadia,Fibra,Nodo Tirolesa FO,50MB+TV BASICO,Activa,TV Básica
+585,2,conex-internet-tv.xlsx,3071,Castro Mariana,Fibra,Nodo Tirolesa FO,50MB+TV BASICO,Morosa,—
+585,2,conex-internet-tv.xlsx,3072,Castro Mariana,Fibra,Nodo Tirolesa FO,50MB+TV BASICO,Morosa,—
+629,2,conex-internet-tv.xlsx,3091,Bosio Franco,Fibra,Nodo Tirolesa FO,50MB+TV BASICO,Activa,TV Básica
+629,2,conex-internet-tv.xlsx,3092,Bosio Franco,Fibra,Nodo Tirolesa FO,50MB+TV BASICO,Activa,TV Básica
+645,2,conex-internet-tv.xlsx,2415,Hinga Yohana,Fibra,Nodo Tirolesa FO,100MB+TV BASICO,Activa,TV Básica
+645,2,conex-internet-tv.xlsx,2541,Hinga Yohana,Fibra,Nodo Tirolesa FO,100MB+TV BASICO,Activa,TV Básica
+698,2,conex-internet-tv.xlsx,3106,Silvestro Luciano,Wireless,Nodo Tirolesa Wireless,20 MB +TV BASICO,Activa,TV Básica
+698,2,conex-internet-tv.xlsx,3107,Silvestro Luciano,Fibra,Nodo Tirolesa FO,50MB+TV BASICO,Activa,TV Básica
+776,2,conex-internet-tv.xlsx,983,Bertoldo Sergio,Wireless,Nodo Tirolesa Wireless,20 MB +TV BASICO,Activa,TV Básica
+776,2,conex-internet-tv.xlsx,3128,Bertoldo Sergio,Wireless,Nodo Tirolesa Wireless,20 MB +TV BASICO,Activa,TV Básica
+787,2,conex-internet-tv.xlsx,3131,Piccoli Leandro,Fibra,Nodo Tirolesa FO,50MB+TV BASICO,Activa,TV Básica
+787,2,conex-internet-tv.xlsx,3132,Piccoli Leandro,Fibra,Nodo Tirolesa FO,50MB+TV BASICO,Activa,TV Básica
+824,2,conex-internet-tv.xlsx,3144,Bringas Rolando,Fibra,Nodo Tirolesa FO,50MB+TV BASICO,Activa,TV Básica
+824,2,conex-internet-tv.xlsx,3145,Bringas Rolando,Fibra,Nodo Tirolesa FO,100MB+TV BASICO,Activa,TV Básica
+842,2,conex-internet-tv.xlsx,3148,MIGUEL ANGEL RUFFINO E HIJOS S.R.L.,Wireless,Nodo Tirolesa Wireless,20 MB +TV BASICO,Activa,TV Básica
+842,2,conex-internet-tv.xlsx,3149,MIGUEL ANGEL RUFFINO E HIJOS S.R.L.,Fibra,Nodo Tirolesa FO,50MB+TV BASICO,Activa,TV Básica
+903,2,conex-internet-tv.xlsx,3166,Jutton German,Wireless,Nodo Rio Segundo,20 MB +TV BASICO,Activa,TV Básica
+903,2,conex-internet-tv.xlsx,3167,Jutton German,Wireless,Nodo Rio Segundo,20 MB +TV BASICO,Activa,TV Básica
+955,2,conex-internet-tv.xlsx,883,Pampiglione Martin,TV Plan,Nodo Tirolesa FO,TV PACK FULL 2,Activa,TV Full
+955,2,conex-internet-tv.xlsx,2547,Pampiglione Martin,Fibra,Nodo Tirolesa FO,100MB+TV BASICO,Activa,TV Básica
+988,2,conex-internet-tv.xlsx,3182,Dimeo Jorge,Wireless,Nodo Rio Segundo,20 MB +TV BASICO,Morosa,—
+988,2,conex-internet-tv.xlsx,3183,Dimeo Jorge,Wireless,Nodo Rio Segundo,20 MB +TV BASICO,Morosa,—
+1014,3,conex-internet-tv.xlsx,2212,Ceballos Daniel,Fibra,Nodo Tirolesa FO,100MB+TV BASICO,Activa,TV Básica
+1014,3,conex-internet-tv.xlsx,2835,Ceballos Daniel,Fibra,Nodo Tirolesa FO,50MB+TV BASICO,Activa,TV Básica
+1014,3,conex-internet-tv.xlsx,2836,Ceballos Daniel,Wireless,Nodo Tirolesa Wireless,20 MB +TV BASICO,Activa,TV Básica
+1203,2,conex-internet-tv.xlsx,2735,Corregi Carolina,Fibra,Nodo Esquiu,50MB+TV BASICO,Activa,TV Básica
+1203,2,conex-internet-tv.xlsx,3223,Corregi Carolina,Wireless,Nodo Tirolesa Wireless,20 MB +TV BASICO,Activa,TV Básica
+1216,2,conex-internet-tv.xlsx,2838,Benitez Francisco,Fibra,Nodo Tirolesa FO,100MB+TV BASICO,Activa,TV Básica
+1216,2,conex-internet-tv.xlsx,2839,Benitez Francisco,Fibra,Nodo Tirolesa FO,100MB+TV BASICO,Activa,TV Básica
+1228,2,conex-internet-tv.xlsx,2401,Suarez Florencia DNI 35635558,Fibra,Nodo Tirolesa FO,100MB+TV BASICO,Activa,TV Básica
+1228,2,conex-internet-tv.xlsx,3233,Suarez Florencia DNI 35635558,Fibra,Nodo Tirolesa FO,100MB+TV BASICO,Activa,TV Básica
+1234,2,conex-internet-tv.xlsx,891,Revello Dario,TV Plan,Nodo Villa Retiro FO,TV PACK FULL 2,Activa,TV Full
+1234,2,conex-internet-tv.xlsx,3238,Revello Dario,Fibra,Nodo Villa Retiro FO,300MB+TV BASICO,Activa,TV Básica
+1238,2,conex-internet-tv.xlsx,2535,TOMLLENOVICH ESTEBAN SIMON Y TOMLLENOVICH HECTOR DOMINGO SH DE TOMLLENOVICH ESTEBAN SIMON Y TOMLLENOVICH HECTOR DOMINGO,Fibra,Nodo Tirolesa FO,50MB+TV BASICO,Activa,TV Básica
+1238,2,conex-internet-tv.xlsx,3240,TOMLLENOVICH ESTEBAN SIMON Y TOMLLENOVICH HECTOR DOMINGO SH DE TOMLLENOVICH ESTEBAN SIMON Y TOMLLENOVICH HECTOR DOMINGO,Wireless,Nodo Tirolesa Wireless,20 MB +TV BASICO,Activa,TV Básica
+1241,2,conex-internet-tv.xlsx,1525,Lucente Daniel Oscar,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+1241,2,conex-internet-tv.xlsx,3241,Lucente Daniel Oscar,Fibra,Nodo Villa Retiro FO,50MB+TV BASICO,Activa,TV Básica
+1277,2,conex-internet-tv.xlsx,2845,RiusPro Seguros,Wireless,Nodo Pilar,20 MB +TV BASICO,Activa,TV Básica
+1277,2,conex-internet-tv.xlsx,2846,RiusPro Seguros,Wireless,Nodo Pilar,20 MB +TV BASICO,Activa,TV Básica
+1287,2,conex-internet-tv.xlsx,3263,Scamporlino Alicia,Fibra,Nodo Villa Retiro FO,50MB+TV BASICO,Activa,TV Básica
+1287,2,conex-internet-tv.xlsx,3264,Scamporlino Alicia,Fibra,Nodo Villa Retiro FO,50MB+TV BASICO,Activa,TV Básica
+1288,2,conex-internet-tv.xlsx,232,transporte luiscar srl,Fibra,Nodo Villa Retiro FO,Servicio EMPRESA 300 MEGAS FULL  FIBRA,Activa,TV $0
+1288,2,conex-internet-tv.xlsx,3265,transporte luiscar srl,Fibra,Nodo Villa Retiro FO,100MB+TV BASICO,Activa,TV Básica
+1369,2,conex-internet-tv.xlsx,846,Alonso Luis,TV Plan,Nodo Tirolesa FO,TV PACK FULL 2,Activa,TV Full
+1369,2,conex-internet-tv.xlsx,2851,Alonso Luis,Fibra,Nodo Tirolesa FO,100MB+TV BASICO,Activa,TV Básica
+1405,2,conex-internet-tv.xlsx,3323,Manzano Cecilia,Fibra,Nodo Tirolesa FO,50MB+TV BASICO,Activa,TV Básica
+1405,2,conex-internet-tv.xlsx,3324,Manzano Cecilia,Fibra,Nodo Tirolesa FO,50MB+TV BASICO,Activa,TV Básica
+1445,2,conex-internet-tv.xlsx,2310,Diaz Mariano,Fibra,La Granja FO,100MB+TV BASICO,Activa,TV Básica
+1445,2,conex-internet-tv.xlsx,3335,Diaz Mariano,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+1514,2,conex-internet-tv.xlsx,1979,BELLAVIA LAURA,Fibra,Nodo Villa Retiro FO,50MB+TV BASICO,Activa,TV Básica
+1514,2,conex-internet-tv.xlsx,3365,BELLAVIA LAURA,Wireless,Nodo BoozNet Cordoba,20 MB +TV BASICO,Activa,TV Básica
+1536,2,conex-internet-tv.xlsx,3373,CALZIA GRACIELA,Wireless,Nodo Tirolesa Wireless,20 MB +TV BASICO,Activa,TV Básica
+1536,2,conex-internet-tv.xlsx,3374,CALZIA GRACIELA,Wireless,Nodo Tirolesa Wireless,20 MB +TV BASICO,Activa,TV Básica
+1616,2,conex-internet-tv.xlsx,2398,GIORDANO WALTER,Wireless,Nodo BoozNet Cordoba,20 MB +TV BASICO,Activa,TV Básica
+1616,2,conex-internet-tv.xlsx,3407,GIORDANO WALTER,Wireless,Nodo BoozNet Cordoba,20 MB +TV BASICO,Activa,TV Básica
+1659,2,conex-internet-tv.xlsx,82,MANSILLA NILDA,Wireless,Nodo BoozNet Cordoba,20 MB +TV BASICO,Activa,TV Básica
+1659,2,conex-internet-tv.xlsx,3423,MANSILLA NILDA,Wireless,Nodo BoozNet Cordoba,20 MB +TV BASICO,Activa,TV Básica
+1676,2,conex-internet-tv.xlsx,2375,MORENO MIRIAM,Fibra,Nodo Villa Retiro FO,50MB+TV BASICO,Activa,TV Básica
+1676,2,conex-internet-tv.xlsx,3433,MORENO MIRIAM,Fibra,Nodo Villa Retiro FO,100MB+TV BASICO,Activa,TV Básica
+1697,2,conex-internet-tv.xlsx,1465,PAREDES NATALIA,Fibra,Nodo Esquiu,TV PACK FULL 2,Activa,TV Full
+1697,2,conex-internet-tv.xlsx,1542,PAREDES NATALIA,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+1699,3,conex-internet-tv.xlsx,3440,PEDRAZA ROMAN EZEQUIEL,Fibra,Nodo Villa Retiro FO,50MB+TV BASICO,Activa,TV Básica
+1699,3,conex-internet-tv.xlsx,3441,PEDRAZA ROMAN EZEQUIEL,Wireless,Nodo BoozNet Cordoba,20 MB +TV BASICO,Activa,TV Básica
+1699,3,conex-internet-tv.xlsx,3442,PEDRAZA ROMAN EZEQUIEL,Wireless,Nodo BoozNet Cordoba,20 MB +TV BASICO,Activa,TV Básica
+1746,2,conex-internet-tv.xlsx,2801,SOSA VALENTINA,Wireless,Nodo BoozNet Cordoba,20 MB +TV BASICO,Morosa,—
+1746,2,conex-internet-tv.xlsx,3464,SOSA VALENTINA,Wireless,Nodo BoozNet Cordoba,20 MB +TV BASICO,Morosa,—
+1786,2,conex-internet-tv.xlsx,532,BRANE CARINA,TV Plan,Nodo Esquiu,TV PACK FULL 2,Activa,TV Full
+1786,2,conex-internet-tv.xlsx,1566,BRANE CARINA,Fibra,Nodo Esquiu,100MB+TV BASICO,Activa,TV Básica
+1787,2,conex-internet-tv.xlsx,913,CABRERA MAURICIO,TV Plan,Nodo Esquiu,TV PACK FULL 2,Activa,TV Full
+1787,2,conex-internet-tv.xlsx,1375,CABRERA MAURICIO,Fibra,Nodo Esquiu,50MB+TV BASICO,Activa,TV Básica
+1821,2,conex-internet-tv.xlsx,181,Bravo Ludmila Celeste,TV Plan,Nodo BoozNet Cordoba,TV PACK FULL 2,Activa,TV Full
+1821,2,conex-internet-tv.xlsx,3489,Bravo Ludmila Celeste,Wireless,Nodo BoozNet Cordoba,20 MB +TV BASICO,Activa,TV Básica
+1852,2,conex-internet-tv.xlsx,1516,Paola Daniela Tapia,Fibra,Nodo Esquiu,50MB+TV BASICO,Activa,TV Básica
+1852,2,conex-internet-tv.xlsx,1530,Paola Daniela Tapia,Fibra,Nodo Esquiu,50MB+TV BASICO,Activa,TV Básica
+1975,2,conex-internet-tv.xlsx,2854,Sei Fratelli,Wireless,Nodo BoozNet Cordoba,Servicio EMPRESA 50 MEGAS FULL WIRELES,Activa,TV $0
+1975,2,conex-internet-tv.xlsx,2855,Sei Fratelli,Fibra,Nodo Villa Retiro FO,50MB+TV BASICO,Activa,TV Básica
+1999,3,conex-internet-tv.xlsx,2069,HERNANDEZ HECTOR NODO GRATIS,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+1999,3,conex-internet-tv.xlsx,2856,HERNANDEZ HECTOR NODO GRATIS,Wireless,Nodo BoozNet Cordoba,20 MB +TV BASICO,Activa,TV Básica
+1999,3,conex-internet-tv.xlsx,2857,HERNANDEZ HECTOR NODO GRATIS,Wireless,Nodo BoozNet Cordoba,20 MB +TV BASICO,Activa,TV Básica
+2026,2,conex-internet-tv.xlsx,1475,Alonso Tomas,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+2026,2,conex-internet-tv.xlsx,1476,Alonso Tomas,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+2027,2,conex-internet-tv.xlsx,1931,Julian Carluccio,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+2027,2,conex-internet-tv.xlsx,3574,Julian Carluccio,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+2031,2,conex-internet-tv.xlsx,164,Correa Sarmiento Gisela,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+2031,2,conex-internet-tv.xlsx,360,Correa Sarmiento Gisela,TV Plan,Nodo BoozNet Norte,TV PACK FULL 2,Activa,TV Full
+2047,2,conex-internet-tv.xlsx,2442,Gomez Roberto,Fibra,La Granja FO,100MB+TV BASICO,Activa,TV Básica
+2047,2,conex-internet-tv.xlsx,2642,Gomez Roberto,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+2068,3,conex-internet-tv.xlsx,2118,Figueroa Miguel,Wireless,Nodo BoozNet Cordoba,20 MB +TV BASICO,Activa,TV Básica
+2068,3,conex-internet-tv.xlsx,2119,Figueroa Miguel,Wireless,Nodo BoozNet Cordoba,20 MB +TV BASICO,Activa,TV Básica
+2068,3,conex-internet-tv.xlsx,3591,Figueroa Miguel,Wireless,Nodo BoozNet Cordoba,20 MB +TV BASICO,Activa,TV Básica
+2102,2,conex-internet-tv.xlsx,3607,DiVito Eduardo,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+2102,2,conex-internet-tv.xlsx,3608,DiVito Eduardo,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+2132,2,conex-internet-tv.xlsx,1321,Korap Dante,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+2132,2,conex-internet-tv.xlsx,1435,Korap Dante,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+2173,2,conex-internet-tv.xlsx,3637,Camacho Sergio,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+2173,2,conex-internet-tv.xlsx,3638,Camacho Sergio,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+2178,2,conex-internet-tv.xlsx,839,Brandalissi Paulo Miguel,Fibra,La Granja FO,100MB+TV BASICO,Activa,TV Básica
+2178,2,conex-internet-tv.xlsx,3641,Brandalissi Paulo Miguel,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+2191,3,conex-internet-tv.xlsx,3644,Juno Ariel Federico,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+2191,3,conex-internet-tv.xlsx,3645,Juno Ariel Federico,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+2191,3,conex-internet-tv.xlsx,3646,Juno Ariel Federico,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+2205,2,conex-internet-tv.xlsx,5,Axel Gregorio Kumiec,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+2205,2,conex-internet-tv.xlsx,105,Axel Gregorio Kumiec,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+2206,2,conex-internet-tv.xlsx,1836,Fioroni Valentina,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+2206,2,conex-internet-tv.xlsx,3651,Fioroni Valentina,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+2215,2,conex-internet-tv.xlsx,902,Rubiolo Alejandro Martin,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+2215,2,conex-internet-tv.xlsx,1080,Rubiolo Alejandro Martin,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+2272,2,conex-internet-tv.xlsx,2327,Fernandez Sandra,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+2272,2,conex-internet-tv.xlsx,3679,Fernandez Sandra,Wireless,Nodo BoozNet Norte,25MbJM + TV BASICA,Activa,TV Básica
+2274,8,conex-internet-tv.xlsx,16,Fernandez de Maussion Sebastian,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+2274,8,conex-internet-tv.xlsx,17,Fernandez de Maussion Sebastian,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+2274,8,conex-internet-tv.xlsx,1880,Fernandez de Maussion Sebastian,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+2274,8,conex-internet-tv.xlsx,1881,Fernandez de Maussion Sebastian,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+2274,8,conex-internet-tv.xlsx,2858,Fernandez de Maussion Sebastian,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+2274,8,conex-internet-tv.xlsx,2859,Fernandez de Maussion Sebastian,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+2274,8,conex-internet-tv.xlsx,2860,Fernandez de Maussion Sebastian,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+2274,8,conex-internet-tv.xlsx,2861,Fernandez de Maussion Sebastian,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+2276,3,conex-internet-tv.xlsx,358,Baigorria Ignacio,TV Plan,Nodo Tirolesa FO,TV PACK FULL 2,Activa,TV Full
+2276,3,conex-internet-tv.xlsx,2862,Baigorria Ignacio,Fibra,Nodo Villa Retiro FO,300MB+TV BASICO,Activa,TV Básica
+2276,3,conex-internet-tv.xlsx,2863,Baigorria Ignacio,Fibra,Nodo Villa Retiro FO,50MB+TV BASICO,Activa,TV Básica
+2326,2,conex-internet-tv.xlsx,3699,Moyano Diego Ricardo,Wireless,Nodo Tirolesa FO,Servicio Empresa 15 Mbps PLUS,Activa,TV $0
+2326,2,conex-internet-tv.xlsx,3700,Moyano Diego Ricardo,Fibra,Nodo Tirolesa FO,50MB+TV BASICO,Activa,TV Básica
+2374,2,conex-internet-tv.xlsx,338,Pedrazzi Graciela,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+2374,2,conex-internet-tv.xlsx,339,Pedrazzi Graciela,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+2382,2,conex-internet-tv.xlsx,171,Servasio Mario - Carolina,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+2382,2,conex-internet-tv.xlsx,1626,Servasio Mario - Carolina,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+2402,2,conex-internet-tv.xlsx,3739,Del Campillo Juan Pablo,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+2402,2,conex-internet-tv.xlsx,3740,Del Campillo Juan Pablo,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+2535,2,conex-internet-tv.xlsx,1090,Miotti Gabriela,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+2535,2,conex-internet-tv.xlsx,3794,Miotti Gabriela,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+2548,2,conex-internet-tv.xlsx,1010,Dario Szmulewicz,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+2548,2,conex-internet-tv.xlsx,3800,Dario Szmulewicz,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+2563,2,conex-internet-tv.xlsx,359,Blanco Maria 32165478,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+2563,2,conex-internet-tv.xlsx,2417,Blanco Maria 32165478,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+2572,2,conex-internet-tv.xlsx,72,Blanco Adrian Ramon,Fibra,Nodo Villa Retiro FO,50MB+TV BASICO,Activa,TV Básica
+2572,2,conex-internet-tv.xlsx,2162,Blanco Adrian Ramon,Fibra,Nodo Villa Retiro FO,50MB+TV BASICO,Activa,TV Básica
+2595,2,conex-internet-tv.xlsx,3813,Villarruel Celia,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+2595,2,conex-internet-tv.xlsx,3814,Villarruel Celia,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+2603,2,conex-internet-tv.xlsx,3817,Batalla Yamila,Wireless,Nodo Tirolesa Wireless,20 MB +TV BASICO,Activa,TV Básica
+2603,2,conex-internet-tv.xlsx,3818,Batalla Yamila,Wireless,Nodo Tirolesa Wireless,20 MB +TV BASICO,Activa,TV Básica
+2621,2,conex-internet-tv.xlsx,723,Figueredo Roxana,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+2621,2,conex-internet-tv.xlsx,2349,Figueredo Roxana,Fibra,La Granja FO,100MB+TV BASICO,Activa,TV Básica
+2641,2,conex-internet-tv.xlsx,3832,Picone Andres Sebastian,Wireless,Nodo BoozNet Cordoba,20 MB +TV BASICO,Activa,TV Básica
+2641,2,conex-internet-tv.xlsx,3833,Picone Andres Sebastian,Fibra,Nodo Esquiu,50MB+TV BASICO,Activa,TV Básica
+2644,2,conex-internet-tv.xlsx,1426,Seitour Jimena,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+2644,2,conex-internet-tv.xlsx,2368,Seitour Jimena,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+2649,2,conex-internet-tv.xlsx,3836,Buonanotte Gustavo,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+2649,2,conex-internet-tv.xlsx,3837,Buonanotte Gustavo,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+2685,2,conex-internet-tv.xlsx,1705,Chapur Exequiel,Fibra,La Granja FO,100MB+TV BASICO,Activa,TV Básica
+2685,2,conex-internet-tv.xlsx,2311,Chapur Exequiel,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+2705,2,conex-internet-tv.xlsx,1773,Belgrano Lucia,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+2705,2,conex-internet-tv.xlsx,3871,Belgrano Lucia,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+2724,2,conex-internet-tv.xlsx,2866,Correa Roni,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+2724,2,conex-internet-tv.xlsx,2867,Correa Roni,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+2769,4,conex-internet-tv.xlsx,87,FUNDACION IDEAS INSTITUTO DE DESARROLLO EDUCATIVO Y ACCION SOCIAL,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+2769,4,conex-internet-tv.xlsx,88,FUNDACION IDEAS INSTITUTO DE DESARROLLO EDUCATIVO Y ACCION SOCIAL,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+2769,4,conex-internet-tv.xlsx,89,FUNDACION IDEAS INSTITUTO DE DESARROLLO EDUCATIVO Y ACCION SOCIAL,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+2769,4,conex-internet-tv.xlsx,489,FUNDACION IDEAS INSTITUTO DE DESARROLLO EDUCATIVO Y ACCION SOCIAL,Wireless,La Granja FO,20 MB +TV BASICO,Activa,TV Básica
+2784,3,conex-internet-tv.xlsx,2868,NODO Moyano Maria Eugenia,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+2784,3,conex-internet-tv.xlsx,2869,NODO Moyano Maria Eugenia,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+2784,3,conex-internet-tv.xlsx,2870,NODO Moyano Maria Eugenia,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+2790,2,conex-internet-tv.xlsx,3908,Rodriguez Carlos Alberto,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Morosa,—
+2790,2,conex-internet-tv.xlsx,3909,Rodriguez Carlos Alberto,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Morosa,—
+2869,2,conex-internet-tv.xlsx,235,Ballardini  Cristina II,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+2869,2,conex-internet-tv.xlsx,3924,Ballardini  Cristina II,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+2904,2,conex-internet-tv.xlsx,741,Correa Lidia Patricia,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+2904,2,conex-internet-tv.xlsx,3935,Correa Lidia Patricia,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+2910,2,conex-internet-tv.xlsx,3938,De La Rua  Ramon,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+2910,2,conex-internet-tv.xlsx,3939,De La Rua  Ramon,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+2937,2,conex-internet-tv.xlsx,953,Garcia Felix,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+2937,2,conex-internet-tv.xlsx,3946,Garcia Felix,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Morosa,—
+2950,2,conex-internet-tv.xlsx,2326,Gonzalez Marcela,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+2950,2,conex-internet-tv.xlsx,3951,Gonzalez Marcela,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+2963,2,conex-internet-tv.xlsx,1942,Inze Monica,Fibra,La Granja FO,100MB+TV BASICO,Activa,TV Básica
+2963,2,conex-internet-tv.xlsx,2345,Inze Monica,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+2974,2,conex-internet-tv.xlsx,2178,Lopez Cristina,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+2974,2,conex-internet-tv.xlsx,3965,Lopez Cristina,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+3016,2,conex-internet-tv.xlsx,2309,RAUL HUMBERTO DIAZ,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+3016,2,conex-internet-tv.xlsx,3981,RAUL HUMBERTO DIAZ,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+3017,2,conex-internet-tv.xlsx,1562,Perez Juan,Fibra,La Granja FO,100MB+TV BASICO,Activa,TV Básica
+3017,2,conex-internet-tv.xlsx,3982,Perez Juan,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+3022,2,conex-internet-tv.xlsx,1729,Pizarro Guillermo,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+3022,2,conex-internet-tv.xlsx,3984,Pizarro Guillermo,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+3026,2,conex-internet-tv.xlsx,319,Quiroga Ignacio,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+3026,2,conex-internet-tv.xlsx,347,Quiroga Ignacio,TV Plan,Nodo BoozNet Norte,TV PACK FULL 2,Activa,TV Full
+3048,2,conex-internet-tv.xlsx,2472,Rueda Lucio,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+3048,2,conex-internet-tv.xlsx,3996,Rueda Lucio,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+3069,2,conex-internet-tv.xlsx,1325,Turchi Patricia,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+3069,2,conex-internet-tv.xlsx,2440,Turchi Patricia,Fibra,La Granja FO,100MB+TV BASICO,Activa,TV Básica
+3072,2,conex-internet-tv.xlsx,14,Rivero Ramona Elizabet,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+3072,2,conex-internet-tv.xlsx,4007,Rivero Ramona Elizabet,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+3077,2,conex-internet-tv.xlsx,234,Vera Soledad casa,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+3077,2,conex-internet-tv.xlsx,1621,Vera Soledad casa,Fibra,La Granja FO,100MB+TV BASICO,Activa,TV Básica
+3121,2,conex-internet-tv.xlsx,2168,Arata Mariano,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+3121,2,conex-internet-tv.xlsx,4024,Arata Mariano,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+3122,3,conex-internet-tv.xlsx,1490,Diaz Raul,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+3122,3,conex-internet-tv.xlsx,1614,Diaz Raul,Fibra,La Granja FO,100MB+TV BASICO,Activa,TV Básica
+3122,3,conex-internet-tv.xlsx,1615,Diaz Raul,Fibra,La Granja FO,100MB+TV BASICO,Activa,TV Básica
+3181,2,conex-internet-tv.xlsx,60,Aguirre Hector,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+3181,2,conex-internet-tv.xlsx,1754,Aguirre Hector,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+3185,2,conex-internet-tv.xlsx,355,Cordoba Gladys,TV Plan,Nodo BoozNet Norte,TV PACK FULL 2,Activa,TV Full
+3185,2,conex-internet-tv.xlsx,4055,Cordoba Gladys,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+3193,2,conex-internet-tv.xlsx,841,Marco Patricio,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+3193,2,conex-internet-tv.xlsx,4057,Marco Patricio,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+3194,2,conex-internet-tv.xlsx,91,Saavedra Lorena,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+3194,2,conex-internet-tv.xlsx,4058,Saavedra Lorena,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+3196,2,conex-internet-tv.xlsx,366,Carrizo Luis Alberto,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+3196,2,conex-internet-tv.xlsx,2358,Carrizo Luis Alberto,Fibra,La Granja FO,100MB+TV BASICO,Activa,TV Básica
+3209,2,conex-internet-tv.xlsx,1344,Forte German,Wireless,Nodo BoozNet Cordoba,20 MB +TV BASICO,Activa,TV Básica
+3209,2,conex-internet-tv.xlsx,4065,Forte German,Wireless,Nodo BoozNet Cordoba,25MnBN + TV BASICA,Activa,TV Básica
+3260,2,conex-internet-tv.xlsx,182,Fassi Ana Maria,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+3260,2,conex-internet-tv.xlsx,309,Fassi Ana Maria,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+3354,5,conex-internet-tv.xlsx,670,Scali Esteban,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+3354,5,conex-internet-tv.xlsx,671,Scali Esteban,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+3354,5,conex-internet-tv.xlsx,1313,Scali Esteban,Fibra,Axion Nuevo,20 MB +TV BASICO,Activa,TV Básica
+3354,5,conex-internet-tv.xlsx,2058,Scali Esteban,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+3354,5,conex-internet-tv.xlsx,2749,Scali Esteban,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+3370,3,conex-internet-tv.xlsx,499,Brandalissi Carolina,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+3370,3,conex-internet-tv.xlsx,1011,Brandalissi Carolina,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+3370,3,conex-internet-tv.xlsx,1594,Brandalissi Carolina,Fibra,La Granja FO,100MB+TV BASICO,Activa,TV Básica
+3418,2,conex-internet-tv.xlsx,4158,FUERZA AEREA ARGENTINA C.F.A,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+3418,2,conex-internet-tv.xlsx,4159,FUERZA AEREA ARGENTINA C.F.A,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+3426,2,conex-internet-tv.xlsx,15,Battaino Marcos,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+3426,2,conex-internet-tv.xlsx,4162,Battaino Marcos,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+3472,2,conex-internet-tv.xlsx,496,Alessandrini Veonica Noemi,TV Plan,Nodo Tirolesa FO,TV PACK FULL 2,Activa,TV Full
+3472,2,conex-internet-tv.xlsx,4185,Alessandrini Veonica Noemi,Fibra,Nodo Tirolesa FO,50MB+TV BASICO,Activa,TV Básica
+3529,2,conex-internet-tv.xlsx,1771,Moyano Ana Sofia,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+3529,2,conex-internet-tv.xlsx,4209,Moyano Ana Sofia,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+3530,2,conex-internet-tv.xlsx,363,Manfil Ana Maiten,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+3530,2,conex-internet-tv.xlsx,1680,Manfil Ana Maiten,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+3535,2,conex-internet-tv.xlsx,4214,Altamirano Melisa,Wireless,Nodo BoozNet Cordoba,20 MB +TV BASICO,Activa,TV Básica
+3535,2,conex-internet-tv.xlsx,4215,Altamirano Melisa,Wireless,Nodo BoozNet Cordoba,20 MB +TV BASICO,Activa,TV Básica
+3560,2,conex-internet-tv.xlsx,4227,Urbano,Wireless,Nodo Pilar,20 MB +TV BASICO,Activa,TV Básica
+3560,2,conex-internet-tv.xlsx,4228,Urbano,Wireless,Nodo Rio Segundo,20 MB +TV BASICO,Activa,TV Básica
+3583,2,conex-internet-tv.xlsx,2588,Jonathan Leonel campana,Fibra,Nodo Tirolesa FO,50MB+TV BASICO,Activa,TV Básica
+3583,2,conex-internet-tv.xlsx,4241,Jonathan Leonel campana,Wireless,Nodo Tirolesa Wireless,20 MB +TV BASICO,Activa,TV Básica
+3587,2,conex-internet-tv.xlsx,12,Masotti Gustavo,Fibra,La Granja FO,100MB+TV BASICO,Activa,TV Básica
+3587,2,conex-internet-tv.xlsx,4243,Masotti Gustavo,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+3644,2,conex-internet-tv.xlsx,4275,Ortega Dario,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+3644,2,conex-internet-tv.xlsx,4276,Ortega Dario,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+3659,2,conex-internet-tv.xlsx,2634,Heredia Rodolfo Fabian,Fibra,Nodo Esquiu,100MB+TV BASICO,Morosa,—
+3659,2,conex-internet-tv.xlsx,4287,Heredia Rodolfo Fabian,Wireless,Nodo BoozNet Cordoba,20 MB +TV BASICO,Morosa,—
+3698,2,conex-internet-tv.xlsx,206,Baudagna Perez Iris,Wireless,Nodo Rio Segundo,20 MB +TV BASICO,Activa,TV Básica
+3698,2,conex-internet-tv.xlsx,4303,Baudagna Perez Iris,Wireless,Nodo Rio Segundo,20 MB +TV BASICO,Activa,TV Básica
+3712,2,conex-internet-tv.xlsx,2148,Emiliano Gabriel Rojas Tisera,Fibra,Nodo Villa Retiro FO,300MB+TV BASICO,Activa,TV Básica
+3712,2,conex-internet-tv.xlsx,4312,Emiliano Gabriel Rojas Tisera,Wireless,Nodo BoozNet Cordoba,20 MB +TV BASICO,Activa,TV Básica
+3865,2,conex-internet-tv.xlsx,2897,MAIFER SRL  NODO GRATIS,Fibra,Nodo Tirolesa FO,50MB+TV BASICO,Activa,TV Básica
+3865,2,conex-internet-tv.xlsx,2898,MAIFER SRL  NODO GRATIS,Fibra,Nodo Tirolesa FO,50MB+TV BASICO,Activa,TV Básica
+3899,3,conex-internet-tv.xlsx,1295,Noriega Bruno,Fibra,La Granja FO,100MB+TV BASICO,Activa,TV Básica
+3899,3,conex-internet-tv.xlsx,1634,Noriega Bruno,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+3899,3,conex-internet-tv.xlsx,1654,Noriega Bruno,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+3918,2,conex-internet-tv.xlsx,882,Cuitino Victor Hugo,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+3918,2,conex-internet-tv.xlsx,1088,Cuitino Victor Hugo,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+3957,2,conex-internet-tv.xlsx,1460,Diaz Sergio Omar,TV Plan,Nodo BoozNet Norte,TV PACK FULL 2,Activa,TV Full
+3957,2,conex-internet-tv.xlsx,4440,Diaz Sergio Omar,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+4043,2,conex-internet-tv.xlsx,495,Heredia Mirta,TV Plan,Nodo BoozNet Norte,TV PACK FULL 2,Activa,TV Full
+4043,2,conex-internet-tv.xlsx,4489,Heredia Mirta,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+4054,2,conex-internet-tv.xlsx,677,Gomez Claudia,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+4054,2,conex-internet-tv.xlsx,4496,Gomez Claudia,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+4056,2,conex-internet-tv.xlsx,280,Bargas Joaquin,Wireless,Nodo Rio Segundo,20 MB +TV BASICO,Activa,TV Básica
+4056,2,conex-internet-tv.xlsx,4498,Bargas Joaquin,Wireless,Nodo Rio Segundo,20 MB +TV BASICO,Activa,TV Básica
+4070,2,conex-internet-tv.xlsx,1644,Brana Juan Pablo,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+4070,2,conex-internet-tv.xlsx,4508,Brana Juan Pablo,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+4110,2,conex-internet-tv.xlsx,1379,Giuliano Fabrizio,Fibra,Nodo Tirolesa FO,100MB+TV BASICO,Activa,TV Básica
+4110,2,conex-internet-tv.xlsx,4537,Giuliano Fabrizio,Wireless,Nodo BoozNet Cordoba,20 MB +TV BASICO,Activa,TV Básica
+4118,2,conex-internet-tv.xlsx,868,Giuliano Mariana,TV Plan,Nodo Tirolesa FO,TV PACK FULL 2,Activa,TV Full
+4118,2,conex-internet-tv.xlsx,4545,Giuliano Mariana,Fibra,Nodo Tirolesa FO,50MB+TV BASICO,Activa,TV Básica
+4128,2,conex-internet-tv.xlsx,4554,CONCI RAFAEL,Fibra,Nodo Tirolesa FO,50MB+TV BASICO,Activa,TV Básica
+4128,2,conex-internet-tv.xlsx,4555,CONCI RAFAEL,Fibra,Nodo Tirolesa FO,50MB+TV BASICO,Activa,TV Básica
+4129,2,conex-internet-tv.xlsx,2202,Melgarejo Victor,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+4129,2,conex-internet-tv.xlsx,2203,Melgarejo Victor,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+4157,2,conex-internet-tv.xlsx,233,RAGONA PAULA,Fibra,Nodo Tirolesa FO,100MB+TV BASICO,Activa,TV Básica
+4157,2,conex-internet-tv.xlsx,4576,RAGONA PAULA,Fibra,Nodo Tirolesa FO,50MB+TV BASICO,Activa,TV Básica
+4168,2,conex-internet-tv.xlsx,4584,Brollo Susana beatriz,Fibra,Nodo Tirolesa FO,50MB+TV BASICO,Activa,TV Básica
+4168,2,conex-internet-tv.xlsx,4585,Brollo Susana beatriz,Fibra,Nodo Tirolesa FO,50MB+TV BASICO,Activa,TV Básica
+4221,2,conex-internet-tv.xlsx,4620,CONCI ARMANDO,Fibra,Nodo Tirolesa FO,50MB+TV BASICO,Activa,TV Básica
+4221,2,conex-internet-tv.xlsx,4621,CONCI ARMANDO,Fibra,Nodo Tirolesa FO,50MB+TV BASICO,Activa,TV Básica
+4232,2,conex-internet-tv.xlsx,4624,AGUIRRE ALEXIS ALEJANDRO,Fibra,Nodo Tirolesa FO,50MB+TV BASICO,Activa,TV Básica
+4232,2,conex-internet-tv.xlsx,4625,AGUIRRE ALEXIS ALEJANDRO,Wireless,Nodo Tirolesa Wireless,20 MB +TV BASICO,Activa,TV Básica
+4282,2,conex-internet-tv.xlsx,912,Monges Silvana,TV Plan,Nodo BoozNet Norte,TV PACK FULL 2,Activa,TV Full
+4282,2,conex-internet-tv.xlsx,4659,Monges Silvana,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+4283,2,conex-internet-tv.xlsx,736,Malena Maldonado,Fibra,Nodo Tirolesa FO,100MB+TV BASICO,Morosa,—
+4283,2,conex-internet-tv.xlsx,4660,Malena Maldonado,Wireless,Nodo Tirolesa Wireless,20 MB +TV BASICO,Morosa,—
+4310,2,conex-internet-tv.xlsx,1461,Zoldano Mario,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+4310,2,conex-internet-tv.xlsx,1474,Zoldano Mario,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+4327,2,conex-internet-tv.xlsx,1638,Federico Andres Karpuk,Fibra,Nodo Tirolesa FO,300MB+TV BASICO,Morosa,—
+4327,2,conex-internet-tv.xlsx,4687,Federico Andres Karpuk,Wireless,Nodo Tirolesa Wireless,20 MB +TV BASICO,Morosa,—
+4370,3,conex-internet-tv.xlsx,296,NEXA CONSTRUCCIONES S.A.S,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+4370,3,conex-internet-tv.xlsx,4702,NEXA CONSTRUCCIONES S.A.S,Wireless,Nodo Esquiu,Servicio EMPRESA 300 MEGAS FULL  FIBRA,Activa,TV $0
+4370,3,conex-internet-tv.xlsx,4703,NEXA CONSTRUCCIONES S.A.S,Fibra,Nodo Esquiu,100MB+TV BASICO,Activa,TV Básica
+4373,2,conex-internet-tv.xlsx,236,CECATO GRACIELA,Fibra,Nodo Tirolesa FO,300MB+TV BASICO,Activa,TV Básica
+4373,2,conex-internet-tv.xlsx,2131,CECATO GRACIELA,Fibra,Nodo Tirolesa FO,300MB+TV BASICO,Activa,TV Básica
+4383,2,conex-internet-tv.xlsx,674,DINCA MAXIMILIANO,Wireless,Nodo Tirolesa Wireless,20 MB +TV BASICO,Activa,TV Básica
+4383,2,conex-internet-tv.xlsx,4707,DINCA MAXIMILIANO,Wireless,Nodo Tirolesa Wireless,20 MB +TV BASICO,Activa,TV Básica
+4384,2,conex-internet-tv.xlsx,315,SUREZ MARIA LAURA,Wireless,Nodo Tirolesa Wireless,20 MB +TV BASICO,Activa,TV Básica
+4384,2,conex-internet-tv.xlsx,4708,SUREZ MARIA LAURA,Wireless,Nodo Tirolesa Wireless,20 MB +TV BASICO,Activa,TV Básica
+4386,2,conex-internet-tv.xlsx,1820,Andrea Molinengo,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+4386,2,conex-internet-tv.xlsx,4710,Andrea Molinengo,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+4394,2,conex-internet-tv.xlsx,1320,Garcia Marco JAvier,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+4394,2,conex-internet-tv.xlsx,4713,Garcia Marco JAvier,Wireless,Nodo BoozNet Cordoba,20 MB +TV BASICO,Activa,TV Básica
+4398,2,conex-internet-tv.xlsx,2197,Edgardo Sebastian Dinca,Wireless,Nodo Tirolesa Wireless,20 MB +TV BASICO,Activa,TV Básica
+4398,2,conex-internet-tv.xlsx,4715,Edgardo Sebastian Dinca,Wireless,Nodo Tirolesa Wireless,20 MB +TV BASICO,Activa,TV Básica
+4430,2,conex-internet-tv.xlsx,53,CASTRO ISABEL BEATRIZ,Wireless,Nodo Tirolesa Wireless,20 MB +TV BASICO,Activa,TV Básica
+4430,2,conex-internet-tv.xlsx,4727,CASTRO ISABEL BEATRIZ,Fibra,Nodo Tirolesa FO,50MB+TV BASICO,Activa,TV Básica
+4493,2,conex-internet-tv.xlsx,2776,VALDEZ CLAUDIA,Wireless,Nodo Rio Segundo,20 MB +TV BASICO,Activa,TV Básica
+4493,2,conex-internet-tv.xlsx,2826,VALDEZ CLAUDIA,Wireless,Nodo Rio Segundo,20 MB +TV BASICO,Activa,TV Básica
+4502,2,conex-internet-tv.xlsx,201,Zalazar Veronica,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+4502,2,conex-internet-tv.xlsx,1689,Zalazar Veronica,Fibra,La Granja FO,100MB+TV BASICO,Activa,TV Básica
+4535,2,conex-internet-tv.xlsx,582,Cristian Andres Aguirre,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+4535,2,conex-internet-tv.xlsx,2791,Cristian Andres Aguirre,Wireless,Axion Nuevo,20 MB +TV BASICO,Activa,TV Básica
+4536,4,conex-internet-tv.xlsx,357,Randazzo Juan Jose,TV Plan,Nodo Esquiu,TV PACK FULL 1,Activa,TV Full
+4536,4,conex-internet-tv.xlsx,610,Randazzo Juan Jose,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+4536,4,conex-internet-tv.xlsx,611,Randazzo Juan Jose,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+4536,4,conex-internet-tv.xlsx,2790,Randazzo Juan Jose,Wireless,Nodo BoozNet Cordoba,20 MB +TV BASICO,Activa,TV Básica
+4585,2,conex-internet-tv.xlsx,2728,Paz Jesica Cordoba,Wireless,Nodo Rio Segundo,20 MB +TV BASICO,Activa,TV Básica
+4585,2,conex-internet-tv.xlsx,2740,Paz Jesica Cordoba,Wireless,Nodo Rio Segundo,20 MB +TV BASICO,Activa,TV Básica
+4594,2,conex-internet-tv.xlsx,1434,Gomez Kevin,Fibra,Nodo Esquiu,50MB+TV BASICO,Activa,TV Básica
+4594,2,conex-internet-tv.xlsx,2722,Gomez Kevin,Fibra,Nodo Esquiu,100MB+TV BASICO,Activa,TV Básica
+4602,2,conex-internet-tv.xlsx,172,Herrera Gisela,TV Plan,Nodo Esquiu,TV PACK FULL 2,Activa,TV Full
+4602,2,conex-internet-tv.xlsx,372,Herrera Gisela,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+4607,2,conex-internet-tv.xlsx,567,Morales Bernardo,Wireless,Nodo BoozNet Cordoba,20 MB +TV BASICO,Activa,TV Básica
+4607,2,conex-internet-tv.xlsx,2715,Morales Bernardo,Wireless,Nodo BoozNet Cordoba,20 MB +TV BASICO,Activa,TV Básica
+4633,2,conex-internet-tv.xlsx,37,Olivera Vanesa,Fibra,Nodo Esquiu,100MB+TV BASICO,Activa,TV Básica
+4633,2,conex-internet-tv.xlsx,2692,Olivera Vanesa,Wireless,Nodo BoozNet Cordoba,20 MB +TV BASICO,Activa,TV Básica
+4689,2,conex-internet-tv.xlsx,521,Martinez Maria Jose,TV Plan,Nodo BoozNet Cordoba,TV PACK FULL 2,Activa,TV Full
+4689,2,conex-internet-tv.xlsx,2648,Martinez Maria Jose,Wireless,Axion Nuevo,Servicio EMPRESA 50 MEGAS FULL WIRELES,Activa,TV $0
+4744,2,conex-internet-tv.xlsx,179,Alvarez Rafael,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+4744,2,conex-internet-tv.xlsx,283,Alvarez Rafael,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+4760,2,conex-internet-tv.xlsx,2412,Ceredi Pablo César,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+4760,2,conex-internet-tv.xlsx,2578,Ceredi Pablo César,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+4777,2,conex-internet-tv.xlsx,1331,Balentino Emilse mariana,Fibra,Nodo Tirolesa FO,300MB+TV BASICO,Activa,TV Básica
+4777,2,conex-internet-tv.xlsx,2549,Balentino Emilse mariana,Fibra,Nodo Tirolesa FO,100MB+TV BASICO,Activa,TV Básica
+4846,2,conex-internet-tv.xlsx,1560,Ruggieri Victoria,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+4846,2,conex-internet-tv.xlsx,1567,Ruggieri Victoria,Fibra,La Granja FO,100MB+TV BASICO,Activa,TV Básica
+4855,2,conex-internet-tv.xlsx,2335,NODO MIGUENS,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+4855,2,conex-internet-tv.xlsx,2491,NODO MIGUENS,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+4856,3,conex-internet-tv.xlsx,1944,NODO RUEDA,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+4856,3,conex-internet-tv.xlsx,1945,NODO RUEDA,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+4856,3,conex-internet-tv.xlsx,2490,NODO RUEDA,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+4901,2,conex-internet-tv.xlsx,1640,López Marta Elena,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+4901,2,conex-internet-tv.xlsx,2449,López Marta Elena,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+4910,2,conex-internet-tv.xlsx,1507,Rodriguez Ivana verónica,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+4910,2,conex-internet-tv.xlsx,1899,Rodriguez Ivana verónica,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+4917,2,conex-internet-tv.xlsx,1299,Angela Ester Torres Cortes,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+4917,2,conex-internet-tv.xlsx,2428,Angela Ester Torres Cortes,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+4932,2,conex-internet-tv.xlsx,1522,Zaya Agustin,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+4932,2,conex-internet-tv.xlsx,2413,Zaya Agustin,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+4941,2,conex-internet-tv.xlsx,897,Córdoba Pablo,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+4941,2,conex-internet-tv.xlsx,2400,Córdoba Pablo,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+4971,2,conex-internet-tv.xlsx,699,Flores Luciano,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+4971,2,conex-internet-tv.xlsx,2369,Flores Luciano,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+4978,2,conex-internet-tv.xlsx,523,Pausada Roberto,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+4978,2,conex-internet-tv.xlsx,2356,Pausada Roberto,Fibra,La Granja FO,100MB+TV BASICO,Activa,TV Básica
+5003,2,conex-internet-tv.xlsx,528,Villarroel MÃ³nica Patricia,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+5003,2,conex-internet-tv.xlsx,2334,Villarroel MÃ³nica Patricia,Fibra,La Granja FO,100MB+TV BASICO,Activa,TV Básica
+5008,2,conex-internet-tv.xlsx,2328,Franco Bruschi,Fibra,Nodo Tirolesa FO,300MB+TV BASICO,Activa,TV Básica
+5008,2,conex-internet-tv.xlsx,2331,Franco Bruschi,Fibra,Nodo Tirolesa FO,300MB+TV BASICO,Activa,TV Básica
+5015,2,conex-internet-tv.xlsx,2044,Grismado Karen Tamara,Fibra,Nodo Villa Retiro FO,50MB+TV BASICO,Activa,TV Básica
+5015,2,conex-internet-tv.xlsx,2292,Grismado Karen Tamara,Fibra,Nodo Villa Retiro FO,50MB+TV BASICO,Activa,TV Básica
+5030,2,conex-internet-tv.xlsx,1382,Pia Benoit,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+5030,2,conex-internet-tv.xlsx,2308,Pia Benoit,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+5032,2,conex-internet-tv.xlsx,903,Pérez Mariana Rosana,TV Plan,Nodo BoozNet Norte,TV PACK FULL 2,Activa,TV Full
+5032,2,conex-internet-tv.xlsx,2306,Pérez Mariana Rosana,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+5048,2,conex-internet-tv.xlsx,706,Guevara Julian,Fibra,La Granja FO,100MB+TV BASICO,Activa,TV Básica
+5048,2,conex-internet-tv.xlsx,2291,Guevara Julian,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+5049,2,conex-internet-tv.xlsx,725,Magnano Mario Luis,TV Plan,Nodo Esquiu,TV PACK FULL 2,Activa,TV Full
+5049,2,conex-internet-tv.xlsx,2286,Magnano Mario Luis,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+5082,2,conex-internet-tv.xlsx,240,Pittaro Juan Daniel,Fibra,La Granja FO,100MB+TV BASICO,Activa,TV Básica
+5082,2,conex-internet-tv.xlsx,2257,Pittaro Juan Daniel,Fibra,La Granja FO,100MB+TV BASICO,Activa,TV Básica
+5097,2,conex-internet-tv.xlsx,311,Gonzalez Gustavo Gaston,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+5097,2,conex-internet-tv.xlsx,2238,Gonzalez Gustavo Gaston,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+5098,2,conex-internet-tv.xlsx,2195,Gonzalez Garcia Lautaro,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+5098,2,conex-internet-tv.xlsx,2234,Gonzalez Garcia Lautaro,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+5126,2,conex-internet-tv.xlsx,74,Cabrera Jose Enrique,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+5126,2,conex-internet-tv.xlsx,2210,Cabrera Jose Enrique,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+5150,2,conex-internet-tv.xlsx,986,Exposito Maria Ana,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+5150,2,conex-internet-tv.xlsx,2184,Exposito Maria Ana,Fibra,La Granja FO,100MB+TV BASICO,Activa,TV Básica
+5157,2,conex-internet-tv.xlsx,750,Madero Rodolfo Javier,TV Plan,La Granja FO,TV PACK FULL 2,Morosa,—
+5157,2,conex-internet-tv.xlsx,2173,Madero Rodolfo Javier,Fibra,La Granja FO,300MB+TV BASICO,Morosa,—
+5176,2,conex-internet-tv.xlsx,1479,Diaz Argentina Ramona,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+5176,2,conex-internet-tv.xlsx,2155,Diaz Argentina Ramona,Fibra,La Granja FO,100MB+TV BASICO,Activa,TV Básica
+5182,2,conex-internet-tv.xlsx,2151,Montoya Alejandra,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+5182,2,conex-internet-tv.xlsx,2152,Montoya Alejandra,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+5189,2,conex-internet-tv.xlsx,847,Moschen Miguel Angel,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+5189,2,conex-internet-tv.xlsx,864,Moschen Miguel Angel,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+5206,2,conex-internet-tv.xlsx,529,González Lucas,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+5206,2,conex-internet-tv.xlsx,2134,González Lucas,Fibra,La Granja FO,100MB+TV BASICO,Activa,TV Básica
+5207,2,conex-internet-tv.xlsx,1946,Paz Brian  NODO EL BAJITO,Wireless,Nodo Rio Segundo,20 MB +TV BASICO,Activa,TV Básica
+5207,2,conex-internet-tv.xlsx,1947,Paz Brian  NODO EL BAJITO,Wireless,Nodo Rio Segundo,20 MB +TV BASICO,Activa,TV Básica
+5228,2,conex-internet-tv.xlsx,2113,Ruiz Gustavo,Wireless,Nodo Rio Segundo,20 MB +TV BASICO,Activa,TV Básica
+5228,2,conex-internet-tv.xlsx,2114,Ruiz Gustavo,Wireless,Nodo Rio Segundo,50MB+TV BASICO,Activa,TV Básica
+5259,2,conex-internet-tv.xlsx,911,Cordoba Victoria,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+5259,2,conex-internet-tv.xlsx,1412,Cordoba Victoria,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+5261,2,conex-internet-tv.xlsx,2067,Corespa SAS,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+5261,2,conex-internet-tv.xlsx,2068,Corespa SAS,Fibra,Nodo Villa Retiro FO,300MB+TV BASICO,Activa,TV Básica
+5283,2,conex-internet-tv.xlsx,1915,Quintero Raul,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+5283,2,conex-internet-tv.xlsx,2036,Quintero Raul,Fibra,La Granja FO,100MB+TV BASICO,Activa,TV Básica
+5287,2,conex-internet-tv.xlsx,962,Capdevila Lorena Susana,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+5287,2,conex-internet-tv.xlsx,2039,Capdevila Lorena Susana,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+5304,2,conex-internet-tv.xlsx,367,Dischner Jorge,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+5304,2,conex-internet-tv.xlsx,2021,Dischner Jorge,Fibra,La Granja FO,100MB+TV BASICO,Activa,TV Básica
+5310,2,conex-internet-tv.xlsx,231,Mateos Jonathan,Fibra,Nodo Villa Retiro FO,50MB+TV BASICO,Activa,TV Básica
+5310,2,conex-internet-tv.xlsx,1991,Mateos Jonathan,Wireless,Nodo BoozNet Cordoba,20 MB +TV BASICO,Activa,TV Básica
+5311,3,conex-internet-tv.xlsx,191,Yosviak Rogelio Agustín,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+5311,3,conex-internet-tv.xlsx,192,Yosviak Rogelio Agustín,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+5311,3,conex-internet-tv.xlsx,2012,Yosviak Rogelio Agustín,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+5318,2,conex-internet-tv.xlsx,1686,Rojas Milagros,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+5318,2,conex-internet-tv.xlsx,2006,Rojas Milagros,Fibra,Nodo Esquiu,100MB+TV BASICO,Activa,TV Básica
+5323,2,conex-internet-tv.xlsx,845,Stoltzing Rodolfo,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+5323,2,conex-internet-tv.xlsx,2003,Stoltzing Rodolfo,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+5329,2,conex-internet-tv.xlsx,1794,Giacom Maria Teresa Peralta,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+5329,2,conex-internet-tv.xlsx,1999,Giacom Maria Teresa Peralta,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+5374,2,conex-internet-tv.xlsx,409,Tuli Correa Ignacio,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+5374,2,conex-internet-tv.xlsx,1962,Tuli Correa Ignacio,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+5389,2,conex-internet-tv.xlsx,1949,Elsio Reutfeisch NODO MADERERA Rio Segundo,Wireless,Nodo Rio Segundo,20 MB +TV BASICO,Activa,TV Básica
+5389,2,conex-internet-tv.xlsx,1950,Elsio Reutfeisch NODO MADERERA Rio Segundo,Wireless,Nodo Rio Segundo,20 MB +TV BASICO,Activa,TV Básica
+5390,2,conex-internet-tv.xlsx,1714,LAURA SOLEDAD MORENO,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+5390,2,conex-internet-tv.xlsx,1948,LAURA SOLEDAD MORENO,Wireless,Nodo BoozNet Norte,50MB+TV BASICO,Activa,TV Básica
+5393,2,conex-internet-tv.xlsx,514,"Gimenez 
+Gonzalo Daniel",TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+5393,2,conex-internet-tv.xlsx,1939,"Gimenez 
+Gonzalo Daniel",Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+5404,2,conex-internet-tv.xlsx,1337,Javurek Oscar Germán,Fibra,La Granja FO,100MB+TV BASICO,Activa,TV Básica
+5404,2,conex-internet-tv.xlsx,1926,Javurek Oscar Germán,Fibra,La Granja FO,100MB+TV BASICO,Activa,TV Básica
+5423,3,conex-internet-tv.xlsx,1907,Seifratelli,Fibra,Nodo Villa Retiro FO,50MB+TV BASICO,Activa,TV Básica
+5423,3,conex-internet-tv.xlsx,1908,Seifratelli,Fibra,Nodo Villa Retiro FO,50MB+TV BASICO,Activa,TV Básica
+5423,3,conex-internet-tv.xlsx,1909,Seifratelli,Fibra,Nodo Villa Retiro FO,300MB+TV BASICO,Activa,TV Básica
+5429,2,conex-internet-tv.xlsx,1681,Neida Luz Choque Blas,Fibra,Nodo Tirolesa FO,300MB+TV BASICO,Activa,TV Básica
+5429,2,conex-internet-tv.xlsx,1897,Neida Luz Choque Blas,Fibra,Nodo Villa Retiro FO,300MB+TV BASICO,Activa,TV Básica
+5438,2,conex-internet-tv.xlsx,726,Cordoba Silvia Liliana,TV Plan,Nodo BoozNet Norte,TV PACK FULL 2,Activa,TV Full
+5438,2,conex-internet-tv.xlsx,1888,Cordoba Silvia Liliana,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+5468,2,conex-internet-tv.xlsx,1548,Barrios Juan Ignacio,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+5468,2,conex-internet-tv.xlsx,1862,Barrios Juan Ignacio,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+5501,2,conex-internet-tv.xlsx,886,Luna Giuliana,TV Plan,Nodo BoozNet Cordoba,TV PACK FULL 2,Activa,TV Full
+5501,2,conex-internet-tv.xlsx,1829,Luna Giuliana,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+5557,2,conex-internet-tv.xlsx,368,Amaya Marina,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+5557,2,conex-internet-tv.xlsx,1732,Amaya Marina,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+5609,2,conex-internet-tv.xlsx,1636,Cruz Emanuel,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+5609,2,conex-internet-tv.xlsx,1637,Cruz Emanuel,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+5610,2,conex-internet-tv.xlsx,170,Pollano Juana Mabel,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+5610,2,conex-internet-tv.xlsx,222,Pollano Juana Mabel,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+5674,2,conex-internet-tv.xlsx,1483,Londero Gustavo German,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+5674,2,conex-internet-tv.xlsx,1535,Londero Gustavo German,Fibra,La Granja FO,100MB+TV BASICO,Activa,TV Básica
+5682,3,conex-internet-tv.xlsx,404,JOVA SAS,Fibra,NODO Malvinas,Servicio EMPRESA 300 MEGAS FULL  FIBRA,Activa,TV $0
+5682,3,conex-internet-tv.xlsx,1420,JOVA SAS,Wireless,Nodo BoozNet Cordoba,Empresa 300M Wireless,Activa,TV $0
+5682,3,conex-internet-tv.xlsx,1515,JOVA SAS,Wireless,Nodo BoozNet Cordoba,Servicio EMPRESA 150 MEGAS FULL FIBRA,Activa,TV Básica
+5710,2,conex-internet-tv.xlsx,169,Tevez Jose Maria,TV Plan,Nodo BoozNet Norte,TV PACK FULL 2,Activa,TV Full
+5710,2,conex-internet-tv.xlsx,1468,Tevez Jose Maria,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+5731,2,conex-internet-tv.xlsx,1354,Manzano Carlos Daniel,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+5731,2,conex-internet-tv.xlsx,1447,Manzano Carlos Daniel,Wireless,Nodo BoozNet Cordoba,20 MB +TV BASICO,Activa,TV Básica
+5736,2,conex-internet-tv.xlsx,746,Ontivero Alejandro Gabriel,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+5736,2,conex-internet-tv.xlsx,1438,Ontivero Alejandro Gabriel,TV Plan,Nodo BoozNet Norte,TV PACK FULL 2,Activa,TV Full
+5781,2,conex-internet-tv.xlsx,910,Moyano Eliana Noelia,TV Plan,Nodo Rio Segundo,TV PACK FULL 2,Activa,TV Full
+5781,2,conex-internet-tv.xlsx,1391,Moyano Eliana Noelia,Wireless,Nodo Rio Segundo,20 MB +TV BASICO,Activa,TV Básica
+5802,2,conex-internet-tv.xlsx,884,Eschoyez Fernando Nicolas,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+5802,2,conex-internet-tv.xlsx,1361,Eschoyez Fernando Nicolas,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+5814,2,conex-internet-tv.xlsx,10,Camaduro Arturo,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+5814,2,conex-internet-tv.xlsx,1345,Camaduro Arturo,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+5816,2,conex-internet-tv.xlsx,1341,Ciarimboli Juan Marcelo,Wireless,Nodo BoozNet Cordoba,20 MB +TV BASICO,Activa,TV Básica
+5816,2,conex-internet-tv.xlsx,1342,Ciarimboli Juan Marcelo,Wireless,Nodo BoozNet Cordoba,20 MB +TV BASICO,Activa,TV Básica
+5827,2,conex-internet-tv.xlsx,362,Morales Rodolfo Martin,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+5827,2,conex-internet-tv.xlsx,1330,Morales Rodolfo Martin,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+5839,2,conex-internet-tv.xlsx,1311,Nadaya Criado Analia Alejandra,TV Plan,Nodo Esquiu,TV PACK FULL 2,Activa,TV Full
+5839,2,conex-internet-tv.xlsx,1312,Nadaya Criado Analia Alejandra,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+5844,2,conex-internet-tv.xlsx,252,Buljubasich Margarita,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+5844,2,conex-internet-tv.xlsx,1307,Buljubasich Margarita,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+5883,2,conex-internet-tv.xlsx,183,Cuello Juan Carlos Andres,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+5883,2,conex-internet-tv.xlsx,301,Cuello Juan Carlos Andres,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+5890,2,conex-internet-tv.xlsx,522,Cuello Patricia Alejandra,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+5890,2,conex-internet-tv.xlsx,1260,Cuello Patricia Alejandra,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+5892,2,conex-internet-tv.xlsx,365,Arce Maria Belen,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+5892,2,conex-internet-tv.xlsx,1258,Arce Maria Belen,Fibra,La Granja FO,100MB+TV BASICO,Activa,TV Básica
+5893,2,conex-internet-tv.xlsx,500,Cordoba Mayra Celeste,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+5893,2,conex-internet-tv.xlsx,1257,Cordoba Mayra Celeste,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+5901,2,conex-internet-tv.xlsx,867,Papatanasi Daniela,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+5901,2,conex-internet-tv.xlsx,1250,Papatanasi Daniela,Fibra,La Granja FO,100MB+TV BASICO,Activa,TV Básica
+5913,2,conex-internet-tv.xlsx,1120,Figueroa Jorge Antonio,TV Plan,Nodo BoozNet Norte,TV PACK FULL 2,Activa,TV Full
+5913,2,conex-internet-tv.xlsx,1241,Figueroa Jorge Antonio,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+5914,2,conex-internet-tv.xlsx,896,Aguero Franco Gustavo,TV Plan,Nodo BoozNet Norte,TV PACK FULL 2,Activa,TV Full
+5914,2,conex-internet-tv.xlsx,1240,Aguero Franco Gustavo,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+5915,2,conex-internet-tv.xlsx,1117,Quiroga Juan Carlos,TV Plan,Nodo BoozNet Norte,TV PACK FULL 2,Activa,TV Full
+5915,2,conex-internet-tv.xlsx,1239,Quiroga Juan Carlos,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+5934,2,conex-internet-tv.xlsx,1222,Rojas Maricel Noemi,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+5934,2,conex-internet-tv.xlsx,1223,Rojas Maricel Noemi,Fibra,Nodo Esquiu,20 MB +TV BASICO,Activa,TV Básica
+5938,3,conex-internet-tv.xlsx,900,Di Leo Hector Gustavo,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+5938,3,conex-internet-tv.xlsx,1097,Di Leo Hector Gustavo,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+5938,3,conex-internet-tv.xlsx,1220,Di Leo Hector Gustavo,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+5947,2,conex-internet-tv.xlsx,686,Daer Jorge Raul,TV Plan,Nodo Tirolesa FO,TV PACK FULL 2,Activa,TV Full
+5947,2,conex-internet-tv.xlsx,1212,Daer Jorge Raul,Fibra,Nodo Tirolesa FO,100MB+TV BASICO,Activa,TV Básica
+5949,2,conex-internet-tv.xlsx,1209,Escuti Sanchez Ines,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+5949,2,conex-internet-tv.xlsx,1210,Escuti Sanchez Ines,Fibra,La Granja FO,100MB+TV BASICO,Activa,TV Básica
+5950,2,conex-internet-tv.xlsx,530,Santore Marcelo Fabian,TV Plan,Nodo Tirolesa Wireless,TV PACK FULL 2,Activa,TV Full
+5950,2,conex-internet-tv.xlsx,1207,Santore Marcelo Fabian,Fibra,Nodo Esquiu,50MB+TV BASICO,Activa,TV Básica
+5959,2,conex-internet-tv.xlsx,1134,Rocha Ricardo,Wireless,Nodo Rio Segundo,20 MB +TV BASICO,Activa,TV Básica
+5959,2,conex-internet-tv.xlsx,1198,Rocha Ricardo,Wireless,Nodo Rio Segundo,20 MB +TV BASICO,Activa,TV Básica
+5972,2,conex-internet-tv.xlsx,901,Perez Erika,TV Plan,Nodo BoozNet Norte,TV PACK FULL 2,Activa,TV Full
+5972,2,conex-internet-tv.xlsx,1186,Perez Erika,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+5994,2,conex-internet-tv.xlsx,56,GALLARDO LAURA,Fibra,Nodo Esquiu,50MB+TV BASICO,Activa,TV Básica
+5994,2,conex-internet-tv.xlsx,1164,GALLARDO LAURA,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6006,2,conex-internet-tv.xlsx,748,GALLARA CELIA,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+6006,2,conex-internet-tv.xlsx,1151,GALLARA CELIA,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+6023,2,conex-internet-tv.xlsx,908,Gutierrez Maria Laura,TV Plan,Nodo Esquiu,TV PACK FULL 2,Activa,TV Full
+6023,2,conex-internet-tv.xlsx,1130,Gutierrez Maria Laura,Fibra,Nodo Esquiu,100MB+TV BASICO,Activa,TV Básica
+6024,2,conex-internet-tv.xlsx,676,Lopez Marcelo Nicolas,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6024,2,conex-internet-tv.xlsx,1129,Lopez Marcelo Nicolas,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6041,2,conex-internet-tv.xlsx,752,Guevara Gabriela,TV Plan,Nodo Esquiu,TV PACK FULL 2,Activa,TV Full
+6041,2,conex-internet-tv.xlsx,1114,Guevara Gabriela,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6048,2,conex-internet-tv.xlsx,1106,Farias Carolina,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+6048,2,conex-internet-tv.xlsx,1107,Farias Carolina,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+6092,2,conex-internet-tv.xlsx,1058,Rivero David Fernando,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+6092,2,conex-internet-tv.xlsx,1059,Rivero David Fernando,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+6104,2,conex-internet-tv.xlsx,899,Biazutti Florencia,TV Plan,Nodo Esquiu,TV PACK FULL 2,Activa,TV Full
+6104,2,conex-internet-tv.xlsx,1043,Biazutti Florencia,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6114,2,conex-internet-tv.xlsx,348,Villaruel Marcelo,TV Plan,Nodo BoozNet Norte,TV PACK FULL 2,Activa,TV Full
+6114,2,conex-internet-tv.xlsx,1026,Villaruel Marcelo,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+6115,2,conex-internet-tv.xlsx,898,Estanciero Marcos,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+6115,2,conex-internet-tv.xlsx,1025,Estanciero Marcos,Fibra,La Granja FO,100MB+TV BASICO,Activa,TV Básica
+6117,2,conex-internet-tv.xlsx,811,Ledesma Lorena,Fibra,La Granja FO,100MB+TV BASICO,Activa,TV Básica
+6117,2,conex-internet-tv.xlsx,1013,Ledesma Lorena,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+6138,2,conex-internet-tv.xlsx,135,Villarruel Carlos Enrique,Wireless,Nodo Rio Segundo,20 MB +TV BASICO,Activa,TV Básica
+6138,2,conex-internet-tv.xlsx,994,Villarruel Carlos Enrique,Wireless,Nodo Rio Segundo,20 MB +TV BASICO,Activa,TV Básica
+6231,2,conex-internet-tv.xlsx,749,Maydana Hector Hugo,TV Plan,Nodo Rio Segundo,TV PACK FULL 2,Activa,TV Full
+6231,2,conex-internet-tv.xlsx,879,Maydana Hector Hugo,Wireless,Nodo Tirolesa Wireless,20 MB +TV BASICO,Activa,TV Básica
+6254,2,conex-internet-tv.xlsx,828,Escovedo Daiana Desiree,Wireless,Nodo Pilar,20 MB +TV BASICO,Activa,TV Básica
+6254,2,conex-internet-tv.xlsx,855,Escovedo Daiana Desiree,Wireless,Nodo Rio Segundo,20 MB +TV BASICO,Activa,TV Básica
+6267,2,conex-internet-tv.xlsx,406,Bosch Gisele,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+6267,2,conex-internet-tv.xlsx,837,Bosch Gisele,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+6276,2,conex-internet-tv.xlsx,795,Pacharoni Daniel,TV Plan,Nodo Esquiu,TV PACK FULL 2,Activa,TV Full
+6276,2,conex-internet-tv.xlsx,827,Pacharoni Daniel,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6294,2,conex-internet-tv.xlsx,794,Trapani Pablo,Fibra,Nodo Esquiu,TV PACK FULL 2,Activa,TV Full
+6294,2,conex-internet-tv.xlsx,807,Trapani Pablo,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6301,2,conex-internet-tv.xlsx,784,Rinaudo Lidia Cristina,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+6301,2,conex-internet-tv.xlsx,800,Rinaudo Lidia Cristina,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+6308,3,conex-internet-tv.xlsx,751,Irusta Hector,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+6308,3,conex-internet-tv.xlsx,773,Irusta Hector,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+6308,3,conex-internet-tv.xlsx,791,Irusta Hector,Fibra,Nodo BoozNet Norte,300MB+TV BASICO,Activa,TV Básica
+6310,2,conex-internet-tv.xlsx,783,Fioretti Cynthia,TV Plan,Nodo Esquiu,TV PACK FULL 2,Activa,TV Full
+6310,2,conex-internet-tv.xlsx,789,Fioretti Cynthia,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6330,2,conex-internet-tv.xlsx,747,Vera Cynthia,TV Plan,Nodo Esquiu,TV PACK FULL 2,Activa,TV Full
+6330,2,conex-internet-tv.xlsx,763,Vera Cynthia,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6342,2,conex-internet-tv.xlsx,552,Monasterolo Juan Carlos,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6342,2,conex-internet-tv.xlsx,744,Monasterolo Juan Carlos,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6349,2,conex-internet-tv.xlsx,724,Schvab Gisele,TV Plan,Nodo Esquiu,TV PACK FULL 2,Activa,TV Full
+6349,2,conex-internet-tv.xlsx,735,Schvab Gisele,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6357,2,conex-internet-tv.xlsx,714,Fontenla Maria Soledad,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+6357,2,conex-internet-tv.xlsx,728,Fontenla Maria Soledad,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+6360,2,conex-internet-tv.xlsx,698,Barbieri Georgina Antonella,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+6360,2,conex-internet-tv.xlsx,720,Barbieri Georgina Antonella,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+6370,2,conex-internet-tv.xlsx,703,Pajón Emanuel Román,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+6370,2,conex-internet-tv.xlsx,704,Pajón Emanuel Román,Fibra,La Granja FO,100MB+TV BASICO,Activa,TV Básica
+6371,2,conex-internet-tv.xlsx,531,Farias Celina Ruth,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+6371,2,conex-internet-tv.xlsx,702,Farias Celina Ruth,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+6378,2,conex-internet-tv.xlsx,533,Gallo Matias,TV Plan,Nodo Esquiu,TV PACK FULL 2,Activa,TV Full
+6378,2,conex-internet-tv.xlsx,692,Gallo Matias,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6398,2,conex-internet-tv.xlsx,504,Peralta Walter,TV Plan,Nodo Esquiu,TV PACK FULL 1,Activa,TV Full
+6398,2,conex-internet-tv.xlsx,662,Peralta Walter,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6402,2,conex-internet-tv.xlsx,527,Brondo Gabriel,TV Plan,Nodo Esquiu,TV PACK FULL 1,Activa,TV Full
+6402,2,conex-internet-tv.xlsx,660,Brondo Gabriel,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6403,2,conex-internet-tv.xlsx,524,Romero Cristian,TV Plan,Nodo Esquiu,TV PACK FULL 1,Activa,TV Full
+6403,2,conex-internet-tv.xlsx,659,Romero Cristian,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6404,2,conex-internet-tv.xlsx,526,Santillan Guillerma,TV Plan,Nodo Esquiu,TV PACK FULL 1,Activa,TV Full
+6404,2,conex-internet-tv.xlsx,658,Santillan Guillerma,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6406,2,conex-internet-tv.xlsx,525,Godoy Mario,TV Plan,Nodo Esquiu,TV PACK FULL 1,Activa,TV Full
+6406,2,conex-internet-tv.xlsx,656,Godoy Mario,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6413,2,conex-internet-tv.xlsx,520,Pezzati Sergio,TV Plan,Nodo Esquiu,TV PACK FULL 1,Activa,TV Full
+6413,2,conex-internet-tv.xlsx,649,Pezzati Sergio,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6414,2,conex-internet-tv.xlsx,519,Uran Pablo,TV Plan,Nodo Esquiu,TV PACK FULL 1,Activa,TV Full
+6414,2,conex-internet-tv.xlsx,648,Uran Pablo,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6415,2,conex-internet-tv.xlsx,518,Ortega Estela Del Valle,TV Plan,Nodo Esquiu,TV PACK FULL 1,Activa,TV Full
+6415,2,conex-internet-tv.xlsx,647,Ortega Estela Del Valle,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6421,2,conex-internet-tv.xlsx,515,Gentili Javier,TV Plan,Nodo Esquiu,TV PACK FULL 2,Activa,TV Full
+6421,2,conex-internet-tv.xlsx,641,Gentili Javier,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6427,2,conex-internet-tv.xlsx,345,Ramallo Brenda,TV Plan,Nodo Esquiu,TV PACK FULL 2,Activa,TV Full
+6427,2,conex-internet-tv.xlsx,635,Ramallo Brenda,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6428,2,conex-internet-tv.xlsx,517,Muscarello Ruth Elizabeth,TV Plan,Nodo Esquiu,TV PACK FULL 1,Activa,TV Full
+6428,2,conex-internet-tv.xlsx,634,Muscarello Ruth Elizabeth,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6431,3,conex-internet-tv.xlsx,516,Martos Veronica,TV Plan,Nodo Esquiu,TV PACK FULL 1,Activa,TV Full
+6431,3,conex-internet-tv.xlsx,630,Martos Veronica,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6431,3,conex-internet-tv.xlsx,631,Martos Veronica,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6434,2,conex-internet-tv.xlsx,512,Borga Ester,TV Plan,Nodo Esquiu,TV PACK FULL 2,Activa,TV Full
+6434,2,conex-internet-tv.xlsx,627,Borga Ester,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6438,2,conex-internet-tv.xlsx,593,Oviedo Celeste,Wireless,Nodo Malagueño,20 MB +TV BASICO,Activa,TV Básica
+6438,2,conex-internet-tv.xlsx,623,Oviedo Celeste,Wireless,Nodo Rio Segundo,20 MB +TV BASICO,Activa,TV Básica
+6439,2,conex-internet-tv.xlsx,511,Fajardo Yamila,TV Plan,Nodo Esquiu,TV PACK FULL 1,Activa,TV Full
+6439,2,conex-internet-tv.xlsx,617,Fajardo Yamila,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6440,2,conex-internet-tv.xlsx,493,Cardonatto Guillermo,TV Plan,Nodo Esquiu,TV PACK FULL 2,Activa,TV Full
+6440,2,conex-internet-tv.xlsx,622,Cardonatto Guillermo,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6448,2,conex-internet-tv.xlsx,260,Peralta Maria Elena,Fibra,Nodo Esquiu,100MB+TV BASICO,Activa,TV Básica
+6448,2,conex-internet-tv.xlsx,269,Peralta Maria Elena,Fibra,Nodo Esquiu,100MB+TV BASICO,Activa,TV Básica
+6452,2,conex-internet-tv.xlsx,510,Fernandez Angel,TV Plan,Nodo Esquiu,TV PACK FULL 2,Activa,TV Full
+6452,2,conex-internet-tv.xlsx,608,Fernandez Angel,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6463,2,conex-internet-tv.xlsx,508,Ortiz Hugo,TV Plan,Nodo Esquiu,TV PACK FULL 1,Activa,TV Full
+6463,2,conex-internet-tv.xlsx,599,Ortiz Hugo,Fibra,Nodo Esquiu,100MB+TV BASICO,Activa,TV Básica
+6466,2,conex-internet-tv.xlsx,507,Rivadero Ezequiel,TV Plan,Nodo Esquiu,TV PACK FULL 1,Activa,TV Full
+6466,2,conex-internet-tv.xlsx,596,Rivadero Ezequiel,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6468,2,conex-internet-tv.xlsx,509,Barczynsky Sabrina,TV Plan,Nodo Esquiu,TV PACK FULL 1,Activa,TV Full
+6468,2,conex-internet-tv.xlsx,594,Barczynsky Sabrina,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6470,2,conex-internet-tv.xlsx,506,Gimenez Claudio,TV Plan,Nodo Esquiu,TV PACK FULL 1,Activa,TV Full
+6470,2,conex-internet-tv.xlsx,590,Gimenez Claudio,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6475,2,conex-internet-tv.xlsx,353,Cecchetto Elva,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+6475,2,conex-internet-tv.xlsx,585,Cecchetto Elva,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+6476,2,conex-internet-tv.xlsx,505,Diaz Rolando,TV Plan,Nodo Esquiu,TV PACK FULL 1,Activa,TV Full
+6476,2,conex-internet-tv.xlsx,584,Diaz Rolando,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6477,3,conex-internet-tv.xlsx,502,Colla Matias Antonio,TV Plan,Nodo Esquiu,TV PACK FULL 1,Activa,TV Full
+6477,3,conex-internet-tv.xlsx,542,Colla Matias Antonio,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6477,3,conex-internet-tv.xlsx,581,Colla Matias Antonio,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6480,2,conex-internet-tv.xlsx,503,Sanchez Roberto,TV Plan,Nodo Esquiu,TV PACK FULL 1,Activa,TV Full
+6480,2,conex-internet-tv.xlsx,578,Sanchez Roberto,Fibra,Nodo Esquiu,100MB+TV BASICO JUBILADO,Activa,TV $2.250 + Jubilado 50%
+6481,2,conex-internet-tv.xlsx,501,Morano Gabriel,TV Plan,Nodo Esquiu,TV PACK FULL 1,Activa,TV Full
+6481,2,conex-internet-tv.xlsx,577,Morano Gabriel,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6483,2,conex-internet-tv.xlsx,498,Molina Patricia,TV Plan,Nodo Esquiu,TV PACK FULL 1,Activa,TV Full
+6483,2,conex-internet-tv.xlsx,574,Molina Patricia,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6486,2,conex-internet-tv.xlsx,356,Tapia Maria,TV Plan,Nodo Esquiu,TV PACK FULL 1,Activa,TV Full
+6486,2,conex-internet-tv.xlsx,565,Tapia Maria,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6492,2,conex-internet-tv.xlsx,559,Pinto Angel,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+6492,2,conex-internet-tv.xlsx,560,Pinto Angel,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+6496,2,conex-internet-tv.xlsx,497,Monteros Liliana,TV Plan,Nodo Esquiu,TV PACK FULL 1,Activa,TV Full
+6496,2,conex-internet-tv.xlsx,556,Monteros Liliana,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6504,2,conex-internet-tv.xlsx,494,Martinelly Federico Gunar,TV Plan,Nodo Esquiu,TV PACK FULL 1,Activa,TV Full
+6504,2,conex-internet-tv.xlsx,547,Martinelly Federico Gunar,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6561,2,conex-internet-tv.xlsx,180,Almada Teresita del Valle,TV Plan,La Granja FO,TV PACK FULL 1,Activa,TV Full
+6561,2,conex-internet-tv.xlsx,321,Almada Teresita del Valle,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+6581,2,conex-internet-tv.xlsx,354,Altamirano Brenda,TV Plan,Nodo Esquiu,TV PACK FULL 1,Activa,TV Full
+6581,2,conex-internet-tv.xlsx,420,Altamirano Brenda,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6602,2,conex-internet-tv.xlsx,350,Ortiz Lorena,TV Plan,Nodo Rio Segundo,TV PACK FULL 2,Activa,TV Full
+6602,2,conex-internet-tv.xlsx,391,Ortiz Lorena,Wireless,Nodo Rio Segundo,20 MB +TV BASICO,Activa,TV Básica
+6603,2,conex-internet-tv.xlsx,352,Moyano Jose Oscar,Fibra,Nodo Esquiu,TV PACK FULL 1,Activa,TV Full
+6603,2,conex-internet-tv.xlsx,390,Moyano Jose Oscar,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6608,2,conex-internet-tv.xlsx,349,Vega Gabriela,TV Plan,Nodo Esquiu,TV PACK FULL 1,Activa,TV Full
+6608,2,conex-internet-tv.xlsx,386,Vega Gabriela,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6610,2,conex-internet-tv.xlsx,351,Piana Alicia,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+6610,2,conex-internet-tv.xlsx,384,Piana Alicia,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+6623,2,conex-internet-tv.xlsx,336,Moyano Ayelen,TV Plan,Nodo Esquiu,TV PACK FULL 1,Activa,TV Full
+6623,2,conex-internet-tv.xlsx,370,Moyano Ayelen,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6628,2,conex-internet-tv.xlsx,337,Ahumada Nelida,TV Plan,Nodo Esquiu,TV PACK FULL 1,Activa,TV Full
+6628,2,conex-internet-tv.xlsx,340,Ahumada Nelida,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6633,2,conex-internet-tv.xlsx,185,Ortopan Lazaro Oscar,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+6633,2,conex-internet-tv.xlsx,329,Ortopan Lazaro Oscar,Fibra,La Granja FO,100MB+TV BASICO,Activa,TV Básica
+6636,2,conex-internet-tv.xlsx,178,Olivero Veronica,TV Plan,La Granja FO,TV PACK FULL 2,Activa,TV Full
+6636,2,conex-internet-tv.xlsx,326,Olivero Veronica,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+6638,2,conex-internet-tv.xlsx,184,Alaniz Vanesa,TV Plan,Nodo Rio Segundo,TV PACK FULL 2,Activa,TV Full
+6638,2,conex-internet-tv.xlsx,324,Alaniz Vanesa,Wireless,Nodo Rio Segundo,20 MB +TV BASICO,Activa,TV Básica
+6639,2,conex-internet-tv.xlsx,322,Gonzalez Julieta,Wireless,Nodo Rio Segundo,20 MB +TV BASICO,Activa,TV Básica
+6639,2,conex-internet-tv.xlsx,323,Gonzalez Julieta,Wireless,Nodo Rio Segundo,20 MB +TV BASICO,Activa,TV Básica
+6644,2,conex-internet-tv.xlsx,177,Avila Belen,TV Plan,La Granja FO,TV PACK FULL 1,Activa,TV Full
+6644,2,conex-internet-tv.xlsx,314,Avila Belen,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+6650,2,conex-internet-tv.xlsx,175,Fonseca Candela,TV Plan,Nodo Esquiu,TV PACK FULL 1,Activa,TV Full
+6650,2,conex-internet-tv.xlsx,279,Fonseca Candela,Fibra,Nodo Villa Retiro FO,300MB+TV BASICO,Activa,TV Básica
+6653,2,conex-internet-tv.xlsx,256,Gonzalez Valentina,Fibra,Nodo Esquiu,50MB+TV BASICO,Activa,TV Básica
+6653,2,conex-internet-tv.xlsx,271,Gonzalez Valentina,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6656,2,conex-internet-tv.xlsx,176,Flores Antonella,TV Plan,La Granja FO,TV PACK FULL 1,Activa,TV Full
+6656,2,conex-internet-tv.xlsx,267,Flores Antonella,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+6657,2,conex-internet-tv.xlsx,174,Blas Maria,TV Plan,Nodo Esquiu,TV PACK FULL 1,Activa,TV Full
+6657,2,conex-internet-tv.xlsx,264,Blas Maria,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6666,2,conex-internet-tv.xlsx,173,Paredes Fabian,TV Plan,Nodo Esquiu,TV PACK FULL 1,Activa,TV Full
+6666,2,conex-internet-tv.xlsx,251,Paredes Fabian,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6688,2,conex-internet-tv.xlsx,213,Fontana Carla,Fibra,Nodo Esquiu,50MB+TV BASICO,Activa,TV Básica
+6688,2,conex-internet-tv.xlsx,214,Fontana Carla,Fibra,Nodo Esquiu,300MB+TV BASICO,Activa,TV Básica
+6692,2,conex-internet-tv.xlsx,188,Carrizo Mirta,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+6692,2,conex-internet-tv.xlsx,208,Carrizo Mirta,Fibra,Nodo BoozNet Norte,300MB+TV BASICO,Activa,TV Básica
+6696,2,conex-internet-tv.xlsx,168,Rocco Susana,TV Plan,Nodo BoozNet Cordoba,TV PACK FULL 2,Activa,TV Full
+6696,2,conex-internet-tv.xlsx,203,Rocco Susana,Wireless,Nodo BoozNet Cordoba,20 MB +TV BASICO,Activa,TV Básica
+6710,2,conex-internet-tv.xlsx,86,Romero Cristian,Fibra,La Granja FO,50MB+TV BASICO,Activa,TV Básica
+6710,2,conex-internet-tv.xlsx,165,Romero Cristian,Fibra,La Granja FO,300MB+TV BASICO,Activa,TV Básica
+6735,2,conex-internet-tv.xlsx,131,Aguirre Leandro,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+6735,2,conex-internet-tv.xlsx,132,Aguirre Leandro,Wireless,Nodo BoozNet Norte,20 MB +TV BASICO,Activa,TV Básica
+6742,2,conex-internet-tv.xlsx,117,Gomez Rosy,Fibra,La Granja FO,100MB+TV BASICO,Activa,TV Básica
+6742,2,conex-internet-tv.xlsx,122,Gomez Rosy,Fibra,La Granja FO,100MB+TV BASICO,Activa,TV Básica

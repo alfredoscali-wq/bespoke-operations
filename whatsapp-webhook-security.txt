@@ -1,0 +1,119 @@
+﻿
+  app\api\integrations\whatsapp\webhook\route.ts:8:  
+verifyWhatsappWebhookToken,
+  app\api\integrations\whatsapp\webhook\route.ts:9:} from 
+"@/lib/integrations/whatsapp/webhook-guard"
+> app\api\integrations\whatsapp\webhook\route.ts:10:import { 
+handleWhatsappInboundMessage } from 
+"@/lib/subscriptions/whatsapp-commercial-session"
+  app\api\integrations\whatsapp\webhook\route.ts:11:
+  app\api\integrations\whatsapp\webhook\route.ts:12:export const 
+dynamic = "force-dynamic"
+  app\api\integrations\whatsapp\webhook\route.ts:13:
+  app\api\integrations\whatsapp\webhook\route.ts:14:function 
+configuredWebhook() {
+  app\api\integrations\whatsapp\webhook\route.ts:15:  return {
+  app\api\integrations\whatsapp\webhook\route.ts:16:    appSecret: 
+process.env.WHATSAPP_APP_SECRET?.trim() ?? "",
+  app\api\integrations\whatsapp\webhook\route.ts:17:    verifyToken: 
+process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN?.trim() ?? "",
+> app\api\integrations\whatsapp\webhook\route.ts:18:    
+phoneNumberId: process.env.WHATSAPP_BUSINESS_PHONE_NUMBER_ID?.trim() 
+?? "",
+> app\api\integrations\whatsapp\webhook\route.ts:19:    companyId: 
+process.env.WHATSAPP_BUSINESS_COMPANY_ID?.trim() ?? "",
+  app\api\integrations\whatsapp\webhook\route.ts:20:  }
+  app\api\integrations\whatsapp\webhook\route.ts:21:}
+  app\api\integrations\whatsapp\webhook\route.ts:22:
+  app\api\integrations\whatsapp\webhook\route.ts:23:export async 
+function GET(request: Request) {
+  app\api\integrations\whatsapp\webhook\route.ts:24:  const config = 
+configuredWebhook()
+  app\api\integrations\whatsapp\webhook\route.ts:87:  let confirmed 
+= 0
+  app\api\integrations\whatsapp\webhook\route.ts:88:  for (const 
+message of parsed.messages) {
+> app\api\integrations\whatsapp\webhook\route.ts:89:    const 
+handled = await handleWhatsappInboundMessage({
+  app\api\integrations\whatsapp\webhook\route.ts:90:      companyId: 
+company.companyId,
+  app\api\integrations\whatsapp\webhook\route.ts:91:      message,
+  app\api\integrations\whatsapp\webhook\route.ts:92:    })
+  app\api\integrations\whatsapp\webhook\route.ts:93:    if 
+(handled.retry) {
+  app\api\integrations\whatsapp\webhook\route.ts:94:      return 
+NextResponse.json(
+  lib\integrations\whatsapp\graph-client.ts:33:export function 
+readWhatsappSendConfig(env: {
+  lib\integrations\whatsapp\graph-client.ts:34:  
+WHATSAPP_ACCESS_TOKEN?: string
+> lib\integrations\whatsapp\graph-client.ts:35:  
+WHATSAPP_BUSINESS_PHONE_NUMBER_ID?: string
+  lib\integrations\whatsapp\graph-client.ts:36:  
+WHATSAPP_GRAPH_API_VERSION?: string
+  lib\integrations\whatsapp\graph-client.ts:37:}): 
+WhatsappSendConfig | null {
+  lib\integrations\whatsapp\graph-client.ts:38:  const accessToken = 
+env.WHATSAPP_ACCESS_TOKEN?.trim() ?? ""
+> lib\integrations\whatsapp\graph-client.ts:39:  const phoneNumberId 
+= env.WHATSAPP_BUSINESS_PHONE_NUMBER_ID?.trim() ?? ""
+  lib\integrations\whatsapp\graph-client.ts:40:  const graphVersion 
+= env.WHATSAPP_GRAPH_API_VERSION?.trim() || "v21.0"
+  lib\integrations\whatsapp\graph-client.ts:41:  if (!accessToken || 
+!phoneNumberId || !/^v\d+\.\d+$/.test(graphVersion)) return null
+  lib\integrations\whatsapp\graph-client.ts:42:  return { 
+accessToken, phoneNumberId, graphVersion }
+  lib\integrations\whatsapp\graph-client.ts:43:}
+  lib\integrations\whatsapp\graph-client.ts:44:
+  lib\integrations\whatsapp\webhook-guard.ts:76:      const metadata 
+= asRecord(value?.metadata)
+  lib\integrations\whatsapp\webhook-guard.ts:77:      const 
+currentPhone =
+> lib\integrations\whatsapp\webhook-guard.ts:78:        typeof 
+metadata?.phone_number_id === "string" ? 
+metadata.phone_number_id.trim() : ""
+  lib\integrations\whatsapp\webhook-guard.ts:79:      if 
+(!currentPhone) continue
+  lib\integrations\whatsapp\webhook-guard.ts:80:      if 
+(!phoneNumberId) phoneNumberId = currentPhone
+  lib\integrations\whatsapp\webhook-guard.ts:81:      if 
+(currentPhone !== phoneNumberId) return { ok: false, reason: 
+"mixed_number" }
+  lib\integrations\whatsapp\webhook-guard.ts:82:      const messages 
+= Array.isArray(value?.messages) ? value.messages : []
+  lib\integrations\whatsapp\webhook-guard.ts:83:      for (const 
+message of messages) {
+  lib\integrations\whatsapp\webhook-guard.ts:110:      const 
+metadata = asRecord(value?.metadata)
+  lib\integrations\whatsapp\webhook-guard.ts:111:      const 
+currentPhone =
+> lib\integrations\whatsapp\webhook-guard.ts:112:        typeof 
+metadata?.phone_number_id === "string" ? 
+metadata.phone_number_id.trim() : ""
+  lib\integrations\whatsapp\webhook-guard.ts:113:      if 
+(!currentPhone) continue
+  lib\integrations\whatsapp\webhook-guard.ts:114:      if 
+(!phoneNumberId) phoneNumberId = currentPhone
+  lib\integrations\whatsapp\webhook-guard.ts:115:      if 
+(currentPhone !== phoneNumberId) return { ok: false, reason: 
+"mixed_number" }
+  lib\integrations\whatsapp\webhook-guard.ts:116:      const inbound 
+= Array.isArray(value?.messages) ? value.messages : []
+  lib\integrations\whatsapp\webhook-guard.ts:117:      for (const 
+message of inbound) {
+  lib\supabase\whatsapp-commercial-requests.queries.ts:270:}
+  lib\supabase\whatsapp-commercial-requests.queries.ts:271:
+> lib\supabase\whatsapp-commercial-requests.queries.ts:272:export 
+async function claimWhatsappInboundMessage(
+  lib\supabase\whatsapp-commercial-requests.queries.ts:273:  client: 
+SupabaseWhatsappRequestClient,
+  lib\supabase\whatsapp-commercial-requests.queries.ts:274:  
+companyId: string,
+  lib\supabase\whatsapp-commercial-requests.queries.ts:275:  
+externalMessageId: string
+  lib\supabase\whatsapp-commercial-requests.queries.ts:276:): 
+Promise<"new" | "duplicate" | "unavailable"> {
+  lib\supabase\whatsapp-commercial-requests.queries.ts:277:  const 
+messageId = externalMessageId.trim()
+
+

@@ -1,0 +1,15 @@
+[1mdiff --git a/lib/subscriptions/tv-ot-signups-actions.ts b/lib/subscriptions/tv-ot-signups-actions.ts[m
+[1mindex 7d93134..3988437 100644[m
+[1m--- a/lib/subscriptions/tv-ot-signups-actions.ts[m
+[1m+++ b/lib/subscriptions/tv-ot-signups-actions.ts[m
+[36m@@ -276,6 +276,10 @@[m [mexport async function incorporateTvOtSignup([m
+   if (confirmed.status !== "incorporated") {[m
+     return failure(409, "No se confirmó la incorporación en el listado.")[m
+   }[m
+[32m+[m[32m  const item = await reloadItem(client, companyId, auditClient, taskId)[m
+[32m+[m[32m  if (!item || item.category !== "incorporated") {[m
+[32m+[m[32m    return failure(409, "No se confirmó la incorporación en el listado.")[m
+[32m+[m[32m  }[m
+   return {[m
+     ok: true,[m
+     message: "El cliente quedó incorporado al padrón de TV.",[m

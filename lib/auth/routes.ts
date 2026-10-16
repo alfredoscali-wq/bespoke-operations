@@ -63,6 +63,10 @@ export function isAuthPublicPath(pathname: string): boolean {
     return true
   }
 
+  if (pathname === "/api/integrations/whatsapp/webhook") {
+    return true
+  }
+
   if (isMobileApiPublicPath(pathname)) {
     return true
   }

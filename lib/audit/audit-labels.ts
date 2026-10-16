@@ -33,6 +33,7 @@ export const AUDIT_ENTITY_TYPE_LABELS: Record<AuditEntityType, string> = {
   network_agent: "Network Agent",
   network_agent_job: "Network Job",
   network_device: "Dispositivo de red",
+  mikrotik_integration: "Integracion MikroTik",
 }
 
 export const AUDIT_SEVERITY_LABELS: Record<AuditSeverity, string> = {
@@ -107,6 +108,10 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   NETWORK_DISCOVERY_COMPLETED: "Discovery de red completado",
   NETWORK_DISCOVERY_FAILED: "Discovery de red fallido",
   NETWORK_DEVICE_STATUS_CHANGED: "Cambio de estado operativo de red",
+  MIKROTIK_INTEGRATION_CREATED: "Integracion MikroTik creada",
+  MIKROTIK_INTEGRATION_UPDATED: "Integracion MikroTik modificada",
+  MIKROTIK_INTEGRATION_TOGGLED: "Integracion MikroTik habilitada o deshabilitada",
+  MIKROTIK_CONNECTION_TEST: "Prueba de conexion MikroTik",
 }
 
 export function formatAuditModuleLabel(module: AuditModule | string): string {

@@ -3,10 +3,12 @@ import test from "node:test"
 
 import {
   abnetExactInternetKey,
+  catalogCodeForAbnetTvRepresentation,
   collapseExactInternetCopies,
   decideResidentialStatus,
   mapAbnetResidentialCatalog,
   planAbnetResidentialLoad,
+  resolveAbnetTvCommercialPlan,
   resolveUnambiguousIp,
 } from "../lib/isp/abnet-residential-load.ts"
 
@@ -53,6 +55,52 @@ test("morosa e inactiva no se convierten en baja", () => {
   assert.equal(morosa.load, false)
   assert.equal(inactiva.load, false)
   assert.equal(morosa.load ? "" : morosa.reason.includes("baja"), true)
+})
+
+test("la TV comercial usa el abono existente y no inventa un plan", () => {
+  assert.equal(
+    catalogCodeForAbnetTvRepresentation("Wireless", "20 MB +TV BASICO JUBILADO"),
+    "WIRELESS-20-TV-BASICO"
+  )
+  assert.equal(mapAbnetResidentialCatalog("Wireless", "20 MB +TV BASICO JUBILADO"), null)
+  const jubilado = resolveAbnetTvCommercialPlan([
+    { tipo: "Wireless", plan: "20 MB +TV BASICO JUBILADO", estado: "Activa" },
+  ])
+  assert.equal(jubilado.ok && jubilado.catalogCode, "WIRELESS-20-TV-BASICO")
+  assert.equal(jubilado.ok && jubilado.commercialStatus, "active")
+
+  const packAndInternet = resolveAbnetTvCommercialPlan([
+    { tipo: "TV Plan", plan: "TV PACK FULL 1", estado: "Activa" },
+    { tipo: "Fibra", plan: "300MB+TV BASICO", estado: "Activa" },
+  ])
+  assert.equal(packAndInternet.ok && packAndInternet.catalogCode, "FTTH-300-TV-BASICO")
+
+  const packOnly = resolveAbnetTvCommercialPlan([
+    { tipo: "TV Plan", plan: "TV PACK FULL 1", estado: "Activa" },
+  ])
+  assert.equal(packOnly.ok, false)
+  assert.equal(packOnly.ok ? "" : packOnly.reason, "sin_catalogo")
+
+  const empresa = resolveAbnetTvCommercialPlan([
+    { tipo: "TV Plan", plan: "TV PACK FULL 2", estado: "Activa" },
+    { tipo: "Wireless", plan: "Servicio EMPRESA 50 MEGAS FULL WIRELES", estado: "Activa" },
+  ])
+  assert.equal(empresa.ok, false)
+
+  const ambiguous = resolveAbnetTvCommercialPlan([
+    { tipo: "Fibra", plan: "100MB+TV BASICO", estado: "Morosa" },
+    { tipo: "Wireless", plan: "20 MB +TV BASICO", estado: "Morosa" },
+  ])
+  assert.equal(ambiguous.ok, false)
+  assert.equal(ambiguous.ok ? "" : ambiguous.reason, "plan_ambiguo")
+
+  const morosa = resolveAbnetTvCommercialPlan([
+    { tipo: "Wireless", plan: "20 MB +TV BASICO", estado: "Morosa" },
+  ])
+  assert.equal(morosa.ok && morosa.commercialStatus, "pending_activation")
+  assert.equal(morosa.ok && morosa.activationDate, null)
+  assert.notEqual(morosa.ok && morosa.commercialStatus, "suspended")
+  assert.notEqual(morosa.ok && morosa.commercialStatus, "cancelled")
 })
 
 test("la IP solo se copia si tipo y nodo coinciden en un único valor", () => {

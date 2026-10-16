@@ -1,6 +1,10 @@
 import { abnetNumberFromExternalCode } from "@/lib/isp/abnet-master-universe"
 import type { LatamTvPlanDiagnosis } from "@/lib/integrations/latam-tv/plans"
 
+function signupIdentifier(value: string | null | undefined): string | null {
+  return abnetNumberFromExternalCode(value)
+}
+
 /**
  * Alta LATAM TV.
  *
@@ -9,7 +13,8 @@ import type { LatamTvPlanDiagnosis } from "@/lib/integrations/latam-tv/plans"
  * - La contraseña inicial es el DNI del cliente, solo dígitos.
  * - No se genera una contraseña aleatoria, no se pide al operador
  *   y no se usa el email como contraseña.
- * - `identificador` es el N° ABNet ya cargado en Bespoke.
+ * - `identificador` se envía solo cuando ya es el abonado numérico de ABNet.
+ *   Un alta nueva no envía el número CLI: Latam asigna el suyo.
  * - `plan` es el pl_id que get-plans asocia por nombre a TV Básica o
  *   TV Básica + Pack Fútbol. TV Full no se usa en el alta.
  *   Si no hay correspondencia, no se inventa un id.
@@ -27,6 +32,15 @@ export const LATAM_SIGNUP_MISSING = {
 
 export const LATAM_FULL_SIGNUP_BLOCKED =
   "TV Full no está disponible en LATAM."
+
+export const LATAM_SIGNUP_MISSING_EMAIL =
+  "No se puede dar de alta al cliente en Latam porque falta el email en Clientes 360."
+export const LATAM_SIGNUP_MISSING_DNI =
+  "No se puede dar de alta al cliente en Latam porque falta el DNI en Clientes 360."
+export const LATAM_SIGNUP_MISSING_BOTH =
+  "No se puede dar de alta al cliente en Latam porque faltan el email y el DNI en Clientes 360."
+
+export type LatamSignupCredentialGap = "email" | "dni" | "both"
 
 const PLAN_LABEL = {
   basica: "TV Básica",
@@ -68,7 +82,7 @@ export function latamSignupPlanGap(
 export type LatamRegisterBody = {
   nombres: string
   dni: string
-  identificador: string
+  identificador?: string
   password: string
   correo: string
   plan: string
@@ -103,9 +117,28 @@ export type LatamSignupCustomer = {
    */
   planId: string | null
   planGap?: string | null
+  /** Alta sin abonado ABNet. No copia el número de Bespoke al identificador. */
+  identitySignup?: boolean
 }
 
-/** Contraseña inicial: dígitos del DNI. No es el email. */
+export function latamSignupCredentialGap(
+  dni: string | null | undefined,
+  email: string | null | undefined
+): LatamSignupCredentialGap | null {
+  const hasDni = Boolean(latamInitialPassword(dni))
+  const hasEmail = Boolean(usableEmail(email))
+  if (hasDni && hasEmail) return null
+  if (!hasDni && !hasEmail) return "both"
+  return hasEmail ? "dni" : "email"
+}
+
+export function latamSignupCredentialMessage(gap: LatamSignupCredentialGap): string {
+  if (gap === "both") return LATAM_SIGNUP_MISSING_BOTH
+  if (gap === "email") return LATAM_SIGNUP_MISSING_EMAIL
+  return LATAM_SIGNUP_MISSING_DNI
+}
+
+/** Contraseña inicial: dígitos del DNI. No es el email ni el número de cliente. */
 export function latamInitialPassword(dni: string | null | undefined): string | null {
   const digits = (dni ?? "").replace(/\D/g, "")
   return digits.length >= 7 ? digits : null
@@ -124,6 +157,11 @@ export function latamStatusLabel(
   return "LATAM: No disponible"
 }
 
+/**
+ * Mensaje operativo de register-client.
+ * No afirma que el usuario no haya sido creado.
+ * Los mismos números significan otra cosa en sync-client y en modify-client.
+ */
 export function latamRegisterRejectionMessage(code: number): string {
   switch (code) {
     case 3:
@@ -164,7 +202,7 @@ export function latamSignupCustomerGaps(
 ): string[] {
   const { firstName } = splitName(input.name ?? "")
   const missing: string[] = []
-  if (!abnetNumberFromExternalCode(input.identifier)) {
+  if (!signupIdentifier(input.identifier) && !input.identitySignup) {
     missing.push(LATAM_SIGNUP_MISSING.identifier)
   }
   if (!firstName) missing.push(LATAM_SIGNUP_MISSING.name)
@@ -178,12 +216,20 @@ export function assessLatamSignup(input: LatamSignupCustomer): LatamSignupAssess
   const { firstName, lastName } = splitName(input.name ?? "")
   const nationalId = latamInitialPassword(input.dni)
   const email = usableEmail(input.email)
-  const identifier = abnetNumberFromExternalCode(input.identifier)
+  const identifier = signupIdentifier(input.identifier)
   const planId = input.planId?.trim() || null
   const planLabel = input.tvKind === "other" ? null : PLAN_LABEL[input.tvKind]
   const missing = latamSignupCustomerGaps(input)
   if (!planId) missing.push(input.planGap?.trim() || LATAM_SIGNUP_MISSING.plan)
-  if (missing.length > 0 || !identifier || !firstName || !nationalId || !email || !planId || !planLabel) {
+  if (
+    missing.length > 0 ||
+    !firstName ||
+    !nationalId ||
+    !email ||
+    !planId ||
+    !planLabel ||
+    (!identifier && !input.identitySignup)
+  ) {
     return { ready: false, missing }
   }
 
@@ -192,11 +238,11 @@ export function assessLatamSignup(input: LatamSignupCustomer): LatamSignupAssess
   const body: LatamRegisterBody = {
     nombres: firstName,
     dni: nationalId,
-    identificador: identifier,
     password: nationalId,
     correo: email,
     plan: planId,
   }
+  if (identifier) body.identificador = identifier
   if (lastName) body.apellido = lastName
   if (phone) body.telefono = phone
   if (address) body.direccion = address
@@ -206,7 +252,7 @@ export function assessLatamSignup(input: LatamSignupCustomer): LatamSignupAssess
     body,
     preview: {
       customerName: input.name.trim(),
-      identifier,
+      identifier: identifier ?? "",
       username: email,
       initialPassword: nationalId,
       planLabel,

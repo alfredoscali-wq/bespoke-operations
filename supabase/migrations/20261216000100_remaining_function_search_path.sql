@@ -134,6 +134,3 @@ ALTER FUNCTION public.set_work_order_type_incident_types_updated_at()
 
 ALTER FUNCTION public.set_work_team_shifts_updated_at()
   SET search_path = public;
-
-ALTER FUNCTION public.update_updated_at_column()
-  SET search_path = public;
