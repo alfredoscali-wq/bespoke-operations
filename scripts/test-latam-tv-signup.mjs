@@ -301,6 +301,9 @@ test("17-20. el token no sale al frontend ni a los logs, y solo se registra", ()
   assert.match(read("app/api/integrations/latam-tv/customers/[customerId]/password/route.ts"), /findConfirmedLatamIdentifier/)
   assert.match(dialog, /pending_sync/)
   assert.match(dialog, /retry/)
+  assert.match(dialog, /payload\?\.outcome === "failed"/)
+  assert.match(dialog, /iniciar un alta nuevo/)
+  assert.match(dialog, /void postSignup\(false\)/)
   assert.match(route, /requireSubscriptionsWriteContext/)
   assert.match(route, /\.eq\("company_id", auth\.companyId\)/)
   assert.match(route, /\.eq\("id", customerId\)/)
@@ -926,8 +929,93 @@ test("una consulta no degrada un intento confirmado", async () => {
   const refresh = await refreshLatamSignupIdentity(assessment.body, deps)
   assert.equal(registers, 0)
   assert.equal(refresh.outcome, "pending_sync")
+  assert.match(refresh.message, /reintentar la consulta/)
   assert.equal(store.box.state, "confirmed")
   assert.equal(store.box.code, 1)
+})
+
+test("una reconsulta con register_sent no declara el alta fallida ni llama a register-client", async () => {
+  const assessment = martaAssessment()
+  const store = attemptStore("register_sent", null)
+  let registers = 0
+  const deps = {
+    baseUrl: BASE,
+    token: TOKEN,
+    signupAttempt: store,
+    fetchImpl: async (url) => {
+      const path = new URL(url).pathname
+      if (path === "/api/register-client") registers += 1
+      return jsonResponse({ code: 1, clients: [hidalgoRow()] })
+    },
+  }
+  const refresh = await refreshLatamSignupIdentity(assessment.body, deps)
+  assert.equal(registers, 0)
+  assert.equal(refresh.outcome, "pending_sync")
+  assert.match(refresh.message, /reintentar la consulta/)
+  assert.equal(store.box.state, "pending_sync")
+})
+
+test("una reconsulta de un intento ya rechazado informa el alta fallida sin crear otro usuario", async () => {
+  const assessment = martaAssessment()
+  const store = attemptStore("rejected", null)
+  let registers = 0
+  let releases = 0
+  const release = store.release
+  store.release = () => {
+    releases += 1
+    return release()
+  }
+  const deps = {
+    baseUrl: BASE,
+    token: TOKEN,
+    signupAttempt: store,
+    fetchImpl: async (url) => {
+      const path = new URL(url).pathname
+      if (path === "/api/register-client") registers += 1
+      return jsonResponse({ code: 1, clients: [hidalgoRow()] })
+    },
+  }
+  const refresh = await refreshLatamSignupIdentity(assessment.body, deps)
+  assert.equal(registers, 0)
+  assert.equal(releases, 0)
+  assert.equal(refresh.outcome, "failed")
+  assert.match(refresh.message, /iniciar un alta nuevo/)
+  assert.equal(refresh.message.includes("todavía no informó"), false)
+  assert.equal(store.box.state, "rejected")
+  assert.equal(store.box.code, null)
+  assert.equal(JSON.stringify(refresh).includes(assessment.body.password), false)
+  const again = await signUpLatamTvClient(assessment.body, deps)
+  const third = await signUpLatamTvClient(assessment.body, deps)
+  assert.equal(registers, 1)
+  assert.equal(again.outcome, "pending_sync")
+  assert.equal(third.outcome, "pending_sync")
+  assert.equal(store.box.state, "pending_sync")
+  assert.equal(store.box.code, 1)
+})
+
+test("si el cierre queda en rejected aunque la función no diga released, la reconsulta informa el alta fallida", async () => {
+  const assessment = martaAssessment()
+  const store = attemptStore("pending_sync", null)
+  let registers = 0
+  store.release = async () => {
+    store.box.state = "rejected"
+    return "blocked"
+  }
+  const deps = {
+    baseUrl: BASE,
+    token: TOKEN,
+    signupAttempt: store,
+    fetchImpl: async (url) => {
+      const path = new URL(url).pathname
+      if (path === "/api/register-client") registers += 1
+      return jsonResponse({ code: 1, clients: [hidalgoRow()] })
+    },
+  }
+  const refresh = await refreshLatamSignupIdentity(assessment.body, deps)
+  assert.equal(registers, 0)
+  assert.equal(refresh.outcome, "failed")
+  assert.equal(store.box.state, "rejected")
+  assert.equal(store.box.code, null)
 })
 
 test("si Supabase falla después del envío no se habilita otra alta", async () => {

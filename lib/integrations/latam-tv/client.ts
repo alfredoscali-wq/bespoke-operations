@@ -850,12 +850,18 @@ function identityCredentialMessage(body: LatamRegisterBody): string | null {
   return null
 }
 
-async function releaseFailedAttempt(
+/** Un padrón completo sin coincidencia cierra pending_sync.
+ *  Si la fila ya está rejected, se informa el alta fallida sin escribir de nuevo. */
+async function catalogMissClosesAttempt(
   store: LatamSignupAttemptStore | undefined
 ): Promise<boolean> {
   if (!store) return false
-  const result = await store.release().catch(() => "unavailable" as const)
-  return result === "released"
+  const current = await reservedAttempt(store)
+  if (current === "rejected") return true
+  if (current !== "pending_sync") return false
+  const released = await store.release().catch(() => "unavailable" as const)
+  if (released === "released") return true
+  return (await reservedAttempt(store)) === "rejected"
 }
 
 /** Reconsulta el padrón. No llama a register-client ni crea una reserva. */
@@ -869,8 +875,9 @@ export async function refreshLatamSignupIdentity(
     return identityResult(location) ?? { outcome: "pending_sync", message: SIGNUP_PENDING }
   }
   if (location.kind === "missing") {
-    const released = await releaseFailedAttempt(deps.signupAttempt)
-    if (released) return { outcome: "failed", message: SIGNUP_FAILED }
+    if (await catalogMissClosesAttempt(deps.signupAttempt)) {
+      return { outcome: "failed", message: SIGNUP_FAILED }
+    }
   }
   if (location.kind !== "review") {
     await syncReservedAttempt(deps.signupAttempt, "pending_sync", null)
