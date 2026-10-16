@@ -18,12 +18,12 @@ const migration = readFileSync(
 
 const TABLE = "(?:public\\.)?latam_tv_signup_attempts"
 
-function migrationStatement(verb) {
+function migrationStatement(verb, source = migration) {
   const pattern = new RegExp(
     `${verb}\\s+(?:INTO\\s+)?${TABLE}\\b[\\s\\S]*?RETURNING \\* INTO v_row;`,
     "i"
   )
-  const found = migration.match(pattern)
+  const found = source.match(pattern)
   assert.ok(found, `la migración no contiene ${verb} de latam_tv_signup_attempts`)
   return found[0].replace(
     new RegExp(`${verb}\\s+(?:INTO\\s+)?${TABLE}\\b`, "i"),
@@ -64,7 +64,7 @@ async function loadPglite() {
   }
 }
 
-const setupSql = (insert, update) => `
+const setupSql = (insert, update, release) => `
   CREATE TABLE latam_tv_signup_attempts (
     company_id uuid NOT NULL,
     customer_id uuid NOT NULL,
@@ -123,6 +123,28 @@ const setupSql = (insert, update) => `
     );
   END
   $fn$;
+
+  CREATE FUNCTION release_attempt(p_customer_id uuid, v_company uuid)
+  RETURNS jsonb
+  LANGUAGE plpgsql
+  AS $fn$
+  DECLARE
+    v_row latam_tv_signup_attempts;
+  BEGIN
+    ${release}
+    IF FOUND THEN
+      RETURN jsonb_build_object('released', true, 'state', v_row.state, 'latam_code', v_row.latam_code);
+    END IF;
+    SELECT * INTO v_row
+    FROM latam_tv_signup_attempts
+    WHERE company_id = v_company AND customer_id = p_customer_id;
+    RETURN jsonb_build_object(
+      'released', false,
+      'state', CASE WHEN v_row.customer_id IS NULL THEN NULL ELSE v_row.state END,
+      'latam_code', v_row.latam_code
+    );
+  END
+  $fn$;
 `
 
 function api(query, close) {
@@ -138,6 +160,13 @@ function api(query, close) {
       const result = await query(
         "select finish_attempt($1::uuid, $2::uuid, $3::text, $4::integer) as result",
         [customer, company, state, latamCode]
+      )
+      return result.rows ? result.rows[0].result : result[0].result
+    },
+    async release(customer, company) {
+      const result = await query(
+        "select release_attempt($1::uuid, $2::uuid) as result",
+        [customer, company]
       )
       return result.rows ? result.rows[0].result : result[0].result
     },
@@ -164,19 +193,19 @@ function api(query, close) {
   }
 }
 
-async function openPglite(insert, update) {
+async function openPglite(insert, update, release) {
   const loaded = await loadPglite()
   if (!loaded) return null
   const db = new loaded.PGlite()
-  await db.exec(setupSql(insert, update))
+  await db.exec(setupSql(insert, update, release))
   return api(
     (statement, params) => db.query(statement, params),
     () => db.close()
   )
 }
 
-async function openIsolated(insert, update) {
-  const pglite = await openPglite(insert, update)
+async function openIsolated(insert, update, release) {
+  const pglite = await openPglite(insert, update, release)
   if (pglite) return pglite
   if (!(await canConnect(54322))) return null
   const postgres = (await import("postgres")).default
@@ -197,7 +226,7 @@ async function openIsolated(insert, update) {
     connect_timeout: 2,
     connection: { search_path: schema },
   })
-  await sql.unsafe(setupSql(insert, update))
+  await sql.unsafe(setupSql(insert, update, release))
   return api(
     (statement, params) => sql.unsafe(statement, params),
     async () => {
@@ -207,9 +236,14 @@ async function openIsolated(insert, update) {
   )
 }
 
+const releaseMigration = readFileSync(
+  resolve(root, "supabase/migrations/20270115200000_latam_tv_signup_attempt_release.sql"),
+  "utf8"
+)
 const insert = migrationStatement("INSERT")
 const update = migrationStatement("UPDATE")
-const isolated = await openIsolated(insert, update)
+const release = migrationStatement("UPDATE", releaseMigration)
+const isolated = await openIsolated(insert, update, release)
 const skip = isolated ? false : "no hay una base Postgres aislada en este entorno"
 
 test("la migración no guarda datos personales y reserva con la clave única", () => {
@@ -225,6 +259,21 @@ test("la migración no guarda datos personales y reserva con la clave única", (
   assert.match(migration, /GRANT EXECUTE ON FUNCTION public\.reserve_latam_tv_signup_attempt\(uuid\) TO authenticated/)
   assert.doesNotMatch(migration, /\b(dni|email|password|correo)\b/i)
   assert.equal(migration.match(/INSERT\s+INTO\s+/gi).length, 1)
+  assert.equal(releaseMigration.match(/INSERT\s+INTO\s+/gi)?.length ?? 0, 0)
+  assert.match(release, /state = 'pending_sync'/)
+  assert.match(release, /latam_code IS NULL OR latam_code NOT IN \(1, 3\)/)
+  assert.doesNotMatch(release, /register_sent/)
+  assert.doesNotMatch(release, /confirmed/)
+  assert.doesNotMatch(releaseMigration, /\b(dni|email|password|correo)\b/i)
+  const releaseBody = releaseMigration.slice(
+    releaseMigration.indexOf("FUNCTION public.release_latam_tv_signup_attempt"),
+    releaseMigration.indexOf("$$;", releaseMigration.indexOf("FUNCTION public.release_latam_tv_signup_attempt"))
+  )
+  assert.match(releaseBody, /public\.auth_user_company_id\(\)/)
+  assert.match(releaseBody, /public\.auth_is_demo_platform_read_only\(\)/)
+  assert.match(releaseBody, /public\.auth_user_has_allowed_module\('subscriptions'\)/)
+  assert.match(releaseBody, /deleted_at IS NULL/)
+  assert.match(releaseMigration, /GRANT EXECUTE ON FUNCTION public\.release_latam_tv_signup_attempt\(uuid\) TO authenticated/)
 
   const finish = functionBody("finish_latam_tv_signup_attempt")
   assert.doesNotMatch(finish, /INSERT\s+INTO/i)
@@ -337,6 +386,31 @@ test("finish no crea una reserva y confirma el código sin degradar", { skip }, 
   const again = await isolated.reserve(customer, company)
   assert.equal(again.granted, false)
   assert.equal(again.state, "confirmed")
+})
+
+test("release cierra pending_sync salvo código 1, 3, register_sent y confirmed", { skip }, async () => {
+  const company = randomUUID()
+  const customer = randomUUID()
+  await isolated.seed(company, customer, "pending_sync", null)
+  const closed = await isolated.release(customer, company)
+  assert.equal(closed.released, true)
+  assert.equal(closed.state, "rejected")
+  const reopened = await isolated.reserve(customer, company)
+  assert.equal(reopened.granted, true)
+
+  for (const [state, code] of [
+    ["pending_sync", 1],
+    ["pending_sync", 3],
+    ["register_sent", null],
+    ["confirmed", 1],
+  ]) {
+    const heldCompany = randomUUID()
+    const heldCustomer = randomUUID()
+    await isolated.seed(heldCompany, heldCustomer, state, code)
+    const held = await isolated.release(heldCustomer, heldCompany)
+    assert.equal(held.released, false, `${state}:${code}`)
+    assert.equal((await isolated.stateOf(heldCompany, heldCustomer))[0].state, state)
+  }
 })
 
 test("finish no puede pasar register_sent a rejected", { skip }, async () => {

@@ -19,6 +19,7 @@ import {
 import { latamPlanNameKey } from "@/lib/integrations/latam-tv/plans"
 import { validateLatamTvPassword } from "@/lib/integrations/latam-tv/password"
 import type { AbnetTvPadronRow } from "@/lib/subscriptions/abnet-tv-padron"
+import { presentCustomerNumber } from "@/lib/subscriptions/customer-number-label"
 import { formatTvMoney } from "@/lib/subscriptions/tv-plans"
 
 type LatamPhase =
@@ -390,6 +391,14 @@ export function LatamTvRowDialog({
         setPhase("pending_sync")
         return
       }
+      if (payload?.outcome === "failed") {
+        setActionError(
+          payload.message ??
+            "LATAM no muestra este usuario. La consulta cerró el intento anterior y no creó otro. Se puede iniciar un alta nuevo."
+        )
+        setPhase("unregistered")
+        return
+      }
       if (payload?.outcome === "unverified") {
         setActionError(payload.message ?? "LATAM no confirmó el alta. Las acciones siguen deshabilitadas.")
         setPhase("unregistered")
@@ -728,7 +737,7 @@ export function LatamTvRowDialog({
                         : "LATAM TV"}
           </DialogTitle>
           <DialogDescription>
-            {row ? `${row.customerName} · N° ${row.abnetCustomerNumber}` : "LATAM TV"}
+            {row ? `${row.customerName} · N° ${presentCustomerNumber(row.abnetCustomerNumber)}` : "LATAM TV"}
           </DialogDescription>
         </DialogHeader>
         {row ? (

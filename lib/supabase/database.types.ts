@@ -7098,6 +7098,10 @@ export type Database = {
         }
         Returns: Json
       }
+      release_latam_tv_signup_attempt: {
+        Args: { p_customer_id: string }
+        Returns: Json
+      }
       issue_isp_billing_document: {
         Args: { p_document_id: string }
         Returns: Json

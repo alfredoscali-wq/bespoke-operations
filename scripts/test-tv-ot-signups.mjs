@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs"
 import { resolve } from "node:path"
 import test from "node:test"
 
+import { presentCustomerNumber } from "../lib/subscriptions/customer-number-label.ts"
 import {
   BESPOKE_OT_TV_PADRON_SOURCE,
   bespokeCliCustomerNumber,
@@ -289,4 +290,11 @@ test("la coincidencia de nombre exige revisión y Latam queda fuera", () => {
   assert.match(screen, /useState\(false\)/)
   assert.match(screen, /pendingSignupsOpen && showPendingSignups/)
   assert.equal(screen.split("<TvOtSignupsPanel").length - 1, 1)
+})
+
+test("el número visible quita CLI y los ceros a la izquierda", () => {
+  assert.equal(presentCustomerNumber("CLI-005788"), "5788")
+  assert.equal(presentCustomerNumber("cli-00001390"), "1390")
+  assert.equal(presentCustomerNumber("00005788"), "5788")
+  assert.equal(presentCustomerNumber("5788"), "5788")
 })

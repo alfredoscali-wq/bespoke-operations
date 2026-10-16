@@ -646,11 +646,14 @@ export type LatamTvSignupCallResult =
     }
   | { outcome: "already_exists"; status: LatamTvAccountStatus | null; identifier?: string | null }
   | { outcome: "pending_sync"; message: string }
+  | { outcome: "failed"; message: string }
   | { outcome: "unverified"; message: string }
   | { outcome: "rejected"; code: number; message: string }
 
 const SIGNUP_PENDING =
   "LATAM todavía no informó el identificador del alta. Se puede reintentar la consulta sin crear otro usuario."
+const SIGNUP_FAILED =
+  "LATAM no muestra este usuario. La consulta cerró el intento anterior y no creó otro. Se puede iniciar un alta nuevo."
 const SIGNUP_REVIEW =
   "La identidad no quedó confirmada en Latam. El alta sigue pendiente de confirmación y no se enviará de nuevo automáticamente. Hay que reconsultar la identidad en Latam."
 
@@ -847,6 +850,14 @@ function identityCredentialMessage(body: LatamRegisterBody): string | null {
   return null
 }
 
+async function releaseFailedAttempt(
+  store: LatamSignupAttemptStore | undefined
+): Promise<boolean> {
+  if (!store) return false
+  const result = await store.release().catch(() => "unavailable" as const)
+  return result === "released"
+}
+
 /** Reconsulta el padrón. No llama a register-client ni crea una reserva. */
 export async function refreshLatamSignupIdentity(
   body: LatamRegisterBody,
@@ -856,6 +867,10 @@ export async function refreshLatamSignupIdentity(
   if (location.kind === "operational") {
     await syncReservedAttempt(deps.signupAttempt, "confirmed", null)
     return identityResult(location) ?? { outcome: "pending_sync", message: SIGNUP_PENDING }
+  }
+  if (location.kind === "missing") {
+    const released = await releaseFailedAttempt(deps.signupAttempt)
+    if (released) return { outcome: "failed", message: SIGNUP_FAILED }
   }
   if (location.kind !== "review") {
     await syncReservedAttempt(deps.signupAttempt, "pending_sync", null)

@@ -162,6 +162,12 @@ export async function POST(request: Request, context: RouteContext) {
         { status: 409 }
       )
     }
+    if (result.outcome === "failed") {
+      return NextResponse.json(
+        { success: false, outcome: "failed", message: result.message },
+        { status: 409 }
+      )
+    }
     if (result.outcome === "created") {
       return NextResponse.json({
         success: true,

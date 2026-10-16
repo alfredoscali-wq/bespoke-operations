@@ -26,6 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { presentCustomerNumber } from "@/lib/subscriptions/customer-number-label"
 import { commercialTvTierLabel } from "@/lib/subscriptions/pack-futbol"
 import {
   formatTvMoney,
@@ -250,7 +251,7 @@ export function TvCommercialDeskSection() {
                 {deskList.items.map((row) => (
                   <TableRow key={row.serviceId}>
                     <TableCell className={`${CELL_CLASS} tabular-nums`}>
-                      {row.externalCustomerNumber || row.customerNumber || "—"}
+                      {presentCustomerNumber(row.externalCustomerNumber || row.customerNumber) || "—"}
                     </TableCell>
                     <TableCell className={`${CELL_CLASS} truncate font-medium`}>
                       {row.customerName}

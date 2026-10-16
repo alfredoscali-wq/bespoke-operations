@@ -59,6 +59,7 @@ import {
   togglePadronRowSelection,
   visiblePadronSelectionState,
 } from "@/lib/subscriptions/abnet-tv-padron-selection"
+import { presentCustomerNumber } from "@/lib/subscriptions/customer-number-label"
 import { STATUS_TONE_STYLES } from "@/lib/ui/visual-tokens"
 import { cn } from "@/lib/utils"
 
@@ -386,7 +387,7 @@ function SubscriptionsModuleContent() {
                         </TableCell>
                       ) : null}
                       <TableCell className={`${PADRON_CELL_CLASS} tabular-nums`}>
-                        {row.abnetCustomerNumber}
+                        {presentCustomerNumber(row.abnetCustomerNumber)}
                       </TableCell>
                       <TableCell className={`${PADRON_CELL_CLASS} truncate font-medium`}>
                         {row.customerName}
@@ -715,7 +716,7 @@ function RemovePadronDialog({
         </DialogHeader>
         {row ? (
           <div className="space-y-1 text-sm">
-            <p>N° Cliente: {row.abnetCustomerNumber}</p>
+            <p>N° Cliente: {presentCustomerNumber(row.abnetCustomerNumber)}</p>
             <p>Cliente: {row.customerName}</p>
             <p>TV actual: {tvLabel}</p>
             {error ? <p className="text-destructive">{error}</p> : null}

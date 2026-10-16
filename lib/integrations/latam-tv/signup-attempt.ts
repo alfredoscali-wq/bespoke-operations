@@ -1,8 +1,9 @@
 /**
  * Persistent guard for a new Latam TV signup.
  * The row is keyed by company and customers.id. Credentials stay out of this table.
- * No register-client code in the incorporated contract proves the user was not created.
- * A missing catalog row does not prove it either, so an uncertain attempt stays blocked.
+ * A register-client call never releases the row by itself.
+ * release closes pending_sync only when the stored code is not 1 or 3.
+ * The caller must already have a complete catalog with no match.
  */
 
 export type LatamSignupAttemptState =
@@ -24,6 +25,8 @@ export type LatamSignupAttemptStore = {
     state: "pending_sync" | "confirmed",
     latamCode: number | null
   ) => Promise<"saved" | "unavailable">
+  /** Cierra pending_sync salvo código 1 o 3. No inserta ni llama a register-client. */
+  release: () => Promise<"released" | "blocked" | "unavailable">
 }
 
 type SignupAttemptRpc = {
@@ -40,7 +43,7 @@ const STATES = new Set<LatamSignupAttemptState>([
   "rejected",
 ])
 
-/** Ningún código de register-client autoriza otro alta. */
+/** El alta no libera la reserva al interpretar un código. */
 export function latamSignupRejectionReleasesAttempt(_code: number | null): boolean {
   return false
 }
@@ -95,6 +98,18 @@ export function createLatamSignupAttemptStore(
         if (error) return "unavailable"
         const record = asRecord(data)
         return record?.saved === true ? "saved" : "unavailable"
+      } catch {
+        return "unavailable"
+      }
+    },
+    async release() {
+      try {
+        const { data, error } = await supabase.rpc("release_latam_tv_signup_attempt", {
+          p_customer_id: customerId,
+        })
+        if (error) return "unavailable"
+        const record = asRecord(data)
+        return record?.released === true ? "released" : "blocked"
       } catch {
         return "unavailable"
       }

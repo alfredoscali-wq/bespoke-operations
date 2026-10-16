@@ -394,8 +394,8 @@ test("el alta no habilita acciones si la reconsulta no confirma el id_crm", asyn
   }
 })
 
-function attemptStore(initial = null) {
-  const box = { state: initial, code: null, failFinish: 0, finishCalls: 0 }
+function attemptStore(initial = null, code = null) {
+  const box = { state: initial, code, failFinish: 0, finishCalls: 0 }
   let chain = Promise.resolve()
   const exclusive = (run) => {
     const next = chain.then(run, run)
@@ -439,6 +439,13 @@ function attemptStore(initial = null) {
         }
         box.state = state
         return "saved"
+      }),
+    release: () =>
+      exclusive(async () => {
+        if (box.state !== "pending_sync") return "blocked"
+        if (box.code === 1 || box.code === 3) return "blocked"
+        box.state = "rejected"
+        return "released"
       }),
   }
 }
@@ -783,9 +790,9 @@ test("un reinicio con register_sent no vuelve a crear", async () => {
   assert.equal(store.box.state, "register_sent")
 })
 
-test("un reinicio con pending_sync solo consulta el padrón", async () => {
+test("un reinicio con código 1 solo consulta el padrón", async () => {
   const assessment = martaAssessment()
-  const store = attemptStore("pending_sync")
+  const store = attemptStore("pending_sync", 1)
   let registers = 0
   const deps = {
     baseUrl: BASE,
@@ -801,6 +808,126 @@ test("un reinicio con pending_sync solo consulta el padrón", async () => {
   assert.equal(registers, 0)
   assert.equal(result.outcome, "pending_sync")
   assert.equal(store.box.state, "pending_sync")
+  assert.equal(store.box.code, 1)
+})
+
+test("una consulta sin usuario cierra el intento sin código y no crea otro", async () => {
+  const assessment = martaAssessment()
+  const store = attemptStore("pending_sync", null)
+  let registers = 0
+  const deps = {
+    baseUrl: BASE,
+    token: TOKEN,
+    signupAttempt: store,
+    fetchImpl: async (url) => {
+      const path = new URL(url).pathname
+      if (path === "/api/register-client") registers += 1
+      return jsonResponse({ code: 1, clients: [hidalgoRow()] })
+    },
+  }
+  const refresh = await refreshLatamSignupIdentity(assessment.body, deps)
+  assert.equal(registers, 0)
+  assert.equal(refresh.outcome, "failed")
+  assert.equal(store.box.state, "rejected")
+  assert.equal(JSON.stringify(refresh).includes(assessment.body.password), false)
+  assert.equal(JSON.stringify(refresh).includes("5788"), false)
+  const again = await signUpLatamTvClient(assessment.body, deps)
+  assert.equal(registers, 1)
+  assert.equal(again.outcome, "pending_sync")
+  assert.equal(store.box.code, 1)
+})
+
+test("un código 5 se cierra al confirmar la ausencia y no se reenvía en la consulta", async () => {
+  const assessment = martaAssessment()
+  const store = attemptStore("pending_sync", 5)
+  let registers = 0
+  const deps = {
+    baseUrl: BASE,
+    token: TOKEN,
+    signupAttempt: store,
+    fetchImpl: async (url) => {
+      const path = new URL(url).pathname
+      if (path === "/api/register-client") registers += 1
+      return jsonResponse({ code: 1, clients: [hidalgoRow()] })
+    },
+  }
+  const refresh = await refreshLatamSignupIdentity(assessment.body, deps)
+  assert.equal(registers, 0)
+  assert.equal(refresh.outcome, "failed")
+  assert.equal(store.box.state, "rejected")
+})
+
+test("una coincidencia parcial no cierra el intento ni crea otro usuario", async () => {
+  const assessment = martaAssessment()
+  const store = attemptStore("pending_sync", null)
+  let registers = 0
+  const deps = {
+    baseUrl: BASE,
+    token: TOKEN,
+    signupAttempt: store,
+    fetchImpl: async (url) => {
+      const path = new URL(url).pathname
+      if (path === "/api/register-client") registers += 1
+      return jsonResponse({
+        code: 1,
+        clients: [
+          hidalgoRow(),
+          { dni: "30123456", usuario: "otra@example.com", status: 1, identificador: "9001" },
+        ],
+      })
+    },
+  }
+  const refresh = await refreshLatamSignupIdentity(assessment.body, deps)
+  assert.equal(registers, 0)
+  assert.equal(refresh.outcome, "rejected")
+  assert.match(refresh.message, /pendiente de confirmación/)
+  assert.equal(store.box.state, "pending_sync")
+  assert.equal(JSON.stringify(refresh).includes(assessment.body.password), false)
+})
+
+test("un código 3 o un padrón ilegible no cierra el intento", async () => {
+  const assessment = martaAssessment()
+  const kept = attemptStore("pending_sync", 3)
+  const keptDeps = {
+    baseUrl: BASE,
+    token: TOKEN,
+    signupAttempt: kept,
+    fetchImpl: async () => jsonResponse({ code: 1, clients: [hidalgoRow()] }),
+  }
+  const keptResult = await refreshLatamSignupIdentity(assessment.body, keptDeps)
+  assert.equal(keptResult.outcome, "pending_sync")
+  assert.equal(kept.box.state, "pending_sync")
+
+  const unread = attemptStore("pending_sync", null)
+  const unreadDeps = {
+    baseUrl: BASE,
+    token: TOKEN,
+    signupAttempt: unread,
+    fetchImpl: async () => jsonResponse({ code: 2 }),
+  }
+  await assert.rejects(() => refreshLatamSignupIdentity(assessment.body, unreadDeps))
+  assert.equal(unread.box.state, "pending_sync")
+})
+
+test("una consulta no degrada un intento confirmado", async () => {
+  const assessment = martaAssessment()
+  const store = attemptStore("confirmed", 1)
+  let registers = 0
+  const deps = {
+    baseUrl: BASE,
+    token: TOKEN,
+    signupAttempt: store,
+    fetchImpl: async (url) => {
+      const path = new URL(url).pathname
+      if (path === "/api/register-client") registers += 1
+      return jsonResponse({ code: 1, clients: [hidalgoRow()] })
+    },
+  }
+  const refresh = await refreshLatamSignupIdentity(assessment.body, deps)
+  assert.equal(registers, 0)
+  assert.equal(refresh.outcome, "pending_sync")
+  assert.equal(store.box.state, "confirmed")
+  assert.equal(store.box.code, 1)
 })
 
 test("si Supabase falla después del envío no se habilita otra alta", async () => {

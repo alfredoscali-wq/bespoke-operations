@@ -19,8 +19,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { presentCustomerNumber } from "@/lib/subscriptions/customer-number-label"
 import {
-  bespokeCliCustomerNumber,
   countPendingTvOtSignups,
   TV_OT_LATAM_STATUS,
   TV_OT_PLAN_OPTIONS,
@@ -285,7 +285,7 @@ export function TvOtSignupsPanel({
                 <tr key={item.taskId} className="border-b align-top">
                   <td className="px-2 py-2">
                     <p className="font-medium">{item.customerName}</p>
-                    <p className="text-xs text-muted-foreground">{item.customerNumber}</p>
+                    <p className="text-xs text-muted-foreground">{presentCustomerNumber(item.customerNumber)}</p>
                     <Chip className={cn("mt-1", CATEGORY_CLASS[item.category])}>{item.categoryLabel}</Chip>
                   </td>
                   <td className="px-2 py-2">
@@ -306,7 +306,7 @@ export function TvOtSignupsPanel({
                     <p className="text-xs text-muted-foreground">{item.queueStatusLabel}</p>
                   </td>
                   <td className="px-2 py-2">
-                    {item.abnetNumber ?? bespokeCliCustomerNumber(item.customerNumber) ?? "No disponible"}
+                    {presentCustomerNumber(item.abnetNumber ?? item.customerNumber) || "No disponible"}
                   </td>
                   <td className="px-2 py-2">
                     <p>
@@ -378,7 +378,7 @@ export function TvOtSignupsPanel({
             <DialogTitle>Plan de TV</DialogTitle>
             <DialogDescription>
               {planItem
-                ? `${planItem.customerName} · ${planItem.customerNumber}. El plan contratado en la OT (${planItem.contractedPlan ?? "no disponible"}) queda como referencia y no se modifica.`
+                ? `${planItem.customerName} · ${presentCustomerNumber(planItem.customerNumber)}. El plan contratado en la OT (${planItem.contractedPlan ?? "no disponible"}) queda como referencia y no se modifica.`
                 : ""}
             </DialogDescription>
           </DialogHeader>
@@ -432,8 +432,7 @@ export function TvOtSignupsPanel({
           ) : incorporateItem ? (
             <p className="text-sm">
               El alta se incorpora al padrón con el N° de cliente{" "}
-              {incorporateItem.abnetNumber ??
-                bespokeCliCustomerNumber(incorporateItem.customerNumber) ??
+              {presentCustomerNumber(incorporateItem.abnetNumber ?? incorporateItem.customerNumber) ||
                 "no disponible"}
               .
             </p>
