@@ -193,6 +193,7 @@ export function LatamTvRowDialog({
   const [successPlanName, setSuccessPlanName] = useState<string | null>(null)
   const busy = useRef(false)
   const planDoneRef = useRef(false)
+  const linkHoldRef = useRef<{ key: string; phase: "linked" | "link_partial" } | null>(null)
   const planChangeRef = useRef<() => void>(() => {})
   const signupRef = useRef<() => void>(() => {})
   const knownKey =
@@ -205,6 +206,14 @@ export function LatamTvRowDialog({
   useEffect(() => {
     if (planDoneRef.current && row && intent === "plan") {
       setPhase("plan_done")
+      return
+    }
+    const linkHoldKey = row ? `${row.source}:${row.sourceRow}` : ""
+    if (linkHoldRef.current && linkHoldRef.current.key !== linkHoldKey) {
+      linkHoldRef.current = null
+    }
+    if (linkHoldRef.current && linkHoldRef.current.key === linkHoldKey) {
+      setPhase(linkHoldRef.current.phase)
       return
     }
     if (!row) planDoneRef.current = false
@@ -442,10 +451,15 @@ export function LatamTvRowDialog({
         return
       }
       if (payload?.outcome === "failed") {
-        setActionError(
+        const message =
           payload.message ??
-            "LATAM no muestra este usuario. La consulta cerró el intento anterior y no creó otro. Se puede iniciar un alta nuevo."
-        )
+          "LATAM no muestra este usuario. La consulta cerró el intento anterior y no creó otro. Se puede iniciar un alta nuevo."
+        if (message.startsWith("Sin alta confirmada")) {
+          setIdentityNote(message)
+          setActionError(null)
+        } else {
+          setActionError(message)
+        }
         setPhase("unregistered")
         return
       }
@@ -457,7 +471,12 @@ export function LatamTvRowDialog({
       if (payload?.outcome === "already_exists") {
         const next = registeredPhase(payload.status)
         const identifier = payload.identifier ?? latamIdentifier
-        setActionError(payload.message ?? "El cliente ya existe en LATAM TV.")
+        if (payload.message === "Alta confirmada") {
+          setIdentityNote("Alta confirmada")
+          setActionError(null)
+        } else {
+          setActionError(payload.message ?? "El cliente ya existe en LATAM TV.")
+        }
         if (next === "suspended" && identifier) {
           setAccountPhase("suspended")
           setLatamIdentifier(identifier)
@@ -719,6 +738,9 @@ export function LatamTvRowDialog({
         iptvId?: string
       } | null
       if (payload?.outcome === "linked" && payload.identifier) {
+        if (row) {
+          linkHoldRef.current = { key: `${row.source}:${row.sourceRow}`, phase: "linked" }
+        }
         setPhase("linked")
         setLatamIdentifier(payload.identifier)
         onStatus(customerId, {
@@ -734,6 +756,9 @@ export function LatamTvRowDialog({
         return
       }
       if (payload?.outcome === "partial") {
+        if (row) {
+          linkHoldRef.current = { key: `${row.source}:${row.sourceRow}`, phase: "link_partial" }
+        }
         setPhase("link_partial")
         if (payload.identifier) {
           setLatamIdentifier(payload.identifier)
@@ -756,10 +781,10 @@ export function LatamTvRowDialog({
         return
       }
       setActionError(payload?.message ?? "No se pudo vincular con LATAM TV.")
-      setPhase("link_confirm")
+      setPhase(linkHoldRef.current?.phase ?? "link_confirm")
     } catch {
       setActionError("No fue posible comunicarse con LATAM TV. No se realizaron cambios en Bespoke.")
-      setPhase("link_confirm")
+      setPhase(linkHoldRef.current?.phase ?? "link_confirm")
     } finally {
       busy.current = false
       setPending(false)
@@ -851,9 +876,11 @@ export function LatamTvRowDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            {phase === "link_partial"
+            {phase === "linked"
+              ? "Vinculación completada"
+              : phase === "link_partial"
               ? "Vinculación parcial"
-              : phase === "link_confirm" || phase === "linked" || intent === "link"
+              : phase === "link_confirm" || intent === "link"
               ? "Vincular con LATAM"
               : phase === "pending_sync"
               ? "LATAM TV"
@@ -881,11 +908,17 @@ export function LatamTvRowDialog({
             {phase === "no_bespoke" ? (
               <p>Este registro no tiene ficha en Bespoke.</p>
             ) : null}
-            {label && !passwordStep && phase !== "status_confirm" ? (
+            {label &&
+            !passwordStep &&
+            phase !== "status_confirm" &&
+            phase !== "linked" &&
+            phase !== "link_partial" ? (
               <p className="font-medium">{label}</p>
             ) : null}
             {phase === "unavailable" ? <p>No fue posible consultar LATAM TV.</p> : null}
-            {phase === "unregistered" ? <p>El cliente no existe en LATAM TV.</p> : null}
+            {phase === "unregistered" && !identityNote?.startsWith("Sin alta confirmada") ? (
+              <p>El cliente no existe en LATAM TV.</p>
+            ) : null}
             {identityNote ? <p>{identityNote}</p> : null}
             {latamIdentifier && (phase === "active" || phase === "suspended") ? (
               <p>Identificador LATAM: {latamIdentifier}</p>
@@ -1080,14 +1113,14 @@ export function LatamTvRowDialog({
               </div>
             ) : null}
             {phase === "linked" ? (
-              <p>Cliente vinculado con LATAM TV y asociado a su ficha de Bespoke.</p>
+              <p className="font-medium">Vinculación completada correctamente</p>
             ) : null}
             {phase === "link_partial" ? (
               <div className="space-y-2">
-                <p>
-                  Vinculación parcial: LATAM quedó vinculado, pero la ficha de Bespoke no se asoció.
-                  No se volvió a sincronizar.
+                <p className="font-medium">
+                  LATAM vinculado; falta completar la asociación en Bespoke
                 </p>
+                <p>No se volvió a sincronizar.</p>
                 <Button
                   type="button"
                   size="sm"

@@ -250,7 +250,7 @@ export async function POST(request: Request, context: RouteContext) {
         status: result.status,
         identifier: result.identifier ?? null,
         iptvId: result.iptvId ?? null,
-        message: "El cliente ya existe en LATAM TV.",
+        message: result.message ?? "El cliente ya existe en LATAM TV.",
       })
     }
     return NextResponse.json(

@@ -899,6 +899,7 @@ export type LatamTvSignupCallResult =
       status: LatamTvAccountStatus | null
       identifier?: string | null
       iptvId?: string | null
+      message?: string
     }
   | { outcome: "pending_sync"; message: string }
   | { outcome: "failed"; message: string }
@@ -913,6 +914,8 @@ const SIGNUP_QUERIED_STILL_PENDING =
   "Consulta realizada. LATAM todavía no informa el identificador del alta; el estado sigue pendiente. Podés volver a consultar más tarde."
 const SIGNUP_FAILED =
   "LATAM no muestra este usuario. La consulta cerró el intento anterior y no creó otro. Se puede iniciar un alta nuevo."
+const SIGNUP_UNCONFIRMED =
+  "Sin alta confirmada en LATAM. La consulta no encontró una coincidencia de identidad. No se creó un usuario. Se puede iniciar un alta nuevo."
 const SIGNUP_REVIEW =
   "La identidad no quedó confirmada en Latam. El alta sigue pendiente de confirmación y no se enviará de nuevo automáticamente. Hay que reconsultar la identidad en Latam."
 
@@ -1193,20 +1196,27 @@ export function heldLatamSignup(
   return pendingSignupResult(attempt)
 }
 
-/** Un padrón completo sin coincidencia cierra un pending_sync con código distinto de 1 y 3.
- *  Un código null no se cierra. Si la fila ya está rejected, se informa sin escribir de nuevo. */
+/** Un código vacío y sin id_iptv no es un alta confirmada ni un code 1. */
+function unconfirmedCatalogMiss(current: LatamSignupAttemptSnapshot): boolean {
+  return current.latamCode == null && !latamIptvId(current.iptvId)
+}
+
+/** Un padrón completo sin coincidencia cierra un código distinto de 1 y 3.
+ *  También cierra pending_sync cuando el código y el id_iptv están vacíos.
+ *  Un code 1 o 3, o un id_iptv ya guardado, sigue pendiente. No crea usuarios. */
 async function catalogMissClosesAttempt(
   store: LatamSignupAttemptStore | undefined
-): Promise<boolean> {
+): Promise<"unconfirmed" | "closed" | false> {
   if (!store) return false
   const current = await reservedAttempt(store)
   if (!current) return false
-  if (current.state === "rejected") return true
+  const kind = unconfirmedCatalogMiss(current) ? "unconfirmed" : "closed"
+  if (current.state === "rejected") return kind
   if (current.state !== "pending_sync") return false
-  if (!storedRejectionCode(current.latamCode)) return false
+  if (!storedRejectionCode(current.latamCode) && kind !== "unconfirmed") return false
   const released = await store.release().catch(() => "unavailable" as const)
-  if (released === "released") return true
-  return (await reservedAttempt(store))?.state === "rejected"
+  if (released === "released") return kind
+  return (await reservedAttempt(store))?.state === "rejected" ? kind : false
 }
 
 /** Reconsulta el padrón. No llama a register-client ni crea una reserva. */
@@ -1220,11 +1230,22 @@ export async function refreshLatamSignupIdentity(
     if (location.iptvId) {
       await deps.signupAttempt?.rememberIptv?.(location.iptvId).catch(() => "unavailable" as const)
       await syncReservedAttempt(deps.signupAttempt, "confirmed", null, location.iptvId)
+      return {
+        outcome: "already_exists",
+        status: location.status,
+        identifier: location.identifier,
+        iptvId: location.iptvId,
+        message: "Alta confirmada",
+      }
     }
     return identityResult(location) ?? pendingSignupResult(before)
   }
   if (location.kind === "missing") {
-    if (await catalogMissClosesAttempt(deps.signupAttempt)) {
+    const closed = await catalogMissClosesAttempt(deps.signupAttempt)
+    if (closed === "unconfirmed") {
+      return { outcome: "failed", message: SIGNUP_UNCONFIRMED }
+    }
+    if (closed === "closed") {
       return { outcome: "failed", message: SIGNUP_FAILED }
     }
   }

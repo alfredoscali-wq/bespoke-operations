@@ -456,8 +456,8 @@ test("el alta no habilita acciones si la reconsulta no confirma el id_crm", asyn
   }
 })
 
-function attemptStore(initial = null, code = null) {
-  const box = { state: initial, code, failFinish: 0, finishCalls: 0 }
+function attemptStore(initial = null, code = null, iptvId = null) {
+  const box = { state: initial, code, iptvId, failFinish: 0, finishCalls: 0 }
   let chain = Promise.resolve()
   const exclusive = (run) => {
     const next = chain.then(run, run)
@@ -480,7 +480,9 @@ function attemptStore(initial = null, code = null) {
       }),
     read: () =>
       exclusive(async () =>
-        box.state == null ? null : { state: box.state, latamCode: box.code }
+        box.state == null
+          ? null
+          : { state: box.state, latamCode: box.code, iptvId: box.iptvId }
       ),
     finish: (state, latamCode = null) =>
       exclusive(async () => {
@@ -509,6 +511,7 @@ function attemptStore(initial = null, code = null) {
       exclusive(async () => {
         if (box.state !== "pending_sync") return "blocked"
         if (box.code === 1 || box.code === 3) return "blocked"
+        if (box.code == null && box.iptvId) return "blocked"
         box.state = "rejected"
         return "released"
       }),
@@ -1118,16 +1121,11 @@ test("un reinicio con código 1 solo consulta el padrón", async () => {
   assert.equal(store.box.code, 1)
 })
 
-test("una consulta sin usuario y sin código deja el alta pendiente y no crea otro", async () => {
+test("un catálogo completo sin coincidencia libera el intento vacío y no crea otro usuario", async () => {
   const assessment = martaAssessment()
   const store = attemptStore("pending_sync", null)
   let registers = 0
-  let releases = 0
-  const release = store.release
-  store.release = () => {
-    releases += 1
-    return release()
-  }
+  let syncs = 0
   const deps = {
     baseUrl: BASE,
     token: TOKEN,
@@ -1135,27 +1133,131 @@ test("una consulta sin usuario y sin código deja el alta pendiente y no crea ot
     fetchImpl: async (url) => {
       const path = new URL(url).pathname
       if (path === "/api/register-client") registers += 1
+      if (path === "/api/sync-client") syncs += 1
       return jsonResponse({ code: 1, clients: [hidalgoRow()] })
     },
   }
   const refresh = await refreshLatamSignupIdentity(assessment.body, deps)
   assert.equal(registers, 0)
-  assert.equal(releases, 0)
-  assert.equal(refresh.outcome, "pending_sync")
-  assert.equal(
-    refresh.message,
-    "Consulta realizada. LATAM todavía no informa el identificador del alta; el estado sigue pendiente. Podés volver a consultar más tarde."
-  )
-  assert.equal(refresh.message.includes("No se pudo consultar LATAM TV."), false)
-  assert.equal(refresh.message.includes("iniciar un alta nuevo"), false)
-  assert.equal(store.box.state, "pending_sync")
+  assert.equal(syncs, 0)
+  assert.equal(refresh.outcome, "failed")
+  assert.match(refresh.message, /Sin alta confirmada en LATAM/)
+  assert.equal(refresh.message.includes("rechaz"), false)
+  assert.equal(store.box.state, "rejected")
   assert.equal(store.box.code, null)
   assert.equal(JSON.stringify(refresh).includes(assessment.body.password), false)
   assert.equal(JSON.stringify(refresh).includes("5788"), false)
   const again = await signUpLatamTvClient(assessment.body, deps)
-  assert.equal(registers, 0)
+  assert.equal(registers, 1)
+  assert.equal(syncs, 0)
   assert.equal(again.outcome, "pending_sync")
+})
+
+test("un error de catálogo o un id_iptv guardado conservan el pendiente", async () => {
+  const assessment = martaAssessment()
+  const broken = attemptStore("pending_sync", null)
+  await assert.rejects(() =>
+    refreshLatamSignupIdentity(assessment.body, {
+      baseUrl: BASE,
+      token: TOKEN,
+      signupAttempt: broken,
+      fetchImpl: async () => {
+        throw new Error("catalog down")
+      },
+    })
+  )
+  assert.equal(broken.box.state, "pending_sync")
+
+  const incomplete = attemptStore("pending_sync", null)
+  await assert.rejects(() =>
+    refreshLatamSignupIdentity(assessment.body, {
+      baseUrl: BASE,
+      token: TOKEN,
+      signupAttempt: incomplete,
+      fetchImpl: async () => jsonResponse({ code: 1 }),
+    })
+  )
+  assert.equal(incomplete.box.state, "pending_sync")
+
+  const kept = attemptStore("pending_sync", null, "29")
+  let registers = 0
+  const refresh = await refreshLatamSignupIdentity(assessment.body, {
+    baseUrl: BASE,
+    token: TOKEN,
+    signupAttempt: kept,
+    fetchImpl: async (url) => {
+      const path = new URL(url).pathname
+      if (path === "/api/register-client") registers += 1
+      return jsonResponse({ code: 1, clients: [hidalgoRow()] })
+    },
+  })
+  assert.equal(registers, 0)
+  assert.equal(refresh.outcome, "pending_sync")
+  assert.equal(kept.box.state, "pending_sync")
+  assert.equal(kept.box.iptvId, "29")
+})
+
+test("una coincidencia con identificador e id_iptv confirma el alta y no usa el id_crm", async () => {
+  const assessment = martaAssessment()
+  const store = attemptStore("pending_sync", null)
+  let registers = 0
+  let syncs = 0
+  const refresh = await refreshLatamSignupIdentity(assessment.body, {
+    baseUrl: BASE,
+    token: TOKEN,
+    signupAttempt: store,
+    fetchImpl: async (url) => {
+      const path = new URL(url).pathname
+      if (path === "/api/register-client") registers += 1
+      if (path === "/api/sync-client") syncs += 1
+      return jsonResponse({
+        code: 1,
+        clients: [hidalgoRow(), martaRow({ id_crm: "5792", identificador: "4412", id_iptv: 29 })],
+      })
+    },
+  })
+  assert.equal(registers, 0)
+  assert.equal(syncs, 0)
+  assert.equal(refresh.outcome, "already_exists")
+  if (refresh.outcome === "already_exists") {
+    assert.equal(refresh.iptvId, "29")
+    assert.equal(refresh.identifier, "4412")
+    assert.equal(refresh.message, "Alta confirmada")
+    assert.notEqual(refresh.identifier, "5792")
+    assert.notEqual(refresh.iptvId, "1")
+  }
+  assert.equal(store.box.state, "confirmed")
+})
+
+test("una coincidencia ambigua no asocia ni llama a register-client", async () => {
+  const assessment = martaAssessment()
+  const store = attemptStore("pending_sync", null)
+  let registers = 0
+  let syncs = 0
+  const refresh = await refreshLatamSignupIdentity(assessment.body, {
+    baseUrl: BASE,
+    token: TOKEN,
+    signupAttempt: store,
+    fetchImpl: async (url) => {
+      const path = new URL(url).pathname
+      if (path === "/api/register-client") registers += 1
+      if (path === "/api/sync-client") syncs += 1
+      return jsonResponse({
+        code: 1,
+        clients: [
+          hidalgoRow(),
+          martaRow({ id_iptv: 29, identificador: "4412" }),
+          martaRow({ id_iptv: 30, identificador: "4413" }),
+        ],
+      })
+    },
+  })
+  assert.equal(registers, 0)
+  assert.equal(syncs, 0)
+  assert.equal(refresh.outcome, "rejected")
+  assert.match(refresh.message, /pendiente de confirmación/)
   assert.equal(store.box.state, "pending_sync")
+  assert.equal(store.box.iptvId, null)
 })
 
 test("un código 5 se cierra al confirmar la ausencia y no se reenvía en la consulta", async () => {
@@ -1519,7 +1621,7 @@ test("la sincronización posterior confirma la reserva sin otro alta", async () 
 test("la consulta no crea usuarios en pending_sync, rejected, register_sent ni confirmed", async () => {
   const assessment = martaAssessment()
   const cases = [
-    ["pending_sync", null, "pending_sync", "pending_sync"],
+    ["pending_sync", null, "failed", "rejected"],
     ["rejected", null, "failed", "rejected"],
     ["register_sent", null, "pending_sync", "pending_sync"],
     ["confirmed", 1, "pending_sync", "confirmed"],
@@ -1541,12 +1643,9 @@ test("la consulta no crea usuarios en pending_sync, rejected, register_sent ni c
     assert.equal(refresh.outcome, outcome, String(state))
     assert.equal(store.box.state, after, String(state))
     if (state === "pending_sync") {
-      assert.equal(
-        refresh.message,
-        "Consulta realizada. LATAM todavía no informa el identificador del alta; el estado sigue pendiente. Podés volver a consultar más tarde."
-      )
+      assert.match(refresh.message, /Sin alta confirmada en LATAM/)
       assert.equal(refresh.message.includes("No se pudo consultar LATAM TV."), false)
-      assert.equal(refresh.message.includes("iniciar un alta nuevo"), false)
+      assert.equal(refresh.message.includes("rechaz"), false)
     }
   }
   assert.equal(heldLatamSignup({ state: "pending_sync", latamCode: null })?.outcome, "pending_sync")

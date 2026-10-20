@@ -70,6 +70,7 @@ const setupSql = (insert, update, release) => `
     customer_id uuid NOT NULL,
     state text NOT NULL CHECK (state IN ('register_sent', 'pending_sync', 'confirmed', 'rejected')),
     latam_code integer,
+    id_iptv text,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (company_id, customer_id)
@@ -170,10 +171,10 @@ function api(query, close) {
       )
       return result.rows ? result.rows[0].result : result[0].result
     },
-    async seed(company, customer, state, latamCode = null) {
+    async seed(company, customer, state, latamCode = null, iptvId = null) {
       await query(
-        "insert into latam_tv_signup_attempts (company_id, customer_id, state, latam_code) values ($1::uuid, $2::uuid, $3::text, $4::integer)",
-        [company, customer, state, latamCode]
+        "insert into latam_tv_signup_attempts (company_id, customer_id, state, latam_code, id_iptv) values ($1::uuid, $2::uuid, $3::text, $4::integer, $5::text)",
+        [company, customer, state, latamCode, iptvId]
       )
     },
     async insertDuplicate(company, customer) {
@@ -246,7 +247,12 @@ const releaseGuardMigration = readFileSync(
   resolve(root, "supabase/migrations/20270115220000_latam_tv_signup_attempt_release_guard.sql"),
   "utf8"
 )
-const release = migrationStatement("UPDATE", releaseGuardMigration)
+const releaseGuardUpdate = migrationStatement("UPDATE", releaseGuardMigration)
+const unconfirmedReleaseMigration = readFileSync(
+  resolve(root, "supabase/migrations/20270120180000_latam_tv_signup_attempt_release_unconfirmed.sql"),
+  "utf8"
+)
+const release = migrationStatement("UPDATE", unconfirmedReleaseMigration)
 const isolated = await openIsolated(insert, update, release)
 const skip = isolated ? false : "no hay una base Postgres aislada en este entorno"
 
@@ -264,11 +270,15 @@ test("la migración no guarda datos personales y reserva con la clave única", (
   assert.doesNotMatch(migration, /\b(dni|email|password|correo)\b/i)
   assert.equal(migration.match(/INSERT\s+INTO\s+/gi).length, 1)
   assert.equal(releaseMigration.match(/INSERT\s+INTO\s+/gi)?.length ?? 0, 0)
-  assert.match(release, /state = 'pending_sync'/)
-  assert.match(release, /latam_code IS NOT NULL\s+AND latam_code NOT IN \(1, 3\)/)
-  assert.doesNotMatch(release, /latam_code IS NULL OR/)
-  assert.doesNotMatch(release, /register_sent/)
-  assert.doesNotMatch(release, /confirmed/)
+  assert.match(releaseGuardUpdate, /state = 'pending_sync'/)
+  assert.match(releaseGuardUpdate, /latam_code IS NOT NULL\s+AND latam_code NOT IN \(1, 3\)/)
+  assert.doesNotMatch(releaseGuardUpdate, /latam_code IS NULL OR/)
+  assert.doesNotMatch(releaseGuardUpdate, /register_sent/)
+  assert.doesNotMatch(releaseGuardUpdate, /confirmed/)
+  assert.match(release, /latam_code IS NULL AND id_iptv IS NULL/)
+  assert.match(release, /latam_code IS NOT NULL AND latam_code NOT IN \(1, 3\)/)
+  assert.doesNotMatch(unconfirmedReleaseMigration, /UPDATE\s+(?:public\.)?customers\b/i)
+  assert.doesNotMatch(unconfirmedReleaseMigration, /\b(dni|email|password|correo)\b/i)
   assert.doesNotMatch(releaseMigration, /\b(dni|email|password|correo)\b/i)
   assert.match(releaseGuardMigration, /CREATE OR REPLACE FUNCTION public\.release_latam_tv_signup_attempt/)
   assert.equal(releaseGuardMigration.match(/CREATE OR REPLACE FUNCTION/g).length, 1)
@@ -423,20 +433,27 @@ test("finish no crea una reserva y confirma el código sin degradar", { skip }, 
   assert.equal(again.state, "confirmed")
 })
 
-test("release no cierra un pending_sync sin código y conserva 1, 3, register_sent y confirmed", { skip }, async () => {
+test("release cierra un pending_sync sin código ni id_iptv y conserva 1, 3, register_sent y confirmed", { skip }, async () => {
   const company = randomUUID()
   const customer = randomUUID()
-  await isolated.seed(company, customer, "pending_sync", null)
+  await isolated.seed(company, customer, "pending_sync", null, null)
   const closed = await isolated.release(customer, company)
-  assert.equal(closed.released, false)
-  assert.equal(closed.state, "pending_sync")
+  assert.equal(closed.released, true)
+  assert.equal(closed.state, "rejected")
   const pendingRows = await isolated.stateOf(company, customer)
   assert.equal(pendingRows.length, 1)
-  assert.equal(pendingRows[0].state, "pending_sync")
+  assert.equal(pendingRows[0].state, "rejected")
   assert.equal(pendingRows[0].latam_code, null)
-  const stillHeld = await isolated.reserve(customer, company)
-  assert.equal(stillHeld.granted, false)
-  assert.equal(stillHeld.state, "pending_sync")
+  const reopened = await isolated.reserve(customer, company)
+  assert.equal(reopened.granted, true)
+  assert.equal(reopened.state, "register_sent")
+
+  const keptCompany = randomUUID()
+  const keptCustomer = randomUUID()
+  await isolated.seed(keptCompany, keptCustomer, "pending_sync", null, "750")
+  const kept = await isolated.release(keptCustomer, keptCompany)
+  assert.equal(kept.released, false)
+  assert.equal(kept.state, "pending_sync")
 
   const fiveCompany = randomUUID()
   const fiveCustomer = randomUUID()
