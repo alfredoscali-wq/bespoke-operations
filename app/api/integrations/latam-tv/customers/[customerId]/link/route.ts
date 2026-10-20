@@ -6,6 +6,11 @@ import { readLatamTvConfig } from "@/lib/integrations/latam-tv/config"
 import { linkExistingLatamTvClient } from "@/lib/integrations/latam-tv/client"
 import { LatamTvRequestError } from "@/lib/integrations/latam-tv/errors"
 import { latamIdentifierFromCustomer } from "@/lib/integrations/latam-tv/identifier"
+import {
+  readPadronLinkCustomers,
+  resolvePadronLinkIdentities,
+} from "@/lib/subscriptions/padron-latam-link"
+import { loadAbnetTvPadronSourceRows } from "@/lib/subscriptions/abnet-tv-padron-source"
 import { requireSubscriptionsWriteContext } from "@/lib/subscriptions/route-context"
 import { createClient } from "@/lib/supabase/server"
 
@@ -36,7 +41,7 @@ export async function POST(request: Request, context: RouteContext) {
     const supabase = await createClient()
     const { data, error } = await supabase
       .from("customers")
-      .select("id, company_id, dni, email, external_customer_code, deleted_at")
+      .select("id, company_id, name, dni, email, external_customer_code, deleted_at")
       .eq("id", customerId)
       .eq("company_id", auth.companyId)
       .is("deleted_at", null)
@@ -54,13 +59,33 @@ export async function POST(request: Request, context: RouteContext) {
       },
       auth.companyId
     )
-    if (identified.status !== "ready") {
-      return NextResponse.json({
-        success: true,
-        outcome: "review",
-        reason: "missing_identity",
-        message: "No se puede vincular con LATAM. La ficha no tiene un N° ABNet. No se modificó nada.",
-      })
+    let abnetNumber = identified.status === "ready" ? identified.identifier : null
+    if (!abnetNumber) {
+      const [padron, customers] = await Promise.all([
+        loadAbnetTvPadronSourceRows(supabase, auth.companyId),
+        readPadronLinkCustomers(supabase, auth.companyId),
+      ])
+      const matches =
+        padron.error || !customers
+          ? []
+          : [...resolvePadronLinkIdentities({
+              rows: padron.rows.map((row) => ({
+                abnetNumber: row.abnetCustomerNumber,
+                customerName: row.customerName,
+              })),
+              customers,
+            }).entries()].flatMap(([number, identity]) =>
+              identity.status === "ready" && identity.customerId === customerId ? [number] : []
+            )
+      if (matches.length !== 1) {
+        return NextResponse.json({
+          success: true,
+          outcome: "review",
+          reason: matches.length === 0 ? "missing_identity" : "ambiguous",
+          message: "No se puede vincular con seguridad. No se modificó nada.",
+        })
+      }
+      abnetNumber = matches[0]
     }
 
     const config = readLatamTvConfig()
@@ -69,7 +94,7 @@ export async function POST(request: Request, context: RouteContext) {
     const result = await linkExistingLatamTvClient(
       {
         customerId,
-        abnetNumber: identified.identifier,
+        abnetNumber,
         nationalId: data.dni,
         email: data.email,
       },

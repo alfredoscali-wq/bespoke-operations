@@ -17,6 +17,8 @@ export type LatamBatchClient = {
   planName: string | null
   /** Clasificación de una ficha ya existente. No autoriza por sí sola la escritura. */
   link?: "ready" | "review" | "absent"
+  /** Ficha Bespoke hallada para confirmar la vinculación. No es un id de LATAM. */
+  linkCustomerId?: string
 }
 
 type LookupBody = {

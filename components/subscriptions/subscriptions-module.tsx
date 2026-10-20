@@ -104,6 +104,7 @@ function latamPresenceFor(
     iptvId: client.iptvId,
     username: client.username,
     link: client.link,
+    linkCustomerId: client.linkCustomerId,
   }
 }
 
@@ -206,6 +207,7 @@ function SubscriptionsModuleContent() {
         username: presence.username,
         planName: presence.planName,
         link: presence.link,
+        linkCustomerId: presence.linkCustomerId,
       })
     },
     [rememberLatam]

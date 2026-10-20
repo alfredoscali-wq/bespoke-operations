@@ -11,6 +11,10 @@ import {
 } from "../lib/integrations/latam-tv/client.ts"
 import { latamCatalogClient } from "../lib/integrations/latam-tv/identity.ts"
 import { padronLatamMode } from "../lib/subscriptions/padron-latam-mode.ts"
+import {
+  classifyPadronLatamLink,
+  resolvePadronLinkIdentities,
+} from "../lib/subscriptions/padron-latam-link.ts"
 
 const BASE = "https://abnetv.cd-latam.com"
 const TOKEN = "latam-link-token-do-not-leak"
@@ -261,16 +265,173 @@ test("la interfaz pide confirmación y el servidor no acepta el id enviado por e
   const dialog = read("components/subscriptions/latam-tv-row-dialog.tsx")
   const route = read("app/api/integrations/latam-tv/customers/[customerId]/link/route.ts")
   const padron = read("app/api/subscriptions/abnet-padron/route.ts")
+  const classifier = read("lib/subscriptions/padron-latam-link.ts")
   assert.match(module, /Vincular con LATAM/)
   assert.match(dialog, /postLink\(/)
   assert.match(dialog, /confirm: true/)
-  assert.doesNotMatch(dialog, /postLink[\s\S]{0,500}register/)
+  assert.match(dialog, /linkCustomerId/)
+  assert.doesNotMatch(dialog, /postLink[\s\S]{0,800}register/)
   assert.match(route, /linkExistingLatamTvClient/)
   assert.match(route, /latamIdentifierFromCustomer/)
   assert.match(route, /requireSubscriptionsWriteContext/)
   assert.match(route, /auth\.companyId/)
   assert.doesNotMatch(route, /register-client|customer_number/)
   assert.doesNotMatch(route, /body\.id_iptv|body\.id_crm|body\.identificador/)
-  assert.match(padron, /planLatamAbnetLink/)
+  assert.doesNotMatch(route, /\.update\(/)
+  assert.match(padron, /classifyPadronLatamLink/)
+  assert.equal(padron.match(/await listLatamTvClients/g)?.length, 1)
+  assert.match(classifier, /planLatamAbnetLink/)
   assert.doesNotMatch(padron, /sync-client|register-client/)
+  assert.doesNotMatch(classifier, /sync-client|register-client/)
+})
+
+function ficha(overrides = {}) {
+  return {
+    id: CUSTOMER,
+    name: "Nieva Emiliana",
+    externalCustomerCode: null,
+    dni: DNI,
+    email: EMAIL,
+    ...overrides,
+  }
+}
+
+function identityFor(number, customers, name = "Nieva Emiliana") {
+  return resolvePadronLinkIdentities({
+    rows: [{ abnetNumber: number, customerName: name }],
+    customers,
+  }).get(number)
+}
+
+test("la ficha encontrada por N° ABNet se compara con el catálogo", () => {
+  const identity = identityFor(CRM, [ficha({ externalCustomerCode: "00006794", name: "Otro nombre" })])
+  assert.equal(identity.status, "ready")
+  assert.deepEqual(
+    classifyPadronLatamLink({ abnetNumber: CRM, identity, catalog: [catalogRow()] }),
+    { link: "ready", customerId: CUSTOMER }
+  )
+})
+
+test("sin código externo, una coincidencia única de DNI y correo queda lista para vincular", () => {
+  const identity = identityFor(CRM, [ficha()])
+  assert.equal(identity.status, "ready")
+  const mark = classifyPadronLatamLink({ abnetNumber: CRM, identity, catalog: [catalogRow()] })
+  assert.deepEqual(mark, { link: "ready", customerId: CUSTOMER })
+  assert.equal(
+    padronLatamMode(
+      { abnetCustomerNumber: CRM, bespokeCustomerId: null, bespokeLink: "none", latamCredentialGap: null },
+      { 6794: { phase: "unregistered", identifier: null, iptvId: null, username: null, planName: null, link: mark.link } }
+    ).kind,
+    "link"
+  )
+})
+
+test("un nombre coincidente no vincula si el DNI o el correo no confirman la identidad", () => {
+  const identity = identityFor(CRM, [ficha()])
+  assert.equal(identity.status, "ready")
+  const dniOnly = classifyPadronLatamLink({
+    abnetNumber: CRM,
+    identity,
+    catalog: [catalogRow({ usuario: "otra@example.com" })],
+  })
+  const emailOnly = classifyPadronLatamLink({
+    abnetNumber: CRM,
+    identity,
+    catalog: [catalogRow({ dni: "20999888" })],
+  })
+  assert.notEqual(dniOnly.link, "ready")
+  assert.notEqual(emailOnly.link, "ready")
+  assert.equal(dniOnly.link, "review")
+  assert.equal(emailOnly.link, "review")
+})
+
+test("sin coincidencia de DNI y correo se conserva el alta", () => {
+  const identity = identityFor(CRM, [ficha()])
+  assert.deepEqual(
+    classifyPadronLatamLink({
+      abnetNumber: CRM,
+      identity,
+      catalog: [catalogRow({ dni: "20999888", usuario: "otra@example.com" })],
+    }),
+    { link: "absent", customerId: CUSTOMER }
+  )
+})
+
+test("sin ficha no se fuerza una revisión", () => {
+  const identity = identityFor(CRM, [])
+  assert.deepEqual(classifyPadronLatamLink({ abnetNumber: CRM, identity, catalog: [catalogRow()] }), {
+    link: "skip",
+  })
+})
+
+test("DNI o correo faltantes quedan en revisión y no consultan el catálogo", () => {
+  const identity = identityFor(CRM, [ficha({ email: "" })])
+  assert.deepEqual(
+    classifyPadronLatamLink({ abnetNumber: CRM, identity, catalog: [] }),
+    { link: "review", customerId: CUSTOMER }
+  )
+})
+
+test("varias fichas con el mismo nombre quedan en revisión", () => {
+  const identity = identityFor(CRM, [ficha(), ficha({ id: `${CUSTOMER}-2` })])
+  assert.equal(identity.status, "ambiguous")
+  assert.deepEqual(classifyPadronLatamLink({ abnetNumber: CRM, identity, catalog: [catalogRow()] }), {
+    link: "review",
+  })
+})
+
+test("varias fichas LATAM con el mismo DNI y correo quedan en revisión", () => {
+  const identity = identityFor(CRM, [ficha()])
+  assert.equal(
+    classifyPadronLatamLink({
+      abnetNumber: CRM,
+      identity,
+      catalog: [catalogRow(), catalogRow({ id_iptv: 26 })],
+    }).link,
+    "review"
+  )
+})
+
+test("un id_iptv inválido no se vincula", () => {
+  const identity = identityFor(CRM, [ficha()])
+  assert.equal(
+    classifyPadronLatamLink({
+      abnetNumber: CRM,
+      identity,
+      catalog: [catalogRow({ id_iptv: Number(CRM) })],
+    }).link,
+    "review"
+  )
+})
+
+test("un vínculo previo incompatible no se vincula", () => {
+  const identity = identityFor(CRM, [ficha()])
+  assert.equal(
+    classifyPadronLatamLink({
+      abnetNumber: CRM,
+      identity,
+      catalog: [catalogRow({ id_crm: "1111" })],
+    }).link,
+    "review"
+  )
+})
+
+test("un error al leer el catálogo deja la fila en revisión", () => {
+  const identity = identityFor(CRM, [ficha()])
+  assert.deepEqual(classifyPadronLatamLink({ abnetNumber: CRM, identity, catalog: null }), {
+    link: "review",
+    customerId: CUSTOMER,
+  })
+})
+
+test("la misma ficha no habilita dos abonos", () => {
+  const resolved = resolvePadronLinkIdentities({
+    rows: [
+      { abnetNumber: "6794", customerName: "Nieva Emiliana" },
+      { abnetNumber: "6793", customerName: "Nieva Emiliana" },
+    ],
+    customers: [ficha()],
+  })
+  assert.equal(resolved.get("6794").status, "ambiguous")
+  assert.equal(resolved.get("6793").status, "ambiguous")
 })

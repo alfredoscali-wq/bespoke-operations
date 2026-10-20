@@ -136,6 +136,7 @@ export type LatamRowPresence = {
   iptvId?: string | null
   username: string | null
   link?: "ready" | "review" | "absent"
+  linkCustomerId?: string
 }
 
 export function latamRowIsOperational(presence: LatamRowPresence | undefined): boolean {
@@ -693,13 +694,14 @@ export function LatamTvRowDialog({
   }
 
   async function postLink() {
-    if (!row?.bespokeCustomerId || busy.current) return
+    const customerId = row?.bespokeCustomerId || known?.linkCustomerId
+    if (!customerId || busy.current) return
     busy.current = true
     setPending(true)
     setActionError(null)
     try {
       const response = await fetch(
-        `/api/integrations/latam-tv/customers/${row.bespokeCustomerId}/link`,
+        `/api/integrations/latam-tv/customers/${customerId}/link`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -715,7 +717,7 @@ export function LatamTvRowDialog({
       if (payload?.outcome === "linked" && payload.identifier) {
         setPhase("linked")
         setLatamIdentifier(payload.identifier)
-        onStatus(row.bespokeCustomerId, {
+        onStatus(customerId, {
           phase: "active",
           label: "LATAM: Activo",
           identifier: payload.identifier,

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server"
 
-import { listLatamTvClients, planLatamAbnetLink, readLatamClientsByIdentifiers } from "@/lib/integrations/latam-tv/client"
+import { listLatamTvClients, readLatamClientsByIdentifiers } from "@/lib/integrations/latam-tv/client"
 import { readLatamTvConfig } from "@/lib/integrations/latam-tv/config"
+import type { LatamCatalogClient } from "@/lib/integrations/latam-tv/identity"
 import type { LatamBatchClient } from "@/lib/integrations/latam-tv/lookup-state"
 import { excludeAbnetPadronRows } from "@/lib/subscriptions/abnet-tv-padron-exclusions"
 import {
@@ -18,7 +19,11 @@ import {
 import { storedLatamSignupAttempt } from "@/lib/integrations/latam-tv/signup-attempt"
 import { latamSignupCredentialGap } from "@/lib/integrations/latam-tv/signup"
 import { PACK_FUTBOL_CODE } from "@/lib/subscriptions/pack-futbol"
-import { padAbnetExternalCode } from "@/lib/isp/abnet-master-universe"
+import {
+  classifyPadronLatamLink,
+  readPadronLinkCustomers,
+  resolvePadronLinkIdentities,
+} from "@/lib/subscriptions/padron-latam-link"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { bespokeCliCustomerNumber } from "@/lib/subscriptions/tv-ot-signups"
 import { requireSubscriptionsReadContext } from "@/lib/subscriptions/route-context"
@@ -49,42 +54,6 @@ function unavailableLatamBatch(ids: readonly string[]): Record<string, LatamBatc
   )
 }
 
-function externalCodeVariants(abnetNumber: string): string[] {
-  const variants = new Set<string>([abnetNumber])
-  try {
-    variants.add(padAbnetExternalCode(abnetNumber))
-  } catch {
-    return [abnetNumber]
-  }
-  return [...variants]
-}
-
-async function readLinkIdentities(
-  client: Awaited<ReturnType<typeof createClient>>,
-  companyId: string,
-  abnetNumbers: readonly string[]
-) {
-  const identities = new Map<string, { dni: string | null; email: string | null } | "ambiguous">()
-  const codes = abnetNumbers.flatMap(externalCodeVariants)
-  if (codes.length === 0) return identities
-  const { data, error } = await client
-    .from("customers")
-    .select("external_customer_code, dni, email")
-    .eq("company_id", companyId)
-    .is("deleted_at", null)
-    .in("external_customer_code", codes)
-  if (error) return identities
-  for (const row of data ?? []) {
-    const number = abnetPadronCustomerNumber(row.external_customer_code)
-    if (!number || !abnetNumbers.includes(number)) continue
-    const next = { dni: row.dni, email: row.email }
-    const current = identities.get(number)
-    if (!current) identities.set(number, next)
-    else if (current !== "ambiguous") identities.set(number, "ambiguous")
-  }
-  return identities
-}
-
 async function annotateExistingLatamLinks(
   clients: Record<string, LatamBatchClient>,
   client: Awaited<ReturnType<typeof createClient>>,
@@ -92,16 +61,28 @@ async function annotateExistingLatamLinks(
 ) {
   const pending = Object.entries(clients).filter(([, value]) => value.phase === "unregistered")
   if (pending.length === 0) return clients
-  const identities = await readLinkIdentities(
-    client,
-    companyId,
-    pending.map(([id]) => id)
-  )
-  const needsCatalog = pending.some(([id]) => {
-    const identity = identities.get(id)
-    return Boolean(identity && identity !== "ambiguous")
+  const numbers = pending.map(([id]) => id)
+  const [padron, customers] = await Promise.all([
+    loadAbnetTvPadronSourceRows(client, companyId),
+    readPadronLinkCustomers(client, companyId),
+  ])
+  if (padron.error || !customers) {
+    return {
+      ...clients,
+      ...Object.fromEntries(numbers.map((id) => [id, { ...clients[id], link: "review" as const }])),
+    }
+  }
+  const identities = resolvePadronLinkIdentities({
+    rows: padron.rows
+      .filter((row) => numbers.includes(abnetPadronCustomerNumber(row.abnetCustomerNumber) ?? ""))
+      .map((row) => ({ abnetNumber: row.abnetCustomerNumber, customerName: row.customerName })),
+    customers,
   })
-  let catalog: Awaited<ReturnType<typeof listLatamTvClients>> | null = null
+  const needsCatalog = numbers.some((id) => {
+    const identity = identities.get(id)
+    return identity?.status === "ready" && Boolean(identity.nationalId && identity.email?.includes("@"))
+  })
+  let catalog: LatamCatalogClient[] | null = null
   if (needsCatalog) {
     const config = readLatamTvConfig()
     if (!config) catalog = null
@@ -115,21 +96,19 @@ async function annotateExistingLatamLinks(
   }
   const next = { ...clients }
   for (const [id, value] of pending) {
-    const identity = identities.get(id)
-    if (!identity) continue
-    if (identity === "ambiguous" || !catalog) {
-      next[id] = { ...value, link: "review" }
-      continue
-    }
-    const plan = planLatamAbnetLink({
+    const identity = identities.get(id) ?? { status: "missing" as const }
+    const hasCredentials =
+      identity.status === "ready" && Boolean(identity.nationalId && identity.email?.includes("@"))
+    const mark = classifyPadronLatamLink({
       abnetNumber: id,
-      nationalId: identity.dni,
-      email: identity.email,
-      catalog,
+      identity,
+      catalog: hasCredentials ? catalog : identity.status === "ready" ? [] : null,
     })
+    if (mark.link === "skip") continue
     next[id] = {
       ...value,
-      link: plan.action === "link" || plan.action === "already_linked" ? "ready" : plan.action === "signup" ? "absent" : "review",
+      link: mark.link,
+      ...(mark.customerId && mark.link === "ready" ? { linkCustomerId: mark.customerId } : {}),
     }
   }
   return next
