@@ -275,7 +275,7 @@ export function LatamTvRowDialog({
       } else if (
         intent === "signup" &&
         presence.phase === "unregistered" &&
-        presence.link !== "review" &&
+        (presence.link === "absent" || presence.link == null) &&
         row.bespokeCustomerId
       ) {
         signupRef.current()

@@ -628,7 +628,7 @@ export async function linkExistingLatamTvClient(
     }
     const plan = planLatamAbnetLink({ ...input, catalog })
     if (plan.action === "signup") return { outcome: "signup" }
-    if (plan.action === "review") return plan
+    if (plan.action === "review") return { outcome: "review", reason: plan.reason }
     if (plan.action === "link") {
       let synced: LatamTvSyncResult
       try {
