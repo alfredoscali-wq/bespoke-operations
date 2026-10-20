@@ -10,6 +10,7 @@ import test from "node:test"
 import {
   findConfirmedLatamIdentifier,
   heldLatamSignup,
+  redactLatamDiagnosticText,
   refreshLatamSignupIdentity,
   signUpLatamTvClient,
 } from "../lib/integrations/latam-tv/client.ts"
@@ -1703,11 +1704,197 @@ test("register-client registra el HTTP y el código sin secretos", async () => {
   const text = logs.join("\n")
   assert.match(text, /"httpStatus":200/)
   assert.match(text, /"responseCode":5/)
+  assert.match(text, /"error":"application"/)
   assert.match(text, /"httpStatus":503/)
   assert.match(text, /"responseCode":13/)
   assert.match(text, /"error":"network"/)
+  assert.match(text, /"parsed":false/)
+  assert.match(text, /"durationMs":/)
   assert.equal(text.includes(TOKEN), false)
   assert.equal(text.includes(assessment.body.password), false)
   assert.equal(text.includes(assessment.body.correo), false)
   assert.equal(text.includes("abnetv"), false)
+})
+
+test("HTTP 400 con code 2 conserva el código, redacta el mensaje y no es un alta", async () => {
+  const assessment = martaAssessment()
+  const store = attemptStore()
+  const logs = []
+  const original = console.error
+  console.error = (...args) => {
+    logs.push(args.map((item) => String(item)).join(" "))
+  }
+  let registers = 0
+  const secretMessage = `Fallo ${assessment.body.nombres} dni ${assessment.body.dni} ${assessment.body.correo} tel 3515551234 token ${TOKEN}`
+  try {
+    const deps = {
+      baseUrl: BASE,
+      token: TOKEN,
+      signupAttempt: store,
+      fetchImpl: async (url) => {
+        const path = new URL(url).pathname
+        if (path === "/api/get-clients") return jsonResponse({ code: 1, clients: [hidalgoRow()] })
+        registers += 1
+        return new Response(
+          JSON.stringify({
+            error: true,
+            code: 2,
+            id_iptv: 2,
+            message: secretMessage,
+            messages: [`clave ${assessment.body.password}`, { message: "detalle estable" }],
+            token: TOKEN,
+            password: assessment.body.password,
+          }),
+          { status: 400, headers: { "Content-Type": "application/json" } }
+        )
+      },
+    }
+    const first = await signUpLatamTvClient(assessment.body, deps)
+    const second = await signUpLatamTvClient(assessment.body, deps)
+    assert.equal(registers, 1)
+    assert.equal(first.outcome, "pending_sync")
+    assert.equal(second.outcome, "pending_sync")
+    assert.equal("iptvId" in first, false)
+    assert.notEqual(first.outcome, "created")
+    assert.equal(store.box.state, "pending_sync")
+    assert.equal(store.box.code, 2)
+    assert.equal(store.box.iptvId, null)
+    assert.equal(JSON.stringify(first).includes(assessment.body.dni), false)
+    assert.equal(JSON.stringify(first).includes(assessment.body.correo), false)
+    assert.equal(JSON.stringify(first).includes(TOKEN), false)
+  } finally {
+    console.error = original
+  }
+  const text = logs.join("\n")
+  assert.match(text, /"httpStatus":400/)
+  assert.match(text, /"parsed":true/)
+  assert.match(text, /"responseCode":2/)
+  assert.match(text, /"applicationError":true/)
+  assert.match(text, /"error":"application"/)
+  assert.match(text, /"durationMs":\d+/)
+  assert.match(text, /detalle estable/)
+  assert.match(text, /\[redacted\]|\[email\]|\[number\]/)
+  assert.equal(text.includes(TOKEN), false)
+  assert.equal(text.includes(assessment.body.password), false)
+  assert.equal(text.includes(assessment.body.dni), false)
+  assert.equal(text.includes(assessment.body.correo), false)
+  assert.equal(text.includes(assessment.body.nombres), false)
+  assert.equal(text.includes("3515551234"), false)
+  assert.equal(text.includes("id_iptv"), false)
+})
+
+test("un JSON inválido en register-client no se interpreta como code 2", async () => {
+  const assessment = martaAssessment()
+  const store = attemptStore()
+  const logs = []
+  const original = console.error
+  console.error = (...args) => {
+    logs.push(args.map((item) => String(item)).join(" "))
+  }
+  let registers = 0
+  try {
+    const deps = {
+      baseUrl: BASE,
+      token: TOKEN,
+      signupAttempt: store,
+      fetchImpl: async (url) => {
+        const path = new URL(url).pathname
+        if (path === "/api/get-clients") return jsonResponse({ code: 1, clients: [hidalgoRow()] })
+        registers += 1
+        return new Response(`no-json ${TOKEN} ${assessment.body.correo}`, {
+          status: 400,
+          headers: { "Content-Type": "text/plain" },
+        })
+      },
+    }
+    const first = await signUpLatamTvClient(assessment.body, deps)
+    const second = await signUpLatamTvClient(assessment.body, deps)
+    assert.equal(registers, 1)
+    assert.equal(first.outcome, "pending_sync")
+    assert.equal(second.outcome, "pending_sync")
+    assert.equal(store.box.state, "pending_sync")
+    assert.equal(store.box.code, null)
+    assert.equal(store.box.iptvId, null)
+  } finally {
+    console.error = original
+  }
+  const text = logs.join("\n")
+  assert.match(text, /"httpStatus":400/)
+  assert.match(text, /"parsed":false/)
+  assert.match(text, /"error":"invalid_json"/)
+  assert.match(text, /"responseCode":null/)
+  assert.equal(text.includes(TOKEN), false)
+  assert.equal(text.includes(assessment.body.correo), false)
+})
+
+test("un intento pendiente no reserva de nuevo aunque reserve conceda otra fila", async () => {
+  const assessment = martaAssessment()
+  const store = attemptStore("pending_sync", 2)
+  let reserves = 0
+  let registers = 0
+  store.reserve = async () => {
+    reserves += 1
+    store.box.state = "register_sent"
+    store.box.code = null
+    return { granted: true, state: "register_sent", latamCode: null }
+  }
+  const result = await signUpLatamTvClient(assessment.body, {
+    baseUrl: BASE,
+    token: TOKEN,
+    signupAttempt: store,
+    fetchImpl: async (url) => {
+      const path = new URL(url).pathname
+      if (path === "/api/register-client") registers += 1
+      return jsonResponse({ code: 1, clients: [hidalgoRow()] })
+    },
+  })
+  assert.equal(reserves, 0)
+  assert.equal(registers, 0)
+  assert.equal(result.outcome, "pending_sync")
+  assert.equal(store.box.state, "pending_sync")
+  assert.equal(store.box.code, 2)
+})
+
+test("code 2 no se libera en la reconsulta ni habilita otra reserva", async () => {
+  const assessment = martaAssessment()
+  const store = attemptStore("pending_sync", 2)
+  let registers = 0
+  let releases = 0
+  const release = store.release
+  store.release = async () => {
+    releases += 1
+    return release()
+  }
+  const deps = {
+    baseUrl: BASE,
+    token: TOKEN,
+    signupAttempt: store,
+    fetchImpl: async (url) => {
+      const path = new URL(url).pathname
+      if (path === "/api/register-client") registers += 1
+      return jsonResponse({ code: 1, clients: [hidalgoRow()] })
+    },
+  }
+  const refresh = await refreshLatamSignupIdentity(assessment.body, deps)
+  const again = await signUpLatamTvClient(assessment.body, deps)
+  assert.equal(registers, 0)
+  assert.equal(releases, 0)
+  assert.equal(refresh.outcome, "pending_sync")
+  assert.equal(again.outcome, "pending_sync")
+  assert.equal(store.box.state, "pending_sync")
+  assert.equal(store.box.code, 2)
+})
+
+test("la redacción quita nombres, documentos, emails, teléfonos y tokens", () => {
+  const text = redactLatamDiagnosticText(
+    "Tapia 30123456 tapia@correo.com 3515551234 latam-signup-token-do-not-leak",
+    ["Tapia", "latam-signup-token-do-not-leak", "30123456", "tapia@correo.com"]
+  )
+  assert.equal(text.includes("Tapia"), false)
+  assert.equal(text.includes("30123456"), false)
+  assert.equal(text.includes("tapia@correo.com"), false)
+  assert.equal(text.includes("3515551234"), false)
+  assert.equal(text.includes("latam-signup-token-do-not-leak"), false)
+  assert.match(text, /\[redacted\]/)
+  assert.match(text, /\[number\]/)
 })

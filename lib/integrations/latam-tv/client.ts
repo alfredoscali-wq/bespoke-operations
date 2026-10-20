@@ -292,6 +292,8 @@ async function postLatam(
   const method = options.method ?? "POST"
   const timeoutMs = deps.timeoutMs ?? REQUEST_TIMEOUT_MS
   const payload = JSON.stringify(body)
+  const started = Date.now()
+  const secrets = path === REGISTER_CLIENT_PATH ? registerDiagnosticSecrets(body, token) : []
   let response: Response
   try {
     if (method === "GET" && !deps.fetchImpl) {
@@ -308,7 +310,16 @@ async function postLatam(
     }
   } catch {
     if (path === REGISTER_CLIENT_PATH) {
-      logRegisterClient({ httpStatus: null, responseCode: null, error: "network" })
+      logRegisterClient({
+        httpStatus: null,
+        durationMs: Date.now() - started,
+        parsed: false,
+        responseCode: null,
+        applicationError: null,
+        error: "network",
+        message: null,
+        messages: [],
+      })
     }
     throw new LatamTvRequestError("unavailable")
   }
@@ -328,11 +339,26 @@ async function postLatam(
       }
     }
     if (path === REGISTER_CLIENT_PATH) {
+      const diagnosis = await readRegisterDiagnosis(response, secrets)
+      const failure = registerFailure(response.status, diagnosis)
       logRegisterClient({
         httpStatus: response.status,
-        responseCode: await responseCodeOf(response),
-        error: "http",
+        durationMs: Date.now() - started,
+        parsed: diagnosis.parsed,
+        responseCode: diagnosis.responseCode,
+        applicationError: diagnosis.applicationError,
+        error: failure,
+        message: diagnosis.message,
+        messages: diagnosis.messages,
       })
+      if (
+        response.status === 400 &&
+        diagnosis.responseCode === 2 &&
+        diagnosis.record &&
+        !documentedRegisterSuccess(diagnosis.record)
+      ) {
+        return diagnosis.record
+      }
     }
     throw new LatamTvRequestError("unavailable", response.status)
   }
@@ -344,8 +370,13 @@ async function postLatam(
     if (path === REGISTER_CLIENT_PATH) {
       logRegisterClient({
         httpStatus: response.status,
+        durationMs: Date.now() - started,
+        parsed: false,
         responseCode: null,
+        applicationError: null,
         error: "invalid_json",
+        message: null,
+        messages: [],
       })
     }
     throw new LatamTvRequestError("unavailable")
@@ -355,45 +386,158 @@ async function postLatam(
     if (path === REGISTER_CLIENT_PATH) {
       logRegisterClient({
         httpStatus: response.status,
+        durationMs: Date.now() - started,
+        parsed: false,
         responseCode: null,
+        applicationError: null,
         error: "invalid_json",
+        message: null,
+        messages: [],
       })
     }
     throw new LatamTvRequestError("unavailable")
   }
   if (path === REGISTER_CLIENT_PATH) {
+    const detail = registerDetail(record, secrets)
     logRegisterClient({
       httpStatus: response.status,
-      responseCode: responseCode(record),
-      error: null,
+      durationMs: Date.now() - started,
+      parsed: true,
+      responseCode: detail.responseCode,
+      applicationError: detail.applicationError,
+      error: documentedRegisterSuccess(record) ? null : "application",
+      message: detail.message,
+      messages: detail.messages,
     })
   }
   return record
 }
 
+type RegisterFailure = "network" | "http" | "invalid_json" | "application" | null
+
+type RegisterDiagnosis = {
+  parsed: boolean
+  record: Record<string, unknown> | null
+  responseCode: number | null
+  applicationError: boolean | null
+  message: string | null
+  messages: string[]
+}
+
 /** Diagnóstico de register-client. No incluye el cuerpo, el token ni la contraseña. */
 function logRegisterClient(detail: {
   httpStatus: number | null
+  durationMs: number
+  parsed: boolean
   responseCode: number | null
-  error: "network" | "http" | "invalid_json" | null
+  applicationError: boolean | null
+  error: RegisterFailure
+  message: string | null
+  messages: string[]
 }) {
   console.error(
     "LATAM register-client",
     JSON.stringify({
       httpStatus: detail.httpStatus,
+      durationMs: detail.durationMs,
+      parsed: detail.parsed,
       responseCode: detail.responseCode,
+      applicationError: detail.applicationError,
       error: detail.error,
+      message: detail.message,
+      messages: detail.messages,
     })
   )
 }
 
-async function responseCodeOf(response: Response): Promise<number | null> {
+function registerFailure(httpStatus: number, diagnosis: RegisterDiagnosis): RegisterFailure {
+  if (!diagnosis.parsed) return "invalid_json"
+  if (diagnosis.responseCode != null || diagnosis.applicationError != null) return "application"
+  return httpStatus >= 400 ? "http" : "application"
+}
+
+async function readRegisterDiagnosis(
+  response: Response,
+  secrets: readonly string[]
+): Promise<RegisterDiagnosis> {
   try {
-    const record = asRecord(await response.clone().json())
-    return record ? responseCode(record) : null
+    const record = asRecord(await response.json())
+    if (!record) {
+      return {
+        parsed: false,
+        record: null,
+        responseCode: null,
+        applicationError: null,
+        message: null,
+        messages: [],
+      }
+    }
+    return { parsed: true, record, ...registerDetail(record, secrets) }
   } catch {
-    return null
+    return {
+      parsed: false,
+      record: null,
+      responseCode: null,
+      applicationError: null,
+      message: null,
+      messages: [],
+    }
   }
+}
+
+function registerDetail(record: Record<string, unknown>, secrets: readonly string[]) {
+  return {
+    responseCode: responseCode(record),
+    applicationError: typeof record.error === "boolean" ? record.error : null,
+    message: diagnosticText(record.message, secrets),
+    messages: diagnosticList(record.messages, secrets),
+  }
+}
+
+function diagnosticText(value: unknown, secrets: readonly string[]): string | null {
+  if (typeof value !== "string") return null
+  const redacted = redactLatamDiagnosticText(value, secrets).trim()
+  return redacted || null
+}
+
+function diagnosticList(value: unknown, secrets: readonly string[]): string[] {
+  const source = Array.isArray(value) ? value : value == null ? [] : [value]
+  const messages: string[] = []
+  for (const item of source) {
+    const text = diagnosticText(item, secrets)
+      ?? diagnosticText(asRecord(item)?.message, secrets)
+    if (text) messages.push(text)
+    if (messages.length >= 5) break
+  }
+  return messages
+}
+
+function registerDiagnosticSecrets(body: unknown, token: string): string[] {
+  const secrets = [token]
+  const usuario = asRecord(asRecord(asRecord(body)?.root)?.usuario)
+  if (!usuario) return secrets
+  for (const key of ["nombres", "appaterno", "apmaterno", "dni", "correo", "password", "telefono"]) {
+    const value = usuario[key]
+    if (typeof value === "string" && value.trim()) secrets.push(value.trim())
+  }
+  return secrets
+}
+
+/** Oculta datos personales antes de registrar un mensaje de LATAM. */
+export function redactLatamDiagnosticText(value: string, secrets: readonly string[] = []): string {
+  let text = value
+  const unique = [...new Set(secrets.map((item) => item.trim()).filter((item) => item.length >= 3))]
+  unique.sort((left, right) => right.length - left.length)
+  for (const secret of unique) {
+    text = text.replace(new RegExp(escapeRegExp(secret), "gi"), "[redacted]")
+  }
+  text = text.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email]")
+  text = text.replace(/\d{7,}/g, "[number]")
+  return text.slice(0, 500)
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 }
 
 /** Catálogo de solo lectura. POST /api/get-plans. Éxito: error false y planes. */
@@ -1174,9 +1318,10 @@ function identityCredentialMessage(body: LatamRegisterBody): string | null {
 }
 
 /** Un código null o no informado deja el alta pendiente.
- *  release solo corre con un código distinto de 1 y 3. */
+ *  release corre con un código distinto de 1, 2 y 3.
+ *  El code 2 es un error general: el intento sigue abierto para conservar el diagnóstico. */
 function storedRejectionCode(code: number | null | undefined): code is number {
-  return typeof code === "number" && code !== 1 && code !== 3
+  return typeof code === "number" && code !== 1 && code !== 2 && code !== 3
 }
 
 function pendingSignupResult(
@@ -1328,6 +1473,9 @@ async function signUpLatamClientByIdentity(
   const before = identityResult(opened)
   if (before) return before
   if (!deps.signupAttempt) throw new LatamTvRequestError("unavailable")
+
+  const held = await reservedAttempt(deps.signupAttempt)
+  if (held && held.state !== "rejected") return pendingSignupResult(held)
 
   let reservation: Awaited<ReturnType<LatamSignupAttemptStore["reserve"]>>
   try {
