@@ -19,6 +19,8 @@ export const LATAM_SIGNUP_MISSING_FICHA =
   "No se puede dar de alta al cliente en Latam porque no hay una ficha vinculada en Clientes 360."
 export const LATAM_SIGNUP_AMBIGUOUS_FICHA =
   "No se puede dar de alta al cliente en Latam porque hay más de una ficha en Clientes 360."
+export const LATAM_LINK_REVIEW =
+  "No se puede vincular con LATAM. La coincidencia no es inequívoca y no se modificó nada."
 
 type PadronLatamRow = {
   abnetCustomerNumber: string
@@ -37,6 +39,8 @@ export type PadronLatamMode =
   | { kind: "active" }
   | { kind: "suspended" }
   | { kind: "signup" }
+  | { kind: "link" }
+  | { kind: "review"; reason: string }
   | { kind: "pending_sync" }
   | { kind: "confirmed" }
   | { kind: "blocked"; reason: string }
@@ -101,6 +105,8 @@ export function padronLatamMode(
   if (client.phase === "unregistered") {
     const blocked = credentialBlock(row)
     if (blocked) return blocked
+    if (client.link === "ready") return { kind: "link" }
+    if (client.link === "review") return { kind: "review", reason: LATAM_LINK_REVIEW }
     return openSignup(row)
   }
   return { kind: "blocked", reason: LATAM_UNAVAILABLE }

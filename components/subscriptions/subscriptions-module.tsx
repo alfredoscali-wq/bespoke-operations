@@ -103,6 +103,7 @@ function latamPresenceFor(
     identifier: client.identifier,
     iptvId: client.iptvId,
     username: client.username,
+    link: client.link,
   }
 }
 
@@ -204,6 +205,7 @@ function SubscriptionsModuleContent() {
         iptvId: presence.iptvId ?? null,
         username: presence.username,
         planName: presence.planName,
+        link: presence.link,
       })
     },
     [rememberLatam]
@@ -423,6 +425,7 @@ function SubscriptionsModuleContent() {
                           onSignup={() =>
                             openLatam(row, mode.kind === "pending_sync" ? "retry" : "signup")
                           }
+                          onLink={() => openLatam(row, "link")}
                           onPassword={() => openLatam(row, "password")}
                           onSuspend={() => openLatam(row, "suspend")}
                           onActivate={() => openLatam(row, "activate")}
@@ -529,6 +532,7 @@ function PadronRowActions({
   busy,
   mode,
   onSignup,
+  onLink,
   onPassword,
   onSuspend,
   onActivate,
@@ -539,6 +543,7 @@ function PadronRowActions({
   busy: boolean
   mode: PadronLatamMode
   onSignup: () => void
+  onLink: () => void
   onPassword: () => void
   onSuspend: () => void
   onActivate: () => void
@@ -546,24 +551,28 @@ function PadronRowActions({
   onRemove: () => void
 }) {
   const locked = !canWrite ? "No tiene permiso para editar TV." : null
-  const blocked = mode.kind === "blocked" || mode.kind === "pending" ? mode.reason : null
+  const blocked =
+    mode.kind === "blocked" || mode.kind === "pending" || mode.kind === "review" ? mode.reason : null
   const operational = mode.kind === "active" || mode.kind === "suspended"
   const pendingSignup = mode.kind === "pending_sync"
   const confirmedSignup = mode.kind === "confirmed"
+  const linkAction = mode.kind === "link"
   const signupAction = mode.kind === "signup" || pendingSignup
   return (
     <TooltipProvider>
       <div className="flex items-center justify-end gap-0.5">
         <PadronIconButton
           label={
-            confirmedSignup
+            linkAction
+              ? "Vincular con LATAM"
+              : confirmedSignup
               ? "Alta confirmada"
               : pendingSignup
                 ? "Reintentar consulta"
                 : "Alta LATAM"
           }
           loading={busy}
-          disabled={Boolean(locked || busy || !signupAction)}
+          disabled={Boolean(locked || busy || (!signupAction && !linkAction))}
           reason={
             locked ??
             (signupAction
@@ -574,7 +583,7 @@ function PadronRowActions({
                   ? "El cliente ya está en LATAM"
                   : blocked)
           }
-          onClick={onSignup}
+          onClick={linkAction ? onLink : onSignup}
         >
           <UserPlus className="size-3.5" />
         </PadronIconButton>

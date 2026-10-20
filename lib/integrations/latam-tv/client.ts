@@ -29,6 +29,11 @@ import {
   type LatamSignupAttemptStore,
 } from "@/lib/integrations/latam-tv/signup-attempt"
 import { latamCatalogClient, readLatamClientCatalog, resolveLatamIdentity } from "@/lib/integrations/latam-tv/identity"
+import {
+  confirmLatamSyncLink,
+  planLatamSyncBatch,
+  type LatamSyncCatalogRow,
+} from "@/lib/integrations/latam-tv/sync-batch"
 import { readLatamOperationalIdentifier } from "@/lib/integrations/latam-tv/operational-identifier"
 import type { LatamCatalogClient } from "@/lib/integrations/latam-tv/identity"
 import type { LatamBatchClient } from "@/lib/integrations/latam-tv/lookup-state"
@@ -503,6 +508,153 @@ export async function syncLatamTvClient(
   if (code === 4) return { outcome: "crm_already_registered", code: 4, error, message }
   if (code === 5) return { outcome: "update_failed", code: 5, error, message }
   return { outcome: "rejected", code, error, message }
+}
+
+export type LatamAbnetLinkPlan =
+  | { action: "link"; iptvId: string; crmId: string }
+  | { action: "already_linked"; iptvId: string; crmId: string }
+  | { action: "signup" }
+  | { action: "review"; reason: "missing_identity" | "ambiguous" | "partial" | "incompatible" }
+
+/**
+ * Decide si un abonado ABNet puede vincularse a una ficha LATAM ya existente.
+ * Exige DNI y email en una sola fila, un id_iptv distinto del N° ABNet
+ * y ningún id_crm incompatible. No llama a la red.
+ */
+export function planLatamAbnetLink(input: {
+  abnetNumber: string
+  nationalId: string | null
+  email: string | null
+  catalog: readonly LatamCatalogClient[]
+}): LatamAbnetLinkPlan {
+  const crmId = abnetNumberFromExternalCode(input.abnetNumber)
+  if (!crmId) return { action: "review", reason: "incompatible" }
+  const nationalDigits = (input.nationalId ?? "").replace(/\D/g, "")
+  const emailAddress = (input.email ?? "").trim().toLowerCase()
+  if (!nationalDigits || !emailAddress.includes("@")) {
+    return { action: "review", reason: "missing_identity" }
+  }
+  const identity = resolveLatamIdentity(input.catalog, {
+    nationalId: input.nationalId,
+    email: input.email,
+  })
+  if (identity.outcome === "not_found") {
+    return identity.reason === "missing_identity"
+      ? { action: "review", reason: "missing_identity" }
+      : { action: "signup" }
+  }
+  if (identity.outcome === "partial_match") return { action: "review", reason: "partial" }
+  if (identity.outcome === "ambiguous") return { action: "review", reason: "ambiguous" }
+  if (identity.outcome !== "matched" || identity.source !== "dni_email") {
+    return { action: "review", reason: "incompatible" }
+  }
+  const nationalId = nationalDigits
+  const email = emailAddress
+  const rows = input.catalog.filter(
+    (client) => client.nationalId === nationalId && client.email === email
+  )
+  if (rows.length !== 1) return { action: "review", reason: "ambiguous" }
+  const iptvId = latamIptvId(rows[0].iptvId)
+  if (!iptvId || iptvId === crmId) return { action: "review", reason: "incompatible" }
+  const catalogRows: LatamSyncCatalogRow[] = input.catalog.map((client) => ({
+    iptvId: client.iptvId,
+    crmId: client.identifier,
+    nationalId: client.nationalId,
+    email: client.email,
+    status: client.status,
+    planName: client.planName,
+  }))
+  const decision = planLatamSyncBatch(
+    [
+      {
+        iptvId,
+        crmId,
+        match: "dni_email",
+        latamNationalId: rows[0].nationalId,
+        latamEmail: rows[0].email,
+        bespokeNationalId: nationalId,
+        bespokeEmail: email,
+      },
+    ],
+    catalogRows
+  )[0]
+  if (decision.status === "already_synced") return { action: "already_linked", iptvId, crmId }
+  if (decision.status === "ready") return { action: "link", iptvId, crmId }
+  return { action: "review", reason: "incompatible" }
+}
+
+export type LatamAbnetLinkResult =
+  | { outcome: "linked"; iptvId: string; crmId: string }
+  | { outcome: "signup" }
+  | { outcome: "review"; reason: "missing_identity" | "ambiguous" | "partial" | "incompatible" | "unavailable" }
+  | { outcome: "sync_failed" }
+  | { outcome: "verification_failed" }
+  | { outcome: "busy" }
+
+const latamLinkInFlight = new Set<string>()
+
+/**
+ * Vincula una ficha LATAM existente. Vuelve a leer el padrón antes de escribir.
+ * Como máximo un POST /api/sync-client, y solo si el plan sigue siendo vinculable.
+ * Después exige que get-clients confirme el mismo id_iptv y el mismo id_crm.
+ */
+export async function linkExistingLatamTvClient(
+  input: {
+    customerId: string
+    abnetNumber: string
+    nationalId: string | null
+    email: string | null
+  },
+  deps: LatamTvClientDeps
+): Promise<LatamAbnetLinkResult> {
+  const customerId = input.customerId.trim()
+  if (!customerId) return { outcome: "review", reason: "incompatible" }
+  if (latamLinkInFlight.has(customerId)) return { outcome: "busy" }
+  const preliminary = planLatamAbnetLink({ ...input, catalog: [] })
+  if (
+    preliminary.action === "review" &&
+    (preliminary.reason === "missing_identity" ||
+      (preliminary.reason === "incompatible" && !abnetNumberFromExternalCode(input.abnetNumber)))
+  ) {
+    return { outcome: "review", reason: preliminary.reason }
+  }
+  latamLinkInFlight.add(customerId)
+  try {
+    let catalog: LatamCatalogClient[]
+    try {
+      catalog = await listLatamTvClients(deps)
+    } catch {
+      return { outcome: "review", reason: "unavailable" }
+    }
+    const plan = planLatamAbnetLink({ ...input, catalog })
+    if (plan.action === "signup") return { outcome: "signup" }
+    if (plan.action === "review") return plan
+    if (plan.action === "link") {
+      let synced: LatamTvSyncResult
+      try {
+        synced = await syncLatamTvClient({ idIptv: plan.iptvId, idCrm: plan.crmId }, deps)
+      } catch {
+        return { outcome: "sync_failed" }
+      }
+      if (synced.outcome !== "updated") return { outcome: "sync_failed" }
+    }
+    let probe: LatamTvClientLink
+    try {
+      probe = await readLatamClientLink(plan.crmId, deps)
+    } catch {
+      return { outcome: "verification_failed" }
+    }
+    const confirmed = confirmLatamSyncLink({
+      iptvId: plan.iptvId,
+      crmId: plan.crmId,
+      probeIptvId: probe.iptvId,
+      probeCrmId: probe.crmId,
+    })
+    if (!confirmed) return { outcome: "verification_failed" }
+    return { outcome: "linked", iptvId: plan.iptvId, crmId: plan.crmId }
+  } finally {
+    latamLinkInFlight.delete(customerId)
+  }
 }
 
 function hasClientList(record: Record<string, unknown>): boolean {

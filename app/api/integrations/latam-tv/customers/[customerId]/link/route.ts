@@ -1,0 +1,115 @@
+import "server-only"
+
+import { NextResponse } from "next/server"
+
+import { readLatamTvConfig } from "@/lib/integrations/latam-tv/config"
+import { linkExistingLatamTvClient } from "@/lib/integrations/latam-tv/client"
+import { LatamTvRequestError } from "@/lib/integrations/latam-tv/errors"
+import { latamIdentifierFromCustomer } from "@/lib/integrations/latam-tv/identifier"
+import { requireSubscriptionsWriteContext } from "@/lib/subscriptions/route-context"
+import { createClient } from "@/lib/supabase/server"
+
+export const runtime = "nodejs"
+
+type RouteContext = { params: Promise<{ customerId: string }> }
+
+const CUSTOMER_ID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function jsonError(message: string, status: number) {
+  return NextResponse.json({ success: false, message }, { status })
+}
+
+export async function POST(request: Request, context: RouteContext) {
+  const auth = await requireSubscriptionsWriteContext()
+  if (!auth.ok) return auth.response
+
+  const { customerId } = await context.params
+  if (!CUSTOMER_ID.test(customerId)) return jsonError("Cliente no encontrado.", 404)
+
+  const body = (await request.json().catch(() => null)) as { confirm?: unknown } | null
+  if (body?.confirm !== true) {
+    return jsonError("Confirmá la vinculación antes de escribir en LATAM TV.", 400)
+  }
+
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from("customers")
+      .select("id, company_id, dni, email, external_customer_code, deleted_at")
+      .eq("id", customerId)
+      .eq("company_id", auth.companyId)
+      .is("deleted_at", null)
+      .maybeSingle()
+    if (error) return jsonError("No se pudo vincular con LATAM TV.", 400)
+    if (!data || data.company_id !== auth.companyId || data.deleted_at) {
+      return jsonError("Cliente no encontrado.", 404)
+    }
+
+    const identified = latamIdentifierFromCustomer(
+      {
+        companyId: data.company_id,
+        deletedAt: data.deleted_at,
+        externalCustomerCode: data.external_customer_code,
+      },
+      auth.companyId
+    )
+    if (identified.status !== "ready") {
+      return NextResponse.json({
+        success: true,
+        outcome: "review",
+        reason: "missing_identity",
+        message: "No se puede vincular con LATAM. La ficha no tiene un N° ABNet. No se modificó nada.",
+      })
+    }
+
+    const config = readLatamTvConfig()
+    if (!config) throw new LatamTvRequestError("not_configured")
+
+    const result = await linkExistingLatamTvClient(
+      {
+        customerId,
+        abnetNumber: identified.identifier,
+        nationalId: data.dni,
+        email: data.email,
+      },
+      { ...config, timeoutMs: 20_000 }
+    )
+    if (result.outcome === "linked") {
+      return NextResponse.json({
+        success: true,
+        outcome: "linked",
+        identifier: result.crmId,
+        iptvId: result.iptvId,
+        message: "Cliente vinculado con LATAM TV.",
+      })
+    }
+    if (result.outcome === "signup") {
+      return NextResponse.json({
+        success: true,
+        outcome: "signup",
+        message: "No hay una ficha existente de LATAM para vincular.",
+      })
+    }
+    if (result.outcome === "busy") {
+      return jsonError("Ya hay una vinculación en curso para este cliente.", 409)
+    }
+    if (result.outcome === "sync_failed") {
+      return jsonError("LATAM no confirmó la vinculación. No se reintentó.", 502)
+    }
+    if (result.outcome === "verification_failed") {
+      return jsonError("La vinculación no quedó confirmada. No se reintentó.", 502)
+    }
+    return NextResponse.json({
+      success: true,
+      outcome: "review",
+      reason: result.reason,
+      message: "No se puede vincular con seguridad. No se modificó nada.",
+    })
+  } catch (error) {
+    if (error instanceof LatamTvRequestError && error.kind === "not_configured") {
+      return jsonError(error.message, 503)
+    }
+    return jsonError("No se pudo vincular con LATAM TV.", 502)
+  }
+}

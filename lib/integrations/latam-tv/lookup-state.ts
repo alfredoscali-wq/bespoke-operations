@@ -15,6 +15,8 @@ export type LatamBatchClient = {
   iptvId: string | null
   username: string | null
   planName: string | null
+  /** Clasificación de una ficha ya existente. No autoriza por sí sola la escritura. */
+  link?: "ready" | "review" | "absent"
 }
 
 type LookupBody = {

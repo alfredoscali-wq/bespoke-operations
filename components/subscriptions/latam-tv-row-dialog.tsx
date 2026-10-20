@@ -49,6 +49,8 @@ type LatamPhase =
   | "plan_select"
   | "plan_confirm"
   | "plan_done"
+  | "link_confirm"
+  | "linked"
 
 type LatamPlanOption = {
   kind: "basica" | "pack" | "full"
@@ -92,6 +94,8 @@ function statusLabel(phase: LatamPhase): string | null {
   if (phase === "unavailable") return "LATAM: No disponible"
   if (phase === "partial") return "LATAM: Requiere revisión"
   if (phase === "ambiguous") return "LATAM: Coincidencia ambigua"
+  if (phase === "link_confirm") return "Vincular con LATAM"
+  if (phase === "linked") return "LATAM: Activo"
   return null
 }
 
@@ -121,6 +125,7 @@ export type LatamDialogIntent =
   | "activate"
   | "plan"
   | "signup"
+  | "link"
   | "retry"
 
 export type LatamRowPresence = {
@@ -130,6 +135,7 @@ export type LatamRowPresence = {
   identifier: string | null
   iptvId?: string | null
   username: string | null
+  link?: "ready" | "review" | "absent"
 }
 
 export function latamRowIsOperational(presence: LatamRowPresence | undefined): boolean {
@@ -189,7 +195,7 @@ export function LatamTvRowDialog({
       ? "none"
       : known === null
         ? "pending"
-        : `${known.phase}|${known.identifier ?? ""}|${known.planName ?? ""}|${known.username ?? ""}`
+        : `${known.phase}|${known.identifier ?? ""}|${known.planName ?? ""}|${known.username ?? ""}|${known.link ?? ""}`
 
   useEffect(() => {
     if (planDoneRef.current && row && intent === "plan") {
@@ -258,7 +264,20 @@ export function LatamTvRowDialog({
         setPhase("status_confirm")
       } else if (intent === "plan" && operational) {
         planChangeRef.current()
-      } else if (intent === "signup" && presence.phase === "unregistered" && row.bespokeCustomerId) {
+      } else if (presence.link === "review") {
+        setIdentityNote("No se puede vincular con seguridad. No se modificó nada.")
+        setPhase("partial")
+      } else if (
+        intent === "link" ||
+        (intent === "signup" && presence.phase === "unregistered" && presence.link === "ready")
+      ) {
+        setPhase("link_confirm")
+      } else if (
+        intent === "signup" &&
+        presence.phase === "unregistered" &&
+        presence.link !== "review" &&
+        row.bespokeCustomerId
+      ) {
         signupRef.current()
       } else if (
         presence.phase === "active" ||
@@ -673,6 +692,56 @@ export function LatamTvRowDialog({
     void postSignup(false)
   }
 
+  async function postLink() {
+    if (!row?.bespokeCustomerId || busy.current) return
+    busy.current = true
+    setPending(true)
+    setActionError(null)
+    try {
+      const response = await fetch(
+        `/api/integrations/latam-tv/customers/${row.bespokeCustomerId}/link`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ confirm: true }),
+        }
+      )
+      const payload = (await response.json().catch(() => null)) as {
+        outcome?: string
+        message?: string
+        identifier?: string
+        iptvId?: string
+      } | null
+      if (payload?.outcome === "linked" && payload.identifier) {
+        setPhase("linked")
+        setLatamIdentifier(payload.identifier)
+        onStatus(row.bespokeCustomerId, {
+          phase: "active",
+          label: "LATAM: Activo",
+          identifier: payload.identifier,
+          iptvId: payload.iptvId ?? null,
+          username: null,
+          planName: null,
+          link: "absent",
+        })
+        return
+      }
+      if (payload?.outcome === "review" || payload?.outcome === "signup") {
+        setIdentityNote(payload.message ?? "No se puede vincular con seguridad. No se modificó nada.")
+        setPhase(payload.outcome === "signup" ? "unregistered" : "partial")
+        return
+      }
+      setActionError(payload?.message ?? "No se pudo vincular con LATAM TV.")
+      setPhase("link_confirm")
+    } catch {
+      setActionError("No fue posible comunicarse con LATAM TV. No se realizaron cambios en Bespoke.")
+      setPhase("link_confirm")
+    } finally {
+      busy.current = false
+      setPending(false)
+    }
+  }
+
   function choosePlan(option: LatamPlanOption) {
     if (!option.available || option.selectable === false || busy.current) return
     if (
@@ -758,7 +827,9 @@ export function LatamTvRowDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            {phase === "pending_sync"
+            {phase === "link_confirm" || phase === "linked" || intent === "link"
+              ? "Vincular con LATAM"
+              : phase === "pending_sync"
               ? "LATAM TV"
               : phase === "confirm" || phase === "missing" || intent === "signup"
               ? "Alta LATAM"
@@ -960,6 +1031,29 @@ export function LatamTvRowDialog({
                 <p>Plan: {created.planLabel}</p>
               </div>
             ) : null}
+            {phase === "link_confirm" ? (
+              <div className="space-y-2">
+                <p>
+                  Este abonado ya tiene una ficha en LATAM TV. Se vinculará esa ficha con su N° ABNet.
+                  No se creará otro usuario.
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={!canWrite || pending}
+                  onClick={() => {
+                    if (!canWrite) return
+                    void postLink()
+                  }}
+                >
+                  {pending ? "Vinculando…" : "Vincular con LATAM"}
+                </Button>
+                {!canWrite ? (
+                  <p className="text-muted-foreground">No tiene permiso para vincular en LATAM TV.</p>
+                ) : null}
+              </div>
+            ) : null}
+            {phase === "linked" ? <p>Cliente vinculado con LATAM TV.</p> : null}
             {phase === "pending_sync" ? (
               <Button
                 type="button"
