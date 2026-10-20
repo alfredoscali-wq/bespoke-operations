@@ -126,6 +126,7 @@ function SubscriptionsModuleContent() {
     updatePlan,
     togglePlanActive,
     removePadronRow,
+    refreshPadron,
     updatePadronTvPlan,
     latamByNumber,
     rememberLatam,
@@ -481,6 +482,7 @@ function SubscriptionsModuleContent() {
           canWrite={canWrite}
           onClose={() => setLatamRow(null)}
           onStatus={rememberLatamStatus}
+          onPadronRefresh={refreshPadron}
           onPadronPlan={updatePadronTvPlan}
         />
         <RemovePadronDialog
@@ -558,14 +560,16 @@ function PadronRowActions({
   const operational = mode.kind === "active" || mode.kind === "suspended"
   const pendingSignup = mode.kind === "pending_sync"
   const confirmedSignup = mode.kind === "confirmed"
-  const linkAction = mode.kind === "link"
+  const linkAction = mode.kind === "link" || mode.kind === "associate"
   const signupAction = mode.kind === "signup" || pendingSignup
   return (
     <TooltipProvider>
       <div className="flex items-center justify-end gap-0.5">
         <PadronIconButton
           label={
-            linkAction
+            mode.kind === "associate"
+              ? "Completar asociación en Bespoke"
+              : linkAction
               ? "Vincular con LATAM"
               : confirmedSignup
               ? "Alta confirmada"

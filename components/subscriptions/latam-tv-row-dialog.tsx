@@ -50,6 +50,7 @@ type LatamPhase =
   | "plan_confirm"
   | "plan_done"
   | "link_confirm"
+  | "link_partial"
   | "linked"
 
 type LatamPlanOption = {
@@ -95,6 +96,7 @@ function statusLabel(phase: LatamPhase): string | null {
   if (phase === "partial") return "LATAM: Requiere revisión"
   if (phase === "ambiguous") return "LATAM: Coincidencia ambigua"
   if (phase === "link_confirm") return "Vincular con LATAM"
+  if (phase === "link_partial") return "Vinculación parcial"
   if (phase === "linked") return "LATAM: Activo"
   return null
 }
@@ -153,6 +155,7 @@ export function LatamTvRowDialog({
   canWrite,
   onClose,
   onStatus,
+  onPadronRefresh,
   onPadronPlan,
 }: {
   row: AbnetTvPadronRow | null
@@ -162,6 +165,7 @@ export function LatamTvRowDialog({
   canWrite: boolean
   onClose: () => void
   onStatus: (customerId: string, presence: LatamRowPresence) => void
+  onPadronRefresh: () => Promise<void>
   onPadronPlan: (
     row: AbnetTvPadronRow,
     kind: "basica" | "pack" | "full"
@@ -726,6 +730,24 @@ export function LatamTvRowDialog({
           planName: null,
           link: "absent",
         })
+        await onPadronRefresh().catch(() => undefined)
+        return
+      }
+      if (payload?.outcome === "partial") {
+        setPhase("link_partial")
+        if (payload.identifier) {
+          setLatamIdentifier(payload.identifier)
+          onStatus(customerId, {
+            phase: "active",
+            label: "LATAM: Activo",
+            identifier: payload.identifier,
+            iptvId: payload.iptvId ?? null,
+            username: null,
+            planName: null,
+            link: "absent",
+          })
+        }
+        await onPadronRefresh().catch(() => undefined)
         return
       }
       if (payload?.outcome === "review" || payload?.outcome === "signup") {
@@ -829,7 +851,9 @@ export function LatamTvRowDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            {phase === "link_confirm" || phase === "linked" || intent === "link"
+            {phase === "link_partial"
+              ? "Vinculación parcial"
+              : phase === "link_confirm" || phase === "linked" || intent === "link"
               ? "Vincular con LATAM"
               : phase === "pending_sync"
               ? "LATAM TV"
@@ -1036,8 +1060,8 @@ export function LatamTvRowDialog({
             {phase === "link_confirm" ? (
               <div className="space-y-2">
                 <p>
-                  Este abonado ya tiene una ficha en LATAM TV. Se vinculará esa ficha con su N° ABNet.
-                  No se creará otro usuario.
+                  Este abonado ya tiene una ficha en LATAM TV. Se vinculará esa ficha con su N° ABNet
+                  y se asociará a su ficha de Bespoke. No se creará otro usuario.
                 </p>
                 <Button
                   type="button"
@@ -1055,7 +1079,28 @@ export function LatamTvRowDialog({
                 ) : null}
               </div>
             ) : null}
-            {phase === "linked" ? <p>Cliente vinculado con LATAM TV.</p> : null}
+            {phase === "linked" ? (
+              <p>Cliente vinculado con LATAM TV y asociado a su ficha de Bespoke.</p>
+            ) : null}
+            {phase === "link_partial" ? (
+              <div className="space-y-2">
+                <p>
+                  Vinculación parcial: LATAM quedó vinculado, pero la ficha de Bespoke no se asoció.
+                  No se volvió a sincronizar.
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={!canWrite || pending}
+                  onClick={() => {
+                    if (!canWrite) return
+                    void postLink()
+                  }}
+                >
+                  {pending ? "Asociando ficha…" : "Completar asociación en Bespoke"}
+                </Button>
+              </div>
+            ) : null}
             {phase === "pending_sync" ? (
               <Button
                 type="button"

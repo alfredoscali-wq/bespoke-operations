@@ -99,6 +99,7 @@ type SubscriptionsContextValue = {
   updatePlan: (id: string, draft: TvPlanWriteDraft) => Promise<string | null>
   togglePlanActive: (plan: TvCatalogPlan) => Promise<string | null>
   removePadronRow: (row: AbnetTvPadronRow) => Promise<string | null>
+  refreshPadron: () => Promise<void>
   updatePadronTvPlan: (
     row: AbnetTvPadronRow,
     kind: "basica" | "pack" | "full"
@@ -567,6 +568,17 @@ export function SubscriptionsProvider({
     return null
   }, [])
 
+  const refreshPadron = useCallback(async () => {
+    const refreshed = await fetch("/api/subscriptions/abnet-padron")
+    const refreshedBody = (await refreshed.json().catch(() => null)) as {
+      success?: boolean
+      rows?: AbnetTvPadronRow[]
+    } | null
+    if (refreshed.ok && refreshedBody?.success) {
+      setPadronRows(refreshedBody.rows ?? [])
+    }
+  }, [])
+
   const updatePadronTvPlan = useCallback(
     async (row: AbnetTvPadronRow, kind: "basica" | "pack" | "full") => {
       const response = await fetch(`/api/subscriptions/tv-padron/${row.sourceRow}`, {
@@ -635,6 +647,7 @@ export function SubscriptionsProvider({
       updatePlan,
       togglePlanActive,
       removePadronRow,
+      refreshPadron,
       updatePadronTvPlan,
       refreshDesk: reloadDesk,
       deskList,
@@ -679,6 +692,7 @@ export function SubscriptionsProvider({
       updatePlan,
       togglePlanActive,
       removePadronRow,
+      refreshPadron,
       updatePadronTvPlan,
       reloadDesk,
       deskList,

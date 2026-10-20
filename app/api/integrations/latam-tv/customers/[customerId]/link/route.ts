@@ -3,7 +3,11 @@ import "server-only"
 import { NextResponse } from "next/server"
 
 import { readLatamTvConfig } from "@/lib/integrations/latam-tv/config"
-import { linkExistingLatamTvClient } from "@/lib/integrations/latam-tv/client"
+import { linkExistingLatamTvClient, listLatamTvClients } from "@/lib/integrations/latam-tv/client"
+import {
+  associateConfirmedAbnetCustomer,
+  LATAM_LINK_PARTIAL_MESSAGE,
+} from "@/lib/subscriptions/bespoke-abnet-association"
 import { LatamTvRequestError } from "@/lib/integrations/latam-tv/errors"
 import { latamIdentifierFromCustomer } from "@/lib/integrations/latam-tv/identifier"
 import {
@@ -101,12 +105,44 @@ export async function POST(request: Request, context: RouteContext) {
       { ...config, timeoutMs: 20_000 }
     )
     if (result.outcome === "linked") {
+      let catalog
+      try {
+        catalog = await listLatamTvClients({ ...config, timeoutMs: 20_000 })
+      } catch {
+        return NextResponse.json({
+          success: false,
+          outcome: "partial",
+          identifier: result.crmId,
+          iptvId: result.iptvId,
+          reason: "update_failed",
+          message: LATAM_LINK_PARTIAL_MESSAGE,
+        })
+      }
+      const associated = await associateConfirmedAbnetCustomer(supabase, {
+        companyId: auth.companyId,
+        customerId,
+        abnetNumber,
+        iptvId: result.iptvId,
+        crmId: result.crmId,
+        catalog,
+      })
+      if (associated.outcome === "saved" || associated.outcome === "already_saved") {
+        return NextResponse.json({
+          success: true,
+          outcome: "linked",
+          identifier: result.crmId,
+          iptvId: result.iptvId,
+          externalCustomerCode: associated.externalCustomerCode,
+          message: "Cliente vinculado con LATAM TV y asociado a su ficha de Bespoke.",
+        })
+      }
       return NextResponse.json({
-        success: true,
-        outcome: "linked",
+        success: false,
+        outcome: "partial",
         identifier: result.crmId,
         iptvId: result.iptvId,
-        message: "Cliente vinculado con LATAM TV.",
+        reason: associated.reason,
+        message: LATAM_LINK_PARTIAL_MESSAGE,
       })
     }
     if (result.outcome === "signup") {

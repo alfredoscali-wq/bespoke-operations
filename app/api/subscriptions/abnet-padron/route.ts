@@ -60,8 +60,12 @@ async function annotateExistingLatamLinks(
   companyId: string
 ) {
   const pending = Object.entries(clients).filter(([, value]) => value.phase === "unregistered")
-  if (pending.length === 0) return clients
-  const numbers = pending.map(([id]) => id)
+  const recoverable = Object.entries(clients).filter(
+    ([, value]) => value.phase === "active" || value.phase === "suspended"
+  )
+  const targets = [...pending, ...recoverable]
+  if (targets.length === 0) return clients
+  const numbers = targets.map(([id]) => id)
   const [padron, customers] = await Promise.all([
     loadAbnetTvPadronSourceRows(client, companyId),
     readPadronLinkCustomers(client, companyId),
@@ -95,7 +99,7 @@ async function annotateExistingLatamLinks(
     }
   }
   const next = { ...clients }
-  for (const [id, value] of pending) {
+  for (const [id, value] of targets) {
     const identity = identities.get(id) ?? { status: "missing" as const }
     const hasCredentials =
       identity.status === "ready" && Boolean(identity.nationalId && identity.email?.includes("@"))
@@ -104,6 +108,12 @@ async function annotateExistingLatamLinks(
       identity,
       catalog: hasCredentials ? catalog : identity.status === "ready" ? [] : null,
     })
+    if (value.phase !== "unregistered") {
+      if (mark.link === "ready" && mark.customerId) {
+        next[id] = { ...value, link: "ready", linkCustomerId: mark.customerId }
+      }
+      continue
+    }
     if (mark.link === "skip") continue
     next[id] = {
       ...value,

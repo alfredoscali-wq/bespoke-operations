@@ -40,6 +40,7 @@ export type PadronLatamMode =
   | { kind: "suspended" }
   | { kind: "signup" }
   | { kind: "link" }
+  | { kind: "associate" }
   | { kind: "review"; reason: string }
   | { kind: "pending_sync" }
   | { kind: "confirmed" }
@@ -97,10 +98,11 @@ export function padronLatamMode(
   if (latamLinked(client, number)) {
     const link = row.bespokeLink ?? (row.bespokeCustomerId ? "one" : "none")
     if (link === "many") return { kind: "blocked", reason: LATAM_LINKED_MANY_FICHAS }
-    if (link !== "one" || !row.bespokeCustomerId) {
-      return { kind: "blocked", reason: LATAM_LINKED_MISSING_FICHA }
+    if (link === "one" && row.bespokeCustomerId) {
+      return client.phase === "suspended" ? { kind: "suspended" } : { kind: "active" }
     }
-    return client.phase === "suspended" ? { kind: "suspended" } : { kind: "active" }
+    if (client.link === "ready" && client.linkCustomerId) return { kind: "associate" }
+    return { kind: "blocked", reason: LATAM_LINKED_MISSING_FICHA }
   }
   if (client.phase === "unregistered") {
     const blocked = credentialBlock(row)
