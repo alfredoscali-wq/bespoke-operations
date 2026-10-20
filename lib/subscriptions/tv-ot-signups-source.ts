@@ -16,12 +16,14 @@ import {
 import {
   bespokeCliCustomerNumber,
   isTvOtPlanKind,
-  isTvOtSignupWindow,
+  isListedTvOtSignup,
   matchPadronIdentity,
   presentTvOtSignup,
   TV_OT_QUEUE_STATUSES,
+  TV_OT_SIGNUP_FROM,
   TV_OT_SIGNUP_NOT_FOUND,
   TV_OT_SIGNUP_SERVICE,
+  TV_OT_SIGNUP_UNTIL,
   verifiedAbnetNumber,
   type TvOtPadronMatchRow,
   type TvOtProposalFact,
@@ -39,6 +41,9 @@ type LooseResult = {
 
 type LooseFilter = {
   eq: (column: string, value: string) => LooseFilter
+  neq: (column: string, value: string) => LooseFilter
+  gte: (column: string, value: string) => LooseFilter
+  lte: (column: string, value: string) => LooseFilter
   is: (column: string, value: null) => LooseFilter
   in: (column: string, values: string[]) => LooseFilter
   order: (column: string, options?: { ascending: boolean }) => LooseFilter
@@ -107,11 +112,14 @@ export async function loadTvOtSignupFeed(
   const tasks = await readPages((from, to) =>
     looseDb(client)
       .from("tasks")
-      .select("id, code, customer_id, status, created_at, contracted_plan, service_type")
+      .select("id, code, customer_id, status, start_date, contracted_plan, service_type")
       .eq("company_id", companyId)
       .eq("service_type", TV_OT_SIGNUP_SERVICE)
+      .neq("status", "cancelada")
+      .gte("start_date", TV_OT_SIGNUP_FROM)
+      .lte("start_date", TV_OT_SIGNUP_UNTIL)
       .is("deleted_at", null)
-      .order("created_at", { ascending: true })
+      .order("start_date", { ascending: true })
       .range(from, to)
   )
   if (tasks.error || !tasks.rows) {
@@ -123,8 +131,12 @@ export async function loadTvOtSignupFeed(
     }
   }
 
-  const taskRows = tasks.rows.filter(
-    (row) => text(row.service_type) === TV_OT_SIGNUP_SERVICE && isTvOtSignupWindow(text(row.created_at))
+  const taskRows = tasks.rows.filter((row) =>
+    text(row.service_type) === TV_OT_SIGNUP_SERVICE &&
+    isListedTvOtSignup({
+      installationDate: text(row.start_date),
+      taskStatus: text(row.status),
+    })
   )
   const customerIds = [...new Set(taskRows.map((row) => text(row.customer_id)).filter(Boolean))]
   const customers: Record<string, unknown>[] = []
@@ -249,7 +261,7 @@ export async function loadTvOtSignupFeed(
     facts.push({
       taskId: text(task.id),
       taskCode: text(task.code),
-      taskCreatedAt: text(task.created_at),
+      taskCreatedAt: text(task.start_date),
       taskStatus: text(task.status),
       contractedPlan: text(task.contracted_plan) || null,
       customerId,
@@ -295,18 +307,14 @@ export async function loadTvOtSignupCase(
 > {
   const taskPage = await looseDb(client)
     .from("tasks")
-    .select("id, code, customer_id, status, created_at, contracted_plan, service_type")
+    .select("id, code, customer_id, status, start_date, contracted_plan, service_type")
     .eq("company_id", companyId)
     .eq("id", taskId)
     .is("deleted_at", null)
     .range(0, 0)
   if (taskPage.error) return { ok: false, message: taskPage.error.message }
   const task = taskPage.data?.[0]
-  if (
-    !task ||
-    text(task.service_type) !== TV_OT_SIGNUP_SERVICE ||
-    !isTvOtSignupWindow(text(task.created_at))
-  ) {
+  if (!task || text(task.service_type) !== TV_OT_SIGNUP_SERVICE || !text(task.start_date)) {
     return { ok: false, message: TV_OT_SIGNUP_NOT_FOUND }
   }
 
@@ -341,7 +349,7 @@ export async function loadTvOtSignupCase(
   const fact: TvOtSignupFact = {
     taskId,
     taskCode: text(task.code),
-    taskCreatedAt: text(task.created_at),
+    taskCreatedAt: text(task.start_date),
     taskStatus: text(task.status),
     contractedPlan: text(task.contracted_plan) || null,
     customerId,

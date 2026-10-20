@@ -11,7 +11,11 @@ import {
   contractedPlanIncludesTv,
   countPendingTvOtSignups,
   countTvOtSignups,
+  isListedTvOtSignup,
   isTvOtSignupWindow,
+  TV_OT_SIGNUP_FROM,
+  TV_OT_SIGNUP_PERIOD_LABEL,
+  TV_OT_SIGNUP_UNTIL,
   matchPadronIdentity,
   planTvOtSignupExclusion,
   planTvOtSignupIncorporation,
@@ -54,32 +58,51 @@ function item(overrides = {}) {
   return presented
 }
 
-test("una instalación aprobada de otro mes sigue en los pendientes", () => {
-  assert.equal(isTvOtSignupWindow("2026-09-15T15:00:00.000Z"), true)
-  assert.equal(isTvOtSignupWindow("2026-11-20T15:00:00.000Z"), true)
-  assert.equal(isTvOtSignupWindow("2026-12-02T15:00:00.000Z"), true)
+test("la lista de altas queda en octubre de 2026 y deja afuera las OT canceladas", () => {
+  assert.equal(TV_OT_SIGNUP_FROM, "2026-10-01")
+  assert.equal(TV_OT_SIGNUP_UNTIL, "2026-10-31")
+  assert.equal(TV_OT_SIGNUP_PERIOD_LABEL, "Octubre 2026")
+  assert.equal(isTvOtSignupWindow("2026-10-01"), true)
+  assert.equal(isTvOtSignupWindow("2026-10-15"), true)
+  assert.equal(isTvOtSignupWindow("2026-10-31"), true)
+  assert.equal(isTvOtSignupWindow("2026-09-30"), false)
+  assert.equal(isTvOtSignupWindow("2026-09-15"), false)
+  assert.equal(isTvOtSignupWindow("2026-11-01"), false)
+  assert.equal(isTvOtSignupWindow("2026-11-20"), false)
+  assert.equal(isTvOtSignupWindow("2026-12-02"), false)
+  assert.equal(isTvOtSignupWindow("2025-10-06"), false)
   assert.equal(isTvOtSignupWindow(""), false)
   assert.equal(isTvOtSignupWindow(null), false)
-  const november = item({ taskCreatedAt: "2026-11-20T15:00:00.000Z" })
-  assert.equal(november.category, "approved_with_tv")
-  assert.equal(countPendingTvOtSignups([november]), 1)
-  const saved = item({
-    taskCreatedAt: "2026-11-20T15:00:00.000Z",
-    proposal: {
-      status: "pending_review",
-      tvKind: "basica",
-      excludedAt: null,
-      excludedBy: null,
-      incorporatedAt: null,
-      incorporatedBy: null,
-      padronSource: null,
-      padronSourceRow: null,
-    },
-  })
-  assert.equal(saved.canIncorporate, true)
-  assert.equal(countPendingTvOtSignups([saved]), 1)
-  assert.doesNotMatch(read("lib/subscriptions/tv-ot-signups-source.ts"), /TV_OT_SIGNUP_FROM|TV_OT_SIGNUP_UNTIL/)
-  assert.doesNotMatch(read("components/subscriptions/tv-ot-signups-panel.tsx"), /octubre de 2026/)
+
+  const october = { installationDate: "2026-10-06", taskStatus: "finalizada" }
+  assert.equal(isListedTvOtSignup(october), true)
+  assert.equal(isListedTvOtSignup({ installationDate: "2026-10-01", taskStatus: "programada" }), true)
+  assert.equal(isListedTvOtSignup({ installationDate: "2026-10-31", taskStatus: "cerrada" }), true)
+  assert.equal(isListedTvOtSignup({ installationDate: "2026-09-30", taskStatus: "finalizada" }), false)
+  assert.equal(isListedTvOtSignup({ installationDate: "2026-11-01", taskStatus: "finalizada" }), false)
+  assert.equal(isListedTvOtSignup({ installationDate: "2026-12-02", taskStatus: "finalizada" }), false)
+  assert.equal(isListedTvOtSignup({ installationDate: "2026-10-06", taskStatus: "cancelada" }), false)
+  assert.equal(isListedTvOtSignup({ installationDate: "2026-09-15", taskStatus: "cancelada" }), false)
+  assert.equal(isListedTvOtSignup({ installationDate: "2026-11-20", taskStatus: "cancelada" }), false)
+
+  const kept = item({ taskCreatedAt: "2026-10-06", taskStatus: "cancelada" })
+  assert.equal(kept.category, "cancelled")
+  assert.equal(kept.canIncorporate, false)
+  assert.equal(isListedTvOtSignup({ installationDate: "2026-10-06", taskStatus: kept.taskStatus }), false)
+
+  const source = read("lib/subscriptions/tv-ot-signups-source.ts")
+  assert.match(source, /start_date/)
+  assert.match(source, /TV_OT_SIGNUP_FROM/)
+  assert.match(source, /TV_OT_SIGNUP_UNTIL/)
+  assert.match(source, /neq\("status", "cancelada"\)/)
+  assert.match(source, /isListedTvOtSignup/)
+  assert.doesNotMatch(source, /\.delete\(|\.update\(/)
+  const panel = read("components/subscriptions/tv-ot-signups-panel.tsx")
+  assert.match(panel, /octubre de 2026/)
+  assert.match(panel, /TV_OT_SIGNUP_PERIOD_LABEL/)
+  assert.match(panel, /value="2026-10"/)
+  assert.match(panel, /SelectTrigger disabled/)
+  assert.doesNotMatch(panel, /value: "cancelled"/)
 })
 
 test("una OT no finalizada o sin OK no se incorpora, y el plan se elige antes", () => {

@@ -24,6 +24,7 @@ import {
   countPendingTvOtSignups,
   TV_OT_LATAM_STATUS,
   TV_OT_PLAN_OPTIONS,
+  TV_OT_SIGNUP_PERIOD_LABEL,
   type TvOtPlanKind,
   type TvOtSignupCategory,
   type TvOtSignupItem,
@@ -46,7 +47,6 @@ const CATEGORY_FILTER: { value: TvOtSignupCategory | "possible_match" | "all"; l
   { value: "approved_without_tv", label: "Aprobada sin TV" },
   { value: "active_unverified", label: "Activo sin OK" },
   { value: "pending_activation", label: "Pendiente de activación" },
-  { value: "cancelled", label: "OT cancelada" },
   { value: "incorporated", label: "Ya incorporado" },
   { value: "possible_match", label: "Posible coincidencia" },
 ]
@@ -226,10 +226,20 @@ export function TvOtSignupsPanel({
         <div>
           <h2 className="text-sm font-semibold">Altas pendientes de TV</h2>
           <p className="mt-1 max-w-3xl text-xs text-muted-foreground">
-            Instalaciones nuevas de cualquier mes. Entran cuando la OT está finalizada y
-            el cliente fue aprobado desde pendiente de activación. Nada se incorpora solo. {TV_OT_LATAM_STATUS}.
+            Instalaciones nuevas de octubre de 2026. Entran cuando la OT está finalizada y
+            el cliente fue aprobado desde pendiente de activación. Las OT canceladas no
+            aparecen. Nada se incorpora solo. {TV_OT_LATAM_STATUS}.
           </p>
         </div>
+        <div className="flex flex-wrap gap-2">
+        <Select value="2026-10">
+          <SelectTrigger disabled className={cn(FILTER_SELECT_TRIGGER_CLASS, "w-44")} aria-label="Período">
+            <SelectValue>{TV_OT_SIGNUP_PERIOD_LABEL}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="2026-10">{TV_OT_SIGNUP_PERIOD_LABEL}</SelectItem>
+          </SelectContent>
+        </Select>
         <Select value={filter} onValueChange={(value) => setFilter(value as typeof filter)}>
           <SelectTrigger className={cn(FILTER_SELECT_TRIGGER_CLASS, "w-56")}>
             <SelectValue />
@@ -242,6 +252,7 @@ export function TvOtSignupsPanel({
             ))}
           </SelectContent>
         </Select>
+        </div>
       </div>
 
       {!persistenceAvailable ? (

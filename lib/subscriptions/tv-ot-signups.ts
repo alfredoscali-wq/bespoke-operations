@@ -10,6 +10,10 @@ import {
 } from "@/lib/subscriptions/abnet-tv-padron"
 
 export const TV_OT_SIGNUP_SERVICE = "instalacion-nueva"
+/** Inclusive installation dates for the pending-signup list. Not created_at or updated_at. */
+export const TV_OT_SIGNUP_FROM = "2026-10-01"
+export const TV_OT_SIGNUP_UNTIL = "2026-10-31"
+export const TV_OT_SIGNUP_PERIOD_LABEL = "Octubre 2026"
 export const TV_OT_NOT_FINAL_MESSAGE = "La OT todavía no está finalizada."
 export const TV_OT_SIGNUP_NOT_FOUND = "Esa OT no está entre las instalaciones nuevas."
 export const BESPOKE_OT_TV_PADRON_SOURCE = "bespoke-ot-tv"
@@ -120,6 +124,7 @@ export type TvOtProposalFact = {
 export type TvOtSignupFact = {
   taskId: string
   taskCode: string
+  /** Fecha de la OT (`start_date`). No es created_at ni updated_at. */
   taskCreatedAt: string
   taskStatus: string
   contractedPlan: string | null
@@ -177,9 +182,26 @@ export function tvOtPlanOption(kind: TvOtPlanKind) {
   return option
 }
 
-/** Any recorded installation date qualifies. The queue is not limited to one month. */
-export function isTvOtSignupWindow(createdAt: string | null | undefined): boolean {
-  return Boolean(createdAt?.trim())
+/** Calendar day of the OT date. A date-only value is not shifted by timezone. */
+export function tvOtSignupCalendarDate(value: string | null | undefined): string | null {
+  const match = /^(\d{4}-\d{2}-\d{2})/.exec(value?.trim() ?? "")
+  return match ? match[1] : null
+}
+
+/** True when the OT installation date falls in October 2026, inclusive. */
+export function isTvOtSignupWindow(installationDate: string | null | undefined): boolean {
+  const day = tvOtSignupCalendarDate(installationDate)
+  if (!day) return false
+  return day >= TV_OT_SIGNUP_FROM && day <= TV_OT_SIGNUP_UNTIL
+}
+
+/** List membership. A cancelled OT stays stored and is left out of the pending queue. */
+export function isListedTvOtSignup(input: {
+  installationDate: string | null | undefined
+  taskStatus: string | null | undefined
+}): boolean {
+  if (input.taskStatus?.trim() === "cancelada") return false
+  return isTvOtSignupWindow(input.installationDate)
 }
 
 export function contractedPlanIncludesTv(plan: string | null | undefined): boolean {
@@ -209,15 +231,10 @@ export function bespokeCliCustomerNumber(value: string | null | undefined): stri
 }
 
 export function formatTvOtSignupDate(value: string | null | undefined): string {
-  if (!value) return "No disponible"
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return "No disponible"
-  return new Intl.DateTimeFormat("es-AR", {
-    timeZone: "America/Argentina/Buenos_Aires",
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(date)
+  const day = tvOtSignupCalendarDate(value)
+  if (!day) return "No disponible"
+  const [year, month, date] = day.split("-")
+  return `${date}/${month}/${year}`
 }
 
 export function taskStatusLabel(status: string | null | undefined): string {
