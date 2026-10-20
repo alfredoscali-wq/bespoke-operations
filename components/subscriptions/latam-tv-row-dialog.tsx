@@ -16,6 +16,10 @@ import {
   latamLookupUiState,
   type LatamLookupUiPhase,
 } from "@/lib/integrations/latam-tv/lookup-state"
+import {
+  latamSignupPersistedView,
+  latamSignupVisibleLabel,
+} from "@/lib/integrations/latam-tv/signup-attempt"
 import { latamPlanNameKey } from "@/lib/integrations/latam-tv/plans"
 import { validateLatamTvPassword } from "@/lib/integrations/latam-tv/password"
 import type { AbnetTvPadronRow } from "@/lib/subscriptions/abnet-tv-padron"
@@ -76,12 +80,12 @@ type LatamPreview = {
   planLabel: string
 }
 
-type LatamCreated = LatamPreview
+type LatamCreated = LatamPreview & { iptvId: string }
 
 function statusLabel(phase: LatamPhase): string | null {
   if (phase === "active" || phase === "created") return "LATAM: Activo"
   if (phase === "suspended") return "LATAM: Suspendido"
-  if (phase === "pending_sync") return "LATAM: Alta pendiente"
+  if (phase === "pending_sync") return "Alta enviada, pendiente de verificación"
   if (phase === "unregistered" || phase === "missing" || phase === "confirm") {
     return "LATAM: No registrado"
   }
@@ -117,6 +121,7 @@ export type LatamDialogIntent =
   | "activate"
   | "plan"
   | "signup"
+  | "retry"
 
 export type LatamRowPresence = {
   phase: LatamLookupUiPhase
@@ -213,6 +218,18 @@ export function LatamTvRowDialog({
     busy.current = false
     if (!row) {
       setPhase("idle")
+      return
+    }
+    if (intent === "retry" || (intent === "signup" && latamSignupPersistedView(row.latamSignupAttempt) === "pending_sync")) {
+      setIdentityNote(latamSignupVisibleLabel(row.latamSignupAttempt))
+      setPhase("pending_sync")
+      return
+    }
+    if (intent === "signup" && latamSignupPersistedView(row.latamSignupAttempt) === "confirmed") {
+      setIdentityNote(
+        `${latamSignupVisibleLabel(row.latamSignupAttempt)}. id IPTV ${row.latamSignupAttempt?.iptvId}`
+      )
+      setPhase("exists")
       return
     }
     if (known === null) {
@@ -359,6 +376,11 @@ export function LatamTvRowDialog({
         return
       }
       if (payload?.outcome === "created" && payload.username && payload.identifier) {
+        if (!payload.iptvId) {
+          setActionError("Alta enviada, pendiente de verificación")
+          setPhase("pending_sync")
+          return
+        }
         const next = registeredPhase(payload.status)
         if (next === "unavailable") {
           setActionError("LATAM no confirmó el alta. Las acciones siguen deshabilitadas.")
@@ -370,6 +392,7 @@ export function LatamTvRowDialog({
           identifier: payload.identifier,
           username: payload.username,
           planLabel: payload.planLabel ?? "",
+          iptvId: payload.iptvId,
         })
         setUsername(payload.username)
         setAccountPhase(next)
@@ -735,7 +758,9 @@ export function LatamTvRowDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            {phase === "confirm" || phase === "missing" || intent === "signup"
+            {phase === "pending_sync"
+              ? "LATAM TV"
+              : phase === "confirm" || phase === "missing" || intent === "signup"
               ? "Alta LATAM"
               : passwordStep
                 ? "Cambiar clave LATAM"
@@ -931,6 +956,7 @@ export function LatamTvRowDialog({
                 <p>Usuario: {created.username}</p>
                 <p>La contraseña inicial es el DNI cargado en Clientes 360.</p>
                 <p>Identificador: {created.identifier}</p>
+                <p>id IPTV: {created.iptvId}</p>
                 <p>Plan: {created.planLabel}</p>
               </div>
             ) : null}

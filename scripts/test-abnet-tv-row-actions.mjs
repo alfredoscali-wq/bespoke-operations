@@ -19,6 +19,7 @@ import {
   commitAbnetPadronExclusion,
   excludeAbnetPadronRows,
 } from "../lib/subscriptions/abnet-tv-padron-exclusions.ts"
+import { pendingLatamSignupAttempt } from "../lib/integrations/latam-tv/signup-attempt.ts"
 import {
   LATAM_IDENTITY_CONFLICT,
   LATAM_LINKED_MANY_FICHAS,
@@ -66,7 +67,8 @@ test("2. no hay ojo ni panel de detalle; LATAM se abre desde la fila", () => {
   assert.doesNotMatch(ui, /Ver LATAM/)
   assert.doesNotMatch(ui, /label="LATAM"/)
   assert.doesNotMatch(ui, /onView/)
-  assert.match(ui, /label="Alta LATAM"/)
+  assert.match(ui, /Alta LATAM/)
+  assert.match(ui, /Reintentar consulta/)
   assert.match(ui, /label="Desactivar"/)
   assert.match(ui, /label="Cambiar clave"/)
   assert.match(ui, /label="Cambiar plan"/)
@@ -79,7 +81,7 @@ test("2. no hay ojo ni panel de detalle; LATAM se abre desde la fila", () => {
   assert.match(mode, /No se puede operar por conflicto de identidad/)
   assert.match(mode, /presence\.identifier === number/)
   assert.match(mode, /presence\.phase === "active" \|\| presence\.phase === "suspended"/)
-  assert.match(ui, /openLatam\(row, "signup"\)/)
+  assert.match(ui, /openLatam\(row, mode\.kind === "pending_sync" \? "retry" : "signup"\)/)
   assert.match(ui, /openLatam\(row, "password"\)/)
   assert.match(ui, /openLatam\(row, "suspend"\)/)
   assert.match(ui, /openLatam\(row, "activate"\)/)
@@ -313,6 +315,19 @@ test("el vínculo LATAM no depende de una ficha única y no escribe", () => {
   const cliNoFicha = { ...cliReady, bespokeCustomerId: null, bespokeLink: "none" }
   const cliMany = { ...cliReady, bespokeCustomerId: null, bespokeLink: "many" }
   assert.equal(padronLatamMode(cliReady, {}).kind, "signup")
+  const pendingNull = { state: "pending_sync", latamCode: null }
+  assert.equal(
+    padronLatamMode({ ...cliReady, latamSignupAttempt: pendingNull }, {}).kind,
+    "pending_sync"
+  )
+  assert.equal(
+    padronLatamMode(
+      { ...cliReady, latamSignupAttempt: { state: "pending_sync", latamCode: 1 } },
+      {}
+    ).kind,
+    "pending_sync"
+  )
+  assert.equal(padronLatamMode({ ...cliReady, latamSignupAttempt: null }, {}).kind, "signup")
   assert.equal(
     padronLatamMode({ ...cliReady, latamCredentialGap: "email" }, {}).reason,
     "No se puede dar de alta al cliente en Latam porque falta el email en Clientes 360."
@@ -334,7 +349,64 @@ test("el vínculo LATAM no depende de una ficha única y no escribe", () => {
     "No se puede dar de alta al cliente en Latam porque hay más de una ficha en Clientes 360."
   )
   assert.equal(padronLatamMode({ abnetCustomerNumber: "CLI-005788", bespokeCustomerId: null }, {}).kind, "blocked")
+  const catalog5790 = {
+    phase: "active",
+    identifier: "5790",
+    iptvId: "90",
+    username: null,
+    planName: "Plan Basico",
+  }
+  const activaCli = {
+    abnetCustomerNumber: "CLI-005790",
+    bespokeCustomerId: "ficha-farias",
+    bespokeLink: "one",
+    latamCredentialGap: null,
+    status: "Activa",
+  }
+  assert.equal(padronLatamMode(activaCli, { 5790: catalog5790 }).kind, "signup")
+  assert.equal(
+    padronLatamMode(
+      { abnetCustomerNumber: "5790", bespokeCustomerId: "ficha-brandan", bespokeLink: "one" },
+      { 5790: catalog5790 }
+    ).kind,
+    "active"
+  )
+  const modeSource = read("lib/subscriptions/padron-latam-mode.ts")
+  assert.doesNotMatch(modeSource, /row\.status/)
+  assert.doesNotMatch(modeSource, /Activa/)
   assert.equal(padronLatamMode(one, { 6798: unregistered }).kind, "signup")
+  assert.equal(
+    padronLatamMode({ ...one, latamSignupAttempt: pendingNull }, { 6798: unregistered }).kind,
+    "pending_sync"
+  )
+  assert.equal(
+    padronLatamMode({ ...one, latamSignupAttempt: pendingNull }, { 6798: linked }).kind,
+    "active"
+  )
+  assert.deepEqual(
+    pendingLatamSignupAttempt({
+      customer_id: "ficha-marta",
+      state: "pending_sync",
+      latam_code: null,
+    }),
+    { customerId: "ficha-marta", state: "pending_sync", latamCode: null }
+  )
+  assert.equal(
+    pendingLatamSignupAttempt({
+      customer_id: "ficha-marta",
+      state: "rejected",
+      latam_code: null,
+    }),
+    null
+  )
+  assert.equal(
+    pendingLatamSignupAttempt({
+      customer_id: "ficha-marta",
+      state: "confirmed",
+      latam_code: 1,
+    }),
+    null
+  )
   assert.equal(
     padronLatamMode({ ...one, latamCredentialGap: "email" }, { 6798: unregistered }).reason,
     "No se puede dar de alta al cliente en Latam porque falta el email en Clientes 360."
@@ -348,7 +420,19 @@ test("el vínculo LATAM no depende de una ficha única y no escribe", () => {
   const dialog = read("components/subscriptions/latam-tv-row-dialog.tsx")
   const route = read("app/api/subscriptions/abnet-padron/route.ts")
   assert.doesNotMatch(mode, /fetch\(|sync-client|modify-client/)
-  assert.match(actions, /mode\.kind !== "signup"/)
+  assert.match(actions, /Reintentar consulta/)
+  assert.match(actions, /Alta confirmada/)
+  assert.match(actions, /!signupAction/)
+  assert.match(dialog, /intent === "retry"/)
+  assert.match(dialog, /latamSignupPersistedView\(row\.latamSignupAttempt\) === "pending_sync"/)
+  assert.match(dialog, /setPhase\("pending_sync"\)/)
+  assert.match(dialog, /void postSignup\(true, true\)/)
+  assert.match(route, /latam_tv_signup_attempts/)
+  assert.match(route, /id_iptv/)
+  assert.match(route, /storedLatamSignupAttempt/)
+  assert.doesNotMatch(route, /register-client/)
+  assert.doesNotMatch(route, /release_latam_tv_signup_attempt/)
+  assert.doesNotMatch(route, /refreshLatamSignupIdentity/)
   assert.match(route, /bespokeLink: "many"/)
   assert.match(route, /bespokeLink: "one"/)
   assert.match(dialog, /if \(!row\?\.bespokeCustomerId \|\| busy\.current\) return/)

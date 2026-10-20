@@ -42,6 +42,12 @@ export type AbnetTvPadronRow = AbnetTvPadronSourceRow & {
   bespokeLink: "none" | "one" | "many"
   /** Credencial ausente en la ficha. Null: email y DNI utilizables. No guarda esos valores. */
   latamCredentialGap?: "email" | "dni" | "both" | null
+  /** Intento de alta todavía abierto. latamCode null no cierra el intento ni habilita otro alta. */
+  latamSignupAttempt?: {
+    state: "register_sent" | "pending_sync" | "confirmed" | "rejected"
+    latamCode: number | null
+    iptvId?: string | null
+  } | null
   packFutbolActive: boolean
 }
 

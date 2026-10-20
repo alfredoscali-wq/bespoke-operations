@@ -366,6 +366,7 @@ function SubscriptionsModuleContent() {
                 <TableBody>
                   {list.items.map((row) => {
                     const selectionKey = padronRowSelectionKey(row)
+                    const mode = padronLatamMode(row, latamByNumber)
                     return (
                     <TableRow
                       key={`${row.source}-${row.sourceRow}`}
@@ -418,8 +419,10 @@ function SubscriptionsModuleContent() {
                             latamRow?.source === row.source &&
                             latamRow.sourceRow === row.sourceRow
                           }
-                          mode={padronLatamMode(row, latamByNumber)}
-                          onSignup={() => openLatam(row, "signup")}
+                          mode={mode}
+                          onSignup={() =>
+                            openLatam(row, mode.kind === "pending_sync" ? "retry" : "signup")
+                          }
                           onPassword={() => openLatam(row, "password")}
                           onSuspend={() => openLatam(row, "suspend")}
                           onActivate={() => openLatam(row, "activate")}
@@ -545,20 +548,31 @@ function PadronRowActions({
   const locked = !canWrite ? "No tiene permiso para editar TV." : null
   const blocked = mode.kind === "blocked" || mode.kind === "pending" ? mode.reason : null
   const operational = mode.kind === "active" || mode.kind === "suspended"
+  const pendingSignup = mode.kind === "pending_sync"
+  const confirmedSignup = mode.kind === "confirmed"
+  const signupAction = mode.kind === "signup" || pendingSignup
   return (
     <TooltipProvider>
       <div className="flex items-center justify-end gap-0.5">
         <PadronIconButton
-          label="Alta LATAM"
+          label={
+            confirmedSignup
+              ? "Alta confirmada"
+              : pendingSignup
+                ? "Reintentar consulta"
+                : "Alta LATAM"
+          }
           loading={busy}
-          disabled={Boolean(locked || busy || mode.kind !== "signup")}
+          disabled={Boolean(locked || busy || !signupAction)}
           reason={
             locked ??
-            (mode.kind === "signup"
+            (signupAction
               ? null
-              : operational
-                ? "El cliente ya está en LATAM"
-                : blocked)
+              : confirmedSignup
+                ? "Alta confirmada"
+                : operational
+                  ? "El cliente ya está en LATAM"
+                  : blocked)
           }
           onClick={onSignup}
         >
@@ -574,7 +588,7 @@ function PadronRowActions({
               ? null
               : mode.kind === "active"
                 ? "El cliente ya está activo"
-                : mode.kind === "signup"
+                : signupAction
                   ? "Cliente no vinculado con LATAM"
                   : blocked)
           }
@@ -592,7 +606,7 @@ function PadronRowActions({
               ? null
               : mode.kind === "suspended"
                 ? "El cliente ya está suspendido"
-                : mode.kind === "signup"
+                : signupAction
                   ? "Cliente no vinculado con LATAM"
                   : blocked)
           }

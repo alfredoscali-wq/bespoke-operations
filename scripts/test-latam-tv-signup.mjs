@@ -14,6 +14,7 @@ import {
   signUpLatamTvClient,
 } from "../lib/integrations/latam-tv/client.ts"
 import { LatamTvRequestError } from "../lib/integrations/latam-tv/errors.ts"
+import { latamIdentifierFromCustomer } from "../lib/integrations/latam-tv/identifier.ts"
 import { latamSignupRejectionReleasesAttempt } from "../lib/integrations/latam-tv/signup-attempt.ts"
 import {
   LATAM_SIGNUP_MISSING,
@@ -268,6 +269,36 @@ test("14-16. faltan email, DNI o identificador", () => {
   assert.equal(latamSignupCredentialMessage("both"), LATAM_SIGNUP_MISSING_BOTH)
 })
 
+test("CLI-005790 y CLI-005810 no se envían como los abonados 5790 y 5810", () => {
+  const companyId = "company"
+  for (const [cli, stored, abnet] of [
+    ["CLI-005790", "00005790", "5790"],
+    ["CLI-005810", "00005810", "5810"],
+  ]) {
+    const fromCli = assessLatamSignup(readyCustomer({ identifier: cli }))
+    assert.equal(fromCli.ready, false)
+    if (!fromCli.ready) assert.ok(fromCli.missing.includes("N° ABNet"))
+    const identity = assessLatamSignup(readyCustomer({ identifier: null, identitySignup: true }))
+    assert.equal(identity.ready, true)
+    if (identity.ready) {
+      assert.equal("identificador" in identity.body, false)
+      assert.notEqual(identity.body.identificador, abnet)
+      assert.notEqual(identity.body.identificador, cli)
+    }
+    const external = assessLatamSignup(readyCustomer({ identifier: stored }))
+    assert.equal(external.ready, true)
+    if (external.ready) assert.equal(external.body.identificador, abnet)
+    assert.deepEqual(
+      latamIdentifierFromCustomer({ companyId, externalCustomerCode: cli }, companyId),
+      { status: "missing_identifier" }
+    )
+    assert.deepEqual(
+      latamIdentifierFromCustomer({ companyId, externalCustomerCode: stored }, companyId),
+      { status: "ready", identifier: abnet }
+    )
+  }
+})
+
 test("17-20. el token no sale al frontend ni a los logs, y solo se registra", () => {
   const client = read("lib/integrations/latam-tv/client.ts")
   const signup = read("lib/integrations/latam-tv/signup.ts")
@@ -318,7 +349,7 @@ test("17-20. el token no sale al frontend ni a los logs, y solo se registra", ()
   assert.match(read("app/api/integrations/latam-tv/customers/[customerId]/status/route.ts"), /findConfirmedLatamIdentifier/)
   assert.match(read("app/api/integrations/latam-tv/customers/[customerId]/password/route.ts"), /findConfirmedLatamIdentifier/)
   assert.match(dialog, /pending_sync/)
-  assert.match(dialog, /LATAM: Alta pendiente/)
+  assert.match(dialog, /Alta enviada, pendiente de verificación/)
   assert.match(dialog, /El alta anterior sigue pendiente/)
   assert.match(dialog, /Consultando padrón…/)
   assert.match(dialog, /Consulta realizada\. LATAM todavía no informa el identificador del alta/)
@@ -554,6 +585,8 @@ test("alta nueva no envía CLI-005788 y recupera el identificador de Latam", asy
   assert.equal(result.outcome, "created")
   if (result.outcome === "created") {
     assert.equal(result.identifier, "4412")
+    assert.equal(result.iptvId, "29")
+    assert.notEqual(result.iptvId, "1")
     assert.notEqual(result.identifier, "5788")
     assert.equal(JSON.stringify(result).includes("30123456"), false)
   }

@@ -62,7 +62,7 @@ export type LatamTvClient = {
 
 export type LatamTvLookup =
   | { found: true; client: LatamTvClient }
-  | { found: false }
+  | { found: false; ambiguous?: boolean }
 
 export type LatamTvFetch = (
   input: string,

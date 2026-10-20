@@ -15,8 +15,10 @@ import {
   withAbnetPadronDuplicates,
   type AbnetTvPadronRow,
 } from "@/lib/subscriptions/abnet-tv-padron"
+import { storedLatamSignupAttempt } from "@/lib/integrations/latam-tv/signup-attempt"
 import { latamSignupCredentialGap } from "@/lib/integrations/latam-tv/signup"
 import { PACK_FUTBOL_CODE } from "@/lib/subscriptions/pack-futbol"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { bespokeCliCustomerNumber } from "@/lib/subscriptions/tv-ot-signups"
 import { requireSubscriptionsReadContext } from "@/lib/subscriptions/route-context"
 import { createClient } from "@/lib/supabase/server"
@@ -188,6 +190,72 @@ async function readPackCustomerIds(client: unknown, companyId: string) {
   return customerIds
 }
 
+async function readPendingSignupAttempts(companyId: string) {
+  const attempts = new Map<
+    string,
+    {
+      state: "register_sent" | "pending_sync" | "confirmed" | "rejected"
+      latamCode: number | null
+      iptvId: string | null
+    }
+  >()
+  try {
+    const db = looseDb(createAdminClient())
+    const withIptv = await readPages((from, to) =>
+      db
+        .from("latam_tv_signup_attempts")
+        .select("customer_id, state, latam_code, id_iptv")
+        .eq("company_id", companyId)
+        .order("customer_id")
+        .range(from, to)
+    )
+    const loaded = withIptv.error
+      ? await readPages((from, to) =>
+          db
+            .from("latam_tv_signup_attempts")
+            .select("customer_id, state, latam_code")
+            .eq("company_id", companyId)
+            .order("customer_id")
+            .range(from, to)
+        )
+      : withIptv
+    const { rows, error } = loaded
+    if (error || !rows) return attempts
+    for (const row of rows) {
+      const attempt = storedLatamSignupAttempt(row)
+      if (!attempt) continue
+      attempts.set(attempt.customerId, {
+        state: attempt.state,
+        latamCode: attempt.latamCode,
+        iptvId: attempt.iptvId,
+      })
+    }
+  } catch {
+    return attempts
+  }
+  return attempts
+}
+
+function attachSignupAttempts(
+  rows: AbnetTvPadronRow[],
+  attempts: Map<
+    string,
+    {
+      state: "register_sent" | "pending_sync" | "confirmed" | "rejected"
+      latamCode: number | null
+      iptvId: string | null
+    }
+  >
+) {
+  if (attempts.size === 0) return rows
+  return rows.map((row) => {
+    if (!row.bespokeCustomerId) return row
+    const attempt = attempts.get(row.bespokeCustomerId)
+    if (!attempt) return row
+    return { ...row, latamSignupAttempt: attempt }
+  })
+}
+
 function attachBespoke(
   rows: AbnetTvPadronRow[],
   matches: Map<
@@ -254,13 +322,17 @@ export async function GET(request: Request) {
 
     const presented = withAbnetPadronDuplicates(sourceRows).map(presentAbnetPadronRow)
     const summary = summarizeAbnetTvPadron(presented)
-    const customers = await readCustomerMatches(client, auth.companyId)
+    const [customers, attempts] = await Promise.all([
+      readCustomerMatches(client, auth.companyId),
+      readPendingSignupAttempts(auth.companyId),
+    ])
     const packCustomerIds = customers.error
       ? new Set<string>()
       : await readPackCustomerIds(client, auth.companyId)
-    const rows = customers.error
+    const linked = customers.error
       ? presented
       : attachBespoke(presented, customers.matches, packCustomerIds)
+    const rows = attachSignupAttempts(linked, attempts)
 
     return NextResponse.json({ success: true, origin, summary, rows })
   } catch (error) {

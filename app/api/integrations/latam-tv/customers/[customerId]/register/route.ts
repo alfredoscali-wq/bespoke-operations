@@ -6,10 +6,14 @@ import { readLatamTvConfig } from "@/lib/integrations/latam-tv/config"
 import {
   getLatamTvPlans,
   heldLatamSignup,
+  refreshLatamSignupByNumber,
   refreshLatamSignupIdentity,
   signUpLatamTvClient,
 } from "@/lib/integrations/latam-tv/client"
-import { createLatamSignupAttemptStore } from "@/lib/integrations/latam-tv/signup-attempt"
+import {
+  createLatamSignupAttemptStore,
+  latamSignupVisibleLabel,
+} from "@/lib/integrations/latam-tv/signup-attempt"
 import { LatamTvRequestError } from "@/lib/integrations/latam-tv/errors"
 import { latamIdentifierFromCustomer } from "@/lib/integrations/latam-tv/identifier"
 import { matchLatamTvPlans } from "@/lib/integrations/latam-tv/plans"
@@ -23,7 +27,10 @@ import {
   latamSignupPlanGap,
   type LatamSignupTvKind,
 } from "@/lib/integrations/latam-tv/signup"
-import { requireSubscriptionsWriteContext } from "@/lib/subscriptions/route-context"
+import {
+  requireSubscriptionsReadContext,
+  requireSubscriptionsWriteContext,
+} from "@/lib/subscriptions/route-context"
 import { createClient } from "@/lib/supabase/server"
 
 export const runtime = "nodejs"
@@ -44,6 +51,26 @@ function readRequest(
   const record = value as Record<string, unknown>
   if (!isLatamSignupTvKind(record.tvKind)) return null
   return { confirm: record.confirm === true, retry: record.retry === true, tvKind: record.tvKind }
+}
+
+export async function GET(_request: Request, context: RouteContext) {
+  const auth = await requireSubscriptionsReadContext()
+  if (!auth.ok) return auth.response
+  const { customerId } = await context.params
+  if (!CUSTOMER_ID.test(customerId)) return jsonError("Cliente no encontrado.", 404)
+  try {
+    const supabase = await createClient()
+    const attempt = await createLatamSignupAttemptStore(supabase, customerId).read()
+    return NextResponse.json({
+      success: true,
+      state: attempt?.state ?? null,
+      latamCode: attempt?.latamCode ?? null,
+      iptvId: attempt?.iptvId ?? null,
+      label: latamSignupVisibleLabel(attempt),
+    })
+  } catch {
+    return jsonError("No se pudo leer el intento de alta.", 400)
+  }
 }
 
 export async function POST(request: Request, context: RouteContext) {
@@ -142,21 +169,17 @@ export async function POST(request: Request, context: RouteContext) {
       )
     }
     if (!input.confirm) {
-      if (identitySignup) {
-        let held: ReturnType<typeof heldLatamSignup> = null
-        try {
-          held = heldLatamSignup(
-            await createLatamSignupAttemptStore(supabase, customerId).read()
-          )
-        } catch {
-          return jsonError("No se pudo preparar el alta en LATAM TV.", 400)
-        }
-        if (held) {
-          return NextResponse.json(
-            { success: false, outcome: held.outcome, message: held.message },
-            { status: 409 }
-          )
-        }
+      let held: ReturnType<typeof heldLatamSignup> = null
+      try {
+        held = heldLatamSignup(await createLatamSignupAttemptStore(supabase, customerId).read())
+      } catch {
+        return jsonError("No se pudo preparar el alta en LATAM TV.", 400)
+      }
+      if (held) {
+        return NextResponse.json(
+          { success: false, outcome: held.outcome, message: held.message },
+          { status: 409 }
+        )
       }
       return NextResponse.json({
         success: true,
@@ -170,16 +193,16 @@ export async function POST(request: Request, context: RouteContext) {
       })
     }
 
-    const signupAttempt = identitySignup
-      ? createLatamSignupAttemptStore(supabase, customerId)
-      : undefined
+    const signupAttempt = createLatamSignupAttemptStore(supabase, customerId)
     const latam = {
       ...config,
       signupAttempt,
       ...(input.retry ? { timeoutMs: 20_000 } : {}),
     }
     const result = input.retry
-      ? await refreshLatamSignupIdentity(assessment.body, latam)
+      ? identitySignup
+        ? await refreshLatamSignupIdentity(assessment.body, latam)
+        : await refreshLatamSignupByNumber(assessment.body, latam)
       : await signUpLatamTvClient(assessment.body, latam)
     if (result.outcome === "pending_sync") {
       return NextResponse.json(
@@ -194,6 +217,16 @@ export async function POST(request: Request, context: RouteContext) {
       )
     }
     if (result.outcome === "created") {
+      if (!result.iptvId) {
+        return NextResponse.json(
+          {
+            success: false,
+            outcome: "pending_sync",
+            message: "Alta enviada, pendiente de verificación",
+          },
+          { status: 409 }
+        )
+      }
       return NextResponse.json({
         success: true,
         outcome: "created",
@@ -216,6 +249,7 @@ export async function POST(request: Request, context: RouteContext) {
         outcome: "already_exists",
         status: result.status,
         identifier: result.identifier ?? null,
+        iptvId: result.iptvId ?? null,
         message: "El cliente ya existe en LATAM TV.",
       })
     }

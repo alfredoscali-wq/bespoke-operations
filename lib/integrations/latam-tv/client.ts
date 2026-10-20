@@ -24,6 +24,7 @@ import {
   type LatamRegisterBody,
 } from "@/lib/integrations/latam-tv/signup"
 import {
+  latamIptvId,
   type LatamSignupAttemptSnapshot,
   type LatamSignupAttemptStore,
 } from "@/lib/integrations/latam-tv/signup-attempt"
@@ -168,12 +169,41 @@ function toClient(record: Record<string, unknown>, identifier: string): LatamTvC
   }
 }
 
+/**
+ * get-clients filtrado por un solo N° ABNet.
+ * Una fila única sin `identificador` ni `id_crm` es el padrón real: el `id_iptv` de esa fila es el abonado.
+ * Dos filas, o una fila con otro `id_crm` / `identificador`, no se asocian.
+ * El nombre, el correo y el DNI no eligen la fila.
+ */
+function filteredCatalogShape(
+  records: readonly Record<string, unknown>[],
+  identifier: string
+): "unique" | "ambiguous" | "absent" {
+  if (records.length === 0) return "absent"
+  let ours = 0
+  let others = 0
+  let unkeyed = 0
+  for (const row of records) {
+    const id = recordIdentifier(row)
+    if (id == null) unkeyed += 1
+    else if (id === identifier) ours += 1
+    else others += 1
+  }
+  if (ours > 1 || unkeyed > 1) return "ambiguous"
+  if (ours === 1 && unkeyed === 0 && others === 0) return "unique"
+  if (ours === 1 && (unkeyed > 0 || others > 0)) return "ambiguous"
+  if (others > 0) return "absent"
+  if (unkeyed === 1) return "unique"
+  return "absent"
+}
+
 function selectClient(
   records: readonly Record<string, unknown>[],
   identifier: string
 ): LatamTvClient | null {
+  if (filteredCatalogShape(records, identifier) !== "unique") return null
   const matched = records.filter((record) => recordIdentifier(record) === identifier)
-  if (matched.length > 0) return toClient(matched[0], identifier)
+  if (matched.length === 1) return toClient(matched[0], identifier)
   if (records.length === 1 && recordIdentifier(records[0]) == null) {
     return toClient(records[0], identifier)
   }
@@ -494,7 +524,11 @@ function interpretGetClients(
     throw new LatamTvRequestError("unavailable")
   }
   if (!hasClientList(record)) throw new LatamTvRequestError("unavailable")
-  const client = selectClient(clientRecords(record), identifier)
+  const records = clientRecords(record)
+  if (filteredCatalogShape(records, identifier) === "ambiguous") {
+    return { found: false, ambiguous: true }
+  }
+  const client = selectClient(records, identifier)
   if (!client) return { found: false }
   if (!client.status) throw new LatamTvRequestError("unavailable")
   return { found: true, client }
@@ -708,7 +742,12 @@ export type LatamTvSignupCallResult =
       planName: string | null
       username: string | null
     }
-  | { outcome: "already_exists"; status: LatamTvAccountStatus | null; identifier?: string | null }
+  | {
+      outcome: "already_exists"
+      status: LatamTvAccountStatus | null
+      identifier?: string | null
+      iptvId?: string | null
+    }
   | { outcome: "pending_sync"; message: string }
   | { outcome: "failed"; message: string }
   | { outcome: "unverified"; message: string }
@@ -751,10 +790,41 @@ export function signUpLatamTvClient(
   return enqueueSignup(queueKey, async () => {
     if (!numeric) return signUpLatamClientByIdentity(body, deps)
     const lookup = await getLatamTvClientByIdentifier(body.identificador ?? "", deps)
-    if (lookup.found) {
-      return { outcome: "already_exists", status: lookup.client.status }
+    if (!lookup.found && lookup.ambiguous) {
+      return { outcome: "rejected", code: 2, message: SIGNUP_REVIEW }
     }
-    const record = await postLatam(REGISTER_CLIENT_PATH, toLatamRegisterRequest(body), deps)
+    if (lookup.found) {
+      const iptvId = lookup.client.iptvId
+      if (iptvId) await deps.signupAttempt?.rememberIptv?.(iptvId).catch(() => "unavailable" as const)
+      return {
+        outcome: "already_exists",
+        status: lookup.client.status,
+        identifier: lookup.client.identifier,
+        iptvId,
+      }
+    }
+    if (deps.signupAttempt) {
+      const held = await reservedAttempt(deps.signupAttempt)
+      if (held && held.state !== "rejected") return pendingSignupResult(held)
+      let reservation: Awaited<ReturnType<LatamSignupAttemptStore["reserve"]>>
+      try {
+        reservation = await deps.signupAttempt.reserve()
+      } catch {
+        throw new LatamTvRequestError("unavailable")
+      }
+      if (!reservation.granted) {
+        return pendingSignupResult({ state: reservation.state, latamCode: reservation.latamCode })
+      }
+    }
+    let record: Record<string, unknown>
+    try {
+      record = await postLatam(REGISTER_CLIENT_PATH, toLatamRegisterRequest(body), deps)
+    } catch (error) {
+      if (!deps.signupAttempt) throw error
+      await rememberSignupAttempt(deps.signupAttempt, "pending_sync", null)
+      if (error instanceof LatamTvRequestError && error.kind === "not_configured") throw error
+      return { outcome: "pending_sync", message: SIGNUP_STILL_PENDING }
+    }
     const code = responseCode(record)
     if (documentedRegisterSuccess(record)) {
       const expected = abnetNumberFromExternalCode(body.identificador)
@@ -767,27 +837,53 @@ export function signUpLatamTvClient(
         confirmed.client.identifier !== expected ||
         (confirmed.client.status !== "enabled" && confirmed.client.status !== "disabled")
       ) {
+        if (deps.signupAttempt) {
+          await rememberSignupAttempt(deps.signupAttempt, "pending_sync", code)
+          return { outcome: "pending_sync", message: SIGNUP_STILL_PENDING }
+        }
         return { outcome: "unverified", message: SIGNUP_UNVERIFIED }
       }
-      const linked = await readLatamClientsByIdentifiers([expected], deps)
-      const row = linked[expected]
-      const crmMatches =
-        row != null &&
-        row.phase !== "unregistered" &&
-        (row.identifier === expected || row.phase === "unavailable")
-      if (!crmMatches || !row) {
-        return { outcome: "unverified", message: SIGNUP_UNVERIFIED }
+      const iptvId = latamIptvId(confirmed.client.iptvId, code)
+      if (!iptvId) {
+        if (deps.signupAttempt) {
+          await rememberSignupAttempt(deps.signupAttempt, "pending_sync", code)
+          return { outcome: "pending_sync", message: SIGNUP_PENDING }
+        }
+        return {
+          outcome: "created",
+          status: confirmed.client.status,
+          identifier: expected,
+          iptvId: null,
+          planName: confirmed.client.plan?.name ?? null,
+          username: confirmed.client.username,
+        }
+      }
+      const closed = await rememberSignupAttempt(
+        deps.signupAttempt,
+        "confirmed",
+        code,
+        iptvId
+      )
+      if (deps.signupAttempt && closed !== "saved") {
+        return { outcome: "pending_sync", message: SIGNUP_STILL_PENDING }
       }
       return {
         outcome: "created",
         status: confirmed.client.status,
         identifier: expected,
-        iptvId: row.iptvId,
-        planName: row.planName ?? confirmed.client.plan?.name ?? null,
-        username: row.username ?? confirmed.client.username,
+        iptvId,
+        planName: confirmed.client.plan?.name ?? null,
+        username: confirmed.client.username,
       }
     }
-    if (code === 3) return { outcome: "already_exists", status: null }
+    if (code === 3) {
+      await rememberSignupAttempt(deps.signupAttempt, "pending_sync", code)
+      return { outcome: "already_exists", status: null }
+    }
+    if (deps.signupAttempt) {
+      await rememberSignupAttempt(deps.signupAttempt, "pending_sync", code)
+      if (storedRejectionCode(code)) await deps.signupAttempt.release().catch(() => "unavailable" as const)
+    }
     return {
       outcome: "rejected",
       code: code ?? 2,
@@ -801,6 +897,7 @@ type IdentityLocation =
       kind: "operational"
       status: "enabled" | "disabled"
       identifier: string
+      iptvId: string | null
       planName: string | null
     }
   | { kind: "linked" }
@@ -832,6 +929,7 @@ function locateSignupIdentity(
     kind: "operational",
     status: identity.status,
     identifier: operational,
+    iptvId: row?.iptvId ?? null,
     planName: identity.planName,
   }
 }
@@ -862,6 +960,7 @@ function identityResult(location: IdentityLocation): LatamTvSignupCallResult | n
       outcome: "already_exists",
       status: location.status,
       identifier: location.identifier,
+      iptvId: location.iptvId,
     }
   }
   if (location.kind === "linked") return { outcome: "pending_sync", message: SIGNUP_PENDING }
@@ -901,12 +1000,13 @@ async function reservedAttempt(
 async function syncReservedAttempt(
   store: LatamSignupAttemptStore | undefined,
   state: "pending_sync" | "confirmed",
-  latamCode: number | null
+  latamCode: number | null,
+  iptvId: string | null = null
 ): Promise<void> {
   const current = await reservedAttempt(store)
   if (!current || current.state === "rejected") return
   if (state === "pending_sync" && current.state !== "register_sent" && current.state !== "pending_sync") return
-  await store?.finish(state, latamCode).catch(() => "unavailable" as const)
+  await store?.finish(state, latamCode, iptvId).catch(() => "unavailable" as const)
 }
 
 function identityCredentialMessage(body: LatamRegisterBody): string | null {
@@ -965,7 +1065,10 @@ export async function refreshLatamSignupIdentity(
   const before = await reservedAttempt(deps.signupAttempt)
   const location = locateSignupIdentity(await listLatamTvClients(deps), body)
   if (location.kind === "operational") {
-    await syncReservedAttempt(deps.signupAttempt, "confirmed", null)
+    if (location.iptvId) {
+      await deps.signupAttempt?.rememberIptv?.(location.iptvId).catch(() => "unavailable" as const)
+      await syncReservedAttempt(deps.signupAttempt, "confirmed", null, location.iptvId)
+    }
     return identityResult(location) ?? pendingSignupResult(before)
   }
   if (location.kind === "missing") {
@@ -991,27 +1094,48 @@ function confirmedIdentitySignup(
   correo: string
 ): LatamTvSignupCallResult | null {
   if (location.kind !== "operational") return null
+  if (!location.iptvId) return null
   if (hinted && hinted !== location.identifier) return null
   if (code === 3) {
-    return { outcome: "already_exists", status: location.status, identifier: location.identifier }
+    return {
+      outcome: "already_exists",
+      status: location.status,
+      identifier: location.identifier,
+      iptvId: location.iptvId,
+    }
   }
   return {
     outcome: "created",
     status: location.status,
     identifier: location.identifier,
-    iptvId: null,
+    iptvId: location.iptvId,
     planName: location.planName,
     username: correo,
   }
 }
 
+/** Un alta confirmada en Latam no se informa si el cierre local no quedó guardado. */
+async function closeIdentitySignup(
+  store: LatamSignupAttemptStore | undefined,
+  code: number | null,
+  located: LatamTvSignupCallResult
+): Promise<LatamTvSignupCallResult> {
+  const iptvId = "iptvId" in located ? located.iptvId ?? null : null
+  const closed = await rememberSignupAttempt(store, "confirmed", code, iptvId)
+  if (located.outcome === "created" && closed !== "saved") {
+    return { outcome: "pending_sync", message: SIGNUP_STILL_PENDING }
+  }
+  return located
+}
+
 async function rememberSignupAttempt(
   store: LatamSignupAttemptStore | undefined,
   state: "pending_sync" | "confirmed",
-  latamCode: number | null
-): Promise<void> {
-  if (!store) return
-  await store.finish(state, latamCode).catch(() => "unavailable" as const)
+  latamCode: number | null,
+  iptvId: string | null = null
+): Promise<"saved" | "saved_without_iptv" | "unavailable"> {
+  if (!store) return "unavailable"
+  return store.finish(state, latamCode, iptvId).catch(() => "unavailable" as const)
 }
 
 async function signUpLatamClientByIdentity(
@@ -1022,7 +1146,10 @@ async function signUpLatamClientByIdentity(
   if (credentialMessage) return { outcome: "rejected", code: 2, message: credentialMessage }
   const opened = locateSignupIdentity(await listLatamTvClients(deps), body)
   if (opened.kind === "operational") {
-    await syncReservedAttempt(deps.signupAttempt, "confirmed", null)
+    if (opened.iptvId) {
+      await deps.signupAttempt?.rememberIptv?.(opened.iptvId).catch(() => "unavailable" as const)
+      await syncReservedAttempt(deps.signupAttempt, "confirmed", null, opened.iptvId)
+    }
     return identityResult(opened) ?? { outcome: "pending_sync", message: SIGNUP_PENDING }
   }
   const before = identityResult(opened)
@@ -1080,8 +1207,7 @@ async function signUpLatamClientByIdentity(
     : null
   const locatedInCatalog = fromCatalogConfirmed ?? fromCatalogExisting
   if (locatedInCatalog) {
-    await rememberSignupAttempt(deps.signupAttempt, "confirmed", code)
-    return locatedInCatalog
+    return closeIdentitySignup(deps.signupAttempt, code, locatedInCatalog)
   }
   const fromResponseConfirmed = accepted && fromResponse
     ? confirmedIdentitySignup(fromResponse, 1, hinted, body.correo)
@@ -1091,8 +1217,7 @@ async function signUpLatamClientByIdentity(
     : null
   const locatedInResponse = fromResponseConfirmed ?? fromResponseExisting
   if (locatedInResponse) {
-    await rememberSignupAttempt(deps.signupAttempt, "confirmed", code)
-    return locatedInResponse
+    return closeIdentitySignup(deps.signupAttempt, code, locatedInResponse)
   }
   await rememberSignupAttempt(deps.signupAttempt, "pending_sync", code)
   if (accepted) return { outcome: "pending_sync", message: SIGNUP_PENDING }
@@ -1102,6 +1227,41 @@ async function signUpLatamClientByIdentity(
   return {
     outcome: "pending_sync",
     message: `${latamRegisterRejectionMessage(code)} La reserva sigue activa y no se creará otro usuario.`,
+  }
+}
+
+/** Reconsulta un N° ABNet. No llama a register-client. */
+export async function refreshLatamSignupByNumber(
+  body: LatamRegisterBody,
+  deps: LatamTvClientDeps
+): Promise<LatamTvSignupCallResult> {
+  const numeric = abnetNumberFromExternalCode(body.identificador)
+  if (!numeric) return refreshLatamSignupIdentity(body, deps)
+  const before = await reservedAttempt(deps.signupAttempt)
+  let lookup: Awaited<ReturnType<typeof getLatamTvClientByIdentifier>>
+  try {
+    lookup = await getLatamTvClientByIdentifier(numeric, deps)
+  } catch {
+    return pendingSignupResult(before)
+  }
+  if (!lookup.found || lookup.client.identifier !== numeric || !lookup.client.iptvId) {
+    return pendingSignupResult(before)
+  }
+  if (lookup.client.status !== "enabled" && lookup.client.status !== "disabled") {
+    return pendingSignupResult(before)
+  }
+  await deps.signupAttempt?.rememberIptv?.(lookup.client.iptvId).catch(() => "unavailable" as const)
+  await syncReservedAttempt(
+    deps.signupAttempt,
+    "confirmed",
+    before?.latamCode ?? null,
+    lookup.client.iptvId
+  )
+  return {
+    outcome: "already_exists",
+    status: lookup.client.status,
+    identifier: numeric,
+    iptvId: lookup.client.iptvId,
   }
 }
 

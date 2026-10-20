@@ -1,5 +1,9 @@
 import type { LatamBatchClient } from "@/lib/integrations/latam-tv/lookup-state"
 import {
+  latamSignupPersistedView,
+  type LatamSignupAttemptState,
+} from "@/lib/integrations/latam-tv/signup-attempt"
+import {
   latamSignupCredentialMessage,
   type LatamSignupCredentialGap,
 } from "@/lib/integrations/latam-tv/signup"
@@ -21,6 +25,11 @@ type PadronLatamRow = {
   bespokeCustomerId: string | null
   bespokeLink?: "none" | "one" | "many"
   latamCredentialGap?: LatamSignupCredentialGap | null
+  latamSignupAttempt?: {
+    state: LatamSignupAttemptState
+    latamCode?: number | null
+    iptvId?: string | null
+  } | null
 }
 
 export type PadronLatamMode =
@@ -28,7 +37,16 @@ export type PadronLatamMode =
   | { kind: "active" }
   | { kind: "suspended" }
   | { kind: "signup" }
+  | { kind: "pending_sync" }
+  | { kind: "confirmed" }
   | { kind: "blocked"; reason: string }
+
+function openSignup(row: PadronLatamRow): PadronLatamMode {
+  const view = latamSignupPersistedView(row.latamSignupAttempt)
+  if (view === "confirmed") return { kind: "confirmed" }
+  if (view === "pending_sync") return { kind: "pending_sync" }
+  return { kind: "signup" }
+}
 
 function credentialBlock(row: PadronLatamRow): PadronLatamMode | null {
   if (!row.latamCredentialGap) return null
@@ -64,7 +82,7 @@ export function padronLatamMode(
     if (row.latamCredentialGap !== null) {
       return { kind: "blocked", reason: latamSignupCredentialMessage("both") }
     }
-    return { kind: "signup" }
+    return openSignup(row)
   }
   const client = latamByNumber[number]
   if (!client) return { kind: "pending", reason: "Consultando LATAM" }
@@ -83,7 +101,7 @@ export function padronLatamMode(
   if (client.phase === "unregistered") {
     const blocked = credentialBlock(row)
     if (blocked) return blocked
-    return { kind: "signup" }
+    return openSignup(row)
   }
   return { kind: "blocked", reason: LATAM_UNAVAILABLE }
 }
