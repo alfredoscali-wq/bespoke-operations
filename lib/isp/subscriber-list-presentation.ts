@@ -1,4 +1,7 @@
+import { abnetNumberFromExternalCode } from "@/lib/isp/abnet-master-universe"
+import { clients360PadronNumberFromId } from "@/lib/isp/clients-360-directory"
 import { ISP_SUBSCRIBER_LIST_STATUS_LABELS } from "@/lib/isp/integrity"
+import { ISP_SUBSCRIBER_REMOVAL_FORBIDDEN_MESSAGE } from "@/lib/isp/subscriber-removal"
 import type { IspCustomerListItem } from "@/lib/isp/types"
 import type { VisualTone } from "@/lib/ui/visual-tokens"
 import type { Customer } from "@/lib/types/customers"
@@ -38,6 +41,76 @@ export function formatIspConnectionCountLabel(count: number): string {
 
 export const ISP_BESPOKE_ALTA_PENDING_ABNET_LABEL =
   "Alta Bespoke pendiente de ABNet"
+
+export function presentBespokeListId(
+  customerNumber: string | null | undefined
+): string | null {
+  const match = /^(?:CLI|BES)-(\d+)$/i.exec(customerNumber?.trim() ?? "")
+  if (!match || /^0+$/.test(match[1])) return null
+  return `Bes-${match[1]}`
+}
+
+export const CLIENTS_360_LIST_COLUMNS = [
+  "Bespoke",
+  "ABNet",
+  "Cliente",
+  "DNI/CUIT",
+  "Plan comercial",
+  "Conexiones",
+  "Estado",
+  "Localidad",
+  "Acciones",
+] as const
+
+export function clients360BespokeColumnLabel(item: {
+  directoryOrigin?: "bespoke" | "padron" | null
+  bespokeCustomerNumber?: string | null
+}): string | null {
+  if (item.directoryOrigin === "padron") return null
+  return presentBespokeListId(item.bespokeCustomerNumber)
+}
+
+export function clients360ClienteLabel(item: { name: string }): string {
+  return item.name.trim()
+}
+
+export function clients360AbnetNumberLabel(
+  code: string | null | undefined
+): string | null {
+  return abnetNumberFromExternalCode(code)
+}
+
+export const CLIENTS360_EDIT_FORBIDDEN_MESSAGE =
+  "No tenés permiso para editar este registro de Clientes 360."
+
+export function clients360ListRowActions(
+  item: {
+    id?: string | null
+    directoryOrigin?: "bespoke" | "padron" | null
+  },
+  permissions: { canEdit: boolean; canRemove: boolean }
+): {
+  view: true
+  edit: true
+  remove: true
+  ficha: boolean
+  editBlockedReason: string | null
+  removeBlockedReason: string | null
+} {
+  const padronOnly =
+    item.directoryOrigin === "padron" ||
+    (item.id ? clients360PadronNumberFromId(item.id) != null : false)
+  return {
+    view: true,
+    edit: true,
+    remove: true,
+    ficha: !padronOnly,
+    editBlockedReason: permissions.canEdit ? null : CLIENTS360_EDIT_FORBIDDEN_MESSAGE,
+    removeBlockedReason: permissions.canRemove
+      ? null
+      : ISP_SUBSCRIBER_REMOVAL_FORBIDDEN_MESSAGE,
+  }
+}
 
 export function formatIspAbonadoCode(
   code: string | null | undefined
@@ -118,6 +191,7 @@ export function ispListItemToCustomer(item: IspCustomerListItem): Customer {
 
 export function exportIspSubscribersCsv(items: IspCustomerListItem[]): void {
   const headers = [
+    "Origen",
     "Nombre",
     "DNI/CUIT",
     "Teléfono",
@@ -125,23 +199,33 @@ export function exportIspSubscribersCsv(items: IspCustomerListItem[]): void {
     "Email",
     "Domicilio",
     "Localidad",
-    "Estado",
-    "Cantidad de servicios",
-    "Cantidad de conexiones",
+    "Plan comercial",
+    "Estado del padrón",
+    "Gratuidad",
+    "Conexiones del padrón",
+    "Servicios técnicos Bespoke",
+    "Conexiones técnicas Bespoke",
   ]
 
-  const rows = items.map((item) => [
-    item.name,
-    item.dni ?? "",
-    item.phone ?? "",
-    item.whatsapp ?? "",
-    item.email ?? "",
-    item.address ?? "",
-    item.locality ?? "",
-    ispSubscriberListStatusView(item).label,
-    String(item.serviceCount),
-    String(item.connectionCount),
-  ])
+  const rows = items.map((item) => {
+    const imported = item.directoryOrigin === "padron"
+    return [
+      imported ? "Padrón ABNet" : "Ficha Bespoke",
+      item.name,
+      item.dni ?? "",
+      item.phone ?? "",
+      item.whatsapp ?? "",
+      item.email ?? "",
+      item.address ?? "",
+      item.locality ?? "",
+      item.commercialPlanLabel ?? "",
+      item.registryStatusLabel ?? "",
+      item.registryGratisLabel ?? "",
+      String(item.registryConnectionCount ?? 0),
+      String(item.serviceCount),
+      String(item.connectionCount),
+    ]
+  })
 
   const csv = [headers, ...rows]
     .map((row) =>

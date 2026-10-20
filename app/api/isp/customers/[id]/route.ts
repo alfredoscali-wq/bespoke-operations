@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server"
 
 import { ISP_SUBSCRIBER_NOT_FOUND_MESSAGE } from "@/lib/isp/constants"
-import { getIspCustomerDetail } from "@/lib/isp/queries"
+import { saveClients360PadronIdentity } from "@/lib/isp/clients-360-record-actions"
+import { clients360PadronNumberFromId } from "@/lib/isp/clients-360-directory"
+import { getIspCustomerDetail, getPadronSubscriberDetail } from "@/lib/isp/queries"
 import {
   requireIspReadContext,
   requireIspWriteContext,
@@ -22,7 +24,9 @@ export async function GET(_request: Request, context: RouteContext) {
 
   try {
     const client = await createClient()
-    const detail = await getIspCustomerDetail(client, auth.companyId, id)
+    const detail = clients360PadronNumberFromId(id)
+      ? await getPadronSubscriberDetail(client, auth.companyId, id)
+      : await getIspCustomerDetail(client, auth.companyId, id)
     if (!detail) {
       return NextResponse.json(
         { success: false, message: ISP_SUBSCRIBER_NOT_FOUND_MESSAGE },
@@ -61,6 +65,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   if (!auth.ok) return auth.response
 
   const { id } = await context.params
+  const padronNumber = clients360PadronNumberFromId(id)
 
   let body: IdentityBody
   try {
@@ -82,6 +87,26 @@ export async function PATCH(request: Request, context: RouteContext) {
 
   try {
     const client = await createClient()
+    if (padronNumber) {
+      const saved = await saveClients360PadronIdentity(client, auth.companyId, padronNumber, {
+        name,
+        dni: body.dni,
+        phone: body.phone,
+        whatsapp: body.whatsapp,
+        email: body.email,
+        address: body.address,
+        locality: body.locality,
+        technology: body.technology,
+      })
+      if (!saved.ok) {
+        return NextResponse.json(
+          { success: false, message: saved.message },
+          { status: 409 }
+        )
+      }
+      return NextResponse.json({ success: true, customerId: saved.customerId })
+    }
+
     const { data: owned, error: ownedError } = await client
       .from("customers")
       .select("id")

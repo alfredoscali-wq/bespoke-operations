@@ -1,6 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import { escapeCustomerSearchPattern } from "@/lib/customers/customer-list"
+import { isPendingActivationListCustomer } from "@/lib/customers/customer-operational"
+import {
+  CUSTOMER_STATUS_PENDING_ACTIVATION,
+  isCustomerStatusActive,
+} from "@/lib/customers/format"
 import { resolveIspCustomerListPageSize } from "@/lib/isp/customer-list-load"
 import {
   getClients360CommercialUniverse,
@@ -9,6 +14,37 @@ import {
 import { excludeRemovedSubscriberIds } from "@/lib/isp/subscriber-removal"
 import { listRemovedIspSubscriberCustomerIds } from "@/lib/isp/subscriber-removal-queries"
 import { BESPOKE_PRODUCTION_COMPANY_ID } from "@/lib/supabase/company.constants"
+import {
+  abnetRegistryNoteForExternal,
+  loadAbnetRegistryNoteContext,
+  loadLiveAbnetCustomers,
+} from "@/lib/isp/abnet-connection-registry-read"
+import type {
+  AbnetConnectionStatus,
+  AbnetTristate,
+} from "@/lib/isp/abnet-connection-registry"
+import { abnetNumberFromExternalCode } from "@/lib/isp/abnet-master-universe"
+import { completeAbnetPersonalProfile } from "@/lib/isp/abnet-customer-registry"
+import { loadAbnetCustomerRegistry } from "@/lib/isp/abnet-customer-registry-read"
+import {
+  appendReleasedActivationCustomers,
+  filterPendingActivationCustomers,
+  pageClients360Rows,
+  presentPendingActivationListItem,
+  releasedInstallationCustomerIds,
+  withoutPendingActivationEntries,
+} from "@/lib/isp/clients-360-activation"
+import {
+  applyAbnetPersonalDirectory,
+  applyClients360DirectoryRemovals,
+  buildClients360Directory,
+  clients360PadronNumberFromId,
+  filterClients360Directory,
+  paginateClients360Directory,
+  registrySubscriberView,
+  summarizeClients360Directory,
+  type Clients360DirectoryEntry,
+} from "@/lib/isp/clients-360-directory"
 import {
   findCatalogItemForWorkOrder,
   isIspCatalogCategory,
@@ -61,7 +97,10 @@ import type { Task } from "@/lib/types/tasks"
 
 export type IspQueriesClient = SupabaseClient<Database>
 
-function mapCustomerHeader(customer: Customer): IspCustomerHeader {
+function mapCustomerHeader(
+  customer: Customer,
+  abnetRegistryNote: string | null = null
+): IspCustomerHeader {
   return {
     id: customer.id,
     name: customer.name,
@@ -76,6 +115,44 @@ function mapCustomerHeader(customer: Customer): IspCustomerHeader {
     updatedAt: customer.updatedAt,
     externalCustomerCode: customer.externalCustomerCode ?? null,
     technology: customer.technology ?? null,
+    abnetRegistryNote,
+  }
+}
+
+async function withAbnetPersonalFields(
+  client: IspQueriesClient,
+  companyId: string,
+  customer: IspCustomerHeader
+): Promise<IspCustomerHeader> {
+  const personal = await loadAbnetCustomerRegistry(client, companyId)
+  if (personal.error && !personal.missing) throw new Error(personal.error.message)
+  const number = abnetNumberFromExternalCode(customer.externalCustomerCode)
+  const record =
+    number && !personal.missing
+      ? personal.records.find((row) => row.customerNumber === number) ?? null
+      : null
+  const completed = completeAbnetPersonalProfile(
+    {
+      name: customer.name,
+      externalCode: customer.externalCustomerCode ?? null,
+      dni: customer.dni,
+      phone: customer.phone,
+      email: customer.email,
+      address: customer.address,
+      locality: customer.locality,
+      note: customer.abnetRegistryNote ?? "",
+    },
+    record
+  )
+  return {
+    ...customer,
+    name: completed.name,
+    dni: completed.dni,
+    phone: completed.phone,
+    email: completed.email,
+    address: completed.address,
+    locality: completed.locality,
+    abnetRegistryNote: completed.note || null,
   }
 }
 
@@ -131,7 +208,7 @@ async function fetchConnectionsForServices(
 
 const ISP_CUSTOMER_ID_CHUNK = 80
 const ISP_CUSTOMER_LIST_SELECT =
-  "id, name, dni, phone, whatsapp, email, address, locality, status, created_at, updated_at, external_customer_code"
+  "id, name, dni, phone, whatsapp, email, address, locality, status, created_at, updated_at, external_customer_code, customer_number"
 
 function chunkIds(ids: string[], size = ISP_CUSTOMER_ID_CHUNK): string[][] {
   const chunks: string[][] = []
@@ -182,6 +259,7 @@ type IspCustomerListRow = {
   created_at: string
   updated_at: string
   external_customer_code: string | null
+  customer_number: string | null
 }
 
 type ServiceListSnap = {
@@ -197,6 +275,12 @@ type ConnectionListSnap = {
   updatedAt: string
 }
 
+type PendingActivationRow = IspCustomerListRow & {
+  contracted_plan: string | null
+}
+
+const PENDING_ACTIVATION_SELECT = `${ISP_CUSTOMER_LIST_SELECT}, contracted_plan`
+
 function compareIspCustomerListRows(
   left: Pick<IspCustomerListRow, "name" | "id">,
   right: Pick<IspCustomerListRow, "name" | "id">
@@ -204,6 +288,138 @@ function compareIspCustomerListRows(
   const byName = left.name.localeCompare(right.name, "es")
   if (byName !== 0) return byName
   return left.id.localeCompare(right.id)
+}
+
+async function loadPendingActivationCustomerRows(
+  client: IspQueriesClient,
+  companyId: string
+): Promise<PendingActivationRow[]> {
+  const rows: PendingActivationRow[] = []
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await client
+      .from("customers")
+      .select(PENDING_ACTIVATION_SELECT)
+      .eq("company_id", companyId)
+      .eq("status", CUSTOMER_STATUS_PENDING_ACTIVATION)
+      .or("external_customer_code.is.null,external_customer_code.eq.")
+      .is("deleted_at", null)
+      .order("name", { ascending: true })
+      .range(from, from + 999)
+    if (error) throw new Error(error.message)
+    const batch = (data ?? []) as PendingActivationRow[]
+    for (const row of batch) {
+      if (
+        isPendingActivationListCustomer({
+          status: row.status,
+          externalCustomerCode: row.external_customer_code ?? undefined,
+        })
+      ) {
+        rows.push(row)
+      }
+    }
+    if (batch.length < 1000) break
+  }
+  return rows
+}
+
+async function loadReleasedInstallationCustomerIds(
+  client: IspQueriesClient,
+  companyId: string
+): Promise<Set<string>> {
+  const tasks: { customerId: string; metadata: unknown }[] = []
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await client
+      .from("tasks")
+      .select("customer_id, task_metadata")
+      .eq("company_id", companyId)
+      .eq("service_type", NEW_INSTALLATION_SERVICE_TYPE)
+      .eq("status", "finalizada")
+      .is("deleted_at", null)
+      .order("id", { ascending: true })
+      .range(from, from + 999)
+    if (error) throw new Error(error.message)
+    const batch = data ?? []
+    for (const row of batch) {
+      tasks.push({ customerId: row.customer_id ?? "", metadata: row.task_metadata })
+    }
+    if (batch.length < 1000) break
+  }
+  return releasedInstallationCustomerIds(tasks)
+}
+
+async function loadCustomerRowsByIds(
+  client: IspQueriesClient,
+  companyId: string,
+  ids: readonly string[]
+): Promise<IspCustomerListRow[]> {
+  const rows: IspCustomerListRow[] = []
+  for (const part of chunkIds([...ids])) {
+    const { data, error } = await client
+      .from("customers")
+      .select(ISP_CUSTOMER_LIST_SELECT)
+      .eq("company_id", companyId)
+      .in("id", part)
+      .is("deleted_at", null)
+    if (error) throw new Error(error.message)
+    rows.push(...(data ?? []))
+  }
+  return rows
+}
+
+function pendingActivationListItem(row: PendingActivationRow): IspCustomerListItem {
+  return presentPendingActivationListItem({
+    id: row.id,
+    name: row.name,
+    dni: row.dni,
+    phone: row.phone,
+    whatsapp: row.whatsapp,
+    email: row.email,
+    address: row.address,
+    locality: row.locality,
+    status: row.status,
+    createdAt: row.created_at,
+    externalCustomerCode: row.external_customer_code,
+    bespokeCustomerNumber: row.customer_number,
+    contractedPlan: row.contracted_plan,
+  })
+}
+
+function pagePendingActivationCustomers(
+  rows: PendingActivationRow[],
+  input: { search?: string; locality?: string; page?: number; pageSize?: number },
+  pendingActivation: number
+) {
+  const filtered = filterPendingActivationCustomers(
+    rows.map((row) => ({
+      row,
+      name: row.name,
+      dni: row.dni,
+      phone: row.phone,
+      email: row.email,
+      address: row.address,
+      locality: row.locality,
+      externalCustomerCode: row.external_customer_code,
+      bespokeCustomerNumber: row.customer_number,
+    })),
+    input
+  ).map((item) => item.row)
+  const pageSize = resolveIspCustomerListPageSize(input.pageSize)
+  const page = pageClients360Rows(filtered, input.page ?? 1, pageSize)
+  const localities = [
+    ...new Set(
+      rows
+        .map((row) => row.locality?.trim())
+        .filter((value): value is string => Boolean(value))
+    ),
+  ].sort((left, right) => left.localeCompare(right, "es"))
+  return {
+    customers: page.rows.map(pendingActivationListItem),
+    localities,
+    total: page.total,
+    page: page.page,
+    pageSize: page.pageSize,
+    pendingActivation,
+  }
 }
 
 async function loadServiceSnaps(
@@ -311,7 +527,8 @@ async function loadConnectionSnaps(
 function mapIspCustomerListRow(
   row: IspCustomerListRow,
   services: readonly ServiceListSnap[],
-  connections: readonly ConnectionListSnap[]
+  connections: readonly ConnectionListSnap[],
+  abnetRegistryNote: string | null = null
 ): IspCustomerListItem {
   const customerServices = services.filter((service) => service.customerId === row.id)
   const serviceIds = new Set(customerServices.map((service) => service.id))
@@ -340,6 +557,7 @@ function mapIspCustomerListRow(
     status: row.status,
     createdAt: row.created_at,
     externalCustomerCode: row.external_customer_code,
+    bespokeCustomerNumber: row.customer_number,
     serviceCount: customerServices.length,
     connectionCount: customerConnections.length,
     listStatus: deriveIspSubscriberListStatus({
@@ -358,6 +576,390 @@ function mapIspCustomerListRow(
     }),
     accountSituation: null,
     lastActivityAt,
+    abnetRegistryNote,
+  }
+}
+
+async function loadRemovedAbnetNumbers(
+  client: IspQueriesClient,
+  companyId: string,
+  removedIds: ReadonlySet<string>
+) {
+  const numbers = new Set<string>()
+  const ids = [...removedIds]
+  for (let index = 0; index < ids.length; index += 200) {
+    const part = ids.slice(index, index + 200)
+    const { data, error } = await client
+      .from("customers")
+      .select("external_customer_code")
+      .eq("company_id", companyId)
+      .in("id", part)
+    if (error) throw new Error(error.message)
+    for (const row of data ?? []) {
+      const number = abnetNumberFromExternalCode(row.external_customer_code)
+      if (number && number !== "99999999") numbers.add(number)
+    }
+  }
+  return numbers
+}
+
+async function loadUniverseCustomerRows(
+  client: IspQueriesClient,
+  companyId: string,
+  memberIds: ReadonlySet<string>
+) {
+  const customerRows: IspCustomerListRow[] = []
+  if (memberIds.size === 0) return customerRows
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await client
+      .from("customers")
+      .select(ISP_CUSTOMER_LIST_SELECT)
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .order("id", { ascending: true })
+      .range(from, from + 999)
+    if (error) throw new Error(error.message)
+    const batch = data ?? []
+    for (const row of batch) {
+      if (memberIds.has(row.id)) customerRows.push(row)
+    }
+    if (batch.length < 1000) break
+  }
+  return customerRows
+}
+
+function applyTechnicalCounts(
+  entries: readonly Clients360DirectoryEntry[],
+  services: readonly ServiceListSnap[],
+  connections: readonly ConnectionListSnap[]
+): Clients360DirectoryEntry[] {
+  return entries.map((entry) => {
+    if (!entry.customerId) return entry
+    const customerServices = services.filter((service) => service.customerId === entry.customerId)
+    const serviceIds = new Set(customerServices.map((service) => service.id))
+    const customerConnections = connections.filter((connection) =>
+      serviceIds.has(connection.serviceId)
+    )
+    return {
+      ...entry,
+      serviceCount: customerServices.length,
+      technicalConnectionCount: customerConnections.length,
+      listStatus: deriveIspSubscriberListStatus({
+        customerStatus: entry.status,
+        commercialStatuses: customerServices.map((service) => service.commercialStatus),
+      }),
+    }
+  })
+}
+
+type LooseRows = {
+  from: (table: string) => {
+    select: (columns: string) => {
+      eq: (column: string, value: string) => LooseFilter
+      in: (column: string, values: string[]) => LooseFilter
+    }
+  }
+}
+
+type LooseFilter = {
+  eq: (column: string, value: string) => LooseFilter
+  in: (column: string, values: string[]) => LooseFilter
+  is: (column: string, value: null) => LooseFilter
+  order: (column: string, options: { ascending: boolean }) => LooseFilter
+  range: (
+    from: number,
+    to: number
+  ) => PromiseLike<{
+    data: Record<string, string | null>[] | null
+    error: { message: string } | null
+  }>
+  then: PromiseLike<{
+    data: Record<string, string | null>[] | null
+    error: { message: string } | null
+  }>["then"]
+}
+
+function looseRows(client: IspQueriesClient): LooseRows {
+  return client as unknown as LooseRows
+}
+
+async function loadBespokeTvFlags(
+  client: IspQueriesClient,
+  companyId: string,
+  customerId?: string
+): Promise<Map<string, { packFutbol: boolean; tvFull: boolean }>> {
+  const flags = new Map<string, { packFutbol: boolean; tvFull: boolean }>()
+  const services: { id: string; customerId: string; status: string }[] = []
+  for (let from = 0; ; from += 1000) {
+    let query = client
+      .from("isp_services")
+      .select("id, customer_id, commercial_status")
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .order("id", { ascending: true })
+    if (customerId) query = query.eq("customer_id", customerId)
+    const { data, error } = await query.range(from, from + 999)
+    if (error) return flags
+    const batch = data ?? []
+    for (const row of batch) {
+      services.push({
+        id: row.id,
+        customerId: row.customer_id,
+        status: row.commercial_status,
+      })
+    }
+    if (batch.length < 1000) break
+  }
+  const activeServices = services.filter((row) => row.status === "active")
+  if (activeServices.length === 0) return flags
+  const customerByService = new Map(activeServices.map((row) => [row.id, row.customerId]))
+  const assignments: { serviceId: string; componentId: string; status: string }[] = []
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await looseRows(client)
+      .from("isp_service_components")
+      .select("service_id, component_id, status")
+      .eq("company_id", companyId)
+      .eq("status", "active")
+      .is("deleted_at", null)
+      .order("id", { ascending: true })
+      .range(from, from + 999)
+    if (error) return flags
+    const batch = data ?? []
+    for (const row of batch) {
+      if (!row.service_id || !row.component_id || !customerByService.has(row.service_id)) continue
+      assignments.push({
+        serviceId: row.service_id,
+        componentId: row.component_id,
+        status: row.status ?? "",
+      })
+    }
+    if (batch.length < 1000) break
+  }
+  if (assignments.length === 0) return flags
+  const componentIds = [...new Set(assignments.map((row) => row.componentId))]
+  const codes = new Map<string, string>()
+  for (let index = 0; index < componentIds.length; index += 200) {
+    const part = componentIds.slice(index, index + 200)
+    const { data, error } = await looseRows(client)
+      .from("isp_commercial_components")
+      .select("id, code")
+      .eq("company_id", companyId)
+      .in("id", part)
+      .is("deleted_at", null)
+    if (error) return flags
+    for (const row of data ?? []) {
+      if (!row.id) continue
+      codes.set(row.id, String(row.code ?? "").trim().toUpperCase())
+    }
+  }
+  for (const assignment of assignments) {
+    const owner = customerByService.get(assignment.serviceId)
+    const code = codes.get(assignment.componentId)
+    if (!owner || !code) continue
+    const current = flags.get(owner) ?? { packFutbol: false, tvFull: false }
+    if (code === "PACK-FUTBOL") current.packFutbol = true
+    if (code === "TV-FULL-UPGRADE") current.tvFull = true
+    flags.set(owner, current)
+  }
+  return flags
+}
+
+function directoryEntryToListItem(
+  entry: Clients360DirectoryEntry,
+  row: IspCustomerListRow | undefined
+): IspCustomerListItem {
+  const technicalConnections = entry.technicalConnectionCount
+  return {
+    id: entry.id,
+    name: entry.name,
+    dni: row?.dni ?? entry.dni,
+    phone: row?.phone ?? entry.phone,
+    whatsapp: row?.whatsapp ?? null,
+    email: row?.email ?? entry.email,
+    address: row?.address ?? entry.address,
+    locality: entry.locality,
+    status: row?.status ?? entry.status,
+    createdAt: row?.created_at ?? "",
+    externalCustomerCode: entry.externalCode,
+    bespokeCustomerNumber: entry.bespokeCustomerNumber,
+    serviceCount: entry.serviceCount,
+    connectionCount: entry.origin === "padron" ? 0 : technicalConnections,
+    listStatus: entry.listStatus ?? "pendiente",
+    serviceOverview: entry.commercialPlanLabel,
+    accountSituation: null,
+    lastActivityAt: row?.updated_at ?? null,
+    abnetRegistryNote: entry.note,
+    directoryOrigin: entry.origin,
+    registryLink: entry.link,
+    commercialPlanLabel: entry.commercialPlanLabel,
+    registryConnectionCount: entry.registryConnectionCount,
+    registryStatusLabel: entry.registryStatusLabel,
+    registryGratisLabel: entry.registryGratisLabel,
+  }
+}
+
+async function listIspCustomersIncludingPadron(
+  client: IspQueriesClient,
+  companyId: string,
+  input: {
+    search?: string
+    status?: string
+    locality?: string
+    minServices?: number
+    minConnections?: number
+    page?: number
+    pageSize?: number
+  },
+  registryRecords: readonly {
+    abnetConnectionId: string
+    abnetCustomerNumber: string
+    customerName: string
+    connectionStatus: AbnetConnectionStatus
+    gratis: AbnetTristate
+    planName: string
+    serviceType: string
+    nodeName: string
+  }[],
+  activation: {
+    pendingIds: ReadonlySet<string>
+    releasedIds: ReadonlySet<string>
+    pendingActivation: number
+  }
+) {
+  const pageSize = resolveIspCustomerListPageSize(input.pageSize)
+  const requestedPage = Math.max(1, Math.floor(input.page ?? 1))
+  const removedIds = await listRemovedIspSubscriberCustomerIds(client, companyId)
+  const removedAbnetNumbers = await loadRemovedAbnetNumbers(client, companyId, removedIds)
+  const memberIds =
+    companyId === BESPOKE_PRODUCTION_COMPANY_ID
+      ? excludeRemovedSubscriberIds(getClients360CommercialUniverse(), removedIds)
+      : await listActiveSubscriberCustomerIds(client, companyId)
+  const memberSet = new Set(memberIds)
+  const universeRows = await loadUniverseCustomerRows(client, companyId, memberSet)
+  const live = await loadLiveAbnetCustomers(client, companyId)
+  if (live.error) throw new Error(live.error.message)
+  const rowsById = new Map(universeRows.map((row) => [row.id, row]))
+  const tvFlags = await loadBespokeTvFlags(client, companyId)
+  const tvFor = (customerId: string) => tvFlags.get(customerId)
+  let entries = buildClients360Directory({
+    universeCustomers: universeRows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      externalCode: row.external_customer_code,
+      locality: row.locality,
+      status: row.status,
+      inUniverse: true,
+      dni: row.dni,
+      phone: row.phone,
+      email: row.email,
+      customerNumber: row.customer_number,
+      bespokePackFutbol: tvFor(row.id)?.packFutbol === true,
+      bespokeTvFull: tvFor(row.id)?.tvFull === true,
+    })),
+    liveCustomers: live.customers
+      .filter((row) => !removedIds.has(row.id))
+      .map((row) => ({
+      ...row,
+      inUniverse: memberSet.has(row.id),
+      bespokePackFutbol: tvFor(row.id)?.packFutbol === true,
+      bespokeTvFull: tvFor(row.id)?.tvFull === true,
+    })),
+    records: registryRecords,
+  })
+  const personal = await loadAbnetCustomerRegistry(client, companyId)
+  if (personal.error && !personal.missing) throw new Error(personal.error.message)
+  entries = applyAbnetPersonalDirectory(entries, personal.missing ? [] : personal.records)
+  entries = applyClients360DirectoryRemovals(entries, removedIds, removedAbnetNumbers)
+  entries = withoutPendingActivationEntries(entries, activation.pendingIds)
+  const released = appendReleasedActivationCustomers(
+    entries,
+    live.customers
+      .filter((row) => !removedIds.has(row.id))
+      .map((row) => ({
+        ...row,
+        externalCode: row.externalCode,
+        inUniverse: memberSet.has(row.id),
+      })),
+    activation.releasedIds,
+    removedIds
+  )
+  entries = released.entries
+  entries = filterClients360Directory(entries, {
+    search: input.search,
+    locality: input.locality,
+  })
+  const statusFilter = input.status?.trim().toLowerCase() ?? "all"
+  const minServices = input.minServices ?? 0
+  const minConnections = input.minConnections ?? 0
+  const needsServiceFilter =
+    (statusFilter !== "" && statusFilter !== "all") || minServices > 0 || minConnections > 0
+  if (needsServiceFilter) {
+    const ids = entries
+      .map((entry) => entry.customerId)
+      .filter((id): id is string => Boolean(id))
+    const services = await loadServiceSnaps(client, companyId, new Set(ids))
+    const connections = await loadConnectionSnaps(
+      client,
+      companyId,
+      new Set(services.map((service) => service.id))
+    )
+    entries = filterClients360Directory(
+      applyTechnicalCounts(entries, services, connections),
+      { status: statusFilter, minServices, minConnections }
+    )
+  }
+  const summary = summarizeClients360Directory(entries)
+  const page = paginateClients360Directory(entries, requestedPage, pageSize)
+  let pageEntries = page.entries
+  if (!needsServiceFilter) {
+    const ids = pageEntries
+      .map((entry) => entry.customerId)
+      .filter((id): id is string => Boolean(id))
+    if (ids.length > 0) {
+      const services = await loadServiceSnaps(client, companyId, new Set(ids))
+      const connections = await loadConnectionSnaps(
+        client,
+        companyId,
+        new Set(services.map((service) => service.id))
+      )
+      const counted = new Map(
+        applyTechnicalCounts(pageEntries, services, connections).map((entry) => [entry.id, entry])
+      )
+      pageEntries = pageEntries.map((entry) => counted.get(entry.id) ?? entry)
+    }
+  }
+  const localities = [
+    ...new Set(
+      entries
+        .map((entry) => entry.locality?.trim())
+        .filter((value): value is string => Boolean(value))
+    ),
+  ].sort((left, right) => left.localeCompare(right, "es"))
+  return {
+    customers: pageEntries.map((entry) => {
+      const item = directoryEntryToListItem(
+        entry,
+        entry.customerId ? rowsById.get(entry.customerId) : undefined
+      )
+      if (!entry.customerId || !released.addedIds.has(entry.customerId)) return item
+      const contracted = live.customers
+        .find((customer) => customer.id === entry.customerId)
+        ?.contractedPlan?.trim()
+      return {
+        ...item,
+        activationState: "released" as const,
+        commercialPlanLabel: contracted || undefined,
+        serviceOverview: contracted || item.serviceOverview,
+      }
+    }),
+    localities,
+    total: summary.subscribers,
+    page: page.page,
+    pageSize: page.pageSize,
+    bespokeSubscribers: summary.bespokeSubscribers,
+    padronSubscribers: summary.padronSubscribers,
+    connectionTotal: summary.connections,
+    pendingActivation: activation.pendingActivation,
   }
 }
 
@@ -372,6 +974,7 @@ export async function listIspCustomers(
     minConnections?: number
     page?: number
     pageSize?: number
+    activation?: "pending"
   }
 ): Promise<{
   customers: IspCustomerListItem[]
@@ -379,7 +982,29 @@ export async function listIspCustomers(
   total: number
   page: number
   pageSize: number
+  bespokeSubscribers?: number
+  padronSubscribers?: number
+  connectionTotal?: number
+  pendingActivation: number
 }> {
+  const pendingRows = await loadPendingActivationCustomerRows(client, companyId)
+  const pendingActivation = pendingRows.length
+  if (input.activation === "pending") {
+    return pagePendingActivationCustomers(pendingRows, input, pendingActivation)
+  }
+  const releasedIds = await loadReleasedInstallationCustomerIds(client, companyId)
+  const pendingIds = new Set(pendingRows.map((row) => row.id))
+  const activation = { pendingIds, releasedIds, pendingActivation }
+  const registryContext = await loadAbnetRegistryNoteContext(client, companyId)
+  if (registryContext) {
+    return listIspCustomersIncludingPadron(
+      client,
+      companyId,
+      input,
+      registryContext.records,
+      activation
+    )
+  }
   function emptyIspCustomerList() {
     return { customers: [], localities: [] }
   }
@@ -416,22 +1041,52 @@ export async function listIspCustomers(
 
   const pageSize = resolveIspCustomerListPageSize(input.pageSize)
   const requestedPage = Math.max(1, Math.floor(input.page ?? 1))
+  const removedIds = new Set(await listRemovedIspSubscriberCustomerIds(client, companyId))
   const memberIds =
     companyId === BESPOKE_PRODUCTION_COMPANY_ID
-      ? excludeRemovedSubscriberIds(
-          getClients360CommercialUniverse(),
-          await listRemovedIspSubscriberCustomerIds(client, companyId)
-        )
+      ? excludeRemovedSubscriberIds(getClients360CommercialUniverse(), removedIds)
       : await listActiveSubscriberCustomerIds(client, companyId)
-  if (memberIds.length === 0) {
-    return { ...emptyIspCustomerList(), total: 0, page: 1, pageSize }
-  }
-
-  const search = input.search?.trim()
+  const search = input.search?.trim() ?? ""
   const pattern = search ? escapeCustomerSearchPattern(search) : ""
-  const customers = await loadCustomerListRows(new Set(memberIds), pattern)
+  let customers =
+    memberIds.length === 0
+      ? []
+      : await loadCustomerListRows(new Set(memberIds), pattern)
+  customers = customers.filter((row) => !pendingIds.has(row.id))
+  const beforeReleased = new Set(customers.map((row) => row.id))
+  const missingReleased = [...releasedIds].filter(
+    (id) => !beforeReleased.has(id) && !pendingIds.has(id) && !removedIds.has(id)
+  )
+  if (missingReleased.length > 0) {
+    const needle = search.toLowerCase()
+    const extra = await loadCustomerRowsByIds(client, companyId, missingReleased)
+    for (const row of extra) {
+      if (!isCustomerStatusActive(row.status) || pendingIds.has(row.id)) continue
+      if (needle) {
+        const haystack = [
+          row.name,
+          row.dni,
+          row.phone,
+          row.whatsapp,
+          row.email,
+          row.external_customer_code,
+          row.customer_number,
+          row.address,
+          row.locality,
+        ]
+          .join(" ")
+          .toLowerCase()
+        if (!haystack.includes(needle)) continue
+      }
+      customers.push(row)
+    }
+    customers.sort(compareIspCustomerListRows)
+  }
+  const releasedAdditions = new Set(
+    customers.map((row) => row.id).filter((id) => !beforeReleased.has(id))
+  )
   if (customers.length === 0) {
-    return { ...emptyIspCustomerList(), total: 0, page: 1, pageSize }
+    return { ...emptyIspCustomerList(), total: 0, page: 1, pageSize, pendingActivation }
   }
   const localities = [
     ...new Set(
@@ -500,15 +1155,66 @@ export async function listIspCustomers(
     )
   }
 
+  const registryNotes = await loadAbnetRegistryNoteContext(client, companyId)
+
   return {
-    customers: pageRows.map((row) =>
-      mapIspCustomerListRow(row, services, connections)
-    ),
+    customers: pageRows.map((row) => {
+      const item = mapIspCustomerListRow(
+        row,
+        services,
+        connections,
+        abnetRegistryNoteForExternal(registryNotes, row.external_customer_code)
+      )
+      if (!releasedAdditions.has(row.id)) return item
+      return { ...item, activationState: "released" as const, directoryOrigin: "bespoke" as const }
+    }),
     localities,
     total,
     page,
     pageSize,
+    pendingActivation,
   }
+}
+
+async function customerVisibleThroughActivation(
+  client: IspQueriesClient,
+  companyId: string,
+  customerId: string
+): Promise<boolean> {
+  const { data, error } = await client
+    .from("customers")
+    .select("status, external_customer_code")
+    .eq("id", customerId)
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  if (!data) return false
+  if (
+    isPendingActivationListCustomer({
+      status: data.status,
+      externalCustomerCode: data.external_customer_code ?? undefined,
+    })
+  ) {
+    return true
+  }
+  if (!isCustomerStatusActive(data.status)) return false
+  const tasks = await client
+    .from("tasks")
+    .select("task_metadata")
+    .eq("company_id", companyId)
+    .eq("customer_id", customerId)
+    .eq("service_type", NEW_INSTALLATION_SERVICE_TYPE)
+    .eq("status", "finalizada")
+    .is("deleted_at", null)
+    .limit(20)
+  if (tasks.error) throw new Error(tasks.error.message)
+  return releasedInstallationCustomerIds(
+    (tasks.data ?? []).map((row) => ({
+      customerId,
+      metadata: row.task_metadata,
+    }))
+  ).has(customerId)
 }
 
 export async function getIspCustomerDetail(
@@ -529,7 +1235,10 @@ export async function getIspCustomerDetail(
   const inCommercialUniverse =
     companyId === BESPOKE_PRODUCTION_COMPANY_ID &&
     isCustomerInClients360Universe(customerId)
-  if (!member && !inCommercialUniverse) return null
+  if (!member && !inCommercialUniverse) {
+    const visible = await customerVisibleThroughActivation(client, companyId, customerId)
+    if (!visible) return null
+  }
 
   const customerResult = await getCustomerById(client, customerId)
   if (customerResult.error || !customerResult.data) return null
@@ -580,9 +1289,35 @@ export async function getIspCustomerDetail(
   )
   const atenciones = await fetchIspAtenciones(client, companyId, customerId)
   const lastWorkOrder = workOrders[0] ?? null
+  const registryNotes = await loadAbnetRegistryNoteContext(client, companyId)
+  const abnetRegistryNote = abnetRegistryNoteForExternal(
+    registryNotes,
+    customerResult.data.externalCustomerCode
+  )
+  const customer = await withAbnetPersonalFields(
+    client,
+    companyId,
+    mapCustomerHeader(customerResult.data, abnetRegistryNote)
+  )
+  const tvFlags = await loadBespokeTvFlags(client, companyId, customerId)
+  const tv = tvFlags.get(customerId)
+  const registrySubscriber = registryNotes
+    ? registrySubscriberView({
+        records: registryNotes.records,
+        externalCode: customerResult.data.externalCustomerCode,
+        bespokePackFutbol: tv?.packFutbol,
+        bespokeTvFull: tv?.tvFull,
+        liveCustomerIds: (() => {
+          const number = abnetNumberFromExternalCode(customerResult.data.externalCustomerCode)
+          if (!number || number === "99999999") return []
+          if (registryNotes.shared.has(number)) return [`${customerId}-a`, `${customerId}-b`]
+          return (registryNotes.counts.get(number) ?? 0) > 0 ? [customerId] : []
+        })(),
+      })
+    : null
 
   return {
-    customer: mapCustomerHeader(customerResult.data),
+    customer,
     kpis: {
       serviceCount: services.length,
       connectionCount: connections.length,
@@ -598,11 +1333,73 @@ export async function getIspCustomerDetail(
     workOrders,
     atenciones,
     activity: buildActivity({
-      customer: mapCustomerHeader(customerResult.data),
+      customer,
       services: servicesWithConnection,
       workOrders,
       atenciones,
     }),
+    registrySubscriber,
+  }
+}
+
+export async function getPadronSubscriberDetail(
+  client: IspQueriesClient,
+  companyId: string,
+  rowId: string
+): Promise<IspCustomerDetail | null> {
+  const number = clients360PadronNumberFromId(rowId)
+  if (!number) return null
+  const registry = await loadAbnetRegistryNoteContext(client, companyId)
+  if (!registry) return null
+  const live = await loadLiveAbnetCustomers(client, companyId)
+  if (live.error) throw new Error(live.error.message)
+  const usable = number !== "99999999"
+  const matches = usable
+    ? live.customers.filter(
+        (row) => abnetNumberFromExternalCode(row.externalCode) === number
+      )
+    : []
+  const view = registrySubscriberView({
+    records: registry.records,
+    customerNumber: number,
+    externalCode: usable ? number : null,
+    liveCustomerIds: matches.map((row) => row.id),
+  })
+  if (!view || view.connections.length === 0) return null
+  const named = registry.records.find(
+    (row) =>
+      abnetNumberFromExternalCode(row.abnetCustomerNumber) === number &&
+      row.customerName.trim()
+  )
+  const customer = await withAbnetPersonalFields(client, companyId, {
+    id: rowId,
+    name: named?.customerName.trim() || `Abonado ${number}`,
+    dni: null,
+    phone: null,
+    whatsapp: null,
+    email: null,
+    address: null,
+    locality: null,
+    status: "",
+    createdAt: "",
+    updatedAt: "",
+    externalCustomerCode: number,
+    abnetRegistryNote: view.note,
+  })
+  return {
+    customer,
+    kpis: {
+      serviceCount: 0,
+      connectionCount: 0,
+      accountSituation: null,
+      pendingAtenciones: null,
+      lastWorkOrderLabel: null,
+    },
+    services: [],
+    workOrders: [],
+    atenciones: [],
+    activity: [],
+    registrySubscriber: view,
   }
 }
 
@@ -855,8 +1652,12 @@ export async function getIspConnectionDetail(
   if (customerResult.error || !customerResult.data) return null
 
   const service = mapIspServiceRow(serviceRow)
+  const registryNotes = await loadAbnetRegistryNoteContext(client, companyId)
   return {
-    customer: mapCustomerHeader(customerResult.data),
+    customer: mapCustomerHeader(
+      customerResult.data,
+      abnetRegistryNoteForExternal(registryNotes, customerResult.data.externalCustomerCode)
+    ),
     service,
     connection: mapIspConnectionRow(data, service.customerId),
   }

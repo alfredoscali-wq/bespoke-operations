@@ -194,22 +194,23 @@ export function recordCustomerValidateAudit(
   })
 }
 
-export function recordCustomerActivateAudit(
+export function customerActivateAuditInput(
   customer: Pick<
     Customer,
     "id" | "name" | "customerNumber" | "externalCustomerCode" | "status"
   >,
   activatedBy: string
 ) {
-  void recordAuditEventClient({
+  const entityLabel = resolveCustomerEntityLabel(customer)
+  return {
     module: AUDIT_MODULES.CLIENTES,
     action: AUDIT_ACTIONS.CUSTOMER_ACTIVATE,
     entityType: AUDIT_ENTITY_TYPES.CUSTOMER,
     entityId: customer.id,
-    entityLabel: resolveCustomerEntityLabel(customer),
+    entityLabel,
     description: buildAuditDescription({
       action: AUDIT_ACTIONS.CUSTOMER_ACTIVATE,
-      entityLabel: resolveCustomerEntityLabel(customer),
+      entityLabel,
     }),
     metadata: {
       activatedBy,
@@ -223,7 +224,17 @@ export function recordCustomerActivateAudit(
       previousStatus: customer.status,
       nextStatus: "activo",
     },
-  })
+  }
+}
+
+export function recordCustomerActivateAudit(
+  customer: Pick<
+    Customer,
+    "id" | "name" | "customerNumber" | "externalCustomerCode" | "status"
+  >,
+  activatedBy: string
+) {
+  void recordAuditEventClient(customerActivateAuditInput(customer, activatedBy))
 }
 
 export function isCustomerArchiveUpdate(input: UpdateCustomerInput): boolean {

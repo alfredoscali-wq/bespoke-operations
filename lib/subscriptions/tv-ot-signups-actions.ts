@@ -6,6 +6,7 @@ import {
   planTvOtSignupIncorporation,
   planTvOtSignupPlanEdit,
   TV_OT_LATAM_STATUS,
+  TV_OT_SIGNUP_NOT_FOUND,
   type TvOtSignupItem,
 } from "@/lib/subscriptions/tv-ot-signups"
 import {
@@ -72,7 +73,7 @@ async function requireCase(
     }
   }
   const found = findTvOtSignupFact(feed, taskId)
-  if (!found) return { feed, found: null, error: failure(404, "Esa OT no está en las altas de octubre.") }
+  if (!found) return { feed, found: null, error: failure(404, TV_OT_SIGNUP_NOT_FOUND) }
   return { feed, found, error: null }
 }
 
@@ -168,7 +169,7 @@ export async function excludeTvOtSignup(
 ): Promise<ActionResult> {
   if (!userId) return failure(400, "Usuario no resuelto para la sesión.")
   const current = await requireCase(client, companyId, auditClient, taskId)
-  if (current.error || !current.found) return current.error ?? failure(404, "Esa OT no está en las altas de octubre.")
+  if (current.error || !current.found) return current.error ?? failure(404, TV_OT_SIGNUP_NOT_FOUND)
   const decision = planTvOtSignupExclusion({
     proposalStatus: current.found.fact.proposal?.status ?? null,
     incorporated: current.found.item.category === "incorporated",
@@ -204,7 +205,7 @@ export async function incorporateTvOtSignup(
 ): Promise<ActionResult> {
   if (!userId) return failure(400, "Usuario no resuelto para la sesión.")
   const current = await requireCase(client, companyId, auditClient, taskId)
-  if (current.error || !current.found) return current.error ?? failure(404, "Esa OT no está en las altas de octubre.")
+  if (current.error || !current.found) return current.error ?? failure(404, TV_OT_SIGNUP_NOT_FOUND)
   if (current.found.fact.proposal?.status === "excluded") {
     return failure(409, "Esta propuesta fue excluida de la lista.")
   }

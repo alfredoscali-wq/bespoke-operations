@@ -20,9 +20,8 @@ import {
   matchPadronIdentity,
   presentTvOtSignup,
   TV_OT_QUEUE_STATUSES,
-  TV_OT_SIGNUP_FROM,
+  TV_OT_SIGNUP_NOT_FOUND,
   TV_OT_SIGNUP_SERVICE,
-  TV_OT_SIGNUP_UNTIL,
   verifiedAbnetNumber,
   type TvOtPadronMatchRow,
   type TvOtProposalFact,
@@ -41,8 +40,6 @@ type LooseResult = {
 type LooseFilter = {
   eq: (column: string, value: string) => LooseFilter
   is: (column: string, value: null) => LooseFilter
-  gte: (column: string, value: string) => LooseFilter
-  lt: (column: string, value: string) => LooseFilter
   in: (column: string, values: string[]) => LooseFilter
   order: (column: string, options?: { ascending: boolean }) => LooseFilter
   range: (from: number, to: number) => Promise<LooseResult>
@@ -114,8 +111,6 @@ export async function loadTvOtSignupFeed(
       .eq("company_id", companyId)
       .eq("service_type", TV_OT_SIGNUP_SERVICE)
       .is("deleted_at", null)
-      .gte("created_at", TV_OT_SIGNUP_FROM)
-      .lt("created_at", TV_OT_SIGNUP_UNTIL)
       .order("created_at", { ascending: true })
       .range(from, to)
   )
@@ -312,7 +307,7 @@ export async function loadTvOtSignupCase(
     text(task.service_type) !== TV_OT_SIGNUP_SERVICE ||
     !isTvOtSignupWindow(text(task.created_at))
   ) {
-    return { ok: false, message: "Esa OT no está en las altas de octubre." }
+    return { ok: false, message: TV_OT_SIGNUP_NOT_FOUND }
   }
 
   const customerId = text(task.customer_id)
@@ -324,7 +319,7 @@ export async function loadTvOtSignupCase(
     .range(0, 0)
   if (customerPage.error) return { ok: false, message: customerPage.error.message }
   const customer = customerPage.data?.[0]
-  if (!customer) return { ok: false, message: "Esa OT no está en las altas de octubre." }
+  if (!customer) return { ok: false, message: TV_OT_SIGNUP_NOT_FOUND }
 
   const proposalPage = await looseDb(client)
     .from("tv_ot_signup_proposals")

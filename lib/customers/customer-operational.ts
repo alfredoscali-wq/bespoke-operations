@@ -54,11 +54,31 @@ function hasCustomerListNumber(
   return Boolean(externalCustomerCode?.trim())
 }
 
-export function isPendingActivationListCustomer(customer: Customer): boolean {
+export const CUSTOMER_ALREADY_ACTIVE_MESSAGE = "Este cliente ya está activo."
+export const CUSTOMER_NOT_PENDING_ACTIVATION_MESSAGE =
+  "Este cliente no está pendiente de activación."
+
+export function isPendingActivationListCustomer(
+  customer: Pick<Customer, "status" | "externalCustomerCode">
+): boolean {
   return (
     isCustomerStatusPendingActivation(customer.status) &&
     !hasCustomerListNumber(customer.externalCustomerCode)
   )
+}
+
+export function planClients360CustomerActivation(
+  customer: Pick<Customer, "status" | "externalCustomerCode">
+):
+  | { outcome: "activate"; previousStatus: string }
+  | { outcome: "rejected"; message: string } {
+  if (isCustomerStatusActive(customer.status)) {
+    return { outcome: "rejected", message: CUSTOMER_ALREADY_ACTIVE_MESSAGE }
+  }
+  if (!isPendingActivationListCustomer(customer)) {
+    return { outcome: "rejected", message: CUSTOMER_NOT_PENDING_ACTIVATION_MESSAGE }
+  }
+  return { outcome: "activate", previousStatus: customer.status }
 }
 
 export function isCommerciallyActiveCustomer(customer: Customer): boolean {

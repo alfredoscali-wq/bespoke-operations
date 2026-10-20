@@ -26,6 +26,8 @@ export async function GET(request: Request) {
   const minConnections = Number(url.searchParams.get("minConnections") ?? "0")
   const page = Number(url.searchParams.get("page") ?? "1")
   const pageSize = Number(url.searchParams.get("pageSize") ?? "50")
+  const activation: "pending" | undefined =
+    url.searchParams.get("activation") === "pending" ? "pending" : undefined
 
   const filters = {
     search,
@@ -35,6 +37,7 @@ export async function GET(request: Request) {
     minConnections: Number.isFinite(minConnections) ? minConnections : 0,
     page: Number.isFinite(page) ? page : 1,
     pageSize: Number.isFinite(pageSize) ? pageSize : 50,
+    activation,
   }
 
   try {
@@ -50,6 +53,10 @@ export async function GET(request: Request) {
       total,
       page,
       pageSize,
+      bespokeSubscribers: payload.data.bespokeSubscribers ?? null,
+      padronSubscribers: payload.data.padronSubscribers ?? null,
+      connectionTotal: payload.data.connectionTotal ?? null,
+      pendingActivation: payload.data.pendingActivation,
     })
   } catch (error) {
     console.error("[isp/customers] list failed", error)
@@ -79,6 +86,7 @@ async function loadCustomerList(filters: {
   minConnections: number
   page: number
   pageSize: number
+  activation?: "pending"
 }) {
   try {
     return await loadCustomerListOnce(filters)
@@ -97,6 +105,7 @@ async function loadCustomerListOnce(filters: {
   minConnections: number
   page: number
   pageSize: number
+  activation?: "pending"
 }) {
   const auth = await requireIspReadContext()
   if (!auth.ok) {

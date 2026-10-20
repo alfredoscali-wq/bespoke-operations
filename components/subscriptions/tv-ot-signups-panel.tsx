@@ -226,8 +226,8 @@ export function TvOtSignupsPanel({
         <div>
           <h2 className="text-sm font-semibold">Altas pendientes de TV</h2>
           <p className="mt-1 max-w-3xl text-xs text-muted-foreground">
-            Instalaciones nuevas de octubre de 2026. El listado sale de la OT y del OK de
-            activación actuales. Nada se incorpora solo. {TV_OT_LATAM_STATUS}.
+            Instalaciones nuevas de cualquier mes. Entran cuando la OT está finalizada y
+            el cliente fue aprobado desde pendiente de activación. Nada se incorpora solo. {TV_OT_LATAM_STATUS}.
           </p>
         </div>
         <Select value={filter} onValueChange={(value) => setFilter(value as typeof filter)}>
@@ -262,7 +262,7 @@ export function TvOtSignupsPanel({
       ) : null}
 
       {loading ? (
-        <p className="text-sm text-muted-foreground">Cargando altas de octubre…</p>
+        <p className="text-sm text-muted-foreground">Cargando altas de TV…</p>
       ) : visible.length === 0 ? (
         <p className="text-sm text-muted-foreground">No hay altas para este filtro.</p>
       ) : (

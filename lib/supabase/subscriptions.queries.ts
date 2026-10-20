@@ -1,5 +1,7 @@
 import { escapeCustomerSearchPattern } from "@/lib/customers/customer-list"
 import { isIspCommercialStatus } from "@/lib/isp/labels"
+import { overlayAbnetRegistryOnPadron } from "@/lib/isp/abnet-connection-registry"
+import { loadAbnetConnectionRegistry } from "@/lib/isp/abnet-connection-registry-read"
 import {
   canChangeTvPlanCode,
   isTvOnlyCatalogWrite,
@@ -683,6 +685,20 @@ export async function fetchTvCommercialDeskRows(
       conditionName: condition?.name ?? null,
       jubilado: classification.jubilado,
     })
+  }
+
+  const registry = await loadAbnetConnectionRegistry(client, companyId)
+  if (!registry.error || registry.missing) {
+    for (const item of items) {
+      const overlay = overlayAbnetRegistryOnPadron({
+        customerNumber: item.externalCustomerNumber || "",
+        planName: item.commercialPlanName,
+        bespokePackFutbol: item.packFutbolActive,
+        bespokeFull: item.tvTier === "full",
+        connections: registry.records,
+      })
+      if (overlay && !overlay.upsellAllowed) item.packFutbolEligible = false
+    }
   }
 
   return { data: items, error: null }

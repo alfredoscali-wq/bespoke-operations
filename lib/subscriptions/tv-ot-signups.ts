@@ -9,10 +9,9 @@ import {
   ABNET_TV_FULL_AMOUNT,
 } from "@/lib/subscriptions/abnet-tv-padron"
 
-/** October 2026 in America/Argentina/Buenos_Aires, stored as UTC bounds. */
-export const TV_OT_SIGNUP_FROM = "2026-10-01T03:00:00.000Z"
-export const TV_OT_SIGNUP_UNTIL = "2026-11-01T03:00:00.000Z"
 export const TV_OT_SIGNUP_SERVICE = "instalacion-nueva"
+export const TV_OT_NOT_FINAL_MESSAGE = "La OT todavía no está finalizada."
+export const TV_OT_SIGNUP_NOT_FOUND = "Esa OT no está entre las instalaciones nuevas."
 export const BESPOKE_OT_TV_PADRON_SOURCE = "bespoke-ot-tv"
 export const TV_OT_LATAM_STATUS = "Estado en Latam no verificable desde Bespoke"
 
@@ -178,9 +177,9 @@ export function tvOtPlanOption(kind: TvOtPlanKind) {
   return option
 }
 
+/** Any recorded installation date qualifies. The queue is not limited to one month. */
 export function isTvOtSignupWindow(createdAt: string | null | undefined): boolean {
-  if (!createdAt) return false
-  return createdAt >= TV_OT_SIGNUP_FROM && createdAt < TV_OT_SIGNUP_UNTIL
+  return Boolean(createdAt?.trim())
 }
 
 export function contractedPlanIncludesTv(plan: string | null | undefined): boolean {
@@ -358,6 +357,8 @@ export function presentTvOtSignup(fact: TvOtSignupFact): TvOtSignupItem | null {
     incorporateBlock = "La activación comercial sigue pendiente."
   } else if (classified.category === "active_unverified") {
     incorporateBlock = "No hay un OK de activación verificable para esta OT."
+  } else if (fact.taskStatus !== "finalizada") {
+    incorporateBlock = TV_OT_NOT_FINAL_MESSAGE
   } else if (!selected) {
     incorporateBlock = "Seleccione y guarde un plan de TV antes de incorporar."
   } else if (!fact.abnetNumber && !bespokeCliCustomerNumber(fact.customerNumber)) {
@@ -395,7 +396,8 @@ export function presentTvOtSignup(fact: TvOtSignupFact): TvOtSignupItem | null {
     queueStatus,
     queueStatusLabel: QUEUE_LABEL[queueStatus],
     canEditPlan: !incorporated,
-    canIncorporate: !incorporated && !blockedCategory,
+    canIncorporate:
+      !incorporated && !blockedCategory && fact.taskStatus === "finalizada",
     canExclude: !incorporated,
     incorporateBlock,
     latamStatus: TV_OT_LATAM_STATUS,

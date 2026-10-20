@@ -58,16 +58,13 @@ import { TelLink } from "@/components/ui/tel-link"
 import { WhatsAppLink } from "@/components/ui/whatsapp-link"
 import {
   ISP_CORE_NOT_CONNECTED_MESSAGE,
-  ISP_EMPTY_SERVICES_MESSAGE,
   ISP_MONITORING_PLACEHOLDER,
 } from "@/lib/isp/constants"
 import {
-  contractedAbonoTotal,
   customerInitials,
   deriveIspGeneralVisualStatus,
   formatIspDate,
   formatIspDocumentLine,
-  formatIspMoney,
   friendlyIspDetailError,
   liveServices,
   workOrderVisualTone,
@@ -77,6 +74,7 @@ import {
   formatIspCustomerCodeValue,
   formatIspCustomerReference,
 } from "@/lib/isp/subscriber-list-presentation"
+import { clients360PadronNumberFromId } from "@/lib/isp/clients-360-directory"
 import { ISP_ACTIVITY_SUMMARY_LIMIT } from "@/lib/isp/subscriber-service-integrity"
 import type { IspCustomerDetail, IspServiceWithConnection } from "@/lib/isp/types"
 
@@ -155,13 +153,36 @@ export function IspCustomerDetailScreen({ customerId }: { customerId: string }) 
     .filter((connection): connection is NonNullable<typeof connection> =>
       Boolean(connection)
     )
-  const general = deriveIspGeneralVisualStatus(services)
-  const abono = contractedAbonoTotal(services)
+  const registryView = detail.registrySubscriber ?? null
+  const registryConnections = registryView?.connections ?? []
+  const commercialPlan = registryView?.commercialPlanLabel ?? "Sin plan comercial informado"
+  const technicalStatus = deriveIspGeneralVisualStatus(services)
+  const registryStatuses = new Set(registryConnections.map((connection) => connection.statusLabel))
+  const headerStatus = !registryView
+    ? technicalStatus
+    : registryView.link === "ausente"
+      ? { label: "Revisar posible baja", tone: "yellow" as const }
+      : {
+          label: [
+            registryConnections.length === 1
+              ? registryConnections[0]?.statusLabel ?? "Registrada"
+              : `${registryConnections.length} conexiones registradas`,
+            registryConnections.length === 1 ? registryConnections[0]?.gratisLabel : null,
+          ]
+            .filter(Boolean)
+            .join(" · "),
+          tone: registryStatuses.has("Morosa")
+            ? ("orange" as const)
+            : registryStatuses.size === 1 && registryStatuses.has("Activa")
+              ? ("green" as const)
+              : ("gray" as const),
+        }
   const visibleAtenciones = showAllAtenciones
     ? detail.atenciones
     : detail.atenciones.slice(0, 3)
   const recentActivity = detail.activity.slice(0, ISP_ACTIVITY_SUMMARY_LIMIT)
   const currentServices = liveServices(services)
+  const importedOnly = Boolean(clients360PadronNumberFromId(customer.id))
   const documentLine = [
     formatIspDocumentLine(customer.dni),
     formatIspCustomerReference(customer.externalCustomerCode),
@@ -192,8 +213,8 @@ export function IspCustomerDetailScreen({ customerId }: { customerId: string }) 
                 <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
                   {customer.name}
                 </h1>
-                <IspTonedStatusBadge tone={general.tone}>
-                  {general.label}
+                <IspTonedStatusBadge tone={headerStatus.tone}>
+                  {headerStatus.label}
                 </IspTonedStatusBadge>
               </div>
               {documentLine ? (
@@ -207,6 +228,7 @@ export function IspCustomerDetailScreen({ customerId }: { customerId: string }) 
               ) : null}
             </div>
           </div>
+          {importedOnly ? null : (
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
@@ -226,14 +248,52 @@ export function IspCustomerDetailScreen({ customerId }: { customerId: string }) 
               + Agregar servicio
             </Button>
           </div>
+          )}
         </div>
       </header>
 
       <IspCustomerSummaryCards
-        serviceCount={detail.kpis.serviceCount}
-        connectionCount={detail.kpis.connectionCount}
-        abonoLabel={abono == null ? "—" : formatIspMoney(abono)}
+        commercialPlan={commercialPlan}
+        registryConnectionCount={registryConnections.length}
+        technicalServiceCount={detail.kpis.serviceCount}
       />
+
+      {registryView?.link === "ausente" ? (
+        <Card className="shadow-sm">
+          <CardContent className="py-4 text-sm text-muted-foreground">
+            {registryView.note}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {registryConnections.length > 0 ? (
+        <Card className="shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm">
+              Conexiones del padrón ABNet ({registryConnections.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <p className="text-muted-foreground">{detail.registrySubscriber?.note}</p>
+            {detail.registrySubscriber?.linkedCustomerId && importedOnly ? (
+              <Link
+                href={`/clientes-360/${detail.registrySubscriber.linkedCustomerId}`}
+                className="text-sm font-medium hover:underline"
+              >
+                Ver ficha Bespoke vinculada
+              </Link>
+            ) : null}
+            <ul className="space-y-1">
+              {registryConnections.map((connection) => (
+                <li key={connection.id}>
+                  Id {connection.id} · {connection.statusLabel} · {connection.gratisLabel}
+                  {connection.planName ? ` · ${connection.planName}` : ""}
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <EntityActionFeedback message={feedback} />
 
@@ -241,7 +301,7 @@ export function IspCustomerDetailScreen({ customerId }: { customerId: string }) 
         <div className="overflow-x-auto">
           <TabsList variant="line" className="w-full min-w-max justify-start">
             <TabsTrigger value="resumen">Resumen</TabsTrigger>
-            <TabsTrigger value="servicios">Servicios</TabsTrigger>
+            <TabsTrigger value="servicios">Servicios técnicos</TabsTrigger>
             <TabsTrigger value="conexiones">Conexiones</TabsTrigger>
             <TabsTrigger value="diagnostico">Diagnóstico</TabsTrigger>
             <TabsTrigger value="historial">Historial</TabsTrigger>
@@ -285,7 +345,7 @@ export function IspCustomerDetailScreen({ customerId }: { customerId: string }) 
           <section className="space-y-3">
             <IspSectionHeader
               icon={Package}
-              title="Servicios"
+              title="Servicios técnicos Bespoke"
               action={
                 currentServices.length > 0 ? (
                   <Button
@@ -302,11 +362,13 @@ export function IspCustomerDetailScreen({ customerId }: { customerId: string }) 
             {currentServices.length === 0 ? (
               <IspEmptyState
                 icon={Wifi}
-                title={ISP_EMPTY_SERVICES_MESSAGE}
+                title="Sin servicios técnicos de Bespoke."
                 action={
+                  importedOnly ? null : (
                   <Button type="button" onClick={() => openSheet("add-service")}>
-                    + Agregar servicio
+                    + Agregar servicio técnico
                   </Button>
+                  )
                 }
               />
             ) : (
@@ -380,11 +442,13 @@ export function IspCustomerDetailScreen({ customerId }: { customerId: string }) 
           {services.length === 0 ? (
             <IspEmptyState
               icon={Wifi}
-              title={ISP_EMPTY_SERVICES_MESSAGE}
+              title="Sin servicios técnicos de Bespoke."
               action={
+                importedOnly ? null : (
                 <Button type="button" onClick={() => openSheet("add-service")}>
-                  + Agregar servicio
+                  + Agregar servicio técnico
                 </Button>
+                )
               }
             />
           ) : (
@@ -401,10 +465,31 @@ export function IspCustomerDetailScreen({ customerId }: { customerId: string }) 
         </TabsContent>
 
         <TabsContent value="conexiones" className="space-y-3">
+          {registryConnections.length > 0 ? (
+            <Card className="shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm">Registros del padrón ABNet</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2 text-sm">
+                  {registryConnections.map((connection) => (
+                    <li key={connection.id}>
+                      Id {connection.id} · {connection.planName} · {connection.statusLabel} · {connection.gratisLabel}
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          ) : registryView?.link === "ausente" ? (
+            <IspEmptyState
+              icon={Network}
+              title="Sin conexión en el padrón actual — revisar posible baja"
+            />
+          ) : null}
           {connections.length === 0 ? (
             <IspEmptyState
               icon={Network}
-              title="Todavía no hay conexiones técnicas."
+              title="Sin datos técnicos de Bespoke."
             />
           ) : (
             <div className="grid gap-3">
@@ -510,7 +595,7 @@ export function IspCustomerDetailScreen({ customerId }: { customerId: string }) 
                   Diagnóstico técnico no disponible
                 </IspTonedStatusBadge>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  La conexión todavía no está provisionada.
+                  IP, PPPoE, ping, latencia y diagnóstico se muestran cuando una integración técnica real entrega esos datos.
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {ISP_CORE_NOT_CONNECTED_MESSAGE}
@@ -678,6 +763,15 @@ function CustomerIdentity({
       value={formatIspCustomerCodeValue(customer.externalCustomerCode)}
       toneClassName="bg-muted text-muted-foreground"
     />,
+    customer.abnetRegistryNote ? (
+      <IspInfoRow
+        key="abnet-registry"
+        icon={Hash}
+        label="Padrón ABNet"
+        value={customer.abnetRegistryNote}
+        toneClassName="bg-muted text-muted-foreground"
+      />
+    ) : null,
   ].filter(Boolean)
 
   if (contact.length === 0 && address.length === 0 && identity.length === 0) {

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
 
+import { clients360PadronNumberFromId } from "@/lib/isp/clients-360-directory"
+import { removeClients360PadronRecord } from "@/lib/isp/clients-360-record-actions"
 import { requireIspSubscriberRemovalContext } from "@/lib/isp/route-context"
 import { removeIspSubscriberMembership } from "@/lib/isp/subscriber-removal-queries"
 import {
@@ -21,6 +23,7 @@ export async function DELETE(request: Request, context: RouteContext) {
   if (!auth.ok) return auth.response
 
   const { id } = await context.params
+  const padronNumber = clients360PadronNumberFromId(id)
 
   let body: RemovalBody = {}
   try {
@@ -44,6 +47,24 @@ export async function DELETE(request: Request, context: RouteContext) {
 
   try {
     const client = await createClient()
+    if (padronNumber) {
+      const removed = await removeClients360PadronRecord(
+        client,
+        auth.companyId,
+        padronNumber
+      )
+      if (!removed.ok) {
+        return NextResponse.json(
+          { success: false, message: removed.message },
+          { status: 409 }
+        )
+      }
+      return NextResponse.json({
+        success: true,
+        alreadyRemoved: false,
+        message: ISP_SUBSCRIBER_REMOVED_MESSAGE,
+      })
+    }
     const result = await removeIspSubscriberMembership(client, id)
     return NextResponse.json({
       success: true,

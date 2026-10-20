@@ -11,7 +11,29 @@ const MONTHLY_FEE_COLUMN = 23
 const CURRENCY_FORMAT = '"$" #,##0.00'
 
 export async function buildIspCustomer360ExportWorkbook(
-  rows: IspCustomer360ExportRow[]
+  rows: IspCustomer360ExportRow[],
+  padron?: {
+    subscribers: {
+      number: string
+      name: string
+      origin: string
+      link: string
+      connections: number
+      status: string
+      gratis: string
+      plan: string
+      note: string
+    }[]
+    connections: {
+      id: string
+      number: string
+      name: string
+      status: string
+      gratis: string
+      plan: string
+      node: string
+    }[]
+  } | null
 ): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook()
   workbook.creator = "Bespoke Clientes 360"
@@ -40,6 +62,59 @@ export async function buildIspCustomer360ExportWorkbook(
   sheet.autoFilter = {
     from: { row: 1, column: 1 },
     to: { row: lastRow, column: lastCol },
+  }
+
+  if (padron) {
+    const subscribers = workbook.addWorksheet("Abonados padrón", {
+      views: [{ state: "frozen", ySplit: 1 }],
+    })
+    subscribers.addRow([
+      "Número ABNet",
+      "Nombre",
+      "Origen",
+      "Vínculo",
+      "Conexiones",
+      "Estado de conexión",
+      "Gratuidad",
+      "Plan comercial",
+      "Nota",
+    ]).font = { bold: true }
+    for (const row of padron.subscribers) {
+      subscribers.addRow([
+        row.number,
+        row.name,
+        row.origin,
+        row.link,
+        row.connections,
+        row.status,
+        row.gratis,
+        row.plan,
+        row.note,
+      ])
+    }
+    const connections = workbook.addWorksheet("Conexiones padrón", {
+      views: [{ state: "frozen", ySplit: 1 }],
+    })
+    connections.addRow([
+      "Id conexión",
+      "Número ABNet",
+      "Nombre",
+      "Estado",
+      "Gratuidad",
+      "Plan",
+      "Nodo",
+    ]).font = { bold: true }
+    for (const row of padron.connections) {
+      connections.addRow([
+        row.id,
+        row.number,
+        row.name,
+        row.status,
+        row.gratis,
+        row.plan,
+        row.node,
+      ])
+    }
   }
 
   sheet.columns.forEach((column, index) => {

@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs"
 import { resolve } from "node:path"
 import test from "node:test"
 
+import { presentBespokeListId } from "../lib/isp/subscriber-list-presentation.ts"
 import { presentCustomerNumber } from "../lib/subscriptions/customer-number-label.ts"
 import {
   BESPOKE_OT_TV_PADRON_SOURCE,
@@ -10,6 +11,7 @@ import {
   contractedPlanIncludesTv,
   countPendingTvOtSignups,
   countTvOtSignups,
+  isTvOtSignupWindow,
   matchPadronIdentity,
   planTvOtSignupExclusion,
   planTvOtSignupIncorporation,
@@ -51,6 +53,116 @@ function item(overrides = {}) {
   assert.ok(presented)
   return presented
 }
+
+test("una instalación aprobada de otro mes sigue en los pendientes", () => {
+  assert.equal(isTvOtSignupWindow("2026-09-15T15:00:00.000Z"), true)
+  assert.equal(isTvOtSignupWindow("2026-11-20T15:00:00.000Z"), true)
+  assert.equal(isTvOtSignupWindow("2026-12-02T15:00:00.000Z"), true)
+  assert.equal(isTvOtSignupWindow(""), false)
+  assert.equal(isTvOtSignupWindow(null), false)
+  const november = item({ taskCreatedAt: "2026-11-20T15:00:00.000Z" })
+  assert.equal(november.category, "approved_with_tv")
+  assert.equal(countPendingTvOtSignups([november]), 1)
+  const saved = item({
+    taskCreatedAt: "2026-11-20T15:00:00.000Z",
+    proposal: {
+      status: "pending_review",
+      tvKind: "basica",
+      excludedAt: null,
+      excludedBy: null,
+      incorporatedAt: null,
+      incorporatedBy: null,
+      padronSource: null,
+      padronSourceRow: null,
+    },
+  })
+  assert.equal(saved.canIncorporate, true)
+  assert.equal(countPendingTvOtSignups([saved]), 1)
+  assert.doesNotMatch(read("lib/subscriptions/tv-ot-signups-source.ts"), /TV_OT_SIGNUP_FROM|TV_OT_SIGNUP_UNTIL/)
+  assert.doesNotMatch(read("components/subscriptions/tv-ot-signups-panel.tsx"), /octubre de 2026/)
+})
+
+test("una OT no finalizada o sin OK no se incorpora, y el plan se elige antes", () => {
+  const open = item({ taskStatus: "pendiente-cierre" })
+  assert.equal(open.canIncorporate, false)
+  assert.equal(open.taskOpen, true)
+  assert.equal(
+    planTvOtSignupIncorporation({
+      item: open,
+      customerName: "Cliente Ejemplo",
+      acknowledgePossibleMatch: false,
+    }).outcome,
+    "rejected"
+  )
+  const cancelled = item({ taskStatus: "cancelada" })
+  assert.equal(cancelled.canIncorporate, false)
+  const unverified = item({ activationPreviousStatus: null })
+  assert.equal(unverified.category, "active_unverified")
+  assert.equal(unverified.canIncorporate, false)
+  assert.equal(
+    planTvOtSignupIncorporation({
+      item: unverified,
+      customerName: "Cliente Ejemplo",
+      acknowledgePossibleMatch: false,
+    }).outcome,
+    "rejected"
+  )
+  const withoutPlan = item()
+  assert.equal(withoutPlan.selectedTvKind, null)
+  assert.equal(
+    planTvOtSignupIncorporation({
+      item: withoutPlan,
+      customerName: "Cliente Ejemplo",
+      acknowledgePossibleMatch: false,
+    }).outcome,
+    "rejected"
+  )
+  const edited = planTvOtSignupPlanEdit({ item: withoutPlan, tvKind: "pack" })
+  assert.equal(edited.outcome, "save")
+  assert.equal(edited.tvKind, "pack")
+  const withPlan = item({
+    proposal: {
+      status: "pending_review",
+      tvKind: "pack",
+      excludedAt: null,
+      excludedBy: null,
+      incorporatedAt: null,
+      incorporatedBy: null,
+      padronSource: null,
+      padronSourceRow: null,
+    },
+  })
+  const inserted = planTvOtSignupIncorporation({
+    item: withPlan,
+    customerName: "Cliente Ejemplo",
+    acknowledgePossibleMatch: false,
+  })
+  assert.equal(inserted.outcome, "insert")
+  assert.equal(inserted.planName, "TV Básica + Pack Fútbol")
+  const incorporated = item({
+    proposal: {
+      status: "incorporated",
+      tvKind: "pack",
+      excludedAt: null,
+      excludedBy: null,
+      incorporatedAt: "2026-11-21T12:00:00.000Z",
+      incorporatedBy: "user-1",
+      padronSource: "bespoke-ot-tv",
+      padronSourceRow: 1,
+    },
+  })
+  assert.equal(incorporated.category, "incorporated")
+  assert.equal(incorporated.canIncorporate, false)
+  assert.equal(countPendingTvOtSignups([withPlan, incorporated]), 1)
+  assert.equal(
+    planTvOtSignupIncorporation({
+      item: incorporated,
+      customerName: "Cliente Ejemplo",
+      acknowledgePossibleMatch: false,
+    }).outcome,
+    "rejected"
+  )
+})
 
 test("clasifica la aprobación por CUSTOMER_ACTIVATE desde pendiente de activación", () => {
   assert.equal(item().category, "approved_with_tv")
@@ -292,9 +404,66 @@ test("la coincidencia de nombre exige revisión y Latam queda fuera", () => {
   assert.equal(screen.split("<TvOtSignupsPanel").length - 1, 1)
 })
 
-test("el número visible quita CLI y los ceros a la izquierda", () => {
-  assert.equal(presentCustomerNumber("CLI-005788"), "5788")
-  assert.equal(presentCustomerNumber("cli-00001390"), "1390")
+test("el código visible de Bespoke usa Bes- y conserva los ceros; el abonado ABNet no se reescribe", () => {
+  assert.equal(presentBespokeListId("CLI-005788"), "Bes-005788")
+  assert.equal(presentBespokeListId("cli-00001390"), "Bes-00001390")
+  assert.equal(presentBespokeListId("BES-005788"), "Bes-005788")
+  assert.equal(presentBespokeListId("CLI-005790"), "Bes-005790")
+  assert.equal(presentBespokeListId("CLI-005810"), "Bes-005810")
+  assert.notEqual(presentBespokeListId("CLI-005790"), "CLI-005790")
+  assert.notEqual(presentBespokeListId("CLI-005810"), "CLI-005810")
   assert.equal(presentCustomerNumber("00005788"), "5788")
   assert.equal(presentCustomerNumber("5788"), "5788")
+  assert.equal(presentCustomerNumber("00005790"), "5790")
+  assert.equal(presentCustomerNumber("00005810"), "5810")
+  assert.notEqual(presentBespokeListId("CLI-005790"), presentCustomerNumber("00005790"))
+  assert.notEqual(presentBespokeListId("CLI-005810"), presentCustomerNumber("00005810"))
+  assert.equal(verifiedAbnetNumber("CLI-005790"), null)
+  assert.equal(verifiedAbnetNumber("00005790"), "5790")
+  assert.equal(verifiedAbnetNumber("CLI-005810"), null)
+  assert.equal(verifiedAbnetNumber("00005810"), "5810")
+})
+
+test("CLI-005790 y CLI-005810 no se incorporan con el abonado ABNet que se les parece", () => {
+  const proposal = {
+    status: "pending_review",
+    tvKind: "basica",
+    excludedAt: null,
+    excludedBy: null,
+    incorporatedAt: null,
+    incorporatedBy: null,
+    padronSource: null,
+    padronSourceRow: null,
+  }
+  const farias = planTvOtSignupIncorporation({
+    item: item({ customerNumber: "CLI-005790", abnetNumber: null, proposal }),
+    customerName: "Cliente Ejemplo",
+    acknowledgePossibleMatch: false,
+  })
+  assert.equal(farias.outcome, "insert")
+  assert.equal(farias.abnetNumber, "CLI-005790")
+  assert.notEqual(farias.abnetNumber, "5790")
+  const barrera = planTvOtSignupIncorporation({
+    item: item({ customerNumber: "CLI-005810", abnetNumber: null, proposal }),
+    customerName: "Cliente Ejemplo",
+    acknowledgePossibleMatch: false,
+  })
+  assert.equal(barrera.outcome, "insert")
+  assert.equal(barrera.abnetNumber, "CLI-005810")
+  assert.notEqual(barrera.abnetNumber, "5810")
+  const brandan = matchPadronIdentity({
+    abnetNumber: null,
+    customerNumber: "CLI-005790",
+    customerName: "Farias Raul Guillermo",
+    rows: [{ number: "5790", name: "Brandan Carolina Elizabeth", planName: "TV", tvAmount: 4500, source: "conex-internet-tv.xlsx", sourceRow: 895 }],
+  })
+  assert.equal(brandan.exact, null)
+  assert.deepEqual(brandan.possibleMatchNumbers, [])
+  const ownRow = matchPadronIdentity({
+    abnetNumber: null,
+    customerNumber: "CLI-005790",
+    customerName: "Farias Raul Guillermo",
+    rows: [{ number: "CLI-005790", name: "Farias Raul Guillermo", planName: "TV Básica", tvAmount: 4500, source: "bespoke-ot-tv", sourceRow: 1 }],
+  })
+  assert.equal(ownRow.exact?.source, "bespoke-ot-tv")
 })

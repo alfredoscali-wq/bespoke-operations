@@ -19,12 +19,21 @@ export type IspCustomerListItem = {
   status: string
   createdAt: string
   externalCustomerCode?: string | null
+  bespokeCustomerNumber?: string | null
   serviceCount: number
   connectionCount: number
   serviceOverview: string
   listStatus: "activo" | "suspendido" | "baja" | "pendiente"
   accountSituation: string | null
   lastActivityAt: string | null
+  abnetRegistryNote?: string | null
+  directoryOrigin?: "bespoke" | "padron"
+  registryLink?: "vinculado" | "revision" | "ausente" | "sin_numero" | "importado"
+  commercialPlanLabel?: string
+  registryConnectionCount?: number
+  registryStatusLabel?: string | null
+  registryGratisLabel?: string | null
+  activationState?: "pending" | "released"
 }
 
 export type IspService = {
@@ -98,6 +107,7 @@ export type IspCustomerHeader = {
   updatedAt: string
   externalCustomerCode?: string | null
   technology?: string | null
+  abnetRegistryNote?: string | null
 }
 
 export type IspCustomerKpis = {
@@ -135,6 +145,23 @@ export type IspActivityEvent = {
   kind: "work_order" | "atencion" | "service" | "connection" | "admin"
 }
 
+export type IspRegistryConnectionView = {
+  id: string
+  planName: string
+  nodeName: string
+  statusLabel: string
+  gratisLabel: string
+}
+
+export type IspRegistrySubscriberView = {
+  origin: "bespoke" | "padron"
+  link: "vinculado" | "revision" | "ausente" | "sin_numero" | "importado"
+  note: string
+  linkedCustomerId: string | null
+  commercialPlanLabel: string
+  connections: IspRegistryConnectionView[]
+}
+
 export type IspCustomerDetail = {
   customer: IspCustomerHeader
   kpis: IspCustomerKpis
@@ -142,6 +169,7 @@ export type IspCustomerDetail = {
   workOrders: IspWorkOrderSummary[]
   atenciones: IspAtencionSummary[]
   activity: IspActivityEvent[]
+  registrySubscriber?: IspRegistrySubscriberView | null
 }
 
 export type IspConnectionListItem = {

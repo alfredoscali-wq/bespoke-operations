@@ -3,9 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ChevronLeft, ChevronRight, Download, Plus, Search, Upload } from "lucide-react"
+import { ChevronLeft, ChevronRight, Clock3, Download, Plus, Search, Upload } from "lucide-react"
 
 import { AtencionFormDialog } from "@/components/atencion-cliente/atencion-form-dialog"
+import { AbnetConnectionImportPanel } from "@/components/isp/abnet-connection-import"
+import { AbnetCustomerImportPanel } from "@/components/isp/abnet-customer-import"
 import { useAuth } from "@/components/auth/auth-provider"
 import { useDemoMode } from "@/components/demo/demo-mode-provider"
 import { IspCustomerEditSheet } from "@/components/isp/isp-customer-edit-sheet"
@@ -20,7 +22,17 @@ import {
   CustomerTableSkeleton,
 } from "@/components/isp/isp-customer-list-ui"
 import { IspSubscriberServiceSheet } from "@/components/isp/isp-subscriber-service-sheet"
+import { IspEmptyState } from "@/components/isp/isp-detail-ui"
 import { EntityActionFeedback } from "@/components/ui/entity-action-feedback"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { FilterableKpiCard } from "@/components/ui/filterable-kpi-card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -30,6 +42,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { CLIENTS360_ACTIVATION_FORBIDDEN_MESSAGE } from "@/lib/isp/clients-360-activation"
+import {
+  clients360AbnetNumberLabel,
+  clients360BespokeColumnLabel,
+  clients360ListRowActions,
+} from "@/lib/isp/subscriber-list-presentation"
 import {
   ISP_CUSTOMER_LIST_DEFAULT_PAGE_SIZE,
   ISP_CUSTOMER_LIST_LOAD_ERROR,
@@ -109,6 +127,7 @@ export function IspCustomerListScreen() {
   const [debouncedMinConnections, setDebouncedMinConnections] = useState("")
   const [items, setItems] = useState<IspCustomerListItem[]>([])
   const [total, setTotal] = useState(0)
+  const [connectionTotal, setConnectionTotal] = useState<number | null>(null)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(ISP_CUSTOMER_LIST_DEFAULT_PAGE_SIZE)
   const [localities, setLocalities] = useState<string[]>([])
@@ -136,6 +155,10 @@ export function IspCustomerListScreen() {
     "success"
   )
   const [exporting, setExporting] = useState(false)
+  const [pendingView, setPendingView] = useState(false)
+  const [pendingActivation, setPendingActivation] = useState<number | null>(null)
+  const [activationTarget, setActivationTarget] = useState<IspCustomerListItem | null>(null)
+  const [activating, setActivating] = useState(false)
 
   const searchFilters = useRef({ search, minServices, minConnections })
   useEffect(() => {
@@ -165,6 +188,7 @@ export function IspCustomerListScreen() {
       page: String(page),
       pageSize: String(pageSize),
     })
+    if (pendingView) params.set("activation", "pending")
     if (debouncedMinServices.trim()) {
       params.set("minServices", debouncedMinServices.trim())
     }
@@ -186,6 +210,8 @@ export function IspCustomerListScreen() {
           total?: number
           page?: number
           pageSize?: number
+          connectionTotal?: number | null
+          pendingActivation?: number
           message?: string
         } | null
         if (cancelled) return
@@ -194,10 +220,16 @@ export function IspCustomerListScreen() {
         }
         setItems(body.customers ?? body.items ?? [])
         setTotal(body.total ?? 0)
+        setConnectionTotal(
+          typeof body.connectionTotal === "number" ? body.connectionTotal : null
+        )
         if (typeof body.page === "number" && body.page !== page) {
           setPage(body.page)
         }
         setLocalities(body.localities ?? [])
+        setPendingActivation(
+          typeof body.pendingActivation === "number" ? body.pendingActivation : 0
+        )
         setError(null)
       })
       .catch((cause: unknown) => {
@@ -219,6 +251,7 @@ export function IspCustomerListScreen() {
     locality,
     page,
     pageSize,
+    pendingView,
     reloadKey,
     status,
   ])
@@ -238,10 +271,15 @@ export function IspCustomerListScreen() {
     const from = (page - 1) * pageSize + 1
     const to = Math.min(page * pageSize, total)
     const range = `${from.toLocaleString("es-AR")}–${to.toLocaleString("es-AR")} de ${formatted} abonados`
-    return filtered ? `${range} · ${formatted} abonados encontrados` : range
+    const connections =
+      connectionTotal == null
+        ? ""
+        : ` · ${connectionTotal.toLocaleString("es-AR")} conexiones del padrón`
+    return filtered ? `${range}${connections} · ${formatted} abonados encontrados` : `${range}${connections}`
   }, [
     debouncedMinConnections,
     debouncedMinServices,
+    connectionTotal,
     debouncedSearch,
     isAuthReady,
     items.length,
@@ -283,6 +321,11 @@ export function IspCustomerListScreen() {
   }
 
   async function openEdit(item: IspCustomerListItem) {
+    const actions = clients360ListRowActions(item, { canEdit, canRemove })
+    if (actions.editBlockedReason) {
+      showFeedback(actions.editBlockedReason)
+      return
+    }
     try {
       const response = await fetch(`/api/isp/customers/${item.id}`, {
         cache: "no-store",
@@ -297,8 +340,12 @@ export function IspCustomerListScreen() {
         throw new Error(body.message ?? "No se pudo cargar el cliente.")
       }
       setEditCustomer(body.detail.customer)
-    } catch {
-      showFeedback("No pudimos abrir la edición del cliente.")
+    } catch (cause) {
+      showFeedback(
+        cause instanceof Error && cause.message
+          ? cause.message
+          : "No pudimos abrir la edición del cliente."
+      )
     }
   }
 
@@ -317,8 +364,49 @@ export function IspCustomerListScreen() {
     })
   }
 
+  async function confirmActivation() {
+    if (!activationTarget || activating) return
+    if (isReadOnly) {
+      openRestrictedDialog()
+      return
+    }
+    if (!canEdit) {
+      showFeedback(CLIENTS360_ACTIVATION_FORBIDDEN_MESSAGE)
+      return
+    }
+    setActivating(true)
+    try {
+      const response = await fetch(
+        `/api/isp/customers/${activationTarget.id}/activate`,
+        { method: "POST", credentials: "same-origin" }
+      )
+      const body = (await response.json().catch(() => null)) as {
+        success?: boolean
+        message?: string
+      } | null
+      if (!response.ok || body?.success !== true) {
+        showFeedback(body?.message ?? "No se pudo activar al cliente.", "error")
+        return
+      }
+      setActivationTarget(null)
+      showFeedback(body.message ?? "Cliente activado correctamente.")
+      setPendingView(false)
+      setPage(1)
+      setReloadKey((current) => current + 1)
+    } catch {
+      showFeedback("No se pudo activar al cliente.", "error")
+    } finally {
+      setActivating(false)
+    }
+  }
+
   async function confirmRemoveSubscriber() {
     if (!removeTarget) return
+    const actions = clients360ListRowActions(removeTarget, { canEdit, canRemove })
+    if (actions.removeBlockedReason) {
+      setRemoveError(actions.removeBlockedReason)
+      return
+    }
     if (isReadOnly) {
       openRestrictedDialog()
       return
@@ -427,6 +515,32 @@ export function IspCustomerListScreen() {
           ) : null}
         </div>
       </div>
+      {canRemove ? (
+        <div className="grid gap-3">
+          <AbnetConnectionImportPanel />
+          <AbnetCustomerImportPanel />
+        </div>
+      ) : null}
+
+      <FilterableKpiCard
+        compact
+        className="max-w-xs"
+        label="Pendientes de activación"
+        value={pendingActivation ?? "…"}
+        icon={Clock3}
+        tone="yellow"
+        isActive={pendingView}
+        isLoading={pendingActivation == null && loading}
+        onClick={() => {
+          setPendingView((current) => !current)
+          setPage(1)
+        }}
+      />
+      {pendingView ? (
+        <p className="text-sm text-muted-foreground">
+          Estos clientes quedan fuera del listado hasta que se confirma la activación.
+        </p>
+      ) : null}
 
       <div className="flex flex-wrap gap-3">
         <div className="relative min-w-[240px] flex-1">
@@ -524,7 +638,15 @@ export function IspCustomerListScreen() {
       ) : loading && items.length === 0 ? (
         <CustomerTableSkeleton />
       ) : items.length === 0 ? (
-        <CustomerEmptyState canImport={canImport} />
+        pendingView ? (
+          <IspEmptyState
+            icon={Clock3}
+            title="No hay pendientes de activación"
+            description="Cuando una instalación nueva se finaliza, el cliente aparece acá hasta que se confirma la activación."
+          />
+        ) : (
+          <CustomerEmptyState canImport={canImport} />
+        )
       ) : (
         <div className={loading ? "space-y-3 opacity-60" : "space-y-3"} aria-busy={loading}>
           <CustomerBulkActions
@@ -559,17 +681,48 @@ export function IspCustomerListScreen() {
               )
             }
             onToggleOne={toggleOne}
-            onEdit={(item) => void openEdit(item)}
             onAddService={(item) => setServiceCustomerId(item.id)}
             onNewAtencion={(item) => setAtencionCustomers([item])}
+            onEdit={(item) => {
+              if (isReadOnly) {
+                openRestrictedDialog()
+                return
+              }
+              const actions = clients360ListRowActions(item, { canEdit, canRemove })
+              if (actions.editBlockedReason) {
+                showFeedback(actions.editBlockedReason)
+                return
+              }
+              void openEdit(item)
+            }}
             onRemove={(item) => {
               if (isReadOnly) {
                 openRestrictedDialog()
                 return
               }
+              const actions = clients360ListRowActions(item, { canEdit, canRemove })
+              if (actions.removeBlockedReason) {
+                showFeedback(actions.removeBlockedReason)
+                return
+              }
               setRemoveError(null)
               setRemoveTarget(item)
             }}
+            onActivate={
+              pendingView
+                ? (item) => {
+                    if (isReadOnly) {
+                      openRestrictedDialog()
+                      return
+                    }
+                    if (!canEdit) {
+                      showFeedback(CLIENTS360_ACTIVATION_FORBIDDEN_MESSAGE)
+                      return
+                    }
+                    setActivationTarget(item)
+                  }
+                : undefined
+            }
           />
         </div>
       )}
@@ -633,6 +786,80 @@ export function IspCustomerListScreen() {
         </div>
       )}
 
+      <Dialog
+        open={Boolean(activationTarget)}
+        onOpenChange={(open) => {
+          if (!open && !activating) setActivationTarget(null)
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Activar cliente</DialogTitle>
+            <DialogDescription>
+              Al confirmar pasa a activo y entra al listado de Clientes 360. No se asigna un número ABNet ni se crea un abonado ISP.
+            </DialogDescription>
+          </DialogHeader>
+          {activationTarget ? (
+            <dl className="grid gap-2 text-sm">
+              <div className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">Cliente</dt>
+                <dd>{activationTarget.name}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">Bespoke</dt>
+                <dd>{clients360BespokeColumnLabel(activationTarget) ?? "—"}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">ABNet</dt>
+                <dd>{clients360AbnetNumberLabel(activationTarget.externalCustomerCode) ?? "—"}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">DNI/CUIT</dt>
+                <dd>{activationTarget.dni || "—"}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">Teléfono</dt>
+                <dd>{activationTarget.phone || "—"}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">Domicilio</dt>
+                <dd className="text-right">{activationTarget.address || "—"}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">Localidad</dt>
+                <dd>{activationTarget.locality || "—"}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">Plan</dt>
+                <dd className="text-right">{activationTarget.commercialPlanLabel || "Sin plan comercial informado"}</dd>
+              </div>
+            </dl>
+          ) : null}
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={activating}
+              onClick={() => setActivationTarget(null)}
+            >
+              Cancelar
+            </Button>
+            {activationTarget ? (
+              <Button asChild variant="outline">
+                <Link href={`/clientes-360/${activationTarget.id}`}>Ver ficha</Link>
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              disabled={activating || !activationTarget}
+              onClick={() => void confirmActivation()}
+            >
+              {activating ? "Activando..." : "Activar cliente"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <CustomerRemoveSubscriberDialog
         open={Boolean(removeTarget)}
         item={removeTarget}
@@ -678,7 +905,9 @@ export function IspCustomerListScreen() {
         onCancel={() => setBulkAtencionOpen(false)}
         onContinue={() => {
           setBulkAtencionOpen(false)
-          setAtencionCustomers(selectedList)
+          setAtencionCustomers(
+            selectedList.filter((item) => item.directoryOrigin !== "padron")
+          )
         }}
       />
 

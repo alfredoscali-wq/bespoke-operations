@@ -84,34 +84,34 @@ export function IspEmptyState({
 }
 
 export function IspCustomerSummaryCards({
-  serviceCount,
-  connectionCount,
-  abonoLabel,
+  commercialPlan,
+  registryConnectionCount,
+  technicalServiceCount,
 }: {
-  serviceCount: number
-  connectionCount: number
-  abonoLabel: string
+  commercialPlan: string
+  registryConnectionCount: number
+  technicalServiceCount: number
 }) {
   return (
     <KpiCardGrid className="gap-2 sm:grid-cols-3 xl:grid-cols-3" layout="triple">
       <KpiCard
         compact
-        label="Servicios"
-        value={serviceCount}
+        label="Plan comercial"
+        value={commercialPlan}
         icon={Package}
         tone="blue"
       />
       <KpiCard
         compact
-        label="Conexiones"
-        value={connectionCount}
+        label="Conexiones del padrón"
+        value={registryConnectionCount}
         icon={Network}
         tone="violet"
       />
       <KpiCard
         compact
-        label="Abono"
-        value={abonoLabel}
+        label="Servicios técnicos Bespoke"
+        value={technicalServiceCount}
         icon={Receipt}
         tone="neutral"
       />

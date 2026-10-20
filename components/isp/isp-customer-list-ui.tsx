@@ -7,6 +7,7 @@ import {
   ChevronDown,
   Eye,
   Headphones,
+  UserCheck,
   MapPin,
   Network,
   Package,
@@ -60,7 +61,11 @@ import {
   ispSubscriberRemovalLead,
 } from "@/lib/isp/subscriber-removal"
 import {
-  formatIspCustomerReference,
+  CLIENTS_360_LIST_COLUMNS,
+  clients360AbnetNumberLabel,
+  clients360BespokeColumnLabel,
+  clients360ClienteLabel,
+  clients360ListRowActions,
   formatIspConnectionCountLabel,
   formatIspServiceCountLabel,
   ispSubscriberListStatusView,
@@ -101,15 +106,64 @@ export function CustomerCountBadge({
   )
 }
 
+function usesCommercialDirectory(item: Pick<IspCustomerListItem, "commercialPlanLabel" | "registryConnectionCount">) {
+  return item.commercialPlanLabel != null || item.registryConnectionCount != null
+}
+
 export function CustomerStatusBadge({
   item,
 }: {
-  item: Pick<IspCustomerListItem, "listStatus" | "serviceCount">
+  item: Pick<
+    IspCustomerListItem,
+    | "listStatus"
+    | "serviceCount"
+    | "directoryOrigin"
+    | "registryLink"
+    | "registryStatusLabel"
+    | "registryGratisLabel"
+    | "registryConnectionCount"
+    | "commercialPlanLabel"
+    | "activationState"
+  >
 }) {
+  if (item.activationState === "pending") {
+    return <IspTonedStatusBadge tone="yellow">Pendiente de activación</IspTonedStatusBadge>
+  }
+  if (item.activationState === "released") {
+    return <IspTonedStatusBadge tone="green">Activo</IspTonedStatusBadge>
+  }
+  if (usesCommercialDirectory(item)) {
+    if ((item.registryConnectionCount ?? 0) === 0 || item.registryLink === "ausente") {
+      return <IspTonedStatusBadge tone="yellow">Revisar posible baja</IspTonedStatusBadge>
+    }
+    const status = item.registryStatusLabel ?? "Registrada"
+    const gratis = item.registryGratisLabel
+    const label = gratis ? `${status} · ${gratis}` : status
+    const folded = status.toLowerCase()
+    const tone = folded.includes("morosa")
+      ? "orange"
+      : folded.includes("activa")
+        ? "green"
+        : "gray"
+    return <IspTonedStatusBadge tone={tone}>{label}</IspTonedStatusBadge>
+  }
   const status = ispSubscriberListStatusView(item)
   return (
     <IspTonedStatusBadge tone={status.tone}>{status.label}</IspTonedStatusBadge>
   )
+}
+
+function commercialPlanText(item: IspCustomerListItem): string {
+  return item.commercialPlanLabel ?? "Sin plan comercial informado"
+}
+
+function connectionCountLabel(item: IspCustomerListItem): string {
+  if (usesCommercialDirectory(item)) {
+    const count = item.registryConnectionCount ?? 0
+    if (count === 0) return "Sin conexión en el padrón"
+    return `${formatIspConnectionCountLabel(count)} del padrón`
+  }
+  return formatIspConnectionCountLabel(item.connectionCount)
 }
 
 function CustomerIconAction({
@@ -161,6 +215,7 @@ export function CustomerRowActions({
   onAddService,
   onNewAtencion,
   onRemove,
+  onActivate,
 }: {
   item: IspCustomerListItem
   canEdit: boolean
@@ -171,24 +226,36 @@ export function CustomerRowActions({
   onAddService: (item: IspCustomerListItem) => void
   onNewAtencion: (item: IspCustomerListItem) => void
   onRemove: (item: IspCustomerListItem) => void
+  onActivate?: (item: IspCustomerListItem) => void
 }) {
+  const actions = clients360ListRowActions(item, { canEdit, canRemove })
   return (
     <div className="flex flex-nowrap items-center justify-end gap-0.5">
+      {onActivate ? (
+        <CustomerIconAction label="Activar cliente" onClick={() => onActivate(item)}>
+          <UserCheck className="size-3.5" />
+        </CustomerIconAction>
+      ) : null}
       <CustomerIconAction
-        label="Ver abonado"
+        label="Ver"
         href={`/clientes-360/${item.id}`}
       >
         <Eye className="size-3.5" />
       </CustomerIconAction>
-      {canEdit ? (
-        <CustomerIconAction
-          label="Editar cliente"
-          onClick={() => onEdit(item)}
-        >
-          <Pencil className="size-3.5" />
-        </CustomerIconAction>
-      ) : null}
-      {canAddService ? (
+      <CustomerIconAction
+        label="Editar"
+        onClick={() => onEdit(item)}
+      >
+        <Pencil className="size-3.5" />
+      </CustomerIconAction>
+      <CustomerIconAction
+        label="Eliminar"
+        destructive
+        onClick={() => onRemove(item)}
+      >
+        <Trash2 className="size-3.5" />
+      </CustomerIconAction>
+      {canAddService && actions.ficha ? (
         <CustomerIconAction
           label="Agregar servicio"
           onClick={() => onAddService(item)}
@@ -196,21 +263,12 @@ export function CustomerRowActions({
           <Plus className="size-3.5" />
         </CustomerIconAction>
       ) : null}
-      {canCreateAtencion ? (
+      {canCreateAtencion && actions.ficha ? (
         <CustomerIconAction
           label="Nueva atención"
           onClick={() => onNewAtencion(item)}
         >
           <Headphones className="size-3.5" />
-        </CustomerIconAction>
-      ) : null}
-      {canRemove ? (
-        <CustomerIconAction
-          label="Eliminar abonado"
-          destructive
-          onClick={() => onRemove(item)}
-        >
-          <Trash2 className="size-3.5" />
         </CustomerIconAction>
       ) : null}
     </div>
@@ -342,17 +400,12 @@ export function CustomerTableSkeleton() {
 
 function CustomerIdentity({ item }: { item: IspCustomerListItem }) {
   return (
-    <div className="min-w-0">
-      <Link
-        href={`/clientes-360/${item.id}`}
-        className="font-medium hover:underline"
-      >
-        {item.name}
-      </Link>
-      <p className="text-xs text-muted-foreground">
-        {formatIspCustomerReference(item.externalCustomerCode)}
-      </p>
-    </div>
+    <Link
+      href={`/clientes-360/${item.id}`}
+      className="block truncate font-medium hover:underline"
+    >
+      {clients360ClienteLabel(item)}
+    </Link>
   )
 }
 
@@ -370,6 +423,7 @@ export function CustomerTable({
   onAddService,
   onNewAtencion,
   onRemove,
+  onActivate,
 }: {
   items: IspCustomerListItem[]
   selectedIds: ReadonlySet<string>
@@ -384,11 +438,12 @@ export function CustomerTable({
   onAddService: (item: IspCustomerListItem) => void
   onNewAtencion: (item: IspCustomerListItem) => void
   onRemove: (item: IspCustomerListItem) => void
+  onActivate?: (item: IspCustomerListItem) => void
 }) {
   return (
     <>
-      <div className="hidden overflow-x-auto rounded-xl ring-1 ring-foreground/10 md:block">
-        <Table>
+      <div className="hidden rounded-xl ring-1 ring-foreground/10 md:block">
+        <Table className="min-w-[1180px]">
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead className="w-10">
@@ -399,13 +454,19 @@ export function CustomerTable({
                   onCheckedChange={onToggleAllVisible}
                 />
               </TableHead>
-              <TableHead>Cliente</TableHead>
-              <TableHead className="hidden lg:table-cell">DNI/CUIT</TableHead>
-              <TableHead>Servicios</TableHead>
-              <TableHead>Conexiones</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead className="hidden lg:table-cell">Localidad</TableHead>
-              <TableHead className="text-right">Acciones</TableHead>
+              {CLIENTS_360_LIST_COLUMNS.map((label) => (
+                <TableHead
+                  key={label}
+                  className={cn(
+                    label === "Cliente" && "min-w-44",
+                    label === "Plan comercial" && "min-w-52",
+                    label === "Localidad" && "min-w-40",
+                    label === "Acciones" && "w-px text-right"
+                  )}
+                >
+                  {label}
+                </TableHead>
+              ))}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -423,34 +484,33 @@ export function CustomerTable({
                       onCheckedChange={(checked) => onToggleOne(item, checked)}
                     />
                   </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
-                        {item.name.trim().slice(0, 1).toUpperCase() || "?"}
-                      </span>
-                      <CustomerIdentity item={item} />
-                    </div>
+                  <TableCell className="whitespace-nowrap tabular-nums">
+                    {clients360BespokeColumnLabel(item) ?? "—"}
                   </TableCell>
-                  <TableCell className="hidden lg:table-cell">
+                  <TableCell className="whitespace-nowrap tabular-nums">
+                    {clients360AbnetNumberLabel(item.externalCustomerCode) ?? "—"}
+                  </TableCell>
+                  <TableCell className="min-w-44">
+                    <CustomerIdentity item={item} />
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap tabular-nums">
                     {item.dni || "—"}
                   </TableCell>
-                  <TableCell>
-                    <CustomerCountBadge>
-                      {formatIspServiceCountLabel(item.serviceCount)}
-                    </CustomerCountBadge>
+                  <TableCell className="min-w-52 whitespace-normal">
+                    <p className="text-sm leading-snug">{commercialPlanText(item)}</p>
                   </TableCell>
                   <TableCell>
                     <CustomerCountBadge>
-                      {formatIspConnectionCountLabel(item.connectionCount)}
+                      {connectionCountLabel(item)}
                     </CustomerCountBadge>
                   </TableCell>
                   <TableCell>
                     <CustomerStatusBadge item={item} />
                   </TableCell>
-                  <TableCell className="hidden lg:table-cell">
+                  <TableCell className="min-w-40">
                     {item.locality || "—"}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="w-px">
                     <CustomerRowActions
                       item={item}
                       canEdit={canEdit}
@@ -461,6 +521,7 @@ export function CustomerTable({
                       onAddService={onAddService}
                       onNewAtencion={onNewAtencion}
                       onRemove={onRemove}
+                      onActivate={onActivate}
                     />
                   </TableCell>
                 </TableRow>
@@ -500,17 +561,24 @@ export function CustomerTable({
                   onAddService={onAddService}
                   onNewAtencion={onNewAtencion}
                   onRemove={onRemove}
+                  onActivate={onActivate}
                 />
               </div>
               <div className="mt-3 space-y-2 pl-7">
+                <p className="text-sm tabular-nums text-muted-foreground">
+                  Bespoke {clients360BespokeColumnLabel(item) ?? "—"}
+                </p>
+                <p className="text-sm tabular-nums text-muted-foreground">
+                  ABNet {clients360AbnetNumberLabel(item.externalCustomerCode) ?? "—"}
+                </p>
                 <CustomerStatusBadge item={item} />
                 <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
                   <Package className="size-3.5" />
-                  {formatIspServiceCountLabel(item.serviceCount)}
+                  {commercialPlanText(item)}
                 </p>
                 <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
                   <Network className="size-3.5" />
-                  {formatIspConnectionCountLabel(item.connectionCount)}
+                  {connectionCountLabel(item)}
                 </p>
                 {item.locality ? (
                   <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -569,21 +637,23 @@ export function CustomerRemoveSubscriberDialog({
           <DialogTitle>Eliminar abonado</DialogTitle>
           <DialogDescription asChild>
             <div className="space-y-2 text-sm text-muted-foreground">
-              <p>{ispSubscriberRemovalLead(item?.name ?? "")}</p>
+              <p>{ispSubscriberRemovalLead(item ? clients360ClienteLabel(item) : "")}</p>
               <p>{ISP_SUBSCRIBER_REMOVAL_HISTORY_NOTE}</p>
             </div>
           </DialogDescription>
         </DialogHeader>
         <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
           <dt className="text-muted-foreground">Cliente</dt>
-          <dd className="font-medium">{item?.name || "—"}</dd>
+          <dd className="font-medium">{item ? clients360ClienteLabel(item) : "—"}</dd>
           <dt className="text-muted-foreground">DNI/CUIT</dt>
           <dd>{item?.dni || "—"}</dd>
-          <dt className="text-muted-foreground">Servicios</dt>
+          <dt className="text-muted-foreground">Plan comercial</dt>
+          <dd>{item ? commercialPlanText(item) : "—"}</dd>
+          <dt className="text-muted-foreground">Servicios técnicos Bespoke</dt>
           <dd>{item ? formatIspServiceCountLabel(item.serviceCount) : "—"}</dd>
           <dt className="text-muted-foreground">Conexiones</dt>
           <dd>
-            {item ? formatIspConnectionCountLabel(item.connectionCount) : "—"}
+            {item ? connectionCountLabel(item) : "—"}
           </dd>
         </dl>
         <div className="space-y-2">
@@ -686,7 +756,7 @@ export function CustomerSelectedViewDialog({
                 className="font-medium hover:underline"
                 onClick={onClose}
               >
-                {item.name}
+                {clients360ClienteLabel(item)}
               </Link>
             </li>
           ))}
