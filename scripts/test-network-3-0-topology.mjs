@@ -1697,7 +1697,12 @@ test("1.3 B/C: PowerBox managed sigue siendo hijo LAN/VLAN y no Root", () => {
   )
   const queries = read("lib/network/topology/queries.ts")
   assert.match(queries, /selectTopologyRootIds\(managedIdList, directedLinks\)/)
-  assert.match(queries, /rootIds.has/)
+  assert.match(queries, /selectSelectableTopologyCores/)
+  const coresAssign = queries.slice(
+    queries.indexOf("const cores = selectSelectableTopologyCores"),
+    queries.indexOf("const selected =")
+  )
+  assert.doesNotMatch(coresAssign, /rootIds|selectTopologyRootIds|listManagedParentIds/)
 })
 
 test("1.3 D: AS5/AS6/AS7 administrados sin padre managed siguen siendo roots", () => {

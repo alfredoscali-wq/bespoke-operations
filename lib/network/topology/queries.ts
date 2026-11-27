@@ -34,6 +34,7 @@ import {
 } from "@/lib/network/topology/available-devices"
 import { getCuratedTopologyForest } from "@/lib/network/topology/curated-view"
 import type { TopologyManagedDirectedLink } from "@/lib/network/topology/managed-parents"
+import { selectSelectableTopologyCores } from "@/lib/network/topology/selectable-cores"
 import { listNetworkDiscoveryTargets } from "@/lib/network/targets/queries"
 import type {
   LocalTopologyInterfaceGroup,
@@ -70,6 +71,11 @@ async function loadNetworkTopologySource(
 ): Promise<{
   graph: NetworkTopologyGraph
   directedLinks: TopologyManagedDirectedLink[]
+  discoveryTargets: Array<{
+    companyId: string
+    agentId: string
+    host: string
+  }>
 }> {
   const [devicesResult, targetsResult, linksResult, interfacesResult, statuses] =
     await Promise.all([
@@ -180,6 +186,7 @@ async function loadNetworkTopologySource(
       fromDeviceId: link.fromDeviceId,
       toDeviceId: link.toDeviceId,
     })),
+    discoveryTargets: targets,
   }
 }
 
@@ -375,7 +382,7 @@ export async function getNetworkTopologyPage(
   companyId: string,
   deviceId?: string | null
 ): Promise<NetworkTopologyPage> {
-  const [{ graph, directedLinks }, curated, jobHistory, listedTargets] =
+  const [{ graph, directedLinks, discoveryTargets }, curated, jobHistory, listedTargets] =
     await Promise.all([
       loadNetworkTopologySource(client, companyId),
       getCuratedTopologyForest(client, companyId),
@@ -396,14 +403,17 @@ export async function getNetworkTopologyPage(
   )
   const managedIdList = managedNodes.map((node) => node.id)
   const rootIds = new Set(selectTopologyRootIds(managedIdList, directedLinks))
-  const cores = managedNodes
-    .filter((node) => rootIds.has(node.id))
-    .map((node) => ({
+  const cores = selectSelectableTopologyCores(
+    graph.nodes.map((node) => ({
       id: node.id,
-      hostname: node.hostname,
+      companyId,
+      agentId: node.agentId,
       managementIp: node.managementIp,
+      hostname: node.hostname,
       operationalStatus: node.operationalStatus,
-    }))
+    })),
+    discoveryTargets
+  )
 
   const selected =
     (deviceId ? cores.find((core) => core.id === deviceId) : null) ?? cores[0] ?? null
