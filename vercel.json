@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/activate-projects",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/network-job-retention",
+      "schedule": "0 * * * *"
     }
   ]
 }

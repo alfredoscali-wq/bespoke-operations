@@ -1495,7 +1495,11 @@ test("1.2 K: Topology se actualiza al completar el job", () => {
   assert.match(screen, /invalidateQueries/)
   assert.match(screen, /Administrando/)
   assert.match(screen, /NETWORK_JOB_STATUS_LABELS/)
-  assert.match(read("lib/network/topology/queries.ts"), /listNetworkManagementJobs/)
+  assert.match(read("lib/network/topology/queries.ts"), /listTopologyJobHistory/)
+  assert.doesNotMatch(
+    read("lib/network/topology/queries.ts"),
+    /listNetworkManagementJobs/
+  )
 })
 
 test("1.2 L: observado no se convierte en administrado hasta una administración válida", () => {

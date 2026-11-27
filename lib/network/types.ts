@@ -74,6 +74,21 @@ export type NetworkAgentJob = {
   updatedAt: string
 }
 
+export type NetworkAgentJobListItem = {
+  id: string
+  companyId: string
+  agentId: string
+  siteId: string | null
+  jobType: NetworkJobType
+  status: NetworkJobStatus
+  errorMessage: string | null
+  dispatchedAt: string | null
+  startedAt: string | null
+  completedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
 export type NetworkAgentJobDraft = {
   jobType: NetworkJobType
   payload?: Record<string, unknown>

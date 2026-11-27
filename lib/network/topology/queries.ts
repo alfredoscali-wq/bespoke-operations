@@ -5,7 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import type { Database } from "@/lib/supabase/database.types"
 import { isManagedNetworkDevice } from "@/lib/network/devices/managed"
 import { NETWORK_DEVICE_TYPES, type NetworkDeviceType } from "@/lib/network/constants"
-import { listNetworkDiscoveryJobs, listNetworkManagementJobs } from "@/lib/network/jobs/queries"
+import { listNetworkDiscoveryJobs, listTopologyJobHistory } from "@/lib/network/jobs/queries"
 import { getLatestNetworkDiscoveryObservationsByHosts } from "@/lib/network/discovery/observation-queries"
 import { listNetworkDeviceOperationalStatuses } from "@/lib/network/monitoring/queries"
 import type { MonitoringOperationalStatus } from "@/lib/network/monitoring/contract"
@@ -375,18 +375,18 @@ export async function getNetworkTopologyPage(
   companyId: string,
   deviceId?: string | null
 ): Promise<NetworkTopologyPage> {
-  const [{ graph, directedLinks }, curated, managementJobs, listedTargets] =
+  const [{ graph, directedLinks }, curated, jobHistory, listedTargets] =
     await Promise.all([
       loadNetworkTopologySource(client, companyId),
       getCuratedTopologyForest(client, companyId),
-      listNetworkManagementJobs(client, companyId),
+      listTopologyJobHistory(client, companyId),
       listNetworkDiscoveryTargets(client, companyId),
     ])
-  const discoveryJobs = compactTopologyManagementJobs(managementJobs)
+  const discoveryJobs = compactTopologyManagementJobs(jobHistory.managementJobs)
   const managementTargets = compactTopologyManagementTargets(listedTargets)
   const managedNodes = graph.nodes.filter((node) => node.kind === "managed")
   const managedIds = new Set(managedNodes.map((node) => node.id))
-  const jobs = await listNetworkDiscoveryJobs(client, companyId)
+  const jobs = jobHistory.discoveryJobs
   const managedHosts = managedNodes.map((node) => node.managementIp)
   const byHost = await getLatestNetworkDiscoveryObservationsByHosts(
     client,
@@ -596,7 +596,7 @@ function toLocalTopologyLinks(
 }
 
 function compactTopologyManagementJobs(
-  jobs: Awaited<ReturnType<typeof listNetworkManagementJobs>>
+  jobs: Awaited<ReturnType<typeof listTopologyJobHistory>>["managementJobs"]
 ): NetworkTopologyManagementJob[] {
   return jobs.map((job) => ({
     id: job.id,

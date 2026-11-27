@@ -36,7 +36,11 @@ import {
   NETWORK_JOB_TYPE_LABELS,
   formatNetworkLastSeen,
 } from "@/lib/network/labels"
-import type { NetworkAgent, NetworkAgentJob, NetworkSite } from "@/lib/network/types"
+import type {
+  NetworkAgent,
+  NetworkAgentJobListItem,
+  NetworkSite,
+} from "@/lib/network/types"
 import { STATUS_TONE_STYLES } from "@/lib/ui/visual-tokens"
 import { cn } from "@/lib/utils"
 
@@ -51,7 +55,7 @@ export function NetworkAgentsScreen() {
   const [enrollmentToken, setEnrollmentToken] = useState<string | null>(null)
   const [jobAgent, setJobAgent] = useState<NetworkAgent | null>(null)
   const [jobType, setJobType] = useState<(typeof NETWORK_JOB_TYPES)[number]>("monitoring")
-  const [jobs, setJobs] = useState<NetworkAgentJob[]>([])
+  const [jobs, setJobs] = useState<NetworkAgentJobListItem[]>([])
 
   function loadAgents() {
     fetch("/api/network/agents")
@@ -123,7 +127,7 @@ export function NetworkAgentsScreen() {
     const response = await fetch(`/api/network/agents/${agent.id}/jobs`)
     const body = (await response.json()) as {
       success: boolean
-      jobs?: NetworkAgentJob[]
+      jobs?: NetworkAgentJobListItem[]
     }
     setJobs(body.jobs ?? [])
   }

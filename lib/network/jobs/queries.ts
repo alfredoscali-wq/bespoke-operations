@@ -11,19 +11,153 @@ import {
   NETWORK_JOB_STALE_RUNNING_ERROR,
   type NetworkJobType,
 } from "@/lib/network/constants"
-import type { NetworkAgentJob, NetworkDiscoveryJobView } from "@/lib/network/types"
+import { isNetworkJobType } from "@/lib/network/integrity"
+import type {
+  NetworkAgentJob,
+  NetworkAgentJobListItem,
+  NetworkDiscoveryJobView,
+} from "@/lib/network/types"
 
 type Client = SupabaseClient<Database>
 type JobRow = Database["public"]["Tables"]["network_agent_jobs"]["Row"]
+
+const AGENT_JOB_LIST_COLUMNS =
+  "id, company_id, agent_id, site_id, job_type, status, error_message, dispatched_at, started_at, completed_at, created_at, updated_at"
+
+const HISTORY_JOB_LIST_COLUMNS = [
+  AGENT_JOB_LIST_COLUMNS,
+  "payload_target_id:payload->>targetId",
+  "payload_device_id:payload->>deviceId",
+  "payload_host:payload->>host",
+  "payload_target_name:payload->>targetName",
+  "payload_site_id:payload->>siteId",
+  "result_target_id:result->>targetId",
+  "result_device_count:result->>deviceCount",
+  "result_primary_ip:result->>primaryManagementIp",
+  "result_host:result->>host",
+  "network_agents(name)",
+].join(", ")
+
+const HISTORY_JOB_LIMIT = 100
+
+type HistoryJobRow = {
+  id: string
+  company_id: string
+  agent_id: string
+  site_id: string | null
+  job_type: string
+  status: string
+  error_message: string | null
+  dispatched_at: string | null
+  started_at: string | null
+  completed_at: string | null
+  created_at: string
+  updated_at: string
+  payload_target_id: string | null
+  payload_device_id: string | null
+  payload_host: string | null
+  payload_target_name: string | null
+  payload_site_id: string | null
+  result_target_id: string | null
+  result_device_count: string | null
+  result_primary_ip: string | null
+  result_host: string | null
+  network_agents: { name: string } | null
+}
+
+function listedText(value: string | null | undefined): string | null {
+  if (typeof value !== "string") return null
+  const trimmed = value.trim()
+  return trimmed ? trimmed : null
+}
+
+function listedPayload(row: HistoryJobRow): Record<string, unknown> {
+  const payload: Record<string, unknown> = {}
+  const targetId = listedText(row.payload_target_id)
+  const deviceId = listedText(row.payload_device_id)
+  const host = listedText(row.payload_host)
+  const targetName = listedText(row.payload_target_name)
+  const siteId = listedText(row.payload_site_id)
+  if (targetId) payload.targetId = targetId
+  if (deviceId) payload.deviceId = deviceId
+  if (host) payload.host = host
+  if (targetName) payload.targetName = targetName
+  if (siteId) payload.siteId = siteId
+  return payload
+}
+
+function listedResult(row: HistoryJobRow): Record<string, unknown> | null {
+  const targetId = listedText(row.result_target_id)
+  const deviceCountText = listedText(row.result_device_count)
+  const primaryManagementIp = listedText(row.result_primary_ip)
+  const host = listedText(row.result_host)
+  const deviceCount = deviceCountText == null ? null : Number(deviceCountText)
+  const hasDeviceCount = deviceCount != null && Number.isFinite(deviceCount)
+  if (!targetId && !hasDeviceCount && !primaryManagementIp && !host) return null
+
+  const result: Record<string, unknown> = {}
+  if (targetId) result.targetId = targetId
+  if (hasDeviceCount) result.deviceCount = deviceCount
+  if (primaryManagementIp) result.primaryManagementIp = primaryManagementIp
+  if (host) result.host = host
+  return result
+}
+
+function mapHistoryJob(row: HistoryJobRow): NetworkDiscoveryJobView {
+  const payload = listedPayload(row)
+  const targetName = listedText(row.payload_target_name)
+  const targetHost = listedText(row.payload_host)
+  return {
+    id: row.id,
+    companyId: row.company_id,
+    agentId: row.agent_id,
+    agentName: row.network_agents?.name ?? null,
+    siteId: row.site_id,
+    jobType: isNetworkJobType(row.job_type) ? row.job_type : "verification",
+    status: row.status as NetworkAgentJob["status"],
+    payload,
+    result: listedResult(row),
+    errorMessage: row.error_message,
+    dispatchedAt: row.dispatched_at,
+    startedAt: row.started_at,
+    completedAt: row.completed_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    targetName,
+    targetHost,
+  }
+}
+
+async function listHistoryJobs(
+  client: Client,
+  companyId: string,
+  jobTypes: readonly NetworkJobType[]
+): Promise<NetworkDiscoveryJobView[]> {
+  const { data, error } = await client
+    .from("network_agent_jobs")
+    .select(HISTORY_JOB_LIST_COLUMNS)
+    .eq("company_id", companyId)
+    .in("job_type", [...jobTypes])
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(HISTORY_JOB_LIMIT)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return ((data ?? []) as unknown as HistoryJobRow[]).map(mapHistoryJob)
+}
 
 export async function listNetworkAgentJobs(
   client: Client,
   companyId: string,
   agentId: string
-): Promise<NetworkAgentJob[]> {
+): Promise<NetworkAgentJobListItem[]> {
   const { data, error } = await client
     .from("network_agent_jobs")
-    .select("*")
+    .select(AGENT_JOB_LIST_COLUMNS)
     .eq("company_id", companyId)
     .eq("agent_id", agentId)
     .is("deleted_at", null)
@@ -34,71 +168,56 @@ export async function listNetworkAgentJobs(
     throw new Error(error.message)
   }
 
-  return (data ?? []).map((row) => mapNetworkJobRow(row))
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    companyId: row.company_id,
+    agentId: row.agent_id,
+    siteId: row.site_id,
+    jobType: isNetworkJobType(row.job_type) ? row.job_type : "verification",
+    status: row.status as NetworkAgentJob["status"],
+    errorMessage: row.error_message,
+    dispatchedAt: row.dispatched_at,
+    startedAt: row.started_at,
+    completedAt: row.completed_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }))
 }
 
 export async function listNetworkDiscoveryJobs(
   client: Client,
   companyId: string
 ): Promise<NetworkDiscoveryJobView[]> {
-  const { data, error } = await client
-    .from("network_agent_jobs")
-    .select("*, network_agents ( name )")
-    .eq("company_id", companyId)
-    .eq("job_type", "discovery")
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false })
-    .limit(100)
+  return listHistoryJobs(client, companyId, ["discovery"])
+}
 
-  if (error) {
-    throw new Error(error.message)
-  }
-
-  return (data ?? []).map((row) => {
-    const agent = row.network_agents as { name: string } | null
-    const job = mapNetworkJobRow(row, agent?.name ?? null)
-    const targetName =
-      typeof job.payload.targetName === "string" ? job.payload.targetName : null
-    const targetHost =
-      typeof job.payload.host === "string" ? job.payload.host : null
-    return {
-      ...job,
-      targetName,
-      targetHost,
-    }
-  })
+export async function listNetworkDiagnosticJobs(
+  client: Client,
+  companyId: string
+): Promise<NetworkDiscoveryJobView[]> {
+  return listHistoryJobs(client, companyId, ["diagnostic"])
 }
 
 export async function listNetworkManagementJobs(
   client: Client,
   companyId: string
 ): Promise<NetworkDiscoveryJobView[]> {
-  const { data, error } = await client
-    .from("network_agent_jobs")
-    .select("*, network_agents ( name )")
-    .eq("company_id", companyId)
-    .in("job_type", ["discovery", "diagnostic"])
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false })
-    .limit(100)
+  return listHistoryJobs(client, companyId, ["discovery", "diagnostic"])
+}
 
-  if (error) {
-    throw new Error(error.message)
-  }
+export async function listTopologyJobHistory(
+  client: Client,
+  companyId: string
+): Promise<{
+  managementJobs: NetworkDiscoveryJobView[]
+  discoveryJobs: NetworkDiscoveryJobView[]
+}> {
+  const [discoveryJobs, managementJobs] = await Promise.all([
+    listNetworkDiscoveryJobs(client, companyId),
+    listNetworkManagementJobs(client, companyId),
+  ])
 
-  return (data ?? []).map((row) => {
-    const agent = row.network_agents as { name: string } | null
-    const job = mapNetworkJobRow(row, agent?.name ?? null)
-    const targetName =
-      typeof job.payload.targetName === "string" ? job.payload.targetName : null
-    const targetHost =
-      typeof job.payload.host === "string" ? job.payload.host : null
-    return {
-      ...job,
-      targetName,
-      targetHost,
-    }
-  })
+  return { managementJobs, discoveryJobs }
 }
 
 export async function createPendingNetworkAgentJob(
